@@ -523,8 +523,8 @@ names:
     | IDENT SEMICOLON { [$1] }
     ;
 pairs_list:
-    | IDENT IDENT COMMA pairs_list { ($1, $2) :: $4 }
-    | IDENT IDENT { [$1, $2] }
+    | nexus_ident IDENT COMMA pairs_list   { ($1, $2) :: $4 }
+    | nexus_ident IDENT                    { [$1, $2] }
     ;
 pairs_list_float:
     | IDENT FLOAT COMMA pairs_list_float { ($1,(float_of_string $2)) :: $4 }
@@ -695,6 +695,12 @@ nexus_word :
     | DNA           { $1 }
     | RNA           { $1 }
     ;
+
+nexus_ident : 
+    | nexus_word    { $1 }
+    | INTEGER       { $1 }
+    ;
+
 taxonlist:
     | nexus_word taxonlist      { $1 :: $2  }
     |                           { []        }
@@ -724,7 +730,7 @@ tree:
     | do_star IDENT EQUAL single_tree EOF { ($2,$4) }
     ;
 single_tree:
-    | nexus_word optional_length optional_comment
+    | nexus_ident optional_length optional_comment
         { P.Leaf ($1, ($2, $3))         }
     | LPARENT single_tree_list RPARENT optional_label optional_length optional_comment
         { P.Node ($2, $4, ($5, $6))     }
@@ -739,19 +745,19 @@ optional_length:
     |               { None                      }
     ;
 optional_comment:
-    | LBRACKET IDENT RBRACKET { Some $2 }
+    | LBRACKET nexus_ident RBRACKET { Some $2 }
     |                         { None    }
     ;
 optional_label:
-    | nexus_word { Some $1   }
-    | FLOAT      { None      } /* this is for phylip trees w/ (x,y)0.90:0.019 */
-    |            { None      }
+    | nexus_ident { Some $1   }
+    | FLOAT       { None      } /* this is for phylip trees w/ (x,y)0.90:0.019 */
+    |             { None      }
     ;
 
 trees:
-    | do_star IDENT EQUAL single_tree SEMICOLON trees {($2,$4)::$6}
-    | do_star single_tree SEMICOLON trees             {("",$2)::$4}
-    | EOF                                             { [] }
+    | do_star nexus_word EQUAL single_tree SEMICOLON trees {($2,$4)::$6}
+    | do_star single_tree SEMICOLON trees                  {("",$2)::$4}
+    | EOF                                                  {  []       }
 
 /* -------------------------------------------------------------------------- */
 any_thing_minus_end:

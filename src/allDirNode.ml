@@ -85,9 +85,7 @@ type node_dir = {
 (* use q_print to print out directions in node_data*)
 type node_data = {
     unadjusted : node_dir list; (** The standard downpass node *)
-    adjusted : node_dir option;
-    (*adjusted : node_dir list;  An adjuted node value calculated after the
-    downpass *)
+    adjusted : node_dir option;  (** adjusted data calculated in uppass *)
 }
 
 let get_adjusted_nodedata data msg =
@@ -97,29 +95,29 @@ let get_adjusted_nodedata data msg =
 
 let print_node_data ndata print_unadjusted=
     Printf.printf "allDirNode, node_data.adjusted:\n%!";
-    let _ = 
-    match ndata.adjusted with
-    | Some nodedir ->
-                let dir = nodedir.dir in
-                let _ = match dir with 
+    let () = match ndata.adjusted with
+        | Some nodedir ->
+            let dir = nodedir.dir in
+            let () = match dir with 
                 | Some (x,y) -> Printf.printf "dir=(%d,%d),%!" x y
                 | None -> Printf.printf "no dir,%!"
-                in
-                let anode = nodedir.lazy_node in
-                Node.print (force_val anode);
-    | None -> Printf.printf "no adjusted data\n%!"
+            in
+            let anode = nodedir.lazy_node in
+            Node.print (force_val anode);
+        | None -> Printf.printf "no adjusted data\n%!"
     in
     if print_unadjusted then begin
         Printf.printf "\n node_data.unadjusted:\n%!";
-        List.iter ( fun nodedir ->
+        List.iter 
+            (fun nodedir ->
                 let dir = nodedir.dir in
-                let _ = match dir with 
-                | Some (x,y) -> Printf.printf "dir=(%d,%d),%!" x y
-                | None -> Printf.printf "no dir,%!"
+                let () = match dir with 
+                    | Some (x,y) -> Printf.printf "dir=(%d,%d),%!" x y
+                    | None -> Printf.printf "no dir,%!"
                 in
                 let anode = nodedir.lazy_node in
-                Node.print (force_val anode);
-        )ndata.unadjusted;
+                Node.print (force_val anode);)
+            ndata.unadjusted;
         print_newline();
     end
 
@@ -182,8 +180,8 @@ module OneDirF :
     let compare a b = 
         Node.Standard.compare (force_val a) (force_val b)
 
-    let load_data ?(silent=true) ?(classify=true) data = 
-        let data, nodes = Node.Standard.load_data ~classify data in
+    let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data = 
+        let data, nodes = Node.Standard.load_data ~is_fixedstates ~classify data in
         data, List.map to_n nodes
 
     let fix_preliminary x = x
@@ -523,8 +521,8 @@ type nad8 = Node.Standard.nad8 = struct
         | Some x -> Some (recode_anode f x) 
     }
 
-    let load_data ?(silent=true) ?(classify=true) data = 
-        let data, nodes = Node.Standard.load_data ~classify data in
+    let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data = 
+        let data, nodes = Node.Standard.load_data ~is_fixedstates ~classify data in
         data, List.map to_n_nodir nodes
 
     let fix_preliminary x = x

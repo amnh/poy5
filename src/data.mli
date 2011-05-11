@@ -128,14 +128,18 @@ type tcm_definition =
     | Input_file_GapOpening of (string * (int list list) * int)
     | Level of (tcm_definition * int)
 
+type fixed_state =
+    {   costs   : float array array;
+        seqs    : Sequence.s array;
+        codes   : (int, int) Hashtbl.t;
+        opt_bls : float array array option;
+    }
+
 type dyna_initial_assgn = [ 
     | `Partitioned of clip
     | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
     | `DO 
-    | `FS of 
-            ((float array array) * 
-            (Sequence.s array) * 
-            ((int, int) Hashtbl.t))  ]
+    | `FS of fixed_state ]
 
 type dynamic_hom_spec = {
     filename : string;

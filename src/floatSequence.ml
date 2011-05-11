@@ -78,6 +78,8 @@ let pp_seq model chan seq = Sequence.print chan seq model.alph
 
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
+let make_model alph model = { static = model; alph = alph; }
+
 open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
 (* minimum of three with annotations; this will work for all methods *)
@@ -1593,6 +1595,17 @@ module MALAlign : A = struct
     let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
 
 end
+
+let pair_distance model sq1 sq2 = match cost_fn model with
+    | `FLK ->
+        let s1 = FloatAlign.s_of_seq sq1 and s2 = FloatAlign.s_of_seq sq2 in
+        FloatAlign.optimize s1 s2 model 0.1 (FloatAlign.get_mem s1 s2)
+    | `MAL ->
+        let s1 = MALAlign.s_of_seq sq1 and s2 = MALAlign.s_of_seq sq2 in
+        MALAlign.optimize s1 s2 model 0.1 (MALAlign.get_mem s1 s2)
+    | `MPL ->
+        let s1 = MPLAlign.s_of_seq sq1 and s2 = MPLAlign.s_of_seq sq2 in
+        MPLAlign.optimize s1 s2 model 0.1 (MPLAlign.get_mem s1 s2)
 
 (* a simple function to test the scores of each of the methods above *)
 let test_all alignments channel seq1 seq2 bl1 bl2 model =

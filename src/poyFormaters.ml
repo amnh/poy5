@@ -571,7 +571,7 @@ let node_to_formater st (tag, attr, cont) =
             | #Xml.structured as x -> Sexpr.to_list (Xml.eagerly_compute x)
             | _ -> raise (Illegal_formater "node_to_formater 2")
         in
-        let lst = List.map node_character_to_formater lst in
+        let lst = List.map (fun item -> node_character_to_formater item) lst in
         let lst =
             let arr = [|"@{<u>Characters@}"; "@{<u>Class@}"; "@{<u>Cost@}";
                         "@{<u>Child Branch Lengths@}"; "@{<u>Rearrangement Cost@}";

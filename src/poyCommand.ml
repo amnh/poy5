@@ -337,8 +337,8 @@ type reporta = [
     | `GraphicSupports of Methods.support_output option
     | `AllRootsCost
     | `Implied_Alignments of identifiers * bool
-    | `GraphicDiagnosis
-    | `Diagnosis
+    | `GraphicDiagnosis of Methods.diagnosis_report_type
+    | `Diagnosis of Methods.diagnosis_report_type 
     | `Nodes
 ]
 
@@ -993,12 +993,12 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             | #Methods.characters as id ->
                     (`Implied_Alignment (file, id, include_header)) :: acc, file
             | _ -> acc, file)
-    | `GraphicDiagnosis -> 
+    | `GraphicDiagnosis c -> 
             (match file with
-            | None -> (`Diagnosis file) :: acc, file
-            | Some file -> (`GraphicDiagnosis file) :: acc, Some file)
-    | `Diagnosis -> 
-            (`Diagnosis file) :: acc, file
+            | None -> (`Diagnosis (c,file)) :: acc, file
+            | Some file -> (`GraphicDiagnosis (c,file)) :: acc, Some file)
+    | `Diagnosis c -> 
+            (`Diagnosis (c,file)) :: acc, file
     | `Nodes ->
             (`Nodes file) :: acc, file
 
@@ -1006,8 +1006,8 @@ let transform_report_arguments x =
     match x with
     | [`File file] ->
             let file = Some file in
-            [`Ascii (file, true); `Diagnosis file; `Trees ([], file)]
-    | [] -> [`Ascii (None, true); `Diagnosis None; `Trees ([], None)]
+            [`Ascii (file, true); `Diagnosis (`Normal,file); `Trees ([], file)]
+    | [] -> [`Ascii (None, true); `Diagnosis (`Normal,None); `Trees ([], None)]
     | _ -> 
             let def = [], None in
             let x, _ = List.fold_left transform_report def x in
@@ -1275,14 +1275,15 @@ let create_expr () =
             ];
         transform_argument:
             [
-                [ left_parenthesis; x = identifiers; ","; t = transform_method; 
+                [ left_parenthesis; x = identifiers; ","; 
+                (*t = LIST0 [ t = transform_method -> t] SEP ",";*)
+                t = transform_method; 
                     right_parenthesis -> (x, t) ] |
                 [ t = transform_method -> (`All, t) ]
             |   [ LIDENT "origin_cost"; ":"; x = integer_or_float
                         -> (`All, `OriginCost (float_of_string x)) ] |
                 [ LIDENT "prioritize" -> (`All, `Prioritize) ] 
-            ];
-
+            ]; 
         ml_floatlist: 
             [[
                 ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
@@ -1373,18 +1374,8 @@ let create_expr () =
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
                 [ LIDENT "level"; ":"; x = INT -> `Level (int_of_string x) ] |
-                
-                [ LIDENT "tcm"; ":";  
-                    x = STRING; level_value = OPT optional_level -> 
-                    let res =
-                    match level_value with 
-                    | None -> (x,None)
-                    | Some y -> (x,Some (int_of_string y))
-                    in
-                    `Tcm res ] |
-                [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
-                    right_parenthesis -> `Gap (int_of_string x, int_of_string y) ] |
-
+                [ LIDENT "tcm"; ":"; left_parenthesis; 
+                     x = tcm_arguments; right_parenthesis -> x ] |
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
                     `Partitioned x ] | 
                 [ LIDENT "fixed_states"; x = OPT optional_string -> `Fixed_States x ] |
@@ -1452,6 +1443,15 @@ let create_expr () =
                     | None -> `Seq_to_Kolmogorov (`AtomicIndel (None, None))
                     | Some x -> x ]
 
+            ];
+        tcm_arguments:
+            [
+                    [ x = INT; ","; y = INT -> `Gap (int_of_string x, int_of_string y)] |
+                    [ x = STRING; level_value = OPT optional_level -> 
+                        match level_value with 
+                        | None -> `Tcm (x,None)
+                        | Some y -> `Tcm (x,Some (int_of_string y))
+                    ]
             ];
         optional_kolmogorov_parameters: 
             [ 
@@ -1742,8 +1742,14 @@ let create_expr () =
                 [ LIDENT "supports"; y = OPT opt_support_names -> `Supports y ] |
                 [ LIDENT "graphsupports"; y = OPT opt_support_names -> 
                     `GraphicSupports y ] |
-                [ LIDENT "diagnosis" -> `Diagnosis ] |
-                [ LIDENT "graphdiagnosis" -> `GraphicDiagnosis ] |
+                [ LIDENT "diagnosis"; y = OPT opt_report_type -> 
+                    match y with 
+                    | None -> `Diagnosis `Normal
+                    | Some x -> `Diagnosis x] |
+                [ LIDENT "graphdiagnosis";  y = OPT opt_report_type ->
+                    match y with
+                    | None -> `GraphicDiagnosis `Normal
+                    | Some x -> `GraphicDiagnosis x ] |
                 [ LIDENT "data" -> `Data ] |
                 [ LIDENT "xslt"; ":"; "("; a = STRING; ","; b = STRING; ")" ->
                     `Xslt (a, b) ] |
@@ -2007,36 +2013,30 @@ let create_expr () =
 
         prealigned_costs:
             [
-                [ LIDENT "tcm"; ":";  left_parenthesis; x = STRING;
-                    level_value = OPT optional_level; 
-                    right_parenthesis ->
-                    let res =
-                    match level_value with 
-                    | None -> (`Local x,None)
-                    | Some y -> (`Local x,Some (int_of_string y))
-                    in
-                    (`Assign_Transformation_Cost_Matrix res) ] |
-                [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
-                    right_parenthesis -> 
-                        `Create_Transformation_Cost_Matrix (int_of_string x, int_of_string y) ]
+                [ LIDENT "tcm"; ":"; left_parenthesis; x = tcm_arguments; right_parenthesis ->
+                    match x with
+                    | `Tcm (f,l) ->
+                        (`Assign_Transformation_Cost_Matrix (`Local f,l))
+                    | `Gap (a, b) -> 
+                        (`Create_Transformation_Cost_Matrix (a, b))
+                    | _ -> failwith "an impossiblity"
+                ]
             ];
         prealigned_gap_opening:
             [ 
                 [ ","; LIDENT "gap_opening"; x = integer -> x ]
             ];
         read_argument:
-            [ 
+            [
                 [ LIDENT "annotated"; ":"; left_parenthesis; a = LIST1 [x =
-                    otherfiles -> x] SEP ","; 
-                    right_parenthesis -> ((`AnnotatedFiles a) :> Methods.input) ] |
-(*                [ LIDENT "raw"; ":"; left_parenthesis; a = STRING;*)
-(*                    right_parenthesis -> ((`Raw a) :> Methods.input) ] |*)
+                    otherfiles -> x] SEP ",";
+                    right_parenthesis -> ((`AnnotatedFiles a) :> Methods.input)
+                ] |
                 [ LIDENT "prealigned"; ":"; left_parenthesis; a = otherfiles;
-                ","; b = prealigned_costs; c = OPT prealigned_gap_opening; 
-                right_parenthesis -> 
-                    match c with
-                    | None -> `Prealigned (a, b, 0) 
-                    | Some x -> `Prealigned (a, b, x) 
+                    ","; b = prealigned_costs; c = OPT prealigned_gap_opening;
+                    right_parenthesis -> match c with
+                        | None -> `Prealigned (a, b, 0)
+                        | Some x -> `Prealigned (a, b, x)
                 ] |
                 [ x = otherfiles -> (x :> Methods.input) ]
             ];
@@ -2299,6 +2299,14 @@ let create_expr () =
         string_arg:
             [
                 [ ":"; x = STRING -> x ]
+            ];
+        report_type:
+            [
+                [ LIDENT "statename_only" -> `StateOnly ]
+            ];
+        opt_report_type:
+            [
+                [","; x = report_type -> x]
             ];
         (* Support values *)
         support_argument:

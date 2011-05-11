@@ -1255,7 +1255,6 @@ module Two_D = struct
         ] 21
 
     let of_transformations_and_gaps use_combinations alph_size trans gaps all_elements =
-        let debug = true in
         if debug then Printf.printf "of_transformations_and_gaps (%d,%d,%d,%d)\n%!"
         alph_size trans gaps all_elements;
         let list_with_zero_in_position pos =

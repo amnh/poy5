@@ -525,13 +525,12 @@ let simplify alph =
             (* for full combination,We need to extract those numbers that only have one bit on 
             * for level combination, we need to get codes without combination*)
             let gap = get_gap alph 
-            and all = 
-                let all = get_all alph in
-                match all with
+            and all = match get_all alph with
                 | Some all -> all 
                 | None -> (-1) (*failwith "Impossible"*)
             in
-            Printf.printf "gap=%d,all=%d,level=%d,ori_size=%d\n%!" gap all alph.level alph.ori_size;
+            (* Printf.printf "gap=%d,all=%d,level=%d,ori_size=%d\n%!"
+             *               gap all alph.level alph.ori_size;          *)
             let has_one_bit_or_all v =
                 if (check_level alph) then begin
                     (*if v<= gap then true

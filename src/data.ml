@@ -164,16 +164,20 @@ let dyna_pam_default ={
 
 type clip = Clip | NoClip
 
-type dyna_initial_assgn = [ 
-    | `Partitioned of clip
-    | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
-    | `DO 
-    | `FS of 
-            ((float array array) * 
-            (Sequence.s array) * 
-            ((int, int) Hashtbl.t))  ]
+type fixed_state =
+    {   costs   : float array array;
+        seqs    : Sequence.s array;
+        codes   : (int, int) Hashtbl.t;
+        opt_bls : float array array option;
+    }
 
-type tcm_definition = 
+type dyna_initial_assgn =
+    [ `Partitioned of clip
+    | `AutoPartitioned of clip * int * (int,  ((int * int) list)) Hashtbl.t
+    | `DO
+    | `FS of fixed_state ]
+
+type tcm_definition =
     | Substitution_Indel of (int * int)
     | Input_file of (string * (int list list))
     | Substitution_Indel_GapOpening of (int * int * int)
@@ -705,12 +709,11 @@ let set_sequence_defaults seq_alph data =
 let is_fs data code =
     match Hashtbl.find data.character_specs code with
     | Kolmogorov _ | Set | Static _ -> false
-    | Dynamic x -> 
-            match x.initial_assignment with
-            | `FS _ -> true
-            | `Partitioned _
-            | `AutoPartitioned _
-            | `DO -> false
+    | Dynamic x -> match x.initial_assignment with
+        | `FS _ -> true
+        | `Partitioned _
+        | `AutoPartitioned _
+        | `DO -> false
 
 let get_empty_seq alph = 
     let seq = Sequence.create 1 in
@@ -4573,26 +4576,20 @@ let auto_partition mode data code =
 
 
 let compute_fixed_states filename data code =
-    let dhs =
-        match Hashtbl.find data.character_specs code with
+    let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
     in
-    let chrom_or_genome,dyn_pam =
-        match dhs.state with
-        | `Chromosome 
-        | `Genome ->  true,dhs.pam
-        | _ -> false,dhs.pam
-    in
-    let annotate_with_mauve = 
-        let ann_tool = dyn_pam.annotate_tool in
-        match ann_tool with 
-            | Some value ->
-                begin match value with
-                    | `Mauve _ -> true
-                    | `Default _  -> false
-                end
-            | None -> false 
+    let chrom_or_genome = match dhs.state with
+        | `Chromosome | `Genome ->  true
+        | `Seq | `Ml | `Annotated | `Breakinv -> false
+    and annotate_with_mauve = match dhs.pam.annotate_tool with
+        | Some (`Mauve _) -> true
+        | Some (`Default _) -> false
+        | None -> false
+    and using_likelihood = match dhs.lk_model with
+        | Some _ -> true
+        | None   -> false
     in
     let taxon_sequences = Hashtbl.create 1667 in
     let sequences_taxon = Hashtbl.create 1667 in
@@ -4606,24 +4603,21 @@ let compute_fixed_states filename data code =
     in
     let taxa = 
         Array.of_list
-            (Hashtbl.fold process_taxon 
-            data.taxon_characters [])
+            (Hashtbl.fold process_taxon data.taxon_characters [])
     in
     let taxa = Array.map fst taxa
     and initial_sequences = Array.map snd taxa in
+    (* find all single assignments between two sequences; these become the
+       states that can be placed on the internal nodes of the tree **)
     let () = 
         for x = 0 to (Array.length taxa) - 1 do
             for y = 0 to (Array.length taxa) - 1 do
                 let b, _ = 
                     Sequence.Align.closest 
-                    initial_sequences.(x) 
-                    initial_sequences.(y) dhs.tcm2d  
-                    Matrix.default 
+                        initial_sequences.(x) initial_sequences.(y) dhs.tcm2d Matrix.default 
                 in
-                let a, cost = 
-                    Sequence.Align.closest
-                    b initial_sequences.(x) dhs.tcm2d
-                    Matrix.default
+                let a, cost =
+                    Sequence.Align.closest b initial_sequences.(x) dhs.tcm2d Matrix.default
                 in
                 Hashtbl.replace taxon_sequences taxa.(y) b;
                 Hashtbl.replace taxon_sequences taxa.(x) a;
@@ -4631,8 +4625,7 @@ let compute_fixed_states filename data code =
                     Hashtbl.replace sequences_taxon b !states;
                     incr states;
                 end;
-                if not (Hashtbl.mem sequences_taxon a) then
-                    begin
+                if not (Hashtbl.mem sequences_taxon a) then begin
                     Hashtbl.replace sequences_taxon a !states;
                     incr states;
                 end;
@@ -4640,67 +4633,97 @@ let compute_fixed_states filename data code =
         done;
     in
     let states = !states in
-    let sequences = 
-        Array.init states (fun _ -> Sequence.create 1) 
-    in
+    let sequences = Array.init states (fun _ -> Sequence.create 1) in
     let distances = Array.make_matrix states states 0. in
-    Hashtbl.iter 
-    (fun seq pos -> sequences.(pos) <- seq) sequences_taxon;
+    let branches = ref None in
+    Hashtbl.iter (fun seq pos -> sequences.(pos) <- seq) sequences_taxon;
+    (* Fill the costs for all pairs of the single assignment sequences *)
     for x = 0 to states - 1 do
         for y = x + 1 to states - 1 do
             let cost =
                 if annotate_with_mauve then
                     let min_lcb_ratio,min_lcb_len,min_cover_ratio,min_bk_penalty = 
-                        match dyn_pam.annotate_tool with
+                        match dhs.pam.annotate_tool with
                         | Some (`Mauve (a,b,c,d)) -> a,b,c,d
                         | _ -> assert(false)                        
                     in
-                    let l_i_c = match dyn_pam.locus_indel_cost with
-                    | Some cost -> cost
-                    | None -> (10,100)
+                    let l_i_c = match dhs.pam.locus_indel_cost with
+                        | Some cost -> cost
+                        | None -> (10,100)
                     in
-                    let seqx,seqy = Sequence.del_first_char sequences.(x),
-                    Sequence.del_first_char sequences.(y) in
+                    let seqx = Sequence.del_first_char sequences.(x)
+                    and seqy = Sequence.del_first_char sequences.(y) in
                     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
-                    edit_cost,full_code_lstlst,len_lst1 = 
-                        Block_mauve.get_matcharr_and_costmatrix seqx 
-                        seqy min_lcb_ratio min_lcb_len 
-                        min_cover_ratio min_bk_penalty l_i_c dhs.tcm2d in
-                    let re_meth = match dyn_pam.re_meth with
-                    | Some value -> value 
-                    | None -> `Locus_Breakpoint 10
-                    and circular = match dyn_pam.circular with
-                    | Some value -> value 
-                    | None -> 0 
+                            edit_cost,full_code_lstlst,len_lst1 =
+                        Block_mauve.get_matcharr_and_costmatrix seqx seqy
+                                min_lcb_ratio min_lcb_len min_cover_ratio 
+                                min_bk_penalty l_i_c dhs.tcm2d
+                    in
+                    let re_meth = match dhs.pam.re_meth with
+                        | Some value -> value
+                        | None -> `Locus_Breakpoint 10
+                    and circular = match dhs.pam.circular with
+                        | Some value -> value 
+                        | None -> 0 
                     in                    
                     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
-                    GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat 
-                    gen_gap_code re_meth circular false in
+                        GenAli.create_gen_ali_new code1_arr code2_arr
+                                gen_cost_mat gen_gap_code re_meth circular false
+                    in
                     let xname,yname = string_of_int x,string_of_int y in
-                    let fullname = 
-                        match filename with 
+                    let fullname = match filename with 
                         | None -> ""
-                        | Some fname -> (fname^"_"^xname^"_"^yname^".alignment") in
+                        | Some fname -> (fname^"_"^xname^"_"^yname^".alignment")
+                    in
                     Block_mauve.output2mauvefile fullname cost None 
-                    alied_gen_seq1 alied_gen_seq2 full_code_lstlst ali_mat 
-                    gen_gap_code len_lst1 (Sequence.length seqx)
-                    (Sequence.length seqy);
-                    cost 
+                        alied_gen_seq1 alied_gen_seq2 full_code_lstlst ali_mat
+                        gen_gap_code len_lst1 (Sequence.length seqx) (Sequence.length seqy);
+                    float_of_int cost 
+                else if using_likelihood then
+                    let model =
+                        match dhs.lk_model with | Some x -> x | None -> assert false
+                    in
+                    let bl,cst =
+                        FloatSequence.pair_distance
+                            (FloatSequence.make_model dhs.alph model)
+                            sequences.(x) sequences.(y)
+                    in
+                    let () = match !branches with
+                        | Some z ->
+                            z.(x).(y) <- bl; z.(y).(x) <- bl
+                        | None ->
+                            let z = Array.make_matrix states states 0.0 in
+                            z.(x).(y) <- bl; z.(y).(x) <- bl; 
+                            branches := Some z
+                    in
+                    cst
                 else
-                    Sequence.Align.cost_2 sequences.(x) 
-                    sequences.(y) dhs.tcm2d Matrix.default 
+                    Matrix.default
+                        --> Sequence.Align.cost_2 sequences.(x) sequences.(y) dhs.tcm2d
+                        --> float_of_int
             in
-            distances.(x).(y) <- float_of_int cost;
-            distances.(y).(x) <- float_of_int cost;
+            distances.(x).(y) <- cost;
+            distances.(y).(x) <- cost;
         done;
     done;
     let taxon_codes = Hashtbl.create 97 in
-    Hashtbl.iter (fun code seq ->
-        Hashtbl.replace taxon_codes code (Hashtbl.find
-        sequences_taxon seq)) taxon_sequences;
-    Hashtbl.replace data.character_specs code (Dynamic { dhs
-    with initial_assignment = `FS (distances, sequences,
-    taxon_codes); state = `Seq })
+    Hashtbl.iter
+        (fun code seq ->
+            seq --> Hashtbl.find sequences_taxon
+                --> Hashtbl.replace taxon_codes code)
+        taxon_sequences;
+    let fs_data = 
+        { costs = distances;
+           seqs = sequences;
+          codes = taxon_codes;
+        opt_bls = !branches; }
+    in
+    let dyn_data =
+        { dhs with
+            initial_assignment = `FS fs_data;
+            state = `Seq; }
+    in
+    Hashtbl.replace data.character_specs code (Dynamic dyn_data)
 
 
 let assign_tcm_to_characters data chars foname tcm =
@@ -5940,7 +5963,7 @@ let make_direct_optimization chars data =
                 | `AutoPartitioned _
                 | `Partitioned _
                 | `FS _ -> 
-                        Hashtbl.replace data.character_specs code 
+                    Hashtbl.replace data.character_specs code 
                         (Dynamic { dhs with initial_assignment = `DO })
                 | `DO -> ())
         | _ -> ()

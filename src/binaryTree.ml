@@ -81,6 +81,7 @@ let add_to_btree seedseq newmum old_bt printkey_f printnode_f compare_node_f =
                         sign := false;
                         Leaf (leafkey,leafmum)
                     end
+        | Empty -> create_btree key mum
     in
     let res_bt = insert_node old_bt seedseq newmum in
     res_bt,!sign
@@ -103,6 +104,7 @@ let search_in_btree key bt printkey_f printnode_f =
                         printnode_f leafmum;
                     failwith "search reach a dead end in btree";
                 end
+        | Empty -> failwith "search in empty btree"
     in
     search_node bt key
 
@@ -132,6 +134,7 @@ let remove_from_btree seedseq bt printkey_f printnode_f =
                         printnode_f leafmum;
                     failwith "remove node reach a dead end in btree"
                 end
+        | Empty -> failwith "remove from empty btree"
     in
     remove_node bt seedseq 
     
@@ -149,6 +152,7 @@ let iter_b_tree bt node_f printkey_f debug =
                 if debug then Printf.printf " ) }\n%!";
         | Leaf (leafkey, leafmum) -> 
                 node_f leafmum 
+        | Empty -> failwith "iter in empty btree"
     in
     iter_sub_tree bt
 
