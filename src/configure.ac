@@ -77,10 +77,30 @@ AC_SUBST(OCAMLVERSION)
 AC_SUBST(CONFIG_DATE)
 
 CONFIG_DATE=`date`
-
 USEWIN32="false"
-
 OS_INFORMATION=`../gnu/config.guess`
+USE_LIKELIHOOD="true"
+
+# Sweet macro to create AC_ARG_DISABLE
+AC_DEFUN([AC_ARG_DISABLE], [
+    disablestring=`echo "$1" | sed 's/_/-/g'`
+    AC_MSG_CHECKING([--disable-$disablestring])
+    AC_ARG_ENABLE($1, [$2],
+        [
+            if test "$enableval" = yes; then
+                $3="true"
+            else
+                $3="false"
+            fi 
+        ],[
+           $3="true"
+        ])
+    if [ test $3 = "false";] then
+        AC_MSG_RESULT(yes)
+    else
+        AC_MSG_RESULT(no)
+    fi
+])
 
 # System dependent options
 case ${OS_INFORMATION} in
@@ -144,9 +164,14 @@ AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
                [USE_XSLT="false"])
 
 AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
-              [Enable the use of static and dynamic likelihood functions. This
-               option requires an implementation of lapack and blas to be installed.])],
-                [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"], [USE_LIKELIHOOD="false"])
+              [Enable the use of static and dynamic likelihood functions. We
+               will automatically detect and enable likelihood if we can --we
+               require lapack routines to be installed.])],
+                [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"])
+
+AC_ARG_DISABLE([likelihood], [AS_HELP_STRING([--disable-likelihood],
+              [Explicitly disable likelihood. Override the auto-detection and
+               do not compile with likelihood enabled. ])], USE_LIKELIHOOD)
 
 #AC_ARG_ENABLE([concorde], [AS_HELP_STRING([--enable-concorde],
 #              [Enable the use of "CHLINKERN" and "GREEDYLK" tsp median solver. This
@@ -204,18 +229,23 @@ fi
 #                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
 # Time to handle the lapack checks
-AC_CHECK_LIB([lapack],[main],
-    [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"])
-             
+AS_IF(  [test $USE_LIKELIHOOD = "false"],
+        [AC_MSG_RESULT( [Force Disable Likelihood])],
+        [AC_CHECK_LIB([lapack],[main],
+            [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
+             OUSE_LIKELIHOOD=",use_likelihood"; AC_MSG_RESULT( [Enabling Likelihood])]
+            )])
+
 case ${OS_INFORMATION} in
     *-apple-*)
-        LIBS="-framework veclib $LIBS"
-        AC_DEFINE(HAVE_LIBLAPACK, 1, "lapack confirmation")
+        AS_IF([test $USE_LIKELIHOOD = "true"],
+            [LIBS="-framework veclib $LIBS"; AC_DEFINE(HAVE_LIBLAPACK, 1, "lapack confirmation")],
+            [AC_MSG_RESULT([Not including LAPACK])])
         ;;
     *)
         AS_IF([test $USE_LIKELIHOOD = "true"],
             [AC_CHECK_LIB([lapack],[dsyev_], [AC_CHECK_LIB([lapack],[dgeev_], [AC_CHECK_LIB([lapack],[dgemm_],
-             [AC_CHECK_LIB([lapack],[dgetri_], [AC_CHECK_LIB([lapack],[dgetrf_],
+            [AC_CHECK_LIB([lapack],[dgetri_], [AC_CHECK_LIB([lapack],[dgetrf_],
                     [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
                     [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
                     [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],

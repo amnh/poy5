@@ -1371,8 +1371,12 @@ Optional Features:
   --enable-xslt           Enable the postprocessing of XML output using XSLT
                           templates. This option requires libxml2.
   --enable-likelihood     Enable the use of static and dynamic likelihood
-                          functions. This option requires an implementation of
-                          lapack and blas to be installed.
+                          functions. We will automatically detect and enable
+                          likelihood if we can --we require lapack routines to
+                          be installed.
+  --disable-likelihood    Explicitly disable likelihood. Override the
+                          auto-detection and do not compile with likelihood
+                          enabled.
   --enable-sse3           Enable the Streaming SIMD Extensions for likelihood
                           characters.
   --enable-large-alphabets
@@ -2914,10 +2918,12 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 CONFIG_DATE=`date`
-
 USEWIN32="false"
-
 OS_INFORMATION=`../gnu/config.guess`
+USE_LIKELIHOOD="true"
+
+# Sweet macro to create AC_ARG_DISABLE
+
 
 # System dependent options
 case ${OS_INFORMATION} in
@@ -3057,9 +3063,35 @@ fi
 # Check whether --enable-likelihood was given.
 if test "${enable_likelihood+set}" = set; then :
   enableval=$enable_likelihood; USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"
-else
-  USE_LIKELIHOOD="false"
 fi
+
+
+
+    disablestring=`echo "likelihood" | sed 's/_/-/g'`
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking --disable-$disablestring" >&5
+$as_echo_n "checking --disable-$disablestring... " >&6; }
+    # Check whether --enable-likelihood was given.
+if test "${enable_likelihood+set}" = set; then :
+  enableval=$enable_likelihood;
+            if test "$enableval" = yes; then
+                USE_LIKELIHOOD="true"
+            else
+                USE_LIKELIHOOD="false"
+            fi
+
+else
+
+           USE_LIKELIHOOD="true"
+
+fi
+
+    if  test USE_LIKELIHOOD = "false"; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
 
 
 #AC_ARG_ENABLE([concorde], [AS_HELP_STRING([--enable-concorde],
@@ -3137,7 +3169,11 @@ fi
 
 # Time to handle the lapack checks
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -llapack" >&5
+if test $USE_LIKELIHOOD = "false"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Force Disable Likelihood" >&5
+$as_echo "Force Disable Likelihood" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -llapack" >&5
 $as_echo_n "checking for main in -llapack... " >&6; }
 if test "${ac_cv_lib_lapack_main+set}" = set; then :
   $as_echo_n "(cached) " >&6
@@ -3168,16 +3204,24 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_main" >&5
 $as_echo "$ac_cv_lib_lapack_main" >&6; }
 if test "x$ac_cv_lib_lapack_main" = x""yes; then :
-  USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"
+  USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
+             OUSE_LIKELIHOOD=",use_likelihood"; { $as_echo "$as_me:${as_lineno-$LINENO}: result: Enabling Likelihood" >&5
+$as_echo "Enabling Likelihood" >&6; }
+
 fi
 
+fi
 
 case ${OS_INFORMATION} in
     *-apple-*)
-        LIBS="-framework veclib $LIBS"
-
+        if test $USE_LIKELIHOOD = "true"; then :
+  LIBS="-framework veclib $LIBS";
 $as_echo "#define HAVE_LIBLAPACK 1" >>confdefs.h
 
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not including LAPACK" >&5
+$as_echo "Not including LAPACK" >&6; }
+fi
         ;;
     *)
         if test $USE_LIKELIHOOD = "true"; then :
