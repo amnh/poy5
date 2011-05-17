@@ -28,9 +28,9 @@ module P : sig
         | Tokens of bool 
 
     type charset = 
-        | Range of (string * string option * int)
-        | Single of string
-        | Name of string
+        | Range  of (int * int option * int)
+        | Single of int
+        | Name   of string
 
     type char_data = {
         char_taxon_dimensions : string option;
