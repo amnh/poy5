@@ -1,19 +1,15 @@
 let gen_of_channel adder ch = 
     let input_handler = FileStream.stream_reader ch in
-    let rec reader counter = 
-        try
-            let line = input_handler#read_line in
-            match Str.split (Str.regexp " +") line with
+    let rec reader counter =
+        try let line = input_handler#read_line in
+            match Str.split (Str.regexp "[\t ]+") line with
             | [] | [_] -> 
-                    let msg = 
-                        ("Line " ^ string_of_int counter ^ ": " ^ line)
-                    in
-                    raise (E.Illegal_dictionary msg)
+                let msg = ("Line " ^ string_of_int counter ^ ": " ^ line) in
+                raise (E.Illegal_dictionary msg)
             | hd :: tl ->
-                    List.iter (fun x -> adder x hd) tl;
-                    reader (counter + 1)
-        with
-        | _ -> ()
+                List.iter (fun x -> adder x hd) tl;
+                reader (counter + 1)
+        with | End_of_file -> ()
     in
     reader 1
 

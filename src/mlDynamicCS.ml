@@ -450,6 +450,7 @@ let median code a b t1 t2 =
         { a with cost = !cost; data = FPAlign { ss = meds; } } 
     | (FPAlign _ | MPLAlign _ ), _ -> assert false
 
+open Numerical.FPInfix
 let readjust c1 c2 mine t1 t2 = 
     let internal_loop (t:float) : t * float =
         let d = median (code mine) c1 c2 (Some t) (Some t2) in
@@ -461,7 +462,8 @@ let readjust c1 c2 mine t1 t2 =
     if debug_est then
         Printf.printf "Optimized Branch: %f -(%f->%f)-> %f\n%!" 
                       (total_cost mine) t1 nt ncost;
-    (not (nt = t1)),total_cost mine,ncost,(nt,t2),nmine
+    let modified = not ((total_cost mine) =. ncost) in
+    modified,total_cost mine,ncost,(nt,t2),nmine
 
 let median_i code a b (t1:float) (t2:float) : t * float * float =
     match a.data, b.data with
@@ -592,6 +594,8 @@ let to_single parent mine t =
                 ps.ss
                 ms.ss
         in
+        if debug_est then
+            Printf.printf "MlDynamicCS.to_single: t:%f / c:%f\n\n%!" t !score;
         pcost, !score, { mine with data = MPLAlign { ss = n_data }; }
     (* although weak, this is the only solution *)
     | (FPAlign _ | MPLAlign _ ), _ -> assert false

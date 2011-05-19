@@ -385,11 +385,9 @@ let rec general_apply_on_character_set find set_table characters f x =
     let last = (Array.length characters) - 1 in
     match x with
     | P.Range (a, b, step) ->
-            let a = int_of_string a
-            and b = 
-                match b with
+            let b = match b with
                 | None -> last
-                | Some b ->  int_of_string b 
+                | Some b -> b
             in
             let rec loop i = 
                 if i > b then ()
@@ -399,7 +397,7 @@ let rec general_apply_on_character_set find set_table characters f x =
                 end;
             in
             loop a
-    | P.Single v  -> f ((int_of_string v) - 1);
+    | P.Single v  -> f (v - 1);
     | P.Name name ->
             if Hashtbl.mem set_table (String.uppercase name) then
                 List.iter 
@@ -409,7 +407,7 @@ let rec general_apply_on_character_set find set_table characters f x =
                 match String.uppercase name with
                 | "ALL" ->
                     general_apply_on_character_set find set_table characters f 
-                        (P.Range ("1", (Some (string_of_int last)), 1))
+                        (P.Range (1, (Some last), 1))
                 | "."   ->
                     f (last - 1)
                 | name  ->
@@ -425,16 +423,15 @@ let apply_on_unaligned_set = general_apply_on_character_set
 (* get the character names for different set types *)
 let rec get_character_names chars sets : P.charset -> string list = function
     | P.Range (lo,hi,step) ->
-        let a = int_of_string lo
-        and b = match hi with
+        let b = match hi with
             | None -> (Array.length chars) - 1
-            | Some b -> int_of_string b
+            | Some b -> b
         in
         let rec loop acc i = 
             if i > b then acc
             else loop (chars.(i-1).st_name :: acc) (i + step)
         in
-        loop [] a
+        loop [] lo
     | P.Name name ->
         begin try chars.(find_character chars name).st_name :: []
         with | _ ->
@@ -446,7 +443,7 @@ let rec get_character_names chars sets : P.charset -> string list = function
                 failwith (Printf.sprintf "Cannot find character set %s of sets" name)
         end
     | P.Single num ->
-        chars.((int_of_string num) - 1).st_name :: []
+        chars.(num - 1).st_name :: []
 
 let find_taxon taxa name =
     let error = Printf.sprintf "Taxon (%s) not found" name in

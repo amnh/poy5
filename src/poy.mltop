@@ -46,7 +46,6 @@ GenomeAli
 GenomeCS
 GraphTree
 GraphicsPs
-Graphviz
 Hash_tbl
 Heap
 Help
@@ -67,7 +66,6 @@ MlModel
 MlDynamicCS
 MlStaticCS
 Mst
-Network
 Nexus
 Node
 NodeSig

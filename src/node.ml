@@ -35,12 +35,15 @@ let likelihood_error =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
 let (-->) b a = a b
-let (=.) a b = abs_float (a-.b) < Numerical.tolerance
 
 let odebug = Status.user_message Status.Information
 let info_user_message format = 
     Printf.ksprintf (Status.user_message Status.Information) format
 let failwithf format = Printf.ksprintf (failwith) format
+
+let pp_fopt chan fopt = match fopt with
+    | Some f -> output_string chan (string_of_float f)
+    | None   -> output_string chan "none"
 
 module IntSet = All_sets.Integers
 
@@ -590,7 +593,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                       cost = ca.weight *. cost } in
           Nonadd32 res
     | Add ca, Add cb -> 
-          assert (ca.weight =. cb.weight);
+          assert (ca.weight = cb.weight);
           let old = match prev with
           | Some Add old -> Some old.preliminary
           | None -> None
@@ -745,7 +748,8 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                     let medians =
                         List.filter
                             (fun (cost, _, _, _) -> cost = !min_cost)
-                            medians in
+                            medians
+                    in
                     (* Make the proper sets *)
                     let median =
                         { cb.preliminary with
@@ -753,19 +757,18 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                                 (fun (_, median, _, _) -> median) medians;
                               smethod =
                                 `Any_Of ((anode.taxon_code, bnode.taxon_code,
-                                    (List.map (fun (_, _, i, j) -> (i, j))
-                                         medians)), v);
-                        } in
+                                    (List.map (fun (_, _, i, j) -> (i, j)) medians)), v);
+                        }
+                    in
                     (* Update the cost and return *)
-                    let res = Set { cb with
-                                        preliminary = median;
-                                        final = median;
-                                        cost = ca.weight *. 
-                                        (if max_float = !min_cost then 0. else
-                                            !min_cost);
-                                        sum_cost = ca.sum_cost +. cb.sum_cost
-                            +. !min_cost;
-                                  } in
+                    let res =
+                        Set { cb with
+                                preliminary = median;
+                                final = median;
+                                cost = ca.weight *.  (if max_float = !min_cost then 0. else !min_cost);
+                                sum_cost = ca.sum_cost +. cb.sum_cost +. !min_cost;
+                            }
+                    in
                     res
           end
     | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | Add _, _ | Sank _, _ 
@@ -780,8 +783,9 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     let root_e = match gp with 
         | Some x -> false
         | None -> true
-    and c1,c2 = if c1.min_child_code < c2.min_child_code then c1,c2 else c2,c1 in
-
+    and c1,c2 =
+        if c1.min_child_code < c2.min_child_code then c1,c2 else c2,c1
+    in
     (* accumulators [pa],[aa],[ba] to iterate the branch length for each element in
      * the character set [p] as parent, and [a], [b] as children. *)
     let rec ei_map p a b pa = match p,a,b with
@@ -825,16 +829,14 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let fstart = pm.preliminary,MlStaticCS.root_cost pm.preliminary in
-                    let (v,(dv,fv)) = 
+                    let (v,(dv,fv)) =
                         Numerical.brents_method (t1+.t2,fstart) calculate_single
                     in
                     { pm with preliminary = dv; final = dv;
-                              cost = fv; 
+                              cost = fv;
                               sum_cost = fv +. bm.sum_cost +. am.sum_cost;
-                              time = Some (v/.2.0), Some (v/.2.0); }
-
+                              time = Some v, Some 0.0; }
                 | _ -> assert false (* all other methods are dynamic *)
-
                 end
             in
             ei_map ptl atl btl ((StaticMl mine)::pa)
@@ -852,19 +854,22 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                             ( max min_bl x, max min_bl y )
                         | _ -> failwith "something happened terribly wrong"
                     in
-                    (* Printf.printf "0: %f\t%f\t%f\n%!" t1 t2 pm.cost; *)
-                    let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
+                    if debug then
+                        info_user_message "Starting Cost: %f\t%f\t%f%!" t1 t2 pm.cost; 
+                    let ot1,ot2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
                     let m,pcost,cost,(t1,t2),res = 
                         DynamicCS.readjust_lk (`ThreeD None) None !modf
-                            am.preliminary bm.preliminary pm.preliminary t1 t2
+                            am.preliminary bm.preliminary pm.preliminary ot1 ot2
                     in
-                    let mine = Dynamic 
+                    if debug then
+                        info_user_message "Ending Cost: %f\t%f\t%f%!" t1 t2 cost;
+                    let mine =
                         { pm with  preliminary = res; final = res;
                                    cost = cost;
                                    sum_cost = cost +. bm.sum_cost +. am.sum_cost;
                                    time = Some t1, Some t2; }
                     in
-                    ei_map ptl atl btl (mine::pa)
+                    ei_map ptl atl btl ((Dynamic mine)::pa)
                 | _,_ ->
                     ei_map ptl atl btl (pml::pa)
             end
@@ -878,9 +883,9 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
         List.rev (ei_map c0.characters c1.characters c2.characters [])
     in
     let mine_cost = get_characters_cost mine in
-    {
-        c0 with characters = mine;
-             total_cost = calc_total_cost c1 c2 mine_cost;
+    let total_cost = calc_total_cost c1 c2 mine_cost in
+    { c0 with characters = mine;
+             total_cost = total_cost;
              node_cost  = mine_cost;
     }
     ELSE
@@ -1598,11 +1603,11 @@ let type_string = function
     | `StaticMl -> "static likelihood"
     | `Ml -> "dynamic likelihood"
 
-let has_to_single : to_single list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `Ml ]
+let has_to_single : to_single list = [`Seq ; `Chrom; `Annchrom; `Breakinv;]
 
 module ToSingleModule = Set.Make (struct type t = to_single let compare = compare end)
 
-let all_characters_single = 
+let all_characters_single =
     List.fold_left (fun acc x -> ToSingleModule.add x acc) 
                    (ToSingleModule.empty)
                    (all_types)
@@ -2920,38 +2925,45 @@ let estimate_time a b =
     in
     map2 (estimate_) a.characters b.characters
 
-let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
+let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
     let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs minet : cs =
         if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
         match parent_cs, minet with
             | Dynamic parentt, Dynamic minet ->
                 let root_pre,bl = match root with
                     | Some (Dynamic root) ->
-                        begin match parentt.time with
+                        begin match root.time with
                             | None,None     -> Some root.preliminary, None
                             | Some x,Some y -> Some root.preliminary, Some (x +. y)
                             | None, Some _
-                            | Some _,None   -> failwith "Inconsistent branches"
+                            | Some _,None   -> failwith "Inconsistent branches 1"
                         end
-                    | None -> 
-                        if mine.min_child_code = parent.min_child_code then
+                    | None ->
+                        if combine_bl then begin match parentt.time with
+                            | Some x,Some y -> None, Some (x +. y)
+                            | None, None    -> None, None
+                            | _, _          -> failwith "Inconsistent branches 2"
+                        end else if mine.min_child_code = parent.min_child_code then
                             None, fst parentt.time
                         else
                             None, snd parentt.time
                     | Some _ -> failwith "Inconsistent root passed to to_single"
                 in
-                let prev_cost, cost, res =
+                let _, cost, res =
                     DynamicCS.to_single pre_ref_code
                         root_pre parentt.preliminary minet.preliminary bl
                 in
-                Dynamic {preliminary = res; final = res;
-                           cost = (minet.weight *.  cost);
-                           sum_cost = (minet.weight *. cost);
-                          weight = minet.weight; time = minet.time}
+                Dynamic {
+                            preliminary = res; final = res;
+                            cost = minet.weight *. cost;
+                            sum_cost = minet.weight *. cost;
+                            weight = minet.weight;
+                            time = minet.time
+                        }
         (* | StaticMl cb, StaticMl ca -> 
             IFDEF USE_LIKELIHOOD THEN
                 (match root with
-                | None -> mine
+                 None -> mine
                 | Some root -> 
                     let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                     let res = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
@@ -3048,6 +3060,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     in
                     modified := m;
                     let cost = mine.weight *. n_cost in
+                    Printf.printf "Optimized Cost %f --> %f\n%!" mine.cost cost;
                     Dynamic
                         { mine with
                             preliminary = res; final = res;
@@ -3091,8 +3104,8 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         in
         res, !modified
 
-let to_single_root (pre_ref_codes, fi_ref_codes) mine = 
-    to_single (pre_ref_codes, fi_ref_codes) (Some mine) mine mine
+let to_single_root (pre_ref_codes, fi_ref_codes) mine =
+    to_single (pre_ref_codes, fi_ref_codes) true (Some mine) mine mine
 
 (** [get_active_ref_code node_data] returns codes of
 * all active chromosomes which are used for single state process
@@ -4163,7 +4176,12 @@ module Standard :
         let for_support = for_support
         let root_cost = root_cost
         let tree_cost a b = (root_cost b) +. (total_cost a b)
-        let to_single root _ a _ b sets = to_single sets root a b
+        let to_single root _ a _ b sets =
+            let combine = match root with
+                | Some _ -> true
+                | None   -> false
+            in
+            to_single sets combine root a b
         let get_nonadd_8 _ = get_nonadd_8 
         let get_nonadd_16 _ = get_nonadd_16 
         let get_nonadd_32 _ = get_nonadd_32 

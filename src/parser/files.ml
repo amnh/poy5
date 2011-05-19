@@ -81,9 +81,8 @@ let test_file file =
     else if Wildcard.anywhere_match (Str.regexp "^[a-zA-Z0-9_]+") line 
             && Wildcard.anywhere_match (Str.regexp " *[0-9]+") line2 then
                 Is_NewSeq
-    else if 
-        Wildcard.anywhere_match (Str.regexp "^[a-zA-Z._-]+ +[a-zA-Z._-]+\\s*") line
-    then Is_Dictionary
+    else if Wildcard.anywhere_match (Str.regexp "^[a-zA-Z._-]+ +[a-zA-Z._-]+\\s*") line then
+        Is_Dictionary
     else if Wildcard.anywhere_match (Str.regexp "^ *(") line then
         Is_Trees
     else Is_Unknown
