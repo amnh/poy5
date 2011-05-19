@@ -30,7 +30,7 @@ type 'a my_lazy =
     | Lazy of 'a Lazy.t
     | Eager of 'a
 
-type a_node = Node.node_data my_lazy
+type a_node = Node.Standard.n my_lazy
 
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
