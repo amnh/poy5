@@ -639,7 +639,7 @@ let readjust_lk mode to_adjust modified ch1 ch2 mine t1 t2 =
      match ch1, ch2, mine with
     | MlCS ch1, MlCS ch2, MlCS mine ->
         let m,pc,nc,ts,res = MlDynamicCS.readjust ch1 ch2 mine t1 t2 in
-        if m then (modified,pc,nc,(t1,t2),(MlCS mine))
+        if not m then (modified,pc,nc,(t1,t2),(MlCS mine))
         else begin
             let x =
                 Array.fold_right
