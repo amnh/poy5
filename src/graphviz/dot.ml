@@ -25,8 +25,18 @@
 type basic =  
     { name  : string option;
       nodes : Dot_ast.IdSet.t;
-      edges : Dot_ast.IdSet.t Dot_ast.IdMap.t;
+      children : Dot_ast.IdSet.t Dot_ast.IdMap.t;
+      parents  : Dot_ast.IdSet.t Dot_ast.IdMap.t;
       equal : (Dot_ast.id * Dot_ast.id) list;
+    }
+
+(** empty basic information *)
+let empty = 
+    {   name  = None;
+        nodes = Dot_ast.IdSet.empty;
+        children = Dot_ast.IdMap.empty;
+        parents  = Dot_ast.IdMap.empty;
+        equal = []; 
     }
 
 (** parse a channel of the Dot Language *)
@@ -46,6 +56,31 @@ let of_file f =
     let res = of_channel chan in
     close_in chan;
     res
+
+(** find all the name equivalences to a name *)
+let equivalences name basic =
+    let rec follow_left acc name =
+        let neigh = 
+            List.find_all (fun (a,_) -> 0 = Dot_ast.compare a name) basic.equal
+        in
+        List.fold_left
+            (fun acc (a,b) ->
+                if Dot_ast.IdSet.mem b acc then acc
+                else follow_left (Dot_ast.IdSet.add b acc) b)
+            acc
+            neigh
+    and follow_right acc name =
+        let neigh = 
+            List.find_all (fun (_,b) -> 0 = Dot_ast.compare b name) basic.equal
+        in
+        List.fold_left
+            (fun acc (a,b) ->
+                if Dot_ast.IdSet.mem a acc then acc
+                else follow_right (Dot_ast.IdSet.add a acc) a)
+            acc
+            neigh
+    in
+    follow_right (follow_left (Dot_ast.IdSet.singleton name) name) name
 
 (** Convert Dot_ast to a basic stripped down type mentioned above *)
 let to_basic (g : Dot_ast.file) : basic =
@@ -73,31 +108,39 @@ let to_basic (g : Dot_ast.file) : basic =
             get_equals acc oth
     in
     (* since we are going to need the equality for functions below... *)
-    let equals = get_equals [] g.Dot_ast.stmts in
+    let almost =
+        { empty with
+            equal = get_equals [] g.Dot_ast.stmts;
+            name  = match g.Dot_ast.id with
+                    | Some x -> Some (Dot_ast.string_of_id x);
+                    | None   -> None;
+        }
+    in
     (* add an edge to the map *)
-    let rec add_edge a b (nodes,edges) =
-        let a = normalize_name a equals in
-        let b = normalize_name b equals in
-        let set =
-            if Dot_ast.IdMap.mem a edges
-                then Dot_ast.IdSet.add b (Dot_ast.IdMap.find a edges)
+    let rec add_edge a b (nodes,(cedges,pedges)) =
+        let a = normalize_name a in
+        let b = normalize_name b in
+        let cset =
+            if Dot_ast.IdMap.mem a cedges
+                then Dot_ast.IdSet.add b (Dot_ast.IdMap.find a cedges)
                 else Dot_ast.IdSet.singleton b
+        and pset =
+            if Dot_ast.IdMap.mem b pedges
+                then Dot_ast.IdSet.add a (Dot_ast.IdMap.find b pedges)
+                else Dot_ast.IdSet.singleton a
         in
         let nodes = add_node a (add_node b nodes) in
-        nodes, Dot_ast.IdMap.add a set edges
+        nodes, (Dot_ast.IdMap.add a cset cedges,
+                Dot_ast.IdMap.add b pset pedges)
     (* add a node name to a map *)
     and add_node name nodes =
         if Dot_ast.IdSet.mem name nodes then nodes
         else Dot_ast.IdSet.add name nodes
     (* normalize a name to the FIRST argument (this is so we can easily use the
        assoc functions in list later *)
-    and normalize_name name equalities =
-        let (a,_) = List.find (fun (a,b) -> b = name) equalities in
-        try ignore (List.find (fun (_,b) -> b = a) equalities); 
-            failwith "Chaining an alias is not cool dude."
-        with | Not_found ->
-            a
-    in
+    and normalize_name name = (* to the minimum of equaivlences *)
+        Dot_ast.IdSet.min_elt (equivalences name almost)
+    in 
     (* Process a single element in the graph; skip over attributes, recurse
        through subgraph, add node names when they come across, and process edges
        in the peculiar manor that they need to be processed. *)
@@ -149,23 +192,20 @@ let to_basic (g : Dot_ast.file) : basic =
             in
             process_edges subnodes xs acc
     in
-    let acc = Dot_ast.IdSet.empty,Dot_ast.IdMap.empty in
-    let nodes,edges = process_nodes acc g.Dot_ast.stmts in
-    {
+    let acc = Dot_ast.IdSet.empty,(Dot_ast.IdMap.empty,Dot_ast.IdMap.empty) in
+    let nodes,(cedges,pedges) = process_nodes acc g.Dot_ast.stmts in
+    { empty with
         nodes = nodes;
-        edges = edges;
-        equal = equals;
-        name  = match g.Dot_ast.id with
-                | Some x -> Some (Dot_ast.string_of_id x);
-                | None   -> None;
+        children = cedges;
+        parents = pedges;
     }
 
 (** helper function to return the leaf set **)
 let leaves base : Dot_ast.IdSet.t =
     Dot_ast.IdSet.fold
         (fun k acc ->
-            if Dot_ast.IdMap.mem k base.edges then
-                match Dot_ast.IdSet.cardinal (Dot_ast.IdMap.find k base.edges) with
+            if Dot_ast.IdMap.mem k base.children then
+                match Dot_ast.IdSet.cardinal (Dot_ast.IdMap.find k base.children) with
                 | 0 -> Dot_ast.IdSet.add k acc
                 | _ -> acc
             else
@@ -197,7 +237,7 @@ let basic_to_string ?(node_attr="") ?(edge_attr="") base =
                             (Dot_ast.string_of_id k)
                             (Dot_ast.string_of_id v) edge_attr)
                     vs)
-            base.edges
+            base.children
     in
     bufferf "}";
     Buffer.contents buffer

@@ -74,7 +74,8 @@ module Dot : sig
     type basic =  
         { name  : string option;
           nodes : Dot_ast.IdSet.t;
-          edges : Dot_ast.IdSet.t Dot_ast.IdMap.t;
+          children : Dot_ast.IdSet.t Dot_ast.IdMap.t;
+          parents  : Dot_ast.IdSet.t Dot_ast.IdMap.t;
           equal : (Dot_ast.id * Dot_ast.id) list; }
 
     (** parse a Dot_ast from a channel *)
@@ -89,6 +90,9 @@ module Dot : sig
     (** helper function to return the leaf set *)
     val leaves : basic -> Dot_ast.IdSet.t
 
+    (** return a set of names that are equivlent *)
+    val equivalences : Dot_ast.id -> basic -> Dot_ast.IdSet.t
+    
     (** convert the basic to a Dot_ast parsable string *)
     val basic_to_string : ?node_attr:string -> ?edge_attr:string -> basic -> string
 end
