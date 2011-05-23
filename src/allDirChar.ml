@@ -426,7 +426,10 @@ module F : Ptree.Tree_Operations
                     new_tree.Ptree.tree (~-. (distance b a 0.0))
         in
         let pi_cost = prior_cost new_tree in
-        let root_cost = AllDirNode.AllDirF.root_cost root in
+        let root_cost = 
+            if using_likelihood `Static new_tree then 0.0
+            else AllDirNode.AllDirF.root_cost root
+        in
         if debug_cost_fn then begin
             let () = match root_edge with
                 | `Single x -> info_user_message "Cost of: %d" x
