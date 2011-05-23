@@ -185,6 +185,7 @@ type ml_substitution = [
     | `F84 of float list option
     | `GTR of float list option
     | `File of string
+    | `Custom of string
 ]
 
 

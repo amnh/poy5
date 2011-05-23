@@ -552,9 +552,9 @@ module Align = struct
                     let get_list x =
                         let base = get x pos in
                         if do_combine then 
-                            List.sort (fun a b -> b - a) 
-                            (Cost_matrix.Two_D.list_of_bits base alph)
-                        else [base]
+                            List.sort (fun a b -> b - a) (BitSet.Int.list_of_packed base)
+                        else
+                            [base]
                     in
                     let put_shared_first lst1 lst2 = 
                         let shared = 
@@ -1266,7 +1266,7 @@ let select_one_generic get_one_item s cm =
 let select_one s cm =
     let sort_list = List.sort (fun a b -> a - b) in
     let get_one_item asz b =
-        match sort_list (Cost_matrix.Two_D.list_of_bits b asz) with
+        match sort_list (BitSet.Int.list_of_packed b) with
         | h :: _ -> h
         | [] -> failwith "Nothing?"
     in
@@ -1274,7 +1274,7 @@ let select_one s cm =
 
 let select_one_randomized s cm =
     let get_one_item asz b =
-        let lst = Cost_matrix.Two_D.list_of_bits b asz in
+        let lst = BitSet.Int.list_of_packed b in
         let len = List.length lst in
         List.nth lst (Random.int len)
     in

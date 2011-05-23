@@ -194,48 +194,48 @@ module Two_D : sig
 
 
     (** [get_pure_cost_mat cost_mat] return the cost matrix in an 
-     * int alphabet_size * alphabet_size matrix format *)  
+        int alphabet_size * alphabet_size matrix format *)  
     val get_pure_cost_mat : m -> int array array
-    val list_of_bits : int -> int -> int list
 
-    (* [get_closest m x y], finds the closest element from the bitset [y] to the
-    * element [x] according to the two dimensional cost matrix [m]. [x] can be a
-    * bitset, and [y] need not to be a bitset. *)
+    (** [get_closest m x y], finds the closest element from the bitset [y] to
+        the element [x] according to the two dimensional cost matrix [m]. [x]
+        can be a bitset, and [y] need not to be a bitset. *)
     val get_closest : m -> int -> int -> int
 
-    (*
-    * [calc_number_of_combinations_by_level a_sz level] returns the number of
-    * combinations based on alphabet size:a_sz and level value:level *)
+    (** [calc_number_of_combinations_by_level a_sz level] returns the number of
+        combinations based on alphabet size:a_sz and level value:level *)
     val calc_number_of_combinations_by_level: int -> int -> int 
 
 
-    (* [calc_num_of_comb_with_gap ori_a_sz level] returns the number of
-     * combination code that contains gap *)
+    (** [calc_num_of_comb_with_gap ori_a_sz level] returns the number of
+        combination code that contains gap *)
     val calc_num_of_comb_with_gap : int -> int -> int
     
-    (* [gap_filter_for_combcode combcode level ori_a_sz], get rid of "gap" in a
-     * combination code if the code contains gap code. for example, if gap is
-     * "-", then input [a-] will get [a] *)
+    (** [gap_filter_for_combcode combcode level ori_a_sz], get rid of "gap" in a
+        combination code if the code contains gap code. for example, if gap is
+        "-", then input [a-] will get [a] *)
     val gap_filter_for_combcode : int -> m -> int
 
-    (* [comblist_to_combcode lst m], returns the combination code given a
-     * combiantion codelist.
-     * This function should be more efficent if we use Bigarray -- add Bigarray
-     * later. *)
+    (** [comblist_to_combcode lst m], returns the combination code given a
+        combiantion codelist. This function should be more efficent if we use
+        Bigarray -- add Bigarray later. *)
     val comblist_to_combcode: int list  -> m -> int
 
-    (* [combcode_to_comblist code m], returns combination codelist given a
-     * combination code *)
+    (** [combcode_to_comblist code m], returns combination codelist given a
+        combination code *)
     val combcode_to_comblist: int -> m -> int list
 
-    (* [clear_duplication_in_list lst] clears up the duplicate element in the
-     * given list *)
+    (** [clear_duplication_in_list lst] clears up the duplicate element in the
+        given list *)
     val clear_duplication_in_list: int list -> int list
 
-    (* [print_intlist list] prints out the int list, for debug....*)
+    (** [print_intlist list] prints out the int list, for debug....*)
     val print_intlist: int list -> unit
     val of_file : ?use_comb:bool -> ?level:int -> FileStream.f -> int -> m * int list list
-    val fm_of_file: FileStream.f -> float list list
+
+    (* [matrix_of_file fn file] Read a file into an array array, and map a
+       function over the values; we ensure that the matrix is rectangular. *)
+    val matrix_of_file: (string -> 'a) -> FileStream.f -> 'a list list
 end
 
 module Three_D : sig

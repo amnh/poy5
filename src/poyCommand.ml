@@ -1301,7 +1301,8 @@ let create_expr () =
                 [ "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
                 [ "tn93";  x = OPT ml_floatlist -> `TN93  x ] |
                 [ "gtr";   x = OPT ml_floatlist -> `GTR   x ] |
-                [ "file"; ":"; x = STRING -> `File x ]
+                [ "file"; ":"; x = STRING -> `File x ] |
+                [ "custom"; ":"; x = STRING -> `Custom x ]
             ];
         site_properties:
             [
