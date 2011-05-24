@@ -1340,17 +1340,17 @@ module F : Ptree.Tree_Operations
                     info_user_message "Step %d; Optimized Model %f --> %f" iter icost mcost;
                 let bcost,btree,iter =
                     if do_branches then
-                        let btree = adjust_tree iterations branches None itree in
+                        let btree = adjust_tree iterations branches None mtree in
                         let bcost = Ptree.get_cost `Adjusted btree in
                         bcost,btree,iter+1
                     else
                         mcost,mtree,iter
                 in
                 if debug_model_fn then
-                    info_user_message "Step %d; Optimized Branches %f --> %f" iter icost bcost;
+                    info_user_message "Step %d; Optimized Branches %f --> %f" iter mcost bcost;
                 if icost =. bcost || iter > max_iter
                     then btree 
-                    else loop_ (iter+1) bcost btree
+                    else loop_ iter bcost btree
             in
             let first_cost = Ptree.get_cost `Adjusted first_tree in
             loop_ 0 first_cost first_tree

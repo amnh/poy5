@@ -53,7 +53,7 @@ type subst_model =
     | GTR   of (float array) option
     (** [File] matrix read from a file, diagonal is readjusted so row = 0 *)
     | File  of float array array * string
-    | Custom of (int All_sets.IntegerMap.t * float array)
+    | Custom of (int All_sets.IntegerMap.t * float array * string)
 (** [subst_model] the model defining the substitution rate matrix. **)
 
 type priors = 

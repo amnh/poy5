@@ -32,7 +32,7 @@ let dyno_gamma_warning =
     "Gamma@ classes@ for@ dynamic@ MPL/FLK@ are@ un-necessary,@ and@ are@ being@ removed."
 
 let debug = false
-let debug_printf msg format = 
+let debug_printf msg format =
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
 let ba_of_array1 x = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout x
@@ -41,23 +41,23 @@ and ba_of_array2 x = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
 let create_ba1 x     = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout x
 and create_ba2 x y   = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout x y
 
-let barray_to_array2 bray =  
+let barray_to_array2 bray =
     let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
     let r = Array.make_matrix a b 0.0 in
     for i = 0 to a-1 do for j = 0 to b-1 do
         r.(i).(j) <- bray.{i,j};
     done; done; r
 
-let print_barray1 a = 
-    for i = 0 to (Bigarray.Array1.dim a)-1 do 
+let print_barray1 a =
+    for i = 0 to (Bigarray.Array1.dim a)-1 do
         Printf.printf "%2.10f\t" a.{i};
     done; Printf.printf "\n"; ()
 
-and print_barray2 a = 
-    for i = 0 to (Bigarray.Array2.dim1 a)-1 do 
+and print_barray2 a =
+    for i = 0 to (Bigarray.Array2.dim1 a)-1 do
         for j = 0 to (Bigarray.Array2.dim2 a)-1 do
             Printf.printf "%2.10f\t" a.{i,j};
-        done; Printf.printf "\n"; 
+        done; Printf.printf "\n";
     done; Printf.printf "\n"; ()
 
 (* type to help the parsing of specification data *)
@@ -98,7 +98,7 @@ type subst_model =
     | TN93   of (float * float) option
     | GTR    of float array option
     | File   of float array array * string
-    | Custom of (int All_sets.IntegerMap.t * float array)
+    | Custom of (int All_sets.IntegerMap.t * float array * string)
 
 type priors = 
     | Estimated of float array
@@ -649,7 +649,7 @@ let subst_matrix model topt =
                 in
                 m_gtr priors c a_size _gapr
         | File (m,s)-> m_file priors m a_size
-        | Custom (assoc,ray) -> m_custom priors assoc ray a_size
+        | Custom (assoc,ray,_) -> m_custom priors assoc ray a_size
     in
     match topt with
     | Some t ->
@@ -690,7 +690,11 @@ let output_model output nexus model set =
                         gtr_mod := true
             | File (_,str) -> 
                         printf "@[Model = File:%s;@]" str
-            | Custom _ -> failwith "TODO"
+            | Custom (_,xs,str) ->
+                        printf "@[Model = Custom:%s;@]" str;
+                        printf "@[Parameters = ";
+                        Array.iter (printf "%f ") xs;
+                        printf ";@]";
         in
         let () = match model.spec.base_priors with
             | Equal ->
@@ -818,7 +822,11 @@ let output_model output nexus model set =
                     done; 
                     printf "@\n";
                 done;
-            | Custom _ -> failwith "TODO"
+            | Custom (_,xs,str) ->
+                printf "@[Custom:%s;@]@\n" str;
+                printf "@[Parameters : ";
+                Array.iter (printf "%f ") xs;
+                printf ";@]";
         in
         let () = match model.spec.use_gap with
             | `Independent -> printf "@[<hov 0>Gap property: independent;@]@\n"
@@ -1193,7 +1201,8 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
             let convert str = assert( String.length str = 1 ); String.get str 0 in
             let matrix = Cost_matrix.Two_D.matrix_of_file convert (`Local str) in
             let matrix = Array.of_list (List.map (Array.of_list) matrix) in
-            Custom (process_custom_model matrix)
+            let assoc,ray = process_custom_model matrix in
+            Custom (assoc,ray,str)
     in
     { substitution = substitution;
     site_variation = site_variation;
@@ -1304,7 +1313,7 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
             false, m_gtr priors c a_size _gapr, (GTR (Some c)),gapr
         | File (m,s)->
             false, m_file priors m a_size, lk_spec.substitution, lk_spec.use_gap
-        | Custom (assoc,xs) ->
+        | Custom (assoc,xs,_) ->
             false, m_custom priors assoc xs a_size, lk_spec.substitution, lk_spec.use_gap
     in
     (* ensure that when priors are not =, we use a model that asserts that *)
@@ -1692,8 +1701,8 @@ and update_gtr old_model new_values gap_r =
 
 and update_custom old_model new_values =
     let subst_spec,assoc = match old_model.spec.substitution with
-        | Custom (assoc,_) -> 
-            { old_model.spec with substitution = Custom (assoc,new_values); },assoc
+        | Custom (assoc,_,s) -> 
+            { old_model.spec with substitution = Custom (assoc,new_values,s); },assoc
         | _ -> assert false
     in
     let subst_model = m_custom old_model.pi_0 assoc new_values old_model.alph_s in
@@ -1800,7 +1809,10 @@ let to_formatter (model: model) : Xml.xml Sexpr.t list =
                         ([],1)
                 in
                 r
-        | Custom _ -> failwith "Done"
+        | Custom (_,_,str) ->
+                [(PXML -[Xml.Data.param 1]
+                    ([Xml.Alphabet.value] = [`String str])
+                    { `String "" } --)]
         | File (_,str) ->
                 [(PXML -[Xml.Data.param 1]
                     ([Xml.Alphabet.value] = [`String str])
@@ -1908,7 +1920,7 @@ let get_current_parameters_for_model model =
             Some y
         | GTR ((Some _) as x),_ -> x
         | GTR None,_ -> Some (default_gtr model.alph_s)
-        | Custom (_,xs),_ -> Some xs
+        | Custom (_,xs,_),_ -> Some xs
   ELSE
     None
   END
