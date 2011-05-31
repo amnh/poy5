@@ -84,8 +84,8 @@ open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
 (* minimum of three with annotations; this will work for all methods *)
 let min3_ a at b bt c ct =
-    if a >. b then begin
-        if b >. c then (c,[ct])
+    if a > b then begin
+        if b > c then (c,[ct])
         else if b =. c then ((min b c),[bt;ct])
         else (b,[bt])
     end else if a =. b then begin
@@ -144,6 +144,83 @@ module type A = sig
     (* (pseudo) 3d operations *)
     val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> floatmem -> float * s * bool
     val optimize : s -> s -> dyn_model -> float -> floatmem -> float * float
+
+end
+
+module CMPLAlign : A = struct
+
+    type s        = Sequence.s
+    type floatmem = FMatrix.m
+
+    (* We define all of the external functions, and compose them properly in
+       to the interface below *)
+
+    external fm_CAML_compose :
+        FMatrix.m -> 
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        float -> float -> int ->
+            (int,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t *
+            (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t 
+        = "fm_CAML_compose" "fm_CAML_compose_wrapped"
+
+    (* --- implement the A module *)
+
+    external s_of_seq : Sequence.s -> s = "%identity"
+    external seq_of_s : s -> Sequence.s = "%identity"
+    (* to implement w/out exposing their external signature in the mli *)
+    let s_of_seq = s_of_seq
+    let seq_of_s = seq_of_s
+ 
+    let compare a b      = 0 = Sequence.compare (seq_of_s a) (seq_of_s b)
+    let print_mem mem    = FMatrix.print mem
+    let create_mem _ _   = FMatrix.scratch_space
+    let get_mem _ _      = FMatrix.scratch_space
+    let clear_mem mem    = FMatrix.freeall mem
+    let print_cm m t     = 
+        let mat = MlModel.compose m.static t in
+        for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
+            for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
+                printf " [%f] " (~-. (log mat.{i,j}));
+            done;
+            printf "\n%!";
+        done;
+        ()
+
+    let print_s (seq:s) (a) =
+        for i = 0 to (Sequence.length seq)-1 do
+            try printf "%s" (Alphabet.match_code (Sequence.get seq i) a);
+            with (Alphabet.Illegal_Code _ ) -> printf "%d" (Sequence.get seq i);
+        done;
+        printf "\n%!";
+        ()
+
+    let print_raw seq =
+        for i = 0 to (Sequence.length seq)-1 do
+            printf "|%d" (Sequence.get seq i);
+        done;
+        printf "|%!";
+        ()
+
+    let cost_2 ?deltaw _ _ _ _ _ _  = failwith "not implemented"
+    let optimize s1 s2 model t mem  = failwith "not implemented"
+    let aln_cost_2 _ _ _ _          = failwith "not implemented"
+    let median_2 _ _ _ _ _ _        = failwith "not implemented"
+    let median_2_cost _ _ _ _ _ _   = failwith "not implemented"
+    let full_median_2 _ _ _ _ _ _   = failwith "not implemented"
+    let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
+    let closest ~p ~m _ _ _         = failwith "not implemented"
+    let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _ _    = failwith "not implemented"
+    let get_cm _ _ _                = failwith "not implemented"
+    let cost _ _ _                  = failwith "not implemented"
+    let get_cf _ _ _                = failwith "not implemented"
+    let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
+    let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
+    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
+    let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
+    let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
 
 end
 

@@ -2,6 +2,7 @@ add.o
 algn.o
 avl.o
 floatmatrix.o
+fm.o
 gamma.o
 getrusage.o
 likelihood.o

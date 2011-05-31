@@ -199,6 +199,16 @@ module type A = sig
 end 
 (** The sequence alignment module for floating point cost matrices/regimes. *)
 
+module CMPLAlign  : A
+(** This module determines two costs matrices, and finds the median by the
+    likelihood of transform either of the children over their cost matrix to an
+    assignment median. Each assignment is considered.
+    
+    This implementation is a written in C (fm.c).
+
+    PROD (x,y=0 to n,m) of MAX (i in A) of ( P(t1)_xi * P(t2)_yi )
+    Where A is the set of characters in the alphabet, and P(t) = e^Qt. *)
+
 module FloatAlign : A
 (** This module calculates the alignment (and the cost of the alignment), by
     combining the branch lengths, and creating the transition matrix from that
