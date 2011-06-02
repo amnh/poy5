@@ -323,6 +323,12 @@ let concat x =
 let to_array s =
     Array.init (length s) (fun x -> get s x)
 
+(** [of_array code_arr] converts the code array [code_arr]
+* into a sequence *)
+let of_array code_arr = 
+    let len = Array.length code_arr in 
+    init (fun idx -> code_arr.(idx)) len  
+
 (*let rnd a len = *)
 (*    let f = Alphabet.rnd a in*)
 (*    init (fun x -> f ()) len*)
@@ -2220,11 +2226,16 @@ let align2 (seq1 : s) (seq2 : s)
 	let ext_seq1 = init (fun pos -> if pos = 0 then gap_code 
 						else get seq1 (pos - 1)) (len1 + 1) in 
 	let ext_seq2 = init (fun pos -> if pos = 0 then gap_code 
-						else get seq2 (pos - 1)) (len2 + 1) in 
-
+						else get seq2 (pos - 1)) (len2 + 1) in
+(*this calls the ukkonen space saver version. in ml. I'm moving it to C*)
+    let alied_arr1,alied_arr2, cost = 
+        Ukk_space_save.ukkonen_align (to_array ext_seq1) (to_array ext_seq2) cost_mat in
+    let ext_alied_seq1, ext_alied_seq2 = 
+        of_array alied_arr1, of_array alied_arr2 in
+(* this is calls ukkonen full version, in C, which allocation the whole matrix 
 	let ext_alied_seq1, ext_alied_seq2, cost = Align.align_2 
         ext_seq1 ext_seq2 cost_mat Matrix.default in 		
-
+*)
 	let ali_len = length ext_alied_seq1 - 1 in 
 	let alied_seq1 = subseq ext_alied_seq1 1 ali_len in 
 	let alied_seq2 = subseq ext_alied_seq2 1 ali_len in 
@@ -2500,15 +2511,6 @@ let map f s =
         set m_s p (f (get s p));
     done; 
     m_s
-
-
-(** [of_array code_arr] converts the code array [code_arr]
-* into a sequence *)
-let of_array code_arr = 
-    let len = Array.length code_arr in 
-    init (fun idx -> code_arr.(idx)) len    
-
-
 
 (** [get_single_seq seq c2] returns a signle sequence
 * of sequence [seq] *)        

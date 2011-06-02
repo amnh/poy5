@@ -25,10 +25,14 @@ open Printf
 let printIntArr = Utl.printIntArr
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
-
+(*now we have 3 different function for removing bad lcbs. if
+    * faster_remove=false, the greedy one will be used. if faster_remove=true,
+    * we call the dynamic one. there is another dynamic
+    * one "remove_bad_lcbs_dyn2" ,which is worse than "remove_bad_lcbs_dyn",
+    * I should get rid of it later*)
 let faster_remove = true
-let debug_main = false
-let debug_remove_bad_match =  false 
+let debug_main = true
+let debug_remove_bad_match =  true 
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
 let debug_search_outside = false
@@ -221,7 +225,7 @@ let minimum_lcb_ratio = ref 30.0
 let stop_lcb_ratio = ref 5.
 
 (*minimum value of break point penalty*)
-let min_break_point_penalty = ref 4000 
+let min_break_point_penalty = ref 50 
 
 (*lcb with lower weight should be considered removing*)
 let minimum_lcb_weight = 2 
@@ -314,6 +318,14 @@ let print_int_lstlst inlstlst =
         Printf.printf "\n%!";
     ) inlstlst
 
+let print_int_lstlst2 inlstlst =
+    List.iter (fun lst ->
+        print_int_list lst;
+        (*Printf.printf "\n%!";*)
+    ) inlstlst;
+    print_newline()
+
+
 let print_int_lstlstlst inlstlstlst = 
     List.iter (fun lstlst ->
         List.iter(fun lst ->
@@ -322,7 +334,7 @@ let print_int_lstlstlst inlstlstlst =
         Printf.printf "\n%!";
     ) inlstlstlst
 
-let print_lcblst lcbs =
+let print_lcblst lcbs = (*lcbs should be int list list list.*)
     List.iter (fun lcblst ->
         List.iter (fun record -> print_int_list record) lcblst;
         Printf.printf "\n%!";
@@ -2617,7 +2629,7 @@ let get_bad_block_weight lcbarr lcb_tbl debug =
 let both_are_high_score_lcbs lcbkey1 lcbkey2 lcb_tbl debug =
     let lcbrecord1 = try Hashtbl.find lcb_tbl (get_abs_lst lcbkey1)
     with  |Not_found -> 
-                error_user_message "both_are_not_light_lcbs,could not find lcb";
+                error_user_message "could not find lcb in both_are_high_score_lcbs";
                 print_int_list lcbkey1;
                 assert(false) 
     in
@@ -2625,7 +2637,7 @@ let both_are_high_score_lcbs lcbkey1 lcbkey2 lcb_tbl debug =
     if debug then print_lcb lcbrecord1;
     let lcbrecord2 = try Hashtbl.find lcb_tbl (get_abs_lst lcbkey2)
         with  |Not_found -> 
-                error_user_message "both_are_not_light_lcbs,could not find lcb";
+                error_user_message "could not find lcb in both_are_high_score_lcbs";
                 print_int_list lcbkey2;
                 assert(false) 
     in
@@ -2639,73 +2651,240 @@ let both_are_high_score_lcbs lcbkey1 lcbkey2 lcb_tbl debug =
         false,q1,q2
 
 
+let get_from_code2lcbmap (codelst:int list) m =
+    let ori = 
+        if (List.hd codelst)<0 then (-1) else 1 in
+    let codelst = if ori>0 then codelst
+    else get_neg_rev_intlst codelst in
+    let abs_lcbkeylst = 
+        List.map (fun code ->
+        try (All_sets.IntegerMap.find code m) 
+        with | Not_found -> 
+            Printf.printf "code %d is not in code2lcb map\n%!" code;
+            assert(false);
+    ) codelst in
+    abs_lcbkeylst,ori
+    (*if ori>0 then abs_lcbkeylst 
+    else (get_neg_rev_intlst abs_lcbkeylst)*) 
 
-(*this works for two sequences input only*)
-let get_break_point_matrix inarrarr get_neg_item lcb_param (*optional*) debug =       
+let print_codemap codemap =
+    All_sets.IntegerListMap.iter (fun lcbkey codelist ->
+        Printf.printf "lcb:%!";
+        print_int_list lcbkey;
+        Printf.printf " --> %!";
+        print_int_list codelist;
+        Printf.printf "\n%!";
+    ) codemap
+
+
+let get_code_from_codemap lcbkey codemap = 
+    let ori = ref 1 in
+    let code =  
+    try All_sets.IntegerListMap.find lcbkey codemap 
+     with | Not_found -> 
+        ( 
+            ori := (-1);
+            try All_sets.IntegerListMap.find (get_neg_rev_intlst lcbkey) codemap
+            with | Not_found -> 
+            Printf.printf "could not find lcb in codemap,%!";
+            print_int_list lcbkey;
+            assert(false);
+        )
+    in
+    code,!ori
+
+
+(*[remove_from_codemap lcbkey codemap lcbarr0 debug]. return the codemap after
+* removing lcbkey. we have two lcb arrays. after get breakpoint analy*)
+let remove_from_codemap lcbkey codemap lcbarr0 debug = 
+    let map_after_remove = 
+    All_sets.IntegerListMap.remove lcbkey codemap in
+    let map_after_remove = 
+    All_sets.IntegerListMap.remove (get_neg_rev_intlst lcbkey)
+    map_after_remove in
+    if debug then begin
+    Printf.printf "codemap after remove:\n%!";
+    print_codemap map_after_remove;
+    end;
+    (*say if we remove 6th,7th and 8th lcb so that 1th and 2th lcb could collapse
+    * into each other, then 5th and 9th lcb are now adjancent, we should
+    * add code6,7,8 to 5th lcb in codemap, so "is_adjacent" on 5th and
+    * 9th lcb return true.
+    * NOTE: code in codemap is idx+1, so 1th lcb has code 1, but its idx
+    * in lcblst is 0, that the reason of -1-1*)
+    let codelst2remove,_ = get_code_from_codemap lcbkey codemap in
+    let mincode2remove = List.hd (List.sort compare codelst2remove) in
+    let idx_ahead = ref(mincode2remove-1-1) 
+    and lcbkey_ahead = ref [] in
+    while (!idx_ahead>=0)&&(!lcbkey_ahead <> []) do
+        let tmplcb = lcbarr0.(!idx_ahead) in
+        if All_sets.IntegerListMap.mem tmplcb map_after_remove then
+            lcbkey_ahead := tmplcb
+        else
+            idx_ahead := !idx_ahead -1;
+    done;
+    let lcbkey_ahead = !lcbkey_ahead in
+    if lcbkey_ahead <> [] then begin
+        let codelst_ahead,_ = get_code_from_codemap lcbkey_ahead map_after_remove in
+        let newlst_ahead = codelst_ahead @ codelst2remove in
+        let codemap_ahead = All_sets.IntegerListMap.add lcbkey_ahead
+        newlst_ahead map_after_remove in
+        if debug then begin
+            Printf.printf "mincode2remove=%d,idx_ahead=%d,lcb_ahead:%!" 
+            mincode2remove !idx_ahead;
+            print_int_list lcbkey_ahead;
+            Printf.printf "codemap ahead:\n%!";
+            print_codemap codemap_ahead;
+        end;
+        codemap_ahead
+    end
+    (*if there is no available lcb ahead, no need to worry*)
+    else map_after_remove
+
+
+let get_lcblst_from_codemap codemap =
+    let debug = false in
+    let lst = All_sets.IntegerListMap.fold (fun lcbkey codelst acc ->
+        (codelst,lcbkey)::acc;
+    ) codemap [] in
+    if debug then Printf.printf "get lcblst from codemap, size of map=%d\n%!"
+    (List.length lst);
+    if debug then
+        List.iter (fun (codelst,lcbkey) ->
+        print_int_list codelst;
+        Printf.printf " -- > lcblst=%!";
+        print_int_list lcbkey;
+        print_newline();
+    ) lst;
+    let sorted_lst = List.sort(fun (codelst1,lcbkey1) (codelst2,lcbkey2) ->
+        let mincode1 = List.hd codelst1 
+        and mincode2 = List.hd codelst2 in
+        compare mincode1 mincode2
+    ) lst in
+    List.fold_left (fun acc (codelst,lcbkey) -> 
+        if acc=[[]] then [lcbkey] else acc @ [lcbkey]
+    ) [[]] sorted_lst 
+
+
+let get_bkmatrix_codemap inarrarr get_neg_item =
+    let debug = false and debug2 = false in
+    let sizex = Array.length inarrarr 
+    and sizey = Array.length (inarrarr.(0)) in
+    assert(sizex=2);  assert(sizey>0);
+    if debug then 
+        Printf.printf "get_bkmatrix_codemap, sizex=%d,sizey=%d\n%!" sizex sizey;
+    let bkmatrix = Array.make_matrix sizex sizey (-1) in
+    (*codemap : lcb key list -> code list. here code list has only one int, but
+    * later in removing bad lcbs, we need to merge two lcblist into one, we
+    * merge their code into one code list as well.*)
+    let emptycodemap = All_sets.IntegerListMap.empty in 
+    let emptycodemap2 = All_sets.IntegerMap.empty in 
+    let i = ref 0 in
+    let codemap,codemap2 = Array.fold_left (fun (accmap,accmap2) item ->
+        let newmap = All_sets.IntegerListMap.add item [(!i+1)] accmap in
+        let newmap2 = All_sets.IntegerMap.add (!i+1) item accmap2 in
+        bkmatrix.(0).(!i) <- (!i+1);
+        i := !i + 1;
+        newmap,newmap2 ) (emptycodemap,emptycodemap2) inarrarr.(0) 
+    in
+    let i = 1 in
+    for j=0 to (sizey-1) do
+        let item = inarrarr.(1).(j) in
+        let ori = ref 1 in 
+        let singlecodelst = try All_sets.IntegerListMap.find item codemap 
+        with | Not_found ->
+            (
+            ori := (-1);
+            try All_sets.IntegerListMap.find (get_neg_item item) codemap
+            with | Not_found -> 
+                Printf.printf "i=%d,j=%d,could not find item\n%!" i j;
+                print_int_list item;
+                assert(false);
+            )
+        in
+        assert((List.length singlecodelst)=1);
+        let code = List.hd singlecodelst in
+        let ori = !ori in
+        bkmatrix.(i).(j)<-(ori*code);
+    done;
+    if debug then print_int_matrix bkmatrix;
+    if debug2 then print_codemap codemap;
+    bkmatrix,codemap,codemap2
+
+
+
+let get_break_point_matrix_faster inarrarr get_neg_item lcb_param (*optional*) debug =
     let debug = false in
     let sizex = Array.length inarrarr 
     and sizey = Array.length (inarrarr.(0)) in
     assert(sizex=2);  assert(sizey>0);
     if debug then 
-        Printf.printf "get_break_point_matrix, sizex=%d,sizey=%d\n%!" sizex sizey;
-    let bkmatrix = Array.make_matrix sizex sizey (-1) in 
-    for i=0 to (sizey-1) do
-        bkmatrix.(0).(i) <- (i+1);
-    done;
+        Printf.printf "get_break_point_matrix_faster, sizex=%d,sizey=%d\n%!" sizex sizey;
+    let bkmatrix = Array.make_matrix sizex sizey (-1) in
+    let emptycodemap = All_sets.IntegerListMap.empty in 
+    let i = ref 0 in
+    let codemap = Array.fold_left (fun accmap item ->
+        let newmap = All_sets.IntegerListMap.add item (!i+1) accmap in
+        bkmatrix.(0).(!i) <- (!i+1);
+        i := !i + 1;
+        newmap ) emptycodemap inarrarr.(0) 
+    in
     let light_block_lst = ref [] (*record bad lcb blocks between good ratio pairs*)
     and worst_weight = ref (!minimum_lcb_len) (*we don't need this now*)
     and pre_pos = ref (-1) 
-    and q3_lst = ref [] (*record quality=3 lcbs,we remove this first*)
+    and q3_lst = ref [] (*record quality=3 lcbs,we remove this kind of match first*)
     in
-    for i=1 to (sizex-1) do
-        for j=0 to (sizey-1) do
-            let item = inarrarr.(0).(j) in
-            let idx,ori = 
-                let tmp = find_index inarrarr.(i) item compare in
-                if (tmp<0) then
-                    find_index inarrarr.(i) (get_neg_item item) compare ,-1
-                else tmp,1
-            in
-            if (idx<0) then begin
+    let i = 1 in
+    for j=0 to (sizey-1) do
+        let item = inarrarr.(1).(j) in
+        let ori = ref 1 in 
+        let code = try All_sets.IntegerListMap.find item codemap 
+        with | Not_found ->
+            (
+            ori := (-1);
+            try All_sets.IntegerListMap.find (get_neg_item item) codemap
+            with | Not_found -> 
                 Printf.printf "i=%d,j=%d,could not find item\n%!" i j;
                 print_int_list item;
-            end;
-            assert(idx>=0);
-            bkmatrix.(i).(idx)<-(ori*(j+1));
-            (match lcb_param with
-                | Some lcb_tbl ->
-                    if (!pre_pos>0) then begin
-                        let a,b = 
-                            if !pre_pos > idx then idx,!pre_pos else !pre_pos,idx 
-                        in
-                        let debug = false in
-                        let both_are_good,q_a,q_b = both_are_high_score_lcbs inarrarr.(i).(a) inarrarr.(i).(b)
-                        lcb_tbl debug in
-                        if q_a=3||q_a=2 then q3_lst := inarrarr.(i).(a) :: !q3_lst ;
-                        if q_b=3||q_b=2 then q3_lst := inarrarr.(i).(b) :: !q3_lst ;
-                         if (b-a>1)&&both_are_good then 
-                            let middle_block_full = 
-                                Array.sub inarrarr.(i) (a) (b-a+1) in
-                            let middle_block = Array.sub middle_block_full 1
-                            ((Array.length middle_block_full)-2) in
-                            let w,c = get_bad_block_weight middle_block lcb_tbl
-                            debug in
-                            if debug then Printf.printf "c=%d,w=%d\n%!" c w;
-                            if c=0 && w>0 && !worst_weight<= w then begin
-                            light_block_lst := middle_block_full :: !light_block_lst;
-                            end
-                            else if c=0 && w>0 && !worst_weight>w  then begin 
-                            light_block_lst := !light_block_lst @ [middle_block_full];
-                            worst_weight := w;
-                            end
-                    end;
-                    pre_pos := idx;
-                | None -> () )
-        done;
+                assert(false);
+            )
+        in
+        let ori = !ori in
+        bkmatrix.(i).(j)<-(ori*code);
+        let idx = code - 1 in
+        (match lcb_param with
+            | Some lcb_tbl ->
+                if (!pre_pos>0) then begin
+                    let a,b = 
+                        if !pre_pos > idx then idx,!pre_pos else !pre_pos,idx 
+                    in
+                    let debug = false in
+                    let both_are_good,q_a,q_b = both_are_high_score_lcbs inarrarr.(i).(a) inarrarr.(i).(b)
+                    lcb_tbl debug in
+                    if q_a=3||q_a=2 then q3_lst := inarrarr.(i).(a) :: !q3_lst ;
+                    if q_b=3||q_b=2 then q3_lst := inarrarr.(i).(b) :: !q3_lst ;
+                     if (b-a>1)&&both_are_good then 
+                        let middle_block_full = 
+                            Array.sub inarrarr.(i) (a) (b-a+1) in
+                        let middle_block = Array.sub middle_block_full 1
+                        ((Array.length middle_block_full)-2) in
+                        let w,c = get_bad_block_weight middle_block lcb_tbl
+                        debug in
+                        if debug then Printf.printf "c=%d,w=%d\n%!" c w;
+                        if c=0 && w>0 && !worst_weight<= w then begin
+                        light_block_lst := middle_block_full :: !light_block_lst;
+                        end
+                        else if c=0 && w>0 && !worst_weight>w  then begin 
+                        light_block_lst := !light_block_lst @ [middle_block_full];
+                        worst_weight := w;
+                        end
+                end;
+                pre_pos := idx;
+            | None -> () )
     done;
     if debug then  print_int_matrix bkmatrix;
     let bk_number = ref 0 in
-    for i=1 to (sizex-1) do
+    let i = 1 in
        for j=(sizey-1) downto 1 do
             let b = bkmatrix.(i).(j) and a = bkmatrix.(i).(j-1) in
             if ((b*a>0)) && ( (b-a)=1 ) then begin
@@ -2721,13 +2900,15 @@ let get_break_point_matrix inarrarr get_neg_item lcb_param (*optional*) debug =
         done;
         bkmatrix.(i).(0) <- 1;
         bk_number := !bk_number + 1;
-    done;
     for j=0 to (sizey-1) do
         if bkmatrix.(0).(j)<>0 then bkmatrix.(0).(j)<-1
         else ();
     done;
     bkmatrix.(0).(0) <- 1;
     bkmatrix, !bk_number, (!light_block_lst,!worst_weight,!q3_lst)
+    
+
+
     
     
 (*get range of current lcb in each sequence, seedNOlst is the list of seedNO of that lcb*)
@@ -2753,6 +2934,7 @@ let get_range_of_a_lcb seedNOlst seqNO mum_tbl seed2pos_tbl=
     in
     if debug then begin
     Printf.printf "get range of lcb: \n%!";
+    print_int_list seedNOlst;
     Printf.printf "=> %d,%d\n %!" leftend rightend;
     end;
     (leftend,rightend),ori
@@ -2879,7 +3061,7 @@ create the largest increase in the sum-of-pairs breakpoint score gets
 removed."  
 " The total score would be calculated as the sum of the individual MUM scores, minus
 (number of breakpoints)*(breakpoint penalty)". *)
-(*lcb_tbl is empty before this function*)
+(*NOTE: lcb_tbl is EMPTY before this function*)
 let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  = 
     let debug = false in
    (*fill in range of each lcb with mum_tbl*)
@@ -2930,7 +3112,7 @@ let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  =
         let ratio = (float total_score)/.(avg_range) in
         if debug then begin
             Printf.printf "update lcb_tbl on %!" ; print_lcb oldlcb;
-            Printf.printf "score <-- %d,ratio <-- %f\n%!" total_score ratio;
+            Printf.printf "score <-- %d,ratio <-- %f,avg_range<-%f\n%!" total_score ratio avg_range;
         end; 
         Hashtbl.remove lcb_tbl seedNOlst;
         Hashtbl.add lcb_tbl seedNOlst 
@@ -2942,8 +3124,7 @@ let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  =
 
     ) lcb_tbl
 
-(*[get_lcbs_range returns the range lst of current lcb, 
-* if special_case=true, we don't care the lcb weight.]*)
+(*[get_lcbs_range] returns the range lst of current lcb, *)
 let get_lcbs_range lcb_tbl in_seq_size_lst = 
     let lcb_range_lst_arr = Array.make 2 [] in
     Hashtbl.iter (fun seedNOlst record ->
@@ -2960,6 +3141,20 @@ let get_lcbs_range lcb_tbl in_seq_size_lst =
         ) lcb_range_lst_arr
     in
     Array.to_list lcb_range_lst_arr
+
+(*[get_lcblst_len] return sum of avg_reange_len and score of all qualified lcb 
+* in lcbkeylst*)
+let get_lcblst_len_and_score lcbkeylst lcb_tbl =
+    List.fold_left (fun (acclen,accscore) lcbkey ->
+        let tmp = try (Hashtbl.find lcb_tbl (get_abs_lst lcbkey)) 
+        with |Not_found -> failwith "not found get lcblst range" in
+        let lcb_q = (lcb_quality_test tmp) in
+        if lcb_q=1 || lcb_q=0 then
+        tmp.avg_range_len + acclen,tmp.score + accscore
+        else acclen,accscore
+    ) (0,0) lcbkeylst
+    
+
 
 (* [get_lcb_key_by_range] get the lcb_key and lcb_code by its range. if no lcb is found,
 * return [],0. 
@@ -3081,35 +3276,37 @@ let get_seq_outside_lcbs old_seqarr old_seq_size_lst lcb_tbl =
 
 (*[get_lcb_covR_num_badlcb] return the cover rate of qualified lcb, 
 * number of un-qualified lcb.  
+* max_q : if return of lcb_quality_test is bigger than max_q, it's not a
+* qualified lcb -- just put max_q=0 if you need highR&highL lcb; max_q=1 if you
+* can accept lowL lcb with highR, etc 
 * but if we only have one lcb in lcb_tbl, qualified or not, 
 * we get the cover rate of that lcb, num_badlcb doen't matter in this case*)    
-let get_lcb_covR_num_badlcb lcb_tbl in_seq_size_lst =
+let get_lcb_covR_num_badlcb lcb_tbl in_seq_size_lst max_q =
     let q_cov_len = ref 0 in
     let num_badlcb = ref 0 in
     let lcb_tbl_size = Hashtbl.length lcb_tbl in
     Hashtbl.iter (fun key lcb_record ->
         if (lcb_tbl_size=1) (*we keep the last bad lcb*) ||
-        (((is_light_weight_lcb lcb_record)=false)
-        && (is_low_score_lcb lcb_record)=false)
-        then q_cov_len := !q_cov_len + lcb_record.avg_range_len
+        (lcb_quality_test lcb_record)<=max_q 
+            then q_cov_len := !q_cov_len + lcb_record.avg_range_len
         else 
             num_badlcb := !num_badlcb + 1
     ) lcb_tbl;
     let avg_seq_len = get_avg_of_intlst in_seq_size_lst in
     (float !q_cov_len)/.avg_seq_len , !num_badlcb
-    
+
 
 (* build_LCBs build lcb table from mum_tb, seed2pos_tbl. 
 *  previous_result is the breakpoint number from previous lcbs. it's optional.
 *  this is useful when we remove only one lcb from lcbs. we only create a new 
 *  lcb table when breakpoint number decrease by at least 2. *)
-let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst
+let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst max_q
 (previous_result:int option) =
     let debug = false in
     if debug then Printf.printf "build LCBS \n %!";
     let resmatrix = Array.of_list (List.map (fun lst -> Array.of_list lst)
     seedNOlstlst) in 
-    let bkmatrix,_,_ = get_break_point_matrix resmatrix get_neg_rev_intlst None
+    let bkmatrix,_,_ = get_break_point_matrix_faster resmatrix get_neg_rev_intlst None
     false in
     let lcbs = Array.to_list (Array.mapi (fun i bkarr ->
         let res = ref [[]] in
@@ -3130,6 +3327,8 @@ let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst
     in
     if debug then begin
         Printf.printf "build_LCBs,lcblstlst :\n%!";
+        assert( ( List.length (List.hd lcbs) ) = (List.length (List.nth lcbs 1))
+        );
         print_int_lstlstlst lcbs;
     end;
     let new_bk_num = List.length (List.hd lcbs) in
@@ -3143,7 +3342,7 @@ let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst
     if (old_bk_num-new_bk_num)>=2 then begin
         update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl ;
         let q_cov_rate,num_badlcb = 
-            get_lcb_covR_num_badlcb lcb_tbl in_seq_size_lst in
+            get_lcb_covR_num_badlcb lcb_tbl in_seq_size_lst max_q in
         if debug then 
             Printf.printf "q_cov_rate = %f,end of building LCBs\n%!" 
             q_cov_rate;
@@ -3166,11 +3365,11 @@ in_seq_size_lst seed2pos_tbl mum_tbl old_lcb_tbl old_lcb_cov_rate old_badlcb_num
     let resmatrix = 
         Array.of_list (List.map (fun lst -> Array.of_list lst) new_lcbs) in 
     let debug_bk_matrix = false in
-    let _,bk_number,_ = get_break_point_matrix resmatrix get_neg_rev_intlst None debug_bk_matrix in
+    let _,bk_number,_ = get_break_point_matrix_faster resmatrix get_neg_rev_intlst None debug_bk_matrix in
     let new_score = 
         total_mum_score - removed_lcb_score - bk_number*bk_penalty in
     let new_lcbs, new_lcb_cov_rate,num_badlcb,new_lcb_tbl = 
-         build_LCBs new_lcbs mum_tbl seed2pos_tbl in_seq_size_lst (Some old_bk_number ) in
+         build_LCBs new_lcbs mum_tbl seed2pos_tbl in_seq_size_lst 0 (Some old_bk_number ) in
     if new_lcb_cov_rate > 0. then 
         (*after remove the bad lcb, two or more lcbs clapse into each other*)
         new_score,new_lcb_cov_rate,num_badlcb,new_lcbs,new_lcb_tbl
@@ -3408,7 +3607,7 @@ num_of_mums =
     let init_score = total_mum_score - init_bk_num*bk_penalty in
     let res_score = ref init_score in
     let res_cov_rate,res_num_badlcb = 
-        get_lcb_covR_num_badlcb lcb_tbl in_seq_size_lst in
+        get_lcb_covR_num_badlcb lcb_tbl in_seq_size_lst 0 in
     let res_cov_rate = ref res_cov_rate in
     let res_lcb_tbl = ref lcb_tbl in
     let res_lcbs = ref lcbs in
@@ -3505,12 +3704,13 @@ num_of_mums old_cov_rate =
     let resmatrix = 
         Array.of_list (List.map (fun lst -> Array.of_list lst) !res_lcbs) in
     let _,_,(light_block_lst,worst_w,q3_lcb_lst) = 
-        get_break_point_matrix resmatrix get_neg_rev_intlst (Some !res_lcb_tbl) false in
+        get_break_point_matrix_faster resmatrix get_neg_rev_intlst (Some !res_lcb_tbl) false in
     if debug_remove_bad_match then info_user_message 
     "candidate list size:q3=%d,light=%d,worst weight=%d,go through them 1 by 1" 
     (List.length q3_lcb_lst) (List.length light_block_lst) worst_w;
     if q3_lcb_lst<>[] then begin
         if debug_remove_bad_match then 
+            let _ = Printf.printf "blocks in q3 lst :%!" in
             List.iter (fun x -> print_int_list x) q3_lcb_lst;
         let new_lcbs = List.map (fun lcblst ->
             List.filter (fun record ->
@@ -3526,8 +3726,10 @@ num_of_mums old_cov_rate =
     ;
     let block2remove = ref [] in (*this is just for debug output*)
     if (light_block_lst)<>[] then begin
+        if debug_remove_bad_match then
+            info_user_message "done with q3 lst, try other light blocks 1 by 1";
         let better_result = 
-            (*find the worst one to remove*)
+            (*greedy here: remove the first on in light_block_lst that can increase covR.*)
         List.fold_left (fun better_result light_block ->
             let _,better_cov_rate,_ = better_result in
             if better_cov_rate > !res_cov_rate then
@@ -3538,6 +3740,7 @@ num_of_mums old_cov_rate =
                 light_block.(0),light_block.(size-1),
                 (Array.sub light_block 1 (size-2)) in
                 let light_block = Array.to_list light_block in
+                block2remove := light_block;
                 let new_lcbs = List.map (fun lcblst ->
                 List.filter (fun record ->
                     (*see if lcbrecord shows up in light_block*)
@@ -3547,8 +3750,10 @@ num_of_mums old_cov_rate =
                         ) true light_block
                 ) lcblst 
                 ) !res_lcbs in
+                Printf.printf "\nif we remove light lcb block:%!" ;
+            List.iter (fun lcbkey -> print_int_list lcbkey) light_block;
                 let new_lcbs, new_lcb_cov_rate,num_badlcb,new_lcb_tbl = 
-                build_LCBs new_lcbs mum_tbl seed2pos_tbl in_seq_size_lst None
+                build_LCBs new_lcbs mum_tbl seed2pos_tbl in_seq_size_lst 0 None
                 in 
                 (new_lcbs,new_lcb_cov_rate,new_lcb_tbl)
 
@@ -3592,6 +3797,7 @@ num_of_mums old_cov_rate =
             List.iter (fun lcbkey -> print_int_list lcbkey) !block2remove;
             Printf.printf "new lcb_tbl,size=%d,covR=%f(pre covR=%f),\n%!"
             (Hashtbl.length better_lcb_tbl) better_cov_rate !res_cov_rate;
+            Printf.printf "lcb arrarr after removing:%!";
             print_lcblst better_lcbs;
             end;
             res_lcbs := better_lcbs;
@@ -3613,7 +3819,7 @@ num_of_mums old_cov_rate =
     end;
     if !improving=false && q3_lcb_lst<>[] then begin
             let new_lcbs, new_lcb_cov_rate,num_badlcb,new_lcb_tbl = 
-            build_LCBs !res_lcbs mum_tbl seed2pos_tbl in_seq_size_lst None
+            build_LCBs !res_lcbs mum_tbl seed2pos_tbl in_seq_size_lst 0 None
             in
             res_lcbs := new_lcbs;
             res_cov_rate := new_lcb_cov_rate;
@@ -3622,7 +3828,564 @@ num_of_mums old_cov_rate =
     done;
     !res_lcbs,!res_cov_rate,!res_lcb_tbl
 
-    
+(*remove bad lcbs with dynamic prog*)
+let remove_bad_lcbs_dyn (lcbs:int list list list) lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
+num_of_mums old_cov_rate = 
+let debug = true and debug2 = false in
+    if debug then Printf.printf "remove bad lcbs dyn\n%!";
+    if debug2 then Hashtbl.iter (fun key record ->
+                    print_lcb record 
+                ) lcb_tbl;
+    let size = List.length (List.hd lcbs) in 
+    (*ok, we don't need the whole matrix, just the diagonal cells*)
+    let cov_mat = Array.make_matrix size size
+    (([[]],0,0,All_sets.IntegerListMap.empty),(-1)) in
+    let resmatrix =  Array.of_list 
+        (List.map (fun lst -> Array.of_list lst) lcbs) in
+    let bkmatrix,codemap,_ = get_bkmatrix_codemap resmatrix get_neg_rev_intlst in
+    (*functions start*)
+    let is_adjacent codelst1 codelst2 ori1 ori2 =
+        if ori1 * ori2 < 0 then false
+        else begin
+            let code1 = List.hd (List.rev codelst1) 
+            and code2 = List.hd codelst2 in
+            (code2-code1) = 1
+        end
+    in
+    let print_cell i j ((lcbkeylst,score,len,codemap),dir) printcodemap =
+        Printf.printf "cell.%d.%d:%!" i j;
+        print_lcblst [lcbkeylst];
+        Printf.printf "score = %d,len=%d,dir=%d\n%!" score len dir;
+        if printcodemap then
+            print_codemap codemap;
+    in
+    let join_2_cell ((lcbkeylst: int list list),score,len,codemap) (lcbkey:int list) leftjoin =
+        let debug_join_2_cell = false in 
+        let addlen,addscore = get_lcblst_len_and_score [lcbkey] lcb_tbl in
+        if debug_join_2_cell then begin
+            Printf.printf "join 2 cell,addscore=%d,addlen=%d;%!" addscore addlen;
+            print_int_list lcbkey;
+            print_newline();
+        end;
+        let reslcblst =
+            if addscore > 0 then 
+                match leftjoin with 
+                | true -> lcbkeylst @ [lcbkey]
+                | false -> [lcbkey] @ lcbkeylst 
+            else
+                lcbkeylst
+        in
+        let sumscore = addscore + score and sumlen = addlen + len in
+        let rescodemap = 
+            if addscore > 0 then codemap
+            else 
+                remove_from_codemap lcbkey codemap resmatrix.(0) false
+        in
+        reslcblst,sumscore,sumlen,rescodemap
+    in
+    let merge_two_lcb lcbkey1 lcbkey2 midlcblst code1lst code2lst midcodemap debug_merge_two_lcb =
+        let key12 = List.append lcbkey1 lcbkey2 in
+        (*get range including midlcblst*)
+        let (lend0,rend0),_ = get_range_of_a_lcb key12 0 mum_tbl seed2pos_tbl
+        and (lend1,rend1),_ = get_range_of_a_lcb key12 1 mum_tbl seed2pos_tbl
+        in
+        let _,score12 = get_lcblst_len_and_score [lcbkey1;lcbkey2] lcb_tbl in
+        let range12 = get_avg_of_intlst [(rend0-lend0);(rend1-lend1)]  in
+        let ratio = (float score12)/.(range12) in
+        if debug_merge_two_lcb then begin
+            Printf.printf "merge_two_lcb:%!";
+            print_int_list lcbkey1; print_int_list lcbkey2;
+            Printf.printf "l0,r0=%d,%d;l1,r1=%d,%d;score=%d,range=%f;
+            midlcblst to remove:%!" 
+            lend0 rend0 lend1 rend1 score12 range12;
+            print_lcblst [midlcblst];
+        end;
+        if ratio >= !minimum_lcb_ratio then begin
+            let newcodemap = List.fold_left (fun accmap lcbkey ->
+                remove_from_codemap lcbkey accmap resmatrix.(0) false
+            ) (midcodemap) midlcblst in
+            (*update code12*)
+            let code1lst,_ = 
+                get_code_from_codemap lcbkey1 newcodemap
+            and code2lst,_ = 
+                get_code_from_codemap lcbkey2 newcodemap
+            in
+            let code12lst = get_abs_lst (code1lst @ code2lst) in
+            let codemap_remove1 = All_sets.IntegerListMap.remove lcbkey1 newcodemap in
+            let codemap_remove2 = All_sets.IntegerListMap.remove
+            (get_neg_rev_intlst lcbkey1) codemap_remove1 in
+            let codemap_remove3 = All_sets.IntegerListMap.remove lcbkey2
+            codemap_remove2 in
+            let codemap_remove4 = All_sets.IntegerListMap.remove
+            (get_neg_rev_intlst lcbkey2) codemap_remove3 in
+            let codemap12 = All_sets.IntegerListMap.add (get_abs_lst key12)
+            code12lst codemap_remove4 in
+            if debug_merge_two_lcb then begin
+                Printf.printf "codemap12 :\n%!";
+                print_codemap codemap12;
+            end;
+            true,(get_abs_lst key12),score12,int_of_float range12,codemap12
+        end
+        else
+            false,[],0,0,All_sets.IntegerListMap.empty
+    in
+    let join_3_cell midcell lcbkey1 lcbkey2 debug_join_3_cell=
+        if debug_join_3_cell then Printf.printf "join 3 cell \n%!";
+        let midlcblst,_,_,midcodemap = midcell in
+        let code1lst,ori1 = get_code_from_codemap lcbkey1 midcodemap in
+        let code2lst,ori2 = get_code_from_codemap lcbkey2 midcodemap in
+        if is_adjacent code1lst code2lst ori1 ori2 then begin
+            if debug_join_3_cell then Printf.printf "try to merge left and right lcb\n%!";
+            match merge_two_lcb lcbkey1 lcbkey2 midlcblst code1lst code2lst
+            midcodemap debug_join_3_cell with
+            | true, key12,score12,range12,codemap12 ->
+                    [key12],score12,range12,codemap12
+            | false, _,_,_,_ ->
+            if debug_join_3_cell then Printf.printf "did not merge, join2 instead\n%!";
+                    let (keym1,scorem1,lenm1,codemapm1) as tmpjoin = 
+                        join_2_cell midcell lcbkey1 false in
+                    join_2_cell tmpjoin lcbkey2 true 
+        end
+        else
+            let tmpjoin = join_2_cell midcell lcbkey1 false in
+            join_2_cell tmpjoin lcbkey2 true
+    in
+    for i = 0 to size-1 do
+        let lcbkey : int list = resmatrix.(1).(i) in 
+        let lcblen,lcbscore = get_lcblst_len_and_score [lcbkey] lcb_tbl in
+        cov_mat.(i).(i) <- ([lcbkey],lcbscore,lcblen,codemap),(-1);
+    done;
+    for i = 0 to size-2 do
+        let cellii,_ = cov_mat.(i).(i) in
+        let couplejoin = join_2_cell cellii resmatrix.(1).(i+1) true
+        in
+        (*let couplelcb = [resmatrix.(1).(i);resmatrix.(1).(i+1)] in
+        let couplelen,couplescore = get_lcblst_len_and_score couplelcb lcb_tbl
+        in*)
+        cov_mat.(i).(i+1) <-
+            couplejoin(*couplelcb,couplescore,couplelen,codemap*),(-1);
+    done;
+    for i = 2 to size-1 do
+        for j = 0 to size-1-i do
+            if debug2 then Printf.printf "work on cell.%d.%d\n%!" j (j+i);
+            (*if we need mat.2.5 : solution for 2th,3th,4th,5th lcb in lcblst of
+            * sequence1*)
+            let cell_left,_ = cov_mat.(j).(j+i-1) (*join mat.2.4 and 5th lcb*) 
+            and cell_right,_ = cov_mat.(j+1).(j+i) (*join 2th lcb and mat.3.5*)
+            and cell_down,_ = cov_mat.(j+1).(j+i-1) (*see if we remove lcb
+            3th and 4th, lcb 2th and 5th can collapse into one lcb. if not
+            just join 2th lcb, mat.3.4 and 5th lcb*)
+            in
+            let (resL,scoreL,lenL,codemapL) as from_cell_left = 
+                join_2_cell cell_left resmatrix.(1).(j+i) true
+            in
+            let (resR,scoreR,lenR,codemapR) as from_cell_right = 
+                join_2_cell cell_right resmatrix.(1).(j) false
+            in
+            let debug_join_3_cell = false in
+            let (resD,scoreD,lenD,newcodemap) as from_cell_down = 
+                join_3_cell cell_down resmatrix.(1).(j) resmatrix.(1).(j+i) debug_join_3_cell in
+            let best_of_three = (*we should also compare score here?*) 
+                (*get_best_out_of_three lenL lenR lenD scoreL scoreR scoreD*)
+                if lenL>=lenR && lenL>=lenD then 
+                    from_cell_left,0
+                else if lenR>=lenL && lenR>=lenD then 
+                    from_cell_right,1
+                else
+                    from_cell_down,2
+            in
+            if debug2 then Printf.printf "lenL=%d,lenR=%d,lenD = %d\n%!" lenL
+            lenR lenD;
+            cov_mat.(j).(j+i) <- best_of_three;
+            if debug2 then print_cell j (j+i) best_of_three false;
+        done;
+    done;
+    (*right top cell of matrix has lcblst1 now, just get lcblst0 from codemap
+    * and right top cell, build lcb_tbl, return it*)
+    let (lcblst1, resscore, reslen, resmap),_ = cov_mat.(0).(size-1) in
+    if debug2 then begin
+        Printf.printf "traceback start\n%!";
+    let i = ref 0 and j = ref (size-1) in
+    for ijlen = size downto 1 do
+        let _,dir = cov_mat.(!i).(!j) in
+        print_cell !i !j cov_mat.(!i).(!j) false;
+        if dir=0 then j := !j-1
+        else if dir=1 then i := !i+1
+        else begin
+            j := !j-1;
+            i := !i+1;
+        end
+    done;
+    end;
+    let avg_in_seq_size = get_avg_of_intlst in_seq_size_lst in
+    if debug then begin
+        Printf.printf "end of filling in cov_mat,res score=%d,len=%d,covR=%f \
+        (lcblst size=%d)\n %!" 
+        resscore reslen ((float reslen)/.avg_in_seq_size) (List.length lcblst1);
+        if debug2 then print_codemap resmap;
+    end;
+    let lcblst0 = get_lcblst_from_codemap resmap in
+    (*All_sets.IntegerListMap.iter(fun key item ->
+        if (List.mem key lcblst1)||(List.mem (get_neg_rev_intlst key) lcblst1)
+        then ()
+        else begin
+            Printf.printf "this is not in lcblst1:%!";
+            print_int_list key; 
+            Printf.printf " --> ";
+            print_int_list item;
+        end;
+    ) resmap;*)       
+    assert((List.length lcblst0)=(List.length lcblst1));
+    let res_lcbs = [lcblst0;lcblst1] in
+    if debug then print_lcblst res_lcbs;
+    let res_lcbtbl = Hashtbl.create init_tb_size in
+    update_lcbs_range_and_score res_lcbs mum_tbl seed2pos_tbl res_lcbtbl;
+    res_lcbs,(float reslen)/.avg_in_seq_size,res_lcbtbl
+(*
+let remove_bad_lcbs_dyn2 (lcbs:int list list list) lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst num_of_mums old_cov_rate = 
+let debug = true and debug2 = false in
+    if debug then Printf.printf "remove bad lcbs dyn2\n%!";
+    if debug then print_lcblst lcbs;
+    if debug2 then Hashtbl.iter (fun key record ->
+                    print_lcb record 
+                ) lcb_tbl;
+    let size = List.length (List.hd lcbs) in 
+    (*ok, we don't need the whole matrix, just the diagonal cells*)
+    let cov_mat = Array.make_matrix size size
+    (([[]],0,0,Array.create (size+1) 1),(-1)) in
+    let resmatrix =  Array.of_list 
+        (List.map (fun lst -> Array.of_list lst) lcbs) in
+    let bkmatrix,lcb2code,code2lcb = 
+        get_bkmatrix_codemap resmatrix get_neg_rev_intlst in
+    let print_cell i j ((codelst,score,len,maskarr),dir) printmaskarr =
+        Printf.printf "cell.%d.%d:%!" i j;
+        print_lcblst [codelst];
+        Printf.printf "score = %d,len=%d,dir=%d\n%!" score len dir;
+        if printmaskarr then Utl.printIntArr maskarr;
+    in 
+    let join_2_cell cell1 cell2 trivial leftjoin debug_join_2_cell =
+        let codelst1,score1,len1,maskarr1 = cell1 
+        and codelst2,score2,len2,maskarr2 = cell2 in
+        if debug_join_2_cell then begin
+            Printf.printf "join 2 cell ,trivial=%b,leftjoin=%b,cell1/cell2= %!"
+            trivial leftjoin;
+            print_int_lstlst2 codelst1;
+            Printf.printf "score1=%d,len1=%d,maskarr1=\n%!" score1 len1;
+            Utl.printIntArr maskarr1;
+            print_int_lstlst2 codelst2;
+            Printf.printf "score2=%d,len2=%d,maskarr2=\n%!" score2 len2;
+            Utl.printIntArr maskarr2;
+        end;
+        if trivial then begin
+            assert((List.length codelst1)=1);
+            let singlecode1 = List.hd codelst1 in
+            let singlelcb1,ori = get_from_code2lcbmap singlecode1 code2lcb in
+            assert((List.length singlecode1)=1);
+            let code1 = List.hd singlecode1 in
+            let addlen,addscore = get_lcblst_len_and_score singlelcb1 lcb_tbl in
+            let res = if addlen>0 then
+                match leftjoin with
+                | true ->
+                        let codelst12 = codelst1@codelst2 in
+                        codelst12,score2+addscore,len2+addlen,maskarr2
+                | false -> 
+                        let codelst21 = codelst2@codelst1 in
+                        codelst21,score2+addscore,len2+addlen,maskarr2
+            else begin
+                if debug_join_2_cell then Printf.printf "----------- set maskarr.%d to 0\n%!" code1;
+                let resmaskarr = Array.copy maskarr2 in
+                resmaskarr.(abs code1)<-0;
+                codelst2,score2,len2,resmaskarr
+            end
+            in
+            if debug_join_2_cell then begin
+                let (reslst,resscore,reslen,resarr) = res in
+                Printf.printf "res of join2,score12=%d,len12=%d,codelst/maskarr12=%!" resscore reslen;
+                print_int_lstlst2 reslst;
+                Utl.printIntArr resarr;
+            end;
+            res
+        end
+        else begin
+            let maskarr12 = Array_ops.map_2 (fun a b -> a land b) maskarr1 maskarr2
+            in
+            let tmplst12 = codelst1 @ codelst2 in
+            let _,_,_,codelst12,score12,len12 = 
+                List.fold_right (fun this (pre,pre_score,pre_len,acclst,accscore,acclen) ->
+                let lcblstt,_ = get_from_code2lcbmap this code2lcb in
+                let len_t,score_t = get_lcblst_len_and_score lcblstt lcb_tbl in
+                if pre = [] then 
+                    this,score_t,len_t,[this],score_t,len_t
+                else begin
+                    (*join [codeth,codet2,...codett] and [codeph,codep2....codepp]
+                     * codetx is list of int code *)
+                    let code_ph = List.hd pre 
+                    and code_tt = List.hd (List.rev this) in
+                    if debug_join_2_cell then begin
+                        Printf.printf "(acc=%d,%d;pre=%d,%d;this=%d,%d),pre.head=%d,this.tail=%d -> %!" 
+                        accscore acclen pre_score pre_len len_t score_t code_ph code_tt;
+                        Printf.printf "this="; print_int_list this;
+                        Printf.printf "pre="; print_int_list pre;
+                        Printf.printf "acc="; print_int_lstlst2 acclst;
+                    end;
+                    let count = 
+                        if code_ph * code_tt < 0 then 3 
+                        else begin
+                        let absp = abs code_ph and abst = abs code_tt in
+                        let startcode,endcode = if abst>absp then 
+                            absp,abst else abst,absp in
+                        let adjtp = Array.make (abs(absp-abst)+1) 1 in
+                        let masktp = Array.sub maskarr12 startcode
+                        (endcode-startcode+1) in
+                        assert ((Array.length adjtp)=(Array.length masktp));
+                        let contp = Array_ops.map_2 (fun a b->a land b) 
+                        adjtp masktp in
+                        let res = Array.fold_left (fun acc x -> acc+x) 0 contp
+                        in
+                        if res<2 then begin
+                        Printf.printf "startcode=%d,endcode=%d\n%!" startcode
+                        endcode;
+                        Utl.printIntArr masktp;
+                        end;
+                        res
+                        end;
+                    in
+                                        assert(count>=2);
+                    if count=2 then begin
+                        if debug_join_2_cell then
+                            Printf.printf " are adjacent to each other,%!";
+                        let lcblstp,_ =
+                            get_from_code2lcbmap pre code2lcb
+                        in
+                        let lcbtp_spr = lcblstt @ lcblstp in
+                        let lcbtp = List.flatten lcbtp_spr in
+                        let (lend0,rend0),_ = get_range_of_a_lcb lcbtp 0
+                        mum_tbl seed2pos_tbl 
+                        and (lend1,rend1),_ = get_range_of_a_lcb lcbtp 1
+                        mum_tbl seed2pos_tbl in
+                        let _,score_tp = get_lcblst_len_and_score lcbtp_spr
+                        lcb_tbl in
+                        let range_tp =  
+                            get_avg_of_intlst [(rend0-lend0)+1;(rend1-lend1)+1] in
+                        let range_tp = range_tp in
+                        let ratio_tp = (float score_tp)/.(range_tp) in
+                        if debug_join_2_cell then 
+                            Printf.printf "tp=%f(%f,%d)\n%!" ratio_tp range_tp score_tp;
+                        if ratio_tp >= !minimum_lcb_ratio then
+                            let rescodelst = (this@pre) :: (List.tl acclst) in
+                            this@pre,score_t,len_t,
+                            rescodelst,
+                            accscore-pre_score+score_tp,
+                            acclen-pre_len+(int_of_float range_tp)
+                        else
+                            this,score_t,len_t,
+                            this :: acclst, 
+                            accscore+score_t,
+                            acclen+len_t
+                    end
+                    else
+                        this,score_t,len_t,
+                        this :: acclst,
+                        accscore+score_t,
+                        acclen+len_t 
+                end
+            ) tmplst12 ([],0,0,[[]],0,0) in
+            if debug_join_2_cell then begin
+                Printf.printf "res of join2,score12=%d,len12=%d,codelst/maskarr12=%!" score12 len12;
+                print_int_lstlst2 codelst12;
+                Utl.printIntArr maskarr12;
+            end;
+             codelst12,score12,len12,maskarr12 
+        end;
+    in
+    let join_3_cell midcell leftcell rightcell debug_join_3_cell =
+        let debug_join_3_cell = true in
+        if debug_join_3_cell then Printf.printf "join 3 cell start\n%!";
+        let (codelstM,scoreM,lenM,maskarrM) = midcell in
+        let (codelstL,scoreL,lenL,maskarrL) = leftcell 
+        and (codelstR,scoreR,lenR,maskarrR) = rightcell in
+        (*normal join is redundant
+        let join_ml = join_2_cell mc lc true false debug_join_3_cell in
+        let res_join = join_2_cell join_ml rc false false debug_join_3_cell in*)
+        let arrMcopy = Array.copy maskarrM in
+        List.iter (fun codeMid ->
+            let c = abs codeMid in
+            arrMcopy.(c) <- 0; 
+            Printf.printf "set code%d to 0;%!" c;
+        ) (List.flatten codelstM);
+        let arrLcopy = Array_ops.map_2 (fun a b -> a land b) maskarrL arrMcopy in
+        let arrRcopy = Array_ops.map_2 (fun a b -> a land b) maskarrR arrMcopy in
+        let leftcell_removeMid = codelstL,scoreL,lenL,arrLcopy 
+        and rightcell_removeMid = codelstR,scoreR,lenR,arrRcopy in
+        let res_removeMid = join_2_cell leftcell_removeMid rightcell_removeMid
+        false false true in
+        let rescodlst,resscore,reslen,_ = res_removeMid in
+        if debug_join_3_cell then Printf.printf "resscore=%d,reslen=%d\n%!" resscore reslen;
+        if debug_join_3_cell then print_int_lstlst2 rescodlst;
+        res_removeMid
+    in
+    for i = 0 to size-1 do
+        let lcbkey : int list = resmatrix.(1).(i) in 
+        let lcblen,lcbscore = get_lcblst_len_and_score [lcbkey] lcb_tbl in
+        if debug2 then Printf.printf "fill in cell.%d.%d,score=%d,len=%d\n%!" i i lcbscore lcblen;
+        cov_mat.(i).(i) <- ([[bkmatrix.(1).(i)]],lcbscore,lcblen,
+        Array.create (size+1) 1),(-1);
+    done;
+    for i = 0 to size-2 do
+        if debug2 then Printf.printf "fill in cell.%d.%d\n%!" i (i+1);
+        let cell1,_ = cov_mat.(i).(i) in
+        let cell2,_ = cov_mat.(i+1).(i+1) in
+        let couplejoin = join_2_cell cell1 cell2 true true false in
+        cov_mat.(i).(i+1) <- (couplejoin,(-1));
+    done;
+    for i = 2 to size-1 do
+        for j = 0 to size-1-i do (*join c.j.k-1, c.k.k and c.k+1.j+i-1*)
+            if debug then Printf.printf "+++++++++++ work on cell.%d.%d ++++++++++\n%!" j (j+i);
+            let bestres = ref ([],0,0,[||]) and bestk1 = ref (-1) and bestk2 = ref (-1) in
+            (*for k = j to j+i-1 do
+                let debug_join = true in
+                let l1,l2 = j,k in
+                let r1,r2 = k+1,j+i
+                in
+                let cellleft,_ = cov_mat.(l1).(l2)
+                and cellright,_ = cov_mat.(r1).(r2) in
+                if debug then Printf.printf 
+                "========== k=%d, join cell.%d.%d and cell.%d.%d %! ======= \n%!" k l1 l2 r1 r2;
+                let (codelstk,scorek,lenk,maskarrk) as resk =
+                    if k=j then
+                    join_2_cell cellleft cellright true true debug_join
+                    else if k=j+i-1 then
+                    join_2_cell cellright cellleft true false debug_join
+                    else
+                    join_2_cell cellleft cellright false false debug_join
+                in
+                *)
+            let debug_join = true in
+            let lenperbk = ref 0 and basebknum = ref 0 in 
+            let cellleft,_ = cov_mat.(j).(j) and cellright,_ = cov_mat.(j+1).(j+i) in
+            let (codelstk,scorek,lenk,maskarrk) = 
+                join_2_cell cellleft cellright true true debug_join 
+            in
+            let bknumk = List.length codelstk in
+            let lpk = lenk/bknumk in
+            let _,_,bestlen,_ = !bestres in
+            if bestlen=0 || lenk>bestlen then begin (*bestlen is 0 here*)
+                    bestres := (codelstk,scorek,lenk,maskarrk); 
+                    bestk1 := j; bestk2 :=j;
+                    lenperbk := lpk;
+                    basebknum := bknumk;
+            end;
+            let cellleft,_ = cov_mat.(j).(j+i-1) and cellright,_ = cov_mat.(j+i).(j+i) in
+            let (codelstk,scorek,lenk,maskarrk) =
+            join_2_cell cellright cellleft true false debug_join in
+            let bknumk = List.length codelstk in
+            let _,_,bestlen,_ = !bestres in
+            if bestlen=0 || lenk>bestlen then begin
+                    bestres := (codelstk,scorek,lenk,maskarrk); 
+                    bestk1 := j+i; bestk2 :=j+i;
+                    lenperbk := lenk/bknumk;
+                    basebknum := bknumk;
+            end;
+            let bkbonus = !lenperbk * 3/2 in
+            if debug then Printf.printf "bkbonus update to %d\n%!" bkbonus;
+            for k1 = j+1 to (*j+1*)j+i-2 do
+                for k2 = k1(*j+i-1*) to j+i-1 do 
+                let l1,l2 = 
+                    j,k1-1 
+                and r1,r2 =
+                    k2+1,j+i in
+                let m1,m2 = k1,k2 in
+                let cellleft,_ = cov_mat.(l1).(l2)
+                and cellright,_ = cov_mat.(r1).(r2) in
+                if debug then Printf.printf 
+                "========== k=%d/%d, join cell.%d.%d and cell.%d.%d %! =======\n"
+                k1 k2 l1 l2 r1 r2;
+                let (codelstk,scorek,lenk,maskarrk),bk_num_mid =
+                    if k1=j then
+                    join_2_cell cellleft cellright true true debug_join,0
+                    else if k1=j+i then
+                    join_2_cell cellright cellleft true false debug_join,0
+                    else
+                    let cellmid,_ = cov_mat.(m1).(m2) in
+                    let codelstmid,_,_,_ = cellmid in
+                    (*let _ =
+                        print_cell l1 l2 cov_mat.(l1).(l2) true;
+                        print_cell m1 m2 cov_mat.(m1).(m2) true;
+                        print_cell r1 r2 cov_mat.(r1).(r2) true;
+                    in*)
+                    join_3_cell cellmid cellleft cellright debug_join,
+                    (List.length codelstmid)
+                in
+                (*******)
+                let _,_,bestlen,_ = !bestres in
+                let bkreduce = !basebknum - (List.length codelstk) -
+                bk_num_mid in
+                let lenk = lenk + bkreduce * bkbonus in
+                if debug then Printf.printf "basebknum=%d,bkreduce=%d\n%!" !basebknum bkreduce;
+                if debug then Printf.printf "lenk = %d (bestlen=%d)\n%!" lenk
+                bestlen;
+                if bestlen=0 || lenk>bestlen then begin
+                    bestres := (codelstk,scorek,lenk,maskarrk); 
+                    bestk1 := k1; bestk2 :=k2;
+                end;
+                done;
+            done;
+            cov_mat.(j).(j+i) <- (!bestres,!bestk1); 
+            if debug then begin
+                Printf.printf "++++++++++++++++++++++++++ bestk=%d/%d,fill in cell:%!" !bestk1 !bestk2;
+                print_cell j (j+i) cov_mat.(j).(j+i) false;
+            end;
+        done;
+    done;
+    (*right top cell of matrix has lcblst1 now, just get lcblst0 from codemap
+    * and right top cell, build lcb_tbl, return it*)
+    let (rescodelst, resscore, reslen, resmaskarr),_ = cov_mat.(0).(size-1) in
+    let avg_in_seq_size = get_avg_of_intlst in_seq_size_lst in
+    if debug then begin
+        Printf.printf "end of filling in cov_mat,res score=%d,len=%d,fakecovR=%f \
+        rescodelst (size=%d)\n %!" 
+        resscore reslen ((float reslen)/.avg_in_seq_size) (List.length rescodelst);
+        if debug then print_lcblst [rescodelst];
+        if debug2 then Utl.printIntArr resmaskarr;
+    end;
+    let lcblst0 = 
+        let idx = ref (size+1) in
+        List.fold_right (fun lcbkey acc->
+            idx := !idx - 1;
+                if resmaskarr.(!idx)>0 then 
+                    if acc = [[]] then [lcbkey] else lcbkey :: acc
+                else acc
+        ) (List.hd lcbs) [[]]
+    in
+    let lcblst1 = List.fold_right (fun lcbkey acc ->
+        let ori = ref 1 in
+        let code = try All_sets.IntegerListMap.find lcbkey lcb2code 
+        with | Not_found ->
+            (
+            ori := (-1);
+            try All_sets.IntegerListMap.find (get_neg_rev_intlst lcbkey) lcb2code
+            with | Not_found ->
+            print_int_list lcbkey;
+            failwith "no found lcb2code map" 
+            )
+        in
+            assert((List.length code)=1);
+            let code = List.hd code in
+            if resmaskarr.(code)=1 then 
+                if acc = [[]] then [lcbkey] else lcbkey :: acc
+            else acc
+    ) (List.nth lcbs 1) [[]]
+    in
+    assert((List.length lcblst0)=(List.length lcblst1));
+    let newlcbs = [lcblst0;lcblst1] in
+    let reslcbs,rescovR,_,reslcbtbl = 
+    build_LCBs newlcbs mum_tbl seed2pos_tbl in_seq_size_lst 1 None in
+    if debug then begin
+        Printf.printf "return covR=%f, lcbs:" rescovR;
+        print_lcblst reslcbs;
+    end;
+    reslcbs,rescovR,reslcbtbl
+*) 
 
 let update_k_seed_lst pre_jseedNO previous_k_lst pre_kposlst k_pos j_mumseq trim_from_left
 weight_reduce pos2seed_tbl1 pos2seed_tbl2 seed2pos_tbl mum_tbl =
@@ -4178,16 +4941,18 @@ in_seqarr in_seq_size_lst  =
     extend_seeds res_mum_tbl res_seed2pos_tbl res_pos2seed_tbl_left res_pos2seed_tbl_right;
     if debug_search_outside then 
         info_user_message "resolve overlap mum";
-    let num_of_mums = resolve_overlap_mum res_mum_tbl (new_seedweight-1)
+    let num_of_mums = resolve_overlap_mum res_mum_tbl  (new_seedweight-1)
     res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl false false in
     update_score_for_each_mum res_mum_tbl in_seqarr;
     (*get the new weight of lcbs*)
     let new_seedNOlstlst = 
         get_mum_lst_for_each_seq res_mum_tbl res_seed2pos_tbl res_pos2seed_tbl_left
         (Array.length in_seqarr) in_seq_size_lst in
+    let maxq = 1 in (*this is inner loop, before any remove_badlcb functions,
+    we are ok with lowL&highR lcbs.*)
     let new_lcbs,new_covR,num_badlcb,new_lcb_tbl = 
         build_LCBs new_seedNOlstlst res_mum_tbl res_seed2pos_tbl 
-        in_seq_size_lst None in
+        in_seq_size_lst maxq None in
     if debug_search_outside then 
         info_user_message "new covR raise to %f, end of searching outside lcbs,check tbl \
         size (%d,%d,%d,%d)" new_covR (Hashtbl.length res_mum_tbl)
@@ -4208,11 +4973,11 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
     minimum_lcb_len := min_lcb_len ; 
     minimum_lcb_ratio := min_lcb_ratio ;
     let init_lcbs,init_covR,num_badlcb,init_lcb_tbl = 
-        build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst None in
+        build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst 1 None in
     if debug then Printf.printf "before remove bad lcbs, init_covR = %f\n%!" init_covR;
     let better_lcbs, better_covR, better_lcb_tbl = 
     if faster_remove then
-        remove_bad_lcbs_faster init_lcbs init_lcb_tbl mum_tbl 
+        remove_bad_lcbs_dyn init_lcbs init_lcb_tbl mum_tbl 
         seed2pos_tbl in_seq_size_lst init_num_mums init_covR 
     else
         remove_bad_lcbs init_lcbs init_lcb_tbl mum_tbl 
@@ -4398,7 +5163,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
         if !any_improvement_inner then begin
             let new_outer_lcbs, new_outer_covR, new_outer_lcb_tbl = 
                 if faster_remove then
-                    remove_bad_lcbs_faster !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
+                    remove_bad_lcbs_dyn !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
                 !inner_seed2pos_tbl in_seq_size_lst !current_num_of_mums
                 !inner_old_covR 
                 else 
@@ -4421,8 +5186,11 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
                     Hashtbl.remove new_outer_lcb_tbl key;
                 end
             ) new_outer_lcb_tbl;
-            (*let new_outer_covR = Hashtbl.length new_outer_lcb_tbl in*)
-            let new_outer_covR,_ = get_lcb_covR_num_badlcb new_outer_lcb_tbl in_seq_size_lst in
+            let maxq = 0 in (*we only count highR&highL lcbs here*)
+            let new_outer_covR2,_ = get_lcb_covR_num_badlcb new_outer_lcb_tbl
+            in_seq_size_lst maxq in
+            Printf.printf "new_outer_covR=%f,new_outer_covR2=%f\n%!"
+            new_outer_covR new_outer_covR2;
             (* remove corresponding item in new_outer_lcbs*)
             let new_outer_lcbs = 
                     List.map (fun lcblst ->
@@ -4579,7 +5347,7 @@ requires the original codearr, call [to_ori_code] to transform
 let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_lcb_len
 min_cover_ratio min_bk_penalty 
 locus_indel_cost cost_mat  =
-    let debug = false and debug2 = false in
+    let debug = true and debug2 = false in
     (*transform poy costmatrix into hodx_matrix in mauve*)
     fill_in_hmatrix cost_mat;
     let seq1arr = Sequence.to_array seq1 
@@ -4672,9 +5440,17 @@ locus_indel_cost cost_mat  =
             end
             else if ((abs ori_code2)>base) && ((abs ori_code1)>base) then
                 begin
+                    if debug2 then Printf.printf "align seq1(%d) and seq2(%d) :%!"
+                    ori_code1 ori_code2;
                 let alied_seq1, alied_seq2, cost, _ =  
                     Sequence.align2 subseq1 subseq2 cost_mat 
                 in
+                if debug2 then begin 
+                    Printf.printf "set %d.%d with cost=%d\n%!" code1
+                    code2 cost;
+                    Sequence.printseqcode alied_seq1;
+                    Sequence.printseqcode alied_seq2;
+                end;
                 ali_mat.(code1).(code2) <- (cost,alied_seq1, alied_seq2);
                 ali_mat.(code2).(code1) <- (cost,alied_seq2, alied_seq1);
                 set_cost code1 code2 cost;
