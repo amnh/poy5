@@ -506,9 +506,9 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                     ( max min_bl (t1/.2.0), max min_bl (t2/.2.0) )
                 | Some (t1), Some (t2) -> 
                     (max min_bl t1, max min_bl t2)
-                | _ -> let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                       if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                       (max min_bl t1, max min_bl t2)
+                | _ ->  let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
+                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
+                        (max min_bl t1, max min_bl t2)
             in 
             let model = MlStaticCS.get_model ca.preliminary in
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
@@ -915,12 +915,12 @@ let apply_time root child parent =
         let rec apply_times ch par = match ch,par with
             | StaticMl cnd,StaticMl pnd ->
                 let time = apply_it p pnd.time in
-                StaticMl { cnd with time = time,time }
+                StaticMl { cnd with time = time,None }
             | Dynamic cnd, Dynamic pnd -> 
                 begin match cnd.preliminary,pnd.preliminary with
                 | DynamicCS.MlCS _,DynamicCS.MlCS _ ->
                     let time = apply_it p pnd.time in
-                    Dynamic { cnd with time = time,time }
+                    Dynamic { cnd with time = time,None }
                 | _,_ -> ch
                 end
             | _ -> ch
@@ -1253,7 +1253,13 @@ let get_times_between (nd:node_data) (child_code : int option) =
 IFDEF USE_LIKELIHOOD THEN
         let f = match child_code with
             | Some child_code ->
-                if nd.min_child_code = child_code then fst else snd
+                let f = if nd.min_child_code = child_code then fst else snd in
+                (* If only one direction is set; we can safely assume that we
+                 * are dealing with a leaf. This avoids the unrulely circumstance
+                 * that times could be located in either the first or second
+                 * element; now it is always the first. *)
+                (function | (Some _) as x, None -> x
+                          | x -> f x)
             | None -> 
                 (function | Some x,Some y -> Some (x+.y)
                           | _ -> None)

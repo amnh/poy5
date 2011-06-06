@@ -39,11 +39,11 @@ type t = { model  : FloatSequence.dyn_model;
             cost  : float; }
 
 (*---- non-external helper functions/settings *)
+open Numerical.FPInfix
 let debug     = false
 let debug_est = false
 let verify    = false
 let (-->) a b = b a
-let (=.) ?(epsilon=10e-6) a b = (abs_float (a-.b)) < epsilon
 let failwith_todo func = failwith ("Your lazy developer needs to write: MlDynamicCS."^func)
 let debug_printf = 
     if debug then (fun format -> print_string format)
@@ -450,7 +450,6 @@ let median code a b t1 t2 =
         { a with cost = !cost; data = FPAlign { ss = meds; } } 
     | (FPAlign _ | MPLAlign _ ), _ -> assert false
 
-open Numerical.FPInfix
 let readjust c1 c2 mine t1 t2 = 
     let internal_loop (t:float) : t * float =
         let d = median (code mine) c1 c2 (Some t) (Some t2) in

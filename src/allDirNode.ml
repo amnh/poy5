@@ -1182,12 +1182,9 @@ let create_root_w_times left right =
             and r_code = AllDirF.taxon_code right in
             let left2right = get_dir r_code left
             and right2left = get_dir l_code right in
-
-            let in_l_time = Node.get_times_between 
-                            (get_a_dir r_code left)
+            let in_l_time = Node.get_times_between (get_a_dir r_code left)
                             (Some (AllDirF.min_child_code (Some l_code) right))
-            and in_r_time = Node.get_times_between 
-                            (get_a_dir l_code right)
+            and in_r_time = Node.get_times_between (get_a_dir l_code right)
                             (Some (AllDirF.min_child_code (Some r_code) left))
             in
             Node.median_w_times 
