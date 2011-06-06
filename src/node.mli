@@ -31,7 +31,7 @@ type 'a r = {
     cost        : float; (** Total cost of the set of characters *)
     sum_cost    : float; (** Total cost up to this node in tree (inc'l) *)
     weight      : float; (** The weight of the set of characters *)
-    time        : float option * float option;
+    time        : float option * float option * float option;
                          (** time that this node connecst to it's children,
                           * first is the min_taxon_code, second is the other *)
 }
