@@ -59,7 +59,7 @@ type 'a r = {
     cost : float;
     sum_cost : float;
     weight : float;
-    time : float option * float option; (* (min_child_time,oth_child_time) *)
+    time : float option * float option * float option;
 }
 
 (** Schemes for origin and loss costs *)
@@ -250,11 +250,11 @@ let print_times n =
     in
     List.iter
         (fun ncs ->
-            let one,two = get_times ncs in
-            Printf.printf "%d -- (%s,%s)\n%!"
-            n.taxon_code
-            (match one with | Some x -> string_of_float x | None -> "none")
-            (match two with | Some x -> string_of_float x | None -> "none") )
+            let one,two,thr = get_times ncs in
+            Printf.printf "%d -- (%s,%s|%s)\n%!" n.taxon_code
+                (match one with | Some x -> string_of_float x | None -> "none")
+                (match two with | Some x -> string_of_float x | None -> "none")
+                (match thr with | Some x -> string_of_float x | None -> "none") )
         n.characters
 
 let map2 f a b =
@@ -505,11 +505,15 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
             let t1, t2 = match t1,t2 with
                 | Some (t1), Some (t2) when code <= 0 ->
                     ( max min_bl (t1/.2.0), max min_bl (t2/.2.0) )
+                (* this situation happens on edge data for roots *)
+                | (Some t1, None)
+                | (None, Some t1) when code <= 0 ->
+                    ( max min_bl (t1/.2.0), max min_bl (t1/.2.0) )
                 | Some (t1), Some (t2) -> 
                     (max min_bl t1, max min_bl t2)
-                | _ -> let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                       if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                       (max min_bl t1, max min_bl t2)
+                | _ ->  let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
+                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
+                        (max min_bl t1, max min_bl t2)
             in 
             let model = MlStaticCS.get_model ca.preliminary in
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
@@ -539,7 +543,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                     final = median;
                     cost = n_cost *. ca.weight;
                     sum_cost = n_cost +. ca.sum_cost +. cb.sum_cost;
-                    time = Some t1,Some t2;
+                    time = Some t1, Some t2, None;
                     weight = ca.weight;
                 }
             in
@@ -632,7 +636,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                 if anode.min_child_code < bnode.min_child_code then ca, cb
                 else cb, ca
             in
-            let median, ((t1,t2) as time) = match ca.preliminary, cb.preliminary with
+            let median, times = match ca.preliminary, cb.preliminary with
                 | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
                     IFDEF USE_LIKELIHOOD THEN
                         let min_bl = MlStaticCS.minimum_bl () in
@@ -663,7 +667,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                             if anode.min_child_code < bnode.min_child_code 
                             then t1,t2 else t2,t1
                         in
-                        (res,(Some t1,Some t2))
+                        (res,(Some t1,Some t2,None))
                     ELSE
                         failwith MlStaticCS.likelihood_error
                     END
@@ -684,7 +688,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                     final = median;
                     cost = total_cost;
                     sum_cost = sum_cost;
-                    time = time;
+                    time = times;
                 } 
             in
             Dynamic res
@@ -798,12 +802,12 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                 (* MAL has full C functionality *)
                 | `MAL -> 
                     let modf = ref All_sets.Integers.empty in
-                    let t1,t2 = match pm.time with 
-                        | Some x,Some y -> ( max min_bl x, max min_bl y )
-                        | None, None -> 
+                    let t1,t2,t3_opt = match pm.time with 
+                        | Some x, Some y, z -> ( max min_bl x, max min_bl y, z)
+                        | None, None, None -> 
                             let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
                             if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                            ( max min_bl x, max min_bl y )
+                            ( max min_bl x, max min_bl y, None )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
@@ -814,7 +818,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     { pm with  preliminary = res; final = res;
                                cost = cost;
                                sum_cost = cost +. bm.sum_cost +. am.sum_cost;
-                               time = Some t1, Some t2; }
+                               time = Some t1, Some t2, t3_opt; }
 
                 (* calculate the median1 for MPL with OCAML Brents *)
                 | `MPL ->
@@ -822,8 +826,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         let m = MlStaticCS.median1 am.preliminary bm.preliminary t in
                         (m,MlStaticCS.root_cost m)
                     and t1,t2 = match pm.time with 
-                        | Some x,Some y -> ( max min_bl x, max min_bl y )
-                        | None, None -> 
+                        | Some x,Some y, _ -> ( max min_bl x, max min_bl y )
+                        | None, None, _ -> 
                             let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
                             if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
                             ( max min_bl x, max min_bl y )
@@ -836,7 +840,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     { pm with preliminary = dv; final = dv;
                               cost = fv;
                               sum_cost = fv +. bm.sum_cost +. am.sum_cost;
-                              time = Some v, Some 0.0; }
+                              time = Some v, Some 0.0, None; }
                 | _ -> assert false (* all other methods are dynamic *)
                 end
             in
@@ -847,12 +851,12 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                 | DynamicCS.MlCS c1_pre, DynamicCS.MlCS c2_pre ->
                     let min_bl = MlStaticCS.minimum_bl () in
                     let modf = ref All_sets.Integers.empty in
-                    let t1,t2 = match pm.time with 
-                        | Some x,Some y -> ( max min_bl x, max min_bl y )
-                        | None, None -> 
+                    let t1,t2,t3_opt = match pm.time with 
+                        | Some x,Some y, z -> ( max min_bl x, max min_bl y,z )
+                        | None, None, z -> 
                             let (x,y) = MlDynamicCS.estimate_time c1_pre c2_pre in
                             if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                            ( max min_bl x, max min_bl y )
+                            ( max min_bl x, max min_bl y,z )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     if debug then
@@ -868,7 +872,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         { pm with  preliminary = res; final = res;
                                    cost = cost;
                                    sum_cost = cost +. bm.sum_cost +. am.sum_cost;
-                                   time = Some t1, Some t2; }
+                                   time = Some t1, Some t2, t3_opt; }
                     in
                     ei_map ptl atl btl ((Dynamic mine)::pa)
                 | _,_ ->
@@ -895,6 +899,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
 
 let apply_time root child parent =
     IFDEF USE_LIKELIHOOD THEN
+        let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
         let p = if child.min_child_code = parent.min_child_code then fst else snd in
         let p_opt to_string = function | None -> "None" | Some x -> to_string x in
         let apply_it p pndtime = 
@@ -912,16 +917,35 @@ let apply_time root child parent =
                                   (p_opt string_of_float res) root
                                   (child.taxon_code) (parent.taxon_code);
             res
-        in
-        let rec apply_times ch par = match ch,par with
+        and replace_third (a,b,_) x = (a,b,x) in
+        let rec apply_times ch par =
+            match ch,par with
             | StaticMl cnd,StaticMl pnd ->
-                let time = apply_it p pnd.time in
-                StaticMl { cnd with time = time,time }
+                let time = replace_third cnd.time (apply_it p pnd.time) in
+                if debug then begin
+                    info_user_message "%d has %s | %s | %s" (parent.taxon_code)
+                                  (p_opt string_of_float (fst time))
+                                  (p_opt string_of_float (snd time))
+                                  (p_opt string_of_float (thr time));
+                    info_user_message "%d has %s | %s | %s" (child.taxon_code)
+                                  (p_opt string_of_float (fst time))
+                                  (p_opt string_of_float (snd time))
+                                  (p_opt string_of_float (thr time))
+                end;
+                StaticMl { cnd with time = time }
             | Dynamic cnd, Dynamic pnd -> 
                 begin match cnd.preliminary,pnd.preliminary with
                 | DynamicCS.MlCS _,DynamicCS.MlCS _ ->
-                    let time = apply_it p pnd.time in
-                    Dynamic { cnd with time = time,time }
+                    info_user_message "%d has %s | %s | %s" (parent.taxon_code)
+                                      (p_opt string_of_float (fst pnd.time))
+                                      (p_opt string_of_float (snd pnd.time))
+                                      (p_opt string_of_float (thr pnd.time));
+                    info_user_message "%d has %s | %s | %s" (child.taxon_code)
+                                      (p_opt string_of_float (fst cnd.time))
+                                      (p_opt string_of_float (snd cnd.time))
+                                      (p_opt string_of_float (thr cnd.time));
+                    let time = replace_third cnd.time (apply_it p pnd.time) in
+                    Dynamic { cnd with time = time }
                 | _,_ -> ch
                 end
             | _ -> ch
@@ -1250,20 +1274,27 @@ let median ?branches code old a b =
 (** [get_times_between nd child_code] returns a list of times between [nd] and
  * the child node. data must be contained already in [nd] *)
 let get_times_between (nd:node_data) (child_code : int option) =
-    let func = 
+    let func =
 IFDEF USE_LIKELIHOOD THEN
+        let fst (a,_,_) = a and snd (_,a,_) = a in
         let f = match child_code with
             | Some child_code ->
-                if nd.min_child_code = child_code then fst else snd
-            | None -> 
-                (function | Some x,Some y -> Some (x+.y)
+                let f = if nd.min_child_code = child_code then fst else snd in
+                (* If only one direction is set; we can safely assume that we
+                 * are dealing with a leaf. This avoids the unrulely circumstance
+                 * that times could be located in either the first or second
+                 * element; now it is always the first. *)
+                (function | (Some _) as x, None, _ -> x
+                          | x -> f x)
+            | None ->
+                (function | Some x,Some y, _ -> Some (x+.y)
                           | _ -> None)
         in
-        function | StaticMl z -> f z.time 
+        function | StaticMl z -> f z.time
                  | Dynamic z ->
                     begin match z.preliminary with
-                    | DynamicCS.MlCS _ -> f z.time
-                    | _ -> None
+                        | DynamicCS.MlCS _ -> f z.time
+                        | _ -> None
                     end
                  | _ -> None
 ELSE
@@ -1273,62 +1304,64 @@ END
     List.map func nd.characters
 
 
-let get_times_between_plus_codes (child:node_data) (parent:node_data) =
+let get_times_between_plus_codes (child:node_data) (parent:node_data option) =
     let null = ([||],None) in
-    let func = 
+    let func =
 IFDEF USE_LIKELIHOOD THEN
-        let f = 
-            if parent.min_child_code = child.min_child_code
-                then fst
-                else snd 
+        let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
+        let f = match parent with
+            | None     -> thr
+            | Some par ->
+                if par.min_child_code = child.min_child_code 
+                    then fst
+                    else snd
         in
         function
             | StaticMl z -> MlStaticCS.get_codes z.preliminary, f z.time
             | Dynamic z ->
                 begin match z.preliminary with
-                | DynamicCS.MlCS x ->
-                    MlDynamicCS.get_codes x, f z.time
-                | _ -> null
+                    | DynamicCS.MlCS x -> MlDynamicCS.get_codes x, f z.time
+                    | _ -> null
                 end
             | _ -> null
 ELSE
         fun _ -> null
 END
+    in match parent with
+        | Some par -> List.map func par.characters
+        | None     -> List.map func child.characters
+
+(** replace the third component of the time with the value passed *)
+let replace_parent_time node time =
+    let replace_third (a,b,_) x = (a,b,x) in
+    let cs_replace node time = match node with
+        | StaticMl a -> 
+            StaticMl { a with time = replace_third a.time time; }
+        | Dynamic a ->
+            Dynamic { a with time = replace_third a.time time; }
+        | x -> x (* we don't use time in other characters *)
     in
-    List.map func parent.characters
+    { node with
+        characters = List.map2 cs_replace node.characters time; }
 
 (** [median_w_times gp nd1 nd2 t1 t2]
  * uses time data from two correct nodes, [time_1] and [time_2] for the
  * calculation of the median between [nd1] and [nd2]. **)
-let median_w_times code prev nd_1 nd_2 times_1 times_2 = 
-     if debug_treebuild then
-         Printf.printf "node.ml median_w_times...%!";
-    let code   = 
-        match code with
+let median_w_times code prev nd_1 nd_2 times_1 times_2 times_3 =
+    if debug_treebuild then
+        Printf.printf "node.ml median_w_times...%!";
+    let code = match code with
         | Some code -> code
-        | None -> 
-                decr median_counter;
-                !median_counter
+        | None      -> decr median_counter;
+                       !median_counter
     in
-
     let new_characters = match prev with
         | Some prev ->
-            if debug_treebuild then
-                 Printf.printf "begin of map5 on cs_median....\n%!";
-            map5 (fun x -> cs_median code nd_1 nd_2 (Some x) )
-                    prev.characters
-                    times_1
-                    times_2
-                    nd_1.characters
-                    nd_2.characters
+            map5 (fun x -> cs_median code nd_1 nd_2 (Some x))
+                 prev.characters times_1 times_2 nd_1.characters nd_2.characters
         | None ->
-            if debug_treebuild then
-                 Printf.printf " begin of map4 on cs_median....\n%!";
-            map4 ( cs_median code nd_1 nd_2 None )
-                    times_1
-                    times_2
-                    nd_1.characters
-                    nd_2.characters
+            map4 (cs_median code nd_1 nd_2 None)
+                 times_1 times_2 nd_1.characters nd_2.characters
     in
     let node_cost = get_characters_cost new_characters in
     let total_cost = calc_total_cost nd_1 nd_2 node_cost
@@ -1337,12 +1370,9 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
     let excluded = has_excluded exclude_info in
     if debug_treebuild then
          Printf.printf "end of median_w_times, node.ml ...tottal_cost=%f\n\n%!" total_cost;
-    { 
-        characters = new_characters;
-        total_cost =
-            if excluded
-            then infinity
-            else total_cost;
+    let node = 
+      { characters = new_characters;
+        total_cost = if excluded then infinity else total_cost;
         node_cost = node_cost;
         taxon_code = code;
         min_child_code = min nd_1.min_child_code nd_2.min_child_code;
@@ -1352,7 +1382,11 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
         exclude_sets = nd_1.exclude_sets;
         exclude_info = exclude_info;
         cost_mode = nd_1.cost_mode;
-    }
+      }
+    in
+    match times_3 with
+        | Some times_3 -> replace_parent_time node times_3
+        | None         -> node
 
 let final_states p n c1 c2 = 
     let new_characters = 
@@ -1390,14 +1424,14 @@ IFDEF USE_LIKELIHOOD THEN
     let tree_size acc = function
         | StaticMl a -> 
             begin match a.time with
-            | Some x,Some y -> acc +. x +. y
+            | Some x,Some y,_ -> acc +. x +. y
             | _ -> failwith "Seriously?"
             end
         | Dynamic a -> 
             begin match a.preliminary with
             | DynamicCS.MlCS _ -> 
                 begin match a.time with
-                | Some x,Some y -> acc +. x +. y
+                | Some x,Some y,_ -> acc +. x +. y
                 | _ -> failwith "Seriously?"
                 end
             | _ -> acc
@@ -1873,7 +1907,7 @@ let extract_dynamic data dyna tcode =
             cost = 0.; 
             weight = weight;
             sum_cost = 0.;
-            time = None,None;
+            time = None,None,None;
           } 
     | Data.Stat (code, _), _ ->
           raise (Illegal_argument ("Stat" ^ (string_of_int code))) 
@@ -1898,7 +1932,7 @@ let extract_kolmo data kolmo tcode =
             cost = 0.; 
             weight = weight;
             sum_cost = 0.;
-            time = None,None;
+            time = None,None,None;
           } 
     | Data.Stat (code, _), _ ->
           raise (Illegal_argument ("Stat" ^ (string_of_int code))) 
@@ -2294,7 +2328,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             let make_with_w c w =
                 { preliminary = c; final = c; cost = 0.; sum_cost = 0.; weight =
-                    w; time = None,None }
+                    w; time = None,None,None }
             in
             let result = (* NONADD8 *)
                 List.fold_left 
@@ -2371,7 +2405,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             let c, _ = SankCS.of_parser tcm (arr, tcode) code in
                             let c = Sank { preliminary = c; final = c; cost = 0.;
                                           sum_cost = 0.;
-                            weight = 1.; time = None,None } in
+                            weight = 1.; time = None,None,None; } in
                             { result with characters = c :: result.characters }
                 in
                 List.fold_left single_lsank_chars_process result lsank_chars
@@ -2411,7 +2445,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                                            cost = cost;
                                            sum_cost = cost;
                                            weight = 1.;
-                                           time = None,None }
+                                           time = None,None,None; }
                             in
                             { result with characters = c :: result.characters;
                                           total_cost = result.total_cost +. cost; }
@@ -2474,7 +2508,7 @@ let structure_into_sets data (nodes : node_data list) =
               final = set;
               cost = 0.;
               sum_cost = 0.;
-              weight = 1.; time = None,None } 
+              weight = 1.; time = None,None,None } 
     in
     let cs_list_to_set new_sid meth css : cs =
         let sid = new_sid () in
@@ -2486,7 +2520,7 @@ let structure_into_sets data (nodes : node_data list) =
               final = set;
               cost = 0.;
               sum_cost = 0.;
-              weight = 1.; time = None,None } 
+              weight = 1.; time = None,None,None } 
     in
     let rec group nid new_sid = function
         | Parser.SetGroups.Elt taxon ->
@@ -2931,19 +2965,19 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
         match parent_cs, minet with
             | Dynamic parentt, Dynamic minet ->
+                let fst (a,_,_) = a and snd (_,a,_) = a in
                 let root_pre,bl = match root with
                     | Some (Dynamic root) ->
                         begin match root.time with
-                            | None,None     -> Some root.preliminary, None
-                            | Some x,Some y -> Some root.preliminary, Some (x +. y)
-                            | None, Some _
-                            | Some _,None   -> failwith "Inconsistent branches 1"
+                            | None,None,None     -> Some root.preliminary, None
+                            | Some x,Some y,None -> Some root.preliminary, Some (x +. y)
+                            | _ -> failwith "Inconsistent branches for root"
                         end
                     | None ->
                         if combine_bl then begin match parentt.time with
-                            | Some x,Some y -> None, Some (x +. y)
-                            | None, None    -> None, None
-                            | _, _          -> failwith "Inconsistent branches 2"
+                            | Some x,Some y,None -> None, Some (x +. y)
+                            | None, None, None   -> None, None
+                            | _, _ , _           -> failwith "Inconsistent branches 2"
                         end else if mine.min_child_code = parent.min_child_code then
                             None, fst parentt.time
                         else
@@ -2959,7 +2993,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                             cost = minet.weight *. cost;
                             sum_cost = minet.weight *. cost;
                             weight = minet.weight;
-                            time = minet.time
+                            time = minet.time;
                         }
         (* | StaticMl cb, StaticMl ca -> 
             IFDEF USE_LIKELIHOOD THEN
@@ -3021,12 +3055,12 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
             IFDEF USE_LIKELIHOOD THEN
                 let min_bl = MlStaticCS.minimum_bl () in
-                let t1,t2 = match mine.time with 
-                    | Some x,Some y -> max min_bl x,max min_bl y
+                let t1,t2,t3_opt = match mine.time with 
+                    | Some x,Some y,par -> max min_bl x,max min_bl y,par
                     | _ -> 
                         let (x,y) = MlStaticCS.estimate_time c1.preliminary c2.preliminary in
                         if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                        max min_bl x,max min_bl y
+                        max min_bl x,max min_bl y, None
                 in
                 let m, prev_cost, cost, (t1,t2), res = 
                     MlStaticCS.readjust to_adjust !modified c1.preliminary
@@ -3039,7 +3073,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                         preliminary=res;final=res;
                         cost=cost;
                         sum_cost=cost +. c1.sum_cost +. c2.sum_cost;
-                        time = Some t1, Some t2;
+                        time = Some t1, Some t2,t3_opt;
                     }
             ELSE
                 failwith MlStaticCS.likelihood_error
@@ -3049,11 +3083,11 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                 | DynamicCS.MlCS c1_pre, DynamicCS.MlCS c2_pre ->
                   IFDEF USE_LIKELIHOOD THEN
                     let min_bl = MlStaticCS.minimum_bl () in
-                    let t1,t2 = match mine.time with 
-                        | Some x,Some y -> max min_bl x,max min_bl y
+                    let t1,t2,t3_opt = match mine.time with 
+                        | Some x,Some y,par -> max min_bl x,max min_bl y,par
                         | _  -> let (x,y) = MlDynamicCS.estimate_time c1_pre c2_pre in
                                 if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                                max min_bl x,max min_bl y
+                                max min_bl x,max min_bl y,None
                     in
                     let m,p_cost,n_cost,(t1,t2),res =
                         DynamicCS.readjust_lk mode to_adjust !modified
@@ -3067,7 +3101,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                             preliminary = res; final = res;
                             cost=cost; 
                             sum_cost= cost +. c1.sum_cost +.  c2.sum_cost;
-                            time = Some t1, Some t2;
+                            time = Some t1, Some t2, t3_opt;
                         }
                   ELSE
                     failwith MlStaticCS.likelihood_error
@@ -3084,7 +3118,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                             preliminary = res; final = res; 
                             cost = cost;
                             sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
-                            time=None,None;
+                            time=None,None,None;
                         }
             end
         | _ -> mine
@@ -3183,18 +3217,19 @@ let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs
             | _ -> assert false
         end
     | Dynamic cs, Dynamic cs_single ->
+        let time = match cs.time with | (a,b,_) -> (a,b) in
         begin match parent_cs with
             | None ->
-                DynamicCS.to_formatter report_type node_name pre_ref_codes pre cs.preliminary None cs.time d
-              @ DynamicCS.to_formatter report_type node_name fi_ref_codes fin cs.final None cs.time d
-              @ DynamicCS.to_formatter report_type node_name pre_ref_codes sing cs_single.preliminary None cs.time d
+                DynamicCS.to_formatter report_type node_name pre_ref_codes pre cs.preliminary None time d
+              @ DynamicCS.to_formatter report_type node_name fi_ref_codes fin cs.final None time d
+              @ DynamicCS.to_formatter report_type node_name pre_ref_codes sing cs_single.preliminary None time d
             | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
                 DynamicCS.to_formatter report_type node_name pre_ref_codes pre cs.preliminary
-                    (Some parent_cs.preliminary) cs.time d
+                    (Some parent_cs.preliminary) time d
               @ DynamicCS.to_formatter report_type node_name fi_ref_codes fin cs.final
-                    (Some parent_cs.final) cs.time d
+                    (Some parent_cs.final) time d
               @ DynamicCS.to_formatter report_type node_name pre_ref_codes sing cs_single.preliminary
-                    (Some parent_cs_single.preliminary) cs.time d
+                    (Some parent_cs_single.preliminary) time d
             | _ -> assert false
         end
     | Kolmo x, Kolmo x_single ->
@@ -3216,7 +3251,8 @@ let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs
         [`Single (Xml.Characters.set, attributes, `Set sub)]
     | StaticMl cs, StaticMl _ ->
         IFDEF USE_LIKELIHOOD THEN
-            MlStaticCS.to_formatter pre cs.preliminary cs.time d
+            let time = match cs.time with | (a,b,_) -> (a,b) in
+            MlStaticCS.to_formatter pre cs.preliminary time d
         ELSE
             failwith MlStaticCS.likelihood_error
         END
@@ -4052,7 +4088,7 @@ let new_characters character_code acc taxa =
         let chars = 
             { preliminary = chars; final = chars; cost = 0.0;
               sum_cost = 0.0;
-            weight = 1.0 ; time = None,None }
+            weight = 1.0 ; time = None,None,None }
         in
         All_sets.IntegerMap.add taxcode chars acc
     in
@@ -4093,7 +4129,7 @@ let for_support starting leaves leaves_id nodes =
                                 cost = 0.;
                                 sum_cost = 0.;
                                 weight = 0.;
-                                time = None,None;
+                                time = None,None,None;
                               } :: l)
                      leaf_data.characters charlist 
             in
