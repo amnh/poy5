@@ -175,9 +175,9 @@ val to_single :
 (** [to_single_root n] is equivalent to [to_single n n]. *)
 val to_single_root : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data -> node_data
 
-(** [apply_time a b n] applies the time [a] to the minimum child node and [b] to the
-* other. If _None is passed the data isn't changed_.
-val apply_time : ?given:(float option list) -> node_data -> node_data -> node_data *)
+(** [apply_time r a b] applies the time [a] to the minimum child node and [b] to the
+* other. If [r] is true, b is a root, and we add the edges together. *)
+val apply_time : bool -> node_data -> node_data -> node_data
 
 (** [edge_iterator gp p a b] is a function to iterate the branch lengths of
  * likelihood characters of parent [p], with children [a] and [b], and grand
@@ -203,8 +203,13 @@ val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> node_data 
  * uses the time data of nodes in different directions, [times_1] and [times_2]
  * to fill in the other directions with children [node_1] and [node_2].
 *)
-val median_w_times : int option -> node_data option -> node_data -> node_data 
-                     -> float option list -> float option list -> node_data
+val median_w_times: 
+    int option -> node_data option -> node_data -> node_data -> 
+        float option list -> float option list -> float option list option ->
+            node_data
+
+(* [replace_parent_time node t] replace the third time in [node] with the time *)
+val replace_parent_time : node_data -> float option list -> node_data
 
 (**[get_times_between(_tbl tbl) nd child_code]
  * helper functions to unify the distribution of times in three directions

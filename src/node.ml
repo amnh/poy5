@@ -504,6 +504,10 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
             let t1, t2 = match t1,t2 with
                 | Some (t1), Some (t2) when code <= 0 ->
                     ( max min_bl (t1/.2.0), max min_bl (t2/.2.0) )
+                (* this situation happens on edge data for roots *)
+                | (Some t1, None)
+                | (None, Some t1) when code <= 0 ->
+                    ( max min_bl (t1/.2.0), max min_bl (t1/.2.0) )
                 | Some (t1), Some (t2) -> 
                     (max min_bl t1, max min_bl t2)
                 | _ ->  let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
@@ -894,8 +898,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
 
 let apply_time root child parent =
     IFDEF USE_LIKELIHOOD THEN
-        (* over-write some functions locally *)
-        let fst (a,_,_) = a and snd (_,a,_) = a in
+        let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
         let p = if child.min_child_code = parent.min_child_code then fst else snd in
         let p_opt to_string = function | None -> "None" | Some x -> to_string x in
         let apply_it p pndtime = 
@@ -913,16 +916,35 @@ let apply_time root child parent =
                                   (p_opt string_of_float res) root
                                   (child.taxon_code) (parent.taxon_code);
             res
-        in
-        let rec apply_times ch par = match ch,par with
+        and replace_third (a,b,_) x = (a,b,x) in
+        let rec apply_times ch par =
+            match ch,par with
             | StaticMl cnd,StaticMl pnd ->
-                let time = apply_it p pnd.time in
-                StaticMl { cnd with time = time,None,None }
+                let time = replace_third cnd.time (apply_it p pnd.time) in
+                if debug then begin
+                    info_user_message "%d has %s | %s | %s" (parent.taxon_code)
+                                  (p_opt string_of_float (fst time))
+                                  (p_opt string_of_float (snd time))
+                                  (p_opt string_of_float (thr time));
+                    info_user_message "%d has %s | %s | %s" (child.taxon_code)
+                                  (p_opt string_of_float (fst time))
+                                  (p_opt string_of_float (snd time))
+                                  (p_opt string_of_float (thr time))
+                end;
+                StaticMl { cnd with time = time }
             | Dynamic cnd, Dynamic pnd -> 
                 begin match cnd.preliminary,pnd.preliminary with
                 | DynamicCS.MlCS _,DynamicCS.MlCS _ ->
-                    let time = apply_it p pnd.time in
-                    Dynamic { cnd with time = time,None,None }
+                    info_user_message "%d has %s | %s | %s" (parent.taxon_code)
+                                      (p_opt string_of_float (fst pnd.time))
+                                      (p_opt string_of_float (snd pnd.time))
+                                      (p_opt string_of_float (thr pnd.time));
+                    info_user_message "%d has %s | %s | %s" (child.taxon_code)
+                                      (p_opt string_of_float (fst cnd.time))
+                                      (p_opt string_of_float (snd cnd.time))
+                                      (p_opt string_of_float (thr cnd.time));
+                    let time = replace_third cnd.time (apply_it p pnd.time) in
+                    Dynamic { cnd with time = time }
                 | _,_ -> ch
                 end
             | _ -> ch
@@ -1251,7 +1273,7 @@ let median ?branches code old a b =
 (** [get_times_between nd child_code] returns a list of times between [nd] and
  * the child node. data must be contained already in [nd] *)
 let get_times_between (nd:node_data) (child_code : int option) =
-    let func = 
+    let func =
 IFDEF USE_LIKELIHOOD THEN
         let fst (a,_,_) = a and snd (_,a,_) = a in
         let f = match child_code with
@@ -1263,15 +1285,15 @@ IFDEF USE_LIKELIHOOD THEN
                  * element; now it is always the first. *)
                 (function | (Some _) as x, None, _ -> x
                           | x -> f x)
-            | None -> 
+            | None ->
                 (function | Some x,Some y, _ -> Some (x+.y)
                           | _ -> None)
         in
-        function | StaticMl z -> f z.time 
+        function | StaticMl z -> f z.time
                  | Dynamic z ->
                     begin match z.preliminary with
-                    | DynamicCS.MlCS _ -> f z.time
-                    | _ -> None
+                        | DynamicCS.MlCS _ -> f z.time
+                        | _ -> None
                     end
                  | _ -> None
 ELSE
@@ -1281,63 +1303,64 @@ END
     List.map func nd.characters
 
 
-let get_times_between_plus_codes (child:node_data) (parent:node_data) =
+let get_times_between_plus_codes (child:node_data) (parent:node_data option) =
     let null = ([||],None) in
-    let func = 
+    let func =
 IFDEF USE_LIKELIHOOD THEN
-        let fst (a,_,_) = a and snd (_,a,_) = a in
-        let f = 
-            if parent.min_child_code = child.min_child_code
-                then fst
-                else snd 
+        let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
+        let f = match parent with
+            | None     -> thr
+            | Some par ->
+                if par.min_child_code = child.min_child_code 
+                    then fst
+                    else snd
         in
         function
             | StaticMl z -> MlStaticCS.get_codes z.preliminary, f z.time
             | Dynamic z ->
                 begin match z.preliminary with
-                | DynamicCS.MlCS x ->
-                    MlDynamicCS.get_codes x, f z.time
-                | _ -> null
+                    | DynamicCS.MlCS x -> MlDynamicCS.get_codes x, f z.time
+                    | _ -> null
                 end
             | _ -> null
 ELSE
         fun _ -> null
 END
+    in match parent with
+        | Some par -> List.map func par.characters
+        | None     -> List.map func child.characters
+
+(** replace the third component of the time with the value passed *)
+let replace_parent_time node time =
+    let replace_third (a,b,_) x = (a,b,x) in
+    let cs_replace node time = match node with
+        | StaticMl a -> 
+            StaticMl { a with time = replace_third a.time time; }
+        | Dynamic a ->
+            Dynamic { a with time = replace_third a.time time; }
+        | x -> x (* we don't use time in other characters *)
     in
-    List.map func parent.characters
+    { node with
+        characters = List.map2 cs_replace node.characters time; }
 
 (** [median_w_times gp nd1 nd2 t1 t2]
  * uses time data from two correct nodes, [time_1] and [time_2] for the
  * calculation of the median between [nd1] and [nd2]. **)
-let median_w_times code prev nd_1 nd_2 times_1 times_2 = 
-     if debug_treebuild then
-         Printf.printf "node.ml median_w_times...%!";
-    let code   = 
-        match code with
+let median_w_times code prev nd_1 nd_2 times_1 times_2 times_3 =
+    if debug_treebuild then
+        Printf.printf "node.ml median_w_times...%!";
+    let code = match code with
         | Some code -> code
-        | None -> 
-                decr median_counter;
-                !median_counter
+        | None      -> decr median_counter;
+                       !median_counter
     in
-
     let new_characters = match prev with
         | Some prev ->
-            if debug_treebuild then
-                 Printf.printf "begin of map5 on cs_median....\n%!";
-            map5 (fun x -> cs_median code nd_1 nd_2 (Some x) )
-                    prev.characters
-                    times_1
-                    times_2
-                    nd_1.characters
-                    nd_2.characters
+            map5 (fun x -> cs_median code nd_1 nd_2 (Some x))
+                 prev.characters times_1 times_2 nd_1.characters nd_2.characters
         | None ->
-            if debug_treebuild then
-                 Printf.printf " begin of map4 on cs_median....\n%!";
-            map4 ( cs_median code nd_1 nd_2 None )
-                    times_1
-                    times_2
-                    nd_1.characters
-                    nd_2.characters
+            map4 (cs_median code nd_1 nd_2 None)
+                 times_1 times_2 nd_1.characters nd_2.characters
     in
     let node_cost = get_characters_cost new_characters in
     let total_cost = calc_total_cost nd_1 nd_2 node_cost
@@ -1346,12 +1369,9 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
     let excluded = has_excluded exclude_info in
     if debug_treebuild then
          Printf.printf "end of median_w_times, node.ml ...tottal_cost=%f\n\n%!" total_cost;
-    { 
-        characters = new_characters;
-        total_cost =
-            if excluded
-            then infinity
-            else total_cost;
+    let node = 
+      { characters = new_characters;
+        total_cost = if excluded then infinity else total_cost;
         node_cost = node_cost;
         taxon_code = code;
         min_child_code = min nd_1.min_child_code nd_2.min_child_code;
@@ -1361,7 +1381,11 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
         exclude_sets = nd_1.exclude_sets;
         exclude_info = exclude_info;
         cost_mode = nd_1.cost_mode;
-    }
+      }
+    in
+    match times_3 with
+        | Some times_3 -> replace_parent_time node times_3
+        | None         -> node
 
 let final_states p n c1 c2 = 
     let new_characters = 

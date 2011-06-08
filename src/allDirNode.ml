@@ -248,8 +248,9 @@ module OneDirF :
                 let y = force_val y in
                 Node.Standard.apply_time root x y)
             
-    let get_times_between a b = 
-        apply_f_on_lazy (Node.Standard.get_times_between) a b
+    let get_times_between a b = match b with
+        | Some b -> Node.Standard.get_times_between (force_val a) (Some (force_val b))
+        | None   -> Node.Standard.get_times_between (force_val a) None
 
     let uppass_heuristic pcode ptime mine a b = mine
 
@@ -257,8 +258,7 @@ module OneDirF :
 
     let to_string v = Node.Standard.to_string (force_val v)
 
-    let apply_single_f_on_lazy f a = 
-        f (force_val a)
+    let apply_single_f_on_lazy f a = f (force_val a)
 
     let total_cost x n =
         apply_single_f_on_lazy (Node.Standard.total_cost x) n
@@ -682,17 +682,24 @@ type nad8 = Node.Standard.nad8 = struct
      * returns the branch length between the child and parent, contained in
      * parent, although, it shouldn't matter as long as the directions are
      * available *)
-    let get_times_between child par =
-        try let child = not_with (taxon_code par) child.unadjusted
-            and par = either_with (taxon_code child) par.unadjusted in
-            OneDirF.get_times_between child.lazy_node par.lazy_node
-        with | _ ->
-            (* direction doesn't matter; possibly only downpass happened! Who
-               the hell is it to say the tree is in an error state on an
-               inconsequential function as this? *)
-            let child = either_with (taxon_code child) par.unadjusted
-            and par   = not_with (taxon_code par) child.unadjusted in
-            OneDirF.get_times_between par.lazy_node child.lazy_node
+    let get_times_between (child:n) (par: n option) =
+        match child.unadjusted with
+        | [x] -> OneDirF.get_times_between x.lazy_node None
+        |  _  ->
+            begin match par with
+                | None -> failwith "A direction should be specified"
+                | Some par ->
+                    try let child = not_with (taxon_code par) child.unadjusted
+                        and par = either_with (taxon_code child) par.unadjusted in
+                        OneDirF.get_times_between child.lazy_node (Some par.lazy_node)
+                    with | _ ->
+                        (* direction doesn't matter; possibly only downpass happened! Who
+                           the hell is it to say the tree is in an error state on an
+                           inconsequential function as this? *)
+                        let child = either_with (taxon_code child) par.unadjusted
+                        and par   = not_with (taxon_code par) child.unadjusted in
+                        OneDirF.get_times_between par.lazy_node (Some child.lazy_node)
+            end
 
 
     (** [extract_states par child] extract the states of child toward par *)
@@ -713,6 +720,35 @@ type nad8 = Node.Standard.nad8 = struct
         if uppass_debug then
             info_user_message "Applying time from %d to %d"
                     (taxon_code parent) (taxon_code child);
+        let pc = taxon_code parent and mc = taxon_code child in
+        let time_M2P =
+            lazy_from_fun 
+                (fun () -> 
+                    if root then
+                        let timedat = (either_with mc parent.unadjusted).lazy_node in
+                        Node.get_times_between (force_val timedat) None
+                    else
+                        let timedat = (either_with mc parent.unadjusted).lazy_node in
+                        Node.get_times_between (force_val timedat) 
+                                (Some (min_child_code (Some pc) child)) )
+        and data_m2p = match child.unadjusted with
+            | [x] -> x.lazy_node
+            |  _  -> failwith "Apply time is used on leaves."
+        in
+        let node = lazy_from_fun
+            (fun () -> 
+                Node.replace_parent_time (force_val data_m2p) (force_val time_M2P))
+        in
+        let node = {
+            lazy_node = node;
+            dir = None;
+            code = taxon_code child; }
+        in
+        { unadjusted = [node]; adjusted = Some node; }
+       
+
+
+        (**
         let has_one code x = match x.dir with
             | None -> true (* cannot be a leaf as well. should use median *)
             | Some (a,b) -> a = code || b = code
@@ -733,6 +769,7 @@ type nad8 = Node.Standard.nad8 = struct
             code = taxon_code child; }
         in
         { unadjusted = [node]; adjusted = Some node; }
+        **)
 
     (** [uppass_heuristic tbl curr ch1 ch2 par r]
      * [cur], at this point will have one direction ([ch1],[ch2]), after this call
@@ -754,48 +791,33 @@ type nad8 = Node.Standard.nad8 = struct
         if uppass_debug then
             info_user_message "Performing uppass Heuristic on %d with (%d,%d) and %d"
                 (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
-
+        (* open all the taxon codes; they get used often for directions *)
         let mc = taxon_code m and ac = taxon_code a
         and bc = taxon_code b and pc = taxon_code p_data
-        and get_dir parc x =
-            try
-                (not_with parc x.unadjusted).lazy_node
-            with | Not_found -> 
-                Printf.printf "\n-----\nCannot find direction %d in %d\n\t%!" 
-                                parc (taxon_code x);
-                q_print x;
-                Printf.printf "-----\n\n%!";
-                assert(false)
-        in
+        and get_dir parc x = (not_with parc x.unadjusted).lazy_node in
         let data_m2p = 
             try match m.unadjusted with
             (* then it hasn't been resolved by an earlier uppass on root *)
             | [x] -> 
                 if (match x.dir with
-                         | None ->
-                                 false
-                         | Some (xa,xb) ->
-                                 (xa=ac && xb=bc) || (xa=bc && xb=ac))
-                    then x.lazy_node
-                    else raise Not_found
+                    | None -> false
+                    | Some (xa,xb) -> (xa=ac && xb=bc) || (xa=bc && xb=ac))
+                  then x.lazy_node
+                  else raise Not_found
             (* ...was resolved, so get the direction *)
-            |  _  ->
-                    get_dir pc m 
-        with | Not_found -> 
-            q_print m;
-            failwithf "Data from %d toward parent %d is missing.\n" mc pc
-
+            |  _  -> get_dir pc m 
+            with | Not_found -> 
+                q_print m;
+                failwithf "Data from %d toward parent %d is missing.\n" mc pc
         and data_p2m = match p_data.unadjusted with
             (* then it HASN'T been resolved by an earlier uppass, and is truely
              * the parent with a calculated/lazy median *)
             | [x] -> x.lazy_node
             (* ...was resolved, so get one of the directions that has m as child *)
             |  _  -> get_dir mc p_data
-
         (* both of these should exist *)
         and data_b2m = get_dir mc b
         and data_a2m = get_dir mc a in
-
         (* get the times in all directions --AB have them in M and M has it in P *)
         let smc = Some mc in
         let time_M2A = 
@@ -815,48 +837,45 @@ type nad8 = Node.Standard.nad8 = struct
                     let timedat = force_val (either_with mc p_data.unadjusted).lazy_node in
                     Node.get_times_between timedat (Some (min_child_code (Some pc) m)))
         in
-        (* PRINT OUT THE TIMES BETWEEN *)
 (*        Printf.printf "(%d--%d):%a\t(%d--%d):%a\t(%d--%d):%a\n%!"*)
-(*                mc ac pp_opt_list (force_val time_M2A)*)
-(*                mc bc pp_opt_list (force_val time_M2B)*)
-(*                mc pc pp_opt_list (force_val time_M2P);*)
-
+(*            mc ac pp_opt_list (force_val time_M2A) mc bc pp_opt_list*)
+(*            (force_val time_M2B) mc pc pp_opt_list (force_val time_M2P);*)
         (* call medians with times supplied *)
         let node_A = lazy_from_fun
-                (fun () -> 
-                    let data_m2p = force_val data_m2p in
-                    let data_p2m = force_val data_p2m in
-                    let time_M2P = force_val time_M2P in
-                    let time_M2B = force_val time_M2B in
-                    let data_b2m = force_val data_b2m in
-                    Node.median_w_times 
-                                (Some mc) (Some (data_m2p)) 
-                                    (data_p2m)
-                                    (data_b2m) 
-                                    (time_M2P) 
-                                    (time_M2B) )
+            (fun () -> 
+                let data_m2p = force_val data_m2p in
+                let data_p2m = force_val data_p2m in
+                let time_M2P = force_val time_M2P in
+                let time_M2B = force_val time_M2B in
+                let time_M2A = force_val time_M2A in
+                let data_b2m = force_val data_b2m in
+                Node.median_w_times (Some mc) (Some (data_m2p)) data_p2m
+                                    data_b2m time_M2P time_M2B (Some time_M2A))
         and node_B = lazy_from_fun
-                (fun () -> 
-                    let data_m2p = force_val data_m2p in
-                    let data_p2m = force_val data_p2m in
-                    let time_M2P = force_val time_M2P in
-                    let time_M2A = force_val time_M2A in
-                    let data_a2m = force_val data_a2m in
-                    Node.median_w_times 
-                                (Some mc) (Some (data_m2p)) 
-                                    (data_p2m)
-                                    (data_a2m) 
-                                    (time_M2P)
-                                    (time_M2A) )
+            (fun () -> 
+                let data_m2p = force_val data_m2p in
+                let data_p2m = force_val data_p2m in
+                let time_M2P = force_val time_M2P in
+                let time_M2B = force_val time_M2B in
+                let time_M2A = force_val time_M2A in
+                let data_a2m = force_val data_a2m in
+                Node.median_w_times (Some mc) (Some (data_m2p)) data_p2m
+                                    data_a2m time_M2P time_M2A (Some time_M2B))
+        and node_C = lazy_from_fun
+            (fun () -> 
+                Node.replace_parent_time (force_val data_m2p) (force_val time_M2P))
         in
-
-        let dir_A= { code= mc; lazy_node= node_A;   dir= Some(bc,pc); }
-        and dir_B= { code= mc; lazy_node= node_B;   dir= Some(ac,pc); }
-        and dir_C= { code= mc; lazy_node= data_m2p; dir= Some(ac,bc); } in
-        let allDir = [ dir_A ; dir_B ; dir_C ] in
+        (* build the nodes *)
+        let allDir = 
+            let dir_A= { code= mc; lazy_node= node_A; dir= Some(bc,pc); }
+            and dir_B= { code= mc; lazy_node= node_B; dir= Some(ac,pc); }
+            and dir_C= { code= mc; lazy_node= node_C; dir= Some(ac,bc); } in
+            [ dir_A ; dir_B ; dir_C ]
+        in
         let res = { unadjusted = allDir; adjusted = None } in
         if uppass_debug then
-        info_user_message "End of Performing uppass Heuristic on %d with (%d,%d) and %d"
+            info_user_message
+                "End of Performing uppass Heuristic on %d with (%d,%d) and %d"
                 (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
         res
 
@@ -1182,10 +1201,15 @@ let create_root_w_times left right =
             and r_code = AllDirF.taxon_code right in
             let left2right = get_dir r_code left
             and right2left = get_dir l_code right in
-            let in_l_time = Node.get_times_between (get_a_dir r_code left)
-                            (Some (AllDirF.min_child_code (Some l_code) right))
-            and in_r_time = Node.get_times_between (get_a_dir l_code right)
-                            (Some (AllDirF.min_child_code (Some r_code) left))
+            let in_l_time =
+                Node.get_times_between (get_a_dir r_code left)
+                    (Some (AllDirF.min_child_code (Some l_code) right))
+            and in_r_time = 
+                Node.get_times_between (get_a_dir l_code right)
+                    (Some (AllDirF.min_child_code (Some r_code) left))
             in
+(*            Printf.printf "Edge (%d,%d) : %a -- %a\n%!" l_code r_code*)
+(*                          pp_opt_list in_l_time pp_opt_list in_r_time;*)
             Node.median_w_times 
-                None None left2right right2left in_l_time in_r_time)
+                None None left2right right2left in_l_time in_r_time None)
+

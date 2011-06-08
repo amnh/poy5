@@ -118,9 +118,11 @@ module F : Ptree.Tree_Operations
         let create_branch_table handle () =
             let rec single_node prev curr =
                 let pair = (min curr prev, max curr prev) in
-                let dat = AllDirNode.AllDirF.get_times_between
+                let dat =
+                    AllDirNode.AllDirF.get_times_between 
                             (Ptree.get_node_data curr ptree)
-                            (Ptree.get_node_data prev ptree) in
+                            (Some (Ptree.get_node_data prev ptree))
+                in
                 let name_it x = match dat with | [_] -> `Single x
                                                | []  -> failwith "No character Sets"
                                                | _   -> `Name
@@ -180,7 +182,7 @@ module F : Ptree.Tree_Operations
             let codestimes = 
                 AllDirNode.AllDirF.get_times_between
                     (Ptree.get_node_data node1 ptree)
-                    (Ptree.get_node_data node2 ptree)
+                    (Some (Ptree.get_node_data node2 ptree))
             and table = Hashtbl.create 1227
             and insert_set codes table time = 
                 Array.iter
@@ -260,7 +262,7 @@ module F : Ptree.Tree_Operations
             assert (root_node = None);
             let dataa = Ptree.get_node_data a ptree
             and datab = Ptree.get_node_data b ptree in
-            AllDirNode.create_root_w_times dataa datab,ptree
+            AllDirNode.create_root_w_times dataa datab, ptree
         end
 
 
@@ -334,10 +336,10 @@ module F : Ptree.Tree_Operations
         let edge_cost (Tree.Edge (a,b)) =
             let lst =
                 try AllDirNode.AllDirF.get_times_between
-                        (Ptree.get_node_data a ptree) (Ptree.get_node_data b ptree)
+                        (Ptree.get_node_data a ptree) (Some (Ptree.get_node_data b ptree))
                 with | _ ->
                     AllDirNode.AllDirF.get_times_between
-                        (Ptree.get_node_data b ptree) (Ptree.get_node_data a ptree)
+                        (Ptree.get_node_data b ptree) (Some (Ptree.get_node_data a ptree))
             in
             List.fold_left (fun acc x -> match x with | _,Some x -> x +. acc 
                                                       | _,None   -> acc)
