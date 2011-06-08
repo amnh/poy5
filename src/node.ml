@@ -139,23 +139,24 @@ let cs_string = function
 
 let rec to_string_ch ch1 = match ch1 with
     | Nonadd8 a ->
-          ("na8: " ^ NonaddCS8.to_string a.final)
+            ("na8: " ^ NonaddCS8.to_string a.final)
     | Nonadd16 a ->
-          ("na16: " ^ NonaddCS16.to_string a.final)
+            ("na16: " ^ NonaddCS16.to_string a.final)
     | Nonadd32 a ->
-          ("na32: " ^ NonaddCS32.to_string a.final)
+            ("na32: " ^ NonaddCS32.to_string a.final)
     | Add a ->
-          AddCS.to_string a.final
+            AddCS.to_string a.final
     | Sank a ->
-          ("sank: " ^ SankCS.to_string a.final)
+            ("sank: " ^ SankCS.to_string a.final)
     | Dynamic a ->
-          "dynamic: " ^ DynamicCS.to_string a.final
+            "dynamic: " ^ DynamicCS.to_string a.final
     | Set a ->
-          let sub = List.map to_string_ch a.final.set in
-          let stype = match a.final.smethod with
-          | `Strictly_Same -> "same"
-          | `Any_Of _ -> "any-of" in
-          "set(" ^ stype ^ "): [" ^ (String.concat "; " sub) ^ "]"
+            let sub = List.map to_string_ch a.final.set in
+            let stype = match a.final.smethod with
+                | `Strictly_Same -> "same"
+                | `Any_Of _ -> "any-of"
+            in
+            "set(" ^ stype ^ "): [" ^ (String.concat "; " sub) ^ "]"
     | Kolmo a ->
             ("kolmo: " ^ KolmoCS.to_string a.final)
     | StaticMl a ->
@@ -4072,14 +4073,14 @@ let for_support starting leaves leaves_id nodes =
     let load_clade node_data node_id =
         List.map
             (fun (leaf_id, charlist, leaf_data) ->
-                 let char = NonaddCS8.of_list [(node_id + starting,
-                                                (node_id + starting,
-                                                 if List.mem leaf_id
-                                                     leaves_id
-                                                 then 2
-                                                 else 1), 0.)] in
-                 (leaf_id, char :: charlist, leaf_data))
-            node_data in
+                let char =
+                    let leaf = if List.mem leaf_id leaves_id then 2 else 1 in
+                    NonaddCS8.of_list
+                        [(node_id + starting, (node_id + starting,leaf), 0.)]
+                in
+                (leaf_id, char :: charlist, leaf_data))
+            node_data
+    in
     let node_data = List.fold_left load_clade leaves nodes in
     let node_data = List.map
         (fun (id, charlist, leaf_data) ->

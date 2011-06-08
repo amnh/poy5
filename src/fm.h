@@ -17,20 +17,17 @@
 /* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   */
 /* USA                                                                        */
 
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>         
+#include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
+#ifdef USE_LIKELIHOOD
 
-#include <caml/alloc.h>     //copy_double, et cetera
-#include <caml/mlvalues.h>
-#include <caml/memory.h>    //caml_param, et cetera
 #include <caml/bigarray.h>
-#include <caml/custom.h>    //abstract types
-#include <caml/intext.h>    //serialization
-#include <caml/fail.h>      //failwith('')
 
 #include "floatmatrix.h"
 #include "likelihood.h"
+
+/** How should the direction matrix be assigned? **/
+#define CDIR long
+#define ODIR BIGARRAY_CAML_INT
 
 /** tie up two matrices; one defines the cost, another the assignment **/
 struct fmat {
@@ -42,12 +39,13 @@ struct fmat {
                         transformation, or a transformation of all combinations,
                         depending on the [comb] variable --if it equals 0 then
                         we are dealing with single character transformations **/
-    int* assign;    /** bitset matrix for the assignments; size as the cost matrix **/
+    CDIR* assign;   /** bitset matrix for the assignments; size as the cost matrix **/
 };
 typedef struct fmat fm;
 
-double calculate_cost( int* a, const double* X, const double* Y,
+double calculate_cost( CDIR* a, const double* X, const double* Y,
                             const int x, const int y, const int n );
 
-void precalc( fm *FM, const double *A, const double *B, const int n );
+void precalc( fm *FM, const double *A, const double *B );
 
+#endif /* USE_LIKELIHOOD */

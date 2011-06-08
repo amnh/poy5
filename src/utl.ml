@@ -352,4 +352,16 @@ let get_dir dir =
     | `Negative -> "-" 
     | _ -> "" 
 
+let random_array array = 
+    let fisher_yates array : 'a array = 
+        let array = Array.copy array in
+        for n = (Array.length array) - 1 downto 1 do
+            let j = Random.int n in
+            let tmp = array.(j) in
+            array.(j) <- array.(n);
+            array.(n) <- tmp;
+        done;
+        array
+    in
+    fisher_yates array
 

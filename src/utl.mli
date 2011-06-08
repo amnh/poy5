@@ -64,3 +64,4 @@ val max_arr : 'a array -> 'a
 val min_arr : 'a array -> 'a
 val printIntSet : IntSet.t -> unit
 val get_dir : [> `Negative | `Positive ] -> string
+val random_array : 'a array -> 'a array

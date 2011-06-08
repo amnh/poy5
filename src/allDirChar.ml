@@ -1036,18 +1036,8 @@ module F : Ptree.Tree_Operations
             in
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
-                let all_edges = (* randomize the order for edges to optimize *)
-                    let fisher_yates array : 'a array = 
-                        let array = Array.copy array in
-                        for n = (Array.length array) - 1 downto 1 do
-                            let j = Random.int n in
-                            let tmp = array.(j) in
-                            array.(j) <- array.(n);
-                            array.(n) <- tmp;
-                        done;
-                        array
-                    in
-                    all_edges --> Array.of_list --> fisher_yates --> Array.to_list
+                let all_edges =
+                    Array.of_list all_edges --> Utl.random_array --> Array.to_list
                 in
                 let (changed,new_affected,new_ptree : adjust_acc) = 
                     let none_affected = IntMap.empty in

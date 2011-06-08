@@ -378,7 +378,7 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
             let h = Array.make_matrix n n 0.0 in
             for i = 0 to n-1 do h.(i).(i)  <- 1.0 done;
             h
-        and x_grad = gradient_at_x f_array x_array fx_array in
+        and x_grad = gradient_at_x ~epsilon f_array x_array fx_array in
         let dir = Array.init n (fun i -> ~-. (x_grad.(i)) )
         and mxstep = mx_step *. (max (magnitude x_array) (float_of_int n)) in
         hessian, x_grad, mxstep, dir in
@@ -390,7 +390,7 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
     (* update gradient --ret new gradient, difference of gradients,
      * difference of gradient times hessian matrix, if converged *)
     and gradient_update hessian ograd f p fp = 
-        let ngrad = gradient_at_x f p fp in
+        let ngrad = gradient_at_x ~epsilon f p fp in
         let dgrad = Array.init n (fun i -> ngrad.(i) -. ograd.(i)) in
         let hgrad = 
             Array.init n

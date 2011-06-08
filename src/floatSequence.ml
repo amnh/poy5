@@ -147,6 +147,8 @@ module type A = sig
 
 end
 
+IFDEF USE_LIKELIHOOD THEN
+
 module CMPLAlign : A = struct
 
     type s        = Sequence.s
@@ -155,7 +157,7 @@ module CMPLAlign : A = struct
     (* We define all of the external functions, and compose them properly in
        to the interface below *)
 
-    external fm_CAML_compose :
+    external fm_compose :
         FMatrix.m -> 
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -163,15 +165,12 @@ module CMPLAlign : A = struct
         float -> float -> int ->
             (int,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t *
             (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t 
-        = "fm_CAML_compose" "fm_CAML_compose_wrapped"
+        = "fm_CAML_compose_wrapper" "fm_CAML_compose"
 
     (* --- implement the A module *)
 
     external s_of_seq : Sequence.s -> s = "%identity"
     external seq_of_s : s -> Sequence.s = "%identity"
-    (* to implement w/out exposing their external signature in the mli *)
-    let s_of_seq = s_of_seq
-    let seq_of_s = seq_of_s
  
     let compare a b      = 0 = Sequence.compare (seq_of_s a) (seq_of_s b)
     let print_mem mem    = FMatrix.print mem
@@ -202,6 +201,25 @@ module CMPLAlign : A = struct
         done;
         printf "|%!";
         ()
+    
+    let get_cm model t1 t2 =
+        let assgn,csts = 
+            fm_compose FMatrix.scratch_space model.static.MlModel.u 
+                       model.static.MlModel.d model.static.MlModel.ui t1 t2 1
+        in
+        let a = Bigarray.Array2.dim1 csts and b = Bigarray.Array2.dim2 csts in
+        let r = Array.make_matrix a b (0.0,0) in
+        for i = 0 to a-1 do for j = 0 to b-1 do
+            r.(i).(j) <- (csts.{i,j},assgn.{i,j});
+        done; done; 
+        r
+
+    let get_cf model t1 t2 =
+        let assgn,csts =
+            fm_compose FMatrix.scratch_space model.static.MlModel.u 
+                       model.static.MlModel.d model.static.MlModel.ui t1 t2 1
+        in
+        (fun i j -> csts.{i,j}, assgn.{i,j})
 
     let cost_2 ?deltaw _ _ _ _ _ _  = failwith "not implemented"
     let optimize s1 s2 model t mem  = failwith "not implemented"
@@ -213,9 +231,7 @@ module CMPLAlign : A = struct
     let closest ~p ~m _ _ _         = failwith "not implemented"
     let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
     let readjust _ _ _ _ _ _ _ _    = failwith "not implemented"
-    let get_cm _ _ _                = failwith "not implemented"
     let cost _ _ _                  = failwith "not implemented"
-    let get_cf _ _ _                = failwith "not implemented"
     let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
     let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
     let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
@@ -233,9 +249,6 @@ module FloatAlign : A = struct
 
     external s_of_seq : Sequence.s -> s = "%identity"
     external seq_of_s : s -> Sequence.s = "%identity"
-
-    let s_of_seq = s_of_seq
-    let seq_of_s = seq_of_s
 
     let compare a b =
         0 = Sequence.compare (seq_of_s a) (seq_of_s b)
@@ -1725,4 +1738,49 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
     Printf.fprintf channel "%f %f %f %f %f %f  %a  %a\n%!"
                    mal_cost     mpl_cost     flk_cost
                    mal_opt_cost mpl_opt_cost flk_opt_cost
-                   (pp_seq model) mpl_median (pp_seq model) flk_median;
+                   (pp_seq model) mpl_median (pp_seq model) flk_median
+
+ELSE
+
+module Empty : A = struct
+
+    type s        = unit
+    type floatmem = unit
+
+    let s_of_seq _                  = failwith "not implemented"
+    let seq_of_s _                  = failwith "not implemented"
+    let compare _ _                 = failwith "not implemented"
+    let print_mem _                 = failwith "not implemented"
+    let create_mem _ _              = failwith "not implemented"
+    let clear_mem _                 = failwith "not implemented"
+    let get_mem _ _                 = failwith "not implemented"
+    let print_cm _ _                = failwith "not implemented"
+    let cost_2 ?deltaw _ _ _ _ _    = failwith "not implemented"
+    let optimize _ _ _ _            = failwith "not implemented"
+    let print_s _ _                 = failwith "not implemented"
+    let print_raw _                 = failwith "not implemented"
+    let aln_cost_2 _ _ _ _          = failwith "not implemented"
+    let median_2 _ _ _ _ _ _        = failwith "not implemented"
+    let median_2_cost _ _ _ _ _ _   = failwith "not implemented"
+    let full_median_2 _ _ _ _ _ _   = failwith "not implemented"
+    let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
+    let closest ~p ~m _ _ _         = failwith "not implemented"
+    let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _ _    = failwith "not implemented"
+    let get_cm _ _ _                = failwith "not implemented"
+    let cost _ _ _                  = failwith "not implemented"
+    let get_cf _ _ _                = failwith "not implemented"
+    let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
+    let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
+    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
+    let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
+    let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
+
+end
+
+module MPLAlign = Empty
+module FloatAlign = Empty
+module MALAlign = Empty
+module CMPLAlign = Empty
+
+END
