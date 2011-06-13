@@ -186,7 +186,7 @@ module type A = sig
         the minimum cost to [p]; return the optimal state, and cost associated
         with that transformation based on the model and branch length, [t]. *)
 
-    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> floatmem -> float * s * bool
+    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> float * s * bool
     (** [readjust a b c m at bt ct mem] Perform a pseudo 3D alignment by using
         the best score of any pair, and then performing [closest] on that median
         with the third sequence. *)

@@ -120,6 +120,9 @@ val readjust : t -> t -> t -> float -> float -> bool * float * float * (float * 
 (** [readjust p a b t1 t2] optimize the branch lengths [t1] and [t2] from nodes
     [a] and [b] respectively, updating parent [p]. *)
 
+val readjust3 : t -> t -> t -> t -> float -> float -> float
+    -> bool * float * float * (float * float * float) * t
+
 val to_single : t -> t -> float -> float * float * t
 (** [to_single p m t] Find the sequence for m as a sequence of assigned states,
     based on [p] and the branch length [t]. *)

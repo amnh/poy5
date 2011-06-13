@@ -2975,7 +2975,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                         end
                     | None ->
                         if combine_bl then begin match parentt.time with
-                            | Some x,Some y,None -> None, Some (x +. y)
+                            | Some x,Some y,_ -> None, Some (x +. y)
                             | None, None, None   -> None, None
                             | _, _ , _           -> failwith "Inconsistent branches 2"
                         end else if mine.min_child_code = parent.min_child_code then
@@ -3082,26 +3082,26 @@ let readjust mode to_adjust ch1 ch2 parent mine =
             begin match c1.preliminary,c2.preliminary with
                 | DynamicCS.MlCS c1_pre, DynamicCS.MlCS c2_pre ->
                   IFDEF USE_LIKELIHOOD THEN
-                    let min_bl = MlStaticCS.minimum_bl () in
-                    let t1,t2,t3_opt = match mine.time with 
-                        | Some x,Some y,par -> max min_bl x,max min_bl y,par
-                        | _  -> let (x,y) = MlDynamicCS.estimate_time c1_pre c2_pre in
-                                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                                max min_bl x,max min_bl y,None
+                    let ot1,ot2,ot3 = match mine.time with 
+                        | Some x,Some y,Some z -> x, y, z
+                        | _  -> assert false
                     in
-                    let m,p_cost,n_cost,(t1,t2),res =
-                        DynamicCS.readjust_lk mode to_adjust !modified
-                            c1.preliminary c2.preliminary mine.preliminary t1 t2
+                    let m,p_cost,n_cost,(t1,t2,t3),res =
+                        DynamicCS.readjust_lk3 mode to_adjust !modified
+                                mine.preliminary c1.preliminary c2.preliminary
+                                parent.preliminary ot1 ot2 ot3
                     in
                     modified := m;
                     let cost = mine.weight *. n_cost in
-                    Printf.printf "Optimized Cost %f --> %f\n%!" mine.cost cost;
+(*                    Printf.printf "Optimized Cost %f(%f,%f,%f) --> %f(%f,%f,%f)\n%!"*)
+(*                                  (p_cost *. mine.weight) ot1 ot2 ot3 cost t1 t2 t3;*)
                     Dynamic
                         { mine with
-                            preliminary = res; final = res;
-                            cost=cost; 
-                            sum_cost= cost +. c1.sum_cost +.  c2.sum_cost;
-                            time = Some t1, Some t2, t3_opt;
+                            preliminary = res;
+                            final = res;
+                            cost = cost; 
+                            sum_cost = cost +. c1.sum_cost +. c2.sum_cost;
+                            time = Some t1, Some t2, Some t3;
                         }
                   ELSE
                     failwith MlStaticCS.likelihood_error

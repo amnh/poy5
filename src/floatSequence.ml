@@ -142,7 +142,7 @@ module type A = sig
     val get_closest : dyn_model -> float -> i:int -> p:int -> m:int -> int * float
 
     (* (pseudo) 3d operations *)
-    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> floatmem -> float * s * bool
+    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> float * s * bool
     val optimize : s -> s -> dyn_model -> float -> floatmem -> float * float
 
 end
@@ -230,7 +230,7 @@ module CMPLAlign : A = struct
     let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
     let closest ~p ~m _ _ _         = failwith "not implemented"
     let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
-    let readjust _ _ _ _ _ _ _ _    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _      = failwith "not implemented"
     let cost _ _ _                  = failwith "not implemented"
     let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
     let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
@@ -804,8 +804,8 @@ module FloatAlign : A = struct
 
 
     (* pseudo 3d operation to find a median of three *)
-    let readjust s1 s2 s3 model t1 t2 t3 mem =
-        let algn s1 s2 t1 t2 : float * s = algn s1 s2 model t1 t2 mem in
+    let readjust s1 s2 s3 model t1 t2 t3 =
+        let algn s1 s2 t1 t2 = algn s1 s2 model t1 t2 (get_mem s1 s2) in
         let make_center s1 s2 s3=
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
@@ -824,13 +824,13 @@ module FloatAlign : A = struct
             (* determine best... *)
             if c123 <= c231 then
                 if c123 <= c132 then
-                    false, c123, closest s3 s12 model t3 mem, c123
+                    false, c123, closest s3 s12 model t3 (get_mem s3 s12), c123
                 else
-                    true, c132, closest s2 s13 model t2 mem, c123
+                    true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
             else if c231 < c132 then
-                true, c231, closest s1 s23 model t1 mem, c123
+                true, c231, closest s1 s23 model t1 (get_mem s1 s23), c123
             else
-                true, c132, closest s2 s13 model t2 mem, c123
+                true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
         in
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
@@ -1474,8 +1474,8 @@ module MPLAlign : A = struct
         res
 
     (* requires not implemented functions *)
-    let readjust s1 s2 s3 model t1 t2 t3 mem =
-        let algn s1 s2 t1 t2 : float * s = algn s1 s2 model t1 t2 mem in
+    let readjust s1 s2 s3 model t1 t2 t3 =
+        let algn s1 s2 t1 t2 = algn s1 s2 model t1 t2 (get_mem s1 s2) in
         let make_center s1 s2 s3 =
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
@@ -1494,13 +1494,13 @@ module MPLAlign : A = struct
             (* determine best... *)
             if c123 <= c231 then
                 if c123 <= c132 then
-                    false, c123, closest s3 s12 model t3 mem, c123
+                    false, c123, closest s3 s12 model t3 (get_mem s3 s12), c123
                 else
-                    true, c132, closest s2 s13 model t2 mem, c123
+                    true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
             else if c231 < c132 then
-                true, c231, closest s1 s23 model t1 mem, c123
+                true, c231, closest s1 s23 model t1 (get_mem s1 s23), c123
             else
-                true, c132, closest s2 s13 model t2 mem, c123
+                true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
         in
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
@@ -1674,7 +1674,7 @@ module MALAlign : A = struct
     let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
     let closest ~p ~m _ _ _         = failwith "not implemented"
     let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
-    let readjust _ _ _ _ _ _ _ _    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _      = failwith "not implemented"
     let get_cm _ _ _                = failwith "not implemented"
     let cost _ _ _                  = failwith "not implemented"
     let get_cf _ _ _                = failwith "not implemented"
@@ -1766,7 +1766,7 @@ module Empty : A = struct
     let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
     let closest ~p ~m _ _ _         = failwith "not implemented"
     let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
-    let readjust _ _ _ _ _ _ _ _    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _      = failwith "not implemented"
     let get_cm _ _ _                = failwith "not implemented"
     let cost _ _ _                  = failwith "not implemented"
     let get_cf _ _ _                = failwith "not implemented"

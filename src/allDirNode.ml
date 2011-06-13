@@ -34,6 +34,7 @@ type a_node = Node.Standard.n my_lazy
 
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
+let failwithf format = Printf.ksprintf failwith format
 
 let pp_list to_str chan v = List.iter (fun x -> output_string chan (to_str x)) v
 let pp_opt_list chan v =
@@ -82,7 +83,6 @@ type node_dir = {
     code : int;
 }
 
-(* use q_print to print out directions in node_data*)
 type node_data = {
     unadjusted : node_dir list; (** The standard downpass node *)
     adjusted : node_dir option;  (** adjusted data calculated in uppass *)
@@ -122,12 +122,6 @@ let print_node_data ndata print_unadjusted=
     end
 
 let to_n node = Eager node
-
-let failwithf format = Printf.ksprintf failwith format
-let info_user_message format = 
-    Printf.ksprintf (Status.user_message Status.Information) format
-let error_user_message format = 
-    Printf.ksprintf (Status.user_message Status.Error) format
 
 let has_code code n =
     match n.dir with
@@ -879,19 +873,15 @@ type nad8 = Node.Standard.nad8 = struct
                 (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
         res
 
-    (* adjust the branches in the tree, including branch lengths, uses
-     * adjusted with three directions *)
+    (** adjust the branches in the tree, including branch lengths, uses
+        adjusted from a single assignment **)
     let readjust mode to_adjust ch1 ch2 par mine =
-        (* in [n], we want the direction toward [p], the parent *)
         let errmsg =  "allDirChar,readjust,no adj-data" in
-        let get_dir p_code n = (get_adjusted_nodedata n errmsg).lazy_node in
-        let par_adj = get_adjusted_nodedata par errmsg 
-        and mine_adj = get_adjusted_nodedata mine errmsg in
-        let mine_in_par = par_adj.lazy_node in
-        let a1,modified = 
-            OneDirF.readjust mode to_adjust (get_dir mine ch1) 
-                             (get_dir mine ch2) mine_in_par mine_adj.lazy_node
-        in
+        let c1_adj = (get_adjusted_nodedata ch1 errmsg).lazy_node
+        and c2_adj = (get_adjusted_nodedata ch2 errmsg).lazy_node
+        and pr_adj = (get_adjusted_nodedata par errmsg).lazy_node
+        and my_adj = (get_adjusted_nodedata mine errmsg).lazy_node in
+        let a1,modi = OneDirF.readjust mode to_adjust c1_adj c2_adj pr_adj my_adj in
         let node_dir =
             {
                 lazy_node = a1;
@@ -900,7 +890,7 @@ type nad8 = Node.Standard.nad8 = struct
             } 
         in
         let node = { mine with adjusted = Some node_dir; } in
-        (node,modified)
+        (node,modi)
 
     let to_string nodes =
         let adj_data = get_adjusted_nodedata nodes "allDirNode,to_string no adj-data" in

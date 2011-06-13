@@ -174,7 +174,6 @@ module F : Ptree.Tree_Operations
         in 
         data_test
 
-
     (* Update Data.d in ptree with branch data. Used to transfer data between
      * dynamic and static likelihood; used under Dynamic Likelihood only. *)
     let update_branches ptree =
@@ -912,12 +911,13 @@ module F : Ptree.Tree_Operations
             | None -> max_int
         and all_edges = match branches with
             | Some x -> (* strip the constructor; Tree.Edge *)
-                List.map (fun (Tree.Edge (a,b)) -> (a,b)) x
+                List.map (fun (Tree.Edge (a,b)) -> (a,b)) x --> Array.of_list
             | None   -> (* all edges *)
                 Tree.EdgeMap.fold
                     (fun (Tree.Edge (a,b)) _ acc -> (a,b)::acc)
                     ptree.Ptree.edge_data
                     []
+                --> Array.of_list
         in
     (* We start by defining a function to adjust one node *)
         let adjust_node chars_to_check ch1_k ch2_k parent_k mine_k ptree =
@@ -1008,11 +1008,11 @@ module F : Ptree.Tree_Operations
             (* Post order traversal of internal nodes *)
             let adjust_loop prev_affected handle adjust_acc =
                 match (Ptree.get_component_root handle ptree).Ptree.root_median with
-                | Some ((`Edge(a,b)),c) -> 
-                        let start_edge = Tree.Edge (a,b) in
-                        Tree.post_order_node_with_edge_visit_simple (* f e ptree acc *)
+                | Some ((`Edge(a,b)),c) ->
+                    let start_edge = Tree.Edge (a,b) in
+                    Tree.post_order_node_with_edge_visit_simple (* f e ptree acc *)
                         (fun prev curr acc ->
-                           adjust_vertices_affected acc prev_affected prev curr)
+                            adjust_vertices_affected acc prev_affected prev curr)
                         start_edge
                         ptree.Ptree.tree
                         adjust_acc
@@ -1041,30 +1041,20 @@ module F : Ptree.Tree_Operations
             in
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
-                let all_edges =
-                    Array.of_list all_edges --> Utl.random_array --> Array.to_list
-                in
+                let all_edges = Utl.random_array all_edges in
                 let (changed,new_affected,new_ptree : adjust_acc) = 
                     let none_affected = IntMap.empty in
                     (* perform on each tree *)
                     if using_likelihood `Static ptree then begin
-                        List.fold_left
+                        Array.fold_left
                             (adjust_reroot_loop affected)
                             (true,none_affected,ptree)
                             (all_edges)
-                    end else if using_likelihood `Dynamic ptree then begin
-                        let m,a,t = 
-                            IntSet.fold 
-                                (fun h acc ->
-                                    match (Ptree.get_component_root h ptree).Ptree.root_median with
-                                    | Some ((`Edge (a,b)),c) ->
-                                        adjust_reroot_loop affected acc (a,b)
-                                    | None
-                                    | Some _ -> acc)
-                                ptree.Ptree.tree.Tree.handles
-                                (true,none_affected,ptree)
-                        in
-                        m,a, assign_single t
+(*                    end else if using_likelihood `Dynamic ptree then begin*)
+(*                        IntSet.fold*)
+(*                            (lk_adjust_loop affected)*)
+(*                            (ptree.Ptree.tree.Tree.handles)*)
+(*                            (true,none_affected,ptree)*)
                     end else begin
                         IntSet.fold
                             (adjust_loop affected)
