@@ -549,11 +549,9 @@ let make a s m =
     let r = match m.MlModel.spec.MlModel.cost_fn with
         | `FLK ->
             let data = Array.map FloatSequence.FloatAlign.s_of_seq (s_of_seq s) in
-            assert( (Array.length data) = (Array.length s.SeqCS.codes) );
             FPAlign { ss = data; }
         | `MPL ->
             let data = Array.map FloatSequence.MPLAlign.s_of_seq (s_of_seq s) in
-            assert( (Array.length data) = (Array.length s.SeqCS.codes) );
             MPLAlign { ss = data; }
         | `MAL ->
             failwith "Dynamic Maximum Average Likelihood is not implemented to diagnose trees."
