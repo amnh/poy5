@@ -19,8 +19,6 @@
 
 exception Illegal_argument of string
 
-
-
 type to_single = 
     [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
     `Sank | `Seq | `StaticMl | `Ml ]
@@ -58,7 +56,6 @@ type 'a css = {
     set   : 'a list;                    (** Contents *)
     smethod : complex_term_method; (** How to treat complex terminals *)
 }
-
 
 IFDEF USE_LIKELIHOOD THEN
 type ml_rep = MlStaticCS.t r
@@ -137,18 +134,14 @@ val set_node_cost : float -> node_data -> node_data
 (* Compute the total rearrangement cost of the subtree rooted by node_data *)
 val cmp_subtree_recost : node_data -> float
 
-(** [to_formatter_single] is a horrible function, horrible, horrible; it outputs in
-* a horrible format. Check the Xml module for further information. *)
-(**
-*  The function take accumulated formatter (acc), data (d), node_data,
- *  node_id, parent_node_data as an option
-*)
+(** [to_formatter_single] Check the Xml module for further information on the
+    format.The function take accumulated formatter (acc), data (d), node_data,
+    node_id, parent_node_data as an option *)
 val to_formatter_single :
     Methods.diagnosis_report_type -> ChromCS.IntSet.t * ChromCS.IntSet.t ->    
         Xml.attributes ->
             Data.d -> (node_data * node_data) -> int -> (node_data * node_data)
             option -> Xml.xml 
-
 
 (**
  * [to_formatter_subtree (final, prel) b c d e f g h] creates Xml.xml of the contents 
@@ -210,6 +203,12 @@ val median_w_times:
 
 (* [replace_parent_time node t] replace the third time in [node] with the time *)
 val replace_parent_time : node_data -> float option list -> node_data
+
+(* [median_of_child_branch child parent] creates a median between a child and
+    a parent (from the persepective of an unrooted tree this makes sense), and
+    uses the branch length from the child. This is intended to be used to update
+    the parent with the branch length from a readjustment in three directions *)
+val median_of_child_branch : int option -> node_data -> node_data -> node_data
 
 (**[get_times_between(_tbl tbl) nd child_code]
  * helper functions to unify the distribution of times in three directions

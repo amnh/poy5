@@ -891,6 +891,15 @@ module F : Ptree.Tree_Operations
         update_node_manager tree (`Reroot inc) n_mgr;
         (tree,inc)
 
+    let create_root_from_child_node cn pn (tree : phylogeny) : phylogeny = 
+        (* the child contains branch information to parent, but parent does not.
+           We need to update this information, then call, refresh_all_edges with
+           this new node data to update directions. *)
+        let child  = Ptree.get_node_data cn tree
+        and parent = Ptree.get_node_data pn tree in
+        let edgenode = AllDirNode.create_root_from_child_branch child parent in
+        refresh_all_edges (Some edgenode) false (Some (cn,pn)) tree
+
     (* ------------------------------------------------------------------------ *)
     (** We define a function that can adjust all the vertices in the tree
      * to improve the overall cost of the tree, using only the

@@ -173,10 +173,10 @@ let extract_cost = function
     | Add v -> v.cost
     | Sank v -> v.cost
     | Dynamic v ->
-            (
-            match DynamicCS.is_fixedstates v.preliminary with
+        begin match DynamicCS.is_fixedstates v.preliminary with
             | true -> v.sum_cost
-            | false -> v.cost)
+            | false -> v.cost
+        end
     | Set v -> v.cost
     | Kolmo v -> v.cost
     | StaticMl v -> 
@@ -643,18 +643,21 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                         let t1, t2, opt = match t1,t2 with
                             | Some (t1), Some (t2) when code <= 0 ->
                                 (max min_bl t1, 0.0, false)
-                            | Some (t1), Some (t2) -> 
+                            | Some (t1), Some (t2) ->
                                 (max min_bl t1, max min_bl t2, false)
+                            | (Some t1, None)
+                            | (None, Some t1) when code <= 0 ->
+                                ( max min_bl (t1/.2.0), max min_bl (t1/.2.0), false )
                             | _ ->
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
                                 if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
                                 (max min_bl t1, max min_bl t2, true)
-                        in 
-                        let median,t1,t2 = 
+                        in
+                        let median,t1,t2 =
                             if opt then
                                 MlDynamicCS.median_i code ca_pre cb_pre t1 t2
                             else
-                                MlDynamicCS.median code ca_pre cb_pre 
+                                MlDynamicCS.median code ca_pre cb_pre
                                                     (Some t1) (Some t2),t1,t2
                         in
                         let res = DynamicCS.MlCS median in
@@ -806,7 +809,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         | Some x, Some y, z -> ( max min_bl x, max min_bl y, z)
                         | None, None, None -> 
                             let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
-                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
+
                             ( max min_bl x, max min_bl y, None )
                         | _ -> failwith "something happened terribly wrong"
                     in
@@ -1273,11 +1276,12 @@ let median ?branches code old a b =
 
 (** [get_times_between nd child_code] returns a list of times between [nd] and
  * the child node. data must be contained already in [nd] *)
-let get_times_between (nd:node_data) (child_code : int option) =
+let get_times_between_dir (parent) (nd:node_data) (child_code : int option) =
     let func =
 IFDEF USE_LIKELIHOOD THEN
-        let fst (a,_,_) = a and snd (_,a,_) = a in
+        let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
         let f = match child_code with
+            | _ when parent   -> thr
             | Some child_code ->
                 let f = if nd.min_child_code = child_code then fst else snd in
                 (* If only one direction is set; we can safely assume that we
@@ -1302,6 +1306,8 @@ ELSE
 END
     in
     List.map func nd.characters
+
+let get_times_between n c = get_times_between_dir false n c
 
 
 let get_times_between_plus_codes (child:node_data) (parent:node_data option) =
@@ -1387,6 +1393,11 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 times_3 =
     match times_3 with
         | Some times_3 -> replace_parent_time node times_3
         | None         -> node
+
+let median_of_child_branch code child parent =
+    let times = get_times_between_dir true child None in
+    let otime = List.map (fun _ -> None) times in
+    median_w_times code None child parent times otime None
 
 let final_states p n c1 c2 = 
     let new_characters = 

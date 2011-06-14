@@ -1154,6 +1154,19 @@ module HybridF = struct
     let get_dynamic x = x.dy
 end
 
+let create_root_from_child_branch child parent : AllDirF.n =
+    let get_dir p n = not_with (AllDirF.taxon_code p) n.unadjusted in
+    let child_w_time = (get_dir child parent).lazy_node
+    and parent_w_out = (get_dir parent child).lazy_node in
+    let lnode = 
+        lazy_from_fun
+            (fun () ->
+                Node.median_of_child_branch None 
+                    (force_val child_w_time) (force_val parent_w_out))
+    in
+    let node = { lazy_node = lnode; dir = None; code = -1; } in
+    { unadjusted = [node]; adjusted = None; }
+
 let create_root ?branches a aa ab b ba bb opt =
     let middle = match opt with
         | Some x -> x
