@@ -891,14 +891,36 @@ module F : Ptree.Tree_Operations
         update_node_manager tree (`Reroot inc) n_mgr;
         (tree,inc)
 
-    let create_root_from_child_node cn pn (tree : phylogeny) : phylogeny = 
+    let print_tree_times ptree = 
+        let str_dir x = match x.AllDirNode.dir with
+            | Some (x,y) ->
+                (string_of_int x)^","^(string_of_int y)
+            | None       -> "none"
+        in
+        let get_node x = AllDirNode.force_val x.AllDirNode.lazy_node in
+        All_sets.IntegerMap.iter
+            (fun k v -> 
+                List.iter
+                    (fun ndir ->
+                        Printf.printf "u- (%s)\t--" (str_dir ndir);
+                        Node.print_times (get_node ndir) )
+                    v.AllDirNode.unadjusted;
+                match v.AllDirNode.adjusted with
+                | Some v -> Printf.printf "a- (%s)\t--" (str_dir v);
+                            Node.print_times (get_node v)
+                | None   -> Printf.printf "a- %d no adjusted\n" k)
+            ptree.Ptree.node_data
+
+    let update_edge_from_child_node single cn pn (tree : phylogeny) : phylogeny = 
         (* the child contains branch information to parent, but parent does not.
            We need to update this information, then call, refresh_all_edges with
            this new node data to update directions. *)
         let child  = Ptree.get_node_data cn tree
         and parent = Ptree.get_node_data pn tree in
         let edgenode = AllDirNode.create_root_from_child_branch child parent in
-        refresh_all_edges (Some edgenode) false (Some (cn,pn)) tree
+        let tree = refresh_all_edges (Some edgenode) false (Some (cn,pn)) tree in
+        let tree = if single then assign_single tree else tree in
+        tree
 
     (* ------------------------------------------------------------------------ *)
     (** We define a function that can adjust all the vertices in the tree
@@ -1002,6 +1024,11 @@ module F : Ptree.Tree_Operations
                     let c2c = IntMap.find curr c2c in
                     let a,b = Tree.other_two_nbrs prev nd in
                     let ccodes,affected,n_ptree = adjust_node c2c a b prev curr ptree in
+                    let n_ptree = match using_likelihood `Dynamic n_ptree with
+                        (* we need to update the branch length from optimization *)
+                        | true  -> update_edge_from_child_node true curr prev n_ptree
+                        | false -> n_ptree
+                    in
                     let new_affected = add_vertices_affected affected ccodes affected_nodes
                     and modified = (0 != (List.length affected)) || modified in
                     (modified, new_affected, n_ptree)

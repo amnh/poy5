@@ -106,6 +106,8 @@ val has_to_single : to_single list
 
 val not_to_single : to_single list
 
+val print_times : node_data -> unit
+
 (* Like [distance] but calculates it only for the characters that match the
 * listed types. *)
 val distance_of_type :   

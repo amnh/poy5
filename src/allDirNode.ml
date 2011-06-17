@@ -473,6 +473,27 @@ type nad8 = Node.Standard.nad8 = struct
         in
         f code node.lazy_node
 
+    (* replace a direction in a set *)
+    let replace_dir node nodes =
+        let found = ref false in
+        let nodes = 
+            List.map
+                (fun ns -> match ns.dir,node.dir with
+                    | None, None ->
+                        assert( not !found ); found := true;
+                        node
+                    | Some (a,b), Some (c,d) when a = c && b = d -> 
+                        assert( not !found ); found := true;
+                        node
+                    | Some (a,b), Some (c,d) when a = d && b = c ->
+                        assert( not !found ); found := true;
+                        node
+                    | _ -> ns)
+                nodes
+        in
+        assert( !found );
+        nodes
+
     let compare a b =
         let rec dir_compare lst1 lst2 =
             match lst1, lst2 with
@@ -740,8 +761,6 @@ type nad8 = Node.Standard.nad8 = struct
         in
         { unadjusted = [node]; adjusted = Some node; }
        
-
-
         (**
         let has_one code x = match x.dir with
             | None -> true (* cannot be a leaf as well. should use median *)
@@ -885,11 +904,14 @@ type nad8 = Node.Standard.nad8 = struct
         let node_dir =
             {
                 lazy_node = a1;
-                dir = Some( (taxon_code ch1),(taxon_code ch2));
+                dir = Some ((taxon_code ch1), (taxon_code ch2));
                 code = taxon_code mine;
             } 
         in
-        let node = { mine with adjusted = Some node_dir; } in
+        let node =
+            { adjusted = Some node_dir;
+              unadjusted = replace_dir node_dir mine.unadjusted; }
+        in
         (node,modi)
 
     let to_string nodes =
@@ -1156,16 +1178,17 @@ end
 
 let create_root_from_child_branch child parent : AllDirF.n =
     let get_dir p n = not_with (AllDirF.taxon_code p) n.unadjusted in
-    let child_w_time = (get_dir child parent).lazy_node
-    and parent_w_out = (get_dir parent child).lazy_node in
+    let child_w_time = (get_dir parent child).lazy_node
+    and parent_w_out = (get_dir child parent).lazy_node in
     let lnode = 
         lazy_from_fun
             (fun () ->
                 Node.median_of_child_branch None 
                     (force_val child_w_time) (force_val parent_w_out))
     in
-    let node = { lazy_node = lnode; dir = None; code = -1; } in
-    { unadjusted = [node]; adjusted = None; }
+    let dir = (AllDirF.taxon_code parent, AllDirF.taxon_code child) in
+    let node = { lazy_node = lnode; dir = Some dir; code = -1; } in
+    { unadjusted = [node]; adjusted = Some node; }
 
 let create_root ?branches a aa ab b ba bb opt =
     let middle = match opt with

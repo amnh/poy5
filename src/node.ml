@@ -2980,15 +2980,21 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                 let root_pre,bl = match root with
                     | Some (Dynamic root) ->
                         begin match root.time with
-                            | None,None,None     -> Some root.preliminary, None
-                            | Some x,Some y,None -> Some root.preliminary, Some (x +. y)
-                            | _ -> failwith "Inconsistent branches for root"
+                            | None,None,None  -> Some root.preliminary, None
+                            | Some x,Some y,_ -> Some root.preliminary, Some (x +. y)
+                            | _               -> assert( false )
                         end
                     | None ->
                         if combine_bl then begin match parentt.time with
-                            | Some x,Some y,_ -> None, Some (x +. y)
+                            | Some x,Some y, _   -> None, Some (x +. y)
+                            | None, None, Some z -> None, Some z
                             | None, None, None   -> None, None
-                            | _, _ , _           -> failwith "Inconsistent branches 2"
+                            | _, _ , _           ->
+                                 let (one,two,thr) = parentt.time in
+                                 failwithf "Inconsistent branches for combine: %s, %s | %s"
+                                    (match one with | Some x -> string_of_float x | None -> "none")
+                                    (match two with | Some x -> string_of_float x | None -> "none")
+                                    (match thr with | Some x -> string_of_float x | None -> "none")
                         end else if mine.min_child_code = parent.min_child_code then
                             None, fst parentt.time
                         else
