@@ -575,46 +575,37 @@ module FloatAlign : A = struct
          * other. We move along the barrier, down, and across until a node does
          * not change it's value and stop. *)
         let rec update_matrix (ok:int) (nk:int): unit =
-            (* move down each column and update until nothing changes *)
-            let run_col i j i_max =
-                let rec run_col i j i_max =
-                    if i < i_max then begin
-                        update_all i j;
-                        run_col (i+1) (j) i_max
-                    end else if i = i_max then begin
-                        update_row i j
-                    end
-                in
-                update_col i j;
-                run_col (i+1) j i_max
-            (* move across each row and update until nothing changes *)
-            and run_row i j j_max =
-                let rec run_row i j j_max =
-                    if j < j_max then begin
-                        update_all i j;
-                        run_row (i) (j+1) j_max
-                    end else if j = j_max then begin
-                        update_col i j
-                    end
-                in
-                update_row i j;
-                run_row i (j+1) j_max
-            in
-            (* If dolphins are so smart, why do they live in Igloos? *)
             let ob = barrier ok and nb = barrier nk in
+            (* move down each column and update until nothing changes *)
+            (* move across each row and update until nothing changes *)
+            let run_row i j_min j_max =
+                let rec run_row i j =
+                    if j >= lenY then
+                        ()
+                    else if j = j_max then
+                        begin update_col i j end
+                    else 
+                        begin update_all i j; run_row (i) (j+1) end
+                in
+                run_row i j_min
+            in
             for i = 1 to (lenX-1) do
-                (* ___ _______ ___
+                (* .___._______.___.
                  * |___|_______|___| ; update new sections : right by column
                  *  new   old   new  ;                     : left by row *)
-                let old_j_max = min (lenY-1) (i+ob+(lenY-lenX))
-                and new_j_max = min (lenY-1) (i+nb+(lenY-lenX))
-                and new_j_min = max 1 (i - nb) in
-                for j = (old_j_max+1) to new_j_max do
-                    run_col i j (i+ob)
-                done;
-                run_row i new_j_min new_j_max;
+                let old_j_max = i+ob+(lenY-lenX)
+                and new_j_max = i+nb+(lenY-lenX)
+                and new_j_min = i - nb in
+                begin match i - ob with
+                    | old_j_min when old_j_min <= 1 ->
+                        run_row i (old_j_max) (new_j_max)
+                    | old_j_min when new_j_min < 1 ->
+                        run_row i 1 new_j_max
+                    | old_j_min ->
+                        update_row i new_j_min;
+                        run_row i (new_j_min+1) new_j_max
+                end
             done
-
         (* If dolphins are so smart, why do they live in Igloos? *)
         and initial_matrix () =
             mem.(0).(0) <- (0.0,(0,[Root]));
@@ -1237,46 +1228,37 @@ module MPLAlign : A = struct
          * other. We move along the barrier, down, and across until a node does
          * not change it's value and stop. *)
         let rec update_matrix (ok:int) (nk:int): unit =
-            (* move down each column and update until nothing changes *)
-            let run_col i j i_max =
-                let rec run_col i j i_max =
-                    if i < i_max then begin
-                        update_all i j;
-                        run_col (i+1) (j) i_max
-                    end else if i = i_max then begin
-                        update_row i j
-                    end
-                in
-                update_col i j;
-                run_col (i+1) j i_max
-            (* move across each row and update until nothing changes *)
-            and run_row i j j_max =
-                let rec run_row i j j_max =
-                    if j < j_max then begin
-                        update_all i j;
-                        run_row (i) (j+1) j_max
-                    end else if j = j_max then begin
-                        update_col i j
-                    end
-                in
-                update_row i j;
-                run_row i (j+1) j_max
-            in
-            (* If dolphins are so smart, why do they live in Igloos? *)
             let ob = barrier ok and nb = barrier nk in
+            (* move down each column and update until nothing changes *)
+            (* move across each row and update until nothing changes *)
+            let run_row i j_min j_max =
+                let rec run_row i j =
+                    if j >= lenY then
+                        ()
+                    else if j = j_max then
+                        begin update_col i j end
+                    else 
+                        begin update_all i j; run_row (i) (j+1) end
+                in
+                run_row i j_min
+            in
             for i = 1 to (lenX-1) do
-                (* ___ _______ ___
+                (* .___._______.___.
                  * |___|_______|___| ; update new sections : right by column
                  *  new   old   new  ;                     : left by row *)
-                let old_j_max = min (lenY-1) (i+ob+(lenY-lenX))
-                and new_j_max = min (lenY-1) (i+nb+(lenY-lenX))
-                and new_j_min = max 1 (i - nb) in
-                for j = (old_j_max+1) to new_j_max do
-                    run_col i j (i+ob)
-                done;
-                run_row i new_j_min new_j_max;
+                let old_j_max = i+ob+(lenY-lenX)
+                and new_j_max = i+nb+(lenY-lenX)
+                and new_j_min = i - nb in
+                begin match i - ob with
+                    | old_j_min when old_j_min <= 1 ->
+                        run_row i (old_j_max) (new_j_max)
+                    | old_j_min when new_j_min < 1 ->
+                        run_row i 1 new_j_max
+                    | old_j_min ->
+                        update_row i new_j_min;
+                        run_row i (new_j_min+1) new_j_max
+                end
             done
-
         (* If dolphins are so smart, why do they live in Igloos? *)
         and initial_matrix () =
             mem.(0).(0) <- (0.0,(0,[Root]));
