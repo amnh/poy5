@@ -70,6 +70,7 @@ let headers =
         "cm.h";
         "config.h";
         "floatmatrix.h";
+        "falgn.h";
         "fm.h";
         "gamma.h";
         "grappa/all_inversion_medians.h";

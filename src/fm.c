@@ -88,12 +88,12 @@ void neg_log_comp( double * mat, const int n, const int m )
 /** A preliminary function to calculate the cost of an alignment of two
  * characters [x] and [y] with composed P matrices [X] and [Y], respectively,
  * over alphabet of size [n]. The optimal assignment in [a] as a bitset. **/
-double calculate_cost( CDIR* a_ptr, const double* X, const double* Y,
+double calculate_cost( CASN* a_ptr, const double* X, const double* Y,
                             const int x, const int y, const int n )
 {
     double best_cost, temp_cost;
     int i, j, k;
-    CDIR a;
+    CASN a;
 
     a = 0;
     best_cost = INFINITY;
@@ -126,7 +126,7 @@ double calculate_cost( CDIR* a_ptr, const double* X, const double* Y,
 void precalc( fm *FM, const double *A, const double *B )
 {
     int i, j, k, max;
-    CDIR temp_best_asgn;
+    CASN temp_best_asgn;
     double temp_best_cost, temp_cost;
 
     /* Build an NxN matrix; Combine the two matrices to create a cost and
@@ -147,8 +147,8 @@ void precalc( fm *FM, const double *A, const double *B )
                         temp_best_asgn = (1 << k);
                     }
                 }
-                FM->cost[i*max+j]   = temp_best_cost;
-                FM->assign[i*max+j] = temp_best_asgn;
+                FM->cost[i*max+j]      = temp_best_cost;
+                FM->cost_asgn[i*max+j] = temp_best_asgn;
             }
         }
     /* Build the matrix 2^N * 2^N, to create matrix of all combinations of
@@ -158,8 +158,8 @@ void precalc( fm *FM, const double *A, const double *B )
         for( i = 0; i < max; ++i ){
             for( j = 0; j < max; ++j ){
                 temp_best_cost = calculate_cost( &temp_best_asgn, A, B, (i+1), (j+1), FM->size );
-                FM->cost[i*max+j]   = temp_best_cost;
-                FM->assign[i*max+j] = temp_best_asgn;
+                FM->cost[i*max+j]      = temp_best_cost;
+                FM->cost_asgn[i*max+j] = temp_best_asgn;
             }
         }
     }
@@ -197,11 +197,11 @@ fm_CAML_compose( value FM, value U, value D, value Ui, value cta, value ctb, val
     if( 0 == results->comb ){
         dims[0] = alph; dims[1] = alph;
         results->cost = (double*) malloc( alph * alph * sizeof(double));
-        results->assign = (CDIR*) malloc( alph * alph * sizeof(CDIR));
+        results->cost_asgn = (CASN*) malloc( alph * alph * sizeof(CASN));
     } else if (1 == results->comb){
         dims[0] = dims[1] = (1 << alph);
         results->cost = (double*) malloc( (1 << alph) * (1 << alph) * sizeof(double) );
-        results->assign = (CDIR*) malloc( (1 << alph) * (1 << alph) * sizeof(CDIR) );
+        results->cost_asgn = (CASN*) malloc( (1 << alph) * (1 << alph) * sizeof(CASN) );
     } else {
         failwith( "fm_CAML_compose :: value for determining combinations" );
     }
@@ -221,7 +221,7 @@ fm_CAML_compose( value FM, value U, value D, value Ui, value cta, value ctb, val
     precalc( results, PA, PB );
 
     /** compose into ocaml values and return **/
-    assign = alloc_bigarray( ODIR | BIGARRAY_C_LAYOUT, 2, results->assign, dims );
+    assign = alloc_bigarray( OASN | BIGARRAY_C_LAYOUT, 2, results->cost_asgn, dims );
     costs  = alloc_bigarray( BIGARRAY_FLOAT64  | BIGARRAY_C_LAYOUT, 2, results->cost, dims );
     pair = caml_alloc_tuple( 2 );
     Store_field( pair, 0, assign );
