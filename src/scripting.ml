@@ -5210,7 +5210,7 @@ module DNA = struct
                 Sequence.Align.align_2 ~first_gap:true s1 s2 cm
                 Matrix.default
             in
-            let median = Sequence.Align.median_2 s1' s2' cm in
+            let median = Sequence.median_2 s1' s2' cm in
             s1', s2', c, median
 
         let gen_algn_all f seqs cm =

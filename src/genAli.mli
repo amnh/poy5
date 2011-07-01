@@ -63,7 +63,7 @@ val cmp_cost :
     Cost_matrix.Two_D.m ->
   int ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-  int -> bool -> int * (int * int) * int array * int array
+  int -> bool -> bool -> int * (int * int) * int array * int array
 
 (**[cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym] returns
 * the total cost between [med] and three sequences [seq1], [seq2], [seq3] *)
@@ -88,7 +88,8 @@ val find_wagner_ali :
   int array ->
   int array ->
     Cost_matrix.Two_D.m ->
-  int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int array
+  int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool
+  -> bool -> int array
 
 (** [multi_swap_locus state seq1 seq2 best_seq2 best_cost 
 *                     gen_cost_mat gap re_meth max_swap_med circular num_done_swap] 
@@ -103,7 +104,7 @@ val multi_swap_locus :
     Cost_matrix.Two_D.m ->
   int ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-  int -> int -> bool -> int -> int * int array
+  int -> int -> bool -> int -> bool -> int * int array
 
 
 (** [create_gen_ali state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
@@ -142,7 +143,7 @@ val create_gen_ali_code :
   int array array ->
   int ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-  int -> int -> bool -> int * (int * int) * int array * int array
+  int -> int -> bool -> bool -> int * (int * int) * int array * int array
 
 
 (** [create_gen_ali3 seq1 seq2 seq3 med gen_cost_mat 

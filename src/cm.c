@@ -557,14 +557,13 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     if( (level > 1)&&(level<=a_sz) )  
     {    
         //debug msg : 
-        //printf ("level=%d, comb_num=%d,reset size to combmatrix_size=%d\n",level,comb_num,combmatrix_size); 
-        //fflush(stdout);
+        //printf ("level=%d, comb_num=%d,reset size to combmatrix_size=%d\n",level,comb_num,combmatrix_size); fflush(stdout);
         size = combmatrix_size;
     }
     else
     {
         size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(int);
-        fprintf(stdout,""); fflush(stdout);
+        //fprintf(stdout,"level=%d, not using level\n"); fflush(stdout);
     }
     if (0==size)
     {   printf ("alphabet size=%d,combinations=%d,comb_num=%d,lcm=%d\n", a_sz, combinations,comb_num,res->lcm);
@@ -1048,6 +1047,34 @@ cm_print_matrix (int* m, int w, int h) {
     }
     fprintf (stdout, "\n end of matrix \n");
     return;
+}
+
+int
+cm_get_min_non0_cost (cmt c) {
+    int * thisc = c->cost;
+    int i;
+    int min_non0_cost = INT_MAX/2;
+    int size;
+    if ( ( c->level > 1) && (c->level <= c->a_sz) )
+    {
+        int comb_num = c->map_sz;
+        size = (comb_num+1) * (comb_num+1);
+    }
+    else 
+    {
+        size = 2 * (1 << (c->lcm)) * (1 << (c->lcm)) ;
+    }
+    //fprintf(stdout, "size=%d,",size); fflush(stdout);
+    for (i = 0; i < size; i++) {
+        if (*thisc<0) fprintf (stderr,"Warning, reach non cost matrix area!");
+        if ( *thisc>0 && *thisc<min_non0_cost )
+        {
+            min_non0_cost = *thisc;
+        }
+        thisc ++;
+    }
+    //fprintf (stdout, "min_non0_cost=%d\n",min_non0_cost); fflush(stdout);
+    return min_non0_cost;
 }
 
 #ifdef _WIN32
@@ -1899,6 +1926,7 @@ cm_CAML_clone_3d (value v) {
     CAMLreturn(clone);
 }
 
+
 value 
 cm_CAML_set_gap_3d (value c, value v) {
     CAMLparam2 (c, v);
@@ -2002,7 +2030,6 @@ cm_CAML_set_a_sz (value cm, value v) {
     cm_set_a_sz (Cost_matrix_struct(cm), Int_val(v));
     CAMLreturn(Val_unit);
 }
-
 
 value 
 cm_CAML_get_gap_3d (value c) {

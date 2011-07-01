@@ -124,6 +124,8 @@ type median_solver_chosen = [ `MGR | `SimpleLK | `ChainedLK | `COALESTSP | `BBTS
 
 type annotate_tool = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
 
+type align_meth = [ `NewKK | `Default ]
+
 (** parameters used in determining the medians between two chromosomes or genomes *)
 type chromosome_pam_t = [
     | `Locus_Inversion of int
@@ -141,6 +143,7 @@ type chromosome_pam_t = [
     | `Max_kept_wag of int
     | `Median_Solver of median_solver_chosen
     | `Annotate_Tool of annotate_tool
+    | `Align_Meth of align_meth
 ]
 
 

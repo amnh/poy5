@@ -70,6 +70,9 @@ inline int
 #endif
 cm_check_level (cmt c);
 
+inline int
+cm_get_min_non0_cost (cmt c);
+
 /* 
  * Retrieves the alphabet size flag from the transformation cost matrix.
  */

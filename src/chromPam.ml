@@ -46,6 +46,8 @@ type re_meth_t = Data.re_meth_t
 
 type annotate_tool_t = Data.annotate_tool_t
 
+type align_meth_t = Data.align_meth_t
+
 (** Parameters used to align two chromosomes *)
 type chromPairAliPam_t = {
     max_gap                 : int; (** max distance between two basic seeds *)
@@ -104,6 +106,8 @@ type chromPairAliPam_t = {
     kept_wag : int;
 
     annotate_tool : annotate_tool_t;
+
+    align_meth : align_meth_t;
 }
 
 let locus_indel_cost_default = (10, 100)
@@ -142,7 +146,9 @@ let chromPairAliPam_default = {
     detected_3d_len = 200;
     kept_wag = 1;
 
-    annotate_tool = `Default (100,100,9)
+    annotate_tool = `Default (100,100,9);
+
+    align_meth = `Default;
 }
 
 
@@ -225,6 +231,12 @@ let get_chrom_pam user_chrom_pam =
         | Some annotate_tool -> {chrom_pam with annotate_tool = annotate_tool}
     in
 
+    let chrom_pam =
+        match user_chrom_pam.Data.align_meth with
+        | None -> chrom_pam
+        | Some v -> {chrom_pam with align_meth = v}
+    in
+
     chrom_pam
     
 
@@ -264,6 +276,8 @@ let cloneChromPairPam (donor : chromPairAliPam_t) = {
     kept_wag = donor.kept_wag;
 
     annotate_tool = donor.annotate_tool;
+    
+    align_meth = donor.align_meth;
 
 }
 
@@ -333,5 +347,10 @@ let get_min_bk_penalty pam =
     | `Default (_,_,_) ->
             failwith "Default annotator is not mauve"
 
+
+let use_ukk pam =
+    match pam.align_meth with
+    | `NewKK -> true
+    | _ -> false
 
 

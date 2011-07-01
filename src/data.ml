@@ -80,7 +80,11 @@ type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP 
 
 type annotate_tool_t = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
 
+type align_meth_t = [ `NewKK | `Default ]
+
 type dyna_pam_t = {
+
+    align_meth : align_meth_t option; 
 
     median_solver: median_solver_t option; 
 
@@ -143,6 +147,7 @@ type dyna_pam_t = {
 (** [dyna_pam_default] assigns default values for parameters 
 * used to create the median between two chromosomes or genomes *)
 let dyna_pam_default ={
+    align_meth = Some `Default;
     median_solver = Some `Albert;
     annotate_tool = Some (`Default (100,100,9));
     re_meth = Some (`Locus_Breakpoint 10);
@@ -2767,6 +2772,7 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
     List.fold_left 
     ~f:(fun dyna_pam pam ->
         match pam with
+        | `Align_Meth v -> {dyna_pam with align_meth = Some v}
         | `Median_Solver c -> {dyna_pam with median_solver = Some c}
         | `Annotate_Tool c -> {dyna_pam with annotate_tool = Some c}
         (*| `Min_LCB_Ratio c -> {dyna_pam with min_lcb_ratio = Some c}*)
@@ -2834,10 +2840,15 @@ let transform_seqs_to_kolmogorov d codes newspec =
 let create_alpha_c2_breakinvs (data : d) chcode =  
 
     let spec = Hashtbl.find data.character_specs chcode in  
-    let c2, alpha = match spec with 
-    | Dynamic dspec -> dspec.tcm2d, dspec.alph
+    let c2, alpha,dynpam = match spec with 
+    | Dynamic dspec -> dspec.tcm2d, dspec.alph, dspec.pam
     | _ -> failwith "Transfrom_annchroms_to_breakinvs: Not Dynamic" 
     in  
+    let use_ukk =
+        match dynpam.align_meth with
+        | Some `NewKK -> true
+        | _ -> false
+    in
     let chrom_ls = get_dynas data chcode in 
         
     let max_code = List.fold_left  
@@ -2891,8 +2902,13 @@ let create_alpha_c2_breakinvs (data : d) chcode =
             let seq2 = all_seq_arr.(idx2).seq in 
             let code2 = all_seq_arr.(idx2).code in 
                 
-            let _, _, cost = Sequence.Align.align_2 ~first_gap:false 
-                seq1 seq2 c2 Matrix.default 
+            let _, _, cost =
+                if use_ukk then
+                Sequence.NewkkAlign.align_2 ~first_gap:false 
+                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm
+                else
+                Sequence.Align.align_2 ~first_gap:false 
+                seq1 seq2 c2 Matrix.default
             in 
             gen_cost_mat.(code1).(code2) <- cost;
             gen_cost_mat.(code1).(code2 + 1) <- cost; 
@@ -2911,7 +2927,12 @@ let create_alpha_c2_breakinvs (data : d) chcode =
              let code = chrom.code in   
              let gap_seq = Sequence.create 1 in  
              let gap_seq = Sequence.prepend_char gap_seq gap in
-             let _, _, cost = Sequence.Align.align_2 ~first_gap:false seq
+             let _, _, cost = 
+                 if use_ukk then 
+                 Sequence.NewkkAlign.align_2 ~first_gap:false seq
+                 gap_seq c2 Sequence.NewkkAlign.default_ukkm
+                 else
+                 Sequence.Align.align_2 ~first_gap:false seq
                  gap_seq c2 Matrix.default 
              in  
              gen_cost_mat.(code).(gen_gap_code) <- cost; 
@@ -4584,6 +4605,15 @@ let compute_fixed_states filename data code =
         | `Genome ->  true,dhs.pam
         | _ -> false,dhs.pam
     in
+    let align_with_newkk =
+        let align_meth = dyn_pam.align_meth in
+        match align_meth with
+        | Some v -> 
+                match v with 
+                | `NewKK -> true
+                | _ -> false
+        (*| _ -> false*)
+    in
     let annotate_with_mauve = 
         let ann_tool = dyn_pam.annotate_tool in
         match ann_tool with 
@@ -4659,13 +4689,20 @@ let compute_fixed_states filename data code =
                     | Some cost -> cost
                     | None -> (10,100)
                     in
+                    (*why delete first char?*)
                     let seqx,seqy = Sequence.del_first_char sequences.(x),
                     Sequence.del_first_char sequences.(y) in
+                    (*we don't call AliMap.create_general_ali_mauve directly here,
+                    * because parameter of that function is with low level module
+                    * type, like "Block.pairChromPam_t". Data.ml is suppose to
+                    * be on top of those modules -- including aliMap.
+                    * So instead, we call get_matcharr_and_costmatrix and
+                    * output2mauvefile seperately.*)
                     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
                     edit_cost,full_code_lstlst,len_lst1 = 
                         Block_mauve.get_matcharr_and_costmatrix seqx 
                         seqy min_lcb_ratio min_lcb_len 
-                        min_cover_ratio min_bk_penalty l_i_c dhs.tcm2d in
+                        min_cover_ratio min_bk_penalty l_i_c dhs.tcm2d align_with_newkk in
                     let re_meth = match dyn_pam.re_meth with
                     | Some value -> value 
                     | None -> `Locus_Breakpoint 10
@@ -4676,6 +4713,9 @@ let compute_fixed_states filename data code =
                     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
                     GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat 
                     gen_gap_code re_meth circular false in
+                    (*remember the editing cost between lcbs is not included in
+                    * the gen_cost_mat, therefore, is not in cost yet*)
+                    let cost = cost + edit_cost in 
                     let xname,yname = string_of_int x,string_of_int y in
                     let fullname = 
                         match filename with 
@@ -4687,9 +4727,14 @@ let compute_fixed_states filename data code =
                     (Sequence.length seqy);
                     cost 
                 else
+                    if align_with_newkk then
+                    Sequence.NewkkAlign.cost_2 sequences.(x) sequences.(y)
+                    dhs.tcm2d Sequence.NewkkAlign.default_ukkm
+                    else
                     Sequence.Align.cost_2 sequences.(x) 
-                    sequences.(y) dhs.tcm2d Matrix.default 
+                    sequences.(y) dhs.tcm2d Matrix.default
             in
+            Printf.printf "set dis.%d.%d with cost %d\n%!" cost;
             distances.(x).(y) <- float_of_int cost;
             distances.(y).(x) <- float_of_int cost;
         done;

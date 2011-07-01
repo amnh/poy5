@@ -461,7 +461,8 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
     let len1 = Array.length loci1_arr in 
     let len2 = Array.length loci2_arr in 
-    
+   
+    let use_ukk = ChromPam.use_ukk ali_pam in
 
     Array.iter (fun sq1 -> sq1.Subseq.id <- sq1.Subseq.id  * 2 - 1) loci1_arr; 
     Array.iter (fun sq2 -> sq2.Subseq.id <- len1 * 2 + sq2.Subseq.id  * 2 - 1) loci2_arr;
@@ -485,7 +486,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
             if free1 && free2 then begin
                 let alied_sq1, alied_sq2, cost, _ = 
-                    Sequence.align2 sq1_seq sq2_seq cost_mat 
+                    Sequence.align2 sq1_seq sq2_seq cost_mat use_ukk
                 in 
                 gen_c2.(sq1_id).(sq2_id) <- cost;
                 gen_c2.(sq2_id).(sq1_id) <- cost;
@@ -537,6 +538,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
         ali_pam.ChromPam.kept_wag
         `Genome free_id1_arr free_id2_arr gen_c2 gen_gap_code 
         ali_pam.ChromPam.re_meth swap_med ali_pam.ChromPam.circular false
+        use_ukk
     in   
 
     let max_sq2_id = gen_gap_code - 2 in 
@@ -654,7 +656,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
                         let s2 = sq2.Subseq.sta and e2 = sq2.Subseq.en in 
                         let sq2_seq = Sequence.sub chrom2_seq s2 (e2 - s2 + 1) in  
                         let alied_seq1, alied_seq2, _, _ = Sequence.align2 sq1_seq
-                            sq2_seq cost_mat 
+                            sq2_seq cost_mat use_ukk
                         in 
                         let med, cost = Sequence.create_median_seq alied_seq1 alied_seq2 cost_mat in
                         let med_len = Sequence.cmp_num_not_gap med in  

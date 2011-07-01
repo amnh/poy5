@@ -103,8 +103,7 @@ val subseq : s -> int -> int -> s
 * two sequences [seq1], [seq2] without conditioning 
 * that two first characters are gaps *)
 val align2 :
-  s ->
-  s -> Cost_matrix.Two_D.m -> s * s * int * int
+  s -> s -> Cost_matrix.Two_D.m -> bool -> s * s * int * int
 
 
 (** [align3] returns the alignment of three sequences
@@ -221,6 +220,50 @@ val gap_saturation : s -> Alphabet.a -> float
 
 val poly_saturation : s -> int -> float
 
+val median_2_with_gaps : s -> s -> Cost_matrix.Two_D.m -> s
+    (** [median_2_with_gaps s1 s2 c] calculates a new sequence s which is the median
+        between the sequences s1 and s2. Note that s1 and s2 should have the same
+        length, otherwise the function raises and Invalid_Argument error *)
+
+val median_2 : s -> s -> Cost_matrix.Two_D.m -> s
+    (** Same as [median_2_with_gaps] but removes any gap from the generated
+    * median. *)
+
+
+
+module NewkkAlign : sig
+    type ukkm
+    
+    val default_ukkm : ukkm
+    (** [align_2 s s m ukkm] call c_side function "newkk_cost2" to get the cost,
+    * and function "get_alignment" for the alignment of two sequences*)
+    val align_2 :  ?first_gap:bool -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> s * s * int
+    (** [get_alignment s s m ukkm] do traceback on ukk_matrix to get the
+    * alignment of two sequences. cost_2 must be called before this. this
+    * function is similar to function "create_edited_2" in module Align.*)
+    val get_alignment : s -> s -> Cost_matrix.Two_D.m -> ukkm -> s * s
+    (** [cost_2 s s m ukkm] do newkkonen alignment on two input sequence. return
+    * the cost, store the alignment in ukkm, we can get the alignment by
+    * traceback on ukkm later.*)
+    val cost_2 : ?deltaw:int -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> int
+    (** [median_2 s s m] same as function median_2 in module Align,maybe not
+    * necessary, since we only use 2d matrix of cost_matrix, it has nothing to
+    * do with ukkm.
+    val median_2 : s -> s -> Cost_matrix.Two_D.m -> s
+    val median_2_with_gaps : s -> s -> Cost_matrix.Two_D.m -> s
+    *)
+    val closest : s -> s -> Cost_matrix.Two_D.m -> ukkm -> s * int
+
+    external init : unit -> unit = "newkkonen_CAML_initialize"
+    external create_ukkm : unit -> ukkm = "newkkonen_CAML_create_general"
+    external newkk_cost2 : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
+         "newkkonen_CAML_algn"
+    external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
+        "newkkonen_CAML_backtrace_bc" "newkkonen_CAML_backtrace"
+    external get_k : ukkm -> int = "newkkonen_CAML_get_k"
+
+end
+
 (** Sequence alignment module for two or three sequences. *)
 module Align : sig
     (** [cost_2 x y z u v flag] calculates the cost of the alignment of two
@@ -301,15 +344,7 @@ module Align : sig
     (** [align_3 s1 s2 s3 c hash] does the same as align_2 but for three
         sequences. *)
 
-    val median_2_with_gaps : s -> s -> Cost_matrix.Two_D.m -> s
-    (** [median_2_with_gaps s1 s2 c] calculates a new sequence s which is the median
-        between the sequences s1 and s2. Note that s1 and s2 should have the same
-        length, otherwise the function raises and Invalid_Argument error *)
-
-    val median_2 : s -> s -> Cost_matrix.Two_D.m -> s
-    (** Same as [median_2_with_gaps] but removes any gap from the generated
-    * median. *)
-
+   
     val ancestor_2 : s -> s -> Cost_matrix.Two_D.m -> s 
 
     val median_3 : s -> s -> s -> Cost_matrix.Three_D.m -> s
@@ -364,7 +399,7 @@ val select_one_randomized : s -> Cost_matrix.Two_D.m -> s
 * transformation cost matrix [cm]. The function returns a tuple [(a, b)], where
 * [b] is the new readjusted median, and [a] is the cost of that median as the
 * parent of [ch1] and [ch2]. *)
-val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> int * s * bool
+val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> bool -> int * s * bool
 
 (* A module to perform alignments in pure Ocaml for debugging and easy
 * experimentation *)
@@ -552,7 +587,7 @@ val subseq : s -> int -> int -> s
 (** [align2 seq1 seq2 cost_mat] aligns 
     two sequences [seq1], [seq2] without conditioning 
     that two first characters are gaps *)
-val align2 : s -> s -> Cost_matrix.Two_D.m -> s * s * int * int
+val align2 : s -> s -> Cost_matrix.Two_D.m -> bool -> s * s * int * int
 
 (** [align3] returns the alignment of three sequences
     [seq1], [seq2], and [seq3] without requiring 
@@ -570,7 +605,7 @@ val closest_alied_seq : s -> s -> Cost_matrix.Two_D.m -> s * int
     with subsequence from [start_pos2] to [end_pos2] in the second sequence
     [seq2]  *)
 val create_subalign2 :
-  s -> s -> Cost_matrix.Two_D.m -> int -> int -> int -> int -> s * s * int
+  s -> s -> Cost_matrix.Two_D.m -> int -> int -> int -> int -> bool -> s * s * int
 
 (** [dna_gap] returns the gap code in tha nucleotide alphabet *)
 val dna_gap : int
@@ -602,8 +637,8 @@ val create_median_deled_seq : s -> 'a -> s
     from [s2] tp [e2] in the second sequence [seq2] *)
 val create_median :
     ?approx:[< `BothSeq | `First | `Second > `BothSeq ] ->
-        s -> s -> ?s1:int -> ?e1:int -> ?s2:int -> ?e2:int ->
-            Cost_matrix.Two_D.m -> s * s * s * int
+        s -> s -> ?s1:int -> ?e1:int -> ?s2:int -> ?e2:int -> 
+            Cost_matrix.Two_D.m -> bool -> s * s * s * int
 
 (** [check_repeated_char seq a]
     Checks for duplicate entries in [s] of elements in the alphabet [a]. Used

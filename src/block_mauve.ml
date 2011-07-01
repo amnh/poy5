@@ -19,33 +19,30 @@
 
 let () = SadmanOutput.register "Block_mauve" "$Revision: 1553 $"
 
-
+(* A.D. = Aaron E. Darling*)
+(* W = weight, R = ratio *)
 
 open Printf
 let printIntArr = Utl.printIntArr
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
-(*now we have 3 different function for removing bad lcbs. if
-    * faster_remove=false, the greedy one will be used. if faster_remove=true,
-    * we call the dynamic one. there is another dynamic
-    * one "remove_bad_lcbs_dyn2" ,which is worse than "remove_bad_lcbs_dyn",
-    * I should get rid of it later*)
+(*now we have 3 different function for removing bad lcbs: greedy,
+* dyn1,dyn2. greedy is from A.D.'s paper, dyn1 and dyn2 are my
+* idea. 
+* if faster_remove=false, the greedy one will be used. if faster_remove=true,
+* we call the dynamic programming one. there is another dynamic
+* one "remove_bad_lcbs_dyn2" ,which is slower than "remove_bad_lcbs_dyn"
+* my guess is, it's doing bit arr operations, which should be
+* faster in c_side. anyway, we are not using dyn1 now.*)
 let faster_remove = true
-let debug_main = true
-let debug_remove_bad_match =  true 
+let debug_main = false
+let debug_remove_bad_match =  false 
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
 let debug_search_outside = false
-(* W = weight, R = ratio *)
 
 (*this is a cost matrix between ATGC and ATGC. default matrix used by Mauve *)
 let hodx_matrix = [| 
-(*           (*A*) (*T*) (*G*) (*C*)
-  (*A*)  [|  91; -123;  -31; -114|];
-  (*T*)  [|-123;   91; -114;  -31|];
-  (*G*)  [| -31; -114;  100; -125|];
-  (*C*)  [|-114;  -31; -125;  100|];
-*)
            (*A*) (*C*) (*G*) (*T*) 
   (*A*)  [|  91; -114;  -31; -123|];
   (*C*)  [|-114;  100; -125;  -31|];
@@ -265,6 +262,21 @@ let get_avg_of_floatlst in_lst =
         acc := size +. !acc
     ) in_lst;
     (!acc) /.(float (List.length in_lst))
+
+(*[get_proper_seedlen inlen] return the proper seedlen.
+* seedlen is the key to palindromic_spaced_seed_tbl, 
+* seedlen cannot be bigger than 21 , or smaller than 5. 
+* we only have entry for odd number, because even length of palidromic bring us
+* problems, check out A.D.'s paper "Procrastination leads to efficient
+* filtration for local multiple alignment".
+* also, there is no entry for 17.*)
+let get_proper_seedlen avg_seqlen =
+    let seedlen = int_of_float ( ceil (log (avg_seqlen))) in
+    let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
+    let seedlen = if (seedlen<5) then 5 else seedlen in
+    let seedlen = if (seedlen=17) then 19 else seedlen in
+    let seedlen = if (seedlen>21) then 21 else seedlen in
+    seedlen
 
 (*if lcb cover ratio is too small, we may need to align super big chunk of
 * sequences after mauve, user might want to adjust pameter like 
@@ -2770,9 +2782,10 @@ let get_bkmatrix_codemap inarrarr get_neg_item =
     let debug = false and debug2 = false in
     let sizex = Array.length inarrarr 
     and sizey = Array.length (inarrarr.(0)) in
-    assert(sizex=2);  assert(sizey>0);
     if debug then 
         Printf.printf "get_bkmatrix_codemap, sizex=%d,sizey=%d\n%!" sizex sizey;
+    assert(sizex=2);  assert(sizey>0);
+    
     let bkmatrix = Array.make_matrix sizex sizey (-1) in
     (*codemap : lcb key list -> code list. here code list has only one int, but
     * later in removing bad lcbs, we need to merge two lcblist into one, we
@@ -3828,18 +3841,21 @@ num_of_mums old_cov_rate =
     done;
     !res_lcbs,!res_cov_rate,!res_lcb_tbl
 
+
 (*remove bad lcbs with dynamic prog*)
 let remove_bad_lcbs_dyn (lcbs:int list list list) lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
 num_of_mums old_cov_rate = 
-let debug = true and debug2 = false in
+let debug = false and debug2 = false in
     if debug then Printf.printf "remove bad lcbs dyn\n%!";
     if debug2 then Hashtbl.iter (fun key record ->
                     print_lcb record 
                 ) lcb_tbl;
     let size = List.length (List.hd lcbs) in 
     (*ok, we don't need the whole matrix, just the diagonal cells*)
-    let cov_mat = Array.make_matrix size size
-    (([[]],0,0,All_sets.IntegerListMap.empty),(-1)) in
+        
+   (* don't alloc the whole matrix 
+   * let cov_mat = Array.make_matrix size size
+    (([[]],0,0,All_sets.IntegerListMap.empty),(-1)) in *)
     let resmatrix =  Array.of_list 
         (List.map (fun lst -> Array.of_list lst) lcbs) in
     let bkmatrix,codemap,_ = get_bkmatrix_codemap resmatrix get_neg_rev_intlst in
@@ -3950,24 +3966,87 @@ let debug = true and debug2 = false in
             let tmpjoin = join_2_cell midcell lcbkey1 false in
             join_2_cell tmpjoin lcbkey2 true
     in
+(*build the matrix from bottom to top*)
+    (*init the first two diagonal*)
+    let diag0 = Array.make (size)
+        (([[]],0,0,All_sets.IntegerListMap.empty),(-1)) in
+    let diag1 = Array.make (size-1)
+        (([[]],0,0,All_sets.IntegerListMap.empty),(-1)) in
+
     for i = 0 to size-1 do
         let lcbkey : int list = resmatrix.(1).(i) in 
         let lcblen,lcbscore = get_lcblst_len_and_score [lcbkey] lcb_tbl in
-        cov_mat.(i).(i) <- ([lcbkey],lcbscore,lcblen,codemap),(-1);
+        diag0.(i) <- ([lcbkey],lcbscore,lcblen,codemap),(-1);
+        (*cov_mat.(i).(i) <- ([lcbkey],lcbscore,lcblen,codemap),(-1);*)
     done;
     for i = 0 to size-2 do
-        let cellii,_ = cov_mat.(i).(i) in
+        let cellii,_ = diag0.(i) in
         let couplejoin = join_2_cell cellii resmatrix.(1).(i+1) true
         in
         (*let couplelcb = [resmatrix.(1).(i);resmatrix.(1).(i+1)] in
         let couplelen,couplescore = get_lcblst_len_and_score couplelcb lcb_tbl
         in*)
-        cov_mat.(i).(i+1) <-
-            couplejoin(*couplelcb,couplescore,couplelen,codemap*),(-1);
+        diag1.(i) <- couplejoin,(-1);
+        (* cov_mat.(i).(i+1) <-
+            couplejoin(*couplelcb,couplescore,couplelen,codemap*),(-1);*)
     done;
-    for i = 2 to size-1 do
+    let rec walk_up_matrix k diagD diagLR =
+        if debug2 then Printf.printf "walk up matrix, k=%d,sizeD=%d,sizeLR=%d\n%!"
+        k (Array.length diagD) (Array.length diagLR);
+        assert((Array.length diagLR)>=1);
+        assert((Array.length diagD)>=2);
+        if (k=size) then  (*we are done with righttop cell of the matrix*)
+        begin
+            assert((Array.length diagLR)=1);
+            diagLR.(0)
+        end
+        else begin
+            let diagC = Array.make (size-k)
+            (([[]],0,0,All_sets.IntegerListMap.empty),(-1)) in
+            for j = 0 to size-k-1 do
+if debug2 then Printf.printf "work on cell.%d.%d(size=%d)\n%!" j (j+k) size;
+                (*if we need mat.2.5 : solution for 2th,3th,4th,5th lcb in lcblst of
+                * sequence1*)
+                let cell_left,_ = diagLR.(j) 
+                    (* cov_mat.(j).(j+i-1) join mat.2.4 and 5th lcb*) 
+                and cell_right,_ = diagLR.(j+1)
+                    (*cov_mat.(j+1).(j+i) join 2th lcb and mat.3.5*)
+                and cell_down,_ = diagD.(j+1)
+                    (* cov_mat.(j+1).(j+i-1) see if we remove lcb
+                3th and 4th, lcb 2th and 5th can collapse into one lcb. if not
+                just join 2th lcb, mat.3.4 and 5th lcb*)
+                in
+                let (resL,scoreL,lenL,codemapL) as from_cell_left = 
+                    join_2_cell cell_left resmatrix.(1).(j+k) true
+                in
+                let (resR,scoreR,lenR,codemapR) as from_cell_right = 
+                    join_2_cell cell_right resmatrix.(1).(j) false
+                in
+                let debug_join_3_cell = false in
+                let (resD,scoreD,lenD,newcodemap) as from_cell_down = 
+                    join_3_cell cell_down resmatrix.(1).(j) resmatrix.(1).(j+k) debug_join_3_cell in
+                let best_of_three = (*we should also compare score here?*) 
+                    (*get_best_out_of_three lenL lenR lenD scoreL scoreR scoreD*)
+                    if lenL>=lenR && lenL>=lenD then 
+                        from_cell_left,0
+                    else if lenR>=lenL && lenR>=lenD then 
+                        from_cell_right,1
+                    else
+                        from_cell_down,2
+                in
+                if debug2 then Printf.printf "lenL=%d,lenR=%d,lenD = %d\n%!" lenL
+                lenR lenD;
+                diagC.(j) <- best_of_three;
+                (*cov_mat.(j).(j+i) <- best_of_three;*)
+                if debug2 then print_cell j (j+k) best_of_three false;
+            done;
+            walk_up_matrix (k+1) diagLR diagC
+        end
+    in
+    let (lcblst1, resscore, reslen, resmap),_ = walk_up_matrix 2 diag0 diag1 in
+    (*for i = 2 to size-1 do
         for j = 0 to size-1-i do
-            if debug2 then Printf.printf "work on cell.%d.%d\n%!" j (j+i);
+            if debug2 then Printf.printf "work on cell.%d.%d(size=%d)\n%!" j (j+i) size;
             (*if we need mat.2.5 : solution for 2th,3th,4th,5th lcb in lcblst of
             * sequence1*)
             let cell_left,_ = cov_mat.(j).(j+i-1) (*join mat.2.4 and 5th lcb*) 
@@ -3999,11 +4078,12 @@ let debug = true and debug2 = false in
             cov_mat.(j).(j+i) <- best_of_three;
             if debug2 then print_cell j (j+i) best_of_three false;
         done;
-    done;
+    done;*)
     (*right top cell of matrix has lcblst1 now, just get lcblst0 from codemap
-    * and right top cell, build lcb_tbl, return it*)
-    let (lcblst1, resscore, reslen, resmap),_ = cov_mat.(0).(size-1) in
-    if debug2 then begin
+    * and right top cell, build lcb_tbl, return it
+    let (lcblst1, resscore, reslen, resmap),_ =  cov_mat.(0).(size-1) in*)
+    (* there is no traceback now.
+    * if debug2 then begin
         Printf.printf "traceback start\n%!";
     let i = ref 0 and j = ref (size-1) in
     for ijlen = size downto 1 do
@@ -4016,7 +4096,7 @@ let debug = true and debug2 = false in
             i := !i+1;
         end
     done;
-    end;
+    end;*)
     let avg_in_seq_size = get_avg_of_intlst in_seq_size_lst in
     if debug then begin
         Printf.printf "end of filling in cov_mat,res score=%d,len=%d,covR=%f \
@@ -4857,10 +4937,11 @@ let search_inside_each_lcb lcb_tbl in_seqarr in_seq_size_lst min_len max_len =
             Hashtbl.clear new_seed2pos_tbl;
             Hashtbl.clear new_mum_tbl;
             let avglen = get_avg_of_intlst in_seq_size_lst in
-            let seedlen = int_of_float ( ceil (log avglen)) in
+            let seedlen =
+                get_proper_seedlen avglen in (*int_of_float ( ceil (log avglen)) in
             let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
             let seedlen = if (seedlen<5) then 5 else seedlen in
-            let seedlen = if (seedlen=17) then 19 else seedlen in
+            let seedlen = if (seedlen=17) then 19 else seedlen in*)
             let seedweight = build_seed_and_position_tbl lcb_seqarr seedlen 
             new_seq2seedNO_tbl new_seedNO2seq_tbl 
             new_pos2seed_tbl_left new_pos2seed_tbl_right 
@@ -4904,11 +4985,13 @@ in_seqarr in_seq_size_lst  =
         inner_lcbs, (- 0.0),lcb_tbl, mum_tbl, pos2seed_tbl_left, pos2seed_tbl_right,
         seed2pos_tbl, (-1)
     else begin
-    let new_seedlen = int_of_float ( ceil (log (float shorted_seqlen))) in
+    let new_seedlen = 
+        get_proper_seedlen (get_avg_of_intlst current_seq_size_lst) in
+        (*int_of_float ( ceil (log (float shorted_seqlen))) in
     let new_seedlen = if (new_seedlen mod 2)=0 then new_seedlen+1 else new_seedlen in 
     let new_seedlen = 
         if new_seedlen=17 then 15 else new_seedlen in
-    let new_seedlen = if (new_seedlen<5) then 5 else new_seedlen in
+    let new_seedlen = if (new_seedlen<5) then 5 else new_seedlen in*)
     if debug_search_outside then 
         info_user_message "use seedlen:%d" new_seedlen;
     (*these hashtable are based on the sub-seq list*)
@@ -4974,14 +5057,20 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
     minimum_lcb_ratio := min_lcb_ratio ;
     let init_lcbs,init_covR,num_badlcb,init_lcb_tbl = 
         build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst 1 None in
+    let lcbnum = List.length (List.hd init_lcbs) in
     if debug then Printf.printf "before remove bad lcbs, init_covR = %f\n%!" init_covR;
     let better_lcbs, better_covR, better_lcb_tbl = 
-    if faster_remove then
-        remove_bad_lcbs_dyn init_lcbs init_lcb_tbl mum_tbl 
-        seed2pos_tbl in_seq_size_lst init_num_mums init_covR 
+    if (lcbnum>2) then begin
+        if faster_remove then
+            remove_bad_lcbs_dyn init_lcbs init_lcb_tbl mum_tbl 
+            seed2pos_tbl in_seq_size_lst init_num_mums init_covR 
+        else
+            remove_bad_lcbs init_lcbs init_lcb_tbl mum_tbl 
+            seed2pos_tbl in_seq_size_lst init_num_mums ;
+    end
     else
-        remove_bad_lcbs init_lcbs init_lcb_tbl mum_tbl 
-        seed2pos_tbl in_seq_size_lst init_num_mums in
+        init_lcbs,init_covR,init_lcb_tbl
+    in
     if debug then begin
         Printf.printf 
         "after remove bad lcbs, we have %!";
@@ -5043,11 +5132,11 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
     let in_seq_size_lst = Array.fold_right 
     (fun seq acc -> (Array.length seq)::acc ) in_seqarr [] 
     in
-    let shorted_seqlen = get_shorter_len in_seqarr in
-    let seedlen = int_of_float ( ceil (log (float shorted_seqlen))) in
+    let avg_seqlen = get_avg_of_intlst in_seq_size_lst in
+    let seedlen = get_proper_seedlen avg_seqlen in (*int_of_float ( ceil (log (float shorted_seqlen))) in
     let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
     let seedlen = if (seedlen<5) then 5 else seedlen in
-    let seedlen = if (seedlen=17) then 19 else seedlen in
+    let seedlen = if (seedlen=17) then 19 else seedlen in*)
     if debug_main then 
         Printf.printf "\n **********Block_mauve.create_lcb_tbl;seqlen=%d,%d;seedlen=%d \
         ****************\n%!" (List.hd in_seq_size_lst) (List.nth
@@ -5077,6 +5166,13 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
     let init_num_mums = resolve_overlap_mum mum_tbl (seedweight-1) 
     pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl false false in
     update_score_for_each_mum mum_tbl in_seqarr;
+    (*to do : too many if else here, do something*)
+    (*trivial case, no mum was found at all*)
+    let outer_lcb_tbl = Hashtbl.create 0 in
+    let outer_lcbs = ref [[[]]] in
+    let outer_old_covR = ref 0. in
+    if (init_num_mums=0) then ()
+    else begin
     if debug_main then
         Printf.printf "++++++++++ resolve_overlap_mum done (tbl size\
         check:%d,%d,%d,%d) ++++ \n%!" (Hashtbl.length mum_tbl) (Hashtbl.length
@@ -5107,7 +5203,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
     (*init outer tbl*)
     let outer_old_covR = ref init_covR_after in
     let outer_lcbs = ref init_lcbs in
-    let outer_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* necessary *)in
+    let outer_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* necessary *) in
     let outer_mum_tbl = ref mum_tbl in
     let current_num_of_mums = ref init_num_mums in
     let outer_sign = 
@@ -5257,6 +5353,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
         ) outer_lcb_tbl;
         if !lightW then  Hashtbl.clear outer_lcb_tbl;
     end;
+    end;(*end of trivial case *)
     (*if no qualified lcb are found, just make the whole sequence as one lcb*)
     if (Hashtbl.length outer_lcb_tbl)=0 then begin 
         if debug_main then Printf.printf "we didn't find any qualified lcb\n%!";
@@ -5339,15 +5436,19 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
 
 
 (*main function here*)
-(** [get_matcharr_and_costmatrix] take seq1 and seq2 as input sequence, devide 
-genAli.create_gen_ali_new need codearr out of
-[from_ori_code],not the original ones. while Utlgrappa.inv_med
-requires the original codearr, call [to_ori_code] to transform 
-* *)
+(** [get_matcharr_and_costmatrix] is the main function of this module. it take two
+* sequences, set of parameters (min lcb ratio, min lcb length, etc) and 
+* a costmatrix between charactors as input,
+* output two code array of matching blocks, a cost_mat between lcb blocks and non-lcb
+* blocks, ali_mat is the cost and alignment sequence between lcb blocks.
+* NOTE: edit_cost is the total editing cost between lcb blocks (which is not included
+* is cost_mat), full_cost_listlst is a little bit redundant here, for it
+* contains the two code array, but it also has the begin and end point of each
+* block. *)
 let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_lcb_len
 min_cover_ratio min_bk_penalty 
-locus_indel_cost cost_mat  =
-    let debug = true and debug2 = false in
+locus_indel_cost cost_mat use_ukk =
+    let debug = false and debug2 = false in
     (*transform poy costmatrix into hodx_matrix in mauve*)
     fill_in_hmatrix cost_mat;
     let seq1arr = Sequence.to_array seq1 
@@ -5413,7 +5514,7 @@ locus_indel_cost cost_mat  =
             in
             let ori_code1 = to_ori_code code1 
             and ori_code2 = to_ori_code (code2 - len_lst1*2) in
-            if debug2 then 
+            if debug then 
                 Printf.printf "work on %d,%d (ori=%d,%d) (%d,%d;%d,%d)->\n %!" 
                 code1 code2 ori_code1 ori_code2 left1 right1 left2 right2;
             if ((abs ori_code2)<=base) && ((abs ori_code1)<=base) 
@@ -5429,7 +5530,7 @@ locus_indel_cost cost_mat  =
                 set_cost code2 gen_gap_code block_gap_cost; 
                 set_cost gen_gap_code code2 block_gap_cost;
                 let alied_seq1, alied_seq2, cost, _ =  
-                    Sequence.align2 subseq1 subseq2 cost_mat 
+                    Sequence.align2 subseq1 subseq2 cost_mat use_ukk
                 in
                 edit_cost := !edit_cost + cost; (*acc the real edit cost*)
                 ali_mat.(code1).(code2) <- (cost,alied_seq1, alied_seq2);
@@ -5440,16 +5541,16 @@ locus_indel_cost cost_mat  =
             end
             else if ((abs ori_code2)>base) && ((abs ori_code1)>base) then
                 begin
-                    if debug2 then Printf.printf "align seq1(%d) and seq2(%d) :%!"
+                    if debug then Printf.printf "align seq1(%d) and seq2(%d) :%!"
                     ori_code1 ori_code2;
                 let alied_seq1, alied_seq2, cost, _ =  
-                    Sequence.align2 subseq1 subseq2 cost_mat 
+                    Sequence.align2 subseq1 subseq2 cost_mat use_ukk
                 in
-                if debug2 then begin 
+                if debug then begin 
                     Printf.printf "set %d.%d with cost=%d\n%!" code1
                     code2 cost;
-                    Sequence.printseqcode alied_seq1;
-                    Sequence.printseqcode alied_seq2;
+                    if debug2 then Sequence.printseqcode alied_seq1;
+                    if debug2 then Sequence.printseqcode alied_seq2;
                 end;
                 ali_mat.(code1).(code2) <- (cost,alied_seq1, alied_seq2);
                 ali_mat.(code2).(code1) <- (cost,alied_seq2, alied_seq1);

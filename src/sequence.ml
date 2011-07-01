@@ -45,6 +45,13 @@ external length : (s -> int) = "seq_CAML_length";;
 
 external get : (s -> int -> int) = "seq_CAML_get";;
 
+external c_median_2 :
+        s -> s -> Cost_matrix.Two_D.m -> s -> unit = "seq_CAML_median_2_no_gaps"
+
+external c_median_2_with_gaps :
+    s -> s -> Cost_matrix.Two_D.m -> s -> unit =
+        "seq_CAML_median_2_with_gaps"
+
 let get s x =
     assert (x >= 0);
     if (x>= (length s)) then
@@ -80,9 +87,6 @@ let check_level cm =
         in
         uselevel
 
-let prepend_gap s m =
-    prepend s (Cost_matrix.Two_D.gap m);
-    s
 
 let make_empty a =
     let s = create 1 in
@@ -195,6 +199,36 @@ let of_list l =
     let length = List.length l in
     let seq = create length in
     aux_of_list (ref seq) l 0;;
+
+let remove_gaps s2' cm =
+    let remove_gaps gap seq base = 
+        if base <> gap then 
+            let _ = prepend seq base in
+            seq
+        else seq
+    in
+    let res = 
+        fold_right (remove_gaps (Cost_matrix.Two_D.gap cm)) 
+        (create (length s2')) s2'
+    in
+    prepend res (Cost_matrix.Two_D.gap cm);
+    res
+
+let is_empty seq gap =
+    let length = length seq in
+    let rec check p =
+        if p = length then true
+        else 
+            if gap <> get seq p then false
+            else check (p + 1) 
+    in
+    check 0
+
+
+let prepend_gap s m =
+    prepend s (Cost_matrix.Two_D.gap m);
+    s
+
 
 (* Why isn't ocaml making this function a loop rather than a recursive call? *)
 let rec aux_parse str seq alph = function 
@@ -377,6 +411,28 @@ let compare a b =
             else la - lb
     | v -> v
 
+let median_2_with_gaps s1 s2 c =
+        let sz1 = length s1 
+        and sz2 = length s2 in
+        if (sz1 = sz2) then begin
+            let sp = create sz1 in
+            c_median_2_with_gaps s1 s2 c sp;
+            sp
+        end else 
+            raise 
+            (Invalid_Argument "The size of the sequences is not the same.")
+
+let median_2 s1 s2 c =
+    let sz1 = length s1 
+    and sz2 = length s2 in
+    if (sz1 = sz2) then begin
+        let sp = create (sz1 + 1) in
+        c_median_2 s1 s2 c sp;
+        sp
+    end else 
+        raise 
+        (Invalid_Argument "The size of the sequences is not the same.")
+
 module SerSequence = struct
     type v = int
     type ser = s
@@ -477,15 +533,6 @@ module Anchors = struct
 
 end
 
-let is_empty seq gap =
-    let length = length seq in
-    let rec check p =
-        if p = length then true
-        else 
-            if gap <> get seq p then false
-            else check (p + 1) 
-    in
-    check 0
 
 
 module Align = struct
@@ -511,8 +558,7 @@ module Align = struct
         "algn_CAML_align_affine_3"
 
     external cost_2_affine : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int =
-        "algn_CAML_cost_affine_3"
-    
+        "algn_CAML_cost_affine_3" 
 
     let align_affine_3 si sj cm =
         let len = length si + length sj + 2 in
@@ -815,13 +861,6 @@ module Align = struct
         s -> s -> s -> Cost_matrix.Three_D.m -> Matrix.m -> s -> s -> s
         -> int = "algn_CAML_align_3d_bc" "algn_CAML_align_3d"
 
-    external c_median_2 :
-        s -> s -> Cost_matrix.Two_D.m -> s -> unit = "algn_CAML_median_2_no_gaps"
-
-    external c_median_2_with_gaps :
-        s -> s -> Cost_matrix.Two_D.m -> s -> unit =
-            "algn_CAML_median_2_with_gaps"
-
     external c_median_3 :
         s -> s -> s -> Cost_matrix.Three_D.m -> s -> unit =
             "algn_CAML_median_3"
@@ -960,27 +999,7 @@ module Align = struct
               s1p, s2p, s3p, tc
 
 
-    let median_2_with_gaps s1 s2 c =
-        let sz1 = length s1 
-        and sz2 = length s2 in
-        if (sz1 = sz2) then begin
-            let sp = create sz1 in
-            c_median_2_with_gaps s1 s2 c sp;
-            sp
-        end else 
-            raise 
-            (Invalid_Argument "The size of the sequences is not the same.")
-
-    let median_2 s1 s2 c =
-        let sz1 = length s1 
-        and sz2 = length s2 in
-        if (sz1 = sz2) then begin
-            let sp = create (sz1 + 1) in
-            c_median_2 s1 s2 c sp;
-            sp
-        end else 
-            raise 
-            (Invalid_Argument "The size of the sequences is not the same.")
+    
 
     external c_ancestor_2 : 
         s -> s -> Cost_matrix.Two_D.m -> s -> unit = "algn_CAML_ancestor_2" 
@@ -1063,30 +1082,6 @@ module Align = struct
 
     let closest s1 s2 cm m =
         let uselevel = check_level cm in
-        (*let printseqcode seq =
-            let len = length seq in
-            Printf.printf "[";
-            for i = len-1 downto 0 do  Printf.printf "%d," (get seq i) done;
-            Printf.printf "] ";
-        in
-            Printf.printf "\n sequence.ml, s1 = %!"; printseqcode s1;
-            Printf.printf " s2 = %!"; printseqcode s2;  *)
-        let remove_gaps s2' =
-            (* We first define a function to eliminate gaps from the 
-            * final selection *)
-            let remove_gaps gap seq base = 
-                if base <> gap then 
-                    let _ = prepend seq base in
-                    seq
-                else seq
-            in
-            let res = 
-                fold_right (remove_gaps (Cost_matrix.Two_D.gap cm)) 
-                (create (length s2')) s2'
-            in
-            prepend res (Cost_matrix.Two_D.gap cm);
-            res
-        in
         if is_empty s2 (Cost_matrix.Two_D.gap cm) then
             s2, 0
         else
@@ -1104,7 +1099,7 @@ module Align = struct
             in
             (*Printf.printf "; s1' and s2' = %!"; printseqcode s1'; printseqcode s2';
             Printf.printf "end of sequence.ml \n%!";*)
-            remove_gaps (mapi get_closest s2'), cst
+            remove_gaps (mapi get_closest s2') cm, cst
         else
             let s1', s2', comp =
                 if 0 = compare s1 s2 then
@@ -1141,7 +1136,7 @@ module Align = struct
                 (*let _ =
                 Printf.printf ", s2' = %!"; printseqcode s2'
                 in*)
-                remove_gaps s2' 
+                remove_gaps s2' cm
             in
             (*Printf.printf ", s2' = %!"; printseqcode s2';
             Printf.printf "end of sequence.ml \n%!";*)
@@ -1263,6 +1258,224 @@ module Align = struct
 
 end
 
+module NewkkAlign = struct 
+    
+    type ukkm
+    external create_ukkm : unit -> ukkm = "newkkonen_CAML_create_general"
+    (*
+    external print_2d : m -> int -> int -> unit = "mat_CAML_print_algn_2d"
+    external print_3d : m -> int -> int -> int -> unit = "mat_CAML_print_algn_3d"
+    external get_dir : m -> int -> int -> int -> int -> int = "mat_CAML_get_value"
+    *)
+    (*c side function*)
+    external init : unit -> unit = "newkkonen_CAML_initialize"
+    external newkk_cost2 : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
+         "newkkonen_CAML_algn"
+    external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
+        "newkkonen_CAML_backtrace_bc" "newkkonen_CAML_backtrace"
+    external get_k : ukkm -> int = "newkkonen_CAML_get_k"
+    (*functions from cost_matrix.2d*)
+    let gap_filter_for_combcode = Cost_matrix.Two_D.gap_filter_for_combcode
+
+    let _ = init ()
+    let default_ukkm = create_ukkm ()
+(*median_2 and median_2_with_gaps are totally the same as in module Align
+    let median_2 s1 s2 c =
+        let sz1 = length s1 
+        and sz2 = length s2 in
+        if (sz1 = sz2) then begin
+            let sp = create (sz1 + 1) in
+            c_median_2 s1 s2 c sp;
+            sp
+        end else 
+            raise 
+            (Invalid_Argument "Newkkonen.median_2: size of two seq must be the same.")
+
+    let median_2_with_gaps s1 s2 c =
+        let sz1 = length s1 
+        and sz2 = length s2 in
+        if (sz1 = sz2) then begin
+            let sp = create sz1 in
+            c_median_2_with_gaps s1 s2 c sp;
+            sp
+        end else 
+            raise 
+            (Invalid_Argument "The size of the sequences is not the same.")
+*)
+
+
+    let get_alignment s1 s2 c m =
+        let debug = false in
+        let sz1 = length s1
+        and sz2 = length s2 in
+        let s1p = create (sz1 + sz2)
+        and s2p = create (sz1 + sz2) in
+        if debug then Printf.printf "Sequence.Newkkonen.get_alignment, len1=%d,len2=%d\n%!" sz1 sz2;
+        (*call traceback function*)
+        let size_compared = (sz1 <= sz2) in
+        if size_compared then 
+            newkk_backtrace s1 s2 s1p s2p c m
+        else 
+            newkk_backtrace s2 s1 s2p s1p c m;
+        if debug then begin 
+            Printf.printf " seq1:%!"; printseqcode s1;
+            Printf.printf " seq2:%!"; printseqcode s2;
+            Printf.printf " alied seq1:%!"; printseqcode s1p;
+            Printf.printf " alied seq2:%!"; printseqcode s2p;
+        end;
+        s1p, s2p
+
+    let align_2 ?(first_gap=true) s1 s2 c m =
+        let debug = false in
+        let ls1 = length s1 and ls2 = length s2 in
+        if debug then Printf.printf "Sequence.Newkkonen.align_2,len1=%d,len2=%d\n%!" ls1 ls2;
+        let s1,s2,ls1,ls2 = 
+            if ls1<=ls2 then s1,s2,ls1,ls2
+            else s2,s1,ls2,ls1
+        in
+        let cmp s1 s2 =
+            match Cost_matrix.Two_D.affine c with
+            | Cost_matrix.Affine _ ->
+                    failwith "we don't have affine in newkk yet"
+                  (*  let _, s1p, s2p, tc, _ = align_affine_3 s1 s2 c in
+                    s1p, s2p, tc*)
+            | _ ->
+                    (*printseqcode s1; printseqcode s2;*)
+                    let tc = newkk_cost2 s1 s2 c m in   
+                    (*Printf.printf " editing cost = %d,call traceback\n%!"
+                    * tc;*)
+                    let s1p, s2p = get_alignment s1 s2 c m in
+                    s1p, s2p, tc   
+        in 
+        match first_gap with
+        | true -> cmp s1 s2 
+        | false ->           
+            let gap = Cost_matrix.Two_D.gap c in 
+              let s1 = prepend_char s1 gap in 
+              let s2 = prepend_char s2 gap in 
+              let s1p, s2p, tc = cmp s1 s2 in
+              let s1p = del_first_char s1p in 
+              let s2p = del_first_char s2p in 
+              if debug then Printf.printf "end of Newkkonen.alied len1=%d, len2=%d\n%!" (length s1p) (length
+              s2p);
+              s1p, s2p, tc
+
+    let cost_2 ?deltaw s1 s2 m1 m2 =
+        let debug = false in
+        if debug then Printf.printf "Newkkonen.cost_2\n%!";
+        let deltaw_calc s1len s2len = 
+            let dif = s1len - s2len in
+            let lower_limit = int_of_float ((float_of_int s1len) *.  0.10) in
+            match deltaw with 
+            | None -> 
+                    if dif < lower_limit then (lower_limit / 2)
+                    else 2
+            | Some v -> 
+                    if dif < lower_limit then lower_limit
+                    else v
+        in
+        let ls1 = length s1 and ls2 = length s2 in
+        let s1,s2,ls1,ls2 = 
+            if ls1<=ls2 then s1,s2,ls1,ls2
+            else s2,s1,ls2,ls1
+        in
+        let s1,ls1 = 
+          if ls1=0 then (prepend_gap s1 m1),1
+          else s1,ls1
+        in
+        let s2,ls2 =
+            if ls2=0 then (prepend_gap s2 m1),1 
+            else s2,ls2
+        in
+        (*assert (ls1 <> 0);  assert (ls2 <> 0);*)
+        let g1 = Align.count_gaps s1 m1
+        and g2 = Align.count_gaps s2 m1 in
+        let gaps = max g1 g2 in
+        if ls1 <= ls2 then
+            let deltaw = gaps + deltaw_calc ls1 ls2 in
+            newkk_cost2 s1 s2 m1 m2 (*todo: deltaw*)
+        else 
+            let deltaw = gaps + deltaw_calc ls2 ls1 in
+            newkk_cost2 s2 s1 m1 m2 (*todo: deltaw*)
+
+    let full_median_2 a b cm m = 
+        match Cost_matrix.Two_D.affine cm with
+        | Cost_matrix.Affine _ ->
+                failwith "we don't deal with affine in module NewKK now"
+                (*let m, _, _, _, _ = align_affine_3 a b cm in
+                m*)
+        | _ ->
+                let a, b, _ = align_2 a b cm m in
+                median_2 a b cm
+
+
+(*closest s1 s2 cm ukkm*)
+    let closest s1 s2 cm m =
+        let uselevel = check_level cm in
+        if is_empty s2 (Cost_matrix.Two_D.gap cm) then
+            s2, 0
+        else
+        let (s, _) as res = 
+        if 0 = Cost_matrix.Two_D.combine cm then 
+            (* We always have just one sequence per type s *)
+            let s1', s2', cst = align_2 s1 s2 cm m in
+            let get_closest v i =
+                let v' = get s1' i in
+                let all = Cost_matrix.Two_D.get_all_elements cm in
+                if v = all then 
+                    if v' = all then 1 (* We pick one, any will be fine *)
+                    else v'
+                else v
+            in
+            remove_gaps (mapi get_closest s2') cm, cst
+        else
+            let s1', s2', comp =
+                if 0 = compare s1 s2 then
+                    (* We remove all the gaps if we are using combinations *)
+                    if 0 = Cost_matrix.Two_D.combine cm then 
+                        s1, s2, true
+                    else
+                        if uselevel then 
+                            let gap_filter x =
+                                gap_filter_for_combcode x cm
+                            in
+                            let news1 = map gap_filter s1 and
+                            news2 = map gap_filter s2 in
+                            news1, news2, true
+                        else
+                            let mask = lnot (Cost_matrix.Two_D.gap cm) in
+                            mapi (fun x pos -> 
+                                if pos > 0 then x land mask else x) s1, 
+                            mapi (fun x pos -> 
+                                if pos > 0 then x land mask else x) s2, 
+                            true
+                else
+                    let s1', s2', _ = align_2 s1 s2 cm m in
+                    s1', s2', false
+            in
+            let s2' =
+                let s2' = 
+                    let get_closest v i =
+                        let v' = get s1' i in
+                        Cost_matrix.Two_D.get_closest cm v' v 
+                    in
+                    mapi get_closest s2' 
+                in
+                remove_gaps s2' cm
+            in
+            (* We must recalculate the distance between sequences because the
+            * set ditance calculation is an upper bound in the affine gap cost
+            * model *)
+            if comp then 
+                s2', 0
+            else
+                s2', cost_2 s1 s2' cm m
+        in
+        res
+
+end
+
+
 let select_one_generic get_one_item s cm =
     if 0 = Cost_matrix.Two_D.combine cm then s
     else 
@@ -1286,19 +1499,24 @@ let select_one_randomized s cm =
     in
     select_one_generic get_one_item s cm
 
-let readjust a b m cm parent =
+let readjust a b m cm parent use_ukk =
     let matr = Matrix.default in
     let algn s1 s2 =
         match Cost_matrix.Two_D.affine cm with
         | Cost_matrix.Affine _ ->
+                if use_ukk then failwith "we don't deal with affine for ukk yet."
+                else
                 let m, _, _, cost, _ = Align.align_affine_3 s1 s2 cm in
                 cost, m
         | _ ->
                 let s1', s2', c = 
+                    if use_ukk then 
+                    NewkkAlign.align_2 s1 s2 cm NewkkAlign.default_ukkm
+                    else
                     Align.align_2 ~first_gap:true s1 s2 cm
                     Matrix.default
                 in
-                let median = Align.median_2 s1' s2' cm in
+                let median = median_2 s1' s2' cm in
                 c, median
     in
     let make_center a b c =
@@ -1320,6 +1538,7 @@ let readjust a b m cm parent =
     in
     let has_to_print, c, (s, _), previous = make_center a b parent in
     c, s, has_to_print
+
 
 
 module CamlAlign = struct
@@ -2216,7 +2435,7 @@ let subseq seq start len =
 * two sequences [seq1], [seq2] without conditioning 
 * that two first characters are gaps *)
 let align2 (seq1 : s) (seq2 : s) 
-        (cost_mat : Cost_matrix.Two_D.m) =
+        (cost_mat : Cost_matrix.Two_D.m) use_ukk =
 
 	let len1 = length seq1 in
 	let len2 = length seq2 in
@@ -2227,15 +2446,37 @@ let align2 (seq1 : s) (seq2 : s)
 						else get seq1 (pos - 1)) (len1 + 1) in 
 	let ext_seq2 = init (fun pos -> if pos = 0 then gap_code 
 						else get seq2 (pos - 1)) (len2 + 1) in
-(*this calls the ukkonen space saver version. in ml. I'm moving it to C*)
+(*this calls the ukkonen space saver version. in ml. I'm moving it to C
     let alied_arr1,alied_arr2, cost = 
         Ukk_space_save.ukkonen_align (to_array ext_seq1) (to_array ext_seq2) cost_mat in
     let ext_alied_seq1, ext_alied_seq2 = 
         of_array alied_arr1, of_array alied_arr2 in
-(* this is calls ukkonen full version, in C, which allocation the whole matrix 
-	let ext_alied_seq1, ext_alied_seq2, cost = Align.align_2 
-        ext_seq1 ext_seq2 cost_mat Matrix.default in 		
 *)
+
+    let ext_alied_seq1, ext_alied_seq2, cost =
+(*this calls the c version of ukk_space_save*)
+    if use_ukk then
+        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm 
+    else
+(* this is calls ukkonen full memory version, in C, which allocation the whole matrix*)
+        Align.align_2 ext_seq1 ext_seq2 cost_mat Matrix.default 
+    in 		
+
+
+(*just for test, we call them both and compare the cost
+let ext_alied_seq3, ext_alied_seq4, cost2 =
+Align.align_2 ext_seq1 ext_seq2 cost_mat Matrix.default 
+in
+Printf.printf "cost from align = %d\n%!" cost2;
+let ext_alied_seq1, ext_alied_seq2, cost1 =
+        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm 
+in
+Printf.printf "cost from newkk = %d\n%!" cost1;
+
+assert(cost1=cost2);
+let cost = cost1 in
+just for test, we call them both and compare the cost*)
+
 	let ali_len = length ext_alied_seq1 - 1 in 
 	let alied_seq1 = subseq ext_alied_seq1 1 ali_len in 
 	let alied_seq2 = subseq ext_alied_seq2 1 ali_len in 
@@ -2329,14 +2570,14 @@ let concat (seq_ls : s list) =
 * in the second sequence [seq2]  *)
 let create_subalign2 (seq1 : s) (seq2 : s) 
         (cost_mat : Cost_matrix.Two_D.m) (start_pos1 : int) (end_pos1 : int) 
-        (start_pos2 : int) (end_pos2 : int) = 	
+        (start_pos2 : int) (end_pos2 : int) (use_ukk : bool) = 	
 
 	let len1 = end_pos1 - start_pos1 + 1 in
 	let len2 = end_pos2 - start_pos2 + 1 in 
 	let subseq1 = sub seq1 start_pos1 len1 in 
 	let subseq2 = sub seq2 start_pos2 len2 in	
 	let alied_subseq1, alied_subseq2, cost, ali_len = 
-        align2 subseq1 subseq2 cost_mat in 	
+        align2 subseq1 subseq2 cost_mat use_ukk in 	
 	alied_subseq1, alied_subseq2, cost
 
 
@@ -2352,11 +2593,10 @@ let get_num_base (seq : s) =
 	
 (** [delete_gap] deletes all gaps in the sequence [seq] *)
 let delete_gap ?(gap_code = dna_gap) seq = 
-	let new_len = fold 
+    let new_len = fold 
         (fun len code -> 
              if code = gap_code then len 
              else (len + 1) ) 0 seq in 
-
 	let new_seq = init (fun _ -> -1) new_len in 
 	let _ = fold (fun new_pos code -> 
                                match code = gap_code with
@@ -2432,7 +2672,7 @@ let create_median_deled_seq seq cost_mat =
 * from [s1] to [e1] in the first sequence [seq1] and subsequence 
 * from [s2] tp [e2] in the second sequence [seq2] *)
 let create_median ?(approx=`BothSeq) seq1 seq2 
-        ?(s1=(-1)) ?(e1=(-1)) ?(s2=(-1)) ?(e2=(-1)) cost_mat = 
+        ?(s1=(-1)) ?(e1=(-1)) ?(s2=(-1)) ?(e2=(-1)) cost_mat use_ukk = 
 
     let s1, e1, s2, e2 =
         match s1 with  
@@ -2444,7 +2684,7 @@ let create_median ?(approx=`BothSeq) seq1 seq2
     in 
 
     let alied_seq1, alied_seq2, _ = 
-        create_subalign2 seq1 seq2 cost_mat s1 e1 s2 e2 
+        create_subalign2 seq1 seq2 cost_mat s1 e1 s2 e2 use_ukk
     in
     let alied_med, cost = create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat in 
     alied_med, alied_seq1, alied_seq2, cost
@@ -2489,8 +2729,10 @@ let create_general_ali code1_arr code2_arr gap_code cost_mat =
              | _ -> code2_arr.(index - 1) ) (len2 + 1) 
     in 
     
-	let ext_alied_seq1, ext_alied_seq2, cost = Align.align_2 
-        ext_seq1 ext_seq2 cost_mat Matrix.default in 		
+	let ext_alied_seq1, ext_alied_seq2, cost = 
+        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm
+        (*Align.align_2 
+        ext_seq1 ext_seq2 cost_mat Matrix.default *)in 		
 
 
     let ali_len = length ext_alied_seq1 in 
@@ -2587,7 +2829,8 @@ module Clip = struct
             missing_distance
         else
             let seqa, seqb, cost = 
-                Align.align_2 a b c2 Matrix.default
+                NewkkAlign.align_2 a b c2 NewkkAlign.default_ukkm
+                (*Align.align_2 a b c2 Matrix.default*)
             in
             correct_distance gap c2 seqa seqb cost
 

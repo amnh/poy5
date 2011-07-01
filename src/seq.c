@@ -224,6 +224,72 @@ seq_compare (seqt a, seqt b) {
     return 0;
 }
 
+
+#ifdef _WIN32
+__inline void
+#else
+inline void
+#endif
+seq_get_median_2d_with_gaps (seqt s1, seqt s2, cmt m, seqt sm) {
+    SEQT *begin1, *begin2;
+    int interm;
+    int i;
+    begin1 = seq_get_begin (s1);
+    begin2 = seq_get_begin (s2);
+    for (i = seq_get_len (s1) - 1; i >= 0; i--) {
+        interm = cm_get_median (m, begin1[i], begin2[i]);
+        seq_prepend (sm, interm);
+    }
+    return;
+}
+
+#ifdef _WIN32
+__inline void
+#else
+inline void
+#endif
+seq_get_median_2d_no_gaps (seqt s1, seqt s2, cmt m, seqt sm) {
+    SEQT *begin1, *begin2;
+    int interm;
+    int i;
+    begin1 = seq_get_begin (s1);
+    begin2 = seq_get_begin (s2);
+    for (i = seq_get_len (s1) - 1; i >= 0; i--) {
+        interm = cm_get_median (m, begin1[i], begin2[i]);
+        if (interm != cm_get_gap (m))
+            seq_prepend (sm, interm);
+    }
+    seq_prepend (sm, cm_get_gap (m));
+    return;
+}
+
+value
+seq_CAML_median_2_no_gaps (value s1, value s2, value m, value sm) {
+    CAMLparam4(s1, s2, m, sm);
+    seqt ss1, ss2, ssm;
+    cmt tm;
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ssm,sm);
+    tm = Cost_matrix_struct(m);
+    seq_get_median_2d_no_gaps (ss1, ss2, tm, ssm);
+    CAMLreturn(Val_unit);
+}
+
+value
+seq_CAML_median_2_with_gaps (value s1, value s2, value m, value sm) {
+    CAMLparam4(s1, s2, m, sm);
+    seqt ss1, ss2, ssm;
+    cmt tm;
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ssm,sm);
+    tm = Cost_matrix_struct(m);
+    seq_get_median_2d_with_gaps (ss1, ss2, tm, ssm);
+    CAMLreturn(Val_unit);
+}
+
+
 /*
 #define A 1
 #define C (A << 1)

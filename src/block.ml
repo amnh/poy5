@@ -591,11 +591,12 @@ block [b2] to block [b1] *)
 let prepen (b1 : block_t) (b2 : block_t) (block_pam : blockPam_t) 
         (seq1 : Sequence.s) (seq2 : Sequence.s) (cost_mat : Cost_matrix.Two_D.m) 
         (ali_pam : pairChromPam_t) =
-
-    
+(*Block.ml and Seed.ml are with old annotation method, we don't use them
+* anymore. it doesn't matter we use_ukk or not*)
+let use_ukk = false in
     let alied_between_seq1, alied_between_seq2, cost = 
         Sequence.create_subalign2 seq1 seq2 cost_mat (b1.en1 + 1)
-        (b2.sta1 - 1) (b1.en2 + 1) (b2.sta2 - 1) 
+        (b2.sta1 - 1) (b1.en2 + 1) (b2.sta2 - 1) use_ukk
     in 
     
 

@@ -61,6 +61,7 @@ type identifiers = [
 
 
 type chromosome_args = [
+    | `Align_Meth of Methods.align_meth
     | `Median_Solver of Methods.median_solver_chosen
     | `Annotate_Tool of Methods.annotate_tool (*annotated tool = mauve or default*)
     | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
@@ -1508,6 +1509,7 @@ let create_expr () =
             ];
         genome_argument:
             [
+                [ LIDENT "newkkonen" -> `Align_Meth `NewKK ]|
                 [ LIDENT "chrom_breakpoint"; ":"; c = INT -> 
                       `Chrom_Breakpoint (int_of_string c) ]  |
                 [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
@@ -1521,6 +1523,7 @@ let create_expr () =
             ];
         chromosome_argument:
             [
+                [ LIDENT "newkkonen" -> `Align_Meth `NewKK ]|
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
                     match c with
                     | `MGR -> `Median_Solver `MGR

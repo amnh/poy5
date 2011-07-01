@@ -475,7 +475,10 @@ let create_alied_subseq (seed1 : seed_t) (seed2 : seed_t)
     let len2 = seed2.sta2 - sta2 in                 
     let subseq1 = Sequence.sub chrom1 sta1 len1 in 
     let subseq2 = Sequence.sub chrom2 sta2 len2 in
+    let use_ukk = false in (*module Seed and Block are with old annotation
+    method, we don't use them anymore, it doens't matter if we use use_ukk here
+    or not.*)
     let alied_subseq1, alied_subseq2, cost, ali_len = 
-        Sequence.align2 subseq1 subseq2 cost_mat in         
+        Sequence.align2 subseq1 subseq2 cost_mat use_ukk in         
     alied_subseq1, alied_subseq2, cost
     
