@@ -710,15 +710,17 @@ characterset_list:
     | characterset                   { [$1]     }
     ;
 characterset:
-    | INTEGER DASH CHAR optional_step       { P.Range ($1, None, $4) }
-    | INTEGER DASH INTEGER optional_step    { P.Range ($1, Some $3, $4) }
-    | INTEGER              { P.Single $1 }
-    | IDENT                { P.Name $1 }
-    | SINGLEQUOTED         { P.Name $1 }
-    | CHAR                 { P.Name (String.make 1 $1) }
-    | DNA                  { P.Name "DNA" }
-    | RNA                  { P.Name "RNA" }
-    | PROTEIN              { P.Name "PROTEIN" }
+    | INTEGER DASH CHAR optional_step       
+                        { P.Range (int_of_string $1, None, $4) }
+    | INTEGER DASH INTEGER optional_step    
+                        { P.Range (int_of_string $1, Some (int_of_string $3), $4) }
+    | INTEGER           { P.Single (int_of_string $1) }
+    | IDENT             { P.Name $1 }
+    | SINGLEQUOTED      { P.Name $1 }
+    | CHAR              { P.Name (String.make 1 $1) }
+    | DNA               { P.Name "DNA" }
+    | RNA               { P.Name "RNA" }
+    | PROTEIN           { P.Name "PROTEIN" }
     ;
 optional_step:
     | SLASH INTEGER { int_of_string $2 }

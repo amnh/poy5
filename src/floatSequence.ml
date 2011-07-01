@@ -78,12 +78,14 @@ let pp_seq model chan seq = Sequence.print chan seq model.alph
 
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
+let make_model alph model = { static = model; alph = alph; }
+
 open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
 (* minimum of three with annotations; this will work for all methods *)
 let min3_ a at b bt c ct =
-    if a >. b then begin
-        if b >. c then (c,[ct])
+    if a > b then begin
+        if b > c then (c,[ct])
         else if b =. c then ((min b c),[bt;ct])
         else (b,[bt])
     end else if a =. b then begin
@@ -140,8 +142,101 @@ module type A = sig
     val get_closest : dyn_model -> float -> i:int -> p:int -> m:int -> int * float
 
     (* (pseudo) 3d operations *)
-    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> floatmem -> float * s * bool
+    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> float * s * bool
     val optimize : s -> s -> dyn_model -> float -> floatmem -> float * float
+
+end
+
+IFDEF USE_LIKELIHOOD THEN
+
+module CMPLAlign : A = struct
+
+    type s        = Sequence.s
+    type floatmem = FMatrix.m
+
+    (* We define all of the external functions, and compose them properly in
+       to the interface below *)
+
+    external fm_compose :
+        FMatrix.m -> 
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        float -> float -> int ->
+            (int,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t *
+            (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t 
+        = "fm_CAML_compose_wrapper" "fm_CAML_compose"
+
+    (* --- implement the A module *)
+
+    external s_of_seq : Sequence.s -> s = "%identity"
+    external seq_of_s : s -> Sequence.s = "%identity"
+ 
+    let compare a b      = 0 = Sequence.compare (seq_of_s a) (seq_of_s b)
+    let print_mem mem    = FMatrix.print mem
+    let create_mem _ _   = FMatrix.scratch_space
+    let get_mem _ _      = FMatrix.scratch_space
+    let clear_mem mem    = FMatrix.freeall mem
+    let print_cm m t     = 
+        let mat = MlModel.compose m.static t in
+        for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
+            for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
+                printf " [%f] " (~-. (log mat.{i,j}));
+            done;
+            printf "\n%!";
+        done;
+        ()
+
+    let print_s (seq:s) (a) =
+        for i = 0 to (Sequence.length seq)-1 do
+            try printf "%s" (Alphabet.match_code (Sequence.get seq i) a);
+            with (Alphabet.Illegal_Code _ ) -> printf "%d" (Sequence.get seq i);
+        done;
+        printf "\n%!";
+        ()
+
+    let print_raw seq =
+        for i = 0 to (Sequence.length seq)-1 do
+            printf "|%d" (Sequence.get seq i);
+        done;
+        printf "|%!";
+        ()
+    
+    let get_cm model t1 t2 =
+        let assgn,csts = 
+            fm_compose FMatrix.scratch_space model.static.MlModel.u 
+                       model.static.MlModel.d model.static.MlModel.ui t1 t2 1
+        in
+        let a = Bigarray.Array2.dim1 csts and b = Bigarray.Array2.dim2 csts in
+        let r = Array.make_matrix a b (0.0,0) in
+        for i = 0 to a-1 do for j = 0 to b-1 do
+            r.(i).(j) <- (csts.{i,j},assgn.{i,j});
+        done; done; 
+        r
+
+    let get_cf model t1 t2 =
+        let assgn,csts =
+            fm_compose FMatrix.scratch_space model.static.MlModel.u 
+                       model.static.MlModel.d model.static.MlModel.ui t1 t2 1
+        in
+        (fun i j -> csts.{i,j}, assgn.{i,j})
+
+    let cost_2 ?deltaw _ _ _ _ _ _  = failwith "not implemented"
+    let optimize s1 s2 model t mem  = failwith "not implemented"
+    let aln_cost_2 _ _ _ _          = failwith "not implemented"
+    let median_2 _ _ _ _ _ _        = failwith "not implemented"
+    let median_2_cost _ _ _ _ _ _   = failwith "not implemented"
+    let full_median_2 _ _ _ _ _ _   = failwith "not implemented"
+    let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
+    let closest ~p ~m _ _ _         = failwith "not implemented"
+    let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _      = failwith "not implemented"
+    let cost _ _ _                  = failwith "not implemented"
+    let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
+    let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
+    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
+    let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
+    let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
 
 end
 
@@ -154,9 +249,6 @@ module FloatAlign : A = struct
 
     external s_of_seq : Sequence.s -> s = "%identity"
     external seq_of_s : s -> Sequence.s = "%identity"
-
-    let s_of_seq = s_of_seq
-    let seq_of_s = seq_of_s
 
     let compare a b =
         0 = Sequence.compare (seq_of_s a) (seq_of_s b)
@@ -483,46 +575,37 @@ module FloatAlign : A = struct
          * other. We move along the barrier, down, and across until a node does
          * not change it's value and stop. *)
         let rec update_matrix (ok:int) (nk:int): unit =
-            (* move down each column and update until nothing changes *)
-            let run_col i j i_max =
-                let rec run_col i j i_max =
-                    if i < i_max then begin
-                        update_all i j;
-                        run_col (i+1) (j) i_max
-                    end else if i = i_max then begin
-                        update_row i j
-                    end
-                in
-                update_col i j;
-                run_col (i+1) j i_max
-            (* move across each row and update until nothing changes *)
-            and run_row i j j_max =
-                let rec run_row i j j_max =
-                    if j < j_max then begin
-                        update_all i j;
-                        run_row (i) (j+1) j_max
-                    end else if j = j_max then begin
-                        update_col i j
-                    end
-                in
-                update_row i j;
-                run_row i (j+1) j_max
-            in
-            (* If dolphins are so smart, why do they live in Igloos? *)
             let ob = barrier ok and nb = barrier nk in
+            (* move down each column and update until nothing changes *)
+            (* move across each row and update until nothing changes *)
+            let run_row i j_min j_max =
+                let rec run_row i j =
+                    if j >= lenY then
+                        ()
+                    else if j = j_max then
+                        begin update_col i j end
+                    else 
+                        begin update_all i j; run_row (i) (j+1) end
+                in
+                run_row i j_min
+            in
             for i = 1 to (lenX-1) do
-                (* ___ _______ ___
+                (* .___._______.___.
                  * |___|_______|___| ; update new sections : right by column
                  *  new   old   new  ;                     : left by row *)
-                let old_j_max = min (lenY-1) (i+ob+(lenY-lenX))
-                and new_j_max = min (lenY-1) (i+nb+(lenY-lenX))
-                and new_j_min = max 1 (i - nb) in
-                for j = (old_j_max+1) to new_j_max do
-                    run_col i j (i+ob)
-                done;
-                run_row i new_j_min new_j_max;
+                let old_j_max = i+ob+(lenY-lenX)
+                and new_j_max = i+nb+(lenY-lenX)
+                and new_j_min = i - nb in
+                begin match i - ob with
+                    | old_j_min when old_j_min <= 1 ->
+                        run_row i (old_j_max) (new_j_max)
+                    | old_j_min when new_j_min < 1 ->
+                        run_row i 1 new_j_max
+                    | old_j_min ->
+                        update_row i new_j_min;
+                        run_row i (new_j_min+1) new_j_max
+                end
             done
-
         (* If dolphins are so smart, why do they live in Igloos? *)
         and initial_matrix () =
             mem.(0).(0) <- (0.0,(0,[Root]));
@@ -712,8 +795,8 @@ module FloatAlign : A = struct
 
 
     (* pseudo 3d operation to find a median of three *)
-    let readjust s1 s2 s3 model t1 t2 t3 mem =
-        let algn s1 s2 t1 t2 : float * s = algn s1 s2 model t1 t2 mem in
+    let readjust s1 s2 s3 model t1 t2 t3 =
+        let algn s1 s2 t1 t2 = algn s1 s2 model t1 t2 (get_mem s1 s2) in
         let make_center s1 s2 s3=
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
@@ -732,13 +815,13 @@ module FloatAlign : A = struct
             (* determine best... *)
             if c123 <= c231 then
                 if c123 <= c132 then
-                    false, c123, closest s3 s12 model t3 mem, c123
+                    false, c123, closest s3 s12 model t3 (get_mem s3 s12), c123
                 else
-                    true, c132, closest s2 s13 model t2 mem, c123
+                    true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
             else if c231 < c132 then
-                true, c231, closest s1 s23 model t1 mem, c123
+                true, c231, closest s1 s23 model t1 (get_mem s1 s23), c123
             else
-                true, c132, closest s2 s13 model t2 mem, c123
+                true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
         in
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
@@ -1145,46 +1228,37 @@ module MPLAlign : A = struct
          * other. We move along the barrier, down, and across until a node does
          * not change it's value and stop. *)
         let rec update_matrix (ok:int) (nk:int): unit =
-            (* move down each column and update until nothing changes *)
-            let run_col i j i_max =
-                let rec run_col i j i_max =
-                    if i < i_max then begin
-                        update_all i j;
-                        run_col (i+1) (j) i_max
-                    end else if i = i_max then begin
-                        update_row i j
-                    end
-                in
-                update_col i j;
-                run_col (i+1) j i_max
-            (* move across each row and update until nothing changes *)
-            and run_row i j j_max =
-                let rec run_row i j j_max =
-                    if j < j_max then begin
-                        update_all i j;
-                        run_row (i) (j+1) j_max
-                    end else if j = j_max then begin
-                        update_col i j
-                    end
-                in
-                update_row i j;
-                run_row i (j+1) j_max
-            in
-            (* If dolphins are so smart, why do they live in Igloos? *)
             let ob = barrier ok and nb = barrier nk in
+            (* move down each column and update until nothing changes *)
+            (* move across each row and update until nothing changes *)
+            let run_row i j_min j_max =
+                let rec run_row i j =
+                    if j >= lenY then
+                        ()
+                    else if j = j_max then
+                        begin update_col i j end
+                    else 
+                        begin update_all i j; run_row (i) (j+1) end
+                in
+                run_row i j_min
+            in
             for i = 1 to (lenX-1) do
-                (* ___ _______ ___
+                (* .___._______.___.
                  * |___|_______|___| ; update new sections : right by column
                  *  new   old   new  ;                     : left by row *)
-                let old_j_max = min (lenY-1) (i+ob+(lenY-lenX))
-                and new_j_max = min (lenY-1) (i+nb+(lenY-lenX))
-                and new_j_min = max 1 (i - nb) in
-                for j = (old_j_max+1) to new_j_max do
-                    run_col i j (i+ob)
-                done;
-                run_row i new_j_min new_j_max;
+                let old_j_max = i+ob+(lenY-lenX)
+                and new_j_max = i+nb+(lenY-lenX)
+                and new_j_min = i - nb in
+                begin match i - ob with
+                    | old_j_min when old_j_min <= 1 ->
+                        run_row i (old_j_max) (new_j_max)
+                    | old_j_min when new_j_min < 1 ->
+                        run_row i 1 new_j_max
+                    | old_j_min ->
+                        update_row i new_j_min;
+                        run_row i (new_j_min+1) new_j_max
+                end
             done
-
         (* If dolphins are so smart, why do they live in Igloos? *)
         and initial_matrix () =
             mem.(0).(0) <- (0.0,(0,[Root]));
@@ -1382,8 +1456,8 @@ module MPLAlign : A = struct
         res
 
     (* requires not implemented functions *)
-    let readjust s1 s2 s3 model t1 t2 t3 mem =
-        let algn s1 s2 t1 t2 : float * s = algn s1 s2 model t1 t2 mem in
+    let readjust s1 s2 s3 model t1 t2 t3 =
+        let algn s1 s2 t1 t2 = algn s1 s2 model t1 t2 (get_mem s1 s2) in
         let make_center s1 s2 s3 =
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
@@ -1402,13 +1476,13 @@ module MPLAlign : A = struct
             (* determine best... *)
             if c123 <= c231 then
                 if c123 <= c132 then
-                    false, c123, closest s3 s12 model t3 mem, c123
+                    false, c123, closest s3 s12 model t3 (get_mem s3 s12), c123
                 else
-                    true, c132, closest s2 s13 model t2 mem, c123
+                    true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
             else if c231 < c132 then
-                true, c231, closest s1 s23 model t1 mem, c123
+                true, c231, closest s1 s23 model t1 (get_mem s1 s23), c123
             else
-                true, c132, closest s2 s13 model t2 mem, c123
+                true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
         in
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
@@ -1582,7 +1656,7 @@ module MALAlign : A = struct
     let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
     let closest ~p ~m _ _ _         = failwith "not implemented"
     let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
-    let readjust _ _ _ _ _ _ _ _    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _      = failwith "not implemented"
     let get_cm _ _ _                = failwith "not implemented"
     let cost _ _ _                  = failwith "not implemented"
     let get_cf _ _ _                = failwith "not implemented"
@@ -1593,6 +1667,17 @@ module MALAlign : A = struct
     let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
 
 end
+
+let pair_distance model sq1 sq2 = match cost_fn model with
+    | `FLK ->
+        let s1 = FloatAlign.s_of_seq sq1 and s2 = FloatAlign.s_of_seq sq2 in
+        FloatAlign.optimize s1 s2 model 0.1 (FloatAlign.get_mem s1 s2)
+    | `MAL ->
+        let s1 = MALAlign.s_of_seq sq1 and s2 = MALAlign.s_of_seq sq2 in
+        MALAlign.optimize s1 s2 model 0.1 (MALAlign.get_mem s1 s2)
+    | `MPL ->
+        let s1 = MPLAlign.s_of_seq sq1 and s2 = MPLAlign.s_of_seq sq2 in
+        MPLAlign.optimize s1 s2 model 0.1 (MPLAlign.get_mem s1 s2)
 
 (* a simple function to test the scores of each of the methods above *)
 let test_all alignments channel seq1 seq2 bl1 bl2 model =
@@ -1635,4 +1720,49 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
     Printf.fprintf channel "%f %f %f %f %f %f  %a  %a\n%!"
                    mal_cost     mpl_cost     flk_cost
                    mal_opt_cost mpl_opt_cost flk_opt_cost
-                   (pp_seq model) mpl_median (pp_seq model) flk_median;
+                   (pp_seq model) mpl_median (pp_seq model) flk_median
+
+ELSE
+
+module Empty : A = struct
+
+    type s        = unit
+    type floatmem = unit
+
+    let s_of_seq _                  = failwith "not implemented"
+    let seq_of_s _                  = failwith "not implemented"
+    let compare _ _                 = failwith "not implemented"
+    let print_mem _                 = failwith "not implemented"
+    let create_mem _ _              = failwith "not implemented"
+    let clear_mem _                 = failwith "not implemented"
+    let get_mem _ _                 = failwith "not implemented"
+    let print_cm _ _                = failwith "not implemented"
+    let cost_2 ?deltaw _ _ _ _ _    = failwith "not implemented"
+    let optimize _ _ _ _            = failwith "not implemented"
+    let print_s _ _                 = failwith "not implemented"
+    let print_raw _                 = failwith "not implemented"
+    let aln_cost_2 _ _ _ _          = failwith "not implemented"
+    let median_2 _ _ _ _ _ _        = failwith "not implemented"
+    let median_2_cost _ _ _ _ _ _   = failwith "not implemented"
+    let full_median_2 _ _ _ _ _ _   = failwith "not implemented"
+    let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
+    let closest ~p ~m _ _ _         = failwith "not implemented"
+    let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _      = failwith "not implemented"
+    let get_cm _ _ _                = failwith "not implemented"
+    let cost _ _ _                  = failwith "not implemented"
+    let get_cf _ _ _                = failwith "not implemented"
+    let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
+    let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
+    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
+    let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
+    let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
+
+end
+
+module MPLAlign = Empty
+module FloatAlign = Empty
+module MALAlign = Empty
+module CMPLAlign = Empty
+
+END

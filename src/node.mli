@@ -19,8 +19,6 @@
 
 exception Illegal_argument of string
 
-
-
 type to_single = 
     [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
     `Sank | `Seq | `StaticMl | `Ml ]
@@ -31,7 +29,7 @@ type 'a r = {
     cost        : float; (** Total cost of the set of characters *)
     sum_cost    : float; (** Total cost up to this node in tree (inc'l) *)
     weight      : float; (** The weight of the set of characters *)
-    time        : float option * float option;
+    time        : float option * float option * float option;
                          (** time that this node connecst to it's children,
                           * first is the min_taxon_code, second is the other *)
 }
@@ -58,7 +56,6 @@ type 'a css = {
     set   : 'a list;                    (** Contents *)
     smethod : complex_term_method; (** How to treat complex terminals *)
 }
-
 
 IFDEF USE_LIKELIHOOD THEN
 type ml_rep = MlStaticCS.t r
@@ -109,6 +106,8 @@ val has_to_single : to_single list
 
 val not_to_single : to_single list
 
+val print_times : node_data -> unit
+
 (* Like [distance] but calculates it only for the characters that match the
 * listed types. *)
 val distance_of_type :   
@@ -137,18 +136,14 @@ val set_node_cost : float -> node_data -> node_data
 (* Compute the total rearrangement cost of the subtree rooted by node_data *)
 val cmp_subtree_recost : node_data -> float
 
-(** [to_formatter_single] is a horrible function, horrible, horrible; it outputs in
-* a horrible format. Check the Xml module for further information. *)
-(**
-*  The function take accumulated formatter (acc), data (d), node_data,
- *  node_id, parent_node_data as an option
-*)
+(** [to_formatter_single] Check the Xml module for further information on the
+    format.The function take accumulated formatter (acc), data (d), node_data,
+    node_id, parent_node_data as an option *)
 val to_formatter_single :
     Methods.diagnosis_report_type -> ChromCS.IntSet.t * ChromCS.IntSet.t ->    
         Xml.attributes ->
             Data.d -> (node_data * node_data) -> int -> (node_data * node_data)
             option -> Xml.xml 
-
 
 (**
  * [to_formatter_subtree (final, prel) b c d e f g h] creates Xml.xml of the contents 
@@ -168,15 +163,16 @@ val to_formatter_subtree : Methods.diagnosis_report_type -> ChromCS.IntSet.t * C
  * Inactive codes are eliminated from diagnosis. 
  * If p is the handle, alied_map is the root containing the aligned map between p
  * and n needed for chromosome stuff, else alied_map is assigned by p *)
-val to_single : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data option ->
-    node_data -> node_data -> node_data
+val to_single :
+    ChromCS.IntSet.t * ChromCS.IntSet.t -> bool -> node_data option
+        -> node_data -> node_data -> node_data
 
 (** [to_single_root n] is equivalent to [to_single n n]. *)
 val to_single_root : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data -> node_data
 
-(** [apply_time a b n] applies the time [a] to the minimum child node and [b] to the
-* other. If _None is passed the data isn't changed_.
-val apply_time : ?given:(float option list) -> node_data -> node_data -> node_data *)
+(** [apply_time r a b] applies the time [a] to the minimum child node and [b] to the
+* other. If [r] is true, b is a root, and we add the edges together. *)
+val apply_time : bool -> node_data -> node_data -> node_data
 
 (** [edge_iterator gp p a b] is a function to iterate the branch lengths of
  * likelihood characters of parent [p], with children [a] and [b], and grand
@@ -202,8 +198,19 @@ val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> node_data 
  * uses the time data of nodes in different directions, [times_1] and [times_2]
  * to fill in the other directions with children [node_1] and [node_2].
 *)
-val median_w_times : int option -> node_data option -> node_data -> node_data 
-                     -> float option list -> float option list -> node_data
+val median_w_times: 
+    int option -> node_data option -> node_data -> node_data -> 
+        float option list -> float option list -> float option list option ->
+            node_data
+
+(* [replace_parent_time node t] replace the third time in [node] with the time *)
+val replace_parent_time : node_data -> float option list -> node_data
+
+(* [median_of_child_branch child parent] creates a median between a child and
+    a parent (from the persepective of an unrooted tree this makes sense), and
+    uses the branch length from the child. This is intended to be used to update
+    the parent with the branch length from a readjustment in three directions *)
+val median_of_child_branch : int option -> node_data -> node_data -> node_data
 
 (**[get_times_between(_tbl tbl) nd child_code]
  * helper functions to unify the distribution of times in three directions

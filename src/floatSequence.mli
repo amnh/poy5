@@ -31,6 +31,9 @@ type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
     characters in the likelihood matrix. This type adds the unsequential
     alphabet to the model for use as bitsets with the vectors. *)
 
+val make_model : Alphabet.a -> MlModel.model -> dyn_model
+(** simple function to wrap up composing a dynamic likelihood model *)
+
 val cost_fn : dyn_model -> Methods.ml_costfn
 (** Return the cost function for the dynamic likelihood model. This helps in
     retrieving from other modules since the name would be quite long. *)
@@ -183,7 +186,7 @@ module type A = sig
         the minimum cost to [p]; return the optimal state, and cost associated
         with that transformation based on the model and branch length, [t]. *)
 
-    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> floatmem -> float * s * bool
+    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> float * s * bool
     (** [readjust a b c m at bt ct mem] Perform a pseudo 3D alignment by using
         the best score of any pair, and then performing [closest] on that median
         with the third sequence. *)
@@ -195,6 +198,16 @@ module type A = sig
 
 end 
 (** The sequence alignment module for floating point cost matrices/regimes. *)
+
+module CMPLAlign  : A
+(** This module determines two costs matrices, and finds the median by the
+    likelihood of transform either of the children over their cost matrix to an
+    assignment median. Each assignment is considered.
+    
+    This implementation is a written in C (fm.c).
+
+    PROD (x,y=0 to n,m) of MAX (i in A) of ( P(t1)_xi * P(t2)_yi )
+    Where A is the set of characters in the alphabet, and P(t) = e^Qt. *)
 
 module FloatAlign : A
 (** This module calculates the alignment (and the cost of the alignment), by
@@ -217,3 +230,5 @@ module MALAlign   : A
     function is defined along with the memory and cost matrix functions.
     Alignments are not defined (as the total cost is the sum; finding an
     alignment would be equivlent to the FloatAlign module. *)
+
+val pair_distance : dyn_model -> Sequence.s -> Sequence.s -> float * float

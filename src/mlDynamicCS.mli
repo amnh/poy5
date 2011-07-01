@@ -120,6 +120,9 @@ val readjust : t -> t -> t -> float -> float -> bool * float * float * (float * 
 (** [readjust p a b t1 t2] optimize the branch lengths [t1] and [t2] from nodes
     [a] and [b] respectively, updating parent [p]. *)
 
+val readjust3 : t -> t -> t -> t -> float -> float -> float
+    -> bool * float * float * (float * float * float) * t
+
 val to_single : t -> t -> float -> float * float * t
 (** [to_single p m t] Find the sequence for m as a sequence of assigned states,
     based on [p] and the branch length [t]. *)
@@ -146,9 +149,3 @@ val f_codes : t -> All_sets.Integers.t -> t
 
 val f_codes_comp : t -> All_sets.Integers.t -> t
 (** [f_codes t a] Filter the codes not in [a] from [t] *)
-
-val fs_matrix : FloatSequence.dyn_model -> Sequence.s array -> (float * float) array array
-(** [fs_matrix m seqs] Build a pairwise distance matrix for fixed state
-    calculations. The branch length between each seq is optimized to lower the
-    cost. The matrix contains the optimized branch length and the cost. This
-    function can access the MAL dynamic likelihood functions. *)

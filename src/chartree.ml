@@ -1256,8 +1256,9 @@ let rec subtree_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes)
             and child2_node_data = Ptree.get_node_data c2 tree
             and parent_node_data, single_parent  = Utl.deref parent_data 
             in 
-            let my_single_assignment = Node.to_single (pre_ref_codes, fi_ref_codes) 
-                None single_parent node_data 
+            let my_single_assignment =
+                Node.to_single (pre_ref_codes, fi_ref_codes) false
+                    None single_parent node_data 
             in
             (* We recursively call for the current vertex, then the two children
             * *)
@@ -1326,7 +1327,7 @@ let handle_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes)
                           let handle_node_data = Ptree.get_node_data handle_id tree
                           and parent_node_data = Ptree.get_node_data parent tree in
                           let root_single = 
-                              Node.to_single  (pre_ref_codes, fi_ref_codes) 
+                              Node.to_single  (pre_ref_codes, fi_ref_codes) false
                                   (Some root) parent_node_data handle_node_data
                           in
                           let root_f = 
@@ -1352,7 +1353,7 @@ let handle_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes)
         | Tree.Single _ ->
                 let node_single = 
                     let nd = Ptree.get_node_data handle_id tree in
-                    Some (nd, Node.to_single (pre_ref_codes, fi_ref_codes) None nd nd)
+                    Some (nd, Node.to_single (pre_ref_codes, fi_ref_codes) false None nd nd)
                 in
                 let c1 = 
                     subtree_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes) 

@@ -193,6 +193,13 @@ val readjust_lk :
             t -> t -> t -> float -> float -> 
                 All_sets.Integers.t * float * float * (float * float) * t
 
+
+val readjust_lk3 :
+    [`ThreeD of int option | `ApproxD of int option ] -> 
+        All_sets.Integers.t option -> All_sets.Integers.t ->
+            t -> t -> t -> t -> float -> float -> float ->
+                All_sets.Integers.t * float * float * (float * float * float) * t
+
 (** [median_3 p n c1 c2] creates the median among
 * three dynamic character sets [p], [c1] and [c2] *)
 val median_3 : t -> t -> t -> t -> t

@@ -70,6 +70,7 @@ let headers =
         "cm.h";
         "config.h";
         "floatmatrix.h";
+        "fm.h";
         "gamma.h";
         "grappa/all_inversion_medians.h";
         "grappa/all_sorting_reversals.h";
@@ -351,11 +352,6 @@ dispatch begin function
         (S[A"-ccopt"; A"-DUSE_CONCORDE"]);
 
     flag ["link"; "use_concorde"] (A concordelib); 
-
-  (*  flag ["link"; "ocaml"; "use_concorde"]
-        (S[A"-cclib"; A"-L/Users/lyn/concorde"]); 
-*)
-    
 
     flag ["c"; "compile"; "use_readline"]
         (S[A"-ccopt"; A"-DUSEREADLINE"]);

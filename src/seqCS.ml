@@ -1903,24 +1903,28 @@ let of_array spec sc code taxon =
                     | Not_found ->  
                             PartitionedDOS.empty clip size spec.Data.alph)
         | `DO, [|x|] -> Heuristic_Selection (DOS.create x)
-        | `FS (distances, sequences, taxon_codes), [|x|] ->
-                let tbl = { RL.distance_table = distances; sequence_table =
-                    sequences } 
+        | `FS fs, [|x|] ->
+                let tbl = { RL.distance_table = fs.Data.costs;
+                               sequence_table = fs.Data.seqs } 
                 in
-                let len = Array.length sequences in
+                let len = Array.length fs.Data.seqs in
                 let states =
                     let seqs = 
-                        try Hashtbl.find_all taxon_codes taxon with
+                        try Hashtbl.find_all fs.Data.codes taxon with
                         | Not_found -> [] 
                     in
                     let is_empty = seqs = [] in
-                    Array.init len (fun x ->
-                    if is_empty || List.exists (fun y -> y = x) seqs then
-                        0.
-                    else max_float)
+                    Array.init len
+                        (fun x ->
+                            if is_empty || List.exists (fun y -> y = x) seqs then
+                                0.
+                            else max_float)
                 and left = Array.init len (fun x -> x) in
                 Relaxed_Lifted 
-                (tbl, {RL.states =states; single_state = (-1); left = left; right = left })
+                    (tbl, {     RL.states = states;
+                             single_state = (-1);
+                                     left = left;
+                                    right = left } )
         | `AutoPartitioned _, _ 
         | `DO, _
         | `FS _, _ -> assert false

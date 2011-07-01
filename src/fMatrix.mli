@@ -26,3 +26,10 @@ type m
 val scratch_space : m
 (** The default instantiation; initial size is '20'. This is very small, but
     will instantly grow to a reasonable size when used first. *)
+
+external print : m -> unit = "floatmatrix_CAML_print"
+(** [print m] Print the contents of the matrix; used for debugging. **)
+
+external freeall : m -> unit = "floatmatrix_CAML_freeall"
+(** [freeall m i j] Clear the matrix. **)
+

@@ -19,7 +19,20 @@
 
 let () = SadmanOutput.register "MlDynamicCS" "$Id$"
 
+(*---- non-external helper functions/settings *)
+open Numerical.FPInfix
+open FloatSequence
+let debug     = false
+let debug_est = false
+let verify    = false
+let (-->) a b = b a
+let failwith_todo func = failwith ("Your lazy developer needs to write: MlDynamicCS."^func)
+let debug_printf = 
+    if debug then (fun format -> print_string format)
+             else (fun _ -> ())
+
 IFDEF USE_LIKELIHOOD THEN
+
 (*---- type for the module *)
 type 'a align = { ss : 'a array; }
 
@@ -29,25 +42,14 @@ type 'a align = { ss : 'a array; }
  *   MPLAlign    - Two transformation matrices are created for each sequence,
  *                 these measure the probability of each transition, and when
  *                 find the minimum value (X->I)(Y->I) for the assignment I. *)
-type r = | FPAlign      of FloatSequence.FloatAlign.s align
-         | MPLAlign     of FloatSequence.MPLAlign.s align
+type r = | FPAlign  of FloatAlign.s align
+         | MPLAlign of MPLAlign.s align
 
-type t = { model  : FloatSequence.dyn_model;
+type t = { model  : dyn_model;
             data  : r;
             codes : int array;
             code  : int;
             cost  : float; }
-
-(*---- non-external helper functions/settings *)
-let debug     = false
-let debug_est = false
-let verify    = false
-let (-->) a b = b a
-let (=.) ?(epsilon=10e-6) a b = (abs_float (a-.b)) < epsilon
-let failwith_todo func = failwith ("Your lazy developer needs to write: MlDynamicCS."^func)
-let debug_printf = 
-    if debug then (fun format -> print_string format)
-             else (fun _ -> ())
 
 (*---- basic function set for gathering data of the module *)
 let get_cm t = match t.data with
@@ -68,18 +70,18 @@ let compare a b =
     in
     match a.data,b.data with
     | FPAlign ad, FPAlign bd -> 
-        (0 = MlModel.compare a.model.FloatSequence.static
-                             b.model.FloatSequence.static) &&
-        (compare_array2 FloatSequence.FloatAlign.compare ad.ss bd.ss)
+        (0 = MlModel.compare a.model.static
+                             b.model.static) &&
+        (compare_array2 FloatAlign.compare ad.ss bd.ss)
     | MPLAlign ad, MPLAlign bd -> 
-        (0 = MlModel.compare a.model.FloatSequence.static
-                             b.model.FloatSequence.static) &&
-        (compare_array2 FloatSequence.MPLAlign.compare ad.ss bd.ss)
+        (0 = MlModel.compare a.model.static
+                             b.model.static) &&
+        (compare_array2 MPLAlign.compare ad.ss bd.ss)
     | (MPLAlign _ | FPAlign _) , _ -> false
 
 let to_string t = failwith_todo "to_string"
 
-let alph t = t.model.FloatSequence.alph
+let alph t = t.model.alph
 
 let code t = t.code
 
@@ -91,13 +93,13 @@ let encoding e t = match t.data with
     | MPLAlign r ->
         Array.fold_left
             (fun acc x -> 
-                Sequence.encoding (e) (FloatSequence.MPLAlign.seq_of_s x))
+                Sequence.encoding (e) (MPLAlign.seq_of_s x))
             (0.0)
             (r.ss)
     | FPAlign r -> 
         Array.fold_left
             (fun acc x -> 
-                Sequence.encoding (e) (FloatSequence.FloatAlign.seq_of_s x))
+                Sequence.encoding (e) (FloatAlign.seq_of_s x))
             (0.0)
             (r.ss)
 
@@ -109,7 +111,7 @@ let total_cost t = t.cost
 
 let model t = t.model
 
-let static_model t = t.model.FloatSequence.static
+let static_model t = t.model.static
 
 let s_of_seq seq : Sequence.s array =
     seq --> SeqCS.get_sequences --> Array.to_list --> Array.concat
@@ -118,7 +120,7 @@ let leaf_sequences t = match t.data with
     | FPAlign r ->
         Array_ops.fold_right_2
             (fun acc x y ->
-                let y = [| `DO (FloatSequence.FloatAlign.seq_of_s y) |] in
+                let y = [| `DO (FloatAlign.seq_of_s y) |] in
                 All_sets.IntegerMap.add x y acc)
             (All_sets.IntegerMap.empty)
             (t.codes)
@@ -126,7 +128,7 @@ let leaf_sequences t = match t.data with
     | MPLAlign r ->
         Array_ops.fold_right_2
             (fun acc x y ->
-                let y = [| `DO (FloatSequence.MPLAlign.seq_of_s y) |] in
+                let y = [| `DO (MPLAlign.seq_of_s y) |] in
                 All_sets.IntegerMap.add x y acc)
             (All_sets.IntegerMap.empty)
             (t.codes)
@@ -143,7 +145,7 @@ let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list =
             let seq_lst = 
                 Array.fold_left
                     (fun acc s ->
-                        s --> FloatSequence.FloatAlign.seq_of_s
+                        s --> FloatAlign.seq_of_s
                           --> Sequence.del_first_char
                           --> fun x -> (Sequence.to_formater x alphabet)::acc)
                     []
@@ -174,7 +176,7 @@ let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list =
             let seq_lst = 
                 Array.fold_left
                     (fun acc s ->
-                        s --> FloatSequence.MPLAlign.seq_of_s
+                        s --> MPLAlign.seq_of_s
                           --> Sequence.del_first_char
                           --> fun x -> (Sequence.to_formater x alphabet)::acc)
                     []
@@ -255,8 +257,8 @@ let estimate_time a b =
             for i = 0 to (Array.length ar.ss)-1 do
                 let aligna,alignb,_ = 
                     Sequence.Align.align_2 
-                        (FloatSequence.FloatAlign.seq_of_s ar.ss.(i))
-                        (FloatSequence.FloatAlign.seq_of_s br.ss.(i))
+                        (FloatAlign.seq_of_s ar.ss.(i))
+                        (FloatAlign.seq_of_s br.ss.(i))
                         (Cost_matrix.Two_D.default) (Matrix.default)
                 in
                 align_s_distance aligna alignb
@@ -266,8 +268,8 @@ let estimate_time a b =
             for i = 0 to (Array.length ar.ss)-1 do
                 let aligna,alignb,_ = 
                     Sequence.Align.align_2 
-                        (FloatSequence.MPLAlign.seq_of_s ar.ss.(i))
-                        (FloatSequence.MPLAlign.seq_of_s br.ss.(i))
+                        (MPLAlign.seq_of_s ar.ss.(i))
+                        (MPLAlign.seq_of_s br.ss.(i))
                         (Cost_matrix.Two_D.default) (Matrix.default)
                 in
                 align_s_distance aligna alignb
@@ -295,18 +297,18 @@ let estimate_time a b =
 (* Verify Cost; only used for FPAlign *)
 let verify_fp_cost cst1 sa sb model bla blb mem = 
     if verify then begin
-        let cst2 = FloatSequence.FloatAlign.full_cost_2 cst1 sa sb model bla blb mem in
+        let cst2 = FloatAlign.full_cost_2 cst1 sa sb model bla blb mem in
         if cst1 =. cst2 then true
         else if not debug then false 
         else begin 
             Printf.printf "%f --- %f\nFull Align:\n" cst1 cst2;
-            FloatSequence.FloatAlign.print_cm model bla;
-            FloatSequence.FloatAlign.print_cm model blb;
-            FloatSequence.FloatAlign.print_mem mem;
-            FloatSequence.FloatAlign.clear_mem mem;
+            FloatAlign.print_cm model bla;
+            FloatAlign.print_cm model blb;
+            FloatAlign.print_mem mem;
+            FloatAlign.clear_mem mem;
             Printf.printf "Ukkonen Align:\n";
-            ignore (FloatSequence.FloatAlign.cost_2 sa sb model bla blb mem);
-            FloatSequence.FloatAlign.print_mem mem;
+            ignore (FloatAlign.cost_2 sa sb model bla blb mem);
+            FloatAlign.print_mem mem;
             false
         end 
     end else begin
@@ -315,18 +317,18 @@ let verify_fp_cost cst1 sa sb model bla blb mem =
 
 let verify_mpl_cost cst1 sa sb model bla blb mem = 
     if verify then begin
-        let cst2 = FloatSequence.MPLAlign.full_cost_2 cst1 sa sb model bla blb mem in
+        let cst2 = MPLAlign.full_cost_2 cst1 sa sb model bla blb mem in
         if cst1 =. cst2 then true
         else if not debug then false 
         else begin 
             Printf.printf "%f --- %f\nFull Align:\n" cst1 cst2;
-            FloatSequence.MPLAlign.print_cm model bla;
-            FloatSequence.MPLAlign.print_cm model blb;
-            FloatSequence.MPLAlign.print_mem mem;
-            FloatSequence.MPLAlign.clear_mem mem;
+            MPLAlign.print_cm model bla;
+            MPLAlign.print_cm model blb;
+            MPLAlign.print_mem mem;
+            MPLAlign.clear_mem mem;
             Printf.printf "Ukkonen Align:\n";
-            ignore (FloatSequence.MPLAlign.cost_2 sa sb model bla blb mem);
-            FloatSequence.MPLAlign.print_mem mem;
+            ignore (MPLAlign.cost_2 sa sb model bla blb mem);
+            MPLAlign.print_mem mem;
             false
         end 
     end else begin
@@ -355,7 +357,7 @@ let prior a =
                 sequence
         in
         Array.fold_left
-            (fun acc i -> avg_prior_of_seq acc (FloatSequence.FloatAlign.seq_of_s i))
+            (fun acc i -> avg_prior_of_seq acc (FloatAlign.seq_of_s i))
             (0.0) 
             (a.ss)
     | MPLAlign a ->
@@ -376,7 +378,7 @@ let prior a =
                 (sequence)
         in
         Array.fold_left
-            (fun acc i -> max_prior_of_seq acc (FloatSequence.MPLAlign.seq_of_s i))
+            (fun acc i -> max_prior_of_seq acc (MPLAlign.seq_of_s i))
             (0.0) 
             (a.ss)
 
@@ -419,9 +421,9 @@ let median code a b t1 t2 =
         let meds = 
             Array_ops.map_2
                 (fun sa sb -> 
-                    let mem = FloatSequence.MPLAlign.get_mem sa sb in
-                    if debug then FloatSequence.MPLAlign.clear_mem mem;
-                    let cst,med = FloatSequence.MPLAlign.median_2_cost sa sb a.model bla blb mem in
+                    let mem = MPLAlign.get_mem sa sb in
+                    if debug then MPLAlign.clear_mem mem;
+                    let cst,med = MPLAlign.median_2_cost sa sb a.model bla blb mem in
                     if debug then assert( verify_mpl_cost cst sa sb a.model bla blb mem );
                     cost := !cost +. cst;
                     med)
@@ -438,9 +440,9 @@ let median code a b t1 t2 =
         let meds = 
             Array_ops.map_2
                 (fun sa sb -> 
-                    let mem = FloatSequence.FloatAlign.get_mem sa sb in
-                    if debug then FloatSequence.FloatAlign.clear_mem mem;
-                    let cst,med = FloatSequence.FloatAlign.median_2_cost sa sb a.model bla blb mem in
+                    let mem = FloatAlign.get_mem sa sb in
+                    if debug then FloatAlign.clear_mem mem;
+                    let cst,med = FloatAlign.median_2_cost sa sb a.model bla blb mem in
                     if debug then assert( verify_fp_cost cst sa sb a.model bla blb mem );
                     cost := !cost +. cst;
                     med)
@@ -461,7 +463,48 @@ let readjust c1 c2 mine t1 t2 =
     if debug_est then
         Printf.printf "Optimized Branch: %f -(%f->%f)-> %f\n%!" 
                       (total_cost mine) t1 nt ncost;
-    (not (nt = t1)),total_cost mine,ncost,(nt,t2),nmine
+    let modified = not ((total_cost mine) =. ncost) in
+    modified,total_cost mine,ncost,(nt,t2),nmine
+
+let readjust3 mine c1 c2 par t1 t2 t3 =
+    let single_result =
+        (function
+            | [| t1; t2; t3 |] ->
+                let cst = ref 0.0 in
+                let nds = match c1.data, c2.data, par.data with
+                    | FPAlign c1, FPAlign c2, FPAlign p ->
+                        let ns = 
+                            Array_ops.map_3
+                                (fun x y z ->
+                                    let c,n,_ = FloatAlign.readjust x y z mine.model t1 t2 t3 in 
+                                    cst := !cst +. c;
+                                    n)
+                                c1.ss c2.ss p.ss
+                        in
+                        FPAlign { ss = ns; }
+
+                    | MPLAlign c1, MPLAlign c2, MPLAlign p ->
+                        let ns = 
+                            Array_ops.map_3
+                                (fun x y z ->
+                                    let c,n,_ = MPLAlign.readjust x y z mine.model t1 t2 t3 in
+                                    cst := !cst +. c;
+                                    n)
+                                c1.ss c2.ss p.ss
+                        in
+                        MPLAlign { ss = ns; }
+                    | (MPLAlign _ | FPAlign _), _, _ -> assert false
+                in
+                (nds,!cst)
+            | _ -> assert false)
+    in
+    let (times,(node,score)),pscore =
+        let init_vec = [| t1;t2;t3 |] in
+        let (_,pscore) as init_res = single_result init_vec in
+        Numerical.bfgs_method
+            ~epsilon:1e-5 single_result init_vec init_res, pscore
+    in
+    true, pscore, score, (times.(0),times.(1),times.(2)), {mine with data = node;}
 
 let median_i code a b (t1:float) (t2:float) : t * float * float =
     match a.data, b.data with
@@ -479,32 +522,6 @@ and median_3 p n c1 c2 = n
 (*      model = n.model;*)
 (*         ia = None; *)
 (*    }*)
-
-let fs_matrix model seqs =
-    let op_cost_fn sq1 sq2 = match FloatSequence.cost_fn model with
-        | `FLK ->
-            let s1 = FloatSequence.FloatAlign.s_of_seq sq1
-            and s2 = FloatSequence.FloatAlign.s_of_seq sq2 in
-            FloatSequence.FloatAlign.optimize s1 s2 model 0.1
-                (FloatSequence.FloatAlign.get_mem s1 s2)
-        | `MAL ->
-            let s1 = FloatSequence.MALAlign.s_of_seq sq1
-            and s2 = FloatSequence.MALAlign.s_of_seq sq2 in
-            FloatSequence.MALAlign.optimize s1 s2 model 0.1
-                (FloatSequence.MALAlign.get_mem s1 s2)
-        | `MPL ->
-            let s1 = FloatSequence.MPLAlign.s_of_seq sq1
-            and s2 = FloatSequence.MPLAlign.s_of_seq sq2 in
-            FloatSequence.MPLAlign.optimize s1 s2 model 0.1
-                (FloatSequence.MPLAlign.get_mem s1 s2)
-    in
-    let m = Array.make_matrix (Array.length seqs) (Array.length seqs) (-.1.,-.1.) in
-    for i = 0 to ((Array.length m)-1) do
-        for j = (i+1) to ((Array.length m.(i))-1) do
-            m.(i).(j) <- op_cost_fn seqs.(i) seqs.(j)
-        done;
-    done;
-    m
 
 (*---- distance functions; all for Sequence characters. *)
 let distance missing_distance a b blen = match a.data, b.data with
@@ -573,19 +590,17 @@ let f_codes_comp s c = match s.data with
 let make a s m = 
     let r = match m.MlModel.spec.MlModel.cost_fn with
         | `FLK ->
-            let data = Array.map FloatSequence.FloatAlign.s_of_seq (s_of_seq s) in
-            assert( (Array.length data) = (Array.length s.SeqCS.codes) );
+            let data = Array.map FloatAlign.s_of_seq (s_of_seq s) in
             FPAlign { ss = data; }
         | `MPL ->
-            let data = Array.map FloatSequence.MPLAlign.s_of_seq (s_of_seq s) in
-            assert( (Array.length data) = (Array.length s.SeqCS.codes) );
+            let data = Array.map MPLAlign.s_of_seq (s_of_seq s) in
             MPLAlign { ss = data; }
         | `MAL ->
             failwith "Dynamic Maximum Average Likelihood is not implemented to diagnose trees."
     in
     let data = 
         {    data = r;
-            model = { FloatSequence.static = m; alph = a; };
+            model = { static = m; alph = a; };
              cost = 0.0; (* fill this in with call to prior *)
              code = s.SeqCS.code;
             codes = s.SeqCS.codes; }
@@ -600,8 +615,8 @@ let to_single parent mine t =
         let n_data = 
             Array_ops.map_2
                 (fun p m -> 
-                    let mem = FloatSequence.FloatAlign.get_mem p m in
-                    let r,s = FloatSequence.FloatAlign.closest ~p ~m mine.model t mem in
+                    let mem = FloatAlign.get_mem p m in
+                    let r,s = FloatAlign.closest ~p ~m mine.model t mem in
                     score := s +. !score; r)
                 ps.ss
                 ms.ss
@@ -612,12 +627,14 @@ let to_single parent mine t =
         let n_data = 
             Array_ops.map_2 
                 (fun p m ->
-                    let mem = FloatSequence.MPLAlign.get_mem p m in
-                    let r,s = FloatSequence.MPLAlign.closest ~p ~m mine.model t mem in
+                    let mem = MPLAlign.get_mem p m in
+                    let r,s = MPLAlign.closest ~p ~m mine.model t mem in
                     score := s +. !score; r)
                 ps.ss
                 ms.ss
         in
+        if debug_est then
+            Printf.printf "MlDynamicCS.to_single: t:%f / c:%f\n\n%!" t !score;
         pcost, !score, { mine with data = MPLAlign { ss = n_data }; }
     (* although weak, this is the only solution *)
     | (FPAlign _ | MPLAlign _ ), _ -> assert false
@@ -628,10 +645,10 @@ ELSE
 
 type 'a align = { ss : 'a array; }
 
-type r = | FPAlign      of FloatSequence.FloatAlign.s align
-         | MPLAlign     of FloatSequence.MPLAlign.s align
+type r = | FPAlign      of FloatAlign.s align
+         | MPLAlign     of MPLAlign.s align
 
-type t = { model  : FloatSequence.dyn_model;
+type t = { model  : dyn_model;
             data  : r;
             codes : int array;
             code  : int;
@@ -649,6 +666,7 @@ let median _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let median_i _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let median_3 _ _ _ _ = failwith MlStaticCS.likelihood_error
 let readjust _ _ _ _ _ = failwith MlStaticCS.likelihood_error
+let readjust3 _ _ _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let distance _ _ _ = failwith MlStaticCS.likelihood_error
 let to_string _ = failwith MlStaticCS.likelihood_error
 let compare _ _ = failwith MlStaticCS.likelihood_error
@@ -663,7 +681,6 @@ let leaf_sequences _ = failwith MlStaticCS.likelihood_error
 let to_formatter _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let prior _ = failwith MlStaticCS.likelihood_error
 let to_single _ _ _ = failwith MlStaticCS.likelihood_error
-let fs_matrix _ _ = failwith MlStaticCS.likelihood_error 
 
 ENDIF
 

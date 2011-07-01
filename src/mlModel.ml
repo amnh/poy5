@@ -32,7 +32,7 @@ let dyno_gamma_warning =
     "Gamma@ classes@ for@ dynamic@ MPL/FLK@ are@ un-necessary,@ and@ are@ being@ removed."
 
 let debug = false
-let debug_printf msg format = 
+let debug_printf msg format =
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
 let ba_of_array1 x = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout x
@@ -41,23 +41,23 @@ and ba_of_array2 x = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
 let create_ba1 x     = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout x
 and create_ba2 x y   = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout x y
 
-let barray_to_array2 bray =  
+let barray_to_array2 bray =
     let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
     let r = Array.make_matrix a b 0.0 in
     for i = 0 to a-1 do for j = 0 to b-1 do
         r.(i).(j) <- bray.{i,j};
     done; done; r
 
-let print_barray1 a = 
-    for i = 0 to (Bigarray.Array1.dim a)-1 do 
+let print_barray1 a =
+    for i = 0 to (Bigarray.Array1.dim a)-1 do
         Printf.printf "%2.10f\t" a.{i};
     done; Printf.printf "\n"; ()
 
-and print_barray2 a = 
-    for i = 0 to (Bigarray.Array2.dim1 a)-1 do 
+and print_barray2 a =
+    for i = 0 to (Bigarray.Array2.dim1 a)-1 do
         for j = 0 to (Bigarray.Array2.dim2 a)-1 do
             Printf.printf "%2.10f\t" a.{i,j};
-        done; Printf.printf "\n"; 
+        done; Printf.printf "\n";
     done; Printf.printf "\n"; ()
 
 (* type to help the parsing of specification data *)
@@ -92,12 +92,13 @@ type site_var =
 type subst_model =
     | JC69
     | F81
-    | K2P   of float option
-    | F84   of float option
-    | HKY85 of float option
-    | TN93  of (float * float) option
-    | GTR   of float array option
-    | File  of float array array * string
+    | K2P    of float option
+    | F84    of float option
+    | HKY85  of float option
+    | TN93   of (float * float) option
+    | GTR    of float array option
+    | File   of float array array * string
+    | Custom of (int All_sets.IntegerMap.t * float array * string)
 
 type priors = 
     | Estimated of float array
@@ -193,6 +194,7 @@ let compare a b =
                 | Some v,Some x when v =. x-> 0
                 | _,_ -> ~-1
                 end
+        | Custom _, Custom _
         | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
         | File (_,x), File (_,y) when x = y -> 0
         | _,_ -> ~-1
@@ -520,8 +522,8 @@ let m_file pi_ f_rr a_size =
         assert(a_size = Array.length f_rr.(r));
         let diag = ref 0.0 in
         for c = 0 to (a_size-1) do
-            if (c <> r) then begin 
-                diag := !diag +. f_rr.(r).(c); 
+            if (c <> r) then begin
+                diag := !diag +. f_rr.(r).(c);
                 srm.{r,c} <- f_rr.(r).(c);
             end
         done;
@@ -529,6 +531,67 @@ let m_file pi_ f_rr a_size =
     done;
     m_meanrate srm pi_;
     srm
+
+let m_custom pi_ idxs ray a_size =
+    let idx = ref 0 in
+    let srm = create_ba2 a_size a_size in
+    for i = 0 to (a_size-1) do
+        for j=i+1 to (a_size-1) do
+            let value = ray.( All_sets.IntegerMap.find !idx idxs ) in
+            srm.{i,j} <- value *. pi_.{j};
+            srm.{j,i} <- value *. pi_.{i};
+            incr idx;
+        done;
+    done;
+    for i = 0 to (a_size-1) do begin
+        let diag = ref 0.0 in
+        for j = 0 to (a_size-1) do
+            if (i <> j) then diag := !diag +. srm.{i,j};
+        done;
+        srm.{i,i} <- -. !diag;
+    end; done;
+    m_meanrate srm pi_;
+    srm
+
+
+(* create a custom model by two Maps. One that maps an index to it's linked index
+   and another that maps that to a value. The default value if the element does
+   not exist is set to 1.0. The mean rate is normalized and the priors are
+   multiplied through. The indexes (see below) ensure that we are dealing with a
+   symmetric matrix for the parameters,
+
+   ex,  - a a b  The index association would be, 1->1, 2->1, 3->2, 4->2,
+        a - b a                                  5->1, 6->1 (upper triangular).
+        a b - a  Diagonal elements are always ignored, a dash is recommended.
+        b a a -  We ensure that the parameters are coupled symmetrically.  *)
+let process_custom_model (f_aa: char array array) =
+    let found = ref All_sets.Integers.empty in
+    let assoc = ref All_sets.IntegerMap.empty in
+    let idx = ref 0 in
+    let a_size = Array.length f_aa in
+    for i = 0 to a_size -1 do
+        assert( Array.length f_aa.(i) = a_size );
+        for j = i+1 to a_size-1 do
+            let letter = Char.code f_aa.(i).(j) in
+            assert( letter = Char.code f_aa.(j).(i) );
+            assoc := All_sets.IntegerMap.add !idx letter !assoc;
+            found := All_sets.Integers.add letter !found;
+            incr idx;
+        done;
+    done;
+    let length,map =
+        All_sets.Integers.fold
+            (fun v1 (i,map) ->
+                let map =
+                    All_sets.IntegerMap.map
+                        (fun v2 -> if v1 = v2 then i else v2) map
+                in
+                (i+1, map))
+            (!found)
+            (0,!assoc)
+    in
+    (map, Array.create length 1.0)
+
 
 
 (* ------------------------------------------------ *)
@@ -586,6 +649,7 @@ let subst_matrix model topt =
                 in
                 m_gtr priors c a_size _gapr
         | File (m,s)-> m_file priors m a_size
+        | Custom (assoc,ray,_) -> m_custom priors assoc ray a_size
     in
     match topt with
     | Some t ->
@@ -626,6 +690,11 @@ let output_model output nexus model set =
                         gtr_mod := true
             | File (_,str) -> 
                         printf "@[Model = File:%s;@]" str
+            | Custom (_,xs,str) ->
+                        printf "@[Model = Custom:%s;@]" str;
+                        printf "@[Parameters = ";
+                        Array.iter (printf "%f ") xs;
+                        printf ";@]";
         in
         let () = match model.spec.base_priors with
             | Equal ->
@@ -753,6 +822,11 @@ let output_model output nexus model set =
                     done; 
                     printf "@\n";
                 done;
+            | Custom (_,xs,str) ->
+                printf "@[Custom:%s;@]@\n" str;
+                printf "@[Parameters : ";
+                Array.iter (printf "%f ") xs;
+                printf ";@]";
         in
         let () = match model.spec.use_gap with
             | `Independent -> printf "@[<hov 0>Gap property: independent;@]@\n"
@@ -918,7 +992,8 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
             | ls -> 
                 iterate_model := false;    
                 GTR (Some (Array.of_list ls)) )
-        | "GIVEN"-> (match file with
+        | "GIVEN"->
+            begin match file with
             | Some name ->
                 iterate_model := false;    
                 name
@@ -926,7 +1001,15 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
                     --> List.map (Array.of_list)
                     --> Array.of_list
                     --> (fun x -> File (x,name))
-            | _ -> failwith "File not specified for Likelihood Model.")
+            | None -> failwith "File not specified for Likelihood Model."
+            end
+        | "CUSTOM" ->
+            begin match file with
+            | Some name ->
+                iterate_model := true;
+                failwith "not done"
+            | None -> failwith "File not specified for Likelihood Model."
+            end
         (* ERROR *)
         | "" -> failwith "No Model Specified"
         | _  -> failwith "Incorrect Model"
@@ -1101,19 +1184,25 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
         | `GTR None -> GTR None
         | `File str ->
                 (* this needs to be changed to allow remote files as well *)
-            let matrix = Cost_matrix.Two_D.fm_of_file (`Local str) in
+            let matrix = Cost_matrix.Two_D.matrix_of_file float_of_string (`Local str) in
             let matrix = Array.of_list (List.map (Array.of_list) matrix) in
             (* check the array size == a_size *)
             (* check the array array size == a_size *)
             Array.iter 
                 (fun x ->
                     if Array.length x = alph_size then ()
-                    else failwith "I@ don't@ like@ your@ input@ file:")
+                    else failwith "Input@ file@ is@ inconsistent@ with@ alphabet.")
                 (matrix);
             if Array.length matrix = alph_size then
                 File (matrix,str)
             else
-                failwith "I@ don't@ like@ your@ input@ file."
+                failwith "Input@ file@ is@ inconsistent@ with@ alphabet."
+        | `Custom str ->
+            let convert str = assert( String.length str = 1 ); String.get str 0 in
+            let matrix = Cost_matrix.Two_D.matrix_of_file convert (`Local str) in
+            let matrix = Array.of_list (List.map (Array.of_list) matrix) in
+            let assoc,ray = process_custom_model matrix in
+            Custom (assoc,ray,str)
     in
     { substitution = substitution;
     site_variation = site_variation;
@@ -1224,6 +1313,8 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
             false, m_gtr priors c a_size _gapr, (GTR (Some c)),gapr
         | File (m,s)->
             false, m_file priors m a_size, lk_spec.substitution, lk_spec.use_gap
+        | Custom (assoc,xs,_) ->
+            false, m_custom priors assoc xs a_size, lk_spec.substitution, lk_spec.use_gap
     in
     (* ensure that when priors are not =, we use a model that asserts that *)
     let () = 
@@ -1312,6 +1403,7 @@ let add_gap_to_model compute_priors model =
         | JC69    | F81 | K2P _   | F84 _
         | HKY85 _ | TN93 _ | GTR None -> model.spec.substitution
         (* user defined rate matrices cannot on transfered *)
+        | Custom _
         | File _ -> 
             failwith ("I cannot transform the specified characters to"^
                       " dynamic likelihood characters; the given rate"^
@@ -1517,6 +1609,7 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
             let lst = List.map (fun x -> x /. sum) lst in
             GTR (Some (Array.of_list lst))
         | `F84 _
+        | `Custom _
         | `HKY85 _ 
         | `TN93 _ 
         | `File _ -> failwith "I need you to specify a model first"
@@ -1606,6 +1699,16 @@ and update_gtr old_model new_values gap_r =
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
+and update_custom old_model new_values =
+    let subst_spec,assoc = match old_model.spec.substitution with
+        | Custom (assoc,_,s) -> 
+            { old_model.spec with substitution = Custom (assoc,new_values,s); },assoc
+        | _ -> assert false
+    in
+    let subst_model = m_custom old_model.pi_0 assoc new_values old_model.alph_s in
+    let u,d,ui = diagonalize false subst_model in
+    { old_model with spec = subst_spec; s = subst_model; u = u; d = d; ui = ui; }
+
 and update_alpha old_model new_value =
     let new_spec_var,new_array = match old_model.spec.site_variation with
         | Some (Gamma (i,_))   -> Some (Gamma (i,new_value)),
@@ -1654,6 +1757,7 @@ let to_formatter (model: model) : Xml.xml Sexpr.t list =
             | K2P _   -> "k2p"      | F84 _   -> "f84"
             | HKY85 _ -> "hky85"    | TN93 _  -> "tn93"
             | GTR _   -> "gtr"      | File _  -> "file"
+            | Custom _ -> "custom"
     and get_alpha m = match m.spec.site_variation with
         | None | Some Constant -> `Float 0.0
         | Some (Gamma (_,x)) 
@@ -1705,6 +1809,10 @@ let to_formatter (model: model) : Xml.xml Sexpr.t list =
                         ([],1)
                 in
                 r
+        | Custom (_,_,str) ->
+                [(PXML -[Xml.Data.param 1]
+                    ([Xml.Alphabet.value] = [`String str])
+                    { `String "" } --)]
         | File (_,str) ->
                 [(PXML -[Xml.Data.param 1]
                     ([Xml.Alphabet.value] = [`String str])
@@ -1747,6 +1855,7 @@ and get_update_function_for_model model =
             | GTR _,z   -> Some (fun y x -> update_gtr y x z)
             | K2P _,z   -> Some (fun y x -> update_k2p y x.(0) z)
             | HKY85 _,z -> Some (fun y x -> update_hky y x.(0) z)
+            | Custom _,_-> Some (fun y x -> update_custom y x)
     end else begin
         None
     end
@@ -1811,6 +1920,7 @@ let get_current_parameters_for_model model =
             Some y
         | GTR ((Some _) as x),_ -> x
         | GTR None,_ -> Some (default_gtr model.alph_s)
+        | Custom (_,xs,_),_ -> Some xs
   ELSE
     None
   END

@@ -330,19 +330,6 @@ module Two_D = struct
         else 
             store_input_list_in_cost_matrix_no_comb m l 1 1 a_sz all_elements
 
-    let rec split_integer_in_list_of_bits v bit a_sz l = 
-        if bit == a_sz then l
-        else begin
-            if ((1 lsl bit) land v) != 0 then
-                split_integer_in_list_of_bits 
-                    v (bit + 1) a_sz ((1 lsl bit) :: l)
-            else
-                split_integer_in_list_of_bits v (bit + 1) a_sz l
-        end;;
-
-    let list_of_bits n max =
-        split_integer_in_list_of_bits n 0 max []
-
     let factorial n =
         let rec func t acc = 
            if (t>1) then   func (t-1) t*acc
@@ -739,17 +726,16 @@ module Two_D = struct
         in
         let number_of_combinations = calc_number_of_combinations a_sz in
         for i = 1 to number_of_combinations do
-            let li = split_integer_in_list_of_bits i 0 a_sz [] in
+            let li = BitSet.Int.list_of_packed i in
             for j = 1 to number_of_combinations do 
-                let lj = split_integer_in_list_of_bits j 0 a_sz [] in
+                let lj = BitSet.Int.list_of_packed j in
                 if 1 = List.length li && 1 = List.length lj then begin
                     set_median i j m (i lor j);
                     set_worst i j m (cost i j m);
                 end else if 0 <> (i land j) then begin
-                    let shared = i land j 
-                    and worst = 
-                        find_worst_combination (fun a b -> cost a b m) 
-                        li lj 
+                    let shared = i land j
+                    and worst =
+                        find_worst_combination (fun a b -> cost a b m) li lj
                     in
                     set_median i j m shared;
                     set_cost i j m 0;
@@ -837,9 +823,9 @@ module Two_D = struct
         if debug then
         Printf.printf "fill_best_cost_and_median_for_all_combinations: alpha size = %d, num of combinations = %d ,gap_code = %d \n%!"  a_sz number_of_combinations (gap m);
         for i = 1 to number_of_combinations do
-            let li = split_integer_in_list_of_bits i 0 a_sz [] in
+            let li = BitSet.Int.list_of_packed i in
             for j = 1 to number_of_combinations do 
-                let lj = split_integer_in_list_of_bits j 0 a_sz []
+                let lj = BitSet.Int.list_of_packed j
                 and best = ref 0
                 and cost = ref max_int 
                 and worst = ref 0 in
@@ -968,7 +954,7 @@ module Two_D = struct
                 in
                 let a_sz = alphabet_size m in
                 for i = 1 to a_sz do
-                    let lst = split_integer_in_list_of_bits i 0 a_sz [] in
+                    let lst = BitSet.Int.list_of_packed i in
                     List.iter find_minimum lst;
                     f i !cur_min m;
                     cur_min := max_int;
@@ -1343,7 +1329,7 @@ module Two_D = struct
                     *)
                     combcode_to_comblist b cm 
                 else
-                    list_of_bits b (alphabet_size cm) 
+                    BitSet.Int.list_of_packed_max b (alphabet_size cm)
             in
             match listofcode(*list_of_bits b (alphabet_size cm)*) with
             | [] -> failwith "~ No bits on?"
@@ -1368,7 +1354,7 @@ module Two_D = struct
         ch#close_in;
         res
 
-    let fm_of_file file =
+    let matrix_of_file converter file =
         (* explode a string around a character;filtering empty results *)
         let explode str ch =
             let rec expl s i l =
@@ -1385,7 +1371,7 @@ module Two_D = struct
         let rec read_loop f chan =
             try 
                 let line = FileStream.Pervasives.input_line chan in
-                (List.map (float_of_string) (f line ' ') ) :: read_loop f chan
+                (List.map (converter) (f line ' ') ) :: read_loop f chan
             with e -> [] 
         in
         let f = FileStream.Pervasives.open_in file in

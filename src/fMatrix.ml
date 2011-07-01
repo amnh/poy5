@@ -26,10 +26,13 @@ external expand : m -> int -> unit = "floatmatrix_CAML_expand"
 external clear : m -> int -> int -> unit = "floatmatrix_CAML_clear"
 external random : m -> unit = "floatmatrix_CAML_random" 
 external print : m -> unit = "floatmatrix_CAML_print"
+external size : m -> int = "floatmatrix_CAML_getsize"
+external used : m -> int = "floatmatrix_CAML_getused"
+external freeall : m -> unit = "floatmatrix_CAML_freeall"
 
 external register : unit -> unit = "floatmatrix_CAML_register"
 let () = register ()
 
 (* some default space *)
-let scratch_space = create 20
+let scratch_space = create 200
 
