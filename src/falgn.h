@@ -37,13 +37,14 @@
 #include "matrices.h"
 
 struct fcm {
-    fm*     fmat;   /** costs and assignments for alignment **/
-
-    /** These three matrices define the total alignment **/
-    CDIR*   direc;  /** Matrix of the directions attached to the cost **/
-    double* costs;  /** Costs for the substring alignment **/
-    CASN*   assgn;  /** Assignment for the matrix **/
+    fm*        fmat;  /** costs and assignments for alignment **/
+    matricest  direc; /** Matrix of the directions attached to the cost **/
+    double*    costs; /** Costs for the substring alignment **/
 };
 typedef struct fcm fcmt;
+
+double full_falign( const seqt x, const seqt y, fcmt *FA );
+
+void full_backtrace (const seqt x, const seqt y, seqt e1, seqt e2, seqt m, fcmt *FA);
 
 #endif

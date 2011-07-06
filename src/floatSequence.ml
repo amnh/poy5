@@ -23,7 +23,7 @@ let debug_mem = false
 let debug_aln = false
 let debug_cst = false
 
-let use_cost_fn = true (* do not memoize cost function  *)
+let use_cost_fn = false (* do not memoize cost function  *)
 let use_align   = true (* use full alignment matrix     *)
 let failwithf format = Printf.ksprintf (failwith) format
 
@@ -51,7 +51,7 @@ let remove_gaps gap seq =
     Sequence.prepend res gap;
     res
 
-let sequence_of_string ?(filter_gap=true) seq alph =
+let sequence_of_string ?(filter_gap=true) alph seq =
     seq --> to_char_list
         --> List.map (String.make 1)
         --> List.map (fun x -> Alphabet.match_base x alph)
@@ -79,6 +79,8 @@ let pp_seq model chan seq = Sequence.print chan seq model.alph
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
 let make_model alph model = { static = model; alph = alph; }
+
+let spec_model alph spec = make_model alph (MlModel.create alph spec)
 
 open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
@@ -152,10 +154,13 @@ IFDEF USE_LIKELIHOOD THEN
 module CMPLAlign : A = struct
 
     type s        = Sequence.s
-    type floatmem = FMatrix.m
+    type floatmem = (FMatrix.m * Matrix.m)
 
     (* We define all of the external functions, and compose them properly in
        to the interface below *)
+
+    external s_of_seq : Sequence.s -> s = "%identity"
+    external seq_of_s : s -> Sequence.s = "%identity"
 
     external fm_compose :
         FMatrix.m -> 
@@ -163,20 +168,121 @@ module CMPLAlign : A = struct
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
         float -> float -> int ->
-            (int,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t *
+            (int32,Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t *
             (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t 
         = "fm_CAML_compose_wrapper" "fm_CAML_compose"
 
-    (* --- implement the A module *)
+    external full_align :
+        FMatrix.m -> Matrix.m -> 
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        float -> float -> s -> s -> int ->
+            float
+        = "falign_CAML_align_2_wrapper" "falign_CAML_align_2"
 
-    external s_of_seq : Sequence.s -> s = "%identity"
-    external seq_of_s : s -> Sequence.s = "%identity"
- 
+    external nukk_align :
+        FMatrix.m -> Matrix.m -> 
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        float -> float -> s -> s -> int ->
+            float
+        = "falign_CAML_nukk_2_wrapper" "falign_CAML_nukk_2"
+
+    external full_backtrace :
+        FMatrix.m -> Matrix.m -> 
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        float -> float -> s -> s -> s -> s -> s -> int ->
+            unit 
+        = "falign_CAML_backtrace_wrapper" "falign_CAML_backtrace"
+
+    external cost_2 :
+        FMatrix.m ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        float -> s -> s ->
+            float
+        = "falign_CAML_cost_2_wrapper" "falign_CAML_cost_2"
+
+    external closest :
+        FMatrix.m ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        float -> s -> s -> s -> int ->
+            float 
+        = "falign_CAML_closest_wrapper" "falign_CAML_closest"
+
+    external median_backtrace :
+        FMatrix.m -> Matrix.m -> 
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        float -> float -> s -> s -> s -> int ->
+            unit 
+        = "falign_CAML_median_wrapper" "falign_CAML_median"
+
+    let create_s ch1 ch2 =
+        let len = 
+            (Sequence.length (seq_of_s ch1)) + (Sequence.length (seq_of_s ch2))
+        in
+        s_of_seq (Sequence.create len)
+
+    let closest ~p ~m model t (fmat,_) =
+        let nm = create_s p m in
+        let cost = 
+            closest fmat model.static.MlModel.u model.static.MlModel.d
+                    model.static.MlModel.ui t p m nm (Alphabet.get_gap model.alph)
+        in
+        nm,cost
+
+    let full_backtrace fmat mat u d ui ta tb a b ea eb med g =
+        let a,ea, b,eb =
+            if Sequence.length a > Sequence.length b
+                then b,eb, a,ea
+                else a,ea, b,eb
+        in
+        full_backtrace fmat mat u d ui ta tb a b ea eb med g
+
+    let median_backtrace fmat mat u d ui ta tb a b m g =
+        let a, b =
+            if Sequence.length a > Sequence.length b
+                then b, a
+                else a, b
+        in
+        median_backtrace fmat mat u d ui ta tb a b m g
+
+    let nukk_align fmat mat u d ui ta tb a b g =
+        let a,b =
+            if Sequence.length a > Sequence.length b 
+                then b,a
+                else a,b
+        in
+        nukk_align fmat mat u d ui ta tb a b g
+
+    let full_align fmat mat u d ui ta tb a b g =
+        let a,b =
+            if Sequence.length a > Sequence.length b 
+                then b,a
+                else a,b
+        in
+        full_align fmat mat u d ui ta tb a b g
+
+    (* --- implement the A module *)
     let compare a b      = 0 = Sequence.compare (seq_of_s a) (seq_of_s b)
-    let print_mem mem    = FMatrix.print mem
-    let create_mem _ _   = FMatrix.scratch_space
-    let get_mem _ _      = FMatrix.scratch_space
-    let clear_mem mem    = FMatrix.freeall mem
+
+    let print_mem (fm,m) = FMatrix.print fm; Matrix.print_2d m 0 0
+
+    let create_mem _ _   = FMatrix.scratch_space, Matrix.default
+
+    let get_mem _ _      = FMatrix.scratch_space, Matrix.default
+
+    let clear_mem (fm,m) = FMatrix.freeall fm; Matrix.clear_direction m
+
     let print_cm m t     = 
         let mat = MlModel.compose m.static t in
         for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
@@ -210,7 +316,7 @@ module CMPLAlign : A = struct
         let a = Bigarray.Array2.dim1 csts and b = Bigarray.Array2.dim2 csts in
         let r = Array.make_matrix a b (0.0,0) in
         for i = 0 to a-1 do for j = 0 to b-1 do
-            r.(i).(j) <- (csts.{i,j},assgn.{i,j});
+            r.(i).(j) <- (csts.{i,j}, Int32.to_int assgn.{i,j});
         done; done; 
         r
 
@@ -219,24 +325,143 @@ module CMPLAlign : A = struct
             fm_compose FMatrix.scratch_space model.static.MlModel.u 
                        model.static.MlModel.d model.static.MlModel.ui t1 t2 1
         in
-        (fun i j -> csts.{i,j}, assgn.{i,j})
+        (fun i j -> csts.{i,j}, Int32.to_int assgn.{i,j})
 
-    let cost_2 ?deltaw _ _ _ _ _ _  = failwith "not implemented"
-    let optimize s1 s2 model t mem  = failwith "not implemented"
-    let aln_cost_2 _ _ _ _          = failwith "not implemented"
-    let median_2 _ _ _ _ _ _        = failwith "not implemented"
-    let median_2_cost _ _ _ _ _ _   = failwith "not implemented"
-    let full_median_2 _ _ _ _ _ _   = failwith "not implemented"
-    let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
-    let closest ~p ~m _ _ _         = failwith "not implemented"
-    let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
-    let readjust _ _ _ _ _ _ _      = failwith "not implemented"
-    let cost _ _ _                  = failwith "not implemented"
+    let aln_cost_2 x y model t =
+        let fmem,_ = get_mem x y in
+        cost_2 fmem model.static.MlModel.u model.static.MlModel.d
+               model.static.MlModel.ui t x y
+
+    let cost_2 ?deltaw x y m tx ty (fmat,mat) = 
+        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
+                        m.static.MlModel.ui tx ty x y gap
+
+    let median_2_cost x y m tx ty ((fmat,mat) as mem) = 
+        let cost = cost_2 x y m tx ty mem in
+        let med= create_s x y and ex = create_s x y and ey = create_s x y in
+        let () = 
+            let gap = Alphabet.get_gap m.static.MlModel.alph in
+            full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
+                m.static.MlModel.ui tx ty x y ex ey med gap
+        in
+        cost,med
+
+    let median_2 x y m tx ty mem = 
+        median_2_cost x y m tx ty mem --> snd
+
+    let optimize s1 s2 model t mem =
+        let update t = (),cost_2 s1 s2 model t 0.0 mem in
+        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        (t,c)
+
+    let full_median_2 x y m tx ty mem =
+        median_2_cost x y m tx ty mem --> snd
+
+    let gen_all_2 x y m tx ty ((fmat,mat) as mem) =
+        let cost= cost_2 x y m tx ty mem in
+        let med= create_s x y and ex = create_s x y and ey = create_s x y in
+        let () = 
+            let gap = Alphabet.get_gap m.static.MlModel.alph in
+            full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
+                m.static.MlModel.ui tx ty x y ex ey med gap
+        in
+        ex,ey,cost,med
+
+    let readjust s1 s2 s3 model t1 t2 t3 =
+        let algn s1 s2 t1 t2 = median_2_cost s1 s2 model t1 t2 (get_mem s1 s2) in
+        let make_center s1 s2 s3=
+            (* first median  *)
+            let c12, s12 = algn s1 s2 t1 t2
+            and c23, s23 = algn s2 s3 t2 t3
+            and c13, s13 = algn s1 s3 t1 t2 in
+            (* second median *)
+            let c123, s123 = algn s12 s3 0.0 t3
+            and c231, s231 = algn s23 s1 0.0 t1
+            and c132, s132 = algn s13 s2 0.0 t2 in
+            (* sum costs *)
+            let c123 = c123 +. c12
+            and c231 = c231 +. c23
+            and c132 = c132 +. c13 in
+            if debug_aln then
+                printf "Cost123: %f\tCost231: %f\tCost132: %f\n" c123 c231 c132;
+            (* determine best... *)
+            if c123 <= c231 then
+                if c123 <= c132 then
+                    false, c123, closest s3 s12 model t3 (get_mem s3 s12), c123
+                else
+                    true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
+            else if c231 < c132 then
+                true, c231, closest s1 s23 model t1 (get_mem s1 s23), c123
+            else
+                true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
+        in
+        let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
+        cst, s, has_to_print
+
+    let cost = get_cf
+
+    let get_closest model t = 
+        let create_cost_matrix model t =
+            let mat = MlModel.compose model.static t in
+            for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
+                for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
+                    mat.{i,j} <- ~-. (log mat.{i,j})
+                done;
+            done;
+            mat
+        and gap = Alphabet.get_gap model.alph in
+        let cost_matrix = create_cost_matrix model t in
+        (fun ~i ~p ~m ->
+            let p = if p = 0 then gap else p in
+            let m = if m = 0 then gap else m in
+            (* now choose the best from parent; since we MUST choose one, we do
+               not need to worry about floating point issues. *)
+            let state,cst =
+                List.fold_left
+                    (fun acc m ->
+                        List.fold_left
+                            (fun ((assgn,cst) as acc) p ->
+                                let ncst = cost_matrix.{p,m} in
+                                if ncst < cst then (m,ncst) else acc)
+                            (acc)
+                            (BitSet.Int.list_of_packed p))
+                    ((~-1),infinity)
+                    (BitSet.Int.list_of_packed m)
+            in
+            let res = 1 lsl state in
+            if debug_cst || ~-1 = state then
+                printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
+                              i p pp_ilst (BitSet.Int.list_of_packed p) m
+                              pp_ilst (BitSet.Int.list_of_packed m) cst t state res;
+            assert( state <> ~-1 );
+            res,cst)
+
     let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
-    let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
+
+    let create_edited_2 x y m tx ty ((fmat,mat) as mem) : s * s =
+        let () = ignore (cost_2 x y m tx ty mem) in
+        let med= create_s x y and ex = create_s x y and ey = create_s x y in
+        let () = 
+            let gap = Alphabet.get_gap m.static.MlModel.alph in
+            full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
+                m.static.MlModel.ui tx ty x y ex ey med gap
+        in
+        ex,ey
+
     let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
-    let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
+
     let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
+
+    let align_2 ?first_gap x y m tx ty ((fmat,mat) as mem) =
+        let cost= cost_2 x y m tx ty mem in
+        let med= create_s x y and ex = create_s x y and ey = create_s x y in
+        let () = 
+            let gap = Alphabet.get_gap m.static.MlModel.alph in
+            full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
+                m.static.MlModel.ui tx ty x y ex ey med gap
+        in
+        ex,ey,cost
 
 end
 
@@ -259,6 +484,16 @@ module FloatAlign : A = struct
         else if List.mem Insert dirs then Insert
         else match dirs with | [Root] -> Root | _ -> assert false
 
+    let int_of_dir dirs =
+        List.fold_left
+            (fun x y -> match y with
+                | Delete -> 4 lor x
+                | Align  -> 1 lor x
+                | Insert -> 2 lor x
+                | Root   -> 0 lor x)
+            0
+            dirs
+
     let print_mem (mem:floatmem) =
         let dirToString = function
             | Root   -> "X" | Align  -> "\\"
@@ -267,8 +502,10 @@ module FloatAlign : A = struct
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
-                printf "|  %s %08.5f[%02d]  "
-                    (dirToString (choose_dir dirs)) (abs_float cost) indel;
+(*                printf "|  %s %08.5f[%02d]  "*)
+(*                    (dirToString (choose_dir dirs)) (abs_float cost) indel;*)
+                printf "|  %d %08.5f[%02d]  "
+                    (int_of_dir dirs) (abs_float cost) indel;
             done;
             printf "|\n%!";
         done;
@@ -859,6 +1096,16 @@ module MPLAlign : A = struct
         else if List.exists is_ins dirs then List.find is_ins dirs
         else match dirs with | [Root] -> Root | _ -> assert false
 
+    let int_of_dir dirs =
+        List.fold_left
+            (fun x y -> match y with
+                | Delete _ -> 4 lor x
+                | Align  _ -> 1 lor x
+                | Insert _ -> 2 lor x
+                | Root     -> 0 lor x)
+            0
+            dirs
+
     let print_mem (mem:floatmem) =
         let dir_string = function
             | Root     -> "X" | Align _  -> "\\"
@@ -870,9 +1117,11 @@ module MPLAlign : A = struct
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
-                printf "|  %s%d %08.5f[%02d]  "
-                    (dir_string (choose_dir dirs)) (List.length dirs) (abs_float cost)
-                    (get_assignment (choose_dir dirs));
+                printf "|  %d %08.5f[%02d]  "
+                    (int_of_dir dirs) (abs_float cost) (get_assignment (choose_dir dirs));
+(*                printf "|  %s%d %08.5f[%02d]  "*)
+(*                    (dir_string (choose_dir dirs)) (List.length dirs) (abs_float cost)*)
+(*                    (get_assignment (choose_dir dirs));*)
             done;
             printf "|\n%!";
         done;
@@ -1491,8 +1740,6 @@ module MPLAlign : A = struct
         let update t = (),cost_2 s1 s2 model t 0.0 mem in
         let (t,((),c)) = Numerical.brents_method (t,update t) update in
         (t,c)
-
-
 end
 
 module MALAlign : A = struct
@@ -1668,60 +1915,6 @@ module MALAlign : A = struct
 
 end
 
-let pair_distance model sq1 sq2 = match cost_fn model with
-    | `FLK ->
-        let s1 = FloatAlign.s_of_seq sq1 and s2 = FloatAlign.s_of_seq sq2 in
-        FloatAlign.optimize s1 s2 model 0.1 (FloatAlign.get_mem s1 s2)
-    | `MAL ->
-        let s1 = MALAlign.s_of_seq sq1 and s2 = MALAlign.s_of_seq sq2 in
-        MALAlign.optimize s1 s2 model 0.1 (MALAlign.get_mem s1 s2)
-    | `MPL ->
-        let s1 = MPLAlign.s_of_seq sq1 and s2 = MPLAlign.s_of_seq sq2 in
-        MPLAlign.optimize s1 s2 model 0.1 (MPLAlign.get_mem s1 s2)
-
-(* a simple function to test the scores of each of the methods above *)
-let test_all alignments channel seq1 seq2 bl1 bl2 model =
-    let seq1,seq2,bl1,bl2 =
-        if Sequence.length seq1 <= Sequence.length seq2
-            then seq1,seq2,bl1,bl2
-            else seq2,seq1,bl2,bl1
-    and filter_gap = false in (* for backtrace code *)
-    let flk_cost,flk_opt_cost,flk_seq1,flk_seq2,flk_median =
-        let faln1     = FloatAlign.s_of_seq seq1
-        and faln2     = FloatAlign.s_of_seq seq2 in
-        let mem       = FloatAlign.get_mem faln1 faln2 in
-        let a1,a2,cst = FloatAlign.align_2 faln1 faln2 model bl1 bl2 mem in
-        let med       = FloatAlign.backtrace ~filter_gap model mem faln1 faln2 in
-        let _,ocst    = FloatAlign.optimize faln1 faln2 model (bl1+.bl2) mem in
-        cst, ocst, (FloatAlign.seq_of_s a1), (FloatAlign.seq_of_s a2), (FloatAlign.seq_of_s med)
-    and mpl_cost,mpl_opt_cost,mpl_seq1,mpl_seq2,mpl_median =
-        let dmpl1     = MPLAlign.s_of_seq seq1
-        and dmpl2     = MPLAlign.s_of_seq seq2 in
-        let mem       = MPLAlign.get_mem dmpl1 dmpl2 in
-        let a1,a2,cst = MPLAlign.align_2 dmpl1 dmpl2 model bl1 bl2 mem in
-        let med       = MPLAlign.backtrace ~filter_gap model mem dmpl1 dmpl2 in
-        MPLAlign.print_mem mem;
-        let _,ocst    = MPLAlign.optimize dmpl1 dmpl2 model (bl1+.bl2) mem in
-        cst, ocst, (MPLAlign.seq_of_s a1), (MPLAlign.seq_of_s a2), (MPLAlign.seq_of_s med)
-    and mal_cost, mal_opt_cost =
-        let dmal1    = MALAlign.s_of_seq seq1
-        and dmal2    = MALAlign.s_of_seq seq2 in
-        let mem      = MALAlign.get_mem dmal1 dmal2 in
-        let cst      = MALAlign.cost_2 dmal1 dmal2 model bl1 bl2 mem
-        and obl,ocst = MALAlign.optimize dmal1 dmal2 model (bl1+.bl2) mem in
-        cst,ocst
-    in
-    if alignments then begin
-        Printf.fprintf channel "%a  %a\n%!"
-                        (pp_seq model) mpl_seq1 (pp_seq model) flk_seq1;
-        Printf.fprintf channel "%a  %a\n%!"
-                        (pp_seq model) mpl_seq2 (pp_seq model) flk_seq2;
-    end;
-    Printf.fprintf channel "%f %f %f %f %f %f  %a  %a\n%!"
-                   mal_cost     mpl_cost     flk_cost
-                   mal_opt_cost mpl_opt_cost flk_opt_cost
-                   (pp_seq model) mpl_median (pp_seq model) flk_median
-
 ELSE
 
 module Empty : A = struct
@@ -1766,3 +1959,96 @@ module MALAlign = Empty
 module CMPLAlign = Empty
 
 END
+
+let pair_distance model sq1 sq2 = match cost_fn model with
+    | `FLK ->
+        let s1 = FloatAlign.s_of_seq sq1 and s2 = FloatAlign.s_of_seq sq2 in
+        FloatAlign.optimize s1 s2 model 0.1 (FloatAlign.get_mem s1 s2)
+    | `MAL ->
+        let s1 = MALAlign.s_of_seq sq1 and s2 = MALAlign.s_of_seq sq2 in
+        MALAlign.optimize s1 s2 model 0.1 (MALAlign.get_mem s1 s2)
+    | `MPL ->
+        let s1 = MPLAlign.s_of_seq sq1 and s2 = MPLAlign.s_of_seq sq2 in
+        MPLAlign.optimize s1 s2 model 0.1 (MPLAlign.get_mem s1 s2)
+
+(* a simple function to test the scores of each of the methods above *)
+let test_all alignments channel seq1 seq2 bl1 bl2 model =
+    let seq1,seq2,bl1,bl2 =
+        if Sequence.length seq1 <= Sequence.length seq2
+            then seq1,seq2,bl1,bl2
+            else seq2,seq1,bl2,bl1
+    and filter_gap = false in (* for backtrace code *)
+    let flk_cost,flk_opt_cost,flk_seq1,flk_seq2,flk_median =
+        let faln1     = FloatAlign.s_of_seq seq1
+        and faln2     = FloatAlign.s_of_seq seq2 in
+        let mem       = FloatAlign.get_mem faln1 faln2 in
+        let a1,a2,cst = FloatAlign.align_2 faln1 faln2 model bl1 bl2 mem in
+        let med       = FloatAlign.backtrace ~filter_gap model mem faln1 faln2 in
+        let _,ocst    = FloatAlign.optimize faln1 faln2 model (bl1+.bl2) mem in
+        cst, ocst, (FloatAlign.seq_of_s a1), (FloatAlign.seq_of_s a2), (FloatAlign.seq_of_s med)
+    and mpl_cost,mpl_opt_cost,mpl_seq1,mpl_seq2,mpl_median =
+        let dmpl1     = MPLAlign.s_of_seq seq1
+        and dmpl2     = MPLAlign.s_of_seq seq2 in
+        let mem       = MPLAlign.get_mem dmpl1 dmpl2 in
+        let a1,a2,cst = MPLAlign.align_2 dmpl1 dmpl2 model bl1 bl2 mem in
+        let med       = MPLAlign.backtrace ~filter_gap model mem dmpl1 dmpl2 in
+        MPLAlign.print_mem mem;
+        let _,ocst    = MPLAlign.optimize dmpl1 dmpl2 model (bl1+.bl2) mem in
+        cst, ocst, (MPLAlign.seq_of_s a1), (MPLAlign.seq_of_s a2), (MPLAlign.seq_of_s med)
+    and mal_cost, mal_opt_cost =
+        let dmal1    = MALAlign.s_of_seq seq1
+        and dmal2    = MALAlign.s_of_seq seq2 in
+        let mem      = MALAlign.get_mem dmal1 dmal2 in
+        let cst      = MALAlign.cost_2 dmal1 dmal2 model bl1 bl2 mem
+        and obl,ocst = MALAlign.optimize dmal1 dmal2 model (bl1+.bl2) mem in
+        cst,ocst
+    and cmpl_cost,cmpl_opt_cost,cmpl_seq1,cmpl_seq2,cmpl_median =
+        let dmpl1     = CMPLAlign.s_of_seq seq1
+        and dmpl2     = CMPLAlign.s_of_seq seq2 in
+        let mem       = CMPLAlign.get_mem dmpl1 dmpl2 in
+        let a1,a2,cst = CMPLAlign.align_2 dmpl1 dmpl2 model bl1 bl2 mem in
+        let med       = CMPLAlign.backtrace ~filter_gap model mem dmpl1 dmpl2 in
+        let _,ocst    = CMPLAlign.optimize dmpl1 dmpl2 model (bl1+.bl2) mem in
+        cst, ocst, (CMPLAlign.seq_of_s a1), (CMPLAlign.seq_of_s a2), (CMPLAlign.seq_of_s med)
+    in
+    if alignments then begin
+        Printf.fprintf channel "%a  %a %a\n%!"
+                        (pp_seq model) mpl_seq1 (pp_seq model) flk_seq1 (pp_seq model) cmpl_seq1;
+        Printf.fprintf channel "%a  %a %a\n%!"
+                        (pp_seq model) mpl_seq2 (pp_seq model) flk_seq2 (pp_seq model) cmpl_seq2;
+    end;
+    Printf.fprintf channel "%f %f %f %f %f %f %f %f  %a  %a %a\n%!"
+                   mal_cost     mpl_cost     flk_cost cmpl_cost
+                   mal_opt_cost mpl_opt_cost flk_opt_cost cmpl_opt_cost
+                   (pp_seq model) mpl_median (pp_seq model) flk_median (pp_seq model) cmpl_median
+
+(* RUN A CMPL and MPL alignment *)
+let () =
+    let model = spec_model Alphabet.nucleotides MlModel.jc69_5 in
+(*    let m = MPLAlign.get_cm model 0.1 0.1 in*)
+(*    for i = 0 to (Array.length m)-1 do*)
+(*        for j = 0 to (Array.length m.(i))-1 do*)
+(*            Printf.printf "[%f]\t" (fst m.(i).(j))*)
+(*        done;*)
+(*        Printf.printf "\n%!";*)
+(*    done;*)
+(*    Printf.printf "\n\n\nNEXT:\n\n\n%!";*)
+(*    let m = CMPLAlign.get_cm model 0.1 0.1 in*)
+(*    for i = 0 to (Array.length m)-1 do*)
+(*        for j = 0 to (Array.length m.(i))-1 do*)
+(*            Printf.printf "[%f]\t"  (fst m.(i).(j))*)
+(*        done;*)
+(*        Printf.printf "\n%!";*)
+(*    done;*)
+    let str1 = "GAACATCCGGTCGGTTTCTCTCCCTTTTCCCGCGGTGCTCTT"
+    and str2 = "GAACATGGCGCCGGTTTTCCTTGGTTCTCTT" in
+    let s1 = MPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str1) in
+    let s2 = MPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str2) in
+    let mem = MPLAlign.get_mem s1 s2 in
+    MPLAlign.print_mem mem;
+    MPLAlign.print_s (MPLAlign.median_2 s1 s2 model 0.1 0.1 mem) model.alph;
+    let s1 = CMPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str1) in
+    let s2 = CMPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str2) in
+    let mem = CMPLAlign.get_mem s1 s2 in
+    CMPLAlign.print_s (CMPLAlign.median_2 s1 s2 model 0.1 0.1 mem) model.alph;
+    ()

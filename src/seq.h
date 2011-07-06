@@ -51,7 +51,7 @@ struct seq {
     int cap;        /* Capacity of the sequence memory structure. */
     int len;        /* Total length of the sequence stored. */
     SEQT *head;
-    SEQT *begin;      /* Offset of the position where the first element of 
+    SEQT *begin;    /* Offset of the position where the first element of 
                        the sequence is actually stored. */
     SEQT *end;
     struct pool *my_pool;
@@ -89,6 +89,8 @@ __inline SEQT *
 inline SEQT *
 #endif
 seq_get_begin (const seqt a);
+
+void seq_clear (seqt s);
 
 /* Gets a pointer to the beginning of the array where the sequence is stored.
  * Note that begin != head. */

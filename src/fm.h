@@ -27,12 +27,12 @@
 
 /** How should the direction matrix be assigned? **/
 #define CASN int
-#define OASN BIGARRAY_CAML_INT
-#define CDIR char
+#define OASN BIGARRAY_INT32
 
 /** tie up two matrices; one defines the cost, another the assignment **/
 struct fmat {
-    int size;       /** Size of the alphabet  < {32,64} **/
+    int size;       /** Size of the cost matrix; alph^N or alph **/
+    int alph;       /** the alphabet size **/
     int comb;       /** Is the matrix that of combinations? 0=no, 1=yes **/
     int gap;        /** What is the gap state? **/
     
@@ -44,6 +44,11 @@ struct fmat {
 
 };
 typedef struct fmat fm;
+
+void neg_log_comp( double * mat, const int n, const int m );
+
+double fcost( fm *FCM, const CASN x, const CASN y );
+CASN    fasn( fm *FCM, const CASN x, const CASN y );
 
 double calculate_cost( CASN* a, const double* X, const double* Y,
                             const int x, const int y, const int n );

@@ -19,7 +19,7 @@
 
 (** Floating Point Alignment Modules *)
 
-val sequence_of_string : ?filter_gap:bool -> string -> Alphabet.a -> Sequence.s
+val sequence_of_string : ?filter_gap:bool -> Alphabet.a -> string -> Sequence.s
 (** Convert a string to a sequence based on the provided alphabet *)
 
 val remove_gaps : int -> Sequence.s -> Sequence.s
@@ -32,6 +32,9 @@ type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
     alphabet to the model for use as bitsets with the vectors. *)
 
 val make_model : Alphabet.a -> MlModel.model -> dyn_model
+(** simple function to wrap up composing a dynamic likelihood model *)
+
+val spec_model : Alphabet.a -> MlModel.spec -> dyn_model
 (** simple function to wrap up composing a dynamic likelihood model *)
 
 val cost_fn : dyn_model -> Methods.ml_costfn
@@ -204,7 +207,7 @@ module CMPLAlign  : A
     likelihood of transform either of the children over their cost matrix to an
     assignment median. Each assignment is considered.
     
-    This implementation is a written in C (fm.c).
+    This implementation is a written in C (fm.c/falgn.c).
 
     PROD (x,y=0 to n,m) of MAX (i in A) of ( P(t1)_xi * P(t2)_yi )
     Where A is the set of characters in the alphabet, and P(t) = e^Qt. *)

@@ -37,7 +37,7 @@
 #include "fm.h"
 
 /** CONSTANTS **/
-#define EPSILON         1e-10
+#define EPSILON         1e-6
 #ifndef INFINITY
     #define INFINITY    1/0
 #endif
@@ -46,11 +46,9 @@
 #define MAX(a,b) (a >= b)?a:b
 #define MIN(a,b) (a <= b)?a:b
 #define EQUALS(a,b) abs(a-b) < EPSILON
-#define ISSET(x,i) 0<((1 << i)&x)
+#define ISSET(x,i) ((1 << i)&x)
 
-/** For unpacking ML abstract/option types **/
-#define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
-#define FM_ptr(v)   ((struct matrix**)Data_custom_val(v))
+/** For unpacking ML option types **/
 #define Val_none Val_int(0)
 #define Some_val(v) Field(v,0)
 
@@ -83,6 +81,68 @@ void neg_log_comp( double * mat, const int n, const int m )
     int i;
     for( i =0; i < n*m; ++i )
         mat[i] = - log( mat[i] );
+}
+
+CASN fasn( fm *FCM, const CASN x, const CASN y )
+{
+    int i,j;
+    double temp_cost, best_cost;
+    CASN a;
+
+    if( 1 == FCM->comb ){
+        a = FCM->cost_asgn[ (x-1) * FCM->size + (y-1) ];
+        return a;
+    } else {
+        a = 0;
+        best_cost = INFINITY;
+        for(i = 0; i < FCM->size; ++i){
+            if( ISSET( x, i ) ){
+                for( j = 0; j < FCM->size; ++j ){
+                    if( ISSET( y, j ) ){
+                        temp_cost = FCM->cost[i*FCM->size+j];
+                        if( EQUALS( temp_cost, best_cost ) ){
+                            best_cost = MIN(temp_cost, best_cost);
+                            a |= FCM->cost_asgn[i*FCM->size+j];
+                        } else if( temp_cost < best_cost ){
+                            a = FCM->cost_asgn[i*FCM->size+j];
+                            best_cost = temp_cost;
+                        }
+                    }
+                }
+            }
+        }
+        return a;
+    }
+}
+
+
+/** Determine the cost of two assignments **/
+double fcost( fm *FCM, const CASN x, const CASN y )
+{
+    int i,j;
+    double temp_cost, best_cost;
+
+    if( 1 == FCM->comb ){
+        temp_cost = FCM->cost[ (x-1)*FCM->size + (y-1) ];
+        return temp_cost;
+    } else {
+        best_cost = INFINITY;
+        for(i = 0; i < FCM->size; ++i){
+            if( ISSET( x, i ) ){
+                for( j = 0; j < FCM->size; ++j ){
+                    if( ISSET( y, j ) ){
+                        temp_cost = FCM->cost[i*FCM->size+j];
+                        if( EQUALS( temp_cost, best_cost ) ){
+                            best_cost = MIN(temp_cost, best_cost);
+                        } else if( temp_cost < best_cost ){
+                            best_cost = temp_cost;
+                        }
+                    }
+                }
+            }
+        }
+        return best_cost;
+    }
 }
 
 /** A preliminary function to calculate the cost of an alignment of two
@@ -132,7 +192,7 @@ void precalc( fm *FM, const double *A, const double *B )
     /* Build an NxN matrix; Combine the two matrices to create a cost and
      * assignment between Row and Col from matrix A and B respectively. */
     if( 0 == FM->comb ){
-        max = FM->size;
+        max = FM->size; // = alph
         for(i = 0; i < max; ++i ){
             for(j = 0; j < max; ++j ){
                 temp_best_asgn = 0;
@@ -154,10 +214,10 @@ void precalc( fm *FM, const double *A, const double *B )
     /* Build the matrix 2^N * 2^N, to create matrix of all combinations of
      * assignment of Row and Col (again, combining both matrices). **/
     } else {
-        max = 1 << (FM->size);
+        max = FM->size; // = (1 << alph) - 1
         for( i = 0; i < max; ++i ){
             for( j = 0; j < max; ++j ){
-                temp_best_cost = calculate_cost( &temp_best_asgn, A, B, (i+1), (j+1), FM->size );
+                temp_best_cost = calculate_cost( &temp_best_asgn, A, B, (i+1), (j+1), FM->alph );
                 FM->cost[i*max+j]      = temp_best_cost;
                 FM->cost_asgn[i*max+j] = temp_best_asgn;
             }
@@ -192,16 +252,16 @@ fm_CAML_compose( value FM, value U, value D, value Ui, value cta, value ctb, val
     TMP = register_section( space, alph*alph, 0 );
 
     /** fill in a new fm to hold data for results **/
-    results->size = alph;
+    results->alph = alph;
     results->comb = Int_val(full);
     if( 0 == results->comb ){
         dims[0] = alph; dims[1] = alph;
-        results->cost = (double*) malloc( alph * alph * sizeof(double));
-        results->cost_asgn = (CASN*) malloc( alph * alph * sizeof(CASN));
+        results->cost = (double*) malloc( dims[0]*dims[1] * sizeof(double) );
+        results->cost_asgn = (CASN*) malloc( dims[0]*dims[1] * sizeof(CASN) );
     } else if (1 == results->comb){
-        dims[0] = dims[1] = (1 << alph);
-        results->cost = (double*) malloc( (1 << alph) * (1 << alph) * sizeof(double) );
-        results->cost_asgn = (CASN*) malloc( (1 << alph) * (1 << alph) * sizeof(CASN) );
+        dims[0] = dims[1] = (1 << alph) - 1;
+        results->cost = (double*) malloc( dims[0]*dims[1] * sizeof(double) );
+        results->cost_asgn = (CASN*) malloc( dims[0]*dims[1] * sizeof(CASN) );
     } else {
         failwith( "fm_CAML_compose :: value for determining combinations" );
     }
