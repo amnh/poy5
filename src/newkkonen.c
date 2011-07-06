@@ -176,7 +176,7 @@ expand_mat (newkkmat_p m,int newk,int oldk)
 int get_delta (const cmt c)
 {
     int delta = cm_get_min_non0_cost(c);
-    return delta; //to do: fill in the min cost in cmt c
+    return delta; 
 };
 
 void
@@ -252,10 +252,13 @@ void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIR
 
 void get_cmcost (const cmt c, int a, int b, int * res)
 {
-    if(cm_check_level(c) == 1)
+    if (a==b) { *res = 0; }
+    else { *res = 2 ; }
+/*    if(cm_check_level(c) == 1)
         *res = cm_get_cost (c->cost, a, b, c->map_sz+1);
     else
         *res = cm_calc_cost (c->cost, a, b, c->lcm);
+        */
 };
 
 int in_non_change_zone (int i, int j,int oldk, int lenX, int lenY)
@@ -452,7 +455,7 @@ void update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int 
 
 void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int currentT, int p, int lenX, int lenY, int * res_cost, DIRECTION_MATRIX * res_gapnum)
 {
-    int debug=0;
+    int debug = 0;
     int newk=p;
     if (p>=lenX) newk=lenX-1;
     int bb = m->baseband; 
@@ -607,6 +610,7 @@ newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, n
     //do we need to create memory every time? no we don't
     init_mat (s1_len,s2_len,m);
     int debug = 0;
+    int debug2 = 0;
     int gapcode = cm_get_gap (c); 
     int delta = get_delta (c);
     int i; 
@@ -618,10 +622,11 @@ newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, n
     fflush(stdout);
     }
     set_ukkcost(0,0,m,0,START,0);
+    if (debug) {printf("init first row\n"); fflush(stdout);}
     for (i=1;i<bb;i++)
     {
        //these 4 Int will be used again and again, reset them before use.
-       //printf("init (0,%d) ",i); fflush(stdout);
+       if (debug2) { printf("init (0,%d) ",i); fflush(stdout); }
         int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
         get_idx(0,i-1,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
         int precost; DIRECTION_MATRIX predir; DIRECTION_MATRIX pre_gapnum;
@@ -630,10 +635,10 @@ newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, n
         get_idx(0,i,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
         int thiscost=0; 
         DIRECTION_MATRIX dir=DO_INSERT;
-        int thiscode = seq_get (s1,i);
+        int thiscode = seq_get (s2,i);
         get_cmcost(c,thiscode,gapcode,&thiscost);
         thiscost += precost;
-        //printf("with %d; ", thiscost); fflush(stdout);
+        if (debug2) { printf("with %d; ", thiscost); fflush(stdout);}
         set_ukkcost(whichdiag,idx_in_my_diag,m, thiscost, dir, pre_gapnum+1);
     }
     int iniT = (m->baseband) * delta;

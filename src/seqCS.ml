@@ -1878,12 +1878,8 @@ let of_array spec sc code taxon =
     let align_with_ukk = 
         let dpam = spec.Data.pam in
         match dpam.Data.align_meth with
-        | Some `NewKK -> 
-                Printf.printf "seqCS.of_array, use newkk\n%!";
-                true 
-        | _ -> 
-                Printf.printf "seqCS.of_array, default\n%!";
-                false
+        | Some `NewKK ->  true 
+        | _ ->  false
     in
     let c3 = spec.Data.tcm3d in
     let heur = make_default_heuristic ~c3 spec.Data.tcm2d in
