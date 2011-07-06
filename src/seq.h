@@ -127,4 +127,7 @@ inline void
 #endif
 seq_set (seqt a, int p, SEQT v);
 
+//inline void
+//seq_get_median_2d (seqt s1, seqt s2, cmt m, seqt sm);
+
 #endif /* SEQ_H */

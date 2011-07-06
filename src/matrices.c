@@ -76,6 +76,8 @@ __inline int
 inline int
 #endif
 mat_setup_size (matricest m, int w, int d, int h, int k, int sz, int uselevel) {
+    //printf ("mat setup size: w=%d,d=%d,h=%d,k=%d,sz=%d\n",w,d,h,k,sz); 
+    //fflush(stdout);
     int len, len_2d, len_precalc;
     long int len_dir;
     if (h == 0) {           /* If the size setup is only for 2d */

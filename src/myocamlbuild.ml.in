@@ -130,6 +130,7 @@ let headers =
         "likelihood.h";
         "matrices.h";
         "memstack.h";
+        "newkkonen.h";
         "nonaddCSc.h";
         "seq.h";
         "ukkCommon.h";

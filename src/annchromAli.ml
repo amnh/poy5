@@ -91,6 +91,7 @@ type annchromPam_t = {
     symmetric : bool;
     locus_indel_cost : (int * int);
     kept_wag : int;
+    align_meth : ChromPam.align_meth_t;
 }
 
 let annchromPam_default = {
@@ -103,6 +104,7 @@ let annchromPam_default = {
     symmetric = false;
     locus_indel_cost = (10, 100);
     kept_wag = 1;
+    align_meth = `Default;
 }
 
 (** [init_seq_t (seq, code)] returns a segment from [seq] and [code]*)
@@ -223,7 +225,12 @@ let get_annchrom_pam user_annchrom_pam =
         match user_annchrom_pam.Data.median_solver with
         | None -> chrom_pam
         | Some median_solver -> {chrom_pam with median_solver = median_solver}
-    in 
+    in
+    let chrom_pam =
+        match user_annchrom_pam.Data.align_meth with
+        | None -> chrom_pam
+        | Some v -> {chrom_pam with align_meth = v}
+    in
     chrom_pam
 
 let print annchrom alpha = 
@@ -259,19 +266,24 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
         Utl.large_int 
     in 
     pure_gen_cost_mat.(gen_gap_code).(gen_gap_code) <- 0;
+    let use_ukk = 
+            match ali_pam.align_meth with
+            | `NewKK -> true
+            | _ -> false 
+    in
     let update (seq1, code1) (seq2, code2) =
         let com_seq1 = Sequence.complement_chrom Alphabet.nucleotides seq1 in 
         let com_seq2 = Sequence.complement_chrom Alphabet.nucleotides seq2 in 
-        let _, _, cost, _ = Sequence.align2 seq1 seq2 cost_mat in 
+        let _, _, cost, _ = Sequence.align2 seq1 seq2 cost_mat use_ukk in 
         pure_gen_cost_mat.(code1).(code2) <- cost;
         pure_gen_cost_mat.(code2).(code1) <- cost;
-        let _, _, cost, _ = Sequence.align2 seq1 com_seq2 cost_mat in 
+        let _, _, cost, _ = Sequence.align2 seq1 com_seq2 cost_mat use_ukk in 
         pure_gen_cost_mat.(code1).(code2 + 1) <- cost;
         pure_gen_cost_mat.(code2 + 1).(code1) <- cost;
-        let _, _, cost, _ = Sequence.align2 com_seq1 seq2 cost_mat in 
+        let _, _, cost, _ = Sequence.align2 com_seq1 seq2 cost_mat use_ukk in 
         pure_gen_cost_mat.(code1 + 1).(code2) <- cost;
         pure_gen_cost_mat.(code2).(code1 + 1) <- cost;
-        let _, _, cost, _ = Sequence.align2 com_seq1 com_seq2 cost_mat in 
+        let _, _, cost, _ = Sequence.align2 com_seq1 com_seq2 cost_mat use_ukk in 
         pure_gen_cost_mat.(code1 + 1).(code2 + 1) <- cost;
         pure_gen_cost_mat.(code2 + 1).(code1 + 1) <- cost;
     in 
@@ -317,19 +329,24 @@ let create_pure_gen_cost_mat_3 seq1_arr seq2_arr seq3_arr seqm_arr c2 ali_pam =
     cost1_mat.(gen_gap_code).(gen_gap_code) <- 0;
     cost2_mat.(gen_gap_code).(gen_gap_code) <- 0;
     cost3_mat.(gen_gap_code).(gen_gap_code) <- 0;
+    let use_ukk = 
+            match ali_pam.align_meth with
+            | `NewKK -> true
+            | _ -> false 
+        in
     let update cost_mat (seq1, code1) (seq2, code2) =
         let com_seq1 = Sequence.complement_chrom Alphabet.nucleotides seq1 in 
         let com_seq2 = Sequence.complement_chrom Alphabet.nucleotides seq2 in 
-        let _, _, cost, _ = Sequence.align2 seq1 seq2 c2 in 
+        let _, _, cost, _ = Sequence.align2 seq1 seq2 c2 use_ukk in 
         cost_mat.(code1).(code2) <- cost;
         cost_mat.(code2).(code1) <- cost;
-        let _, _, cost, _ = Sequence.align2 seq1 com_seq2 c2 in 
+        let _, _, cost, _ = Sequence.align2 seq1 com_seq2 c2 use_ukk in 
         cost_mat.(code1).(code2 + 1) <- cost;
         cost_mat.(code2 + 1).(code1) <- cost;
-        let _, _, cost, _ = Sequence.align2 com_seq1 seq2 c2 in 
+        let _, _, cost, _ = Sequence.align2 com_seq1 seq2 c2 use_ukk in 
         cost_mat.(code1 + 1).(code2) <- cost;
         cost_mat.(code2).(code1 + 1) <- cost;
-        let _, _, cost, _ = Sequence.align2 com_seq1 com_seq2 c2 in 
+        let _, _, cost, _ = Sequence.align2 com_seq1 com_seq2 c2 use_ukk in 
         cost_mat.(code1 + 1).(code2 + 1) <- cost;
         cost_mat.(code2 + 1).(code1 + 1) <- cost;
     in 
@@ -673,6 +690,11 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
     if (chrom_len1 < 2) then 0,0, [chrom2]
     else if chrom_len2 < 2 then 0,0, [chrom1]
     else begin    
+        let use_ukk = 
+            match ali_pam.align_meth with
+            | `NewKK -> true
+            | _ -> false 
+        in
         let approx = ali_pam.approx in 
         let seq1_arr, _ = split chrom1 in  
         let seq2_arr, _ = split chrom2 in 
@@ -728,7 +750,8 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
                      match seq1, seq2 with   
                      | Some seq1, Some seq2 -> 
                            let med, alied_seq1, alied_seq2, _  =
-                               Sequence.create_median  ~approx:approx seq1 seq2 cost_mat  
+                               Sequence.create_median  ~approx:approx seq1 seq2
+                               cost_mat use_ukk
                            in
                          med, alied_seq1, alied_seq2
                      | Some seq1, None ->

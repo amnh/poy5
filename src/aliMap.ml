@@ -45,6 +45,7 @@ let print_intarr inarr =
 let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code 
         seq1 seq2 cost_mat ali_pam =
     let debug = false in
+    let use_ukk = ChromPam.use_ukk ali_pam in 
     let len1 = List.length subseq1_ls in 
     let len2 = List.length subseq2_ls in 
     let len = 2 * (len1 + len2 + 1) in 
@@ -107,7 +108,7 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
                       let e2 = subseq2.Subseq.en in 	              
 	                  let subseq2 = Sequence.sub seq2 s2 (e2 - s2 + 1) in 
                       let alied_seq1, alied_seq2, cost, _ =  
-                          Sequence.align2 subseq1 subseq2 cost_mat 
+                          Sequence.align2 subseq1 subseq2 cost_mat use_ukk 
                       in
                       if debug then
                           Printf.printf "ali %d and %d, cost =%d\n%!" id1 id2 cost;
@@ -126,15 +127,20 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     and min_lcb_len = ChromPam.get_min_lcb_len ali_pam
     and min_bk_penalty = ChromPam.get_min_bk_penalty ali_pam
     in
-    if debug then 
+    let use_ukk = ChromPam.use_ukk ali_pam in
+    if debug then begin
         Printf.printf "====  create general ali with mauve, len1=%d,len2=%d\
          min lcb ratio/len = %f/%d, min cover R = %f, min bk penalty = %d\n%!"
     (Sequence.length seq1) (Sequence.length seq2) min_lcb_ratio min_lcb_len min_cover_ratio min_bk_penalty;
+    Sequence.printseqcode seq1;
+    Sequence.printseqcode seq2;
+    end;
     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,edit_cost,
     full_code_lstlst,len_lst1 =
         Block_mauve.get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio
         min_lcb_len min_cover_ratio min_bk_penalty
-        ali_pam.ChromPam.locus_indel_cost cost_mat  in
+        ali_pam.ChromPam.locus_indel_cost cost_mat use_ukk in
+    if debug then Printf.printf "edit_cost=%d\n%!" edit_cost;
     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
         GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat gen_gap_code 
         ali_pam.ChromPam.re_meth ali_pam.ChromPam.circular false in

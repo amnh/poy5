@@ -46,6 +46,8 @@ type re_meth_t = Data.re_meth_t
 
 type annotate_tool_t = Data.annotate_tool_t
 
+type align_meth_t = Data.align_meth_t
+
 (** Parameters used to align two chromosomes *)
 type chromPairAliPam_t = {
     max_gap                 : int; (** max distance between two basic seeds *)
@@ -110,6 +112,8 @@ type chromPairAliPam_t = {
     kept_wag : int;
 
     annotate_tool : annotate_tool_t;
+
+    align_meth : align_meth_t
 }
 
 val chromPairAliPam_default : chromPairAliPam_t
@@ -126,4 +130,6 @@ val get_min_lcb_ratio : chromPairAliPam_t -> float
 val get_min_lcb_len : chromPairAliPam_t -> int
 val get_min_cover_ratio : chromPairAliPam_t -> float
 val get_min_bk_penalty : chromPairAliPam_t -> int
+
+val use_ukk : chromPairAliPam_t -> bool
 

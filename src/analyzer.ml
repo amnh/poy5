@@ -263,6 +263,7 @@ let dependency_relations (init : Methods.script) =
     | #Methods.transform as meth ->
             let res = 
                 match meth with
+                | `NewKK 
                 | `Median_Solver _
                 | `Seq_to_Chrom _
                 | `Custom_to_Breakinv _
@@ -1619,6 +1620,7 @@ let script_to_string (init : Methods.script) =
     | #Methods.transform as meth ->
             let res = 
                 match meth with
+                | `NewKK
                 | `Median_Solver _
                 | `Seq_to_Chrom _
                 | `Custom_to_Breakinv _

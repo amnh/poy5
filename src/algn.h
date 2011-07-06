@@ -110,9 +110,6 @@ inline void
 backtrack_3d (const seqt s1, const seqt s2, seqt s3, \
         seqt r1, seqt r2, seqt r3, matricest m, const cm_3dt c);
 
-inline void
-algn_get_median_2d (seqt s1, seqt s2, cmt m, seqt sm);
-
 /* 
  * Given three aligned sequences s1, s2, and s3, the median between them is
  * returned in the sequence sm, using the cost matrix stored in m.

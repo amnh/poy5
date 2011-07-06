@@ -61,7 +61,11 @@ type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP 
 
 type annotate_tool_t = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
 
+type align_meth_t = [ `NewKK | `Default ]
+
 type dyna_pam_t = {
+    align_meth : align_meth_t option;
+
     median_solver: median_solver_t option; 
 
     annotate_tool: annotate_tool_t option;

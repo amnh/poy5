@@ -58,8 +58,18 @@ type lcb = {
     avg_range_len : int; (*average length from range_lst*)
 }
 
+
+(** [get_matcharr_and_costmatrix] is the main function of this module. it take two
+* sequences, set of parameters (min lcb ratio, min lcb length, etc) and 
+* a costmatrix between charactors as input,
+* output two code array of matching blocks, a cost_mat between lcb blocks and non-lcb
+* blocks, ali_mat is the cost and alignment sequence between lcb blocks.
+* NOTE: edit_cost is the total editing cost between lcb blocks (which is not included
+* is cost_mat), full_cost_listlst is a little bit redundant here, for it
+* contains the two code array, but it also has the begin and end point of each
+* block. *)
 val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> int -> float -> int ->
-int*int -> Cost_matrix.Two_D.m ->  
+int*int -> Cost_matrix.Two_D.m ->  bool -> 
     int array * int array * int array array *
 (int*Sequence.s*Sequence.s) array array * int * int * (int * (int * int)) list
 list * int

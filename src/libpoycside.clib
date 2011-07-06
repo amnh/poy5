@@ -9,6 +9,7 @@ getrusage.o
 likelihood.o
 memstack.o
 mlxslt.o
+newkkonen.o
 ncurses.o
 nonaddCSc8.o
 nonaddCSc16.o
