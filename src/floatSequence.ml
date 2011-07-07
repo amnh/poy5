@@ -339,11 +339,11 @@ module CMPLAlign : A = struct
 
     let median_2_cost x y m tx ty ((fmat,mat) as mem) = 
         let cost = cost_2 x y m tx ty mem in
-        let med= create_s x y and ex = create_s x y and ey = create_s x y in
+        let med= create_s x y in
         let () = 
             let gap = Alphabet.get_gap m.static.MlModel.alph in
-            full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                m.static.MlModel.ui tx ty x y ex ey med gap
+            median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
+                m.static.MlModel.ui tx ty x y med gap
         in
         cost,med
 
@@ -495,17 +495,10 @@ module FloatAlign : A = struct
             dirs
 
     let print_mem (mem:floatmem) =
-        let dirToString = function
-            | Root   -> "X" | Align  -> "\\"
-            | Delete -> "|" | Insert -> "-"
-        in
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
-(*                printf "|  %s %08.5f[%02d]  "*)
-(*                    (dirToString (choose_dir dirs)) (abs_float cost) indel;*)
-                printf "|  %d %08.5f[%02d]  "
-                    (int_of_dir dirs) (abs_float cost) indel;
+                printf "|  %d %08.5f[%02d]  " (int_of_dir dirs) (abs_float cost) indel;
             done;
             printf "|\n%!";
         done;
@@ -1107,10 +1100,7 @@ module MPLAlign : A = struct
             dirs
 
     let print_mem (mem:floatmem) =
-        let dir_string = function
-            | Root     -> "X" | Align _  -> "\\"
-            | Delete _ -> "|" | Insert _ -> "-"
-        and get_assignment = function
+        let get_assignment = function
             | Root     -> 0
             | Align a | Delete a | Insert a -> a
         in
@@ -1119,9 +1109,6 @@ module MPLAlign : A = struct
                 let cost,(indel,dirs) = mem.(i).(j) in
                 printf "|  %d %08.5f[%02d]  "
                     (int_of_dir dirs) (abs_float cost) (get_assignment (choose_dir dirs));
-(*                printf "|  %s%d %08.5f[%02d]  "*)
-(*                    (dir_string (choose_dir dirs)) (List.length dirs) (abs_float cost)*)
-(*                    (get_assignment (choose_dir dirs));*)
             done;
             printf "|\n%!";
         done;
@@ -2023,7 +2010,7 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
                    (pp_seq model) mpl_median (pp_seq model) flk_median (pp_seq model) cmpl_median
 
 (* RUN A CMPL and MPL alignment *)
-let () =
+let test () =
     let model = spec_model Alphabet.nucleotides MlModel.jc69_5 in
 (*    let m = MPLAlign.get_cm model 0.1 0.1 in*)
 (*    for i = 0 to (Array.length m)-1 do*)
@@ -2045,10 +2032,16 @@ let () =
     let s1 = MPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str1) in
     let s2 = MPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str2) in
     let mem = MPLAlign.get_mem s1 s2 in
-    MPLAlign.print_mem mem;
+(*    MPLAlign.print_mem mem;*)
+(*    let mpl_c,mpl_s = MPLAlign.median_2_cost s1 s2 model 0.1 0.1 mem in*)
     MPLAlign.print_s (MPLAlign.median_2 s1 s2 model 0.1 0.1 mem) model.alph;
+(*    MPLAlign.print_s mpl_s model.alph;*)
+
     let s1 = CMPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str1) in
     let s2 = CMPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str2) in
     let mem = CMPLAlign.get_mem s1 s2 in
+(*    let cmpl_c,cmpl_s = CMPLAlign.median_2_cost s1 s2 model 0.1 0.1 mem in*)
     CMPLAlign.print_s (CMPLAlign.median_2 s1 s2 model 0.1 0.1 mem) model.alph;
+(*    CMPLAlign.print_s cmpl_s model.alph;*)
+(*    Printf.printf "%f -- %f\n%!" mpl_c cmpl_c;*)
     ()
