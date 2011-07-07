@@ -328,8 +328,6 @@ union _vectnac_u {
     vect v;
 };
 
-static union _vectnac_u *_zero_nonadd_vector = NULL;
-
 /** Inline function to calculate the median of two elements. */
 #ifdef _WIN32
 __inline void
@@ -343,7 +341,6 @@ nonadd_make_union_par (const nacat au,
 {
     long i;
     const long upto = (long) ceil (res->len / (float) BLOCK_LEN);
-    vect v_int;
     union _vectnac_u zero = ZERO_VECTOR;
     nac *res_nacp;
     long nelts = res->len;
@@ -667,7 +664,6 @@ unsigned long
 nonadd_nacat_deserialize (void *dst)
 {
     nacat n;
-    nac *data;
 
     n = (nacat) dst;
     n->len = caml_deserialize_long();
@@ -728,7 +724,7 @@ char_nonadd_CAML_make_new (value len, value code)
 {
     CAMLparam2 (len, code);
     CAMLlocal1 (v);
-    long ilen, icode, i;
+    long ilen, icode;
     nacat art;
     nac *data;
 

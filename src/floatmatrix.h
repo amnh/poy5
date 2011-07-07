@@ -7,6 +7,9 @@
 #include <caml/custom.h>
 #include <caml/intext.h>
 
+#define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
+#define FM_ptr(v)   ((struct matrix**)Data_custom_val(v))
+
 struct matrix {
     int size;       /* current maximum size of array */
     int loc;        /* current portion used */

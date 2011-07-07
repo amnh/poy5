@@ -26,24 +26,31 @@
 #include "likelihood.h"
 
 /** How should the direction matrix be assigned? **/
-#define CDIR long
-#define ODIR BIGARRAY_CAML_INT
+#define CASN int
+#define OASN BIGARRAY_INT32
 
 /** tie up two matrices; one defines the cost, another the assignment **/
 struct fmat {
-    int size;       /** size of the alphabet  < {32,64} **/
-    int comb;       /** is the matrix that of combinations? 0=no, 1=yes **/
-    int metric;     /** does the matrix follow metricity? 0=no, 1=yes **/
+    int size;       /** Size of the cost matrix; alph^N or alph **/
+    int alph;       /** the alphabet size **/
+    int comb;       /** Is the matrix that of combinations? 0=no, 1=yes **/
+    int gap;        /** What is the gap state? **/
     
     double* cost;   /** this matrix holds either the single character
                         transformation, or a transformation of all combinations,
                         depending on the [comb] variable --if it equals 0 then
                         we are dealing with single character transformations **/
-    CDIR* assign;   /** bitset matrix for the assignments; size as the cost matrix **/
+    int* cost_asgn; /** bitset matrix for the assignments; size as the cost matrix **/
+
 };
 typedef struct fmat fm;
 
-double calculate_cost( CDIR* a, const double* X, const double* Y,
+void neg_log_comp( double * mat, const int n, const int m );
+
+double fcost( fm *FCM, const CASN x, const CASN y );
+CASN    fasn( fm *FCM, const CASN x, const CASN y );
+
+double calculate_cost( CASN* a, const double* X, const double* Y,
                             const int x, const int y, const int n );
 
 void precalc( fm *FM, const double *A, const double *B );

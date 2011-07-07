@@ -50,7 +50,7 @@
 #endif
 
 struct matrices {
-    MAT_SIZE len;            /* Total length of available memory allocated */
+    MAT_SIZE len;       /* Total length of available memory allocated */
     int len_eff;        /* Length of the 3d efficient matrix */
     int len_pre;        /* Length of the precalculated matrix */
     int *matrix;        /* Matrix for regular alignment */
@@ -80,8 +80,9 @@ mat_size_of_2d_matrix (int w, int h);
 
 /*
  * Rearrange or reallocate memory if necessary to perform an alignment between
- * sequences of length w, d and h. Note that for 2d alignments is necessary to
- * set h=0, and uk=0. if we are using "level", set uselevel to 1
+ * sequences of length w, d and h; over alphabet of size a_sz. Note that for 2d
+ * alignments is necessary to * set h=0, and k=0. if we are using "level", 
+ * set uselevel to 1
  */
 int
 mat_setup_size (matricest m, int w, int d, int h, int k, int a_sz,int uselevel);
@@ -121,6 +122,12 @@ mat_get_3d_direct (matricest m);
 /* Printout the contents of the matrix */
 void
 mat_print_algn_2d (matricest m, int w, int h);
+
+void
+mat_print_dir_2d (matricest m, int w, int h);
+
+void
+mat_clean_direction_matrix (matricest m);
 
 void
 mat_print_algn_3d (matricest m, int w, int h, int d);

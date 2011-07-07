@@ -22,21 +22,9 @@
 
 (** {6 Types} Representation of different dynamic likelihood characters *)
 
-type 'a align = { ss : 'a array; }
-
-(** Define the union of all the types of dynamic likelihood characters *)
-type r = | FPAlign      of FloatSequence.FloatAlign.s align
-(** Characters that transform across a combined time. The assignment is
-    restricted to gaps and the states of the children. This model is equivlent
-    to the MPL model when dealing with two sequences. The cost is defined as, 
-        $P(X,Y|t_1+t_2)$, and the assignment is $X \vee Y$ *)
-
-         | MPLAlign     of FloatSequence.MPLAlign.s align
-(** Define characters for maximum parsimonious likelihood or ancestral
-    likelihood. These characters find the best assignment of a transformation
-    from the two children. If X and Y are the states of the children, $P(a,b|t)$
-    is the probability of state b over branch length t, then MPL is defined as,
-        $\max_{\alpha = \{ACTG-\}} P(X,\alpha|t_1) * P(Y,\alpha|t_2)$ *)
+type r  
+(** r contins the sequence data representations; although this is kept abstract
+    to allow optional compilation of likelihood **)
 
 type t = { model  : FloatSequence.dyn_model;
             data  : r;

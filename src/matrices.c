@@ -225,6 +225,20 @@ mat_CAML_create_general (value a) {
 }
 
 void
+mat_print_dir_2d (matricest m, int w, int h) {
+    DIRECTION_MATRIX *mm;
+    int i, j;
+    mm = mat_get_2d_direct (m);
+    for (i = 0; i < h; i++) {
+        for (j = 0; j < w; j++)
+            fprintf (stdout, "%d\t", mm[ (w * i)+j ] );
+        fprintf (stdout, "\n");
+    }
+    fprintf (stdout, "\n");
+    return;
+}
+
+void
 mat_print_algn_2d (matricest m, int w, int h) {
     int *mm;
     int i, j;

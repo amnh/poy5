@@ -13,8 +13,6 @@
 
 #include "floatmatrix.h"
 
-#define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
-#define FM_ptr(v)   ((struct matrix**)Data_custom_val(v))
 #define CHECK_MEM(a); if(a==NULL || a==0){ printf("FM:failed on %d, ",__LINE__); failwith("I cannot allocate more memory");}
 #define DEBUG 0
 
@@ -31,6 +29,7 @@ int floatmatrix_CAML_compare( value one, value two )
 void floatmatrix_CAML_free( value v )
 {
     mat* s;
+    s = FM_val (v);
     if( DEBUG )
         printf ("Freeing Data: %d --> 0\n",s->size);
     s = FM_val(v);
@@ -115,7 +114,8 @@ double* register_section( mat* m, int s, int c )
     double *ptr;
     //all memory must be expanded explicitly
     if ( (m->loc + s) > m->size ){
-        printf ("ERROR: not enough memory in current allocation.\n");
+        printf ("ERROR: not enough memory in current allocation: has %d@%d, needs %d\n",
+                    m->size,m->loc,s);
         assert( 1 == 0 );
     }
     if ( c ) /* clear the section too */
@@ -148,6 +148,25 @@ value floatmatrix_CAML_create (value s)
     CAMLreturn( ml_m );
 }
 
+void print_mat_all (mat* m)
+{
+    int i;
+    for(i = 0;i<m->size;++i)
+        printf("[%f] ", m->mat[i]);
+    printf("\n");
+}
+void print_mat (mat* m, int off, int w, int h)
+{
+    int i,j, place;
+    for(i = 0; i < w; ++i){
+        place = i * w + h;
+        for(j = 0; j < h; ++j){
+            printf( "[%f] ", m->mat[place+j] );
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
 
 /**
  *  Some functions used in testing the functionality.
@@ -165,11 +184,7 @@ value floatmatrix_CAML_random (value m_val)
 value floatmatrix_CAML_print (value m_val)
 {
     CAMLparam1( m_val );
-    mat *m; int i;
-    m = FM_val( m_val );
-    for(i = 0;i<m->size;++i)
-        printf("[%f] ", m->mat[i]);
-    printf("\n");
+    print_mat_all( FM_val( m_val ) );
     CAMLreturn( Val_unit );
 }
 value floatmatrix_CAML_clear (value m, value i,value j)

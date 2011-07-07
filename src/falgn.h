@@ -32,14 +32,19 @@
 #include <caml/custom.h>
 #include <caml/intext.h>
 
-#include "likelihood.h"
 #include "seq.h"
+#include "fm.h"
+#include "matrices.h"
 
 struct fcm {
-    int     a_size;     //alphabet size
-    int     gap;        //gap character
-    float   branch;     //branch length for this matrix
-    float  *costs;      //define the cost matrix
-    char   *assign;     //define the assignment for the median
+    fm*        fmat;  /** costs and assignments for alignment **/
+    matricest  direc; /** Matrix of the directions attached to the cost **/
+    double*    costs; /** Costs for the substring alignment **/
 };
-typedef struct fcm * fcmt;
+typedef struct fcm fcmt;
+
+double full_falign( const seqt x, const seqt y, fcmt *FA );
+
+void full_backtrace (const seqt x, const seqt y, seqt e1, seqt e2, seqt m, fcmt *FA);
+
+#endif

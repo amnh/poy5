@@ -74,8 +74,6 @@
 #define CHECK_ZEROES(a,t,n); for(t=0;t<n;t++){if(a[t] > EPSILON || a[t] < -EPSILON){failwith("Imaginary eigenvalues");}}
 
 /* for unboxing abstract types - get pointer or actual value */
-#define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
-#define FM_ptr(v)   ((struct matrix**)Data_custom_val(v))
 #define ML_ptr(v)   ((struct ml**)Data_custom_val(v))
 #define ML_val(v) (*((struct ml**)Data_custom_val(v)))
 /* extra boxing/unboxing for option types */
