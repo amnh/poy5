@@ -86,18 +86,20 @@ open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
 (* minimum of three with annotations; this will work for all methods *)
 let min3_ a at b bt c ct =
-    if a > b then begin
-        if b > c then (c,[ct])
-        else if b =. c then ((min b c),[bt;ct])
-        else (b,[bt])
-    end else if a =. b then begin
-        if b =. c then ((min a (min b c)),[at;bt;ct])
-        else if a >. c then (c,[ct])
-        else ((min a b),[at;bt])
-    end else begin
-        if c >. a then (a,[at])
-        else if c =. a then ((min a c),[at;ct])
-        else (c,[ct])
+    if a =. b then begin
+        if b =. c || a =. c then (min a (min b c)),[at;bt;ct]
+        else if c < (min a b) then c,[ct]
+        else (min a b),[at;bt]
+
+    end else if a < b then begin
+        if c =. a then ((min a c),[at;ct])
+        else if c < a then c,[ct]
+        else a,[at]
+
+    end else (* b > a *) begin
+        if c =. b then (min b c),[ct;bt]
+        else if c < b then c,[ct]
+        else b,[bt]
     end
 
 (* Sequence alignment module for two or three sequences. *)
@@ -262,7 +264,10 @@ module CMPLAlign : A = struct
                 then b,a
                 else a,b
         in
-        nukk_align fmat mat u d ui ta tb a b g
+        if use_align then
+            full_align fmat mat u d ui ta tb a b g
+        else
+            nukk_align fmat mat u d ui ta tb a b g
 
     let full_align fmat mat u d ui ta tb a b g =
         let a,b =
@@ -498,7 +503,7 @@ module FloatAlign : A = struct
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
-                printf "|  %d %08.5f[%02d]  " (int_of_dir dirs) (abs_float cost) indel;
+                printf "| %d %08.5f[%02d]  " (int_of_dir dirs) (abs_float cost) indel;
             done;
             printf "|\n%!";
         done;
@@ -1107,7 +1112,7 @@ module MPLAlign : A = struct
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
-                printf "|  %d %08.5f[%02d]  "
+                printf "| %d %08.5f[%02d] "
                     (int_of_dir dirs) (abs_float cost) (get_assignment (choose_dir dirs));
             done;
             printf "|\n%!";
@@ -1338,9 +1343,14 @@ module MPLAlign : A = struct
                 let dcst,sd = cost (get x i) gap
                 and icst,si = cost gap (get y j)
                 and acst,sa = cost (get x i) (get y j) in
-                min3_ ((fst mem.(i-1).(j))   +. dcst) (Delete sd)
-                      ((fst mem.(i).(j-1))   +. icst) (Insert si)
-                      ((fst mem.(i-1).(j-1)) +. acst) (Align  sa)
+                let dcst = (fst mem.(i-1).(j))   +. dcst
+                and icst = (fst mem.(i).(j-1))   +. icst
+                and acst = (fst mem.(i-1).(j-1)) +. acst in
+                let (temp_min,temp_dirs) as temp =
+                    min3_ dcst (Delete sd) icst (Insert si) acst (Align sa) in
+(*                Printf.printf "(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
+(*                                i j acst icst dcst temp_min (int_of_dir temp_dirs);*)
+                temp
             end
         in
         for i = 0 to xlen - 1 do
@@ -2008,40 +2018,3 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
                    mal_cost     mpl_cost     flk_cost cmpl_cost
                    mal_opt_cost mpl_opt_cost flk_opt_cost cmpl_opt_cost
                    (pp_seq model) mpl_median (pp_seq model) flk_median (pp_seq model) cmpl_median
-
-(* RUN A CMPL and MPL alignment *)
-let test () =
-    let model = spec_model Alphabet.nucleotides MlModel.jc69_5 in
-(*    let m = MPLAlign.get_cm model 0.1 0.1 in*)
-(*    for i = 0 to (Array.length m)-1 do*)
-(*        for j = 0 to (Array.length m.(i))-1 do*)
-(*            Printf.printf "[%f]\t" (fst m.(i).(j))*)
-(*        done;*)
-(*        Printf.printf "\n%!";*)
-(*    done;*)
-(*    Printf.printf "\n\n\nNEXT:\n\n\n%!";*)
-(*    let m = CMPLAlign.get_cm model 0.1 0.1 in*)
-(*    for i = 0 to (Array.length m)-1 do*)
-(*        for j = 0 to (Array.length m.(i))-1 do*)
-(*            Printf.printf "[%f]\t"  (fst m.(i).(j))*)
-(*        done;*)
-(*        Printf.printf "\n%!";*)
-(*    done;*)
-    let str1 = "GAACATCCGGTCGGTTTCTCTCCCTTTTCCCGCGGTGCTCTT"
-    and str2 = "GAACATGGCGCCGGTTTTCCTTGGTTCTCTT" in
-    let s1 = MPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str1) in
-    let s2 = MPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str2) in
-    let mem = MPLAlign.get_mem s1 s2 in
-(*    MPLAlign.print_mem mem;*)
-(*    let mpl_c,mpl_s = MPLAlign.median_2_cost s1 s2 model 0.1 0.1 mem in*)
-    MPLAlign.print_s (MPLAlign.median_2 s1 s2 model 0.1 0.1 mem) model.alph;
-(*    MPLAlign.print_s mpl_s model.alph;*)
-
-    let s1 = CMPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str1) in
-    let s2 = CMPLAlign.s_of_seq (sequence_of_string Alphabet.nucleotides str2) in
-    let mem = CMPLAlign.get_mem s1 s2 in
-(*    let cmpl_c,cmpl_s = CMPLAlign.median_2_cost s1 s2 model 0.1 0.1 mem in*)
-    CMPLAlign.print_s (CMPLAlign.median_2 s1 s2 model 0.1 0.1 mem) model.alph;
-(*    CMPLAlign.print_s cmpl_s model.alph;*)
-(*    Printf.printf "%f -- %f\n%!" mpl_c cmpl_c;*)
-    ()

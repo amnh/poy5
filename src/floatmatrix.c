@@ -101,6 +101,8 @@ void expand_matrix (mat* m, const int s)
 /* clear a section of an array */
 void clear_section( mat* m, int l, int h )
 {
+    if( DEBUG )
+        printf ("Clearing Data: %d --> %d\n",l,h);
     assert ( (h-l) > 0 );
     memset( &(m->mat[l]), 0, sizeof(double)* (h-l) );
 }
@@ -128,7 +130,12 @@ double* register_section( mat* m, int s, int c )
 }
 
 /* resets the loc counter to 0 --doesn't actually free anything */
-void free_all( mat *m ){ m->loc = 0; }
+void free_all( mat *m )
+{
+    if (DEBUG)
+        printf ("'Freeing' %d of %d data\n",m->loc,m->size);
+    m->loc = 0; 
+}
 
 /* create a matrix with size of [s] */
 value floatmatrix_CAML_create (value s)
