@@ -591,37 +591,36 @@ module Align = struct
         if is_empty a gap || is_empty b gap then 0
         else begin
             let go = Cost_matrix.Two_D.gap_opening c in
-            let lena = length a 
+            let lena = length a
             and alph = Cost_matrix.Two_D.alphabet_size c in
             assert (lena = (length b));
             let rec verify_cost_recursively a b pos cur_best gap_block_side acc =
                 if cur_best < acc then cur_best
-                else if pos = lena then 
+                else if pos = lena then
                     if cur_best <= expected_cost then raise Exit
                     else if cur_best <= acc then cur_best
                     else acc
-                else 
+                else
                     let get_list x =
                         let base = get x pos in
-                        if do_combine then 
-                            List.sort (fun a b -> b - a) (BitSet.Int.list_of_packed base)
+                        if do_combine then
+                            List.sort (fun a b -> b - a)
+                                      (BitSet.Int.list_of_packed_max base alph)
                         else
                             [base]
                     in
-                    let put_shared_first lst1 lst2 = 
-                        let shared = 
-                            List.filter 
-                            (fun x -> List.exists (fun y -> y = x) lst1) 
-                            lst2 
+                    let put_shared_first lst1 lst2 =
+                        let shared =
+                            List.filter (fun x -> List.exists (fun y -> y = x) lst1) lst2
                         in
                         match shared with
                         | [] -> lst1, lst2
                         | _ ->
-                                let filter lst = 
-                                    shared @ (List.filter (fun x -> not
-                                    (List.exists (fun y -> y = x) shared)) lst)
-                                in
-                                (filter lst1), (filter lst2)
+                            let filter lst = 
+                                shared @ (List.filter (fun x -> not
+                                (List.exists (fun y -> y = x) shared)) lst)
+                            in
+                            (filter lst1), (filter lst2)
                     in
                     let basea_list = get_list a
                     and baseb_list = get_list b in
@@ -1485,7 +1484,7 @@ let select_one_generic get_one_item s cm =
 let select_one s cm =
     let sort_list = List.sort (fun a b -> a - b) in
     let get_one_item asz b =
-        match sort_list (BitSet.Int.list_of_packed b) with
+        match sort_list (BitSet.Int.list_of_packed_max b asz) with
         | h :: _ -> h
         | [] -> failwith "Nothing?"
     in
@@ -1493,7 +1492,7 @@ let select_one s cm =
 
 let select_one_randomized s cm =
     let get_one_item asz b =
-        let lst = BitSet.Int.list_of_packed b in
+        let lst = BitSet.Int.list_of_packed_max b asz in
         let len = List.length lst in
         List.nth lst (Random.int len)
     in
@@ -1510,11 +1509,10 @@ let readjust a b m cm parent use_ukk =
                 cost, m
         | _ ->
                 let s1', s2', c = 
-                    if use_ukk then 
-                    NewkkAlign.align_2 s1 s2 cm NewkkAlign.default_ukkm
-                    else
-                    Align.align_2 ~first_gap:true s1 s2 cm
-                    Matrix.default
+(*                    if use_ukk then *)
+(*                    NewkkAlign.align_2 s1 s2 cm NewkkAlign.default_ukkm*)
+(*                    else*)
+                    Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
                 in
                 let median = median_2 s1' s2' cm in
                 c, median
@@ -2455,9 +2453,9 @@ let align2 (seq1 : s) (seq2 : s)
 
     let ext_alied_seq1, ext_alied_seq2, cost =
 (*this calls the c version of ukk_space_save*)
-    if use_ukk then
-        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm 
-    else
+(*    if use_ukk then*)
+(*        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm *)
+(*    else*)
 (* this is calls ukkonen full memory version, in C, which allocation the whole matrix*)
         Align.align_2 ext_seq1 ext_seq2 cost_mat Matrix.default 
     in 		
@@ -2728,18 +2726,14 @@ let create_general_ali code1_arr code2_arr gap_code cost_mat =
              | 0 -> gap_code 
              | _ -> code2_arr.(index - 1) ) (len2 + 1) 
     in 
-    
 	let ext_alied_seq1, ext_alied_seq2, cost = 
-        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm
-        (*Align.align_2 
-        ext_seq1 ext_seq2 cost_mat Matrix.default *)in 		
-
+(*        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm*)
+        Align.align_2 ext_seq1 ext_seq2 cost_mat Matrix.default 
+    in
 
     let ali_len = length ext_alied_seq1 in 
     let alied_seq1 = to_array ext_alied_seq1 in 
     let alied_seq1 = Array.sub alied_seq1 1 (ali_len - 1) in 
-
-
     let alied_seq2 = to_array ext_alied_seq2 in 
     let alied_seq2 = Array.sub alied_seq2 1 (ali_len - 1) in 
     alied_seq1, alied_seq2, cost
@@ -2829,8 +2823,8 @@ module Clip = struct
             missing_distance
         else
             let seqa, seqb, cost = 
-                NewkkAlign.align_2 a b c2 NewkkAlign.default_ukkm
-                (*Align.align_2 a b c2 Matrix.default*)
+(*                NewkkAlign.align_2 a b c2 NewkkAlign.default_ukkm*)
+                Align.align_2 a b c2 Matrix.default
             in
             correct_distance gap c2 seqa seqb cost
 

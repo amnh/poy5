@@ -1,5 +1,4 @@
-(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
-(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *) (* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -455,8 +454,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 (** no one calls this function*)
     let count_all_pairs (_, a, m) (ones, mores) (_, b, _) =
         let _ = 
-            Sequence.NewkkAlign.align_2 a b m Sequence.NewkkAlign.default_ukkm
-            (*Sequence.Align.align_2 a b m Matrix.default*) 
+(*            Sequence.NewkkAlign.align_2 a b m Sequence.NewkkAlign.default_ukkm*)
+            Sequence.Align.align_2 a b m Matrix.default 
         in
         let bt = Sequence.Align.make_backtrack a b Matrix.default in
         match Sequence.Align.count_paths bt with

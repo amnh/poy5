@@ -726,9 +726,9 @@ module Two_D = struct
         in
         let number_of_combinations = calc_number_of_combinations a_sz in
         for i = 1 to number_of_combinations do
-            let li = BitSet.Int.list_of_packed i in
+            let li = BitSet.Int.list_of_packed_max i a_sz in
             for j = 1 to number_of_combinations do 
-                let lj = BitSet.Int.list_of_packed j in
+                let lj = BitSet.Int.list_of_packed_max j a_sz in
                 if 1 = List.length li && 1 = List.length lj then begin
                     set_median i j m (i lor j);
                     set_worst i j m (cost i j m);
@@ -823,9 +823,9 @@ module Two_D = struct
         if debug then
         Printf.printf "fill_best_cost_and_median_for_all_combinations: alpha size = %d, num of combinations = %d ,gap_code = %d \n%!"  a_sz number_of_combinations (gap m);
         for i = 1 to number_of_combinations do
-            let li = BitSet.Int.list_of_packed i in
+            let li = BitSet.Int.list_of_packed_max i a_sz in
             for j = 1 to number_of_combinations do 
-                let lj = BitSet.Int.list_of_packed j
+                let lj = BitSet.Int.list_of_packed_max j a_sz
                 and best = ref 0
                 and cost = ref max_int 
                 and worst = ref 0 in
@@ -954,7 +954,7 @@ module Two_D = struct
                 in
                 let a_sz = alphabet_size m in
                 for i = 1 to a_sz do
-                    let lst = BitSet.Int.list_of_packed i in
+                    let lst = BitSet.Int.list_of_packed_max i a_sz in
                     List.iter find_minimum lst;
                     f i !cur_min m;
                     cur_min := max_int;

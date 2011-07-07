@@ -2906,12 +2906,11 @@ let create_alpha_c2_breakinvs (data : d) chcode =
             let code2 = all_seq_arr.(idx2).code in 
                 
             let _, _, cost =
-                if use_ukk then
-                Sequence.NewkkAlign.align_2 ~first_gap:false 
-                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm
-                else
-                Sequence.Align.align_2 ~first_gap:false 
-                seq1 seq2 c2 Matrix.default
+(*                if use_ukk then*)
+(*                Sequence.NewkkAlign.align_2 ~first_gap:false *)
+(*                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm*)
+(*                else*)
+                Sequence.Align.align_2 ~first_gap:false seq1 seq2 c2 Matrix.default
             in 
             gen_cost_mat.(code1).(code2) <- cost;
             gen_cost_mat.(code1).(code2 + 1) <- cost; 
