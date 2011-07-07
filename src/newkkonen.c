@@ -121,7 +121,7 @@ expand_mat (newkkmat_p m,int newk,int oldk)
         m->pool_cost = realloc (m->pool_cost,len_we_need*sizeof(int));
         m->pool_dir = realloc (m->pool_dir,len_we_need*sizeof(DIRECTION_MATRIX));
         m->pool_gapnum = realloc (m->pool_gapnum,len_we_need*sizeof(DIRECTION_MATRIX));
-        ukkdiag_p emptydiag;
+    }ukkdiag_p emptydiag;
         int * thiscost= m->pool_cost;
         DIRECTION_MATRIX * thisdir = m->pool_dir;
         DIRECTION_MATRIX * thisgap = m->pool_gapnum;
@@ -157,7 +157,7 @@ expand_mat (newkkmat_p m,int newk,int oldk)
             thisdir += diaglen;
             thisgap += diaglen; }
         }
-    }
+    //}
     //update diag_size and total_len if we expand our memory
     if (expand_diag_size) { m->diag_size = m->diag_size_in_use; }
     if (expand_diagonal) { m->total_len = m->total_len_in_use; }
@@ -236,6 +236,7 @@ get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECT
 void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIRECTION_MATRIX dir,DIRECTION_MATRIX  max_gapnum)
 {
     int debug = 0;
+    if ((whichdiag==3648)&&(idx_in_my_diag==0)) debug=1;
     ukkdiag_p thisdiag = m->diagonal;
     if ((idx_in_my_diag >= thisdiag->len) || (idx_in_my_diag<0)) { debug=1; }
     if (debug) { printf ("set ukkcost, diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d\n",whichdiag,idx_in_my_diag,cost,dir,max_gapnum); fflush(stdout);}
@@ -250,15 +251,25 @@ void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIR
 
 };
 
+void sanity_check2 (int x)
+{
+    if ((x==1)||(x==2)||(x==4)||(x==8)||(x==16)) {}
+    else {
+        printf ("WARNING: we have a x=%d, not a dna code !!!!\n", x);
+        fflush(stdout);
+    }
+};
+
 void get_cmcost (const cmt c, int a, int b, int * res)
 {
-    if (a==b) { *res = 0; }
-    else { *res = 2 ; }
-/*    if(cm_check_level(c) == 1)
+    //if (a==b) { *res = 0; } else { *res = 2 ; }
+    sanity_check2(a);
+    sanity_check2(b);
+    if(cm_check_level(c) == 1)
         *res = cm_get_cost (c->cost, a, b, c->map_sz+1);
     else
         *res = cm_calc_cost (c->cost, a, b, c->lcm);
-        */
+        
 };
 
 int in_non_change_zone (int i, int j,int oldk, int lenX, int lenY)
@@ -511,7 +522,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
 void
 init_mat (int lenX, int lenY,newkkmat_p m)
 {
-    int debug = 0;
+    int debug = 1;
     int i=0;
     //expand sign
     int expand_diag_size=1;
@@ -569,7 +580,6 @@ init_mat (int lenX, int lenY,newkkmat_p m)
     {  
         int * tmp = m->diagonal_size_arr;
         tmp[i] = lenX;  }
-
     //set len of each diag 
     for (i=0;i<baseband;i++) 
     {
@@ -583,7 +593,8 @@ init_mat (int lenX, int lenY,newkkmat_p m)
         m->pool_cost = realloc (m->pool_cost,len*sizeof(int));
         m->pool_dir = realloc (m->pool_dir,len*sizeof(DIRECTION_MATRIX));
         m->pool_gapnum = realloc (m->pool_gapnum,len*sizeof(DIRECTION_MATRIX));
-        int * thiscost = m->pool_cost;
+    }   
+    int * thiscost = m->pool_cost;
         DIRECTION_MATRIX * thisdir = m->pool_dir;
         DIRECTION_MATRIX * thisgap = m->pool_gapnum;
         ukkdiag_p thisdiag = m->diagonal;
@@ -600,17 +611,17 @@ init_mat (int lenX, int lenY,newkkmat_p m)
             thisdir += lenX;
             thisgap += lenX; }
         }
-    }
+    //}
 };
 
 
 int
 newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, newkkmat_p m) {
     assert(s1_len<=s2_len);
-    //do we need to create memory every time? no we don't
-    init_mat (s1_len,s2_len,m);
-    int debug = 0;
+    int debug = 1;
     int debug2 = 0;
+    if (debug)  { printf("newkk_algn,lenx=%d,leny=%d\n",s1_len,s2_len);fflush(stdout);}
+    init_mat (s1_len,s2_len,m);
     int gapcode = cm_get_gap (c); 
     int delta = get_delta (c);
     int i; 
@@ -618,13 +629,15 @@ newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, n
     assert(bb>0);
     if (debug)
     {
-        printf("newkk_algn,lenx=%d,leny=%d,baseband=%d,gapcode=%d,delta=%d\n",s1_len,s2_len,bb,gapcode,delta);
+        printf("baseband=%d,gapcode=%d,delta=%d\n",bb,gapcode,delta);
     fflush(stdout);
     }
     set_ukkcost(0,0,m,0,START,0);
     if (debug) {printf("init first row\n"); fflush(stdout);}
     for (i=1;i<bb;i++)
     {
+        
+       //if ((s1_len==234)&&(s2_len==10578)&&(i==3648)) debug2=1;
        //these 4 Int will be used again and again, reset them before use.
        if (debug2) { printf("init (0,%d) ",i); fflush(stdout); }
         int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
@@ -638,13 +651,13 @@ newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, n
         int thiscode = seq_get (s2,i);
         get_cmcost(c,thiscode,gapcode,&thiscost);
         thiscost += precost;
-        if (debug2) { printf("with %d; ", thiscost); fflush(stdout);}
+        if (debug2) { printf("with %d; whichdiag=%d,idx=%d,dir=%d,gapnum=%d\n ", thiscost,whichdiag,idx_in_my_diag,dir,pre_gapnum+1); fflush(stdout);}
         set_ukkcost(whichdiag,idx_in_my_diag,m, thiscost, dir, pre_gapnum+1);
     }
     int iniT = (m->baseband) * delta;
     if (debug) {printf ("done with first row, call increaseT with iniT=%d\n",iniT); fflush(stdout);}
     int rescost = increaseT (s1,s2,m,c,iniT,s1_len,s2_len); 
-    if (debug) {printf("end of newkk_algn,cost=%d",rescost); fflush(stdout);}
+    if (debug) {printf("end of newkk_algn,cost=%d\n\n",rescost); fflush(stdout);}
     return rescost;
 };
 
@@ -676,8 +689,9 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a)
 void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2, 
         int len1, int len2, const cmt c, const newkkmat_p m)
 {
-    int debug=0;
-   if(debug) { printf("backtrace,len1=%d,len2=%d\n",len1,len2); fflush(stdout); }
+    int debug = 0;
+   //if(debug) {
+       printf("backtrace,len1=%d,len2=%d\n",len1,len2); fflush(stdout); //}
    assert(len1<=len2);
    int add1 = 0;
    int add2 = 0;
@@ -728,6 +742,7 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
         j--;
     }
    }
+   printf ("end of backtrace\n"); fflush(stdout);
 };
 
 value
