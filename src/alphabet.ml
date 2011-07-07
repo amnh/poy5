@@ -827,8 +827,12 @@ let create_alph_by_level alph level oldlevel =
 let distinct_size alph =
     All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1) alph.code_to_string 0
 
-let complement c alph = 
+let complement c alph =
+    try 
     All_sets.IntegerMap.find c alph.complement
+    with | Not_found ->
+        Printf.printf  "cannot find complement of %d in alphabet" c;
+        assert(false)
 
 let of_file fn orientation init3D level =
     let file = FileStream.Pervasives.open_in fn in
