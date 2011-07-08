@@ -348,8 +348,7 @@ let distance_of_type t missing_distance a b len =
     and has_ann = has_t `Annchrom in
     match a, b with
     | MlCS a, MlCS b when has_lk -> MlDynamicCS.distance missing_distance a b len
-    | SeqCS a, SeqCS b when has_seq -> Printf.printf
-    "dynamicCS.distance_of_type->seqCS\n%!"; SeqCS.distance missing_distance a b
+    | SeqCS a, SeqCS b when has_seq -> SeqCS.distance missing_distance a b
     | ChromCS a, ChromCS b when has_chrom -> ChromCS.distance a b  
     | GenomeCS a, GenomeCS b when has_gen -> GenomeCS.distance a b  
     | BreakinvCS a, BreakinvCS b when has_break -> BreakinvCS.distance a b  
@@ -361,7 +360,7 @@ let distance_of_type t missing_distance a b len =
 let distance missing_distance a b =
     match a, b with   
     | MlCS a, MlCS b -> MlDynamicCS.distance missing_distance a b None
-    | SeqCS a, SeqCS b -> Printf.printf "dynamicCS.distance->seqCS\n%!"; SeqCS.distance missing_distance a b
+    | SeqCS a, SeqCS b -> SeqCS.distance missing_distance a b
     | ChromCS a, ChromCS b -> ChromCS.distance a b  
     | GenomeCS a, GenomeCS b -> GenomeCS.distance a b  
     | BreakinvCS a, BreakinvCS b -> BreakinvCS.distance a b  

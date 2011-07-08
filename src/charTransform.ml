@@ -452,11 +452,14 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 let acc = List.fold_left (f h) acc t in
                 all_pairs f acc t
         | [] -> acc
-(** no one calls this function*)
-    let count_all_pairs (_, a, m) (ones, mores) (_, b, _) =
+(** no one calls this function,just set use_ukk false*)
+    let count_all_pairs (_, a, m) (ones, mores) (_, b, _) use_ukk =
+        let use_ukk = false in
         let _ = 
-            Sequence.NewkkAlign.align_2 a b m Sequence.NewkkAlign.default_ukkm
-            (*Sequence.Align.align_2 a b m Matrix.default*) 
+            if use_ukk then
+                Sequence.NewkkAlign.align_2 a b m Sequence.NewkkAlign.default_ukkm
+            else
+                Sequence.Align.align_2 a b m Matrix.default 
         in
         let bt = Sequence.Align.make_backtrack a b Matrix.default in
         match Sequence.Align.count_paths bt with
