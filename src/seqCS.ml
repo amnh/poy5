@@ -1794,7 +1794,6 @@ module Union = struct
                             acc +.
                             (sub_factor *. 
                             (let d = 
-<<<<<<< local
                                 if use_ukk then 
                                     Sequence.NewkkAlign.cost_2 ~deltaw:deltaw
                                 seqa seqb a.u_c2
@@ -1802,13 +1801,6 @@ module Union = struct
                                 else
                                     Sequence.Align.cost_2 ~deltaw:deltaw
                                 seqa seqb a.u_c2 Matrix.default in
-=======
-(*                                Sequence.NewkkAlign.cost_2 ~deltaw:deltaw*)
-(*                                seqa seqb a.u_c2*)
-(*                                Sequence.NewkkAlign.default_ukkm*)
-                                Sequence.Align.cost_2 ~deltaw:deltaw seqa seqb a.u_c2 Matrix.default
-                            in
->>>>>>> other
                             float_of_int d))
                     in
                     Array_ops.fold_right_2 (fun acc seqa seqb ->
@@ -1906,10 +1898,8 @@ let of_array spec sc code taxon =
         let dpam = spec.Data.pam in
         match dpam.Data.align_meth with
         | Some `NewKK ->
-                Printf.printf "align with ukk\n%!";
                 true 
         | _ ->  
-                Printf.printf "align with default\n";
                 false
     in
     let c3 = spec.Data.tcm3d in
@@ -2135,10 +2125,8 @@ let distance missing_distance a b =
         | Partitioned a, Partitioned b ->
                 acc + (PartitionedDOS.distance alph h missing_distance a b use_ukk)
         | Heuristic_Selection a, Heuristic_Selection b ->
-                Printf.printf "seqCS.distance -> HS\n%!";
                 acc + (DOS.distance alph h missing_distance a b use_ukk) 
         | Relaxed_Lifted a, Relaxed_Lifted b ->
-                Printf.printf "seqCS.distance -> RL\n%!";
                 acc + (int_of_float (RL.distance a b))
         | Partitioned _, _
         | _, Partitioned _
@@ -2228,18 +2216,12 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
             | Some par -> 
                     let par = par.DOS.sequence in
                     let s1, s2, min =
-<<<<<<< local
                         if use_ukk then 
                         Sequence.NewkkAlign.align_2 seq.DOS.sequence 
                         par h.c2 Sequence.NewkkAlign.default_ukkm
                         else
                             Sequence.Align.align_2 seq.DOS.sequence 
                         par h.c2 Matrix.default
-=======
-(*                        Sequence.NewkkAlign.align_2 seq.DOS.sequence *)
-(*                        par h.c2 Sequence.NewkkAlign.default_ukkm*)
-                        Sequence.Align.align_2 seq.DOS.sequence par h.c2 Matrix.default
->>>>>>> other
                     in
                     let max = Sequence.Align.max_cost_2 s1 s2 h.c2 in
                     (cmin +. (float_of_int min)), 
@@ -2282,7 +2264,6 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                         | None -> 
                             `FloatFloatTuple (cost.min, cost.max), cost.max
                         | Some (Heuristic_Selection par) ->
-<<<<<<< local
                                 let par = par.DOS.sequence in
                                 let s1, s2, min =
                                     if use_ukk then
@@ -2296,18 +2277,6 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                                     Sequence.Align.max_cost_2 s1 s2 h.c2 
                                 in
                                 `IntTuple (min, max), float_of_int max
-=======
-                            let par = par.DOS.sequence in
-                            let s1, s2, min =
-(*                                    Sequence.NewkkAlign.align_2 seq.DOS.sequence *)
-(*                                    par h.c2 Sequence.NewkkAlign.default_ukkm*)
-                                Sequence.Align.align_2 seq.DOS.sequence par h.c2 Matrix.default
-                            in
-                            let max = 
-                                Sequence.Align.max_cost_2 s1 s2 h.c2 
-                            in
-                            `IntTuple (min, max), float_of_int max
->>>>>>> other
                         | Some (Partitioned _) -> assert false 
                         | Some (Relaxed_Lifted _) -> assert false
                     in
