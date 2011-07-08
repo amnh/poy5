@@ -146,12 +146,11 @@ let cmp_cost state code1_arr code2_arr recode2_arr
     let seq1 = Sequence.of_array code1_arr
     and reseq2 = Sequence.of_array recode2_arr in
     let alied_seq1, alied_reseq2, editing_cost =  
-        if use_ukk then 
-        Sequence.NewkkAlign.align_2  ~first_gap:false seq1 reseq2 cost_mat 
-        Sequence.NewkkAlign.default_ukkm
-        else
-        Sequence.Align.align_2 ~first_gap:false seq1 reseq2 cost_mat
-            Matrix.default  
+(*        if use_ukk then *)
+(*        Sequence.NewkkAlign.align_2  ~first_gap:false seq1 reseq2 cost_mat *)
+(*        Sequence.NewkkAlign.default_ukkm*)
+(*        else*)
+        Sequence.Align.align_2 ~first_gap:false seq1 reseq2 cost_mat Matrix.default  
     in  
     let alied_code1_arr = Sequence.to_array alied_seq1 in 
     let alied_recode2_arr = Sequence.to_array alied_reseq2 in 

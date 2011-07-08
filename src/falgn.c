@@ -45,7 +45,7 @@
 #define CDIR         DIRECTION_MATRIX
 #define MAX(a,b)     (a>=b)?a:b
 #define MIN(a,b)     (a<=b)?a:b
-#define EQUALS(a,b)  abs(a-b)<EPSILON
+#define EQUALS(a,b)  fabs(a-b)<EPSILON
 #define ISSET(x,i)   0<((1<<i)&x)
 #define GET(x,i)     seq_get(x,i)
 
@@ -54,6 +54,18 @@
 
 //used for debugging with electric fense; we cannot use scratch space
 /*#define register_section(x,a,c) (double*) malloc( sizeof(double)*a)*/
+
+void
+print_alignment_matrixf(const double* costs, matricest mat, const int w, const int h)
+{
+    int i,j;
+    for (i = 0; i < h; i++) {
+        for (j = 0; j < w; j++)
+            fprintf (stdout, "| %d %8.5f[00] ", mat->matrix_d[(w*i)+j],costs[(w*i)+j]);
+        fprintf (stdout, "|\n");
+    }
+    fprintf (stdout, "\n");
+}
 
 double min2_ins(CDIR* d_ptr, const double a, const double i)
 {
@@ -180,7 +192,7 @@ inline void
 #endif
 full_cost(const seqt x, const seqt y, fcmt *FA, const int i, const int j)
 {
-    double cost_algn, cost_ins, cost_del;
+    double cost_algn, cost_ins, cost_del, temp_min;
     int place;
     CDIR temp_dir;
     place = (y->len * i) + j;
@@ -196,9 +208,9 @@ full_cost(const seqt x, const seqt y, fcmt *FA, const int i, const int j)
         cost_algn = FA->costs[(i-1)*y->len + j-1] + fcost( FA->fmat, GET(x,i),      GET(y,j)      );
         cost_ins  = FA->costs[ i   *y->len + j-1] + fcost( FA->fmat, FA->fmat->gap, GET(y,j)      );
         cost_del  = FA->costs[(i-1)*y->len + j  ] + fcost( FA->fmat, GET(x,i),      FA->fmat->gap );
-        
-        FA->costs[ place ] = min3( &temp_dir, cost_algn, cost_ins, cost_del );
-        /* printf("(%d,%d):%d -- %d\n",i,j,place,temp_dir); */
+        temp_min = min3( &temp_dir, cost_algn, cost_ins, cost_del );
+/*        printf("(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n",i,j,cost_algn,cost_ins,cost_del,temp_min,temp_dir); */
+        FA->costs[ place ] = temp_min;
         DSET( FA, place, temp_dir );
     }
 }
@@ -288,7 +300,8 @@ falign_CAML_median(value oSpace, value oMat, value oU, value oD, value oUi,
     /* we need to ensure that we didn't "clear" the memory earlier; although we
      * never actually clear it, we need to at least ensure that an alignment is
      * stored. To re-register that section, since it must start at 0, 'free' and
-     * register. */
+     * register; this allows us to re-register space for composing matrices.
+     *      TODO: can we be safe and re-use these cost matrices? */
     mat_size = a->len * b->len;
     assert( space->loc > mat_size );
     free_all( space );
@@ -366,7 +379,8 @@ falign_CAML_backtrace( value oSpace, value oMat, value oU, value oD, value oUi,
     /* we need to ensure that we didn't "clear" the memory earlier; although we
      * never actually clear it, we need to at least ensure that an alignment is
      * stored. To re-register that section, since it must start at 0, 'free' and
-     * register. */
+     * register; this allows us to re-register space for composing matrices.
+     *      TODO: can we be safe and re-use these cost matrices? */
     mat_size = a->len * b->len;
     assert( space->loc > mat_size );
     free_all( space );
@@ -477,8 +491,7 @@ falign_CAML_align_2(value oSpace, value oMat, value oU, value oD, value oUi,
     min_cost = full_falign( a, b, &results );
     cost = caml_copy_double( min_cost );
 
-/*    printmatrixf( results.costs, b->len, a->len );*/
-/*    mat_print_dir_2d (results.direc, b->len, a->len);*/
+    print_alignment_matrixf( results.costs, results.direc, b->len, a->len );
 
     free(results.fmat->cost_asgn);
     free(results.fmat);

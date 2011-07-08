@@ -700,17 +700,16 @@ module DOS = struct
                         let m = Sequence.select_one m cm in
                         create m, cost
                 | _ ->
-                        let s1', s2', c =
-                            if use_ukk then
-                            Sequence.NewkkAlign.align_2 s1 s2 cm
-                            Sequence.NewkkAlign.default_ukkm
-                            else
-                            Sequence.Align.align_2 ~first_gap:true s1 s2 cm
-                            Matrix.default
-                        in
-                        let median = Sequence.median_2 s1' s2' cm in
-                        let a = Sequence.select_one median cm in 
-                        create a, c 
+                    let s1', s2', c =
+(*                            if use_ukk then*)
+(*                            Sequence.NewkkAlign.align_2 s1 s2 cm*)
+(*                            Sequence.NewkkAlign.default_ukkm*)
+(*                            else*)
+                        Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
+                    in
+                    let median = Sequence.median_2 s1' s2' cm in
+                    let a = Sequence.select_one median cm in 
+                    create a, c 
             in
             let empty1 = Sequence.is_empty ch1.sequence gap 
             and empty2 = Sequence.is_empty ch2.sequence gap 
@@ -1795,6 +1794,7 @@ module Union = struct
                             acc +.
                             (sub_factor *. 
                             (let d = 
+<<<<<<< local
                                 if use_ukk then 
                                     Sequence.NewkkAlign.cost_2 ~deltaw:deltaw
                                 seqa seqb a.u_c2
@@ -1802,6 +1802,13 @@ module Union = struct
                                 else
                                     Sequence.Align.cost_2 ~deltaw:deltaw
                                 seqa seqb a.u_c2 Matrix.default in
+=======
+(*                                Sequence.NewkkAlign.cost_2 ~deltaw:deltaw*)
+(*                                seqa seqb a.u_c2*)
+(*                                Sequence.NewkkAlign.default_ukkm*)
+                                Sequence.Align.cost_2 ~deltaw:deltaw seqa seqb a.u_c2 Matrix.default
+                            in
+>>>>>>> other
                             float_of_int d))
                     in
                     Array_ops.fold_right_2 (fun acc seqa seqb ->
@@ -2221,12 +2228,18 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
             | Some par -> 
                     let par = par.DOS.sequence in
                     let s1, s2, min =
+<<<<<<< local
                         if use_ukk then 
                         Sequence.NewkkAlign.align_2 seq.DOS.sequence 
                         par h.c2 Sequence.NewkkAlign.default_ukkm
                         else
                             Sequence.Align.align_2 seq.DOS.sequence 
                         par h.c2 Matrix.default
+=======
+(*                        Sequence.NewkkAlign.align_2 seq.DOS.sequence *)
+(*                        par h.c2 Sequence.NewkkAlign.default_ukkm*)
+                        Sequence.Align.align_2 seq.DOS.sequence par h.c2 Matrix.default
+>>>>>>> other
                     in
                     let max = Sequence.Align.max_cost_2 s1 s2 h.c2 in
                     (cmin +. (float_of_int min)), 
@@ -2267,9 +2280,9 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                     let costb, max = 
                         match do_to_single with
                         | None -> 
-                                `FloatFloatTuple (cost.min, cost.max),
-                                cost.max
+                            `FloatFloatTuple (cost.min, cost.max), cost.max
                         | Some (Heuristic_Selection par) ->
+<<<<<<< local
                                 let par = par.DOS.sequence in
                                 let s1, s2, min =
                                     if use_ukk then
@@ -2283,6 +2296,18 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                                     Sequence.Align.max_cost_2 s1 s2 h.c2 
                                 in
                                 `IntTuple (min, max), float_of_int max
+=======
+                            let par = par.DOS.sequence in
+                            let s1, s2, min =
+(*                                    Sequence.NewkkAlign.align_2 seq.DOS.sequence *)
+(*                                    par h.c2 Sequence.NewkkAlign.default_ukkm*)
+                                Sequence.Align.align_2 seq.DOS.sequence par h.c2 Matrix.default
+                            in
+                            let max = 
+                                Sequence.Align.max_cost_2 s1 s2 h.c2 
+                            in
+                            `IntTuple (min, max), float_of_int max
+>>>>>>> other
                         | Some (Partitioned _) -> assert false 
                         | Some (Relaxed_Lifted _) -> assert false
                     in
@@ -2386,12 +2411,11 @@ let align_2 (one:t) (two:t) =
         Array.mapi (fun i _ -> 
             Array.mapi (fun j _ ->
                 let a,b,m = 
-                    if one.use_ukk then 
-                    Sequence.NewkkAlign.align_2 ones.(i).(j) twos.(i).(j) 
-                    one.heuristic.c2 Sequence.NewkkAlign.default_ukkm
-                    else
-                    Sequence.Align.align_2 ones.(i).(j) twos.(i).(j) 
-                    one.heuristic.c2 Matrix.default
+(*                    if one.use_ukk then *)
+(*                    Sequence.NewkkAlign.align_2 ones.(i).(j) twos.(i).(j) *)
+(*                    one.heuristic.c2 Sequence.NewkkAlign.default_ukkm*)
+(*                    else*)
+                    Sequence.Align.align_2 ones.(i).(j) twos.(i).(j) one.heuristic.c2 Matrix.default
                 in
                 (a,b,m))
             ones.(i))
