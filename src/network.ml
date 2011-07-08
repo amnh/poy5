@@ -112,6 +112,31 @@ let post_order_node_visit ~f (r: id) (acc: 'a) (g: checked di_graph): 'a =
     in
     eval r acc
 
+
+let post_order_node_visit_once ~f r acc (g: checked di_graph) =
+    let augmented_f cur ((oacc,set) as acc) =
+        if All_sets.Integers.mem cur set then acc
+        else (f cur oacc, All_sets.Integers.add cur set)
+    in
+    post_order_node_visit ~f:augmented_f (acc,All_sets.Integers.empty) g
+
+
+let post_order_node_visit_once_short_circuit ~f (r: id) (acc: 'a) (g: checked di_graph): 'a =
+    assert (All_sets.Integers.mem r g.roots);
+    let f n (facc,set) = f n facc, All_sets.Integers.add n set in
+    let rec eval cur ((_,set) as acc) =
+        if All_sets.Integers.mem n set then
+            acc
+        else match All_sets.IntegerMap.find cur g.graph with
+            | Root (n,c1,c2)         -> acc --> eval c1 --> eval c2 --> f n
+            | Interior (n,p,c1,c2)   -> acc --> eval c1 --> eval c2 --> f n
+            | Reticulate (n,p1,p2,c) -> acc --> eval c --> f n
+            | Leaf (n,p)             -> acc --> f n
+            | Single (n)             -> acc --> f n
+    in
+    eval r acc
+
+
 (** Post_order edges; fold over the edges of the tree calling f on each edge. The
     parent is always the first argument in the function call. If no edges in the
     graph exist; we return the accumulator --no exceptions, no failures. *)
