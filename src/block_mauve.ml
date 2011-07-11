@@ -212,7 +212,7 @@ let maximum_cover_ratio = ref 0.9
 (*we should stop looking when the improvement is too small*)
 let minimum_improvement = ref 0.05
 (*if after outer loop, a lcb is bigger than this, cut it in "search_inside_each_lcb"*)
-let minimum_big_lcb_len = ref 500
+let maximum_lcb_len = ref 500
 
 (** lcb shorter than this is a light-weight lcb*)
 let minimum_lcb_len = ref 50
@@ -224,7 +224,7 @@ let minimum_lcb_ratio = ref 30.0
 let stop_lcb_ratio = ref 5.
 
 (*minimum value of break point penalty*)
-let min_break_point_penalty = ref 50 
+let min_break_point_penalty = ref 4000
 
 (*lcb with lower weight should be considered removing*)
 let minimum_lcb_weight = 2 
@@ -5087,8 +5087,8 @@ let search_inside_each_lcb lcb_tbl in_seqarr min_len max_len =
 
 
     
-let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_penalty =
-    min_break_point_penalty := min_bk_penalty ;
+let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_len =
+    maximum_lcb_len := max_lcb_len;
     minimum_cover_ratio := min_cover_ratio;
     let debug2 = false in
     seedNO_available_arr := Array.make init_seed_size 1;
@@ -5099,10 +5099,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
     (fun seq acc -> (Array.length seq)::acc ) in_seqarr [] 
     in
     let avg_seqlen = get_avg_of_intlst in_seq_size_lst in
-    let seedlen = get_proper_seedlen avg_seqlen in (*int_of_float ( ceil (log (float shorted_seqlen))) in
-    let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
-    let seedlen = if (seedlen<5) then 5 else seedlen in
-    let seedlen = if (seedlen=17) then 19 else seedlen in*)
+    let seedlen = get_proper_seedlen avg_seqlen in 
     if debug_main then 
         Printf.printf "\n **********Block_mauve.create_lcb_tbl;seqlen=%d,%d;seedlen=%d \
         ****************\n%!" (List.hd in_seq_size_lst) (List.nth
@@ -5298,13 +5295,11 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
                 Printf.printf "no improve in innerloop, no need to redo outerloop again\n%!";
         end;
     done; (*end of outer while loop*)
-    (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
-    * have the lcb from initial function, remove lightW ones*)
-    (*let outer_lcb_tbl = !outer_lcb_tbl in*)
-    (*search_inside_each_lcb !outer_lcb_tbl in_seqarr !minimum_big_lcb_len max_int;
+    (*search_inside_each_lcb !outer_lcb_tbl in_seqarr !maximum_lcb_len max_int;
     *)
     if !any_improvement_outer = false then 
-        (*Hashtbl.clear outer_lcb_tbl; *)
+        (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
+    * have the lcb from initial function, remove lightW ones*)
         Hashtbl.iter (fun key record ->
             if (is_light_weight_lcb record ) then begin
                 Hashtbl.remove !outer_lcb_tbl key;
@@ -5406,115 +5401,72 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
         outer_lcb_tbl,outer_lcbs,code_list,full_range_lstlst
     end
 
-
-(*main function here*)
-(** [get_matcharr_and_costmatrix] is the main function of this module. it take two
-* sequences, set of parameters (min lcb ratio, min lcb length, etc) and 
-* a costmatrix between charactors as input,
-* output two code array of matching blocks, a cost_mat between lcb blocks and non-lcb
-* blocks, ali_mat is the cost and alignment sequence between lcb blocks.
-* NOTE: edit_cost is the total editing cost between lcb blocks (which is not included
-* is cost_mat), full_cost_listlst is a little bit redundant here, for it
-* contains the two code array, but it also has the begin and end point of each
-* block. *)
-let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_lcb_len
-min_cover_ratio min_bk_penalty 
-locus_indel_cost cost_mat use_ukk =
-    let debug = false and debug2 = false in
-    (*transform poy costmatrix into hodx_matrix in mauve*)
-    fill_in_hmatrix cost_mat;
-    let seq1arr = Sequence.to_array seq1 
-    and seq2arr = Sequence.to_array seq2 in
-    let in_seqarr = [|seq1arr;seq2arr|] in
-    let lcb_tbl,lcbs,code_list,full_range_lstlst = 
-        create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_penalty in
-    if debug then begin
-        if debug2 then 
-            Hashtbl.iter (fun key record ->
-            print_lcb record ) lcb_tbl;
-        (* Printf.printf "lcbs is \n%!";  Block_mauve.print_lcblst lcbs;*)
-        Printf.printf "original code list is \n%!";
-        print_int_lstlst code_list;
-    end;
-    let base = List.length (List.hd code_list) in (*start number of non-lcb block*)
-    let len_lst1 = List.length (List.hd full_range_lstlst) in
-    let len_lst2 = List.length (List.nth full_range_lstlst 1) in
-    let gen_gap_code = (len_lst1 + len_lst2) * 2 + 1 in
-    let matlen = gen_gap_code + 1 in
-    if debug then
-        Printf.printf "make empty matrix with size = %d,base=%d (%d,%d)\n%!"
-        matlen base len_lst1 len_lst2;
-    let gen_cost_mat = Array.make_matrix matlen matlen Utl.large_int in
+(**[fill_in_cost_ali_mat]
+ * cost_mat : 2D cost matrix for alignment in c side, use_ukk or not
+ * seq1, seq2 : input two sequences.
+ * code_range_lst1, code_range_lst2 : lists of [code,(left,right)] for each lcb
+ * and non-lcb block.
+ * ali_mat, gen_cost_mat : we are filling in these two matrix. ali_mat records
+ * the alignment result of each pair of blocks, gen_cost_mat records the cost of
+ * alignment.
+ * Not every pair get to alignment. For lcb blocks, only those get
+ * matched get to be aligned. 
+ * Testing: For non-lcb blocks, to speed things up, we are not
+ * doing alignment on two huge blocks. 
+ * *)
+let fill_in_cost_ali_mat cost_mat seq1 seq2 code_range_lst1 code_range_lst2 gen_gap_code
+block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk =
+    let debug = true and debug2 = false in
     let set_cost code1 code2 cost = gen_cost_mat.(code1).(code2) <- cost in
-    let empty_seq = Sequence.get_empty_seq () in
-    let ali_mat = Array.make_matrix matlen matlen (0,empty_seq, empty_seq) in
-    let block_gap_cost = Utl.large_int/len_lst1 in
-    let seqNO = ref (-1) in
-    let full_code_lstlst =
-        List.map (fun full_range_lst ->
-            seqNO := !seqNO +1 ;
-            let coderef = ref base and start_num = !seqNO*len_lst1*2 in
-            List.map(fun (left,right) ->
-                let lcbkey,lcb_refcode = 
-                    get_lcb_key_by_range !seqNO (left,right) lcb_tbl
-                in
-                if lcb_refcode<>0 then (*a lcb block, use lcb refcode*)
-                    ((from_ori_code lcb_refcode)+start_num,(left,right))
-                else begin (*not lcb block, give it a new code*)
-                    coderef := !coderef +1;
-                    ((from_ori_code !coderef)+start_num,(left,right))
-                end
-            )full_range_lst
-        )full_range_lstlst 
-    in
-    if debug2 then begin
-    Printf.printf "full (code,range) list is :\n%!";
-    List.iter(fun full_code_lst ->
-        List.iter (fun (code,(l,r)) ->
-            Printf.printf "[%d,(%d,%d)],%!" code l r
-        ) full_code_lst;
-        print_newline();
-    )full_code_lstlst;
-    end;
     let edit_cost = ref 0 in
-    let set_cost_code_arr code1_arr code2_arr gen_gap_code block_gap_cost =
-        List.iter (fun (code1,(left1,right1)) ->
-        List.iter (fun (code2,(left2,right2)) ->
-            let subseq1,subseq2 = 
-                    Sequence.sub seq1 left1 (right1-left1+1),
-                    Sequence.sub seq2 left2 (right2-left2+1)
+    List.iter (fun (code1,(left1,right1)) ->
+    List.iter (fun (code2,(left2,right2)) ->
+        let subseq1,subseq2 = 
+                Sequence.sub seq1 left1 (right1-left1+1),
+                Sequence.sub seq2 left2 (right2-left2+1)
+        in
+        let ori_code1 = to_ori_code code1 
+        and ori_code2 = to_ori_code (code2 - len_lst1*2) in
+        if debug then 
+            Printf.printf "work on %d,%d (ori=%d,%d) (%d,%d;%d,%d)->\n %!" 
+            code1 code2 ori_code1 ori_code2 left1 right1 left2 right2;
+        if ((abs ori_code2)<=base) && ((abs ori_code1)<=base) 
+        && ((abs ori_code1)=(abs ori_code2)) then begin
+            set_cost code1 code2 0;
+            set_cost code2 code1 0; 
+            (*Note: we only set cost(code1,code2) to 0 to make sure
+            code1 is alied to code2 later in "GenAli.create_gen_ali_new",
+            the real alignment cost is kept in ali_mat, then pass to
+            function create_median_mauve in chromAli.ml.*)
+            set_cost code1 gen_gap_code block_gap_cost; 
+            set_cost gen_gap_code code1 block_gap_cost;
+            set_cost code2 gen_gap_code block_gap_cost; 
+            set_cost gen_gap_code code2 block_gap_cost;
+            let alied_seq1, alied_seq2, cost, _ =  
+                Sequence.align2 subseq1 subseq2 cost_mat use_ukk
             in
-            let ori_code1 = to_ori_code code1 
-            and ori_code2 = to_ori_code (code2 - len_lst1*2) in
-            if debug then 
-                Printf.printf "work on %d,%d (ori=%d,%d) (%d,%d;%d,%d)->\n %!" 
-                code1 code2 ori_code1 ori_code2 left1 right1 left2 right2;
-            if ((abs ori_code2)<=base) && ((abs ori_code1)<=base) 
-            && ((abs ori_code1)=(abs ori_code2)) then begin
-                set_cost code1 code2 0;
-                set_cost code2 code1 0; 
-                (*Note: we only set cost(code1,code2) to 0 to make sure
-                code1 is alied to code2 later in "GenAli.create_gen_ali_new",
-                the real alignment cost is kept in ali_mat, then pass to
-                function create_median_mauve in chromAli.ml.*)
-                set_cost code1 gen_gap_code block_gap_cost; 
-                set_cost gen_gap_code code1 block_gap_cost;
-                set_cost code2 gen_gap_code block_gap_cost; 
-                set_cost gen_gap_code code2 block_gap_cost;
-                let alied_seq1, alied_seq2, cost, _ =  
-                    Sequence.align2 subseq1 subseq2 cost_mat use_ukk
-                in
-                edit_cost := !edit_cost + cost; (*acc the real edit cost*)
-                ali_mat.(code1).(code2) <- (cost,alied_seq1, alied_seq2);
-                ali_mat.(code2).(code1) <- (cost,alied_seq2, alied_seq1);
-                if debug2 then 
-                    Printf.printf "set %d,%d with cost=%d,%d,(real ali cost=%d)\n%!"
-                     code1 code2 0 block_gap_cost cost;
+            edit_cost := !edit_cost + cost; (*acc the real edit cost*)
+            ali_mat.(code1).(code2) <- (cost,alied_seq1, alied_seq2);
+            ali_mat.(code2).(code1) <- (cost,alied_seq2, alied_seq1);
+            if debug2 then 
+                Printf.printf "set %d,%d with cost=%d,%d,(real ali cost=%d)\n%!"
+                 code1 code2 0 block_gap_cost cost;
+        end
+        else if ((abs ori_code2)>base) && ((abs ori_code1)>base) then
+            begin
+                if debug then Printf.printf "align seq1(%d) and seq2(%d) :%!"
+                ori_code1 ori_code2;
+            (*if both non-lcb block are big, the cost of their alignment
+            * will be big too. we won't choose the match them as a pair
+            * later, therefore we don't need to know exact cost&alignment
+            * between them*)
+            let sublen1 = right1-left1+1 and sublen2 = right2-left2+1 in
+            if (sublen1 > !maximum_lcb_len)&&(sublen2 > !maximum_lcb_len)
+            then begin
+                if debug then 
+                    Printf.printf "skip this huge non-lcb block\n%!";
             end
-            else if ((abs ori_code2)>base) && ((abs ori_code1)>base) then
-                begin
-                    if debug then Printf.printf "align seq1(%d) and seq2(%d) :%!"
-                    ori_code1 ori_code2;
+            else begin
                 let alied_seq1, alied_seq2, cost, _ =  
                     Sequence.align2 subseq1 subseq2 cost_mat use_ukk
                 in
@@ -5550,34 +5502,105 @@ locus_indel_cost cost_mat use_ukk =
                     Printf.printf "set %d,%d with cost=%d,del_cost=(%d|%d)\n%!" 
                     code1 code2 cost del_cost1 del_cost2;
             end
-            else if ((abs ori_code2)>base) && ((abs ori_code1)<=base) then begin
-                let del_cost2 = 
-                    Sequence.cmp_gap_cost locus_indel_cost subseq2 in
-                let len2 = Sequence.length subseq2 in
-                let indel2 = Sequence.create_gap_seq len2 in
-                ali_mat.(code2).(gen_gap_code) <- (del_cost2,subseq2,indel2);
-                ali_mat.(gen_gap_code).(code2) <- (del_cost2,indel2,subseq2);
-                set_cost code2 gen_gap_code del_cost2;
-                if debug2 then 
-                    Printf.printf "set %d,%d(gap) with cost=%d\n%!" code2
-                    gen_gap_code del_cost2;
-            end
-            else if ((abs ori_code1)>base) && ((abs ori_code2)<=base) then begin
-                let del_cost1 = 
-                    Sequence.cmp_gap_cost locus_indel_cost subseq1 in
-                let len1 = Sequence.length subseq1 in
-                let indel1 = Sequence.create_gap_seq len1 in
-                ali_mat.(code1).(gen_gap_code) <- (del_cost1,subseq1,indel1);
-                ali_mat.(gen_gap_code).(code1) <- (del_cost1,indel1,subseq1);
-                set_cost code1 gen_gap_code del_cost1;
-                if debug2 then 
-                    Printf.printf "set %d,%d(gap) with cost=%d\n%!" code1
-                    gen_gap_code del_cost1;
-            end
-            else () (*we don't need to ali mauve-recognized block with other blocks*)
-        ) (List.nth full_code_lstlst 1)
-    ) (List.hd full_code_lstlst); 
+        end
+        else if ((abs ori_code2)>base) && ((abs ori_code1)<=base) then begin
+            let del_cost2 = 
+                Sequence.cmp_gap_cost locus_indel_cost subseq2 in
+            let len2 = Sequence.length subseq2 in
+            let indel2 = Sequence.create_gap_seq len2 in
+            ali_mat.(code2).(gen_gap_code) <- (del_cost2,subseq2,indel2);
+            ali_mat.(gen_gap_code).(code2) <- (del_cost2,indel2,subseq2);
+            set_cost code2 gen_gap_code del_cost2;
+            if debug2 then 
+                Printf.printf "set %d,%d(gap) with cost=%d\n%!" code2
+                gen_gap_code del_cost2;
+        end
+        else if ((abs ori_code1)>base) && ((abs ori_code2)<=base) then begin
+            let del_cost1 = 
+                Sequence.cmp_gap_cost locus_indel_cost subseq1 in
+            let len1 = Sequence.length subseq1 in
+            let indel1 = Sequence.create_gap_seq len1 in
+            ali_mat.(code1).(gen_gap_code) <- (del_cost1,subseq1,indel1);
+            ali_mat.(gen_gap_code).(code1) <- (del_cost1,indel1,subseq1);
+            set_cost code1 gen_gap_code del_cost1;
+            if debug2 then 
+                Printf.printf "set %d,%d(gap) with cost=%d\n%!" code1
+                gen_gap_code del_cost1;
+        end
+        else () (*we don't need to ali mauve-recognized block with other blocks*)
+    ) code_range_lst2 
+    ) code_range_lst1 ; 
+    !edit_cost
+
+(*main function here*)
+(** [get_matcharr_and_costmatrix] is the main function of this module. it take two
+* sequences, set of parameters (min lcb ratio, min lcb length, etc) and 
+* a costmatrix between charactors as input,
+* output two code array of matching blocks, a cost_mat between lcb blocks and non-lcb
+* blocks, ali_mat is the cost and alignment sequence between lcb blocks.
+* NOTE: edit_cost is the total editing cost between lcb blocks (which is not included
+* is cost_mat), full_cost_listlst is a little bit redundant here, for it
+* contains the two code array, but it also has the begin and end point of each
+* block. *)
+let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_lcb_len
+min_cover_ratio max_lcb_len 
+locus_indel_cost cost_mat use_ukk =
+    let debug = true and debug2 = false in
+    (*transform poy costmatrix into hodx_matrix in mauve*)
+    fill_in_hmatrix cost_mat;
+    let seq1arr = Sequence.to_array seq1 
+    and seq2arr = Sequence.to_array seq2 in
+    let in_seqarr = [|seq1arr;seq2arr|] in
+    let lcb_tbl,lcbs,code_list,full_range_lstlst = 
+        create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio
+        max_lcb_len in
+    if debug then begin
+        if debug2 then 
+            Hashtbl.iter (fun key record ->
+            print_lcb record ) lcb_tbl;
+        (* Printf.printf "lcbs is \n%!";  Block_mauve.print_lcblst lcbs;*)
+        Printf.printf "original code list is \n%!";
+        print_int_lstlst code_list;
+    end;
+    let base = List.length (List.hd code_list) in (*start number of non-lcb block*)
+    let len_lst1 = List.length (List.hd full_range_lstlst) in
+    let len_lst2 = List.length (List.nth full_range_lstlst 1) in
+    let gen_gap_code = (len_lst1 + len_lst2) * 2 + 1 in
+    let matlen = gen_gap_code + 1 in
+    if debug then
+        Printf.printf "make empty matrix with size = %d,base=%d (%d,%d)\n%!"
+        matlen base len_lst1 len_lst2;
+    let gen_cost_mat = Array.make_matrix matlen matlen Utl.large_int in
+    let empty_seq = Sequence.get_empty_seq () in
+    let ali_mat = Array.make_matrix matlen matlen (0,empty_seq, empty_seq) in
+    let block_gap_cost = Utl.large_int/len_lst1 in
+    let seqNO = ref (-1) in
+    let full_code_lstlst =
+        List.map (fun full_range_lst ->
+            seqNO := !seqNO +1 ;
+            let coderef = ref base and start_num = !seqNO*len_lst1*2 in
+            List.map(fun (left,right) ->
+                let lcbkey,lcb_refcode = 
+                    get_lcb_key_by_range !seqNO (left,right) lcb_tbl
+                in
+                if lcb_refcode<>0 then (*a lcb block, use lcb refcode*)
+                    ((from_ori_code lcb_refcode)+start_num,(left,right))
+                else begin (*not lcb block, give it a new code*)
+                    coderef := !coderef +1;
+                    ((from_ori_code !coderef)+start_num,(left,right))
+                end
+            )full_range_lst
+        )full_range_lstlst 
     in
+    if debug then begin
+    Printf.printf "full (code,range) list is :\n%!";
+    List.iter(fun full_code_lst ->
+        List.iter (fun (code,(l,r)) ->
+            Printf.printf "[%d,(%d,%d)],%!" code l r
+        ) full_code_lst;
+        print_newline();
+    )full_code_lstlst;
+    end;
     let get_code_arr_from_fullcode_lst fullcode_lst = 
         Array.of_list ( List.map (fun (code,(_,_)) -> code) fullcode_lst )
     in
@@ -5586,8 +5609,10 @@ locus_indel_cost cost_mat use_ukk =
     and code2_arr =
         get_code_arr_from_fullcode_lst (List.nth full_code_lstlst 1)
     in
-    set_cost_code_arr code1_arr code2_arr gen_gap_code block_gap_cost;
-    code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,!edit_cost,full_code_lstlst,len_lst1
+    let edit_cost = fill_in_cost_ali_mat cost_mat seq1 seq2 (List.hd full_code_lstlst) 
+    (List.nth full_code_lstlst 1) gen_gap_code block_gap_cost locus_indel_cost ali_mat
+    gen_cost_mat len_lst1 base use_ukk in
+    code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,edit_cost,full_code_lstlst,len_lst1
 
 (** [get_range_with_code] return the range of match block code1 and block code2. if
     * a block is all_gap_seq, return (totalsize,totalsize+len_of_block-1) so that

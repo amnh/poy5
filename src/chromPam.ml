@@ -325,25 +325,25 @@ let get_min_rearrangement_len pam =
 
 let get_min_cover_ratio pam = 
     match pam.annotate_tool with
-    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,bk_penalty) -> min_cover_ratio
+    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,max_lcb_len) -> min_cover_ratio
     | `Default (_,_,_) ->
             failwith "Default annotator is not mauve"
 
 let get_min_lcb_ratio pam =
     match pam.annotate_tool with
-    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,bk_penalty) ->  min_lcb_ratio
+    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,max_lcb_len) ->  min_lcb_ratio
     | `Default (_,_,_) ->
             failwith "Default annotator is not mauve"
 
 let get_min_lcb_len pam =
     match pam.annotate_tool with
-    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,bk_penalty) -> min_lcb_len
+    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,max_lcb_len) -> min_lcb_len
     | `Default (_,_,_) ->
             failwith "Default annotator is not mauve"
 
-let get_min_bk_penalty pam =
+let get_max_lcb_len pam =
     match pam.annotate_tool with
-    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,min_bk_penalty) -> min_bk_penalty
+    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,max_lcb_len) -> max_lcb_len
     | `Default (_,_,_) ->
             failwith "Default annotator is not mauve"
 

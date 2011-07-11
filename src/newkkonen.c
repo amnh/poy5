@@ -12,8 +12,9 @@
 
 #include "seq.h"
 #include "newkkonen.h"
-
-//#define DIRECTION_MATRIX unsigned short
+//trivial case
+#define MUCH_LONGER 100
+//alignment
 #define START 0
 #define DO_ALIGN 1
 #define DO_DELETE 2
@@ -615,12 +616,46 @@ init_mat (int lenX, int lenY,newkkmat_p m)
 };
 
 
+int get_indel_cost (const seqt s, int len, const cmt c)
+{
+    int indelcost = 0;
+    int thiscost, thiscode;
+    int gapcode = cm_get_gap (c);
+    int i;
+    for (i=0;i<len;i++)
+    {
+        thiscode = seq_get (s,i);
+        thiscost=0;
+        get_cmcost(c,thiscode,gapcode,&thiscost);
+        indelcost += thiscost;
+    }
+    return indelcost;
+
+}
+
+int trivial_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c)
+{
+    int debug = 1;
+    if (debug)  { printf("trivial algn\n");fflush(stdout);}
+    int indelcost1 = get_indel_cost (s1,s1_len,c);
+    int indelcost2 = get_indel_cost (s2,s2_len,c);
+    if (debug) { printf("end of trivial algn, cost=%d\n%!",indelcost1+indelcost2); fflush(stdout);}
+    return (indelcost1 + indelcost2);
+}
+
+
+
 int
 newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, newkkmat_p m) {
     assert(s1_len<=s2_len);
     int debug = 1;
     int debug2 = 0;
     if (debug)  { printf("newkk_algn,lenx=%d,leny=%d\n",s1_len,s2_len);fflush(stdout);}
+    if (s1_len * MUCH_LONGER < s2_len) 
+    {
+        trivial_algn (s1,s2,s1_len,s2_len,c);
+    }
+    else {
     init_mat (s1_len,s2_len,m);
     int gapcode = cm_get_gap (c); 
     int delta = get_delta (c);
@@ -659,6 +694,7 @@ newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, n
     int rescost = increaseT (s1,s2,m,c,iniT,s1_len,s2_len); 
     if (debug) {printf("end of newkk_algn,cost=%d\n\n",rescost); fflush(stdout);}
     return rescost;
+    }
 };
 
 
@@ -684,15 +720,43 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a)
     CAMLreturn(Val_int(res));
 };
 
-
+void trivial_backtrace(const seqt s1, const seqt s2, seqt alis1, seqt alis2, 
+        int len1, int len2, const cmt c) 
+{
+    int debug = 1;
+    if(debug) {
+       printf("trivial backtrace,len1=%d,len2=%d\n",len1,len2); fflush(stdout); }
+    int i;
+    int add1, add2;
+    for (i=0;i<len1;i++)
+    {
+        add1 = seq_get(s1,i);
+        add2 = cm_get_gap(c);
+        my_prepend(alis1,add1);
+        my_prepend(alis2,add2);
+    }
+    for (i=0;i<len2;i++)
+    {
+        add1 = cm_get_gap(c);
+        add2 = seq_get(s2,i);
+        my_prepend(alis1,add1);
+        my_prepend(alis2,add2);
+    }
+    if(debug) {printf ("end of trivial backtrace\n"); fflush(stdout);}
+}
 
 void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2, 
         int len1, int len2, const cmt c, const newkkmat_p m)
 {
     int debug = 0;
-   //if(debug) {
-       printf("backtrace,len1=%d,len2=%d\n",len1,len2); fflush(stdout); //}
+   if(debug) {
+       printf("backtrace,len1=%d,len2=%d\n",len1,len2); fflush(stdout); }
    assert(len1<=len2);
+   if (len2 > MUCH_LONGER * len1) 
+   {
+       trivial_backtrace(s1,s2,alis1,alis2,len1,len2,c);
+   }
+   else {
    int add1 = 0;
    int add2 = 0;
    int whichdiag, idx_in_my_diag, at_leftborder, at_rightborder;
@@ -742,6 +806,7 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
         j--;
     }
    }
+   }//non-trivial case
    printf ("end of backtrace\n"); fflush(stdout);
 };
 
