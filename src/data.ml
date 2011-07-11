@@ -2778,7 +2778,6 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
         | `Align_Meth v -> {dyna_pam with align_meth = Some v}
         | `Median_Solver c -> {dyna_pam with median_solver = Some c}
         | `Annotate_Tool c -> {dyna_pam with annotate_tool = Some c}
-        (*| `Min_LCB_Ratio c -> {dyna_pam with min_lcb_ratio = Some c}*)
         | `Locus_Inversion c -> {dyna_pam with re_meth = Some (`Locus_Inversion c)}
         | `Locus_Breakpoint c -> {dyna_pam with re_meth = Some (`Locus_Breakpoint c)}
         | `Chrom_Breakpoint c -> {dyna_pam with chrom_breakpoint = Some c}
@@ -2906,10 +2905,10 @@ let create_alpha_c2_breakinvs (data : d) chcode =
             let code2 = all_seq_arr.(idx2).code in 
                 
             let _, _, cost =
-(*                if use_ukk then*)
-(*                Sequence.NewkkAlign.align_2 ~first_gap:false *)
-(*                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm*)
-(*                else*)
+                if use_ukk then
+                Sequence.NewkkAlign.align_2 ~first_gap:false 
+                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm
+                else
                 Sequence.Align.align_2 ~first_gap:false seq1 seq2 c2 Matrix.default
             in 
             gen_cost_mat.(code1).(code2) <- cost;

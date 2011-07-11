@@ -701,10 +701,10 @@ module DOS = struct
                         create m, cost
                 | _ ->
                     let s1', s2', c =
-(*                            if use_ukk then*)
-(*                            Sequence.NewkkAlign.align_2 s1 s2 cm*)
-(*                            Sequence.NewkkAlign.default_ukkm*)
-(*                            else*)
+                            if use_ukk then
+                            Sequence.NewkkAlign.align_2 s1 s2 cm
+                            Sequence.NewkkAlign.default_ukkm
+                            else
                         Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
                     in
                     let median = Sequence.median_2 s1' s2' cm in
@@ -1894,6 +1894,7 @@ let to_string a =
     Array_ops.fold_right_2 builder "" a.codes a.characters 
 
 let of_array spec sc code taxon =
+    Printf.printf "of_array\n%!";
     let align_with_ukk = 
         let dpam = spec.Data.pam in
         match dpam.Data.align_meth with
