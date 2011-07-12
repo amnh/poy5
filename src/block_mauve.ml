@@ -35,7 +35,7 @@ let info_user_message format = Printf.ksprintf (Status.user_message Status.Infor
 * my guess is, it's doing bit arr operations, which should be
 * faster in c_side. anyway, we are not using dyn1 now.*)
 let faster_remove = true
-let debug_main = false
+let debug_main = true
 let debug_remove_bad_match =  false 
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
@@ -4955,7 +4955,7 @@ let rec get_init_lcbs seedNOlstlst
 seed2pos_tbl mum_tbl 
 in_seq_size_lst init_num_mums 
 min_lcb_ratio min_lcb_len previous_fullcovR=
-    let debug = false in
+    let debug = true in
     if debug then Printf.printf "get initial lcbs with min_lcbR=%f,min_lcblen=%d\n%!"
     min_lcb_ratio min_lcb_len;
     assert(min_lcb_ratio > 0. );

@@ -111,14 +111,14 @@ expand_mat (newkkmat_p m,int newk,int oldk)
     }
     //set expand sign
     if (debug) { 
-        printf ("total_len_in_use=%d <=> total_len=%d\n", m->total_len_in_use, m->total_len); 
+        printf ("total_len_in_use=%li <=> total_len=%li\n", m->total_len_in_use, m->total_len); 
         fflush(stdout); }
     if (m->total_len_in_use <= m->total_len) expand_diagonal = 0;
     else 
     {
         if (debug) { printf ("we NEED to expand diagonal\n"); fflush(stdout);}
         expand_diagonal = 1;
-        int len_we_need = m->total_len_in_use;
+        MAT_SIZE len_we_need = m->total_len_in_use;
         m->pool_cost = realloc (m->pool_cost,len_we_need*sizeof(int));
         m->pool_dir = realloc (m->pool_dir,len_we_need*sizeof(DIRECTION_MATRIX));
         m->pool_gapnum = realloc (m->pool_gapnum,len_we_need*sizeof(DIRECTION_MATRIX));
@@ -134,7 +134,7 @@ expand_mat (newkkmat_p m,int newk,int oldk)
         {
             diaglen = emptydiag->len;
             assert(diaglen>0);
-            //printf ("set diag#%d(%d);%!",i,diaglen); fflush(stdout);
+            //printf ("set diag#%d(%d);",i,diaglen); fflush(stdout);
             emptydiag -> costarr = thiscost;
             emptydiag -> dirarr = thisdir;
             emptydiag -> gapnumarr = thisgap;
@@ -147,7 +147,7 @@ expand_mat (newkkmat_p m,int newk,int oldk)
         {
             diaglen = emptydiag->len;
             assert(diaglen>0);
-            //printf ("set diag#%d(%d);%!",i,diaglen); fflush(stdout);
+            //printf ("set diag#%d(%d);",i,diaglen); fflush(stdout);
             emptydiag -> costarr = thiscost;
             emptydiag -> dirarr = thisdir;
             emptydiag -> gapnumarr = thisgap;
@@ -163,7 +163,7 @@ expand_mat (newkkmat_p m,int newk,int oldk)
     if (expand_diag_size) { m->diag_size = m->diag_size_in_use; }
     if (expand_diagonal) { m->total_len = m->total_len_in_use; }
     if (debug) 
-    { printf ("Total size of memory we are using :%d(%d) cells, diag_size=%d(%d)\n",
+    { printf ("Total size of memory we are using :%lu(%lu) cells, diag_size=%d(%d)\n",
             m->total_len_in_use,m->total_len,m->diag_size_in_use,m->diag_size); 
         fflush(stdout);}
     /*for (i=0;i<newsize;i++)
@@ -237,7 +237,6 @@ get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECT
 void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIRECTION_MATRIX dir,DIRECTION_MATRIX  max_gapnum)
 {
     int debug = 0;
-    if ((whichdiag==3648)&&(idx_in_my_diag==0)) debug=1;
     ukkdiag_p thisdiag = m->diagonal;
     if ((idx_in_my_diag >= thisdiag->len) || (idx_in_my_diag<0)) { debug=1; }
     if (debug) { printf ("set ukkcost, diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d\n",whichdiag,idx_in_my_diag,cost,dir,max_gapnum); fflush(stdout);}
@@ -276,8 +275,8 @@ void get_cmcost (const cmt c, int a, int b, int * res)
 int in_non_change_zone (int i, int j,int oldk, int lenX, int lenY)
 {
     int lefttopi=0, lefttopj=0;
-    int leftbottomi=oldk, leftbottomj=0;
-    int righttopi=0,righttopj=lenY-lenX+oldk;
+    int leftbottomi=oldk;
+    int righttopj=lenY-lenX+oldk;
     return ( i>=lefttopi) && (i<= leftbottomi) && (j>= lefttopj) && (j<=righttopj);
 };
 
@@ -496,7 +495,7 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
 
 int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, int lenX, int lenY)
 {
-    int debug = 0;
+    int debug = 1;
     int p = (newT - (lenY-lenX))/2;
     if (debug) { printf ("increaseT, newT=%d,p=%d,",newT,p); fflush(stdout); }
     int res_cost=-1; 
@@ -518,6 +517,8 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
         fflush(stdout); }
         increaseT (s1,s2,m, c,2*newT, lenX, lenY);
     };
+    assert(0==1);
+    return 0;
 };
 
 void
@@ -528,12 +529,12 @@ init_mat (int lenX, int lenY,newkkmat_p m)
     //expand sign
     int expand_diag_size=1;
     int expand_diagonal=1;
-    int len=0, oldlen=0;
+    MAT_SIZE len=0, oldlen=0;
     int baseband=0;
     baseband = lenY-lenX+1;
     oldlen = m->total_len;
     len = lenX * baseband;
-    if (debug) { printf ("newkkonen init_mat,oldlen = %d, lenx=%d,leny=%d,baseband=%d,\n",oldlen,lenX,lenY,baseband); fflush(stdout); }
+    if (debug) { printf ("newkkonen init_mat,oldlen = %li, lenx=%d,leny=%d,baseband=%d,\n",oldlen,lenX,lenY,baseband); fflush(stdout); }
     assert(m != NULL);
     //k is init to 0
     m->k=0;
@@ -543,7 +544,7 @@ init_mat (int lenX, int lenY,newkkmat_p m)
     m->diag_size_in_use = baseband; //array of diagonal size, start with [lenx,lenx,....]
     //set total_len_in_use to len, may increase later
     m->total_len_in_use = len;
-    if (debug) { printf ("len=%d <=> oldlen=%d\n", len, oldlen); fflush(stdout);}
+    if (debug) { printf ("sizeofint=%lu,sizeoflong=%lu,len=%li <=> oldlen=%li\n", sizeof(int),sizeof(long),len, oldlen); fflush(stdout);}
     //set expand sign
     if (len<=oldlen) 
     {
@@ -600,7 +601,7 @@ init_mat (int lenX, int lenY,newkkmat_p m)
         DIRECTION_MATRIX * thisgap = m->pool_gapnum;
         ukkdiag_p thisdiag = m->diagonal;
         for (i=0;i<baseband;i++) {
-            //printf ("init set diag#%d(%d);%!",i,thisdiag->len); fflush(stdout);
+            //printf ("init set diag#%d(%d);",i,thisdiag->len); fflush(stdout);
             thisdiag -> costarr = thiscost;
             thisdiag -> dirarr = thisdir;
             thisdiag -> gapnumarr = thisgap;
@@ -639,7 +640,7 @@ int trivial_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cm
     if (debug)  { printf("trivial algn\n");fflush(stdout);}
     int indelcost1 = get_indel_cost (s1,s1_len,c);
     int indelcost2 = get_indel_cost (s2,s2_len,c);
-    if (debug) { printf("end of trivial algn, cost=%d\n%!",indelcost1+indelcost2); fflush(stdout);}
+    if (debug) { printf("end of trivial algn, cost=%d\n",indelcost1+indelcost2); fflush(stdout);}
     return (indelcost1 + indelcost2);
 }
 
@@ -715,7 +716,6 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a)
     s2_len = seq_get_len (s2p);
     assert (s2_len >= s1_len);
     int res;
-    int iniK = get_k (mp);
     res = newkk_algn (s1p, s2p, s1_len,s2_len,tc, mp);
     CAMLreturn(Val_int(res));
 };
