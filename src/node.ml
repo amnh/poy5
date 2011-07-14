@@ -640,25 +640,18 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                 | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
                     IFDEF USE_LIKELIHOOD THEN
                         let min_bl = MlStaticCS.minimum_bl () in
-                        let t1, t2, opt = match t1,t2 with
-                            | Some (t1), Some (t2) when code <= 0 ->
-                                (max min_bl t1, 0.0, false)
-                            | Some (t1), Some (t2) ->
-                                (max min_bl t1, max min_bl t2, false)
+                        let t1, t2 = match t1,t2 with
+                            | Some (t1), Some (t2) when code <= 0 -> max min_bl t1, 0.0
+                            | Some (t1), Some (t2) -> max min_bl t1, max min_bl t2
                             | (Some t1, None)
-                            | (None, Some t1) when code <= 0 ->
-                                ( max min_bl (t1/.2.0), max min_bl (t1/.2.0), false )
+                            | (None, Some t1) when code <= 0 -> max min_bl (t1/.2.0), max min_bl (t1/.2.0)
                             | _ ->
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
                                 if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                                (max min_bl t1, max min_bl t2, true)
+                                max min_bl t1, max min_bl t2
                         in
-                        let median,t1,t2 =
-                            if opt then
-                                MlDynamicCS.median_i code ca_pre cb_pre t1 t2
-                            else
-                                MlDynamicCS.median code ca_pre cb_pre
-                                                    (Some t1) (Some t2),t1,t2
+                        let median =
+                            MlDynamicCS.median code ca_pre cb_pre (Some t1) (Some t2)
                         in
                         let res = DynamicCS.MlCS median in
                         let cst = DynamicCS.total_cost res in
@@ -1238,6 +1231,7 @@ let median ?branches code old a b =
     in
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
+
     let new_characters =
         match old with
         | None -> 
