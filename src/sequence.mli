@@ -650,7 +650,7 @@ val check_repeated_char : s -> Alphabet.a -> unit
     sequence [code2_arr] *)
 val create_general_ali :
   int array ->
-  int array -> int -> Cost_matrix.Two_D.m -> int array * int array * int
+  int array -> int -> Cost_matrix.Two_D.m -> bool -> int array * int array * int
 
 (** Map function for each element in the sequence characters **)
 val map : (int -> int) -> s -> s
@@ -671,7 +671,8 @@ module Clip : sig
     val count_tip_gaps : int -> old_s -> old_s -> int
     val correct_distance : int -> Cost_matrix.Two_D.m -> old_s -> old_s -> int
     -> int
-    val corrected_distance : Cost_matrix.Two_D.m -> int -> old_s -> old_s -> int
+    val corrected_distance : Cost_matrix.Two_D.m -> int -> old_s -> old_s ->
+        bool -> int
     type s = [ `DO of old_s | `First of old_s | `Last of old_s ]
     module Align : sig
         val align_2 : ?first_gap:bool -> s -> s -> 

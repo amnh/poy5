@@ -2708,7 +2708,7 @@ let check_repeated_char seq alpha =
 (** [create_general_ali code1_arr code2_arr gap_code cost_mat]
 * returns the general alignment between sequence [code1_arr] and 
 * sequence [code2_arr] *)
-let create_general_ali code1_arr code2_arr gap_code cost_mat =
+let create_general_ali code1_arr code2_arr gap_code cost_mat use_ukk =
 (*    print_endline "Create general alignment"; *)
 
     let len1 = Array.length code1_arr in
@@ -2727,9 +2727,12 @@ let create_general_ali code1_arr code2_arr gap_code cost_mat =
              | _ -> code2_arr.(index - 1) ) (len2 + 1) 
     in 
 	let ext_alied_seq1, ext_alied_seq2, cost = 
-(*        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm*)
-        Align.align_2 ext_seq1 ext_seq2 cost_mat Matrix.default 
-    in
+        if use_ukk then
+        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat
+         NewkkAlign.default_ukkm
+        else
+        Align.align_2 
+        ext_seq1 ext_seq2 cost_mat Matrix.default in 		
 
     let ali_len = length ext_alied_seq1 in 
     let alied_seq1 = to_array ext_alied_seq1 in 
@@ -2817,14 +2820,16 @@ module Clip = struct
         if subst = 0 then cost
         else cost - (subst + gap_opening)
 
-    let corrected_distance c2 missing_distance a b =
+    let corrected_distance c2 missing_distance a b use_ukk =
         let gap = Cost_matrix.Two_D.gap c2 in
         if is_empty a gap || is_empty b gap then 
             missing_distance
         else
             let seqa, seqb, cost = 
-(*                NewkkAlign.align_2 a b c2 NewkkAlign.default_ukkm*)
-                Align.align_2 a b c2 Matrix.default
+                if use_ukk then 
+                    NewkkAlign.align_2 a b c2 NewkkAlign.default_ukkm
+                else 
+                    Align.align_2 a b c2 Matrix.default
             in
             correct_distance gap c2 seqa seqb cost
 

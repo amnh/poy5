@@ -255,7 +255,7 @@ void sanity_check2 (int x)
 {
     if ((x==1)||(x==2)||(x==4)||(x==8)||(x==16)) {}
     else {
-        printf ("WARNING: we have a x=%d, not a dna code !!!!\n", x);
+        printf ("WARNING: we have a x=%d, not a dna code\n", x);
         fflush(stdout);
     }
 };
