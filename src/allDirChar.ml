@@ -1179,7 +1179,7 @@ module F : Ptree.Tree_Operations
             | (Tree.Interior (_, par, a, b)) as v ->
                     let a,b = Tree.other_two_nbrs prev v in
                     if debug_downpass_fn then
-                        info_user_message 
+                        info_user_message
                             "Adding Vertex %d post Order: (%d,%d) and %d%!" 
                                             code a b prev;
                     let interior = 
@@ -1283,9 +1283,10 @@ module F : Ptree.Tree_Operations
         else general_pick_best_root blindly_trust_downpass ptree
 
     (* ----------------- *)
-    (* function to adjust the likelihood model of a tree using BFGS --quasi
-     * newtons method. Function requires three directions. *)
-    let model_fn tree = 
+    (* function to adjust the likelihood model ;for static characters of a tree
+     * using BFGS --quasi newtons method. Function requires three directions. *)
+    let static_model_fn tree = 
+        assert( using_likelihood `Static tree );
         (* replace nodes in a tree, copying relevent data structures *)
         let substitute_nodes nodes tree =
             let adder acc x = IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
@@ -1313,8 +1314,7 @@ module F : Ptree.Tree_Operations
         and current_cost = Ptree.get_cost `Adjusted tree in
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_model current_model with
-            | Some func -> 
-                let tree = update_branches tree in
+            | Some func ->
                 let params = MlModel.get_current_parameters_for_model current_model in
                 let _,results = (* fst is vector of results *)
                     Numerical.bfgs_method (f_likelihood func tree chars current_model)
@@ -1324,7 +1324,7 @@ module F : Ptree.Tree_Operations
             | None -> (tree,current_cost)
         in
         if debug_model_fn then
-            info_user_message "\t Optimized Model to %f" best_cost;
+            info_user_message "\t Optimized Model to %f --> %f" current_cost best_cost;
         let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_alpha current_model with
@@ -1339,9 +1339,101 @@ module F : Ptree.Tree_Operations
                 snd results
         in
         if debug_model_fn then
-            info_user_message "\t Optimized Alpha to %f" best_cost;
+            info_user_message "\t Optimized Alpha to %f --> %f" current_cost best_cost;
         if best_cost < current_cost then best_tree else tree
 
+
+    module IA = ImpliedAlignment.Make (AllDirNode.AllDirF) (Edge.LazyEdge)
+    let filter_characters tree codes = 
+        let filter_codes node = AllDirNode.AllDirF.f_codes codes node in
+        let new_node_data = 
+            IntMap.map filter_codes tree.Ptree.node_data 
+        in
+        let component_root = 
+            IntMap.map (fun x ->
+                match x.Ptree.root_median with
+                | None -> x
+                | Some (x, y) -> 
+                    let y = filter_codes y in
+                    { 
+                        Ptree.component_cost = 
+                                AllDirNode.AllDirF.tree_cost None y;
+                        Ptree.adjusted_component_cost = 
+                                AllDirNode.AllDirF.tree_cost None y;
+                        Ptree.root_median = Some (x, y) })
+            tree.Ptree.component_root
+        in
+        { tree with
+              Ptree.node_data = new_node_data;
+              Ptree.component_root = component_root }
+
+
+    (* Optimize model of dynamic likelihood characters by converting to an
+     * implied alignment. We do ONE pass; ensuring the improvement of costs
+     * exists after the call. *)
+    let dynamic_model_fn dyn_tree =
+        (* define a function to convert and optimize static model *)
+        let create_static_tree ptree =
+            let old_verbosity = Status.get_verbosity () in
+            Status.set_verbosity `None;
+            let data,nodes =
+                ptree --> IA.to_static_homologies true filter_characters true
+                                                false `AllDynamic ptree.Ptree.data
+                      --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
+            in
+            Status.set_verbosity old_verbosity;
+            let node_data =
+                List.fold_left
+                    (fun acc x -> IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc)
+                    IntMap.empty
+                    nodes
+            in
+            { ptree with Ptree.data = data;
+                         Ptree.node_data = node_data; }
+                --> internal_downpass true
+                --> static_model_fn
+        (* define a function to apply model from static to dynamic *)
+        and static_model_to_dyn_chars static_tree dyn_tree =
+            let data, nodes =
+                Data.sync_static_to_dynamic_model
+                    ~src:static_tree.Ptree.data ~dest:dyn_tree.Ptree.data
+                --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
+            in
+            let node_data =
+                List.fold_left
+                    (fun acc x -> IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc)
+                    IntMap.empty
+                    nodes
+            in
+            { dyn_tree with Ptree.data      = data;
+                            Ptree.node_data = node_data; }
+                --> internal_downpass true 
+                --> refresh_all_edges None true None
+        in
+        let old_cost = Ptree.get_cost `Adjusted dyn_tree in
+        let new_tree = 
+                dyn_tree
+                    --> static_model_to_dyn_chars (create_static_tree dyn_tree)
+                    --> assign_single
+        in
+        let new_cost = Ptree.get_cost `Adjusted new_tree in
+        if debug_model_fn then
+            info_user_message "Updated Dynamic Likelihood Score: %f --> %f" old_cost new_cost;
+        if new_cost < old_cost then new_tree else dyn_tree
+
+
+    (** wrapper for model function to correctly call dynamic/static likelihood
+        model adjustment functions **)
+    let model_fn tree = 
+        if using_likelihood `Static tree then
+            static_model_fn tree
+        else if using_likelihood `Dynamic tree then
+            dynamic_model_fn tree
+        else
+            tree
+
+
+    (* adjust the assignment of internal nodes, and models for a tree *)
     let adjust_fn ?(max_iter=20) node_man tree = 
         (* adjust model and branches -- for likelihood *)
         let adjust_ do_model do_branches branches iterations first_tree = 
@@ -1367,16 +1459,16 @@ module F : Ptree.Tree_Operations
                 if debug_model_fn then
                     info_user_message "Step %d; Optimized Branches %f --> %f" iter mcost bcost;
                 if icost =. bcost || iter > max_iter
-                    then btree 
+                    then btree
                     else loop_ iter bcost btree
             in
             let first_cost = Ptree.get_cost `Adjusted first_tree in
             loop_ 0 first_cost first_tree
         in
-        let tree = 
+        let tree =
             if (using_likelihood `Either tree) then begin
                 let do_branches,branches,do_model = match node_man with
-                    | Some node_man -> 
+                    | Some node_man ->
                         let do_branches =
                             (match node_man#branches with | Some [] -> false | _ -> true)
                                 && (tree.Ptree.data.Data.iterate_branches)
@@ -1427,7 +1519,6 @@ module F : Ptree.Tree_Operations
                         --> pick_best_root
                         --> assign_single
                         --> adjust_fn None
-                        --> pick_best_root
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then info_user_message "Downpass Ends\n%!";

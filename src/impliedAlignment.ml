@@ -2693,7 +2693,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         let d = Data.add_multiple_static_parsed_file data all_to_add in
         let d = Data.remove_absent_present_encodings d in
-        let d = Data.sync_dynamic_to_static_model_branches ~src:tree.Ptree.data ~dest:d in
+        let d = Data.convert_dynamic_to_static_branches ~src:tree.Ptree.data ~dest:d in
+        let d = Data.sync_dynamic_to_static_model ~src:tree.Ptree.data ~dest:d in
         if ignore then Data.process_ignore_characters false d (`Names names)
         else d
 

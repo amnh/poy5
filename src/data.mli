@@ -617,8 +617,8 @@ val type_of_dynamic_likelihood: d -> Methods.ml_costfn option
 val convert_dynamic_to_static_branches : src:d -> dest:d -> d
 val convert_static_to_dynamic_branches : src:d -> dest:d -> d
 
-val sync_dynamic_to_static_model_branches : src:d -> dest:d -> d
-val sync_static_to_dynamic_model_branches : src:d -> dest:d -> d
+val sync_dynamic_to_static_model : src:d -> dest:d -> d
+val sync_static_to_dynamic_model : src:d -> dest:d -> d
 
 val remove_absent_present_encodings : ?ignore:bool -> d -> d
 

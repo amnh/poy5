@@ -604,7 +604,7 @@ let convert_static_to_dynamic_branches ~src ~dest =
                 in
                 let lengths = 
                     try Hashtbl.find ctbl old_name
-                    with | Not_found -> 
+                    with | Not_found ->
                         failwithf "Could not find old_name:%s; new_code:%d new_name:%s; rep_code:%d"
                                     old_name new_code new_name rep_code
                 in
@@ -843,13 +843,13 @@ let print (data : d) =
         Printf.printf "[%d,%s],%!" key bind;
     in
     Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
-    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
-    Printf.printf "\n check character_codes: \n%!";
-    Hashtbl.iter print_character_codes data.character_codes;
+(*    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();*)
+(*    Printf.printf "\n check character_codes: \n%!";*)
+(*    Hashtbl.iter print_character_codes data.character_codes;*)
     Printf.printf "\n check taxon_characters:\n %!";
     Hashtbl.iter print_taxon data.taxon_characters;
-    Printf.printf "\n check character_specs:\n%!";
-    Hashtbl.iter print_specs data.character_specs;
+(*    Printf.printf "\n check character_specs:\n%!";*)
+(*    Hashtbl.iter print_specs data.character_specs;*)
     Printf.printf "\n check models:\n%!";
     print_models (data.dynamics @ data.static_ml);
     let () = match data.branches with
@@ -6051,8 +6051,7 @@ let has_dynamic d =
  * destination should be returned. The translate parameter will translate the
  * codes in the branch lengths with the map defined in the dynamic_static_codes
  * map. *)
-let sync_dynamic_to_static_model_branches ~src ~dest =
-    let dest = convert_dynamic_to_static_branches src dest in
+let sync_dynamic_to_static_model ~src ~dest =
     let char_specs =
         let spec = Hashtbl.copy dest.character_specs in
         All_sets.IntegerMap.iter
@@ -6067,12 +6066,11 @@ let sync_dynamic_to_static_model_branches ~src ~dest =
     categorize { dest with character_specs = char_specs; }
 
 (* converse of above function *)
-let sync_static_to_dynamic_model_branches ~src ~dest = 
+let sync_static_to_dynamic_model ~src ~dest = 
     (* confirm a set is consistent and return model *)
     let get_model_from_set data codes = 
         get_model_opt data (All_sets.Integers.choose codes)
     in
-    let dest = convert_static_to_dynamic_branches src dest in
     let char_specs = 
         let spec = Hashtbl.copy dest.character_specs in
         All_sets.IntSetMap.iter
