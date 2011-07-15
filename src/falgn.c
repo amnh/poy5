@@ -40,6 +40,8 @@
     #define INFINITY    1/0
 #endif
 
+#define CLEAR           1
+
 /** dor this file CDIR == DIRECTION_MATRIX in matiches.h **/
 
 /** defines for ease of use **/
@@ -67,6 +69,7 @@ print_alignment_matrixf(const double* costs, matricest mat, const int w, const i
         fprintf (stdout, "|\n");
     }
     fprintf (stdout, "\n");
+    fflush( stdout );
 }
 
 void clear_matrixi( int *mat, const int x, const int y ){
@@ -102,8 +105,8 @@ median_backtrace (const seqt x, const seqt y, seqt m, fcmt *FA)
     while( !(x_loc == 0 && y_loc == 0) )
     {
         linear = y_loc * x->len + x_loc;
-/*        printf("(%d,%d):%d -- %d !e { A:%d, D:%d, I:%d }\n",
-                x_loc,y_loc,linear,DGET(FA,linear),ALIGN,DELETE,INSERT); */
+/*        printf("(%d,%d):%d -- %d !e { A:%d, D:%d, I:%d }\n",*/
+/*                x_loc,y_loc,linear,DGET(FA,linear),ALIGN,DELETE,INSERT);*/
         if( INSERT & DGET(FA,linear) ){
             seq_prepend( m , fasn(FA->fmat,GET(x,x_loc),FA->fmat->gap) );
             --x_loc;
@@ -115,7 +118,9 @@ median_backtrace (const seqt x, const seqt y, seqt m, fcmt *FA)
             seq_prepend( m , fasn(FA->fmat,FA->fmat->gap,GET(y,y_loc)) );
             --y_loc;
         } else {
-            assert( 1 == 0 );
+            printf("XLEN: %d\t YLEN: %d\n",x->len, y->len );
+            print_alignment_matrixf( FA->costs, FA->direc, x->len, y->len );
+            failwith( "Unknown Direction" );
         }
     }
     seq_prepend( m, FA->fmat->gap); 
@@ -395,8 +400,11 @@ double nukk_falign( const seqt x, const seqt y, fcmt *FA )
 
     assert( x->len >= y->len );
     k = MAX( MIN_UKK, (x->len-y->len)+1 );
-    clear_matrixi( FA->nukk, x->len, y->len );
-    clear_matrixf( FA->costs, x->len, y->len );
+    if( CLEAR ){
+        clear_matrixi( FA->nukk, x->len, y->len );
+        clear_matrixf( FA->costs, x->len, y->len );
+        mat_clean_direction_matrix( FA->direc );
+    }
     build_strip( x, y, FA, k );
 
 /*    printmatrixi( FA->nukk, x->len, y->len );*/
@@ -424,7 +432,7 @@ falign_CAML_median(value oSpace, value oMat, value oU, value oD, value oUi,
     CAMLxparam1( ogap );
 
     seqt a,b, m;
-    double ta, tb, *PA, *PB, *TMP;
+    double ta, tb, *PA, *PB;
     fcmt results;
     mat *space;
     int mat_size, alph, fcm_size, gap;
@@ -447,7 +455,6 @@ falign_CAML_median(value oSpace, value oMat, value oU, value oD, value oUi,
      *      TODO: can we be safe and re-use these cost matrices? */
     mat_size = a->len * b->len;
     assert( space->loc > mat_size );
-    free_all( space );
     fcm_size = ((1 << alph)-1);
 
     results.fmat = (fm*) malloc( sizeof(fm) );
@@ -455,26 +462,16 @@ falign_CAML_median(value oSpace, value oMat, value oU, value oD, value oUi,
     results.fmat->size = fcm_size;
     results.fmat->comb = 1;
     results.fmat->gap  = 1 << gap;
-    results.costs = register_section( space, mat_size, 0 );
     mat_setup_size (results.direc, a->len, b->len, 0, 0, alph, 0);
-    results.fmat->cost = register_section( space, fcm_size*fcm_size, 0 );
     results.fmat->cost_asgn = (int*) malloc( sizeof(int)*fcm_size*fcm_size );
 
-    /** pre-calculate the matrix **/
-    PA = register_section( space, alph*alph, 0 );
-    PB = register_section( space, alph*alph, 0 );
-    TMP= register_section( space, alph*alph, 0 );
-    if( Val_none == oUi ){
-        compose_sym( PA, Data_bigarray_val(oU), Data_bigarray_val(oD), ta, alph, TMP );
-        compose_sym( PB, Data_bigarray_val(oU), Data_bigarray_val(oD), tb, alph, TMP );
-    } else {
-        compose_gtr( PA, Data_bigarray_val(oU), Data_bigarray_val(oD),
-                     Data_bigarray_val(Some_val(oUi)), ta, alph, TMP );
-        compose_gtr( PB, Data_bigarray_val(oU), Data_bigarray_val(oD),
-                     Data_bigarray_val(Some_val(oUi)), tb, alph, TMP );
-    }
-    neg_log_comp( PA, alph, alph );
-    neg_log_comp( PB, alph, alph );
+    /** re-register the matrix **/
+    /** CARE MUST BE TAKEN THAT THESE ARE REGISTERED THE SAME WAY AS DOWNPASS! **/
+    free_all( space ); /** reset location; no need to expand **/
+    results.costs      = register_section( space, mat_size, 0 );
+    results.fmat->cost = register_section( space, fcm_size*fcm_size, 0 );
+    PA                 = register_section( space, alph*alph, 0 );
+    PB                 = register_section( space, alph*alph, 0 );
     precalc( results.fmat, PA, PB );
 
     median_backtrace( a, b, m, &results );
@@ -501,7 +498,7 @@ falign_CAML_backtrace( value oSpace, value oMat, value oU, value oD, value oUi,
     CAMLxparam3( oeb, om, ogap );
 
     seqt a,b, ea, eb, m;
-    double ta, tb, *PA, *PB, *TMP;
+    double ta, tb, *PA, *PB;
     fcmt results;
     mat *space;
     int mat_size, alph, fcm_size, gap;
@@ -526,7 +523,6 @@ falign_CAML_backtrace( value oSpace, value oMat, value oU, value oD, value oUi,
      *      TODO: can we be safe and re-use these cost matrices? */
     mat_size = a->len * b->len;
     assert( space->loc > mat_size );
-    free_all( space );
     fcm_size = ((1 << alph)-1);
 
     results.fmat = (fm*) malloc( sizeof(fm) );
@@ -534,26 +530,17 @@ falign_CAML_backtrace( value oSpace, value oMat, value oU, value oD, value oUi,
     results.fmat->size = fcm_size;
     results.fmat->comb = 1;
     results.fmat->gap  = 1 << gap;
-    results.costs = register_section( space, mat_size, 0 );
     mat_setup_size (results.direc, a->len, b->len, 0, 0, alph, 0);
     results.fmat->cost = register_section( space, fcm_size*fcm_size, 0 );
     results.fmat->cost_asgn = (int*) malloc( sizeof(int)*fcm_size*fcm_size );
 
-    /** pre-calculate the matrix **/
-    PA = register_section( space, alph*alph, 0 );
-    PB = register_section( space, alph*alph, 0 );
-    TMP= register_section( space, alph*alph, 0 );
-    if( Val_none == oUi ){
-        compose_sym( PA, Data_bigarray_val(oU), Data_bigarray_val(oD), ta, alph, TMP );
-        compose_sym( PB, Data_bigarray_val(oU), Data_bigarray_val(oD), tb, alph, TMP );
-    } else {
-        compose_gtr( PA, Data_bigarray_val(oU), Data_bigarray_val(oD),
-                     Data_bigarray_val(Some_val(oUi)), ta, alph, TMP );
-        compose_gtr( PB, Data_bigarray_val(oU), Data_bigarray_val(oD),
-                     Data_bigarray_val(Some_val(oUi)), tb, alph, TMP );
-    }
-    neg_log_comp( PA, alph, alph );
-    neg_log_comp( PB, alph, alph );
+    /** re-register the matrix **/
+    /** CARE MUST BE TAKEN THAT THESE ARE REGISTERED THE SAME WAY AS DOWNPASS! **/
+    free_all( space ); /** reset location; no need to expand **/
+    results.costs      = register_section( space, mat_size, 0 );
+    results.fmat->cost = register_section( space, fcm_size*fcm_size, 0 );
+    PA                 = register_section( space, alph*alph, 0 );
+    PB                 = register_section( space, alph*alph, 0 );
     precalc( results.fmat, PA, PB );
 
     full_backtrace( a, b, ea, eb, m, &results );
@@ -574,7 +561,6 @@ value
 falign_CAML_align_2(value oSpace, value oMat, value oU, value oD, value oUi,
                         value ota, value otb, value oa, value ob, value ogap)
 {
-
     CAMLparam5( oSpace, oMat, oU, oD, oUi );
     CAMLxparam5( ota, otb, oa, ob, ogap );
     CAMLlocal1( cost );
@@ -610,11 +596,11 @@ falign_CAML_align_2(value oSpace, value oMat, value oU, value oD, value oUi,
     results.fmat->cost_asgn = (int*) malloc( sizeof(int)*fcm_size*fcm_size );
     mat_clean_direction_matrix( results.direc );
 
-    results.costs = register_section( space, mat_size, 0 );
-    PA = register_section( space, alph*alph, 0 );
-    PB = register_section( space, alph*alph, 0 );
-    TMP= register_section( space, alph*alph, 0 );
+    results.costs      = register_section( space, mat_size, 0 );
     results.fmat->cost = register_section( space, fcm_size*fcm_size, 0 );
+    PA                 = register_section( space, alph*alph, 0 );
+    PB                 = register_section( space, alph*alph, 0 );
+    TMP                = register_section( space, alph*alph, 0 );
 
     /** pre-calculate the matrix **/
     if( Val_none == oUi ){
@@ -672,7 +658,7 @@ falign_CAML_nukk_2(value oSpace, value oMat, value oU, value oD, value oUi,
     mat_size = a->len * b->len;
     fcm_size = ((1 << alph) - 1);
 
-    /** register scratch space **/
+    /** register scratch space; free first to 'erase' information. **/
     expand_matrix( space, (3 * alph * alph) + mat_size + fcm_size *fcm_size );
     results.direc = Matrices_struct( oMat );
 
@@ -687,11 +673,11 @@ falign_CAML_nukk_2(value oSpace, value oMat, value oU, value oD, value oUi,
     results.nukk = (int*) malloc( sizeof(int)*mat_size );
     mat_clean_direction_matrix( results.direc );
 
-    results.costs = register_section( space, mat_size, 0 );
-    PA = register_section( space, alph*alph, 0 );
-    PB = register_section( space, alph*alph, 0 );
-    TMP= register_section( space, alph*alph, 0 );
+    results.costs      = register_section( space, mat_size, 0 );
     results.fmat->cost = register_section( space, fcm_size*fcm_size, 0 );
+    PA                 = register_section( space, alph*alph, 0 );
+    PB                 = register_section( space, alph*alph, 0 );
+    TMP                = register_section( space, alph*alph, 0 );
 
     /** pre-calculate the matrix **/
     if( Val_none == oUi ){
@@ -710,11 +696,12 @@ falign_CAML_nukk_2(value oSpace, value oMat, value oU, value oD, value oUi,
     min_cost = nukk_falign( a, b, &results );
     cost = caml_copy_double( min_cost );
 
-    /* print_alignment_matrixf( results.costs, results.direc, b->len, a->len ); */
+/*    printf("{ A:%d, D:%d, I:%d }\n", ALIGN,DELETE,INSERT);*/
+/*    print_alignment_matrixf( results.costs, results.direc, a->len, b->len );*/
 
-    //free(results.fmat->cost_asgn);
+    free(results.fmat->cost_asgn);
     free(results.fmat);
-    //free(results.nukk);
+    free(results.nukk);
 
     CAMLreturn( cost );
 }

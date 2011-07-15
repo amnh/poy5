@@ -76,6 +76,8 @@ type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
 
 let pp_seq model chan seq = Sequence.print chan seq model.alph
 
+let pp_aseq alph chan seq = Sequence.print chan seq alph
+
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
 let make_model alph model = { static = model; alph = alph; }
@@ -256,6 +258,8 @@ module CMPLAlign : A = struct
                 then a,ta, b,tb
                 else b,tb, a,ta
         in
+(*        Printf.printf "\nA: %a\n" (pp_aseq Alphabet.nucleotides) a;*)
+(*        Printf.printf "B: %a\n\n" (pp_aseq Alphabet.nucleotides) b;*)
         median_backtrace fmat mat u d ui ta tb a b m g
 
     let nukk_align fmat mat u d ui ta tb a b g =
@@ -375,6 +379,12 @@ module CMPLAlign : A = struct
 
     let readjust s1 s2 s3 model t1 t2 t3 =
         let algn s1 s2 t1 t2 = median_2_cost s1 s2 model t1 t2 (get_mem s1 s2) in
+
+        Printf.printf "A : %f - %a\n" t1 (pp_seq model) s1;
+        Printf.printf "B : %f - %a\n" t2 (pp_seq model) s2;
+        Printf.printf "C : %f - %a\n" t3 (pp_seq model) s3;
+
+
         let make_center s1 s2 s3=
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
@@ -460,14 +470,16 @@ module CMPLAlign : A = struct
 
     let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
 
-    let backtrace ?filter_gap m (fmat,mat) x y tx ty =
-        let med= create_s x y in
+    let backtrace ?(filter_gap=true) m (fmat,mat) x y tx ty =
+        let med = create_s x y in
         let () = 
             let gap = Alphabet.get_gap m.static.MlModel.alph in
             median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
                              m.static.MlModel.ui tx ty x y med gap
         in
-        med
+        if filter_gap
+            then remove_gaps (Alphabet.get_gap m.alph) med
+            else med
 
     let align_2 ?first_gap x y m tx ty ((fmat,mat) as mem) =
         let cost= cost_2 x y m tx ty mem in
@@ -2029,3 +2041,24 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
                    mal_cost     mpl_cost     flk_cost cmpl_cost
                    mal_opt_cost mpl_opt_cost flk_opt_cost cmpl_opt_cost
                    (pp_seq model) mpl_median (pp_seq model) flk_median (pp_seq model) cmpl_median
+
+
+let () = 
+    let str1 = "ACCCCTTGGTG" and str2 = "CCCTTTGG"
+    and alph = Alphabet.nucleotides in
+    let seq1 = CMPLAlign.s_of_seq (sequence_of_string alph str1)
+    and seq2 = CMPLAlign.s_of_seq (sequence_of_string alph str2) in
+    let modl = spec_model alph MlModel.jc69_5 
+    and mem = CMPLAlign.get_mem seq1 seq2 in
+    Printf.printf "COST: %f\n%!" 
+                  (CMPLAlign.cost_2 seq1 seq2 modl 0.1 0.1 mem);
+    Printf.printf "Alignment: %a\n%!" (pp_seq modl)
+                  (CMPLAlign.seq_of_s (CMPLAlign.backtrace modl mem seq1 seq2 0.1 0.1))
+
+
+
+
+
+
+
+
