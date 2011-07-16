@@ -1517,7 +1517,7 @@ module RL = struct
     let median_3 h p n c1 c2 = n
 
     let distance ((at, ast) as a) ((bt, bst) as b) =
-        let debug = true in
+        let debug = false in
         let in_rl = at in
         if debug then begin
             Printf.printf "seqCS.RL.diatance -> %!";
@@ -1894,7 +1894,6 @@ let to_string a =
     Array_ops.fold_right_2 builder "" a.codes a.characters 
 
 let of_array spec sc code taxon =
-    Printf.printf "of_array\n%!";
     let align_with_ukk = 
         let dpam = spec.Data.pam in
         match dpam.Data.align_meth with

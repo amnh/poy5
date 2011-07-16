@@ -130,7 +130,7 @@ type transform_method = [
     | `WeightFactor of float
     | `Automatic_Sequence_Partition of (bool * int option)
     | `Prioritize
-    | `SearchBased
+    | `SearchBased of (string * string) list
     | `Fixed_States of (string option)
     | `Partitioned of [`Clip | `NoClip]
     | `Direct_Optimization
@@ -431,6 +431,7 @@ let transform_transform acc (id, x) =
             | `Level (l) -> (`Assign_Level (l,id))::acc
             | `Tcm (f,l) -> 
                     (`Assign_Transformation_Cost_Matrix ((Some ((`Local f),l)), id)) :: acc
+            | `SearchBased f -> (`Search_Based (f,id)) :: acc
             | `Gap (a, b) -> 
                     (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
             | `AffGap (c) ->
@@ -452,7 +453,6 @@ let transform_transform acc (id, x) =
             | `Automatic_Sequence_Partition (sens, x) -> 
                     (`Automatic_Sequence_Partition (id, sens, x)) :: acc
             | `Prioritize -> `Prioritize :: acc
-            | `SearchBased -> (`Search_Based id) :: acc
             | `Fixed_States filename -> (`Fixed_States (id,filename)) :: acc
             | `Partitioned mode -> (`Partitioned (mode, id)) :: acc
             | `Direct_Optimization -> (`Direct_Optimization id) :: acc
@@ -1420,7 +1420,12 @@ let create_expr () =
                     x)) ] |
                 [ LIDENT "weight"; ":"; x = neg_integer_or_float -> `ReWeight (float_of_string x) ] |
                 [ LIDENT "weightfactor"; ":"; x = neg_integer_or_float -> `WeightFactor (float_of_string x) ] |
-                [ LIDENT "search_based" -> `SearchBased ] |
+                [ LIDENT "search_based"; ":"; 
+                 left_parenthesis; file_couple_lst = LIST0
+                [left_parenthesis; chname = STRING; ","; filename = STRING;
+                right_parenthesis -> (chname,filename)] SEP ","; 
+                right_parenthesis -> `SearchBased file_couple_lst
+                ] |
                 [ LIDENT "seq_to_chrom"; ":"; left_parenthesis; x = LIST0
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToChrom x ] | 
                 [ LIDENT "custom_to_breakinv"; ":"; left_parenthesis; x = LIST0

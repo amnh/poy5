@@ -1115,8 +1115,7 @@ module Two_D = struct
                     if (w = all_elements && (not use_comb))
                     || (w = all_elements && (level>1) && (level<w))
                     then
-                        (* We must add a placeholder for the all elements item
-                        * *)
+                        (* We must add a placeholder for the all elements item *)
                         let rec add_every cnt lst =
                             match lst with
                             | [] -> []
@@ -1132,14 +1131,6 @@ module Two_D = struct
                                     else h :: (add_every (cnt + 1) t)
                         in
                         let newl = add_every 1 l in
-                        (*let tmp= ref 1 in
-                        List.iter (fun x -> 
-                            Printf.printf "%d,%!" x;
-                            if !tmp = 22 then begin
-                                    print_newline();
-                                    tmp:=0;
-                            end;
-                            tmp := !tmp +1;) newl;*)
                         w + 1, newl
                     else w, l
                 in

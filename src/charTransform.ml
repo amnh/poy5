@@ -1107,9 +1107,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 List.map 
                 (fun x -> Ptree.get_node_data (Node.taxon_code x) new_nodes) 
                 nodes
-        | `Search_Based _ as meth ->
-                unsupported_character_messages meth;
-                data, nodes
+        | `Search_Based (file,chars) ->
+                file 
+                --> Data.add_search_base_from_file data chars 
+                --> Data.categorize
+                --> Node.load_data
+                (*unsupported_character_messages meth;
+                data, nodes*)
         | `Fixed_States (chars,filename) ->
                 data 
                 --> Data.make_fixed_states filename chars 
