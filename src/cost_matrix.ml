@@ -755,6 +755,7 @@ module Two_D = struct
         done
    
     let fill_best_cost_and_median_for_some_combinations m a_sz level all_elements = 
+        let debug = false in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
         let numerator = p_m_n (a_sz-1) (level-1) in
@@ -784,9 +785,9 @@ module Two_D = struct
                     match li, lj with
                     | [_], [_] ->
                             let comb_i_j = comblist_to_combcode keylist m in
-                            set_median i j m ( comb_i_j );
                             if debug then Printf.printf "median.%d.%d <- %d;\n%!" 
                             i j (comb_i_j);
+                            set_median i j m ( comb_i_j );
                     | _, _ ->
                             if debug then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
                             i j !cost !best;
@@ -797,15 +798,22 @@ module Two_D = struct
                 end;
             done;
         done;
-       for i = 1 to num_of_comb do
-            set_median i all_elements m i;
-            set_median all_elements i m i;
-            set_cost i all_elements m 0;
-            set_cost all_elements i m 0;
-            set_worst i all_elements m 0;
-            set_worst all_elements i m 0;
-        done;
-        set_median all_elements all_elements m all_elements;
+        if debug then 
+            Printf.printf "set median and cost bwteen all_elements and other codes\n%!";
+        if all_elements>0 then begin
+            (*when all_elements=-1, we don't have code for "all_elements",
+            * though we do have a line and column in costmatrix reserved for it,
+            * we just don't need to fill in the cost/median for that.*)
+            for i = 1 to num_of_comb do
+                set_median i all_elements m i;
+                set_median all_elements i m i;
+                set_cost i all_elements m 0;
+                set_cost all_elements i m 0;
+                set_worst i all_elements m 0;
+                set_worst all_elements i m 0;
+            done;
+            set_median all_elements all_elements m all_elements;
+        end;
         if debug then
         for i=1 to num_of_comb+1 do
             for j= 1 to num_of_comb+1 do
@@ -1050,6 +1058,7 @@ module Two_D = struct
 
     let fill_cost_matrix ?(use_comb=true) ?(level = 0) ?(suppress=false) 
                             l a_sz all_elements =
+    let debug = false in
         let pure_a_sz = 
             if all_elements=(a_sz-1) && level>1 && level<a_sz then
                 a_sz-1
@@ -1094,7 +1103,8 @@ module Two_D = struct
         m
 
     let of_channel ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
-        let use_comb = if level = 1 then false else use_comb in 
+        let use_comb = if level = 1 then false else use_comb in
+        let debug = false in
         if debug then 
         Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," 
         use_comb level all_elements;
@@ -1159,6 +1169,7 @@ module Two_D = struct
     let of_list ?(use_comb=true) ?(level=0) ?(suppress=false) l all_elements =
         (* This function assumes that the list is a square matrix, list of
         * lists, all of the same size *)
+    let debug = false in
         let w = List.length l in
         let l = List.flatten l in
         if debug then Printf.printf "cost_matrix of_list,w=%d\n" w;

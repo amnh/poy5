@@ -82,15 +82,26 @@ value floatmatrix_CAML_register (value u)
  ** start of non-gc related functions **
  ** --------------------------------- **/
  
+/* resets the loc counter to 0 --doesn't actually free anything */
+void free_all( mat *m )
+{
+    if (DEBUG)
+        printf ("'Freeing' %d of %d data\n",m->loc,m->size);
+    m->loc = 0; 
+}
+
 /* expand array to size [s] */
 void expand_matrix (mat* m, const int s)
 {
     double *tmp;
+    free_all( m );
     if (m->size < s){
         if( DEBUG )
             printf ("Expanding Data: %d --> %d\n",m->size,s);
-        if( m->loc > 0 )
-            printf ("Error: Reallocation of memory while some is used");
+        if( m->loc > 0 ){
+            printf("ERROR: Reallocation of memory while some is used\n");
+            assert( 1 == 0 );
+        }
         m->size = s;
         tmp = (double*) realloc(m->mat,sizeof(double)*s);
         CHECK_MEM( tmp );
@@ -127,14 +138,6 @@ double* register_section( mat* m, int s, int c )
     ptr = &(m->mat[m->loc]);
     m->loc = m->loc + s;
     return ptr;
-}
-
-/* resets the loc counter to 0 --doesn't actually free anything */
-void free_all( mat *m )
-{
-    if (DEBUG)
-        printf ("'Freeing' %d of %d data\n",m->loc,m->size);
-    m->loc = 0; 
 }
 
 /* create a matrix with size of [s] */

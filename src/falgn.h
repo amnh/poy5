@@ -37,9 +37,10 @@
 #include "matrices.h"
 
 struct fcm {
-    fm*        fmat;  /** costs and assignments for alignment **/
+    fm*        fmat;  /** costs and assignments for alignment           **/
     matricest  direc; /** Matrix of the directions attached to the cost **/
-    double*    costs; /** Costs for the substring alignment **/
+    double*    costs; /** Costs for the substring alignment             **/
+    int*       nukk;  /** Number of gaps in the subseq for the median   **/
 };
 typedef struct fcm fcmt;
 

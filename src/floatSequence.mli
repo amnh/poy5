@@ -172,7 +172,7 @@ module type A = sig
         respectively, and the median associated with the edited distances and
         costs. The length of all the returned sequences are equal. *)
 
-    val backtrace       : ?filter_gap:bool -> dyn_model -> floatmem -> s -> s -> s
+    val backtrace       : ?filter_gap:bool -> dyn_model -> floatmem -> s -> s -> float -> float -> s
     (** [backtrace ?fg m mem a b] Produce the backtrace from an alignment. This
         can be used mostly in testing and probably should not be called
         directly. More appropriate functions are median_2/full_median_2/gen_all_2 *)

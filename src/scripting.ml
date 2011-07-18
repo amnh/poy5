@@ -1652,11 +1652,12 @@ let temporary_transforms meths run =
         let trees =
             Sexpr.map_status "Untransforming Characters"
                 (fun o_tree ->
+                    let dest =
+                        Data.convert_static_to_dynamic_branches
+                             ~src:o_tree.Ptree.data ~dest:run.data in
                     let data =
-                        Data.sync_static_to_dynamic_model_branches  
-                                 ~src:o_tree.Ptree.data
-                                ~dest:run.data
-                    in
+                        Data.sync_static_to_dynamic_model
+                                 ~src:o_tree.Ptree.data ~dest in
                     CT.replace_nodes_data data o_tree)
                 myrun.trees
         in

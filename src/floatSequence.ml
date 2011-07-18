@@ -24,7 +24,7 @@ let debug_aln = false
 let debug_cst = false
 
 let use_cost_fn = false (* do not memoize cost function  *)
-let use_align   = true (* use full alignment matrix     *)
+let use_align   = false (* use full alignment matrix     *)
 let failwithf format = Printf.ksprintf (failwith) format
 
 (* a wrapper for printf to allow us to direct output for testing *)
@@ -75,6 +75,8 @@ and print_barray2 a =
 type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
 
 let pp_seq model chan seq = Sequence.print chan seq model.alph
+
+let pp_aseq alph chan seq = Sequence.print chan seq alph
 
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
@@ -139,7 +141,7 @@ module type A = sig
     val median_2_cost   : s -> s -> dyn_model -> float -> float -> floatmem -> float * s
     val full_median_2   : s -> s -> dyn_model -> float -> float -> floatmem -> s
     val gen_all_2       : s -> s -> dyn_model -> float -> float -> floatmem -> s * s * float * s
-    val backtrace       : ?filter_gap:bool -> dyn_model -> floatmem -> s -> s -> s
+    val backtrace       : ?filter_gap:bool -> dyn_model -> floatmem -> s -> s -> float -> float -> s
 
     (* uppass operations *)
     val closest     : p:s -> m:s -> dyn_model -> float -> floatmem -> s * float
@@ -243,26 +245,28 @@ module CMPLAlign : A = struct
         nm,cost
 
     let full_backtrace fmat mat u d ui ta tb a b ea eb med g =
-        let a,ea, b,eb =
+        let a,ta,ea, b,tb,eb =
             if Sequence.length a > Sequence.length b
-                then b,eb, a,ea
-                else a,ea, b,eb
+                then a,ta,ea, b,tb,eb
+                else b,tb,eb, a,ta,ea
         in
         full_backtrace fmat mat u d ui ta tb a b ea eb med g
 
     let median_backtrace fmat mat u d ui ta tb a b m g =
-        let a, b =
+        let a,ta, b,tb =
             if Sequence.length a > Sequence.length b
-                then b, a
-                else a, b
+                then a,ta, b,tb
+                else b,tb, a,ta
         in
+(*        Printf.printf "\nA: %a\n" (pp_aseq Alphabet.nucleotides) a;*)
+(*        Printf.printf "B: %a\n\n" (pp_aseq Alphabet.nucleotides) b;*)
         median_backtrace fmat mat u d ui ta tb a b m g
 
     let nukk_align fmat mat u d ui ta tb a b g =
-        let a,b =
+        let a,ta,b,tb =
             if Sequence.length a > Sequence.length b 
-                then b,a
-                else a,b
+                then a,ta, b,tb
+                else b,tb, a,ta
         in
         if use_align then
             full_align fmat mat u d ui ta tb a b g
@@ -270,10 +274,10 @@ module CMPLAlign : A = struct
             nukk_align fmat mat u d ui ta tb a b g
 
     let full_align fmat mat u d ui ta tb a b g =
-        let a,b =
+        let a,ta,b,tb =
             if Sequence.length a > Sequence.length b 
-                then b,a
-                else a,b
+                then a,ta, b,tb
+                else b,tb, a,ta
         in
         full_align fmat mat u d ui ta tb a b g
 
@@ -348,7 +352,7 @@ module CMPLAlign : A = struct
         let () = 
             let gap = Alphabet.get_gap m.static.MlModel.alph in
             median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                m.static.MlModel.ui tx ty x y med gap
+                             m.static.MlModel.ui tx ty x y med gap
         in
         cost,med
 
@@ -375,6 +379,12 @@ module CMPLAlign : A = struct
 
     let readjust s1 s2 s3 model t1 t2 t3 =
         let algn s1 s2 t1 t2 = median_2_cost s1 s2 model t1 t2 (get_mem s1 s2) in
+
+        Printf.printf "A : %f - %a\n" t1 (pp_seq model) s1;
+        Printf.printf "B : %f - %a\n" t2 (pp_seq model) s2;
+        Printf.printf "C : %f - %a\n" t3 (pp_seq model) s3;
+
+
         let make_center s1 s2 s3=
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
@@ -421,7 +431,7 @@ module CMPLAlign : A = struct
             let p = if p = 0 then gap else p in
             let m = if m = 0 then gap else m in
             (* now choose the best from parent; since we MUST choose one, we do
-               not need to worry about floating point issues. *)
+               not need to worry about floating point issues with equality. *)
             let state,cst =
                 List.fold_left
                     (fun acc m ->
@@ -442,7 +452,11 @@ module CMPLAlign : A = struct
             assert( state <> ~-1 );
             res,cst)
 
-    let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
+    let full_cost_2 _ x y m tx ty (fmat,mat) =
+        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
+                        m.static.MlModel.ui tx ty x y gap
+
 
     let create_edited_2 x y m tx ty ((fmat,mat) as mem) : s * s =
         let () = ignore (cost_2 x y m tx ty mem) in
@@ -456,7 +470,16 @@ module CMPLAlign : A = struct
 
     let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
 
-    let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
+    let backtrace ?(filter_gap=true) m (fmat,mat) x y tx ty =
+        let med = create_s x y in
+        let () = 
+            let gap = Alphabet.get_gap m.static.MlModel.alph in
+            median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
+                             m.static.MlModel.ui tx ty x y med gap
+        in
+        if filter_gap
+            then remove_gaps (Alphabet.get_gap m.alph) med
+            else med
 
     let align_2 ?first_gap x y m tx ty ((fmat,mat) as mem) =
         let cost= cost_2 x y m tx ty mem in
@@ -651,7 +674,7 @@ module FloatAlign : A = struct
         build_alignments [] [] ((Sequence.length x)-1) ((Sequence.length y)-1)
 
     (* [backtrace men x y] find the median of x and y *)
-    let backtrace ?(filter_gap=true) model mem x y =
+    let backtrace ?(filter_gap=true) model mem x y _ _ =
         let get x i = Sequence.get x i
         and union x y i j = (Sequence.get x i) lor (Sequence.get y j) in
         let get_direction i j = mem.(i).(j) --> snd --> snd --> choose_dir in
@@ -700,7 +723,7 @@ module FloatAlign : A = struct
             printf "C1: "; print_s ex m.alph;
             printf "C2: "; print_s ey m.alph;
             printf "%f ME: " (fst mem.(xlen-1).(ylen-1));
-            print_s (backtrace ~filter_gap:false m mem x y) m.alph;
+            print_s (backtrace ~filter_gap:false m mem x y tx ty) m.alph;
         end;
         fst mem.(xlen-1).(ylen-1)
 
@@ -926,7 +949,7 @@ module FloatAlign : A = struct
                 then s1,s2,t1,t2 else s2,s1,t2,t1
         in
         ignore (align_2 mem s1 s2 model t1 t2);
-        backtrace model mem s1 s2
+        backtrace model mem s1 s2 t1 t2
 
     let full_cost_2 cost1 s1 s2 model t1 t2 mem : float =
         if debug_mem then clear_mem mem;
@@ -968,7 +991,7 @@ module FloatAlign : A = struct
         if debug_mem then clear_mem mem;
         let gen_all_2 s1 s2 t1 t2 =
             let cost  = ukkonen_align_2 mem s1 s2 model t1 t2 in
-            let med   = backtrace model mem s1 s2 in
+            let med   = backtrace model mem s1 s2 t1 t2 in
             let s1,s2 = alignments mem s1 s2 model in
             s1,s2,cost,med
         in
@@ -986,7 +1009,7 @@ module FloatAlign : A = struct
                 else s2,s1,t2,t1
         in
         let c = ukkonen_align_2 mem s1 s2 model t1 t2 in
-        c,backtrace model mem s1 s2
+        c,backtrace model mem s1 s2 t1 t2
 
     let median_2 s1 s2 model t1 t2 mem : s = snd (algn s1 s2 model t1 t2 mem)
 
@@ -1307,7 +1330,7 @@ module MPLAlign : A = struct
         build_alignments [] [] ((Sequence.length x)-1) ((Sequence.length y)-1)
 
     (* [backtrace men x y] find the median of x and y *)
-    let backtrace ?(filter_gap=true) model mem x y =
+    let backtrace ?(filter_gap=true) model mem x y _ _ =
         let get x i = Sequence.get x i in
         let get_direction i j = mem.(i).(j) --> snd --> snd --> choose_dir in
         let rec build_median acc i j = match get_direction i j with
@@ -1365,7 +1388,7 @@ module MPLAlign : A = struct
             printf "%f C1: " tx; print_s ex m.alph;
             printf "%f C2: " ty; print_s ey m.alph;
             printf "%f ME: " (fst mem.(xlen-1).(ylen-1));
-            print_s (backtrace ~filter_gap:false m mem x y) m.alph;
+            print_s (backtrace ~filter_gap:false m mem x y tx ty) m.alph;
         end;
         fst mem.(xlen-1).(ylen-1)
 
@@ -1597,7 +1620,7 @@ module MPLAlign : A = struct
                 then s1,s2,t1,t2 else s2,s1,t2,t1
         in
         ignore (align_2 mem s1 s2 model t1 t2);
-        backtrace model mem s1 s2
+        backtrace model mem s1 s2 t1 t2
 
     let full_cost_2 cost1 s1 s2 model t1 t2 mem : float =
         if debug_mem then clear_mem mem;
@@ -1639,7 +1662,7 @@ module MPLAlign : A = struct
         if debug_mem then clear_mem mem;
         let gen_all_2 s1 s2 t1 t2 =
             let cost  = ukkonen_align_2 mem s1 s2 model t1 t2 in
-            let med   = backtrace model mem s1 s2 in
+            let med   = backtrace model mem s1 s2 t1 t2 in
             let s1,s2 = alignments mem s1 s2 model in
             s1,s2,cost,med
         in
@@ -1657,7 +1680,7 @@ module MPLAlign : A = struct
                 else s2,s1,t2,t1
         in
         let c = ukkonen_align_2 mem s1 s2 model t1 t2 in
-        let b = backtrace model mem s1 s2 in
+        let b = backtrace model mem s1 s2 t1 t2 in
         c,b
 
     let median_2 s1 s2 model t1 t2 mem : s = snd (algn s1 s2 model t1 t2 mem)
@@ -1701,7 +1724,7 @@ module MPLAlign : A = struct
         end;
         res
 
-    (* requires not implemented functions *)
+
     let readjust s1 s2 s3 model t1 t2 t3 =
         let algn s1 s2 t1 t2 = algn s1 s2 model t1 t2 (get_mem s1 s2) in
         let make_center s1 s2 s3 =
@@ -1908,7 +1931,7 @@ module MALAlign : A = struct
     let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
     let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
     let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
-    let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
+    let backtrace ?filter_gap _ _ _ _ _ _ = failwith "not implemented"
 
 end
 
@@ -1946,7 +1969,7 @@ module Empty : A = struct
     let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
     let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
     let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
-    let backtrace ?filter_gap _ _ _ _ = failwith "not implemented"
+    let backtrace ?filter_gap _ _ _ _ _ _ = failwith "not implemented"
 
 end
 
@@ -1980,7 +2003,7 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
         and faln2     = FloatAlign.s_of_seq seq2 in
         let mem       = FloatAlign.get_mem faln1 faln2 in
         let a1,a2,cst = FloatAlign.align_2 faln1 faln2 model bl1 bl2 mem in
-        let med       = FloatAlign.backtrace ~filter_gap model mem faln1 faln2 in
+        let med       = FloatAlign.backtrace ~filter_gap model mem faln1 faln2 bl1 bl2 in
         let _,ocst    = FloatAlign.optimize faln1 faln2 model (bl1+.bl2) mem in
         cst, ocst, (FloatAlign.seq_of_s a1), (FloatAlign.seq_of_s a2), (FloatAlign.seq_of_s med)
     and mpl_cost,mpl_opt_cost,mpl_seq1,mpl_seq2,mpl_median =
@@ -1988,7 +2011,7 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
         and dmpl2     = MPLAlign.s_of_seq seq2 in
         let mem       = MPLAlign.get_mem dmpl1 dmpl2 in
         let a1,a2,cst = MPLAlign.align_2 dmpl1 dmpl2 model bl1 bl2 mem in
-        let med       = MPLAlign.backtrace ~filter_gap model mem dmpl1 dmpl2 in
+        let med       = MPLAlign.backtrace ~filter_gap model mem dmpl1 dmpl2 bl1 bl2 in
         MPLAlign.print_mem mem;
         let _,ocst    = MPLAlign.optimize dmpl1 dmpl2 model (bl1+.bl2) mem in
         cst, ocst, (MPLAlign.seq_of_s a1), (MPLAlign.seq_of_s a2), (MPLAlign.seq_of_s med)
@@ -2004,7 +2027,7 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
         and dmpl2     = CMPLAlign.s_of_seq seq2 in
         let mem       = CMPLAlign.get_mem dmpl1 dmpl2 in
         let a1,a2,cst = CMPLAlign.align_2 dmpl1 dmpl2 model bl1 bl2 mem in
-        let med       = CMPLAlign.backtrace ~filter_gap model mem dmpl1 dmpl2 in
+        let med       = CMPLAlign.backtrace ~filter_gap model mem dmpl1 dmpl2 bl1 bl2 in
         let _,ocst    = CMPLAlign.optimize dmpl1 dmpl2 model (bl1+.bl2) mem in
         cst, ocst, (CMPLAlign.seq_of_s a1), (CMPLAlign.seq_of_s a2), (CMPLAlign.seq_of_s med)
     in
@@ -2018,3 +2041,24 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
                    mal_cost     mpl_cost     flk_cost cmpl_cost
                    mal_opt_cost mpl_opt_cost flk_opt_cost cmpl_opt_cost
                    (pp_seq model) mpl_median (pp_seq model) flk_median (pp_seq model) cmpl_median
+
+
+let () = 
+    let str1 = "ACCCCTTGGTG" and str2 = "CCCTTTGG"
+    and alph = Alphabet.nucleotides in
+    let seq1 = CMPLAlign.s_of_seq (sequence_of_string alph str1)
+    and seq2 = CMPLAlign.s_of_seq (sequence_of_string alph str2) in
+    let modl = spec_model alph MlModel.jc69_5 
+    and mem = CMPLAlign.get_mem seq1 seq2 in
+    Printf.printf "COST: %f\n%!" 
+                  (CMPLAlign.cost_2 seq1 seq2 modl 0.1 0.1 mem);
+    Printf.printf "Alignment: %a\n%!" (pp_seq modl)
+                  (CMPLAlign.seq_of_s (CMPLAlign.backtrace modl mem seq1 seq2 0.1 0.1))
+
+
+
+
+
+
+
+

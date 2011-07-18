@@ -735,14 +735,14 @@ int diagonalize_sym( mat *space,double* A, double* D, int n)
 /* Diagonlize matrix interfaces: symmetric */
 void likelihood_CAML_diagonalize_sym( value tmp, value Q, value D)
 {
-
     CAMLparam3( tmp, Q, D );
-    int n;
-    n = Bigarray_val ( Q )->dim[0];
-    diagonalize_sym( FM_val( tmp ), (double*) Data_bigarray_val( Q ),
-                        (double*) Data_bigarray_val( D ), n);
-    free_all( FM_val(tmp) );
+    diagonalize_sym(
+            FM_val( tmp ),
+            (double*) Data_bigarray_val( Q ),
+            (double*) Data_bigarray_val( D ),
+            Bigarray_val( Q )->dim[0]);
     CAMLreturn0;
+
 }
 
 int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
@@ -760,8 +760,7 @@ int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
     dgeev_(&jobv_,&jobv_,&n,A,&n,D,wi,U,&n,Ui,&n,&work_size,&lwork,&info);
     if( info == 0 ) {
         lwork = (int)work_size;
-        free_all( space ); //reallocate wi and U
-        expand_matrix( space, (2*n) + n*n + (2*lwork) );
+        expand_matrix( space, (2*n) + n*n + (2*lwork) ); //reallocate wi and U
         wi = register_section( space, n, 1 );
         U  = register_section( space, n*n, 1 );
         work = register_section( space, lwork, 1);
@@ -802,7 +801,6 @@ int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
             failwith ("dgeev_ QR failed, possibly singular matrix?");
         }
     }
-    free_all( space );
     memcpy(A,U,n*n*sizeof(double));
     return info;
 }
@@ -816,7 +814,6 @@ void likelihood_CAML_diagonalize_gtr( value tmp, value Q, value D, value Qi)
             (double*) Data_bigarray_val( D ),
             (double*) Data_bigarray_val( Qi),
             Bigarray_val( Q )->dim[0]);
-    free_all( FM_val(tmp) );
     CAMLreturn0;
 }
 
@@ -873,7 +870,6 @@ value likelihood_CAML_compose_sym(value tmp,value U, value D, value t)
     compose_sym(c_P,c_U,c_D,c_t,n,c_T);
     dims[0] = n; dims[1] = n;
     res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT, 2, c_P, dims);
-    free_all( space );
     CAMLreturn ( res );
 }
 
@@ -921,7 +917,6 @@ likelihood_CAML_compose_gtr(value tmp,value U, value D, value Ui, value t)
     dims[0] = n; dims[1] = n;
     res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT, 2, c_P, dims);
 
-    free_all(space);
     CAMLreturn( res );
 }
 
@@ -1375,7 +1370,6 @@ likelihood_CAML_median2_wrapped_sym( value tmp, value U, value D, value ta,
     }
     //printarray(c->lv_s, a->stride * a->c_len * a->rates);
     /* free up space, return */
-    free_all( space );
     assert( c == ML_val(ml_c));
     CAMLreturn(ml_c);
 }
@@ -1441,7 +1435,6 @@ value likelihood_CAML_median2_wrapped_gtr( value tmp, value U, value D, value Ui
     }
     //printf("]\n");
     /* free all variables */
-    free_all( space );
     assert( c == ML_val(ml_c) );
     CAMLreturn(ml_c);
 }
@@ -1541,7 +1534,6 @@ median_3_sym(mat* space,const double* U,const double* D, const mll* amll,
         CHECK_MEM(dmll->lv_invar);
         //median3_invar(amll,bmll,cmll,dmll);
     }
-    free_all( space );
 }
 
 void
@@ -1579,7 +1571,6 @@ median_3_gtr(mat* space,const double* U,const double* D, const double *Ui,
         CHECK_MEM(dmll->lv_invar);
         //median3_invar(amll,bmll,cmll,dmll);
     }
-    free_all( space );
 }
 
 value
@@ -1724,7 +1715,6 @@ median_1_sym(mat* space, const double* U, const double* D, const mll* amll,
         CHECK_MEM(dmll->lv_invar);
         //median1_invar(amll,bmll,dmll);
     }
-    free_all( space );
 }
 
 void
@@ -1757,7 +1747,6 @@ median_1_gtr(mat* space, const double* U, const double* D, const double* Ui,
         CHECK_MEM(dmll->lv_invar);
         //median1_invar(amll,bmll,dmll);
     }
-    free_all( space );
 }
 
 
@@ -2171,7 +2160,6 @@ likelihood_CAML_readjust_gtr_wrapped
     res = caml_alloc_tuple( 2 );
     Store_field(res, 0, caml_copy_double(cta));
     Store_field(res, 1, caml_copy_double(likelihood));
-    free_all( FM_val(tmp) );
     CAMLreturn(res);
 }
 value
@@ -2211,7 +2199,6 @@ likelihood_CAML_readjust_sym_wrapped
     res = caml_alloc_tuple( 2 );
     Store_field(res, 0, caml_copy_double (cta));
     Store_field(res, 1, caml_copy_double (likelihood));
-    free_all( FM_val(tmp) );
     CAMLreturn(res);
 }
 

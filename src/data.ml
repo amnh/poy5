@@ -617,7 +617,7 @@ let convert_static_to_dynamic_branches ~src ~dest =
                 in
                 let lengths = 
                     try Hashtbl.find ctbl old_name
-                    with | Not_found -> 
+                    with | Not_found ->
                         failwithf "Could not find old_name:%s; new_code:%d new_name:%s; rep_code:%d"
                                     old_name new_code new_name rep_code
                 in
@@ -856,9 +856,9 @@ let print (data : d) =
         Printf.printf "[%d,%s],%!" key bind;
     in
     Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
-    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
-    Printf.printf "\n check character_codes: \n%!";
-    Hashtbl.iter print_character_codes data.character_codes;
+(*    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();*)
+(*    Printf.printf "\n check character_codes: \n%!";*)
+(*    Hashtbl.iter print_character_codes data.character_codes;*)
     Printf.printf "\n check taxon_characters:\n %!";
     Hashtbl.iter print_taxon data.taxon_characters;
     Printf.printf "\n check search_base_characters:\n %!";
@@ -1541,7 +1541,6 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
                      max max_loci (Array.length loci_arr))
                 ~init:0 arr 
         in
-        Printf.printf "num_taxa=%d,loci=%d\n%!" num_taxa loci;
         (* Check for errors *)
         (* we are going to deal with multichromosome genomes, each of them could
         * have different number chromosomes, this error check must be
@@ -1597,7 +1596,6 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
         | false -> dyna_state
     in 
     let add_character data = 
-        Printf.printf "add_character,%!";
         let file = 
             if  annotated || (dyna_state = `Chromosome) then 
                 original_filename
@@ -1607,7 +1605,6 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
         in
         incr data.character_code_gen;
         let chcode = !(data.character_code_gen) in
-        Printf.printf "with chcode = %d\n%!" chcode;
         let dspec = {
             filename = file;
             fs = data.current_fs_file;
@@ -1627,7 +1624,6 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
         chcode, data
     in 
     let single_loci_processor acc res = 
-        Printf.printf "single_loci_processor\n%!";
         let chcode, data = add_character acc in 
         (* Now a function to process one taxon at a time to be 
         * folded over the taxa collected in the [file]. *)
@@ -1921,6 +1917,7 @@ let gen_add_static_parsed_file do_duplicate data file
                     `DO false alph file `Ml data seq lk_model
             | None -> 
                 let tcm, name =
+                    Printf.printf "get tcm :\n%!";
                     let tcm,name = match tcm with
                     | None ->
                         Cost_matrix.Two_D.of_transformations_and_gaps 
@@ -1949,6 +1946,7 @@ let gen_add_static_parsed_file do_duplicate data file
                         in
                         tcm, name
                 in
+                Printf.printf "get tcm 3d :\n%!";
                 let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
                 process_parsed_sequences false weight name tcm tcm3d `DO false
                                          alph file `Seq data seq None
@@ -2131,6 +2129,7 @@ let print_error_message fl =
 
 let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
     begin try
+        Printf.printf "aux process molecular file\n%!";
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
             try Fasta.of_channel (builder alphabet) ch with
@@ -4922,6 +4921,7 @@ let assign_tcm_to_characters data chars foname tcm =
 
 
 let assign_tcm_to_characters_from_file data chars file =
+    let debug_level = true in
     if debug_level then Printf.printf "Data.assign_tcm_to_characters_from_file\n%!";
     let tcm = match file with
         | None -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
@@ -6309,8 +6309,7 @@ let has_dynamic d =
  * destination should be returned. The translate parameter will translate the
  * codes in the branch lengths with the map defined in the dynamic_static_codes
  * map. *)
-let sync_dynamic_to_static_model_branches ~src ~dest =
-    let dest = convert_dynamic_to_static_branches src dest in
+let sync_dynamic_to_static_model ~src ~dest =
     let char_specs =
         let spec = Hashtbl.copy dest.character_specs in
         All_sets.IntegerMap.iter
@@ -6325,12 +6324,11 @@ let sync_dynamic_to_static_model_branches ~src ~dest =
     categorize { dest with character_specs = char_specs; }
 
 (* converse of above function *)
-let sync_static_to_dynamic_model_branches ~src ~dest = 
+let sync_static_to_dynamic_model ~src ~dest = 
     (* confirm a set is consistent and return model *)
     let get_model_from_set data codes = 
         get_model_opt data (All_sets.Integers.choose codes)
     in
-    let dest = convert_static_to_dynamic_branches src dest in
     let char_specs = 
         let spec = Hashtbl.copy dest.character_specs in
         All_sets.IntSetMap.iter
