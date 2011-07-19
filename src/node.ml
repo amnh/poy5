@@ -20,6 +20,8 @@
 let () = SadmanOutput.register "Node" "$Revision: 2871 $"
 let infinity = float_of_int max_int
 
+open Numerical.FPInfix
+
 let debug           = false
 (* print a msg if we perform jc distance instead of given BL *)
 let debug_bl        = false
@@ -509,11 +511,15 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                 | (Some t1, None)
                 | (None, Some t1) when code <= 0 ->
                     ( max min_bl (t1/.2.0), max min_bl (t1/.2.0) )
+                | (Some t1, None)
+                | (None, Some t1) ->
+                    ( max min_bl (t1/.2.0), max min_bl (t1/.2.0) )
                 | Some (t1), Some (t2) -> 
                     (max min_bl t1, max min_bl t2)
-                | _ ->  let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                        (max min_bl t1, max min_bl t2)
+                | None, None ->
+                    let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
+                    if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
+                    (max min_bl t1, max min_bl t2)
             in 
             let model = MlStaticCS.get_model ca.preliminary in
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
@@ -531,7 +537,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
             let n_cost = MlStaticCS.root_cost median in
             if debug then 
                 info_user_message
-                    "Calculating %d with %f(%d) and %f(%d) = %f"
+                    "Calculating %d with %f(%d) and %f(%d) = %f (static)"
                     code t1 anode.taxon_code t2 bnode.taxon_code n_cost;
             let t1,t2 = 
                 if anode.min_child_code < bnode.min_child_code then (t1, t2)
@@ -644,7 +650,11 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                             | Some (t1), Some (t2) when code <= 0 -> max min_bl t1, 0.0
                             | Some (t1), Some (t2) -> max min_bl t1, max min_bl t2
                             | (Some t1, None)
-                            | (None, Some t1) when code <= 0 -> max min_bl (t1/.2.0), max min_bl (t1/.2.0)
+                            | (None, Some t1) when code <= 0 -> max min_bl t1, 0.0
+                            | _ when code <= 0 -> 
+                                let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
+                                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
+                                max min_bl (t1+.t2), 0.0
                             | _ ->
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
                                 if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
@@ -657,7 +667,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                         let cst = DynamicCS.total_cost res in
                         if debug then 
                             info_user_message
-                                "Calculating %d with %f(%d) and %f(%d) = %f"
+                                "Calculating %d with %f(%d) and %f(%d) = %f (dyn)"
                                 code t1 anode.taxon_code t2 bnode.taxon_code cst;
                         let t1,t2 = 
                             if anode.min_child_code < bnode.min_child_code 
@@ -1305,20 +1315,36 @@ let get_times_between n c = get_times_between_dir false n c
 
 
 let get_times_between_plus_codes (child:node_data) (parent:node_data option) =
+(*    Printf.printf "Finding time between: %s -- %s : %d : "*)
+(*        (string_of_int child.taxon_code)*)
+(*        (match parent with | Some x -> string_of_int x.taxon_code | None -> "none")*)
+(*        (List.length child.characters);*)
     let null = ([||],None) in
     let func =
 IFDEF USE_LIKELIHOOD THEN
         let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
         let f = match parent with
-            | None     -> thr
+            | None     ->
+(*                Printf.printf "thr";*)
+                thr
             | Some par ->
                 if par.min_child_code = child.min_child_code 
-                    then fst
-                    else snd
+                    then begin
+(*                        Printf.printf "fst";*)
+                        fst
+                    end else begin
+(*                        Printf.printf "snd";*)
+                        snd
+                    end
         in
         function
-            | StaticMl z -> MlStaticCS.get_codes z.preliminary, f z.time
+            | StaticMl z ->
+(*                Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt*)
+(*                                (snd z.time) pp_fopt (thr z.time);    *)
+                MlStaticCS.get_codes z.preliminary, f z.time
             | Dynamic z ->
+(*                Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt*)
+(*                                (snd z.time) pp_fopt (thr z.time);    *)
                 begin match z.preliminary with
                     | DynamicCS.MlCS x -> MlDynamicCS.get_codes x, f z.time
                     | _ -> null

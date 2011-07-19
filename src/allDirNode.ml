@@ -698,19 +698,22 @@ type nad8 = Node.Standard.nad8 = struct
      * parent, although, it shouldn't matter as long as the directions are
      * available *)
     let get_times_between (child:n) (par: n option) =
-        match child.unadjusted with
-        | [x] -> OneDirF.get_times_between x.lazy_node None
-        |  _  ->
-            begin match par with
-                | None -> failwith "A direction should be specified"
-                | Some par ->
+        match par with
+        | None ->
+            begin match child.unadjusted with
+                | [x] -> OneDirF.get_times_between x.lazy_node None
+                | _   -> failwith "A direction should be specified"
+            end
+        | Some par ->
+            (* Use the leaf if available *)
+            begin match child.unadjusted, par.unadjusted with
+                | _,[x] -> OneDirF.get_times_between x.lazy_node None
+                | [x],_ -> OneDirF.get_times_between x.lazy_node None
+                |  _, _ ->
                     try let child = not_with (taxon_code par) child.unadjusted
                         and par = either_with (taxon_code child) par.unadjusted in
                         OneDirF.get_times_between child.lazy_node (Some par.lazy_node)
                     with | _ ->
-                        (* direction doesn't matter; possibly only downpass happened! Who
-                           the hell is it to say the tree is in an error state on an
-                           inconsequential function as this? *)
                         let child = either_with (taxon_code child) par.unadjusted
                         and par   = not_with (taxon_code par) child.unadjusted in
                         OneDirF.get_times_between par.lazy_node (Some child.lazy_node)

@@ -127,12 +127,11 @@ module F : Ptree.Tree_Operations
                                                | []  -> failwith "No character Sets"
                                                | _   -> `Name
                 in
-                let () = List.iter
+                List.iter
                     (fun (code,length) -> match length with
                         | Some length -> Hashtbl.add trees_table pair (name_it length)
-                        | None -> ()
-                    ) dat in
-                ()
+                        | None -> ())
+                    dat
             and traversal a b = 
                 Ptree.post_order_node_with_edge_visit
                     (fun prev curr _ -> single_node prev curr)
@@ -193,7 +192,9 @@ module F : Ptree.Tree_Operations
             List.iter
                 (fun (codes,times) -> match times with
                     | Some x -> insert_set codes table x
-                    | None   -> () )
+                    | None   ->
+                        Printf.printf "Can't find bl: %d -- %d\n%!" node1 node2;
+                        ())
                 codestimes;
             table
         in
@@ -1285,17 +1286,13 @@ module F : Ptree.Tree_Operations
     (* ----------------- *)
     (* function to adjust the likelihood model ;for static characters of a tree
      * using BFGS --quasi newtons method. Function requires three directions. *)
-    let static_model_fn tree = 
+    let static_model_chars_fn chars tree = 
         assert( using_likelihood `Static tree );
         (* replace nodes in a tree, copying relevent data structures *)
         let substitute_nodes nodes tree =
             let adder acc x = IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
             let node_data = List.fold_left adder IntMap.empty nodes in
             internal_downpass true {tree with Ptree.node_data = node_data}
-        (* get all characters to iterate *)
-        and chars =
-            let chars = `Some (Data.get_chars_codes_comp tree.Ptree.data `All) in
-            Data.get_code_from_characters_restricted `AllLikelihood tree.Ptree.data chars
         in
         (* function for processing a model and applying to a tree --inner loop *)
         let f_likelihood f tree chars current_model new_values =
@@ -1312,7 +1309,8 @@ module F : Ptree.Tree_Operations
         (* compose above functions to initiate adjustments *)
         let current_model = Data.get_likelihood_model tree.Ptree.data chars
         and current_cost = Ptree.get_cost `Adjusted tree in
-        let best_tree, best_cost = 
+        (* optimize Transition Model parameters *)
+        let best_tree, best_cost =
             match MlModel.get_update_function_for_model current_model with
             | Some func ->
                 let params = MlModel.get_current_parameters_for_model current_model in
@@ -1325,6 +1323,7 @@ module F : Ptree.Tree_Operations
         in
         if debug_model_fn then
             info_user_message "\t Optimized Model to %f --> %f" current_cost best_cost;
+        (* Optimize Alpha *)
         let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_alpha current_model with
@@ -1341,6 +1340,14 @@ module F : Ptree.Tree_Operations
         if debug_model_fn then
             info_user_message "\t Optimized Alpha to %f --> %f" current_cost best_cost;
         if best_cost < current_cost then best_tree else tree
+
+    (* Group all the characters and optimize each with function above *)
+    let static_model_fn tree = 
+        let chars =
+            let chars = `Some (Data.get_chars_codes_comp tree.Ptree.data `All) in
+            Data.get_code_from_characters_restricted `AllLikelihood tree.Ptree.data chars
+        in
+        static_model_chars_fn chars tree
 
 
     module IA = ImpliedAlignment.Make (AllDirNode.AllDirF) (Edge.LazyEdge)
@@ -1367,19 +1374,21 @@ module F : Ptree.Tree_Operations
               Ptree.node_data = new_node_data;
               Ptree.component_root = component_root }
 
-
     (* Optimize model of dynamic likelihood characters by converting to an
      * implied alignment. We do ONE pass; ensuring the improvement of costs
      * exists after the call. *)
-    let dynamic_model_fn dyn_tree =
+    let dynamic_model_fn old_tree =
         (* define a function to convert and optimize static model *)
-        let create_static_tree ptree =
+        let optimize_static_tree ptree =
             let old_verbosity = Status.get_verbosity () in
             Status.set_verbosity `None;
             let data,nodes =
                 ptree --> IA.to_static_homologies true filter_characters true
                                                 false `AllDynamic ptree.Ptree.data
                       --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
+            in
+            let data = 
+                Data.convert_dynamic_to_static_branches ~src:ptree.Ptree.data ~dest:data
             in
             Status.set_verbosity old_verbosity;
             let node_data =
@@ -1410,16 +1419,19 @@ module F : Ptree.Tree_Operations
                 --> internal_downpass true 
                 --> refresh_all_edges None true None
         in
-        let old_cost = Ptree.get_cost `Adjusted dyn_tree in
-        let new_tree = 
-                dyn_tree
-                    --> static_model_to_dyn_chars (create_static_tree dyn_tree)
-                    --> assign_single
+        let old_cost = Ptree.get_cost `Adjusted old_tree in
+        let new_tree =
+            let old_tree = update_branches old_tree in
+            let static_tree = optimize_static_tree old_tree in
+            old_tree
+                --> static_model_to_dyn_chars static_tree
+                --> pick_best_root
+                --> assign_single
         in
         let new_cost = Ptree.get_cost `Adjusted new_tree in
         if debug_model_fn then
             info_user_message "Updated Dynamic Likelihood Score: %f --> %f" old_cost new_cost;
-        if new_cost < old_cost then new_tree else dyn_tree
+        if new_cost < old_cost then new_tree else old_tree
 
 
     (** wrapper for model function to correctly call dynamic/static likelihood
