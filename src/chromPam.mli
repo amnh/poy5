@@ -129,7 +129,7 @@ val get_min_loci_len : chromPairAliPam_t -> int
 val get_min_lcb_ratio : chromPairAliPam_t -> float
 val get_min_lcb_len : chromPairAliPam_t -> int
 val get_min_cover_ratio : chromPairAliPam_t -> float
-val get_min_bk_penalty : chromPairAliPam_t -> int
+val get_max_lcb_len : chromPairAliPam_t -> int
 
 val use_ukk : chromPairAliPam_t -> bool
 

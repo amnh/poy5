@@ -209,7 +209,7 @@ type char_transform = [
     | dynamic_char_transform
     | `MultiStatic_Aprox of (characters * bool)
     | `Static_Aprox of (characters * bool)
-    | `Search_Based of characters
+    | `Search_Based of ( (string*string) list * characters)
     | `Fixed_States of (characters*(string option))
     | `Partitioned of ([`Clip | `NoClip] * characters)
     | `Direct_Optimization of characters

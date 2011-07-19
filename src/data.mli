@@ -366,6 +366,12 @@ type d = {
     static_dynamic_codes : (int) All_sets.IntSetMap.t;
     (** A map of each taxon code and their corresponding character list *)
     taxon_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
+    (* A map of extra taxon for fixed_state median nodes*)
+    searchbase_files : All_sets.Strings.t All_sets.StringMap.t;
+    searchbase_names : int All_sets.StringMap.t;
+    searchbase_codes : string All_sets.IntegerMap.t;
+    searchbase_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
+    (**)
     (* A map between the character names and their corresponding codes *)
     character_names : (string, int) Hashtbl.t;
     (* A map between the character codes and their corresponding names *)
@@ -554,6 +560,11 @@ val assign_prepend :
 
 val assign_tcm_to_characters_from_file :
     d -> bool_characters -> (FileStream.f * int option) option -> d
+
+val add_search_base_from_file : 
+    d -> bool_characters -> (string * string) list -> d
+
+
 
 val process_complex_terminals :
     d -> FileStream.f -> d

@@ -701,10 +701,10 @@ module DOS = struct
                         create m, cost
                 | _ ->
                     let s1', s2', c =
-(*                            if use_ukk then*)
-(*                            Sequence.NewkkAlign.align_2 s1 s2 cm*)
-(*                            Sequence.NewkkAlign.default_ukkm*)
-(*                            else*)
+                            if use_ukk then
+                            Sequence.NewkkAlign.align_2 s1 s2 cm
+                            Sequence.NewkkAlign.default_ukkm
+                            else
                         Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
                     in
                     let median = Sequence.median_2 s1' s2' cm in
@@ -1517,7 +1517,7 @@ module RL = struct
     let median_3 h p n c1 c2 = n
 
     let distance ((at, ast) as a) ((bt, bst) as b) =
-        let debug = true in
+        let debug = false in
         let in_rl = at in
         if debug then begin
             Printf.printf "seqCS.RL.diatance -> %!";

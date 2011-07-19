@@ -1509,9 +1509,9 @@ let readjust a b m cm parent use_ukk =
                 cost, m
         | _ ->
                 let s1', s2', c = 
-(*                    if use_ukk then *)
-(*                    NewkkAlign.align_2 s1 s2 cm NewkkAlign.default_ukkm*)
-(*                    else*)
+                    if use_ukk then 
+                    NewkkAlign.align_2 s1 s2 cm NewkkAlign.default_ukkm
+                    else
                     Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
                 in
                 let median = median_2 s1' s2' cm in
@@ -2453,9 +2453,9 @@ let align2 (seq1 : s) (seq2 : s)
 
     let ext_alied_seq1, ext_alied_seq2, cost =
 (*this calls the c version of ukk_space_save*)
-(*    if use_ukk then*)
-(*        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm *)
-(*    else*)
+    if use_ukk then
+        NewkkAlign.align_2 ext_seq1 ext_seq2 cost_mat NewkkAlign.default_ukkm 
+    else
 (* this is calls ukkonen full memory version, in C, which allocation the whole matrix*)
         Align.align_2 ext_seq1 ext_seq2 cost_mat Matrix.default 
     in 		

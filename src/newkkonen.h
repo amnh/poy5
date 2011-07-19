@@ -21,8 +21,8 @@ struct cost_dir {
 typedef struct cost_dir * ukkdiag_p;
 struct newkkmat {
     int baseband;  // this doesn't change. we start from (lenY-lenX+1) diagonals. 
-    int total_len;          /* how many ukk cells are there */
-    int total_len_in_use;     //how many cells are in use.
+    MAT_SIZE total_len;          /* how many ukk cells are there */
+    MAT_SIZE total_len_in_use;     //how many cells are in use.
     int k;                  //current k
     int diag_size_in_use;       //just how many diagonal are there in use. start from 1
     int diag_size; //size of array diagonal_size_arr allocated.

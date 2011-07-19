@@ -509,61 +509,69 @@ cm_CAML_bigarr_to_comb2list (value bigarr, value cm) {
 cmt 
 cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         int is_metric, int all_elements, cmt res, int level, int comb_num, int gap_startNO) {
+    int debug=0;
     size_t size; 
     size_t combmatrix_size; 
     size_t comb2list_size;
-    
+    int oldsize = res -> ori_a_sz;
 #ifndef USE_LARGE_ALPHABETS
     if (comb_num > 255) 
         failwith ("Apparently you are analyzing large alphabets. This version of POY was configured without the --enable-large-alphabets option. To run this analysis you need to enable that option at compile time. Either reconfigured and compile yourself the program,   or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
 #endif
+    if (debug) { printf ("cm_set_val,a_sz=%d,combinationa=%d,all_elements=%d,level=%d,comb_num=%d,gap_startNO=%d\n",
+            a_sz,combinations,all_elements,level,comb_num,gap_startNO); fflush(stdout); }
+    cm_set_ori_a_sz(res, a_sz);
+    cm_set_all_elements (res, all_elements);
+    cm_set_affine (res, do_aff, gap_open);
+    res->is_metric = is_metric;
     if (combinations != 0) {
-        cm_set_ori_a_sz(res, a_sz);
         cm_set_level(res,level);
         cm_set_map_sz(res, comb_num);
         cm_set_lcm (res, a_sz);
         if( (level >1)&&(level<=a_sz) )
         {
-            //printf ("cm_set_val,level=%d,gap<-%d,gap_startNO<-%d,a_sz<-%d\n",level,a_sz,gap_startNO,comb_num); fflush(stdout);
+            if (debug) { 
+                printf ("use combinations,1<level<=a_sz,a_sz <- comb_num, gap <- a_sz\n"); fflush(stdout);
+            }
             cm_set_gap(res, a_sz);
             cm_set_gap_startNO(res,gap_startNO);
             cm_set_a_sz (res, comb_num);
         }
         else
         {
-            //printf ("cm_set_val,level=%d,gap<-%d,a_sz<-%d\n",level,1<<(a_sz-1),cm_combinations_of_alphabet(a_sz)); fflush(stdout);
+            int combsz = cm_combinations_of_alphabet (a_sz) ;
+           if (debug) { 
+               printf ("use combinations, level <= 1 or > a_sz, set a_sz <- %d,gap <- %d\n",combsz, 1 << (a_sz-1)); 
+           fflush(stdout);}
             cm_set_gap (res, 1 << (a_sz - 1));
             cm_set_gap_startNO(res,0);
-            cm_set_a_sz (res, cm_combinations_of_alphabet (a_sz));
+            cm_set_a_sz (res, combsz);
         }
         cm_set_combinations (res);
-    } else {
-        //printf ("cm_set_valcomb=false,a_sz=%d,lcm<-%d,comb_num=%d\n",a_sz,ceil_log_2 (a_sz + 1),comb_num); fflush(stdout);
-        cm_set_ori_a_sz(res, a_sz);
-        cm_set_level(res,1);
+    } 
+    else {
+        int lcmvalue = ceil_log_2 (a_sz + 1);
+        if (debug) {printf ("combination = false,lcm <- %d\n",lcmvalue); fflush(stdout);}
         cm_set_map_sz(res, a_sz);
+        cm_set_level(res,1);
         cm_set_gap (res, a_sz);
         cm_set_a_sz (res, a_sz);
-        cm_set_lcm (res, ceil_log_2 (a_sz + 1));
+        cm_set_lcm (res, lcmvalue);
         cm_unset_combinations (res);
     }
-    cm_set_all_elements (res, all_elements);
-    cm_set_affine (res, do_aff, gap_open);
-    res->is_metric = is_metric;
     combmatrix_size = sizeof(int) * (comb_num+1) * (comb_num+1) ;
     comb2list_size = sizeof(int) * (comb_num+1) * (2+1);
     res->combmap = (int *) calloc(combmatrix_size,1);
     res->comb2list = (int *) calloc( comb2list_size,1);
     if( (level > 1)&&(level<=a_sz) )  
     {    
-        //debug msg : 
-        //printf ("level=%d, comb_num=%d,reset size to combmatrix_size=%d\n",level,comb_num,combmatrix_size); fflush(stdout);
-        size = combmatrix_size;
+       size = combmatrix_size;
+       if (debug) {printf ("use level,reset size to combmatrix_size=%d\n",combmatrix_size); fflush(stdout);}
     }
     else
     {
         size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(int);
-        //fprintf(stdout,"level=%d, not using level\n"); fflush(stdout);
+        if (debug) {printf("not use level,set size to %d\n",size); fflush(stdout);}
     }
     if (0==size)
     {   printf ("alphabet size=%d,combinations=%d,comb_num=%d,lcm=%d\n", a_sz, combinations,comb_num,res->lcm);
@@ -572,8 +580,8 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         failwith ("Your cost matrix is too large to fit in your memory.\
                 I can't continue with your data loading.");
     }
-    //fprintf(stdout, "calloc int of SIZE = %d\n",size); fflush(stdout);
-    res->cost = (int *) calloc (size, 1);
+   if (debug) {printf("calloc int of SIZE = %d\n",size); fflush(stdout);}
+   res->cost = (int *) calloc (size, 1);
     if(res->cost == NULL)
         failwith("ERROR: cannot alloc res->cost");
     res->worst = (int *) calloc (size, 1);
@@ -589,7 +597,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     size =  sizeof(SEQT) * (comb_num+1) * (comb_num+1) ;
     else
     size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(SEQT);
-    //fprintf(stdout, "calloc seqt of SIZE = %d\n",size); fflush(stdout);
+    if (debug) {fprintf(stdout, "calloc seqt of SIZE = %d\n",size); fflush(stdout);}
     if (0==size)
         printf ("alphabet size: %d,%d \n", a_sz, combinations);
     if (0 == size)
@@ -1266,6 +1274,9 @@ __inline void
 inline void
 #endif
 cm_set_value_seqt (SEQT a, SEQT b, SEQT v, SEQT *p, int a_sz) {
+    if (a<0) failwith ("cm_set_value_seqt with neg a");
+    if (b<0) failwith ("cm_set_value_seqt with neg b");
+    if (a_sz<0) failwith ("cm_set_value_seqt with neg a_sz");
     *(p + (cm_calc_cost_position_seqt (a, b, a_sz))) = v;
     return;
 }
@@ -1276,6 +1287,9 @@ __inline void
 inline void
 #endif
 cm_set_value_seqt_nonbit (SEQT a, SEQT b, SEQT v, SEQT *p, int a_sz) {
+    if (a<0) failwith ("cm_set_value_seqt_nonbit with neg a");
+    if (b<0) failwith ("cm_set_value_seqt_nonbit with neg b");
+    if (a_sz<0) failwith ("cm_set_value_seqt_nonbit with neg a_sz");
     *(p + ( ( ((int)a) * a_sz ) + ( (int)b ) ) ) = v;
     return;
 }
@@ -1286,6 +1300,9 @@ __inline void
 inline void
 #endif
 cm_set_value (int a, int b, int v, int *p, int a_sz) {
+    if (a<0) failwith ("cm_set_value with neg a");
+    if (b<0) failwith ("cm_set_value with neg b");
+    if (a_sz<0) failwith ("cm_set_value with neg a_sz");
     *(p + (cm_calc_cost_position (a, b, a_sz))) = v;
     return;
 }
@@ -2385,11 +2402,17 @@ cm_CAML_create (value a_sz, value combine, value aff, value go, value all, value
     CAMLparam5(a_sz, combine, aff, go, all);
     CAMLxparam3(level, combine_number, gap_start);
     value tmp;
-    cmt tmp2;
+    cmt m;
     tmp = alloc_custom (&cost_matrix, sizeof(struct cm), 1, 1000000);
-    tmp2 = Cost_matrix_struct(tmp);
+    m = Cost_matrix_struct(tmp);
+    //init matrix with -1/NULL
+    m->a_sz = m->lcm = m->gap = m->cost_model_type = m->gap_open = 
+        m->all_elements = m->ori_a_sz = m->map_sz = m->level = m->gap_startNO = -1;
+    m->combmap = m->comb2list = m->cost = m->worst = m->prepend_cost = m->tail_cost = NULL;
+    m->median = NULL;
+    //allocate memory
     cm_set_val (Int_val(a_sz), Bool_val(combine), Int_val(aff), Int_val(go), \
-            0, Int_val(all), tmp2, Int_val(level), Int_val(combine_number), Int_val(gap_start));
+            0, Int_val(all), m, Int_val(level), Int_val(combine_number), Int_val(gap_start));
     CAMLreturn(tmp);
 }
 

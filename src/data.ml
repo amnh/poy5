@@ -42,6 +42,7 @@ let output_infof format =
 
 let debug_kolmo = false
 let debug_level = false 
+let debug_search_base = false 
 
 type dynhom_opts = 
     | Tcm of string     (* A transformation cost matrix to be used *)
@@ -392,6 +393,12 @@ type d = {
     static_dynamic_codes : (int) All_sets.IntSetMap.t;
     (* A map of each taxon code and their corresponding character list *)
     taxon_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
+    (* A map of extra taxon for median nodes*)
+    searchbase_files : All_sets.Strings.t All_sets.StringMap.t;
+    searchbase_names : int All_sets.StringMap.t;
+    searchbase_codes : string All_sets.IntegerMap.t;
+    searchbase_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
+    (**)
     (* A map between the character names and their corresponding codes *)
     character_names : (string, int) Hashtbl.t;
     (* A map between the character codes and their corresponding names *)
@@ -490,6 +497,10 @@ let empty () =
         dynamic_static_codes = All_sets.IntegerMap.empty;
         static_dynamic_codes = All_sets.IntSetMap.empty;
         taxon_characters = create_ht ();
+        searchbase_names = All_sets.StringMap.empty;
+        searchbase_files = All_sets.StringMap.empty;
+        searchbase_codes = All_sets.IntegerMap.empty;
+        searchbase_characters = create_ht ();
         character_names = create_ht ();
         character_codes = create_ht ();
         character_specs = create_ht ();
@@ -539,6 +550,8 @@ let duplicate data =
     { data with
         character_code_gen = ref !(data.character_code_gen);
         taxon_characters = copy_taxon_characters data.taxon_characters;
+        searchbase_characters = copy_taxon_characters
+        data.searchbase_characters;
         character_names = Hashtbl.copy data.character_names;
         character_codes = Hashtbl.copy data.character_codes;
         character_specs = Hashtbl.copy data.character_specs;
@@ -848,8 +861,10 @@ let print (data : d) =
 (*    Hashtbl.iter print_character_codes data.character_codes;*)
     Printf.printf "\n check taxon_characters:\n %!";
     Hashtbl.iter print_taxon data.taxon_characters;
-(*    Printf.printf "\n check character_specs:\n%!";*)
-(*    Hashtbl.iter print_specs data.character_specs;*)
+    Printf.printf "\n check search_base_characters:\n %!";
+    Hashtbl.iter print_taxon data.searchbase_characters;
+    Printf.printf "\n check character_specs:\n%!";
+    Hashtbl.iter print_specs data.character_specs;
     Printf.printf "\n check models:\n%!";
     print_models (data.dynamics @ data.static_ml);
     let () = match data.branches with
@@ -1295,8 +1310,58 @@ let rec process_taxon_code data taxon file =
         taxon_files = taxon_files }, code
     end
 
+let rec process_searchbase_code data taxon file =
+    let taxon = trim taxon in
+    if debug_search_base then 
+        Printf.printf "process_searchbase_code with taxon=%s\n%!" taxon;
+    if All_sets.StringMap.mem taxon data.taxon_names then 
+        (*already exists, we must have a root already! *)
+        (*let new_taxon_file = 
+            let set = All_sets.StringMap.find taxon data.taxon_files in
+            let set = All_sets.Strings.add file set in
+            All_sets.StringMap.add taxon set data.taxon_files 
+        in*)
+        let new_searchbase_file =
+        if All_sets.StringMap.mem taxon data.searchbase_files then   
+            let set = All_sets.StringMap.find taxon data.searchbase_files in
+            let set = All_sets.Strings.add file set in
+            All_sets.StringMap.add taxon set data.searchbase_files
+        else
+            All_sets.StringMap.add taxon (All_sets.Strings.singleton file)
+            data.searchbase_files
+        in
+        { data with searchbase_files = new_searchbase_file }, 
+        All_sets.StringMap.find taxon data.taxon_names
+    else if All_sets.StringMap.mem taxon data.synonyms then
+        (* Is a synonym *)
+        process_searchbase_code data 
+        (All_sets.StringMap.find taxon data.synonyms) file
+    else begin
+        let code = data.number_of_taxa + 1 in
+        let searchbase_names = 
+            All_sets.StringMap.add taxon code data.searchbase_names
+        in
+        let searchbase_codes = 
+            All_sets.IntegerMap.add code taxon data.searchbase_codes
+        in
+        let searchbase_files =
+            All_sets.StringMap.add taxon (All_sets.Strings.singleton file)
+            data.searchbase_files 
+        in
+        (*not sure if we need to do this: 
+        let data = pick_code_for_root code data in*)
+        { data with number_of_taxa = data.number_of_taxa + 1;
+        searchbase_names = searchbase_names; searchbase_codes = searchbase_codes; 
+        searchbase_files = searchbase_files }, code
+    end
+
+
 let get_taxon_characters data tcode =
     try Hashtbl.find data.taxon_characters tcode with 
+    | _ -> create_ht ()
+
+let get_searchbase_characters data tcode =
+    try Hashtbl.find data.searchbase_characters tcode with 
     | _ -> create_ht ()
 
 (* Changes in place *)
@@ -1852,6 +1917,7 @@ let gen_add_static_parsed_file do_duplicate data file
                     `DO false alph file `Ml data seq lk_model
             | None -> 
                 let tcm, name =
+                    Printf.printf "get tcm :\n%!";
                     let tcm,name = match tcm with
                     | None ->
                         Cost_matrix.Two_D.of_transformations_and_gaps 
@@ -1880,6 +1946,7 @@ let gen_add_static_parsed_file do_duplicate data file
                         in
                         tcm, name
                 in
+                Printf.printf "get tcm 3d :\n%!";
                 let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
                 process_parsed_sequences false weight name tcm tcm3d `DO false
                                          alph file `Seq data seq None
@@ -2062,6 +2129,7 @@ let print_error_message fl =
 
 let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
     begin try
+        Printf.printf "aux process molecular file\n%!";
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
             try Fasta.of_channel (builder alphabet) ch with
@@ -2778,7 +2846,6 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
         | `Align_Meth v -> {dyna_pam with align_meth = Some v}
         | `Median_Solver c -> {dyna_pam with median_solver = Some c}
         | `Annotate_Tool c -> {dyna_pam with annotate_tool = Some c}
-        (*| `Min_LCB_Ratio c -> {dyna_pam with min_lcb_ratio = Some c}*)
         | `Locus_Inversion c -> {dyna_pam with re_meth = Some (`Locus_Inversion c)}
         | `Locus_Breakpoint c -> {dyna_pam with re_meth = Some (`Locus_Breakpoint c)}
         | `Chrom_Breakpoint c -> {dyna_pam with chrom_breakpoint = Some c}
@@ -2906,10 +2973,10 @@ let create_alpha_c2_breakinvs (data : d) chcode =
             let code2 = all_seq_arr.(idx2).code in 
                 
             let _, _, cost =
-(*                if use_ukk then*)
-(*                Sequence.NewkkAlign.align_2 ~first_gap:false *)
-(*                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm*)
-(*                else*)
+                if use_ukk then
+                Sequence.NewkkAlign.align_2 ~first_gap:false 
+                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm
+                else
                 Sequence.Align.align_2 ~first_gap:false seq1 seq2 c2 Matrix.default
             in 
             gen_cost_mat.(code1).(code2) <- cost;
@@ -4597,6 +4664,7 @@ let auto_partition mode data code =
 
 let compute_fixed_states filename data code =
     let debug = false in
+    if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
@@ -4631,12 +4699,19 @@ let compute_fixed_states filename data code =
             | _ -> failwith "Impossible?"
         with | Not_found -> acc
     in
-    let taxa = 
+    let taxa_arr = 
         Array.of_list
             (Hashtbl.fold process_taxon data.taxon_characters [])
     in
-    let taxa = Array.map fst taxa
-    and initial_sequences = Array.map snd taxa in
+    let searchbase_arr =
+        Array.of_list
+            (Hashtbl.fold process_taxon data.searchbase_characters [])
+    in
+    let total_arr = Array.append taxa_arr searchbase_arr in
+    let taxa = Array.map fst total_arr in
+    let initial_sequences = Array.map snd total_arr in
+    if debug then Printf.printf "total size = %d + %d = %d\n%!" 
+    (Array.length taxa_arr) (Array.length searchbase_arr) (Array.length total_arr);
     (* find all single assignments between two sequences; these become the
        states that can be placed on the internal nodes of the tree **)
     let () = 
@@ -4663,6 +4738,7 @@ let compute_fixed_states filename data code =
         done;
     in
     let states = !states in
+    if debug then Printf.printf "states num = %d\n%!" states;
     let sequences = Array.init states (fun _ -> Sequence.create 1) in
     let distances = Array.make_matrix states states 0. in
     let branches = ref None in
@@ -4687,8 +4763,8 @@ let compute_fixed_states filename data code =
                     (*we don't call AliMap.create_general_ali_mauve directly here,
                     * because parameter of that function is with low level module
                     * type, like "Block.pairChromPam_t". Data.ml is suppose to
-                    * be on top of those modules -- including aliMap.
-                    * So instead, we call get_matcharr_and_costmatrix and
+                    * be on top of those modules -- including aliMap. To avoid 
+                    * circular denpendency, we call get_matcharr_and_costmatrix and
                     * output2mauvefile seperately.*)
                     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
                             edit_cost,full_code_lstlst,len_lst1 =
@@ -4845,6 +4921,7 @@ let assign_tcm_to_characters data chars foname tcm =
 
 
 let assign_tcm_to_characters_from_file data chars file =
+    let debug_level = true in
     if debug_level then Printf.printf "Data.assign_tcm_to_characters_from_file\n%!";
     let tcm = match file with
         | None -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
@@ -4863,6 +4940,187 @@ let assign_tcm_to_characters_from_file data chars file =
                       tcm, Input_file ((FileStream.filename f), mat))
     in
     assign_tcm_to_characters data chars None tcm
+
+let add_search_base_for_one_character_from_file data chars file character_name =
+    let chcode = 
+        try (Hashtbl.find data.character_names character_name)
+        with | Not_found -> failwith "cannot add search base for non existing character"
+    in
+    if debug_search_base then Printf.printf 
+    "Data.add_search_base_from_file %s, chcode=%d\n%!" file chcode;
+    let annotated = false in
+    let original_filename = file in
+    let file = `Local file in 
+    let alphabet = get_alphabet data 1 in
+    let ch = Parser.Files.molecular_to_fasta file in
+    let res = 
+        try Fasta.of_channel (FileContents.AlphSeq alphabet) ch with
+        | Fasta.Illegal_molecular_format fl ->
+                let file = FileStream.filename file in
+                let fl = { fl with Fasta.filename = file } in
+                print_error_message fl;
+                raise (Fasta.Illegal_molecular_format fl)
+    in
+    let res = List.filter (function [[]], _ | [], _ -> false | _ -> true) res
+    in
+    close_in ch;
+    let data = duplicate data in (*really?*)
+    let res = 
+        let res = List.map (fun (res3, b) -> (List.flatten res3),b) res in 
+        let tmp = 
+            List.map (fun (res2, b) -> 
+                          let res1 = List.flatten res2 in
+                          List.map (fun s -> s, b) res1) res
+        in
+        let arr = 
+            let lst = List.map (Array.of_list) tmp in
+            Array.of_list lst 
+        in
+        let num_taxa = Array.length arr in
+        let loci =
+            Array.fold_left 
+                ~f:(fun max_loci loci_arr -> 
+                     max max_loci (Array.length loci_arr))
+                ~init:0 arr 
+        in
+        if debug_search_base then Printf.printf "num_taxa=%d,loci=%d\n%!" num_taxa loci;
+        let res = ref [] in
+        for j = loci - 1 downto 0 do 
+            let loci = ref [] in
+            for i = num_taxa - 1 downto 0 do
+                match j < Array.length arr.(i) with
+                | true -> loci := arr.(i).(j) :: !loci
+                | false ->
+                      let _, taxon = arr.(i).(0) in 
+                      let seq = Sequence.create 1 in
+                      let seq = 
+                          Sequence.prepend_char seq (Alphabet.get_gap alphabet)
+                      in
+                      loci := (seq, taxon ) :: !loci
+            done;
+            res := !loci :: !res;
+        done; 
+        !res
+    in
+    (*get the old code*)
+    (*let chcode = !(data.character_code_gen) in*)
+    let locus_name = 
+        let c = ref (-1) in
+        ref (fun () ->
+            incr c;
+            original_filename  ^ ":" ^ string_of_int !c)
+    in 
+    let single_loci_processor acc res = 
+        if debug_search_base then Printf.printf "single_loci_processor\n%!";
+        (*let data = add_searchbase_to_character acc chcode in*) 
+        (* Now a function to process one taxon at a time to be 
+        * folded over the taxa collected in the [file]. *)
+        let process_a_taxon data (seq, taxon) =
+            if debug_search_base then Printf.printf "process_a_taxon --> %!";
+            (* Here is where, at the parser level, the fixed 
+            * states support should be added *)
+            let data, tcode = 
+                process_searchbase_code data taxon original_filename
+                (*process_taxon_code data taxon original_filename*) 
+            in
+            if debug_search_base then Printf.printf "tcode=%d, %!" tcode;
+            if debug_search_base then 
+                Array.iter (fun x -> Sequence.printseqcode x) seq;
+            let tl = get_searchbase_characters data tcode in
+            let dyna_state = `Seq and prealigned = false in
+            let seqa = 
+                let makeone seqa = {seq=seqa; code = -1} in
+                match dyna_state with 
+                | `Ml  when not prealigned -> Array.map makeone seq 
+                | `Seq when not prealigned -> Array.map makeone seq
+                | _ -> Array.map (fun x -> x --> 
+                        Sequence.del_first_char --> makeone) seq 
+            in 
+            let dyna_data = {seq_arr =  seqa} in 
+            let _ = 
+                let spc =
+                    let maxlen =
+                        Array.fold_left ~f:(fun acc x ->
+                            max acc (Sequence.length x.seq)) ~init:0 
+                        seqa
+                    in
+                    if 2 <= maxlen then `Specified
+                    else `Unknown
+                in
+                Hashtbl.replace tl chcode (Dyna (chcode, dyna_data), spc) 
+            in
+            Hashtbl.replace data.searchbase_characters tcode tl;
+            data
+        in
+        List.fold_left ~f:process_a_taxon ~init:data res
+    in
+    let individual_fragments x = 
+        List.map (List.map ~f:(fun (seq, t) -> [|seq|], t)) x
+    in
+    let merge_fragments x =
+        match x with
+        | h :: t ->
+                let h = List.map ~f:(fun (seq, t) -> [seq], t) h in
+                let merged =
+                    List.fold_left 
+                    ~f:(fun merged next ->
+                        List.map2 ~f:(fun (seq, t) (locus, t2) ->
+                            assert (t = t2);
+                            (locus :: seq, t)) merged next) ~init:h t
+                in
+                List.rev_map (fun (lst, taxon) ->
+                    Array.of_list (List.rev lst), taxon) merged
+        | [] -> []
+    in
+    let data = 
+       (* if annotated then process_annotated_chrom data 
+        else if dyna_state = `Genome then process_genome data
+        else if `DO = default_mode then *)
+            match (res --> individual_fragments) with
+            | [x] ->
+                    locus_name := (fun () -> original_filename);
+                    single_loci_processor data x
+            | [] -> data
+            | x -> List.fold_left ~f:single_loci_processor ~init:data x
+       (* else 
+            (res --> merge_fragments -->
+            single_loci_processor data) *)
+    in 
+    
+    let sbfile = FileStream.filename file in
+    let files = 
+            if List.exists (function (x, _) -> x = sbfile) data.files 
+                then data.files
+            else (sbfile, [Characters]) :: data.files 
+    in
+    let chars = 
+        List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
+                    (get_chars_codes_comp data chars)
+    in
+    let chars_specs =
+        List.fold_left 
+        ~f:(fun acc x -> 
+            let res = Hashtbl.find data.character_specs x in
+            let acc = (res, x) :: acc in
+            (*Hashtbl.remove data.character_specs x;*)
+            acc
+        ) 
+        ~init:[] chars
+    in
+    List.iter ~f:(fun (spec, code) -> 
+        if debug_search_base then Printf.printf "call compute fixed states with code = %d\n%!" code;
+        compute_fixed_states None data code) chars_specs;
+    { data with files = files }
+
+
+let add_search_base_from_file data chars file_chname_lst = 
+    List.fold_left ~f:(fun accdata name ->
+        let chname,filename = name in
+        let newdata = add_search_base_for_one_character_from_file accdata chars filename
+        chname in
+        newdata
+    ) ~init:data file_chname_lst 
+
 
 let classify_characters_by_alphabet_size data chars =
     let is_dynamic_character x = 
