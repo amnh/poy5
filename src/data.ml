@@ -2129,7 +2129,6 @@ let print_error_message fl =
 
 let aux_process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
     begin try
-        Printf.printf "aux process molecular file,respect_case=%b\n%!" respect_case;
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
             try Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch with

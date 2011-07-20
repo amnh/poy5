@@ -19,7 +19,7 @@
 
 type taxon = string
 
-let debug = true
+let debug = false
 
 let (-->) b a = a b
 
