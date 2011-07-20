@@ -1546,13 +1546,15 @@ let load_data (meth : Methods.input) data nodes =
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let level = 2 in (* set level = 2 by default *)
+                let respect_case = true in
                 let alphabet, (twod,matrix), threed =
-                    Alphabet.of_file alph orientation init3D level
+                    Alphabet.of_file alph orientation init3D level respect_case
                 in
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;
                 let tcmfile = FileStream.filename alph in
-                Data.process_molecular_file 
+                Data.process_molecular_file
+                        ~respect_case:respect_case
                         (Data.Input_file (tcmfile,matrix))
                         twod threed annotated alphabet `DO
                         is_prealigned `Seq data seq 
@@ -1564,8 +1566,9 @@ let load_data (meth : Methods.input) data nodes =
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
+                let respect_case = true in
                 let alphabet, (twod,matrix), threed =
-                    Alphabet.of_file alph orientation init3D 0 
+                    Alphabet.of_file alph orientation init3D 0 respect_case
                 and tcmfile = FileStream.filename alph in
                 Data.process_molecular_file 
                         (Data.Input_file (tcmfile,matrix))
@@ -5118,7 +5121,7 @@ module DNA = struct
         type seqs = (string * Sequence.s) list
         type multi_seqs = seqs list
 
-        let of_channel prealigned ch = 
+        let of_channel ?(respect_case = false) prealigned ch = 
             let filter (lst, txn) =
                 let lst = List.flatten (List.flatten lst) in
                 match lst with
@@ -5136,7 +5139,7 @@ module DNA = struct
                     FileContents.Prealigned_Alphabet (Alphabet.nucleotides)
                 else FileContents.Nucleic_Acids
             in
-            let res = Fasta.of_channel alph ch in
+            let res = Fasta.of_channel ~respect_case:respect_case alph ch in
             List.map converter (List.filter filter res)
 
         let multi_of_channel ch = 

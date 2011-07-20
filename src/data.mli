@@ -443,11 +443,11 @@ val get_weight : int -> d -> float
 val get_weights : d -> (int * float) list
 
 val process_parsed_sequences : 
-    bool -> float -> tcm_definition -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m ->
+     bool -> float -> tcm_definition -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m ->
         dyna_initial_assgn -> bool -> Alphabet.a -> string -> dyna_state_t ->
             d -> (Sequence.s list list list * Parser.E.taxon) list -> MlModel.model option -> d
 
-val process_molecular_file : tcm_definition -> Cost_matrix.Two_D.m ->
+val process_molecular_file : ?respect_case:bool -> tcm_definition -> Cost_matrix.Two_D.m ->
     Cost_matrix.Three_D.m -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
         dyna_state_t -> d -> FileStream.f -> d
 

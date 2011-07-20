@@ -69,7 +69,7 @@ val aminoacids_use_3d : a
 
 (** [of_string l] creates an encoding for the string list [l] to produce an 
     alphabet. *)
-val of_string : ?orientation:bool -> ?init3D:bool -> string list -> string -> string option -> a
+val of_string : ?respect_case:bool -> ?orientation:bool -> ?init3D:bool -> string list -> string -> string option -> a
 
 (** {2 Finding} *)
 
@@ -154,7 +154,7 @@ val check_level : a -> bool
 (** [list_to_a l g a k] generate an alphabet using the association
     list of strings, codes, and optional complements [l], with gap
     code [g] and all code [a], to create * an alphabet of kind [k] *)
-val list_to_a : ?orientation:bool -> ?init3D:bool ->
+val list_to_a : ?respect_case:bool -> ?orientation:bool -> ?init3D:bool ->
   (string * int * int option) list -> string -> string option -> kind -> a
 
 (** [simplify a] return an alphabet with the following conditions:
@@ -192,7 +192,7 @@ module Lexer : sig
         The boolean argument is used to issue error warnings (true) or not
         (false). *)
     val make_lexer : 
-        bool -> a -> (char Stream.t -> int list -> int -> int list * int)
+        bool -> bool -> a -> (char Stream.t -> int list -> int -> int list * int)
 
     (** Simmilar to [make_lexer] with two main differences: 0) first argument
         specifies the polymorphic style according to the file format i) second argument is
@@ -206,6 +206,6 @@ end
 
 (** [of_file stream o 3d] parse an alphabet using orientation [o],
     and optionally initialize it to 3d dimensions [3d]. *)
-val of_file : FileStream.f -> bool -> bool -> int ->
+val of_file : FileStream.f -> bool -> bool -> int -> bool ->
                 a * (Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
 

@@ -2047,7 +2047,7 @@ let add_static_file ?(report = true) style data (file : FileStream.f) =
             data
 
 
-let dna_lexer = Alphabet.Lexer.make_lexer false Alphabet.nucleotides
+let dna_lexer = Alphabet.Lexer.make_lexer false false Alphabet.nucleotides
 
 let check_if_taxa_are_ok file taxa = 
     let the_great_majority_is_acgt (lst, _) = 
@@ -2127,12 +2127,12 @@ let print_error_message fl =
     Status.user_message Status.Error msg
 
 
-let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
+let aux_process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
     begin try
-        Printf.printf "aux process molecular file\n%!";
+        Printf.printf "aux process molecular file,respect_case=%b\n%!" respect_case;
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
-            try Fasta.of_channel (builder alphabet) ch with
+            try Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch with
             | Fasta.Illegal_molecular_format fl ->
                     let file = FileStream.filename file in
                     let fl = { fl with Fasta.filename = file } in
@@ -2185,14 +2185,15 @@ let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_
             data
     end
 
-let process_molecular_file tcmfile tcm tcm3 annotated alphabet
+let process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 annotated alphabet
                             mode is_prealigned dyna_state data file =
     let data =
-        aux_process_molecular_file 
+        aux_process_molecular_file ~respect_case:respect_case
             tcmfile tcm tcm3 alphabet
             (fun alph parsed -> 
-                process_parsed_sequences is_prealigned 1.0 tcmfile tcm tcm3 mode annotated 
-                                alph (FileStream.filename file) dyna_state data parsed None)
+                process_parsed_sequences is_prealigned 1.0 
+                tcmfile tcm tcm3 mode annotated 
+                alph (FileStream.filename file) dyna_state data parsed None)
             (fun x -> 
                 if not is_prealigned then FileContents.AlphSeq x
                 else FileContents.Prealigned_Alphabet x) 
@@ -3842,6 +3843,7 @@ and get_chars_codes data = function
     | `Missing (dont_complement, fraction) ->
             get_code_with_missing dont_complement data fraction
     | `CharSet sets -> 
+            Printf.printf "data.ml CharSet\n%!";
             let names =
                 List.flatten
                     (List.map 
@@ -4954,7 +4956,7 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     let alphabet = get_alphabet data 1 in
     let ch = Parser.Files.molecular_to_fasta file in
     let res = 
-        try Fasta.of_channel (FileContents.AlphSeq alphabet) ch with
+        try Fasta.of_channel ~respect_case:true (FileContents.AlphSeq alphabet) ch with
         | Fasta.Illegal_molecular_format fl ->
                 let file = FileStream.filename file in
                 let fl = { fl with Fasta.filename = file } in

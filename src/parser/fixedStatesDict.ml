@@ -9,14 +9,14 @@ let of_channel t ch =
     in
     match t with
     | FileContents.Nucleic_Acids -> 
-            let lexer = Alphabet.Lexer.make_lexer true Alphabet.nucleotides in
+            let lexer = Alphabet.Lexer.make_lexer true false Alphabet.nucleotides in
             reader lexer Alphabet.nucleotides [] 1
     | FileContents.Proteins -> 
             let msg = "The current list of protein codes is empty. \
             Request an update or contact the POY maintainer." in
             raise (E.Unsupported_file_format msg)
     | FileContents.AlphSeq x ->
-            let lexer = Alphabet.Lexer.make_lexer true x in
+            let lexer = Alphabet.Lexer.make_lexer true true x in
             reader lexer x [] 1 
     | _ -> 
             let msg = 
