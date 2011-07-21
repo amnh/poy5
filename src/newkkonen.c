@@ -66,18 +66,18 @@ void print_int_arr (int * arr, int size)
 };
 
 void
-expand_mat (newkkmat_p m,int newk,int oldk)
+expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk)
 {
     int debug = 0;
-    int expand_diag_size = 1;
-    int expand_diagonal = 1;
+    MAT_SIZE expand_diag_size = 1;
+    MAT_SIZE expand_diagonal = 1;
     ukkdiag_p thisdiag;
-    int i=0;
+    MAT_SIZE i=0;
     int diaglen;
-    int baseband = m->baseband;
-    int oldsize = m->diag_size_in_use;
+    MAT_SIZE baseband = m->baseband;
+    MAT_SIZE oldsize = m->diag_size_in_use;
     //get diagonal array size, and set diag_size_in_use
-    int newsize = oldsize+(newk-oldk)*2;
+    MAT_SIZE newsize = oldsize+(newk-oldk)*2;
     m->k = newk;
     m->diag_size_in_use = newsize; 
     if (debug) 
@@ -186,6 +186,7 @@ get_idx (int i,int j,newkkmat_p m, int * whichdiag,int * idx_in_my_diag, int * a
     int debug = 0 ;
     int currentK = m->k;
     assert(currentK>=0);
+    //though baseband is defined as MAT_SIZE in newkkonen.h, which might be long int. but actually we don't need that much, int is fine. if baseband itself is bigger than max_int, the memory requirement will blow off our computer anyway. 
     int bb = m->baseband;
     assert(bb>0); 
     if (debug) { printf("get_idx,i=%d,j=%d.bb=%d.currentk=%d,",i,j,bb,currentK); fflush(stdout);}
@@ -469,9 +470,9 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
     int debug = 0;
     int newk=p;
     if (p>=lenX) newk=lenX-1;
-    int bb = m->baseband; 
-    int old_size = m->diag_size_in_use;
-    int oldk;
+    MAT_SIZE bb = m->baseband; 
+    MAT_SIZE old_size = m->diag_size_in_use;
+    MAT_SIZE oldk;
     oldk = (old_size-bb)/2;
     if (debug) { printf("\n ukktest,newk=%d,bb=%d,oldsize=%d,oldk=%d\n",newk,bb,old_size,oldk);
     fflush(stdout); }
@@ -522,7 +523,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
 };
 
 void
-init_mat (int lenX, int lenY,newkkmat_p m)
+init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m)
 {
     int debug = 1;
     int i=0;
@@ -530,7 +531,7 @@ init_mat (int lenX, int lenY,newkkmat_p m)
     int expand_diag_size=1;
     int expand_diagonal=1;
     MAT_SIZE len=0, oldlen=0;
-    int baseband=0;
+    MAT_SIZE baseband=0;
     baseband = lenY-lenX+1;
     oldlen = m->total_len;
     len = lenX * baseband;
@@ -647,7 +648,7 @@ int trivial_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cm
 
 
 int
-newkk_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c, newkkmat_p m) {
+newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, const cmt c, newkkmat_p m) {
     assert(s1_len<=s2_len);
     int debug = 1;
     int debug2 = 0;
@@ -711,7 +712,7 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a)
     seqt s1p, s2p;
     Seq_custom_val(s1p,s1);
     Seq_custom_val(s2p,s2);
-    int s1_len, s2_len;
+    MAT_SIZE s1_len, s2_len;
     s1_len = seq_get_len (s1p);
     s2_len = seq_get_len (s2p);
     assert (s2_len >= s1_len);

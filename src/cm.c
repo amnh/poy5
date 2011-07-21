@@ -1003,6 +1003,8 @@ cm_get_cost (int *tcm, int a, int b, int mapsize) {
     assert(mapsize>0);
     assert(a<=mapsize);
     assert(b<=mapsize);
+    assert(a>=0);
+    assert(b>=0);
     int * res;
     if (a==b) return 0;
     else
@@ -1274,9 +1276,6 @@ __inline void
 inline void
 #endif
 cm_set_value_seqt (SEQT a, SEQT b, SEQT v, SEQT *p, int a_sz) {
-    if (a<0) failwith ("cm_set_value_seqt with neg a");
-    if (b<0) failwith ("cm_set_value_seqt with neg b");
-    if (a_sz<0) failwith ("cm_set_value_seqt with neg a_sz");
     *(p + (cm_calc_cost_position_seqt (a, b, a_sz))) = v;
     return;
 }
@@ -1287,9 +1286,6 @@ __inline void
 inline void
 #endif
 cm_set_value_seqt_nonbit (SEQT a, SEQT b, SEQT v, SEQT *p, int a_sz) {
-    if (a<0) failwith ("cm_set_value_seqt_nonbit with neg a");
-    if (b<0) failwith ("cm_set_value_seqt_nonbit with neg b");
-    if (a_sz<0) failwith ("cm_set_value_seqt_nonbit with neg a_sz");
     *(p + ( ( ((int)a) * a_sz ) + ( (int)b ) ) ) = v;
     return;
 }
@@ -1300,9 +1296,6 @@ __inline void
 inline void
 #endif
 cm_set_value (int a, int b, int v, int *p, int a_sz) {
-    if (a<0) failwith ("cm_set_value with neg a");
-    if (b<0) failwith ("cm_set_value with neg b");
-    if (a_sz<0) failwith ("cm_set_value with neg a_sz");
     *(p + (cm_calc_cost_position (a, b, a_sz))) = v;
     return;
 }
