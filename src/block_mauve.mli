@@ -44,18 +44,26 @@ type mum = {
     (*priority_lst keep a list of seedNO that make this mum un-extendable (which
     * means this mum has extendable=3 because of those seeds) we can upgrade
     * this mum to ext=0 if this priority_lst is empty*)
-    mumscore : int ;
+    mumscore : int ; 
+    (*mumscore is not only used during build mum table, 
+    * after we have the lcbs, if this mum is part of a huge lcb block, mumscore
+    * is set to alignment score in function search_inside_lcb.*)
+    mumalgn : Sequence.s list;
+    (*alignment record the alignment result in function search_inside_lcb*)
 }
 
 type lcb = {
     seedNOlst : int list; (*each lcb is a list of mums,also the key to lcb_tbl*)
     range_lst : m_i list; (*lcb_range we need is exactly the same truct as m_i,
                            no need to create a new type here*)
-    score : int; (*sum of individual MUM scores, not subsequence contained by
-                  the range*)
     ratio : float; (* [score/length] of seq in this lcb*)
     ref_code : int; (*just a code for bk/rearr purpose*)
     avg_range_len : int; (*average length from range_lst*)
+    (*score between subsequence contained by range_lst during lcb building.
+    * after we have lcb_tbl, huge lcb blocks are aligned seperately, score in
+    * function search_inside_each_lcb is set to alignment cost of seq in this lcb*)
+    score : int; 
+    alignment : Sequence.s array;
 }
 
 
@@ -71,8 +79,8 @@ type lcb = {
 val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> int -> float -> int ->
 int*int -> Cost_matrix.Two_D.m ->  bool -> 
     int array * int array * int array array *
-(int*Sequence.s*Sequence.s) array array * int * int * (int * (int * int)) list
-list * int
+(int*Sequence.s*Sequence.s) array array * int * int * 
+(int * (int * int)) list list * int
 
 val output2mauvefile : string -> int -> (int option) -> int array -> int array
 -> (int * (int * int)) list list -> (int*Sequence.s*Sequence.s) array
@@ -100,5 +108,3 @@ val update_lcb_ref_code : (int list, lcb) Hashtbl.t -> int list -> int -> unit
 
 val get_position_by_seqNO : m_i list -> int -> m_i
 
-val get_lcb_key_by_range : int -> (int * int) -> (int list, lcb) Hashtbl.t 
-                          -> int list * int

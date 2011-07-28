@@ -374,6 +374,22 @@ let lambda =
 let sub s st len =
     init (fun x -> get s (x + st)) len
 
+let sub_ignore_gap ?(gap=Alphabet.gap) s st len = 
+    let idx = ref st in
+    let count = ref 0 in
+    let slen = length s in
+    let acclst = ref [] in
+    Printf.printf "sub ignore gap(=%d), slen=%d,start idx=%d,len without gap = %d -> %!" 
+    gap slen st len;
+    while (!count < len) do
+        assert( !idx < slen);
+        let add = get s !idx in
+        acclst := !acclst @ [add];
+        idx := !idx +1;
+        if add<>gap then count := !count + 1; 
+    done;
+    Printf.printf "end of sub ignore gap,next idx set to %d\n%!" !idx;
+    of_array (Array.of_list !acclst) , !idx
 
 let prepend_char seq element =  
     let len = length seq in
@@ -2425,8 +2441,13 @@ let get_empty_seq () = create 0
 * an empty sequence *)
 let subseq seq start len = 
 	match len < 1 with
-		| true -> get_empty_seq ()
-		| false -> sub seq start len
+	| true -> get_empty_seq ()
+    | false -> sub seq start len
+
+let subseq_ignore_gap ?(gap=Alphabet.gap) seq start len =
+    match len < 1 with
+	| true -> get_empty_seq (),0
+    | false -> sub_ignore_gap ~gap:gap seq start len  
 
 
 (** [align2 seq1 seq2 cost_mat] aligns 

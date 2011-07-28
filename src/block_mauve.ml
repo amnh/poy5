@@ -174,6 +174,7 @@ type mum = {
     * Note: each seedNO can show up more than once in priority_lst, since we can
     * have two MUM share more than one start/end positions*)
     mumscore : int ;
+    mumalgn : Sequence.s list;
 }
 
 
@@ -191,17 +192,22 @@ type b_tree =
 *)
 type lcb = {
     seedNOlst : int list; (*each lcb is a list of mums*)
-    range_lst : m_i list; (*lcb_range we need is exactly the same truct as m_i,
-                           no need to create a new type here
+    range_lst : m_i list; 
+    (* range_lst = [range of this lcb in seq0; range of this lcb in seq1].
+    lcb_range we need is exactly the same truct as m_i,
+    no need to create a new type here
     we sort it in update_lcbs_range_and_score, in decrease range size order*)
-    score : int; (*score between subsequence contained by range_lst*)
     ratio : float; (* [score/length] of seq in this lcb*)
     ref_code : int; (*just a code for bk/rearr purpose*)
     avg_range_len : int; (*average of range length from range_lst *)
+    (*score between subsequence contained by range_lst during lcb building.
+    * after we have lcb_tbl, huge lcb blocks are aligned seperately, score in
+    * function search_inside_each_lcb is set to alignment cost of seq in this lcb*)
+    score : int; 
+    alignment : Sequence.s array;
+    
+    
 }
-
-let empty_lcb = {seedNOlst=[];range_lst=[];score=0;ratio=0.;ref_code=0;avg_range_len=0;}
-
 
 (** for all lcbs. if they all together don't cover more than this of input sequence, adjust
 * parameters like minimum_cover_ratio and minimum_lcb_ratio to find more matches  
@@ -400,8 +406,10 @@ let print_lcbs_range in_lstlst =
     Printf.printf "lcb range lst lst :\n%!";
     List.iter (fun lcb_range_lst ->
         Printf.printf "{ %!";
-        List.iter (fun (leftend,rightend) ->
-            Printf.printf "(%d,%d),%!" leftend rightend;
+        List.iter (fun (leftend,rightend,lcbkey,lcb_refcode) ->
+            Printf.printf "(%d,%d,ref=%d,%!" leftend rightend lcb_refcode;
+            print_int_list lcbkey; 
+            Printf.printf ")%!";
         )lcb_range_lst;
         Printf.printf " } \n%!";
     ) in_lstlst
@@ -459,10 +467,6 @@ let print_sub_seq seqlstlst seqNO leftend size =
     let subseq = Array.to_list (Array.sub (Array.of_list seq) leftend size) in
     print_int_list subseq;
     Printf.printf "\n%!"
-
-let get_sub_seq seq leftend size = 
-    assert( (List.length seq)>=(leftend+size) );
-     Array.to_list (Array.sub (Array.of_list seq) leftend size)
 
 let get_sub_seq2 seq leftend size = 
     Array.sub seq leftend size 
@@ -1537,6 +1541,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
                     extendable = if mumsize=2 then 0 else 1;
                     priority_lst=[];
                     mumscore = 0;
+                    mumalgn = [];
                 } in
             if debug then begin
                 Printf.printf "add seed %d with mumkey %d,treekey = %!" seedNO key;
@@ -2428,7 +2433,7 @@ let to_ori_position position lcb_range_lstlst =
         Printf.printf "to_ori_position, seqNO=%d,l/r = %d/%d, %!" seqNO leftend rightend;
     let lcb_range_lst = List.nth lcb_range_lstlst seqNO in
     let (last_acc_size,last_right,ori_left,ori_right) = 
-        List.fold_left (fun (acc_size,pre_r,res_left,res_right) (l,r) ->
+        List.fold_left (fun (acc_size,pre_r,res_left,res_right) (l,r,_,_) ->
             if debug then 
                 Printf.printf "acc_size=%d,pre_r=%d,res_left=%d,res_right=%d,\
                range:[%d,%d]\n%!" acc_size pre_r res_left res_right l r; 
@@ -2528,7 +2533,7 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
     if debug then begin
         Printf.printf "transpose back, range list is :\n%!";
         List.iter (fun rangelst ->
-            List.iter (fun (left,right) ->
+            List.iter (fun (left,right,_,_) ->
                 Printf.printf "(%d,%d),%!" left right
             ) rangelst;
             Printf.printf "\n%!";
@@ -2932,12 +2937,33 @@ let get_break_point_matrix_faster inarrarr get_neg_item lcb_param (*optional*) d
 
     
     
-(*get range of current lcb in each sequence, seedNOlst is the list of seedNO of that lcb*)
+(*get range of current lcb , seedNOlst is the list of seedNO of
+* that lcb, this returns the leftmost position and right most position of that
+* lcb in each seq*)
 let get_range_of_a_lcb seedNOlst seqNO mum_tbl seed2pos_tbl= 
     let debug = false in
+    if debug then Printf.printf "get range of a lcb :\n%!";
     let min_abs_code = List.hd (List.sort (fun x y -> compare (abs x) (abs y) )
     seedNOlst) in
     let ori =  if (min_abs_code>0) then 1 else (-1) in 
+    let leftend,rightend,orirangelst =  
+        List.fold_left (fun (le,re,orl) seedNO -> 
+            if debug then Printf.printf "add mum#%d,%!" seedNO;
+        let thismum = get_mum_from_mumtbl (abs seedNO) mum_tbl seed2pos_tbl in
+        let thispos = get_position_by_seqNO thismum.positions seqNO in
+        let newle = 
+            if thispos.left_end<le then thispos.left_end 
+            else le
+        and newre =
+            if thispos.right_end>re then thispos.right_end
+            else re
+        in
+        newle,newre,
+        thismum.positions @ orl
+    ) (max_int/2,- max_int/2,[]) seedNOlst in
+    if debug then print_pos_list orirangelst;
+    (leftend,rightend),ori,orirangelst
+(*
     let weight = List.length seedNOlst in
     let seedNO_first = abs (List.hd seedNOlst) in
     let seedNO_last = abs (List.nth seedNOlst (weight-1)) in
@@ -2953,13 +2979,13 @@ let get_range_of_a_lcb seedNOlst seqNO mum_tbl seed2pos_tbl=
         if (posfirst.right_end < poslast.right_end) then poslast.right_end
         else posfirst.right_end 
     in
-    if debug then begin
+    if debug then beginori_rlst
     Printf.printf "get range of lcb: \n%!";
     print_int_list seedNOlst;
     Printf.printf "=> %d,%d\n %!" leftend rightend;
     end;
     (leftend,rightend),ori
-
+*)
 (*score bwteen two sequences based on hodx matrix *)
 let get_score_from_2seq sequence1 sequence2 ori = 
     let debug = false in
@@ -3090,10 +3116,11 @@ let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  =
     List.iter (fun lcblist ->
         idx := !idx + 1;
          List.iter (fun record ->
-            let (lend,rend),ori = get_range_of_a_lcb record !idx mum_tbl
-            seed2pos_tbl in
+            let (lend,rend),ori,ori_rlst = 
+                get_range_of_a_lcb record !idx mum_tbl seed2pos_tbl in
             let abs_record = get_abs_lst record in
             if (Hashtbl.mem lcb_tbl abs_record) then begin
+                (*we add range for one seq already, add info for another seq*)
                 let old_lcb = Hashtbl.find lcb_tbl abs_record in
                 let newlcbrange = 
                 { sequence_NO = (!idx); left_end=lend; right_end=rend; orientation=ori;} 
@@ -3101,17 +3128,21 @@ let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  =
                 let old_range_lst = old_lcb.range_lst in
                 Hashtbl.remove lcb_tbl abs_record;
                 Hashtbl.add lcb_tbl abs_record 
-                {old_lcb with range_lst = newlcbrange::old_range_lst};
+                {old_lcb with 
+                range_lst = newlcbrange::old_range_lst;
+                };
             end
-            else begin
+            else begin (*this is the first range info*)
                 assert( !idx = 0 );
                 let firstitem = 
                     [{sequence_NO= (!idx);left_end=lend;right_end=rend;
                     orientation=ori}]
                 in
                 Hashtbl.add lcb_tbl abs_record 
-                {seedNOlst = abs_record; range_lst = firstitem; 
-                score=0; ratio = 0.0; ref_code = (-1); avg_range_len = 0 }
+                {seedNOlst = abs_record; 
+                range_lst = firstitem; 
+                score=0; ratio = 0.0; ref_code = (-1); avg_range_len = 0;
+                alignment = [||]}
             end;
         ) lcblist
     )lcbs;
@@ -3145,20 +3176,23 @@ let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  =
 
     ) lcb_tbl
 
-(*[get_lcbs_range] returns the range lst of current lcb, *)
+(*[get_lcbs_range] returns the range lst of current lcb, the list is sorted by leftend. *)
 let get_lcbs_range lcb_tbl in_seq_size_lst = 
     let lcb_range_lst_arr = Array.make 2 [] in
     Hashtbl.iter (fun seedNOlst record ->
         if (is_light_weight_lcb record)=false then
             List.iter (fun mi ->
                 let oldlst = lcb_range_lst_arr.(mi.sequence_NO) in
-                let newlst = (mi.left_end,mi.right_end)::oldlst in
+                let newlst =
+                    (mi.left_end,mi.right_end,seedNOlst,
+                    record.ref_code * mi.orientation)
+                    ::oldlst in
                 lcb_range_lst_arr.(mi.sequence_NO) <- newlst ;
             ) record.range_lst;
     ) lcb_tbl;
     let lcb_range_lst_arr = (*sort the range by leftend*)
         Array.map (fun x -> 
-            List.sort (fun (aleft,_) (bleft,_) -> compare aleft bleft) x
+            List.sort (fun (aleft,_,_,_) (bleft,_,_,_) -> compare aleft bleft) x
         ) lcb_range_lst_arr
     in
     Array.to_list lcb_range_lst_arr
@@ -3177,10 +3211,10 @@ let get_lcblst_len_and_score lcbkeylst lcb_tbl =
     
 
 
-(* [get_lcb_key_by_range] get the lcb_key and lcb_code by its range. if no lcb is found,
+(* no longer useful [get_lcb_key_by_range] get the lcb_key and lcb_code by its range. if no lcb is found,
 * return [],0. 
 * remember what we did in [fill_in_indel]. the range in full_range_lstlst could
-* be different from the original lcb range. *)
+* be different from the original lcb range. 
 let get_lcb_key_by_range seqNO range lcb_tbl =
     let (leftend,rightend) = range in
     let reskey= ref [] and rescode = ref 0 in (*-1 is not a good idea for the
@@ -3197,6 +3231,7 @@ let get_lcb_key_by_range seqNO range lcb_tbl =
         ) record.range_lst;
     ) lcb_tbl;
     !reskey,!rescode
+    *)
 
 
 (* no worry about this, alignment function will take care of this.
@@ -3231,49 +3266,51 @@ let fill_in_indel full_range_lstlst =
         let newlst1 = fill_in_shorter_rangelst rangelst1 size2 size1 in
         [newlst1;rangelst2]
 *)
+
 (*given a lcbs range list list, get_full_range_lstlst returns a range list list
 * of both lcbs and area outside lcbs. *)
 let get_full_range_lstlst lcb_range_lstlst in_seqsize_lst =
     let res = List.map2 (fun lcb_range_list total_size ->
         let last_rightend,acc=
-            List.fold_left (fun (pre_rightend,acc) (leftend,rightend) ->
+            List.fold_left (fun (pre_rightend,acc)
+            (leftend,rightend,lcbkey,lcb_refcode) ->
                 if pre_rightend>leftend then
                     Printf.printf "%d>%d\n%!" pre_rightend leftend;
                 assert(pre_rightend<=leftend);
                 let newacc = 
-                    (*if leftend=0 then acc@[(0,0)]
-                    else*) if leftend>0 then   
-                    acc@[((pre_rightend+1),(leftend-1))] 
+                    if leftend>0 then   
+                    acc@[((pre_rightend+1),(leftend-1),[],0)] 
                     else acc
                 in
-                (*let newleftend = if leftend=0 then 1 else leftend in*)
-                let newacc = newacc@[(leftend,rightend)] in
+                let newacc = newacc@[(leftend,rightend,lcbkey,lcb_refcode)] in
                 rightend,newacc 
                 ) (-1,[]) lcb_range_list
         in
         let res = 
             if (last_rightend+1=total_size) then acc
-                (*let last_l,_ = List.hd (List.rev acc) in
-                let acc2keep = List.rev(List.tl (List.rev acc)) in
-                acc2keep@[(last_l,last_rightend-1);(last_rightend,last_rightend)]
-                *) 
-            else acc@[(last_rightend+1,total_size-1)]
+            else acc@[(last_rightend+1,total_size-1,[],0)]
         in
         res
     ) lcb_range_lstlst in_seqsize_lst in
-    (*fill_in_indel*) res
+    res
 
-    
-let get_seq_outside_lcbs old_seqarr old_seq_size_lst lcb_tbl =
-    let debug = false in
+(*[get_seq_ouside_lcbs] get sequence outside of list of lcbs, which range is in
+* lcb_range_lst_lst. old_seq_range_lst is the range of total sequence. If we are
+* building lcb_tbl, old_seq_range_lst is range of input sequences, but if we
+* are working inside a huge lcb, old_seq_range_lst is the range of that huge lcb*)    
+let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
+    let debug = true in
     if debug then Printf.printf "get seq outside lcbs :\n%!";
-    let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seq_size_lst in
+    (*let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seq_size_lst in*)
     if debug then print_lcbs_range lcb_range_lst_lst;
+    let seqNO = ref 0 in
     let seq_outside_lcb_arr = Array_ops.map_2 (fun seq lcb_range ->
-        let seqlen = Array.length seq in
+        (*let seqlen = Array.length seq in*)
+        let leftmost,rightmost = List.nth old_seq_range_lst (!seqNO) in
+        seqNO := !seqNO + 1;
         let last_rightend,tmpseq = 
             List.fold_left (
-                fun (pre_rightend,accseq) (leftend,rightend) ->
+                fun (pre_rightend,accseq) (leftend,rightend,_,_) ->
                 assert(pre_rightend<=leftend);
                 let size = leftend-pre_rightend-1 in
                 let newsubseq =
@@ -3282,17 +3319,22 @@ let get_seq_outside_lcbs old_seqarr old_seq_size_lst lcb_tbl =
                     else [||]
                 in
                 rightend,Array.append accseq newsubseq
-            ) (-1,[||]) lcb_range 
+            ) (leftmost-1(*-1*),[||]) lcb_range 
         in
-        let last_size = seqlen-1-last_rightend in
+        let last_size = rightmost(*seqlen-1*)-last_rightend in
         let subend = 
             if last_size>0 then
-            Array.sub seq (last_rightend+1) (seqlen-1-last_rightend) 
+            Array.sub seq (last_rightend+1) last_size 
             else [||]
         in
         Array.append tmpseq subend
     ) old_seqarr (Array.of_list lcb_range_lst_lst) in
-    lcb_range_lst_lst, seq_outside_lcb_arr
+    let size_lst = Array.fold_right (fun seq acc ->
+        (Array.length seq)::acc ) seq_outside_lcb_arr [] 
+    in
+    if debug then Printf.printf "return seq arr with size = %!";
+    if debug then print_int_list size_lst;
+    seq_outside_lcb_arr,size_lst
     
 
 (*[get_lcb_covR_num_badlcb] return the cover rate of qualified lcb, 
@@ -3910,8 +3952,8 @@ let debug = false and debug2 = false in
     let merge_two_lcb lcbkey1 lcbkey2 midlcblst code1lst code2lst midcodemap debug_merge_two_lcb =
         let key12 = List.append lcbkey1 lcbkey2 in
         (*get range including midlcblst*)
-        let (lend0,rend0),_ = get_range_of_a_lcb key12 0 mum_tbl seed2pos_tbl
-        and (lend1,rend1),_ = get_range_of_a_lcb key12 1 mum_tbl seed2pos_tbl
+        let (lend0,rend0),_,_ = get_range_of_a_lcb key12 0 mum_tbl seed2pos_tbl
+        and (lend1,rend1),_,_ = get_range_of_a_lcb key12 1 mum_tbl seed2pos_tbl
         in
         let _,score12 = get_lcblst_len_and_score [lcbkey1;lcbkey2] lcb_tbl in
         let range12 = get_avg_of_intlst [(rend0-lend0);(rend1-lend1)]  in
@@ -4194,9 +4236,9 @@ let debug = true and debug2 = false in
                         in
                         let lcbtp_spr = lcblstt @ lcblstp in
                         let lcbtp = List.flatten lcbtp_spr in
-                        let (lend0,rend0),_ = get_range_of_a_lcb lcbtp 0
+                        let (lend0,rend0),_,_ = get_range_of_a_lcb lcbtp 0
                         mum_tbl seed2pos_tbl 
-                        and (lend1,rend1),_ = get_range_of_a_lcb lcbtp 1
+                        and (lend1,rend1),_,_ = get_range_of_a_lcb lcbtp 1
                         mum_tbl seed2pos_tbl in
                         let _,score_tp = get_lcblst_len_and_score lcbtp_spr
                         lcb_tbl in
@@ -4452,7 +4494,8 @@ let debug = false in
         subsuming_pointer= -1; 
         extendable = k_extsign; 
         priority_lst=[];
-        mumscore = 0 } in  
+        mumscore = 0;
+        mumalgn = []} in  
     if debug then print_mum false true new_kmum;
     let sign_newmum = add_mum_to_mumtbl new_kmum mum_tbl in
     if sign_newmum then begin
@@ -4866,6 +4909,7 @@ let update_score_for_each_mum mum_tbl in_seqarr =
 
 
 
+
 (* search area outside existing lcb block. *)    
 let search_outside_lcbs inner_lcbs lcb_tbl mum_tbl
 pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
@@ -4877,11 +4921,13 @@ in_seqarr in_seq_size_lst  =
         if debug2 then Hashtbl.iter (fun key record -> print_lcb record ) lcb_tbl;
     end;
     (*this works even when the seq outside is shorter than seed's length*)
-    let lcb_range_lstlst, seq_outside_lcbs_arr = 
-        get_seq_outside_lcbs in_seqarr in_seq_size_lst lcb_tbl in
-    let current_seq_size_lst = Array.fold_right (fun seq acc ->
+    let lcb_range_lstlst = get_lcbs_range lcb_tbl in_seq_size_lst in
+    let in_seq_range_lst = List.map (fun size -> (0,size-1) ) in_seq_size_lst in
+    let seq_outside_lcbs_arr,current_seq_size_lst = 
+        get_seq_outside_lcbs in_seqarr lcb_range_lstlst in_seq_range_lst in
+    (*let current_seq_size_lst = Array.fold_right (fun seq acc ->
         (Array.length seq)::acc ) seq_outside_lcbs_arr [] 
-    in
+    in*)
     if debug_search_outside then begin
         Printf.printf "seq outside matches, size :";
         print_int_list current_seq_size_lst;
@@ -5024,70 +5070,122 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
         better_lcbs,init_covR(*we need covR before remove bad lcbs*),
         better_covR,better_lcb_tbl
         end
-    
-let search_inside_each_lcb lcb_tbl in_seqarr min_len max_len =
+
+let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
+    let debug = false in
+    if debug then begin
+        Printf.printf "merge_ali_seq start,outlen = %d,%d\n%!"
+        (Sequence.length out_aliseq0) (Sequence.length out_aliseq1);
+        Sequence.printseqcode out_aliseq0;
+        Sequence.printseqcode out_aliseq1;
+    end;
+    let resarr = Array_ops.map_3 (fun in_lst out_aliseq total_range ->
+    let leftmost,rightmost = total_range in
+    if debug then
+        Printf.printf "leftmost = %d, rightmost = %d, size=%d,alied outseq size=%d\n%!" 
+        leftmost rightmost (rightmost-leftmost+1) (Sequence.length out_aliseq);
+    let last_rightend,tmpseq,last_idx = 
+    List.fold_left ( fun (pre_rightend,accseq,accidx) ((leftend,rightend,_,_),aliseq) ->
+        if debug then Printf.printf "pre_rightend=%d,accidx=%d,le=%d,re=%d\n%!"
+        pre_rightend accidx leftend rightend;
+        let out_s,newidx = 
+            Sequence.subseq_ignore_gap out_aliseq accidx (leftend-pre_rightend-1) in
+        rightend,Sequence.concat [accseq;out_s;aliseq],newidx 
+    ) (leftmost-1,Sequence.get_empty_seq (),0) in_lst in
+    let last_size = rightmost-last_rightend in
+    if last_size>0 then
+        let last_seq, _ = 
+        Sequence.subseq_ignore_gap out_aliseq last_idx last_size 
+        in
+        Sequence.concat [tmpseq;last_seq]
+    else
+        tmpseq
+    ) 
+    [|in_lst0;in_lst1|] [|out_aliseq0;out_aliseq1|] 
+    (Array.of_list total_range_lst) in
+    if debug then begin
+        Printf.printf "merge_ali_seq ends, check res seq (size=%d,%d):\n%!"
+        (Sequence.length resarr.(0)) (Sequence.length resarr.(1));
+        Sequence.printseqcode resarr.(0);
+        Sequence.printseqcode resarr.(1);
+    end;
+    resarr
+
+
+let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl seed2pos_tbl cost_mat use_ukk =
     let debug = true in
     if debug then 
-        Printf.printf "Search inside each lcb ,min and max len = %d/%d\n%!" min_len max_len;
-    let new_seq2seedNO_tbl = Hashtbl.create init_tb_size in
-    let new_seedNO2seq_tbl = Hashtbl.create init_tb_size in
-    let new_pos2seed_tbl_left = Hashtbl.create init_tb_size in
-    let new_pos2seed_tbl_right = Hashtbl.create init_tb_size in
-    let new_seed2pos_tbl = Hashtbl.create init_tb_size in
-    let new_mum_tbl = Hashtbl.create init_tb_size in
-    Hashtbl.iter (fun key lcbrecord ->
-        Printf.printf "work on lcb:%!";
-        print_lcb lcbrecord;
+        Printf.printf "Search inside a lcb ,min and max len = %d/%d\n%!" min_len max_len;
+   (* Hashtbl.iter (fun key lcbrecord ->*)
+        if debug then Printf.printf "work on lcb:%!";
+        if debug then print_lcb lcbrecord;
+        let key = lcbrecord.seedNOlst in
         let lcblen = lcbrecord.avg_range_len in        
-        let rangelst = List.sort (fun x y -> compare x.sequence_NO
-        y.sequence_NO) lcbrecord.range_lst in
-        let lcb_seq_size_lst = ref [] in
-        let lcb_seqarr = 
-            Array_ops.map_2 (fun seq mi->
-                  let len = mi.right_end-mi.left_end+1 in
-                  lcb_seq_size_lst := !lcb_seq_size_lst @ [len];
-                  get_sub_seq2 seq mi.left_end len 
-            ) in_seqarr (Array.of_list rangelst)
-        in
-        let lcb_seq_size_lst = !lcb_seq_size_lst in
         if (lcblen>min_len)&&(lcblen<max_len) then begin
-            Hashtbl.clear new_seq2seedNO_tbl;
-            Hashtbl.clear new_seedNO2seq_tbl;
-            Hashtbl.clear new_pos2seed_tbl_left;
-            Hashtbl.clear new_pos2seed_tbl_right;
-            Hashtbl.clear new_seed2pos_tbl;
-            Hashtbl.clear new_mum_tbl;
-            let avglen = get_avg_of_intlst lcb_seq_size_lst in
-            let min_lcb_ratio = !minimum_lcb_ratio in
-            let min_lcb_len = int_of_float (avglen /. 10.) in (*to do : 5? 10? 20? ...*)
-            let seedlen = get_proper_seedlen avglen in 
-            let seedweight = build_seed_and_position_tbl lcb_seqarr seedlen 
-            new_seq2seedNO_tbl new_seedNO2seq_tbl 
-            new_pos2seed_tbl_left new_pos2seed_tbl_right 
-            new_seed2pos_tbl new_mum_tbl false in
-            Printf.printf "seedweight = %d\n%!" seedweight;
-            build_local_mums2 new_mum_tbl new_seed2pos_tbl 
-            new_pos2seed_tbl_left new_pos2seed_tbl_right  false false;
-            let init_num_mums = resolve_overlap_mum new_mum_tbl seedweight 
-            new_pos2seed_tbl_left new_pos2seed_tbl_right new_seed2pos_tbl false false in
-            Printf.printf "num of mums = %d\n%!" init_num_mums;
-            let seedNOlstlst = get_mum_lst_for_each_seq new_mum_tbl new_seed2pos_tbl 
-            new_pos2seed_tbl_left 2 lcb_seq_size_lst in
-            let init_lcbs,init_covR_before,init_covR_after,init_lcb_tbl = 
-            get_init_lcbs seedNOlstlst new_seed2pos_tbl new_mum_tbl lcb_seq_size_lst
-            init_num_mums min_lcb_ratio min_lcb_len 0.0 in
-            Printf.printf "lcbs inside big LCB:\n%!";
-            Hashtbl.iter (fun key lcb -> print_lcb lcb) init_lcb_tbl;
+            let sorted_total_rangelst = List.sort (fun x y -> compare x.sequence_NO
+            y.sequence_NO) lcbrecord.range_lst in
+           (* get seq outside of mums, also align subseq of each mum, upate mum_tbl.*)
+            let rlst0,rlst1,in_cost = 
+            List.fold_left (fun (rlist0,rlist1,acc_cost) seedNO ->
+                let thismum = get_mum_from_mumtbl (abs seedNO) mum_tbl seed2pos_tbl in
+                let mi0 = get_position_by_seqNO thismum.positions 0 in
+                let mi1 = get_position_by_seqNO thismum.positions 1 in
+                let le0,re0 = mi0.left_end,mi0.right_end 
+                and le1,re1 = mi1.left_end,mi1.right_end in
+                let subseq0,subseq1 = 
+                    Sequence.sub seq0 le0 (re0-le0+1),
+                    Sequence.sub seq1 le1 (re1-le1+1)
+                in
+                let alied_seq0, alied_seq1, cost, _  =  
+                Sequence.align2 subseq0 subseq1 cost_mat use_ukk
+                in
+                (*update_mum_to_mumtbl None 
+                {thismum with mumscore = cost;
+                mumalgn = [alied_seq0;alied_seq1]}
+                mum_tbl true;*)
+                ((le0,re0,[seedNO],mi0.orientation),alied_seq0)::rlist0,
+                ((le1,re1,[seedNO],mi1.orientation),alied_seq1)::rlist1,
+                acc_cost + cost
+            ) ([],[],0) key in
+            Printf.printf "in_cost = %d\n%!" in_cost;
+            let sort_by_leftend lst = 
+                (*this sorting might use bunch of memory, do we really need to
+                * sort? mums in lcbkey are suppose to be sorted by leftend.*)
+                List.sort (fun ((aleft,_,_,_),_) ((bleft,_,_,_),_) -> 
+                    compare aleft bleft) lst
+            in
+            let rlst0,rlst1 = sort_by_leftend rlst0,sort_by_leftend rlst1 in
+            let range_lst0,_ = List.split rlst0 
+            and range_lst1,_ = List.split rlst1 in 
+            if debug then print_lcbs_range [range_lst0;range_lst1];
+            let total_range_lst =
+                List.map (fun mi -> (mi.left_end,mi.right_end) ) sorted_total_rangelst
+            in
+            let out_seqarr,out_seq_size_lst =
+            get_seq_outside_lcbs in_seqarr [range_lst0;range_lst1] total_range_lst in
+            let out_aliseq0, out_aliseq1, out_cost, _ =  
+            Sequence.align2 (Sequence.of_array out_seqarr.(0))
+            (Sequence.of_array out_seqarr.(1)) cost_mat use_ukk
+            in
+            Printf.printf "out_cost=%d\n%!" out_cost;
+            let aliseqarr = 
+                merge_ali_seq rlst0 rlst1 out_aliseq0 out_aliseq1 
+                total_range_lst in
+            aliseqarr,in_cost+out_cost
+            (*Hashtbl.replace lcb_tbl key {lcbrecord with alignment = aliseqarr;
+            score = in_cost+out_cost };*)
         end
-        else
+        else begin
             Printf.printf "this lcb is too large or too small to work with\n%!";
-        
-    ) lcb_tbl;
-    Printf.printf "Search inside each lcb, done\n%!"
+            [||],0
+        end
+    (* ) lcb_tbl; 
+    Printf.printf "Search inside a lcb, done\n%!"*)
 
 
     
-let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_len =
+let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio
+max_lcb_len cost_mat use_ukk =
     maximum_lcb_len := max_lcb_len;
     minimum_cover_ratio := min_cover_ratio;
     let debug2 = false in
@@ -5115,6 +5213,10 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
     let pos2seed_tbl_right = Hashtbl.create init_size in
     let seed2pos_tbl = Hashtbl.create init_size in
     let mum_tbl = Hashtbl.create init_tb_size in
+(*i move these two out because we need them after we have lcb tbl, in search
+* inside a huge lcb*)
+    let outer_mum_tbl = ref (Hashtbl.create init_tb_size ) in 
+    let inner_seed2pos_tbl = ref (Hashtbl.create init_tb_size ) in
     (*find initial mums*)
     let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
     seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
@@ -5164,12 +5266,12 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
     let inner_mum_tbl = ref mum_tbl in
     let inner_pos2seed_tbl_left = ref pos2seed_tbl_left in
     let inner_pos2seed_tbl_right = ref pos2seed_tbl_right in
-    let inner_seed2pos_tbl = ref seed2pos_tbl in
+    inner_seed2pos_tbl := seed2pos_tbl;
     (*init outer tbl*)
     outer_old_covR := init_covR_after ;
     outer_lcbs := init_lcbs ;
     outer_lcb_tbl := (Hashtbl.copy init_lcb_tbl) (* necessary *) ;
-    let outer_mum_tbl = ref mum_tbl in
+    outer_mum_tbl := mum_tbl ;
     let current_num_of_mums = ref init_num_mums in
     let outer_sign = 
         ref ((init_covR_after< !maximum_cover_ratio)&&(init_covR_after>= !minimum_cover_ratio)) in
@@ -5295,8 +5397,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
                 Printf.printf "no improve in innerloop, no need to redo outerloop again\n%!";
         end;
     done; (*end of outer while loop*)
-    (*search_inside_each_lcb !outer_lcb_tbl in_seqarr !maximum_lcb_len max_int;
-    *)
+    (*search_inside_each_lcb !outer_lcb_tbl in_seqarr !maximum_lcb_len max_int
+    !outer_mum_tbl !inner_seed2pos_tbl cost_mat use_ukk ;*)
     if !any_improvement_outer = false then 
         (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
     * have the lcb from initial function, remove lightW ones*)
@@ -5327,8 +5429,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
         (*let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seqlst true in
         print_lcbs_range lcb_range_lstlst;*)
         let code_list = [[1];[1]] in
-        let range0 =  (0,(List.hd in_seq_size_lst)-1)
-        and range1 =  (0,(List.nth in_seq_size_lst 1)-1)
+        let range0 =  (0,(List.hd in_seq_size_lst)-1,[1],1)
+        and range1 =  (0,(List.nth in_seq_size_lst 1)-1,[1],1)
         in
         let m0 = {sequence_NO = 0; left_end = 0; right_end = (List.hd
         in_seq_size_lst)-1; orientation = 1}
@@ -5344,12 +5446,13 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
                 ratio = 0.0;
                 ref_code = 1;
                 avg_range_len = 0;
+                alignment = [||]
             }
         in
         Hashtbl.clear outer_lcb_tbl;(*not necessary,outer_lcb_tbl should be empty here*)
         Hashtbl.add outer_lcb_tbl [1] single_lcb;
         let outer_lcbs = [[[1]];[[1]]] in
-        outer_lcb_tbl,outer_lcbs,code_list,full_range_lstlst
+        outer_lcb_tbl,outer_lcbs,code_list,full_range_lstlst,!outer_mum_tbl,!inner_seed2pos_tbl
     end
     else begin
         let outer_lcbs = !outer_lcbs in
@@ -5363,6 +5466,12 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
                 print_lcblst outer_lcbs;
             end;
         end;
+        let refcode = ref 1 in
+        Hashtbl.iter (fun key record -> 
+            refcode := !refcode;
+            update_lcb_ref_code outer_lcb_tbl key (!refcode);
+            refcode := !refcode + 1;
+        ) outer_lcb_tbl;
         let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seq_size_lst in
         let full_range_lstlst = 
             get_full_range_lstlst lcb_range_lstlst in_seq_size_lst in
@@ -5371,13 +5480,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
             print_lcbs_range lcb_range_lstlst;
             Printf.printf "the full range lstlst (includes non-LCB blocks)%!";
             print_lcbs_range full_range_lstlst; 
-        end;
-        let refcode = ref 1 in
-        Hashtbl.iter (fun key record -> 
-            refcode := !refcode;
-            update_lcb_ref_code outer_lcb_tbl key (!refcode);
-            refcode := !refcode + 1;
-        ) outer_lcb_tbl;
+        end; 
         let seqNO = ref (-1) in
         let code_list = List.map (fun lcblst -> 
             seqNO := !seqNO + 1;
@@ -5398,7 +5501,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
         seedNO_available_arr := Array.make init_seed_size 1;
         if debug_main then Printf.printf "end of create lcb tbl\n%!";
         (*return lcb table, lcbs, code list and range list*)
-        outer_lcb_tbl,outer_lcbs,code_list,full_range_lstlst
+        outer_lcb_tbl,outer_lcbs,code_list,full_range_lstlst,!outer_mum_tbl,!inner_seed2pos_tbl
     end
 
 (**[fill_in_cost_ali_mat]
@@ -5414,13 +5517,18 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio max_lcb_l
  * Testing: For non-lcb blocks, to speed things up, we are not
  * doing alignment on two huge blocks. 
  * *)
-let fill_in_cost_ali_mat cost_mat seq1 seq2 code_range_lst1 code_range_lst2 gen_gap_code
-block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk =
+let fill_in_cost_ali_mat cost_mat seq1 seq2 in_seqarr (*now we carry both
+Sequence.s and int array to this function.*)
+code_range_lst1 code_range_lst2 gen_gap_code
+block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk 
+mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chunck lcb*) =
     let debug = true and debug2 = false in
     let set_cost code1 code2 cost = gen_cost_mat.(code1).(code2) <- cost in
     let edit_cost = ref 0 in
-    List.iter (fun (code1,(left1,right1)) ->
-    List.iter (fun (code2,(left2,right2)) ->
+    List.iter (fun (code1,(left1,right1),lcbkey1) ->
+    List.iter (fun (code2,(left2,right2),lcbkey2) ->
+        let avglen = get_avg_of_intlst [right1-left1+1;right2-left2+1] in
+        let avglen = int_of_float avglen in
         let subseq1,subseq2 = 
                 Sequence.sub seq1 left1 (right1-left1+1),
                 Sequence.sub seq2 left2 (right2-left2+1)
@@ -5442,7 +5550,20 @@ block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk =
             set_cost gen_gap_code code1 block_gap_cost;
             set_cost code2 gen_gap_code block_gap_cost; 
             set_cost gen_gap_code code2 block_gap_cost;
-            let alied_seq1, alied_seq2, cost, _ =  
+            let alied_seq1, alied_seq2, cost, _ =
+            if (avglen > !maximum_lcb_len) then begin
+                let lcbrecord = Hashtbl.find lcb_tbl (get_abs_lst lcbkey1) in    
+                let alied_seqarr,cost =
+                    search_inside_a_lcb lcbrecord seq1 seq2 in_seqarr
+                    !maximum_lcb_len max_int mum_tbl seed2pos_tbl cost_mat use_ukk
+                in
+                Printf.printf "cost from search inside a lcb = %d\n%!" cost;
+                if cost>0 then
+                    alied_seqarr.(0),alied_seqarr.(1),cost,-1
+                else
+                    Sequence.align2 subseq1 subseq2 cost_mat use_ukk
+            end
+            else
                 Sequence.align2 subseq1 subseq2 cost_mat use_ukk
             in
             edit_cost := !edit_cost + cost; (*acc the real edit cost*)
@@ -5461,7 +5582,9 @@ block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk =
             * later, therefore we don't need to know exact cost&alignment
             * between them*)
             let sublen1 = right1-left1+1 and sublen2 = right2-left2+1 in
-            if (sublen1 > !maximum_lcb_len)&&(sublen2 > !maximum_lcb_len)
+            (*if (sublen1 > !maximum_lcb_len)&&(sublen2 > !maximum_lcb_len)
+    *)
+            if (0>1)
             then begin
                 if debug then 
                     Printf.printf "skip this huge non-lcb block\n%!";
@@ -5530,6 +5653,8 @@ block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk =
         else () (*we don't need to ali mauve-recognized block with other blocks*)
     ) code_range_lst2 
     ) code_range_lst1 ; 
+    Printf.printf "end of fill_in_cost_ali_mat, return edit_cost between lcb \
+    blocks=%d\n%!" !edit_cost;
     !edit_cost
 
 (*main function here*)
@@ -5551,9 +5676,9 @@ locus_indel_cost cost_mat use_ukk =
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
     let in_seqarr = [|seq1arr;seq2arr|] in
-    let lcb_tbl,lcbs,code_list,full_range_lstlst = 
+    let lcb_tbl,lcbs,code_list,full_range_lstlst, mum_tbl, seed2pos_tbl = 
         create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio
-        max_lcb_len in
+        max_lcb_len cost_mat use_ukk in
     if debug then begin
         if debug2 then 
             Hashtbl.iter (fun key record ->
@@ -5579,15 +5704,15 @@ locus_indel_cost cost_mat use_ukk =
         List.map (fun full_range_lst ->
             seqNO := !seqNO +1 ;
             let coderef = ref base and start_num = !seqNO*len_lst1*2 in
-            List.map(fun (left,right) ->
-                let lcbkey,lcb_refcode = 
+            List.map(fun (left,right,lcbkey,lcb_refcode) ->
+                (*let lcbkey,lcb_refcode = 
                     get_lcb_key_by_range !seqNO (left,right) lcb_tbl
-                in
+                in*)
                 if lcb_refcode<>0 then (*a lcb block, use lcb refcode*)
-                    ((from_ori_code lcb_refcode)+start_num,(left,right))
+                    ((from_ori_code lcb_refcode)+start_num,(left,right),lcbkey)
                 else begin (*not lcb block, give it a new code*)
                     coderef := !coderef +1;
-                    ((from_ori_code !coderef)+start_num,(left,right))
+                    ((from_ori_code !coderef)+start_num,(left,right),lcbkey)
                 end
             )full_range_lst
         )full_range_lstlst 
@@ -5595,23 +5720,34 @@ locus_indel_cost cost_mat use_ukk =
     if debug then begin
     Printf.printf "full (code,range) list is :\n%!";
     List.iter(fun full_code_lst ->
-        List.iter (fun (code,(l,r)) ->
-            Printf.printf "[%d,(%d,%d)],%!" code l r
+        List.iter (fun (code,(l,r),lcbkey) ->
+            Printf.printf "[%d,(%d,%d),%!" code l r;
+            print_int_list lcbkey;
+            Printf.printf "]; %!";
         ) full_code_lst;
         print_newline();
     )full_code_lstlst;
     end;
     let get_code_arr_from_fullcode_lst fullcode_lst = 
-        Array.of_list ( List.map (fun (code,(_,_)) -> code) fullcode_lst )
+        Array.of_list ( List.map (fun (code,(_,_),_) -> code) fullcode_lst )
     in
     let code1_arr = 
         get_code_arr_from_fullcode_lst (List.hd full_code_lstlst)
     and code2_arr =
         get_code_arr_from_fullcode_lst (List.nth full_code_lstlst 1)
     in
-    let edit_cost = fill_in_cost_ali_mat cost_mat seq1 seq2 (List.hd full_code_lstlst) 
-    (List.nth full_code_lstlst 1) gen_gap_code block_gap_cost locus_indel_cost ali_mat
-    gen_cost_mat len_lst1 base use_ukk in
+    let edit_cost = fill_in_cost_ali_mat cost_mat seq1 seq2 in_seqarr 
+    (List.hd full_code_lstlst) (List.nth full_code_lstlst 1) 
+    gen_gap_code block_gap_cost locus_indel_cost ali_mat
+    gen_cost_mat len_lst1 base use_ukk mum_tbl seed2pos_tbl lcb_tbl in
+    let full_code_lstlst = List.map (fun full_code_lst ->
+        List.map (fun (code,(l,r),_ ) -> code,(l,r)
+        ) full_code_lst;
+    ) full_code_lstlst
+    in
+    print_int_arr code1_arr;
+    print_int_arr code2_arr;
+    Printf.printf "end of main function in block_mauve. return\n%!";
     code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,edit_cost,full_code_lstlst,len_lst1
 
 (** [get_range_with_code] return the range of match block code1 and block code2. if
@@ -5660,7 +5796,7 @@ let get_seqlst_for_mauve in_seq =
     
 let output2mauvefile filename cost old_cost alied_gen_seq1 alied_gen_seq2 full_code_lstlst
 ali_mat gen_gap_code len_lst1 seqsize1 seqsize2 = 
-let debug = false in
+let debug = true in
         (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in
         let oc = open_out filename in*)
         let rewrite = match old_cost with
@@ -5694,8 +5830,8 @@ let debug = false in
                 gen_gap_code totalsize1 totalsize2
             in
             if debug then Printf.printf 
-            "output2mauve: left/right1=%d,%d, left/right2=%d,%d\n%!"
-            left1 right1 left2 right2;
+            "output2mauve: code1=%d,code2=%d,left/right1=%d,%d, left/right2=%d,%d\n%!"
+            alied_code1 alied_code2 left1 right1 left2 right2;
             (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in*)
             let seqlst1 = get_seqlst_for_mauve alied_seq1 in
             let seqlst2 = get_seqlst_for_mauve alied_seq2 in

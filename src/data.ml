@@ -4782,6 +4782,11 @@ let compute_fixed_states filename data code =
                                 min_lcb_ratio min_lcb_len min_cover_ratio 
                                 min_bk_penalty l_i_c dhs.tcm2d align_with_newkk
                     in
+                    if debug then begin 
+                        Printf.printf "code1/code2 arr from block_mauve:\n%!";
+                    Block_mauve.print_int_list (Array.to_list code1_arr); 
+                    Block_mauve.print_int_list (Array.to_list code2_arr); 
+                    end;
                     let re_meth = match dhs.pam.re_meth with
                         | Some value -> value
                         | None -> `Locus_Breakpoint 10
@@ -4795,6 +4800,7 @@ let compute_fixed_states filename data code =
                     (*remember the editing cost between lcbs is not included in
                     * the gen_cost_mat, therefore, is not in cost yet*)
                     let cost = cost + edit_cost in 
+                    
                     let xname,yname = string_of_int x,string_of_int y in
                     let fullname = match filename with 
                         | None -> ""

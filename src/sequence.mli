@@ -213,6 +213,8 @@ val lambda : s
 
 val sub : s -> int -> int -> s
 
+val sub_ignore_gap : ?gap:int -> s -> int -> int -> s * int
+
 (** [rnd a l] creates a random sequence of length [l] over the alphabet [a] *)
 (*val rnd: Alphabet.a -> int -> s*)
 
@@ -583,6 +585,8 @@ val get_empty_seq : unit -> s
     for a length of [len]. If length [len] < 1, return 
     an empty sequence *)
 val subseq : s -> int -> int -> s
+
+val subseq_ignore_gap : ?gap:int -> s -> int -> int -> s * int
 
 (** [align2 seq1 seq2 cost_mat] aligns 
     two sequences [seq1], [seq2] without conditioning 
