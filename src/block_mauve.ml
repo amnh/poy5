@@ -3307,6 +3307,7 @@ let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
     let seq_outside_lcb_arr = Array_ops.map_2 (fun seq lcb_range ->
         (*let seqlen = Array.length seq in*)
         let leftmost,rightmost = List.nth old_seq_range_lst (!seqNO) in
+        Printf.printf "leftmost=%d,rightmost=%d\n%!" leftmost rightmost;
         seqNO := !seqNO + 1;
         let last_rightend,tmpseq = 
             List.fold_left (
@@ -5072,7 +5073,7 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
         end
 
 let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
-    let debug = false in
+    let debug = true in
     if debug then begin
         Printf.printf "merge_ali_seq start,outlen = %d,%d\n%!"
         (Sequence.length out_aliseq0) (Sequence.length out_aliseq1);
@@ -5163,6 +5164,8 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
             in
             let out_seqarr,out_seq_size_lst =
             get_seq_outside_lcbs in_seqarr [range_lst0;range_lst1] total_range_lst in
+            let outlen0,outlen1 = Array.length out_seqarr.(0),
+            Array.length out_seqarr.(1) in
             let out_aliseq0, out_aliseq1, out_cost, _ =  
             Sequence.align2 (Sequence.of_array out_seqarr.(0))
             (Sequence.of_array out_seqarr.(1)) cost_mat use_ukk
@@ -5170,8 +5173,10 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
             Printf.printf "out_cost=%d\n%!" out_cost;
             let aliseqarr = 
                 merge_ali_seq rlst0 rlst1 out_aliseq0 out_aliseq1 
-                total_range_lst in
-            aliseqarr,in_cost+out_cost
+                total_range_lst 
+            in
+            aliseqarr,
+            in_cost+out_cost
             (*Hashtbl.replace lcb_tbl key {lcbrecord with alignment = aliseqarr;
             score = in_cost+out_cost };*)
         end

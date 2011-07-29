@@ -375,20 +375,24 @@ let sub s st len =
     init (fun x -> get s (x + st)) len
 
 let sub_ignore_gap ?(gap=Alphabet.gap) s st len = 
+    let debug = false in
     let idx = ref st in
     let count = ref 0 in
     let slen = length s in
     let acclst = ref [] in
-    Printf.printf "sub ignore gap(=%d), slen=%d,start idx=%d,len without gap = %d -> %!" 
+    if debug then Printf.printf "sub ignore gap(=%d), slen=%d,start idx=%d,len without gap = %d -> %!" 
     gap slen st len;
     while (!count < len) do
         assert( !idx < slen);
         let add = get s !idx in
         acclst := !acclst @ [add];
         idx := !idx +1;
-        if add<>gap then count := !count + 1; 
+        if add<>gap then 
+            count := !count + 1
+        else 
+            if debug then Printf.printf "hit a gap;%!"
     done;
-    Printf.printf "end of sub ignore gap,next idx set to %d\n%!" !idx;
+    if debug then Printf.printf "end of sub ignore gap,next idx set to %d\n%!" !idx;
     of_array (Array.of_list !acclst) , !idx
 
 let prepend_char seq element =  
@@ -1344,9 +1348,9 @@ module NewkkAlign = struct
         let debug = false in
         let ls1 = length s1 and ls2 = length s2 in
         if debug then Printf.printf "Sequence.Newkkonen.align_2,len1=%d,len2=%d\n%!" ls1 ls2;
-        let s1,s2,ls1,ls2 = 
-            if ls1<=ls2 then s1,s2,ls1,ls2
-            else s2,s1,ls2,ls1
+        let s1,s2,ls1,ls2,exchange = 
+            if ls1<=ls2 then s1,s2,ls1,ls2,false
+            else s2,s1,ls2,ls1,true
         in
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
@@ -1360,6 +1364,8 @@ module NewkkAlign = struct
                     (*Printf.printf " editing cost = %d,call traceback\n%!"
                     * tc;*)
                     let s1p, s2p = get_alignment s1 s2 c m in
+                    if exchange then s2p,s1p,tc
+                    else
                     s1p, s2p, tc   
         in 
         match first_gap with
