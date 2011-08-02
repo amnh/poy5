@@ -845,7 +845,7 @@ module Align = struct
 
     let cost_2 ?deltaw s1 s2 m1 m2 =
         match Cost_matrix.Two_D.affine m1 with
-        | Cost_matrix.Affine _ -> 
+        | Cost_matrix.Affine _ ->
                 cost_2_affine s1 s2 m1 m2
         | _ -> 
                 match deltaw with 
@@ -1354,10 +1354,7 @@ module NewkkAlign = struct
         in
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
-            | Cost_matrix.Affine _ ->
-                    failwith "we don't have affine in newkk yet"
-                  (*  let _, s1p, s2p, tc, _ = align_affine_3 s1 s2 c in
-                    s1p, s2p, tc*)
+            | Cost_matrix.Affine _ 
             | _ ->
                     (*printseqcode s1; printseqcode s2;*)
                     let tc = newkk_cost2 s1 s2 c m in   
@@ -1421,9 +1418,9 @@ module NewkkAlign = struct
 
     let full_median_2 a b cm m = 
         match Cost_matrix.Two_D.affine cm with
-        | Cost_matrix.Affine _ ->
+        | Cost_matrix.Affine _ (*->
                 failwith "we don't deal with affine in module NewKK now"
-                (*let m, _, _, _, _ = align_affine_3 a b cm in
+                let m, _, _, _, _ = align_affine_3 a b cm in
                 m*)
         | _ ->
                 let a, b, _ = align_2 a b cm m in
@@ -1524,11 +1521,11 @@ let readjust a b m cm parent use_ukk =
     let matr = Matrix.default in
     let algn s1 s2 =
         match Cost_matrix.Two_D.affine cm with
-        | Cost_matrix.Affine _ ->
+        | Cost_matrix.Affine _ (*->
                 if use_ukk then failwith "we don't deal with affine for ukk yet."
                 else
                 let m, _, _, cost, _ = Align.align_affine_3 s1 s2 cm in
-                cost, m
+                cost, m*)
         | _ ->
                 let s1', s2', c = 
                     if use_ukk then 

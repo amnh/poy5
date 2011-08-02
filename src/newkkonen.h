@@ -46,6 +46,6 @@ __inline int
 #else
 inline int 
 #endif
-newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, const cmt c, newkkmat_p m);
+newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int go, const cmt c, newkkmat_p m);
 
 
