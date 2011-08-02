@@ -2129,7 +2129,6 @@ let print_error_message fl =
 
 let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
     begin try
-        Printf.printf "aux process molecular file\n%!";
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
             try Fasta.of_channel (builder alphabet) ch with

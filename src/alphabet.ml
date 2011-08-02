@@ -164,13 +164,22 @@ let list_to_a ?(orientation=false) ?(init3D=false) lst gap all kind =
       kind = kind; complement = cmp; orientation = orientation;
       threeD = init3D}
 
-(* used to calculate costs of gaps *)
+(* used to calculate costs of gaps in static characters / implied alignments *)
 let present_absent =
     list_to_a 
-    [   
-        ("present", 1, None); 
-        ("absent", 2, None)
-    ] "absent" None Sequential
+        [   
+            ("present", 1, None); 
+            ("absent", 2, None)
+        ] "absent" None Sequential
+
+(* used in IO for implied alignments *)
+let present_absent_io string =
+    list_to_a
+        [
+            (string, 1, None); 
+            ("-", 2, None)
+        ] "-" None Sequential
+
 
 (* The alphabet limited to the four bases *)
 let dna =

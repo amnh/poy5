@@ -52,6 +52,9 @@ type a
 (** [present_absent] contains binary data; used to calculate costs of indels *)
 val present_absent : a
 
+(** [present_absent_io] contains binary data; for IO; the string is a character *)
+val present_absent_io : string -> a
+
 (** [dna] contains codes for A, G, C, and T *)
 val dna : a
 
