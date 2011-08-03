@@ -586,6 +586,10 @@ val get_empty_seq : unit -> s
     an empty sequence *)
 val subseq : s -> int -> int -> s
 
+(** [subseq_ignore_gap ?gap seq start len] get subseq of seq, start at idx
+* 'start', subseq contains number of 'len' non-gap charactor. 
+* since gap does not count in 'len'. ending idx is returned as well.
+ * *)
 val subseq_ignore_gap : ?gap:int -> s -> int -> int -> s * int
 
 (** [align2 seq1 seq2 cost_mat] aligns 

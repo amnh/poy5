@@ -2447,6 +2447,10 @@ let subseq seq start len =
 	| true -> get_empty_seq ()
     | false -> sub seq start len
 
+(** [subseq_ignore_gap ?gap seq start len] get subseq of seq, start at idx
+* 'start', subseq contains number of 'len' non-gap charactor. 
+* since gap does not count in 'len'. ending idx is returned as well.
+ * *)
 let subseq_ignore_gap ?(gap=Alphabet.gap) seq start len =
     match len < 1 with
 	| true -> get_empty_seq (),start
