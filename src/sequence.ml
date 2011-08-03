@@ -2449,7 +2449,7 @@ let subseq seq start len =
 
 let subseq_ignore_gap ?(gap=Alphabet.gap) seq start len =
     match len < 1 with
-	| true -> get_empty_seq (),0
+	| true -> get_empty_seq (),start
     | false -> sub_ignore_gap ~gap:gap seq start len  
 
 

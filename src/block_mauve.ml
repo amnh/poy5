@@ -5073,12 +5073,12 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
         end
 
 let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
-    let debug = true in
+    let debug = false and debug2 = false in
     if debug then begin
         Printf.printf "merge_ali_seq start,outlen = %d,%d\n%!"
         (Sequence.length out_aliseq0) (Sequence.length out_aliseq1);
-        Sequence.printseqcode out_aliseq0;
-        Sequence.printseqcode out_aliseq1;
+        if debug2 then Sequence.printseqcode out_aliseq0;
+        if debug2 then Sequence.printseqcode out_aliseq1;
     end;
     let resarr = Array_ops.map_3 (fun in_lst out_aliseq total_range ->
     let leftmost,rightmost = total_range in
@@ -5087,10 +5087,12 @@ let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
         leftmost rightmost (rightmost-leftmost+1) (Sequence.length out_aliseq);
     let last_rightend,tmpseq,last_idx = 
     List.fold_left ( fun (pre_rightend,accseq,accidx) ((leftend,rightend,_,_),aliseq) ->
-        if debug then Printf.printf "pre_rightend=%d,accidx=%d,le=%d,re=%d\n%!"
-        pre_rightend accidx leftend rightend;
+        if debug then Printf.printf
+        "pre_rightend=%d,accidx=%d,le=%d,re=%d;%!" pre_rightend accidx leftend rightend;
         let out_s,newidx = 
             Sequence.subseq_ignore_gap out_aliseq accidx (leftend-pre_rightend-1) in
+        if debug then Printf.printf ",alilen=(out=%d,in=%d,total=%d)\n%!"
+         (Sequence.length out_s) (Sequence.length aliseq) (Sequence.length accseq);
         rightend,Sequence.concat [accseq;out_s;aliseq],newidx 
     ) (leftmost-1,Sequence.get_empty_seq (),0) in_lst in
     let last_size = rightmost-last_rightend in
@@ -5104,12 +5106,13 @@ let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
     ) 
     [|in_lst0;in_lst1|] [|out_aliseq0;out_aliseq1|] 
     (Array.of_list total_range_lst) in
+    let len0,len1 = (Sequence.length resarr.(0)),(Sequence.length resarr.(1)) in
     if debug then begin
-        Printf.printf "merge_ali_seq ends, check res seq (size=%d,%d):\n%!"
-        (Sequence.length resarr.(0)) (Sequence.length resarr.(1));
-        Sequence.printseqcode resarr.(0);
-        Sequence.printseqcode resarr.(1);
+        Printf.printf "merge_ali_seq ends, check res seq (size=%d,%d):\n%!" len0 len1;
+        if debug2 then Sequence.printseqcode resarr.(0);
+        if debug2 then Sequence.printseqcode resarr.(1);
     end;
+    assert(len0=len1);
     resarr
 
 
@@ -5140,6 +5143,11 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
                 let alied_seq0, alied_seq1, cost, _  =  
                 Sequence.align2 subseq0 subseq1 cost_mat use_ukk
                 in
+                if debug then begin
+                let len1,len2 =Sequence.length alied_seq0,(Sequence.length
+                alied_seq1) in
+                assert(len1=len2);
+                end;
                 (*update_mum_to_mumtbl None 
                 {thismum with mumscore = cost;
                 mumalgn = [alied_seq0;alied_seq1]}
@@ -5527,7 +5535,9 @@ Sequence.s and int array to this function.*)
 code_range_lst1 code_range_lst2 gen_gap_code
 block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk 
 mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chunck lcb*) =
-    let debug = true and debug2 = false in
+    let debug = true and debug2 = true in
+    if debug then Printf.printf "fill_in_cost_ali_mat with basecode=%d\n%!"
+    base;
     let set_cost code1 code2 cost = gen_cost_mat.(code1).(code2) <- cost in
     let edit_cost = ref 0 in
     List.iter (fun (code1,(left1,right1),lcbkey1) ->
@@ -5750,8 +5760,6 @@ locus_indel_cost cost_mat use_ukk =
         ) full_code_lst;
     ) full_code_lstlst
     in
-    print_int_arr code1_arr;
-    print_int_arr code2_arr;
     Printf.printf "end of main function in block_mauve. return\n%!";
     code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,edit_cost,full_code_lstlst,len_lst1
 
