@@ -22,6 +22,7 @@
 
 #include <caml/bigarray.h>
 
+#include "seq.h"
 #include "floatmatrix.h"
 #include "likelihood.h"
 
@@ -35,13 +36,11 @@ struct fmat {
     int alph;       /** the alphabet size **/
     int comb;       /** Is the matrix that of combinations? 0=no, 1=yes **/
     int gap;        /** What is the gap state? **/
-    
     double* cost;   /** this matrix holds either the single character
                         transformation, or a transformation of all combinations,
                         depending on the [comb] variable --if it equals 0 then
                         we are dealing with single character transformations **/
     int* cost_asgn; /** bitset matrix for the assignments; size as the cost matrix **/
-
 };
 typedef struct fmat fm;
 
