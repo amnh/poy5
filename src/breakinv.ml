@@ -141,7 +141,7 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
 * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
  * where xi and yj are medians. For each pair (xi, yj) we have 
  * a list of medians z_ij with the same cost c_ij. 
- * Find c*_ij = min (c_ij) *)
+ * Find c_ij = min (c_ij) *)
 let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     let bkpam = meds1.breakinv_pam in
     let pure_gen_cost_mat =

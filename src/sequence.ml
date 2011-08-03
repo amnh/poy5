@@ -374,6 +374,26 @@ let lambda =
 let sub s st len =
     init (fun x -> get s (x + st)) len
 
+let sub_ignore_gap ?(gap=Alphabet.gap) s st len = 
+    let debug = false in
+    let idx = ref st in
+    let count = ref 0 in
+    let slen = length s in
+    let acclst = ref [] in
+    if debug then Printf.printf "sub ignore gap(=%d), slen=%d,start idx=%d,len without gap = %d -> %!" 
+    gap slen st len;
+    while (!count < len) do
+        assert( !idx < slen);
+        let add = get s !idx in
+        acclst := !acclst @ [add];
+        idx := !idx +1;
+        if add<>gap then 
+            count := !count + 1
+        else 
+            if debug then Printf.printf "hit a gap;%!"
+    done;
+    if debug then Printf.printf "end of sub ignore gap,next idx set to %d\n%!" !idx;
+    of_array (Array.of_list !acclst) , !idx
 
 let prepend_char seq element =  
     let len = length seq in
@@ -825,7 +845,7 @@ module Align = struct
 
     let cost_2 ?deltaw s1 s2 m1 m2 =
         match Cost_matrix.Two_D.affine m1 with
-        | Cost_matrix.Affine _ -> 
+        | Cost_matrix.Affine _ ->
                 cost_2_affine s1 s2 m1 m2
         | _ -> 
                 match deltaw with 
@@ -1328,22 +1348,21 @@ module NewkkAlign = struct
         let debug = false in
         let ls1 = length s1 and ls2 = length s2 in
         if debug then Printf.printf "Sequence.Newkkonen.align_2,len1=%d,len2=%d\n%!" ls1 ls2;
-        let s1,s2,ls1,ls2 = 
-            if ls1<=ls2 then s1,s2,ls1,ls2
-            else s2,s1,ls2,ls1
+        let s1,s2,ls1,ls2,exchange = 
+            if ls1<=ls2 then s1,s2,ls1,ls2,false
+            else s2,s1,ls2,ls1,true
         in
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
-            | Cost_matrix.Affine _ ->
-                    failwith "we don't have affine in newkk yet"
-                  (*  let _, s1p, s2p, tc, _ = align_affine_3 s1 s2 c in
-                    s1p, s2p, tc*)
+            | Cost_matrix.Affine _ 
             | _ ->
                     (*printseqcode s1; printseqcode s2;*)
                     let tc = newkk_cost2 s1 s2 c m in   
                     (*Printf.printf " editing cost = %d,call traceback\n%!"
                     * tc;*)
                     let s1p, s2p = get_alignment s1 s2 c m in
+                    if exchange then s2p,s1p,tc
+                    else
                     s1p, s2p, tc   
         in 
         match first_gap with
@@ -1399,9 +1418,9 @@ module NewkkAlign = struct
 
     let full_median_2 a b cm m = 
         match Cost_matrix.Two_D.affine cm with
-        | Cost_matrix.Affine _ ->
+        | Cost_matrix.Affine _ (*->
                 failwith "we don't deal with affine in module NewKK now"
-                (*let m, _, _, _, _ = align_affine_3 a b cm in
+                let m, _, _, _, _ = align_affine_3 a b cm in
                 m*)
         | _ ->
                 let a, b, _ = align_2 a b cm m in
@@ -1502,11 +1521,11 @@ let readjust a b m cm parent use_ukk =
     let matr = Matrix.default in
     let algn s1 s2 =
         match Cost_matrix.Two_D.affine cm with
-        | Cost_matrix.Affine _ ->
+        | Cost_matrix.Affine _ (*->
                 if use_ukk then failwith "we don't deal with affine for ukk yet."
                 else
                 let m, _, _, cost, _ = Align.align_affine_3 s1 s2 cm in
-                cost, m
+                cost, m*)
         | _ ->
                 let s1', s2', c = 
                     if use_ukk then 
@@ -2425,8 +2444,17 @@ let get_empty_seq () = create 0
 * an empty sequence *)
 let subseq seq start len = 
 	match len < 1 with
-		| true -> get_empty_seq ()
-		| false -> sub seq start len
+	| true -> get_empty_seq ()
+    | false -> sub seq start len
+
+(** [subseq_ignore_gap ?gap seq start len] get subseq of seq, start at idx
+* 'start', subseq contains number of 'len' non-gap charactor. 
+* since gap does not count in 'len'. ending idx is returned as well.
+ * *)
+let subseq_ignore_gap ?(gap=Alphabet.gap) seq start len =
+    match len < 1 with
+	| true -> get_empty_seq (),start
+    | false -> sub_ignore_gap ~gap:gap seq start len  
 
 
 (** [align2 seq1 seq2 cost_mat] aligns 

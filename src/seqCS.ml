@@ -692,13 +692,13 @@ module DOS = struct
             let algn s1 s2 =
                 let cm = c2 in
                 match Cost_matrix.Two_D.affine cm with
-                | Cost_matrix.Affine _ ->
+                | Cost_matrix.Affine _ (*->
                         let m, _, _, cost, _ = 
                             if use_ukk then failwith "we don't deal with affine for ukk yet."
                             else
                             Sequence.Align.align_affine_3 s1 s2 cm in
                         let m = Sequence.select_one m cm in
-                        create m, cost
+                        create m, cost*)
                 | _ ->
                     let s1', s2', c =
                             if use_ukk then
@@ -768,8 +768,9 @@ module DOS = struct
         else 
             let seqm, tmpa, tmpb, tmpcost, seqmwg =
                 match Cost_matrix.Two_D.affine h.c2 with
-                | Cost_matrix.Affine _ -> 
+                | Cost_matrix.Affine _ (*-> 
                         Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
+                *)
                 | _ ->
                         let tmpa, tmpb, tmpcost =
                             if use_ukk then
@@ -1114,9 +1115,9 @@ module PartitionedDOS = struct
                     clip_n_fix a b in
                 let seqm, tmpa, tmpb, cost, seqmwg =
                     match Cost_matrix.Two_D.affine h.c2 with
-                    | Cost_matrix.Affine _ -> 
+                    | Cost_matrix.Affine _ (*-> 
                             Sequence.Align.align_affine_3 
-                            a.DOS.sequence b.DOS.sequence h.c2
+                            a.DOS.sequence b.DOS.sequence h.c2*)
                     | _ ->
                             let tmpa, tmpb, cost = 
                                 if use_ukk then

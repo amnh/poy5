@@ -387,7 +387,10 @@ gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,
         and left2,right2 = get_range full_code_lstlst code2 1
         in
         if debug then
-            Printf.printf "work on code1=%d,code2=%d, left/right1=%d,%d;left/right2=%d,%d\n%!" code1 code2 left1 right1 left2 right2;
+            Printf.printf "work on code1=%d,code2=%d,\
+            left/right1=%d,%d(%d);left/right2=%d,%d(%d)\n%!" 
+            code1 code2 left1 right1 (right1-left1+1) left2 right2
+            (right2-left2+1);
         let subseq1,first_indel = 
             if (right1<>(-1)) then 
                 Sequence.sub seq1 left1 (right1-left1+1), false
@@ -406,6 +409,8 @@ gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,
                 acc_seq,acc_len,acc_chrommap
         | _ ->
             let ali_or_del_cost,subseq1,subseq2 = alignment_matrix.(code1).(code2) in
+            Printf.printf "create median seq with subseq1/2 (size=%d,%d)\n%!"
+            (Sequence.length subseq1) (Sequence.length subseq2);
             let newseq,_ = (*we already have the cost from alignment_matrix*) 
                 Sequence.create_median_seq ~approx:`First subseq1 subseq2 cost_mat in
             if debug then Printf.printf "ali_or_del_cost = %d\n %!" ali_or_del_cost; 

@@ -2608,7 +2608,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                              if 1 = Cost_matrix.Two_D.combine tcm then
                                  match Alphabet.get_all alph with
                                  | Some all -> all
-                                 | None -> assert false
+                                 (*this is a tmp fix. we should get rid of
+                                 * combine of cost_matrix.two_d, we are using
+                                 * level now.*)
+                                 | None -> (-1) (*assert false*)
                              else (-1) (* we won't use it anyway *)
                          in 
                          kind,

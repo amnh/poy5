@@ -19,6 +19,8 @@
 
 type taxon = string
 
+let debug = false
+
 let (-->) b a = a b
 
 let true_trim str = 
@@ -34,7 +36,7 @@ module type S = sig
     * character or an illegal condition for a specific file format, an
     * Illegal_molecular_format or Unsupported_file_format exception is raised. 
     * *)
-    val of_channel : FileContents.t -> in_channel -> 
+    val of_channel : ?respect_case:bool -> FileContents.t -> in_channel -> 
         (Sequence.s list list list * taxon) list
 
     (** [to_channel x y z] writes in the output channel [x] the sequences and 
@@ -46,7 +48,7 @@ module type S = sig
     val to_channel : 
         out_channel -> (Sequence.s * taxon) list -> Alphabet.a -> unit
 
-    val of_file : FileContents.t -> FileStream.f -> 
+    val of_file : ?respect_case:bool -> FileContents.t -> FileStream.f -> 
         (Sequence.s list list list * taxon) list 
 end
 
@@ -149,13 +151,14 @@ let process_taxon_name comment_str name =
     let regexp = Str.regexp ((Str.quote comment_str)^".*$") in
     true_trim (Str.replace_first regexp "" name)
 
-let process_file_imp remove_gaps ch alph =
+let process_file_imp ?(respect_case=false) remove_gaps ch alph  =
+    if debug then Printf.printf "process_file_imp,respect_case=%b\n%!" respect_case;
     (* Apparenty ocaml is not making the next tail-recursive function a
      * loop? for some reason I get stack overflow, so I will write it using a
      * loop and see how it goes. *)
     let res = ref [] 
     and sequence = ref []
-    and lexer = Alphabet.Lexer.make_lexer true alph 
+    and lexer = Alphabet.Lexer.make_lexer true respect_case alph 
     and taxon = ref "" in
     let get_line = get_line () in
     let last_line_empty = ref true in
@@ -204,14 +207,14 @@ let process_file_imp remove_gaps ch alph =
 
 exception Unsupported_file_format of string
 
-let of_channel_obj t ch =
+let of_channel_obj ?(respect_case=false) t ch  =
     let res = 
         match t with
         | FileContents.Nucleic_Acids 
         | FileContents.AlphSeq _ 
-        | FileContents.Proteins -> process_file_imp true ch (alphabet_of_t t)
+        | FileContents.Proteins -> process_file_imp ~respect_case:respect_case true ch (alphabet_of_t t) 
         | FileContents.Prealigned_Alphabet _ ->
-                process_file_imp false ch (alphabet_of_t t)
+                process_file_imp  ~respect_case:respect_case false ch (alphabet_of_t t)
         | _ -> 
                 let msg = 
                     "Unexpected error 01. Contact the AMNH programming team." 
@@ -222,11 +225,11 @@ let of_channel_obj t ch =
         if b <> "" then item :: acc
         else acc) [] res
 
-let of_channel t ch =
-    of_channel_obj t (FileStream.stream_reader ch)
+let of_channel ?(respect_case=false) t ch  =
+    of_channel_obj ~respect_case:respect_case t (FileStream.stream_reader ch) 
 
-let of_string t str =
-    of_channel_obj t (new FileStream.string_reader str)
+let of_string ?(respect_case=false) t str =
+    of_channel_obj ~respect_case:respect_case t (new FileStream.string_reader str) 
 
 let output ch alp (seq, name) = 
     let str = Sequence.to_string seq alp in
@@ -236,10 +239,10 @@ let output ch alp (seq, name) =
 let to_channel ch l alp =
     List.iter (output ch alp) l
 
-let of_file t f =
+let of_file ?(respect_case=false) t f =
     try 
         let ch = FileStream.Pervasives.open_in f in
-        let res = of_channel_obj t ch in
+        let res = of_channel_obj ~respect_case:respect_case t ch in
         FileStream.Pervasives.close_in ch;
         res
     with

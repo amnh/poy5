@@ -2047,7 +2047,7 @@ let add_static_file ?(report = true) style data (file : FileStream.f) =
             data
 
 
-let dna_lexer = Alphabet.Lexer.make_lexer false Alphabet.nucleotides
+let dna_lexer = Alphabet.Lexer.make_lexer false false Alphabet.nucleotides
 
 let check_if_taxa_are_ok file taxa = 
     let the_great_majority_is_acgt (lst, _) = 
@@ -2127,11 +2127,11 @@ let print_error_message fl =
     Status.user_message Status.Error msg
 
 
-let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
+let aux_process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
     begin try
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
-            try Fasta.of_channel (builder alphabet) ch with
+            try Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch with
             | Fasta.Illegal_molecular_format fl ->
                     let file = FileStream.filename file in
                     let fl = { fl with Fasta.filename = file } in
@@ -2184,14 +2184,15 @@ let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_
             data
     end
 
-let process_molecular_file tcmfile tcm tcm3 annotated alphabet
+let process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 annotated alphabet
                             mode is_prealigned dyna_state data file =
     let data =
-        aux_process_molecular_file 
+        aux_process_molecular_file ~respect_case:respect_case
             tcmfile tcm tcm3 alphabet
             (fun alph parsed -> 
-                process_parsed_sequences is_prealigned 1.0 tcmfile tcm tcm3 mode annotated 
-                                alph (FileStream.filename file) dyna_state data parsed None)
+                process_parsed_sequences is_prealigned 1.0 
+                tcmfile tcm tcm3 mode annotated 
+                alph (FileStream.filename file) dyna_state data parsed None)
             (fun x -> 
                 if not is_prealigned then FileContents.AlphSeq x
                 else FileContents.Prealigned_Alphabet x) 
@@ -3841,6 +3842,7 @@ and get_chars_codes data = function
     | `Missing (dont_complement, fraction) ->
             get_code_with_missing dont_complement data fraction
     | `CharSet sets -> 
+            Printf.printf "data.ml CharSet\n%!";
             let names =
                 List.flatten
                     (List.map 
@@ -4706,11 +4708,13 @@ let compute_fixed_states filename data code =
         Array.of_list
             (Hashtbl.fold process_taxon data.searchbase_characters [])
     in
+    let taxalen = (Array.length taxa_arr) 
+    and searchbaselen = (Array.length searchbase_arr) in
     let total_arr = Array.append taxa_arr searchbase_arr in
     let taxa = Array.map fst total_arr in
     let initial_sequences = Array.map snd total_arr in
     if debug then Printf.printf "total size = %d + %d = %d\n%!" 
-    (Array.length taxa_arr) (Array.length searchbase_arr) (Array.length total_arr);
+    taxalen searchbaselen  (Array.length total_arr);
     (* find all single assignments between two sequences; these become the
        states that can be placed on the internal nodes of the tree **)
     let () = 
@@ -4723,8 +4727,10 @@ let compute_fixed_states filename data code =
                 let a, cost =
                     Sequence.Align.closest b initial_sequences.(x) dhs.tcm2d Matrix.default
                 in
+                if x<taxalen && y<taxalen then begin
                 Hashtbl.replace taxon_sequences taxa.(y) b;
                 Hashtbl.replace taxon_sequences taxa.(x) a;
+                end;
                 if not (Hashtbl.mem sequences_taxon b) then begin
                     Hashtbl.replace sequences_taxon b !states;
                     incr states;
@@ -4745,6 +4751,11 @@ let compute_fixed_states filename data code =
     (* Fill the costs for all pairs of the single assignment sequences *)
     for x = 0 to states - 1 do
         for y = x + 1 to states - 1 do
+            if debug then begin
+                        Printf.printf "work on seqx,seqy=\n%!";
+                        Sequence.printseqcode sequences.(x);
+                        Sequence.printseqcode  sequences.(y);
+                    end;
             let cost =
                 if annotate_with_mauve then
                     let min_lcb_ratio,min_lcb_len,min_cover_ratio,min_bk_penalty = 
@@ -4758,7 +4769,7 @@ let compute_fixed_states filename data code =
                     in
                     (*why delete first char?*)
                     let seqx,seqy = Sequence.del_first_char sequences.(x),
-                    Sequence.del_first_char sequences.(y) in
+                    Sequence.del_first_char sequences.(y) in 
                     (*we don't call AliMap.create_general_ali_mauve directly here,
                     * because parameter of that function is with low level module
                     * type, like "Block.pairChromPam_t". Data.ml is suppose to
@@ -4771,6 +4782,11 @@ let compute_fixed_states filename data code =
                                 min_lcb_ratio min_lcb_len min_cover_ratio 
                                 min_bk_penalty l_i_c dhs.tcm2d align_with_newkk
                     in
+                    if debug then begin 
+                        Printf.printf "code1/code2 arr from block_mauve:\n%!";
+                    Block_mauve.print_int_list (Array.to_list code1_arr); 
+                    Block_mauve.print_int_list (Array.to_list code2_arr); 
+                    end;
                     let re_meth = match dhs.pam.re_meth with
                         | Some value -> value
                         | None -> `Locus_Breakpoint 10
@@ -4784,6 +4800,7 @@ let compute_fixed_states filename data code =
                     (*remember the editing cost between lcbs is not included in
                     * the gen_cost_mat, therefore, is not in cost yet*)
                     let cost = cost + edit_cost in 
+                    
                     let xname,yname = string_of_int x,string_of_int y in
                     let fullname = match filename with 
                         | None -> ""
@@ -4831,8 +4848,12 @@ let compute_fixed_states filename data code =
     let taxon_codes = Hashtbl.create 97 in
     Hashtbl.iter
         (fun code seq ->
+            let tmp = Hashtbl.find sequences_taxon seq in
+            Hashtbl.replace taxon_codes code tmp;
+            (*
             seq --> Hashtbl.find sequences_taxon
-                --> Hashtbl.replace taxon_codes code)
+                --> Hashtbl.replace taxon_codes code*)
+        )
         taxon_sequences;
     let fs_data = 
         { costs = distances;
@@ -4953,7 +4974,7 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     let alphabet = get_alphabet data 1 in
     let ch = Parser.Files.molecular_to_fasta file in
     let res = 
-        try Fasta.of_channel (FileContents.AlphSeq alphabet) ch with
+        try Fasta.of_channel ~respect_case:true (FileContents.AlphSeq alphabet) ch with
         | Fasta.Illegal_molecular_format fl ->
                 let file = FileStream.filename file in
                 let fl = { fl with Fasta.filename = file } in

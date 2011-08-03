@@ -121,11 +121,18 @@ let check_level alph =
     if (level>1)&&(level<=size) then true
     else false
 
-let list_to_a ?(orientation=false) ?(init3D=false) lst gap all kind =
+let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst gap all kind =
+    let debug = false in
     let a_size = List.length lst in
-    if debug then Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b\n%!" a_size init3D;
+    if debug then Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b, \
+    case sensitive=%b\n%!" a_size init3D respect_case;
     let add (s2c, c2s, cmp, cnt) (a, b, c) =
-        All_sets.StringMap.add (String.uppercase a) b s2c,
+        if debug then Printf.printf "add %s,%d to s2c; %!" a b;
+        let uppa = 
+            if respect_case then (String.uppercase a)
+            else a
+        in
+        All_sets.StringMap.add uppa b s2c,
         (if All_sets.IntegerMap.mem b c2s then c2s
         else All_sets.IntegerMap.add b a c2s),
         (All_sets.IntegerMap.add b c cmp),
@@ -138,7 +145,7 @@ let list_to_a ?(orientation=false) ?(init3D=false) lst gap all kind =
     in
     let s2c, c2s, cmp, cnt = List.fold_left add empty lst in
     let gap_code = 
-        let gap = String.uppercase gap in
+        let gap = if respect_case then String.uppercase gap else gap in
         try All_sets.StringMap.find gap s2c with
         | Not_found as err ->
                 List.iter (fun (x, _, _) -> 
@@ -150,7 +157,9 @@ let list_to_a ?(orientation=false) ?(init3D=false) lst gap all kind =
         match all with
         | Some all ->
                 Some (All_sets.StringMap.find 
-                (String.uppercase all) s2c)
+                (if respect_case then
+                    String.uppercase all
+                else all ) s2c)
         | None -> None
     in
 
@@ -319,7 +328,7 @@ let find_code = match_code
 let set_ori_size alph size =
     {alph with ori_size = size}
 
-let of_string ?(orientation = false) ?(init3D=false) x gap all =
+let of_string ?(respect_case = false) ?(orientation = false) ?(init3D=false) x gap all =
     let osize = (List.length x)  in
     let rec builder alph counter = function
         | h :: t -> 
@@ -332,7 +341,7 @@ let of_string ?(orientation = false) ?(init3D=false) x gap all =
         | [] -> List.rev alph
     in
     let res = builder [] 1 x in
-    let alpha = list_to_a ~orientation:orientation ~init3D:init3D res gap all Sequential in
+    let alpha = list_to_a ~respect_case:respect_case ~orientation:orientation ~init3D:init3D res gap all Sequential in
     if debug then print alpha;
     { alpha with ori_size = osize }
 
@@ -385,16 +394,20 @@ module Lexer = struct
     type p = Code of int | Unfinished of p CM.t
 
     let internal_lexer respect_case a =
+        if debug then Printf.printf "alphabet.Lexer.internal_lexer,respect_case = %b\n%!" respect_case;
         let rec add_stream stream code acc =
             match acc with
-            | Code x -> failwith "This alphabet is not prefix free"
+            | Code x -> failwith "This alphabet is not prefix free1"
             | Unfinished set ->
                     try
                         let c = Stream.next stream in
                         if CM.mem c set then 
                             let nacc = CM.find c set in
                             match add_stream stream code nacc with
-                            | Code _ -> failwith "This alphabet is not prefix free"
+                            | Code x ->
+                                    Printf.printf "we already have %c -> code=%d,%!" 
+                                    c x;
+                                    failwith "This alphabet is not prefix free2"
                             | res -> Unfinished (CM.add c res set)
                         else 
                             let nacc = Unfinished CM.empty in
@@ -402,7 +415,8 @@ module Lexer = struct
                             let nacc = CM.add c res set in
                             Unfinished nacc
                     with
-                    | Stream.Failure -> Code code
+                    | Stream.Failure ->
+                            Code code
         in
         let lst = All_sets.StringMap.fold (fun a b acc ->
             let a = if not respect_case then String.uppercase a else a in
@@ -411,7 +425,8 @@ module Lexer = struct
         List.fold_left (fun acc (a, b) ->
             add_stream a b acc) (Unfinished CM.empty) lst
 
-    let rec single_processor issue_warnings respect_case stream acc = function
+    let rec single_processor issue_warnings respect_case stream acc = 
+        function
         | Code x -> 
                 x :: acc
         | Unfinished x ->
@@ -424,6 +439,7 @@ module Lexer = struct
                 (CM.find c x) with
                 | Not_found as err ->
                         if issue_warnings then begin
+                            Printf.printf "respect_case=%b\n%!" respect_case;
                             Status.user_message Status.Error 
                             ("I@ could@ not@ find@ the@ character@ " ^ 
                             (StatusCommon.escape (String.make 1 c)) ^ 
@@ -501,8 +517,8 @@ module Lexer = struct
             in
             processor_driver ()
 
-    let make_lexer issue_warnings a = 
-        let lexer = internal_lexer false a in
+    let make_lexer issue_warnings respect_case a = 
+        let lexer = internal_lexer respect_case a in
         fun stream lst len ->
             let rec full_processor acc cnt =
                 match Stream.peek stream with
@@ -513,7 +529,7 @@ module Lexer = struct
                                 full_processor acc cnt
                         | _ ->
                                 let res = single_processor issue_warnings
-                                false stream acc lexer in
+                                respect_case stream acc lexer in
 (*                                Printf.fprintf stdout " "; *)
                                 full_processor res (cnt + 1)
                         end
@@ -843,12 +859,12 @@ let complement c alph =
         Printf.printf  "cannot find complement of %d in alphabet" c;
         assert(false)
 
-let of_file fn orientation init3D level =
+let of_file fn orientation init3D level respect_case =
     let file = FileStream.Pervasives.open_in fn in
     let alph = FileStream.Pervasives.input_line file in
     let default_gap = gap_repr in
     let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
-    let alph = of_string ~orientation:orientation ~init3D:init3D
+    let alph = of_string ~respect_case:respect_case ~orientation:orientation ~init3D:init3D
     elts default_gap None in
     let size = size alph in
     let alph, do_comb = 

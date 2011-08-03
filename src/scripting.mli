@@ -482,7 +482,7 @@ module DNA : sig
 
         (** [of_channel ch] returns the sequences contained in the FASTA channel
         * [ch]. *)
-        val of_channel : bool -> in_channel -> seqs
+        val of_channel : ?respect_case:bool -> bool -> in_channel  -> seqs
 
         (** [multi_of_channel ch] is the same as [of_channel] but returns
         * [multi_seqs]. *)

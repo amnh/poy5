@@ -141,7 +141,7 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
         Block_mauve.get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio
         min_lcb_len min_cover_ratio max_lcb_len
         ali_pam.ChromPam.locus_indel_cost cost_mat use_ukk in
-    if debug then Printf.printf "edit_cost=%d\n%!" edit_cost;
+    if debug then Printf.printf "edit_cost betwen lcb blocks=%d\n%!" edit_cost;
     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
         GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat gen_gap_code 
         ali_pam.ChromPam.re_meth ali_pam.ChromPam.circular false in
