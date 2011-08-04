@@ -45,8 +45,9 @@
 /** defines for ease of use **/
 #define MAX(a,b) (a >= b)?a:b
 #define MIN(a,b) (a <= b)?a:b
-#define EQUALS(a,b) abs(a-b) < EPSILON
-#define ISSET(x,i) ((1 << i)&x)
+#define EQUALS(a,b) fabs(a-b)<EPSILON
+#define ISSET(x,i) ((1<<i)&x)
+#define GET(x,i)     seq_get(x,i)
 
 /** For unpacking ML option types **/
 #define Val_none Val_int(0)
@@ -73,6 +74,20 @@ value Val_some( value v )
  * static likelihood file. (that is variables that start with capital letters
  * are matrices, and lower case are vectors, t is a time/distance, and a/b/c
  * define sequence data for the alignments. **/
+
+/** print the floating-point cost matrix, fm */
+void print_fm ( fm* c )
+{
+    int i,j;
+    for( i = 0; i < c->size; ++i ){
+        for( j = 0; j < c->size; ++j ){
+            printf("[%f|%d]\t", c->cost[i*c->size+j],
+                                c->cost_asgn[i*c->size+j] );
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
 
 /** [neg_log_comp mat n m] Take the negative log of all the components of a
  * matrix [mat] of size [n] and [m] **/
@@ -124,7 +139,8 @@ double fcost( fm *FCM, const CASN x, const CASN y )
 
     if( 1 == FCM->comb ){
         temp_cost = FCM->cost[ (x-1)*FCM->size + (y-1) ];
-        return temp_cost;
+        /*printf("\tcost[%d][%d] = %f\n", x, y, temp_cost );*/
+       return temp_cost;
     } else {
         best_cost = INFINITY;
         for(i = 0; i < FCM->size; ++i){
@@ -175,9 +191,18 @@ double calculate_cost( CASN* a_ptr, const double* X, const double* Y,
             }
         }
     }
+    /**
+    printf( "Best Cost: %d ->[%d(", x, a );
+    for( i = 0; i < n; ++i ){
+        if( ISSET( a, i ) ){ printf("%d| ", i); }
+    }
+    printf( ")]<- %d = %f\n",y,best_cost);
+    **/
     *a_ptr = a;
+    fflush( stdout );
     return best_cost;
 }
+
 
 /** Fill in an expanded cost matrix of all combination of states; requires that
  * fm be allocated to the appropriate dimensions --reflect comb and size parts.
@@ -212,7 +237,7 @@ void precalc( fm *FM, const double *A, const double *B )
             }
         }
     /* Build the matrix 2^N * 2^N, to create matrix of all combinations of
-     * assignment of Row and Col (again, combining both matrices). **/
+     * assignment of Row and Col (again, combining both matrices). */
     } else {
         max = FM->size; // = (1 << alph) - 1
         for( i = 0; i < max; ++i ){
@@ -225,8 +250,80 @@ void precalc( fm *FM, const double *A, const double *B )
     }
 }
 
-/** Wrapper for creating a pre-calculated cost matrix from instances; return
- * costs and assignments into individual bigarrays, and return the pair. **/
+
+int
+get_closest( double* cost, const int p, const int m, const double* cm, const int alph )
+{
+    int j,k, min_asgn;
+    double min_cost,tmp_cost;
+
+    min_asgn = 0;
+    min_cost = INFINITY;
+    for(j=0; j < alph; ++j){
+        if( ISSET( p, j ) ){
+            for(k=0; k < alph; ++k ){
+                if( ISSET( m, k ) ){
+                    tmp_cost = cm[ j*alph + k ];
+                    if( tmp_cost < min_cost ){
+                        min_cost = tmp_cost;
+                        min_asgn = k;
+                    }
+                }
+            }
+        }
+    }
+    assert( min_asgn >= 0 );
+    *cost = min_cost;
+    return (1 << min_asgn);
+}
+
+value
+fm_CAML_get_closest( value oSpace, value oU, value oD, value oUi, value op, value om, value ot, value oi )
+{
+    CAMLparam5( oSpace, oU, oD, oUi, om );
+    CAMLxparam3( op, ot, oi );
+    CAMLlocal1( pair );
+
+    double t, *P, *T;
+    int p, m, res, alph;
+    mat *space;
+
+    t = Double_val( ot );
+    p = Int_val ( op );
+    m = Int_val ( om );
+    space = FM_val( oSpace );
+
+    alph = Bigarray_val(oU)->dim[0];
+    expand_matrix( space, (2*alph*alph) );
+    P = register_section( space, alph*alph, 0 );
+    T = register_section( space, alph*alph, 0 );
+
+    if( Val_none == oUi ){
+        compose_sym( P, Data_bigarray_val(oU), Data_bigarray_val(oD), t, alph, T );
+    } else {
+        compose_gtr( P, Data_bigarray_val(oU), Data_bigarray_val(oD),
+                     Data_bigarray_val(Some_val(oUi)), t, alph, T );
+    }
+    neg_log_comp( P, alph, alph );
+    res = get_closest(&t, p, m, P, alph );
+
+    pair = caml_alloc(2, 0);
+    Store_field( pair, 0, res );
+    Store_field( pair, 1, t );
+
+    CAMLreturn( pair );
+}
+
+value
+fm_CAML_get_closest_wrapper(value * argv, int argn)
+{
+    return fm_CAML_get_closest
+            (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
+}
+
+
+/* Wrapper for creating a pre-calculated cost matrix from instances; return
+ * costs and assignments into individual bigarrays, and return the pair. */
 value
 fm_CAML_compose( value FM, value U, value D, value Ui, value cta, value ctb, value full)
 {
@@ -238,7 +335,7 @@ fm_CAML_compose( value FM, value U, value D, value Ui, value cta, value ctb, val
     int alph;
     fm *results;
     mat *space;
-    long dims[2]; /** both matrices are the same size **/
+    long dims[2];
 
     ta = Double_val( cta );
     tb = Double_val( ctb );
@@ -249,24 +346,24 @@ fm_CAML_compose( value FM, value U, value D, value Ui, value cta, value ctb, val
     expand_matrix( space, (3*alph*alph) );
     PA = register_section( space, alph*alph, 0 );
     PB = register_section( space, alph*alph, 0 );
-    TMP = register_section( space, alph*alph, 0 );
+    TMP= register_section( space, alph*alph, 0 );
 
-    /** fill in a new fm to hold data for results **/
+    /* fill in a new fm to hold data for results */
     results->alph = alph;
     results->comb = Int_val(full);
     if( 0 == results->comb ){
-        dims[0] = alph; dims[1] = alph;
+        results->size = dims[0] = dims[1] = alph;
         results->cost = (double*) malloc( dims[0]*dims[1] * sizeof(double) );
         results->cost_asgn = (CASN*) malloc( dims[0]*dims[1] * sizeof(CASN) );
     } else if (1 == results->comb){
-        dims[0] = dims[1] = (1 << alph) - 1;
+        results->size = dims[0] = dims[1] = (1 << alph) - 1;
         results->cost = (double*) malloc( dims[0]*dims[1] * sizeof(double) );
         results->cost_asgn = (CASN*) malloc( dims[0]*dims[1] * sizeof(CASN) );
     } else {
         failwith( "fm_CAML_compose :: value for determining combinations" );
     }
     
-    /** pre-calculate the matrix **/
+    /* pre-calculate the matrix */
     if( Val_none == Ui ){
         compose_sym( PA, Data_bigarray_val(U), Data_bigarray_val(D), ta, alph, TMP );
         compose_sym( PB, Data_bigarray_val(U), Data_bigarray_val(D), tb, alph, TMP );
@@ -278,9 +375,10 @@ fm_CAML_compose( value FM, value U, value D, value Ui, value cta, value ctb, val
     }
     neg_log_comp( PA, alph, alph );
     neg_log_comp( PB, alph, alph );
+
     precalc( results, PA, PB );
 
-    /** compose into ocaml values and return **/
+    /* compose into ocaml values and return */
     assign = alloc_bigarray( OASN | BIGARRAY_C_LAYOUT, 2, results->cost_asgn, dims );
     costs  = alloc_bigarray( BIGARRAY_FLOAT64  | BIGARRAY_C_LAYOUT, 2, results->cost, dims );
     pair = caml_alloc_tuple( 2 );

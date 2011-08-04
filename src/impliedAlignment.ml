@@ -2164,52 +2164,58 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                  seg_arr) 
                      base_map) new_a_taxa in 
                      (taxa_code, new_a_taxa)) 
-                    new_a) 
-            res  
-        in 
+                    new_a)
+            res
+        in
         List.combine (List.combine ali indel_blocks) dum_chars
 (** End of of_tree function *)
 
-    let post_process_affine_gap_cost f data (enc, taxa)
-    all_blocks=
+
+    let post_process_affine_gap_cost f data (enc, taxa) all_blocks=
         let all_blocks = `Set all_blocks in
         let process_indel (enc, taxa) (loc, string, length, clas, taxa_list) =
-            let present_absent_alph = 
-                Alphabet.list_to_a 
-                [(string, 1, None); ("-", 2, None)] 
-                "-" None Alphabet.Sequential
-            in
-            let in_taxa, not_in_taxa = match clas with 
-                | `Insertion -> 
-                        FileContents.Unordered_Character (1, false), 
+            let present_absent_alph = Alphabet.present_absent_io string in
+            let in_taxa, not_in_taxa = match clas with
+                | `Insertion ->
+                        FileContents.Unordered_Character (1, false),
                         FileContents.Unordered_Character (2, false)
-                | `Deletion -> 
+                | `Deletion ->
                         FileContents.Unordered_Character (2, false),
                         FileContents.Unordered_Character (1, false)
-                | `Missing -> 
-                        failwith "unsure"
+                | `Missing ->
+                        assert false (* Filtered earlier *)
             in
-            let taxa_list : All_sets.Integers.t = 
-                Sexpr.fold_left 
-                (fun acc x -> All_sets.Integers.add x acc) 
-                All_sets.Integers.empty taxa_list
+            let taxa_list : All_sets.Integers.t =
+                Sexpr.fold_left
+                    (fun acc x -> All_sets.Integers.add x acc)
+                    All_sets.Integers.empty taxa_list
             in
             let newenc = 
                 Parser.OldHennig.Encoding.gap_encoding (f string) 
             in
             ((present_absent_alph, newenc) :: enc),
-            List.map (fun (characters, taxon) ->
-                let code = Data.taxon_code taxon data in
-                (if All_sets.Integers.mem code taxa_list then
-                    in_taxa :: characters
-                else not_in_taxa :: characters), taxon) taxa
+            List.map
+                (fun (characters, taxon) ->
+                    let code = Data.taxon_code taxon data in
+                    let char = 
+                        if All_sets.Integers.mem code taxa_list
+                            then in_taxa :: characters
+                            else not_in_taxa :: characters
+                    in
+                    char, taxon)
+                taxa
         in
-        let acc = Array.to_list enc, 
-        List.map (fun (y, x) -> Array.to_list y, x) taxa 
+        let acc =
+            Array.to_list enc,
+            List.map (fun (y, x) -> Array.to_list y, x) taxa
+        in
+        let all_blocks =
+            Sexpr.filter 
+                (fun (_,_,_,x,_) -> match x with | `Insertion | `Deletion -> true | `Missing -> false)
+                all_blocks
         in
         let enc, taxa = Sexpr.fold_left process_indel acc all_blocks in
         Array.of_list enc, List.map (fun (y, x) -> Array.of_list y, x) taxa
-
 
 
     let post_process_dum_cost data (enc, taxa) dum_chars =

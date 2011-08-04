@@ -26,7 +26,7 @@ open FloatSequence  (* the modules inside are descriptive enough where opening
 
 let debug     = false   (* show debug information during median calculations *)
 let debug_est = false   (* output for optimization of data *)
-let verify    = false   (* Verify pure ocaml and C implementations of MPL *)
+let verify    = true    (* Verify pure ocaml and C implementations of MPL *)
 let pure_ocaml= false   (* Use a pure ocaml implementation of MPL *)
 
 let (-->) a b = b a
@@ -76,7 +76,31 @@ type t = { model  : dyn_model;
             cost  : float; }
 
 (*---- basic function set for gathering data of the module *)
+
+(* although we have a cost matrix for the characters, this method is used to
+   ensure that we do not use it without a branch length present *)
 let get_cm _ = assert false
+
+let print_combined_cm matrix = 
+    for i = 0 to (Array.length matrix) -1 do
+        for j = 0 to (Array.length matrix.(i))-1 do
+            Printf.printf "[%f|%d]\t" (fst matrix.(i).(j)) (snd matrix.(i).(j));
+        done;
+        Printf.printf "\n%!";
+    done;
+    ()
+
+(* compare the cost matrix and assignments generated from FloatSequence.A.get_cm *)
+let compare_combined_cm r1 r2 : bool =
+    let ret = ref true in
+    for i = 0 to (Array.length r1) -1 do
+        for j = 0 to (Array.length r1.(i))-1 do
+            let t1 = ((fst r1.(i).(j)) = (fst r2.(i).(j)))
+            and t2 = ((snd r1.(i).(j)) = (snd r2.(i).(j))) in
+            ret := !ret & t1 & t2;
+        done;
+    done;
+    !ret
 
 let compare a b = 
     let compare_array2 f a b = 
@@ -101,6 +125,8 @@ let compare a b =
         | (MPLAlign _ | FPAlign _ | Verify _ | CMPLAlign _) , _ -> false
     in
     0 = model_compare && data_compare
+
+let pp_seq model chan seq = Sequence.print chan seq model.alph
 
 let to_string t = failwith_todo "to_string"
 
@@ -192,6 +218,7 @@ let leaf_sequences t = match t.data with
             (All_sets.IntegerMap.empty)
             (t.codes)
             (r.ss)
+
 
 (*---- to formatter, and printing functions *)
 let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list = 
@@ -494,13 +521,61 @@ let median code a b t1 t2 =
         let cost = ref 0.0 in
         let meds = 
             Array_ops.map_2
-                (fun (csa,osa) (csb,osb) -> 
+                (fun (csa,osa) (csb,osb) ->
                     let cmem = CMPLAlign.get_mem csa csb and omem = MPLAlign.get_mem osa osb in
                     if debug then begin CMPLAlign.clear_mem cmem;MPLAlign.clear_mem omem end;
-                    let ccst,cmed = CMPLAlign.median_2_cost csa csb a.model bla blb cmem in
-                    let ocst,omed = MPLAlign.median_2_cost osa osb a.model bla blb omem in
-                    assert( ccst =. ocst );
-                    assert( 0 = Sequence.compare (CMPLAlign.seq_of_s cmed) (MPLAlign.seq_of_s omed) );
+                    let ce1,ce2,ccst,cmed = CMPLAlign.gen_all_2 csa csb a.model bla blb cmem in
+                    let oe1,oe2,ocst,omed = MPLAlign.gen_all_2 osa osb a.model bla blb omem in
+                    let () = 
+                        let fm1 = MPLAlign.get_cm a.model bla blb 
+                        and fm2 = CMPLAlign.get_cm a.model bla blb in
+                        if not (compare_combined_cm fm1 fm2) then begin
+                            print_combined_cm fm1;
+                            print_newline ();
+                            print_combined_cm fm2;
+                            assert false
+                        end else if not (ccst =. ocst) then begin
+                            Printf.printf "%f =/= %f\n" ocst ccst;
+                            Printf.printf "O1:%a\nC1:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s oe1) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s ce1);
+                            Printf.printf "O2:%a\nC2:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s oe2) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s ce2);
+                            Printf.printf "OM:%a\nCM:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s omed) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s cmed);
+                            MPLAlign.print_mem omem;
+                            assert false
+                        end else if 0 != Sequence.compare (CMPLAlign.seq_of_s cmed) (MPLAlign.seq_of_s omed) then begin
+                            Printf.printf "%f =/= %f\n" ocst ccst;
+                            Printf.printf "O1:%a\nC1:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s oe1) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s ce1);
+                            Printf.printf "O2:%a\nC2:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s oe2) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s ce2);
+                            Printf.printf "OM:%a\nCM:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s omed) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s cmed);
+                            MPLAlign.print_mem omem;
+                            assert false
+                        end else if 0 != Sequence.compare (CMPLAlign.seq_of_s ce1) (MPLAlign.seq_of_s oe1) then begin
+                            Printf.printf "%f =/= %f\n" ocst ccst;
+                            Printf.printf "O1:%a\nC1:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s oe1) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s ce1);
+                            Printf.printf "O2:%a\nC2:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s oe2) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s ce2);
+                            Printf.printf "OM:%a\nCM:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s omed) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s cmed);
+                            MPLAlign.print_mem omem;
+                            assert false
+                        end else if 0 != Sequence.compare (CMPLAlign.seq_of_s ce2) (MPLAlign.seq_of_s oe2) then begin
+                            Printf.printf "%f =/= %f\n" ocst ccst;
+                            Printf.printf "O1:%a\nC1:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s oe1) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s ce1);
+                            Printf.printf "O2:%a\nC2:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s oe2) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s ce2);
+                            Printf.printf "OM:%a\nCM:%a\n" (pp_seq a.model) (MPLAlign.seq_of_s omed) 
+                                                         (pp_seq a.model) (CMPLAlign.seq_of_s cmed);
+                            MPLAlign.print_mem omem;
+                            assert false
+                        end
+                    in
                     cost := !cost +. ccst;
                     cmed,omed)
                 (ar.ss)
@@ -647,10 +722,10 @@ let dist_2 delta n a b =
     total_cost (median (-1) a b (Some dist1) (Some dist2))
             
 let tabu_distance a = match a.data with
-    | FPAlign _  -> failwith_todo "tabu_distance (FPAlign)"
-    | MPLAlign _ -> failwith_todo "tabu_distance (FPAlign)"
-    | CMPLAlign _ -> failwith_todo "tabu_distance (CMPLAlign)" 
-    | Verify _ -> failwith_todo "tabu_distance (Verify)" 
+    | FPAlign _     -> failwith_todo "tabu_distance (FPAlign)"
+    | MPLAlign _    -> failwith_todo "tabu_distance (FPAlign)"
+    | CMPLAlign _   -> failwith_todo "tabu_distance (CMPLAlign)" 
+    | Verify _      -> failwith_todo "tabu_distance (Verify)" 
 
 (*---- filter functions *)
 let array_filter f a b = 
@@ -782,8 +857,14 @@ let to_single parent mine t =
                     and cmem = CMPLAlign.get_mem cp cm in
                     let c_r,cs = CMPLAlign.closest ~p:cp ~m:cm mine.model t cmem
                     and o_r,os = MPLAlign.closest ~p:op ~m:om mine.model t omem in
-                    assert( cs =. os );
-                    assert( 0 = Sequence.compare (CMPLAlign.seq_of_s c_r) (MPLAlign.seq_of_s o_r) );
+                    if not ((cs =. os) || ( 0 = Sequence.compare (CMPLAlign.seq_of_s c_r) (MPLAlign.seq_of_s o_r))) then begin
+                        Printf.printf "C:\nP:%a\nM:%a\n%f\n\n%!" (pp_seq mine.model) (CMPLAlign.seq_of_s cp)
+                                                        (pp_seq mine.model) (CMPLAlign.seq_of_s c_r) cs;
+                        Printf.printf "O:\nP:%a\nM:%a\n%f\n\n%!" (pp_seq mine.model) (MPLAlign.seq_of_s op)
+                                                        (pp_seq mine.model) (MPLAlign.seq_of_s o_r) os;
+
+                        assert false;
+                    end;
                     score := cs +. !score; c_r,o_r)
                 ps.ss
                 ms.ss
@@ -850,4 +931,3 @@ let prior _ = failwith MlStaticCS.likelihood_error
 let to_single _ _ _ = failwith MlStaticCS.likelihood_error
 
 ENDIF
-

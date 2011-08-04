@@ -5852,8 +5852,7 @@ let debug = true in
             let seqlst2 = get_seqlst_for_mauve alied_seq2 in
             fprintf oc "> 1:%d-%d %s c=%d\n" (left1+1) (right1+1) dir1 cost;
             if debug && (right1-left1+1)<500 then 
-                info_user_message "this sequence is too short for mauve graphic \
-                output (length<500)";
+            info_user_message "this sequence alone might too short for mauve graphic output (length<500)";
             if left1=right1 then fprintf oc "X";
             List.iter (fun seq1 ->
                 Sequence.print oc seq1 Alphabet.nucleotides;

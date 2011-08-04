@@ -19,12 +19,12 @@
 (* Debug variables/ combinators *)
 let (-->) a b = b a
 
-let debug_mem = false
+let debug_mem = true
 let debug_aln = false
 let debug_cst = false
 
-let use_cost_fn = false (* do not memoize cost function  *)
-let use_align   = false (* use full alignment matrix     *)
+let use_cost_fn = true (* do not memoize cost function  *)
+let use_align   = true (* use full alignment matrix     *)
 let failwithf format = Printf.ksprintf (failwith) format
 
 (* a wrapper for printf to allow us to direct output for testing *)
@@ -88,21 +88,21 @@ open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
 (* minimum of three with annotations; this will work for all methods *)
 let min3_ a at b bt c ct =
-    if a =. b then begin
-        if b =. c || a =. c then (min a (min b c)),[at;bt;ct]
-        else if c < (min a b) then c,[ct]
-        else (min a b),[at;bt]
-
-    end else if a < b then begin
-        if c =. a then ((min a c),[at;ct])
-        else if c < a then c,[ct]
-        else a,[at]
-
-    end else (* b > a *) begin
-        if c =. b then (min b c),[ct;bt]
-        else if c < b then c,[ct]
-        else b,[bt]
-    end
+    let min_v,min_t =
+        if a =. b then
+            min a b, [at;bt]
+        else if a <  b then
+            a, [at] 
+        else
+            b, [bt]
+    in
+    if min_v =. c then
+        min min_v c, ct::min_t
+    else if c < min_v then
+        c, [ct]
+    else 
+        min_v, min_t
+ 
 
 (* Sequence alignment module for two or three sequences. *)
 module type A = sig
@@ -230,37 +230,63 @@ module CMPLAlign : A = struct
             unit 
         = "falign_CAML_median_wrapper" "falign_CAML_median"
 
+    external get_closest :
+        FMatrix.m ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+        ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
+        int -> int -> float -> int * float
+        = "fm_CAML_get_closest_wrapper" "fm_CAML_get_closest"
+
+    external print_alignment_matrix : 
+        FMatrix.m -> Matrix.m -> int -> int -> unit =
+            "falign_CAML_print_alignments"
+
+
     let create_s ch1 ch2 =
         let len = 
             (Sequence.length (seq_of_s ch1)) + (Sequence.length (seq_of_s ch2))
         in
         s_of_seq (Sequence.create len)
 
-    let closest ~p ~m model t (fmat,_) =
-        let nm = create_s p m in
-        let cost = 
-            closest fmat model.static.MlModel.u model.static.MlModel.d
-                    model.static.MlModel.ui t p m nm (Alphabet.get_gap model.alph)
-        in
-        nm,cost
 
-    let full_backtrace fmat mat u d ui ta tb a b ea eb med g =
-        let a,ta,ea, b,tb,eb =
+    let get_closest model t ~i ~p ~m =
+        get_closest FMatrix.scratch_space model.static.MlModel.u
+                    model.static.MlModel.d model.static.MlModel.ui p m t
+
+
+    let full_backtrace ?(filter_gap=true) a b m ta tb (fmat,mat) =
+        let a,ta, b,tb, switch =
             if Sequence.length a > Sequence.length b
-                then a,ta,ea, b,tb,eb
-                else b,tb,eb, a,ta,ea
+                then a,ta, b,tb, false
+                else b,tb, a,ta, true
         in
-        full_backtrace fmat mat u d ui ta tb a b ea eb med g
+        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        let med= create_s a b and ea= create_s a b and eb= create_s a b in
+        let () = full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
+                                m.static.MlModel.ui ta tb a b ea eb med gap in
+        let ea,eb,med = 
+            if filter_gap
+                then ea, eb, remove_gaps (Alphabet.get_gap m.alph) med
+                else ea, eb, med
+        in
+        if switch then eb,ea,med else ea,eb,med
 
-    let median_backtrace fmat mat u d ui ta tb a b m g =
+
+    let median_backtrace ?(filter_gap=true) a b m ta tb (fmat,mat) =
         let a,ta, b,tb =
             if Sequence.length a > Sequence.length b
                 then a,ta, b,tb
                 else b,tb, a,ta
         in
-(*        Printf.printf "\nA: %a\n" (pp_aseq Alphabet.nucleotides) a;*)
-(*        Printf.printf "B: %a\n\n" (pp_aseq Alphabet.nucleotides) b;*)
-        median_backtrace fmat mat u d ui ta tb a b m g
+        let med= create_s a b in
+        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        let () = median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
+                                  m.static.MlModel.ui ta tb a b med gap in
+        if filter_gap
+            then remove_gaps (Alphabet.get_gap m.alph) med
+            else med
+
 
     let nukk_align fmat mat u d ui ta tb a b g =
         let a,ta,b,tb =
@@ -346,18 +372,35 @@ module CMPLAlign : A = struct
         nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
                         m.static.MlModel.ui tx ty x y gap
 
-    let median_2_cost x y m tx ty ((fmat,mat) as mem) = 
+    let median_2_cost x y m tx ty ((fmat,mat) as mem) =
         let cost = cost_2 x y m tx ty mem in
-        let med= create_s x y in
-        let () = 
-            let gap = Alphabet.get_gap m.static.MlModel.alph in
-            median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                             m.static.MlModel.ui tx ty x y med gap
-        in
+        let med  = median_backtrace x y m tx ty mem in
         cost,med
 
     let median_2 x y m tx ty mem = 
         median_2_cost x y m tx ty mem --> snd
+
+    let cost = get_cf
+
+    let full_cost_2 _ x y m tx ty (fmat,mat) =
+        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
+                        m.static.MlModel.ui tx ty x y gap
+
+    let create_edited_2 x y m tx ty mem : s * s =
+        let () = ignore (cost_2 x y m tx ty mem) in
+        let ex,ey,_ = full_backtrace x y m tx ty mem in
+        ex,ey
+
+    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
+
+    let backtrace ?(filter_gap=true) m mem x y tx ty =
+        median_backtrace ~filter_gap x y m tx ty mem
+
+    let align_2 ?first_gap x y m tx ty ((fmat,mat) as mem) =
+        let cost= cost_2 x y m tx ty mem in
+        let ex,ey,_ = full_backtrace x y m tx ty mem in
+        ex,ey,cost
 
     let optimize s1 s2 model t mem =
         let update t = (),cost_2 s1 s2 model t 0.0 mem in
@@ -369,22 +412,38 @@ module CMPLAlign : A = struct
 
     let gen_all_2 x y m tx ty ((fmat,mat) as mem) =
         let cost= cost_2 x y m tx ty mem in
-        let med= create_s x y and ex = create_s x y and ey = create_s x y in
-        let () = 
-            let gap = Alphabet.get_gap m.static.MlModel.alph in
-            full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                m.static.MlModel.ui tx ty x y ex ey med gap
-        in
+        let ex,ey,med = full_backtrace x y m tx ty mem in
         ex,ey,cost,med
+
+    let closest ~p ~m model t ((fmat,_) as mem) =
+        let gap = Alphabet.get_gap model.alph in
+        let (s_new,c) as res = 
+            if Sequence.is_empty m gap then begin
+                m, 0.0
+            end else if 0 = Sequence.compare p m then begin
+                let mask = lnot gap in
+                let m = Sequence.mapi (fun x p -> if p > 0 then x land mask else x) m in
+                let cost = aln_cost_2 p m model t in
+                remove_gaps gap m, cost
+            end else begin
+                let paln, maln, cst = align_2 p m model 0.0 t mem in
+                let m = create_s paln maln in
+                assert( Sequence.length paln = Sequence.length maln );
+                let cost = 
+                    closest fmat model.static.MlModel.u  model.static.MlModel.d
+                            model.static.MlModel.ui t paln maln m gap in
+                remove_gaps gap m, cost
+            end
+        in
+        res
 
     let readjust s1 s2 s3 model t1 t2 t3 =
         let algn s1 s2 t1 t2 = median_2_cost s1 s2 model t1 t2 (get_mem s1 s2) in
-
-        Printf.printf "A : %f - %a\n" t1 (pp_seq model) s1;
-        Printf.printf "B : %f - %a\n" t2 (pp_seq model) s2;
-        Printf.printf "C : %f - %a\n" t3 (pp_seq model) s3;
-
-
+        if debug_aln then begin
+            Printf.printf "A : %f - %a\n" t1 (pp_seq model) s1;
+            Printf.printf "B : %f - %a\n" t2 (pp_seq model) s2;
+            Printf.printf "C : %f - %a\n" t3 (pp_seq model) s3
+        end;
         let make_center s1 s2 s3=
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
@@ -413,83 +472,6 @@ module CMPLAlign : A = struct
         in
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
-
-    let cost = get_cf
-
-    let get_closest model t = 
-        let create_cost_matrix model t =
-            let mat = MlModel.compose model.static t in
-            for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
-                for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
-                    mat.{i,j} <- ~-. (log mat.{i,j})
-                done;
-            done;
-            mat
-        and gap = Alphabet.get_gap model.alph in
-        let cost_matrix = create_cost_matrix model t in
-        (fun ~i ~p ~m ->
-            let p = if p = 0 then gap else p in
-            let m = if m = 0 then gap else m in
-            (* now choose the best from parent; since we MUST choose one, we do
-               not need to worry about floating point issues with equality. *)
-            let state,cst =
-                List.fold_left
-                    (fun acc m ->
-                        List.fold_left
-                            (fun ((assgn,cst) as acc) p ->
-                                let ncst = cost_matrix.{p,m} in
-                                if ncst < cst then (m,ncst) else acc)
-                            (acc)
-                            (BitSet.Int.list_of_packed p))
-                    ((~-1),infinity)
-                    (BitSet.Int.list_of_packed m)
-            in
-            let res = 1 lsl state in
-            if debug_cst || ~-1 = state then
-                printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
-                              i p pp_ilst (BitSet.Int.list_of_packed p) m
-                              pp_ilst (BitSet.Int.list_of_packed m) cst t state res;
-            assert( state <> ~-1 );
-            res,cst)
-
-    let full_cost_2 _ x y m tx ty (fmat,mat) =
-        let gap = Alphabet.get_gap m.static.MlModel.alph in
-        nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
-                        m.static.MlModel.ui tx ty x y gap
-
-
-    let create_edited_2 x y m tx ty ((fmat,mat) as mem) : s * s =
-        let () = ignore (cost_2 x y m tx ty mem) in
-        let med= create_s x y and ex = create_s x y and ey = create_s x y in
-        let () = 
-            let gap = Alphabet.get_gap m.static.MlModel.alph in
-            full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                m.static.MlModel.ui tx ty x y ex ey med gap
-        in
-        ex,ey
-
-    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
-
-    let backtrace ?(filter_gap=true) m (fmat,mat) x y tx ty =
-        let med = create_s x y in
-        let () = 
-            let gap = Alphabet.get_gap m.static.MlModel.alph in
-            median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                             m.static.MlModel.ui tx ty x y med gap
-        in
-        if filter_gap
-            then remove_gaps (Alphabet.get_gap m.alph) med
-            else med
-
-    let align_2 ?first_gap x y m tx ty ((fmat,mat) as mem) =
-        let cost= cost_2 x y m tx ty mem in
-        let med= create_s x y and ex = create_s x y and ey = create_s x y in
-        let () = 
-            let gap = Alphabet.get_gap m.static.MlModel.alph in
-            full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                m.static.MlModel.ui tx ty x y ex ey med gap
-        in
-        ex,ey,cost
 
 end
 
@@ -644,10 +626,11 @@ module FloatAlign : A = struct
                     (BitSet.Int.list_of_packed m)
             in
             let res = 1 lsl state in
-            if debug_cst || ~-1 = state then
-                printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
-                              i p pp_ilst (BitSet.Int.list_of_packed p) m
-                              pp_ilst (BitSet.Int.list_of_packed m) cst t state res;
+(*            Printf.printf "O:%d\t P:%d M:%d --> %d : %f\n" i p m res cst;*)
+(*            if debug_cst || ~-1 = state then*)
+(*                printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"*)
+(*                              i p pp_ilst (BitSet.Int.list_of_packed p) m*)
+(*                              pp_ilst (BitSet.Int.list_of_packed m) cst t state res;*)
             assert( state <> ~-1 );
             res,cst)
 
@@ -880,14 +863,21 @@ module FloatAlign : A = struct
         (* build a single strip/band in matrix *)
         and build_strip k =
             let b = barrier k in
+            let p_max = ref 0 in
             for i = 1 to (lenX-1) do
                 let j_min = max 1 (i - b - 1)
                 and j_max = min (lenY-1) (i+b+(lenY-lenX)) in
-                update_row i j_min;
+                if j_min = 1 
+                    then update_all i 1
+                    else update_row i j_min;
+
                 for j = j_min+1 to j_max-1 do
                     update_all i j
                 done;
-                update_col i j_max;
+                if !p_max = (lenX-1)
+                    then update_all i j_max
+                    else update_col i j_max;
+                p_max := j_max;
             done;
             update k
 
@@ -1135,8 +1125,7 @@ module MPLAlign : A = struct
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
-                printf "| %d %08.5f[%02d] "
-                    (int_of_dir dirs) (abs_float cost) (get_assignment (choose_dir dirs));
+                printf "| %d %8.4f[%02d] " (int_of_dir dirs) (abs_float cost) indel;
             done;
             printf "|\n%!";
         done;
@@ -1223,6 +1212,7 @@ module MPLAlign : A = struct
             in
             let xs = BitSet.Int.list_of_packed x_i
             and ys = BitSet.Int.list_of_packed y_i in
+
             let cst,states =
                 List.fold_left
                     (fun acc x ->
@@ -1244,14 +1234,14 @@ module MPLAlign : A = struct
             in
             if debug_cst || (0 = List.length states) then begin
                 let packed = BitSet.Int.packed_of_list states in
-                printf "Cost: %d(%a) ->%d(%a)<- %d(%a) = %f\n%!"
+                printf "\tBest Cost: %d(%a) ->%d(%a)<- %d(%a) = %f\n%!"
                     x_i pp_ilst xs packed pp_ilst states y_i pp_ilst ys cst;
             end;
             match classify_float cst, states with
             | _, [] ->
-                failwithf "%d -(%f-%f)- %d: has no median" x_i t1 t2 y_i
-            | FP_infinite, _ | FP_nan, _ ->
-                failwithf "%d -- %d: returned infinite cost (%f,%f)" x_i y_i t1 t2
+                failwithf "%d -(%f)->?<-(%f)- %d: has no median assignment" x_i t1 t2 y_i
+            | (FP_infinite | FP_nan), _ ->
+                failwithf "%d -(%f)->inf<-(%f)- %d: has infinite cost" x_i t1 t2 y_i
             | _, _  -> cst, BitSet.Int.packed_of_list states
 
     let get_cm model tx ty =
@@ -1259,10 +1249,9 @@ module MPLAlign : A = struct
         let s = Alphabet.distinct_size model.alph in
         let m = Array.make_matrix s s (~-.1.0,0) in
         for i = 0 to (Array.length m)-1 do
-            for j = i to (Array.length m.(i))-1 do
+            for j = 0 to (Array.length m.(i))-1 do
                 let cost_state = f (i+1) (j+1) in
                 m.(i).(j) <- cost_state;
-                m.(j).(i) <- cost_state;
             done;
         done;
         m
@@ -1299,12 +1288,14 @@ module MPLAlign : A = struct
                     (BitSet.Int.list_of_packed m)
             in
             let res = 1 lsl state in
-            if debug_cst || ~-1 = state then
-                printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"
-                              i p pp_ilst (BitSet.Int.list_of_packed p) m
-                              pp_ilst (BitSet.Int.list_of_packed m) cst state res;
+(*            Printf.printf "O:%d\t P:%d M:%d --> %d : %f\n" i p m res cst;*)
+(*            if debug_cst || ~-1 = state then*)
+(*                printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"*)
+(*                              i p pp_ilst (BitSet.Int.list_of_packed p) m*)
+(*                              pp_ilst (BitSet.Int.list_of_packed m) cst state res;*)
             assert( state <> ~-1 );
             res,cst)
+
 
     let cost m tx ty =
         if use_cost_fn then
@@ -1312,7 +1303,8 @@ module MPLAlign : A = struct
             (fun a b -> cf a b)
         else
             let cm = get_cm m tx ty in
-            (fun a b -> cm.(a-1).(b-1) )
+            (fun a b -> cm.(a-1).(b-1))
+
 
     (* [alignments mem x y m] builds the alignment of [x] and [y] from the
      * alignment cost matrix, [mem]; the only purpose for the model [m] is to
@@ -1371,8 +1363,8 @@ module MPLAlign : A = struct
                 and acst = (fst mem.(i-1).(j-1)) +. acst in
                 let (temp_min,temp_dirs) as temp =
                     min3_ dcst (Delete sd) icst (Insert si) acst (Align sa) in
-(*                Printf.printf "(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
-(*                                i j acst icst dcst temp_min (int_of_dir temp_dirs);*)
+(*                Printf.printf "(%d,%d)[00]: A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
+(*                        i j acst icst dcst temp_min (int_of_dir temp_dirs);*)
                 temp
             end
         in
@@ -1434,15 +1426,18 @@ module MPLAlign : A = struct
         (* update a cell in the matrix by ALL its neighbors; This should only be
          * used to calculate the cost of a cell when all the neighbors exist. *)
         let update_all i j =
+            Printf.printf "\nA:%f\tI:%f\tD:%f\n%!"
+                (fst mem.(i-1).(j-1)) (fst mem.(i).(j-1)) (fst mem.(i-1).(j));
             let aln,at,sa = get_cost (i-1) (j-1) (Sequence.get x i) (Sequence.get y j)
             and del,dt,sd = get_cost (i-1) (j)   (gap) (Sequence.get y j)
             and ins,it,si = get_cost (i)   (j-1) (Sequence.get x i) (gap) in
             (* modify the indel/edit count *)
             let at = if (Sequence.get x i) = (Sequence.get y j) then at else 1+at
-            and it = it+1 and dt = dt+1 in
+            and it = it+1
+            and dt = dt+1 in
             (* the minimum cost with minimum indel, adjusted with additional
              * indel if necessary. *)
-            let m : float * (int * dir list) =
+            let (cost,indel) as m : float * (int * dir list) =
                 List.fold_left
                     (fun ((cmin,(imin,dmin)) as amin) (ccur,(icur,dcur)) ->
                         if cmin < ccur then amin
@@ -1455,6 +1450,8 @@ module MPLAlign : A = struct
                     (aln,(at,[Align sa]))
                     [(del,(dt,Delete sd)); (ins,(it,Insert si))]
             in
+(*            Printf.printf "(%d,%d)[00]: A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
+(*                          i j aln ins del cost (int_of_dir (snd indel));*)
             mem.(i).(j) <- m
 
         (* Same as above, but will not look at the node to the right (j-1) *)
@@ -1472,6 +1469,8 @@ module MPLAlign : A = struct
                     else aln,(at,[Delete sd;Align sa])
                 end
             in
+(*            Printf.printf "(%d,%d)[00]: A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
+(*                          i j aln 0.0 del cost (int_of_dir (snd indel));*)
             mem.(i).(j) <- m
   
         (* Same as above, but will not look at the node above (i-1) *)
@@ -1489,6 +1488,8 @@ module MPLAlign : A = struct
                     else aln,(at,[Insert si;Align sa])
                 end
             in
+(*            Printf.printf "(%d,%d)[00]: A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
+(*                          i j aln ins 0.0 cost (int_of_dir (snd indel));*)
             mem.(i).(j) <- m
         in
 
@@ -1544,15 +1545,22 @@ module MPLAlign : A = struct
         (* build a single strip/band in matrix *)
         and build_strip k =
             let b = barrier k in
+            let p_max = ref 0 in
             for i = 1 to (lenX-1) do
                 let j_min = max 1 (i - b - 1)
                 and j_max = min (lenY-1) (i+b+(lenY-lenX)) in
-                update_row i j_min;
+                if j_min = 1
+                    then update_all i 1
+                    else update_row i j_min;
                 for j = j_min+1 to j_max-1 do
                     update_all i j
                 done;
-                update_col i j_max;
+                if !p_max = (lenY-1)
+                    then update_all i j_max
+                    else update_col i j_max;
+                p_max := j_max;
             done;
+            Printf.printf "Finished Building Strip k = %d\n" k;
             update k
 
         (* this is to update k and matrix until ending condition *)
@@ -1571,6 +1579,7 @@ module MPLAlign : A = struct
         end else begin
             align_2 mem x y m tx ty
         end
+
 
     let aln_cost_2 p m model t : float =
         let cost_matrix =
@@ -1709,7 +1718,8 @@ module MPLAlign : A = struct
             else if 0 = Sequence.compare p m then
                 let masked = mask_gaps m gap in
                 let m = Sequence.mapi (get_closest masked) masked in
-                remove_gaps gap m, aln_cost_2 p m model t
+                let cost = aln_cost_2 p m model t in
+                remove_gaps gap m, cost
             else
                 let paln, maln, cst = align_2 p m model 0.0 t mem in
                 assert( Sequence.length paln = Sequence.length maln );
@@ -2041,24 +2051,4 @@ let test_all alignments channel seq1 seq2 bl1 bl2 model =
                    mal_cost     mpl_cost     flk_cost cmpl_cost
                    mal_opt_cost mpl_opt_cost flk_opt_cost cmpl_opt_cost
                    (pp_seq model) mpl_median (pp_seq model) flk_median (pp_seq model) cmpl_median
-
-
-let () = 
-    let str1 = "ACCCCTTGGTG" and str2 = "CCCTTTGG"
-    and alph = Alphabet.nucleotides in
-    let seq1 = CMPLAlign.s_of_seq (sequence_of_string alph str1)
-    and seq2 = CMPLAlign.s_of_seq (sequence_of_string alph str2) in
-    let modl = spec_model alph MlModel.jc69_5 
-    and mem = CMPLAlign.get_mem seq1 seq2 in
-    Printf.printf "COST: %f\n%!" 
-                  (CMPLAlign.cost_2 seq1 seq2 modl 0.1 0.1 mem);
-    Printf.printf "Alignment: %a\n%!" (pp_seq modl)
-                  (CMPLAlign.seq_of_s (CMPLAlign.backtrace modl mem seq1 seq2 0.1 0.1))
-
-
-
-
-
-
-
 
