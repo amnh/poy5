@@ -3299,7 +3299,7 @@ let get_full_range_lstlst lcb_range_lstlst in_seqsize_lst =
 * building lcb_tbl, old_seq_range_lst is range of input sequences, but if we
 * are working inside a huge lcb, old_seq_range_lst is the range of that huge lcb*)    
 let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
-    let debug = true in
+    let debug = false in
     if debug then Printf.printf "get seq outside lcbs :\n%!";
     (*let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seq_size_lst in*)
     if debug then print_lcbs_range lcb_range_lst_lst;
@@ -3307,7 +3307,7 @@ let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
     let seq_outside_lcb_arr = Array_ops.map_2 (fun seq lcb_range ->
         (*let seqlen = Array.length seq in*)
         let leftmost,rightmost = List.nth old_seq_range_lst (!seqNO) in
-        Printf.printf "leftmost=%d,rightmost=%d\n%!" leftmost rightmost;
+        if debug then Printf.printf "leftmost=%d,rightmost=%d\n%!" leftmost rightmost;
         seqNO := !seqNO + 1;
         let last_rightend,tmpseq = 
             List.fold_left (
@@ -5117,7 +5117,7 @@ let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
 
 
 let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl seed2pos_tbl cost_mat use_ukk =
-    let debug = true in
+    let debug = false in
     if debug then 
         Printf.printf "Search inside a lcb ,min and max len = %d/%d\n%!" min_len max_len;
    (* Hashtbl.iter (fun key lcbrecord ->*)
@@ -5156,7 +5156,7 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
                 ((le1,re1,[seedNO],mi1.orientation),alied_seq1)::rlist1,
                 acc_cost + cost
             ) ([],[],0) key in
-            Printf.printf "in_cost = %d\n%!" in_cost;
+            if debug then Printf.printf "in_cost = %d\n%!" in_cost;
             let sort_by_leftend lst = 
                 (*this sorting might use bunch of memory, do we really need to
                 * sort? mums in lcbkey are suppose to be sorted by leftend.*)
@@ -5178,7 +5178,7 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
             Sequence.align2 (Sequence.of_array out_seqarr.(0))
             (Sequence.of_array out_seqarr.(1)) cost_mat use_ukk
             in
-            Printf.printf "out_cost=%d\n%!" out_cost;
+            if debug then Printf.printf "out_cost=%d\n%!" out_cost;
             let aliseqarr = 
                 merge_ali_seq rlst0 rlst1 out_aliseq0 out_aliseq1 
                 total_range_lst 
@@ -5189,7 +5189,8 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
             score = in_cost+out_cost };*)
         end
         else begin
-            Printf.printf "this lcb is too large or too small to work with\n%!";
+            if debug then 
+                Printf.printf "this lcb is too large or too small to work with\n%!";
             [||],0
         end
     (* ) lcb_tbl; 
@@ -5535,7 +5536,7 @@ Sequence.s and int array to this function.*)
 code_range_lst1 code_range_lst2 gen_gap_code
 block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk 
 mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chunck lcb*) =
-    let debug = true and debug2 = true in
+    let debug = true and debug2 = false in
     if debug then Printf.printf "fill_in_cost_ali_mat with basecode=%d\n%!"
     base;
     let set_cost code1 code2 cost = gen_cost_mat.(code1).(code2) <- cost in
@@ -5567,12 +5568,13 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
             set_cost gen_gap_code code2 block_gap_cost;
             let alied_seq1, alied_seq2, cost, _ =
             if (avglen > !maximum_lcb_len) then begin
+                if debug then Printf.printf "search inside a huge lcb block\n%!";
                 let lcbrecord = Hashtbl.find lcb_tbl (get_abs_lst lcbkey1) in    
                 let alied_seqarr,cost =
                     search_inside_a_lcb lcbrecord seq1 seq2 in_seqarr
                     !maximum_lcb_len max_int mum_tbl seed2pos_tbl cost_mat use_ukk
                 in
-                Printf.printf "cost from search inside a lcb = %d\n%!" cost;
+                if debug2 then Printf.printf "cost from search inside a lcb = %d\n%!" cost;
                 if cost>0 then
                     alied_seqarr.(0),alied_seqarr.(1),cost,-1
                 else
@@ -5584,7 +5586,7 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
             edit_cost := !edit_cost + cost; (*acc the real edit cost*)
             ali_mat.(code1).(code2) <- (cost,alied_seq1, alied_seq2);
             ali_mat.(code2).(code1) <- (cost,alied_seq2, alied_seq1);
-            if debug2 then 
+            if debug then 
                 Printf.printf "set %d,%d with cost=%d,%d,(real ali cost=%d)\n%!"
                  code1 code2 0 block_gap_cost cost;
         end
@@ -5649,7 +5651,7 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
             ali_mat.(code2).(gen_gap_code) <- (del_cost2,subseq2,indel2);
             ali_mat.(gen_gap_code).(code2) <- (del_cost2,indel2,subseq2);
             set_cost code2 gen_gap_code del_cost2;
-            if debug2 then 
+            if debug then 
                 Printf.printf "set %d,%d(gap) with cost=%d\n%!" code2
                 gen_gap_code del_cost2;
         end
@@ -5661,7 +5663,7 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
             ali_mat.(code1).(gen_gap_code) <- (del_cost1,subseq1,indel1);
             ali_mat.(gen_gap_code).(code1) <- (del_cost1,indel1,subseq1);
             set_cost code1 gen_gap_code del_cost1;
-            if debug2 then 
+            if debug then 
                 Printf.printf "set %d,%d(gap) with cost=%d\n%!" code1
                 gen_gap_code del_cost1;
         end
