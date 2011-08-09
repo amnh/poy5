@@ -752,6 +752,7 @@ type application = [
     | `Exhaustive_Strong
     | `Iterative of [`ThreeD of int option | `ApproxD of int option ]
     | `ReDiagnose
+    | `ReDiagnoseTrees
     | `SetSeed of int
     | `InspectFile of string
     | `ClearMemory of clear_item list

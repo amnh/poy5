@@ -287,6 +287,7 @@ type application = [
     | `Redraw
     | `Wipe 
     | `ReDiagnose
+    | `ReDiagnoseTrees
     | `ClearMemory of Methods.clear_item list
     | `ReadScript of string list
     | poy_file_commands
@@ -1206,6 +1207,7 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
     | `Redraw
     | `Wipe 
     | `ReDiagnose
+    | `ReDiagnoseTrees
     | `ClearMemory _
     | `ReadScript _
     | `Store _
@@ -1606,7 +1608,11 @@ let create_expr () =
                         in
                         `Use (st, a) ] |
                 [ LIDENT "rediagnose"; left_parenthesis; 
-                    right_parenthesis -> `ReDiagnose ] |
+                    x = OPT clear_diagnosis; right_parenthesis -> 
+                        match x with
+                        | None  
+                        | Some false -> `ReDiagnose
+                        | Some true  -> `ReDiagnoseTrees ] |
                 [ LIDENT "run"; left_parenthesis; a = LIST0 [x = STRING -> x] SEP ","; 
                     right_parenthesis -> `ReadScript a ] |
                 [ LIDENT "cd"; left_parenthesis; a = STRING; right_parenthesis ->
@@ -1614,6 +1620,8 @@ let create_expr () =
                 [ LIDENT "pwd"; left_parenthesis; right_parenthesis -> 
                     `PrintWDir ]
             ];
+        clear_diagnosis:
+            [ [ "clear" -> false ] | [ "preserve" -> true ] ];
         store_class:
             [ [ ","; left_parenthesis; x = LIST0 [ x = store_class_list -> x ]
             SEP ",";
