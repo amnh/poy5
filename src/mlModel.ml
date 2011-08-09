@@ -151,11 +151,11 @@ let get_costfn_code a = match a.spec.cost_fn with
     | `MAL -> 0 
     | `FLK -> ~-1 (* should not call C functions; yet *)
 
-let categorize_by_model codes get_fun =
+let categorize_by_model get_fn codes =
     let set_codes =
         List.fold_left
             (fun acc code ->
-                try let spec = get_fun code in
+                try let spec = get_fn code in
                     try let old = MlModelMap.find spec acc in
                         MlModelMap.add spec (code::old) acc
                     with | Not_found ->

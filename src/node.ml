@@ -2177,7 +2177,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                     end
                 | _ -> assert false
             in
-            MlModel.categorize_by_model lst get_function
+            MlModel.categorize_by_model get_function lst
 
         and group_by_sets lst = 
             let curr = Hashtbl.create 1667 in

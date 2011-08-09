@@ -475,6 +475,8 @@ val process_analyze_only_taxa :
 
 val categorize : d -> d
 
+val categorize_static_likelihood_by_model : d -> int list list
+
 val remove_taxa_to_ignore : d -> d
 
 val get_sequence_tcm : int -> d -> Cost_matrix.Two_D.m
@@ -512,7 +514,7 @@ val synonyms_to_formatter : d -> Xml.xml
 val to_formatter : Xml.attributes -> d -> Xml.xml 
 
 type classes = 
-    [ `Dynamic |  `NonAdditive | `Likelihood | `DynamicLikelihood | `AllLikelihood
+    [ `Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
     | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
 
 val get_code_from_characters_restricted : classes -> d -> characters -> int list

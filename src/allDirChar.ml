@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -1343,11 +1343,10 @@ module F : Ptree.Tree_Operations
 
     (* Group all the characters and optimize each with function above *)
     let static_model_fn tree = 
-        let chars =
-            let chars = `Some (Data.get_chars_codes_comp tree.Ptree.data `All) in
-            Data.get_code_from_characters_restricted `AllLikelihood tree.Ptree.data chars
-        in
-        static_model_chars_fn chars tree
+        List.fold_left
+            (fun tree xs -> static_model_chars_fn xs tree)
+            (tree)
+            (Data.categorize_static_likelihood_by_model tree.Ptree.data)
 
 
     module IA = ImpliedAlignment.Make (AllDirNode.AllDirF) (Edge.LazyEdge)
