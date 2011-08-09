@@ -23,8 +23,8 @@ let debug_mem = true
 let debug_aln = false
 let debug_cst = false
 
-let use_cost_fn = true (* do not memoize cost function  *)
-let use_align   = true (* use full alignment matrix     *)
+let use_cost_fn = false (* do not memoize cost function  *)
+let use_align   = false (* use full alignment matrix     *)
 let failwithf format = Printf.ksprintf (failwith) format
 
 (* a wrapper for printf to allow us to direct output for testing *)
@@ -505,6 +505,7 @@ module FloatAlign : A = struct
             dirs
 
     let print_mem (mem:floatmem) =
+        printf "O:\n";
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
@@ -837,6 +838,7 @@ module FloatAlign : A = struct
                 let old_j_max = i+ob+(lenY-lenX)
                 and new_j_max = i+nb+(lenY-lenX)
                 and new_j_min = i - nb in
+(*                Printf.printf "O:Updating Strip: (%d,%d) -> (%d,%d)\n" new_j_min i new_j_max i;*)
                 begin match i - ob with
                     | old_j_min when old_j_min <= 1 ->
                         run_row i (old_j_max) (new_j_max)
@@ -867,10 +869,10 @@ module FloatAlign : A = struct
             for i = 1 to (lenX-1) do
                 let j_min = max 1 (i - b - 1)
                 and j_max = min (lenY-1) (i+b+(lenY-lenX)) in
+                Printf.printf "O:Building Strip: (%d,%d) -> (%d,%d)\n" j_min i j_max i;
                 if j_min = 1 
                     then update_all i 1
                     else update_row i j_min;
-
                 for j = j_min+1 to j_max-1 do
                     update_all i j
                 done;
@@ -1122,6 +1124,7 @@ module MPLAlign : A = struct
             | Root     -> 0
             | Align a | Delete a | Insert a -> a
         in
+        printf "O:\n";
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
@@ -1300,10 +1303,17 @@ module MPLAlign : A = struct
     let cost m tx ty =
         if use_cost_fn then
             let cf = create_mpl_cost_fn m tx ty in
-            (fun a b -> cf a b)
+            (fun a b ->
+                let temp = cf a b in
+(*                Printf.printf "\t\tcost[%d][%d] = %f\n" a b (fst temp);*)
+                temp)
         else
             let cm = get_cm m tx ty in
-            (fun a b -> cm.(a-1).(b-1))
+            (fun a b ->
+                let temp = cm.(a-1).(b-1) in
+(*                Printf.printf "\t\tcost[%d][%d] = %f\n" a b (fst temp);*)
+                temp)
+               
 
 
     (* [alignments mem x y m] builds the alignment of [x] and [y] from the
@@ -1426,11 +1436,11 @@ module MPLAlign : A = struct
         (* update a cell in the matrix by ALL its neighbors; This should only be
          * used to calculate the cost of a cell when all the neighbors exist. *)
         let update_all i j =
-            Printf.printf "\nA:%f\tI:%f\tD:%f\n%!"
-                (fst mem.(i-1).(j-1)) (fst mem.(i).(j-1)) (fst mem.(i-1).(j));
+(*            Printf.printf "\tO:A:%f\tI:%f\tD:%f\n%!"*)
+(*                (fst mem.(i-1).(j-1)) (fst mem.(i).(j-1)) (fst mem.(i-1).(j));*)
             let aln,at,sa = get_cost (i-1) (j-1) (Sequence.get x i) (Sequence.get y j)
-            and del,dt,sd = get_cost (i-1) (j)   (gap) (Sequence.get y j)
-            and ins,it,si = get_cost (i)   (j-1) (Sequence.get x i) (gap) in
+            and del,dt,sd = get_cost (i-1) (j)   (Sequence.get x i) gap
+            and ins,it,si = get_cost (i) (j-1) gap (Sequence.get y j) in
             (* modify the indel/edit count *)
             let at = if (Sequence.get x i) = (Sequence.get y j) then at else 1+at
             and it = it+1
@@ -1450,14 +1460,14 @@ module MPLAlign : A = struct
                     (aln,(at,[Align sa]))
                     [(del,(dt,Delete sd)); (ins,(it,Insert si))]
             in
-(*            Printf.printf "(%d,%d)[00]: A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
-(*                          i j aln ins del cost (int_of_dir (snd indel));*)
+(*            Printf.printf "\tO:(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
+(*                          j i aln ins del cost (int_of_dir (snd indel));*)
             mem.(i).(j) <- m
 
         (* Same as above, but will not look at the node to the right (j-1) *)
         and update_row i j =
             let aln,at,sa = get_cost (i-1) (j-1) (Sequence.get x i) (Sequence.get y j)
-            and del,dt,sd = get_cost (i-1) (j) gap (Sequence.get y j) in
+            and del,dt,sd = get_cost (i-1) (j)   (Sequence.get x i) gap in
             let at = if (Sequence.get x i) = (Sequence.get y j) then at else 1+at
             and dt = dt+1 in
             let (cost,indel) as m =
@@ -1469,14 +1479,14 @@ module MPLAlign : A = struct
                     else aln,(at,[Delete sd;Align sa])
                 end
             in
-(*            Printf.printf "(%d,%d)[00]: A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
-(*                          i j aln 0.0 del cost (int_of_dir (snd indel));*)
+(*            Printf.printf "\tO:(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
+(*                          j i aln 0.0 del cost (int_of_dir (snd indel));*)
             mem.(i).(j) <- m
   
         (* Same as above, but will not look at the node above (i-1) *)
         and update_col i j =
             let aln,at,sa = get_cost (i-1) (j-1) (Sequence.get x i) (Sequence.get y j)
-            and ins,it,si = get_cost (i) (j-1)   (Sequence.get x i) gap in
+            and ins,it,si = get_cost (i) (j-1) gap (Sequence.get y j) in
             let at = if (Sequence.get x i) = (Sequence.get y j) then at else 1+at
             and it = it+1 in
             let (cost,indel) as m =
@@ -1488,8 +1498,8 @@ module MPLAlign : A = struct
                     else aln,(at,[Insert si;Align sa])
                 end
             in
-(*            Printf.printf "(%d,%d)[00]: A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
-(*                          i j aln ins 0.0 cost (int_of_dir (snd indel));*)
+(*            Printf.printf "\tO:(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n"*)
+(*                          j i aln ins 0.0 cost (int_of_dir (snd indel));*)
             mem.(i).(j) <- m
         in
 
@@ -1519,6 +1529,7 @@ module MPLAlign : A = struct
                 let old_j_max = i+ob+(lenY-lenX)
                 and new_j_max = i+nb+(lenY-lenX)
                 and new_j_min = i - nb in
+(*                Printf.printf "O:Updating Strip: (%d,%d) -> (%d,%d)\n" new_j_min i new_j_max i;*)
                 begin match i - ob with
                     | old_j_min when old_j_min <= 1 ->
                         run_row i (old_j_max) (new_j_max)
@@ -1549,6 +1560,7 @@ module MPLAlign : A = struct
             for i = 1 to (lenX-1) do
                 let j_min = max 1 (i - b - 1)
                 and j_max = min (lenY-1) (i+b+(lenY-lenX)) in
+(*                Printf.printf "O:Building Strip: (%d,%d) -> (%d,%d)\n" j_min i j_max i;*)
                 if j_min = 1
                     then update_all i 1
                     else update_row i j_min;
@@ -1560,16 +1572,19 @@ module MPLAlign : A = struct
                     else update_col i j_max;
                 p_max := j_max;
             done;
-            Printf.printf "Finished Building Strip k = %d\n" k;
+(*            Printf.printf "Finished Building Strip k = %d\n" k;*)
             update k
 
         (* this is to update k and matrix until ending condition *)
         and update k =
             let mat_k = fst (snd (mem.(lenX-1).(lenY-1))) in
             if (k <= mat_k) && (k < uk_max) then begin
+(*                Printf.printf "O:Increasing K to %d\n" (k*2);*)
                 update_matrix k (k*2);
                 update (k*2)
             end else begin
+(*                Printf.printf "O:Finished Alignment in k:%d = %f\n"*)
+(*                                k (fst mem.(lenX-1).(lenY-1));*)
                 ()
             end
         in

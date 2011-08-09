@@ -52,6 +52,8 @@ CASN    fasn( fm *FCM, const CASN x, const CASN y );
 double calculate_cost( CASN* a, const double* X, const double* Y,
                             const int x, const int y, const int n );
 
+int get_closest( double* cost, const int p, const int m, const double* cm, const int alph );
+
 void precalc( fm *FM, const double *A, const double *B );
 
 #endif /* USE_LIKELIHOOD */

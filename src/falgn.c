@@ -34,11 +34,13 @@
 #include "falgn.h"
 
 /** constants **/
-#define EPSILON         1e-6
-#define MIN_UKK         1
 #ifndef INFINITY
     #define INFINITY    1/0
 #endif
+
+#define EPSILON         1e-6
+#define MIN_UKK         1
+#define MAX_UKK         INT_MAX
 
 #define CLEAR           1
 
@@ -82,6 +84,7 @@ void
 print_alignment_indel_matrixf(const double* costs, matricest mat, const int* indels, const int w, const int h)
 {
     int i,j;
+    fprintf( stdout, "C:\n" );
     for (i = 0; i < h; i++) {
         for (j = 0; j < w; j++)
             fprintf (stdout, "| %d %8.4f[%2d] ",mat->matrix_d[(w*i)+j],costs[(w*i)+j],indels[(w*i)+j]);
@@ -125,11 +128,11 @@ median_backtrace (const seqt x, const seqt y, seqt m, fcmt *FA)
     while( !(x_loc == 0 && y_loc == 0) )
     {
         linear = y_loc * x->len + x_loc;
-        if( INSERT & DGET(FA,linear) ){
-            /*printf("(%d,%d):%d=%d -D- %d\n", x_loc,y_loc,linear,DGET(FA,linear), 
-                                              fasn(FA->fmat,FA->fmat->gap,GET(y,y_loc)));*/
-            seq_prepend( m , fasn(FA->fmat,GET(x,x_loc),FA->fmat->gap));
-            --x_loc;
+        if( DELETE & DGET(FA,linear) ){
+            /*printf("(%d,%d):%d=%d -I- %d\n", x_loc,y_loc,linear,DGET(FA,linear), 
+                                     fasn(FA->fmat,GET(x,x_loc),FA->fmat->gap));*/
+            seq_prepend( m , fasn(FA->fmat,FA->fmat->gap,GET(y,y_loc)));
+            --y_loc;
 
         } else if( ALIGN & DGET(FA,linear) ){
             /*printf("(%d,%d):%d=%d -A- %d\n", x_loc,y_loc,linear,DGET(FA,linear), 
@@ -138,11 +141,11 @@ median_backtrace (const seqt x, const seqt y, seqt m, fcmt *FA)
             --x_loc;
             --y_loc;
 
-        } else if( DELETE & DGET(FA,linear) ){
-            /*printf("(%d,%d):%d=%d -I- %d\n", x_loc,y_loc,linear,DGET(FA,linear), 
-                                     fasn(FA->fmat,GET(x,x_loc),FA->fmat->gap));*/
-            seq_prepend( m , fasn(FA->fmat,FA->fmat->gap,GET(y,y_loc)));
-            --y_loc;
+        } else if( INSERT & DGET(FA,linear) ){
+            /*printf("(%d,%d):%d=%d -D- %d\n", x_loc,y_loc,linear,DGET(FA,linear), 
+                                              fasn(FA->fmat,FA->fmat->gap,GET(y,y_loc)));*/
+            seq_prepend( m , fasn(FA->fmat,GET(x,x_loc),FA->fmat->gap));
+            --x_loc;
 
         } else {
             printf("(%d,%d):%d=%d - Error!\n", x_loc, y_loc, linear, DGET(FA,linear) );
@@ -227,18 +230,18 @@ general_cost(const seqt x, const seqt y, fcmt *FA, const int i, const int j)
             temp_dir = ALIGN | INSERT;
             temp_min = MIN(cost_aln,cost_ins);
         } else if ( cost_aln < cost_ins ){
-            temp_dir  = ALIGN;
-            temp_min  = cost_aln;
+            temp_dir = ALIGN;
+            temp_min = cost_aln;
         } else {
-            temp_dir  = INSERT;
-            temp_min  = cost_ins;
+            temp_dir = INSERT;
+            temp_min = cost_ins;
         }
         if( EQUALS( temp_min, cost_del ) ){
             temp_dir |=  DELETE;
             temp_min  = MIN(temp_min,cost_del);
         } else if ( cost_del < temp_min ){
-            temp_dir  = DELETE;
-            temp_min  = cost_del;
+            temp_dir = DELETE;
+            temp_min = cost_del;
         }
 
         FA->costs[ place ] = temp_min;
@@ -257,7 +260,6 @@ double full_falign( const seqt x, const seqt y, fcmt *FA )
             general_cost( x, y, FA, i, j );
         }
     }
-/*    printmatrixf( FA->costs, x->len, y->len );*/
     return FA->costs[ x->len*y->len - 1 ];
 }
 
@@ -266,26 +268,28 @@ double full_falign( const seqt x, const seqt y, fcmt *FA )
 void update_exclude_row( fcmt *FA, const seqt x, const seqt y, const int i, const int j )
 {
     int place;
-    double cost_algn, cost_ins;
+    double cost_aln, cost_del;
 
     place = (x->len * j) + i;
-    cost_algn = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i),      GET(y,j));
-    cost_ins  = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j));
-    if( EQUALS(cost_algn, cost_ins) ){
-        DSET( FA, place, ALIGN | INSERT );
-        FA->costs[place] = MIN( cost_algn, cost_ins );
-        FA->nukk[place] = MIN( 1 + FA->nukk[(j-1)*x->len+i], FA->nukk[(j-1)*x->len+(i-1)]);
-    } else if ( cost_algn < cost_ins ){
+    cost_aln = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i),      GET(y,j));
+    cost_del = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j));
+
+    if( EQUALS(cost_aln, cost_del) ){
+        DSET( FA, place, ALIGN | DELETE );
+        FA->costs[place] = MIN( cost_aln, cost_del );
+        FA->nukk[place] = MIN( 1 + FA->nukk[(j-1)*x->len+i], 
+                               ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[(j-1)*x->len+(i-1)]);
+    } else if ( cost_aln < cost_del ){
         DSET( FA, place, ALIGN );
-        FA->costs[place] = cost_algn;
-        FA->nukk[place] = FA->nukk[(j-1)*x->len+(i-1)];
+        FA->costs[place] = cost_aln;
+        FA->nukk[place] = ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[(j-1)*x->len+(i-1)];
     } else {
-        DSET( FA, place, INSERT );
-        FA->costs[place] = cost_ins;
+        DSET( FA, place, DELETE );
+        FA->costs[place] = cost_del;
         FA->nukk[place] = 1 + FA->nukk[(j-1)*x->len+i];
     }
-    /*printf("(%d,%d)[%d]: A:%f\tI:%f\tD:%f --> %f[%d]\n",
-            i,j,place,cost_algn,cost_ins,0.0,FA->costs[place],DGET(FA,place) );*/
+/*    printf("\tC:(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n",*/
+/*            i,j,cost_aln,0.0,cost_del,FA->costs[place],DGET(FA,place) );*/
 }
 
 
@@ -293,75 +297,73 @@ void update_exclude_row( fcmt *FA, const seqt x, const seqt y, const int i, cons
 void update_exclude_col( fcmt *FA, const seqt x, const seqt y, const int i, const int j )
 {
     int place;
-    double cost_algn, cost_del;
+    double cost_aln, cost_ins;
 
     place = (x->len * j) + i;
-    cost_algn = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i), GET(y,j)      );
-    cost_del  = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i), FA->fmat->gap );
-    if( EQUALS(cost_algn, cost_del) ){
-        DSET( FA, place, ALIGN | DELETE );
-        FA->costs[place] = MIN( cost_algn, cost_del );
+    cost_aln = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i), GET(y,j)      );
+    cost_ins = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i), FA->fmat->gap );
+
+    if( EQUALS(cost_aln, cost_ins) ){
+        DSET( FA, place, ALIGN | INSERT );
+        FA->costs[place] = MIN( cost_aln, cost_ins );
         FA->nukk[place] = MIN( 1 + FA->nukk[j*x->len + (i-1)],
-                               FA->nukk[(j-1)*x->len+(i-1)] );
-    } else if ( cost_algn < cost_del ){
+                               ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[(j-1)*x->len+(i-1)]);
+    } else if ( cost_aln < cost_ins ){
         DSET( FA, place, ALIGN );
-        FA->costs[place] = cost_algn;
-        FA->nukk[place] = FA->nukk[(j-1)*x->len+(i-1)];
+        FA->costs[place] = cost_aln;
+        FA->nukk[place] = ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[(j-1)*x->len+(i-1)];
     } else {
-        DSET( FA, place, DELETE );
-        FA->costs[place] = cost_del;
+        DSET( FA, place, INSERT );
+        FA->costs[place] = cost_ins;
         FA->nukk[place] = 1 + FA->nukk[j*x->len + (i-1)]; 
     }
-    /*printf("(%d,%d)[%d]: A:%f\tI:%f\tD:%f --> %f[%d]\n",
-            i,j,place,cost_algn,0.0,cost_del,FA->costs[place],DGET(FA,place) );*/
+/*    printf("\tC:(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n",*/
+/*            i,j,cost_aln,cost_ins,0.0,FA->costs[place],DGET(FA,place) );*/
 }
 
 
 void update_all( fcmt *FA, const seqt x, const seqt y, const int i, const int j )
 {
     int place, temp_gap;
-    double cost_algn, cost_ins, cost_del, min_ai;
+    double cost_aln, cost_ins, cost_del, temp_min;
     CDIR temp_dir;
 
-    /*printf("\nA:%f\tI:%f\tD:%f\n", FA->costs[(j-1)*x->len + i-1],
-     *      FA->costs[j*x->len + i-1], FA->costs[(j-1)*x->len + i]); */
+/*    printf("\tC:A:%f\tI:%f\tD:%f\n", FA->costs[(j-1)*x->len + i-1],*/
+/*           FA->costs[j*x->len + i-1], FA->costs[(j-1)*x->len + i]);*/
 
     place = j * x->len + i;
-    cost_algn = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i),      GET(y,j)      );
-    cost_del  = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i),      FA->fmat->gap );
-    cost_ins  = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j)      );
+    cost_aln = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i),      GET(y,j)      );
+    cost_ins = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i),      FA->fmat->gap );
+    cost_del = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j)      );
 
-    /** ----  **/
-    if( EQUALS(cost_algn,cost_ins) ){
+    if( EQUALS(cost_aln,cost_ins) ){
         temp_dir = ALIGN | INSERT;
-        temp_gap = MIN( 1 + FA->nukk[(j-1)*x->len + i], FA->nukk[(j-1)*x->len+(i-1)] );
-        min_ai   = MIN(cost_algn,cost_ins);
-
-    } else if ( cost_algn < cost_ins ){
+        temp_min = MIN(cost_aln,cost_ins);
+        temp_gap =  MIN( 1 + FA->nukk[j*x->len + (i-1)],
+                         ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[(j-1)*x->len+(i-1)]);
+    } else if ( cost_aln < cost_ins ){
         temp_dir = ALIGN;
-        temp_gap = FA->nukk[(j-1)*x->len+(i-1)];
-        min_ai   = cost_algn;
-
+        temp_min = cost_aln;
+        temp_gap = ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[(j-1)*x->len+(i-1)];
     } else {
         temp_dir = INSERT;
-        temp_gap = 1 + FA->nukk[(j-1)*x->len + i];
-        min_ai   = cost_ins;
+        temp_min = cost_ins;
+        temp_gap =  1 + FA->nukk[j*x->len + (i-1)];
     }
-    /** ----  **/
-    if( EQUALS(min_ai,cost_del) ){
-        temp_dir = temp_dir | DELETE;
-        temp_gap = MIN( temp_gap, 1 + FA->nukk[j*x->len + (i-1)] );
-        min_ai   = MIN( cost_del, min_ai );
-
-    } else if ( cost_del < min_ai ){
+    if( EQUALS( temp_min, cost_del ) ){
+        temp_dir |=  DELETE;
+        temp_min  = MIN(temp_min,cost_del);
+        temp_gap  = MIN( 1 + FA->nukk[(j-1)*x->len+i], temp_gap );
+    } else if ( cost_del < temp_min ){
         temp_dir = DELETE;
-        temp_gap = 1 + FA->nukk[j*x->len + (i-1)];
-        min_ai   = cost_del;
+        temp_min = cost_del;
+        temp_gap = 1 + FA->nukk[(j-1)*x->len+i];
     }
-    /*printf("(%d,%d)[%d]: A:%f\tI:%f\tD:%f --> %f[%d]\n",
-            i,j,place,cost_algn,cost_ins,cost_del,min_ai,temp_dir);*/
-    FA->nukk[ place ] = temp_gap;
-    FA->costs[ place ] = min_ai;
+/*    printf("\tC:(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n",*/
+/*            i,j, cost_aln, cost_ins, cost_del, temp_min, temp_dir);*/
+
+    FA->nukk[place]  = temp_gap;
+    FA->costs[place] = temp_min;
     DSET( FA, place, temp_dir );
 }
 
@@ -374,19 +376,21 @@ void build_strip( const seqt x, const seqt y, fcmt *FA, const int k )
     FA->costs[ 0 ] = 0.0;
     FA->nukk[ 0 ]  = 0;
     for( i=1; i < x->len; ++i ){ /** update row 0 **/
-        FA->costs[i] = FA->costs[i-1] + fcost( FA->fmat, GET(x,i), FA->fmat->gap );
-        DSET( FA, i-1 , INSERT );
+        FA->costs[ i ] = FA->costs[ i-1 ] + fcost( FA->fmat, GET(x,i), FA->fmat->gap );
+        DSET( FA, i, INSERT );
         FA->nukk[i] = i;
     }
     for( j=1; j < y->len; ++j ){ /** update col 0 **/
-        FA->costs[j*x->len] = FA->costs[(j-1)*x->len] + fcost( FA->fmat, FA->fmat->gap, GET(y,j) );
+        FA->costs[ j*x->len ] = FA->costs[ (j-1)*x->len ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j) );
         DSET( FA, j*x->len, DELETE );
         FA->nukk[j*x->len] = j;
     }
 
+    p_max = 1;
     for( j=1; j < y->len; ++j ) {
         i_min = MAX( 1, j-b-1 );
         i_max = MIN( x->len-1, j + b + (x->len - y->len) );
+        /*printf("C:Building Strip: (%d,%d) -> (%d,%d)\n",i_min,j,i_max,j);*/
         if( i_min == 1 ){
             update_all( FA, x, y, i_min, j );
         } else {
@@ -407,30 +411,30 @@ void build_strip( const seqt x, const seqt y, fcmt *FA, const int k )
 
 void update_barrier( const seqt x, const seqt y, fcmt *FA, const int k, const int ok )
 {
-    int j_min, j_max, i, b, ob, j;
+    int i_min, i_max, i, b, ob, j, p_max;
 
     b  =  (k - (y->len - x->len)) / 2;
     ob = (ok - (y->len - x->len)) / 2;
-    for( i=1; i < x->len; ++i ){
-        j_max = i + b + (y->len - x->len);
-        j_min = i - b;
-        if( (i-ob) <= 0 ){ /* old j_min */
-            j_min = i + ob+ (y->len - x->len); /* old j_max */
-        } else if ( j_min < 0){
-            j_min = 2;
-            update_exclude_row(FA, x, y, i, 0);
+
+    p_max = 1;
+    for( j=1; j < y->len; ++j ) {
+        i_min = MAX( 1, j-b-1 );
+        i_max = MIN( x->len-1, j + b + (x->len - y->len) );
+        /*printf("C:Updating Strip: (%d,%d) -> (%d,%d)\n",i_min,j,i_max,j);*/
+        if( i_min == 1 ){
+            update_all( FA, x, y, i_min, j );
         } else {
-            update_exclude_row(FA, x, y, i, j_min);
+            update_exclude_row( FA, x, y, i_min, j );
         }
-        assert( j_min < y->len-1);
-        for( j=j_min; j<j_max; ++j ){
-            if( j == y->len ){ break; }
-            if( j == j_max ){
-                update_exclude_col(FA, x, y, i, j);
-                break;
-            }
+        for( i = i_min+1; i < i_max; ++i ){
             update_all( FA, x, y, i, j );
         }
+        if( p_max == (x->len-1) ){
+            update_all( FA, x, y, i_max, j );
+        } else {
+            update_exclude_col( FA, x, y, i_max, j );
+        }
+        p_max = i_max;
     }
 }
 
@@ -447,17 +451,16 @@ double nukk_falign( const seqt x, const seqt y, fcmt *FA )
         mat_clean_direction_matrix( FA->direc );
     }
     build_strip( x, y, FA, k );
-    /*printf("Finished building Strip, %d\n", k);*/
+    /*printf("C:Finished Building Strip k = %d\n", k);*/
 
-    while( k < FA->nukk[ x->len*y->len - 1 ] ){
-        /*printf("Increasing K to %d\n", k*2);*/
+    while( k <= FA->nukk[ x->len*y->len - 1 ] && (k < MAX_UKK) ){
+        /*printf("C:Increasing K to %d\n", k*2);*/
         update_barrier( x, y, FA, k*2, k );
         k = k*2;
     }
-    /*printf("Finished Alignment in k:%d = %f\n", k, FA->costs[ x->len*y->len - 1 ]);*/
+    /*printf("C:Finished Alignment in k:%d = %f\n", k, FA->costs[ x->len*y->len - 1 ]);*/
     return FA->costs[ x->len*y->len - 1 ];
 }
-
 
 value
 falign_CAML_median(value oSpace, value oMat, value oU, value oD, value oUi,
@@ -490,8 +493,8 @@ falign_CAML_median(value oSpace, value oMat, value oU, value oD, value oUi,
      * register; this allows us to re-register space for composing matrices.
      *      TODO: can we be safe and re-use these cost matrices? */
     mat_size = a->len * b->len;
-    assert( space->loc == ((3 * alph * alph) + mat_size + fcm_size *fcm_size) );
     fcm_size = ((1 << alph)-1);
+    assert( space->loc == ((3 * alph * alph) + mat_size + fcm_size *fcm_size) );
 
     results.fmat = (fm*) malloc( sizeof(fm) );
     results.fmat->alph = alph;
@@ -596,8 +599,7 @@ falign_CAML_backtrace( value oSpace, value oMat, value oU, value oD, value oUi,
     precalc( results.fmat, PA, PB );
 
     full_backtrace( a, b, ea, eb, m, &results );
-    /*print_alignment_matrixf( results.costs, results.direc, a->len, b->len );*/
-
+    
     free(results.fmat->cost_asgn);
     free(results.fmat);
     CAMLreturn( Val_unit );
