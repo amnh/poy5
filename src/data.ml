@@ -4741,11 +4741,19 @@ let compute_fixed_states filename data code =
         for x = 0 to (Array.length taxa) - 1 do
             for y = 0 to (Array.length taxa) - 1 do
                 let b, _ = 
+                    if align_with_newkk then
+                        Sequence.NewkkAlign.closest initial_sequences.(x)
+                        initial_sequences.(y) dhs.tcm2d Sequence.NewkkAlign.default_ukkm
+                    else
                     Sequence.Align.closest 
                         initial_sequences.(x) initial_sequences.(y) dhs.tcm2d Matrix.default 
                 in
                 let a, cost =
-                    Sequence.Align.closest b initial_sequences.(x) dhs.tcm2d Matrix.default
+                    if align_with_newkk then
+                        Sequence.NewkkAlign.closest b initial_sequences.(x)
+                        dhs.tcm2d Sequence.NewkkAlign.default_ukkm
+                    else
+                        Sequence.Align.closest b initial_sequences.(x) dhs.tcm2d Matrix.default
                 in
                 if x<taxalen && y<taxalen then begin
                 Hashtbl.replace taxon_sequences taxa.(y) b;

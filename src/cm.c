@@ -1907,7 +1907,7 @@ cm_CAML_clone (value v) {
         len = combmatrix_size;
     else
         len = 2 *(1 << (c->lcm)) * (1 << (c->lcm));
-    fprintf(stdout,"copy int/seqt of SIZE =%d\n",len); fflush(stdout);
+    //fprintf(stdout,"copy int/seqt of SIZE =%d\n",len); fflush(stdout);
     cm_copy_contents (c->combmap, clone2->combmap, combmatrix_size);
     cm_copy_contents (c->comb2list, clone2->comb2list, comb2list_size);
     cm_copy_contents (c->cost, clone2->cost, len);

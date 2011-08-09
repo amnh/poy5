@@ -409,7 +409,7 @@ gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,
                 acc_seq,acc_len,acc_chrommap
         | _ ->
             let ali_or_del_cost,subseq1,subseq2 = alignment_matrix.(code1).(code2) in
-            Printf.printf "create median seq with subseq1/2 (size=%d,%d)\n%!"
+            if debug then Printf.printf "create median seq with subseq1/2 (size=%d,%d)\n%!"
             (Sequence.length subseq1) (Sequence.length subseq2);
             let newseq,_ = (*we already have the cost from alignment_matrix*) 
                 Sequence.create_median_seq ~approx:`First subseq1 subseq2 cost_mat in
