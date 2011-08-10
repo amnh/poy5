@@ -139,7 +139,7 @@ double fcost( fm *FCM, const CASN x, const CASN y )
 
     if( 1 == FCM->comb ){
         temp_cost = FCM->cost[ (x-1)*FCM->size + (y-1) ];
-        /*printf("\tcost[%d][%d] = %f\n", x, y, temp_cost );*/
+        /*printf("\t\tcost[%d][%d] = %f\n", x, y, temp_cost );*/
        return temp_cost;
     } else {
         best_cost = INFINITY;

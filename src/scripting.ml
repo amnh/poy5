@@ -2918,23 +2918,24 @@ let rec process_application run item =
     let run = reroot_at_outgroup run in
     match item with
     | `Interactive -> run
-    | `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong |
-    `Iterative _ as meth -> 
-            if !Methods.cost <> meth then
-                match !Methods.cost with
-                | `Normal_plus_Vitamines | `Normal | `Exhaustive_Strong |
-                `Exhaustive_Weak ->
-                    (match meth with
+    | `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ as meth -> 
+        if !Methods.cost <> meth then
+            match !Methods.cost with
+            | `Normal_plus_Vitamines | `Normal | `Exhaustive_Strong | `Exhaustive_Weak ->
+                begin match meth with
                     | `Iterative _ ->
                         let () = Methods.cost := meth in
                         process_application run `ReDiagnoseTrees
                     | _ -> 
-                            let () = Methods.cost := meth in
-                            run)
-                | `Iterative _ -> 
                         let () = Methods.cost := meth in
-                        process_application run `ReDiagnoseTrees
-            else run
+                        run
+                end
+            | `Iterative _ -> 
+                let () = Methods.cost := meth in
+                process_application run `ReDiagnoseTrees
+        else begin
+            run
+        end
     | `Exit -> exit 0
     | `Version ->
             Status.user_message Status.Information Version.string;
@@ -2965,7 +2966,7 @@ let rec process_application run item =
     | `Redraw -> Status.redraw_screen (); run
     | `SetSeed v -> process_random_seed_set run v
     | `ReDiagnose -> update_trees_to_data true true run
-    | `ReDiagnoseTrees -> rediagnose_trees true run
+    | `ReDiagnoseTrees -> rediagnose_trees false run
     | `Help item -> HelpIndex.help item; run
     | `Wipe -> empty ()
     | `Echo (s, c) ->
@@ -4395,7 +4396,7 @@ END
                     let cs = Data.get_chars_codes_comp run.data `All in
                     let chars = 
                         Data.get_code_from_characters_restricted 
-                                    `AllLikelihood run.data (`Some cs)
+                                    `Likelihood run.data (`Some cs)
                     in
                     let model  = Data.get_likelihood_model run.data chars
                     and ntaxa  = run.data.Data.number_of_taxa in
@@ -4407,7 +4408,7 @@ END
                             let cs = Data.get_chars_codes_comp t.Ptree.data `All in
                             let chars = 
                                 Data.get_code_from_characters_restricted 
-                                            `AllLikelihood t.Ptree.data (`Some cs)
+                                            `Likelihood t.Ptree.data (`Some cs)
                             in
                             let model  = Data.get_likelihood_model t.Ptree.data chars
                             and cost   = Ptree.get_cost `Adjusted t

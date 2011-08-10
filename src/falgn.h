@@ -24,6 +24,8 @@
 #include <stdlib.h> //malloc, srand, RAND_MAX
 #include <string.h> //memcpy, memset
 #include <assert.h>
+
+#include <limits.h>
 #include <math.h>   //log,exp,sin
 
 #include <caml/mlvalues.h>

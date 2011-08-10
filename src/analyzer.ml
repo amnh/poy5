@@ -216,6 +216,8 @@ let dependency_relations (init : Methods.script) =
                         [([Data; Trees], [Trees], init, NonComposable)]
                 | `ReDiagnose ->
                         [([Data; Trees], [Trees], init, NonComposable)]
+                | `ReDiagnoseTrees ->
+                        [([Data; Trees], [Trees], init, NonComposable)]
                 | `KML (_, _, filename) ->
                         let output = filename_to_list (Some filename) in
                         [([Trees; Data] @ output, output, init, NonComposable)]
@@ -1609,6 +1611,8 @@ let script_to_string (init : Methods.script) =
                         "@[set the cost calculation to normal DO@]"
                 | `ReDiagnose ->
                         "@[rediagnose the trees@]"
+                | `ReDiagnoseTrees ->
+                        "@[rediagnose the trees preserving model in likelihood@]"
                 | `Graph (_, _)
                 | `Ascii (_, _) ->
                         "@[output the trees in memory@]"
@@ -1959,6 +1963,7 @@ let is_master_only (init : Methods.script) =
     | `Exhaustive_Weak
     | `Iterative _
     | `ReDiagnose
+    | `ReDiagnoseTrees
     | `ClearMemory _ 
     | `Recover 
     | `ClearRecovered 

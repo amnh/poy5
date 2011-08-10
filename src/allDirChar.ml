@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -1322,7 +1322,7 @@ module F : Ptree.Tree_Operations
             | None -> (tree,current_cost)
         in
         if debug_model_fn then
-            info_user_message "\t Optimized Model to %f --> %f" current_cost best_cost;
+            info_user_message "\tOptimized Model to %f --> %f" current_cost best_cost;
         (* Optimize Alpha *)
         let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
         let best_tree, best_cost = 
@@ -1338,16 +1338,15 @@ module F : Ptree.Tree_Operations
                 snd results
         in
         if debug_model_fn then
-            info_user_message "\t Optimized Alpha to %f --> %f" current_cost best_cost;
+            info_user_message "\tOptimized Alpha to %f --> %f" current_cost best_cost;
         if best_cost < current_cost then best_tree else tree
 
     (* Group all the characters and optimize each with function above *)
     let static_model_fn tree = 
-        let chars =
-            let chars = `Some (Data.get_chars_codes_comp tree.Ptree.data `All) in
-            Data.get_code_from_characters_restricted `AllLikelihood tree.Ptree.data chars
-        in
-        static_model_chars_fn chars tree
+        List.fold_left
+            (fun tree xs -> static_model_chars_fn xs tree)
+            (tree)
+            (Data.categorize_static_likelihood_by_model tree.Ptree.data)
 
 
     module IA = ImpliedAlignment.Make (AllDirNode.AllDirF) (Edge.LazyEdge)
@@ -1430,7 +1429,7 @@ module F : Ptree.Tree_Operations
         in
         let new_cost = Ptree.get_cost `Adjusted new_tree in
         if debug_model_fn then
-            info_user_message "Updated Dynamic Likelihood Score: %f --> %f" old_cost new_cost;
+            info_user_message "\tUpdated Dynamic Likelihood Score: %f --> %f" old_cost new_cost;
         if new_cost < old_cost then new_tree else old_tree
 
 
@@ -1449,7 +1448,7 @@ module F : Ptree.Tree_Operations
     let adjust_fn ?(max_iter=20) node_man tree = 
         (* adjust model and branches -- for likelihood *)
         let adjust_ do_model do_branches branches iterations first_tree = 
-            let rec loop_ iter icost itree =
+            let rec loop_ smooth iter icost itree =
                 let mcost,mtree,iter =
                     if do_model then
                         let mtree = model_fn itree in
@@ -1471,11 +1470,13 @@ module F : Ptree.Tree_Operations
                 if debug_model_fn then
                     info_user_message "Step %d; Optimized Branches %f --> %f" iter mcost bcost;
                 if icost =. bcost || iter > max_iter
-                    then btree
-                    else loop_ iter bcost btree
+                    then begin 
+                        if smooth then btree else loop_ true iter bcost btree 
+                    end else
+                        loop_ false iter bcost btree
             in
             let first_cost = Ptree.get_cost `Adjusted first_tree in
-            loop_ 0 first_cost first_tree
+            loop_ false 0 first_cost first_tree
         in
         let tree =
             if (using_likelihood `Either tree) then begin

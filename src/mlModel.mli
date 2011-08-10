@@ -116,7 +116,7 @@ type chars = [ `List of int list | `Packed of int ]
 val get_costfn_code : model -> int
 (** code for costfn for c-side *)
 
-val categorize_by_model : 'a list -> ('a -> spec) -> 'a list list
+val categorize_by_model : ('a -> spec) -> 'a list -> 'a list list
 (** categorize a list of values into a list list of values; usually codes *)
 
 val replace_priors : model -> float array -> model 

@@ -643,14 +643,6 @@ let convert_static_to_dynamic_branches ~src ~dest =
         {dest with branches = Some copy_tree; }
     | None -> dest
 
-let remove_bl force data =
-    if (not force) && not data.iterate_branches then data
-    else begin
-        Printf.printf "Clearing the Branches\n%!";
-        { data with branches = None;
-                    iterate_branches = true; }
-    end
-
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
 (** [get_recost pams] returns the rearrangement cost in [pams] *)
@@ -687,6 +679,7 @@ let get_likelihood_model data chars =
         else failwith "Inconsistent Model over characters"
     | []   ->
         failwith "No Characters found"
+
 
 (*
 let set_sequence_defaults seq_alph data = 
@@ -823,7 +816,7 @@ let print (data : d) =
                 Printf.printf "%d:" (List.hd x);
                 MlModel.output_model (print_string) `Nexus m None;
                 print_newline ())
-            (MlModel.categorize_by_model chars get_function)
+            (MlModel.categorize_by_model get_function chars)
     and print_specs (code : int) (spec : specs) = 
         let name = Hashtbl.find data.character_codes code in 
         Printf.fprintf stdout "Key: %i, name: %s " code name; 
@@ -1195,6 +1188,7 @@ let process_trees data file =
         in
         let branches = if found then Some branches else None in
         Status.user_message Status.Information msg;
+        Printf.printf "Are we iterating the branches? %b\n%!" (not found);
         { data with trees = data.trees @ trees;
                     branches = branches;
                     iterate_branches = (not found);}
@@ -3661,7 +3655,7 @@ let select_random_sublist fraction lst =
     Array.to_list (Array.sub arr 0 n )
 
 type classes = 
-    [ `Dynamic |  `NonAdditive | `Likelihood | `DynamicLikelihood | `AllLikelihood
+    [ `Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
     | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
 
 let has_likelihood d = 
@@ -3765,9 +3759,9 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
         | `Sankoff -> List.flatten data.sankoff
         | `Kolmogorov -> data.kolmogorov
         | `AllDynamic -> data.kolmogorov @ data.dynamics
-        | `Likelihood -> data.static_ml
-        | `AllLikelihood -> 
-            (get_code_from_characters_restricted `Likelihood data chs) @
+        | `StaticLikelihood -> data.static_ml
+        | `Likelihood -> 
+            (get_code_from_characters_restricted `StaticLikelihood data chs) @
             (get_code_from_characters_restricted `DynamicLikelihood data chs)
         | `AllStatic -> 
                         data.non_additive_1 @
@@ -3889,6 +3883,25 @@ let get_chars_codes_comp data ch =
         match complement_characters data (`Some codes) with
         | `Some x -> x
         | _ -> failwith "Impossible?"
+
+
+let categorize_static_likelihood_by_model data =
+    let get_spec i = 
+        let model = 
+            match Hashtbl.find data.character_specs i with
+                | Static spec ->
+                    begin match spec.Nexus.File.st_type with
+                        | Nexus.File.STLikelihood model -> model
+                        | _ -> assert false
+                    end
+                | _ -> assert false
+        in
+        model.MlModel.spec
+    in
+    `Some (get_chars_codes_comp data `All)
+        --> get_code_from_characters_restricted `StaticLikelihood data
+        --> MlModel.categorize_by_model get_spec
+
 
 let get_tcm2d data c =
     match Hashtbl.find data.character_specs c with
@@ -5523,7 +5536,7 @@ let create_set_data_pairs (fo : string -> unit) data =
                 end
             | _ -> assert false
         in
-        MlModel.categorize_by_model lk_chars get_function
+        MlModel.categorize_by_model get_function lk_chars
     in
     (* first lets categorize all the data *)
     let categorize data =

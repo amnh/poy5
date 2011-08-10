@@ -26,7 +26,7 @@ open FloatSequence  (* the modules inside are descriptive enough where opening
 
 let debug     = false   (* show debug information during median calculations *)
 let debug_est = false   (* output for optimization of data *)
-let verify    = true    (* Verify pure ocaml and C implementations of MPL *)
+let verify    = false   (* Verify pure ocaml and C implementations of MPL *)
 let pure_ocaml= false   (* Use a pure ocaml implementation of MPL *)
 
 let (-->) a b = b a
