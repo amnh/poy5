@@ -1,4 +1,23 @@
-
+/*
+ newkkonen.h and newkkonen.c are alignment c functions with our version of Ukkonen.
+ Ukkonen algorithm is based on ukkonen's paper "Algorithms for Approximate String Matching".
+ instead of updating the whole matrix, we only update a band of 
+ diagonals in each iteration. 
+ algn.c has functions for ukkonen alignment, too.
+ since we only need part of the matrix, we only need to allocate that part of memory. 
+ that's difference between this and those in algn.c. 
+ so far, this is still ukkonen. but we made a twist here. 
+ there is a threshold T in ukkonen, when we get a cost C<T, we stop, 
+ otherwise, we double T, continue updating more diagonals. 
+ T is set to diff_len * delta. 
+ diff_len is the difference of length of two sequences. delta is min(substitution cost, gap cost).
+ we are using a new threshold K here. K is the possible number of gaps between two sequence. 
+ K = num_gaps + num_diff_char. 
+ num_diff_char is the number of different charactors between two sequences during this iteration. 
+ since we only update a band of diagonals, say bandsize = B. when B/2 > K , 
+ updating more diagonals won't give us better cost.
+ NOTE: K will change with iterations, while T remains the same.
+ */
 #include "seq.h"
 #include "cm.h"
 
@@ -16,6 +35,8 @@ struct cost_dir {
     int * costarr; //cost 
     DIRECTION_MATRIX * dirarr;//direction
     DIRECTION_MATRIX * gapnumarr;//max gap number we could have in alignment
+    int * affParr; //affine matrix P
+    int * affQarr; //affine matrix Q
 };
 
 typedef struct cost_dir * ukkdiag_p;
@@ -37,6 +58,14 @@ struct newkkmat {
     int * pool_cost;
     DIRECTION_MATRIX * pool_dir;
     DIRECTION_MATRIX * pool_gapnum;
+    // matrix P and Q for affine cost. 
+    // according to "An Improved Algorithm for Matching Biological Sequence".
+    // w_k = gap_cost * num_of_gaps(=k) + gap_opening  
+    // D_m_n = Min( D_m-1_n-1 + d(a_m,b_n), P_m_n , Q_m_n )
+    // P_m_n = Min( D_m-k_n + w_k ), k=[1,m] = Min( D_m-1_n + w_1 , P_m-1_n + gap_cost )
+    // Q_m_n = Min( D_m_n-k + w_k ), k=[1,m] = Min( D_m_n-1 + w_1 , Q_m_n-1 + gap_cost )
+    int * pool_affP;
+    int * pool_affQ;
 };
 
 typedef struct newkkmat * newkkmat_p;
