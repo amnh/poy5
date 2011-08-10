@@ -643,14 +643,6 @@ let convert_static_to_dynamic_branches ~src ~dest =
         {dest with branches = Some copy_tree; }
     | None -> dest
 
-let remove_bl force data =
-    if (not force) && not data.iterate_branches then data
-    else begin
-        Printf.printf "Clearing the Branches\n%!";
-        { data with branches = None;
-                    iterate_branches = true; }
-    end
-
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
 (** [get_recost pams] returns the rearrangement cost in [pams] *)
@@ -1196,6 +1188,7 @@ let process_trees data file =
         in
         let branches = if found then Some branches else None in
         Status.user_message Status.Information msg;
+        Printf.printf "Are we iterating the branches? %b\n%!" (not found);
         { data with trees = data.trees @ trees;
                     branches = branches;
                     iterate_branches = (not found);}

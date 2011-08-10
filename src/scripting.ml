@@ -2925,18 +2925,15 @@ let rec process_application run item =
                 begin match meth with
                     | `Iterative _ ->
                         let () = Methods.cost := meth in
-                        Printf.printf "Change to Iterative\n";
                         process_application run `ReDiagnoseTrees
                     | _ -> 
                         let () = Methods.cost := meth in
-                        Printf.printf "Change to Non-Iterative\n";
                         run
                 end
             | `Iterative _ -> 
                 let () = Methods.cost := meth in
                 process_application run `ReDiagnoseTrees
         else begin
-            Printf.printf "No Change\n";
             run
         end
     | `Exit -> exit 0
