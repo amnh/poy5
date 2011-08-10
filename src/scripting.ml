@@ -4401,23 +4401,23 @@ END
                     let model  = Data.get_likelihood_model run.data chars
                     and ntaxa  = run.data.Data.number_of_taxa in
                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                    fo ("@[<hov 0>Tree Size: No Trees Loaded@]@\n");
                     MlModel.output_model fo `Hennig model None
                 | trees -> 
                     List.iter
                         (fun t ->
-                            let cs = Data.get_chars_codes_comp t.Ptree.data `All in
-                            let chars = 
-                                Data.get_code_from_characters_restricted 
-                                            `Likelihood t.Ptree.data (`Some cs)
-                            in
-                            let model  = Data.get_likelihood_model t.Ptree.data chars
-                            and cost   = Ptree.get_cost `Adjusted t
-                            and length = TreeOps.tree_size t
-                            and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                            fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                            fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
-                            fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                            MlModel.output_model fo `Hennig model None)
+                            let charss = Data.categorize_static_likelihood_by_model t.Ptree.data in
+                            List.iter
+                                (fun chars -> 
+                                    let model  = Data.get_likelihood_model t.Ptree.data chars
+                                    and cost   = Ptree.get_cost `Adjusted t
+                                    and length = TreeOps.tree_size t
+                                    and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                                    fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                                    fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
+                                    fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                                    MlModel.output_model fo `Hennig model None)
+                                charss)
                         (trees)
                 end;
                 run

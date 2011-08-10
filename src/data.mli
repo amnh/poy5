@@ -475,6 +475,8 @@ val categorize : d -> d
 
 val categorize_static_likelihood_by_model : d -> int list list
 
+val categorize_sets : d -> int list list
+
 val remove_taxa_to_ignore : d -> d
 
 val get_sequence_tcm : int -> d -> Cost_matrix.Two_D.m

@@ -1346,7 +1346,8 @@ module F : Ptree.Tree_Operations
         List.fold_left
             (fun tree xs -> static_model_chars_fn xs tree)
             (tree)
-            (Data.categorize_static_likelihood_by_model tree.Ptree.data)
+(*            (Data.categorize_static_likelihood_by_model tree.Ptree.data)*)
+            (Data.categorize_sets tree.Ptree.data)
 
 
     module IA = ImpliedAlignment.Make (AllDirNode.AllDirF) (Edge.LazyEdge)

@@ -837,6 +837,11 @@ let print (data : d) =
                | Nexus.File.STSankoff m -> Printf.fprintf stdout "Sankoff")
         | _ -> Printf.fprintf stdout "Not Dynamic");
         print_newline ()
+    and print_csets name chars = 
+        Printf.printf "%s -- (" name;
+        List.iter (fun x -> Printf.printf "%s, " x) chars;
+        Printf.printf ")";
+        print_newline ()
     and print_intset_codes intset i =
         Printf.printf "(";
         All_sets.Integers.iter (Printf.printf "%d, ") intset;
@@ -849,15 +854,17 @@ let print (data : d) =
         Printf.printf "[%d,%s],%!" key bind;
     in
     Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
-(*    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();*)
-(*    Printf.printf "\n check character_codes: \n%!";*)
-(*    Hashtbl.iter print_character_codes data.character_codes;*)
+    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
+    Printf.printf "\n check character_codes: \n%!";
+    Hashtbl.iter print_character_codes data.character_codes;
     Printf.printf "\n check taxon_characters:\n %!";
     Hashtbl.iter print_taxon data.taxon_characters;
     Printf.printf "\n check search_base_characters:\n %!";
     Hashtbl.iter print_taxon data.searchbase_characters;
     Printf.printf "\n check character_specs:\n%!";
     Hashtbl.iter print_specs data.character_specs;
+    Printf.printf "\n check character_sets:\n%!";
+    Hashtbl.iter print_csets data.character_sets;
     Printf.printf "\n check models:\n%!";
     print_models (data.dynamics @ data.static_ml);
     let () = match data.branches with
@@ -1959,7 +1966,11 @@ let gen_add_static_parsed_file do_duplicate data file
                                 file_out.Nexus.File.characters
                                 file_out.Nexus.File.csets set_spec
                         in
-                        Hashtbl.add character_sets set_name cnames;
+                        if Hashtbl.mem character_sets set_name then
+                            Hashtbl.replace character_sets set_name
+                                (cnames@(Hashtbl.find character_sets set_name))
+                        else
+                            Hashtbl.add character_sets set_name cnames;
                         List.iter (fun name -> Hashtbl.add character_nsets name set_name)
                                   cnames)
                     set_specs)
@@ -3902,6 +3913,13 @@ let categorize_static_likelihood_by_model data =
         --> get_code_from_characters_restricted `StaticLikelihood data
         --> MlModel.categorize_by_model get_spec
 
+let categorize_sets data : int list list =
+    [] --> Hashtbl.fold (fun k v acc -> v::acc) data.character_sets
+       --> List.map
+                ~f:(fun xs ->
+                    List.map 
+                        ~f:(fun x -> Hashtbl.find data.character_names x)
+                        xs) 
 
 let get_tcm2d data c =
     match Hashtbl.find data.character_specs c with
