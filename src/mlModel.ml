@@ -67,6 +67,9 @@ type string_spec = string * (string * string * string * string) * float list
                  * (string * float option) * string * string option
 let empty_str_spec : string_spec = ("",("","","",""),[],`Consistent None,("",None),"",None)
 
+(* the default when commands are left off from the interactive console / scripts *)
+let default_command = (`MAL,`GTR None,None,`Consistent,`Missing)
+
 (* --- DEFAULTS FOR MODELS FROM PHYML --- *)
 (*  These are used for DNA sequences, and
  *  might not be applicable for all types

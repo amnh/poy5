@@ -32,6 +32,11 @@ val empty_str_spec : string_spec
 val likelihood_not_enabled : string
 (** string for erroring when likelihood is not enabled. *)
 
+
+val default_command :
+    Methods.ml_costfn * Methods.ml_substitution * Methods.ml_site_variation option
+        * Methods.ml_priors * Methods.ml_gap
+
 type site_var = 
     (** [Gamma] #categories, alpha, beta *)
     | Gamma of int * float

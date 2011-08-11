@@ -1162,10 +1162,7 @@ let process_likelihood_commands lst =
         | `ML_prior  x -> (cost, model, vari, x,     gaps)
         | `ML_gaps   x -> (cost, model, vari, prior, x   )
     in
-    List.fold_left 
-        (process) 
-        (`MAL,`GTR None,None,`Consistent,`Missing)
-        (lst)
+    List.fold_left process MlModel.default_command lst
 
 let transform_stdsearch items = 
     `StandardSearch 
