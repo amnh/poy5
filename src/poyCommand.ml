@@ -327,7 +327,7 @@ type reporta = [
     | `CompareSequences of (bool * old_identifiers * old_identifiers)
     | `FasWinClad
     | `Nexus
-    | `Model
+    | `Model of old_identifiers
     | `Script of string list
     | `ExplainScript of string
     | `Consensus of float option
@@ -968,8 +968,8 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             (`FasWinClad (file)) :: acc, file
     | `Nexus ->
             (`Nexus (file)) :: acc, file
-    | `Model ->
-            (`Model (file)) :: acc, file
+    | `Model x ->
+            (`Model (file,x)) :: acc, file
     | `Script lst ->
             (`Script (file,lst)) :: acc, file
     | `ExplainScript script ->
@@ -1274,13 +1274,11 @@ let create_expr () =
                         (`Transform x : transform) ]
             ];
         transform_argument:
-            [
+            [  
                 [ left_parenthesis; x = identifiers; ","; 
-                (*t = LIST0 [ t = transform_method -> t] SEP ",";*)
-                t = transform_method; 
-                    right_parenthesis -> (x, t) ] |
-                [ t = transform_method -> (`All, t) ]
-            |   [ LIDENT "origin_cost"; ":"; x = integer_or_float
+                    t = transform_method; right_parenthesis -> (x, t) ] |
+                [ t = transform_method -> (`All, t) ] |
+                [ LIDENT "origin_cost"; ":"; x = integer_or_float
                         -> (`All, `OriginCost (float_of_string x)) ] |
                 [ LIDENT "prioritize" -> (`All, `Prioritize) ] 
             ]; 
@@ -1415,16 +1413,13 @@ let create_expr () =
                     | None -> `Automatic_Sequence_Partition (false, None)
                     | Some x -> `Automatic_Sequence_Partition (x, None) ] |
                 [ LIDENT "sequence_partition"; ":"; x = INT -> 
-                    `Automatic_Sequence_Partition (false, Some (int_of_string
-                    x)) ] |
+                    `Automatic_Sequence_Partition (false, Some (int_of_string x)) ] |
                 [ LIDENT "weight"; ":"; x = neg_integer_or_float -> `ReWeight (float_of_string x) ] |
                 [ LIDENT "weightfactor"; ":"; x = neg_integer_or_float -> `WeightFactor (float_of_string x) ] |
-                [ LIDENT "search_based"; ":"; 
-                 left_parenthesis; file_couple_lst = LIST0
-                [left_parenthesis; chname = STRING; ","; filename = STRING;
-                right_parenthesis -> (chname,filename)] SEP ","; 
-                right_parenthesis -> `SearchBased file_couple_lst
-                ] |
+                [ LIDENT "search_based"; ":"; left_parenthesis; file_couple_lst = LIST0
+                    [left_parenthesis; chname = STRING; ","; filename = STRING;
+                        right_parenthesis -> (chname,filename)] SEP ","; 
+                    right_parenthesis -> `SearchBased file_couple_lst ] |
                 [ LIDENT "seq_to_chrom"; ":"; left_parenthesis; x = LIST0
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToChrom x ] | 
                 [ LIDENT "custom_to_breakinv"; ":"; left_parenthesis; x = LIST0
@@ -1741,7 +1736,9 @@ let create_expr () =
                 [ LIDENT "clades" -> `Clades ] |
                 [ LIDENT "phastwinclad" -> `FasWinClad ] | 
                 [ LIDENT "nexus" -> `Nexus ] | 
-                [ LIDENT "lkmodel" -> `Model ] | 
+                [ LIDENT "lkmodel"; ":"; x = old_identifiers ->
+                    `Model x ] | 
+                [ LIDENT "lkmodel" -> `Model `All ] | 
                 [ LIDENT "script" -> `Script (!console_script) ] |
                 [ LIDENT "seq_stats"; ":"; ch = old_identifiers ->
                     `SequenceStats ch ] |
@@ -2379,11 +2376,13 @@ let create_expr () =
         (* Shared items *)
         left_parenthesis: [ [ "(" ] ];
         right_parenthesis: [ [ ")" ] ];
+
+        (* How we identify characters; in files *)
         identifiers:
             [
-                [ LIDENT "not" ; LIDENT "files"; ":"; left_parenthesis; x =
-                    LIST0 [x = STRING -> x] SEP ","; 
-                    right_parenthesis -> `Files (false, x) ] |
+                [ LIDENT "not" ; LIDENT "files"; ":"; 
+                    left_parenthesis; x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis
+                        -> `Files (false, x) ] |
                 [ x = old_identifiers -> (x :> identifiers) ] |
                 [ LIDENT "files"; ":"; left_parenthesis; x = LIST0 [x = STRING
                 -> x] SEP ","; 

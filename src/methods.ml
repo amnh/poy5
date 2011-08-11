@@ -281,7 +281,7 @@ type report = [
     | `GraphicConsensus of (string option * float option)
     | `FasWinClad of string option
     | `Nexus of string option
-    | `Model of string option
+    | `Model of (string option * characters)
     | `Script of string option * string list
     | `SequenceStats of (string option * characters)
     | `Ci of (string option * characters option)

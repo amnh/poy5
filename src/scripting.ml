@@ -4389,11 +4389,11 @@ END
                     let script = PoyCommand.of_file false script in
                     Analyzer.explain_tree filename script;
                     run
-            | `Model filename ->
+            | `Model (filename,chars) ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
                 begin match (Sexpr.to_list run.trees) with
                 | [] -> 
-                    let cs = Data.get_chars_codes_comp run.data `All in
+                    let cs = Data.get_chars_codes_comp run.data chars in
                     let chars = 
                         Data.get_code_from_characters_restricted 
                                     `Likelihood run.data (`Some cs)

@@ -384,7 +384,7 @@ let dependency_relations (init : Methods.script) =
                 | `CompareSequences (filename, _, _, _)
                 | `FasWinClad filename
                 | `Nexus filename
-                | `Model filename
+                | `Model (filename,_)
                 | `Script (filename,_)
                 | `Dataset filename
                 | `Nodes filename
