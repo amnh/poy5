@@ -89,14 +89,14 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
      *             2) the number of leaves (num_leaves variable)
      *             3) the longest taxon name (longest_name variable)
      *)
-    let calc_depth_leaves t depth max_depth num_leaves longest_name =
-        let rec calc_depth_leaves fn t depth max_depth num_leaves longest_name =
+    let rec calc_depth_leaves t depth max_depth num_leaves longest_name =
+        let rec aux_calc_depth_leaves fn t depth max_depth num_leaves longest_name =
             match t with
             | Tree.Parse.Nodep (y, _) -> 
                 incr depth;
                 List.iter
                     (fun t -> 
-                        calc_depth_leaves fn t depth max_depth num_leaves longest_name)
+                        aux_calc_depth_leaves fn t depth max_depth num_leaves longest_name)
                     y;
                 decr depth;
             | Tree.Parse.Leafp y -> 
@@ -109,14 +109,15 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
                 incr num_leaves
         in
         match t with
-        | Tree.Parse.Annotated (t,_) 
+        | Tree.Parse.Annotated (t,_)  ->
+            calc_depth_leaves t depth max_depth num_leaves longest_name
         | Tree.Parse.Flat t ->
-            calc_depth_leaves (fun x -> x) t depth max_depth num_leaves longest_name
+            aux_calc_depth_leaves (fun x -> x) t depth max_depth num_leaves longest_name
         | Tree.Parse.Branches t ->
-            calc_depth_leaves 
+            aux_calc_depth_leaves 
                     (fun (x,_) -> x) t depth max_depth num_leaves longest_name
         | Tree.Parse.Characters t ->
-            calc_depth_leaves 
+            aux_calc_depth_leaves 
                     (fun (x,_) -> x) t depth max_depth num_leaves longest_name
 
 

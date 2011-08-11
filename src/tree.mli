@@ -314,9 +314,11 @@ module Parse : sig
 
     type tree_types =
         | Flat of string t
-        | Annotated of (string t * string)
+        | Annotated of (tree_types * string)
         | Branches of ((string * float option) t)
         | Characters of ((string * string option) t)
+
+    val remove_annotations : tree_types -> tree_types
 
     (** [print_tree t] prints a tree **)
     val print_tree : string option -> tree_types -> unit

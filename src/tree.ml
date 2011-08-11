@@ -1694,11 +1694,15 @@ module Parse = struct
     (* types of trees that can be returned *)
     type tree_types =
         | Flat of string t
-        | Annotated of (string t * string)
+        | Annotated of (tree_types * string)
         | Branches of (string * float option) t
         | Characters of (string * string option) t
 
-    let print_tree (output:string option) (t:tree_types) : unit = 
+    let remove_annotations = function
+        | Annotated (t,_) -> t
+        | t               -> t
+
+    let rec print_tree (output:string option) (t:tree_types) : unit = 
         let c = Status.user_message (Status.Output (output, false, [])) in
         let fprint_out format = Printf.ksprintf c format in
         let rec interior f t : unit = match t with
@@ -1716,7 +1720,8 @@ module Parse = struct
                 ()
         in
         match t with
-            | Flat t | Annotated (t,_) ->
+            | Annotated (t,_) -> print_tree output t
+            | Flat t ->
                 print_ (fun _ -> ()) (fun x -> fprint_out "%s" x) t
             | Branches t -> 
                 print_ 
@@ -1747,8 +1752,8 @@ module Parse = struct
         | Nodep (list,d) ->
               Nodep (List.map (map fn) list, fn d)
     (* map on post_processed tree *)
-    let map_tree fn = function
-        | Annotated (t,a) -> Annotated ((map fn t),a)
+    let rec map_tree fn = function
+        | Annotated (t,a) -> Annotated (map_tree fn t, a)
         | Branches t -> Branches (map (fun (x,d) -> (fn x,d)) t)
         | Flat t -> Flat (map fn t)
         | Characters t -> Characters (map (fun (x,d) -> (fn x,d)) t)
@@ -1992,12 +1997,12 @@ module Parse = struct
         and remove_all (t,s)  = map (fst) t in
 
         match annotations_exist t,branches_exist t,characters_exist t with
-        | false,false,false  -> Flat (remove_all t)
-        |  true,false,false  ->
-                let t,s = remove_branches t in Annotated (t,s)
-        | false, true,false  -> Branches (remove_annot_2branches t)
+        | false,false, false -> Flat (remove_all t)
+        | true , true, _     -> Annotated (Branches (remove_annot_2branches t),(snd t))
+        | true ,  _  , true  -> Annotated (Characters (remove_annot_1branches t),(snd t))
+        | false, true, false -> Branches (remove_annot_2branches t)
         |   _  ,  _  , true  -> Characters (remove_annot_1branches t)
-        |   _  ,  _  ,  _   -> Branches (remove_annot_2branches t)
+        |   _  ,  _  ,  _    -> Branches (remove_annot_2branches t)
 
     (** general function for trees *)
     let gen_aux_of_stream str = match gen_aux_of_stream_gen false str with
@@ -2081,7 +2086,7 @@ module Parse = struct
                 | `Regular real_ch -> (fun () -> close_in real_ch)
                 | `Zlib real_ch -> (fun () -> Gz.close_in real_ch)
 
-    let cannonic_order tree =
+    let rec cannonic_order tree =
         let rec build_cannonic_order fn = function
             | Leafp d -> (Leafp d, d)
             | Nodep (chld , cnt) ->
@@ -2092,9 +2097,7 @@ module Parse = struct
         in
         match tree with
             | Annotated (t,str) ->
-                let tree,_ = 
-                    build_cannonic_order (fun (_,a) (_,b) -> compare a b) t
-                in Annotated (tree,str)
+                Annotated (cannonic_order t, str)
             | Flat t ->
                 let tree,_ = 
                     build_cannonic_order (fun (_,a) (_,b) -> compare a b) t
@@ -2112,18 +2115,19 @@ module Parse = struct
 
     exception Illegal_argument
 
-    let strip_tree = function
-        | Annotated (t,_) | Flat t -> t
+    let rec strip_tree = function
+        | Annotated (t,_) -> strip_tree t
+        | Flat t -> t
         | Characters t -> map (fst) t
         | Branches t -> map (fst) t
 
-    let maximize_tree = function
+    let rec maximize_tree = function
         | Characters t -> t
         | Branches t -> map (fun (x,_) -> x,None) t
-        | Annotated (t,_)
+        | Annotated (t,_) -> maximize_tree t
         | Flat t -> map (fun x -> x,None) t
 
-    let cleanup ?newroot f tree =
+    let rec cleanup ?newroot f tree =
         let rec aux_cleanup f tree = 
             match tree with
             | Leafp x -> 
@@ -2136,12 +2140,11 @@ module Parse = struct
                     | y -> [Nodep (y, x)]
         in
         match tree with
-        | Annotated (t,str) -> (match aux_cleanup f t with
-             | [] -> None
-             | [x] -> Some (Annotated (x,str))
-             | x -> match newroot with
-                    | None -> raise Illegal_argument
-                    | Some y -> Some (Annotated (Nodep (x, y),str)))
+        | Annotated (t,str) ->
+            begin match cleanup ?newroot f t with
+                | None -> None
+                | Some t -> Some (Annotated (t,str))
+            end
         | Branches t -> (match aux_cleanup (fun (s,d) -> f s) t with
              | [] -> None
              | [x] -> Some (Branches x)

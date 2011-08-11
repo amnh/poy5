@@ -1116,17 +1116,17 @@ let branches_to_map data initial_table branch_table trees =
 
 let verify_trees data (((name,tree), file, position) : parsed_trees) =
     let esc_file = StatusCommon.escape file in
-    let leafs acc tree = 
-        let rec leaves f acc subtree = match subtree with
+    let rec leaves acc tree = 
+        let rec aux_leaves f acc subtree = match subtree with
             | Tree.Parse.Nodep (c, _) ->
-                List.fold_left ~f:(leaves f) ~init:acc c
+                List.fold_left ~f:(aux_leaves f) ~init:acc c
             | Tree.Parse.Leafp x -> (f x) :: acc
         in
         match tree with
-        | Tree.Parse.Annotated (t,_) 
-        | Tree.Parse.Flat t -> leaves (fun x -> x) acc t
-        | Tree.Parse.Characters t -> leaves (fun x -> fst x) acc t
-        | Tree.Parse.Branches t -> leaves (fun x -> fst x) acc t
+            | Tree.Parse.Flat t          -> aux_leaves (fun x -> x) acc t
+            | Tree.Parse.Characters t    -> aux_leaves (fun x -> fst x) acc t
+            | Tree.Parse.Branches t      -> aux_leaves (fun x -> fst x) acc t
+            | Tree.Parse.Annotated (t,_) -> leaves acc t
     in
     let rec stop_if_not_all_terminals_in_tree map taxon =
         let taxon = trim taxon in
@@ -1148,7 +1148,7 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
                 failwith "Data not found"
                     
     in
-    let leafs = List.fold_left ~f:leafs ~init:[] tree in
+    let leafs = List.fold_left ~f:leaves ~init:[] tree in
     let _ =
         warn_if_repeated_and_choose_uniquely leafs 
             ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ") file
@@ -1873,25 +1873,30 @@ let gen_add_static_parsed_file do_duplicate data file
                                             " or nodes ("^node1^","^node2^")")
         in
         let get_stuff = function | Tree.Parse.Nodep (_,d) | Tree.Parse.Leafp d -> snd d in
-        let combine_on_one ((name,trees),_,_) = match name with
-            | Some name -> 
-                List.iter (fun t -> match t with
-                    | Tree.Parse.Flat t | Tree.Parse.Annotated (t,_) -> ()
-                    | Tree.Parse.Branches t -> ()
-                    | Tree.Parse.Characters t -> 
-                        let () = match t with
-                            | Tree.Parse.Leafp _ -> ()
-                            | Tree.Parse.Nodep (lst,_) -> match lst with
+        let combine_on_one ((name,trees),_,_) =
+            let rec deal_with_tree name t = match t with
+                | Tree.Parse.Flat t -> ()
+                | Tree.Parse.Annotated (t,_) -> deal_with_tree name t
+                | Tree.Parse.Branches t -> ()
+                | Tree.Parse.Characters t -> 
+                    begin match t with
+                        | Tree.Parse.Leafp _ -> ()
+                        | Tree.Parse.Nodep (lst,_) -> 
+                            begin match lst with
                                 | [l1;l2] ->
-                                    (match (get_stuff l1),(get_stuff l2) with
-                                     | Some x,Some y ->
-                                        unroot_branch_lengths 
-                                            file_out.Nexus.File.branches name x y
-                                     | _ -> ())
+                                    begin match (get_stuff l1),(get_stuff l2) with
+                                         | Some x,Some y ->
+                                            unroot_branch_lengths 
+                                                file_out.Nexus.File.branches name x y
+                                        | _ -> ()
+                                    end
                                 | _ -> ()
-                        in ()
-                    ) trees
-            | None -> ()
+                            end
+                    end
+            in
+            match name with
+            | Some name -> List.iter (deal_with_tree name) trees
+            | None      -> ()
         in
         List.iter (combine_on_one) data.trees
     in

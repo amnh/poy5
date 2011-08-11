@@ -1964,7 +1964,7 @@ let rec fold_2 f acc a b =
     | [], [] -> acc
     | _, _ -> false
 
-let compare_trees a b =
+let rec compare_trees a b =
     let rec compare acc a b = 
         acc &&
         (match a, b with
@@ -1974,10 +1974,11 @@ let compare_trees a b =
         | _, _ -> false)
     in match a,b with
     | Tree.Parse.Branches t1, Tree.Parse.Branches t2 -> compare true t1 t2
-    | Tree.Parse.Annotated (t1,_), Tree.Parse.Annotated (t2,_) -> compare true t1 t2
+    | Tree.Parse.Annotated (t1,_), Tree.Parse.Annotated (t2,_) -> compare_trees t1 t2
     | Tree.Parse.Flat t1, Tree.Parse.Flat t2 -> compare true t1 t2
     | Tree.Parse.Characters t1, Tree.Parse.Characters t2 -> compare true t1 t2
-    | _ -> failwith "Fill this all in??! really?"
+    | ( Tree.Parse.Branches _ | Tree.Parse.Annotated _ 
+      | Tree.Parse.Characters _ | Tree.Parse.Flat _), _ -> false
 
 let get_unique trees =
     match trees with 
@@ -2060,40 +2061,39 @@ let build_forest collapse tree cost =
     let trees = build_trees tree.tree extract_names collapse_f None cost in
     trees
 
-let build_forest_as_tree collapse tree cost =
+let rec build_forest_as_tree collapse tree cost =
     match build_forest collapse tree cost with
     | [tree] -> tree
     | [] -> failwith "no trees?"
-    | trees -> 
-        match List.hd trees with
-        | Tree.Parse.Annotated (t,str) ->
-            let chillens = List.map 
-                (fun x -> match x with 
-                    | Tree.Parse.Annotated (x,_) -> x
-                    | _ -> failwith "consistency"
-                ) trees in
-            Tree.Parse.Flat (Tree.Parse.Nodep (chillens, "forest"))
+    | trees ->
+        let trees = List.map Tree.Parse.remove_annotations trees in
+        begin match List.hd trees with
+        | Tree.Parse.Annotated (t,str) -> assert false
         | Tree.Parse.Flat t ->
             let chillens = List.map 
                 (fun x -> match x with
                     | Tree.Parse.Flat x -> x
-                    | _ -> failwith "consistency"
-                ) trees in
+                    | _ -> failwith "consistency")
+                trees
+            in
             Tree.Parse.Flat (Tree.Parse.Nodep (chillens, "forest"))
         | Tree.Parse.Characters t ->
             let chillens = List.map 
                 (fun x -> match x with
                     | Tree.Parse.Characters x -> x
-                    | _ -> failwith "consistency"
-                ) trees in
+                    | _ -> failwith "consistency")
+                trees
+            in
             Tree.Parse.Characters (Tree.Parse.Nodep (chillens, ("forest",None)))
         | Tree.Parse.Branches t ->
             let chillens = List.map 
                 (fun x -> match x with
                     | Tree.Parse.Branches x -> x
-                    | _ -> failwith "consistency"
-                ) trees in
+                    | _ -> failwith "consistency")
+                trees
+            in
             Tree.Parse.Branches (Tree.Parse.Nodep (chillens, ("forest",None)))
+    end
 
 let build_forest_with_names_n_costs collapse tree cost branches = 
     let collapse_f = handle_collapse collapse tree in

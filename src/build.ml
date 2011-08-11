@@ -334,8 +334,9 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 let () = Status.finished st in
                 `Set res
             else 
-                let tree = match constraint_tree with
-                    | Tree.Parse.Annotated (t,_)
+                let rec deal_with_tree = function
+                    | Tree.Parse.Annotated (t,_) ->
+                        deal_with_tree t
                     | Tree.Parse.Flat t -> 
                         let tree,_= aux_constructor (fun x-> x) ptree (randomize_tree t) in
                         tree
@@ -346,12 +347,13 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         let tree,_ = aux_constructor (fst) ptree (randomize_tree t) in
                         tree
                 in
+                let tree = deal_with_tree constraint_tree in
                 let tree = TreeOps.uppass tree in
                 total_builder ((`Single tree) :: res) (blt + 1)
         in
         if n < 0 then `Empty 
         else
-            total_builder [] 0 
+            total_builder [] 0
 
     let single_wagner data tabu_mgr wmgr cg nodes adj_mgr = 
         let disjoin_tree = disjoin_tree data nodes
