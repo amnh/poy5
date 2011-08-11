@@ -658,6 +658,15 @@ let get_locus_indel_cost user_pams =
     | None -> failwith "The locus indel cost is not specified"
     | Some c -> c
 
+let get_character_set_name data codes : string option = match codes with
+    | [] -> failwith "No characters specified"
+    | code::codes -> 
+        let char = Hashtbl.find data.character_codes code in
+        if Hashtbl.mem data.character_nsets char then
+            Some (Hashtbl.find data.character_nsets char)
+        else
+            None
+
 let get_likelihood_model data chars = 
     let get_model x = match Hashtbl.find data.character_specs x with
         | Static dat ->

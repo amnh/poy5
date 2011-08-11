@@ -4399,7 +4399,11 @@ END
                                     `Likelihood run.data (`Some cs)
                     in
                     let model  = Data.get_likelihood_model run.data chars
+                    and name   = Data.get_character_set_name run.data chars
                     and ntaxa  = run.data.Data.number_of_taxa in
+                    let () = match name with 
+                        | Some name -> fo ("@[<hov 0>Set Name: "^name^"@]@\n");
+                        | None      -> () in
                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                     fo ("@[<hov 0>Tree Size: No Trees Loaded@]@\n");
                     MlModel.output_model fo `Hennig model None
@@ -4412,11 +4416,16 @@ END
                                     let model  = Data.get_likelihood_model t.Ptree.data chars
                                     and cost   = Ptree.get_cost `Adjusted t
                                     and length = TreeOps.tree_size t
+                                    and name   = Data.get_character_set_name t.Ptree.data chars
                                     and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                                    let () = match name with 
+                                        | Some name -> fo ("@[<hov 0>Set Name: "^name^"@]@\n");
+                                        | None      -> () in
                                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                     fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                                     fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                                    MlModel.output_model fo `Hennig model None)
+                                    MlModel.output_model fo `Hennig model None;
+                                    fo "@\n")
                                 charss)
                         (trees)
                 end;

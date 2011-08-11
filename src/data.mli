@@ -582,6 +582,8 @@ val set_dyna_data : 'a seq_t array -> 'a dyna_data
 val get_recost : dyna_pam_t -> int
 val get_locus_indel_cost : dyna_pam_t -> int * int
 
+val get_character_set_name : d -> int list -> string option
+
 val get_likelihood_model : d -> int list -> MlModel.model
 val apply_likelihood_model_on_chars : d -> int list -> MlModel.model -> d
 val verify_alphabet : d -> int list -> int * Alphabet.a
