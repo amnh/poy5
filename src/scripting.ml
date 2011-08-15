@@ -1454,8 +1454,8 @@ let load_data (meth : Methods.input) data nodes =
                     !prealigned_files;
                 List.fold_left 
                     (Data.guess_class_and_add_file annotated is_prealigned) 
-                data 
-                files
+                    data
+                    files
         | `PartitionedFile files 
         | `Nucleotides files  as meth ->
                 let mode = 
@@ -1581,33 +1581,32 @@ let load_data (meth : Methods.input) data nodes =
     and annotated_reader data (meth : Methods.input) =
         match meth with
         | `AnnotatedFiles files ->
-              List.fold_left (reader true false) data files
+            List.fold_left (reader true false) data files
         | #Methods.simple_input as meth -> 
-              reader false false data meth
+            reader false false data meth
         | `Prealigned (meth, tcm, gap_opening) ->
-                prealigned_files := [];
-                let data = reader false true data meth in
-                let files = List.flatten !prealigned_files in
-                let chars = `Names (true, (List.rev_map (function 
-                    `Local x | `Remote x -> (x ^ ".*")) files)) in
-                prealigned_files := [];
-                let data = 
-                    match tcm with
-                    | `Assign_Transformation_Cost_Matrix file ->
-                            Data.assign_tcm_to_characters_from_file data chars
-                            (Some file) 
-                    | `Create_Transformation_Cost_Matrix (trans, gaps) ->
-                            Data.assign_transformation_gaps data chars trans
-                            gaps 
-                in
-                let data =
-                    if gap_opening > 0 then
-                        Data.assign_affine_gap_cost data chars
+            prealigned_files := [];
+            let data = reader false true data meth in
+            let files = List.flatten !prealigned_files in
+            let chars =
+                let chars = List.rev_map (function `Local x | `Remote x -> (x ^ ".*")) files in
+                `Names (true,chars)
+            in
+            prealigned_files := [];
+            let data = match tcm with
+                | `Assign_Transformation_Cost_Matrix file ->
+                    Data.assign_tcm_to_characters_from_file data chars (Some file) 
+                | `Create_Transformation_Cost_Matrix (trans, gaps) ->
+                    Data.assign_transformation_gaps data chars trans gaps 
+            in
+            let data =
+                if gap_opening > 0 then
+                    Data.assign_affine_gap_cost data chars
                         (Cost_matrix.Affine gap_opening)
-                    else data
-                in
-                Data.prealigned_characters ImpliedAlignment.analyze_tcm data
-                chars
+                else data
+            in
+            Data.prealigned_characters ImpliedAlignment.analyze_tcm data
+            chars
     in
     let data = annotated_reader data meth in    
     let data = Data.categorize (Data.remove_taxa_to_ignore data) in 
@@ -1857,6 +1856,17 @@ let process_random_seed_set run v =
     Sadman.finish [];
     Random.init v; 
     run
+
+let process_sets run name ident =
+    match ident with
+    | `Codon ident -> 
+        let msg = "@[Creating@ alias@ and@ character@ set@ for@ codons@]" in
+        Status.user_message Status.Information msg;
+        run
+    | `Chars ident -> 
+        let msg = "@[Creating@ alias@ and@ character@ set@ "^name^"@]"in
+        Status.user_message Status.Information msg;
+        run
 
 let do_recovery run =
     let trees = Sexpr.to_list run.trees in
@@ -2965,6 +2975,7 @@ let rec process_application run item =
     | `Logfile file -> StatusCommon.set_information_output file; run
     | `Redraw -> Status.redraw_screen (); run
     | `SetSeed v -> process_random_seed_set run v
+    | `Alias (n,x) -> process_sets run n x
     | `ReDiagnose -> update_trees_to_data true true run
     | `ReDiagnoseTrees -> rediagnose_trees false run
     | `Help item -> HelpIndex.help item; run
@@ -4239,10 +4250,13 @@ END
                         Status.user_message fo "@]\n%!";
                     in
                     let min_list = 
-                        Data.apply_on_static AddCS.min_possible_cost
-                        NonaddCS8.min_possible_cost 
-                        SankCS.min_possible_cost 
-                        (fun _ _ -> 0.0) realch run.data
+                        Data.apply_on_static 
+                            AddCS.min_possible_cost
+                            NonaddCS8.min_possible_cost 
+                            SankCS.min_possible_cost 
+                            (fun _ _ -> 0.0) 
+                            realch 
+                            run.data
                     in
                     let add_list lst = 
                         List.fold_left (fun acc (_, cost) -> cost +. acc) 0. lst
@@ -4308,10 +4322,13 @@ END
                                                 lst) trees))), "ci")
                         | `Ri (filename, ch) ->
                                 (let max_list = 
-                                    Data.apply_on_static (fun _ -> 0.)
-                                    NonaddCS8.max_possible_cost
-                                    SankCS.max_possible_cost 
-                                    (fun _ _ -> 0.) realch run.data
+                                    Data.apply_on_static 
+                                        (fun _ -> 0.)
+                                        NonaddCS8.max_possible_cost
+                                        SankCS.max_possible_cost
+                                        (fun _ _ -> 0.)
+                                        realch
+                                        run.data
                                 in
                                 let ri max_cost min_cost x =
                                     if max_cost = min_cost then "uninformative" 
@@ -4324,8 +4341,7 @@ END
                                         let res1 = add_list min_list
                                         and res2 = add_list max_list in
                                         let trees = 
-                                            get_tree_cost_and_apply (ri res2
-                                            res1)
+                                            get_tree_cost_and_apply (ri res2 res1)
                                         in
                                         ([|"Tree Cost"; "RI"|]
                                         :: trees), "RI"
@@ -4389,6 +4405,8 @@ END
                     let script = PoyCommand.of_file false script in
                     Analyzer.explain_tree filename script;
                     run
+            | `Pairwise (filename,chars) ->
+                failwith "NOT DONE"
             | `Model (filename,chars) ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
                 begin match (Sexpr.to_list run.trees) with
@@ -4401,26 +4419,28 @@ END
                     let model  = Data.get_likelihood_model run.data chars
                     and name   = Data.get_character_set_name run.data chars
                     and ntaxa  = run.data.Data.number_of_taxa in
-                    let () = match name with 
-                        | Some name -> fo ("@[<hov 0>Set Name: "^name^"@]@\n");
-                        | None      -> () in
+                    let name = match name with | Some name -> name | None -> "" in
+                    fo ("@[<hov 0>Set Name: "^name^"@]@\n");
                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                    fo ("@[<hov 0>Tree Size: No Trees Loaded@]@\n");
                     MlModel.output_model fo `Hennig model None
                 | trees -> 
                     List.iter
                         (fun t ->
                             let charss = Data.categorize_static_likelihood_by_model t.Ptree.data in
+                            let tname  = match t.Ptree.tree.Tree.tree_name with 
+                                       | Some tname -> tname 
+                                       | None -> ""
+                            in
                             List.iter
                                 (fun chars -> 
                                     let model  = Data.get_likelihood_model t.Ptree.data chars
                                     and cost   = Ptree.get_cost `Adjusted t
                                     and length = TreeOps.tree_size t
-                                    and name   = Data.get_character_set_name t.Ptree.data chars
+                                    and cname  = Data.get_character_set_name t.Ptree.data chars
                                     and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                                    let () = match name with 
-                                        | Some name -> fo ("@[<hov 0>Set Name: "^name^"@]@\n");
-                                        | None      -> () in
+                                    let cname  = match cname with | Some cname -> cname | None -> "" in
+                                    fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
+                                    fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
                                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                     fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                                     fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");

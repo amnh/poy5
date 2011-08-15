@@ -1991,18 +1991,18 @@ module Parse = struct
             | _ -> true
         in
         
-        let remove_branches (t,s) = map (fun (d,(n,c)) -> d) t,s
-        and remove_annot_1branches (t,s) = map (fun (d,(n,c)) -> d,c) t
+        let remove_annot_1branches (t,s) = map (fun (d,(n,c)) -> d,c) t
         and remove_annot_2branches (t,s) = map (fun (d,(n,c)) -> d,n) t
         and remove_all (t,s)  = map (fst) t in
 
         match annotations_exist t,branches_exist t,characters_exist t with
-        | false,false, false -> Flat (remove_all t)
         | true , true, _     -> Annotated (Branches (remove_annot_2branches t),(snd t))
         | true ,  _  , true  -> Annotated (Characters (remove_annot_1branches t),(snd t))
+        | true ,  _  , _     -> Annotated (Flat (remove_all t),(snd t))
         | false, true, false -> Branches (remove_annot_2branches t)
         |   _  ,  _  , true  -> Characters (remove_annot_1branches t)
-        |   _  ,  _  ,  _    -> Branches (remove_annot_2branches t)
+        |   _  , true,  _    -> Branches (remove_annot_2branches t)
+        | false,false, false -> Flat (remove_all t)
 
     (** general function for trees *)
     let gen_aux_of_stream str = match gen_aux_of_stream_gen false str with
@@ -2309,37 +2309,9 @@ module Parse = struct
             in
             { tree with avail_ids = aux (2 * total) [] }
         in
-        (*
-        let verify_leaves acc t =
-            let rec verify_leaves f acc = function
-                | Node (cld, _) ->
-                    List.fold_left (verify_leaves f) acc cld
-                | Leaf name -> let name = f name in
-                    try 
-                        let code = get_code name in
-                        (Hashtbl.mem data.Data.taxon_characters code) && acc
-                    with 
-                    | Not_found -> 
-                            Status.user_message Status.Error 
-                            ("The@ terminal@ " ^ name ^ "@ has@ no@ characters@ "
-                            ^ "loaded. Please@ verify@ your@ input@ files.");
-                            false
-            in match t with
-                | Flat t
-                | Annotated (t,_) ->
-                        (verify_leaves (fun x -> x) true t) & acc
-                | Characters t ->
-                        (verify_leaves (fst) true t) & acc
-                | Branches t ->
-                        (verify_leaves (fst) true t) & acc
-        in
-        if not (List.fold_left verify_leaves true trees) then
-            failwith "Illegal input tree"
-        else
-        *)
-            let utree = { (empty ()) with tree_name = name } in
-            let tree = add_available maximum_number_of_taxa utree in
-            List.fold_left (add_tree_to taxon_code) tree trees
+        let utree = { (empty ()) with tree_name = name } in
+        let tree = add_available maximum_number_of_taxa utree in
+        List.fold_left (add_tree_to taxon_code) tree trees
 
 end
 

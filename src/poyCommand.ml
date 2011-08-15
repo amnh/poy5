@@ -52,6 +52,7 @@ type old_identifiers = [
     | `AllStatic
     | `Missing of bool * int
     | `Random of float
+    | `Range of (bool * int * int)
 ]
 
 type identifiers = [
@@ -266,6 +267,7 @@ type settings = [
     | `SetSeed of int
     | `Root of int option
     | `RootName of string
+    | `Alias of string * [ `Codon of old_identifiers | `Chars of old_identifiers ]
 ]
 
 type output_class = [
@@ -328,6 +330,7 @@ type reporta = [
     | `FasWinClad
     | `Nexus
     | `Model of old_identifiers
+    | `Pairwise of old_identifiers
     | `Script of string list
     | `ExplainScript of string
     | `Consensus of float option
@@ -968,6 +971,8 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             (`FasWinClad (file)) :: acc, file
     | `Nexus ->
             (`Nexus (file)) :: acc, file
+    | `Pairwise x ->
+            (`Pairwise (file,x)) :: acc, file
     | `Model x ->
             (`Model (file,x)) :: acc, file
     | `Script lst ->
@@ -1379,6 +1384,7 @@ let create_expr () =
                     `Partitioned x ] | 
                 [ LIDENT "fixed_states"; x = OPT optional_string -> `Fixed_States x ] |
                 [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
+                [ LIDENT "do" -> `Direct_Optimization ] |
                 [ LIDENT "gap_opening"; ":"; x = INT -> `AffGap (int_of_string x) ] |
                 [ LIDENT "trailing_deletion"; ":"; x = STRING -> `TailFile x ] |
                 [ LIDENT "td"; ":"; x = STRING -> `TailFile x ] |
@@ -1424,7 +1430,6 @@ let create_expr () =
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToChrom x ] | 
                 [ LIDENT "custom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `CustomToBreakinv x ] | 
-
                 [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                         [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] |
                 [   LIDENT "custom_alphabet"; ":"; left_parenthesis; x = LIST0 
@@ -1647,24 +1652,27 @@ let create_expr () =
             [ [ ","; y = INT -> y] ];
         setting:
             [
-                [ LIDENT "timer"; ":"; x = INT -> `TimerInterval (int_of_string
-                x) ] |
+                [ LIDENT "timer"; ":"; x = INT -> `TimerInterval (int_of_string x) ] |
                 [ LIDENT "history"; ":"; x = INT -> `HistorySize (int_of_string x) ] |
                 [ LIDENT "log"; ":"; x = STRING -> `Logfile (Some x) ] |
                 [ LIDENT "log"; ":"; LIDENT "new"; ":"; x = STRING ->
                     StatusCommon.Files.closef x ();
                     let _ = StatusCommon.Files.openf ~mode:`New x in
-                    `Logfile (Some x)
-                    ] |
+                    `Logfile (Some x) ] |
                 [ LIDENT "nolog" -> `Logfile None ] |
                 [ LIDENT "seed"; ":"; x = neg_integer -> `SetSeed (int_of_string x) ] |
                 [ LIDENT "root"; ":"; x = STRING -> `RootName x ] |
-                [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x))
-                ] |
+                [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x)) ] |
                 [ LIDENT "exhaustive_do" -> `Exhaustive_Weak ] |
                 [ LIDENT "iterative"; ":"; x = iterative_mode -> `Iterative x ] |
                 [ LIDENT "normal_do" -> `Normal ] | 
-                [ LIDENT "normal_do_plus" -> `Normal_plus_Vitamines ]
+                [ LIDENT "normal_do_plus" -> `Normal_plus_Vitamines ] |
+                [ LIDENT "codon_partition"; ":"; 
+                    left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
+                        `Alias (n,`Codon x) ] |
+                [ LIDENT "partition"; ":"; 
+                    left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
+                        `Alias (n,`Chars x) ]
             ];
         neg_integer:
             [
@@ -1740,6 +1748,8 @@ let create_expr () =
                     `Model x ] | 
                 [ LIDENT "lkmodel" -> `Model `All ] | 
                 [ LIDENT "script" -> `Script (!console_script) ] |
+                [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |
+                [ LIDENT "pairwise" -> `Pairwise `All ] |
                 [ LIDENT "seq_stats"; ":"; ch = old_identifiers ->
                     `SequenceStats ch ] |
                 [ LIDENT "ci"; ":"; ch = old_identifiers -> `Ci (Some ch) ] |
@@ -1747,8 +1757,9 @@ let create_expr () =
                 [ LIDENT "ci" -> `Ci None ] |
                 [ LIDENT "ri" -> `Ri None ] |
                 [ LIDENT "compare"; ":"; left_parenthesis; complement = boolean;
-                ","; ch1 = old_identifiers; ","; ch2 = old_identifiers; right_parenthesis ->
-                    `CompareSequences (complement, ch1, ch2) ] |
+                    ","; ch1 = old_identifiers; ","; ch2 = old_identifiers;
+                    right_parenthesis ->
+                        `CompareSequences (complement, ch1, ch2) ] |
                 [ LIDENT "script_analysis"; ":"; x = STRING -> `ExplainScript x ] |
                 [ LIDENT "supports"; y = OPT opt_support_names -> `Supports y ] |
                 [ LIDENT "graphsupports"; y = OPT opt_support_names -> 
@@ -2391,30 +2402,36 @@ let create_expr () =
         old_identifiers:
             [
                 [ LIDENT "all" -> `All ] |
-                [ LIDENT "not"; LIDENT "names"; ":"; left_parenthesis; x = LIST0
-                [x = STRING -> x] SEP ","; 
-                    right_parenthesis -> `Names (false, x) ] |
-                [ LIDENT "not"; LIDENT "sets"; ":"; left_parenthesis; x = LIST0
-                [x = STRING -> x] SEP ","; 
-                    right_parenthesis -> `CharSet (false, x) ] |
-                [ LIDENT "not"; LIDENT "codes"; ":"; left_parenthesis; x = LIST0
-                [x = INT -> x] SEP ","; 
-                    right_parenthesis -> `Some (false, List.map int_of_string x) ] |
-                [ LIDENT "names"; ":"; left_parenthesis; x = LIST0 [x = STRING
-                -> x] SEP ","; 
-                    right_parenthesis -> `Names (true, x) ] |
-                [ LIDENT "sets"; ":"; left_parenthesis; x = LIST0 [x = STRING
-                -> x] SEP ","; 
-                    right_parenthesis -> `CharSet (true, x) ] |
-                [ LIDENT "codes"; ":"; left_parenthesis; x = LIST0 [x = INT ->
-                    x] SEP ","; 
-                    right_parenthesis -> `Some (true, List.map int_of_string x) ] |
+                [ LIDENT "not"; LIDENT "names"; ":"; left_parenthesis;
+                    x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis ->
+                        `Names (false, x) ] |
+                [ LIDENT "range"; ":"; left_parenthesis;
+                    x = INT; ","; y = INT; right_parenthesis ->
+                        `Range (true, int_of_string x, int_of_string y) ] |
+                [ LIDENT "not"; LIDENT "range"; ":"; left_parenthesis;
+                    x = INT; ","; y = INT; right_parenthesis ->
+                        `Range (false, int_of_string x, int_of_string y) ] |
+                [ LIDENT "not"; LIDENT "sets"; ":"; left_parenthesis;
+                    x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis ->
+                        `CharSet (false, x) ] |
+                [ LIDENT "not"; LIDENT "codes"; ":"; left_parenthesis; 
+                    x = LIST0 [x = INT -> x] SEP ","; right_parenthesis ->
+                        `Some (false, List.map int_of_string x) ] |
+                [ LIDENT "names"; ":"; left_parenthesis; 
+                    x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis ->
+                        `Names (true, x) ] |
+                [ LIDENT "sets"; ":"; left_parenthesis;
+                    x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis ->
+                        `CharSet (true, x) ] |
+                [ LIDENT "codes"; ":"; left_parenthesis;
+                    x = LIST0 [x = INT -> x] SEP ","; right_parenthesis ->
+                        `Some (true, List.map int_of_string x) ] |
                 [ LIDENT "static" -> `AllStatic ] | 
                 [ LIDENT "dynamic" -> `AllDynamic ] |
                 [ LIDENT "missing"; ":"; x = INT -> 
                     `Missing (true, 100 - int_of_string x) ] |
-                [ LIDENT "not"; LIDENT "missing"; ":"; x = INT -> `Missing
-                (false, 100 - int_of_string x) ] |
+                [ LIDENT "not"; LIDENT "missing"; ":"; x = INT ->
+                    `Missing (false, 100 - int_of_string x) ] |
                 [ LIDENT "_random"; ":"; x = integer_or_float -> 
                     `Random (100. -. (float_of_string x)) ]
             ];

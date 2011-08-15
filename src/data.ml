@@ -466,6 +466,7 @@ type bool_characters = [
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
+    | `Range of (bool * int * int)
 ]
 
 type characters = [
@@ -477,7 +478,16 @@ type characters = [
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
+    | `Range of (int * int)
 ]
+
+let transform_range_to_codes x y =
+    assert( x < y );
+    let rec loop_ acc x y =
+        if x = y then List.rev (y::acc)
+        else loop_ (x::acc) (x+1) y
+    in
+    `Some (loop_ [] x y)
 
 let create_ht () = Hashtbl.create 1667 
 
@@ -1818,6 +1828,13 @@ let gen_add_static_parsed_file do_duplicate data file
     Status.full_report ~msg:"Storing the character specifications" st;
     (* Now we add the codes to the data *)
     Array.iter ~f:(add_static_character_spec data) codes;
+    (* Turn on Optimization of Parameters for any unspecified under likelihood *)
+    let () = 
+        try match file_out.Nexus.File.characters.(0).Nexus.File.st_type with
+            | Nexus.File.STLikelihood _ -> Methods.cost := `Iterative (`ThreeD None)
+            | _              -> ()
+        with | _ -> ()
+    in
     (* And now a function to add one taxon at a time to the data *)
     let data = Array.fold_left ~f:(fun data name ->
         match name with
@@ -1926,6 +1943,7 @@ let gen_add_static_parsed_file do_duplicate data file
             in
             match lk_model with
             | Some _ ->
+                Methods.cost := `Iterative (`ThreeD None);
                 process_parsed_sequences 
                     false weight (Substitution_Indel (1,2))
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
@@ -1961,7 +1979,6 @@ let gen_add_static_parsed_file do_duplicate data file
                         in
                         tcm, name
                 in
-                Printf.printf "get tcm 3d :\n%!";
                 let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
                 process_parsed_sequences false weight name tcm tcm3d `DO false
                                          alph file `Seq data seq None
@@ -3765,9 +3782,9 @@ and get_code_with_missing dont_complement data fraction =
         | _ -> failwith "Data.get_code_with_missing"
 (**Give a list of characters, return their codes*)    
 and get_code_from_characters_restricted kind (data : d) (chs : characters) = 
-    let kind_lst = 
-        match kind with
-        | `Dynamic -> data.dynamics
+    let kind_lst = match kind with
+        | `Dynamic ->
+            data.dynamics
         | `DynamicLikelihood ->
             List.filter
                 (fun x -> match Hashtbl.find data.character_specs x with
@@ -3775,11 +3792,9 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
                     | _ -> false)
                 data.dynamics
         | `NonAdditive ->
-                        data.non_additive_1 @
-                        data.non_additive_8 @
-                        data.non_additive_16 @
-                        data.non_additive_32 @
-                        data.non_additive_33
+                data.non_additive_1 @ data.non_additive_8 @
+                data.non_additive_16 @ data.non_additive_32 @
+                data.non_additive_33
         | `Additive -> data.additive
         | `Sankoff -> List.flatten data.sankoff
         | `Kolmogorov -> data.kolmogorov
@@ -3789,17 +3804,14 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
             (get_code_from_characters_restricted `StaticLikelihood data chs) @
             (get_code_from_characters_restricted `DynamicLikelihood data chs)
         | `AllStatic -> 
-                        data.non_additive_1 @
-                        data.non_additive_8 @
-                        data.non_additive_16 @
-                        data.non_additive_32 @
-                        data.additive @
-                        data.non_additive_33 @
-                        data.static_ml @
-                        (List.flatten data.sankoff)
+                data.non_additive_1 @ data.non_additive_8 @
+                data.non_additive_16 @ data.non_additive_32 @
+                data.additive @ data.non_additive_33 @
+                data.static_ml @ (List.flatten data.sankoff)
     in
     let rec items chs = match chs with
         | `Some code_ls -> code_ls 
+        | `Range (x,y) -> items (transform_range_to_codes x y)
         | `Names name_ls -> get_code_from_name data name_ls
         | `Random fraction ->
                 check_fraction fraction;
@@ -3830,6 +3842,7 @@ and get_chars_codes data = function
             check_fraction fraction;
             select_random_sublist fraction (get_all_codes data)
     | `Some codes -> codes
+    | `Range (x,y) -> get_chars_codes data (transform_range_to_codes x y)
     | `Names names ->
             let names = 
                 warn_if_repeated_and_choose_uniquely names 
@@ -3885,6 +3898,7 @@ let get_code_from_characters_restricted_comp kind d ch =
         | `Some (dont_complement, x) -> dont_complement, `Some x
         | `Names (dont_complement, x) -> dont_complement, `Names x
         | `CharSet (dont_complement, x) -> dont_complement, `CharSet x
+        | `Range (dont_complement, x, y) -> dont_complement, transform_range_to_codes x y
         | `Random _ | `Missing _ | `All | `AllDynamic | `AllStatic as x -> true, x
     in
     let chars = get_code_from_characters_restricted kind d chars in
@@ -3900,6 +3914,7 @@ let get_chars_codes_comp data ch =
         | `Some (x, y) -> x, `Some y
         | `Names (x, y) -> x, `Names y 
         | `CharSet (x, y) -> x, `CharSet y
+        | `Range (x,a,b) -> x, transform_range_to_codes a b
         | `Random _ | `Missing _ | `All | `AllStatic | `AllDynamic as x -> true, x
     in
     let codes = get_chars_codes data ch in
@@ -3908,6 +3923,24 @@ let get_chars_codes_comp data ch =
         match complement_characters data (`Some codes) with
         | `Some x -> x
         | _ -> failwith "Impossible?"
+
+
+(* non/functional creation of sets *)
+let make_sets (functional:bool) (data:d) (name:string) (ccodes:Methods.characters) = 
+    let sets,nsets = 
+        if functional 
+            then Hashtbl.copy data.character_sets, Hashtbl.copy data.character_nsets
+            else data.character_sets, data.character_nsets
+    in
+    let ncodes =
+        List.map (fun x -> Hashtbl.find data.character_codes x) 
+                 (get_chars_codes_comp data ccodes)
+    in
+    let () = Hashtbl.add sets name ncodes in
+    let () = List.iter (fun c -> Hashtbl.add nsets c name) ncodes in
+    { data with
+        character_sets = sets;
+        character_nsets = nsets; }
 
 
 let categorize_static_likelihood_by_model data =
@@ -3927,13 +3960,64 @@ let categorize_static_likelihood_by_model data =
         --> get_code_from_characters_restricted `StaticLikelihood data
         --> MlModel.categorize_by_model get_spec
 
+
 let categorize_sets data : int list list =
-    [] --> Hashtbl.fold (fun k v acc -> v::acc) data.character_sets
-       --> List.map
-                ~f:(fun xs ->
+    let rec inner_find i = function
+        | is::_ when List.mem i is -> true
+        |  _::iss -> inner_find i iss
+        | []      -> false
+    in
+    let named_sets = 
+        List.map
+            ~f:(fun xs ->
                     List.map 
                         ~f:(fun x -> Hashtbl.find data.character_names x)
-                        xs) 
+                        xs)
+            (Hashtbl.fold (fun k v acc -> v::acc) data.character_sets [])
+    in
+    (* add un-named sets from characters *)
+    let fcodes = 
+        List.filter
+            (fun x -> inner_find x named_sets)
+            (get_chars_codes_comp data `All)
+    in
+    fcodes :: named_sets
+
+
+let make_codon_partitions functional data name ccodes =
+    let process_set name set nset codes = 
+        let concat = if name = "" then "" else ":" in
+        let name1 = name^concat^"codon1"
+        and name2 = name^concat^"codon2"
+        and name3 = name^concat^"codon3" in
+        let rec process_three acc1 acc2 acc3 = function
+            | [] -> acc1, acc2, acc3
+            | one::two::three::xss ->
+                let () = Hashtbl.replace nset one name1
+                and () = Hashtbl.replace nset two name2
+                and () = Hashtbl.replace nset three name3 in
+                process_three (one::acc1) (two::acc2) (three::acc3) xss
+        in
+        let acc1,acc2,acc3 = process_three [] [] [] codes in
+        let () = Hashtbl.remove set name
+        and () = Hashtbl.add set name1 acc1
+        and () = Hashtbl.add set name2 acc2
+        and () = Hashtbl.add set name3 acc3 in
+        ()
+    in
+    let sets,nsets = 
+        if functional 
+            then Hashtbl.copy data.character_sets, Hashtbl.copy data.character_nsets
+            else data.character_sets, data.character_nsets
+    in
+    let ncodes =
+        List.map (fun x -> Hashtbl.find data.character_codes x) 
+                 (get_chars_codes_comp data ccodes)
+    in
+    let () = process_set name sets nsets ncodes in
+    { data with
+        character_sets = sets;
+        character_nsets = nsets; }
 
 let get_tcm2d data c =
     match Hashtbl.find data.character_specs c with
@@ -4430,6 +4514,8 @@ let get_tran_code_meth data meth =
             match a with
             | `Some (dont_complement, codes) ->
                     dont_complement, `Some codes
+            | `Range (dont_complement, x,y) ->
+                    dont_complement, transform_range_to_codes x y
             | `Names (dont_complement, names) ->
                     dont_complement, `Names names
             | `CharSet (dont_complement, names) ->

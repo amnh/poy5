@@ -98,6 +98,7 @@ type characters = [
     | `Some of (bool * int list)
     | `AllStatic
     | `AllDynamic
+    | `Range of (bool * int * int)
     | taxon_and_characters
 ]
 
@@ -282,6 +283,7 @@ type report = [
     | `FasWinClad of string option
     | `Nexus of string option
     | `Model of (string option * characters)
+    | `Pairwise of (string option * characters)
     | `Script of string option * string list
     | `SequenceStats of (string option * characters)
     | `Ci of (string option * characters option)
@@ -754,6 +756,7 @@ type application = [
     | `ReDiagnose
     | `ReDiagnoseTrees
     | `SetSeed of int
+    | `Alias of string * [ `Codon of characters | `Chars of characters]
     | `InspectFile of string
     | `ClearMemory of clear_item list
     | `Echo of (string * output_class)

@@ -240,6 +240,7 @@ type bool_characters = [
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
+    | `Range of (bool * int * int)
 ]
 
 
@@ -253,9 +254,10 @@ type characters = [
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
+    | `Range of (int * int)
 ]
 
-
+val transform_range_to_codes : int -> int -> [> `Some of int list]
 
 type 'a seq_t = {
     seq : 'a;

@@ -202,6 +202,7 @@ let dependency_relations (init : Methods.script) =
                         [(output_files, output_files, init, NonComposable)]
                 | `Skip -> [([], [], init, Composable)]
                 | `SetSeed _
+                | `Alias _
                 | `ClearMemory _
                 | `Recover
                 | `ClearRecovered ->
@@ -385,6 +386,7 @@ let dependency_relations (init : Methods.script) =
                 | `FasWinClad filename
                 | `Nexus filename
                 | `Model (filename,_)
+                | `Pairwise (filename,_)
                 | `Script (filename,_)
                 | `Dataset filename
                 | `Nodes filename
@@ -1590,6 +1592,8 @@ let script_to_string (init : Methods.script) =
                         "@[print some help@]"
                 | `Logfile _ ->
                         "@[change my log file@]"
+                | `Alias _ ->
+                        "@[name a set of characters@]"
                 | `SetSeed _ ->
                         "@[change the random number generator's seed@]"
                 | `ClearMemory _ ->
@@ -1732,6 +1736,8 @@ let script_to_string (init : Methods.script) =
                         "@[report the phastwinclad file@]"
                 | `Nexus _ -> 
                         "@[report the nexus file@]"
+                | `Pairwise _ -> 
+                        "@[report the pairwise distance matrix for characters@]"
                 | `Model _ -> 
                         "@[report the likelihood model@]"
                 | `Script _ -> 
@@ -2001,20 +2007,22 @@ let is_master_only (init : Methods.script) =
     | `Ci _
     | `Ri _
     | `CompareSequences _
-    | `FasWinClad _ 
-    | `Nexus _ 
+    | `FasWinClad _
+    | `Nexus _
     | `Model _
+    | `Pairwise _
     | `Script _
     | `ExplainScript _
-    | `PrintWDir 
-    | `Memory _ 
+    | `PrintWDir
+    | `Memory _
     | `KML _
-    | `HistorySize _ 
-    | `Redraw 
-    | `Echo _  
-    | `Help _ 
-    | `Logfile _ 
-    | `SetSeed _ 
+    | `HistorySize _
+    | `Redraw
+    | `Echo _
+    | `Help _
+    | `Logfile _
+    | `SetSeed _
+    | `Alias _
     | `Dataset _
     | `Xslt _
     | `Nodes _

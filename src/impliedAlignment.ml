@@ -2652,6 +2652,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         let codes = Data.get_chars_codes data (`Some codes) in
                         if dont_complement then `Some codes
                         else Data.complement_characters data (`Some codes)
+                | `Range (dont_complement, x,y) ->
+                        let `Some codes = Data.transform_range_to_codes x y in
+                        let codes = Data.get_chars_codes data (`Some codes) in
+                        if dont_complement then `Some codes
+                        else Data.complement_characters data (`Some codes)
                 | `Names (dont_complement, names) ->
                         let codes = Data.get_chars_codes data (`Names names) in
                         if dont_complement then `Some codes
