@@ -1862,11 +1862,11 @@ let process_sets run name ident =
     | `Codon ident -> 
         let msg = "@[Creating@ alias@ and@ character@ set@ for@ codons@]" in
         Status.user_message Status.Information msg;
-        run
+        { run with data = Data.make_codon_partitions false run.data name ident }
     | `Chars ident -> 
         let msg = "@[Creating@ alias@ and@ character@ set@ "^name^"@]"in
         Status.user_message Status.Information msg;
-        run
+        { run with data = Data.make_set_partitions false run.data name ident }
 
 let do_recovery run =
     let trees = Sexpr.to_list run.trees in
@@ -1907,13 +1907,13 @@ let process_characters_handling (run : r) meth =
                 in
                 List.fold_left process run.data syns, false
         | `AnalyzeOnlyCharacterFiles (dont_complement, files) ->
-                Data.process_analyze_only_characters_file true dont_complement 
-                run.data files, 
+                Data.process_analyze_only_characters_file true dont_complement run.data files, 
                 true
         | `AnalyzeOnlyCharacters c ->
                 let c = Data.get_chars_codes_comp run.data c in
                 let c = Data.complement_characters run.data (`Some c) in
-                Data.process_ignore_characters true run.data (c :> Data.characters), true
+                Data.process_ignore_characters true run.data (c :> Data.characters),
+                true
     in
     if do_nodes then
         let data, nodes = Node.load_data data in
@@ -4434,8 +4434,8 @@ END
                             List.iter
                                 (fun chars -> 
                                     let model  = Data.get_likelihood_model t.Ptree.data chars
-                                    and cost   = Ptree.get_cost `Adjusted t
-                                    and length = TreeOps.tree_size t
+                                    and cost   = TreeOps.total_cost t `Adjusted (Some chars)
+                                    and length = TreeOps.tree_size t (Some chars)
                                     and cname  = Data.get_character_set_name t.Ptree.data chars
                                     and ntaxa  = t.Ptree.data.Data.number_of_taxa in
                                     let cname  = match cname with | Some cname -> cname | None -> "" in

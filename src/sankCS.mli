@@ -27,15 +27,15 @@ type elt                                (** The type of set elements *)
 
 (** {2 Standard functions} *)
 val code : t -> int                     (** The code of a set *)
-val to_list : t -> (int * int array) list
+val mem : int list option -> t -> bool  (** determine if the code of this set is present in the list *)
+val to_list: t -> (int* int array) list (** convert t to a list of codes and states *)
 val ecode : elt -> int                  (** The code of an element *)
 val codes : t -> int list               (** Set of ecodes stored here *)
 val tcm : t -> cm                       (** Get the cost matrix of a set *)
 val set_tcm : cm -> t -> t              (** Set the cost matrix *)
 val median : t option -> t -> t -> t    (** See {!Character.CharacterSet} *)
 val distance : t -> t -> float          (** See {!Character.CharacterSet} *)
-val reroot : t -> t -> t -> t
-    (** Sankoff has its own clade-rerooting procedure *)
+val reroot : t -> t -> t -> t           (** Sankoff has its own clade-rerooting procedure *)
 val compare_codes : t -> t -> int       (** See {!Character.CharacterSet} *)
 val compare_data : t -> t -> int        (** See {!Character.CharacterSet} *)
 val parse : 'a -> (string * t) list     (** See {!Character.CharacterSet} *)

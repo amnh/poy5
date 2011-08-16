@@ -505,14 +505,17 @@ let tabu_distance a_final b_final =
 
 (** [get_active_ref_code t] returns the set of active codes
 * of dynamic character set [t] *)
-let get_active_ref_code t = 
-    match t with
+let get_active_ref_code t = match t with
     | ChromCS t -> ChromCS.get_active_ref_code t
     | AnnchromCS t -> AnnchromCS.get_active_ref_code t
     | BreakinvCS t -> BreakinvCS.get_active_ref_code t
     | GenomeCS t -> GenomeCS.get_active_ref_code t
     | _ -> IntSet.empty, IntSet.empty
 
+let mem c t = match c with
+    | None    -> true
+    | Some [] -> false
+    | Some xs -> List.mem (code t) xs
 
 let cardinal = function
     | MlCS x -> MlDynamicCS.cardinal x

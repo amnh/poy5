@@ -74,6 +74,11 @@ external code : ct -> int = "char_nonadd_CAML_code"
 let elt_code (code, _) = code
 let block_size = NONADDSIZE
 
+let mem cs t = match cs with
+    | None    -> true
+    | Some [] -> false
+    | Some xs -> List.mem (code t.data) xs
+
 (* This is the default cost of a new element.  Unfortunately, we are not always
    given a cost when creating an element, so this is necessary. *)
 let def_cost = 1.

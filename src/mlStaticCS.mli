@@ -82,6 +82,9 @@ val f_codes_comp : t -> All_sets.Integers.t -> t
 (** [cardinal x] returns the cardinality of the character set [x].*)
 val cardinal : t -> int
 
+(** [mem c x] checks if a code list is a member of this set *)
+val mem : int list option -> t -> bool
+
 (** [union prev ch1 ch2] *)
 val union: t -> t -> t -> t
 

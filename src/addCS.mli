@@ -136,6 +136,9 @@ val find_pos : t -> int -> int
 (** [codes c] returns the list of codes stored in [c] *)
 val codes : t -> int list
 
+(** [mem cs c] returns if the code of [c] is contained in [cs] **)
+val code_mem : int list option -> t -> bool
+
 (** {2 Set.Make Interface } *)
 
 (** [cardinal a] calculates the cardinality of [a]. *)

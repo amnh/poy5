@@ -254,11 +254,8 @@ module OneDirF :
 
     let apply_single_f_on_lazy f a = f (force_val a)
 
-    let total_cost x n =
-        apply_single_f_on_lazy (Node.Standard.total_cost x) n
-
-    let tree_size x n =
-        apply_single_f_on_lazy (Node.Standard.tree_size x) n
+    let total_cost x c n =
+        apply_single_f_on_lazy (Node.Standard.total_cost x c) n
 
     let min_prior n =
         apply_single_f_on_lazy (Node.Standard.min_prior) n
@@ -400,7 +397,7 @@ module OneDirF :
         Node.Standard.root_cost (force_val a)
 
     let tree_cost a b =
-        (total_cost a b) +. (root_cost b)
+        (total_cost a None b) +. (root_cost b)
 
     let to_single root a b c d set =
         let root' = force_opt root
@@ -928,22 +925,13 @@ type nad8 = Node.Standard.nad8 = struct
         in
         String.concat "\n" res
 
-    let total_cost par n = match par with
+    let total_cost par chars n = match par with
         | Some code ->
-            OneDirF.total_cost par (not_with code n.unadjusted).lazy_node
+            OneDirF.total_cost par chars (not_with code n.unadjusted).lazy_node
         | None -> match n.unadjusted with
-            | [x] -> OneDirF.total_cost par x.lazy_node
+            | [x] -> OneDirF.total_cost par chars x.lazy_node
             | [] -> failwith "The emtpy median? AllDirNode.total_cost"
             | _ -> failwith "AllDirNode.total_cost"
-
-    let tree_size par n = 
-        try begin match par with
-        | Some code ->
-            OneDirF.tree_size par (not_with code n.unadjusted).lazy_node
-        | None -> match n.unadjusted with
-            | [x] -> OneDirF.tree_size par x.lazy_node
-            |  _  -> failwith "AllDirNode.tree_size"
-        end with | Not_found -> failwith "no parent in tree size"
 
     let min_prior n = 
         let lst = match n.adjusted with
@@ -1164,9 +1152,7 @@ type nad8 = Node.Standard.nad8 = struct
         OneDirF.root_cost adj_data.lazy_node
 
     let tree_cost a b = 
-        let a = (total_cost a b) in
-        let b = (root_cost b) in
-        a +. b
+        (total_cost a None b) +. (root_cost b)
 
 end
 

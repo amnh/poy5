@@ -2067,7 +2067,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 let adder _ b (its_first, acc) =
                     if its_first then 
                         match b.Ptree.root_median with
-                        | Some (_, b) -> false, acc +. Node.total_cost None b
+                        | Some (_, b) -> false, acc +. Node.total_cost None None b
                         | _ -> failwith "No root?"
                     else false, b.Ptree.component_cost +. acc
                 in

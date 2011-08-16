@@ -105,7 +105,7 @@ let print_nodes tree =
                                   ^ " is " ^ node_type ^ " with"
                                   ^ " parent " ^ par_string
                                   ^ " cost " ^ string_of_float
-                                  (Node.Standard.total_cost par_id node))) tree
+                                  (Node.Standard.total_cost par_id None node))) tree
 
 let print_node_data_indent ?(indent = 3) trees =
     tree_iter_depth
@@ -1399,6 +1399,19 @@ let root_costs tree =
         Ptree.pre_order_edge_visit get_cost handle tree acc)
     (Tree.get_handles tree.Ptree.tree) []
 
+let total_cost ptree adj chars =
+    let total_handle_cost acc h =
+        match (Ptree.get_component_root h ptree).Ptree.root_median with
+            | Some ((`Edge (a,b)),c) -> 
+                acc +. (Node.total_cost None chars c)
+            | None
+            | Some _ -> acc
+    in
+    All_sets.Integers.fold
+        (fun handle acc_cost -> total_handle_cost acc_cost handle)
+        (Ptree.get_handles ptree)
+        0.0
+
 let refresh_all_edges a b c d = d
 
 module TreeOps = struct
@@ -1426,5 +1439,6 @@ module TreeOps = struct
     let unadjust ptree = ptree
     
     let refresh_all_edges = refresh_all_edges
-    let tree_size _ = 0.0
+    let tree_size _ _ = 0.0
+    let total_cost = total_cost
 end

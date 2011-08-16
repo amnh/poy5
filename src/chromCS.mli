@@ -59,7 +59,10 @@ type t = {
   chrom_pam : Data.dyna_pam_t;
   alph : Alphabet.a;
   code : int;
-}val cardinal : t -> int
+}
+
+val cardinal : t -> int
+
 val of_array :
   Data.dynamic_hom_spec ->
   (Sequence.s * IntMap.key) array -> int -> int -> int -> t

@@ -240,7 +240,7 @@ type bool_characters = [
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
-    | `Range of (bool * int * int)
+    | `Range of ( bool * string * int * int)
 ]
 
 
@@ -254,10 +254,10 @@ type characters = [
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
-    | `Range of (int * int)
+    | `Range of (string * int * int)
 ]
 
-val transform_range_to_codes : int -> int -> [> `Some of int list]
+val transform_range_to_codes : string -> int -> int -> [> `Names of string list]
 
 type 'a seq_t = {
     seq : 'a;
@@ -478,6 +478,10 @@ val categorize : d -> d
 val categorize_static_likelihood_by_model : d -> int list list
 
 val categorize_sets : d -> int list list
+
+val make_set_partitions : bool -> d -> string -> Methods.characters -> d
+
+val make_codon_partitions : bool -> d -> string -> Methods.characters -> d
 
 val remove_taxa_to_ignore : d -> d
 

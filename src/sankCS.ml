@@ -150,11 +150,15 @@ let to_string s =
     "[" ^ String.concat "; " strings ^ "]"
 
 let to_list s = 
-    let list = Array.map (fun x -> x.ecode, 
-        Array.map (fun x ->
-            if is_infinity x then max_int
-            else x) x.s) s.elts in
-    Array.to_list list
+    let remove_inf x = if is_infinity x then max_int else x in
+    let array =
+        Array.map
+            (fun x ->
+                let states = Array.map remove_inf x.s in
+                x.ecode,states)
+            s.elts
+    in
+    Array.to_list array
 
 let elt_to_full_string a =
     let string_of_costarray a =
@@ -218,6 +222,11 @@ let get_min a = Array.fold_left cost_min infinity a
 
 (* The code of the character a *)
 let code a = a.code
+
+let mem cs t = match cs with
+    | None    -> true
+    | Some [] -> false
+    | Some xs -> List.mem (code t) xs
 
 (* Code of the element *)
 let ecode e = e.ecode

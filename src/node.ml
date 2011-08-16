@@ -397,32 +397,72 @@ let calc_total_cost c1 c2 c_cost =
         | `Likelihood    -> c_cost
         | `Parsimony     -> c_cost +. c1.total_cost +. c2.total_cost
         | `SumLikelihood -> c_cost +. c1.total_cost +. c2.total_cost
-        | `Fixedstates -> c_cost
+        | `Fixedstates   -> c_cost
     in
     if debug_set_cost then
     Printf.printf "totalcost = %f <-?- %f + %f + %f; %!" res c_cost c1.total_cost c2.total_cost;
     res
 
-let total_cost _ a = a.total_cost
+let total_cost _ chars a =
+    match chars with 
+    | None    -> a.total_cost
+    | Some cs -> 
+        let rec total_cost acc = function
+            | StaticMl c ->
+                IFDEF USE_LIKELIHOOD THEN
+                    if MlStaticCS.mem chars c.final 
+                        then acc +. c.cost
+                        else acc
+                ELSE
+                    failwith MlStaticCS.likelihood_error
+                END
+            | Nonadd8 c  -> 
+                    if NonaddCS8.mem chars c.final 
+                        then acc +. c.cost
+                        else acc
+            | Nonadd16 c ->
+                    if NonaddCS16.mem chars c.final 
+                        then acc +. c.cost
+                        else acc
+            | Nonadd32 c ->
+                    if NonaddCS32.mem chars c.final 
+                        then acc +. c.cost
+                        else acc
+            | Add c      ->
+                    if AddCS.code_mem chars c.final 
+                        then acc +. c.cost
+                        else acc
+            | Sank c -> 
+                     if SankCS.mem chars c.final 
+                        then acc +. c.cost
+                        else acc
+            | Dynamic c ->
+                if DynamicCS.mem chars c.final
+                    then acc +. c.cost
+                    else acc
+            | Kolmo c -> acc
+            | Set s -> acc
+        in
+        List.fold_left total_cost 0.0 a.characters
 
-let rec prelim_to_final =
-    function
-        | StaticMl a -> 
-            IFDEF USE_LIKELIHOOD THEN
-                StaticMl (cs_prelim_to_final a)
-            ELSE
-                failwith MlStaticCS.likelihood_error
-            END
-        | Nonadd8 a -> Nonadd8 (cs_prelim_to_final a)
-        | Nonadd16 a -> Nonadd16 (cs_prelim_to_final a)
-        | Nonadd32 a -> Nonadd32 (cs_prelim_to_final a)
-        | Add a -> Add (cs_prelim_to_final a)
-        | Sank a -> Sank (cs_prelim_to_final a)
-        | Dynamic a -> Dynamic (cs_prelim_to_final a)
-        | Kolmo a -> Kolmo (cs_prelim_to_final a)
-        | Set a ->
-              let r = setrec a.preliminary prelim_to_final in
-              Set { a with preliminary = r; final = r; }
+
+let rec prelim_to_final = function
+    | StaticMl a -> 
+        IFDEF USE_LIKELIHOOD THEN
+            StaticMl (cs_prelim_to_final a)
+        ELSE
+            failwith MlStaticCS.likelihood_error
+        END
+    | Nonadd8 a -> Nonadd8 (cs_prelim_to_final a)
+    | Nonadd16 a -> Nonadd16 (cs_prelim_to_final a)
+    | Nonadd32 a -> Nonadd32 (cs_prelim_to_final a)
+    | Add a -> Add (cs_prelim_to_final a)
+    | Sank a -> Sank (cs_prelim_to_final a)
+    | Dynamic a -> Dynamic (cs_prelim_to_final a)
+    | Kolmo a -> Kolmo (cs_prelim_to_final a)
+    | Set a ->
+          let r = setrec a.preliminary prelim_to_final in
+          Set { a with preliminary = r; final = r; }
 
 let all_prelim_to_final ({characters = chars} as node) =
     {node with
@@ -1450,33 +1490,9 @@ let node_child_edges {num_child_edges = c} = c
 
 let get_code {taxon_code=taxcode} = taxcode
 
-let tree_size n = 
-IFDEF USE_LIKELIHOOD THEN
-    let tree_size acc = function
-        | StaticMl a -> 
-            begin match a.time with
-            | Some x,Some y,_ -> acc +. x +. y
-            | _ -> failwith "Seriously?"
-            end
-        | Dynamic a -> 
-            begin match a.preliminary with
-            | DynamicCS.MlCS _ -> 
-                begin match a.time with
-                | Some x,Some y,_ -> acc +. x +. y
-                | _ -> failwith "Seriously?"
-                end
-            | _ -> acc
-            end
-        | _ -> acc
-    in
-    List.fold_left (tree_size) 0.0 n.characters
-ELSE
-    0.0
-END
-
 let prior n = 
 IFDEF USE_LIKELIHOOD THEN
-    let tree_size acc = function
+    let priors acc = function
         | Dynamic a -> 
             begin match a.preliminary with
             | DynamicCS.MlCS x -> MlDynamicCS.prior x
@@ -1484,7 +1500,7 @@ IFDEF USE_LIKELIHOOD THEN
             end
         | _ -> acc
     in
-    List.fold_left (tree_size) 0.0 n.characters
+    List.fold_left (priors) 0.0 n.characters
 ELSE
     0.0
 END
@@ -2872,15 +2888,12 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and n33 = make_set_of_list n33
         and add = make_set_of_list add in
         let cost_mode = match static_ml with
+            | _  when is_fixedstates  -> `Fixedstates
             | _::_                    -> `Likelihood
             | [] when has_dynamic_mpl -> `SumLikelihood
             | [] when has_dynamic_mal -> `Likelihood
             | [] when has_dynamic_aln -> `SumLikelihood
             | _                       -> `Parsimony
-        in
-       let cost_mode = match is_fixedstates with
-        | true -> `Fixedstates
-        | _ -> cost_mode
         in
         current_snapshot "end nonadd set2";
         let r = 
@@ -4210,7 +4223,6 @@ module Standard :
         let median = median
         let apply_time = apply_time
         let extract_states a d _ c n = extract_states a d c n
-        let tree_size _ = tree_size
         let min_prior = prior
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
@@ -4249,7 +4261,7 @@ module Standard :
         module Union = Union
         let for_support = for_support
         let root_cost = root_cost
-        let tree_cost a b = (root_cost b) +. (total_cost a b)
+        let tree_cost a b = (root_cost b) +. (total_cost a None b)
         let to_single root _ a _ b sets =
             let combine = match root with
                 | Some _ -> true

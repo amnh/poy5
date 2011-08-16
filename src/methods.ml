@@ -98,7 +98,7 @@ type characters = [
     | `Some of (bool * int list)
     | `AllStatic
     | `AllDynamic
-    | `Range of (bool * int * int)
+    | `Range of (bool * string * int * int)
     | taxon_and_characters
 ]
 

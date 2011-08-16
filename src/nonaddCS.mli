@@ -48,6 +48,8 @@ type e = int * int (** The type of individual set elements *)
 
 (** {2 Codes and colors} *)
 
+val mem : int list option -> t -> bool
+
 external code : ct -> int = "char_nonadd_CAML_code"
 
 external union : ct -> cu -> cu -> cu = "char_nonadd_CAML_basic_union"

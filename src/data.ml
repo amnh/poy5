@@ -466,7 +466,7 @@ type bool_characters = [
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
-    | `Range of (bool * int * int)
+    | `Range of (bool * string * int * int)
 ]
 
 type characters = [
@@ -478,16 +478,16 @@ type characters = [
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
-    | `Range of (int * int)
+    | `Range of (string * int * int)
 ]
 
-let transform_range_to_codes x y =
+let transform_range_to_codes file x y =
     assert( x < y );
     let rec loop_ acc x y =
-        if x = y then List.rev (y::acc)
-        else loop_ (x::acc) (x+1) y
+        if x > y then acc
+        else loop_ ((file^":"^(string_of_int x))::acc) (x+1) y
     in
-    `Some (loop_ [] x y)
+    `Names (loop_ [] x y)
 
 let create_ht () = Hashtbl.create 1667 
 
@@ -695,7 +695,8 @@ let get_likelihood_model data chars =
     | h::t ->
         if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
             h
-        else failwith "Inconsistent Model over characters"
+        else 
+            failwith "Inconsistent Model over characters"
     | []   ->
         failwith "No Characters found"
 
@@ -876,26 +877,26 @@ let print (data : d) =
     List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
     Printf.printf "\n check character_codes: \n%!";
     Hashtbl.iter print_character_codes data.character_codes;
-    Printf.printf "\n check taxon_characters:\n %!";
-    Hashtbl.iter print_taxon data.taxon_characters;
-    Printf.printf "\n check search_base_characters:\n %!";
-    Hashtbl.iter print_taxon data.searchbase_characters;
-    Printf.printf "\n check character_specs:\n%!";
-    Hashtbl.iter print_specs data.character_specs;
+(*    Printf.printf "\n check taxon_characters:\n %!";*)
+(*    Hashtbl.iter print_taxon data.taxon_characters;*)
+(*    Printf.printf "\n check search_base_characters:\n %!";*)
+(*    Hashtbl.iter print_taxon data.searchbase_characters;*)
+(*    Printf.printf "\n check character_specs:\n%!";*)
+(*    Hashtbl.iter print_specs data.character_specs;*)
     Printf.printf "\n check character_sets:\n%!";
     Hashtbl.iter print_csets data.character_sets;
-    Printf.printf "\n check models:\n%!";
-    print_models (data.dynamics @ data.static_ml);
-    let () = match data.branches with
-        | Some databranches -> 
-            Printf.printf "\n check branches:\n%!";
-            Hashtbl.iter print_branches databranches
-        | None -> ()
-    in
-    Printf.printf "\n Check Dynamic->Static Codes\n%!";
-    IntMap.iter print_int_intlist data.dynamic_static_codes;
-    Printf.printf "\n Check Static->Dynamic Codes\n%!";
-    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;
+(*    Printf.printf "\n check models:\n%!";*)
+(*    print_models (data.dynamics @ data.static_ml);*)
+(*    let () = match data.branches with*)
+(*        | Some databranches -> *)
+(*            Printf.printf "\n check branches:\n%!";*)
+(*            Hashtbl.iter print_branches databranches*)
+(*        | None -> ()*)
+(*    in*)
+(*    Printf.printf "\n Check Dynamic->Static Codes\n%!";*)
+(*    IntMap.iter print_int_intlist data.dynamic_static_codes;*)
+(*    Printf.printf "\n Check Static->Dynamic Codes\n%!";*)
+(*    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;*)
     print_newline ()
 
 
@@ -3811,7 +3812,7 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
     in
     let rec items chs = match chs with
         | `Some code_ls -> code_ls 
-        | `Range (x,y) -> items (transform_range_to_codes x y)
+        | `Range (file, x,y) -> items (transform_range_to_codes file x y)
         | `Names name_ls -> get_code_from_name data name_ls
         | `Random fraction ->
                 check_fraction fraction;
@@ -3842,7 +3843,7 @@ and get_chars_codes data = function
             check_fraction fraction;
             select_random_sublist fraction (get_all_codes data)
     | `Some codes -> codes
-    | `Range (x,y) -> get_chars_codes data (transform_range_to_codes x y)
+    | `Range (file,x,y) -> get_chars_codes data (transform_range_to_codes file x y)
     | `Names names ->
             let names = 
                 warn_if_repeated_and_choose_uniquely names 
@@ -3898,7 +3899,7 @@ let get_code_from_characters_restricted_comp kind d ch =
         | `Some (dont_complement, x) -> dont_complement, `Some x
         | `Names (dont_complement, x) -> dont_complement, `Names x
         | `CharSet (dont_complement, x) -> dont_complement, `CharSet x
-        | `Range (dont_complement, x, y) -> dont_complement, transform_range_to_codes x y
+        | `Range (dont_complement, file, x, y) -> dont_complement, transform_range_to_codes file x y
         | `Random _ | `Missing _ | `All | `AllDynamic | `AllStatic as x -> true, x
     in
     let chars = get_code_from_characters_restricted kind d chars in
@@ -3914,7 +3915,7 @@ let get_chars_codes_comp data ch =
         | `Some (x, y) -> x, `Some y
         | `Names (x, y) -> x, `Names y 
         | `CharSet (x, y) -> x, `CharSet y
-        | `Range (x,a,b) -> x, transform_range_to_codes a b
+        | `Range (x,file,a,b) -> x, transform_range_to_codes file a b
         | `Random _ | `Missing _ | `All | `AllStatic | `AllDynamic as x -> true, x
     in
     let codes = get_chars_codes data ch in
@@ -3926,15 +3927,20 @@ let get_chars_codes_comp data ch =
 
 
 (* non/functional creation of sets *)
-let make_sets (functional:bool) (data:d) (name:string) (ccodes:Methods.characters) = 
+let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods.characters) = 
     let sets,nsets = 
         if functional 
             then Hashtbl.copy data.character_sets, Hashtbl.copy data.character_nsets
             else data.character_sets, data.character_nsets
     in
     let ncodes =
-        List.map (fun x -> Hashtbl.find data.character_codes x) 
-                 (get_chars_codes_comp data ccodes)
+        List.map
+            (fun x -> 
+                try Hashtbl.find data.character_codes x 
+                with | Not_found ->
+                    print data;
+                    failwithf "Cannot find %d in character_codes" x)
+            (get_chars_codes_comp data ccodes)
     in
     let () = Hashtbl.add sets name ncodes in
     let () = List.iter (fun c -> Hashtbl.add nsets c name) ncodes in
@@ -3978,10 +3984,12 @@ let categorize_sets data : int list list =
     (* add un-named sets from characters *)
     let fcodes = 
         List.filter
-            (fun x -> inner_find x named_sets)
+            (fun x -> not (inner_find x named_sets))
             (get_chars_codes_comp data `All)
     in
-    fcodes :: named_sets
+    match fcodes with
+    | [] -> named_sets
+    | fc -> fc :: named_sets
 
 
 let make_codon_partitions functional data name ccodes =
@@ -4514,8 +4522,8 @@ let get_tran_code_meth data meth =
             match a with
             | `Some (dont_complement, codes) ->
                     dont_complement, `Some codes
-            | `Range (dont_complement, x,y) ->
-                    dont_complement, transform_range_to_codes x y
+            | `Range (dont_complement, file, x,y) ->
+                    dont_complement, transform_range_to_codes file x y
             | `Names (dont_complement, names) ->
                     dont_complement, `Names names
             | `CharSet (dont_complement, names) ->

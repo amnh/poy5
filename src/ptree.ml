@@ -212,15 +212,17 @@ module type Tree_Operations =
             (a, b) p_tree -> incremental list -> (a, b) p_tree
 
         val to_formatter :  
-            Methods.diagnosis_report_type ->
-            Xml.attributes -> (a, b) p_tree ->
-            Xml.xml
+            Methods.diagnosis_report_type -> Xml.attributes -> (a, b) p_tree -> Xml.xml
 
         val branch_table : (a,b) p_tree -> 
                 ((int * int),[ `Single of float | `Name]) Hashtbl.t
 
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
-        val tree_size : (a, b) p_tree -> float
+
+        val total_cost : (a, b) p_tree -> [`Adjusted | `Unadjusted] -> int list option -> float
+            
+        val tree_size : (a, b) p_tree -> int list option -> float
+
         val unadjust : (a, b) p_tree -> (a, b) p_tree
 
         val refresh_all_edges : 
@@ -2040,7 +2042,7 @@ let build_tree_with_names_n_costs collapse tree cost =
         let data = get_node_data code tree in
         match get_node code tree with
         | Tree.Interior (_, par, _, _) ->
-                string_of_float (Node.total_cost (Some par) data)
+                string_of_float (Node.total_cost (Some par) None data)
         | _ ->  try Data.code_taxon (Node.taxon_code data) tree.data
                 with _ -> ""
     in
@@ -2051,12 +2053,9 @@ let build_forest collapse tree cost =
     let extract_names code =
         let data = get_node_data code tree in
         match get_node code tree with
-        | Tree.Interior (_, par, _, _) ->
-(*                string_of_float (Node.total_cost (Some par) data)*)
-                    ""
-        | _ ->
-                try Data.code_taxon (Node.taxon_code data) tree.data
-                with _ -> ""
+        | Tree.Interior (_, par, _, _) -> ""
+        | _ -> try Data.code_taxon (Node.taxon_code data) tree.data
+               with _ -> ""
     in
     let trees = build_trees tree.tree extract_names collapse_f None cost in
     trees
@@ -2101,10 +2100,9 @@ let build_forest_with_names_n_costs collapse tree cost branches =
         let data = get_node_data code tree in
         match get_node code tree with
         | Tree.Interior (_, par, _, _) ->
-                string_of_float (Node.total_cost (Some par) data)
-        | _ ->
-                try Data.code_taxon (Node.taxon_code data) tree.data
-                with _ -> ""
+               string_of_float (Node.total_cost (Some par) None data)
+        | _ -> try Data.code_taxon (Node.taxon_code data) tree.data
+               with _ -> ""
     in
     if branches then
         let branches = Tree_Ops.branch_table tree in

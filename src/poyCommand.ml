@@ -52,7 +52,7 @@ type old_identifiers = [
     | `AllStatic
     | `Missing of bool * int
     | `Random of float
-    | `Range of (bool * int * int)
+    | `Range of (bool * string * int * int)
 ]
 
 type identifiers = [
@@ -418,8 +418,8 @@ let transform_transform acc (id, x) =
     match id with
     | `Files _ ->
             let msg = "In@ transformations@ of@ characters,@ specifying@ a@ " ^
-            "character@ set@ using@ a@ file@ is@ not@ allowed.@ I@ will@ " ^
-            "ignore@ this@ command." in
+                      "character@ set@ using@ a@ file@ is@ not@ allowed.@ I@ will@ " ^
+                      "ignore@ this@ command." in
             Status.user_message Status.Error msg;
             acc
     | #Methods.characters as id ->
@@ -2392,8 +2392,8 @@ let create_expr () =
         identifiers:
             [
                 [ LIDENT "not" ; LIDENT "files"; ":"; 
-                    left_parenthesis; x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis
-                        -> `Files (false, x) ] |
+                    left_parenthesis; x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis ->
+                        `Files (false, x) ] |
                 [ x = old_identifiers -> (x :> identifiers) ] |
                 [ LIDENT "files"; ":"; left_parenthesis; x = LIST0 [x = STRING
                 -> x] SEP ","; 
@@ -2406,11 +2406,11 @@ let create_expr () =
                     x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Names (false, x) ] |
                 [ LIDENT "range"; ":"; left_parenthesis;
-                    x = INT; ","; y = INT; right_parenthesis ->
-                        `Range (true, int_of_string x, int_of_string y) ] |
+                    file = STRING; ","; x = INT; ","; y = INT; right_parenthesis ->
+                        `Range (true, file, int_of_string x, int_of_string y) ] |
                 [ LIDENT "not"; LIDENT "range"; ":"; left_parenthesis;
-                    x = INT; ","; y = INT; right_parenthesis ->
-                        `Range (false, int_of_string x, int_of_string y) ] |
+                    file = STRING; ","; x = INT; ","; y = INT; right_parenthesis ->
+                        `Range (false, file, int_of_string x, int_of_string y) ] |
                 [ LIDENT "not"; LIDENT "sets"; ":"; left_parenthesis;
                     x = LIST0 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `CharSet (false, x) ] |

@@ -192,7 +192,8 @@ module type Tree_Operations =
     (** [root_costs t] returns all possible roots in a tree (eg. every edge)
     * and the respective tree cost associated with it. *)
     val root_costs : (a, b) p_tree -> (Tree.edge * float) list
-    val tree_size : (a, b) p_tree -> float
+    val total_cost : (a, b) p_tree -> [`Adjusted | `Unadjusted] -> int list option -> float
+    val tree_size : (a, b) p_tree -> int list option -> float
     val unadjust : (a, b) p_tree -> (a, b) p_tree
     val refresh_all_edges : 
         a option -> bool -> (int * int) option -> (a,b) p_tree -> (a,b) p_tree

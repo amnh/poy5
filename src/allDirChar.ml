@@ -328,11 +328,39 @@ module F : Ptree.Tree_Operations
                     adjusted_component_cost = cost;
                 }
 
+    let total_cost ptree adj chars =
+        let total_handle_cost acc h =
+            match (Ptree.get_component_root h ptree).Ptree.root_median with
+                | Some ((`Edge (a,b)),c) -> 
+                    acc +. (AllDirNode.AllDirF.total_cost None chars c)
+                | None
+                | Some _ -> acc
+        in
+        IntSet.fold
+            (fun handle acc_cost -> total_handle_cost acc_cost handle)
+            (Ptree.get_handles ptree)
+            0.0
+
 
     (* calculate the size of a tree under likelihood; this is the sum of all the
      * branch lengths. The sum of each character set is calculated; this might
      * be better if each one is seperate(?). 0 is returned under other critera. *)
-    let tree_size ptree =
+    let tree_size ptree chars =
+        let has_code codes chars = match chars with
+            | None    -> true
+            | Some [] -> false
+            | Some xs -> 
+                let rec found i = 
+                    if i = Array.length codes 
+                        then false
+                        else begin
+                            if List.mem codes.(i) xs
+                                then true
+                                else found (i+1)
+                        end
+                in
+                found 0
+        in
         let edge_cost (Tree.Edge (a,b)) =
             let lst =
                 try AllDirNode.AllDirF.get_times_between
@@ -341,9 +369,11 @@ module F : Ptree.Tree_Operations
                     AllDirNode.AllDirF.get_times_between
                         (Ptree.get_node_data b ptree) (Some (Ptree.get_node_data a ptree))
             in
-            List.fold_left (fun acc x -> match x with | _,Some x -> x +. acc 
-                                                      | _,None   -> acc)
-                           0.0 lst
+            List.fold_left
+                (fun acc x -> match x with 
+                    | c,Some x when has_code c chars -> x +. acc 
+                    | _,_ -> acc)
+                0.0 lst
         in
         Tree.EdgeMap.fold
             (fun k _ acc -> acc +. (edge_cost k))
@@ -440,7 +470,7 @@ module F : Ptree.Tree_Operations
             info_user_message "Other Character Cost: %f" not_single_character_cost;
             info_user_message "Root Cost: %f" (root_cost);
             info_user_message "Prior Cost: %f" (pi_cost);
-            info_user_message "Size of Tree: %f" (tree_size new_tree);
+            info_user_message "Size of Tree: %f" (tree_size new_tree None);
         end;
         let res =
             single_characters_cost +. not_single_character_cost +. root_cost +.  pi_cost
@@ -1641,10 +1671,10 @@ module F : Ptree.Tree_Operations
         let new_cost =
             let tree_cost =
                 Ptree.get_node_data tree_node_id ptree
-                    --> AllDirNode.AllDirF.total_cost (Some clade_node_id)
+                    --> AllDirNode.AllDirF.total_cost (Some clade_node_id) None
             and clade_cost =
                 Ptree.get_node_data clade_node_id ptree
-                    --> AllDirNode.AllDirF.total_cost (Some tree_node_id)
+                    --> AllDirNode.AllDirF.total_cost (Some tree_node_id) None
             in
             if debug_join_fn then begin
                 info_user_message "Previous Cost: %f" prev_cost;
@@ -1701,7 +1731,7 @@ module F : Ptree.Tree_Operations
                         | None -> failwith "AllDirChar.break_fn Huh?"
                     in
                     AllDirNode.AllDirF.root_cost clade_root,
-                    AllDirNode.AllDirF.total_cost None clade_root
+                    AllDirNode.AllDirF.total_cost None None clade_root
                 in
                 let bd =
                     (prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost))) -.  tc

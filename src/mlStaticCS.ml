@@ -40,6 +40,21 @@ type t = {
     chars   : s;
 }
 
+let mem cs t = match cs with
+    | None    -> true
+    | Some [] -> false
+    | Some xs -> 
+        let rec found i = 
+            if i = Array.length t.codes 
+                then false
+                else begin
+                    if List.mem t.codes.(i) xs
+                        then true
+                        else found (i+1)
+                end
+        in
+        found 0
+
 external median1_gtr: (* median_gtr U D Ui t a b r p -> output_c *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->

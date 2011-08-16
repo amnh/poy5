@@ -81,9 +81,7 @@ type t =
 
 val is_fixedstates : t -> bool
 
-
 type u = U_SeqCS of SeqCS.Union.u | U_Others
-val failwith_todo : string -> 'a
 
 (** [total_cost a] returns the total cost to create
 *  dynamic character set [a]*)
@@ -118,6 +116,9 @@ val state : t -> Data.dyna_state_t
 
 (** [code a] returns the code of dynamic character set [a] *)
 val code : t -> int
+
+(** [mem c t] returns true if code [c] is a part of this character [t] **)
+val mem : int list option -> t -> bool
 
 (** [leaf_sequences a] turns dynamic character set [a] 
 * into a set of chromosome arrays *)

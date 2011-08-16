@@ -84,13 +84,9 @@ module type S = sig
     * otherwise, if it was created using [median a b] (or subsequently the
     * [final_states] of such a median), then [total_cost n = (total_cost a) +.
     * (total_cost b) +. (distance a b)]. *)
-    val total_cost : int option -> n -> float
+    val total_cost : int option -> int list option -> n -> float
 
     val tree_cost : int option -> n -> float
-
-    (** sum of branch lengths between the node to the direction specified in the
-     * optional argumentn (opposite of the subtree defined in the direction). *)
-    val tree_size : int option -> n -> float
 
     (** return the minimum prior in one of directions (if more then one) held
      * by the node on the median sequence *)
@@ -101,10 +97,6 @@ module type S = sig
     * using [median a b] (or subsequently the [final_states] of such a median), then
     * [node_cost n = distance a b]. *)
     val node_cost : int option -> n -> float
-
-    (** [set_total_cost c n] creates a fresh node [e] such that 
-    * [total_cost e = c], but otherwise undistinguishable from [n]. *)
-(*    val set_total_cost : float -> n -> n*)
 
     (** [update_leaf n] sets as the final state of [n] its preliminary state of
     * [n]. *)
