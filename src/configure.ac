@@ -217,6 +217,8 @@ else
    AC_MSG_RESULT( [Not Using Concorde ] )
 fi
 
+AC_CHECK_LIB([z],[zlibVersion])
+
 #AS_IF([test $USE_CONCORDE = "true"],
 #				[
 #                CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE";
