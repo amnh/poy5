@@ -513,7 +513,6 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     size_t size; 
     size_t combmatrix_size; 
     size_t comb2list_size;
-    int oldsize = res -> ori_a_sz;
 #ifndef USE_LARGE_ALPHABETS
     if (comb_num > 255) 
         failwith ("Apparently you are analyzing large alphabets. This version of POY was configured without the --enable-large-alphabets option. To run this analysis you need to enable that option at compile time. Either reconfigured and compile yourself the program,   or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
@@ -563,15 +562,10 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     comb2list_size = sizeof(int) * (comb_num+1) * (2+1);
     res->combmap = (int *) calloc(combmatrix_size,1);
     res->comb2list = (int *) calloc( comb2list_size,1);
-    if( (level > 1)&&(level<=a_sz) )  
-    {    
+    if( (level > 1)&&(level<=a_sz) )  {    
        size = combmatrix_size;
-       if (debug) {printf ("use level,reset size to combmatrix_size=%d\n",combmatrix_size); fflush(stdout);}
-    }
-    else
-    {
+    } else {
         size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(int);
-        if (debug) {printf("not use level,set size to %d\n",size); fflush(stdout);}
     }
     if (0==size)
     {   printf ("alphabet size=%d,combinations=%d,comb_num=%d,lcm=%d\n", a_sz, combinations,comb_num,res->lcm);
@@ -580,7 +574,6 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         failwith ("Your cost matrix is too large to fit in your memory.\
                 I can't continue with your data loading.");
     }
-   if (debug) {printf("calloc int of SIZE = %d\n",size); fflush(stdout);}
    res->cost = (int *) calloc (size, 1);
     if(res->cost == NULL)
         failwith("ERROR: cannot alloc res->cost");
@@ -593,11 +586,11 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     res->tail_cost = (int *) calloc (size, 1);
     if(res->tail_cost==NULL)
         failwith("ERROR: cannot alloc res->tail_cost");
-    if( (level >1)&&(level<=a_sz) )
-    size =  sizeof(SEQT) * (comb_num+1) * (comb_num+1) ;
-    else
-    size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(SEQT);
-    if (debug) {fprintf(stdout, "calloc seqt of SIZE = %d\n",size); fflush(stdout);}
+    if( (level >1)&&(level<=a_sz) ){
+        size =  sizeof(SEQT) * (comb_num+1) * (comb_num+1) ;
+    } else {
+        size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(SEQT);
+    }
     if (0==size)
         printf ("alphabet size: %d,%d \n", a_sz, combinations);
     if (0 == size)
@@ -1332,20 +1325,17 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     if (uselevel==1) alphabet_size = c->map_sz;
     else alphabet_size = c->a_sz;
     for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
-        if(uselevel == 1) 
-        {
-             //tmp_cost = cm_get_row_level (tcm, j, c->map_sz+1);
-        }
-        else
-            tmp_cost = cm_get_row (tcm, j, c->lcm);
-        /* We fill almost the complete row, only the first (aligning with the
-         * gap), is filled using the tail cost */
+
         tmp_to[0] = tail[j];
-        for (i = 1; i < l; i++) {
-            if (uselevel==1) 
-            tmp_to[i] = cm_get_cost(tcm,j,begin[i],c->map_sz+1);
-            else 
+        if(uselevel == 1) {
+            for (i = 1; i < l; i++) {
+                tmp_to[i] = cm_get_cost(tcm,j,begin[i],c->map_sz+1);
+            }
+        } else {
+            tmp_cost = cm_get_row (tcm, j, c->lcm);
+            for (i = 1; i < l; i++) {
                  tmp_to[i] = tmp_cost[begin[i]];
+            }
         }
     }
     return;
@@ -1385,10 +1375,11 @@ cm_precalc_4algn_3d (const cm_3dt c, int *to, const seqt s) {
     else alphabet_size = c->a_sz;
     for (j = 1; j <=alphabet_size; j++) 
         for (k = 1; k <=alphabet_size; k++) {
-            if (uselevel==1)
-                cm_get_row_3d_level (tcm, j, k, c->map_sz+1);
-            else
+            if (uselevel==1){
+                tmp_cost = cm_get_row_3d_level (tcm, j, k, c->map_sz+1);
+            } else {
                 tmp_cost = cm_get_row_3d (tcm, j, k, c->lcm);
+            }
             for (i = 0; i < l; i++) {
                 sequen = seq_get (s, i);
                 precalc_pos = (int *) cm_get_pos_in_precalc (to, l, c->a_sz, j, k, i);
