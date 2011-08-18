@@ -3464,7 +3464,7 @@ algn_calculate_from_2_aligned (seqt s1, seqt s2, cmt c, int *matrix, int useleve
                 )
             {
                 if (
-                        (uselevel==0) &&(c->combinations && (s1b & gap)) || 
+                        ((uselevel==0) && (c->combinations && (s1b & gap))) || 
                         ((uselevel==0) && (!c->combinations) && (s1b == gap)) ||
                         ((uselevel==1) && (s1b>=gap_startNO))
                     ) 
