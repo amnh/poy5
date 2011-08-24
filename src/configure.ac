@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.67])
+AC_PREREQ([2.60])
 AC_INIT([POY 4],[see VERSION],[poy4@googlegroups.com])
 AC_CONFIG_SRCDIR([add.c])
 AC_CONFIG_HEADERS([config.h])
@@ -80,27 +80,7 @@ CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
 USE_LIKELIHOOD="true"
-
-# Sweet macro to create AC_ARG_DISABLE
-AC_DEFUN([AC_ARG_DISABLE], [
-    disablestring=`echo "$1" | sed 's/_/-/g'`
-    AC_MSG_CHECKING([--disable-$disablestring])
-    AC_ARG_ENABLE($1, [$2],
-        [
-            if test "$enableval" = yes; then
-                $3="true"
-            else
-                $3="false"
-            fi 
-        ],[
-           $3="true"
-        ])
-    if [ test $3 = "false";] then
-        AC_MSG_RESULT(yes)
-    else
-        AC_MSG_RESULT(no)
-    fi
-])
+LIBS="-lm $LIBS"
 
 # System dependent options
 case ${OS_INFORMATION} in
@@ -163,15 +143,11 @@ AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
                [USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"],
                [USE_XSLT="false"])
 
-AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
-              [Enable the use of static and dynamic likelihood functions. We
+AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--disable-likelihood],
+              [Disable the use of static and dynamic likelihood functions. We
                will automatically detect and enable likelihood if we can --we
                require lapack routines to be installed.])],
-                [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"])
-
-AC_ARG_DISABLE([likelihood], [AS_HELP_STRING([--disable-likelihood],
-              [Explicitly disable likelihood. Override the auto-detection and
-               do not compile with likelihood enabled. ])], USE_LIKELIHOOD)
+                [USE_LIKELIHOOD="false"])
 
 #AC_ARG_ENABLE([concorde], [AS_HELP_STRING([--enable-concorde],
 #              [Enable the use of "CHLINKERN" and "GREEDYLK" tsp median solver. This
@@ -179,9 +155,9 @@ AC_ARG_DISABLE([likelihood], [AS_HELP_STRING([--disable-likelihood],
 #                [USE_CONCORDE="true"; DUSE_CONCORDE="-DUSE_CONCORDE";
 #                 OUSE_CONCORDE=",use_concorde"], [USE_CONCORDE="false"])
 
-AC_ARG_ENABLE([sse3], [AS_HELP_STRING([--enable-sse3],
-              [Enable the Streaming SIMD Extensions for likelihood characters.])],
-               [USE_SSE3="true"],[USE_SSE3="false"])
+#AC_ARG_ENABLE([sse3], [AS_HELP_STRING([--enable-sse3],
+#              [Enable the Streaming SIMD Extensions for likelihood characters.])],
+#               [USE_SSE3="true"],[USE_SSE3="false"])
 
 AC_ARG_ENABLE([large-alphabets], [AS_HELP_STRING([--enable-large-alphabets],
               [Enable the analysis of alphabets larger than 255 elements. When using this option, more memory will be needed to store each tree (4 or 8 times more for 32 and 64 bit computers respectively). This option is only needed for large alphabets if you use custom alphabets. Normal nucleotide, aminoacid, or morphological analyses are nor affected by this option.])],
@@ -230,50 +206,34 @@ fi
 #               ],
 #                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
-# Time to handle the lapack checks
-AS_IF(  [test $USE_LIKELIHOOD = "false"],
-        [AC_MSG_RESULT( [Force Disable Likelihood])],
-        [AC_CHECK_LIB([lapack],[main],
-            [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
-             OUSE_LIKELIHOOD=",use_likelihood"; AC_MSG_RESULT( [Enabling Likelihood])]
-            )])
+# check all the individual functions for the lapack routines
+#       AS_IF([test $USE_LIKELIHOOD = "true"],
+#           [AC_CHECK_LIB([lapack],[dsyev], [AC_CHECK_LIB([lapack],[dgeev], [AC_CHECK_LIB([lapack],[dgemm],
+#           [AC_CHECK_LIB([lapack],[dgetri], [AC_CHECK_LIB([lapack],[dgetrf],
+#                   [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
+#                   [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
+#                   [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],
+#                   [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])],
+#           [AC_MSG_RESULT([Not including LAPACK])])
 
-case ${OS_INFORMATION} in
-    *-apple-*)
-        AS_IF([test $USE_LIKELIHOOD = "true"],
-            [LIBS="-framework veclib $LIBS"; AC_DEFINE(HAVE_LIBLAPACK, 1, "lapack confirmation")],
-            [AC_MSG_RESULT([Not including LAPACK])])
-        ;;
-    *)
-        AS_IF([test $USE_LIKELIHOOD = "true"],
-            [AC_CHECK_LIB([lapack],[dsyev_], [AC_CHECK_LIB([lapack],[dgeev_], [AC_CHECK_LIB([lapack],[dgemm_],
-            [AC_CHECK_LIB([lapack],[dgetri_], [AC_CHECK_LIB([lapack],[dgetrf_],
-                    [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
-                    [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
-                    [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],
-                    [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])],
-            [AC_MSG_RESULT([Not including LAPACK])])
-        ;;
-esac
-
-case ${OS_INFORMATION} in
-    *-apple-*)
+#case ${OS_INFORMATION} in
+#    *-apple-*)
 #        AS_IF([test $USE_SSE3 = "true"],
 #            [AC_CHECK_HEADER([pmmintrin.h],
 #                [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
 #                [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
 #            AC_MSG_RESULT([not using SSE3]))
-        ;;
-    *)
-        AS_IF([test $USE_SSE3 = "true"],
-            [AC_CHECK_HEADER([pmmintrin.h],
-                   [AC_CHECK_FUNC([posix_memalign],
-                       [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
-                     [AC_MSG_FAILURE([posix_memalign not found])])],
-                 [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
-            AC_MSG_RESULT([Not using SSE3]))
-        ;;
-esac
+#        ;;
+#    *)
+#        AS_IF([test $USE_SSE3 = "true"],
+#            [AC_CHECK_HEADER([pmmintrin.h],
+#                   [AC_CHECK_FUNC([posix_memalign],
+#                       [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
+#                     [AC_MSG_FAILURE([posix_memalign not found])])],
+#                 [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
+#            AC_MSG_RESULT([Not using SSE3]))
+#        ;;
+#esac
 
 # Check if the user wants SSE3 instructions, copy cflags to temporary variable
 # to compile test SSE3
@@ -408,6 +368,24 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STAT
 AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
+
+# Time to handle the lapack checks
+case ${OS_INFORMATION} in
+    *-apple-*)
+        AS_IF([test $USE_LIKELIHOOD = "true"],
+            [LIBS="-framework veclib $LIBS"; AC_DEFINE(HAVE_LIBLAPACK, 1, "lapack confirmation")],
+            [AC_MSG_RESULT([Not enabling Likelihood])])
+        ;;
+    *)
+        AS_IF(  [test $USE_LIKELIHOOD = "false"],
+            [AC_MSG_RESULT( [Not enabling Likelihood])],
+            [AC_CHECK_LIB([lapack],[main],
+                [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"; 
+                 AC_MSG_RESULT( [Found lapack and enabling Likelihood]); LIBS="-llapack -lblas -lgfortran $LIBS"],
+                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood] )]
+        )])
+        ;;
+esac
 
 CC_VERSION="`$CC --version`"
 POY_VERSION_NUMBER="`$MERCURIAL`"

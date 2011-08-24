@@ -1399,16 +1399,20 @@ END
 
 (** replace the third component of the time with the value passed *)
 let replace_parent_time node time =
-    let replace_third (a,b,_) x = (a,b,x) in
-    let cs_replace node time = match node with
-        | StaticMl a -> 
-            StaticMl { a with time = replace_third a.time time; }
-        | Dynamic a ->
-            Dynamic { a with time = replace_third a.time time; }
-        | x -> x (* we don't use time in other characters *)
-    in
-    { node with
-        characters = List.map2 cs_replace node.characters time; }
+    IFDEF USE_LIKELIHOOD THEN
+        let replace_third (a,b,_) x = (a,b,x) in
+        let cs_replace node time = match node with
+            | StaticMl a -> 
+                StaticMl { a with time = replace_third a.time time; }
+            | Dynamic a ->
+                Dynamic { a with time = replace_third a.time time; }
+            | x -> x (* we don't use time in other characters *)
+        in
+        { node with
+            characters = List.map2 cs_replace node.characters time; }
+    ELSE
+        node
+    END
 
 (** [median_w_times gp nd1 nd2 t1 t2]
  * uses time data from two correct nodes, [time_1] and [time_2] for the

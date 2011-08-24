@@ -1215,7 +1215,6 @@ let process_trees data file =
         in
         let branches = if found then Some branches else None in
         Status.user_message Status.Information msg;
-        Printf.printf "Are we iterating the branches? %b\n%!" (not found);
         { data with trees = data.trees @ trees;
                     branches = branches;
                     iterate_branches = (not found);}
