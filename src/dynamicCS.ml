@@ -175,7 +175,7 @@ let leaf_sequences (a : t) = match a with
                                 | SeqCS.PartitionedDOS.First x ->
                                         `First x.SeqCS.DOS.sequence) x
                     | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
-                    (*| SeqCS.General_Prealigned x -> [|`DO x.GenNonAdd.seq|] *)
+                    | SeqCS.General_Prealigned x -> [|`DO x.GenNonAdd.seq|] 
                     | SeqCS.Relaxed_Lifted (t, x) -> 
                             let p = SeqCS.RL.find_smallest x in
                             [|`DO t.SeqCS.RL.sequence_table.(p)|]) !map

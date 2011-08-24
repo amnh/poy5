@@ -1119,11 +1119,11 @@ module MPLAlign : A = struct
             0
             dirs
 
+    let get_assignment = function
+        | Root     -> 0
+        | Align a | Delete a | Insert a -> a
+
     let print_mem (mem:floatmem) =
-        let get_assignment = function
-            | Root     -> 0
-            | Align a | Delete a | Insert a -> a
-        in
         printf "O:\n";
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do

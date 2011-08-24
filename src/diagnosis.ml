@@ -265,9 +265,7 @@ module Make
                         match Hashtbl.find data.Data.character_specs code with
                         | Data.Dynamic x -> 
                              (match x.Data.initial_assignment with
-                             |`GeneralNonAdd -> 
-                                Printf.printf "skip this general nonadd\n%!"; 
-                                acc
+                             |`GeneralNonAdd -> acc
                              | _ -> code::acc
                              )
                         | _ -> code :: acc

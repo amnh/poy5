@@ -881,26 +881,26 @@ let print (data : d) =
     List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
     Printf.printf "\n check character_codes: \n%!";
     Hashtbl.iter print_character_codes data.character_codes;
-(*    Printf.printf "\n check taxon_characters:\n %!";*)
-(*    Hashtbl.iter print_taxon data.taxon_characters;*)
-(*    Printf.printf "\n check search_base_characters:\n %!";*)
-(*    Hashtbl.iter print_taxon data.searchbase_characters;*)
-(*    Printf.printf "\n check character_specs:\n%!";*)
-(*    Hashtbl.iter print_specs data.character_specs;*)
+    Printf.printf "\n check taxon_characters:\n %!";
+    Hashtbl.iter print_taxon data.taxon_characters;
+    Printf.printf "\n check search_base_characters:\n %!";
+    Hashtbl.iter print_taxon data.searchbase_characters;
+    Printf.printf "\n check character_specs:\n%!";
+    Hashtbl.iter print_specs data.character_specs;
     Printf.printf "\n check character_sets:\n%!";
     Hashtbl.iter print_csets data.character_sets;
-(*    Printf.printf "\n check models:\n%!";*)
-(*    print_models (data.dynamics @ data.static_ml);*)
-(*    let () = match data.branches with*)
-(*        | Some databranches -> *)
-(*            Printf.printf "\n check branches:\n%!";*)
-(*            Hashtbl.iter print_branches databranches*)
-(*        | None -> ()*)
-(*    in*)
-(*    Printf.printf "\n Check Dynamic->Static Codes\n%!";*)
-(*    IntMap.iter print_int_intlist data.dynamic_static_codes;*)
-(*    Printf.printf "\n Check Static->Dynamic Codes\n%!";*)
-(*    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;*)
+    Printf.printf "\n check models:\n%!";
+    print_models (data.dynamics @ data.static_ml);
+    let () = match data.branches with
+        | Some databranches -> 
+            Printf.printf "\n check branches:\n%!";
+            Hashtbl.iter print_branches databranches
+        | None -> ()
+    in
+    Printf.printf "\n Check Dynamic->Static Codes\n%!";
+    IntMap.iter print_int_intlist data.dynamic_static_codes;
+    Printf.printf "\n Check Static->Dynamic Codes\n%!";
+    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;
     print_newline ()
 
 
@@ -4011,6 +4011,11 @@ let make_codon_partitions functional data name ccodes =
                 and () = Hashtbl.replace nset two name2
                 and () = Hashtbl.replace nset three name3 in
                 process_three (one::acc1) (two::acc2) (three::acc3) xss
+            (* non-divisible situations *)
+            | _::_::[]
+            |    _::[] ->
+                failwithf ("Data in %s has %d characters; not divisible by "^^
+                           "three and transformable to codons") name (List.length codes)
         in
         let acc1,acc2,acc3 = process_three [] [] [] codes in
         let () = Hashtbl.remove set name
@@ -4823,14 +4828,10 @@ let compute_fixed_states filename data code =
         | Some _ -> true
         | None   -> false
     in
-    let align_with_newkk =
-        let align_meth = dhs.pam.align_meth in
-        match align_meth with
-        | Some v -> 
-                match v with 
-                | `NewKK -> true
-                | _ -> false
-        (*| _ -> false*)
+    let align_with_newkk = match dhs.pam.align_meth with
+        | Some `NewKK -> true
+        | None        -> false
+        | Some _      -> false
     in
     let taxon_sequences = Hashtbl.create 1667 in
     let sequences_taxon = Hashtbl.create 1667 in

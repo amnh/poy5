@@ -199,6 +199,7 @@ AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
                 concorde_dir=$withval
               fi],[])
 
+
 AC_MSG_CHECKING([for concorde.a])
 if test -f "$concorde_dir/concorde.a"; then
    AC_MSG_RESULT([yes])
@@ -216,6 +217,7 @@ else
    OUSE_CONCORDE=""
    AC_MSG_RESULT( [Not Using Concorde ] )
 fi
+
 
 #AS_IF([test $USE_CONCORDE = "true"],
 #				[
@@ -399,6 +401,7 @@ AC_HEADER_TIME
 AC_STRUCT_TM
 
 # Checks for library functions.
+AC_SEARCH_LIBS([zlibVersion],[z])
 AC_SEARCH_LIBS([exp],[m])
 AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MALLOC

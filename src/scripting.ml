@@ -4490,44 +4490,38 @@ END
                         run
                     end
             | `Xslt (file, style) ->
-                    let () =
+                let () =
 IFDEF USE_XSLT THEN
                     let filename, chout = Filename.open_temp_file "results" ".xml" in
                     close_out chout;
                     Status.user_message Status.Information 
-                    ("Generating xml file in " ^ StatusCommon.escape filename);
+                            ("Generating xml file in " ^ StatusCommon.escape filename);
                     let ofilename = Some filename in
                     let fmt = Data.to_formatter [] run.data in
-                    let trs = 
-                        Sexpr.map 
+                    let trs =
+                        Sexpr.map
                             (fun tr ->
-                                let classify = false in
                                 let run =
-                                    update_trees_to_data 
-                                                ~classify false true 
-                                                {run with trees = `Single tr}
+                                    update_trees_to_data ~classify:false
+                                            false true {run with trees = `Single tr}
                                 in
                                 match run.trees with
-                                | `Single tr ->
-                                    TreeOps.to_formatter `Normal [] run.data tr
-                                | _ -> assert false)
-                        run.trees 
+                                | `Single tr -> TreeOps.to_formatter `Normal [] tr
+                                | _          -> assert false)
+                            run.trees
                     in
                     StatusCommon.Files.set_margin ofilename 0;
-                    Status.user_message (Status.Output (ofilename, false, []))
-                    " <Diagnosis>@\n";
+                    Status.user_message (Status.Output (ofilename, false, [])) " <Diagnosis>@\n";
                     PoyFormaters.data_to_status ofilename fmt;
-                    Sexpr.leaf_iter (PoyFormaters.trees_to_formater ofilename [])
-                    trs;
-                    Status.user_message (Status.Output (ofilename, false, []))
-                    " </Diagnosis>@\n%!";
+                    Sexpr.leaf_iter (PoyFormaters.trees_to_formater ofilename []) trs;
+                    Status.user_message (Status.Output (ofilename, false, [])) " </Diagnosis>@\n%!";
                     Xslt.process filename style file
 ELSE
                     Status.user_message Status.Error 
                     "This version of POY was not compiled with XSLT support."
 END
-                    in
-                    run
+                in
+                run
             | `Diagnosis (diag_report_type,filename) ->
     (*
     * For brief report -- the four lines has 
