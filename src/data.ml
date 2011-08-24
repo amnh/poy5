@@ -2776,7 +2776,7 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `Seq -> [T.clas, `String T.sequence]
+    | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
     | others -> 
             let clas = 
                 match others with
