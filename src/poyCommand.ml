@@ -24,6 +24,7 @@ let () = SadmanOutput.register "PoyCommand" "$Revision: 810 $"
 type read_option_t = [
 | `Init3D of bool
 | `Orientation of bool
+| `Prealigned 
 ]
 
 type otherfiles = [
@@ -2086,7 +2087,9 @@ let create_expr () =
                     read_options = LIST0 [x = read_optiona -> x] SEP ",";
                     right_parenthesis -> `Aminoacids (to_local a,read_options) ] |
              
-                [ LIDENT "custom_alphabet"; ":"; left_parenthesis; seq = STRING;","; cost_mat = STRING; OPT ",";
+                [ LIDENT "custom_alphabet"; ":"; 
+                  left_parenthesis; seq = STRING;","; 
+                  cost_mat = STRING; OPT ",";
                   read_options = LIST0 [x = read_optiona -> x] SEP ","; right_parenthesis 
                       -> `GeneralAlphabetSeq (`Local seq, `Local cost_mat, read_options)  ] |
 
@@ -2102,7 +2105,8 @@ let create_expr () =
         read_optiona:
             [
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
-                [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] 
+                [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
+                [LIDENT "prealigned" -> `Prealigned]
             ];
 
         tree_information_list:

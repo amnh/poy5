@@ -56,6 +56,7 @@ type init3D_t = [
 type read_option_t = [
 | `Init3D of bool
 | `Orientation of bool
+| `Prealigned
 ]
 
 type prealigned_costs = [

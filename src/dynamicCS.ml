@@ -175,6 +175,7 @@ let leaf_sequences (a : t) = match a with
                                 | SeqCS.PartitionedDOS.First x ->
                                         `First x.SeqCS.DOS.sequence) x
                     | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
+                    (*| SeqCS.General_Prealigned x -> [|`DO x.GenNonAdd.seq|] *)
                     | SeqCS.Relaxed_Lifted (t, x) -> 
                             let p = SeqCS.RL.find_smallest x in
                             [|`DO t.SeqCS.RL.sequence_table.(p)|]) !map
@@ -252,8 +253,9 @@ let poly_saturation x v =
 
 (** [of_array spec genome_arr code taxon num_taxa] 
 * creates a dynamic character set from genome array [genome_arr] *)
-let of_array spec genome_arr code taxon num_taxa = 
+let of_array spec genome_arr code taxon num_taxa =
     match spec.Data.state with
+    | `SeqPrealigned
     | `Ml | `Seq as meth ->
             let seq_arr = 
                 Array.map 
@@ -266,6 +268,7 @@ let of_array spec genome_arr code taxon num_taxa =
             in 
             let t = SeqCS.of_array spec seq_arr code taxon in
             begin match meth, spec.Data.lk_model with
+            | `SeqPrealigned,_  
             | `Seq,_ -> SeqCS t
             | `Ml,Some m -> MlCS (MlDynamicCS.make (spec.Data.alph) t m)
             | `Ml,None -> failwith "DynamicCS.of_array; No likelihood model found"

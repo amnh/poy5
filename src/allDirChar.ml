@@ -449,7 +449,8 @@ module F : Ptree.Tree_Operations
                 a b dist acc;
             dist +. acc
         in
-        let single_characters_cost = match root_edge with
+        let single_characters_cost = 
+            match root_edge with
             | _ when using_likelihood `Static new_tree -> 0.0
             | `Single _    -> 0.0
             | `Edge (a, b) ->

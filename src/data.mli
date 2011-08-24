@@ -34,6 +34,7 @@ type contents =
 type parsed_trees = ((string option * Tree.Parse.tree_types list) * string * int)
 
 type dyna_state_t = [
+|`SeqPrealigned
 (** A short sequence, no rearrangements are allowed*)
 | `Seq
 | `Ml
@@ -142,6 +143,7 @@ type fixed_state =
 type dyna_initial_assgn = [ 
     | `Partitioned of clip
     | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
+    | `GeneralNonAdd
     | `DO 
     | `FS of fixed_state ]
 
