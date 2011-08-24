@@ -1745,6 +1745,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     assert (x.state = y.state);
                     match x.state with
                     | `Ml -> ancestor_likelihood false
+                    | `SeqPrealigned -> ancestor_sequence true
                     | `Seq -> ancestor_sequence false
                     | `Chromosome -> ancestor_chrom true
                     | `Annotated -> ancestor_annchrom true
@@ -1900,7 +1901,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
  (* TODO ADD something to pick correctly the chromosome case *)
     let convert_a_taxon kind fi_ias_arr tax_ias_arr =
         match kind with 
-        | `Ml | `Seq ->
+        | `Ml | `Seq | `SeqPrealigned ->
                 let res =
                     Array_ops.map_2 (fun (len, remap, recode) ias ->
                     let column code = 
@@ -2142,7 +2143,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                      (fun char_code alied_seq ->
                          let char_state = Codes.find char_code !char_states in 
                          match char_state with 
-                         | `Ml | `Seq | `Annotated | `Breakinv -> alied_seq
+                         | `Ml | `SeqPrealigned |`Seq | `Annotated | `Breakinv -> alied_seq
                          | `Chromosome | `Genome ->
                                  let break_map = find_break_map () in
                                  let alied_seq = Array.map (function `DO x |

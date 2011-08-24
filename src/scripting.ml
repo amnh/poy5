@@ -1543,6 +1543,7 @@ let load_data (meth : Methods.input) data nodes =
                     (List.mem (`Orientation true) read_options) 
                 in
                 let init3D = (List.mem (`Init3D true) read_options) in
+                let is_prealigned = List.mem (`Prealigned) read_options in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let level = 2 in (* set level = 2 by default *)
@@ -1550,14 +1551,19 @@ let load_data (meth : Methods.input) data nodes =
                 let alphabet, (twod,matrix), threed =
                     Alphabet.of_file alph orientation init3D level respect_case
                 in
+                (*to do : connect this to prealigned*)
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;
+                let dynastate,default_mode = 
+                if is_prealigned then 
+                    `SeqPrealigned,`GeneralNonAdd 
+                else `Seq,`DO in
                 let tcmfile = FileStream.filename alph in
                 Data.process_molecular_file
                         ~respect_case:respect_case
                         (Data.Input_file (tcmfile,matrix))
-                        twod threed annotated alphabet `DO
-                        is_prealigned `Seq data seq 
+                        twod threed annotated alphabet default_mode
+                        is_prealigned dynastate data seq 
         | `Breakinv (seq, alph, read_options) ->
                 (** read breakinv data from files each breakinv is 
                  * presented as a sequence of general alphabets *)

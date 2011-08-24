@@ -54,6 +54,7 @@ type contents = Characters | CostMatrix | Trees
 type parsed_trees = ((string option * Tree.Parse.tree_types list) * string * int)
 
 type dyna_state_t = [
+    | `SeqPrealigned
     (** A short sequence, no rearrangements are allowed*)
     | `Seq
 
@@ -180,6 +181,7 @@ type fixed_state =
 type dyna_initial_assgn =
     [ `Partitioned of clip
     | `AutoPartitioned of clip * int * (int,  ((int * int) list)) Hashtbl.t
+    | `GeneralNonAdd
     | `DO
     | `FS of fixed_state ]
 
@@ -744,7 +746,8 @@ let is_fs data code =
         | `FS _ -> true
         | `Partitioned _
         | `AutoPartitioned _
-        | `DO -> false
+        | `DO 
+        | `GeneralNonAdd -> false
 
 let get_empty_seq alph = 
     let seq = Sequence.create 1 in
@@ -843,6 +846,7 @@ let print (data : d) =
         (match spec with 
         | Dynamic dspec ->
               (match dspec.state with 
+               | `SeqPrealigned -> Printf.fprintf stdout "Seq Prealigned"
                | `Seq -> Printf.fprintf stdout "Seq"
                | `Ml -> Printf.fprintf stdout "Dynamic ML"
                | `Breakinv -> Printf.fprintf stdout "Breakinv"
@@ -1620,7 +1624,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             if  annotated || (dyna_state = `Chromosome) then 
                 original_filename
             else match default_mode with
-            | `FS _ | `DO | `AutoPartitioned _ -> (!locus_name) () 
+            | `FS _ | `DO | `GeneralNonAdd |`AutoPartitioned _ -> (!locus_name) () 
             | `Partitioned _ -> original_filename
         in
         incr data.character_code_gen;
@@ -1659,6 +1663,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
                 match dyna_state with 
                 | `Ml  when not prealigned -> Array.map makeone seq 
                 | `Seq when not prealigned -> Array.map makeone seq
+                | `SeqPrealigned -> Array.map makeone seq
                 | _ -> Array.map (fun x -> x --> 
                         Sequence.del_first_char --> makeone) seq 
             in 
@@ -1792,7 +1797,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
     let data = 
         if annotated then process_annotated_chrom data 
         else if dyna_state = `Genome then process_genome data
-        else if `DO = default_mode then
+        else if `DO = default_mode || `GeneralNonAdd = default_mode then
             match (res --> individual_fragments) with
             | [x] ->
                     locus_name := (fun () -> original_filename);
@@ -2770,7 +2775,7 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `Seq -> [T.clas, `String T.sequence]
+    | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
     | others -> 
             let clas = 
                 match others with
@@ -2834,6 +2839,7 @@ let character_spec_to_formatter enc : Xml.xml =
                 | `Partitioned _ -> 
                         `String "User provided partition with DO"
                 | `DO -> `String "Direct Optimization"
+                | `GeneralNonAdd -> `String "Prealigned sequence."
                 | `FS _ -> `String "Fixed States"
             in
             (RXML -[T.molecular]
@@ -4813,10 +4819,7 @@ let compute_fixed_states filename data code =
         | Dynamic dhs -> dhs
         | _ -> assert false
     in
-    let chrom_or_genome = match dhs.state with
-        | `Chromosome | `Genome ->  true
-        | `Seq | `Ml | `Annotated | `Breakinv -> false
-    and annotate_with_mauve = match dhs.pam.annotate_tool with
+    let annotate_with_mauve = match dhs.pam.annotate_tool with
         | Some (`Mauve _) -> true
         | Some (`Default _) -> false
         | None -> false
@@ -6419,7 +6422,8 @@ let make_fixed_states filename chars data =
                 | `FS _ -> ()
                 | `Partitioned _
                 | `AutoPartitioned _
-                | `DO -> compute_fixed_states filename data code)
+                | `DO
+                | `GeneralNonAdd -> compute_fixed_states filename data code)
         | _ -> failwith "How could this happen?"
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
@@ -6437,7 +6441,7 @@ let make_direct_optimization chars data =
                 | `FS _ -> 
                     Hashtbl.replace data.character_specs code 
                         (Dynamic { dhs with initial_assignment = `DO })
-                | `DO -> ())
+                | `DO | `GeneralNonAdd -> ())
         | _ -> ()
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
@@ -6453,7 +6457,7 @@ let make_partitioned mode chars data =
                 | `FS _ -> ()
                 | `AutoPartitioned _
                 | `Partitioned _
-                | `DO -> auto_partition mode data code)
+                | `DO | `GeneralNonAdd -> auto_partition mode data code)
         | _ -> failwith "How could this happen?"
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
