@@ -596,10 +596,10 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
-XSLT_CONFIG
 EGREP
 GREP
 CPP
+XSLT_CONFIG
 CONFIG_DATE
 OCAMLVERSION
 USE_NATIVEDYNLINK
@@ -718,7 +718,6 @@ enable_shared_hd
 enable_long_sequences
 enable_xslt
 enable_likelihood
-enable_sse3
 enable_large_alphabets
 enable_cost_verification
 with_concorde_dir
@@ -1370,15 +1369,10 @@ Optional Features:
                           unlikely to need this option.
   --enable-xslt           Enable the postprocessing of XML output using XSLT
                           templates. This option requires libxml2.
-  --enable-likelihood     Enable the use of static and dynamic likelihood
+  --disable-likelihood    Disable the use of static and dynamic likelihood
                           functions. We will automatically detect and enable
                           likelihood if we can --we require lapack routines to
                           be installed.
-  --disable-likelihood    Explicitly disable likelihood. Override the
-                          auto-detection and do not compile with likelihood
-                          enabled.
-  --enable-sse3           Enable the Streaming SIMD Extensions for likelihood
-                          characters.
   --enable-large-alphabets
                           Enable the analysis of alphabets larger than 255
                           elements. When using this option, more memory will
@@ -1780,6 +1774,60 @@ $as_echo "$ac_res" >&6; }
 
 } # ac_fn_c_check_header_compile
 
+# ac_fn_c_check_type LINENO TYPE VAR INCLUDES
+# -------------------------------------------
+# Tests whether TYPE exists after having included INCLUDES, setting cache
+# variable VAR accordingly.
+ac_fn_c_check_type ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+$as_echo_n "checking for $2... " >&6; }
+if eval "test \"\${$3+set}\"" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  eval "$3=no"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+int
+main ()
+{
+if (sizeof ($2))
+	 return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+int
+main ()
+{
+if (sizeof (($2)))
+	    return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+
+else
+  eval "$3=yes"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+  eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
+
+} # ac_fn_c_check_type
+
 # ac_fn_c_check_func LINENO FUNC VAR
 # ----------------------------------
 # Tests whether FUNC exists, setting the cache variable VAR accordingly
@@ -1846,60 +1894,6 @@ $as_echo "$ac_res" >&6; }
   eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
 
 } # ac_fn_c_check_func
-
-# ac_fn_c_check_type LINENO TYPE VAR INCLUDES
-# -------------------------------------------
-# Tests whether TYPE exists after having included INCLUDES, setting cache
-# variable VAR accordingly.
-ac_fn_c_check_type ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
-$as_echo_n "checking for $2... " >&6; }
-if eval "test \"\${$3+set}\"" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  eval "$3=no"
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-$4
-int
-main ()
-{
-if (sizeof ($2))
-	 return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-$4
-int
-main ()
-{
-if (sizeof (($2)))
-	    return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-
-else
-  eval "$3=yes"
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-fi
-eval ac_res=\$$3
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-  eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
-
-} # ac_fn_c_check_type
 cat >config.log <<_ACEOF
 This file contains any messages produced by compilers while
 running configure, to aid debugging if configure makes a mistake.
@@ -2921,9 +2915,7 @@ CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
 USE_LIKELIHOOD="true"
-
-# Sweet macro to create AC_ARG_DISABLE
-
+LIBS="-lm $LIBS"
 
 # System dependent options
 case ${OS_INFORMATION} in
@@ -3062,36 +3054,8 @@ fi
 
 # Check whether --enable-likelihood was given.
 if test "${enable_likelihood+set}" = set; then :
-  enableval=$enable_likelihood; USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"
+  enableval=$enable_likelihood; USE_LIKELIHOOD="false"
 fi
-
-
-
-    disablestring=`echo "likelihood" | sed 's/_/-/g'`
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking --disable-$disablestring" >&5
-$as_echo_n "checking --disable-$disablestring... " >&6; }
-    # Check whether --enable-likelihood was given.
-if test "${enable_likelihood+set}" = set; then :
-  enableval=$enable_likelihood;
-            if test "$enableval" = yes; then
-                USE_LIKELIHOOD="true"
-            else
-                USE_LIKELIHOOD="false"
-            fi
-
-else
-
-           USE_LIKELIHOOD="true"
-
-fi
-
-    if  test USE_LIKELIHOOD = "false"; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-    else
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-    fi
 
 
 #AC_ARG_ENABLE([concorde], [AS_HELP_STRING([--enable-concorde],
@@ -3100,13 +3064,9 @@ $as_echo "no" >&6; }
 #                [USE_CONCORDE="true"; DUSE_CONCORDE="-DUSE_CONCORDE";
 #                 OUSE_CONCORDE=",use_concorde"], [USE_CONCORDE="false"])
 
-# Check whether --enable-sse3 was given.
-if test "${enable_sse3+set}" = set; then :
-  enableval=$enable_sse3; USE_SSE3="true"
-else
-  USE_SSE3="false"
-fi
-
+#AC_ARG_ENABLE([sse3], [AS_HELP_STRING([--enable-sse3],
+#              [Enable the Streaming SIMD Extensions for likelihood characters.])],
+#               [USE_SSE3="true"],[USE_SSE3="false"])
 
 # Check whether --enable-large-alphabets was given.
 if test "${enable_large_alphabets+set}" = set; then :
@@ -3169,304 +3129,406 @@ fi
 #               ],
 #                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
-# Time to handle the lapack checks
+# check all the individual functions for the lapack routines
+#       AS_IF([test $USE_LIKELIHOOD = "true"],
+#           [AC_CHECK_LIB([lapack],[dsyev], [AC_CHECK_LIB([lapack],[dgeev], [AC_CHECK_LIB([lapack],[dgemm],
+#           [AC_CHECK_LIB([lapack],[dgetri], [AC_CHECK_LIB([lapack],[dgetrf],
+#                   [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
+#                   [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
+#                   [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],
+#                   [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])],
+#           [AC_MSG_RESULT([Not including LAPACK])])
 
-if test $USE_LIKELIHOOD = "false"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Force Disable Likelihood" >&5
-$as_echo "Force Disable Likelihood" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -llapack" >&5
-$as_echo_n "checking for main in -llapack... " >&6; }
-if test "${ac_cv_lib_lapack_main+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llapack  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-
-int
-main ()
-{
-return main ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lapack_main=yes
-else
-  ac_cv_lib_lapack_main=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_main" >&5
-$as_echo "$ac_cv_lib_lapack_main" >&6; }
-if test "x$ac_cv_lib_lapack_main" = x""yes; then :
-  USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
-             OUSE_LIKELIHOOD=",use_likelihood"; { $as_echo "$as_me:${as_lineno-$LINENO}: result: Enabling Likelihood" >&5
-$as_echo "Enabling Likelihood" >&6; }
-
-fi
-
-fi
-
-case ${OS_INFORMATION} in
-    *-apple-*)
-        if test $USE_LIKELIHOOD = "true"; then :
-  LIBS="-framework veclib $LIBS";
-$as_echo "#define HAVE_LIBLAPACK 1" >>confdefs.h
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not including LAPACK" >&5
-$as_echo "Not including LAPACK" >&6; }
-fi
-        ;;
-    *)
-        if test $USE_LIKELIHOOD = "true"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dsyev_ in -llapack" >&5
-$as_echo_n "checking for dsyev_ in -llapack... " >&6; }
-if test "${ac_cv_lib_lapack_dsyev_+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llapack  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char dsyev_ ();
-int
-main ()
-{
-return dsyev_ ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lapack_dsyev_=yes
-else
-  ac_cv_lib_lapack_dsyev_=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_dsyev_" >&5
-$as_echo "$ac_cv_lib_lapack_dsyev_" >&6; }
-if test "x$ac_cv_lib_lapack_dsyev_" = x""yes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dgeev_ in -llapack" >&5
-$as_echo_n "checking for dgeev_ in -llapack... " >&6; }
-if test "${ac_cv_lib_lapack_dgeev_+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llapack  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char dgeev_ ();
-int
-main ()
-{
-return dgeev_ ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lapack_dgeev_=yes
-else
-  ac_cv_lib_lapack_dgeev_=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_dgeev_" >&5
-$as_echo "$ac_cv_lib_lapack_dgeev_" >&6; }
-if test "x$ac_cv_lib_lapack_dgeev_" = x""yes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dgemm_ in -llapack" >&5
-$as_echo_n "checking for dgemm_ in -llapack... " >&6; }
-if test "${ac_cv_lib_lapack_dgemm_+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llapack  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char dgemm_ ();
-int
-main ()
-{
-return dgemm_ ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lapack_dgemm_=yes
-else
-  ac_cv_lib_lapack_dgemm_=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_dgemm_" >&5
-$as_echo "$ac_cv_lib_lapack_dgemm_" >&6; }
-if test "x$ac_cv_lib_lapack_dgemm_" = x""yes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dgetri_ in -llapack" >&5
-$as_echo_n "checking for dgetri_ in -llapack... " >&6; }
-if test "${ac_cv_lib_lapack_dgetri_+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llapack  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char dgetri_ ();
-int
-main ()
-{
-return dgetri_ ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lapack_dgetri_=yes
-else
-  ac_cv_lib_lapack_dgetri_=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_dgetri_" >&5
-$as_echo "$ac_cv_lib_lapack_dgetri_" >&6; }
-if test "x$ac_cv_lib_lapack_dgetri_" = x""yes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dgetrf_ in -llapack" >&5
-$as_echo_n "checking for dgetrf_ in -llapack... " >&6; }
-if test "${ac_cv_lib_lapack_dgetrf_+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llapack  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char dgetrf_ ();
-int
-main ()
-{
-return dgetrf_ ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lapack_dgetrf_=yes
-else
-  ac_cv_lib_lapack_dgetrf_=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_dgetrf_" >&5
-$as_echo "$ac_cv_lib_lapack_dgetrf_" >&6; }
-if test "x$ac_cv_lib_lapack_dgetrf_" = x""yes; then :
-
-$as_echo "#define HAVE_LIBLAPACK 1" >>confdefs.h
- LIBS=-llapack $LIBS
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Missing lapack routine: dgetrf_.
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Missing lapack routine: dgetri_.
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Missing lapack routine: dgemm_.
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Missing lapack routine: dgeev_.
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Missing lapack routine: dsyev_.
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not including LAPACK" >&5
-$as_echo "Not including LAPACK" >&6; }
-fi
-        ;;
-esac
-
-case ${OS_INFORMATION} in
-    *-apple-*)
+#case ${OS_INFORMATION} in
+#    *-apple-*)
 #        AS_IF([test $USE_SSE3 = "true"],
 #            [AC_CHECK_HEADER([pmmintrin.h],
 #                [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
 #                [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
 #            AC_MSG_RESULT([not using SSE3]))
-        ;;
-    *)
-        ac_ext=c
+#        ;;
+#    *)
+#        AS_IF([test $USE_SSE3 = "true"],
+#            [AC_CHECK_HEADER([pmmintrin.h],
+#                   [AC_CHECK_FUNC([posix_memalign],
+#                       [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
+#                     [AC_MSG_FAILURE([posix_memalign not found])])],
+#                 [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
+#            AC_MSG_RESULT([Not using SSE3]))
+#        ;;
+#esac
+
+# Check if the user wants SSE3 instructions, copy cflags to temporary variable
+# to compile test SSE3
+#CFLAGS_TMP=$CFLAGS
+#CFLAGS="-msse3"
+#AS_IF([test $USE_SSE3 = "true"],
+#    [AC_MSG_CHECKING([SSE3 support...]);
+#     AC_COMPILE_IFELSE([
+#        #include <pmmintrin.h>
+#        __m128d _add(__m128d v) { return _mm_hadd_pd( v, v ); }],
+#        [AC_CHECK_FUNC(posix_memalign, [CFLAGS="-msse3 $CFLAGS_TMP";OUSE_SSE3=",use_sse3";AC_MSG_RESULT([yes]) ],
+#                                       [AC_MSG_FAILURE([posix_memalign memory alloctaion not found])])],
+#        [AC_MSG_FAILURE([Cannot compile SSE3 instructions])]
+#        )]
+#    )
+
+# Checking for libraries according to the user's options.
+
+if test $USEINTERFACE = "ncurses"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for scrollok in -lncurses" >&5
+$as_echo_n "checking for scrollok in -lncurses... " >&6; }
+if test "${ac_cv_lib_ncurses_scrollok+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lncurses  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char scrollok ();
+int
+main ()
+{
+return scrollok ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ncurses_scrollok=yes
+else
+  ac_cv_lib_ncurses_scrollok=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_scrollok" >&5
+$as_echo "$ac_cv_lib_ncurses_scrollok" >&6; }
+if test "x$ac_cv_lib_ncurses_scrollok" = x""yes; then :
+  LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";$as_echo "#define HAVE_LIBNCURSES 1" >>confdefs.h
+
+else
+  if test $INTERFACE_SELECTED = "true"; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.
+See \`config.log' for more details" "$LINENO" 5 ; }
+else
+  USEINTERFACE="readline"; DUSEREADLINE="-DUSEREADLINE"; OUSEREADLINE=",use_readline"
+fi
+fi
+
+fi
+
+
+# Time to verify if we can compile with xslt
+XSLT_CONFIG="xslt-config"
+
+# Check whether --with-xslt-config was given.
+if test "${with_xslt_config+set}" = set; then :
+  withval=$with_xslt_config; XSLT_CONFIG=$withval
+else
+  for ac_prog in xslt-config
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_XSLT_CONFIG+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$XSLT_CONFIG"; then
+  ac_cv_prog_XSLT_CONFIG="$XSLT_CONFIG" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_XSLT_CONFIG="$ac_prog"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+XSLT_CONFIG=$ac_cv_prog_XSLT_CONFIG
+if test -n "$XSLT_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $XSLT_CONFIG" >&5
+$as_echo "$XSLT_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  test -n "$XSLT_CONFIG" && break
+done
+test -n "$XSLT_CONFIG" || XSLT_CONFIG="xslt-config"
+
+fi
+
+
+oLIBS="$LIBS"
+NEWLIBS="`$XSLT_CONFIG --libs`"
+LIBS="$LIBS $NEWLIBS"
+oFLAGS="$CFLAGS"
+CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
+if test $USE_XSLT = "true"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xmlCreatePushParserCtxt in -lxml2" >&5
+$as_echo_n "checking for xmlCreatePushParserCtxt in -lxml2... " >&6; }
+if test "${ac_cv_lib_xml2_xmlCreatePushParserCtxt+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lxml2  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char xmlCreatePushParserCtxt ();
+int
+main ()
+{
+return xmlCreatePushParserCtxt ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_xml2_xmlCreatePushParserCtxt=yes
+else
+  ac_cv_lib_xml2_xmlCreatePushParserCtxt=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_xml2_xmlCreatePushParserCtxt" >&5
+$as_echo "$ac_cv_lib_xml2_xmlCreatePushParserCtxt" >&6; }
+if test "x$ac_cv_lib_xml2_xmlCreatePushParserCtxt" = x""yes; then :
+
+       CFLAGS="$CFLAGS `$XSLT_CONFIG --cflags`"
+       $as_echo "#define HAVE_XSLT 1" >>confdefs.h
+
+       USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"
+else
+
+            LIBS="$oLIBS"
+            CFLAGS="$oFLAGS"
+            { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: I could not find XSLT. I will remove the its support." >&5
+$as_echo "$as_me: WARNING: I could not find XSLT. I will remove the its support." >&2;}
+
+fi
+
+else
+   LIBS="$oLIBS"
+             CFLAGS="$oFLAGS"
+
+fi
+
+if test $USEINTERFACE = "readline"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -ltermcap" >&5
+$as_echo_n "checking for tgetent in -ltermcap... " >&6; }
+if test "${ac_cv_lib_termcap_tgetent+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ltermcap  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tgetent ();
+int
+main ()
+{
+return tgetent ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_termcap_tgetent=yes
+else
+  ac_cv_lib_termcap_tgetent=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_termcap_tgetent" >&5
+$as_echo "$ac_cv_lib_termcap_tgetent" >&6; }
+if test "x$ac_cv_lib_termcap_tgetent" = x""yes; then :
+  LIBS="-ltermcap $LIBS"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -lcurses" >&5
+$as_echo_n "checking for tgetent in -lcurses... " >&6; }
+if test "${ac_cv_lib_curses_tgetent+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcurses  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tgetent ();
+int
+main ()
+{
+return tgetent ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_curses_tgetent=yes
+else
+  ac_cv_lib_curses_tgetent=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_curses_tgetent" >&5
+$as_echo "$ac_cv_lib_curses_tgetent" >&6; }
+if test "x$ac_cv_lib_curses_tgetent" = x""yes; then :
+  LIBS="-lcurses $LIBS"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -lncurses" >&5
+$as_echo_n "checking for tgetent in -lncurses... " >&6; }
+if test "${ac_cv_lib_ncurses_tgetent+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lncurses  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tgetent ();
+int
+main ()
+{
+return tgetent ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ncurses_tgetent=yes
+else
+  ac_cv_lib_ncurses_tgetent=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_tgetent" >&5
+$as_echo "$ac_cv_lib_ncurses_tgetent" >&6; }
+if test "x$ac_cv_lib_ncurses_tgetent" = x""yes; then :
+  LIBS="-lncurses $LIBS"
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "The readline interface requires one of the following: termcap, curses, or ncurses.
+See \`config.log' for more details" "$LINENO" 5 ; }
+fi
+
+fi
+
+fi
+
+fi
+
+if test $USEINTERFACE = "readline"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for readline in -lreadline" >&5
+$as_echo_n "checking for readline in -lreadline... " >&6; }
+if test "${ac_cv_lib_readline_readline+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lreadline  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char readline ();
+int
+main ()
+{
+return readline ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_readline_readline=yes
+else
+  ac_cv_lib_readline_readline=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_readline_readline" >&5
+$as_echo "$ac_cv_lib_readline_readline" >&6; }
+if test "x$ac_cv_lib_readline_readline" = x""yes; then :
+  LIBS="-lreadline $LIBS"; $as_echo "#define HAVE_LIBREADLINE 1" >>confdefs.h
+
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "The ncurses interface requires the ncurses library. Either install it, or choose the readline interface. See ./configure --help for more information.
+See \`config.log' for more details" "$LINENO" 5 ; }
+fi
+
+fi
+
+#AS_IF([test $USEPARALLEL = "true"], [AC_CHECK_LIB([$MPILNAME], [MPI_Init],
+#      [LIBS="-l$MPILNAME $LIBS"], [AC_MSG_FAILURE([In order to compile the parallel version, an implemention of MPI is required. However, I failed while checking for $MPILNAME.])])])
+
+# Check for malloc, if not there, this is most likely a Mac OS X.
+ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
@@ -3863,403 +3925,6 @@ fi
 done
 
 
-if test $USE_SSE3 = "true"; then :
-  ac_fn_c_check_header_mongrel "$LINENO" "pmmintrin.h" "ac_cv_header_pmmintrin_h" "$ac_includes_default"
-if test "x$ac_cv_header_pmmintrin_h" = x""yes; then :
-  ac_fn_c_check_func "$LINENO" "posix_memalign" "ac_cv_func_posix_memalign"
-if test "x$ac_cv_func_posix_memalign" = x""yes; then :
-  CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "posix_memalign not found
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Cannot compile with SSE3 instructions
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not using SSE3" >&5
-$as_echo "Not using SSE3" >&6; }
-fi
-        ;;
-esac
-
-# Check if the user wants SSE3 instructions, copy cflags to temporary variable
-# to compile test SSE3
-#CFLAGS_TMP=$CFLAGS
-#CFLAGS="-msse3"
-#AS_IF([test $USE_SSE3 = "true"],
-#    [AC_MSG_CHECKING([SSE3 support...]);
-#     AC_COMPILE_IFELSE([
-#        #include <pmmintrin.h>
-#        __m128d _add(__m128d v) { return _mm_hadd_pd( v, v ); }],
-#        [AC_CHECK_FUNC(posix_memalign, [CFLAGS="-msse3 $CFLAGS_TMP";OUSE_SSE3=",use_sse3";AC_MSG_RESULT([yes]) ],
-#                                       [AC_MSG_FAILURE([posix_memalign memory alloctaion not found])])],
-#        [AC_MSG_FAILURE([Cannot compile SSE3 instructions])]
-#        )]
-#    )
-
-# Checking for libraries according to the user's options.
-if test $USEINTERFACE = "ncurses"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for scrollok in -lncurses" >&5
-$as_echo_n "checking for scrollok in -lncurses... " >&6; }
-if test "${ac_cv_lib_ncurses_scrollok+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lncurses  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char scrollok ();
-int
-main ()
-{
-return scrollok ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ncurses_scrollok=yes
-else
-  ac_cv_lib_ncurses_scrollok=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_scrollok" >&5
-$as_echo "$ac_cv_lib_ncurses_scrollok" >&6; }
-if test "x$ac_cv_lib_ncurses_scrollok" = x""yes; then :
-  LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";$as_echo "#define HAVE_LIBNCURSES 1" >>confdefs.h
-
-else
-  if test $INTERFACE_SELECTED = "true"; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.
-See \`config.log' for more details" "$LINENO" 5 ; }
-else
-  USEINTERFACE="readline"; DUSEREADLINE="-DUSEREADLINE"; OUSEREADLINE=",use_readline"
-fi
-fi
-
-fi
-
-
-# Time to verify if we can compile with xslt
-XSLT_CONFIG="xslt-config"
-
-# Check whether --with-xslt-config was given.
-if test "${with_xslt_config+set}" = set; then :
-  withval=$with_xslt_config; XSLT_CONFIG=$withval
-else
-  for ac_prog in xslt-config
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if test "${ac_cv_prog_XSLT_CONFIG+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$XSLT_CONFIG"; then
-  ac_cv_prog_XSLT_CONFIG="$XSLT_CONFIG" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_XSLT_CONFIG="$ac_prog"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-XSLT_CONFIG=$ac_cv_prog_XSLT_CONFIG
-if test -n "$XSLT_CONFIG"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $XSLT_CONFIG" >&5
-$as_echo "$XSLT_CONFIG" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  test -n "$XSLT_CONFIG" && break
-done
-test -n "$XSLT_CONFIG" || XSLT_CONFIG="xslt-config"
-
-fi
-
-
-oLIBS="$LIBS"
-NEWLIBS="`$XSLT_CONFIG --libs`"
-LIBS="$LIBS $NEWLIBS"
-oFLAGS="$CFLAGS"
-CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
-if test $USE_XSLT = "true"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xmlCreatePushParserCtxt in -lxml2" >&5
-$as_echo_n "checking for xmlCreatePushParserCtxt in -lxml2... " >&6; }
-if test "${ac_cv_lib_xml2_xmlCreatePushParserCtxt+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lxml2  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char xmlCreatePushParserCtxt ();
-int
-main ()
-{
-return xmlCreatePushParserCtxt ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_xml2_xmlCreatePushParserCtxt=yes
-else
-  ac_cv_lib_xml2_xmlCreatePushParserCtxt=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_xml2_xmlCreatePushParserCtxt" >&5
-$as_echo "$ac_cv_lib_xml2_xmlCreatePushParserCtxt" >&6; }
-if test "x$ac_cv_lib_xml2_xmlCreatePushParserCtxt" = x""yes; then :
-
-       CFLAGS="$CFLAGS `$XSLT_CONFIG --cflags`"
-       $as_echo "#define HAVE_XSLT 1" >>confdefs.h
-
-       USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"
-else
-
-            LIBS="$oLIBS"
-            CFLAGS="$oFLAGS"
-            { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: I could not find XSLT. I will remove the its support." >&5
-$as_echo "$as_me: WARNING: I could not find XSLT. I will remove the its support." >&2;}
-
-fi
-
-else
-   LIBS="$oLIBS"
-             CFLAGS="$oFLAGS"
-
-fi
-
-if test $USEINTERFACE = "readline"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -ltermcap" >&5
-$as_echo_n "checking for tgetent in -ltermcap... " >&6; }
-if test "${ac_cv_lib_termcap_tgetent+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ltermcap  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char tgetent ();
-int
-main ()
-{
-return tgetent ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_termcap_tgetent=yes
-else
-  ac_cv_lib_termcap_tgetent=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_termcap_tgetent" >&5
-$as_echo "$ac_cv_lib_termcap_tgetent" >&6; }
-if test "x$ac_cv_lib_termcap_tgetent" = x""yes; then :
-  LIBS="-ltermcap $LIBS"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -lcurses" >&5
-$as_echo_n "checking for tgetent in -lcurses... " >&6; }
-if test "${ac_cv_lib_curses_tgetent+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcurses  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char tgetent ();
-int
-main ()
-{
-return tgetent ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_curses_tgetent=yes
-else
-  ac_cv_lib_curses_tgetent=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_curses_tgetent" >&5
-$as_echo "$ac_cv_lib_curses_tgetent" >&6; }
-if test "x$ac_cv_lib_curses_tgetent" = x""yes; then :
-  LIBS="-lcurses $LIBS"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -lncurses" >&5
-$as_echo_n "checking for tgetent in -lncurses... " >&6; }
-if test "${ac_cv_lib_ncurses_tgetent+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lncurses  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char tgetent ();
-int
-main ()
-{
-return tgetent ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ncurses_tgetent=yes
-else
-  ac_cv_lib_ncurses_tgetent=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_tgetent" >&5
-$as_echo "$ac_cv_lib_ncurses_tgetent" >&6; }
-if test "x$ac_cv_lib_ncurses_tgetent" = x""yes; then :
-  LIBS="-lncurses $LIBS"
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "The readline interface requires one of the following: termcap, curses, or ncurses.
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-fi
-
-fi
-
-fi
-
-if test $USEINTERFACE = "readline"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for readline in -lreadline" >&5
-$as_echo_n "checking for readline in -lreadline... " >&6; }
-if test "${ac_cv_lib_readline_readline+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lreadline  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char readline ();
-int
-main ()
-{
-return readline ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_readline_readline=yes
-else
-  ac_cv_lib_readline_readline=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_readline_readline" >&5
-$as_echo "$ac_cv_lib_readline_readline" >&6; }
-if test "x$ac_cv_lib_readline_readline" = x""yes; then :
-  LIBS="-lreadline $LIBS"; $as_echo "#define HAVE_LIBREADLINE 1" >>confdefs.h
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "The ncurses interface requires the ncurses library. Either install it, or choose the readline interface. See ./configure --help for more information.
-See \`config.log' for more details" "$LINENO" 5 ; }
-fi
-
-fi
-
-#AS_IF([test $USEPARALLEL = "true"], [AC_CHECK_LIB([$MPILNAME], [MPI_Init],
-#      [LIBS="-l$MPILNAME $LIBS"], [AC_MSG_FAILURE([In order to compile the parallel version, an implemention of MPI is required. However, I failed while checking for $MPILNAME.])])])
-
-# Check for malloc, if not there, this is most likely a Mac OS X.
 ac_fn_c_check_header_mongrel "$LINENO" "malloc.h" "ac_cv_header_malloc_h" "$ac_includes_default"
 if test "x$ac_cv_header_malloc_h" = x""yes; then :
 
@@ -5569,6 +5234,67 @@ _ACEOF
 fi
 done
 
+
+# Time to handle the lapack checks
+case ${OS_INFORMATION} in
+    *-apple-*)
+        if test $USE_LIKELIHOOD = "true"; then :
+  LIBS="-framework veclib $LIBS";
+$as_echo "#define HAVE_LIBLAPACK 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not enabling Likelihood" >&5
+$as_echo "Not enabling Likelihood" >&6; }
+fi
+        ;;
+    *)
+        if test $USE_LIKELIHOOD = "false"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not enabling Likelihood" >&5
+$as_echo "Not enabling Likelihood" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -llapack" >&5
+$as_echo_n "checking for main in -llapack... " >&6; }
+if test "${ac_cv_lib_lapack_main+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llapack  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lapack_main=yes
+else
+  ac_cv_lib_lapack_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_main" >&5
+$as_echo "$ac_cv_lib_lapack_main" >&6; }
+if test "x$ac_cv_lib_lapack_main" = x""yes; then :
+  USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood";
+                 { $as_echo "$as_me:${as_lineno-$LINENO}: result: Found lapack and enabling Likelihood" >&5
+$as_echo "Found lapack and enabling Likelihood" >&6; }; LIBS="-llapack -lblas -lgfortran $LIBS"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: lapack not found; continuing without Likelihood " >&5
+$as_echo "lapack not found; continuing without Likelihood " >&6; }
+
+fi
+
+fi
+        ;;
+esac
 
 CC_VERSION="`$CC --version`"
 POY_VERSION_NUMBER="`$MERCURIAL`"
