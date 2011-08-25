@@ -5026,10 +5026,12 @@ let assign_tcm_to_characters data chars foname tcm =
     * operate properly in all the characters that are valid in the context. *)
     let per_size = Hashtbl.create 97 in
     let data = duplicate data in
-    let chars = 
+    let chars = get_chars_codes_comp data chars in
+    (* why we only update tcm file for dynamic character type?
+    * let chars =  
         List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
                     (get_chars_codes_comp data chars)
-    in
+    in*)
     let chars_specs =
         List.fold_left 
         ~f:(fun acc x -> 
@@ -5091,12 +5093,14 @@ let assign_tcm_to_characters data chars foname tcm =
 
 
 let assign_tcm_to_characters_from_file data chars file =
-    let debug_level = true in
+    let debug_level = false in
     if debug_level then Printf.printf "Data.assign_tcm_to_characters_from_file\n%!";
     let tcm = match file with
-        | None -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
-        | Some (f,level) -> 
-            (fun x -> 
+        | None ->
+                (fun x ->
+                    Cost_matrix.Two_D.default, Substitution_Indel (1,2))
+        | Some (f,level) ->
+            (fun x ->
                 let alphabet = get_alphabet data 1 in
                 let is_aminoacids = 
                     if (alphabet = Alphabet.aminoacids)||(alphabet = Alphabet.aminoacids_use_3d) 
@@ -5107,7 +5111,8 @@ let assign_tcm_to_characters_from_file data chars file =
                             (if is_aminoacids then 1 else 0) 
                     | Some l -> l in
                 let tcm,mat = Cost_matrix.Two_D.of_file ~level:level f x in
-                      tcm, Input_file ((FileStream.filename f), mat))
+                tcm, Input_file ((FileStream.filename f), mat)
+            )
     in
     assign_tcm_to_characters data chars None tcm
 
