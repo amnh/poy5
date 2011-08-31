@@ -36,6 +36,14 @@ let get_median = Cost_matrix.Two_D.median
 let get_distance gnoadd1 gnoadd2 cost_mat = 
     let size = Cost_matrix.Two_D.alphabet_size cost_mat in
     let seq1,seq2 = gnoadd1.seq,gnoadd2.seq in
+    if (Sequence.length seq1)<>(Sequence.length seq2) then begin
+        Status.user_message Status.Error
+        (
+            "The@ prealigned@ sequences@ do@ not@ have@ the@ same@ length." ^
+            string_of_int(Sequence.length seq1) ^ " !=@ " ^ string_of_int(Sequence.length seq2)
+        );
+        failwith "Illegal prealigned molecular sequences."
+    end;
     let arr1,arr2 = Sequence.to_array seq1, Sequence.to_array seq2 in
     if debug then begin
        Printf.printf "genNonAdd.distance, alphabet size = %d,arr1/arr2=%!" size;
