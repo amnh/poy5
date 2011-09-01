@@ -2637,8 +2637,9 @@ let categorize data =
                         else data
                 | Nexus.File.STLikelihood _ ->
                         { data with static_ml = code :: data.static_ml })
-        | Dynamic _ -> { data with dynamics = code :: data.dynamics }
-        | Set -> data
+        | Dynamic _ -> 
+                { data with dynamics = code :: data.dynamics }
+        | Set ->  data
         | Kolmogorov _ -> { data with kolmogorov = code :: data.kolmogorov }
     in
     let res = Hashtbl.fold categorizer data.character_specs data in
@@ -5018,7 +5019,8 @@ let compute_fixed_states filename data code =
     in
     Hashtbl.replace data.character_specs code (Dynamic dyn_data)
 
-
+(* make sure we call Data.categorize (Data.remove_taxa_to_ignore data) before
+     calling this function to update tcm. *)
 let assign_tcm_to_characters data chars foname tcm =
     (* Get the character codes and filter those that are of the sequence class.
     * This allows simpler specifications by the users, for example, even though
@@ -5026,12 +5028,13 @@ let assign_tcm_to_characters data chars foname tcm =
     * operate properly in all the characters that are valid in the context. *)
     let per_size = Hashtbl.create 97 in
     let data = duplicate data in
-    let chars = get_chars_codes_comp data chars in
-    (* why we only update tcm file for dynamic character type?
-    * let chars =  
+    (*let chars = get_chars_codes_comp data chars in
+    Printf.printf "dynamics list size = %d\n%!" (List.length chars);
+     why we only update tcm file for dynamic character type?
+    * *)let chars =  
         List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
                     (get_chars_codes_comp data chars)
-    in*)
+    in(**)
     let chars_specs =
         List.fold_left 
         ~f:(fun acc x -> 

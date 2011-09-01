@@ -1381,17 +1381,6 @@ module NewkkAlign = struct
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let debug = false in
         if debug then Printf.printf "Newkkonen.cost_2\n%!";
-        let deltaw_calc s1len s2len = 
-            let dif = s1len - s2len in
-            let lower_limit = int_of_float ((float_of_int s1len) *.  0.10) in
-            match deltaw with 
-            | None -> 
-                    if dif < lower_limit then (lower_limit / 2)
-                    else 2
-            | Some v -> 
-                    if dif < lower_limit then lower_limit
-                    else v
-        in
         let ls1 = length s1 and ls2 = length s2 in
         let s1,s2,ls1,ls2 = 
             if ls1<=ls2 then s1,s2,ls1,ls2
@@ -1406,15 +1395,10 @@ module NewkkAlign = struct
             else s2,ls2
         in
         (*assert (ls1 <> 0);  assert (ls2 <> 0);*)
-        let g1 = Align.count_gaps s1 m1
-        and g2 = Align.count_gaps s2 m1 in
-        let gaps = max g1 g2 in
         if ls1 <= ls2 then
-            let deltaw = gaps + deltaw_calc ls1 ls2 in
-            newkk_cost2 s1 s2 m1 m2 (*todo: deltaw*)
+            newkk_cost2 s1 s2 m1 m2 
         else 
-            let deltaw = gaps + deltaw_calc ls2 ls1 in
-            newkk_cost2 s2 s1 m1 m2 (*todo: deltaw*)
+            newkk_cost2 s2 s1 m1 m2 
 
     let full_median_2 a b cm m = 
         match Cost_matrix.Two_D.affine cm with
