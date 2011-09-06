@@ -602,6 +602,11 @@ val align2 : s -> s -> Cost_matrix.Two_D.m -> bool -> s * s * int * int
     that three first letters of three sequences to be gaps *)
 val align3 : s -> s -> s -> Cost_matrix.Three_D.m -> s * s * s * int * int
 
+(** [to_single_seq inseq cost_mat] resolve polymorphism in inseq with cost_mat.
+* now if there is a combination code of a/t/g/c/gap, we just pick one closest to
+* gap*)
+val to_single_seq : s -> Cost_matrix.Two_D.m -> s 
+
 (** [closest_alied_seq alied_parent alied_child c2]
     returns the single sequence of sequence [alied_child]
     which is closest to the aligned parent sequence [alied_parent] *)

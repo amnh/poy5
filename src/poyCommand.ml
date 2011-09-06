@@ -105,6 +105,7 @@ type chromosome_args = [
     | `Max_kept_wag of int
 ]
 
+type polymorphism_arg = Methods.polymorphism_arg
 
 type transform_method = [
     | `RandomizedTerminals
@@ -133,7 +134,7 @@ type transform_method = [
     | `Automatic_Sequence_Partition of (bool * int option)
     | `Prioritize
     | `SearchBased of (string * string) list
-    | `Fixed_States of (string option)
+    | `Fixed_States of (string option * polymorphism_arg option) 
     | `Partitioned of [`Clip | `NoClip]
     | `Direct_Optimization
     | `SeqToChrom of chromosome_args list
@@ -458,7 +459,7 @@ let transform_transform acc (id, x) =
             | `Automatic_Sequence_Partition (sens, x) -> 
                     (`Automatic_Sequence_Partition (id, sens, x)) :: acc
             | `Prioritize -> `Prioritize :: acc
-            | `Fixed_States filename -> (`Fixed_States (id,filename)) :: acc
+            | `Fixed_States (filename,polymph) -> (`Fixed_States (id,filename,polymph)) :: acc
             | `Partitioned mode -> (`Partitioned (mode, id)) :: acc
             | `Direct_Optimization -> (`Direct_Optimization id) :: acc
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
@@ -1364,6 +1365,21 @@ let create_expr () =
                 [ x = ml_gaps           -> `ML_gaps  x] |
                 [ x = ml_costfn         -> `ML_cost  x]
             ];
+        optional_poly :
+            [
+                [","; x = polymorphism_parameter -> x ]
+            ];
+        polymorphism_parameter:
+        [
+            [ LIDENT "ignore_polymorphism" -> `Do_Nothing ] |
+            [ LIDENT "simple_polymorphism" -> `Pick_One] |
+            [ LIDENT "full_polymorphism" -> `Do_All]
+        ];
+        fixed_states_option :
+        [
+           [":"; left_parenthesis; x = OPT [z=STRING->z]; y = OPT optional_poly;
+           right_parenthesis -> (x,y) ]
+        ];
         transform_method:
             [
                 [ LIDENT "elikelihood"; ":"; left_parenthesis;
@@ -1382,8 +1398,12 @@ let create_expr () =
                 [ LIDENT "tcm"; ":"; left_parenthesis; 
                      x = tcm_arguments; right_parenthesis -> x ] |
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
-                    `Partitioned x ] | 
-                [ LIDENT "fixed_states"; x = OPT optional_string -> `Fixed_States x ] |
+                    `Partitioned x ] |  
+                [ LIDENT "fixed_states"; x = OPT fixed_states_option -> 
+                    match x with
+                    | Some y -> `Fixed_States y
+                    | None -> `Fixed_States (None,None)
+                ] | 
                 [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
                 [ LIDENT "do" -> `Direct_Optimization ] |
                 [ LIDENT "gap_opening"; ":"; x = INT -> `AffGap (int_of_string x) ] |

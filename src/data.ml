@@ -84,6 +84,9 @@ type annotate_tool_t = [ `Mauve of (float*int*float*int) | `Default of (int*int*
 
 type align_meth_t = [ `NewKK | `Default ]
 
+type polymorphism_t = Methods.polymorphism_arg (*[ `Do_All | `Pick_One |
+`Do_Nothing ]*)
+
 type dyna_pam_t = {
 
     align_meth : align_meth_t option; 
@@ -143,7 +146,7 @@ type dyna_pam_t = {
 
     (** maximum of Wagner-based alignments are kept during 
     * the pairwise alignment with rearrangements *)
-    max_kept_wag : int option;
+    max_kept_wag : int option; 
 }
 
 (** [dyna_pam_default] assigns default values for parameters 
@@ -204,6 +207,12 @@ type dynamic_hom_spec = {
     state : dyna_state_t;
     pam : dyna_pam_t;
     weight : float;
+    (** choose a way to deal with polymorphism. during transformation to
+    * fixed_state, we resolve polymorphism. here are 3 ways of doing it: 
+        * 1. Do_All: do the full "get_closest" thing, which might take a long time
+        * 2. Pick_One: just pick one.
+        * 3. Do_Nothing: do nothing, leave the input sequence as it is.*)
+    polymorphism : polymorphism_t;
 }
 
 type distr = | MaxLength of int (* Any of the distributions with a maximum length *)
@@ -1640,7 +1649,8 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             alph = alphabet;
             state = dyna_state;
             pam = dyna_pam_default;
-            weight = weight; } 
+            weight = weight; 
+            polymorphism = `Do_All} 
         in
         Hashtbl.replace data.character_specs chcode (Dynamic dspec);
         Hashtbl.replace data.character_names file chcode;
@@ -4813,7 +4823,7 @@ let auto_partition mode data code =
         Status.user_message Status.Information "There are no potential partitions"
 
 
-let compute_fixed_states filename data code =
+let compute_fixed_states filename data code polymph =
     let debug = false in
     if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
@@ -4859,11 +4869,16 @@ let compute_fixed_states filename data code =
     if debug then Printf.printf "total size = %d + %d = %d\n%!" 
     taxalen searchbaselen  (Array.length total_arr);
     (* find all single assignments between two sequences; these become the
-       states that can be placed on the internal nodes of the tree **)
+       states that can be placed on the internal nodes of the tree.
+       this process resolves polymorphism of input sequences.
+       NOTE: this process cost n-square(n=number of taxons),it might take long time.*)
     let () = 
         for x = 0 to (Array.length taxa) - 1 do
             for y = 0 to (Array.length taxa) - 1 do
-                let b, _ = 
+                let a,b = 
+                match polymph with
+                | `Do_All -> if debug then Printf.printf "polymorphism=do all\n%!";
+                let yclose, _ = 
                     if align_with_newkk then
                         Sequence.NewkkAlign.closest initial_sequences.(x)
                         initial_sequences.(y) dhs.tcm2d Sequence.NewkkAlign.default_ukkm
@@ -4871,13 +4886,26 @@ let compute_fixed_states filename data code =
                     Sequence.Align.closest 
                         initial_sequences.(x) initial_sequences.(y) dhs.tcm2d Matrix.default 
                 in
-                let a, cost =
+                let xclose, cost =
                     if align_with_newkk then
-                        Sequence.NewkkAlign.closest b initial_sequences.(x)
+                        Sequence.NewkkAlign.closest yclose initial_sequences.(x)
                         dhs.tcm2d Sequence.NewkkAlign.default_ukkm
                     else
-                        Sequence.Align.closest b initial_sequences.(x) dhs.tcm2d Matrix.default
+                        Sequence.Align.closest yclose initial_sequences.(x) dhs.tcm2d Matrix.default
                 in
+                xclose,yclose
+                | `Pick_One ->
+                        if debug then Printf.printf "polymorphism=pick_one\n%!";
+                        Sequence.to_single_seq initial_sequences.(x) dhs.tcm2d,
+                        Sequence.to_single_seq initial_sequences.(y) dhs.tcm2d
+                | `Do_Nothing ->
+                        if debug then Printf.printf "polymorphism=do_nothing\n%!";
+                        initial_sequences.(x),initial_sequences.(y)
+                in
+                (*we add more states through extra sequence file -- check out
+                * search_base. these extra states are for internal nodes only, 
+                * we cannot assign them to leaf nodes. that's why we don't
+                * add them to hashtbl taxon_sequences.*)
                 if x<taxalen && y<taxalen then begin
                 Hashtbl.replace taxon_sequences taxa.(y) b;
                 Hashtbl.replace taxon_sequences taxa.(x) a;
@@ -5015,7 +5043,8 @@ let compute_fixed_states filename data code =
     let dyn_data =
         { dhs with
             initial_assignment = `FS fs_data;
-            state = `Seq; }
+            state = `Seq;
+            polymorphism = polymph }
     in
     Hashtbl.replace data.character_specs code (Dynamic dyn_data)
 
@@ -5090,8 +5119,15 @@ let assign_tcm_to_characters data chars foname tcm =
                     Hashtbl.replace data.character_specs code spec)
               new_charspecs;
     List.iter ~f:(fun (spec, code) -> 
-                    if is_fs data code then compute_fixed_states None data code)
-              new_charspecs;
+                    if is_fs data code then begin
+                        let polymph = match spec with 
+                        | Dynamic dspec ->
+                                dspec.polymorphism
+                        | _ -> `Do_All
+                        in
+                        compute_fixed_states None data code polymph;
+                    end;
+    )  new_charspecs;
     { data with files = files }
 
 
@@ -5126,7 +5162,6 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     in
     if debug_search_base then Printf.printf 
     "Data.add_search_base_from_file %s, chcode=%d\n%!" file chcode;
-    let annotated = false in
     let original_filename = file in
     let file = `Local file in 
     let alphabet = get_alphabet data 1 in
@@ -5235,21 +5270,6 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     let individual_fragments x = 
         List.map (List.map ~f:(fun (seq, t) -> [|seq|], t)) x
     in
-    let merge_fragments x =
-        match x with
-        | h :: t ->
-                let h = List.map ~f:(fun (seq, t) -> [seq], t) h in
-                let merged =
-                    List.fold_left 
-                    ~f:(fun merged next ->
-                        List.map2 ~f:(fun (seq, t) (locus, t2) ->
-                            assert (t = t2);
-                            (locus :: seq, t)) merged next) ~init:h t
-                in
-                List.rev_map (fun (lst, taxon) ->
-                    Array.of_list (List.rev lst), taxon) merged
-        | [] -> []
-    in
     let data = 
        (* if annotated then process_annotated_chrom data 
         else if dyna_state = `Genome then process_genome data
@@ -5287,7 +5307,11 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     in
     List.iter ~f:(fun (spec, code) -> 
         if debug_search_base then Printf.printf "call compute fixed states with code = %d\n%!" code;
-        compute_fixed_states None data code) chars_specs;
+        let polymph = match spec with 
+        | Dynamic dspec ->
+                dspec.polymorphism
+        | _ -> `Do_All in
+        compute_fixed_states None data code polymph) chars_specs;
     { data with files = files }
 
 
@@ -6421,8 +6445,13 @@ let complement_taxa data taxa =
         if All_sets.Integers.mem c taxa then acc
         else c :: acc) data.taxon_codes []
 
-let make_fixed_states filename chars data =
+let make_fixed_states filename chars polymph data =
     let data = duplicate data in
+    let polymph =
+        match polymph with 
+        | None -> `Do_All 
+        | Some x -> x 
+    in
     let convert_and_process code =
         match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> 
@@ -6431,7 +6460,8 @@ let make_fixed_states filename chars data =
                 | `Partitioned _
                 | `AutoPartitioned _
                 | `DO
-                | `GeneralNonAdd -> compute_fixed_states filename data code)
+                | `GeneralNonAdd -> 
+                        compute_fixed_states filename data code polymph)
         | _ -> failwith "How could this happen?"
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in

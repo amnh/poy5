@@ -1119,9 +1119,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 --> Node.load_data
                 (*unsupported_character_messages meth;
                 data, nodes*)
-        | `Fixed_States (chars,filename) ->
+        | `Fixed_States (chars,filename,polymph_option) ->
                 data 
-                --> Data.make_fixed_states filename chars 
+                --> Data.make_fixed_states filename chars polymph_option
                 --> Data.categorize
                 --> Node.load_data (~is_fixedstates:true)
         | `Partitioned (mode, chars) ->

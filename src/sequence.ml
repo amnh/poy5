@@ -2552,7 +2552,18 @@ let closest_alied_seq alied_parent alied_child c2 =
         ) 0 single_seq 
     in 
     single_seq, cost
-
+    
+(** [to_single_seq inseq cost_mat] resolve polymorphism in inseq with cost_mat.
+* now if there is a combination code of a/t/g/c/gap, we just pick one closest to
+* gap*)
+let to_single_seq inseq c2 =
+    let len = length inseq in
+    let single_seq = init 
+    (fun p -> 
+             let c_code = get inseq p in 
+             Cost_matrix.Two_D.get_closest c2 (Cost_matrix.Two_D.gap c2) c_code
+    ) len in
+    single_seq
 	
 	
 (** [concat seq_ls] returns a concatination 
