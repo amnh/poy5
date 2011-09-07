@@ -1473,11 +1473,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                 number of included characters in each character-type category
                 (\emph{i.e.} additive, non-additive, Sankoff, and molecular) with the corresponding
                 cost regimes, a list of excluded
-                characters, and a list of input files. If the report is directed
-                to a file with extension ``nex'' or ``nexus'' then
-                the output is suitable for a nexus file (including the #NEXUS
-                beginning). Hennig format is produced if the report is directed
-                to a file with extension ``ss'' or ``hen'' or ``hennig''.}
+                characters, and a list of input files.} 
                 {data}
 
             \argumentdefinition{searchstats}{}
@@ -1668,11 +1664,6 @@ The \poycommand{calculate\_support} command does not output support values by de
                         terminals separated with commas, and trees separated
                         with semicolons.}
                         {}
-                        
-                    \argumentdefinition{nexus}{}
-                        {Outputs the trees in the NEXUS format, inside a TREE
-                        block.}
-                        {nexusreport}
 	    \begin{statement}
 	     The \poyargument{hennig} and \poyargument{newick} arguments are 
 	     mutually exclusive.
@@ -1694,13 +1685,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                         default), but if \poycommand{false}--no branches are
                         collapsed.}
                         {}
-                    \end{description}
-                 If the report is directed
-                to a file with extension ``nex'' or ``nexus'' then
-                the output is suitable for a nexus file (trees inside a TREES
-                block). Hennig format is produced if the report is directed
-                to a file with extension ``ss'' or ``hen'' or ``hennig''. In
-                these two cases, all other formatting options are ignored.}
+                    \end{description}}
                 {treesreport}
 
 		\end{argumentgroup}
@@ -1738,18 +1723,6 @@ The \poycommand{calculate\_support} command does not output support values by de
         \begin{argumentgroup}{Exporting static homology data}
             {The following commands export the static homology characters
             currently in memory.}
-
-            \argumentdefinition{nexus}{}
-                {Produces a file in the NEXUS format that contains all the
-                characters currently in memory.  In
-                order to export an implied alignment as a NEXUS file, the
-                characters must first be transformed into static characters
-                using the \poycommand{transform} command (see the Hennig86 example in tutorial \texttt{4.2}): 
-                \begin{flushleft}
-                    \poycommand{transform ((all, static\_approx))} \\
-                    \poycommand{report ("report.nexus", nexus, trees:(nexus))}
-                \end{flushleft}}
-                {}
 
             \argumentdefinition{phastwinclad}{}
                 {Produces a file in the Hennig86 format that contains the
@@ -3401,7 +3374,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                        $o + l \times e$. The default values are $o=10, e=1.0$.}
                         {chromindel}
  
- 	          \argumentdefinition{circular}{\obligatory{\poybool}} 
+ 	               \argumentdefinition{circular}{\obligatory{\poybool}} 
                         {Specifies if chromosome is circular (boolean value 
                         \texttt{true}) or linear (boolean value \texttt{false}).
                         The default value of \poyargument{circular} is
@@ -3422,20 +3395,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                         all generated rearrangements.}
                         {median}
 
-               \argumentdefinition{median\_solver}{\obligatory{\poyint}}
-               {Specifies the median solver. User can choose from
-               default(caprara),vinh,siepel,bbtsp,coaletsp,chainedlk and simplelk. The
-               default median solver is caprara median solver. Note:
-               Concorde package is required for chainedlk and simplelk median
-               solver. 
-               Concorde package can be downloaded from
-               http://www.tsp.gatech.edu//concorde/downloads/downloads.htm.
-               Concorde package must be installed under the home directory.
-               }
-               {median\_solver}
-
-
-        		\argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
+        		      \argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
                         {Defines the maximum number of Wagner\-based possible ancestral sequence
                         alignments kept to create the next set of alignments during the pairwise alignment
                         with rearrangement process.  The default value of \poyargument{max\_kept\_wag} is 1,
