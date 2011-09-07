@@ -1700,13 +1700,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                         default), but if \poycommand{false}--no branches are
                         collapsed.}
                         {}
-                    \end{description}
-                 If the report is directed
-                to a file with extension ``nex'' or ``nexus'' then
-                the output is suitable for a nexus file (trees inside a TREES
-                block). Hennig format is produced if the report is directed
-                to a file with extension ``ss'' or ``hen'' or ``hennig''. In
-                these two cases, all other formatting options are ignored.}
+                    \end{description}}
                 {treesreport}
 
 		\end{argumentgroup}
@@ -1744,18 +1738,6 @@ The \poycommand{calculate\_support} command does not output support values by de
         \begin{argumentgroup}{Exporting static homology data}
             {The following commands export the static homology characters
             currently in memory.}
-
-            \argumentdefinition{nexus}{}
-                {Produces a file in the NEXUS format that contains all the
-                characters currently in memory.  In
-                order to export an implied alignment as a NEXUS file, the
-                characters must first be transformed into static characters
-                using the \poycommand{transform} command (see the Hennig86 example in tutorial \texttt{4.2}): 
-                \begin{flushleft}
-                    \poycommand{transform ((all, static\_approx))} \\
-                    \poycommand{report ("report.nexus", nexus, trees:(nexus))}
-                \end{flushleft}}
-                {}
 
             \argumentdefinition{phastwinclad}{}
                 {Produces a file in the Hennig86 format that contains the
