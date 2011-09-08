@@ -207,12 +207,15 @@ type ml_spec =
     (characters * ml_costfn * ml_substitution * ml_site_variation option
         * ml_priors * ml_gap)
 
+type polymorphism_arg = [ |`Do_Nothing | `Pick_One | `Do_All  ]
+
+
 type char_transform = [
     | dynamic_char_transform
     | `MultiStatic_Aprox of (characters * bool)
     | `Static_Aprox of (characters * bool)
     | `Search_Based of ( (string*string) list * characters)
-    | `Fixed_States of (characters*(string option))
+    | `Fixed_States of (characters*(string option)*(polymorphism_arg option))
     | `Partitioned of ([`Clip | `NoClip] * characters)
     | `Direct_Optimization of characters
     | `Automatic_Sequence_Partition of (characters * bool * (int option))
