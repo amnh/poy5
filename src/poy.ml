@@ -27,6 +27,14 @@ let hostname = Unix.gethostname ()
 
 let debug_pass_errors = false
 
+IFDEF USEPARALLEL THEN
+    let my_rank = Mpi.comm_rank Mpi.comm_world
+
+    let () = 
+        if my_rank <> 0 then SadmanOutput.do_sadman := false
+        else ()
+END
+
 let master =
     IFDEF USEPARALLEL THEN
         my_rank = 0 
@@ -35,14 +43,6 @@ let master =
     END
 
 let is_running_alone = ref false
-
-IFDEF USEPARALLEL THEN
-    let my_rank = Mpi.comm_rank Mpi.comm_world
-
-    let () = 
-        if my_rank <> 0 then SadmanOutput.do_sadman := false
-        else ()
-END
 
 let () =
     let () = Status.init () in

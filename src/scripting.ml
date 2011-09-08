@@ -1212,19 +1212,22 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
     end
 
 
-module MainBuild = Build
-module Build = 
-    Build.Make (Node) (Edge) (TreeOps)
+    module MainBuild = Build
+    module Build = Build.Make (Node) (Edge) (TreeOps)
+    module CT = CharTransform.Make (Node) (Edge) (TreeOps)
+    module TS = Ptree.Search (Node) (Edge) (TreeOps)
+    module PTS = TreeSearch.Make (Node) (Edge) (TreeOps)
+    module D = Diagnosis.Make (Node) (Edge) (TreeOps)
+    module S = Supports.Make (Node) (Edge) (TreeOps)
 
-module CT = CharTransform.Make (Node) (Edge) (TreeOps)
-(* We will use the TS module but only for inexact operations *)
-module TS = Ptree.Search (Node) (Edge) (TreeOps)
-module PTS = TreeSearch.Make (Node) (Edge) (TreeOps)
-module D = Diagnosis.Make (Node) (Edge) (TreeOps)
-module S = Supports.Make (Node) (Edge) (TreeOps)
+    type r = (a, b) run
 
-
-type r = (a, b) run
+    let args = 
+        IFDEF USEPARALLEL THEN
+            Mpi.init Sys.argv
+        ELSE
+            Sys.argv
+        END
 
     type plugin_function = Methods.script Methods.plugin_arguments -> r -> r
 
@@ -2434,8 +2437,6 @@ END
         { run with bremer_support = Sexpr.of_list res }
 
 IFDEF USEPARALLEL THEN
-    let args = Mpi.init Sys.argv
-
     let () = 
         let my_rank = Mpi.comm_rank Mpi.comm_world in
         let vbst = Mpi.broadcast Methods.Low 0 Mpi.comm_world in
@@ -2465,8 +2466,6 @@ IFDEF USEPARALLEL THEN
             print_endline (string_of_int my_rank ^ ":" ^ msg);
             flush stdout
         end else ()
-ELSE
-    let args = Sys.argv
 END
 
 let automated_search folder max_time min_time max_memory min_hits target_cost
@@ -2553,16 +2552,16 @@ visited user_constraint run =
         let time = Timer.wall timer in
         if time >= max_time then raise Exit;
         let () =
-IFDEF USEPARALLEL THEN
-            ()
-ELSE
-        let time = Timer.wall timer in
-        if !hits >= min_hits && (time >= min_time) then
-            raise Exit
-        else if !hits >= min_hits && (min_time = max_time) then 
-            raise Exit
-        else ()
-END
+            IFDEF USEPARALLEL THEN
+                ()
+            ELSE
+                let time = Timer.wall timer in
+                if !hits >= min_hits && (time >= min_time) then
+                    raise Exit
+                else if !hits >= min_hits && (min_time = max_time) then 
+                    raise Exit
+                else ()
+            END
         in
         let fraction =
             match state with
