@@ -157,7 +157,7 @@ let safe_exit () =
 let () = at_exit safe_exit
 
 IFDEF USEPARALLEL THEN
-    let _ =
+    let () =
         let tsize = Mpi.comm_size Mpi.comm_world in
         if my_rank = 0 && tsize > 1 then
             Status.user_message Status.Information 
@@ -169,11 +169,11 @@ IFDEF USEPARALLEL THEN
         else ();
         let arr = Array.init tsize (fun x -> seed + x) in
         let seed = Mpi.scatter_int arr 0 Mpi.comm_world in
-        Phylo.process_random_seed_set (Phylo.empty ()) seed
+        ignore (Phylo.process_random_seed_set (Phylo.empty ()) seed)
 END
 
 
-let _ = 
+let () = 
     let initial_script = ref script in
     let script = ref (Phylo.empty ()) in
     let input = ref "" in
