@@ -25,10 +25,3 @@ module M = Scripting.Make (Nodes) (Edges) (TreeOps)
 
 open M
 include M
-
-let () =
-    Status.user_message Status.Information Version.string
-
-let seed = truncate (Unix.time ())
-
-let _ = process_random_seed_set (empty ()) seed
