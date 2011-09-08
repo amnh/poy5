@@ -27,16 +27,10 @@ let hostname = Unix.gethostname ()
 
 let debug_pass_errors = false
 
-IFDEF USEPARALLEL THEN
-    let my_rank = Mpi.comm_rank Mpi.comm_world
-
-    let () = 
-        if my_rank <> 0 then SadmanOutput.do_sadman := false
-        else ()
-END
-
 let master =
     IFDEF USEPARALLEL THEN
+        let my_rank = Mpi.comm_rank Mpi.comm_world in
+        if my_rank <> 0 then SadmanOutput.do_sadman := false; 
         my_rank = 0 
     ELSE
         true
@@ -50,10 +44,10 @@ let () =
         Arg.parse_argv Phylo.args Arguments.parse_list 
                         (Arguments.anon_fun `Filename) Arguments.usage
     with
-    | Arg.Help _ ->
+        | Arg.Help _ ->
             Arg.usage Arguments.parse_list Arguments.usage;
             exit 0
-    | Arg.Bad x ->
+        | Arg.Bad x ->
             prerr_string ("Bad argument: " ^ x);
             Arg.usage Arguments.parse_list Arguments.usage;
             exit 1
@@ -61,9 +55,24 @@ let () =
 (** Drop the Start-Up Message and instructions to console **)
 let () =
     let out = Status.user_message Status.Information in
-    ignore (Phylo.process_random_seed_set (Phylo.empty ()) seed);
     let rephrase str = Str.global_replace (Str.regexp " +") "@ " str in
     out Version.string;
+    let () =
+        IFDEF USEPARALLEL THEN
+            let tsize = Mpi.comm_size Mpi.comm_world in
+            if master && tsize > 1 then
+                out (Printf.sprintf "Running@ in@ parallel@ with@ %d@ processes"
+                                    (Mpi.comm_size Mpi.comm_world))
+            else if tsize = 1 then
+                out "Running@ sequentially."
+            else ();
+            let arr = Array.init tsize (fun x -> seed + x) in
+            let seed = Mpi.scatter_int arr 0 Mpi.comm_world in
+            ignore (Phylo.process_random_seed_set (Phylo.empty ()) seed)
+        ELSE
+            ignore (Phylo.process_random_seed_set (Phylo.empty ()) seed)
+        END
+    in
     out "";
     out "";
     out "";
@@ -75,6 +84,7 @@ let () =
     ELSE
         out (rephrase "@[For help, type @{<u>help()@}.@\n@\nEnjoy!@]")
     END
+
 
 let regen_and_save filename codestring regenfn =
     let data = regenfn () in
@@ -156,21 +166,6 @@ let safe_exit () =
 
 let () = at_exit safe_exit
 
-IFDEF USEPARALLEL THEN
-    let () =
-        let tsize = Mpi.comm_size Mpi.comm_world in
-        if my_rank = 0 && tsize > 1 then
-            Status.user_message Status.Information 
-            ("Running in parallel with " ^ string_of_int (Mpi.comm_size
-            Mpi.comm_world) ^ " processes")
-        else if tsize = 1 then
-            Status.user_message Status.Information
-            "Running sequentially."
-        else ();
-        let arr = Array.init tsize (fun x -> seed + x) in
-        let seed = Mpi.scatter_int arr 0 Mpi.comm_world in
-        ignore (Phylo.process_random_seed_set (Phylo.empty ()) seed)
-END
 
 
 let () = 
@@ -201,7 +196,8 @@ let () =
                     let command = Analyzer.analyze command in
                     let command = Mpi.broadcast command 0 Mpi.comm_world in
                     let size = Mpi.comm_size Mpi.comm_world in
-                    Analyzer.parallel_analysis my_rank size command
+                    Analyzer.parallel_analysis (Mpi.comm_rank Mpi.comm_world) 
+                                               size command
                 ELSE
                     match command with
                     | [_] -> command
@@ -258,7 +254,7 @@ let () =
             raise err
     in
 IFDEF USEPARALLEL THEN
-    if 0 = my_rank then
+    if master then
         Status.main_loop proc_command
     else 
         while true do
