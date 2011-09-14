@@ -1212,19 +1212,22 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
     end
 
 
-module MainBuild = Build
-module Build = 
-    Build.Make (Node) (Edge) (TreeOps)
+    module MainBuild = Build
+    module Build = Build.Make (Node) (Edge) (TreeOps)
+    module CT = CharTransform.Make (Node) (Edge) (TreeOps)
+    module TS = Ptree.Search (Node) (Edge) (TreeOps)
+    module PTS = TreeSearch.Make (Node) (Edge) (TreeOps)
+    module D = Diagnosis.Make (Node) (Edge) (TreeOps)
+    module S = Supports.Make (Node) (Edge) (TreeOps)
 
-module CT = CharTransform.Make (Node) (Edge) (TreeOps)
-(* We will use the TS module but only for inexact operations *)
-module TS = Ptree.Search (Node) (Edge) (TreeOps)
-module PTS = TreeSearch.Make (Node) (Edge) (TreeOps)
-module D = Diagnosis.Make (Node) (Edge) (TreeOps)
-module S = Supports.Make (Node) (Edge) (TreeOps)
+    type r = (a, b) run
 
-
-type r = (a, b) run
+    let args = 
+        IFDEF USEPARALLEL THEN
+            Mpi.init Sys.argv
+        ELSE
+            Sys.argv
+        END
 
     type plugin_function = Methods.script Methods.plugin_arguments -> r -> r
 
@@ -1478,7 +1481,7 @@ let load_data (meth : Methods.input) data nodes =
                                 Cost_matrix.Two_D.default
                                 Cost_matrix.Three_D.default annotated
                                 Alphabet.nucleotides mode is_prealigned `Seq d f)
-                    data files
+                data files
         | `Chromosome files ->
 (** read chromosome data from files each chromosome is 
 * presented simply as a long plain nucleotide sequences *)
@@ -1543,6 +1546,7 @@ let load_data (meth : Methods.input) data nodes =
                     (List.mem (`Orientation true) read_options) 
                 in
                 let init3D = (List.mem (`Init3D true) read_options) in
+                let is_prealigned = List.mem (`Prealigned) read_options in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let level = 2 in (* set level = 2 by default *)
@@ -1550,14 +1554,19 @@ let load_data (meth : Methods.input) data nodes =
                 let alphabet, (twod,matrix), threed =
                     Alphabet.of_file alph orientation init3D level respect_case
                 in
+                (*to do : connect this to prealigned*)
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;
+                let dynastate,default_mode = 
+                if is_prealigned then 
+                    `SeqPrealigned,`GeneralNonAdd 
+                else `Seq,`DO in
                 let tcmfile = FileStream.filename alph in
                 Data.process_molecular_file
                         ~respect_case:respect_case
                         (Data.Input_file (tcmfile,matrix))
-                        twod threed annotated alphabet `DO
-                        is_prealigned `Seq data seq 
+                        twod threed annotated alphabet default_mode
+                        is_prealigned dynastate data seq 
         | `Breakinv (seq, alph, read_options) ->
                 (** read breakinv data from files each breakinv is 
                  * presented as a sequence of general alphabets *)
@@ -1587,6 +1596,7 @@ let load_data (meth : Methods.input) data nodes =
         | `Prealigned (meth, tcm, gap_opening) ->
             prealigned_files := [];
             let data = reader false true data meth in
+            let data = Data.categorize (Data.remove_taxa_to_ignore data) in
             let files = List.flatten !prealigned_files in
             let chars =
                 let chars = List.rev_map (function `Local x | `Remote x -> (x ^ ".*")) files in
@@ -1608,7 +1618,7 @@ let load_data (meth : Methods.input) data nodes =
             Data.prealigned_characters ImpliedAlignment.analyze_tcm data
             chars
     in
-    let data = annotated_reader data meth in    
+    let data = annotated_reader data meth in   
     let data = Data.categorize (Data.remove_taxa_to_ignore data) in 
     Node.load_data data
 
@@ -2427,8 +2437,6 @@ END
         { run with bremer_support = Sexpr.of_list res }
 
 IFDEF USEPARALLEL THEN
-    let args = Mpi.init Sys.argv
-
     let () = 
         let my_rank = Mpi.comm_rank Mpi.comm_world in
         let vbst = Mpi.broadcast Methods.Low 0 Mpi.comm_world in
@@ -2458,8 +2466,6 @@ IFDEF USEPARALLEL THEN
             print_endline (string_of_int my_rank ^ ":" ^ msg);
             flush stdout
         end else ()
-ELSE
-    let args = Sys.argv
 END
 
 let automated_search folder max_time min_time max_memory min_hits target_cost
@@ -2546,16 +2552,16 @@ visited user_constraint run =
         let time = Timer.wall timer in
         if time >= max_time then raise Exit;
         let () =
-IFDEF USEPARALLEL THEN
-            ()
-ELSE
-        let time = Timer.wall timer in
-        if !hits >= min_hits && (time >= min_time) then
-            raise Exit
-        else if !hits >= min_hits && (min_time = max_time) then 
-            raise Exit
-        else ()
-END
+            IFDEF USEPARALLEL THEN
+                ()
+            ELSE
+                let time = Timer.wall timer in
+                if !hits >= min_hits && (time >= min_time) then
+                    raise Exit
+                else if !hits >= min_hits && (min_time = max_time) then 
+                    raise Exit
+                else ()
+            END
         in
         let fraction =
             match state with
@@ -4484,44 +4490,38 @@ END
                         run
                     end
             | `Xslt (file, style) ->
-                    let () =
+                let () =
 IFDEF USE_XSLT THEN
                     let filename, chout = Filename.open_temp_file "results" ".xml" in
                     close_out chout;
                     Status.user_message Status.Information 
-                    ("Generating xml file in " ^ StatusCommon.escape filename);
+                            ("Generating xml file in " ^ StatusCommon.escape filename);
                     let ofilename = Some filename in
                     let fmt = Data.to_formatter [] run.data in
-                    let trs = 
-                        Sexpr.map 
+                    let trs =
+                        Sexpr.map
                             (fun tr ->
-                                let classify = false in
                                 let run =
-                                    update_trees_to_data 
-                                                ~classify false true 
-                                                {run with trees = `Single tr}
+                                    update_trees_to_data ~classify:false
+                                            false true {run with trees = `Single tr}
                                 in
                                 match run.trees with
-                                | `Single tr ->
-                                    TreeOps.to_formatter `Normal [] run.data tr
-                                | _ -> assert false)
-                        run.trees 
+                                | `Single tr -> TreeOps.to_formatter `Normal [] tr
+                                | _          -> assert false)
+                            run.trees
                     in
                     StatusCommon.Files.set_margin ofilename 0;
-                    Status.user_message (Status.Output (ofilename, false, []))
-                    " <Diagnosis>@\n";
+                    Status.user_message (Status.Output (ofilename, false, [])) " <Diagnosis>@\n";
                     PoyFormaters.data_to_status ofilename fmt;
-                    Sexpr.leaf_iter (PoyFormaters.trees_to_formater ofilename [])
-                    trs;
-                    Status.user_message (Status.Output (ofilename, false, []))
-                    " </Diagnosis>@\n%!";
+                    Sexpr.leaf_iter (PoyFormaters.trees_to_formater ofilename []) trs;
+                    Status.user_message (Status.Output (ofilename, false, [])) " </Diagnosis>@\n%!";
                     Xslt.process filename style file
 ELSE
                     Status.user_message Status.Error 
                     "This version of POY was not compiled with XSLT support."
 END
-                    in
-                    run
+                in
+                run
             | `Diagnosis (diag_report_type,filename) ->
     (*
     * For brief report -- the four lines has 

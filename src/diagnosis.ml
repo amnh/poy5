@@ -260,9 +260,20 @@ module Make
                     Data.get_code_from_characters_restricted_comp
                     `AllDynamic data chars 
                 in
+                let char_codes = 
+                    List.fold_left (fun acc code ->
+                        match Hashtbl.find data.Data.character_specs code with
+                        | Data.Dynamic x -> 
+                             (match x.Data.initial_assignment with
+                             |`GeneralNonAdd -> acc
+                             | _ -> code::acc
+                             )
+                        | _ -> code :: acc
+                    ) [] char_codes
+                in
                 let char_codes = List.sort compare char_codes in
                 let res = 
-                    List.map (fun code -> 
+                    List.map (fun code ->
                         let seqname = Data.code_character code data in
                         let ia = IA.create CT.filter_characters [code] data tree in
                         (tree.Ptree.tree, seqname) , ia) char_codes  

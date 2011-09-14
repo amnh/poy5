@@ -1104,7 +1104,6 @@ module Two_D = struct
 
     let of_channel ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
         let use_comb = if level = 1 then false else use_comb in
-        let debug = false in
         if debug then 
         Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," 
         use_comb level all_elements;
@@ -1618,7 +1617,6 @@ module Three_D = struct
                     "Calculating@ Three@ Dimansional@ Aminoacid@ Cost@ Matrix"
                     None ""
                 in
-                Printf.printf "Calculating@ Three@ Dimansional@ Aminoacid\n%!";
                 let res = of_two_dim Two_D.default_aminoacids in
                 Status.finished st;
                 res

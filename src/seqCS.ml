@@ -741,6 +741,7 @@ module DOS = struct
         0 <> compare res.sequence mine.sequence, res, cost
 
     let to_single h parent mine =
+        if debug then Printf.printf "seqCS.DOS.to_single\n%!";
         let gap = Cost_matrix.Two_D.gap h.c2 in
         if Sequence.is_empty mine.sequence gap then
             create mine.sequence, 0
@@ -1551,6 +1552,7 @@ module RL = struct
 end
 
 type sequence_characters =
+| General_Prealigned of GenNonAdd.gnonadd_sequence
 | Heuristic_Selection of DOS.do_single_sequence
 | Partitioned of PartitionedDOS.partitioned_sequence
 | Relaxed_Lifted of (RL.relaxed_lifted * RL.fs_sequences)
@@ -1578,6 +1580,7 @@ let check_characters_type in_data =
     Printf.printf "seqCS.check characters type : %!";
     Array.iter (fun item ->
         match item with
+        | General_Prealigned _ -> Printf.printf "General_Prealigned,%!"
         | Heuristic_Selection _ -> Printf.printf "Heuristic_Selection,%!"
         | Relaxed_Lifted _ -> Printf.printf "Relaxed_Lifted,%!"
         | Partitioned _ -> Printf.printf "Partitioned,%!"
@@ -1587,6 +1590,7 @@ let check_characters_type in_data =
 (* return 1 if we are dealing with this kind of SeqCS data for multi-chromosome.*)
 let is_available in_data =
     match (in_data.characters).(0) with
+    | General_Prealigned _ -> 0
     | Heuristic_Selection _ -> 0
     | Partitioned _ -> 0
     | Relaxed_Lifted _ -> 0
@@ -1733,6 +1737,7 @@ module Union = struct
                 in
                 let union uniona unionb self =
                     match self with
+                    | General_Prealigned _ -> failwith "write union later"
                     | Heuristic_Selection self ->
                         (match uniona, unionb with
                         | Some (Single uniona), Some (Single unionb) ->
@@ -1857,6 +1862,7 @@ let empty code c2 alph =
 let to_union a = 
     if a.alph = Alphabet.nucleotides then
         let new_unions = Array.map (function
+            | General_Prealigned _ -> failwith "write to_union later"
             | Heuristic_Selection x -> Some (Single (DOS.to_union x))
             | Relaxed_Lifted _ -> None
             | Partitioned s -> 
@@ -1877,6 +1883,8 @@ let to_string a =
         let code = string_of_int code 
         and seq = 
             match seq with
+            | General_Prealigned seq ->
+                    Sequence.to_formater seq.GenNonAdd.seq a.alph
             | Partitioned seq ->
                     let seq = PartitionedDOS.merge seq in
                     Sequence.to_formater seq.DOS.sequence a.alph
@@ -1920,6 +1928,7 @@ let of_array spec sc code taxon =
                     with
                     | Not_found ->  
                             PartitionedDOS.empty clip size spec.Data.alph)
+        | `GeneralNonAdd, [|x|] -> General_Prealigned (GenNonAdd.init_gnonadd_t x)
         | `DO, [|x|] -> Heuristic_Selection (DOS.create x)
         | `FS fs, [|x|] ->
                 let tbl = { RL.distance_table = fs.Data.costs;
@@ -1944,6 +1953,7 @@ let of_array spec sc code taxon =
                                      left = left;
                                     right = left } )
         | `AutoPartitioned _, _ 
+        | `GeneralNonAdd, _ 
         | `DO, _
         | `FS _, _ -> assert false
 
@@ -2013,6 +2023,10 @@ let to_single parent mine =
     let characters =
         Array_ops.map_2 (fun a b ->
             match a, b with
+            | General_Prealigned a, General_Prealigned b ->
+                    let res, c = GenNonAdd.to_single mine.alph mine.heuristic.c2 a b in
+                    total_cost := c + !total_cost;
+                    General_Prealigned res
             | Partitioned a, Partitioned b ->
                     let res, c = PartitionedDOS.to_single mine.heuristic a b in
                     total_cost := c + !total_cost;
@@ -2037,7 +2051,9 @@ let to_single parent mine =
                     assert false
             | Partitioned _, _
             | _, Partitioned _
-            | Relaxed_Lifted _, _ -> assert false) parent.characters
+            | Relaxed_Lifted _, _ 
+            | General_Prealigned _, _ 
+            | Heuristic_Selection _, General_Prealigned _ -> assert false) parent.characters
                     mine.characters
     in
     let total_cost = float_of_int !total_cost in
@@ -2054,6 +2070,10 @@ let median code a b =
     let characters =
         Array_ops.map_2 (fun a b ->
             match a, b with
+            | General_Prealigned a, General_Prealigned b ->
+                    let res, c = GenNonAdd.median h.c2 a b in
+                    total_cost := c + !total_cost;
+                    General_Prealigned res
             | Partitioned a, Partitioned b ->
                     let res, c = PartitionedDOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
@@ -2069,7 +2089,9 @@ let median code a b =
             | Partitioned _, _
             | _, Partitioned _
             | Relaxed_Lifted _, _
-            | _, Relaxed_Lifted _ -> assert false) a.characters b.characters
+            | _, Relaxed_Lifted _ 
+            | Heuristic_Selection _, _
+            | General_Prealigned _ , _ -> assert false) a.characters b.characters
     in
     let res = { a with characters = characters; total_cost = float_of_int
     !total_cost } in
@@ -2082,15 +2104,18 @@ let median code a b =
 
 let median_3 p n c1 c2 =
     let h = n.heuristic in
-    let generic_map_4 f g a b c d use_ukk =
+    let generic_map_4 f1 f2 f3 a b c d use_ukk =
         Array_ops.map_4 (fun a b c d ->
             match a, b, c, d with
             | Heuristic_Selection a, Heuristic_Selection b, 
             Heuristic_Selection c, Heuristic_Selection d ->
-                Heuristic_Selection (f h a b c d use_ukk)
+                Heuristic_Selection (f1 h a b c d use_ukk)
+            | General_Prealigned a, General_Prealigned b,
+            General_Prealigned c, General_Prealigned d ->
+                General_Prealigned (f3 h.c2 a b c d) 
             | Relaxed_Lifted a, Relaxed_Lifted b, 
                 Relaxed_Lifted c, Relaxed_Lifted d ->
-                    Relaxed_Lifted (g h a b c d)
+                    Relaxed_Lifted (f2 h a b c d)
             | Partitioned _, Partitioned _, Partitioned _, Partitioned _ ->
                     b
             | _ -> assert false)
@@ -2100,14 +2125,14 @@ let median_3 p n c1 c2 =
     * handle the union of the items inside *)
     let median_no_union () = 
         let use_ukk = n.use_ukk in
-        generic_map_4 DOS.median_3_no_union RL.median_3
+        generic_map_4 DOS.median_3_no_union RL.median_3 GenNonAdd.median_3
         p.characters n.characters c1.characters c2.characters use_ukk
     in
     (* A function to calculate the uppass values if the alphabet does handle
     * properly the union of the items inside. *)
     let median_union () =
         let use_ukk = n.use_ukk in
-        generic_map_4 DOS.median_3_union RL.median_3
+        generic_map_4 DOS.median_3_union RL.median_3 GenNonAdd.median_3
         p.characters n.characters c1.characters c2.characters use_ukk
     in
     let characters = 
@@ -2125,6 +2150,8 @@ let distance missing_distance a b =
         match a, b with
         | Partitioned a, Partitioned b ->
                 acc + (PartitionedDOS.distance alph h missing_distance a b use_ukk)
+        | General_Prealigned a, General_Prealigned b ->
+                acc + (GenNonAdd.distance a b h.c2)
         | Heuristic_Selection a, Heuristic_Selection b ->
                 acc + (DOS.distance alph h missing_distance a b use_ukk) 
         | Relaxed_Lifted a, Relaxed_Lifted b ->
@@ -2132,7 +2159,9 @@ let distance missing_distance a b =
         | Partitioned _, _
         | _, Partitioned _
         | Relaxed_Lifted _, _
-        | _, Relaxed_Lifted _ -> assert false) 0 a.characters b.characters)
+        | _, Relaxed_Lifted _ 
+        | Heuristic_Selection _, _ 
+        | General_Prealigned _, _ -> assert false) 0 a.characters b.characters)
 
 let dist_2 delta n a b =
     let h = n.heuristic in
@@ -2146,6 +2175,9 @@ let dist_2 delta n a b =
                 | Partitioned n, Partitioned a, Partitioned b ->
                         let cost = PartitionedDOS.dist_2 h n a b use_ukk in
                         (acc + cost), (deltaleft - cost)
+                | General_Prealigned n, General_Prealigned a, 
+                General_Prealigned b ->
+                    failwith "add dist_2 later"
                 | Heuristic_Selection n, 
                     Heuristic_Selection a, Heuristic_Selection b ->
                         let cost = DOS.dist_2 h n a b use_ukk in
@@ -2158,7 +2190,9 @@ let dist_2 delta n a b =
                 | _, _, Partitioned _
                 | Relaxed_Lifted _, _ , _
                 | _, Relaxed_Lifted _ , _
-                | _, _, Relaxed_Lifted _ -> assert false) (0, delta) 
+                | _, _, Relaxed_Lifted _ 
+                | General_Prealigned _ , _, _
+                | Heuristic_Selection _ , _ , _ -> assert false) (0, delta) 
                         n.characters a.characters b.characters
     in
     float_of_int x 
@@ -2188,6 +2222,8 @@ let compare_data a b =
         if acc <> 0 then acc
         else
             match a, b with
+            | General_Prealigned a, General_Prealigned b ->
+                    GenNonAdd.compare a b
             | Heuristic_Selection a, Heuristic_Selection b ->
                     DOS.compare a b
             | Relaxed_Lifted a, Relaxed_Lifted b ->
@@ -2197,7 +2233,9 @@ let compare_data a b =
             | Partitioned _, _
             | _, Partitioned _
             | Relaxed_Lifted _, _
-            | _, Relaxed_Lifted _ -> assert false)
+            | _, Relaxed_Lifted _ 
+            | General_Prealigned _ , _ 
+            | Heuristic_Selection _ , _ -> assert false)
     0 a.characters b.characters
 
 let ( --> ) a b = b a 
@@ -2257,6 +2295,15 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                     in
                     { min = min; max = max }, (`FloatFloatTuple (min, max)),
                     max, seqs
+            | General_Prealigned seq ->
+                    if debug then Printf.printf "seqCS.GP.to_formatter\n%!";
+                    let cost = seq.GenNonAdd.costs in
+                    let mincost,maxcost = 
+                        cost.GenNonAdd.min,cost.GenNonAdd.max
+                    in
+                    let cost = { min = mincost;  max = maxcost } in
+                    let costb,max = `FloatFloatTuple (mincost,maxcost), maxcost in 
+                    cost, costb, max, [seq.GenNonAdd.seq]
             | Heuristic_Selection seq ->
                     if debug then  Printf.printf "seqCS.HS.to_formatter\n%!";
                     let cost = seq.DOS.costs in
@@ -2278,6 +2325,7 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                                     Sequence.Align.max_cost_2 s1 s2 h.c2 
                                 in
                                 `IntTuple (min, max), float_of_int max
+                        | Some (General_Prealigned _)
                         | Some (Partitioned _) -> assert false 
                         | Some (Relaxed_Lifted _) -> assert false
                     in
@@ -2310,6 +2358,8 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                                 seq.RL.states;
                         | Some (Partitioned par) ->
                                 assert false; (* TODO *)
+                        | Some (General_Prealigned _ ) ->
+                                failwith "seqCS, fixstate and prealigned"
                         | Some (Heuristic_Selection par) ->
                                 process par.DOS.position
                         | Some (Relaxed_Lifted x) -> 
@@ -2364,6 +2414,7 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
 let get_sequences (data:t) : Sequence.s array array =
     Array.map 
         (function
+            | General_Prealigned x -> [| x.GenNonAdd.seq|]
             | Heuristic_Selection x -> [| x.DOS.sequence |]
             | Relaxed_Lifted (rl,_) -> rl.RL.sequence_table
             | Partitioned y ->
@@ -2397,6 +2448,7 @@ let tabu_distance a =
         match y with
         | Partitioned x -> sum +. (PartitionedDOS.tabu_distance x)
         | Relaxed_Lifted _ -> sum
+        | General_Prealigned y -> (GenNonAdd.get_max_cost y.GenNonAdd.costs) +. sum
         | Heuristic_Selection y ->
                 y.DOS.costs.max +. sum) 0.0 a.characters
 
@@ -2407,6 +2459,8 @@ let explode cs =
         match seq with
         | Partitioned _
         | Relaxed_Lifted _ -> failwith "TODO 12345"
+        | General_Prealigned seq ->
+                (code, seq.GenNonAdd.seq, h.c2, h.c3, cs.alph) :: acc
         | Heuristic_Selection seq ->
             (code, seq.DOS.sequence, h.c2, h.c3, cs.alph) :: acc)
     []
@@ -2418,6 +2472,8 @@ let encoding enc x =
         match x with
         | Partitioned x -> acc +. (PartitionedDOS.encoding enc x)
         | Relaxed_Lifted _ -> acc
+        | General_Prealigned x -> 
+                acc +. (Sequence.encoding enc x.GenNonAdd.seq)
         | Heuristic_Selection x -> 
                 acc +. (Sequence.encoding enc x.DOS.sequence)) 
     0.0 x.characters

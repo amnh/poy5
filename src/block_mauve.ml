@@ -5172,8 +5172,8 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
             in
             let out_seqarr,out_seq_size_lst =
             get_seq_outside_lcbs in_seqarr [range_lst0;range_lst1] total_range_lst in
-            let outlen0,outlen1 = Array.length out_seqarr.(0),
-            Array.length out_seqarr.(1) in
+            (*let outlen0,outlen1 = Array.length out_seqarr.(0),
+            Array.length out_seqarr.(1) in*)
             let out_aliseq0, out_aliseq1, out_cost, _ =  
             Sequence.align2 (Sequence.of_array out_seqarr.(0))
             (Sequence.of_array out_seqarr.(1)) cost_mat use_ukk
@@ -5598,8 +5598,8 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
             * will be big too. we won't choose the match them as a pair
             * later, therefore we don't need to know exact cost&alignment
             * between them*)
-            let sublen1 = right1-left1+1 and sublen2 = right2-left2+1 in
-            (*if (sublen1 > !maximum_lcb_len)&&(sublen2 > !maximum_lcb_len)
+            (*let sublen1 = right1-left1+1 and sublen2 = right2-left2+1 in
+            if (sublen1 > !maximum_lcb_len)&&(sublen2 > !maximum_lcb_len)
     *)
             if (0>1)
             then begin

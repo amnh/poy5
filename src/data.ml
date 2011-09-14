@@ -54,6 +54,7 @@ type contents = Characters | CostMatrix | Trees
 type parsed_trees = ((string option * Tree.Parse.tree_types list) * string * int)
 
 type dyna_state_t = [
+    | `SeqPrealigned
     (** A short sequence, no rearrangements are allowed*)
     | `Seq
 
@@ -82,6 +83,9 @@ type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP 
 type annotate_tool_t = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
 
 type align_meth_t = [ `NewKK | `Default ]
+
+type polymorphism_t = Methods.polymorphism_arg (*[ `Do_All | `Pick_One |
+`Do_Nothing ]*)
 
 type dyna_pam_t = {
 
@@ -142,7 +146,7 @@ type dyna_pam_t = {
 
     (** maximum of Wagner-based alignments are kept during 
     * the pairwise alignment with rearrangements *)
-    max_kept_wag : int option;
+    max_kept_wag : int option; 
 }
 
 (** [dyna_pam_default] assigns default values for parameters 
@@ -180,6 +184,7 @@ type fixed_state =
 type dyna_initial_assgn =
     [ `Partitioned of clip
     | `AutoPartitioned of clip * int * (int,  ((int * int) list)) Hashtbl.t
+    | `GeneralNonAdd
     | `DO
     | `FS of fixed_state ]
 
@@ -202,6 +207,12 @@ type dynamic_hom_spec = {
     state : dyna_state_t;
     pam : dyna_pam_t;
     weight : float;
+    (** choose a way to deal with polymorphism. during transformation to
+    * fixed_state, we resolve polymorphism. here are 3 ways of doing it: 
+        * 1. Do_All: do the full "get_closest" thing, which might take a long time
+        * 2. Pick_One: just pick one.
+        * 3. Do_Nothing: do nothing, leave the input sequence as it is.*)
+    polymorphism : polymorphism_t;
 }
 
 type distr = | MaxLength of int (* Any of the distributions with a maximum length *)
@@ -744,7 +755,8 @@ let is_fs data code =
         | `FS _ -> true
         | `Partitioned _
         | `AutoPartitioned _
-        | `DO -> false
+        | `DO 
+        | `GeneralNonAdd -> false
 
 let get_empty_seq alph = 
     let seq = Sequence.create 1 in
@@ -843,6 +855,7 @@ let print (data : d) =
         (match spec with 
         | Dynamic dspec ->
               (match dspec.state with 
+               | `SeqPrealigned -> Printf.fprintf stdout "Seq Prealigned"
                | `Seq -> Printf.fprintf stdout "Seq"
                | `Ml -> Printf.fprintf stdout "Dynamic ML"
                | `Breakinv -> Printf.fprintf stdout "Breakinv"
@@ -1620,7 +1633,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             if  annotated || (dyna_state = `Chromosome) then 
                 original_filename
             else match default_mode with
-            | `FS _ | `DO | `AutoPartitioned _ -> (!locus_name) () 
+            | `FS _ | `DO | `GeneralNonAdd |`AutoPartitioned _ -> (!locus_name) () 
             | `Partitioned _ -> original_filename
         in
         incr data.character_code_gen;
@@ -1636,7 +1649,8 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             alph = alphabet;
             state = dyna_state;
             pam = dyna_pam_default;
-            weight = weight; } 
+            weight = weight; 
+            polymorphism = `Do_All} 
         in
         Hashtbl.replace data.character_specs chcode (Dynamic dspec);
         Hashtbl.replace data.character_names file chcode;
@@ -1659,6 +1673,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
                 match dyna_state with 
                 | `Ml  when not prealigned -> Array.map makeone seq 
                 | `Seq when not prealigned -> Array.map makeone seq
+                | `SeqPrealigned -> Array.map makeone seq
                 | _ -> Array.map (fun x -> x --> 
                         Sequence.del_first_char --> makeone) seq 
             in 
@@ -1792,7 +1807,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
     let data = 
         if annotated then process_annotated_chrom data 
         else if dyna_state = `Genome then process_genome data
-        else if `DO = default_mode then
+        else if `DO = default_mode || `GeneralNonAdd = default_mode then
             match (res --> individual_fragments) with
             | [x] ->
                     locus_name := (fun () -> original_filename);
@@ -2632,8 +2647,9 @@ let categorize data =
                         else data
                 | Nexus.File.STLikelihood _ ->
                         { data with static_ml = code :: data.static_ml })
-        | Dynamic _ -> { data with dynamics = code :: data.dynamics }
-        | Set -> data
+        | Dynamic _ -> 
+                { data with dynamics = code :: data.dynamics }
+        | Set ->  data
         | Kolmogorov _ -> { data with kolmogorov = code :: data.kolmogorov }
     in
     let res = Hashtbl.fold categorizer data.character_specs data in
@@ -2770,7 +2786,7 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `Seq -> [T.clas, `String T.sequence]
+    | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
     | others -> 
             let clas = 
                 match others with
@@ -2834,6 +2850,7 @@ let character_spec_to_formatter enc : Xml.xml =
                 | `Partitioned _ -> 
                         `String "User provided partition with DO"
                 | `DO -> `String "Direct Optimization"
+                | `GeneralNonAdd -> `String "Prealigned sequence."
                 | `FS _ -> `String "Fixed States"
             in
             (RXML -[T.molecular]
@@ -4834,17 +4851,14 @@ let auto_partition mode data code =
         Status.user_message Status.Information "There are no potential partitions"
 
 
-let compute_fixed_states filename data code =
+let compute_fixed_states filename data code polymph =
     let debug = false in
     if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
     in
-    let chrom_or_genome = match dhs.state with
-        | `Chromosome | `Genome ->  true
-        | `Seq | `Ml | `Annotated | `Breakinv -> false
-    and annotate_with_mauve = match dhs.pam.annotate_tool with
+    let annotate_with_mauve = match dhs.pam.annotate_tool with
         | Some (`Mauve _) -> true
         | Some (`Default _) -> false
         | None -> false
@@ -4883,11 +4897,16 @@ let compute_fixed_states filename data code =
     if debug then Printf.printf "total size = %d + %d = %d\n%!" 
     taxalen searchbaselen  (Array.length total_arr);
     (* find all single assignments between two sequences; these become the
-       states that can be placed on the internal nodes of the tree **)
+       states that can be placed on the internal nodes of the tree.
+       this process resolves polymorphism of input sequences.
+       NOTE: this process cost n-square(n=number of taxons),it might take long time.*)
     let () = 
         for x = 0 to (Array.length taxa) - 1 do
             for y = 0 to (Array.length taxa) - 1 do
-                let b, _ = 
+                let a,b = 
+                match polymph with
+                | `Do_All -> if debug then Printf.printf "polymorphism=do all\n%!";
+                let yclose, _ = 
                     if align_with_newkk then
                         Sequence.NewkkAlign.closest initial_sequences.(x)
                         initial_sequences.(y) dhs.tcm2d Sequence.NewkkAlign.default_ukkm
@@ -4895,13 +4914,26 @@ let compute_fixed_states filename data code =
                     Sequence.Align.closest 
                         initial_sequences.(x) initial_sequences.(y) dhs.tcm2d Matrix.default 
                 in
-                let a, cost =
+                let xclose, cost =
                     if align_with_newkk then
-                        Sequence.NewkkAlign.closest b initial_sequences.(x)
+                        Sequence.NewkkAlign.closest yclose initial_sequences.(x)
                         dhs.tcm2d Sequence.NewkkAlign.default_ukkm
                     else
-                        Sequence.Align.closest b initial_sequences.(x) dhs.tcm2d Matrix.default
+                        Sequence.Align.closest yclose initial_sequences.(x) dhs.tcm2d Matrix.default
                 in
+                xclose,yclose
+                | `Pick_One ->
+                        if debug then Printf.printf "polymorphism=pick_one\n%!";
+                        Sequence.to_single_seq initial_sequences.(x) dhs.tcm2d,
+                        Sequence.to_single_seq initial_sequences.(y) dhs.tcm2d
+                | `Do_Nothing ->
+                        if debug then Printf.printf "polymorphism=do_nothing\n%!";
+                        initial_sequences.(x),initial_sequences.(y)
+                in
+                (*we add more states through extra sequence file -- check out
+                * search_base. these extra states are for internal nodes only, 
+                * we cannot assign them to leaf nodes. that's why we don't
+                * add them to hashtbl taxon_sequences.*)
                 if x<taxalen && y<taxalen then begin
                 Hashtbl.replace taxon_sequences taxa.(y) b;
                 Hashtbl.replace taxon_sequences taxa.(x) a;
@@ -5039,11 +5071,13 @@ let compute_fixed_states filename data code =
     let dyn_data =
         { dhs with
             initial_assignment = `FS fs_data;
-            state = `Seq; }
+            state = `Seq;
+            polymorphism = polymph }
     in
     Hashtbl.replace data.character_specs code (Dynamic dyn_data)
 
-
+(* make sure we call Data.categorize (Data.remove_taxa_to_ignore data) before
+     calling this function to update tcm. *)
 let assign_tcm_to_characters data chars foname tcm =
     (* Get the character codes and filter those that are of the sequence class.
     * This allows simpler specifications by the users, for example, even though
@@ -5051,10 +5085,13 @@ let assign_tcm_to_characters data chars foname tcm =
     * operate properly in all the characters that are valid in the context. *)
     let per_size = Hashtbl.create 97 in
     let data = duplicate data in
-    let chars = 
+    (*let chars = get_chars_codes_comp data chars in
+    Printf.printf "dynamics list size = %d\n%!" (List.length chars);
+     why we only update tcm file for dynamic character type?
+    * *)let chars =  
         List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
                     (get_chars_codes_comp data chars)
-    in
+    in(**)
     let chars_specs =
         List.fold_left 
         ~f:(fun acc x -> 
@@ -5110,18 +5147,27 @@ let assign_tcm_to_characters data chars foname tcm =
                     Hashtbl.replace data.character_specs code spec)
               new_charspecs;
     List.iter ~f:(fun (spec, code) -> 
-                    if is_fs data code then compute_fixed_states None data code)
-              new_charspecs;
+                    if is_fs data code then begin
+                        let polymph = match spec with 
+                        | Dynamic dspec ->
+                                dspec.polymorphism
+                        | _ -> `Do_All
+                        in
+                        compute_fixed_states None data code polymph;
+                    end;
+    )  new_charspecs;
     { data with files = files }
 
 
 let assign_tcm_to_characters_from_file data chars file =
-    let debug_level = true in
+    let debug_level = false in
     if debug_level then Printf.printf "Data.assign_tcm_to_characters_from_file\n%!";
     let tcm = match file with
-        | None -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
-        | Some (f,level) -> 
-            (fun x -> 
+        | None ->
+                (fun x ->
+                    Cost_matrix.Two_D.default, Substitution_Indel (1,2))
+        | Some (f,level) ->
+            (fun x ->
                 let alphabet = get_alphabet data 1 in
                 let is_aminoacids = 
                     if (alphabet = Alphabet.aminoacids)||(alphabet = Alphabet.aminoacids_use_3d) 
@@ -5132,7 +5178,8 @@ let assign_tcm_to_characters_from_file data chars file =
                             (if is_aminoacids then 1 else 0) 
                     | Some l -> l in
                 let tcm,mat = Cost_matrix.Two_D.of_file ~level:level f x in
-                      tcm, Input_file ((FileStream.filename f), mat))
+                tcm, Input_file ((FileStream.filename f), mat)
+            )
     in
     assign_tcm_to_characters data chars None tcm
 
@@ -5143,7 +5190,6 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     in
     if debug_search_base then Printf.printf 
     "Data.add_search_base_from_file %s, chcode=%d\n%!" file chcode;
-    let annotated = false in
     let original_filename = file in
     let file = `Local file in 
     let alphabet = get_alphabet data 1 in
@@ -5252,21 +5298,6 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     let individual_fragments x = 
         List.map (List.map ~f:(fun (seq, t) -> [|seq|], t)) x
     in
-    let merge_fragments x =
-        match x with
-        | h :: t ->
-                let h = List.map ~f:(fun (seq, t) -> [seq], t) h in
-                let merged =
-                    List.fold_left 
-                    ~f:(fun merged next ->
-                        List.map2 ~f:(fun (seq, t) (locus, t2) ->
-                            assert (t = t2);
-                            (locus :: seq, t)) merged next) ~init:h t
-                in
-                List.rev_map (fun (lst, taxon) ->
-                    Array.of_list (List.rev lst), taxon) merged
-        | [] -> []
-    in
     let data = 
        (* if annotated then process_annotated_chrom data 
         else if dyna_state = `Genome then process_genome data
@@ -5304,7 +5335,11 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     in
     List.iter ~f:(fun (spec, code) -> 
         if debug_search_base then Printf.printf "call compute fixed states with code = %d\n%!" code;
-        compute_fixed_states None data code) chars_specs;
+        let polymph = match spec with 
+        | Dynamic dspec ->
+                dspec.polymorphism
+        | _ -> `Do_All in
+        compute_fixed_states None data code polymph) chars_specs;
     { data with files = files }
 
 
@@ -6439,8 +6474,13 @@ let complement_taxa data taxa =
         if All_sets.Integers.mem c taxa then acc
         else c :: acc) data.taxon_codes []
 
-let make_fixed_states filename chars data =
+let make_fixed_states filename chars polymph data =
     let data = duplicate data in
+    let polymph =
+        match polymph with 
+        | None -> `Do_All 
+        | Some x -> x 
+    in
     let convert_and_process code =
         match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> 
@@ -6448,7 +6488,9 @@ let make_fixed_states filename chars data =
                 | `FS _ -> ()
                 | `Partitioned _
                 | `AutoPartitioned _
-                | `DO -> compute_fixed_states filename data code)
+                | `DO
+                | `GeneralNonAdd -> 
+                        compute_fixed_states filename data code polymph)
         | _ -> failwith "How could this happen?"
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
@@ -6466,7 +6508,7 @@ let make_direct_optimization chars data =
                 | `FS _ -> 
                     Hashtbl.replace data.character_specs code 
                         (Dynamic { dhs with initial_assignment = `DO })
-                | `DO -> ())
+                | `DO | `GeneralNonAdd -> ())
         | _ -> ()
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
@@ -6482,7 +6524,7 @@ let make_partitioned mode chars data =
                 | `FS _ -> ()
                 | `AutoPartitioned _
                 | `Partitioned _
-                | `DO -> auto_partition mode data code)
+                | `DO | `GeneralNonAdd -> auto_partition mode data code)
         | _ -> failwith "How could this happen?"
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in

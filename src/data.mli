@@ -34,6 +34,7 @@ type contents =
 type parsed_trees = ((string option * Tree.Parse.tree_types list) * string * int)
 
 type dyna_state_t = [
+|`SeqPrealigned
 (** A short sequence, no rearrangements are allowed*)
 | `Seq
 | `Ml
@@ -62,6 +63,8 @@ type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP 
 type annotate_tool_t = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
 
 type align_meth_t = [ `NewKK | `Default ]
+
+type polymorphism_t = Methods.polymorphism_arg(*[ `Do_All | `Pick_One | `Do_Nothing ]*)
 
 type dyna_pam_t = {
     align_meth : align_meth_t option;
@@ -121,7 +124,8 @@ type dyna_pam_t = {
 
     (** maximum of Wagner-based alignments are kept during 
     * the pairwise alignment with rearrangements *)
-    max_kept_wag : int option; 
+    max_kept_wag : int option;
+
 }
 type clip = Clip | NoClip
 
@@ -142,6 +146,7 @@ type fixed_state =
 type dyna_initial_assgn = [ 
     | `Partitioned of clip
     | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
+    | `GeneralNonAdd
     | `DO 
     | `FS of fixed_state ]
 
@@ -157,6 +162,12 @@ type dynamic_hom_spec = {
     state : dyna_state_t;
     pam : dyna_pam_t;
     weight : float;
+    (** choose a way to deal with polymorphism. during transformation to
+    * fixed_state, we resolve polymorphism. here are 3 ways of doing it: 
+        * 1. Do_All: do the full "get_closest" thing, which might take a long time
+        * 2. Pick_One: just pick one.
+        * 3. Do_Nothing: do nothing, leave the input sequence as it is.*)
+    polymorphism : polymorphism_t;
 }
 
 type distr =
@@ -625,7 +636,7 @@ val transform_weight :
 
 val file_exists : d -> FileStream.f -> bool
 
-val make_fixed_states : string option -> bool_characters -> d -> d
+val make_fixed_states : string option -> bool_characters -> polymorphism_t option -> d -> d
 
 val make_direct_optimization : bool_characters -> d -> d
 
