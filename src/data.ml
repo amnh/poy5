@@ -3873,12 +3873,11 @@ and get_chars_codes data = function
             get_code_from_characters_restricted m data `All
     | `Missing (dont_complement, fraction) ->
             get_code_with_missing dont_complement data fraction
-    | `CharSet sets -> 
-            Printf.printf "data.ml CharSet\n%!";
+    | `CharSet sets ->
             let names =
                 List.flatten
-                    (List.map 
-                        (fun x -> Hashtbl.find data.character_sets (String.uppercase x) )
+                    (List.map
+                        (fun x -> Hashtbl.find data.character_sets (String.uppercase x))
                         sets)
             in
             get_chars_codes data (`Names names)
@@ -3927,6 +3926,7 @@ let get_chars_codes_comp data ch =
 
 (* non/functional creation of sets *)
 let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods.characters) = 
+    let name = String.uppercase name in
     let sets,nsets = 
         if functional 
             then Hashtbl.copy data.character_sets, Hashtbl.copy data.character_nsets
@@ -3941,14 +3941,21 @@ let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods
                     failwithf "Cannot find %d in character_codes" x)
             (get_chars_codes_comp data ccodes)
     in
-    let () = Hashtbl.add sets name ncodes in
-    let () = List.iter (fun c -> Hashtbl.add nsets c name) ncodes in
-    { data with
-        character_sets = sets;
-        character_nsets = nsets; }
+    let () = 
+        if Hashtbl.mem sets name then
+            let old_data = Hashtbl.find sets name in
+            Hashtbl.replace sets name (ncodes @ old_data)
+        else
+            Hashtbl.add sets name ncodes
+    in
+    let () = List.iter (fun c -> Hashtbl.replace nsets c name) ncodes in
+    if functional then
+        { data with character_sets = sets; character_nsets = nsets; }
+    else
+        data
 
 
-let categorize_static_likelihood_by_model data =
+let categorize_static_likelihood_by_model chars data =
     let get_spec i = 
         let model = 
             match Hashtbl.find data.character_specs i with
@@ -3961,7 +3968,7 @@ let categorize_static_likelihood_by_model data =
         in
         model.MlModel.spec
     in
-    `Some (get_chars_codes_comp data `All)
+    `Some (get_chars_codes_comp data chars)
         --> get_code_from_characters_restricted `StaticLikelihood data
         --> MlModel.categorize_by_model get_spec
 
@@ -3991,12 +3998,33 @@ let categorize_sets data : int list list =
     | fc -> fc :: named_sets
 
 
+let categorize_characters data chars = match chars with
+    | `All -> categorize_sets data
+    | othr ->
+        let found set1 set2 = match set1 with
+            | x::xs when List.mem x set2 ->
+                assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs);
+                true
+            | _::xs -> 
+                assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));
+                false
+            | [] -> 
+                false
+        in
+        let selected = get_chars_codes_comp data chars in
+        let all_sets = categorize_sets data in
+        List.fold_left
+            ~f:(fun acc xs ->
+                if found xs selected then xs :: acc else acc)
+            ~init:[]
+            all_sets
+
 let make_codon_partitions functional data name ccodes =
     let process_set name set nset codes = 
         let concat = if name = "" then "" else ":" in
-        let name1 = name^concat^"codon1"
-        and name2 = name^concat^"codon2"
-        and name3 = name^concat^"codon3" in
+        let name1 = String.uppercase (name^concat^"codon1")
+        and name2 = String.uppercase (name^concat^"codon2")
+        and name3 = String.uppercase (name^concat^"codon3") in
         let rec process_three acc1 acc2 acc3 = function
             | [] -> acc1, acc2, acc3
             | one::two::three::xss ->
@@ -5720,7 +5748,7 @@ let output_poy_nexus_block (fo : string -> unit) data : unit =
         | _   -> ()
     in
     let model_sets = create_set_data_pairs fo data in
-    if 0 < List.length data.dynamics && 0 = (List.length model_sets) then begin
+    if 0 < List.length data.dynamics then begin
         fo "@[BEGIN POY;@]@.";
         let dynamics = Array.of_list data.dynamics in
         let go = Buffer.create 1000 
@@ -5784,6 +5812,7 @@ let output_poy_nexus_block (fo : string -> unit) data : unit =
         fo (Buffer.contents tcm);
         fo (Buffer.contents go);
         fo (Buffer.contents weights);
+        List.iter output_nexus_model model_sets;
         fo "END;@.@]";
         ()
     end else begin

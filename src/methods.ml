@@ -83,10 +83,6 @@ type input = [
 ]
 
 
-type information_contained = 
-    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches  | `Newick | `Margin of int
-    | `NexusStyle | `Collapse of bool ]
-
 type taxon_and_characters = [
     | `Random of float
     | `Names of (bool * string list)
@@ -101,6 +97,10 @@ type characters = [
     | `Range of (bool * string * int * int)
     | taxon_and_characters
 ]
+
+type information_contained = 
+    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches  | `Newick | `Margin of int
+    | `NexusStyle | `Collapse of bool | `Chars of characters ]
 
 type prep_tail_spec = [
     | `File of filename

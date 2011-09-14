@@ -338,7 +338,7 @@ module type S = sig
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
         val downpass : phylogeny -> phylogeny
-        val branch_table : phylogeny -> ((int * int),[ `Single of float | `Name]) Hashtbl.t
+        val branch_table : phylogeny -> ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
         val to_string : bool -> phylogeny -> Data.d -> string list
@@ -1859,11 +1859,11 @@ let process_random_seed_set run v =
 
 let process_sets run name ident =
     match ident with
-    | `Codon ident -> 
+    | `Codon ident ->
         let msg = "@[Creating@ alias@ and@ character@ set@ for@ codons@]" in
         Status.user_message Status.Information msg;
         { run with data = Data.make_codon_partitions false run.data name ident }
-    | `Chars ident -> 
+    | `Chars ident ->
         let msg = "@[Creating@ alias@ and@ character@ set@ "^name^"@]"in
         Status.user_message Status.Information msg;
         { run with data = Data.make_set_partitions false run.data name ident }
@@ -4426,7 +4426,7 @@ END
                 | trees -> 
                     List.iter
                         (fun t ->
-                            let charss = Data.categorize_static_likelihood_by_model t.Ptree.data in
+                            let charss = Data.categorize_static_likelihood_by_model chars t.Ptree.data in
                             let tname  = match t.Ptree.tree.Tree.tree_name with 
                                        | Some tname -> tname 
                                        | None -> ""
@@ -4676,7 +4676,7 @@ END
                             `HennigStyle :: (remove_style [] ic)
                         else ic
                     in
-                    PTS.report_trees ic filename run.data run.trees;
+                    PTS.report_trees ic filename run.trees;
                     run
             | `CrossReferences (chars, filename) ->
                 Data.report_taxon_file_cross_reference chars run.data filename;
@@ -4900,7 +4900,7 @@ let set_console_run r = console_run_val := r
         let to_string collapse tree data = 
             let cost = string_of_float (Ptree.get_cost `Adjusted tree) in
             let res = 
-                PtreeSearch.build_forest_with_names_n_costs collapse tree cost false
+                PtreeSearch.build_forest_with_names_n_costs collapse tree cost false None
             in
             List.map (AsciiTree.for_formatter false true true) res 
 

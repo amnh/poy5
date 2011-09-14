@@ -306,8 +306,7 @@ val set_console_run : r -> unit
 
         (* Recomputing the contents of a tree *)
         val downpass : phylogeny -> phylogeny
-        val branch_table : phylogeny -> 
-                ((int * int),[ `Single of float | `Name]) Hashtbl.t
+        val branch_table : phylogeny -> ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
         val uppass : phylogeny -> phylogeny
 
         (* Tree conversion for IO *)

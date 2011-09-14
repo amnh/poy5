@@ -273,7 +273,7 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
                                 Status.user_message Status.Error 
                                 ("The following tree was found@ during a Bremer@ " ^
                                 "support@ search@ and has better cost:");
-                                PTS.report_trees [`Cost] None  data (`Single x);
+                                PTS.report_trees [`Cost] None (`Single x);
                             end else ();
                             match acc with
                             | None -> Some xc

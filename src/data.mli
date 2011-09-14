@@ -475,9 +475,11 @@ val process_analyze_only_taxa :
 
 val categorize : d -> d
 
-val categorize_static_likelihood_by_model : d -> int list list
+val categorize_static_likelihood_by_model : bool_characters -> d -> int list list
 
 val categorize_sets : d -> int list list
+
+val categorize_characters : d -> bool_characters -> int list list
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
 
@@ -532,8 +534,7 @@ val transform_dynamic :
   d -> d
 
 val transform_chrom_to_rearranged_seq :
-  d ->
-  Methods.dynamic_char_transform -> 'c -> Methods.implied_alignment list -> d
+  d -> Methods.dynamic_char_transform -> 'c -> Methods.implied_alignment list -> d
 
 val print : d -> unit
 
@@ -619,8 +620,8 @@ val flush : d -> unit
 
 val kolmo_round_factor : float
 
-val transform_weight : [ `ReWeight of (bool_characters * float) | `WeightFactor of
-(bool_characters * float) ] -> d -> d
+val transform_weight : 
+    [ `ReWeight of (bool_characters * float) | `WeightFactor of (bool_characters * float) ] -> d -> d
 
 val file_exists : d -> FileStream.f -> bool
 

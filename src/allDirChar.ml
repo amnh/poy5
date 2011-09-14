@@ -123,9 +123,10 @@ module F : Ptree.Tree_Operations
                             (Ptree.get_node_data curr ptree)
                             (Some (Ptree.get_node_data prev ptree))
                 in
-                let name_it x = match dat with | [_] -> `Single x
-                                               | []  -> failwith "No character Sets"
-                                               | _   -> `Name
+                let name_it x = match dat with 
+                    | [_] -> `Single x
+                    | []  -> failwith "No character Sets"
+                    | xs  -> `Name xs
                 in
                 List.iter
                     (fun (code,length) -> match length with
@@ -563,17 +564,23 @@ module F : Ptree.Tree_Operations
         pre_codes
 
 
-    (* debugging function for output of nexus files in iteration loops *)
-    let create_nexus : (string -> phylogeny -> unit) =
-        let nexi = ref 0 and base = "chel_2" in
+    (* debugging function for output of nexus files within this module *)
+    let create_nexus base : (string -> phylogeny -> unit) =
+        let nexi = ref 0 in
         (fun basename ptree ->
             let filename = Printf.sprintf "%02d_%s_%s.nex" !nexi base basename in
-            let trees = 
+            let branches = branch_table ptree in
+            let trees =
                 Ptree.build_trees (ptree.Ptree.tree)
                     (fun x -> Data.code_taxon x ptree.Ptree.data)
                     (fun _ _ -> false)
-                    (Some (branch_table ptree))
-                    ""
+                    (Some branches)
+                    (None)
+                    (function
+                        | None   -> 
+                            string_of_float (total_cost ptree `Adjusted None)
+                        | Some x ->
+                            string_of_float (total_cost ptree `Adjusted (Some (Array.to_list x))))
             in
             info_user_message "Nexus Tag: %s" filename;
             incr nexi;
