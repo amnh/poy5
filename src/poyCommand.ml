@@ -708,6 +708,10 @@ let transform_build
             in
             n, nmeth, trans, iter
     | `Transform x ->
+            (*let x =
+                let id,trlst = x in
+                List.map (fun tr -> (id,tr) ) trlst
+            in*)      
             let t = transform_transform_arguments x in
             (n, meth, (t @ trans), iter)
     | `IterationB xs ->
@@ -766,6 +770,10 @@ let transform_swap l_opt (param : swapa) = match param with
     | #swap_strategy as space ->
         { l_opt with Methods.ss = space }
     | `Transform x ->
+        (*let x =
+            let id,trlst = x in
+            List.map (fun tr -> (id,tr) ) trlst
+        in*)
         let t = transform_transform_arguments x in 
         let cclist = t @ l_opt.Methods.cc in
         { l_opt with Methods.cc = cclist }
@@ -855,6 +863,10 @@ let perturb_default =
 let transform_perturb (tr, m, sw, it, timeout) = function
     | `TimeOut x -> (tr, m, sw, it, Some x)
     | `Transform x  ->
+            (*let x =
+                let id,trlst = x in
+                List.map (fun tr -> (id,tr) ) trlst
+            in*)
             let x = transform_transform_arguments x in
             ((x @ tr), m, sw, it, timeout)
     | `Swap x -> 
@@ -1249,6 +1261,10 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
     | `Select x ->
             (transform_select_arguments x) @ acc
     | `Transform x ->
+            (*let x =
+                let id,trlst = x in
+                List.map (fun tr -> (id,tr) ) trlst
+            in*)
             let x = transform_transform_arguments x in
             x @ acc
     | `Perturb x ->
@@ -1277,18 +1293,21 @@ let create_expr () =
         transform:
             [
                 [ LIDENT "transform"; left_parenthesis; 
-                    x = LIST0 [ x = transform_argument -> x] SEP ","; right_parenthesis ->
-                        (`Transform x : transform) ]
+                    id = OPT identifiers_opt;  
+                    left_parenthesis; 
+                    x = LIST0 [ y = transform_method -> y] SEP ",";
+                    right_parenthesis; 
+                    right_parenthesis ->
+                         ( `Transform
+                            ( List.map (fun trf ->  
+                                 match id with
+                                 | Some id -> (id,trf)
+                                 | None -> (`All,trf)
+                             ) x ) 
+                            : transform) ]              
             ];
-        transform_argument:
-            [  
-                [ left_parenthesis; x = identifiers; ","; 
-                    t = transform_method; right_parenthesis -> (x, t) ] |
-                [ t = transform_method -> (`All, t) ] |
-                [ LIDENT "origin_cost"; ":"; x = integer_or_float
-                        -> (`All, `OriginCost (float_of_string x)) ] |
-                [ LIDENT "prioritize" -> (`All, `Prioritize) ] 
-            ]; 
+        identifiers_opt:
+        [ [id = identifiers; "," -> id] ]; 
         ml_floatlist: 
             [[
                 ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
@@ -1382,6 +1401,9 @@ let create_expr () =
         ];
         transform_method:
             [
+                [ LIDENT "origin_cost"; ":"; x = integer_or_float ->
+                    `OriginCost (float_of_string x) ] |
+                [ LIDENT "prioritize" -> `Prioritize ] |
                 [ LIDENT "elikelihood"; ":"; left_parenthesis;
                     lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
                         let v,w,x,y,z = process_likelihood_commands lst in
