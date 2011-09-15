@@ -567,16 +567,19 @@ let m_custom pi_ idxs ray a_size =
         a - b a                                  5->1, 6->1 (upper triangular).
         a b - a  Diagonal elements are always ignored, a dash is recommended.
         b a a -  We ensure that the parameters are coupled symmetrically.  *)
-let process_custom_model (f_aa: char array array) =
+let process_custom_model alph_size (f_aa: char array array) =
     let found = ref All_sets.Integers.empty in
     let assoc = ref All_sets.IntegerMap.empty in
     let idx = ref 0 in
     let a_size = Array.length f_aa in
+    if not (a_size = alph_size) then
+        failwithf "Alphabet size for priors and model inconsistent: %d =/= %d" a_size alph_size;
     for i = 0 to a_size -1 do
         assert( Array.length f_aa.(i) = a_size );
         for j = i+1 to a_size-1 do
             let letter = Char.code f_aa.(i).(j) in
-            assert( letter = Char.code f_aa.(j).(i) );
+            if not ( letter = Char.code f_aa.(j).(i) ) then
+                failwithf "Custom model should be symmetric: %d,%d =/= %d,%d" i j j i;
             assoc := All_sets.IntegerMap.add !idx letter !assoc;
             found := All_sets.Integers.add letter !found;
             incr idx;
@@ -1205,7 +1208,7 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
             let convert str = assert( String.length str = 1 ); String.get str 0 in
             let matrix = Cost_matrix.Two_D.matrix_of_file convert (`Local str) in
             let matrix = Array.of_list (List.map (Array.of_list) matrix) in
-            let assoc,ray = process_custom_model matrix in
+            let assoc,ray = process_custom_model alph_size matrix in
             Custom (assoc,ray,str)
     in
     { substitution = substitution;
