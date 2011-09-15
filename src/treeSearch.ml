@@ -264,8 +264,7 @@ module MakeNormal
                 | _ -> assert false
             with | Not_found -> ()
         in
-        let fo = Status.user_message (Status.Output (filename, false, !fo_ls)) in
-        (* Write header *)
+        let fo = Status.user_message (Status.Output (filename, false, !fo_ls)) in (* Write header *)
         fo (if hennig_style then "@[<h>" else "@[<v>");
         if hennig_style then fo "tread "
         else if nexus_style then fo "@[BEGIN TREES;@]@.";
@@ -280,9 +279,11 @@ module MakeNormal
                         | `Chars x -> characters_designation x tree.Ptree.data
                         | _        -> assert false
                     with Not_found ->
-                        if nexus_style 
+                        if nexus_style
                             then [None]
-                            else characters_designation `All tree.Ptree.data
+                            else match characters_designation `All tree.Ptree.data with
+                                | [x] -> [None]
+                                |  x  -> x
                 in
                 let tree =
                     List.fold_left
