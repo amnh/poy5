@@ -33,22 +33,16 @@ module type S = sig
       type a
       type b
 
-      val report_trees :
-          Methods.information_contained list -> string option ->  
-        Data.d ->
-        (a, b) Ptree.p_tree Sexpr.t -> unit
+    val report_trees :
+        Methods.information_contained list -> string option ->  (a, b) Ptree.p_tree Sexpr.t -> unit
 
-      val forest_break_search_tree :
-        (a, b) Ptree.nodes_manager option ->  
-        float ->
-        (a, b) Ptree.p_tree ->
-        (a, b) Ptree.p_tree
+    val forest_break_search_tree :
+        (a, b) Ptree.nodes_manager option ->  float -> (a, b) Ptree.p_tree -> (a, b) Ptree.p_tree
 
-      val diagnose :
-        (a, b) Ptree.p_tree ->
-        (a, b) Ptree.p_tree
+    val diagnose :
+        (a, b) Ptree.p_tree -> (a, b) Ptree.p_tree
 
-      val find_local_optimum :
+    val find_local_optimum :
           ?base_sampler:(a, b) Sampler.search_manager_sampler -> 
               ?queue : (float array * (int * int) list * int * Status.status * int ref * float) ->
           Data.d ->
@@ -192,11 +186,12 @@ module MakeNormal
             let cost = string_of_float cost in
             let tree = 
                 PtreeSearch.build_trees 
-                tree
-                (fun x -> Data.code_taxon x data) 
-                (fun _ _ -> false)
-                None
-                ""
+                    tree
+                    (fun x -> Data.code_taxon x data) 
+                    (fun _ _ -> false)
+                    None
+                    None
+                    (fun _ -> "")
             in
             let output tree =
                 Status.user_message fo "@[";
@@ -211,17 +206,31 @@ module MakeNormal
         Status.user_message fo "@]";
         Status.user_message fo "%!"
 
-    let report_trees_and_branches compress filename data branches ptree : unit =
+    let characters_designation (c:Data.bool_characters) (d:Data.d) =
+        List.map (function
+                    | [] -> None
+                    | xs -> Some (Array.of_list xs))
+                 (Data.categorize_characters d c)
+
+    let report_trees_and_branches compress filename chars branches ptree : unit =
         let fo =
             let lst = if compress then [StatusCommon.Compress] else [] in
             Status.Output (filename, false, lst)
         and trees =
-            PtreeSearch.build_trees
-                ptree.Ptree.tree
-                (fun x -> Data.code_taxon x data)
-                (fun _ _ -> false) (* don't collapse *)
-                (Some branches)
-                ""
+            List.fold_left
+                (fun acc chars ->
+                    let additional_trees = 
+                        PtreeSearch.build_trees
+                            ptree.Ptree.tree
+                            (fun x -> Data.code_taxon x ptree.Ptree.data)
+                            (fun _ _ -> false) (* don't collapse *)
+                            (Some branches)
+                            chars
+                            (function _ -> "")
+                    in
+                    additional_trees @ acc)
+                []
+                (characters_designation chars ptree.Ptree.data)
         in
         let adj_cost = string_of_float (Ptree.get_cost `Adjusted ptree) in
         Status.user_message fo "@[<v>";
@@ -234,7 +243,8 @@ module MakeNormal
             trees;
         Status.user_message fo "@]%!"
 
-    let report_trees ic filename data trees =
+
+    let report_trees ic filename trees =
         (* test characteristics to print from `ic` variable *)
         let leaf_only = not (List.exists (function `Cost -> true | _ -> false) ic) in
         let hennig_style = List.exists (function `HennigStyle -> true | _ -> false) ic in
@@ -244,46 +254,65 @@ module MakeNormal
         let ic = if hennig_style then (`Margin (1000000010 - 1)) :: ic else ic in
         let branches = List.exists (function `Branches -> true | _ -> false) ic in
         let collapse = List.exists (function `Collapse x -> x | _ -> false) ic in
-
         let ori_margin = StatusCommon.Files.get_margin filename in
         let fo_ls = ref [] in 
-        if (List.exists (function `Margin _ -> true | _ -> false) ic) then begin
-            let margin = List.find (function `Margin _ -> true | _ -> false) ic in 
-            match margin with
-            | `Margin m -> 
-                  fo_ls := (StatusCommon.Margin m)::!fo_ls;
-                  StatusCommon.Files.set_margin filename m 
-            | _ -> failwith "This never happens"
-        end; 
-        let fo = Status.user_message (Status.Output (filename, false, !fo_ls)) in
-        let is_first = ref true in
-        let output tree = 
-            let cost = Ptree.get_cost `Adjusted tree in
-            let cost = string_of_float cost in
-            let tree = 
-                PtreeSearch.build_forest_with_names_n_costs collapse tree cost branches
-            in
-            let output cnt tree =
-                if hennig_style then 
-                    if not !is_first then fo " * "
-                    else is_first := false
-                else if nexus_style then 
-                    fo ("TREE POYTREE" ^ string_of_int cnt ^ " = ");
-                fo "@[";
-                fo (AsciiTree.for_formatter (not hennig_style ) (not hennig_style) leaf_only tree);
-                if leaf_only && tree_len then fo ("[" ^ cost ^ "]");
-                if not hennig_style then fo ";" else fo "@?";
-                fo "@]";
-                fo newline;
-                cnt + 1
-            in
-            let _ = List.fold_left output 0 tree in
-            ()
+        let () = 
+            try match List.find (function `Margin _ -> true | _ -> false) ic with
+                | `Margin m -> 
+                    fo_ls := (StatusCommon.Margin m)::!fo_ls;
+                    StatusCommon.Files.set_margin filename m 
+                | _ -> assert false
+            with | Not_found -> ()
         in
+        let fo = Status.user_message (Status.Output (filename, false, !fo_ls)) in
+        (* Write header *)
         fo (if hennig_style then "@[<h>" else "@[<v>");
         if hennig_style then fo "tread "
         else if nexus_style then fo "@[BEGIN TREES;@]@.";
+        (* print all trees from sexpr *)
+        let output = 
+            let is_first = ref true in
+            (fun tree -> 
+                let cost = Ptree.get_cost `Adjusted tree in
+                let cost = string_of_float cost in
+                let chars = 
+                    try match List.find (function `Chars _ -> true | _ -> false) ic with
+                        | `Chars x -> characters_designation x tree.Ptree.data
+                        | _        -> assert false
+                    with Not_found ->
+                        if nexus_style 
+                            then [None]
+                            else characters_designation `All tree.Ptree.data
+                in
+                let tree =
+                    List.fold_left
+                        (fun acc c -> 
+                            let ts = 
+                                PtreeSearch.build_forest_with_names_n_costs collapse tree cost branches c
+                            in
+                            ts @ acc)
+                        []
+                        chars
+                in
+                let output cnt tree =
+                    if hennig_style then 
+                        if not !is_first then fo " * "
+                        else is_first := false
+                    else if nexus_style then 
+                        fo ("TREE POY" ^ string_of_int cnt ^ " = ");
+                    fo "@[";
+                    fo (AsciiTree.for_formatter (not hennig_style ) (not hennig_style) leaf_only tree);
+                    if leaf_only && tree_len then fo ("[" ^ cost ^ "]");
+                    if not hennig_style then fo ";" else fo "@?";
+                    fo "@]";
+                    fo newline;
+                    cnt + 1
+                in
+                let _ = List.fold_left output 0 tree in
+                ())
+        in
         Sexpr.leaf_iter (output) trees;
+        (* Write closing tags *)
         if hennig_style then fo ";"
         else if nexus_style then fo "@[END;@]@.";
         fo (if hennig_style then  "@]" else "@]@\n" );
@@ -475,7 +504,7 @@ module MakeNormal
                     let do_compress = None <> filename in
                     new SamplerRes.likelihood_verification
                         (Status.user_message (Status.Output (filename, false, [])))
-                        (report_trees_and_branches do_compress filename data)
+                        (report_trees_and_branches do_compress filename `All)
             | `AllVisited filename ->
                     let join_fn incr a b c = 
                         let a, _ = TreeOps.join_fn (Some adj_tabu) incr a b c in

@@ -26,25 +26,19 @@ val search_time_and_trees_considered : float -> int -> (string * string) list
 
 val get_transformations : Methods.local_optimum -> Methods.transform list
 
-module type S = sig
-      type a 
-      type b
+module type S = 
+    sig
+        type a 
+        type b
 
-      val report_trees :
-        Methods.information_contained list ->
-          string option -> 
-        Data.d ->
-        (a, b) Ptree.p_tree Sexpr.t -> unit
+        val report_trees :
+            Methods.information_contained list -> string option -> (a, b) Ptree.p_tree Sexpr.t -> unit
 
-      val forest_break_search_tree :
-        (a, b) Ptree.nodes_manager option ->
-        float ->
-        (a, b) Ptree.p_tree ->
-        (a, b) Ptree.p_tree
+        val forest_break_search_tree :
+            (a, b) Ptree.nodes_manager option -> float -> (a, b) Ptree.p_tree -> (a, b) Ptree.p_tree
 
-      val diagnose :
-        (a, b) Ptree.p_tree ->
-        (a, b) Ptree.p_tree
+        val diagnose :
+            (a, b) Ptree.p_tree -> (a, b) Ptree.p_tree
 
         val find_local_optimum :
             ?base_sampler:(a, b) Sampler.search_manager_sampler  ->

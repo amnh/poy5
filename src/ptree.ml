@@ -29,6 +29,9 @@ let ndebug_jxn_of_handle = false
 let debug_wagner_traject = false
 let odebug = Status.user_message Status.Information
 
+let ( --> ) a b = b a
+let failwithf format = Printf.ksprintf (failwith) format
+
 type id = Tree.id
 type incremental = [
     | `Children of int
@@ -215,7 +218,7 @@ module type Tree_Operations =
             Methods.diagnosis_report_type -> Xml.attributes -> (a, b) p_tree -> Xml.xml
 
         val branch_table : (a,b) p_tree -> 
-                ((int * int),[ `Single of float | `Name]) Hashtbl.t
+                ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
 
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
 
@@ -342,77 +345,69 @@ end
 end 
 
 
-module type SEARCH = sig
+module type SEARCH = 
+    sig
 
-    type a 
-    type b
-        
+        type a 
+        type b
 
-        val features : Methods.local_optimum -> (string
-        * string) list -> (string * string) list
+        val features : 
+            Methods.local_optimum -> (string * string) list
+                -> (string * string) list
 
-    val recode : (a, b) p_tree -> int -> (a, b) p_tree
+        val recode : (a, b) p_tree -> int -> (a, b) p_tree
 
-      val make_wagner_tree :
-          ?sequence:(int list) ->
-        (a, b) p_tree ->
-        (a, b) nodes_manager option ->
-        (a, b) wagner_mgr ->
-            ((a, b) p_tree -> int -> (a, b) wagner_edges_mgr) ->
-        (a, b) p_tree list
+        val make_wagner_tree :
+            ?sequence:(int list) -> (a, b) p_tree ->
+                (a, b) nodes_manager option -> (a, b) wagner_mgr ->
+                    ((a, b) p_tree -> int -> (a, b) wagner_edges_mgr) 
+                -> (a, b) p_tree list
 
-      val trees_considered : int ref
+        val trees_considered : int ref
 
-      type searcher =
-          (a, b) search_mgr ->
-          (a, b) search_mgr
+        type searcher = (a, b) search_mgr -> (a, b) search_mgr
 
-      type search_step = 
-          (a, b) p_tree ->
-          (a, b) tabu_mgr ->
-          searcher 
+        type search_step = 
+            (a, b) p_tree -> (a, b) tabu_mgr -> searcher 
 
-      (** [spr_step ptree tabu search] performs one round of SPR searching on
-          tree [ptree] using a given tabu manager and search manager. *)
-      val spr_step : search_step
+        (** [spr_step ptree tabu search] performs one round of SPR searching on
+            tree [ptree] using a given tabu manager and search manager. *)
+        val spr_step : search_step
 
-      (** [spr_simple search] takes each tree in search manager [search] and
-          performs rounds of SPR until there is no further improvement *)
-      val spr_simple : bool -> searcher
+        (** [spr_simple search] takes each tree in search manager [search] and
+            performs rounds of SPR until there is no further improvement *)
+        val spr_simple : bool -> searcher
       
-      (** [tbr_step ptree tabu search] performs one round of TBR searching on
-          tree [ptree] using a given tabu manager and search manager. *)
-      val tbr_step : search_step
+        (** [tbr_step ptree tabu search] performs one round of TBR searching on
+            tree [ptree] using a given tabu manager and search manager. *)
+        val tbr_step : search_step
 
-      (** [tbr_single search] performs one step of TBR on each tree in the
-          search manager *)
-      val tbr_single : searcher
-      val spr_single : searcher
+        (** [tbr_single search] performs one step of TBR on each tree in the
+            search manager *)
+        val tbr_single : searcher
+        val spr_single : searcher
 
-      (** [tbr_simple search] takes each tree in search manager [search] and
-          performs rounds of TBR until there is no further improvement *)
-      val tbr_simple : bool -> searcher
+        (** [tbr_simple search] takes each tree in search manager [search] and
+            performs rounds of TBR until there is no further improvement *)
+        val tbr_simple : bool -> searcher
 
-      val tbr_join :
-          (a, b) tabu_mgr ->
-          (a, b) search_mgr ->
-          (a, b) breakage ->
-          Tree.t_status
+        val tbr_join :
+          (a,b) tabu_mgr -> (a,b) search_mgr -> (a,b) breakage -> Tree.t_status
 
-      (** [alternate_spr_tbr search] takes each tree in search manager [search]
-          and performs rounds of alternating SPR and TBR until there is no further
-          improvement *)
-      val alternate : searcher -> searcher -> searcher
+        (** [alternate_spr_tbr search] takes each tree in search manager [search]
+            and performs rounds of alternating SPR and TBR until there is no further
+             improvement *)
+        val alternate : searcher -> searcher -> searcher
 
-      val repeat_until_no_more : 
-          ((a, b) p_tree -> (a, b) tabu_mgr) -> 
-              searcher -> (a, b) search_mgr -> (a, b) search_mgr
+        val repeat_until_no_more : 
+            ((a, b) p_tree -> (a, b) tabu_mgr) -> 
+                searcher -> (a, b) search_mgr -> (a, b) search_mgr
 
-      val get_trees_considered : unit -> int
-      val reset_trees_considered : unit -> unit
-      val uppass : (a, b) p_tree -> (a, b) p_tree
-      val downpass : (a, b) p_tree -> (a, b) p_tree
-      val diagnosis : (a, b) p_tree -> (a, b) p_tree
+        val get_trees_considered : unit -> int
+        val reset_trees_considered : unit -> unit
+        val uppass : (a, b) p_tree -> (a, b) p_tree
+        val downpass : (a, b) p_tree -> (a, b) p_tree
+        val diagnosis : (a, b) p_tree -> (a, b) p_tree
 
       (** [fuse_generations trees terminals max_trees tree_weight tree_keep iterations
           process] runs a genetic algorithm-style search using tree fusing.  The function
@@ -420,35 +415,33 @@ module type SEARCH = sig
           tree, the max number of trees and a method for
           keeping trees, a method for weighting trees, a number of iterations to perform,
           and a function to process new trees *)
-      val fuse_generations :
-          ((a, b) p_tree * (a,b) nodes_manager) list -> 
-          int ->
-          int ->
-          ((a, b) p_tree -> float) ->
-          Methods.fusing_keep_method ->
-          int ->
-          ((a, b) p_tree -> (a, b) p_tree list) ->
-          (int * int) ->
-            (a, b) p_tree list
+        val fuse_generations :
+            ((a, b) p_tree * (a,b) nodes_manager) list -> int -> int ->
+                ((a, b) p_tree -> float) -> Methods.fusing_keep_method -> int ->
+                    ((a, b) p_tree -> (a, b) p_tree list) -> (int * int)
+                -> (a, b) p_tree list
 
-      val search_local_next_best : (search_step * string) -> searcher
-      val search : bool -> (search_step * string) -> searcher
+        val search_local_next_best : (search_step * string) -> searcher
+
+        val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
-          string option * Tree.Parse.tree_types list ->
-          Data.d * a list -> (a, b) p_tree
+            string option * Tree.Parse.tree_types list -> Data.d * a list 
+                -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> 
-                    ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
-                        string -> Tree.Parse.tree_types list
+                    ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+                        int array option -> (int array option -> string)
+                    -> Tree.Parse.tree_types list
 
         val build_tree : Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) ->
-                    ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
-                        string -> Tree.Parse.tree_types
+                    ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+                        int array option -> (int array option -> string)
+                    -> Tree.Parse.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -457,30 +450,31 @@ module type SEARCH = sig
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-        bool -> (a, b) p_tree -> Tree.Parse.tree_types
+            bool -> (a, b) p_tree -> Tree.Parse.tree_types
 
         val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
+            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
+
         val build_forest :
-            bool -> (a, b) p_tree ->
-          string -> Tree.Parse.tree_types list
+            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types list
+
         val build_forest_as_tree :
             bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
 
         val build_forest_with_names :
             bool -> (a, b) p_tree -> Tree.Parse.tree_types list
+
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> string -> bool ->
-            Tree.Parse.tree_types list
+            bool -> (a, b) p_tree -> string -> bool -> int array option -> Tree.Parse.tree_types list
 
         val to_xml : 
             Pervasives.out_channel -> (a, b) p_tree -> unit
-        val disp_trees : 
-            string -> 
-                (a, b) p_tree -> 
-                    ((a, b) p_tree -> int -> string) -> 
-                            string -> unit
 
+        val disp_trees : 
+            string ->
+                (a, b) p_tree ->
+                    ((a, b) p_tree -> int -> string)
+                -> string -> unit
     end
     
 (** The internal debug flag. *)
@@ -816,9 +810,8 @@ let choose_leaf tree =
     @param collapse is a function that check weather or not a branch can be
     collapsed.
     @return the ptree in the form of a Tree.Parse.t *)
-let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
-    let sortthem a b ao bo data ad bd =
-        match String.compare ao bo with
+let build_trees (tree : Tree.u_tree) str_gen collapse branches chars root_fn =
+    let sortthem a b ao bo data ad bd = match String.compare ao bo with
         | 0 | 1 -> Tree.Parse.Nodep (b @ a, data), bd + 1, bo
         | _ -> Tree.Parse.Nodep (a @ b, data), bd + 1, ao
     in
@@ -826,27 +819,55 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
         | Tree.Parse.Leafp _ as x -> [x]
         | Tree.Parse.Nodep (lst, _) -> lst
     in
-    (* create an empty table if none is passed *)
-    let branches = match branches with Some x -> x | None -> Hashtbl.create 1 in
-    let str_gen root id parent_option = 
+    (* return the characters contained in this tree and the unwrapped branches *)
+    let branches = match branches with
+        | None   -> Hashtbl.create 1
+        | Some x -> x
+    in
+    (* a single element is taken to represent the entire set *)
+    let char = match chars with
+        | None   -> None
+        | Some x -> Some x.(0)
+    in
+    let str_gen is_root id parent_option = 
+        let rec find_assoc char data =
+            let rec find_array i xs =
+                if i = Array.length xs then false
+                else if xs.(i) = char then true
+                else find_array (i+1) xs
+            in
+            match data with
+            | (xs,d)::_ when find_array 0 xs -> d
+            | _::xs -> find_assoc char xs
+            | []    -> raise Not_found
+        in
         let oth =
-            try begin
-                match parent_option with
-                | None -> raise Not_found
-                | Some par -> 
-                    let pair = min id par,max id par in
-                    match Hashtbl.find branches pair with
-                        | `Single length ->
-                            Some (if root then length /. 2.0 else length), None
-                        | `Name -> None,Some (string_of_int id)
-            end with | Not_found -> None,None 
-        and dat = try str_gen id with | Not_found -> "" in
+            try begin match parent_option with
+            | None -> raise Not_found
+            | Some par ->
+                let (x,y) as pair = min id par,max id par in
+                begin match Hashtbl.find branches pair with
+                | `Single length -> Some (if is_root then length /. 2.0 else length), None
+                | `Name data ->
+                    begin match char with
+                    | None -> None,None
+                    | Some char ->
+                        begin match find_assoc char data with
+                        | Some length -> Some (if is_root then length /. 2.0 else length), None
+                        | None -> None, None
+                        end
+                    end
+                end
+            end with 
+            | Not_found -> None, None 
+        and dat = 
+            try str_gen id with | Not_found -> "" 
+        in
         dat,oth
     in
-    let rec rec_down root node prev_node =
-        match node with
+    let rec rec_down is_root node prev_node = match node with
         | Tree.Leaf (self, parent) -> 
-              let data = str_gen root self (Some parent) in
+              let data = str_gen is_root self (Some parent) in
               Tree.Parse.Leafp data, 0, (fst data)
         | Tree.Interior (our_id, _, _, _) ->
               let (ch1, ch2) = 
@@ -873,58 +894,52 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
                       get_children b
                   else [b]
               in
-              let data = str_gen root our_id (Some prev_node) in
-
+              let data = str_gen is_root our_id (Some prev_node) in
               if bd > ad then
                   Tree.Parse.Nodep (a @ b, data), bd + 1, bo
-                (* if equal then sort children alphabetically *)
-              else if bd = ad then sortthem a b ao bo data ad bd 
-              else Tree.Parse.Nodep (b @ a, data), ad + 1, ao
+              else if bd = ad then
+                  sortthem a b ao bo data ad bd 
+              else 
+                  Tree.Parse.Nodep (b @ a, data), ad + 1, ao
         | Tree.Single _ -> failwith "Unexpected single"
     in
-    let map : Tree.Parse.tree_types list =
-        List.map
-        (fun handle ->
-            let tree = 
-                (** need to split the root BL **)
-             match Tree.get_node handle tree with
-             | Tree.Leaf (self, parent) ->
-                   let acc, _, _ = rec_down true (Tree.get_node parent
-                                           tree) handle in
-                   let str = str_gen true self (Some parent) in 
-                   [(Tree.Parse.Leafp str); acc]
-             | Tree.Interior (self, par_id, ch1, ch2) ->
-                   let par = Tree.get_node par_id tree in
-                   let ch1 = Tree.get_node ch1 tree in
-                   let ch2 = Tree.get_node ch2 tree in
-                   let acc, accd, acco = rec_down true par handle in
-                   let acc1, acc1d, acc1o = rec_down false ch1 handle in
-                   let acc2, acc2d, acc2o = rec_down false ch2 handle in
-                   let data = str_gen true self (Some par_id) in
-                   if acc2d > acc1d then
-                       if acc1d > accd then
-                           [Tree.Parse.Nodep ([acc; acc1], data); acc2]
-                       else 
-                           [Tree.Parse.Nodep ([acc1; acc], data); acc2]
-                   else if acc1d > accd then
-                       if acc2d > accd then 
-                           [Tree.Parse.Nodep ([acc; acc2], data); acc1]
-                       else 
-                           [Tree.Parse.Nodep ([acc2; acc], data); acc1]
+    let single_tree acc handle : Tree.Parse.tree_types list = 
+        let tree = match Tree.get_node handle tree with
+            | Tree.Leaf (self, parent) ->
+               let acc,_,_ = rec_down true (Tree.get_node parent tree) handle in
+               let str = str_gen true self (Some parent) in 
+               [(Tree.Parse.Leafp str); acc]
+            | Tree.Interior (self, par_id, ch1, ch2) ->
+               let par = Tree.get_node par_id tree in
+               let ch1 = Tree.get_node ch1 tree in
+               let ch2 = Tree.get_node ch2 tree in
+               let acc, accd, acco = rec_down true par handle in
+               let acc1, acc1d, acc1o = rec_down false ch1 handle in
+               let acc2, acc2d, acc2o = rec_down false ch2 handle in
+               let data = str_gen true self (Some par_id) in
+               if acc2d > acc1d then
+                   if acc1d > accd then
+                       [Tree.Parse.Nodep ([acc; acc1], data); acc2]
                    else 
-                       if acc2d > acc1d then
-                           [Tree.Parse.Nodep ([acc1;acc2], data); acc]
-                       else 
-                           [Tree.Parse.Nodep ([acc2;acc1], data); acc]
-             | Tree.Single self -> [(Tree.Parse.Leafp (str_gen true self None))]
-             in Tree.Parse.post_process 
-                    ( Tree.Parse.Nodep (tree,("",(None,None))),root )
-            ) (* ^ there is going to have to be something in that "" *)
-            (All_sets.Integers.elements (Tree.get_handles tree))
+                       [Tree.Parse.Nodep ([acc1; acc], data); acc2]
+               else if acc1d > accd then
+                   if acc2d > accd then 
+                       [Tree.Parse.Nodep ([acc; acc2], data); acc1]
+                   else 
+                       [Tree.Parse.Nodep ([acc2; acc], data); acc1]
+               else 
+                   if acc2d > acc1d then
+                       [Tree.Parse.Nodep ([acc1;acc2], data); acc]
+                   else 
+                       [Tree.Parse.Nodep ([acc2;acc1], data); acc]
+            | Tree.Single self -> 
+                [(Tree.Parse.Leafp (str_gen true self None))]
+        in
+        let tree  = Tree.Parse.Nodep (tree,("",(None,None)))
+        and annot = root_fn chars in
+        (Tree.Parse.post_process (tree,annot)) :: acc
     in
-    map
-
-
+    List.fold_left single_tree [] (All_sets.Integers.elements (Tree.get_handles tree))
 
 
 (** Functor to allow for SPR/TBR searches over phylogenetics trees of 
@@ -932,8 +947,9 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
 module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) 
     (Tree_Ops : Tree_Operations with type a = Node.n with type b = Edge.e) = struct
 
-        type a = Tree_Ops.a
-        type b = Tree_Ops.b
+    type a = Tree_Ops.a
+    type b = Tree_Ops.b
+
     let features meth lst = Tree_Ops.features meth lst
 
     let downpass = Tree_Ops.downpass
@@ -1616,8 +1632,6 @@ let fuse source_arg target_arg =
     let res = { target with tree = u_tree } in
     diagnosis res
 
-let ( --> ) a b = b a
-
 let destroy_component handle tree =
     let cleanup_node v tree =
         if All_sets.IntegerMap.mem v tree.tree.Tree.u_topo then
@@ -1936,8 +1950,8 @@ let convert_to tree (data, nd_data_lst) =
     (** [build_tree tree]
         @param tree the ptree being converted into a Tree.Parse.t
         @return the tree with the smallest handle_id in ptree *)
-    let build_tree tree strgen collapse branches (root:string) =
-        let map = build_trees tree strgen collapse branches root in
+    let build_tree tree strgen collapse branches characters root =
+        let map = build_trees tree strgen collapse branches characters root in
         List.hd map
 
     let never_collapse a b c = false
@@ -1955,8 +1969,8 @@ let extract_names ptree code =
 let extract_codes pd ptree code = string_of_int code
 
 let build_tree_with_codes tree pd = 
-    try
-        build_tree tree.tree (extract_codes pd tree) (collapse_as_needed tree) None ""
+    try build_tree tree.tree (extract_codes pd tree) 
+                   (collapse_as_needed tree) None None (fun _ -> "")
     with | Not_found as err -> 
         Status.user_message Status.Error "4"; raise err
 
@@ -2030,11 +2044,11 @@ let handle_collapse bool =
     @return What does this function do? *)
 let build_tree_with_names collapse tree =
     let collapse_f = handle_collapse collapse tree in
-    build_tree tree.tree (extract_names tree) collapse_f None ""
+    build_tree tree.tree (extract_names tree) collapse_f None None (fun _ -> "")
 
 let build_forest_with_names collapse tree =
     let collapse_f = handle_collapse collapse tree in
-    build_trees tree.tree (extract_names tree) collapse_f None ""
+    build_trees tree.tree (extract_names tree) collapse_f None None (fun _ -> "")
 
 let build_tree_with_names_n_costs collapse tree cost = 
     let collapse_f = handle_collapse collapse tree in
@@ -2042,11 +2056,18 @@ let build_tree_with_names_n_costs collapse tree cost =
         let data = get_node_data code tree in
         match get_node code tree with
         | Tree.Interior (_, par, _, _) ->
-                string_of_float (Node.total_cost (Some par) None data)
-        | _ ->  try Data.code_taxon (Node.taxon_code data) tree.data
-                with _ -> ""
+            string_of_float (Node.total_cost (Some par) None data)
+        | _ ->
+            try Data.code_taxon (Node.taxon_code data) tree.data
+            with _ -> ""
+    and root_name tree = function
+        | None   -> cost
+        | Some c -> 
+            (Some (Array.to_list c))
+                --> Tree_Ops.total_cost tree `Adjusted
+                --> string_of_float
     in
-    build_tree tree.tree extract_names collapse_f None cost
+    build_tree tree.tree extract_names collapse_f None None (root_name tree)
 
 let build_forest collapse tree cost =
     let collapse_f = handle_collapse collapse tree in
@@ -2056,9 +2077,14 @@ let build_forest collapse tree cost =
         | Tree.Interior (_, par, _, _) -> ""
         | _ -> try Data.code_taxon (Node.taxon_code data) tree.data
                with _ -> ""
+    and root_name tree = function
+        | None   -> cost
+        | Some c -> 
+            (Some (Array.to_list c))
+                --> Tree_Ops.total_cost tree `Adjusted
+                --> string_of_float
     in
-    let trees = build_trees tree.tree extract_names collapse_f None cost in
-    trees
+    build_trees tree.tree extract_names collapse_f None None (root_name tree)
 
 let rec build_forest_as_tree collapse tree cost =
     match build_forest collapse tree cost with
@@ -2094,7 +2120,7 @@ let rec build_forest_as_tree collapse tree cost =
             Tree.Parse.Branches (Tree.Parse.Nodep (chillens, ("forest",None)))
     end
 
-let build_forest_with_names_n_costs collapse tree cost branches = 
+let build_forest_with_names_n_costs collapse tree cost branches chars = 
     let collapse_f = handle_collapse collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
@@ -2103,19 +2129,34 @@ let build_forest_with_names_n_costs collapse tree cost branches =
                string_of_float (Node.total_cost (Some par) None data)
         | _ -> try Data.code_taxon (Node.taxon_code data) tree.data
                with _ -> ""
+    and root_name tree = function
+        | None   -> cost
+        | Some c -> 
+            (Some (Array.to_list c))
+                --> Tree_Ops.total_cost tree `Adjusted
+                --> string_of_float
     in
     if branches then
         let branches = Tree_Ops.branch_table tree in
-        build_trees tree.tree extract_names collapse_f (Some branches) cost 
+        build_trees tree.tree extract_names collapse_f (Some branches) chars (root_name tree)
     else
-        build_trees tree.tree extract_names collapse_f None cost
+        build_trees tree.tree extract_names collapse_f None chars (root_name tree)
+
 (** [disp_trees tree]
     @param str the title of the image.
     @param tree the ptree being displayed. 
     @return the tree is drawn either in graphical format or ascii format. *)
 let disp_trees str tree strgen root =
+    let root_name tree = function
+        | None   -> root
+        | Some c -> 
+            (Some (Array.to_list c))
+                --> Tree_Ops.total_cost tree `Adjusted
+                --> string_of_float
+    in
     let trees = 
-        ref (build_trees tree.tree (strgen tree) (collapse_as_needed tree) None root) in
+        ref (build_trees tree.tree (strgen tree) (collapse_as_needed tree) 
+                                    None None (root_name tree)) in
     let ntrees = List.length !trees in
     let get_tree () = List.hd !trees in
     for i = 1 to ntrees do

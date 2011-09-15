@@ -1741,8 +1741,8 @@ let create_expr () =
         (* Reporting *)
         report:
             [
-                [ LIDENT "report"; left_parenthesis; a = LIST0 [x =
-                    report_argument -> x] SEP ","; 
+                [ LIDENT "report"; 
+                    left_parenthesis; a = LIST0 [x = report_argument -> x] SEP ","; 
                     right_parenthesis -> `Report a ]
             ];
         report_argument:
@@ -1787,8 +1787,8 @@ let create_expr () =
                 [ LIDENT "clades" -> `Clades ] |
                 [ LIDENT "phastwinclad" -> `FasWinClad ] | 
                 [ LIDENT "nexus" -> `Nexus ] | 
-                [ LIDENT "lkmodel"; ":"; x = old_identifiers ->
-                    `Model x ] | 
+                [ LIDENT "lkmodel"; ":"; left_parenthesis; 
+                    x = old_identifiers; right_parenthesis -> `Model x ] | 
                 [ LIDENT "lkmodel" -> `Model `All ] | 
                 [ LIDENT "script" -> `Script (!console_script) ] |
                 [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |
@@ -2164,8 +2164,8 @@ let create_expr () =
                 [ LIDENT "newick" -> `Newick ] |
                 [ LIDENT "branches" -> `Branches ] | 
                 [ LIDENT "margin"; ":"; m = INT -> `Margin (int_of_string m) ] |
-                [ LIDENT "nomargin" -> `Margin (1000000010 - 1) (* Format.pp_infinity
-                 - 1 *)] |
+                [ LIDENT "nomargin" -> `Margin (1000000010 - 1) ] |
+                [ x = old_identifiers -> `Chars x ] |
                 [ x = collapse -> (x :> Methods.information_contained)  ]
 
             ];

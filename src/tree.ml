@@ -1990,18 +1990,16 @@ module Parse = struct
             | "" -> false
             | _ -> true
         in
-        
         let remove_annot_1branches (t,s) = map (fun (d,(n,c)) -> d,c) t
         and remove_annot_2branches (t,s) = map (fun (d,(n,c)) -> d,n) t
         and remove_all (t,s)  = map (fst) t in
-
         match annotations_exist t,branches_exist t,characters_exist t with
         | true , true, _     -> Annotated (Branches (remove_annot_2branches t),(snd t))
         | true ,  _  , true  -> Annotated (Characters (remove_annot_1branches t),(snd t))
-        | true ,  _  , _     -> Annotated (Flat (remove_all t),(snd t))
+        | true ,false, false -> Annotated (Flat (remove_all t),(snd t))
         | false, true, false -> Branches (remove_annot_2branches t)
-        |   _  ,  _  , true  -> Characters (remove_annot_1branches t)
         |   _  , true,  _    -> Branches (remove_annot_2branches t)
+        |   _  ,  _  , true  -> Characters (remove_annot_1branches t)
         | false,false, false -> Flat (remove_all t)
 
     (** general function for trees *)
