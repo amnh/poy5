@@ -1292,23 +1292,17 @@ let create_expr () =
         (* Transforming taxa or characters *)
         transform:
             [
-                [ LIDENT "transform"; left_parenthesis; 
-                    id = OPT identifiers_opt;  
-                    left_parenthesis; 
-                    x = LIST0 [ y = transform_method -> y] SEP ",";
-                    right_parenthesis; 
-                    right_parenthesis ->
-                         ( `Transform
-                            ( List.map (fun trf ->  
-                                 match id with
-                                 | Some id -> (id,trf)
-                                 | None -> (`All,trf)
-                             ) x ) 
-                            : transform) ]              
+                [ LIDENT "transform";
+                    left_parenthesis; x = identifiers_opt; right_parenthesis -> x ]
             ];
         identifiers_opt:
-        [ [id = identifiers; "," -> id] ]; 
-        ml_floatlist: 
+            [ [id = identifiers; ","; left_parenthesis; 
+                x = LIST0 [ y = transform_method -> y] SEP ","; right_parenthesis ->
+                    `Transform (List.map (fun trf -> (id,trf)) x) ] |
+              [ x = LIST0 [ y = transform_method -> y] SEP "," ->
+                    `Transform (List.map (fun trf -> (`All,trf)) x) ]
+            ];
+        ml_floatlist:
             [[
                 ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
                 right_parenthesis -> List.map float_of_string x
