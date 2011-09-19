@@ -102,8 +102,13 @@ module P : sig
         | Gap_Mode of (string * float option)
         | Files of string
 
-    type poy_data =          (* trees , characters, (nodes , length) *)
-        | CharacterBranch of string list * charset list * (string * float) list
+    type character_data =
+        | Tree_Names of string list
+        | Set_Names of charset list
+        | Labeling of (string * float) list 
+
+    type poy_data =  
+        | CharacterBranch of character_data list
         | Likelihood of likelihood_model list
         | Tcm of (bool * string * standard_item list)
         | GapOpening of (bool * string * standard_item list)

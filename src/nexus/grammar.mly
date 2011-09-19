@@ -98,7 +98,6 @@ let report_error text b e =
 %token <string> MISSING
 %token <string> MODEL
 %token <string> MTDNA
-%token <string> NAMES
 %token <string> NCHAR
 %token <string> NEWSTATE
 %token <string> NEWTAXA
@@ -460,17 +459,23 @@ optional_tree_prequel:
     | { None }
     ;
 poy_block:
-    | CHARACTERBRANCH TREES EQUAL names NAMES EQUAL characterset_list SEMICOLON
-                  MAP pairs_list_float SEMICOLON poy_block
-        { P.CharacterBranch ($4, $7, $10) :: $12}
-    | LIKELIHOOD model_block poy_block { P.Likelihood $2 :: $3 }
+    | CHARACTERBRANCH charbranch_block poy_block 
+        { (P.CharacterBranch $2) :: $3}
+    | LIKELIHOOD model_block poy_block 
+        { P.Likelihood $2 :: $3 }
     | GAPOPENING do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
         { (P.GapOpening ($2, $3, $5)) :: $7 }
     | WTSET do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
         { (P.DynamicWeight ($2, $3, $5)) :: $7 }
     | TCM do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
         { (P.Tcm ($2, $3, $5)) :: $7 }
-    | { [] }
+    |   { [] }
+    ;
+charbranch_block : 
+    | TREES EQUAL names charbranch_block                        { (P.Tree_Names $3) :: $4 }
+    | CHARSET EQUAL characterset_list SEMICOLON charbranch_block  { (P.Set_Names $3) :: $5 }
+    | MAP pairs_list_float SEMICOLON charbranch_block           { (P.Labeling $2) :: $4 }
+    |  { [] }
     ;
 model_block:
     | MODEL EQUAL IDENT SEMICOLON model_block

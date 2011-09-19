@@ -121,13 +121,17 @@ type likelihood_model =
     | Gap_Mode of (string * float option)
     | Files of string
 
+type character_data =
+    | Tree_Names of string list
+    | Set_Names of charset list
+    | Labeling of (string * float) list 
+
 type poy_data =  
-    | CharacterBranch of string list * charset list * (string * float) list
+    | CharacterBranch of character_data list
     | Likelihood of likelihood_model list
     | Tcm of (bool * string * standard_item list)
     | GapOpening of (bool * string * standard_item list)
     | DynamicWeight of (bool * string * standard_item list)
-
 
 type block = 
     | Taxa of (string * string list) 

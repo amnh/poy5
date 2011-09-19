@@ -1523,7 +1523,20 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
         Printf.printf "Adding POY data\n%!";
         List.fold_left
             (fun acc -> function
-                | P.CharacterBranch (trees,chars,bls) ->
+                | P.CharacterBranch data ->
+                    let trees =
+                        List.fold_left
+                            (fun acc -> function | P.Tree_Names x -> x@acc | _ -> acc)
+                            [] data
+                    and chars =
+                        List.fold_left
+                            (fun acc -> function | P.Set_Names x -> x@acc | _ -> acc)
+                            [] data
+                    and bls   =
+                         List.fold_left
+                            (fun acc -> function | P.Labeling x -> x@acc | _ -> acc)
+                            [] data
+                    in
                     add_branch_data (trees,chars,bls) acc
                 | P.GapOpening (true, name, character_set) ->
                     apply_gap_opening character_set acc

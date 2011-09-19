@@ -75,7 +75,6 @@
         ("MISSING", fun x -> MISSING x);
         ("MODEL", fun x -> MODEL x);
         ("MTDNA", fun x -> MTDNA x);
-        ("NAMES", fun x -> NAMES x);            (* used in POY block *)
         ("NCHAR", fun x -> NCHAR x);
         ("NEWSTATE", fun x -> NEWSTATE x);
         ("NEWTAXA", fun x -> NEWTAXA x);
