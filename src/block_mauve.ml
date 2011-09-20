@@ -5073,7 +5073,7 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
         end
 
 let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
-    let debug = false and debug2 = false in
+    let debug = true and debug2 = false in
     if debug then begin
         Printf.printf "merge_ali_seq start,outlen = %d,%d\n%!"
         (Sequence.length out_aliseq0) (Sequence.length out_aliseq1);
@@ -5117,7 +5117,7 @@ let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
 
 
 let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl seed2pos_tbl cost_mat use_ukk =
-    let debug = false in
+    let debug = true in
     if debug then 
         Printf.printf "Search inside a lcb ,min and max len = %d/%d\n%!" min_len max_len;
    (* Hashtbl.iter (fun key lcbrecord ->*)

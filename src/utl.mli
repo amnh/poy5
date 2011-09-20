@@ -65,3 +65,5 @@ val min_arr : 'a array -> 'a
 val printIntSet : IntSet.t -> unit
 val get_dir : [> `Negative | `Positive ] -> string
 val random_array : 'a array -> 'a array
+val factorial :int -> int
+val p_m_n : int -> int -> int
