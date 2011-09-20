@@ -386,14 +386,11 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
         (* assume one component. TODO: multiple components. *)
         let status =
             let n = num_leaves in
-            (* this next line is COMPLETELY wrong!  here for fun.  can you
-               reconstruct my highly-flawed train of thinking? *)
             (* (2n-3)! / ( 2^(n-2) * (n-2) ) *)
         let tmp1 =  Utl.factorial (2*n-3) in
         let tmp1 = float_of_int tmp1 in
         let nbhd =  tmp1 /. ( (2.**(float_of_int (n-2))) *. (float_of_int (n-2)) )
         in
-        (* let nbhd = (n - 3) * (2 * n - 6) * (2 * n - 7) / 8 + n * (2 * n -5) in*)
             Status.create "Bremer TBR neighborhood" (Some (int_of_float nbhd)) "processing" in
         let () = Status.full_report status in
         let nbhood_count = ref 0 in
