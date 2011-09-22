@@ -395,6 +395,17 @@ let sub_ignore_gap ?(gap=Alphabet.gap) s st len =
     if debug then Printf.printf "end of sub ignore gap,next idx set to %d\n%!" !idx;
     of_array (Array.of_list !acclst) , !idx
 
+let length_without_gap ?(gap=Alphabet.gap) s =
+    let count = ref 0 in
+    let slen = length s in
+    for i = 0 to slen-1 do
+        let tmp = get s i in
+        if tmp<>gap then count := !count + 1
+        else ()
+        ;
+    done;
+    !count
+
 let prepend_char seq element =  
     let len = length seq in
     let ext_seq = init

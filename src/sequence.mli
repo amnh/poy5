@@ -45,6 +45,8 @@ val capacity : s -> int
  * that can be changed at runtime. The current capacity of a sequence is calculated
  * here. *)
 
+val length_without_gap : ?gap:int -> s -> int
+
 val length : s -> int
 (** [length s] returns the length of the sequence [s]. The total length must be
  * not greater than the capacity of the sequence.*)
