@@ -146,7 +146,8 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
         debug_printf "Trying to bracket around %f,%f\n%!" o fo;
         bracket_region (create_scaled o' 0.2) o' (create_scaled o' 2.0)
   (*-- brents method as in Numerical Recipe in C; 10.2 *)
-    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ((v,(_,fv)) as v') a b d e iters =
+    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ( v') a b d e iters =
+        let (v,(_,fv))  = v' in
         debug_printf "Iteration %d, bracketing (%f,%f) with: %f,%f,%f\n%!" 
                         iters a b x w v;
         let xm = (a +. b) /. 2.0

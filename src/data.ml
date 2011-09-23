@@ -4344,7 +4344,10 @@ let update_priors data charcodes use_gap =
                     let model = MlModel.replace_priors (get_lk_model x.lk_model) new_priors in
                     model_d := Some model;
                     Hashtbl.replace data.character_specs code
-                        (Dynamic {x with state = `Ml; lk_model = !model_d;}))
+                        (Dynamic {x with state = `Ml; lk_model = !model_d;})
+                | _,_ , _ -> 
+                        failwith "what to do with Kolmogorov/Set? in data.update_priors" 
+                        )
             charcodes;
         data
     | MlModel.Equal 
@@ -4509,8 +4512,9 @@ END
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
-let set_likelihood data (((chars,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
+let set_likelihood data (m_spec:Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
+    let (chars,_,_,_,_,use_gap) = m_spec in
     match get_chars_codes_comp data chars with
     | [] -> 
         output_warning "No characters changed";    
@@ -6034,6 +6038,8 @@ let output_character_names fo output_format resolve_a data all_of_static =
             let string_labels, number_labels = 
                 match Hashtbl.find data.character_specs code with
                 | Dynamic _ | Set -> assert false
+                | Kolmogorov _ -> 
+                failwith "what to do with Kolmogorov? output_character_names in data.ml"
                 | Static spec ->
                     match spec.Nexus.File.st_labels with
                     | [] -> 
@@ -6121,6 +6127,8 @@ let to_nexus data filename =
         let output_dynamic_homology character_code = 
             match Hashtbl.find data.character_specs character_code with
             | Static _ | Set -> assert false
+            | Kolmogorov _ -> 
+            failwith "what to do with Kolmogorov? output_dynamic_homology in data.ml"
             | Dynamic spec -> (* We are OK *)
                     fo "@[BEGIN UNALIGNED;@]@.";
                     fo "[CHARACTER NAME: ";
