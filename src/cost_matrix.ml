@@ -43,7 +43,21 @@ let max_int = (Int32.to_int Int32.max_int) lsr 1
 
 let _ =
     init ()
+(* move these two to utl.ml 
+let factorial n =
+        let rec func t acc = 
+           if (t>1) then   func (t-1) t*acc
+           else acc
+        in
+        func n 1
 
+let p_m_n m n =
+        let rec func t acc =
+            if ( t < n ) then func (t+1) (m-t)*acc
+            else acc
+        in
+        func 0 1 
+*) 
 module Two_D = struct
     type m
     external set_gap : m -> int -> unit = "cm_CAML_set_gap"
@@ -330,19 +344,7 @@ module Two_D = struct
         else 
             store_input_list_in_cost_matrix_no_comb m l 1 1 a_sz all_elements
 
-    let factorial n =
-        let rec func t acc = 
-           if (t>1) then   func (t-1) t*acc
-           else acc
-        in
-        func n 1
-
-    let p_m_n m n =
-            let rec func t acc =
-                if ( t < n ) then func (t+1) (m-t)*acc
-                else acc
-            in
-            func 0 1  
+     
 
    
    let calc_number_of_combinations_by_level a_sz level =
@@ -353,8 +355,8 @@ module Two_D = struct
             else level
         in
         for i = 1 to level do
-            let numerator = p_m_n a_sz i in
-            let denominator = factorial i in
+            let numerator = Utl.p_m_n a_sz i in
+            let denominator = Utl.factorial i in
             let c_m_n = (numerator / denominator) in
             sum := !sum + c_m_n;
         done;
@@ -363,8 +365,8 @@ module Two_D = struct
    let calc_num_of_comb_with_gap ori_a_sz level =
        let sum = ref 0 in
        for i = 1 to (level-1) do
-            let numerator = p_m_n (ori_a_sz-1) i in
-            let denominator = factorial i in
+            let numerator = Utl.p_m_n (ori_a_sz-1) i in
+            let denominator = Utl.factorial i in
             sum := (!sum) + (numerator / denominator) 
        done;
        (!sum)
@@ -758,8 +760,8 @@ module Two_D = struct
         let debug = false in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
-        let numerator = p_m_n (a_sz-1) (level-1) in
-        let denominator = factorial (level-1) in
+        let numerator = Utl.p_m_n (a_sz-1) (level-1) in
+        let denominator = Utl.factorial (level-1) in
         let comb_withgap = (numerator / denominator) in
         let comb_withgap = 
             if all_elements>0 then comb_withgap +1 else comb_withgap in

@@ -365,3 +365,17 @@ let random_array array =
     in
     fisher_yates array
 
+let factorial n =
+        let rec func t acc = 
+           if (t>1) then   func (t-1) t*acc
+           else acc
+        in
+        func n 1
+
+let p_m_n m n =
+        let rec func t acc =
+            if ( t < n ) then func (t+1) (m-t)*acc
+            else acc
+        in
+        func 0 1 
+

@@ -3294,8 +3294,7 @@ let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs
         let attributes =
               [(Xml.Characters.name, `String (Data.code_character x.final.sid d))] in
         let sub a =
-            (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
-               error, though I can't see where ... *)
+            (* we are getting rid of type Set in POY6 *)
             (cs_to_formatter report_type None (pre_ref_codes, fi_ref_codes) d a None)
         in
         let sub : (Xml.xml Sexpr.t list) = 

@@ -286,8 +286,8 @@ void sanity_check2 (int x)
 void get_cmcost (const cmt c, int a, int b, int * res)
 {
     //if (a==b) { *res = 0; } else { *res = 2 ; }
-    sanity_check2(a);
-    sanity_check2(b);
+    //sanity_check2(a);
+    //sanity_check2(b);
     if(cm_check_level(c) == 1)
         *res = cm_get_cost (c->cost, a, b, c->map_sz+1);
     else
