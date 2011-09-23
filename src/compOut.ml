@@ -78,7 +78,7 @@ let static_character_to_string sep ambig_open ambig_close fo resolve alph charse
     fo sep
 
 
-let create_set_data_pairs (fo : string -> unit) data =
+let create_set_data_pairs (fo : string -> unit) data code_char_pairs =
     (* associate data to each category; right now associated with likelihood *)
     let add_data charset = match charset with
         | []    -> failwith "CompOut.create_set_data_pairs; Empty Category?"
@@ -98,9 +98,13 @@ let create_set_data_pairs (fo : string -> unit) data =
             end
     and print_set set = match set with
         | []   -> assert false
-        | [x]  -> fo (string_of_int x); fo ";"
-        | h::t -> fo (string_of_int h);
-                  List.iter (fun x -> fo ","; fo (string_of_int x)) t
+        | [x]  -> fo (string_of_int (List.assoc x code_char_pairs)); fo ";"
+        | h::t -> fo (string_of_int (List.assoc h code_char_pairs));
+                  List.iter 
+                    (fun x -> fo ",";
+                              let assoc = List.assoc x code_char_pairs in
+                              fo (string_of_int assoc))
+                    t
     in
     let set_pairs = List.map add_data (Data.categorize_characters data `All) in
     fo "@[BEGIN SETS;@.";
@@ -119,7 +123,7 @@ let create_set_data_pairs (fo : string -> unit) data =
     set_pairs
 
 
-let output_poy_nexus_block (fo : string -> unit) data : unit =
+let output_poy_nexus_block (fo : string -> unit) data code_char_pairs : unit =
     let output_nexus_model (name,_,model) = match model with
         | Some m -> MlModel.output_model fo `Nexus m (Some [name])
         | _      -> ()
@@ -127,7 +131,7 @@ let output_poy_nexus_block (fo : string -> unit) data : unit =
         | [] -> true
         | _  -> false
     in
-    let assoc_sets = create_set_data_pairs fo data in
+    let assoc_sets = create_set_data_pairs fo data code_char_pairs in
     if not (is_empty data.Data.dynamics) then begin
         fo "@[BEGIN POY;@]@.";
         let dynamics = Array.of_list data.Data.dynamics in
@@ -373,13 +377,11 @@ let output_character_types fo output_format resolve_a data all_of_static =
 
 
 let output_character_names fo output_format resolve_a data all_of_static =
-    let character_begining, state_names_beginning, character_separator,
-    name_enclosing, to_add  = 
-        match output_format with
+    let character_begining, state_names_beginning, character_separator, name_enclosing, to_add  = match output_format with
         | `Hennig -> "{", " ", ";", "", 0
         | `Nexus -> " ", " / ", ",", "'", 1
     in
-    let output_name position code =
+    let output_name (position,prev) code =
         let name = Hashtbl.find data.Data.character_codes code in
         if (output_format = `Nexus) && position > 0 then fo character_separator;
         fo ("@[<h>" ^ character_begining ^ string_of_int (position + to_add)^ " " ^
@@ -406,11 +408,12 @@ let output_character_names fo output_format resolve_a data all_of_static =
             in
             string_labels @ number_labels
         in
-        List.iter (fun x -> fo "@[<h>"; fo name_enclosing; fo x; fo
-        name_enclosing; fo "@]"; fo " ") labels;
+        List.iter (fun x -> fo "@[<h>"; fo name_enclosing; fo x; 
+                            fo name_enclosing; fo "@]"; fo " ") 
+                  labels;
         if output_format = `Hennig then fo character_separator;
         fo "@]@.";
-        position + 1
+        (position + 1,(code,position + to_add)::prev)
     in
     (* The mysterious commands for old programs *)
     match output_format with
@@ -419,12 +422,14 @@ let output_character_names fo output_format resolve_a data all_of_static =
             fo "$@.";
             fo ";@.";
             fo "@[<v 0>cn ";
-            let _ = List.fold_left output_name 0 all_of_static in
-            fo ";@]@]@."
+            let _,codes = List.fold_left output_name (0,[]) all_of_static in
+            fo ";@]@]@.";
+            List.rev codes
     | `Nexus ->
             fo "@[CHARSTATELABELS@.";
-            let _ = List.fold_left output_name 0 all_of_static in
-            fo ";@]@."
+            let _,codes = List.fold_left output_name (0,[]) all_of_static in
+            fo ";@]@.";
+            List.rev codes
 
 
 let all_of_static data = 
@@ -433,7 +438,9 @@ let all_of_static data =
         (Hashtbl.fold 
             (fun c s acc -> match s with
                 | Data.Static _ -> c :: acc
-                | _ -> acc) data.Data.character_specs [])
+                | _ -> acc)
+            data.Data.character_specs 
+            [])
 
 
 let to_nexus data filename = 
@@ -559,8 +566,8 @@ let to_nexus data filename =
                     fo (string_of_int (Alphabet.get_gap alph))
             in
             let () = match symbols with
-                | [] -> ()
-                | lst -> 
+                | []  -> ()
+                | lst ->
                     fo " @[SYMBOLS=\"";
                     List.iter (fun x -> fo x; fo " ") lst;
                     fo "\"@]@."
@@ -569,42 +576,49 @@ let to_nexus data filename =
         in
         (* Now the static homology characters, in one big matrix *)
         let number_of_static_characters = List.length all_of_static in
-        if 0 < number_of_static_characters then begin
-            fo "@[BEGIN CHARACTERS;@]@.";
-            fo "@[DIMENSIONS NCHAR=";
-            fo (string_of_int number_of_static_characters);
-            fo ";@]@.";
-            let () = 
-                if Data.has_likelihood data then
-                    output_likelihood_symbols fo data terminals_sorted
-                else begin
-                    fo "@[FORMAT@.";
-                    fo "SYMBOLS=\"0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L";
-                    fo " M N O P Q R S T U V\""
-                end
-            in
-            fo ";@]";
-            output_character_names fo `Nexus resolve_a data all_of_static;
-            fo "@[MATRIX@.";
-            List.iter 
-                (fun (code, name) ->
-                    let specs = Hashtbl.find data.Data.taxon_characters code in
-                    fo "@["; fo name; fo " ";
-                    List.iter 
-                        (fun character_code ->
-                            let a = Data.get_alphabet data character_code in
-                            let sep = if resolve_a then "" else " " in
-                            static_character_to_string 
-                                sep "(" ")" fo resolve_a a specs character_code)
-                        all_of_static;
-                    fo "@]@.")
-                terminals_sorted;
-            fo ";@]@.@[END;@]@.";
-            output_character_types fo `Nexus resolve_a data all_of_static
-        end;
+        let all_of_static_pairs =
+            if 0 < number_of_static_characters then begin
+                fo "@[BEGIN CHARACTERS;@]@.";
+                fo "@[DIMENSIONS NCHAR=";
+                fo (string_of_int number_of_static_characters);
+                fo ";@]@.";
+                let () =
+                    if Data.has_likelihood data then
+                        output_likelihood_symbols fo data terminals_sorted
+                    else begin
+                        fo "@[FORMAT@.";
+                        fo "SYMBOLS=\"0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L";
+                        fo " M N O P Q R S T U V\""
+                    end
+                in
+                fo ";@]";
+                let all_of_static_pairs =
+                    output_character_names fo `Nexus resolve_a data all_of_static
+                in
+                fo "@[MATRIX@.";
+                List.iter
+                    (fun (code, name) ->
+                        let specs = Hashtbl.find data.Data.taxon_characters code in
+                        fo "@["; fo name; fo " ";
+                        List.iter
+                            (fun character_code ->
+                                let a = Data.get_alphabet data character_code in
+                                let sep = if resolve_a then "" else " " in
+                                static_character_to_string
+                                    sep "(" ")" fo resolve_a a specs character_code)
+                            all_of_static;
+                        fo "@]@.")
+                    terminals_sorted;
+                fo ";@]@.@[END;@]@.";
+                output_character_types fo `Nexus resolve_a data all_of_static;
+                all_of_static_pairs
+            end else begin
+                []
+            end
+        in
         (* We print the dynamic homology characters first *)
         List.iter output_dynamic_homology data.Data.dynamics;
-        let () = output_poy_nexus_block fo data in
+        let () = output_poy_nexus_block fo data all_of_static_pairs in
         ()
     in
     output_nexus_header ();
@@ -657,7 +671,7 @@ let to_faswincladfile data filename =
     output_header ();
     output_all_taxa ();
     output_character_types fo `Hennig false data all_of_static;
-    output_character_names fo `Hennig false data all_of_static;
+    ignore (output_character_names fo `Hennig false data all_of_static);
     fo "@.";
     fo "@]@?"
 
