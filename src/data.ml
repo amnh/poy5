@@ -549,6 +549,7 @@ let empty () =
         complex_schema = [];
 }
 
+
 let copy_taxon_characters tc = 
     let new_tc = create_ht () in
     Hashtbl.iter (fun code othertbl ->
@@ -5602,7 +5603,7 @@ let get_pam data c =
     match Hashtbl.find data.character_specs c  with
     | Dynamic dspec -> dspec.pam
     | Kolmogorov dspec -> dspec.dhs.pam
-    | _ -> failwith "Data.get_alphabet"
+    | _ -> failwith "Data.get_pam"
 
 let report_taxon_file_cross_reference chars data filename =
     let files_arr, taxa = 
