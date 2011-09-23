@@ -2108,6 +2108,9 @@ let create_expr () =
                 [ LIDENT "nucleotides"; ":"; left_parenthesis; a = LIST1 [x =
                     STRING -> x] SEP ","; 
                     right_parenthesis -> `Nucleotides (to_local a) ] |
+                [ LIDENT "nucleotide"; ":"; left_parenthesis; a = LIST1 [x =
+                    STRING -> x] SEP ","; 
+                    right_parenthesis -> `Nucleotides (to_local a) ] |
 
                 [ LIDENT "chromosome"; ":"; left_parenthesis; a = LIST1 [x =
                     STRING -> x] SEP ","; 
@@ -2117,6 +2120,11 @@ let create_expr () =
                 -> x]SEP ","; 
                     right_parenthesis -> `Genome (to_local a) ] |
 
+                [ LIDENT "aminoacid"; ":"; left_parenthesis; 
+                    a = LIST1 [x = STRING -> x] SEP ",";
+                    OPT ";";
+                    read_options = LIST0 [x = read_optiona -> x] SEP ",";
+                    right_parenthesis -> `Aminoacids (to_local a,read_options) ] |
                 [ LIDENT "aminoacids"; ":"; left_parenthesis; 
                     a = LIST1 [x = STRING -> x] SEP ",";
                     OPT ";";

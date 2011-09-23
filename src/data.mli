@@ -484,6 +484,11 @@ val process_analyze_only_taxa :
     [`Random of float | `CharSet of (bool * string list) 
     | `Names of (bool * string list) | `Missing of (bool * int) ] -> d -> d
 
+
+(* Functions to manipulate and determine character sets and demarcation of data
+ * sets by type, model, ... *)
+val get_set_of_character : d -> int -> string option
+
 val categorize : d -> d
 
 val categorize_static_likelihood_by_model : bool_characters -> d -> int list list
@@ -491,6 +496,7 @@ val categorize_static_likelihood_by_model : bool_characters -> d -> int list lis
 val categorize_sets : d -> int list list
 
 val categorize_characters : d -> bool_characters -> int list list
+
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
 
@@ -609,9 +615,6 @@ val update_priors : d -> int list -> bool -> d
 
 val set_parsimony  : d -> Methods.characters -> d 
 val set_likelihood : d -> Methods.ml_spec    -> d 
-
-val to_faswincladfile : d -> string option -> unit
-val to_nexus : d -> string option -> unit
 
 val get_likelihood_model : d -> int list -> MlModel.model 
 

@@ -389,18 +389,18 @@ module type SEARCH = sig
           string option * Tree.Parse.tree_types list -> Data.d * a list -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 
-            (int -> string) -> 
-                (int -> int -> bool) -> 
-                    ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
-                        int array option -> (int array option -> string)
-                    -> Tree.Parse.tree_types list
-
-        val build_tree : Tree.u_tree -> 
-            (int -> string) -> 
+            (int -> string) -> (int array option -> int -> int -> string option) ->
                 (int -> int -> bool) ->
-                    ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+                    ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
                         int array option -> (int array option -> string)
-                    -> Tree.Parse.tree_types
+                -> Tree.Parse.tree_types list
+
+        val build_tree : Tree.u_tree ->
+            (int -> string) -> (int array option -> int -> int -> string option) ->
+                (int -> int -> bool) ->
+                    ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
+                    int array option -> (int array option -> string)
+                -> Tree.Parse.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -425,6 +425,12 @@ module type SEARCH = sig
 
         val build_forest_with_names_n_costs :
             bool -> (a, b) p_tree -> string -> bool -> int array option -> Tree.Parse.tree_types list
+
+         val build_forest_with_names_n_costs_n_branches :
+            bool -> (a, b) p_tree -> string -> 
+                (int array option -> int -> int -> string option) -> bool -> 
+                    int array option 
+                -> Tree.Parse.tree_types list
 
         val to_xml : Pervasives.out_channel -> (a, b) p_tree -> unit
 
@@ -537,10 +543,11 @@ val get_cost : cost_type -> ('a, 'b) p_tree -> float
 val get_handle_cost : cost_type -> ('a, 'b) p_tree -> int -> float
 
 val build_trees: Tree.u_tree -> 
-    (int -> string) -> 
-        (int -> int -> bool) -> 
-            ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
-                int array option -> (int array option -> string) -> Tree.Parse.tree_types list
+    (int -> string) -> (int array option -> int -> int -> string option) ->
+        (int -> int -> bool) ->
+            ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
+                int array option -> (int array option -> string)
+        -> Tree.Parse.tree_types list
 
 val wipe_costs : ('a, 'b) p_tree -> ('a, 'b) p_tree 
 

@@ -567,6 +567,16 @@ module F : Ptree.Tree_Operations
 
     (* debugging function for output of nexus files within this module *)
     let create_nexus base : (string -> phylogeny -> unit) =
+        let generate_labeling =
+            let table = Hashtbl.create 1371 in           
+            let names_idx = ref 0 in
+            (fun char x y ->
+                let name = "&poy_"^string_of_int !names_idx in
+                let normalized_pair = min x y, max x y in
+                incr names_idx;
+                Hashtbl.add table normalized_pair name;
+                Some name)
+        in
         let nexi = ref 0 in
         (fun basename ptree ->
             let filename = Printf.sprintf "%02d_%s_%s.nex" !nexi base basename in
@@ -574,6 +584,7 @@ module F : Ptree.Tree_Operations
             let trees =
                 Ptree.build_trees (ptree.Ptree.tree)
                     (fun x -> Data.code_taxon x ptree.Ptree.data)
+                    (generate_labeling)
                     (fun _ _ -> false)
                     (Some branches)
                     (None)
@@ -585,7 +596,7 @@ module F : Ptree.Tree_Operations
             in
             info_user_message "Nexus Tag: %s" filename;
             incr nexi;
-            let () = Data.to_nexus ptree.Ptree.data (Some filename) in
+            let () = CompOut.to_nexus ptree.Ptree.data (Some filename) in
             let () = List.iter (Tree.Parse.print_tree (Some filename)) trees in
             ())
 

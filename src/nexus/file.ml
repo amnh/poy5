@@ -141,10 +141,9 @@ type nexus = {
     characters : static_spec array;
     matrix : static_state array array;
     csets : (string, P.charset list) Hashtbl.t;
-    unaligned : (float * int option * (string * int array array) option * 
-                 Alphabet.a * MlModel.model option *
-                 (Sequence.s list list list * taxon) list)
-                list;
+                (* weight, gap opening, level, tcm, alphabet, model, seq data *)
+    unaligned : (float * int option * int option * (string * int array array) option * 
+                 Alphabet.a * MlModel.model option * (Sequence.s list list list * taxon) list) list;
     trees : (string option * Tree.Parse.tree_types list) list;
     branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
     assumptions : (string, string array * float array array) Hashtbl.t;
@@ -1168,11 +1167,11 @@ let generate_parser_friendly (translations:(string*string) list)
     (Some name, [tree])
 
 
-let apply_gap_opening character_set acc = 
+let apply_gap_opening character_set acc =
         let unaligned = Array.of_list (List.rev (acc.unaligned)) in
         let assign_gap_opening v pos =
-            let (w, _, x, m, y, z) = unaligned.(pos) in
-            unaligned.(pos) <- (w, (Some v), x, m , y , z)
+            let (w, _, l, x, m, y, z) = unaligned.(pos) in
+            unaligned.(pos) <- (w, (Some v), l, x, m , y , z)
         in
         List.iter 
             (function 
@@ -1188,11 +1187,29 @@ let apply_gap_opening character_set acc =
         { acc with unaligned = unaligned; }
 
 
+let apply_level character_set acc =
+        let unaligned = Array.of_list (List.rev (acc.unaligned)) in
+        let assign_level l pos =
+            let (w, v, _, x, m, y, z) = unaligned.(pos) in
+            unaligned.(pos) <- (w, v, (Some l), x, m , y , z)
+        in
+        List.iter 
+            (function 
+                | P.Code (level, who) ->
+                    let level = truncate (float_of_string level) in
+                    List.iter (apply_on_unaligned_set unaligned (assign_level level)) who
+                | P.IName (_, _) ->
+                    failwith "LEVEL must be an integer value")
+            character_set;
+        let unaligned = List.rev (Array.to_list unaligned) in
+        { acc with unaligned = unaligned; }
+
+
 let apply_weight character_set acc = 
         let unaligned = Array.of_list (List.rev acc.unaligned) in
         let assign_weight weight pos =
-            let (_, w, x, m, y, z) = unaligned.(pos) in
-            unaligned.(pos) <- (weight, w, x, m, y, z)
+            let (_, w, l, x, m, y, z) = unaligned.(pos) in
+            unaligned.(pos) <- (weight, w, l, x, m, y, z)
         in
         List.iter 
             (function 
@@ -1212,9 +1229,9 @@ let apply_weight character_set acc =
 let apply_tcm character_set acc = 
         let unaligned = Array.of_list (List.rev acc.unaligned) in
         let assign_tcm name v pos =
-            let (w, x, _, y, m, z) = unaligned.(pos) in
+            let (w, x, l, _, y, m, z) = unaligned.(pos) in
             let v = generate_substitution_table false v y in
-            unaligned.(pos) <- (w, x , (Some (name, v)), y , m , z)
+            unaligned.(pos) <- (w, x , l, (Some (name, v)), y , m , z)
         in
         List.iter 
             (function 
@@ -1228,9 +1245,9 @@ let apply_tcm character_set acc =
                                         (assign_tcm matrix table))
                                   who
                     else
-                        failwith ("TCM must assign a matrix defined in the"^
+                        failwith ("TCM must assign a matrix defined in the "^
                                   "ASSUMPTIONS block. I couldn't find the "^
-                                  " table " ^ matrix))
+                                  "table " ^ matrix))
             character_set;
         let unaligned = List.rev (Array.to_list unaligned) in
         { acc with unaligned = unaligned; }
@@ -1422,7 +1439,7 @@ let apply_likelihood_model params acc =
         end
     and convert_unaligned lst = 
         List.map 
-            (fun (z,w,x,alph,_,xsssts) ->
+            (fun (z,w,x,y,alph,_,xsssts) ->
                 Printf.printf "Converting Unaligned Characters to Likelihood!\n%!";
                 let str_spec = match pi with
                     | `Equal | `Given _ -> str_spec
@@ -1436,7 +1453,7 @@ let apply_likelihood_model params acc =
                 let m = str_spec --> MlModel.convert_string_spec
                                  --> MlModel.create alph
                 in
-                (z,w,x,alph,Some m,xsssts))
+                (z,w,x,y,alph,Some m,xsssts))
             lst
     in
     (* apply spec to each character *)
@@ -1487,7 +1504,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                 default_static acc.char_cntr file data.P.unal_format 0
             in
             let unal = uninterleave true data.P.unal in
-            let alph = 
+            let alph =
                 (* We override whatever choice for the unaligned
                 * sequences alphabet is, if we are dealing with our
                 * core, known, alphabets *)
@@ -1500,7 +1517,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                         failwith "POY can't handle continuous types"
             in
             let res = Fasta.of_string (FileContents.AlphSeq alph) unal in
-            { acc with unaligned = (1.,None,None,alph,None,res) :: acc.unaligned;};
+            { acc with unaligned = (1.,None,None,None,alph,None,res) :: acc.unaligned;};
     | P.Sets data -> 
             List.iter (fun (name, set) ->
                 match set with
@@ -1544,9 +1561,12 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                     apply_weight character_set acc
                 | P.Tcm (true, name, character_set) ->
                     apply_tcm character_set acc
+                | P.Level (true, name, character_set) ->
+                    assert false
                 | P.Likelihood params ->
                     apply_likelihood_model params acc
                 | P.DynamicWeight (false, _ , _ )
+                | P.Level (false, _, _ )
                 | P.Tcm (false, _ , _ )
                 | P.GapOpening (false, _ , _ ) -> acc)
             acc

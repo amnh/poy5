@@ -50,6 +50,7 @@
         ("FREQUENCY", fun x -> FREQUENCY x);
         ("GAP", fun x -> GAP x);
         ("GAPMODE", fun x -> GAPMODE x);
+        ("GAPOPENING", fun x -> GAPOPENING x);  (* poy block command *)
         ("GENETICCODE", fun x -> GENETICCODE x);
         ("GIF", fun x -> GIF x);
         ("INDIVIDUALS", fun x -> INDIVIDUALS x);
@@ -59,7 +60,8 @@
         ("ITEMS", fun x -> ITEMS x);
         ("JPEG", fun x -> JPEG x);
         ("LABELS", fun x -> LABELS x);
-        ("LIKELIHOOD", fun x -> LIKELIHOOD x);
+        ("LEVEL", fun x -> LEVEL x);            (* poy block specific *)
+        ("LIKELIHOOD", fun x -> LIKELIHOOD x);  (* poy block specific *)
         ("LINK", fun x -> LINK x);
         ("LOWER", fun x -> LOWER x); 
         ("MAM", fun x -> MAM x);
@@ -116,6 +118,7 @@
         ("TAXLABELS", fun x -> TAXLABELS x);
         ("TAXPARTITION", fun x -> TAXPARTITION x);
         ("TAXSET", fun x -> TAXSET x);
+        ("TCM", fun x -> TCM x);            (* POY block command *)
         ("TEXT", fun x -> TEXT x);
         ("TITLE", fun x -> TITLE x);
         ("TIFF", fun x -> TIFF x);
@@ -137,7 +140,7 @@
         ("VARIANCE", fun x -> VARIANCE x);
         ("VARIATION", fun x -> VARIATION x);
         ("VECTOR", fun x -> VECTOR x);
-        ("WTSET", fun x -> WTSET x);
+        ("WTSET", fun x -> WTSET x);    (* POY block command *)
         ("YEAST", fun x -> YEAST x);
     ]
 

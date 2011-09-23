@@ -113,6 +113,7 @@ module P : sig
         | Tcm of (bool * string * standard_item list)
         | GapOpening of (bool * string * standard_item list)
         | DynamicWeight of (bool * string * standard_item list)
+        | Level of (bool * string * standard_item list)
 
     type block = 
         | Taxa of (string * string list) 
@@ -194,11 +195,9 @@ module File : sig
         characters : static_spec array;
         matrix : static_state array array;
         csets : (string, P.charset list) Hashtbl.t;
-        unaligned : 
-            (float * int option * (string * int array array) option * 
-             Alphabet.a * MlModel.model option * 
-             (Sequence.s list list list * taxon) list)
-            list;
+                    (* weight, gap opening, level, tcm, alphabet, model, seq data *)
+        unaligned : (float * int option * int option * (string * int array array) option * 
+                    Alphabet.a * MlModel.model option * (Sequence.s list list list * taxon) list) list;
         trees : (string option * Tree.Parse.tree_types list) list;
         branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
         assumptions : (string, string array * float array array) Hashtbl.t;
