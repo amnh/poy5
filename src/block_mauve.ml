@@ -5072,50 +5072,41 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
         better_covR,better_lcb_tbl
         end
 
-(*[merge_ali_seq] is for big lcb block. after we have align seq for sequence
-* inside & outside lcb block , we need to combine them into one align seq *)
-let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
-    let debug = true and debug2 = false in
-    if debug then begin
-            Printf.printf "merge_ali_seq start,outlen = %d,%d\n%!"
-            (Sequence.length out_aliseq0) (Sequence.length out_aliseq1);
-        if debug2 then Sequence.printseqcode out_aliseq0;
-        if debug2 then Sequence.printseqcode out_aliseq1;
-    end;
-    let resarr = Array_ops.map_3 (fun in_lst out_aliseq total_range ->
-    let leftmost,rightmost = total_range in
+(*[merge_ali_seq] is for function [search_inside_a_lcb] working on a big lcb block. 
+* after we have aligned seq for smaller lcbs, we need to combine it with seq
+* outside those lcbs*)
+let merge_ali_seq in_lst0 in_lst1 seq0 seq1 cost_mat use_ukk
+total_range_lst  =
+    let debug = false and debug2 = false in
+    let leftmost0,rightmost0 = List.hd total_range_lst 
+    and leftmost1,rightmost1 = List.nth total_range_lst 1 in 
     if debug then
-        Printf.printf "leftmost = %d, rightmost = %d, size=%d,alied outseq size=%d\n%!" 
-        leftmost rightmost (rightmost-leftmost+1) (Sequence.length out_aliseq);
-    let last_rightend,tmpseq,last_idx = 
-    List.fold_left ( fun (pre_rightend,accseq,accidx) ((leftend,rightend,_,_),aliseq) ->
+        Printf.printf "merge_ali_seq,[lmost,rmost] = [%d,%d];[%d,%d]\n%!" 
+        leftmost0 rightmost0 leftmost1 rightmost1;
+    let out_cost,last_rightend0,last_rightend1,resseq0,resseq1 =
+    List.fold_left2 (fun (acc_cost,pre_rightend0,pre_rightend1,accseq0,accseq1) 
+    ((leftend0,rightend0,_,_),aliseq0) ((leftend1,rightend1,_,_),aliseq1) ->
+        let outlen0 = leftend0-pre_rightend0-1
+        and outlen1 = leftend1-pre_rightend1-1 in
         if debug then Printf.printf
-        "pre_rightend=%d,accidx=%d,le=%d,re=%d;%!" pre_rightend accidx leftend rightend;
-        let out_s,newidx = 
-            Sequence.subseq_ignore_gap out_aliseq accidx (leftend-pre_rightend-1) in
-        if debug then Printf.printf ",alilen=(out=%d,in=%d,total=%d)\n%!"
-         (Sequence.length out_s) (Sequence.length aliseq) (Sequence.length accseq);
-        rightend,Sequence.concat [accseq;out_s;aliseq],newidx 
-    ) (leftmost-1,Sequence.get_empty_seq (),0) in_lst in
-    let last_size = rightmost-last_rightend in
-    let res = 
-    if last_size>0 then
-        let last_seq, _ = 
-        Sequence.subseq_ignore_gap out_aliseq last_idx last_size 
+        "[pre_rightend=%d,le=%d,re=%d],[pre_rightend=%d,le=%d,re=%d]\n%!" 
+         pre_rightend0 leftend0 rightend0 pre_rightend1 leftend1 rightend1;
+        let out_s0,out_s1,out_c,_ = 
+            let os0 = Sequence.subseq seq0 (pre_rightend0+1) outlen0 in
+            let os1 =Sequence.subseq seq1 (pre_rightend1+1) outlen1 in
+            Sequence.align2 os0 os1 cost_mat use_ukk
         in
-        Sequence.concat [tmpseq;last_seq]
-    else
-        tmpseq
+        acc_cost+out_c,rightend0,rightend1,
+        Sequence.concat [accseq0;out_s0;aliseq0],
+        Sequence.concat [accseq1;out_s1;aliseq1]
+    ) (0,leftmost0-1,leftmost1-1,Sequence.get_empty_seq (),Sequence.get_empty_seq ()) 
+    in_lst0 in_lst1
     in
-    (*this is a tmp fix, I need to rewrite this function*)
-    let extra_gap_size = (Sequence.length out_aliseq) - last_idx in
-    Printf.printf "last_idx = %d,extra_gap_size = %d\n%!" last_idx extra_gap_size;
-    if extra_gap_size>0 then
-        Sequence.concat [res;Sequence.subseq out_aliseq last_idx extra_gap_size]
-    else res
-    ) 
-    [|in_lst0;in_lst1|] [|out_aliseq0;out_aliseq1|] 
-    (Array.of_list total_range_lst) in
+    if debug then Printf.printf 
+    "last_rightend0=%d,last_rightend1=%d\n%!" last_rightend0 last_rightend1 ;
+    assert(rightmost0=last_rightend0);
+    assert(rightmost1=last_rightend1);
+    let resarr = [|resseq0;resseq1|] in
     let len0,len1 = (Sequence.length resarr.(0)),(Sequence.length resarr.(1)) in
     if debug then begin
         Printf.printf "merge_ali_seq ends, check res seq (size=%d,%d):\n%!" len0 len1;
@@ -5123,14 +5114,13 @@ let merge_ali_seq in_lst0 in_lst1 out_aliseq0 out_aliseq1 total_range_lst =
         if debug2 then Sequence.printseqcode resarr.(1);
     end;
     assert(len0=len1);
-    resarr
+    resarr,out_cost
 
 
 let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl seed2pos_tbl cost_mat use_ukk =
     let debug = true in
     if debug then 
         Printf.printf "Search inside a lcb ,min and max len = %d/%d\n%!" min_len max_len;
-   (* Hashtbl.iter (fun key lcbrecord ->*)
         if debug then Printf.printf "work on lcb:%!";
         if debug then print_lcb lcbrecord;
         let key = lcbrecord.seedNOlst in
@@ -5164,7 +5154,7 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
                 ((le1,re1,[seedNO],mi1.orientation),alied_seq1)::rlist1,
                 acc_cost + cost
             ) ([],[],0) key in
-            if debug then Printf.printf "in_cost = %d\n%!" in_cost;
+            if debug then Printf.printf "cost from smaller lcbs = %d\n%!" in_cost;
             let sort_by_leftend lst = 
                 (*this sorting might use bunch of memory, do we really need to
                 * sort? mums in lcbkey are suppose to be sorted by leftend.*)
@@ -5178,37 +5168,19 @@ let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl se
             let total_range_lst =
                 List.map (fun mi -> (mi.left_end,mi.right_end) ) sorted_total_rangelst
             in
-            let out_seqarr,out_seq_size_lst =
-            get_seq_outside_lcbs in_seqarr [range_lst0;range_lst1] total_range_lst in
-            let outlen0,outlen1 = Array.length out_seqarr.(0),
-            Array.length out_seqarr.(1) in
-            if debug then Printf.printf "outlen = %d,%d,inlen=%d,%d,%!" 
-            outlen0 outlen1 !accinlen0 !accinlen1;
-            let out_aliseq0, out_aliseq1, out_cost, _ =  
-            Sequence.align2 (Sequence.of_array out_seqarr.(0))
-            (Sequence.of_array out_seqarr.(1)) cost_mat use_ukk
+            let aliseqarr,out_cost = 
+                merge_ali_seq rlst0 rlst1 seq0 seq1 cost_mat use_ukk total_range_lst 
             in
-            let len_without_gap0 = Sequence.length_without_gap out_aliseq0 
-            and len_without_gap1 = Sequence.length_without_gap out_aliseq1 in
-            Printf.printf "len_without_gap=%d,%d;%!" len_without_gap0
-            len_without_gap1;
-            if debug then Printf.printf "out_cost=%d\n%!" out_cost;
-            let aliseqarr = 
-                merge_ali_seq rlst0 rlst1 out_aliseq0 out_aliseq1 
-                total_range_lst 
-            in
+            if debug then 
+            Printf.printf "cost from seq outside smaller lcbs = %d\n%!" out_cost;
             aliseqarr,
             in_cost+out_cost
-            (*Hashtbl.replace lcb_tbl key {lcbrecord with alignment = aliseqarr;
-            score = in_cost+out_cost };*)
         end
         else begin
             if debug then 
                 Printf.printf "this lcb is too large or too small to work with\n%!";
             [||],0
         end
-    (* ) lcb_tbl; 
-    Printf.printf "Search inside a lcb, done\n%!"*)
 
 
     
