@@ -83,6 +83,7 @@ let report_error text b e =
 %token <string> ITEMS
 %token <string> JPEG
 %token <string> LABELS
+%token <string> LEVEL
 %token <string> LINK
 %token <string> LIKELIHOOD
 %token <string> LOWER
@@ -361,6 +362,8 @@ standard_type_set_item:
     | INTEGER COLON characterset_list { P.Code ($1, $3) }
     | FLOAT COLON characterset_list   { P.Code ($1, $3) }
     | IDENT COLON characterset_list   { P.IName ($1, $3) }
+    | SINGLEQUOTED COLON characterset_list { P.IName($1, $3) }
+    | QUOTED COLON characterset_list { P.IName($1, $3) }
     ;
 standard_type_set:
     | standard_type_set_item COMMA standard_type_set { ($1 :: $3) }
@@ -469,6 +472,8 @@ poy_block:
         { (P.DynamicWeight ($2, $3, $5)) :: $7 }
     | TCM do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
         { (P.Tcm ($2, $3, $5)) :: $7 }
+    | LEVEL do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
+        { (P.Level($2,$3,$5)) :: $7 }
     |   { [] }
     ;
 charbranch_block : 

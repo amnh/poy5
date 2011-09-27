@@ -430,18 +430,18 @@ module type SEARCH =
                 -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 
-            (int -> string) -> 
-                (int -> int -> bool) -> 
-                    ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
-                        int array option -> (int array option -> string)
-                    -> Tree.Parse.tree_types list
-
-        val build_tree : Tree.u_tree -> 
-            (int -> string) -> 
+            (int -> string) -> (int array option -> int -> int -> string option) ->
                 (int -> int -> bool) ->
-                    ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+                    ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
                         int array option -> (int array option -> string)
-                    -> Tree.Parse.tree_types
+                -> Tree.Parse.tree_types list
+
+        val build_tree : Tree.u_tree ->
+            (int -> string) -> (int array option -> int -> int -> string option) ->
+                (int -> int -> bool) ->
+                    ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
+                    int array option -> (int array option -> string)
+                -> Tree.Parse.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -466,6 +466,12 @@ module type SEARCH =
 
         val build_forest_with_names_n_costs :
             bool -> (a, b) p_tree -> string -> bool -> int array option -> Tree.Parse.tree_types list
+
+        val build_forest_with_names_n_costs_n_branches :
+            bool -> (a, b) p_tree -> string -> 
+                (int array option -> int -> int -> string option) -> bool -> 
+                    int array option 
+                -> Tree.Parse.tree_types list
 
         val to_xml : 
             Pervasives.out_channel -> (a, b) p_tree -> unit
@@ -803,6 +809,9 @@ let choose_leaf tree =
     | Some v -> v
     | None -> failwith "A tree with no leafs?"
 
+
+let empty_name_subtree _ _ _ = None
+
 (** [build_trees tree]
     @param tree the ptree which is being converted into a Tree.Parse.t
     @param str_gen is a function that generates a string for each vertex in the
@@ -810,7 +819,7 @@ let choose_leaf tree =
     @param collapse is a function that check weather or not a branch can be
     collapsed.
     @return the ptree in the form of a Tree.Parse.t *)
-let build_trees (tree : Tree.u_tree) str_gen collapse branches chars root_fn =
+let build_trees (tree : Tree.u_tree) str_gen name_subtree collapse branches chars root_fn =
     let sortthem a b ao bo data ad bd = match String.compare ao bo with
         | 0 | 1 -> Tree.Parse.Nodep (b @ a, data), bd + 1, bo
         | _ -> Tree.Parse.Nodep (a @ b, data), bd + 1, ao
@@ -841,20 +850,22 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches chars root_fn =
             | _::xs -> find_assoc char xs
             | []    -> raise Not_found
         in
-        let oth =
+        let labels =
             try begin match parent_option with
             | None -> raise Not_found
             | Some par ->
                 let (x,y) as pair = min id par,max id par in
                 begin match Hashtbl.find branches pair with
-                | `Single length -> Some (if is_root then length /. 2.0 else length), None
+                | `Single length -> 
+                    Some (if is_root then length /. 2.0 else length), name_subtree chars x y
                 | `Name data ->
                     begin match char with
-                    | None -> None,None
+                    | None      -> None, name_subtree chars x y
                     | Some char ->
                         begin match find_assoc char data with
-                        | Some length -> Some (if is_root then length /. 2.0 else length), None
-                        | None -> None, None
+                        | Some length ->
+                            Some (if is_root then length /. 2.0 else length), name_subtree chars x y
+                        | None -> None, name_subtree chars x y
                         end
                     end
                 end
@@ -863,7 +874,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches chars root_fn =
         and dat = 
             try str_gen id with | Not_found -> "" 
         in
-        dat,oth
+        dat,labels
     in
     let rec rec_down is_root node prev_node = match node with
         | Tree.Leaf (self, parent) -> 
@@ -1936,8 +1947,10 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
 let convert_to tree (data, nd_data_lst) = 
     (* convert the Tree.Parse.t to Tree.u_tree *)
     let ut = 
-        Tree.Parse.convert_to tree (fun taxon -> Data.taxon_code taxon
-        data) (Data.number_of_taxa data) in
+        Tree.Parse.convert_to tree 
+            (fun taxon -> Data.taxon_code taxon data) 
+            (Data.number_of_taxa data)
+    in
     let pt = { (empty data) with tree = ut } in
     (* function to add leaf-node data to the ptree. *)
     let data_adder ptree nd = 
@@ -1945,21 +1958,21 @@ let convert_to tree (data, nd_data_lst) =
         (add_node_data (Node.taxon_code nd) nd ptree) in
     (List.fold_left data_adder pt nd_data_lst)
 
-    let build_trees = build_trees
+let build_trees = build_trees
 
-    (** [build_tree tree]
-        @param tree the ptree being converted into a Tree.Parse.t
-        @return the tree with the smallest handle_id in ptree *)
-    let build_tree tree strgen collapse branches characters root =
-        let map = build_trees tree strgen collapse branches characters root in
-        List.hd map
+(** [build_tree tree]
+    @param tree the ptree being converted into a Tree.Parse.t
+    @return the tree with the smallest handle_id in ptree *)
+let build_tree tree strgen name_subtree collapse branches characters root =
+    let map = build_trees tree strgen name_subtree collapse branches characters root in
+    List.hd map
 
-    let never_collapse a b c = false
+let never_collapse a b c = false
 
-    let collapse_as_needed tree code chld = 
-        let data = get_node_data code tree in
-        let datac = get_node_data chld tree in
-        Node.is_collapsable `Any data datac
+let collapse_as_needed tree code chld = 
+    let data = get_node_data code tree in
+    let datac = get_node_data chld tree in
+    Node.is_collapsable `Any data datac
 
 let extract_names ptree code = 
     let data = get_node_data code ptree in
@@ -1969,7 +1982,7 @@ let extract_names ptree code =
 let extract_codes pd ptree code = string_of_int code
 
 let build_tree_with_codes tree pd = 
-    try build_tree tree.tree (extract_codes pd tree) 
+    try build_tree tree.tree (extract_codes pd tree) empty_name_subtree
                    (collapse_as_needed tree) None None (fun _ -> "")
     with | Not_found as err -> 
         Status.user_message Status.Error "4"; raise err
@@ -2044,11 +2057,11 @@ let handle_collapse bool =
     @return What does this function do? *)
 let build_tree_with_names collapse tree =
     let collapse_f = handle_collapse collapse tree in
-    build_tree tree.tree (extract_names tree) collapse_f None None (fun _ -> "")
+    build_tree tree.tree (extract_names tree) empty_name_subtree collapse_f None None (fun _ -> "")
 
 let build_forest_with_names collapse tree =
     let collapse_f = handle_collapse collapse tree in
-    build_trees tree.tree (extract_names tree) collapse_f None None (fun _ -> "")
+    build_trees tree.tree (extract_names tree) empty_name_subtree collapse_f None None (fun _ -> "")
 
 let build_tree_with_names_n_costs collapse tree cost = 
     let collapse_f = handle_collapse collapse tree in
@@ -2067,7 +2080,7 @@ let build_tree_with_names_n_costs collapse tree cost =
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float
     in
-    build_tree tree.tree extract_names collapse_f None None (root_name tree)
+    build_tree tree.tree extract_names empty_name_subtree collapse_f None None (root_name tree)
 
 let build_forest collapse tree cost =
     let collapse_f = handle_collapse collapse tree in
@@ -2084,7 +2097,7 @@ let build_forest collapse tree cost =
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float
     in
-    build_trees tree.tree extract_names collapse_f None None (root_name tree)
+    build_trees tree.tree extract_names empty_name_subtree collapse_f None None (root_name tree)
 
 let rec build_forest_as_tree collapse tree cost =
     match build_forest collapse tree cost with
@@ -2136,11 +2149,36 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float
     in
-    if branches then
-        let branches = Tree_Ops.branch_table tree in
-        build_trees tree.tree extract_names collapse_f (Some branches) chars (root_name tree)
-    else
-        build_trees tree.tree extract_names collapse_f None chars (root_name tree)
+    let branches = 
+        if branches
+            then Some (Tree_Ops.branch_table tree)
+            else None
+    in
+    build_trees tree.tree extract_names empty_name_subtree collapse_f branches chars (root_name tree)
+
+let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label branches chars = 
+    let collapse_f = handle_collapse collapse tree in
+    let extract_names code =
+        let data = get_node_data code tree in
+        match get_node code tree with
+        | Tree.Interior (_, par, _, _) ->
+               string_of_float (Node.total_cost (Some par) None data)
+        | _ -> try Data.code_taxon (Node.taxon_code data) tree.data
+               with _ -> ""
+    and root_name tree = function
+        | None   -> cost
+        | Some c -> 
+            (Some (Array.to_list c))
+                --> Tree_Ops.total_cost tree `Adjusted
+                --> string_of_float
+    in
+    let branches = 
+        if branches
+            then Some (Tree_Ops.branch_table tree)
+            else None
+    in
+    build_trees tree.tree extract_names gen_label
+                collapse_f branches chars (root_name tree)
 
 (** [disp_trees tree]
     @param str the title of the image.
@@ -2149,14 +2187,15 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
 let disp_trees str tree strgen root =
     let root_name tree = function
         | None   -> root
-        | Some c -> 
+        | Some c ->
             (Some (Array.to_list c))
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float
     in
-    let trees = 
-        ref (build_trees tree.tree (strgen tree) (collapse_as_needed tree) 
-                                    None None (root_name tree)) in
+    let trees =
+        ref (build_trees tree.tree (strgen tree) empty_name_subtree
+                            (collapse_as_needed tree) None None (root_name tree))
+    in
     let ntrees = List.length !trees in
     let get_tree () = List.hd !trees in
     for i = 1 to ntrees do

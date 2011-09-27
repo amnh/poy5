@@ -4463,10 +4463,10 @@ END
                     | x::tl -> x.Ptree.data
                     | []    -> run.data
                 in
-                Data.to_nexus data filename;
+                CompOut.to_nexus data filename;
                 run
             | `FasWinClad filename -> 
-                Data.to_faswincladfile run.data filename;
+                CompOut.to_faswincladfile run.data filename;
                 run
             | `Consensus (filename, v) ->
                 PTS.output_consensus run.data run.trees filename v false;

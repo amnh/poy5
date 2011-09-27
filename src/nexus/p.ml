@@ -132,6 +132,7 @@ type poy_data =
     | Tcm of (bool * string * standard_item list)
     | GapOpening of (bool * string * standard_item list)
     | DynamicWeight of (bool * string * standard_item list)
+    | Level of (bool * string * standard_item list)
 
 type block = 
     | Taxa of (string * string list) 
