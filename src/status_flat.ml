@@ -17,12 +17,10 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2669 $"
-
 exception Illegal_update
 let () = SadmanOutput.register "Status_flat" "$Revision: 2669 $"
 
-let _ = Format.pp_set_margin Format.std_formatter 78
+let _ = StatusCommon.Format.pp_set_margin StatusCommon.Format.std_formatter 78
 
 (* So this is my small attempt to have the status lines working for the new POY,
 * we _need_ this! *)
@@ -38,9 +36,9 @@ let set_verbosity x = verbosity := x
 
 let get_verbosity () = !verbosity
 
-let stdferr = Format.formatter_of_out_channel stderr
-let stdfout = Format.formatter_of_out_channel stdout
-let _ = Format.pp_set_margin stdfout 0
+let stdferr = StatusCommon.Format.formatter_of_out_channel stderr
+let stdfout = StatusCommon.Format.formatter_of_out_channel stdout
+let _ = StatusCommon.Format.pp_set_margin stdfout 0
 
 let build_prefix_suffix title =
     ("@[" ^ title ^ "@ :@ @["), "@]@]@\n%!"
@@ -98,24 +96,24 @@ let main_loop f =
 let to_do_if_parallel = ref (fun t m ->
     let msg, ch, f, append = type_string t in
     let msg = (StatusCommon.string_to_format ((msg ^ m ^ append))) in
-    Format.fprintf ch msg;
+    StatusCommon.Format.fprintf ch msg;
     begin 
         match t with
         | Output _ -> ()
-        | _ -> Format.pp_print_flush ch ()
+        | _ -> StatusCommon.Format.pp_print_flush ch ()
     end;
     let _ = 
         match t, StatusCommon.information_redirected () with
         | (Output (None, _, opt)), Some filename ->
               let f = StatusCommon.Files.openf filename opt in
-              Format.fprintf f msg; 
+              StatusCommon.Format.fprintf f msg; 
         | Status, Some filename
         | SearchReport, Some filename 
         | Information, Some filename
         | Warning, Some filename
         | Error, Some filename ->
               let f = StatusCommon.Files.openf filename [] in
-              Format.fprintf f msg; 
+              StatusCommon.Format.fprintf f msg; 
         | Output _, _
         | _, None -> ()
     in
@@ -211,17 +209,16 @@ let finished st =
     | _     -> single_channel_finished st
 
 let single_user_message c msg =
-    let str = Printf.sprintf "@[%s@]" msg in
-    !to_do_if_parallel c str
+    !to_do_if_parallel c msg
 
 let full_report ?msg ?adv st =
     begin match msg with
-    | Some v -> message st v
-    | None -> ();
+        | Some v -> message st v
+        | None -> ();
     end;
     begin match adv with
-    | Some v -> achieved st v
-    | None -> ()
+        | Some v -> achieved st v
+        | None -> ()
     end;
     report st
  
@@ -271,7 +268,7 @@ let output_table t v =
     | Output _ -> do_output_table t v
     | _ -> 
             do_output_table t v;
-            Format.fprintf stdferr (StatusCommon.string_to_format "@.")
+            StatusCommon.Format.fprintf stdferr (StatusCommon.string_to_format "@.")
             
 
 let resize_history _ = ()
