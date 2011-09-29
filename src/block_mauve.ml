@@ -29,6 +29,7 @@ let info_user_message format = Printf.ksprintf (Status.user_message Status.Infor
 (*now we have 3 different function for removing bad lcbs: greedy,
 * dyn1,dyn2. greedy is from A.D.'s paper, dyn1 and dyn2 are my
 * idea. 
+* greedy is O(n^3), dyn1 and dyn2 are both O(n^2).
 * if faster_remove=false, the greedy one will be used. if faster_remove=true,
 * we call the dynamic programming one. there is another dynamic
 * one "remove_bad_lcbs_dyn2" ,which is slower than "remove_bad_lcbs_dyn"
@@ -3896,7 +3897,7 @@ num_of_mums old_cov_rate =
 (*remove bad lcbs with dynamic prog*)
 let remove_bad_lcbs_dyn (lcbs:int list list list) lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
 num_of_mums old_cov_rate = 
-let debug = false and debug2 = false in
+let debug = true and debug2 = true in
     if debug then Printf.printf "remove bad lcbs dyn\n%!";
     if debug2 then Hashtbl.iter (fun key record ->
                     print_lcb record 
@@ -5257,7 +5258,6 @@ max_lcb_len cost_mat use_ukk =
         get_init_lcbs seedNOlstlst seed2pos_tbl mum_tbl in_seq_size_lst
         init_num_mums min_lcb_ratio min_lcb_len 0.0 in
     (* sign of any improvement in outer&inner while loops*)
-    let any_improvement_inner = ref false in
     let any_improvement_outer = ref false in
     (*init inner tbl*)
     let inner_old_covR = ref init_covR_before in
@@ -5287,6 +5287,7 @@ max_lcb_len cost_mat use_ukk =
         inner_mum_tbl := !outer_mum_tbl; (*this one is not necessary*)
         inner_lcb_tbl := Hashtbl.copy !outer_lcb_tbl;
         let inner_sign = ref true in
+        let any_improvement_inner = ref false in
         while (!inner_sign) do
             if debug_main then
                 Printf.printf "\n ----------- Inner loop -------------- \n%!";
@@ -5333,7 +5334,7 @@ max_lcb_len cost_mat use_ukk =
                 else 
                     remove_bad_lcbs !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
                 !inner_seed2pos_tbl in_seq_size_lst !current_num_of_mums
-                in
+            in
             (*we could still have low W lcb here -- if remove them will create high W
             * low R lcbs, "remove_light_weight_lcbs" won't do it, get rid of those
             * lcbs here
