@@ -85,7 +85,7 @@ let add_to_btree seedseq newmum old_bt printkey_f printnode_f compare_node_f =
     in
     let res_bt = insert_node old_bt seedseq newmum in
     res_bt,!sign
-
+(*
 let search_in_btree key bt printkey_f printnode_f = 
     let rec search_node sub_bt key =
         match sub_bt with
@@ -107,6 +107,122 @@ let search_in_btree key bt printkey_f printnode_f =
         | Empty -> failwith "search in empty btree"
     in
     search_node bt key
+*)
+
+let rotate_child parent_bt leftchild printkey_f =
+    let debug = false in
+    match parent_bt with
+    | Node (middle_key, left_bt, right_bt) ->
+            (
+                if debug then Printf.printf "rotate child,is_left_child=%b,parent_key=%!" leftchild;
+                if debug then printkey_f middle_key;
+            if leftchild then
+                match left_bt with
+                | Node (key, l_bt, r_bt) ->
+                    let new_right_bt = Node (middle_key,r_bt,right_bt) in
+                    Node(key,l_bt,new_right_bt)
+                | Leaf _ -> if debug then Printf.printf "leafnode, do nothing\n"; 
+                Node (middle_key, left_bt, right_bt)
+            else 
+                match right_bt with
+                | Node (key, l_bt, r_bt) ->
+                    let new_left_bt = Node (middle_key,left_bt,l_bt) in
+                    Node(key,new_left_bt,r_bt) 
+                | Leaf _ -> if debug then Printf.printf "leafnode, do nothing\n"; 
+                Node (middle_key, left_bt, right_bt)
+            )
+    | _ -> failwith "parent node cannot be a leaf1"
+
+let rotate_twice grand_parent_bt p_g_left(*parent is left child of grandparent*)
+me_p_left  (*me is left child of parent*) printkey_f =
+    let debug = false in
+    match grand_parent_bt with
+    | Node (g_key,g_l_bt,g_r_bt) ->
+    (
+        if debug then Printf.printf "rotate twice, p_g_left=%b,me_p_left=%b,grand parent key="
+        p_g_left me_p_left;
+        if debug then printkey_f g_key;
+        match p_g_left,me_p_left with
+        | true,true 
+        | false,false ->
+            let new_bt = rotate_child grand_parent_bt p_g_left printkey_f in
+            (match new_bt with
+            | Node (k,l,r) -> rotate_child new_bt me_p_left printkey_f
+            | _ -> failwith "new bt cannot be a leaf1")
+        | true,false 
+        | false,true -> 
+            let new_bt =
+                match p_g_left with
+                | true ->
+                        let new_l_bt = rotate_child g_l_bt me_p_left printkey_f in
+                        Node (g_key,new_l_bt,g_r_bt) 
+                | false ->
+                        let new_r_bt = rotate_child g_r_bt me_p_left printkey_f in
+                        Node (g_key,g_l_bt,new_r_bt)
+            in
+            (match new_bt with
+            | Node (k,l,r) -> rotate_child new_bt p_g_left printkey_f
+            | _ -> failwith "new bt cannot be a leaf2")
+                
+    )
+    | _ -> failwith "grand parent cannot be a leaf2"
+
+(*0: leaf, 1: left, -1:right, 3: root*)
+let search_in_btree key bt printkey_f printnode_f = (*mumseq is the key inside b_tree*)
+    let debug = false in
+    let rec search_node dir sub_bt key =
+        match sub_bt with
+        | Node (middle_key, left_bt, right_bt) ->
+                let search_dir = compare middle_key key in
+                let search_dir = 
+                    if search_dir=0 then -1 else search_dir in
+                if debug then Printf.printf "search node, thisdir=%d,search_dir=%d,thiskey=\n%!"
+                dir search_dir;
+                if debug then printkey_f middle_key;
+                (*update left or right child with search res*)
+                let resleaf,current_bt,p_g_left,me_p_left =
+                    if search_dir=1 then(*key<middle_key*)
+                        let res,new_l_bt,pgl,mepl = 
+                            search_node search_dir left_bt key
+                        in
+                        res,Node (middle_key,new_l_bt,right_bt),
+                        pgl,mepl
+                    else 
+                        let res,new_r_bt,pgl,mepl =
+                        search_node search_dir right_bt key
+                        in
+                        res,Node (middle_key,left_bt,new_r_bt),
+                        pgl,mepl
+                in
+                let new_bt,new_p_g_left,new_me_p_left =
+                match p_g_left,me_p_left with
+                | 0,0 -> current_bt,0,dir (*back from a leaf child,continue*)
+                | 0,y -> current_bt,dir,y (*back from a parent of a leaf,continue*)
+                | x,y ->
+                        let pgl =
+                            if x=1 then true else false
+                        and mepl =
+                            if y=1 then true else false in
+                        rotate_twice current_bt pgl mepl printkey_f,
+                        0,dir
+                in
+                if debug then 
+                    Printf.printf "return newbt,%d,%d\n%!" new_p_g_left new_me_p_left;
+                resleaf,new_bt,new_p_g_left,new_me_p_left
+        | Leaf (leafkey, leafmum) ->
+                if (compare leafkey key)=0 then
+                    leafmum,Leaf(leafkey,leafmum),0,0
+                else begin
+                        Printf.printf "we are searching for :%!";
+                        printkey_f key;
+                        Printf.printf "search failed, we reach\n:%!";
+                        printnode_f leafmum;
+                    failwith "search reach a dead end in btree";
+                end
+    in
+    let res,newbt,_,_ = search_node 3 bt key in
+    res,newbt
+
 
 let remove_from_btree seedseq bt printkey_f printnode_f = 
     let rec remove_node sub_bt key = 

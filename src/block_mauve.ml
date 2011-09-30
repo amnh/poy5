@@ -519,8 +519,9 @@ let get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl =
             failwith "not found, get mum from mumtbl" 
             end 
     in
-    let res = BinaryTree.search_in_btree seedseq bt printIntArr 
+    let res,newbt = BinaryTree.search_in_btree seedseq bt printIntArr 
     (print_mum false true) in
+    Hashtbl.replace mum_tbl mumkey newbt;
     if res.seedNO<>seedNO then begin
         let _,seedseq1,w1 = Hashtbl.find seed2pos_tbl seedNO 
         and _,seedseq2,w2 = Hashtbl.find seed2pos_tbl res.seedNO in
@@ -3897,7 +3898,7 @@ num_of_mums old_cov_rate =
 (*remove bad lcbs with dynamic prog*)
 let remove_bad_lcbs_dyn (lcbs:int list list list) lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
 num_of_mums old_cov_rate = 
-let debug = true and debug2 = true in
+let debug = false and debug2 = false in
     if debug then Printf.printf "remove bad lcbs dyn\n%!";
     if debug2 then Hashtbl.iter (fun key record ->
                     print_lcb record 

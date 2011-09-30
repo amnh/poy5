@@ -26,7 +26,8 @@ val add_to_btree: 'k -> 'a -> ('k,'a) b_tree -> ('k -> unit)
 (** [search_in_btree key btree print_f_for_key print_f_for_node] return the
 * leafnode with key. print_f_for_key and print_f_for_node are the debug function
 * to printout middle-key and leafnode. *)
-val search_in_btree: 'k -> ('k,'a) b_tree -> ('k -> unit) -> ('a -> unit) -> 'a
+val search_in_btree: 'k -> ('k,'a) b_tree -> ('k -> unit) -> ('a -> unit) -> 
+    'a * ('k,'a) b_tree
 
 (** [remove_from_btree key btree print_f_for_key print_f_for_node] remove the
 * node with key, return the new btree. print_f_for_key and print_f_for_node are the debug function to printout middle-key and leafnode.*)
