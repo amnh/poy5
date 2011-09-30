@@ -9,6 +9,7 @@
 #include "config.h"
 #ifdef HAVE_LIBREADLINE
 #include <readline/readline.h>
+#include <readline/history.h>
 
 static char *line_read = (char *) NULL;
 

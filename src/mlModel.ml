@@ -704,7 +704,7 @@ let output_model output nexus model set =
         in
         let () = match model.spec.base_priors with
             | Equal ->
-                printf "@[Priors = Equal]"
+                printf "@[Priors = Equal;@]"
             | Estimated x | Given x ->
                 let first = ref true in
                 printf "@[Priors =";

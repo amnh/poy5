@@ -21,8 +21,6 @@ exception Illegal_update
 
 type formatter_output = StatusCommon.formatter_output
 
-
-
 type c = SearchReport | Status | Warning | Error | Information 
          | Output of (string option * bool * formatter_output list)
 
@@ -104,10 +102,10 @@ let html_formatter channel =
         | a, _ -> failwith ("Unknown tag " ^ a)
     in
     let tags_handler =
-        { Format.mark_open_tag = tags_to_html_tag `Open;
-        Format.mark_close_tag = tags_to_html_tag `Close;
-        Format.print_open_tag = (fun _ -> ());
-        Format.print_close_tag = (fun _ -> ()); }
+        { StatusCommon.Format.mark_open_tag = tags_to_html_tag `Open;
+        StatusCommon.Format.mark_close_tag = tags_to_html_tag `Close;
+        StatusCommon.Format.print_open_tag = (fun _ -> ());
+        StatusCommon.Format.print_close_tag = (fun _ -> ()); }
     in
     let out string be l =
         let max = be + l - 1 in
@@ -123,11 +121,11 @@ let html_formatter channel =
             output_string !channel "&nbsp;" 
         done
     in
-    let fmt = Format.make_formatter out flush  in
-    Format.pp_set_all_formatter_output_functions fmt out flush newline indent;
-    Format.pp_set_tags fmt true;
-    Format.pp_set_formatter_tag_functions fmt tags_handler;
-    Format.pp_set_margin fmt 80;
+    let fmt = StatusCommon.Format.make_formatter out flush  in
+    StatusCommon.Format.pp_set_all_formatter_output_functions fmt out flush newline indent;
+    StatusCommon.Format.pp_set_tags fmt true;
+    StatusCommon.Format.pp_set_formatter_tag_functions fmt tags_handler;
+    StatusCommon.Format.pp_set_margin fmt 80;
     fmt
 
 let status_formatter = html_formatter out_status
@@ -136,12 +134,12 @@ class status header maximum suffix =
     let to_string maximum achieved =
         match maximum, achieved with
         | None, 0 ->
-                Format.sprintf "<p>@[%s\t@;@[%s@]@ @]</p>" header suffix
+                StatusCommon.Format.sprintf "<p>@[%s\t@;@[%s@]@ @]</p>" header suffix
         | None, n ->
-                Format.sprintf "<p>@[%s\t%d\t@;@[%s@]@ @]</p>" header 
+                StatusCommon.Format.sprintf "<p>@[%s\t%d\t@;@[%s@]@ @]</p>" header 
                 achieved suffix
         | Some max, _ ->
-                Format.sprintf "<p>@[%s\t%d of %d@;@[%s@]@ @]</p>" header 
+                StatusCommon.Format.sprintf "<p>@[%s\t%d of %d@;@[%s@]@ @]</p>" header 
                 achieved max suffix
     in
     object
@@ -161,19 +159,19 @@ class status header maximum suffix =
         let output_to_formatter formatter =
             match maximum, achieved with
             | None, 0 ->
-                    Format.fprintf formatter "@[%s\t@;@[%s@]@ @]@." header 
+                    StatusCommon.Format.fprintf formatter "@[%s\t@;@[%s@]@ @]@." header 
                     suffix
             | None, n ->
-                    Format.fprintf formatter
+                    StatusCommon.Format.fprintf formatter
                     "@[%s\t%d\t@;@[%s@]@ @]@." header achieved
                     suffix
             | Some max, _ ->
-                    Format.fprintf formatter
+                    StatusCommon.Format.fprintf formatter
                     "@[%s\t%d of %d@;@[%s@]@ @]@." header achieved
                     max suffix
         in
         let string = to_string maximum achieved in
-        Format.fprintf status_formatter "%s" string;
+        StatusCommon.Format.fprintf status_formatter "%s" string;
         match StatusCommon.information_redirected () with
         | Some filename ->
                 let f = StatusCommon.Files.openf filename [] in
@@ -191,7 +189,7 @@ class output_field channel =
         val formatter = f
 
         method set_margin v = 
-            Format.pp_set_margin formatter v
+            StatusCommon.Format.pp_set_margin formatter v
 
         method destroy () = ()
 
@@ -203,8 +201,8 @@ class output_field channel =
 
 class standard channel =
     object (self) inherit (output_field channel) as super
-        method print (string : (unit, Format.formatter, unit) format) : unit = 
-            Format.fprintf formatter string
+        method print (string : (unit, StatusCommon.Format.formatter, unit) format) : unit = 
+            StatusCommon.Format.fprintf formatter string
 end
 
 
@@ -277,7 +275,7 @@ let user_message ty t =
                 let formatter = 
                     StatusCommon.Files.openf filename fo_ls
                 in
-                Format.fprintf formatter t;
+                StatusCommon.Format.fprintf formatter t;
                 if do_close then StatusCommon.Files.closef filename ();
         | Status
         | SearchReport -> 

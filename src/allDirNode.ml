@@ -43,16 +43,13 @@ let pp_opt_list chan v =
 
 (* to print lists through Printf *)
 let pp_list depth to_string chan lst = 
-	Format.set_formatter_out_channel chan;
-	Format.open_box depth;
 	output_string chan "[ ";
 	List.iter
 		(fun x -> 
 			output_string chan (to_string x);
 			output_char chan ' ';)
 		lst;
-	output_char chan ']';
-	Format.close_box ()
+	output_char chan ']'
 
 let pp_opt_lst depth to_string = 
     pp_list depth (fun x -> match x with | Some x -> to_string x | None -> "None")
