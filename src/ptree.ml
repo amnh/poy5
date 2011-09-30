@@ -429,19 +429,27 @@ module type SEARCH =
             string option * Tree.Parse.tree_types list -> Data.d * a list 
                 -> (a, b) p_tree
 
-        val build_trees: Tree.u_tree -> 
-            (int -> string) -> (int array option -> int -> int -> string option) ->
-                (int -> int -> bool) ->
-                    ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
-                        int array option -> (int array option -> string)
-                -> Tree.Parse.tree_types list
+        val build_trees: 
+            (* tree topology *) Tree.u_tree -> 
+            (* gen names     *) (int -> string) -> 
+            (* name subtrees *) (string -> int -> int -> (int array * float option) list -> string option) ->
+            (* name tree     *) (Tree.u_tree -> int -> string) ->
+            (* collapse node *) (int -> int -> bool) ->
+            (* branch data   *) ((int * int), [ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+            (* character sets*) int array option ->
+            (* root data     *) (int array option -> string)
+                -> (string option * Tree.Parse.tree_types) list
 
-        val build_tree : Tree.u_tree ->
-            (int -> string) -> (int array option -> int -> int -> string option) ->
-                (int -> int -> bool) ->
-                    ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
-                    int array option -> (int array option -> string)
-                -> Tree.Parse.tree_types
+        val build_tree : 
+            (* tree topology *) Tree.u_tree -> 
+            (* gen names     *) (int -> string) -> 
+            (* name subtrees *) (string -> int -> int -> (int array * float option) list -> string option) ->
+            (* name tree     *) (Tree.u_tree -> int -> string) ->
+            (* collapse node *) (int -> int -> bool) ->
+            (* branch data   *) ((int * int), [ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+            (* character sets*) int array option ->
+            (* root data     *) (int array option -> string)
+                -> (string option * Tree.Parse.tree_types)
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -465,13 +473,15 @@ module type SEARCH =
             bool -> (a, b) p_tree -> Tree.Parse.tree_types list
 
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> string -> bool -> int array option -> Tree.Parse.tree_types list
+            bool -> (a, b) p_tree -> string -> bool -> int array option 
+                -> Tree.Parse.tree_types list
 
         val build_forest_with_names_n_costs_n_branches :
-            bool -> (a, b) p_tree -> string -> 
-                (int array option -> int -> int -> string option) -> bool -> 
-                    int array option 
-                -> Tree.Parse.tree_types list
+            bool -> (a, b) p_tree -> string ->
+                (string -> int -> int -> (int array * float option) list -> string option) ->
+                    (Tree.u_tree -> int -> string) -> bool -> int array option 
+                -> (string option * Tree.Parse.tree_types) list
+
 
         val to_xml : 
             Pervasives.out_channel -> (a, b) p_tree -> unit
@@ -812,6 +822,10 @@ let choose_leaf tree =
 
 let empty_name_subtree _ _ _ = None
 
+let basic_tree_name t = match t.tree.Tree.tree_name with
+    | Some x -> x
+    | None   -> ""
+
 (** [build_trees tree]
     @param tree the ptree which is being converted into a Tree.Parse.t
     @param str_gen is a function that generates a string for each vertex in the
@@ -819,26 +833,23 @@ let empty_name_subtree _ _ _ = None
     @param collapse is a function that check weather or not a branch can be
     collapsed.
     @return the ptree in the form of a Tree.Parse.t *)
-let build_trees (tree : Tree.u_tree) str_gen name_subtree collapse branches chars root_fn =
+let build_trees tree str_gen name_subtree name_tree collapse branches chars root_fn =
     let sortthem a b ao bo data ad bd = match String.compare ao bo with
         | 0 | 1 -> Tree.Parse.Nodep (b @ a, data), bd + 1, bo
         | _ -> Tree.Parse.Nodep (a @ b, data), bd + 1, ao
-    in
-    let get_children = function
+    and get_children = function
         | Tree.Parse.Leafp _ as x -> [x]
         | Tree.Parse.Nodep (lst, _) -> lst
-    in
     (* return the characters contained in this tree and the unwrapped branches *)
-    let branches = match branches with
+    and branches = match branches with
         | None   -> Hashtbl.create 1
         | Some x -> x
-    in
     (* a single element is taken to represent the entire set *)
-    let char = match chars with
+    and char = match chars with
         | None   -> None
         | Some x -> Some x.(0)
     in
-    let str_gen is_root id parent_option = 
+    let str_gen tree_name is_root id parent_option =
         let rec find_assoc char data =
             let rec find_array i xs =
                 if i = Array.length xs then false
@@ -855,57 +866,47 @@ let build_trees (tree : Tree.u_tree) str_gen name_subtree collapse branches char
             | None -> raise Not_found
             | Some par ->
                 let (x,y) as pair = min id par,max id par in
-                begin match Hashtbl.find branches pair with
-                | `Single length -> 
-                    Some (if is_root then length /. 2.0 else length), name_subtree chars x y
-                | `Name data ->
-                    begin match char with
-                    | None      -> None, name_subtree chars x y
-                    | Some char ->
-                        begin match find_assoc char data with
-                        | Some length ->
-                            Some (if is_root then length /. 2.0 else length), name_subtree chars x y
-                        | None -> None, name_subtree chars x y
-                        end
+                begin match Hashtbl.find branches pair, char with
+                | `Single length, _ ->
+                    let bl = if is_root then length /. 2.0 else length in
+                    Some bl, None
+                | `Name data, None ->
+                    let name = name_subtree tree_name x y data in
+                    None, name
+                | `Name data, Some char ->
+                    begin match find_assoc char data with
+                    | Some length ->
+                        let bl = if is_root then length /. 2.0 else length in
+                        Some bl, None
+                    | None ->
+                        let name = name_subtree tree_name x y data in
+                        None, name
                     end
                 end
-            end with 
-            | Not_found -> None, None 
-        and dat = 
+            end with
+            | Not_found -> None, None
+        and data =
             try str_gen id with | Not_found -> "" 
         in
-        dat,labels
+        data,labels
     in
-    let rec rec_down is_root node prev_node = match node with
+    let rec rec_down tree_name is_root node prev_node = match node with
         | Tree.Leaf (self, parent) -> 
-              let data = str_gen is_root self (Some parent) in
+              let data = str_gen tree_name is_root self (Some parent) in
               Tree.Parse.Leafp data, 0, (fst data)
         | Tree.Interior (our_id, _, _, _) ->
               let (ch1, ch2) = 
                   assert (prev_node <> Tree.get_id node);
-                  Tree.other_two_nbrs prev_node node in
-              let a, ad, ao = 
-                  try rec_down false (Tree.get_node ch1 tree) our_id with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "5";
-                            raise err
+                  Tree.other_two_nbrs prev_node node
               in
-              let b, bd, bo = 
-                  try rec_down false (Tree.get_node ch2 tree) our_id with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "6";
-                            raise err
-              in
-              let a =
-                  if collapse our_id ch1 then 
-                      get_children a
-                  else [a]
-              and b =
-                  if collapse our_id ch2 then 
-                      get_children b
-                  else [b]
-              in
-              let data = str_gen is_root our_id (Some prev_node) in
+              (* process subtrees *)
+              let a, ad, ao = rec_down tree_name false (Tree.get_node ch1 tree) our_id in
+              let b, bd, bo = rec_down tree_name false (Tree.get_node ch2 tree) our_id in
+              (* collapse branches *)
+              let a = if collapse our_id ch1 then get_children a else [a]
+              and b = if collapse our_id ch2 then get_children b else [b] in
+              (* deal with this node *)
+              let data = str_gen tree_name is_root our_id (Some prev_node) in
               if bd > ad then
                   Tree.Parse.Nodep (a @ b, data), bd + 1, bo
               else if bd = ad then
@@ -914,20 +915,21 @@ let build_trees (tree : Tree.u_tree) str_gen name_subtree collapse branches char
                   Tree.Parse.Nodep (b @ a, data), ad + 1, ao
         | Tree.Single _ -> failwith "Unexpected single"
     in
-    let single_tree acc handle : Tree.Parse.tree_types list = 
+    let single_tree acc handle : (string option * Tree.Parse.tree_types) list =
+        let tree_name = name_tree tree handle in
         let tree = match Tree.get_node handle tree with
             | Tree.Leaf (self, parent) ->
-               let acc,_,_ = rec_down true (Tree.get_node parent tree) handle in
-               let str = str_gen true self (Some parent) in 
+               let acc,_,_ = rec_down tree_name true (Tree.get_node parent tree) handle in
+               let str = str_gen tree_name true self (Some parent) in 
                [(Tree.Parse.Leafp str); acc]
             | Tree.Interior (self, par_id, ch1, ch2) ->
                let par = Tree.get_node par_id tree in
                let ch1 = Tree.get_node ch1 tree in
                let ch2 = Tree.get_node ch2 tree in
-               let acc, accd, acco = rec_down true par handle in
-               let acc1, acc1d, acc1o = rec_down false ch1 handle in
-               let acc2, acc2d, acc2o = rec_down false ch2 handle in
-               let data = str_gen true self (Some par_id) in
+               let acc, accd, acco = rec_down tree_name true par handle in
+               let acc1, acc1d, acc1o = rec_down tree_name false ch1 handle in
+               let acc2, acc2d, acc2o = rec_down tree_name false ch2 handle in
+               let data = str_gen tree_name true self (Some par_id) in
                if acc2d > acc1d then
                    if acc1d > accd then
                        [Tree.Parse.Nodep ([acc; acc1], data); acc2]
@@ -941,14 +943,14 @@ let build_trees (tree : Tree.u_tree) str_gen name_subtree collapse branches char
                else 
                    if acc2d > acc1d then
                        [Tree.Parse.Nodep ([acc1;acc2], data); acc]
-                   else 
+                   else
                        [Tree.Parse.Nodep ([acc2;acc1], data); acc]
-            | Tree.Single self -> 
-                [(Tree.Parse.Leafp (str_gen true self None))]
+            | Tree.Single self ->
+                [(Tree.Parse.Leafp (str_gen tree_name true self None))]
         in
         let tree  = Tree.Parse.Nodep (tree,("",(None,None)))
         and annot = root_fn chars in
-        (Tree.Parse.post_process (tree,annot)) :: acc
+        ((Some tree_name, Tree.Parse.post_process (tree,annot))) :: acc
     in
     List.fold_left single_tree [] (All_sets.Integers.elements (Tree.get_handles tree))
 
@@ -956,7 +958,8 @@ let build_trees (tree : Tree.u_tree) str_gen name_subtree collapse branches char
 (** Functor to allow for SPR/TBR searches over phylogenetics trees of 
     different types of characters. *)
 module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) 
-    (Tree_Ops : Tree_Operations with type a = Node.n with type b = Edge.e) = struct
+              (Tree_Ops : Tree_Operations with type a = Node.n with type b = Edge.e) =
+  struct
 
     type a = Tree_Ops.a
     type b = Tree_Ops.b
@@ -1958,14 +1961,30 @@ let convert_to tree (data, nd_data_lst) =
         (add_node_data (Node.taxon_code nd) nd ptree) in
     (List.fold_left data_adder pt nd_data_lst)
 
+
 let build_trees = build_trees
 
 (** [build_tree tree]
     @param tree the ptree being converted into a Tree.Parse.t
     @return the tree with the smallest handle_id in ptree *)
-let build_tree tree strgen name_subtree collapse branches characters root =
-    let map = build_trees tree strgen name_subtree collapse branches characters root in
+let build_tree tree strgen name_subtree name_tree collapse branches characters root =
+    let map = 
+        build_trees tree strgen name_subtree name_tree collapse branches characters root
+    in
     List.hd map
+
+let basic_build_trees tree strgen collapse branches chars root =
+    let trees = 
+        build_trees tree strgen (fun _ _ _ _ -> None) (fun _ _ -> "")
+                    collapse branches chars root
+    in
+    List.map (snd) trees
+
+let basic_build_tree tree strgen collapse branches chars root =
+    let trees =
+        basic_build_trees tree strgen collapse branches chars root
+    in
+    List.hd trees
 
 let never_collapse a b c = false
 
@@ -1981,14 +2000,11 @@ let extract_names ptree code =
 
 let extract_codes pd ptree code = string_of_int code
 
-let build_tree_with_codes tree pd = 
-    try build_tree tree.tree (extract_codes pd tree) empty_name_subtree
-                   (collapse_as_needed tree) None None (fun _ -> "")
-    with | Not_found as err -> 
-        Status.user_message Status.Error "4"; raise err
+let build_tree_with_codes tree pd =
+    basic_build_tree tree.tree (extract_codes pd tree)
+                        (collapse_as_needed tree) None None (fun _ -> "")
 
-let rec fold_2 f acc a b =
-    match a, b with
+let rec fold_2 f acc a b = match a, b with
     | (ha :: ta), (hb :: tb) -> fold_2 f (f acc ha hb) ta tb
     | [], [] -> acc
     | _, _ -> false
@@ -2009,45 +2025,30 @@ let rec compare_trees a b =
     | ( Tree.Parse.Branches _ | Tree.Parse.Annotated _ 
       | Tree.Parse.Characters _ | Tree.Parse.Flat _), _ -> false
 
-let get_unique trees =
-    match trees with 
+let get_unique trees = match trees with 
     | tree :: _ ->
-            let a, _ = Tree.choose_leaf tree.tree in
-            let trees =
-                try
-                List.rev_map (fun x -> 
-                    x, { x with tree = Tree.cannonize_on_leaf a x.tree }) trees 
-                with
-                | Not_found as err -> 
-                        Status.user_message Status.Error "1";
-                        raise err
-            in
-            let trees = 
-                try
-                List.rev_map 
-                    (fun (x, y) -> 
-                        x,Tree.Parse.cannonic_order (build_tree_with_codes y ""))
-                    trees
-                with
-                | Not_found as err -> 
-                        Status.user_message Status.Error "2";
-                        raise err
-
-            in
-            let rec remove_duplicated acc = function
-                |  (x, y) :: t -> 
-                        let are_different (_, z) = not (compare_trees y z) in
-                        remove_duplicated (x :: acc) (List.filter are_different
-                        t) 
-                | [] -> acc
-            in
-            (try
-            remove_duplicated [] trees
-            with
-                | Not_found as err -> 
-                        Status.user_message Status.Error "3";
-                        raise err)
+        let a, _ = Tree.choose_leaf tree.tree in
+        let trees =
+            List.rev_map
+                (fun x ->
+                    x, { x with tree = Tree.cannonize_on_leaf a x.tree })
+                trees
+        in
+        let trees = 
+            List.rev_map 
+                (fun (x, y) -> 
+                    x,Tree.Parse.cannonic_order (build_tree_with_codes y ""))
+                trees
+        in
+        let rec remove_duplicated acc = function
+            | (x, y) :: t -> 
+                let are_different (_, z) = not (compare_trees y z) in
+                remove_duplicated (x :: acc) (List.filter are_different t)
+            | [] -> acc
+        in
+        remove_duplicated [] trees
     | x -> x
+
 
 let handle_collapse bool = 
     if bool then collapse_as_needed
@@ -2057,11 +2058,13 @@ let handle_collapse bool =
     @return What does this function do? *)
 let build_tree_with_names collapse tree =
     let collapse_f = handle_collapse collapse tree in
-    build_tree tree.tree (extract_names tree) empty_name_subtree collapse_f None None (fun _ -> "")
+    basic_build_tree tree.tree (extract_names tree) collapse_f None None (fun _ -> "")
+
 
 let build_forest_with_names collapse tree =
     let collapse_f = handle_collapse collapse tree in
-    build_trees tree.tree (extract_names tree) empty_name_subtree collapse_f None None (fun _ -> "")
+    basic_build_trees tree.tree (extract_names tree) collapse_f None None (fun _ -> "")
+
 
 let build_tree_with_names_n_costs collapse tree cost = 
     let collapse_f = handle_collapse collapse tree in
@@ -2080,7 +2083,8 @@ let build_tree_with_names_n_costs collapse tree cost =
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float
     in
-    build_tree tree.tree extract_names empty_name_subtree collapse_f None None (root_name tree)
+    basic_build_tree tree.tree extract_names collapse_f None None (root_name tree)
+
 
 let build_forest collapse tree cost =
     let collapse_f = handle_collapse collapse tree in
@@ -2097,13 +2101,14 @@ let build_forest collapse tree cost =
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float
     in
-    build_trees tree.tree extract_names empty_name_subtree collapse_f None None (root_name tree)
+    basic_build_trees tree.tree extract_names collapse_f None None (root_name tree)
+
 
 let rec build_forest_as_tree collapse tree cost =
     match build_forest collapse tree cost with
     | [tree] -> tree
-    | [] -> failwith "no trees?"
-    | trees ->
+    | []     -> failwith "no trees?"
+    | trees  ->
         let trees = List.map Tree.Parse.remove_annotations trees in
         begin match List.hd trees with
         | Tree.Parse.Annotated (t,str) -> assert false
@@ -2133,6 +2138,7 @@ let rec build_forest_as_tree collapse tree cost =
             Tree.Parse.Branches (Tree.Parse.Nodep (chillens, ("forest",None)))
     end
 
+
 let build_forest_with_names_n_costs collapse tree cost branches chars = 
     let collapse_f = handle_collapse collapse tree in
     let extract_names code =
@@ -2144,7 +2150,8 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
                with _ -> ""
     and root_name tree = function
         | None   -> cost
-        | Some c -> 
+        | Some c ->
+            Printf.printf "Finding Set Cost\n%!";
             (Some (Array.to_list c))
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float
@@ -2154,9 +2161,10 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
             then Some (Tree_Ops.branch_table tree)
             else None
     in
-    build_trees tree.tree extract_names empty_name_subtree collapse_f branches chars (root_name tree)
+    basic_build_trees tree.tree extract_names collapse_f branches chars (root_name tree)
 
-let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label branches chars = 
+
+let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label gen_tree branches chars = 
     let collapse_f = handle_collapse collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
@@ -2177,8 +2185,9 @@ let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label bran
             then Some (Tree_Ops.branch_table tree)
             else None
     in
-    build_trees tree.tree extract_names gen_label
+    build_trees tree.tree extract_names gen_label gen_tree
                 collapse_f branches chars (root_name tree)
+
 
 (** [disp_trees tree]
     @param str the title of the image.
@@ -2193,17 +2202,18 @@ let disp_trees str tree strgen root =
                 --> string_of_float
     in
     let trees =
-        ref (build_trees tree.tree (strgen tree) empty_name_subtree
-                            (collapse_as_needed tree) None None (root_name tree))
+        ref (basic_build_trees tree.tree (strgen tree) 
+                (collapse_as_needed tree) None None (root_name tree))
     in
     let ntrees = List.length !trees in
     let get_tree () = List.hd !trees in
     for i = 1 to ntrees do
-        print_endline (str ^ ": " ^ string_of_int i
-        ^ "/" ^ string_of_int ntrees);
+        print_endline (str ^ ": " ^ string_of_int i ^ "/" ^ string_of_int ntrees);
         AsciiTree.draw false stdout (get_tree ());
         trees := List.tl !trees
     done
+
+
 (** [to_xml tree data f]
 @param tree the ptree which is being converted into a Tree.Parse.t
 @return the ptree in the form of a Tree.Parse.t *)
@@ -2248,7 +2258,7 @@ let to_xml ch tree =
     in
     All_sets.Integers.iter print_item (get_handles tree)
 
-end                                     (* module Search *)
+  end
 
 
 
@@ -2282,8 +2292,7 @@ let get_all_leaves t =
         t.tree.Tree.handles
         []
 
-let select_default adjusted cost =
-    match adjusted with
+let select_default adjusted cost = match adjusted with
     | Some v -> v
     | None -> cost
 
@@ -2388,31 +2397,32 @@ let add_tree_to_counters is_collapsable counters (tree : Tree.u_tree) =
         | Tree.Leaf _ 
         | Tree.Single _ -> add_singleton ()
         | Tree.Interior (_, a, b, c) ->
-                let a, b = 
-                    if a = prev then b, c
-                    else if b = prev then a, c
-                    else if c = prev then a, b
-                    else failwith "Tree.consensus"
-                in
-                let sidea, counters = add_all_clades a node counters in
-                let sideb, counters = add_all_clades b node counters in
-                let mine = All_sets.Integers.union sidea sideb in
-                add_or_not addme mine counters
+            let a, b = 
+                if a = prev then b, c
+                else if b = prev then a, c
+                else if c = prev then a, b
+                else failwith "Tree.consensus"
+            in
+            let sidea, counters = add_all_clades a node counters in
+            let sideb, counters = add_all_clades b node counters in
+            let mine = All_sets.Integers.union sidea sideb in
+            add_or_not addme mine counters
     in
     let add_handle tree handle counters = 
         match Tree.get_node handle tree with
         | Tree.Leaf (a, b) 
         | Tree.Interior (a, b, _, _) ->
-                let sidea, counters = add_all_clades a b counters in
-                let sideb, counters = add_all_clades b a counters in
-                let mine = All_sets.Integers.union sidea sideb in
-                let _, res = add_or_not false mine counters in
-                res
+            let sidea, counters = add_all_clades a b counters in
+            let sideb, counters = add_all_clades b a counters in
+            let mine = All_sets.Integers.union sidea sideb in
+            let _, res = add_or_not false mine counters in
+            res
         | Tree.Single _ -> 
-                let _, res = add_all_clades handle handle counters in
-                res
+            let _, res = add_all_clades handle handle counters in
+            res
     in
     All_sets.Integers.fold (add_handle tree) (Tree.get_handles tree) counters
+
 
 let make_tree_counters code_generator counters gen_tree = 
     let add_singleton node =
@@ -2423,19 +2433,23 @@ let make_tree_counters code_generator counters gen_tree =
         | Tree.Parse.Leafp d -> add_singleton (code_generator d)
         | Tree.Parse.Nodep (lst, _) ->
             let all_sets, counters =
-                List.fold_left (fun (all_sets, counters) child ->
-                    let its_sets, counters = 
-                        make_tree_counters counters child
-                    in
-                    (its_sets :: all_sets, counters)) ([], counters) lst
+                List.fold_left
+                    (fun (all_sets, counters) child ->
+                        let its_sets, counters = make_tree_counters counters child in
+                        (its_sets :: all_sets, counters))
+                    ([], counters)
+                    lst
             in
-            let all_sets = 
-                List.fold_left All_sets.Integers.union
-                All_sets.Integers.empty all_sets
+            let all_sets =
+                List.fold_left
+                    All_sets.Integers.union
+                    All_sets.Integers.empty
+                    all_sets
             in
             add_or_not false all_sets counters
     in
     make_tree_counters counters (Tree.Parse.strip_tree gen_tree)
+
 
 let add_consensus_to_counters counters trees = 
     let new_counter = 
@@ -2449,18 +2463,20 @@ let add_consensus_to_counters counters trees =
         if count = len then let _, acc = add_or_not false set acc in acc
         else acc) new_counter counters 
 
+
 let build_a_tree to_string denominator print_frequency coder trees (set, cnt) = 
     let module CladeFPSet = Set.Make (Tree.CladeFP.Ordered) in
     let all_trees, _, trees = 
-        All_sets.Integers.fold (fun x (my_trees, sets, builttrees) ->
-            try
-                let trees, clades = All_sets.IntegerMap.find x builttrees in
-                if CladeFPSet.mem clades sets then my_trees, sets, builttrees
-                else
-                    let sets = CladeFPSet.add clades sets in
-                    trees :: my_trees, sets, builttrees
-            with
-            | Not_found ->
+        All_sets.Integers.fold 
+            (fun x (my_trees, sets, builttrees) ->
+                try
+                    let trees, clades = All_sets.IntegerMap.find x builttrees in
+                    if CladeFPSet.mem clades sets then
+                        my_trees, sets, builttrees
+                    else
+                        let sets = CladeFPSet.add clades sets in
+                        trees :: my_trees, sets, builttrees
+                with | Not_found ->
                     assert (1 = All_sets.Integers.cardinal set);
                     let code = All_sets.Integers.choose set in
                     coder := code;
@@ -2469,28 +2485,29 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
                     let trees = 
                         All_sets.IntegerMap.add code (newtree, set) builttrees 
                     in
-                    newtree :: my_trees, sets, trees) 
-        set 
-        ([], CladeFPSet.empty, trees)
+                    newtree :: my_trees, sets, trees)
+            set 
+            ([], CladeFPSet.empty, trees)
     in
-    let tree = 
-        match all_trees with
+    let tree = match all_trees with
         | [] -> failwith "Tree.consensus2"
         | [all_trees] -> all_trees
         | all_trees ->
-                let cnt = float_of_int cnt in
-                let msg = 
-                    if print_frequency then
-                        Printf.sprintf "%.2f" (cnt /. denominator)
-                    else ""
-                in
-                let all_trees = List.map (Tree.Parse.strip_tree) all_trees in
-                Tree.Parse.Flat (Tree.Parse.Nodep (all_trees, msg))
+            let cnt = float_of_int cnt in
+            let msg = 
+                if print_frequency then
+                    Printf.sprintf "%.2f" (cnt /. denominator)
+                else ""
+            in
+            let all_trees = List.map (Tree.Parse.strip_tree) all_trees in
+            Tree.Parse.Flat (Tree.Parse.Nodep (all_trees, msg))
     in
-    All_sets.Integers.fold (fun x trees ->
-        All_sets.IntegerMap.add x (tree, set) trees)
-    set
-    trees
+    All_sets.Integers.fold
+        (fun x trees ->
+            All_sets.IntegerMap.add x (tree, set) trees)
+        set
+        trees
+
 
 let make_tree majority_cutoff coder builder map = 
     let sets = 
@@ -2508,8 +2525,6 @@ let make_tree majority_cutoff coder builder map =
     let trees = List.fold_left builder All_sets.IntegerMap.empty sets in
     let tree, _ = All_sets.IntegerMap.find !coder trees in
     tree
-
-let (-->) a b = b a
 
 let consensus is_collapsable to_string maj trees root =
     let number_of_trees = List.length trees in

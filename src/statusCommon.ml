@@ -245,6 +245,8 @@ module CommandCompletion = struct
     ]
 end
 
+module Format = Format
+
 module Files = struct
     
     type auto_complete = Command | Filename

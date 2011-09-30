@@ -21,7 +21,7 @@ let () = SadmanOutput.register "" "$Revision: 2592 $"
 
 let () = SadmanOutput.register "Status_ncurses" "$Revision: 2592 $"
 
-    type tab_state = Begin | First | Continue
+type tab_state = Begin | First | Continue
 
 (** [ndebug_keycode]: if true, then the values of unknown keycodes are printed
     to the input window. *)
@@ -33,7 +33,7 @@ let get_next_code =
 
 type status = {
     line : int ref;
-    formatter : Format.formatter;
+    formatter : StatusCommon.Format.formatter;
     window : NcursesML.window;
     code : int;
     max : int option;
@@ -392,10 +392,10 @@ let tag_functions window =
     let nullstring _ = "" in
     match window with
     | None ->
-          { Format.mark_open_tag = nullstring;
-            Format.mark_close_tag = nullstring;
-            Format.print_open_tag = nullunit;
-            Format.print_close_tag = nullunit; }
+          { StatusCommon.Format.mark_open_tag = nullstring;
+            StatusCommon.Format.mark_close_tag = nullstring;
+            StatusCommon.Format.print_open_tag = nullunit;
+            StatusCommon.Format.print_close_tag = nullunit; }
     | Some window ->
           let attrs bool str =
               emit_tag window str bool;
@@ -403,10 +403,10 @@ let tag_functions window =
               then "tag-on:" ^ str
               else "tag-off:" ^ str
           in
-          { Format.mark_open_tag = attrs true;
-            Format.mark_close_tag = attrs false;
-            Format.print_open_tag = nullunit;
-            Format.print_close_tag = nullunit; }
+          { StatusCommon.Format.mark_open_tag = attrs true;
+            StatusCommon.Format.mark_close_tag = attrs false;
+            StatusCommon.Format.print_open_tag = nullunit;
+            StatusCommon.Format.print_close_tag = nullunit; }
 
 let create_formatter ?win ?sb w = 
     let a, b, c, d, w = 
@@ -414,12 +414,12 @@ let create_formatter ?win ?sb w =
         | None -> formatter_functions ~sb w 
         | Some v -> formatter_functions ~window:v  ~sb w
     in
-    let f = Format.make_formatter a b in
-    Format.pp_set_all_formatter_output_functions f ~out:a ~flush:b ~newline:c
+    let f = StatusCommon.Format.make_formatter a b in
+    StatusCommon.Format.pp_set_all_formatter_output_functions f ~out:a ~flush:b ~newline:c
     ~spaces:d;
-    Format.pp_set_tags f true;
-    Format.pp_set_formatter_tag_functions f (tag_functions (Some w));
-    Format.pp_set_margin f (!columns - 3);
+    StatusCommon.Format.pp_set_tags f true;
+    StatusCommon.Format.pp_set_formatter_tag_functions f (tag_functions (Some w));
+    StatusCommon.Format.pp_set_margin f (!columns - 3);
     f, w
 
 let info_scrollback = make_sbbuffer 400 information
@@ -520,7 +520,7 @@ let formatter_of_type = function
             !searchstatus_fmt, true, closer
 
 let last_search_report_message = 
-    ref ("" : ('a, Format.formatter, unit) format)
+    ref ("" : ('a, StatusCommon.Format.formatter, unit) format)
 
 let print ty t =
     if not !are_we_parallel || 0 = !my_rank then begin
@@ -536,18 +536,18 @@ let print ty t =
             | Warning -> ("@[<v 4>@{<c:red>@{<b>Warning: @}@}@,@[" ^^ t ^^ "@]@]@.")
             | _ -> t
         in
-        Format.fprintf f t;
+        StatusCommon.Format.fprintf f t;
         if do_close then closer ();
         let _ = 
             match ty, StatusCommon.information_redirected () with
             | (Output (None, _, opt)), Some filename ->
                     let f = StatusCommon.Files.openf filename opt in
-                    Format.fprintf f t;
+                    StatusCommon.Format.fprintf f t;
             | Information, Some filename
             | Warning, Some filename 
             | Error, Some filename ->
                     let f = StatusCommon.Files.openf filename [] in
-                    Format.fprintf f t;
+                    StatusCommon.Format.fprintf f t;
             | _ -> ()
         in
         ()
@@ -582,14 +582,14 @@ let update_status st =
     let output_to_formatter ft = 
         match st.max, !(st.achieved) with
         | None, 0 ->
-                Format.fprintf ft
+                StatusCommon.Format.fprintf ft
                 "@[%s\t@;@[%s@]@ @]@." st.name !(st.last_message);
         | None, n ->
-                Format.fprintf ft
+                StatusCommon.Format.fprintf ft
                 "@[%s\t%d\t@;@[%s@]@ @]@." st.name !(st.achieved) 
                 !(st.last_message);
         | Some max, _ ->
-                Format.fprintf ft
+                StatusCommon.Format.fprintf ft
                 "@[%s\t%d of %d@;@[%s@]@ @]@." st.name !(st.achieved) 
                 max !(st.last_message)
     in

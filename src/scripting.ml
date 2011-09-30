@@ -4459,13 +4459,11 @@ END
             | `Script (filename,script) -> 
                 run
             | `Nexus filename ->
-                let data = match Sexpr.to_list run.trees with
-                    | x::tl -> x.Ptree.data
-                    | []    -> run.data
-                in
-                CompOut.to_nexus data filename;
+                let ic = [ `Branches; `NexusStyle; `Collapse false; ] in
+                let parsed_trees,labeling = PTS.process_trees ic run.trees in
+                CompOut.to_nexus run.data parsed_trees labeling ic filename;
                 run
-            | `FasWinClad filename -> 
+            | `FasWinClad filename ->
                 CompOut.to_faswincladfile run.data filename;
                 run
             | `Consensus (filename, v) ->

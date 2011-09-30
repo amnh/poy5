@@ -388,19 +388,27 @@ module type SEARCH = sig
         val convert_to :
           string option * Tree.Parse.tree_types list -> Data.d * a list -> (a, b) p_tree
 
-        val build_trees: Tree.u_tree -> 
-            (int -> string) -> (int array option -> int -> int -> string option) ->
-                (int -> int -> bool) ->
-                    ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
-                        int array option -> (int array option -> string)
-                -> Tree.Parse.tree_types list
+        val build_trees: 
+            (* tree topology *) Tree.u_tree -> 
+            (* gen names     *) (int -> string) -> 
+            (* name subtrees *) (string -> int -> int -> (int array * float option) list -> string option) ->
+            (* name tree     *) (Tree.u_tree -> int -> string) ->
+            (* collapse node *) (int -> int -> bool) ->
+            (* branch data   *) ((int * int), [ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+            (* character sets*) int array option ->
+            (* root data     *) (int array option -> string)
+                -> (string option * Tree.Parse.tree_types) list
 
-        val build_tree : Tree.u_tree ->
-            (int -> string) -> (int array option -> int -> int -> string option) ->
-                (int -> int -> bool) ->
-                    ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
-                    int array option -> (int array option -> string)
-                -> Tree.Parse.tree_types
+        val build_tree : 
+            (* tree topology *) Tree.u_tree -> 
+            (* gen names     *) (int -> string) -> 
+            (* name subtrees *) (string -> int -> int -> (int array * float option) list -> string option) ->
+            (* name tree     *) (Tree.u_tree -> int -> string) ->
+            (* collapse node *) (int -> int -> bool) ->
+            (* branch data   *) ((int * int), [ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+            (* character sets*) int array option ->
+            (* root data     *) (int array option -> string)
+                -> (string option * Tree.Parse.tree_types)
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -426,11 +434,11 @@ module type SEARCH = sig
         val build_forest_with_names_n_costs :
             bool -> (a, b) p_tree -> string -> bool -> int array option -> Tree.Parse.tree_types list
 
-         val build_forest_with_names_n_costs_n_branches :
-            bool -> (a, b) p_tree -> string -> 
-                (int array option -> int -> int -> string option) -> bool -> 
-                    int array option 
-                -> Tree.Parse.tree_types list
+        val build_forest_with_names_n_costs_n_branches :
+            bool -> (a, b) p_tree -> string ->
+                (string -> int -> int -> (int array * float option) list -> string option) ->
+                    (Tree.u_tree -> int -> string) -> bool -> int array option 
+                -> (string option * Tree.Parse.tree_types) list
 
         val to_xml : Pervasives.out_channel -> (a, b) p_tree -> unit
 
@@ -542,12 +550,16 @@ val get_cost : cost_type -> ('a, 'b) p_tree -> float
 * of the connected component with handle [h] of the tree [t]. *)
 val get_handle_cost : cost_type -> ('a, 'b) p_tree -> int -> float
 
-val build_trees: Tree.u_tree -> 
-    (int -> string) -> (int array option -> int -> int -> string option) ->
-        (int -> int -> bool) ->
-            ((int * int),[`Name of (int array * float option) list | `Single of float]) Hashtbl.t option ->
-                int array option -> (int array option -> string)
-        -> Tree.Parse.tree_types list
+val build_trees: 
+    (* tree topology *) Tree.u_tree -> 
+    (* gen names     *) (int -> string) -> 
+    (* name subtrees *) (string -> int -> int -> (int array * float option) list -> string option) ->
+    (* name tree     *) (Tree.u_tree -> int -> string) ->
+    (* collapse node *) (int -> int -> bool) ->
+    (* branch data   *) ((int * int), [ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t option ->
+    (* character sets*) int array option ->
+    (* root data     *) (int array option -> string)
+        -> (string option * Tree.Parse.tree_types) list
 
 val wipe_costs : ('a, 'b) p_tree -> ('a, 'b) p_tree 
 

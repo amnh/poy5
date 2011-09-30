@@ -31,6 +31,11 @@ module type S =
         type a 
         type b
 
+        val process_trees :
+            Methods.information_contained list -> (a, b) Ptree.p_tree Sexpr.t
+                -> (string option * Tree.Parse.tree_types) list *
+                    (string * string, (int array * float option) list) Hashtbl.t
+
         val report_trees :
             Methods.information_contained list -> string option -> (a, b) Ptree.p_tree Sexpr.t -> unit
 

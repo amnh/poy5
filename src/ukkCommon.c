@@ -87,7 +87,6 @@ void usage(char *prog) {
 void 
 copySequence (struct seq *s, char *str) {
     int len, i;
-    int v;
     SEQT *begin;
     len = seq_get_len (s);
     begin = seq_get_begin(s);
