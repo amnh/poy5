@@ -17,8 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+(* This binary tree module is a splay tree -- a balanced binary tree *)
 let () = SadmanOutput.register "BinaryTree" "$Revision: 1751 $"
-
 
 type ('k,'a) b_tree =
     | Empty
@@ -85,7 +85,7 @@ let add_to_btree seedseq newmum old_bt printkey_f printnode_f compare_node_f =
     in
     let res_bt = insert_node old_bt seedseq newmum in
     res_bt,!sign
-(*
+(*this is the old search function.
 let search_in_btree key bt printkey_f printnode_f = 
     let rec search_node sub_bt key =
         match sub_bt with
@@ -109,6 +109,9 @@ let search_in_btree key bt printkey_f printnode_f =
     search_node bt key
 *)
 
+(*splay tree function starts*)
+
+(*rotate child node of parent_bt. leftchild=true when the child is a left child.*)
 let rotate_child parent_bt leftchild printkey_f =
     let debug = false in
     match parent_bt with
@@ -133,6 +136,36 @@ let rotate_child parent_bt leftchild printkey_f =
             )
     | _ -> failwith "parent node cannot be a leaf1"
 
+(* in a splay tree, when we visit a leaf node, we rotate its parent and grand
+* parent, etc, to make the leaf node closer to the root.
+* Here is the rule I follow:
+1. If x has a parent, but no grandparent, we just rotate(x). 
+2. If x has parent y and a grandparent, and if x and y are either both leftchildren or right 
+children, we ﬁrst rotate(y) and then rotate(x). 
+3. If x has parent y, and a grandparent, and if one of x or y is a leftchild and the other is 
+a rightchild, we ﬁrst rotate(x) and then rotate(x) again.
+
+in a splay tree, rotate(x) is defined as flow.
+*       y
+*       |
+*     |    |
+*     x    c
+*   |   |
+*   a   b
+*
+*  y is the parent node. we rotate x. result tree looks like
+*
+*        x
+*     |     |
+*     a     y
+*         |   |
+*         b   c
+* 
+
+* Please note that x and y we are talking here are internal nodes, leaf node
+* cannot be x. but what we are searching for is acctually leafnode. So here is
+* the rule -- I consider the direct parent of that leafnode as x.
+* *)    
 let rotate_twice grand_parent_bt p_g_left(*parent is left child of grandparent*)
 me_p_left  (*me is left child of parent*) printkey_f =
     let debug = false in
@@ -167,7 +200,11 @@ me_p_left  (*me is left child of parent*) printkey_f =
     )
     | _ -> failwith "grand parent cannot be a leaf2"
 
-(*0: leaf, 1: left, -1:right, 3: root*)
+(*splay tree function ends*)
+
+(*in search_in_btree, we use [0: leaf, 1: left, -1:right, 3: root] as our
+* notation of direction. we rotate node we are searching for closer to the root
+* every time.*)
 let search_in_btree key bt printkey_f printnode_f = (*mumseq is the key inside b_tree*)
     let debug = false in
     let rec search_node dir sub_bt key =
