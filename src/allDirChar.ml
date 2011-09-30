@@ -565,43 +565,7 @@ module F : Ptree.Tree_Operations
         pre_codes
 
 
-    (* debugging function for output of nexus files within this module *)
-    let create_nexus base : (string -> phylogeny -> unit) =
-        let generate_labeling =
-            let table = Hashtbl.create 1371 in           
-            let names_idx = ref 0 in
-            (fun char x y ->
-                let name = "&poy_"^string_of_int !names_idx in
-                let normalized_pair = min x y, max x y in
-                incr names_idx;
-                Hashtbl.add table normalized_pair name;
-                Some name)
-        in
-        let nexi = ref 0 in
-        (fun basename ptree ->
-            let filename = Printf.sprintf "%02d_%s_%s.nex" !nexi base basename in
-            let branches = branch_table ptree in
-            let trees =
-                Ptree.build_trees (ptree.Ptree.tree)
-                    (fun x -> Data.code_taxon x ptree.Ptree.data)
-                    (generate_labeling)
-                    (fun _ _ -> false)
-                    (Some branches)
-                    (None)
-                    (function
-                        | None   -> 
-                            string_of_float (total_cost ptree `Adjusted None)
-                        | Some x ->
-                            string_of_float (total_cost ptree `Adjusted (Some (Array.to_list x))))
-            in
-            info_user_message "Nexus Tag: %s" filename;
-            incr nexi;
-            let () = CompOut.to_nexus ptree.Ptree.data (Some filename) in
-            let () = List.iter (Tree.Parse.print_tree (Some filename)) trees in
-            ())
-
     let clear_internals force t = t
-(*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; } *)
 
 
     (* A function to assign a unique sequence on each vertex of the ptree in the

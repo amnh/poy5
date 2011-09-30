@@ -30,8 +30,14 @@ let has_something something (`LocalOptimum (cost_calculation)) =
     *)
 
 module type S = sig
-      type a
-      type b
+
+    type a
+    type b
+
+    val process_trees :
+        Methods.information_contained list -> (a, b) Ptree.p_tree Sexpr.t
+            -> (string option * Tree.Parse.tree_types) list *
+                (string * string, (int array * float option) list) Hashtbl.t
 
     val report_trees :
         Methods.information_contained list -> string option ->  (a, b) Ptree.p_tree Sexpr.t -> unit
@@ -188,18 +194,20 @@ module MakeNormal
                 PtreeSearch.build_trees 
                     tree
                     (fun x -> Data.code_taxon x data) 
-                    (fun _ _ _ -> None)
+                    (fun _ _ _ _ -> None)
+                    (fun _ _ -> "")
                     (fun _ _ -> false)
                     None
                     None
                     (fun _ -> "")
             in
-            let output tree =
+            let output (_,tree) =
                 Status.user_message fo "@[";
                 Status.user_message fo 
                 (AsciiTree.for_formatter false true true tree);
                 Status.user_message fo ("[" ^ cost ^ "]");
-                Status.user_message fo "@]@," in
+                Status.user_message fo "@]@,"
+            in
             List.iter output tree
         in
         Status.user_message fo "@[<v>";
@@ -211,7 +219,7 @@ module MakeNormal
         List.map (function
                     | [] -> None
                     | xs -> Some (Array.of_list xs))
-                 (Data.categorize_characters d c)
+                 (Data.categorize_characters_comp d c)
 
     let report_trees_and_branches compress filename chars branches ptree : unit =
         let fo =
@@ -224,7 +232,8 @@ module MakeNormal
                         PtreeSearch.build_trees
                             ptree.Ptree.tree
                             (fun x -> Data.code_taxon x ptree.Ptree.data)
-                            (fun _ _ _ -> None)
+                            (fun _ _ _ _ -> None)
+                            (fun _ _ -> "")
                             (fun _ _ -> false)
                             (Some branches)
                             chars
@@ -237,7 +246,7 @@ module MakeNormal
         let adj_cost = string_of_float (Ptree.get_cost `Adjusted ptree) in
         Status.user_message fo "@[<v>";
         List.iter
-            (fun x ->
+            (fun (_,x) ->
                 Status.user_message fo "@[";
                 Status.user_message fo (AsciiTree.for_formatter false true true x);
                 Status.user_message fo ("[" ^ adj_cost ^ "]");
@@ -245,10 +254,48 @@ module MakeNormal
             trees;
         Status.user_message fo "@]%!"
 
+
+
     let report_poy_charactersets fo x = 
         fo "@[BEGIN POY;@]@.";
         Hashtbl.iter (fun name values -> ()) x;
         fo "@[END;@]@."
+
+
+    let process_trees ic trees =
+        let branches = List.exists (function `Branches -> true | _ -> false) ic in
+        let collapse = List.exists (function `Collapse x -> x | _ -> false) ic in
+        let labeling = Hashtbl.create 1371 in
+        let node_labeling =
+            let names_idx = ref 0 in
+            (fun tree_name x y chars ->
+                let node_name = "poy_"^string_of_int !names_idx in
+                incr names_idx;
+                Hashtbl.add labeling (tree_name,node_name) chars;
+                Some node_name)
+        and tree_labeling =
+            let tree_idx = ref ~-1 in
+            (fun topo handle ->
+                let prefix = match topo.Tree.tree_name with
+                    | Some x -> x
+                    | None   -> incr tree_idx;
+                                "tree" ^ string_of_int !tree_idx
+                in match Tree.handle_list topo with
+                    | [x]-> assert( handle = x );
+                            prefix
+                    | [] -> assert false;
+                    | _  -> prefix ^ "_" ^ string_of_int handle)
+        in
+        let output =
+            (fun acc tree ->
+                let cost = string_of_float (Ptree.get_cost `Adjusted tree) in
+                let tree =
+                    PtreeSearch.build_forest_with_names_n_costs_n_branches
+                        collapse tree cost node_labeling tree_labeling branches None
+                in
+                tree @ acc)
+        in
+        Sexpr.fold_left output [] trees, labeling
 
 
     let report_trees ic filename trees =
@@ -263,63 +310,37 @@ module MakeNormal
         let collapse = List.exists (function `Collapse x -> x | _ -> false) ic in
         let ori_margin = StatusCommon.Files.get_margin filename in
         let fo_ls = ref [] in 
-        let () = 
+        let fo = Status.user_message (Status.Output (filename, false, !fo_ls)) in
+        let () =
             try match List.find (function `Margin _ -> true | _ -> false) ic with
-                | `Margin m -> 
+                | `Margin m ->
                     fo_ls := (StatusCommon.Margin m)::!fo_ls;
-                    StatusCommon.Files.set_margin filename m 
+                    StatusCommon.Files.set_margin filename m
                 | _ -> assert false
             with | Not_found -> ()
         in
-        let fo = Status.user_message (Status.Output (filename, false, !fo_ls)) in (* Write header *)
-        fo (if hennig_style then "@[<h>" else "@[<v>");
-        if hennig_style then fo "tread "
-        else if nexus_style then fo "@[BEGIN TREES;@]@.";
+        let get_chars data =
+            try match List.find (function `Chars _ -> true | _ -> false) ic with
+                | `Chars x -> characters_designation x data
+                | _        -> assert false
+            with Not_found -> [None]
+        in
         (* print all trees from sexpr *)
         let output = 
             let is_first = ref true in
-            (fun tree -> 
-                let cost = Ptree.get_cost `Adjusted tree in
-                let cost = string_of_float cost in
-                let chars = 
-                    try match List.find (function `Chars _ -> true | _ -> false) ic with
-                        | `Chars x -> characters_designation x tree.Ptree.data
-                        | _        -> assert false
-                    with Not_found ->
-                        if nexus_style
-                            then [None]
-                            else match characters_designation `All tree.Ptree.data with
-                                | [x] -> [None]
-                                |  x  -> x
-                and generate_labeling, get_labeling =
-                    let table = Hashtbl.create 1371 in           
-                    let names_idx = ref 0 in
-                    (fun data x y ->
-                        let name = "&poy_"^string_of_int !names_idx in
-                        incr names_idx;
-                        Hashtbl.add table name data;
-                        Some name),
-                    (fun () -> if !names_idx = 0 then None else Some table)
-                in
+            (fun tree ->
+                let cost = string_of_float (Ptree.get_cost `Adjusted tree) in
+                let chars= get_chars tree.Ptree.data in
                 let tree =
-                    (** we need character branch section for multiple character sets in nexus format **)
-                    if nexus_style && (match chars with | [_] | [] -> false | _ -> true) then
-                        List.fold_left
-                            (fun acc c ->
-                                let ts =
-                                    PtreeSearch.build_forest_with_names_n_costs_n_branches
-                                                    collapse tree cost generate_labeling branches c 
-                                in
-                                ts @ acc)
-                            []
-                            chars
-                    else
-                        List.fold_left
-                            (fun acc c -> 
-                                let ts = PtreeSearch.build_forest_with_names_n_costs collapse tree cost branches c in
-                                ts @ acc)
-                            []
-                            chars
+                    List.fold_left
+                        (fun acc c ->
+                            let ts =
+                                PtreeSearch.build_forest_with_names_n_costs
+                                                collapse tree cost branches c
+                            in
+                            ts @ acc)
+                        []
+                        chars
                 in
                 let output cnt tree =
                     if hennig_style then 
@@ -335,16 +356,13 @@ module MakeNormal
                     fo newline;
                     cnt + 1
                 in
-                let _ = List.fold_left output 0 tree in
-                if nexus_style then match get_labeling () with
-                    | None -> ()
-                    | Some x -> report_poy_charactersets fo x)
+                ignore( List.fold_left output 0 tree ) )
         in
+        fo (if hennig_style then "@[<h>" else if nexus_style then "@[<v>" else "");
+        fo (if hennig_style then "tread " else if nexus_style then "@[BEGIN TREES;@]@." else "");
         Sexpr.leaf_iter (output) trees;
-        (* Write closing tags *)
-        if hennig_style then fo ";"
-        else if nexus_style then fo "@[END;@]@.";
-        fo (if hennig_style then  "@]" else "@]@\n" );
+        fo (if hennig_style then ";" else if nexus_style then "@[END;@]@." else "");
+        fo (if hennig_style then  "@]" else if nexus_style then "@]@\n" else "");
         fo "@\n%!";
         StatusCommon.Files.set_margin filename ori_margin
 
@@ -917,6 +935,7 @@ module Make
     module TOH = TreeOpsH 
 
     let report_trees = DH.report_trees
+    let process_trees = DH.process_trees
     let forest_break_search_tree = DH.forest_break_search_tree
     let diagnose = DH.diagnose
 

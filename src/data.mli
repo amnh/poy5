@@ -495,7 +495,8 @@ val categorize_static_likelihood_by_model : bool_characters -> d -> int list lis
 
 val categorize_sets : d -> int list list
 
-val categorize_characters : d -> bool_characters -> int list list
+val categorize_characters : d -> characters -> int list list
+val categorize_characters_comp : d -> bool_characters -> int list list
 
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
@@ -656,7 +657,7 @@ val convert_static_to_dynamic_branches : src:d -> dest:d -> d
 val sync_dynamic_to_static_model : src:d -> dest:d -> d
 val sync_static_to_dynamic_model : src:d -> dest:d -> d
 
-val remove_absent_present_encodings : ?ignore:bool -> d -> d
+val remove_absent_present_encodings : ?ignore:bool -> d -> bool_characters -> d
 
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 

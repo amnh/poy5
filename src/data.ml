@@ -4029,7 +4029,7 @@ let categorize_sets data : int list list =
     | fc -> fc :: named_sets
 
 
-let categorize_characters data chars = match chars with
+let categorize_characters_comp data chars = match chars with
     | `All -> categorize_sets data
     | othr ->
         let found set1 set2 = match set1 with
@@ -4049,6 +4049,28 @@ let categorize_characters data chars = match chars with
                 if found xs selected then xs :: acc else acc)
             ~init:[]
             all_sets
+
+let categorize_characters data chars = match chars with
+    | `All -> categorize_sets data
+    | othr ->
+        let found set1 set2 = match set1 with
+            | x::xs when List.mem x set2 ->
+                assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs);
+                true
+            | _::xs -> 
+                assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));
+                false
+            | [] -> 
+                false
+        in
+        let selected = get_chars_codes data chars in
+        let all_sets = categorize_sets data in
+        List.fold_left
+            ~f:(fun acc xs ->
+                if found xs selected then xs :: acc else acc)
+            ~init:[]
+            all_sets
+
 
 let make_codon_partitions functional data name ccodes =
     let process_set name set nset codes = 
@@ -4361,7 +4383,8 @@ let update_priors data charcodes use_gap =
                     let model = MlModel.replace_priors (get_lk_model x.lk_model) new_priors in
                     model_d := Some model;
                     Hashtbl.replace data.character_specs code
-                        (Dynamic {x with state = `Ml; lk_model = !model_d;}))
+                        (Dynamic {x with state = `Ml; lk_model = !model_d;})
+                | (Kolmogorov _ | Set) , _ , _ -> assert false)
             charcodes;
         data
     | MlModel.Equal 
@@ -4380,7 +4403,7 @@ let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) =
  * ignore is set to true, in which case it will remove them with impunity! The
  * active/present columns in other characters are used for an additional cost to
  * that column, combined with the weight parameter. *)
-let remove_absent_present_encodings ?(ignore=false) data = 
+let remove_absent_present_encodings ?(ignore=false) data chars =
     let is_likelihood = function
         | Nexus.File.STLikelihood _ -> (true || ignore)
         | _ -> false
@@ -4468,18 +4491,18 @@ let remove_absent_present_encodings ?(ignore=false) data =
             n
         in
         let map = 
-            Hashtbl.fold
-                (fun k v acc -> match v with
+            List.fold_left
+                ~f:(fun acc k -> match Hashtbl.find data.character_specs k with
                     | Static {Nexus.File.st_alph = st_alph;}
                         when is_present_absent st_alph ->
                             apply_absent_encoding copy_branch copy_spec copy_char copy_names copy_codes k;
                             IntMap.map 
                                 (fun x -> List.filter (fun y -> not (y = k)) x)
                                 acc
-                    | Dynamic _    | Set 
-                    | Kolmogorov _ | Static _ -> acc)
-                copy_spec
-                data.dynamic_static_codes
+                    | Static _ -> acc
+                    | (Dynamic _ | Set | Kolmogorov _ ) -> assert false)
+                ~init:data.dynamic_static_codes
+                (get_code_from_characters_restricted_comp `AllStatic data chars)
         in
         { data with character_specs      = copy_spec;
                     taxon_characters     = copy_char;
@@ -4528,39 +4551,33 @@ END
 * the likelihood model specified in [lk] *)
 let set_likelihood data (((chars,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
-    match get_chars_codes_comp data chars with
-    | [] -> 
-        output_warning "No characters changed";    
-        data
-    | chars ->
-        let data  = remove_absent_present_encodings ~ignore:true data in
-        let chars = 
-            List.filter 
-                (fun x -> 
-                    try let _ = Hashtbl.find data.character_specs x in true
-                    with | _ -> false)
-                chars
-        in
-        let dynamic = 
-            match Hashtbl.find data.character_specs (List.hd chars) with
-            | Dynamic _ -> true
-            | _ -> false
-        and u_gap = match use_gap with 
-            | `Independent | `Coupled _ -> true | `Missing -> false
-        in
-        (* We get the characters and filter them out to have only static types *)
-        let model =
-            let compute_priors () = compute_priors data chars u_gap in
-            let alph_size,alph = verify_alphabet data chars in
-            let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
-            let lk_spec = 
-                if dynamic then MlModel.remove_gamma_from_spec lk_spec 
-                           else lk_spec 
+    let u_gap = match use_gap with 
+        | `Independent | `Coupled _ -> true | `Missing -> false
+    in
+    let transform_char_set data chars =
+        match chars with
+        | [] -> data
+        | x::xs ->
+            let dynamic = match Hashtbl.find data.character_specs x with
+                | Dynamic _ -> true
+                | _ -> false
             in
-            MlModel.create alph lk_spec
-        in
-        (* We rebuild the specification of all the characters, and categorize them *)
-        apply_likelihood_model_on_chars data chars model
+            (* We get the characters and filter them out to have only static types *)
+            let model =
+                let compute_priors () = compute_priors data chars u_gap in
+                let alph_size,alph = verify_alphabet data chars in
+                let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
+                let lk_spec = 
+                    if dynamic then MlModel.remove_gamma_from_spec lk_spec 
+                               else lk_spec 
+                in
+                MlModel.create alph lk_spec
+            in
+            apply_likelihood_model_on_chars data chars model
+    in
+    List.fold_left ~f:(transform_char_set)
+                   ~init:(remove_absent_present_encodings ~ignore:true data chars)
+                   (categorize_characters_comp data chars)
 ELSE
     failwith "Likelihood not enabled: download different binary or contact mailing list" 
 END
@@ -5187,7 +5204,6 @@ let assign_tcm_to_characters_from_file data chars file =
                     | x::_ -> get_alphabet data x
                     | []   -> failwith "No characters selected in transform"
                 in
-                let alphabet = get_alphabet data 1 in
                 let is_aminoacids = 
                     if (alphabet = Alphabet.aminoacids)||(alphabet = Alphabet.aminoacids_use_3d) 
                     then true else false in
@@ -5596,8 +5612,7 @@ let get_character_state data c =
     match Hashtbl.find data.character_specs c  with
     | Dynamic dspec -> dspec.state
     | Kolmogorov dspec -> dspec.dhs.state
-    | _ -> failwith "Data.get_alphabet"
-
+    | _ -> failwith "Data.get_character_state"
 
 let get_pam data c =
     match Hashtbl.find data.character_specs c  with
