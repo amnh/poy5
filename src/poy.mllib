@@ -30,6 +30,7 @@ ChromCS
 ChromPam
 CommandLexer
 CompileFlags
+CompOut
 Cost_matrix
 Data
 Diagnosis

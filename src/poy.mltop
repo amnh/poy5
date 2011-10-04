@@ -28,6 +28,7 @@ ChromAli
 ChromCS
 ChromPam
 CompileFlags
+CompOut
 CommandLexer
 Cost_matrix
 Data
