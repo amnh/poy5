@@ -301,8 +301,7 @@ let rec draw_parenthesis do_sort my_printer (t:Tree.Parse.tree_types) =
 
 let rec for_formatter ?(separator = " ") split_lines newick leafsonly t =
     let t = sort_tree t in
-    let separator = 
-        match newick with 
+    let separator = match newick with 
         | true -> ","
         | false -> separator
     in 
@@ -323,7 +322,7 @@ let rec for_formatter ?(separator = " ") split_lines newick leafsonly t =
                     sep := splitter ^ separator;
                     acc ^ (fni str) ^ splitter
     in match t with
-    | Tree.Parse.Annotated (t,str) -> 
+    | Tree.Parse.Annotated (t,str) ->
             let res = for_formatter ~separator split_lines newick leafsonly t in
             Printf.sprintf "%s[%s]" res str
     | Tree.Parse.Flat t ->
@@ -349,8 +348,11 @@ let rec for_formatter ?(separator = " ") split_lines newick leafsonly t =
                     (fun (x,y) -> match y with
                         | Some y -> Printf.sprintf "%s[%s]" x y
                         | None   -> x)
-                    (fun (x,y) -> if x = "" || leafsonly then ""
+                    (fun (x,y) -> if x = "" || leafsonly then match y with
+                                    | Some y -> Printf.sprintf "[%s]" y
+                                    | None   -> ""
                                   else match y with
                                     | Some y -> Printf.sprintf "%s[%s]" x y
                                     | None   -> x ))
                 "" t
+
