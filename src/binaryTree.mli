@@ -1,3 +1,5 @@
+(*This binary tree module is a splay tree -- a balanced binary tree*)
+
 (** binary tree type. could be empty leafnode, or a leaf, or a tree.
 *   k is the type of middle-key, a is the type of leaf.
 *   middle key is bigger than keys in its left subtree*)
@@ -24,9 +26,12 @@ val add_to_btree: 'k -> 'a -> ('k,'a) b_tree -> ('k -> unit)
 -> ('a -> unit) -> ('a -> 'a -> bool) -> ('k,'a) b_tree * bool
 
 (** [search_in_btree key btree print_f_for_key print_f_for_node] return the
-* leafnode with key. print_f_for_key and print_f_for_node are the debug function
+* leafnode with key. Since we are dealing with a splay tree, we rotate the btree
+* to make the node we visiting closer to the root. 
+* print_f_for_key and print_f_for_node are the debug function
 * to printout middle-key and leafnode. *)
-val search_in_btree: 'k -> ('k,'a) b_tree -> ('k -> unit) -> ('a -> unit) -> 'a
+val search_in_btree: 'k -> ('k,'a) b_tree -> ('k -> unit) -> ('a -> unit) -> 
+    'a * ('k,'a) b_tree
 
 (** [remove_from_btree key btree print_f_for_key print_f_for_node] remove the
 * node with key, return the new btree. print_f_for_key and print_f_for_node are the debug function to printout middle-key and leafnode.*)
