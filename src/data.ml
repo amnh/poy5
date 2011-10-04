@@ -722,43 +722,6 @@ let get_likelihood_model data chars =
     | []   ->
         failwith "No Characters found"
 
-
-(*
-let set_sequence_defaults seq_alph data = 
-    match seq_alph with
-    | Nucleotides ->
-            { data with 
-                current_tcm = Cost_matrix.Two_D.default_nucleotides;
-                current_tcm3 = Cost_matrix.Three_D.default_nucleotides;
-                current_fs = [];
-                current_fs_file = "";
-                current_tcm_file = "";
-                current_alphabet_file = "";
-                current_alphabet = seq_alph; 
-            }
-    | Aminoacids ->
-            { data with 
-                current_tcm = Cost_matrix.Two_D.default_aminoacids;
-                current_tcm3 = 
-                    Lazy.force (Cost_matrix.Three_D.default_aminoacids);
-                current_fs = [];
-                current_fs_file = "";
-                current_tcm_file = "";
-                current_alphabet_file = "";
-                current_alphabet = seq_alph; 
-            }
-    | GeneralAlphabet (alph, twd, threed, alphabet) ->
-            { data with 
-                current_tcm = twd;
-                current_tcm3 = threed;
-                current_fs = [];
-                current_fs_file = "";
-                current_tcm_file = alph;
-                current_alphabet_file = alph;
-                current_alphabet = seq_alph; 
-            }
-*)
-
 let is_fs data code =
     match Hashtbl.find data.character_specs code with
     | Kolmogorov _ | Set | Static _ -> false
@@ -829,13 +792,8 @@ let print (data : d) =
                 Printf.printf "\t[";
                 All_sets.Integers.iter (Printf.printf "%d, ") intset;
                 Printf.printf "]:";
-                let print_one = ref 0 in
                 Hashtbl.iter 
-                    (fun n f ->
-                        if !print_one = 0 then begin
-                            incr print_one;
-                            Printf.printf "\t\t%s -- %f\n" n f
-                        end else ())
+                    (fun n f -> Printf.printf "\t\t%s -- %f\n" n f)
                     code_tbl)
             set
    and print_models chars = 
@@ -911,11 +869,11 @@ let print (data : d) =
     Hashtbl.iter print_csets data.character_sets;
     Printf.printf "\n check models:\n%!";
     print_models (data.dynamics @ data.static_ml);
-    let () = match data.branches with
-        | Some databranches -> 
-            Printf.printf "\n check branches:\n%!";
-            Hashtbl.iter print_branches databranches
-        | None -> ()
+    let () =
+        Printf.printf "\n check branches:\n%!";
+        match data.branches with
+        | Some d -> Hashtbl.iter print_branches d
+        | None   -> Printf.printf "None%!\n"
     in
     Printf.printf "\n Check Dynamic->Static Codes\n%!";
     IntMap.iter print_int_intlist data.dynamic_static_codes;
@@ -1068,21 +1026,21 @@ let branches_to_map data initial_table branch_table trees =
     (* assoc partition with a value, if it exists, then add them, as it is
      * due to a rooted tree *)
     let add_single (t_name:string) (set:All_sets.Integers.t)
-                   (chartbl_opt : (string,float) Hashtbl.t option)
-                   (partition_map : 'a All_sets.IntSetMap.t) : 'a All_sets.IntSetMap.t =
+                   (chartbl_opt: (string,float) Hashtbl.t option)
+                   (partition_map: 'a All_sets.IntSetMap.t): 'a All_sets.IntSetMap.t =
         match chartbl_opt with
-        | Some n -> 
+        | Some n ->
             let comp = create_complement set in
-            if (All_sets.IntSetMap.mem set partition_map) 
+            if (All_sets.IntSetMap.mem set partition_map)
                 or (All_sets.IntSetMap.mem comp partition_map)
                 then begin
                     let t = All_sets.IntSetMap.find set partition_map in
                     add_two_lengths t n;
-                    partition_map --> 
+                    partition_map -->
                         All_sets.IntSetMap.add comp t -->
                         All_sets.IntSetMap.add set t
                 end else begin
-                    partition_map --> 
+                    partition_map -->
                         All_sets.IntSetMap.add comp n -->
                         All_sets.IntSetMap.add set n
                 end
@@ -1115,42 +1073,43 @@ let branches_to_map data initial_table branch_table trees =
         let tree_name =
             match t_name_opt with | Some n -> String.uppercase n | None -> ""
         in
-        let tree_map = List.fold_left
-            ~f:(fun acc_map x -> match x with
-                | Tree.Parse.Branches t ->
-                    found := true;
-                    let _,map = continually_add
+        let rec process_tree acc_map x = match x with
+            | Tree.Parse.Branches t ->
+                found := true;
+                let _,map = continually_add
+                    tree_name
+                    (fun x -> match (x:float option) with
+                        | Some x -> Some (create_all_char_table x)
+                        | None -> None)
+                    acc_map
+                    t
+                in
+                map
+            | Tree.Parse.Characters t ->
+                found := true;
+                let old_table = match branch_table with
+                    | None -> failwith "Cannot find defined table"
+                    | Some branch_table -> 
+                        try Hashtbl.find branch_table tree_name
+                        with | Not_found ->
+                            failwithf "Cannot find pre-defined tree, %s." tree_name
+                in
+                let _,map =
+                    continually_add
                         tree_name
-                        (fun x -> match (x:float option) with
-                            | Some x -> Some (create_all_char_table x)
+                        (fun x -> match (x:string option) with
+                            | Some nd -> Some (Hashtbl.find old_table (String.uppercase nd))
                             | None -> None)
                         acc_map
                         t
-                    in
-                    map
-                | Tree.Parse.Characters t ->
-                    found := true;
-                    let old_table = match branch_table with
-                        | None -> failwith "Cannot find defined table"
-                        | Some branch_table -> 
-                            try Hashtbl.find branch_table tree_name
-                            with | Not_found ->
-                                failwithf "Cannot find pre-defined tree, %s." tree_name
-                    in
-                    let _,map =
-                        continually_add
-                            tree_name
-                            (fun x -> match (x:string option) with
-                                | Some nd -> Some (Hashtbl.find old_table (String.uppercase nd))
-                                | None -> None)
-                            acc_map
-                            t
-                    in 
-                    map
-                (* skip other types of trees *)
-                | _ -> acc_map)
-            ~init:(All_sets.IntSetMap.empty)
-            t
+                in 
+                map
+            | Tree.Parse.Annotated (t,_) -> process_tree acc_map t
+            | Tree.Parse.Flat _ -> 
+                acc_map
+        in
+        let tree_map =
+            List.fold_left ~f:process_tree ~init:(All_sets.IntSetMap.empty) t
         in
         Hashtbl.add new_tree_table tree_name tree_map
     in
@@ -1250,41 +1209,39 @@ let process_trees data file =
         output_error msg;
         data
 
-let process_fixed_states data file = 
-        match file with
-        | Some file ->
-                begin try
-                    let ch, file = FileStream.channel_n_filename file in
-                    let fs = 
-                        Parser.FixedStatesDict.of_channel 
-                        FileContents.Nucleic_Acids ch 
-                    in
-                    close_in ch;
-                    let len = List.length fs in
-                    let msg = 
-                        "@[The@ file@ " ^ StatusCommon.escape file 
-                        ^ "@ defines@ " ^ string_of_int len ^ 
-                        "@ valid@ states.@]"
-                    in
-                    Status.user_message Status.Information msg;
-                    { 
-                        data with do_fs = true;
-                        current_fs = fs;
-                        current_fs_file = file; 
-                    }
-                with
-                | Sys_error err ->
-                        let file = FileStream.filename file in
-                        let msg = "@[Couldn't@ open@ file@ " ^ file
-                            ^ "@ to@ load@ the@ " ^
-                            "fixed@ states.@ @ The@ system@ error@ message@ is@ "
-                            ^ err ^
-                            ".@]" in
-                        output_error msg;
-                        data
-                end;
-        | None ->
-                { data with do_fs = true; }
+let process_fixed_states data = function
+    | Some file ->
+        begin try
+            let ch, file = FileStream.channel_n_filename file in
+            let fs = 
+                Parser.FixedStatesDict.of_channel 
+                FileContents.Nucleic_Acids ch 
+            in
+            close_in ch;
+            let len = List.length fs in
+            let msg =
+                Printf.sprintf "@[The@ file@ %s@ defines@ %d@ valid@ states.@]"
+                                (StatusCommon.escape file) len
+            in
+            Status.user_message Status.Information msg;
+            { 
+                data with do_fs = true;
+                current_fs = fs;
+                current_fs_file = file; 
+            }
+        with | Sys_error err ->
+            let file = FileStream.filename file in
+            let msg =
+                Printf.sprintf
+                    ("@[Couldn't@ open@ file@ %s@ to@ load@ the@ fixed@ "^^
+                     "states.@ The@ system@ error@ message@ is@ %s.@]")
+                    file err
+            in
+            output_error msg;
+            data
+        end
+    | None ->
+        { data with do_fs = true; }
 
 let find_code_for_root_if_removed data =
     (* We want to test, if a terminal that is currently root is removed, we choose
@@ -1292,27 +1249,30 @@ let find_code_for_root_if_removed data =
     * continue like nothing *)
     match data.root_at with
     | Some c -> 
-            if Hashtbl.mem data.taxon_characters c then data
-            else
-                let nc = Hashtbl.fold (fun c _ acc ->
-                    match acc with
-                    | None -> Some c
-                    | Some accc ->
+        if Hashtbl.mem data.taxon_characters c
+        then 
+            data
+        else
+            let nc = 
+                Hashtbl.fold 
+                    (fun c _ acc -> match acc with
+                        | None -> Some c
+                        | Some accc ->
                             if c < accc then Some c
-                            else acc) data.taxon_characters None
-                in
-                { data with root_at = nc }
-    | _ -> data
+                            else acc)
+                    data.taxon_characters None
+            in
+            { data with root_at = nc }
+    | None -> data
 
-let pick_code_for_root code data =
-    match data.root_at with
-    | None -> { data with root_at = Some code }
+let pick_code_for_root code data = match data.root_at with
+    | None ->
+        { data with root_at = Some code }
     | Some previous -> 
-            (* We must check if the terminal still is valid! If not we replace
-            * it. *)
-            if Hashtbl.mem data.taxon_characters previous then
-                data 
-            else { data with root_at = Some code }
+        if Hashtbl.mem data.taxon_characters previous then
+            data 
+        else 
+            { data with root_at = Some code }
 
 (** Returns a [d] with the following condition: if [taxon] is present in [data]
  * then [data] is returned, otherwise, [data] with the added name and assigned code
@@ -1322,36 +1282,38 @@ let pick_code_for_root code data =
 let rec process_taxon_code data taxon file =
     (* Check first if the taxon is in the current list of taxa *)
     let taxon = trim taxon in
-    if All_sets.StringMap.mem taxon data.taxon_names then 
+    if All_sets.StringMap.mem taxon data.taxon_names then
         (*already exists, we must have a root already! *)
-        let new_taxon_file = 
+        let new_taxon_file =
             let set = All_sets.StringMap.find taxon data.taxon_files in
             let set = All_sets.Strings.add file set in
-            All_sets.StringMap.add taxon set data.taxon_files 
+            All_sets.StringMap.add taxon set data.taxon_files
         in
-        { data with taxon_files = new_taxon_file }, 
+        { data with taxon_files = new_taxon_file },
         All_sets.StringMap.find taxon data.taxon_names
     else if All_sets.StringMap.mem taxon data.synonyms then
         (* Is a synonym *)
-        process_taxon_code data 
+        process_taxon_code data
         (All_sets.StringMap.find taxon data.synonyms) file
     else begin
         (* It is new, so lets assign it a code and add it *)
         let code = data.number_of_taxa + 1 in
-        let taxon_names = 
+        let taxon_names =
             All_sets.StringMap.add taxon code data.taxon_names
         in
-        let taxon_codes = 
+        let taxon_codes =
             All_sets.IntegerMap.add code taxon data.taxon_codes
         in
         let taxon_files =
             All_sets.StringMap.add taxon (All_sets.Strings.singleton file)
-            data.taxon_files 
+            data.taxon_files
         in
         let data = pick_code_for_root code data in
-        { data with number_of_taxa = data.number_of_taxa + 1;
-        taxon_names = taxon_names; taxon_codes = taxon_codes; 
-        taxon_files = taxon_files }, code
+        { data with
+            number_of_taxa = data.number_of_taxa + 1;
+            taxon_names = taxon_names;
+            taxon_codes = taxon_codes;
+            taxon_files = taxon_files }, code
     end
 
 let rec process_searchbase_code data taxon file =
@@ -1832,12 +1794,8 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
     data
 
 (* convert Nexus.File.file_output to Data.d *)
-let gen_add_static_parsed_file do_duplicate data file 
-                                ((file_out): Nexus.File.nexus): int array * d =
-    let data = 
-        if do_duplicate then duplicate data 
-        else data
-    in
+let gen_add_static_parsed_file do_duplicate data file file_out =
+    let data = if do_duplicate then duplicate data else data in
     (* A function to report the taxa loading *)
     let len_taxa = Array.length file_out.Nexus.File.taxa in
     let st = Status.create "Loading Characters" (Some len_taxa) "taxa" in
@@ -1854,13 +1812,6 @@ let gen_add_static_parsed_file do_duplicate data file
     Status.full_report ~msg:"Storing the character specifications" st;
     (* Now we add the codes to the data *)
     Array.iter ~f:(add_static_character_spec data) codes;
-    (* Turn on Optimization of Parameters for any unspecified under likelihood *)
-    let () = 
-        try match file_out.Nexus.File.characters.(0).Nexus.File.st_type with
-            | Nexus.File.STLikelihood _ -> Methods.cost := `Iterative (`ThreeD None)
-            | _              -> ()
-        with | _ -> ()
-    in
     (* And now a function to add one taxon at a time to the data *)
     let data = Array.fold_left ~f:(fun data name ->
         match name with
@@ -1957,7 +1908,7 @@ let gen_add_static_parsed_file do_duplicate data file
         let single_sequence_adder data 
             ((weight, gap_open, level, tcm, alph, lk_model, seq) :
                 (float * int option * int option * (string * int array array) option * 
-                  Alphabet.a * MlModel.model option * 
+                  Alphabet.a * MlModel.model option *
                     (Sequence.s list list list * string) list)) =
             let size = Alphabet.distinct_size (Alphabet.to_sequential alph) in
             let all_elements =
@@ -2039,19 +1990,19 @@ let gen_add_static_parsed_file do_duplicate data file
     in
     (* create set for branches *)
     let tbl,found =
-        branches_to_map data 
-                        None
-                        (Some file_out.Nexus.File.branches)
+        branches_to_map data None (Some file_out.Nexus.File.branches)
                         file_out.Nexus.File.trees
     in
     let tbl = if found then Some tbl else None in
-    Status.finished st;
-    new_codes,
+    let d = 
         {data with 
             character_sets = csets;
             character_nsets = cnsets;
             branches = tbl;
             iterate_branches = (not found); }
+    in
+    Status.finished st;
+    new_codes, d
 
 let add_static_parsed_file (data:d) (file:string) (triple:Nexus.File.nexus) : d =
     let _,d = gen_add_static_parsed_file true data file triple in d
@@ -2101,15 +2052,16 @@ let add_static_file ?(report = true) style data (file : FileStream.f) =
             report_static_input file r;
             close_in ch;
             add_static_parsed_file data file r
-    with
-    | Sys_error err ->
-            let file = FileStream.filename file in
-            let msg = "Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
-            "data.@ @ The@ system@ error@ message@ is@ "
-                ^ err ^
-            "." in
-            output_error msg;
-            data
+    with | Sys_error err ->
+        let file = FileStream.filename file in
+        let msg =
+            Printf.sprintf
+               ("Couldn't@ open@ file@ %s@ to@ load@ the@ data.@ The@"^^
+                "system@ error@ message@ is@ %s.")
+               file err
+        in
+        output_error msg;
+        data
 
 
 let dna_lexer = Alphabet.Lexer.make_lexer false false Alphabet.nucleotides
@@ -4519,29 +4471,30 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
 
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
  * the likelihood model specified in [lk] *)
-let set_parsimony data chars = 
+let set_parsimony data chars =
 IFDEF USE_LIKELIHOOD THEN
     (* apply a type to a set of STATIC characters in data *)
-    let transform_chars data chars = 
+    let transform_chars data chars =
         let new_specs = Hashtbl.copy data.character_specs in
-        List.iter 
-            (fun code -> 
-                match Hashtbl.find new_specs code with
-                | Static x -> 
-                    Hashtbl.replace new_specs code 
+        List.iter
+            (fun code -> match Hashtbl.find new_specs code with
+                | Static x ->
+                    Hashtbl.replace new_specs code
                         (Static { x with Nexus.File.st_type = Nexus.File.STUnordered})
                 | Dynamic x ->
-                    Hashtbl.replace new_specs code 
-                        (Dynamic {x with lk_model = None; state = `Seq;}))
+                    Hashtbl.replace new_specs code
+                        (Dynamic {x with lk_model = None; state = `Seq;})
+                | Set ->
+                    failwith "Cannot transform Set characters to parsimony")
             chars;
         new_specs
     in
     let chars = get_chars_codes_comp data chars in
     match chars with
         | [] -> data (* no characters selected; do not duplicate data *)
-        | chars -> 
+        | chars ->
             let new_specs = transform_chars data chars in
-            { data with character_specs = new_specs } --> categorize
+            categorize { data with character_specs = new_specs }
 ELSE
     data
 END

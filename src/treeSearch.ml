@@ -255,13 +255,6 @@ module MakeNormal
         Status.user_message fo "@]%!"
 
 
-
-    let report_poy_charactersets fo x = 
-        fo "@[BEGIN POY;@]@.";
-        Hashtbl.iter (fun name values -> ()) x;
-        fo "@[END;@]@."
-
-
     let process_trees ic trees =
         let branches = List.exists (function `Branches -> true | _ -> false) ic in
         let collapse = List.exists (function `Collapse x -> x | _ -> false) ic in
@@ -272,7 +265,7 @@ module MakeNormal
                 let node_name = "poy_"^string_of_int !names_idx in
                 incr names_idx;
                 Hashtbl.add labeling (tree_name,node_name) chars;
-                Some node_name)
+                Some ("&"^node_name))
         and tree_labeling =
             let tree_idx = ref ~-1 in
             (fun topo handle ->

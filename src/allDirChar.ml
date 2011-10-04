@@ -75,7 +75,7 @@ module F : Ptree.Tree_Operations
                     try Hashtbl.add to_table (Hashtbl.find char_name_tbl name) length
                     with | Not_found ->
                         if debug_branch_fn then
-                            error_user_message "Couldn't find character name %s" name;)
+                            error_user_message "Couldn't find character name %s" name)
                 from_table;
             to_table
         (* retrieve the name of the tree, or no name *)

@@ -1,6 +1,27 @@
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
+
+(** A module to handle specifications of static homology characters and their
+    occurrences in a terminal *)
+
 let (-->) a b = b a 
-(* A module to handle specifications of static homology characters and their
-* occurrences in a terminal *)
+
 type st_type = 
     | STOrdered
     | STUnordered
@@ -70,8 +91,7 @@ let st_type_to_string = function
     | STSankoff _ -> "Sankoff"
     | STLikelihood _ -> "Likelihood"
 
-let bool_to_string x = 
-    if x then "true" else "false"
+let bool_to_string x = if x then "true" else "false"
 
 let to_string s =
     let separator = " -- " in
@@ -310,32 +330,38 @@ let make_symbol_alphabet gap symbols more_equates form =
                     ("N", ["A"; "C"; "G"; "U"]);
                     ("X", ["A"; "C"; "G"; "U"])] @ more_equates
             | P.Nucleotide | P.Dna ->
-                    Alphabet.list_to_a 
-                    ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("T", 3,
-                    None); (gap, 4, None)] )
-                    gap None Alphabet.Sequential,
+                Alphabet.list_to_a 
+                    (   [("A", 0, None);
+                         ("C", 1, None); 
+                         ("G", 2, None); 
+                         ("T", 3, None);
+                         (gap, 4, None)] )
+                    gap 
+                    None 
+                    Alphabet.Sequential,
                     [("R", ["A"; "G"]);
-                    ("Y", ["C"; "T"]);
-                    ("M", ["A"; "C"]);
-                    ("K", ["G"; "T"]);
-                    ("S", ["C"; "T"]);
-                    ("W", ["A"; "T"]);
-                    ("H", ["A"; "C"; "T"]);
-                    ("B", ["C"; "G"; "T"]);
-                    ("V", ["A"; "C"; "G"]);
-                    ("D", ["A"; "G"; "T"]);
-                    ("N", ["A"; "C"; "G"; "T"]);
-                    ("X", ["A"; "C"; "G"; "T"])] @ more_equates
+                     ("Y", ["C"; "T"]);
+                     ("M", ["A"; "C"]);
+                     ("K", ["G"; "T"]);
+                     ("S", ["C"; "T"]);
+                     ("W", ["A"; "T"]);
+                     ("H", ["A"; "C"; "T"]);
+                     ("B", ["C"; "G"; "T"]);
+                     ("V", ["A"; "C"; "G"]);
+                     ("D", ["A"; "G"; "T"]);
+                     ("N", ["A"; "C"; "G"; "T"]);
+                     ("X", ["A"; "C"; "G"; "T"])] @ more_equates
             | P.DStandard ->
                 let cnt = ref (-1) in
-                let alph = List.map (fun x -> 
-                    incr cnt;
-                    x, !cnt, None) (symbols @ [gap])
+                let alph = 
+                    List.map 
+                        (fun x -> incr cnt; x,!cnt, None)
+                        (symbols @ [gap])
                 in
                 Alphabet.list_to_a alph gap None Alphabet.Sequential,
                 (get_equate form) @ more_equates
             | P.Continuous ->
-                    failwith "We don't support continuous characters ..."
+                failwith "We don't support continuous characters ..."
         in
         let () = Hashtbl.add table_of_alphabets index r in
         r
@@ -572,29 +598,23 @@ let remove_comments string =
         let start = ref pos in
         try while !start < len do
             incr start;
-            begin match string.[!start] with
+            match string.[!start] with
             | ']' -> raise Exit
-            | '[' -> 
-                    start := in_comment !start;
-                    ()
-            | _ -> ()
-            end;
+            | '[' -> start := in_comment !start
+            | _   -> ()
         done;
-        failwith "Finished string and the comments are still there!"
-        with
-        | Exit -> !start
+        failwith "Finished string and the comments are still open."
+        with | Exit -> !start
     in
     let start = ref 0 in
     while !start < len do
         begin match string.[!start] with
-        | '[' -> 
-            (match string.[1+(!start)],string.[2+(!start)] with
-             | '&','p' | '&','P' ->
-                start := !start + 2;
-                Buffer.add_char b '['
-             | _ -> start := in_comment (!start + 1)
-            ) 
-        | x -> Buffer.add_char b x
+            | '[' ->
+                begin match string.[1+(!start)] with
+                    | '&' -> start := !start + 1; Buffer.add_char b '['
+                    |  _  -> start := in_comment (!start + 1)
+                end
+            |  x  -> Buffer.add_char b x
         end;
         incr start;
     done;
@@ -880,11 +900,7 @@ let add_prealigned_characters file chars (acc:nexus) =
                 (fun x y v -> matrix.(y).(x) <- v)
             else
                 (fun name -> find_taxon taxa (remove_quotes name)),
-                (fun x y v -> 
-                    try matrix.(x).(y) <- v with
-                    | err ->
-                            Printf.printf "Failed in %d, %d" x y;
-                            raise err)
+                (fun x y v -> matrix.(x).(y) <- v)
         in
         process_matrix (get_labels form) `Nexus matrix taxa characters 
         get_row_number assign_item data
@@ -1312,27 +1328,29 @@ let compute_static_priors alph u_gap (priors,count,gcount) inverse state =
             List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
         end
 
+
+let get_verify_alphabet (n:nexus) chars : Alphabet.a =
+    let first_alph = ref None in
+    List.iter
+        (apply_on_character_set 
+            n.csets 
+            n.characters
+            (fun i -> match !first_alph with
+                | None -> first_alph := Some n.characters.(i).st_alph;
+                | Some a -> assert( a = n.characters.(i).st_alph )))
+        (chars);
+    match !first_alph with
+    | Some x -> x
+    | None   -> assert false
+
+
 let static_priors_of_nexus (n:nexus) (gap) (chars) : float array =
-    let verify_static_alphabet chars = 
-        let first_alph = ref None in
-        List.iter
-            (apply_on_character_set 
-                n.csets 
-                n.characters
-                (fun i -> match !first_alph with
-                    | None -> first_alph := Some n.characters.(i).st_alph;
-                    | Some a -> assert( a = n.characters.(i).st_alph )))
-            (chars);
-        match !first_alph with
-        | Some a -> a
-        | None   -> failwith "No characters selected for likelihood model"
-    in
     let u_gap = match String.uppercase (fst gap) with (* put in MLModel?? *)
                 | "" | "MISSING" -> false 
                 | "COUPLED" | "INDEPENDENT" -> true
                 | x -> failwith ("Invalid gap property: "^x)
     in
-    let alph = verify_static_alphabet chars in
+    let alph = get_verify_alphabet n chars in
     let size = if u_gap then Alphabet.size alph else (Alphabet.size alph)-1 in
     (* set up some references for manipulation *)
     let priors = Array.make size 0.0
@@ -1350,6 +1368,7 @@ let static_priors_of_nexus (n:nexus) (gap) (chars) : float array =
                 done;))
         (chars);
     MlModel.compute_priors (alph,u_gap) priors (!count,!gcount) []
+
 
 let unaligned_priors_of_seq alph xsssts =
     let size = Alphabet.size alph in
@@ -1403,7 +1422,7 @@ let apply_likelihood_model params acc =
     let ((a,b,c,pi,gap,f,g) as str_spec),characters_to_modify =
         List.fold_left proc_model (MlModel.empty_str_spec,[]) params
     in
-    let convert_static char xs : unit =
+    let convert_static xs : unit =
         if (Array.length acc.characters) = 0 then
             ()
         else begin
@@ -1424,23 +1443,21 @@ let apply_likelihood_model params acc =
                         in
                         (a,b,c,`Estimate (Some priors),gap,f,g)
                 in
-                STLikelihood
-                    (str_spec --> MlModel.convert_string_spec
-                              --> MlModel.create acc.characters.(0).st_alph)
+                str_spec --> MlModel.convert_string_spec
+                         --> MlModel.create (get_verify_alphabet acc xs)
             in
+            let st_m = STLikelihood m in
             List.iter
                 (apply_on_character_set
                     acc.csets
                     acc.characters
                     (fun i ->
-                        acc.characters.(i) <- { acc.characters.(i) with st_type = m; }))
-                    xs;
-            ()
+                        acc.characters.(i) <- { acc.characters.(i) with st_type = st_m; }))
+                    xs
         end
     and convert_unaligned lst = 
-        List.map 
+        List.map
             (fun (z,w,x,y,alph,_,xsssts) ->
-                Printf.printf "Converting Unaligned Characters to Likelihood!\n%!";
                 let str_spec = match pi with
                     | `Equal | `Given _ -> str_spec
                     | `Consistent _ ->
@@ -1459,10 +1476,10 @@ let apply_likelihood_model params acc =
     (* apply spec to each character *)
     match characters_to_modify with
         | [] ->
-            let () = convert_static acc.characters [P.Name "all"] in
+            let () = convert_static [P.Name "all"] in
             { acc with unaligned = convert_unaligned acc.unaligned; }
         | xs ->
-            let () = convert_static acc.characters xs in
+            let () = convert_static xs in
             { acc with unaligned = convert_unaligned acc.unaligned; }
 
 
@@ -1499,7 +1516,6 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
             let newtrees = List.map handle_tree newtrees in
             {acc with trees = acc.trees @ newtrees }
     | P.Unaligned data ->
-            Printf.printf "Adding Unaligned data\n%!";
             let char_spec = 
                 default_static acc.char_cntr file data.P.unal_format 0
             in
@@ -1519,25 +1535,19 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
             let res = Fasta.of_string (FileContents.AlphSeq alph) unal in
             { acc with unaligned = (1.,None,None,None,alph,None,res) :: acc.unaligned;};
     | P.Sets data -> 
-            List.iter (fun (name, set) ->
-                match set with
-                | P.CharacterSet set ->
-                        (try 
-                            let _ = find_character acc.characters name in
-                            failwith 
-                            ("Illegal character set name: " ^ name ^ 
-                            " already exists as a character.")
-                        with
-                        | _ -> (* This is the normal path *)
-                                let prepend acc item = item :: acc in
-                                let set = List.fold_left prepend [] set in
-                                Hashtbl.add acc.csets (String.uppercase name) set)
-                | _ -> Status.user_message Status.Warning
-                        ("I will ignore the set " ^ name ^ 
-                         " defined in the NEXUS file.")) data;
+            List.iter 
+                (fun (name, set) -> match set with
+                    | P.CharacterSet set ->
+                        let prepend acc item = item :: acc in
+                        let set = List.fold_left prepend [] set in
+                        Hashtbl.add acc.csets (String.uppercase name) set
+                    | _ -> 
+                        Status.user_message Status.Warning
+                            ("I will ignore the set "^name^" defined in the NEXUS file."))
+                data;
             acc
     | P.Poy block ->
-        Printf.printf "Adding POY data\n%!";
+        Status.user_message Status.Information "Adding data from POY block";
         List.fold_left
             (fun acc -> function
                 | P.CharacterBranch data ->
@@ -1578,15 +1588,13 @@ let process_parsed file parsed : nexus =
        changing a large section of the code-base, or delaying computation in
        inappropriate sections of the code). Following are the current
        dependencies,
-
                    | depends on      | because 
         -----------+-----------------+---------------------
         POY        | Characters      | calculating priors
         POY        | Unaligned       | calculating priors 
 
         Note: the processing is done by a fold_left, thus the ordering needs to
-        be backwards (this is to keep the function tail-recursive as well).
-    *)
+        be backwards (this is to keep the function tail-recursive as well). *)
     let sorter a b = match a,b with
         | P.Characters _, P.Poy _ -> ~-1
         | P.Poy _, P.Characters _ ->   1

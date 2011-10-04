@@ -116,14 +116,13 @@ let create_set_data_pairs (fo : string -> unit) data code_char_pairs =
             end
     and print_set set = 
         try match set with
-            | []   -> assert false
-            | [x]  -> fo (string_of_int (List.assoc x code_char_pairs)); fo ";"
-            | h::t -> fo (string_of_int (List.assoc h code_char_pairs));
-                      List.iter 
-                        (fun x -> fo ",";
-                              let assoc = List.assoc x code_char_pairs in
-                              fo (string_of_int assoc))
-                        t
+            | [] -> assert false
+            | xs ->
+                List.iter
+                    (fun x ->
+                        let assoc = List.assoc x code_char_pairs in
+                        fo (" "^(string_of_int assoc)) )
+                    xs
         with | Not_found -> ()
 (*            Printf.printf "Could not find \n\t";*)
 (*            List.iter (fun x -> Printf.printf "%d, " x) set;*)
@@ -203,16 +202,18 @@ let transform_labeling labeling set_names =
 
 
 let output_characterbranch fo in_poy labeling set_names =
-    let fof format = Printf.ksprintf fo format in
+    let fof format = Printf.ksprintf fo format
+    and process_name n = Str.replace_first (Str.regexp "^&") "" n in
     let print_single (t,c) nbset =
         fo "@.@[@[CharacterBranch@] @,";
         if t = "" then () else fof "@[TREES = %s;@] @\n" t;
         if c = "" then () else fof "@[CHARSET = %s;@] @\n" c;
-        let count = 
+        let count =
             All_sets.StringMap.fold
-                (fun n b k -> 
-                    if k = 0 then fof "@[MAP @[%s %f" n b
-                             else fof ",@]@, @[%s %f" n b; k+1)
+                (fun n b k ->
+                    if k = 0 then fof "@[MAP @[%s %f" (process_name n) b
+                             else fof ",@]@, @[%s %f" (process_name n) b;
+                    k+1)
                 nbset
                 0
         in
@@ -550,18 +551,18 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
     let resolve_a = true in
     let all_of_static =  all_of_static data in
     let terminals_not_ignored =
-        All_sets.IntegerMap.fold 
+        All_sets.IntegerMap.fold
             (fun code name acc ->
-                if All_sets.Strings.mem name data.Data.ignore_taxa_set 
+                if All_sets.Strings.mem name data.Data.ignore_taxa_set
                     then acc
                     else All_sets.IntegerMap.add code name acc)
-            data.Data.taxon_codes 
+            data.Data.taxon_codes
             All_sets.IntegerMap.empty
     in
-    let terminals_sorted = 
-        List.sort (fun a b -> compare (fst a) (fst b)) 
-        (All_sets.IntegerMap.fold (fun a b acc -> (a, b) :: acc)
-        terminals_not_ignored []) 
+    let terminals_sorted =
+        List.sort
+            (fun a b -> compare (fst a) (fst b))
+            (All_sets.IntegerMap.fold (fun a b acc -> (a, b) :: acc) terminals_not_ignored [])
     in
     let fo = Status.user_message (Status.Output (filename, false, [])) in
     let output_nexus_header () = fo "#NEXUS@\n"
