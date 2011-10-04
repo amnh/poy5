@@ -204,28 +204,27 @@ module File : sig
     }
 
     val get_character_names : 
-            static_spec array -> 
-                (string, P.charset list) Hashtbl.t -> P.charset -> string list
+        static_spec array -> 
+            (string, P.charset list) Hashtbl.t -> P.charset -> string list
 
     val empty_parsed : unit -> nexus
 
     val static_state_to_list : 
         [ `Bits of BitSet.t | `List of int list ] -> int list
     (** [spec_of_alph alphabet missing gap] generates a specification that can read
-    * the elements in the [alphabet] using when the matrix represents [missing]
-    * data and [gaps] as specified. *)
+        the elements in the [alphabet] using when the matrix represents [missing]
+        data and [gaps] as specified. *)
     val spec_of_alph : Alphabet.a -> string -> string -> static_spec
 
-    (** [to_string v] outputs a string representation of the static_specification
-    * [v] *)
+    (** [to_string v] outputs a string representation of the static_specification [v] *)
     val to_string : static_spec -> string
 
-    (** [to_formatter v] generates a standard [Xml.xml] representation of
-    * [to_formatter]. *)
+    (** [to_formatter v] generates a standard [Xml.xml] representation of [to_formatter]. *)
     val to_formatter : static_spec -> Xml.xml
 
-    val make_symbol_alphabet : string -> string list ->  (string * string list) list
-    -> P.format_options list -> Alphabet.a * (string * string list) list 
+    val make_symbol_alphabet :
+        string -> string list ->  (string * string list) list ->
+            P.format_options list -> Alphabet.a * (string * string list) list 
 
     val process_matrix : 
        bool ->
@@ -243,12 +242,11 @@ module File : sig
     val generate_alphabet : string list -> string -> Alphabet.a
 
     val generate_parser_friendly :
-            (string*string) list -> string option array -> P.tree ->
-                string option * Tree.Parse.tree_types list
+        (string*string) list -> string option array -> P.tree ->
+            string option * Tree.Parse.tree_types list
 
     val compute_static_priors :
         Alphabet.a -> bool -> float array * int ref * int ref -> float -> static_state -> unit
-
 
     val spec_of_alph : Alphabet.a -> string -> string -> static_spec
     val fill_observed : 

@@ -208,18 +208,19 @@ block:
         { P.Sets $5 }
     | BEGIN POY SEMICOLON poy_block ENDNEXUS SEMICOLON
         { P.Poy $4 }
-    /* error states */
-    | BEGIN IDENT error ENDNEXUS SEMICOLON
-        { P.Error $2 }
-    | BEGIN TAXA SEMICOLON error ENDNEXUS SEMICOLON  
-        { P.Error $2 }
-    | BEGIN UNALIGNED SEMICOLON error ENDNEXUS SEMICOLON
-        { P.Error $2 }
+/* error states  -- some of these are necessary     */
+/*  | BEGIN TAXA SEMICOLON error ENDNEXUS SEMICOLON  
+/*      { P.Error $2 }
+/*  | BEGIN UNALIGNED SEMICOLON error ENDNEXUS SEMICOLON
+/*      { P.Error $2 }
+/*  | BEGIN SETS SEMICOLON error ENDNEXUS SEMICOLON */
+/*      { P.Error $2 }                              */
     | BEGIN NOTES SEMICOLON error ENDNEXUS SEMICOLON 
         { P.Error $2 }
     | BEGIN DISTANCES SEMICOLON error ENDNEXUS SEMICOLON 
         { P.Error $2 }
-    | BEGIN SETS SEMICOLON error ENDNEXUS SEMICOLON
+/* This is to avoid processing unknown blocks       */
+    | BEGIN IDENT error ENDNEXUS SEMICOLON
         { P.Error $2 }
     ;
 
