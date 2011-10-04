@@ -189,15 +189,23 @@ module File : sig
 
     type taxon = string
 
+    type unaligned = (* information to define unaligned data *)
+        {   u_weight : float;
+            u_opening: int option;
+            u_level  : int option;
+            u_tcm    : (string * int array array) option;
+            u_alph   : Alphabet.a;
+            u_model  : MlModel.model option;
+            u_data   : (Sequence.s list list list * taxon) list;
+        }
+
     type nexus = {
         char_cntr : int ref;
         taxa : string option array;
         characters : static_spec array;
         matrix : static_state array array;
         csets : (string, P.charset list) Hashtbl.t;
-                    (* weight, gap opening, level, tcm, alphabet, model, seq data *)
-        unaligned : (float * int option * int option * (string * int array array) option * 
-                    Alphabet.a * MlModel.model option * (Sequence.s list list list * taxon) list) list;
+        unaligned : unaligned list;
         trees : (string option * Tree.Parse.tree_types list) list;
         branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
         assumptions : (string, string array * float array array) Hashtbl.t;

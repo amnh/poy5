@@ -1905,43 +1905,44 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
     in
     (* Now time to add the molecular sequences *)
     let data = 
-        let single_sequence_adder data 
-            ((weight, gap_open, level, tcm, alph, lk_model, seq) :
-                (float * int option * int option * (string * int array array) option * 
-                  Alphabet.a * MlModel.model option *
-                    (Sequence.s list list list * string) list)) =
+        let single_sequence_adder data (u : Nexus.File.unaligned) =
+            let alph = u.Nexus.File.u_alph in
             let size = Alphabet.distinct_size (Alphabet.to_sequential alph) in
             let all_elements =
-                if alph = Alphabet.nucleotides then 31
-                else if (alph = Alphabet.aminoacids)||(alph =
-                    Alphabet.aminoacids_use_3d) 
-                then 21
-                else (-1)
+                if alph = Alphabet.nucleotides then
+                    31
+                else if alph = Alphabet.aminoacids then
+                    21
+                else if alph = Alphabet.aminoacids_use_3d then
+                    21
+                else 
+                    ~-1
             in
-            match lk_model with
+            match u.Nexus.File.u_model with
             | Some _ ->
                 Methods.cost := `Iterative (`ThreeD None);
                 process_parsed_sequences 
-                    false weight (Substitution_Indel (1,2))
+                    false u.Nexus.File.u_weight (Substitution_Indel (1,2))
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
-                    `DO false alph file `Ml data seq lk_model
+                    `DO false u.Nexus.File.u_alph file `Ml data u.Nexus.File.u_data
+                    u.Nexus.File.u_model
             | None -> 
-                let tcm,name = match tcm with
-                        | None ->
-                            Cost_matrix.Two_D.of_transformations_and_gaps 
-                                    (size < 7) size 1 2 all_elements,
-                            (Substitution_Indel (1,2))
-                        | Some (name,matrix) ->
-                            let size = Array.length matrix in
-                            assert( size > 0 );
-                            let lst = Array.map Array.to_list matrix in
-                            let lst = Array.to_list lst in
-                            let use_comb = size < 7 in
-                            Cost_matrix.Two_D.of_list ~use_comb lst 
-                                        (if use_comb then (1 lsl size) - 1 else size),
-                            (Input_file (name,lst))
+                let tcm,name = match u.Nexus.File.u_tcm with
+                    | None ->
+                        Cost_matrix.Two_D.of_transformations_and_gaps 
+                                (size < 7) size 1 2 all_elements,
+                        (Substitution_Indel (1,2))
+                    | Some (name,matrix) ->
+                        let size = Array.length matrix in
+                        assert( size > 0 );
+                        let lst = Array.map Array.to_list matrix in
+                        let lst = Array.to_list lst in
+                        let use_comb = size < 7 in
+                        Cost_matrix.Two_D.of_list ~use_comb lst 
+                                    (if use_comb then (1 lsl size) - 1 else size),
+                        (Input_file (name,lst))
                 in
-                let tcm,name = match gap_open with
+                let tcm,name = match u.Nexus.File.u_opening with
                     | None -> tcm, name
                     | Some v ->
                         Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine v);
@@ -1954,13 +1955,14 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                         in
                         tcm, name
                 in
-                let name = match level with
+                let name = match u.Nexus.File.u_level with
                     | Some level -> Level (name, level)
                     | None       -> name
                 in
                 let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
-                process_parsed_sequences false weight name tcm tcm3d `DO false
-                                         alph file `Seq data seq None
+                process_parsed_sequences false u.Nexus.File.u_weight name tcm
+                                        tcm3d `DO false u.Nexus.File.u_alph file
+                                        `Seq data u.Nexus.File.u_data None
         in
         List.fold_left ~f:(single_sequence_adder) 
                        ~init:data file_out.Nexus.File.unaligned

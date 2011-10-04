@@ -155,19 +155,37 @@ let to_formatter s =
 
 type taxon = string
 
+type unaligned = (* information to define unaligned data *)
+    {   u_weight : float;
+        u_opening: int option;
+        u_level  : int option;
+        u_tcm    : (string * int array array) option;
+        u_alph   : Alphabet.a;
+        u_model  : MlModel.model option;
+        u_data   : (Sequence.s list list list * taxon) list;
+    }
+
 type nexus = {
-    char_cntr : int ref;
-    taxa : string option array;
-    characters : static_spec array;
-    matrix : static_state array array;
-    csets : (string, P.charset list) Hashtbl.t;
-                (* weight, gap opening, level, tcm, alphabet, model, seq data *)
-    unaligned : (float * int option * int option * (string * int array array) option * 
-                 Alphabet.a * MlModel.model option * (Sequence.s list list list * taxon) list) list;
-    trees : (string option * Tree.Parse.tree_types list) list;
-    branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
+    char_cntr   : int ref;
+    taxa        : taxon option array;
+    characters  : static_spec array;
+    matrix      : static_state array array;
+    csets       : (string, P.charset list) Hashtbl.t;
+    unaligned   : unaligned list;
+    trees       : (string option * Tree.Parse.tree_types list) list;
+    branches    : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
     assumptions : (string, string array * float array array) Hashtbl.t;
 }
+
+let default_unaligned data alph : unaligned = 
+    {   u_weight = 1.0;
+        u_opening = None;
+        u_level = None;
+        u_tcm = None;
+        u_alph = alph;
+        u_model = None;
+        u_data = data;
+    }
 
 let empty_parsed () = {
     char_cntr = ref 0;
@@ -1186,14 +1204,13 @@ let generate_parser_friendly (translations:(string*string) list)
 let apply_gap_opening character_set acc =
         let unaligned = Array.of_list (List.rev (acc.unaligned)) in
         let assign_gap_opening v pos =
-            let (w, _, l, x, m, y, z) = unaligned.(pos) in
-            unaligned.(pos) <- (w, (Some v), l, x, m , y , z)
+            unaligned.(pos) <- { unaligned.(pos) with u_opening = Some v; }
         in
-        List.iter 
-            (function 
+        List.iter
+            (function
                 | P.Code (gap_opening, who) ->
                     let gap_opening = truncate (float_of_string gap_opening) in
-                    List.iter (apply_on_unaligned_set unaligned 
+                    List.iter (apply_on_unaligned_set unaligned
                                     (assign_gap_opening gap_opening))
                               who
                 | P.IName (_, _) ->
@@ -1206,11 +1223,10 @@ let apply_gap_opening character_set acc =
 let apply_level character_set acc =
         let unaligned = Array.of_list (List.rev (acc.unaligned)) in
         let assign_level l pos =
-            let (w, v, _, x, m, y, z) = unaligned.(pos) in
-            unaligned.(pos) <- (w, v, (Some l), x, m , y , z)
+            unaligned.(pos) <- { unaligned.(pos) with u_level = Some l; }
         in
-        List.iter 
-            (function 
+        List.iter
+            (function
                 | P.Code (level, who) ->
                     let level = truncate (float_of_string level) in
                     List.iter (apply_on_unaligned_set unaligned (assign_level level)) who
@@ -1224,8 +1240,7 @@ let apply_level character_set acc =
 let apply_weight character_set acc = 
         let unaligned = Array.of_list (List.rev acc.unaligned) in
         let assign_weight weight pos =
-            let (_, w, l, x, m, y, z) = unaligned.(pos) in
-            unaligned.(pos) <- (weight, w, l, x, m, y, z)
+            unaligned.(pos) <- { unaligned.(pos) with u_weight = weight; }
         in
         List.iter 
             (function 
@@ -1245,12 +1260,11 @@ let apply_weight character_set acc =
 let apply_tcm character_set acc = 
         let unaligned = Array.of_list (List.rev acc.unaligned) in
         let assign_tcm name v pos =
-            let (w, x, l, _, y, m, z) = unaligned.(pos) in
-            let v = generate_substitution_table false v y in
-            unaligned.(pos) <- (w, x , l, (Some (name, v)), y , m , z)
+            let v = generate_substitution_table false v unaligned.(pos).u_alph in
+            unaligned.(pos) <- { unaligned.(pos) with u_tcm = Some (name,v); }
         in
-        List.iter 
-            (function 
+        List.iter
+            (function
                 | P.Code (_, _) ->
                     failwith ("TCM must assign a matrix defined in the "^
                               "ASSUMPTIONS block, not a code.");
@@ -1457,20 +1471,20 @@ let apply_likelihood_model params acc =
         end
     and convert_unaligned lst = 
         List.map
-            (fun (z,w,x,y,alph,_,xsssts) ->
+            (fun un ->
                 let str_spec = match pi with
                     | `Equal | `Given _ -> str_spec
                     | `Consistent _ ->
-                        let priors = unaligned_priors_of_seq alph xsssts in
+                        let priors = unaligned_priors_of_seq un.u_alph un.u_data in
                         (a,b,c,`Consistent (Some priors),gap,f,g)
                     | `Estimate _ ->
-                        let priors = unaligned_priors_of_seq alph xsssts in
+                        let priors = unaligned_priors_of_seq un.u_alph un.u_data in
                         (a,b,c,`Estimate (Some priors),gap,f,g)
                 in
                 let m = str_spec --> MlModel.convert_string_spec
-                                 --> MlModel.create alph
+                                 --> MlModel.create un.u_alph
                 in
-                (z,w,x,y,alph,Some m,xsssts))
+                { un with u_model = Some m; })
             lst
     in
     (* apply spec to each character *)
@@ -1533,7 +1547,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                         failwith "POY can't handle continuous types"
             in
             let res = Fasta.of_string (FileContents.AlphSeq alph) unal in
-            { acc with unaligned = (1.,None,None,None,alph,None,res) :: acc.unaligned;};
+            { acc with unaligned = (default_unaligned res alph) :: acc.unaligned;};
     | P.Sets data -> 
             List.iter 
                 (fun (name, set) -> match set with
