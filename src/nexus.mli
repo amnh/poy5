@@ -107,7 +107,33 @@ module P : sig
         | Set_Names of charset list
         | Labeling of (string * float) list 
 
+    type annot_data =
+        | Annot_Quality of float
+        | Annot_Min of int
+        | Annot_Max of int
+        | Annot_Coverage of float
+        | Annot_Type of [`Mauve | `Default]
+
+    type chrom_data =
+        | Chrom_Solver of string
+        | Chrom_Locus_Indel of int * float
+        | Chrom_Locus_Breakpoint of int
+        | Chrom_Locus_Inversion of int
+        | Chrom_Approx of bool
+        | Chrom_Median of int
+        | Chrom_Symmetric of bool
+        | Chrom_Annotations of annot_data list
+
+    type genome_data =
+        | Genome_Median of int
+        | Genome_Indel of float
+        | Genome_Circular of bool
+        | Genome_Breakpoint of int
+        | Genome_Distance of float
+
     type poy_data =  
+        | Chrom of chrom_data list
+        | Genome of genome_data list
         | CharacterBranch of character_data list
         | Likelihood of likelihood_model list
         | Tcm of (bool * string * standard_item list)
@@ -197,6 +223,8 @@ module File : sig
             u_alph   : Alphabet.a;
             u_model  : MlModel.model option;
             u_data   : (Sequence.s list list list * taxon) list;
+            u_genome : int option;
+            u_chrome : int option;
         }
 
     type nexus = {

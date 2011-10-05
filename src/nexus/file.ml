@@ -163,6 +163,8 @@ type unaligned = (* information to define unaligned data *)
         u_alph   : Alphabet.a;
         u_model  : MlModel.model option;
         u_data   : (Sequence.s list list list * taxon) list;
+        u_genome : int option; (* PLACEHOLDER - waiting for lin *)
+        u_chrome : int option; (* PLACEHOLDER - waiting for lin *)
     }
 
 type nexus = {
@@ -185,6 +187,8 @@ let default_unaligned data alph : unaligned =
         u_alph = alph;
         u_model = None;
         u_data = data;
+        u_chrome = None;
+        u_genome = None;
     }
 
 let empty_parsed () = {
@@ -1220,23 +1224,6 @@ let apply_gap_opening character_set acc =
         { acc with unaligned = unaligned; }
 
 
-let apply_level character_set acc =
-        let unaligned = Array.of_list (List.rev (acc.unaligned)) in
-        let assign_level l pos =
-            unaligned.(pos) <- { unaligned.(pos) with u_level = Some l; }
-        in
-        List.iter
-            (function
-                | P.Code (level, who) ->
-                    let level = truncate (float_of_string level) in
-                    List.iter (apply_on_unaligned_set unaligned (assign_level level)) who
-                | P.IName (_, _) ->
-                    failwith "LEVEL must be an integer value")
-            character_set;
-        let unaligned = List.rev (Array.to_list unaligned) in
-        { acc with unaligned = unaligned; }
-
-
 let apply_weight character_set acc = 
         let unaligned = Array.of_list (List.rev acc.unaligned) in
         let assign_weight weight pos =
@@ -1252,6 +1239,25 @@ let apply_weight character_set acc =
                 | P.IName (matrix, who) ->
                     failwith ("WTSET in the POY block must assign numbers"^
                               "to the gap opening parameter"))
+            character_set;
+        let unaligned = List.rev (Array.to_list unaligned) in
+        { acc with unaligned = unaligned; }
+
+
+let apply_level character_set acc = 
+        let unaligned = Array.of_list (List.rev acc.unaligned) in
+        let assign_level level pos =
+            unaligned.(pos) <- { unaligned.(pos) with u_level = level; }
+        in
+        List.iter 
+            (function 
+                | P.Code (level, who) ->
+                    let level = Some (int_of_string level) in
+                    List.iter 
+                        (apply_on_unaligned_set unaligned (assign_level level))
+                        who
+                | P.IName (matrix, who) ->
+                    failwith "LEVEL must be an Integer in POY block")
             character_set;
         let unaligned = List.rev (Array.to_list unaligned) in
         { acc with unaligned = unaligned; }
@@ -1405,6 +1411,10 @@ let unaligned_priors_of_seq alph xsssts =
     in
     MlModel.compute_priors (alph,true) priors (!counter,0) lengths
 
+
+let apply_genome_model params acc = assert false
+
+let apply_chrome_model params acc = assert false
 
 let apply_likelihood_model params acc =
     let proc_model (((name,((kind,site,alpha,invar) as var),
@@ -1579,16 +1589,13 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                             [] data
                     in
                     add_branch_data (trees,chars,bls) acc
-                | P.GapOpening (true, name, character_set) ->
-                    apply_gap_opening character_set acc
-                | P.DynamicWeight (true, name, character_set) ->
-                    apply_weight character_set acc
-                | P.Tcm (true, name, character_set) ->
-                    apply_tcm character_set acc
-                | P.Level (true, name, character_set) ->
-                    assert false
-                | P.Likelihood params ->
-                    apply_likelihood_model params acc
+                | P.GapOpening (true,name,set)    -> apply_gap_opening set acc
+                | P.DynamicWeight (true,name,set) -> apply_weight set acc
+                | P.Tcm (true, name, set)         -> apply_tcm set acc
+                | P.Level (true, name, set)       -> apply_level set acc
+                | P.Likelihood params -> apply_likelihood_model params acc
+                | P.Genome params     -> apply_genome_model params acc
+                | P.Chrom params      -> apply_chrome_model params acc
                 | P.DynamicWeight (false, _ , _ )
                 | P.Level (false, _, _ )
                 | P.Tcm (false, _ , _ )

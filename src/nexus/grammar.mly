@@ -27,11 +27,14 @@ let report_error text b e =
 %token EOF
 %token <string> ALPHA
 %token <string> ANCSTATES
+%token <string> ANNOTATIONS
+%token <string> APPROXIMATE
 %token <string> ASSUMPTIONS
 %token <string> AVERAGE
 %token <string> BEGIN
 %token <string> BINHEX
 %token <string> BOTH
+%token <string> BREAKPOINT
 %token <string> CHANGESET
 %token <char>   CHAR
 %token <string> CHARACTER
@@ -41,6 +44,8 @@ let report_error text b e =
 %token <string> CHARPARTITION
 %token <string> CHARSET
 %token <string> CHARSTATELABELS
+%token <string> CHROMOSOME
+%token <string> CIRCULAR
 %token <string> CODEORDER
 %token <string> CODESET
 %token <string> CODONS
@@ -50,15 +55,16 @@ let report_error text b e =
 %token <string> COUNT
 %token <string> COUPLED
 %token <string> CSTREE
+%token <string> COVERAGE
 %token <string> DATA
 %token <string> DATACSTREE
-%token <string> QUOTED
-%token <string> SINGLEQUOTED
 %token <string> DATATYPE
 %token <string> DEFTYPE
+%token <string> DEFAULT
 %token <string> DIAGONAL
 %token <string> DIMENSIONS
 %token <string> DISTANCES
+%token <string> DISTANCE
 %token <string> DNA
 %token <string> DROS
 %token <string> ELIMINATE
@@ -73,12 +79,14 @@ let report_error text b e =
 %token <string> FORMAT
 %token <string> FREQUENCY
 %token <string> GAP
-%token <string> GAPMODE
 %token <string> GAPOPENING
 %token <string> GENETICCODE
+%token <string> GENOME
 %token <string> GIF
+%token <string> INDEL
 %token <string> INDIVIDUALS
 %token <string> INLINE
+%token <string> INVERSION
 %token <string> INTERLEAVE
 %token <string> ITEMS
 %token <string> JPEG
@@ -91,6 +99,7 @@ let report_error text b e =
 %token <string> MAP
 %token <string> MATCHCHAR
 %token <string> MATRIX
+%token <string> MAUVE
 %token <string> MAX
 %token <string> MAXSTEPS
 %token <string> MEDIAN
@@ -118,13 +127,17 @@ let report_error text b e =
 %token <string> POLYTCOUNT
 %token <string> PRIORS
 %token <string> PROTEIN
+%token <string> QUALITY
+%token <string> QUOTED
 %token <string> RESOURCE
 %token <string> RESPECTCASE
 %token <string> RNA
 %token <string> SAMPLESIZE
 %token <string> SETS
+%token <string> SINGLEQUOTED
 %token <string> SITES
 %token <string> SOURCE
+%token <string> SOLVER
 %token <string> STANDARD
 %token <string> STATE
 %token <string> STATELABELS
@@ -135,6 +148,7 @@ let report_error text b e =
 %token <string> STDERROR
 %token <string> STEPMATRIX
 %token <string> SYMBOLS
+%token <string> SYMMETRIC
 %token <string> TAXON
 %token <string> TAXA
 %token <string> TAXLABELS
@@ -302,8 +316,8 @@ polytcount:
     | { P.MinSteps }
     ;
 gapmode:
-    | GAPMODE EQUAL MISSING { P.Missing }
-    | GAPMODE EQUAL NEWSTATE { P.NewState }
+    | GAP EQUAL MISSING { P.Missing }
+    | GAP EQUAL NEWSTATE { P.NewState }
     | { P.NewState }
     ;
 optional_user_type:
@@ -475,13 +489,70 @@ poy_block:
         { (P.Tcm ($2, $3, $5)) :: $7 }
     | LEVEL do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
         { (P.Level($2,$3,$5)) :: $7 }
+    | CHROMOSOME chrome_options SEMICOLON poy_block
+        { (P.Chrom $2) :: $4 }
+    | GENOME genome_options SEMICOLON poy_block
+        { (P.Genome $2) :: $4 }
     |   { [] }
     ;
-charbranch_block : 
-    | TREES EQUAL names charbranch_block                        { (P.Tree_Names $3) :: $4 }
-    | CHARSET EQUAL characterset_list SEMICOLON charbranch_block  { (P.Set_Names $3) :: $5 }
-    | MAP pairs_list_float SEMICOLON charbranch_block           { (P.Labeling $2) :: $4 }
-    |  { [] }
+annotation_options :
+    | QUALITY EQUAL FLOAT SEMICOLON annotation_options
+            { (P.Annot_Quality (float_of_string $3)) :: $5 }
+    | MIN EQUAL INTEGER SEMICOLON annotation_options
+            { (P.Annot_Min (int_of_string $3)) :: $5 }
+    | MAX EQUAL INTEGER SEMICOLON annotation_options
+            { (P.Annot_Max (int_of_string $3)) :: $5 }
+    | COVERAGE EQUAL FLOAT SEMICOLON annotation_options
+            {   let len = float_of_string $3 in
+                assert( len > 0.0 && len <= 1.0 );
+                (P.Annot_Coverage len) :: $5
+            }
+    | MODEL EQUAL MAUVE SEMICOLON annotation_options
+            { (P.Annot_Type `Mauve) :: $5 }
+    | MODEL EQUAL DEFAULT SEMICOLON annotation_options
+            { (P.Annot_Type `Default) :: $5 }
+    |       { [] }
+    ;
+chrome_options :
+    | SOLVER EQUAL IDENT SEMICOLON chrome_options
+            { (P.Chrom_Solver $3) :: $5 }
+    | MEDIAN EQUAL INTEGER SEMICOLON chrome_options
+            { (P.Chrom_Median (int_of_string $3)) :: $5 }
+    | BREAKPOINT EQUAL INTEGER SEMICOLON chrome_options
+            { (P.Chrom_Locus_Breakpoint (int_of_string $3)) :: $5 }
+    | SYMMETRIC SEMICOLON chrome_options
+            { (P.Chrom_Symmetric true) :: $3 }
+    | APPROXIMATE SEMICOLON chrome_options
+            { (P.Chrom_Approx true) :: $3 }
+    | INDEL EQUAL INTEGER COMMA FLOAT SEMICOLON chrome_options
+            { (P.Chrom_Locus_Indel (int_of_string $3, float_of_string $5)) :: $7 }
+    | INVERSION EQUAL INTEGER SEMICOLON chrome_options
+            { (P.Chrom_Locus_Inversion (int_of_string $3)) :: $5 }
+    | ANNOTATIONS annotation_options SEMICOLON chrome_options
+            { (P.Chrom_Annotations $2) :: $4 }
+    |       { [] }
+    ;
+genome_options :
+    | CIRCULAR SEMICOLON genome_options
+            { (P.Genome_Circular true) :: $3 }
+    | BREAKPOINT EQUAL INTEGER SEMICOLON genome_options
+            { (P.Genome_Breakpoint (int_of_string $3)) :: $5 }
+    | INDEL EQUAL FLOAT SEMICOLON genome_options
+            { (P.Genome_Indel (float_of_string $3)) :: $5 }
+    | MEDIAN EQUAL INTEGER SEMICOLON genome_options
+            { (P.Genome_Median (int_of_string $3)) :: $5 }
+    | DISTANCE EQUAL FLOAT SEMICOLON genome_options
+            { (P.Genome_Distance (float_of_string $3)) :: $5 }
+    |       { [] }
+    ;
+charbranch_block :
+    | TREES EQUAL names charbranch_block
+        { (P.Tree_Names $3) :: $4 }
+    | CHARSET EQUAL characterset_list SEMICOLON charbranch_block
+        { (P.Set_Names $3) :: $5 }
+    | MAP pairs_list_float SEMICOLON charbranch_block
+        { (P.Labeling $2) :: $4 }
+    |   { [] }
     ;
 model_block:
     | MODEL EQUAL IDENT SEMICOLON model_block
@@ -818,7 +889,6 @@ any_thing_minus_end:
     | FORMAT { () }
     | FREQUENCY { () }
     | GAP { () }
-    | GAPMODE { () }
     | GENETICCODE { () }
     | GIF { () }
     | INDIVIDUALS { () }

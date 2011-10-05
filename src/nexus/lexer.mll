@@ -5,12 +5,14 @@
     let keyword_table = Hashtbl.create 53
     let token_table = [
         ("ANCSTATES", fun x -> ANCSTATES x);
+        ("APPROXIMATE", fun x -> APPROXIMATE x);    (* poy block *)
         ("ASSUMPTIONS", fun x -> ASSUMPTIONS x);
         ("AVERAGE", fun x -> AVERAGE x);
         ("ALPHA", fun x -> ALPHA x);
         ("BEGIN", fun x -> BEGIN x);
         ("BINHEX", fun x -> BINHEX x);
         ("BOTH", fun x -> BOTH x);
+        ("BREAKPOINT", fun x -> BOTH x);        (* chrom poy block *)
         ("CHANGESET", fun x -> CHANGESET x);
         ("CHARACTER", fun x -> CHARACTER x);
         ("CHARACTERBRANCH", fun x -> CHARACTERBRANCH x);   (* used in POY block *)
@@ -19,22 +21,26 @@
         ("CHARPARTITION", fun x -> CHARPARTITION x);
         ("CHARSET", fun x -> CHARSET x);
         ("CHARSTATELABELS", fun x -> CHARSTATELABELS x);
+        ("CHROMOSOME", fun x -> CHROMOSOME x);              (* poy block *)
+        ("CIRCULAR", fun x -> CIRCULAR x);                  (* poy block *)
         ("CODEORDER", fun x -> CODEORDER x);
         ("CODESET", fun x -> CODESET x);
-(*        ("CODONS", fun x -> CODONS x); we can't handle the codons block *)
+        ("CODONS", fun x -> CODONS x);
         ("CONDONPOSSET", fun x -> CONDONPOSSET x);
         ("CONTINUOUS", fun x -> CONTINUOUS x);
         ("COST", fun x -> COST x);
         ("COUNT", fun x -> COUNT x);
         ("COUPLED", fun x -> COUPLED x);
         ("CSTREE", fun x -> CSTREE x);
+        ("COVERAGE", fun x -> COVERAGE x);
         ("DATA", fun x -> DATA x);
         ("DATATYPE", fun x -> DATATYPE x);
         ("DEFTYPE", fun x -> DEFTYPE x);
+        ("DEFAULT", fun x -> DEFAULT x);
         ("DIAGONAL", fun x -> DIAGONAL x);
         ("DIMENSIONS", fun x -> DIMENSIONS x);
-        ("DIMENSIONS", fun x -> DIMENSIONS x);
         ("DISTANCES", fun x -> DISTANCES x);
+        ("DISTANCE", fun x -> DISTANCE x);
         ("DNA", fun x -> DNA x);
         ("DROS", fun x -> DROS x);
         ("ELIMINATE", fun x -> ELIMINATE x);
@@ -49,13 +55,14 @@
         ("FORMAT", fun x -> FORMAT x);
         ("FREQUENCY", fun x -> FREQUENCY x);
         ("GAP", fun x -> GAP x);
-        ("GAPMODE", fun x -> GAPMODE x);
         ("GAPOPENING", fun x -> GAPOPENING x);  (* poy block command *)
         ("GENETICCODE", fun x -> GENETICCODE x);
+        ("GENOME", fun x -> GENOME x);          (* poy block *)
         ("GIF", fun x -> GIF x);
+        ("INDEL", fun x -> INDEL x);            (* poy block *)
         ("INDIVIDUALS", fun x -> INDIVIDUALS x);
         ("INLINE", fun x -> INLINE x);
-        ("INTERLEAVE", fun x -> INTERLEAVE x);
+        ("INVERSION", fun x -> INVERSION x);
         ("INTERLEAVE", fun x -> INTERLEAVE x);
         ("ITEMS", fun x -> ITEMS x);
         ("JPEG", fun x -> JPEG x);
@@ -66,6 +73,7 @@
         ("LOWER", fun x -> LOWER x); 
         ("MAM", fun x -> MAM x);
         ("MAP", fun x -> MAP x);                (* used in POY block *)
+        ("MAUVE", fun x -> MAUVE x);
         ("MATCHCHAR", fun x -> MATCHCHAR x);
         ("MATRIX", fun x -> MATRIX x);
         ("MAX", fun x -> MAX x);
@@ -73,7 +81,6 @@
         ("MEDIAN", fun x -> MEDIAN x);
         ("MIN", fun x -> MIN x);
         ("MINSTEPS", fun x -> MINSTEPS x);
-        ("MISSING", fun x -> MISSING x);
         ("MISSING", fun x -> MISSING x);
         ("MODEL", fun x -> MODEL x);
         ("MTDNA", fun x -> MTDNA x);
@@ -94,14 +101,15 @@
         ("PICTURE", fun x -> PICTURE x);
         ("POLYTCOUNT", fun x -> POLYTCOUNT x);
         ("POY", fun x -> POY x);                (* POY block start *)
-        ("PRIORS", fun x -> PRIORS x);
+        ("PRIORS", fun x -> PRIORS x);          (* poy block *)
         ("PROTEIN", fun x -> PROTEIN x);
+        ("QUALITY", fun x -> QUALITY x);
         ("RESOURCE", fun x -> RESOURCE x);
         ("RESPECTCASE", fun x -> RESPECTCASE x);
         ("RNA", fun x -> RNA x);
         ("SAMPLESIZE", fun x -> SAMPLESIZE x);
         ("SETS", fun x -> SETS x);
-        ("SITES", fun x -> SITES x);
+        ("SITES", fun x -> SITES x);            (* poy block *)
         ("SOURCE", fun x -> SOURCE x);
         ("STANDARD", fun x -> STANDARD x);
         ("STATE", fun x -> STATE x);
@@ -113,6 +121,7 @@
         ("STDERROR", fun x -> STDERROR x);
         ("STEPMATRIX", fun x -> STEPMATRIX x);
         ("SYMBOLS", fun x -> SYMBOLS x);
+        ("SYMMETRIC", fun x -> SYMMETRIC x);    (* poy block *)
         ("TAXA", fun x -> TAXA x);
         ("TAXON", fun x -> TAXON x);
         ("TAXLABELS", fun x -> TAXLABELS x);
