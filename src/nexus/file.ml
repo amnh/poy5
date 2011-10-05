@@ -163,8 +163,7 @@ type unaligned = (* information to define unaligned data *)
         u_alph   : Alphabet.a;
         u_model  : MlModel.model option;
         u_data   : (Sequence.s list list list * taxon) list;
-        u_genome : int option; (* PLACEHOLDER - waiting for lin *)
-        u_chrome : int option; (* PLACEHOLDER - waiting for lin *)
+        u_pam    : Dyn_pam.dyna_pam_t option;
     }
 
 type nexus = {
@@ -187,8 +186,7 @@ let default_unaligned data alph : unaligned =
         u_alph = alph;
         u_model = None;
         u_data = data;
-        u_chrome = None;
-        u_genome = None;
+        u_pam = None;
     }
 
 let empty_parsed () = {
@@ -1412,9 +1410,114 @@ let unaligned_priors_of_seq alph xsssts =
     MlModel.compute_priors (alph,true) priors (!counter,0) lengths
 
 
-let apply_genome_model params acc = assert false
+let apply_genome_model set params (acc: nexus) : nexus =
+    let update current = function
+        | P.Genome_Median x ->
+            { current with Dyn_pam.keep_median = Some x; }
+        | P.Genome_Indel (x,y) ->
+            { current with Dyn_pam.chrom_indel_cost = Some (x,int_of_float (y*.100.0)); }
+        | P.Genome_Breakpoint x ->
+            { current with Dyn_pam.chrom_breakpoint = Some x; }
+        | P.Genome_Distance x ->
+            { current with Dyn_pam.chrom_hom = Some (int_of_float (x*.100.0)); }
+        | P.Genome_Circular true ->
+            { current with Dyn_pam.circular = Some 1; }
+        | P.Genome_Circular false ->
+            { current with Dyn_pam.circular = Some 0; }
+    in
+    let assign_genome params u pos =
+        let pam = 
+            List.fold_left
+                update
+                (match u.(pos).u_pam with | None -> Dyn_pam.dyna_pam_default | Some x -> x)
+                params
+        in
+        u.(pos) <- { u.(pos) with u_pam = Some pam; }
+    in
+    let unaligned = Array.of_list (List.rev acc.unaligned) in
+    List.iter (apply_on_unaligned_set unaligned (assign_genome params unaligned)) set;
+    let unaligned = List.rev (Array.to_list unaligned) in
+    { acc with unaligned = unaligned; }
 
-let apply_chrome_model params acc = assert false
+
+let apply_chrome_model set params acc =
+    let create_annotation xs : Dyn_pam.annotate_tool_t =
+        if List.mem (P.Annot_Type `Mauve) xs then begin
+            let qual =
+                let x = List.find (function | P.Annot_Quality _ -> true | _ -> false) xs in
+                match x with | P.Annot_Quality x -> x | _ -> assert false
+            and minl = 
+                let x = List.find (function | P.Annot_Min _ -> true | _ -> false) xs in
+                match x with | P.Annot_Min x -> x | _ -> assert false
+            and maxl = 
+                let x = List.find (function | P.Annot_Max _ -> true | _ -> false) xs in
+                match x with | P.Annot_Max x -> x | _ -> assert false
+            and cvrg = 
+                let x =List.find (function | P.Annot_Coverage _ -> true | _ -> false) xs in
+                match x with | P.Annot_Coverage x -> x | _ -> assert false
+            in
+            `Mauve (qual,minl,cvrg,maxl)
+        end else begin
+            let minl =
+                try let x =List.find (function | P.Annot_Min _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Min x -> x | _ -> assert false
+                with | Not_found -> 9
+            and loci =
+                try let x =List.find (function | P.Annot_Max _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Max x -> x | _ -> assert false
+                with | Not_found -> 100
+            and relen=
+                try let x =List.find (function | P.Annot_Rearrangement _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Rearrangement x -> x | _ -> assert false
+                with | Not_found -> 100
+            in
+            `Default (minl,loci,relen)
+        end
+    in
+    let update current = function
+        | P.Chrom_Solver x ->
+            let solver = match String.uppercase x with
+                | "VINH"     -> `Vinh
+                | "MGR"      -> `MGR
+                | "ALBERT"   -> `Albert
+                | "SIEPEL"   -> `Siepel
+                | "BBTSP"    -> `BBTSP
+                | "COALESTSP"-> `COALESTSP
+                | "CHAINEDLK"-> `ChainedLK
+                | "SIMPLELK" -> `SimpleLK
+                | "DEFAULT"  -> `Vinh
+                | x          -> failwith ("Unknown Median Solver"^x)
+            in
+            { current with Dyn_pam.median_solver = Some solver; }
+        | P.Chrom_Locus_Indel (x,y) ->
+            { current with Dyn_pam.locus_indel_cost = Some (x, int_of_float (100.0 *. y)); }
+        | P.Chrom_Locus_Breakpoint x ->
+            { current with Dyn_pam.re_meth = Some (`Locus_Breakpoint x); }
+        | P.Chrom_Locus_Inversion x ->
+            { current with Dyn_pam.re_meth = Some (`Locus_Inversion x); }
+        | P.Chrom_Approx x ->
+            { current with Dyn_pam.approx = Some x; }
+        | P.Chrom_Median x ->
+            { current with Dyn_pam.keep_median = Some x; }
+        | P.Chrom_Symmetric x ->
+            { current with Dyn_pam.symmetric = Some x; }
+        | P.Chrom_Annotations x ->
+            { current with Dyn_pam.annotate_tool = Some (create_annotation x); }
+    in
+    let assign_chrome params u pos =
+        let pam = 
+            List.fold_left
+                update
+                (match u.(pos).u_pam with | None -> Dyn_pam.dyna_pam_default | Some x -> x)
+                params
+        in
+        u.(pos) <- { u.(pos) with u_pam = Some pam; }
+    in
+    let unaligned = Array.of_list (List.rev acc.unaligned) in
+    List.iter (apply_on_unaligned_set unaligned (assign_chrome params unaligned)) set;
+    let unaligned = List.rev (Array.to_list unaligned) in
+    { acc with unaligned = unaligned; }
+
 
 let apply_likelihood_model params acc =
     let proc_model (((name,((kind,site,alpha,invar) as var),
@@ -1593,9 +1696,9 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                 | P.DynamicWeight (true,name,set) -> apply_weight set acc
                 | P.Tcm (true, name, set)         -> apply_tcm set acc
                 | P.Level (true, name, set)       -> apply_level set acc
-                | P.Likelihood params -> apply_likelihood_model params acc
-                | P.Genome params     -> apply_genome_model params acc
-                | P.Chrom params      -> apply_chrome_model params acc
+                | P.Likelihood params   -> apply_likelihood_model params acc
+                | P.Genome (params,set) -> apply_genome_model set params acc
+                | P.Chrom (params,set)  -> apply_chrome_model set params acc
                 | P.DynamicWeight (false, _ , _ )
                 | P.Level (false, _, _ )
                 | P.Tcm (false, _ , _ )

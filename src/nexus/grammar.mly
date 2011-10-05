@@ -489,10 +489,10 @@ poy_block:
         { (P.Tcm ($2, $3, $5)) :: $7 }
     | LEVEL do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
         { (P.Level($2,$3,$5)) :: $7 }
-    | CHROMOSOME chrome_options SEMICOLON poy_block
-        { (P.Chrom $2) :: $4 }
-    | GENOME genome_options SEMICOLON poy_block
-        { (P.Genome $2) :: $4 }
+    | CHROMOSOME chrome_options COLON characterset_list SEMICOLON poy_block
+        { (P.Chrom ($2,$4)) :: $6 }
+    | GENOME genome_options COLON characterset_list SEMICOLON poy_block
+        { (P.Genome ($2,$4)) :: $6 }
     |   { [] }
     ;
 annotation_options :
@@ -537,8 +537,8 @@ genome_options :
             { (P.Genome_Circular true) :: $3 }
     | BREAKPOINT EQUAL INTEGER SEMICOLON genome_options
             { (P.Genome_Breakpoint (int_of_string $3)) :: $5 }
-    | INDEL EQUAL FLOAT SEMICOLON genome_options
-            { (P.Genome_Indel (float_of_string $3)) :: $5 }
+    | INDEL EQUAL INTEGER COMMA FLOAT SEMICOLON genome_options
+            { (P.Genome_Indel (int_of_string $3, float_of_string $5)) :: $7 }
     | MEDIAN EQUAL INTEGER SEMICOLON genome_options
             { (P.Genome_Median (int_of_string $3)) :: $5 }
     | DISTANCE EQUAL FLOAT SEMICOLON genome_options

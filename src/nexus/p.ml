@@ -132,6 +132,7 @@ type annot_data =
     | Annot_Max of int
     | Annot_Coverage of float
     | Annot_Type of [`Mauve | `Default]
+    | Annot_Rearrangement of int
 
 type chrom_data =
     | Chrom_Solver of string
@@ -145,14 +146,14 @@ type chrom_data =
 
 type genome_data = 
     | Genome_Median of int
-    | Genome_Indel of float
+    | Genome_Indel of int * float
     | Genome_Circular of bool
     | Genome_Breakpoint of int
     | Genome_Distance of float
 
 type poy_data =  
-    | Chrom of chrom_data list
-    | Genome of genome_data list
+    | Chrom of chrom_data list * charset list
+    | Genome of genome_data list * charset list
     | CharacterBranch of character_data list
     | Likelihood of likelihood_model list
     | Tcm of (bool * string * standard_item list)
