@@ -24,6 +24,9 @@ let failwithf format = Printf.ksprintf (failwith) format
 let make_tcm_name a b = 
     "TCM" ^ string_of_int a ^ "_" ^ string_of_int b
 
+(** LIN REMOVE THIS; DANGER ZONE!! *)
+external convert_dyn :
+    Data.dyna_pam_t -> Dyn_pam.dyna_pam_t = "%identity"
 
 let make_name name =
     if name.[0] = '\'' then name else "'" ^ name ^ "'" 
@@ -238,6 +241,7 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
         let go = Buffer.create 1000
         and weights = Buffer.create 1000
         and level = Buffer.create 1000
+        and dynpam = Buffer.create 1000
         and tcm = Buffer.create 1000 in
         Buffer.add_string go "@[GAPOPENING * POYGENERATED = ";
         Buffer.add_string tcm "@[TCM * POYGENERATED = ";
@@ -274,10 +278,16 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
             Buffer.add_string level posstr;
             if pos < len then Buffer.add_string level ","
             else Buffer.add_string level ";@,@]";
+        and add_dynpam fo code data posstr =
+            match Data.get_character_state data code with
+            | `Chromosome | `Genome -> 
+                Dyn_pam.to_nexus fo (convert_dyn (Data.get_pam data code)) posstr
+            | `SeqPrealigned | `Seq | `Ml | `Annotated | `Breakinv -> ()
         in
         let add_data pos code = 
             let posstr = string_of_int (pos + 1) in
             let weight = Data.get_weight code data in
+            add_dynpam (Buffer.add_string dynpam) code data posstr;
             add_weight pos posstr weight;
             let rec add_ = function
                 | Data.Substitution_Indel (a, b) -> 
@@ -303,6 +313,7 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
         fo (Buffer.contents go);
         fo (Buffer.contents weights);
         fo (Buffer.contents level);
+        fo (Buffer.contents dynpam);
         List.iter output_nexus_model assoc_sets;
         output_characterbranch fo true labeling assoc_sets;
         fo "END;@,@]";

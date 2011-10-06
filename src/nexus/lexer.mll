@@ -104,6 +104,7 @@
         ("PRIORS", fun x -> PRIORS x);          (* poy block *)
         ("PROTEIN", fun x -> PROTEIN x);
         ("QUALITY", fun x -> QUALITY x);
+        ("REARRANGEMENT", fun x -> REARRANGEMENT x);
         ("RESOURCE", fun x -> RESOURCE x);
         ("RESPECTCASE", fun x -> RESPECTCASE x);
         ("RNA", fun x -> RNA x);

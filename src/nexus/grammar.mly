@@ -129,6 +129,7 @@ let report_error text b e =
 %token <string> PROTEIN
 %token <string> QUALITY
 %token <string> QUOTED
+%token <string> REARRANGEMENT
 %token <string> RESOURCE
 %token <string> RESPECTCASE
 %token <string> RNA
@@ -511,6 +512,8 @@ annotation_options :
             { (P.Annot_Type `Mauve) :: $5 }
     | MODEL EQUAL DEFAULT SEMICOLON annotation_options
             { (P.Annot_Type `Default) :: $5 }
+    | REARRANGEMENT EQUAL INTEGER SEMICOLON annotation_options
+            { (P.Annot_Rearrangement (int_of_string $3)):: $5 }
     |       { [] }
     ;
 chrome_options :

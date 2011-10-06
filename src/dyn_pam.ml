@@ -88,4 +88,75 @@ let dyna_pam_default = {
     mode = None;
 }
 
+let rec meth_to_string = function
+    | Some `MGR       -> "mgr"
+    | Some `Vinh      -> "vinh"
+    | Some `Albert    -> "albert"
+    | Some `Siepel    -> "siepel"
+    | Some `BBTSP     -> "bbtsp"
+    | Some `COALESTSP -> "coalestsp"
+    | Some `ChainedLK -> "chainedlk"
+    | Some `SimpleLK  -> "simplelk"
+    | None            -> assert false
 
+let annotate_to_nexus fo annot : unit = match annot with
+    | Some `Default (x,y,z) ->
+        fo ("@[Annotations@, ");
+        fo ("@[Model = Default;@]@, ");
+        fo ("@[Min = "^(string_of_int x)^";@]@, ");
+        fo ("@[Max = "^(string_of_int y)^";@]@, ");
+        fo ("@[Rearrangement = "^(string_of_int y)^";@]@, ");
+        fo ("@,;@,@]")
+    | Some `Mauve (w,x,y,z) ->
+        fo ("@[Annotations@, ");
+        fo ("@[Model = Mauve;@]@, ");
+        fo ("@[Quality = "^(string_of_float w)^";@]@, ");
+        fo ("@[Min = "^(string_of_int x)^";@]@, ");
+        fo ("@[Max = "^(string_of_int z)^";@]@, ");
+        fo ("@[Coverge = "^(string_of_float y)^";@]@, ");
+        fo ("@,;@,@]")
+    | None ->
+        assert false
+
+let print_characters fo chars = ()
+
+let to_nexus fo pam chars : unit =
+    let rec get_some = function | Some x -> x | None -> assert false in
+    (* we assume nothing is NONE *)
+    match pam.mode with
+    | Some `Chromosome ->
+        fo "@[Chromosome@, ";
+        fo ("@[solver = "^meth_to_string pam.median_solver^";@]@, ");
+        fo ("@[median = "^string_of_int (get_some pam.keep_median)^";@]@, ");
+        fo (if get_some pam.symmetric then "@[symmetric;@]@, " else "");
+        fo (match pam.re_meth with
+            | Some `Locus_Breakpoint x -> "@[Breakpoint = "^(string_of_int x)^";@]@, "
+            | Some `Locus_Inversion x  -> "@[Inversion = "^(string_of_int x)^";@]@, "
+            | None -> assert false);
+        fo (if get_some pam.approx then "@[approximate;@]@, " else "");
+        fo (match pam.locus_indel_cost with
+            | Some (x,y) ->
+                let y = (float_of_int y) /. 100.0 in
+                "@[indel = "^(string_of_int x)^","^(string_of_float y)^";@]@, "
+            | None -> assert false);
+        annotate_to_nexus fo pam.annotate_tool;
+        fo "@,@]:";
+        print_characters fo chars;
+        fo "@,;@]@."
+
+    | Some `Genome ->
+        fo "@[Genome@, ";
+        fo ("@[median = "^string_of_int (get_some pam.keep_median)^";@]@, ");
+        fo (if 1 = (get_some pam.circular) then "@[circular;@]@, " else "");
+        fo ("@[breakpoint = "^string_of_int (get_some pam.chrom_breakpoint)^";@]@, ");
+        fo ("@[distance = "^string_of_float ((float_of_int (get_some pam.chrom_hom))/. 100.0) ^";@]@, ");
+        fo (match pam.locus_indel_cost with
+            | Some (x,y) ->
+                let y = (float_of_int y) /. 100.0 in
+                "@[indel = "^(string_of_int x)^","^(string_of_float y)^";@]@, "
+            | None -> assert false);
+        fo "@,@]:";
+        print_characters fo chars;
+        fo "@,;@]@."
+
+    | None -> ()
