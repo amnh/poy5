@@ -1424,7 +1424,7 @@ let repack_codes data =
 
 let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
                              annotated alphabet file dyna_state data res
-                             lk_model =
+                             lk_model dyna_pam =
     let data = duplicate data in
     let res = 
         (* Place a single sequence together with its taxon *)
@@ -1447,30 +1447,6 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
                      max max_loci (Array.length loci_arr))
                 ~init:0 arr 
         in
-        (* Check for errors *)
-        (* we are going to deal with multichromosome genomes, each of them could
-        * have different number chromosomes, this error check must be
-        * modified*)
-        (* (if (annotated = false) && (dyna_state != `Genome) then 
-            match Array.length arr with
-            | 0 -> ()
-            | n ->
-                  let init = ref (Array.length arr.(0)) in 
-                  Array.iteri (fun pos x ->  
-                       if 0 = (Array.length x) || !init = (Array.length x) then ()
-                       else if !init = 0 then init := Array.length x
-                       else begin 
-                           let _, name = x.(0) in 
-                           Status.user_message Status.Error 
-                               ("Sequence " ^ StatusCommon.escape name ^  
-                                " has an inconsistent number of fragments. " 
-                                ^ "I expect " ^ string_of_int !init ^  
-                                " based on previous sequences, but it has " 
-                                ^ string_of_int (Array.length x)
-                               ); 
-                           failwith ("Inconsistent input file " ^  file);  
-                   end) arr
-        ); *)
         let res = ref [] in
         for j = loci - 1 downto 0 do 
             let loci = ref [] in
@@ -1492,15 +1468,19 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
     let original_filename = file in
     let locus_name = 
         let c = ref (-1) in
-        ref (fun () ->
-            incr c;
-            file ^ ":" ^ string_of_int !c)
+        ref (fun () -> incr c; file ^ ":" ^ string_of_int !c)
     in
-    let dyna_state = 
-        match annotated with
-        | true -> `Annotated
-        | false -> dyna_state
-    in 
+    let dyna_pam = match dyna_pam with
+        | Some x -> x
+        | None   -> dyna_pam_default
+    in
+    let dyna_state : dyna_state_t =
+        match annotated,dyna_pam.Dyn_pam.mode with
+        | true, _    -> `Annotated
+        | false,None -> dyna_state
+        |  _, Some `Chromosome -> `Chromosome
+        |  _, Some `Genome -> `Genome
+    in
     let add_character data = 
         let file = 
             if  annotated || (dyna_state = `Chromosome) then 
@@ -1521,7 +1501,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             lk_model = lk_model;
             alph = alphabet;
             state = dyna_state;
-            pam = dyna_pam_default;
+            pam = dyna_pam;
             weight = weight; 
             polymorphism = `Do_All} 
         in
@@ -1820,13 +1800,12 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
             in
             match u.Nexus.File.u_model with
             | Some _ ->
-                Methods.cost := `Iterative (`ThreeD None);
                 process_parsed_sequences 
                     false u.Nexus.File.u_weight (Substitution_Indel (1,2))
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
                     `DO false u.Nexus.File.u_alph file `Ml data u.Nexus.File.u_data
-                    u.Nexus.File.u_model
-            | None -> 
+                    u.Nexus.File.u_model u.Nexus.File.u_pam
+            | None ->
                 let tcm,name = match u.Nexus.File.u_tcm with
                     | None ->
                         Cost_matrix.Two_D.of_transformations_and_gaps 
@@ -1863,6 +1842,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                 process_parsed_sequences false u.Nexus.File.u_weight name tcm
                                         tcm3d `DO false u.Nexus.File.u_alph file
                                         `Seq data u.Nexus.File.u_data None
+                                        u.Nexus.File.u_pam
         in
         List.fold_left ~f:(single_sequence_adder) 
                        ~init:data file_out.Nexus.File.unaligned
@@ -2046,7 +2026,7 @@ let print_error_message fl =
     Status.user_message Status.Error msg
 
 
-let aux_process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 alphabet processor builder dyna_state data file = 
+let aux_process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 alphabet processor builder dyna_state data file =
     begin try
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
@@ -2111,10 +2091,10 @@ let process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 annotated al
             (fun alph parsed -> 
                 process_parsed_sequences is_prealigned 1.0 
                 tcmfile tcm tcm3 mode annotated 
-                alph (FileStream.filename file) dyna_state data parsed None)
+                alph (FileStream.filename file) dyna_state data parsed None None)
             (fun x -> 
                 if not is_prealigned then FileContents.AlphSeq x
-                else FileContents.Prealigned_Alphabet x) 
+                else FileContents.Prealigned_Alphabet x)
             dyna_state data file
     in
     data
@@ -4694,9 +4674,9 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
                     data.taxon_codes []
             in                   
             process_parsed_sequences false 1.0 tcmfile tcm tcm3d `DO false 
-                                     alph char_name `Seq data seqs None)
+                                     alph char_name `Seq data seqs None None)
         ~init:data tran_code_ls 
-    in 
+    in
     categorize data
 
 

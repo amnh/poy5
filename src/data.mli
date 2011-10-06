@@ -52,81 +52,43 @@ type dyna_state_t = [
 (** A sequence of gene names, rearrangements are allowed *)
 | `Breakinv ]
 
+type polymorphism_t = Methods.polymorphism_arg
 
-type re_meth_t = [ (* The cost of a rearrangement event is the argument *)
-    | `Locus_Breakpoint of int    
-    | `Locus_Inversion of int ]
-
-type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP |
-`ChainedLK | `SimpleLK ]
-
-type annotate_tool_t = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
-
-type align_meth_t = [ `NewKK | `Default ]
-
-type polymorphism_t = Methods.polymorphism_arg(*[ `Do_All | `Pick_One | `Do_Nothing ]*)
-
+(* none of the following should be in this module ... *)
+type annotate_tool_t =
+    [ `Default of int * int * int | `Mauve of float * int * float * int ]
+type median_solver_t =
+    [ `Albert
+    | `BBTSP
+    | `COALESTSP
+    | `ChainedLK
+    | `MGR
+    | `Siepel
+    | `SimpleLK
+    | `Vinh ]
+type align_meth_t = [ `Default | `NewKK ]
+type re_meth_t = [ `Locus_Breakpoint of int | `Locus_Inversion of int ]
 type dyna_pam_t = {
-    align_meth : align_meth_t option;
-
-    median_solver: median_solver_t option; 
-
-    annotate_tool: annotate_tool_t option;
- (*   
-    (* The minimum length of a perfect match to start
-     * the detection of a homologous segment between a pair of chromosomes *)
-    seed_len : int option;  
- *)
-    (** Cost parameters of rearrangement function which is either
-    * breakpoint distance or inversion distance *)
-    re_meth : re_meth_t option;
-
-    circular : int option; (* 0 is false, 1 is true, integer due to the grappa
-    interface requirements *)
-
-    (** [(a, b)] where [a] is the opening cost and [b] is the extension cost *)
-    locus_indel_cost : (int * int) option; 
-
-    (** [(a, b)] where [a] is the opening cost and [b] is the extension cost *)
-    chrom_indel_cost : (int * int) option; 
-
-(** The maximum cost between two chromosomes
- * at which they are considered as homologous chromosomes *)
-   chrom_hom : int option;
-
-     (** The cost of a breakpoint happing between two chromosome *)
-    chrom_breakpoint : int option;
-(*
-(**  the minimum length of a block which will be 
-* considered as a homologous block *)
-    sig_block_len : int option;
-
-    (** It's believed that no rearrangments or reversions happened 
-        within a segment whose length < unbreaked_len *)
-    rearranged_len : int option;
-*)
-    (** The maximum number of medians at one node kept during the search*)
-    keep_median : int option; 
-    
-(* The number of medians to be kept in an internal node *)
-    swap_med : int option;
-                    (* Number of rounds of swapping that is to be used in the
-                    * rearranged median search. If None, the default is 1 (see
-                    * the chromosome side). *)
-    approx : bool option; (* Convert the chromosomes into Sankoff characters *)
-
-    (** symmetric = true, calculate the both distances between X to Y
-     * and vice versa. Otherwise, only form X to Y *) 
-    symmetric : bool option; 
-
-(* maximum length used to align 3 sequences in order to reduce the time consuming *)
-    max_3d_len : int option; 
-
-    (** maximum of Wagner-based alignments are kept during 
-    * the pairwise alignment with rearrangements *)
-    max_kept_wag : int option;
-
+  align_meth : align_meth_t option;
+  median_solver : median_solver_t option;
+  annotate_tool : annotate_tool_t option;
+  re_meth : re_meth_t option;
+  circular : int option;
+  locus_indel_cost : (int * int) option;
+  chrom_indel_cost : (int * int) option;
+  chrom_hom : int option;
+  chrom_breakpoint : int option;
+  keep_median : int option;
+  swap_med : int option;
+  approx : bool option;
+  symmetric : bool option;
+  max_3d_len : int option;
+  max_kept_wag : int option;
+  mode : [ `Chromosome | `Genome ] option;
 }
+val dyna_pam_default : dyna_pam_t
+(* done *)
+
 type clip = Clip | NoClip
 
 type tcm_definition = 
@@ -453,10 +415,11 @@ val get_weight : int -> d -> float
 
 val get_weights : d -> (int * float) list
 
-val process_parsed_sequences : 
+val process_parsed_sequences :
      bool -> float -> tcm_definition -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m ->
         dyna_initial_assgn -> bool -> Alphabet.a -> string -> dyna_state_t ->
-            d -> (Sequence.s list list list * Parser.E.taxon) list -> MlModel.model option -> d
+            d -> (Sequence.s list list list * Parser.E.taxon) list -> MlModel.model option
+                -> dyna_pam_t option -> d
 
 val process_molecular_file : ?respect_case:bool -> tcm_definition -> Cost_matrix.Two_D.m ->
     Cost_matrix.Three_D.m -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 

@@ -60,7 +60,11 @@ type dyna_pam_t = {
 
     (** maximum of Wagner-based alignments are kept during 
     * the pairwise alignment with rearrangements *)
-    max_kept_wag : int option; 
+    max_kept_wag: int option; 
+
+    (** what variables are enabled in this structure; since things are
+    * demarcated properly **)
+    mode : [ `Chromosome | `Genome] option
 }
 
 (** [dyna_pam_default] assigns default values for parameters 
@@ -81,6 +85,7 @@ let dyna_pam_default = {
     symmetric = Some true;
     max_3d_len = Some 100;
     max_kept_wag = Some 1;
+    mode = None;
 }
 
 

@@ -1427,10 +1427,11 @@ let apply_genome_model set params (acc: nexus) : nexus =
     in
     let assign_genome params u pos =
         let pam = 
-            List.fold_left
-                update
-                (match u.(pos).u_pam with | None -> Dyn_pam.dyna_pam_default | Some x -> x)
-                params
+            let pam = match u.(pos).u_pam with 
+                | None -> { Dyn_pam.dyna_pam_default with Dyn_pam.mode = Some `Genome; }
+                | Some x -> { x with Dyn_pam.mode = Some `Genome; }
+            in
+            List.fold_left update pam params
         in
         u.(pos) <- { u.(pos) with u_pam = Some pam; }
     in
@@ -1505,11 +1506,12 @@ let apply_chrome_model set params acc =
             { current with Dyn_pam.annotate_tool = Some (create_annotation x); }
     in
     let assign_chrome params u pos =
-        let pam = 
-            List.fold_left
-                update
-                (match u.(pos).u_pam with | None -> Dyn_pam.dyna_pam_default | Some x -> x)
-                params
+        let pam =
+            let pam = match u.(pos).u_pam with 
+                | None -> { Dyn_pam.dyna_pam_default with Dyn_pam.mode = Some `Chromosome; }
+                | Some x -> { x with Dyn_pam.mode = Some `Chromosome; }
+            in
+            List.fold_left update pam params
         in
         u.(pos) <- { u.(pos) with u_pam = Some pam; }
     in

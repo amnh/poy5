@@ -732,7 +732,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     ([[seqs]], Data.code_taxon taxon data)) sequences
             in
             Data.process_parsed_sequences false weight tcmfile tcm treed `DO
-                                          false alph name `Seq data new_data None
+                                          false alph name `Seq data new_data
+                                          None None
         in
         root 
             --> Node.get_sequences None
