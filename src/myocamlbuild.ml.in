@@ -10,7 +10,7 @@ let concordelib= "@CONCORDE_LIB@"
 "/home/lhong/concorde/concorde.a"
 *)
 let cc = "@CC@"
-let cflags = "@CFLAGS@"
+let cflags = "-Wall @CFLAGS@"
 let clibs = "@LIBS@"
 let interface = 
     if "@USEINTERFACE@" = "readline" then 
