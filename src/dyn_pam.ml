@@ -64,7 +64,7 @@ type dyna_pam_t = {
 
     (** what variables are enabled in this structure; since things are
     * demarcated properly **)
-    mode : [ `Chromosome | `Genome] option
+    mode : [`Chromosome | `Genome | `Breakinv ] option
 }
 
 (** [dyna_pam_default] assigns default values for parameters 
@@ -118,7 +118,14 @@ let annotate_to_nexus fo annot : unit = match annot with
     | None ->
         assert false
 
-let print_characters fo chars = ()
+let print_characters fo chars = 
+    match chars with
+    | []    -> ()
+    | [x]   -> fo "@,@]:";
+               fo x
+    | x::xs -> fo "@,@]:";
+               fo x;
+               List.iter (fun x -> Printf.printf ", %s" x) xs
 
 let to_nexus fo pam chars : unit =
     let rec get_some = function | Some x -> x | None -> assert false in
@@ -134,13 +141,18 @@ let to_nexus fo pam chars : unit =
             | Some `Locus_Inversion x  -> "@[Inversion = "^(string_of_int x)^";@]@, "
             | None -> assert false);
         fo (if get_some pam.approx then "@[approximate;@]@, " else "");
+        annotate_to_nexus fo pam.annotate_tool;
         fo (match pam.locus_indel_cost with
             | Some (x,y) ->
                 let y = (float_of_int y) /. 100.0 in
                 "@[indel = "^(string_of_int x)^","^(string_of_float y)^";@]@, "
             | None -> assert false);
-        annotate_to_nexus fo pam.annotate_tool;
-        fo "@,@]:";
+        print_characters fo chars;
+        fo "@,;@]@."
+
+    | Some `Breakinv ->
+        fo "@[BreakInversion@, ";
+        fo ("@[solver = "^meth_to_string pam.median_solver^";@]@, ");
         print_characters fo chars;
         fo "@,;@]@."
 
@@ -155,7 +167,6 @@ let to_nexus fo pam chars : unit =
                 let y = (float_of_int y) /. 100.0 in
                 "@[indel = "^(string_of_int x)^","^(string_of_float y)^";@]@, "
             | None -> assert false);
-        fo "@,@]:";
         print_characters fo chars;
         fo "@,;@]@."
 

@@ -71,28 +71,14 @@ module Two_D = struct
     external ini_comb2list: m -> int -> unit = "cm_CAML_ini_comb2list"
     external set_combmap: int -> int -> int -> m -> unit = "cm_CAML_set_combmap"
     external get_combmap: int -> int -> m -> int = "cm_CAML_get_combmap"
-(*
-    external print_matrix: int -> int -> m -> unit = "cm_CAML_print_matrix"
-*)
     external set_comb2list: int -> int -> int -> m -> unit = "cm_CAML_set_comb2list"
     external get_comblist : int -> int -> m -> int = "cm_CAML_get_comblist"
-    (*external get_comblist: int -> m -> 
-    (int, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t =
-        "cm_CAML_get_comblist"*)
     external set_level : m -> int -> unit = "cm_CAML_set_level"
     external get_level : m -> int = "cm_CAML_get_level"
     external get_gap_startNO: m -> int = "cm_CAML_get_gap_startNO"
     external comb2list_bigarray : m ->
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t =
-(*
-     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t =
-*)
          "cm_CAML_comb2list_to_bigarr"
-    (*
-    external bigarray_comb2list: 
-    (int,Bigarray.int_elt,Bigarray.c_layout) Bigarray.Array2.t -> m -> m =
-    "cm_CAML_bigarr_to_comb2list"
-    *)
     (* add above for level *)
     external set_all_elements : m -> int -> unit = "cm_CAML_set_all_elements"
     external get_all_elements : m -> int = "cm_CAML_get_all_elements"
@@ -144,11 +130,7 @@ module Two_D = struct
     let check_level cm =
         let level = get_level cm in
         let size = get_ori_a_sz cm in
-        let uselevel = 
-            if (level>1) && (level<=size) then true
-            else false
-        in
-        uselevel
+        (level>1) && (level<=size)
     ;;
 
     let get_pure_cost_mat cost_mat = 
@@ -163,22 +145,31 @@ module Two_D = struct
         done;
         pure_cost_mat;;
 
-    let ori_cm_to_list cost_mat level oldlevel all_elements =
+    let ori_cm_to_list cost_mat =
         let size = get_ori_a_sz cost_mat in
-        if debug then Printf.printf "ori cm to list, ori_a_sz=%d,all_elements=%d\n%!" size
-        all_elements;
         let lst = ref [] in
-        for c1 =1 to size do
-               let i =  c1 in
-               for c2 = 1 to size do 
-                    let j =  c2 in
+        if 0 = get_level cost_mat then begin
+            (* the matrix is bit-encoded, and the 2*n locations should be
+               extracted from the matrix; we append with 2*n-1 for the all row *)
+            for i = 0 to size-1 do
+                for j = 0 to size-1 do
+                    let tmp = cost (1 lsl i) (1 lsl j) cost_mat in
+                    lst := tmp :: !lst
+                done;
+            done;
+            List.rev !lst
+
+        end else begin
+            (* the matrix is sequentially ordered; the upper left corner of the
+               matrix contains the single character costs *)
+            for i =1 to size do
+               for j = 1 to size do 
                     let tmp = cost i j cost_mat in
-                    if debug then Printf.printf "(%d,%d)=%d;%!" i j tmp;
-                    lst := (!lst) @ [tmp];
+                    lst := tmp :: !lst
                done;
-               if debug then print_newline();
-        done;
-        (!lst)
+            done;
+            List.rev (!lst)
+        end
 
     let rec make_file_string ch str =
         try
@@ -283,8 +274,7 @@ module Two_D = struct
         end
 
 
-    let rec store_input_list_in_cost_matrix_all_combinations m l el1 el2 a_sz
-    =
+    let rec store_input_list_in_cost_matrix_all_combinations m l el1 el2 a_sz =
         if ((el1 > a_sz) || (el2 > a_sz)) then begin
             if (el2 > a_sz) && (el1 <= a_sz) then 
                 store_input_list_in_cost_matrix_all_combinations m l (el1 + 1) 1 a_sz 
@@ -395,34 +385,34 @@ module Two_D = struct
     * "lor" 
     * *)
     let rec test_combinations a l a_sz m best c w =
-        let gap = gap m 
-        and go = gap_opening m in
+        let gap = gap m and go = gap_opening m in
         match l with
         | b :: t ->
-                for i = 0 to a_sz - 1 do
-                    let v = 1 lsl i in 
-                    (* change: v = i+1 *)
-                    let goa =
-                        if 1 = c_affine m && v = gap && 
-                            (0 <> (a land gap)) && (0 <> (b land gap)) then 
-                                go
-                        else 0
-                    in
-                    let fh = cost a v m
-                    and sh = cost v b m in
-                    let tc = fh + sh + goa in
-                    if (tc < !c) then begin
-                        c := tc;
-                        best := v;
-                    end else if (tc == !c) then 
-                        begin
-                            best := v lor !best;         
-                        end
-                done; 
-                let cab = cost a b m in
-                if (cab > !w) then w := cab;
-                test_combinations a t a_sz m best c w;
-        | [] -> ();;
+            for i = 0 to a_sz - 1 do
+                let v = 1 lsl i in 
+                (* change: v = i+1 *)
+                let goa =
+                    if 1 = c_affine m && v = gap && 
+                        (0 <> (a land gap)) && (0 <> (b land gap)) then 
+                            go
+                    else 0
+                in
+                let fh = cost a v m
+                and sh = cost v b m in
+                let tc = fh + sh + goa in
+                if (tc < !c) then begin
+                    c := tc;
+                    best := v;
+                end else if (tc == !c) then 
+                    begin
+                        best := v lor !best;         
+                    end
+            done; 
+            let cab = cost a b m in
+            if (cab > !w) then w := cab;
+            test_combinations a t a_sz m best c w
+        | [] -> ()
+    ;;
  
     let clear_duplication_in_list oldlist =
         let oldlist = List.sort compare oldlist in
@@ -1193,7 +1183,7 @@ module Two_D = struct
         if debug then Printf.printf "create cm by level=%d, oldlevel=%d,\
         ori_sz=%d,all_elements=%d\n%!"
         level oldlevel ori_sz all_elements;
-        let ori_list = ori_cm_to_list m level oldlevel all_elements in
+        let ori_list = ori_cm_to_list m in
         let newm =
             if (level <= 1) then
                 fill_cost_matrix ~use_comb:false ~level:0 ori_list ori_sz

@@ -154,6 +154,7 @@ type genome_data =
 type poy_data =  
     | Chrom of chrom_data list * charset list
     | Genome of genome_data list * charset list
+    | BreakInv of chrom_data list * charset list
     | CharacterBranch of character_data list
     | Likelihood of likelihood_model list
     | Tcm of (bool * string * standard_item list)

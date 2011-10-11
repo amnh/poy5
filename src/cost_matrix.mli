@@ -197,6 +197,9 @@ module Two_D : sig
         int alphabet_size * alphabet_size matrix format *)  
     val get_pure_cost_mat : m -> int array array
 
+    (** return a reduced matrix; it's essence, the individual costs *)
+    val ori_cm_to_list : m -> int list
+
     (** [get_closest m x y], finds the closest element from the bitset [y] to
         the element [x] according to the two dimensional cost matrix [m]. [x]
         can be a bitset, and [y] need not to be a bitset. *)

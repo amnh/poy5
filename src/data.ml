@@ -1480,6 +1480,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
         | false,None -> dyna_state
         |  _, Some `Chromosome -> `Chromosome
         |  _, Some `Genome -> `Genome
+        |  _, Some `Breakinv -> `Breakinv
     in
     let add_character data = 
         let file = 
@@ -2400,9 +2401,10 @@ let rec taxon_code name data =
 let get_tcm code data = 
     match Hashtbl.find data.character_specs code with
     | Static spec -> 
-            (match spec.Nexus.File.st_type with
+        begin match spec.Nexus.File.st_type with
             | Nexus.File.STSankoff x -> x
-            | _ -> failwith "Unexpected")
+            | _ -> failwith "Unexpected"
+        end
     | _ -> failwith "Unexpected"
 
 
@@ -3455,7 +3457,7 @@ let convert_dyna_spec data chcode spec transform_meth =
             | _, `Change_Dyn_Pam _ -> ()
             | _, _ -> failwith "Illegal character transformation requested"
         in
-        (match transform_meth with (*
+        begin match transform_meth with (*
         TODO ANDRES
         | `Seq_to_Kolmogorov model ->
                 let a, b = 
@@ -3546,8 +3548,21 @@ let convert_dyna_spec data chcode spec transform_meth =
                         let pam = set_dyna_pam pam_ls old_dynpam in
                         (dspec.alph, dspec.tcm2d), pam
             in
-            Dynamic { dspec with alph = al; tcm2d = c2; pam = pam; state = 
-                get_state dspec.state transform_meth }, data)
+            let state = get_state dspec.state transform_meth in
+            let pam_state = match state with
+                | `Chromosome -> Some `Chromosome
+                | `Genome     -> Some `Genome
+                | `Breakinv   -> Some `Breakinv
+                | _           -> None
+            in
+            let new_spec = 
+                Dynamic { dspec with 
+                          alph = al; 
+                          tcm2d = c2; 
+                          pam = { pam with mode = pam_state } }
+            in
+            new_spec,data
+        end
     | _ -> failwith "Convert_dyna_spec: Not a dynamic character" 
 
 let check_fraction fraction =

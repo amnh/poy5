@@ -5,6 +5,7 @@
     let keyword_table = Hashtbl.create 53
     let token_table = [
         ("ANCSTATES", fun x -> ANCSTATES x);
+        ("ANNOTATIONS", fun x -> ANNOTATIONS x);
         ("APPROXIMATE", fun x -> APPROXIMATE x);    (* poy block *)
         ("ASSUMPTIONS", fun x -> ASSUMPTIONS x);
         ("AVERAGE", fun x -> AVERAGE x);
@@ -12,7 +13,8 @@
         ("BEGIN", fun x -> BEGIN x);
         ("BINHEX", fun x -> BINHEX x);
         ("BOTH", fun x -> BOTH x);
-        ("BREAKPOINT", fun x -> BOTH x);        (* chrom poy block *)
+        ("BREAKPOINT", fun x -> BREAKPOINT x);        (* chrom poy block *)
+        ("BREAKINVERSION", fun x -> BREAKINVERSION x);        (* chrom poy block *)
         ("CHANGESET", fun x -> CHANGESET x);
         ("CHARACTER", fun x -> CHARACTER x);
         ("CHARACTERBRANCH", fun x -> CHARACTERBRANCH x);   (* used in POY block *)
@@ -75,7 +77,6 @@
         ("MAP", fun x -> MAP x);                (* used in POY block *)
         ("MAUVE", fun x -> MAUVE x);
         ("MATCHCHAR", fun x -> MATCHCHAR x);
-        ("MATRIX", fun x -> MATRIX x);
         ("MAX", fun x -> MAX x);
         ("MAXSTEPS", fun x -> MAXSTEPS x);
         ("MEDIAN", fun x -> MEDIAN x);
@@ -105,12 +106,14 @@
         ("PROTEIN", fun x -> PROTEIN x);
         ("QUALITY", fun x -> QUALITY x);
         ("REARRANGEMENT", fun x -> REARRANGEMENT x);
+        ("REALMATRIX", fun x -> STEPMATRIX x);  (* synonym see Maddison et al *)
         ("RESOURCE", fun x -> RESOURCE x);
         ("RESPECTCASE", fun x -> RESPECTCASE x);
         ("RNA", fun x -> RNA x);
         ("SAMPLESIZE", fun x -> SAMPLESIZE x);
         ("SETS", fun x -> SETS x);
         ("SITES", fun x -> SITES x);            (* poy block *)
+        ("SOLVER", fun x -> SOLVER x);          (* poy block *)
         ("SOURCE", fun x -> SOURCE x);
         ("STANDARD", fun x -> STANDARD x);
         ("STATE", fun x -> STATE x);

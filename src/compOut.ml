@@ -117,36 +117,33 @@ let create_set_data_pairs (fo : string -> unit) data code_char_pairs =
                 | Data.Kolmogorov _
                 | Data.Set -> (setname,charset,None)
             end
-    and print_set set = 
-        try match set with
-            | [] -> assert false
-            | xs ->
-                List.iter
-                    (fun x ->
-                        let assoc = List.assoc x code_char_pairs in
-                        fo (" "^(string_of_int assoc)) )
-                    xs
-        with | Not_found -> ()
-(*            Printf.printf "Could not find \n\t";*)
-(*            List.iter (fun x -> Printf.printf "%d, " x) set;*)
-(*            Printf.printf "\nIn the set, \n\t";*)
-(*            List.iter (fun (x,y) -> Printf.printf "[%d|%d], " x y) code_char_pairs;*)
-(*            assert false*)
+    and print_set fo set = match set with
+        | [] -> assert false
+        | xs ->
+            List.iter
+                (fun x ->
+                    let assoc = List.assoc x code_char_pairs in
+                    fo (" "^(string_of_int assoc)) )
+                xs
     in
     let set_pairs = List.map add_data (Data.categorize_characters_comp data `All) in
-    fo "@[BEGIN SETS;@,";
+    fo "@[BEGIN SETS;@\n";
     let count = ref ~-1 in
     let set_pairs =
         List.map
             (fun (n,s,m) ->
+                    let set = Buffer.create 1000 in
+                    let foset = Buffer.add_string set in
                     let n = match n with
                         | None   -> incr count; "poy_"^(string_of_int !count) 
                         | Some n -> n
                     in
-                    fo "charset "; fo n; fo "= "; print_set s; fo ";@,"; (n,s,m))
+                    try foset "@[charset "; foset n; foset "= "; print_set foset s; foset ";@]@,"; 
+                        fo (Buffer.contents set); (n,s,m)
+                    with | Not_found -> (n,s,m))
             set_pairs
     in
-    if !count > 0 then fo ";@]@,END;@]@," else fo "END;@]@,";
+    if !count > 0 then fo ";@]@,END;@]@\n" else fo "END;@]@\n";
     set_pairs
 
 
@@ -167,9 +164,9 @@ let output_tree_nexus_block fo trees ic : unit =
     match trees with
     | [] ->  ()
     | xs -> 
-        fo "@[<v>@[BEGIN TREES;@]@,";
+        fo "@[<v>@[BEGIN TREES;@]@\n";
         ignore (List.fold_left output 0 xs);
-        fo "@\n@[END;@]@,@]@\n@\n"
+        fo "@[END;@]@\n@]"
 
 (* The labeling generated is geared to building up the tree and it's labeling
  * and not printing the data; here we transform the structure so the code for
@@ -208,7 +205,7 @@ let output_characterbranch fo in_poy labeling set_names =
     let fof format = Printf.ksprintf fo format
     and process_name n = Str.replace_first (Str.regexp "^&") "" n in
     let print_single (t,c) nbset =
-        fo "@.@[@[CharacterBranch@] @,";
+        fo "@.@[@[CharacterBranch@]@\n";
         if t = "" then () else fof "@[TREES = %s;@] @\n" t;
         if c = "" then () else fof "@[CHARSET = %s;@] @\n" c;
         let count =
@@ -220,11 +217,11 @@ let output_characterbranch fo in_poy labeling set_names =
                 nbset
                 0
         in
-        fo (if count > 0 then "@];@\n@];@.@\n" else "@];@.@\n")
+        fo (if count > 0 then "@];@\n@];@\n" else "@];@\n")
     in
-    if not in_poy then fo "@[@[BEGIN POY;@]@,";
+    if not in_poy then fo "@[@[BEGIN POY;@]@\n";
     Hashtbl.iter print_single (transform_labeling labeling set_names);
-    if not in_poy then fo ";@\nEND;@,@]"
+    if not in_poy then fo ";END;@]@\n"
 
 let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs : unit =
     let output_nexus_model (name,_,model) = match model with
@@ -235,116 +232,158 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
         | _  -> false
     in
     let assoc_sets = create_set_data_pairs fo data code_char_pairs in
+    let add_tcm_assumption fo code name =
+        let tcm  = Data.get_tcm2d data code in
+        let list_mat = Cost_matrix.Two_D.ori_cm_to_list tcm
+        and s = Cost_matrix.Two_D.get_ori_a_sz tcm
+        and a = Alphabet.to_sequential (Data.get_alphabet data code) in
+        fo ("@[UserType "^name^" (StepMatrix) = "^(string_of_int s)^"@]@\n");
+        fo "@[";
+        for i = 0 to s-1 do
+            fo ((Alphabet.match_code i a)^" ");
+        done;
+        fo "@]@\n@[";
+        List.fold_left
+            (fun i x ->
+                if i = s then (fo ("@]@\n@["^(string_of_int x)^" ");1)
+                         else (fo ((string_of_int x)^" "); i+1))
+            0
+            list_mat --> ignore;
+        fo "@];@\n";
+    in
     if not (is_empty data.Data.dynamics) then begin
-        fo "@[BEGIN POY;@]@,";
+        fo "@[BEGIN POY;@]@\n";
         let dynamics = Array.of_list data.Data.dynamics in
-        let go = Buffer.create 1000
-        and weights = Buffer.create 1000
-        and level = Buffer.create 1000
-        and dynpam = Buffer.create 1000
-        and tcm = Buffer.create 1000 in
+        let go = Buffer.create 1000 and use_go = ref false
+        and weights = Buffer.create 1000 and use_weights = ref false
+        and level = Buffer.create 1000 and use_level = ref false
+        and dynpam = Buffer.create 1000 and use_pam = ref false
+        and tcm = Buffer.create 1000 and use_tcm = ref false
+        and assump = Buffer.create 1000 and use_assump = ref false in
         Buffer.add_string go "@[GAPOPENING * POYGENERATED = ";
         Buffer.add_string tcm "@[TCM * POYGENERATED = ";
         Buffer.add_string weights "@[WTSET * POYWEIGH = ";
         Buffer.add_string level "@[LEVEL * POYLEVEL = ";
         let len = (Array.length dynamics) - 1 in
-        let add_ab pos posstr a b =
-            Buffer.add_string tcm (make_tcm_name a b);
+        let add_ab code pos posstr a b =
+            use_tcm := true;
+            use_assump := true;
+            let name = make_tcm_name a b in
+            add_tcm_assumption (Buffer.add_string assump) code name;
+            Buffer.add_string tcm name;
             Buffer.add_string tcm ":";
             Buffer.add_string tcm posstr;
             if pos < len then Buffer.add_string tcm ","
-            else Buffer.add_string tcm ";@,@]"
-        and add_name pos posstr name =
-            Buffer.add_string tcm (make_name name);
+            else Buffer.add_string tcm ";@]@,"
+        and add_name code pos posstr name =
+            use_tcm := true;
+            use_assump := true;
+            let name = make_name name in
+            add_tcm_assumption (Buffer.add_string assump) code name;
+            Buffer.add_string tcm name;
             Buffer.add_string tcm ":";
             Buffer.add_string tcm posstr;
             if pos < len then Buffer.add_string tcm ","
-            else Buffer.add_string tcm ";@,@]"
-        and add_go pos posstr x =
+            else Buffer.add_string tcm ";@]@,"
+        and add_go code pos posstr x =
+            use_go := true;
             Buffer.add_string go (string_of_int x);
             Buffer.add_string go ":";
             Buffer.add_string go posstr;
             if pos < len then Buffer.add_string go ","
-            else Buffer.add_string go ";@,@]";
-        and add_weight pos posstr x =
+            else Buffer.add_string go ";@]@,";
+        and add_weight code pos posstr x =
+            use_weights := true;
             Buffer.add_string weights (string_of_float x);
             Buffer.add_string weights ":";
             Buffer.add_string weights posstr;
             if pos < len then Buffer.add_string weights ","
-            else Buffer.add_string weights ";@,@]";
-        and add_level pos posstr x =
+            else Buffer.add_string weights ";@]@,";
+        and add_level code pos posstr x =
+            use_level := true;
             Buffer.add_string level (string_of_int x);
             Buffer.add_string level ":";
             Buffer.add_string level posstr;
             if pos < len then Buffer.add_string level ","
-            else Buffer.add_string level ";@,@]";
-        and add_dynpam fo code data posstr =
+            else Buffer.add_string level ";@]@,";
+        and add_dynpam fo code data posstr : unit =
             match Data.get_character_state data code with
             | `Chromosome | `Genome -> 
+                use_pam := true;
+                use_assump := true;
+                add_tcm_assumption (Buffer.add_string assump) code "";
                 Dyn_pam.to_nexus fo (convert_dyn (Data.get_pam data code)) posstr
             | `SeqPrealigned | `Seq | `Ml | `Annotated | `Breakinv -> ()
         in
         let add_data pos code = 
             let posstr = string_of_int (pos + 1) in
             let weight = Data.get_weight code data in
-            add_dynpam (Buffer.add_string dynpam) code data posstr;
-            add_weight pos posstr weight;
+            add_dynpam (Buffer.add_string dynpam) code data [posstr];
+            add_weight code pos posstr weight;
             let rec add_ = function
                 | Data.Substitution_Indel (a, b) -> 
-                    add_ab pos posstr a b;
-                    add_go pos posstr 0;
+                    add_ab code pos posstr a b;
+                    add_go code pos posstr 0
                 | Data.Input_file (name, _) -> 
-                    add_name pos posstr name;
-                    add_go pos posstr 0;
+                    add_name code pos posstr name;
+                    add_go code pos posstr 0
                 | Data.Substitution_Indel_GapOpening (a, b, x) ->
-                    add_ab pos posstr a b;
-                    add_go pos posstr x;
+                    add_ab code pos posstr a b;
+                    add_go code pos posstr x
                 | Data.Input_file_GapOpening (name, _, x) ->
-                    add_name pos posstr name;
-                    add_go pos posstr x
+                    add_name code pos posstr name;
+                    add_go code pos posstr x
                 | Data.Level (d,x) ->
-                    add_level pos posstr x;
+                    add_level code pos posstr x;
                     add_ d
             in
             add_ (Data.get_tcmfile data code)
         in
         Array.iteri add_data dynamics;
-        fo (Buffer.contents tcm);
-        fo (Buffer.contents go);
-        fo (Buffer.contents weights);
-        fo (Buffer.contents level);
-        fo (Buffer.contents dynpam);
+        fo (if !use_tcm then Buffer.contents tcm else "");
+        fo (if !use_go then Buffer.contents go else "");
+        fo (if !use_weights then Buffer.contents weights else "");
+        fo (if !use_level then Buffer.contents level else "");
+        fo (if !use_pam then Buffer.contents dynpam else "");
         List.iter output_nexus_model assoc_sets;
         output_characterbranch fo true labeling assoc_sets;
-        fo "END;@,@]";
+        fo "END;@]@\n";
+
+        fo "@[BEGIN ASSUMPTIONS;@]@\n";
+        fo (if !use_assump then Buffer.contents assump else "");
+        fo "END;@]@\n";
         ()
     end else begin
-        fo "@[BEGIN POY;@]@,";
+        fo "@[BEGIN POY;@]@\n";
         List.iter output_nexus_model assoc_sets;
         output_characterbranch fo true labeling assoc_sets;
-        fo "END;@,@]"
+        fo "END;@\n@]"
     end
 
 
 let output_character_types fo output_format resolve_a data all_of_static =
     (* We first output the non additive character types *)
-    if output_format = `Nexus then fo "@[BEGIN ASSUMPTIONS;@]@," else ();
+    if output_format = `Nexus then fo "@[BEGIN ASSUMPTIONS;@]@\n" else ();
     let output_element name position tcm =
         let output_matrix m = 
             let buffer = Buffer.create 100 in
             Buffer.add_string buffer "@[<v 0>";
-            Array.iter (fun x ->
-                Buffer.add_string buffer "@[<h>";
-                Array.iter (fun y -> 
-                    let to_add = 
-                        if y > max_int / 8 && output_format = `Nexus then "i" 
-                        else (string_of_int y) 
-                    in
-                    Buffer.add_string buffer to_add;
-                    Buffer.add_string buffer " ") x; 
-                Buffer.add_string buffer "@]@,") m;
+            Array.iter
+                (fun x ->
+                    Buffer.add_string buffer "@[<h>";
+                    Array.iter
+                        (fun y ->
+                            let to_add =
+                                if y > max_int / 8 && output_format = `Nexus then "i"
+                                else (string_of_int y)
+                            in
+                            Buffer.add_string buffer to_add;
+                            Buffer.add_string buffer " ")
+                        x;
+                    Buffer.add_string buffer "@]@,")
+                m;
             Buffer.add_string buffer ";@,@]";
-            (Buffer.contents buffer);
+            Buffer.contents buffer
         in
         let output_codes m =
             let buffer = Buffer.create 100 in
@@ -578,7 +617,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
     let fo = Status.user_message (Status.Output (filename, false, [])) in
     let output_nexus_header () = fo "#NEXUS@\n"
     and output_taxa_block () =
-        fo "@[BEGIN TAXA;@]@,";
+        fo "@[BEGIN TAXA;@]@\n";
         fo "@[DIMENSIONS NTAX=";
         fo (string_of_int (List.length terminals_sorted));
         fo ";@]@,@[TAXLABELS ";
@@ -611,7 +650,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
             match Hashtbl.find data.Data.character_specs character_code with
             | Data.Static _ | Data.Kolmogorov _ | Data.Set -> assert false
             | Data.Dynamic spec ->
-                fo "@[BEGIN UNALIGNED;@]@,";
+                fo "@[BEGIN UNALIGNED;@]@\n";
                 fo "[CHARACTER NAME: ";
                 fo (Data.code_character character_code data);
                 fo "]@,";
@@ -707,15 +746,15 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                         output_likelihood_symbols fo data terminals_sorted
                     else begin
                         fo "@[FORMAT ";
-                        fo "SYMBOLS=\"0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L";
-                        fo " M N O P Q R S T U V\""
+                        fo "@[SYMBOLS=\"0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L";
+                        fo " M N O P Q R S T U V\"@]@,"
                     end
                 in
-                fo ";@]@,";
+                fo ";@]@\n";
                 let all_of_static_pairs =
                     output_character_names fo `Nexus resolve_a data all_of_static
                 in
-                fo "@[MATRIX @,";
+                fo "@[MATRIX @\n";
                 List.iter
                     (fun (code, name) ->
                         let specs = Hashtbl.find data.Data.taxon_characters code in
@@ -743,11 +782,11 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
         ()
     in
     output_nexus_header ();
-    fo "@.";
+    fo "@\n";
     output_taxa_block ();
-    fo "@.";
+    fo "@\n";
     output_characters_blocks ();
-    fo "@."
+    fo "@\n@."
 
 let to_faswincladfile data filename =
     let has_sankoff = match data.Data.sankoff with

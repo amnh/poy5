@@ -1021,155 +1021,134 @@ let produce_cost_type_function input character =
     let cm = generate_substitution_table true input character.st_alph in
     { character with st_type = STSankoff cm }
 
-let update_assumptions cost_table (acc:nexus) item = 
-    match item with
+let update_assumptions (acc:nexus) = function
     | P.Options (default, polytcount, gapmode) ->
-            let _ = match default with
-                | None -> ()
-                | Some x ->
-                        for i = 0 to (Array.length acc.characters) - 1 do
-                            acc.characters.(i) <- create_cost_type x acc.characters.(i)
-                        done
-            in
-            let _ =
-                match polytcount with
-                | P.MinSteps -> ()
-                | P.MaxSteps -> 
-                        Status.user_message Status.Error
-                        ("POY@ will@ ignore@ the@ MaxSteps@ command@ " ^
-                        "in@ your@ nexus@ file")
-            in
-            let _ =
-                match gapmode with
-                | P.Missing -> 
-                        let ntax = (Array.length acc.matrix) - 1 
-                        and nchar = (Array.length acc.characters) - 1 in
-                        let gaps = 
-                            Array.map (fun spec ->
-                                let gap = spec.st_gap in 
-                                Some (`List [(Alphabet.match_base gap spec.st_alph)])
-                                    ) acc.characters 
-                        in
-                        for i = 0 to ntax do
-                            for j = 0 to nchar do
-                                if acc.matrix.(i).(j) = gaps.(j) then
-                                    acc.matrix.(i).(j) <- None
-                            done;
-                        done;
-                | P.NewState -> ()
-            in
-            ()
-    | P.UserType (name, x) ->
-            let _ =
-                match x with
-                | P.StepMatrix (size, stepmtx) ->
-                        let stepmtx = String.concat " " stepmtx in
-                        let size = int_of_string size in
-                        let stepmtx = remove_comments stepmtx in
-                        let stepmtx = 
-                            ref 
-                            (Str.split 
-                            (Str.regexp "[ \010\011\012\013\014\015]+")
-                            stepmtx)
-                        in
-                        let headers = 
-                            Array.init size (fun _ -> 
-                                match !stepmtx with
-                                | h :: t->
-                                        stepmtx := t;
-                                        h
-                                | [] -> failwith "Invalid nexus matrix?")
-                        in
-                        let mtx = Array.init size (fun _ ->
-                            Array.init size (fun _ ->
-                                match !stepmtx with
-                                | "i" :: t ->
-                                        stepmtx := t;
-                                        max_float
-                                | "." :: t ->
-                                        stepmtx := t;
-                                        0.
-                                | x :: t ->
-                                        stepmtx := t;
-                                        float_of_string x
-                                | [] -> failwith "Insufficient matrix?"))
-                        in
-                        let name = String.uppercase name in
-                        Hashtbl.add cost_table name (headers, mtx)
-                | P.CSTree _ -> 
-                        failwith 
-                        ("POY@ does@ not@ support@ CSTreess@ from@ " ^
-                        "NEXUS@ files")
-            in
-            ()
-    | P.WeightDef (has_star, name, has_token, set) ->
-            if not has_star then ()
-            else begin
-                let set_item weight x =
-                    let x = x - 1 in
-                    acc.characters.(x) <- 
-                            { acc.characters.(x) with st_weight = weight }
+        begin match default with
+            | None -> ()
+            | Some x ->
+                for i = 0 to (Array.length acc.characters) - 1 do
+                    acc.characters.(i) <- create_cost_type x acc.characters.(i)
+                done
+        end;
+        begin match polytcount with
+            | P.MinSteps -> ()
+            | P.MaxSteps ->
+                Status.user_message Status.Error
+                    "POY@ will@ ignore@ the@ MaxSteps@ command@ in@ your@ nexus@ file"
+        end;
+        begin match gapmode with
+            | P.Missing -> 
+                let ntax = (Array.length acc.matrix) - 1 
+                and nchar = (Array.length acc.characters) - 1 in
+                let gaps = 
+                    Array.map
+                        (fun spec ->
+                            let gap = Alphabet.match_base spec.st_gap spec.st_alph in 
+                            Some (`List [ gap ]) )
+                        acc.characters
                 in
-                let _ = match set with
-                | P.Standard items ->
-                    let process_item = function
+                for i = 0 to ntax do
+                    for j = 0 to nchar do
+                        if acc.matrix.(i).(j) = gaps.(j) then
+                            acc.matrix.(i).(j) <- None
+                    done;
+                done;
+            | P.NewState -> ()
+        end
+    | P.UserType (name, x) ->
+        begin match x with
+        | P.StepMatrix (size, stepmtx) ->
+            let stepmtx = String.concat " " stepmtx in
+            let size = int_of_string size in
+            let stepmtx = remove_comments stepmtx in
+            let stepmtx =
+                let regex = Str.regexp "[ \010\011\012\013\014\015]+" in
+                ref (Str.split regex stepmtx)
+            in
+            let headers =
+                Array.init
+                    size
+                    (fun _ -> match !stepmtx with
+                        | h :: t-> stepmtx := t; h
+                        | [] -> failwith "Invalid nexus matrix?")
+            in
+            let mtx =
+                Array.init size
+                    (fun _ -> Array.init size
+                        (fun _ -> match !stepmtx with
+                            | "i" :: t -> stepmtx := t; max_float
+                            | "." :: t -> stepmtx := t; 0.
+                            | x :: t -> stepmtx := t; float_of_string x
+                            | [] -> failwith "Insufficient matrix?"))
+            in
+            let name = String.uppercase name in
+            Hashtbl.add acc.assumptions name (headers, mtx)
+        | P.CSTree _ ->
+            failwith "POY@ does@ not@ support@ CSTreess@ from@ NEXUS@ files"
+        end
+    | P.WeightDef (has_star, name, has_token, set) ->
+        if not has_star then ()
+        else begin
+            let set_item weight x =
+                let x = x - 1 in
+                acc.characters.(x) <- 
+                        { acc.characters.(x) with st_weight = weight }
+            in
+            begin match set with
+            | P.Standard items ->
+                List.iter
+                    (function
                         | P.Code (v, who) ->
                             let weight = float_of_string v in
-                            List.iter 
-                                (apply_on_character_set acc.csets acc.characters 
+                            List.iter
+                                (apply_on_character_set acc.csets acc.characters
                                     (set_item weight))
-                                who 
-                        | P.IName _ -> failwith "Unexpected name"
-                    in
-                    List.iter process_item items
-                | P.Vector items ->
-                    let _ =
-                        List.fold_left 
-                            (fun pos x -> set_item (float_of_string x) pos;pos+1)
-                            0 items
-                    in 
-                    ()
+                                who
+                        | P.IName _ -> failwith "Unexpected name")
+                    items
+            | P.Vector items ->
+                let _ =
+                    List.fold_left
+                        (fun pos x -> set_item (float_of_string x) pos;pos+1)
+                        0 items
                 in
                 ()
             end
+        end
     | P.TypeDef (has_star, name, has_token, set) ->
-            let set_typedef clas x =
-                let clas = String.uppercase clas in
-                let new_def = 
-                    match clas with
-                    | "ORD" 
-                    | "UNORD"
-                    | "IRREV"
-                    | "IRREV.UP"
-                    | "IRREV.DOWN" -> create_cost_type clas
-                    | name ->
-                            produce_cost_type_function 
-                            (Hashtbl.find cost_table name)
+        let set_typedef clas x =
+            let new_def = match String.uppercase clas with
+                | "ORD" | "UNORD" | "IRREV"
+                | "IRREV.UP" | "IRREV.DOWN" -> create_cost_type clas
+                | n -> produce_cost_type_function (Hashtbl.find acc.assumptions n)
+            in
+            acc.characters.(x) <- new_def acc.characters.(x)
+        in
+        begin match set with
+            | P.Standard items ->
+                let process_item = function
+                    | P.Code (v, who)
+                    | P.IName (v, who) ->
+                        List.iter 
+                            (apply_on_character_set acc.csets acc.characters 
+                                                    (set_typedef v))
+                            who
                 in
-                acc.characters.(x) <- new_def acc.characters.(x)
-            in
-            let _ =
-                match set with
-                | P.Standard items ->
-                    let process_item = function
-                        | P.Code (v, who)
-                        | P.IName (v, who) ->
-                            List.iter 
-                                (apply_on_character_set acc.csets acc.characters 
-                                                        (set_typedef v))
-                                who
-                    in
-                    List.iter process_item items
-                | P.Vector items ->
-                    let _ = 
-                        List.fold_left 
-                            (fun pos x -> set_typedef x pos; pos + 1) 
-                            0 items
-                    in
-                    ()
-            in
-            ()
-    | _ -> ()
+                List.iter process_item items
+            | P.Vector items ->
+                let _ = 
+                    List.fold_left 
+                        (fun pos x -> set_typedef x pos; pos + 1) 
+                        0 items
+                in
+                ()
+        end
+    | P.AncestralDef _ ->
+        Status.user_message Status.Warning
+            "Ancestral Definitions in the assumptions block is being ignored"
+    | P.ExcludeSet _ ->
+        Status.user_message Status.Warning
+            "ExcludeSet in the assumptions block is being ignored"
 
 
 let process_tree (tree:string):P.tree = 
@@ -1441,6 +1420,47 @@ let apply_genome_model set params (acc: nexus) : nexus =
     { acc with unaligned = unaligned; }
 
 
+let apply_breakinv_model set params acc =
+    let update current = function
+        | P.Chrom_Solver x ->
+            let solver = match String.uppercase x with
+                | "VINH"     -> `Vinh
+                | "MGR"      -> `MGR
+                | "ALBERT"   -> `Albert
+                | "SIEPEL"   -> `Siepel
+                | "BBTSP"    -> `BBTSP
+                | "COALESTSP"-> `COALESTSP
+                | "CHAINEDLK"-> `ChainedLK
+                | "SIMPLELK" -> `SimpleLK
+                | "DEFAULT"  -> `Vinh
+                | x          -> failwith ("Unknown Median Solver"^x)
+            in
+            { current with Dyn_pam.median_solver = Some solver; }
+        | P.Chrom_Locus_Breakpoint x ->
+            { current with Dyn_pam.re_meth = Some (`Locus_Breakpoint x); }
+        | P.Chrom_Locus_Inversion x ->
+            { current with Dyn_pam.re_meth = Some (`Locus_Inversion x); }
+        | P.Chrom_Locus_Indel _ | P.Chrom_Annotations _
+        | P.Chrom_Median _      | P.Chrom_Symmetric _
+        | P.Chrom_Approx _ ->
+            failwith "Invalid options in Break Inversion Characters"
+    in
+    let assign_breakinv params u pos =
+        let pam =
+            let pam = match u.(pos).u_pam with 
+                | None   -> { Dyn_pam.dyna_pam_default with Dyn_pam.mode = Some `Breakinv; }
+                | Some x -> { x with Dyn_pam.mode = Some `Breakinv; }
+            in
+            List.fold_left update pam params
+        in
+        u.(pos) <- { u.(pos) with u_pam = Some pam; }
+    in
+    let unaligned = Array.of_list (List.rev acc.unaligned) in
+    List.iter (apply_on_unaligned_set unaligned (assign_breakinv params unaligned)) set;
+    let unaligned = List.rev (Array.to_list unaligned) in
+    { acc with unaligned = unaligned; }
+
+
 let apply_chrome_model set params acc =
     let create_annotation xs : Dyn_pam.annotate_tool_t =
         if List.mem (P.Annot_Type `Mauve) xs then begin
@@ -1614,6 +1634,7 @@ let apply_likelihood_model params acc =
 
 let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
     | P.Taxa (number, taxa_list) ->
+            Status.user_message Status.Information "Adding data from Taxa block";
             let cnt = int_of_string number in
             let taxa =
                 if cnt <> List.length taxa_list then
@@ -1623,6 +1644,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
             in
             { acc with taxa = taxa }
     | P.Characters chars -> 
+            Status.user_message Status.Information "Adding data from Characters block";
             add_prealigned_characters file chars acc
     | P.Error block ->
             Status.user_message Status.Error
@@ -1634,10 +1656,11 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                  "advice@ you@ to@ verify@ the@ cause@ of@ the@ error.");
             acc
     | P.Assumptions lst ->
-            let table = Hashtbl.create 37 in
-            List.iter (update_assumptions table acc) lst;
+            Status.user_message Status.Information "Adding data from Assumptions block";
+            List.iter (update_assumptions acc) lst;
             acc
     | P.Trees (translations, newtrees) ->
+            Status.user_message Status.Information "Adding data from Trees block";
             let handle_tree tree = 
                 tree --> process_tree
                      --> generate_parser_friendly translations acc.taxa
@@ -1645,6 +1668,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
             let newtrees = List.map handle_tree newtrees in
             {acc with trees = acc.trees @ newtrees }
     | P.Unaligned data ->
+            Status.user_message Status.Information "Adding data from Unaligned block";
             let char_spec = 
                 default_static acc.char_cntr file data.P.unal_format 0
             in
@@ -1664,6 +1688,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
             let res = Fasta.of_string (FileContents.AlphSeq alph) unal in
             { acc with unaligned = (default_unaligned res alph) :: acc.unaligned;};
     | P.Sets data -> 
+            Status.user_message Status.Information "Adding data from Sets block";
             List.iter 
                 (fun (name, set) -> match set with
                     | P.CharacterSet set ->
@@ -1698,9 +1723,10 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                 | P.DynamicWeight (true,name,set) -> apply_weight set acc
                 | P.Tcm (true, name, set)         -> apply_tcm set acc
                 | P.Level (true, name, set)       -> apply_level set acc
-                | P.Likelihood params   -> apply_likelihood_model params acc
-                | P.Genome (params,set) -> apply_genome_model set params acc
-                | P.Chrom (params,set)  -> apply_chrome_model set params acc
+                | P.Likelihood params    -> apply_likelihood_model params acc
+                | P.Genome (params,set)  -> apply_genome_model set params acc
+                | P.Chrom (params,set)   -> apply_chrome_model set params acc
+                | P.BreakInv (params,set)-> apply_breakinv_model set params acc
                 | P.DynamicWeight (false, _ , _ )
                 | P.Level (false, _, _ )
                 | P.Tcm (false, _ , _ )
@@ -1718,14 +1744,19 @@ let process_parsed file parsed : nexus =
         -----------+-----------------+---------------------
         POY        | Characters      | calculating priors
         POY        | Unaligned       | calculating priors 
+         *         | Assumptions     | contains cost matrices and other properties
 
-        Note: the processing is done by a fold_left, thus the ordering needs to
-        be backwards (this is to keep the function tail-recursive as well). *)
+        Note: The processing is done by a fold_left, thus the ordering needs to
+        be backwards (this is to keep the function tail-recursive). *)
     let sorter a b = match a,b with
         | P.Characters _, P.Poy _ -> ~-1
         | P.Poy _, P.Characters _ ->   1
         | P.Unaligned _, P.Poy _  -> ~-1
         | P.Poy _, P.Unaligned _  ->   1
+        | P.Sets _, P.Poy _       ->   1
+        | P.Poy _, P.Sets _       -> ~-1
+        | P.Assumptions _, _      -> ~-1
+        | _ , P.Assumptions _     ->   1
         | _, _                    ->   0 (* keep everything else in the same order *)
     in
     List.fold_left (process_parsed_elm file)

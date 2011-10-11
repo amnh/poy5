@@ -53,13 +53,14 @@ type a = {
 }
 
 let print alpha = 
-    let _ =              match alpha.kind with
-    | Simple_Bit_Flags -> Printf.printf "alph kind:Simple_Bit_Flags\n%!"
-    | Sequential -> Printf.printf "alph kind:Sequential\n%!"
-    | Extended_Bit_Flags -> Printf.printf "alph kind:Extended_Bit_Flags\n%!" in
-    All_sets.IntegerMap.iter (fun code char -> 
-                       Printf.fprintf stdout "%i %s\n" code char)
-    alpha.code_to_string;
+    let () = match alpha.kind with
+        | Simple_Bit_Flags -> Printf.printf "alph kind:Simple_Bit_Flags\n%!"
+        | Sequential -> Printf.printf "alph kind:Sequential\n%!"
+        | Extended_Bit_Flags -> Printf.printf "alph kind:Extended_Bit_Flags\n%!"
+    in
+    All_sets.IntegerMap.iter 
+        (fun code char -> Printf.fprintf stdout "%i %s\n" code char)
+        alpha.code_to_string;
     print_newline ()
 
 let to_formatter alph : Xml.xml =

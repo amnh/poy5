@@ -84,7 +84,7 @@ type dyna_pam_t = {
   symmetric : bool option;
   max_3d_len : int option;
   max_kept_wag : int option;
-  mode : [ `Chromosome | `Genome ] option;
+  mode : [ `Chromosome | `Genome | `Breakinv ] option;
 }
 val dyna_pam_default : dyna_pam_t
 (* done *)

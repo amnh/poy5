@@ -1,28 +1,26 @@
 /* Parser for nexus files */
 %{
+
 let mesquite_error =
     ("This@ seems@ to@ be@ a@ Mesquite@ \"NEXUS\"@ file.@ Unfortunately@ " ^
      "Mesquite@ has@ invented@ a@ new@ command@ TITLE@ that@ is@ not@ a@ " ^
      "valid@ NEXUS@ command.@ You@ will@ have@ to@ remove@ it@ by@ hand.@ " ^
      "You@ can@ read@ their@ information@ about@ it@ here:@ http://mesquiteproject.org/mesquite_folder/docs/mesquite/otherPrograms.html")
+
 let parse_error s = 
-    try
-        let b = (Parsing.symbol_start_pos ()) 
+    try let b = (Parsing.symbol_start_pos ()) 
         and e = (Parsing.symbol_end_pos ()) in
         let b = string_of_int (b.Lexing.pos_cnum)
         and e = string_of_int (e.Lexing.pos_cnum) in
-        !P.print_error
-        (s ^ "@ between@ characters@ " ^ b ^ 
-        "@ and@ " ^ e)
-    with
-    | _ -> !P.print_error s
+        !P.print_error (s ^ "@ between@ characters@ " ^ b ^ "@ and@ " ^ e)
+    with | _ ->
+        !P.print_error s
 
 let report_error text b e =
     let b = string_of_int (b.Lexing.pos_cnum)
     and e = string_of_int (e.Lexing.pos_cnum) in
-    !P.print_error
-    ("There@ was@ a@ parsing@ error@ between@ characters@ " ^ b ^ "@ and@ "
-    ^ e ^ " in the " ^ text)
+    !P.print_error ("There@ was@ a@ parsing@ error@ between@ characters@ " ^ b ^ "@ and@ " ^ e ^ " in the " ^ text)
+
 %}
 %token EOF
 %token <string> ALPHA
@@ -35,6 +33,7 @@ let report_error text b e =
 %token <string> BINHEX
 %token <string> BOTH
 %token <string> BREAKPOINT
+%token <string> BREAKINVERSION
 %token <string> CHANGESET
 %token <char>   CHAR
 %token <string> CHARACTER
@@ -98,7 +97,6 @@ let report_error text b e =
 %token <string> MAM
 %token <string> MAP
 %token <string> MATCHCHAR
-%token <string> MATRIX
 %token <string> MAUVE
 %token <string> MAX
 %token <string> MAXSTEPS
@@ -180,8 +178,7 @@ let report_error text b e =
 %token <string> WTSET
 %token <string> YEAST
 %token <string> EIDENT
-%token NEXUS SEMICOLON EQUAL COMMA QUOTE BACKSLASH DASH LPARENT RPARENT STAR
-COLON LBRACKET RBRACKET SLASH
+%token NEXUS SEMICOLON EQUAL COMMA QUOTE BACKSLASH DASH LPARENT RPARENT STAR COLON LBRACKET RBRACKET SLASH
 %token <string> IDENT
 %token <string> FLOAT
 %token <string> INTEGER
@@ -260,8 +257,8 @@ assumption_items:
     | optional_exset                { P.ExcludeSet $1 }
     | optional_ancstates            { P.AncestralDef $1 }
     | error                         
-    { report_error "Assumption Block" (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
-        raise Parsing.Parse_error }
+        { report_error "Assumption Block" (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
+          raise Parsing.Parse_error }
     ;
 
 set_in_block:
@@ -296,7 +293,7 @@ partition_contents:
     ;
 sets_block:
     | set_in_block SEMICOLON sets_block { $1 :: $3 }
-    | set_in_block SEMICOLON { [$1] }
+    |                                   {       [] }
     ;
 optional_standard_or_vector:
     | STANDARD { Some $1 }
@@ -328,6 +325,8 @@ user_type_definition:
     | EQUAL INTEGER numbers_and_chars { P.StepMatrix ($2, $3) }
     | STEPMATRIX EQUAL INTEGER numbers_and_chars 
         { P.StepMatrix ($3, $4) }
+    | LPARENT STEPMATRIX RPARENT EQUAL INTEGER numbers_and_chars 
+        { P.StepMatrix ($5, $6) }
     | CSTREE DATACSTREE { P.CSTree $2 }
     ;
 numbers_and_chars:
@@ -494,7 +493,19 @@ poy_block:
         { (P.Chrom ($2,$4)) :: $6 }
     | GENOME genome_options COLON characterset_list SEMICOLON poy_block
         { (P.Genome ($2,$4)) :: $6 }
+    | BREAKINVERSION breakinv_options COLON characterset_list SEMICOLON poy_block
+        { (P.BreakInv ($2,$4)) :: $6 }
     |   { [] }
+    ;
+
+breakinv_options :
+    | MEDIAN EQUAL INTEGER SEMICOLON breakinv_options
+            { (P.Chrom_Median (int_of_string $3)) :: $5 }
+    | BREAKPOINT EQUAL INTEGER SEMICOLON chrome_options
+            { (P.Chrom_Locus_Breakpoint (int_of_string $3)) :: $5 }
+    | INVERSION EQUAL INTEGER SEMICOLON chrome_options
+            { (P.Chrom_Locus_Inversion (int_of_string $3)) :: $5 }
+    |       { [] }
     ;
 annotation_options :
     | QUALITY EQUAL FLOAT SEMICOLON annotation_options
@@ -903,7 +914,6 @@ any_thing_minus_end:
     | LOWER { () }
     | MAM { () }
     | MATCHCHAR { () }
-    | MATRIX { () }
     | MAX { () }
     | MAXSTEPS { () }
     | MEDIAN { () }
