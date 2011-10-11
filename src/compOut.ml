@@ -603,7 +603,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
              (options:Methods.information_contained list) (filename:string option) =
     let resolve_a = true in
     let fo = Status.user_message (Status.Output (filename, false, [])) in
-    let fo = if debug then fo else debug_fo fo in
+    let fo = if debug then debug_fo fo else fo in
     let all_of_static =  all_of_static data in
 
     let terminals_not_ignored =
