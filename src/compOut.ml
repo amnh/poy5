@@ -19,7 +19,10 @@
 
 let (-->) b a = a b
 let failwithf format = Printf.ksprintf (failwith) format
+let debug = false
 
+let debug_fo fo = 
+    (fun s -> output_string stdout s; fo s)
 
 let make_tcm_name a b = 
     "TCM" ^ string_of_int a ^ "_" ^ string_of_int b
@@ -260,10 +263,10 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
         and dynpam = Buffer.create 1000 and use_pam = ref false
         and tcm = Buffer.create 1000 and use_tcm = ref false
         and assump = Buffer.create 1000 and use_assump = ref false in
-        Buffer.add_string go "@[GAPOPENING * POYGENERATED = ";
-        Buffer.add_string tcm "@[TCM * POYGENERATED = ";
-        Buffer.add_string weights "@[WTSET * POYWEIGH = ";
-        Buffer.add_string level "@[LEVEL * POYLEVEL = ";
+        Buffer.add_string go " @[GAPOPENING * POYGENERATED = ";
+        Buffer.add_string tcm " @[TCM * POYGENERATED = ";
+        Buffer.add_string weights " @[WTSET * POYWEIGH = ";
+        Buffer.add_string level " @[LEVEL * POYLEVEL = ";
         let len = (Array.length dynamics) - 1 in
         let add_ab code pos posstr a b =
             use_tcm := true;
@@ -599,7 +602,10 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
              (labeling:(string*string,(int array * float option) list) Hashtbl.t)
              (options:Methods.information_contained list) (filename:string option) =
     let resolve_a = true in
+    let fo = Status.user_message (Status.Output (filename, false, [])) in
+    let fo = if debug then fo else debug_fo fo in
     let all_of_static =  all_of_static data in
+
     let terminals_not_ignored =
         All_sets.IntegerMap.fold
             (fun code name acc ->
@@ -614,7 +620,6 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
             (fun a b -> compare (fst a) (fst b))
             (All_sets.IntegerMap.fold (fun a b acc -> (a, b) :: acc) terminals_not_ignored [])
     in
-    let fo = Status.user_message (Status.Output (filename, false, [])) in
     let output_nexus_header () = fo "#NEXUS@\n"
     and output_taxa_block () =
         fo "@[BEGIN TAXA;@]@\n";
@@ -642,7 +647,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                             Array.iter
                                 (fun x -> fo (Sequence.to_string x.Data.seq alph))
                                 data.Data.seq_arr;
-                            fo "@]@,"
+                            fo "@]@\n"
                     else ())
                 data.Data.taxon_characters
         in
@@ -666,7 +671,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                         "STANDARD", 
                         List.map fst (Alphabet.to_list spec.Data.alph)
                 in
-                fo "@[FORMAT DATATYPE=";
+                fo " @[FORMAT DATATYPE=";
                 fo alphabet;
                 fo "@]@,";
                 let () = match symbols with
@@ -675,10 +680,10 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                              List.iter (fun x -> fo x; fo " ") lst;
                              fo "\"@]@,"
                 in
-                fo ";@,";
-                fo "@[MATRIX@,";
+                fo ";@\n";
+                fo "@[MATRIX@]@\n";
                 output_taxa_sequences spec.Data.alph character_code;
-                fo ";@]@,@[END;@]@,"
+                fo ";@]@[END;@]@\n"
         in
         let output_likelihood_symbols fo data codes =
             let alph,inc_gap = 
@@ -766,9 +771,9 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                                 static_character_to_string
                                     sep "(" ")" fo resolve_a a specs character_code)
                             all_of_static;
-                        fo "@]@,")
+                        fo "@]@\n")
                     terminals_sorted;
-                fo ";@]@,@[END;@]@\n";
+                fo ";@]@\n@[END;@]@\n";
                 output_character_types fo `Nexus resolve_a data all_of_static;
                 all_of_static_pairs
             end else begin
@@ -814,7 +819,7 @@ let to_faswincladfile data filename =
                         static_character_to_string sep "[" "]" fo false a charset cc)
                     all_of_static
             in
-            fo "@,@?";
+            fo "@\n@?";
         end
     in
     let output_all_taxa () = 

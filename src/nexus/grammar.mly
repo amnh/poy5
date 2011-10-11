@@ -234,6 +234,8 @@ block:
 /* This is to avoid processing unknown blocks       */
     | BEGIN IDENT error ENDNEXUS SEMICOLON
         { P.Error $2 }
+    | header
+        { P.Error "File Contains Multiple Nexus Files; will try to append" }
     ;
 
 mesquite_broken:
