@@ -3,19 +3,16 @@ open Command
 
 (* Configuration section *)
 let zlib_lib = "-lz"
-
 let static = true
 let concordelib= "@CONCORDE_LIB@"
-(*
-"/home/lhong/concorde/concorde.a"
-*)
 let cc = "@CC@"
 let cflags = "-Wall @CFLAGS@"
 let clibs = "@LIBS@"
 let interface = 
     if "@USEINTERFACE@" = "readline" then 
         "status_flat.ml"
-    else "status_@USEINTERFACE@.ml"
+    else 
+        "status_@USEINTERFACE@.ml"
 
 
 let split string = 
@@ -33,6 +30,7 @@ let split string =
     res := (Buffer.contents cur) :: !res;
     List.rev !res
 
+
 let process_flags ocaml_option cflags =
     let cflags = split cflags in
     let cflags = List.map (fun x -> A x) cflags in 
@@ -46,14 +44,23 @@ let process_flags ocaml_option cflags =
     in
     cflags
 
+
 let ccompileflags =
     let flags = process_flags "-ccopt" cflags in  
     A"-cc" ::  A cc :: flags 
 
-let clinkflags = 
+
+and clinkflags = 
     let flags = process_flags "-cclib" clibs in
     if Sys.os_type = "Win32" then flags
     else A"-cc" ::  A cc :: flags
+
+
+let olinkflags =
+    clinkflags @ !Options.ocaml_lflags
+
+and ocompileflags =
+    ccompileflags @ !Options.ocaml_cflags
 
 (* List of headers *)
 let headers =
@@ -139,9 +146,9 @@ let headers =
         "ocamlmpi/camlmpi.h"]
 ;;
 
+
 dispatch begin function
 | After_rules ->
-
 
     rule "version.tex generation" 
         ~prod:"version.tex"
@@ -296,28 +303,35 @@ dispatch begin function
     flag ["ocamlmklib"; "c"; "use_zlib"]
          (S[A zlib_lib]);
 
-    flag ["ocamlmklib"; "c"] (S (process_flags "-cclib" clibs));
+    flag ["ocamlmklib"; "c"]
+        (S (process_flags "-cclib" clibs));
 
     (* When one compile C code using the zlib *)
-    flag ["link"; "ocaml"; "use_zlib"] (S[A"-cclib"; A zlib_lib]);
+    flag ["link"; "ocaml"; "use_zlib"]
+        (S[A"-cclib"; A zlib_lib]);
 
     (* If `static' is true then every ocaml link in bytecode will add -custom *)
     if static then flag ["link"; "ocaml"; "byte"] (A"-custom");
 
     flag ["link"; "ocaml"; "use_poy"]
-         (S[A"-cclib"; A"-lpoycside"; A"-cclib"; A"-L."]);
+        (S[A"-cclib"; A"-lpoycside"; A"-cclib"; A"-L."]);
 
-    flag ["c"] (S[A"-ccopt"; A"-I"; A"-ccopt"; A"/usr/include/malloc"]);
-    flag ["c"; "use_char8"] (S[A"-ccopt"; A"-DCHARSIZE=8"]);
-    flag ["c"; "use_char16"] (S[A"-ccopt"; A"-DCHARSIZE=16"]);
-    flag ["c"; "use_char32"] (S[A"-ccopt"; A"-DCHARSIZE=32"]);
+    flag ["c"]
+        (S[A"-ccopt"; A"-I"; A"-ccopt"; A"/usr/include/malloc"]);
+    flag ["c"; "use_char8"]
+        (S[A"-ccopt"; A"-DCHARSIZE=8"]);
+    flag ["c"; "use_char16"]
+        (S[A"-ccopt"; A"-DCHARSIZE=16"]);
+    flag ["c"; "use_char32"]
+        (S[A"-ccopt"; A"-DCHARSIZE=32"]);
 
-    dep  ["link"; "ocaml"; "use_poy"] ["libpoycside.a"];
+    dep ["link"; "ocaml"; "use_poy"]
+        ["libpoycside.a"];
 
-    dep ["ocaml"; "pp"; "use_extensions"] ["poyExtension.cmo"; 
-        "kolmoExtension.cmo"];
-    dep ["ocaml"; "ocamldep"; "use_extensions"] ["poyExtension.cmo";
-        "kolmoExtension.cmo"];
+    dep ["ocaml"; "pp"; "use_extensions"]
+        ["poyExtension.cmo"; "kolmoExtension.cmo"];
+    dep ["ocaml"; "ocamldep"; "use_extensions"]
+        ["poyExtension.cmo"; "kolmoExtension.cmo"];
 
     flag ["link"; "ocaml"; "byte"; "use_grappa"]
          (S[A"-cclib"; A"-lgrappa"; A"-cclib"; A"-L."]);
@@ -327,21 +341,27 @@ dispatch begin function
 
     dep  ["link"; "ocaml"; "use_grappa"] ["libgrappa.a"];
 
-    flag ["link"; "ocaml"; "use_camlp4o"] (S[A"-I"; A"+camlp4"]);
-    flag ["link"; "ocaml"; "native"; "use_camlp4o"] (A"camlp4o.cmxa");
-    flag ["link"; "ocaml"; "byte"; "use_camlp4o"] (A"camlp4o.cma");
+    flag ["link"; "ocaml"; "use_camlp4o"]
+        (S[A"-I"; A"+camlp4"]);
 
-    flag ["ocaml"; "compile"; "use_camlp4o"] (S[(A"-I"); A"+camlp4"]);
+    flag ["link"; "ocaml"; "native"; "use_camlp4o"]
+        (A"camlp4o.cmxa");
+
+    flag ["link"; "ocaml"; "byte"; "use_camlp4o"]
+        (A"camlp4o.cma");
+
+    flag ["ocaml"; "compile"; "use_camlp4o"]
+        (S [(A"-I"); A"+camlp4"]);
 
     flag ["link"; "ocaml"; "byte"; "use_gzcaml"]
-         (S[A"-dllib"; A"-lzlibstubs"; A"-cclib"; A"-lzlibstubs"; 
-         A"-dllib"; A"-lgzcaml"; A"-cclib"; A"-lgzcaml"]);
+         (S [A"-dllib"; A"-lzlibstubs"; A"-cclib"; A"-lzlibstubs"; 
+             A"-dllib"; A"-lgzcaml"; A"-cclib"; A"-lgzcaml"]);
 
     flag ["link"; "library"; "ocaml"; "native"; "use_gzcaml"]
-         (S[A"-cclib"; A"-lzlibstubs"; A"-cclib"; A"-lgzcaml"]);
+         (S [A"-cclib"; A"-lzlibstubs"; A"-cclib"; A"-lgzcaml"]);
 
     flag ["c"; "compile"; "use_nativedynlink"]
-        (S[A"-ccopt"; A"-DUSE_NATIVEDYNLINK"]);
+        (S [A"-ccopt"; A"-DUSE_NATIVEDYNLINK"]);
 
     flag ["c"; "compile"; "use_xslt"]
         (S[A"-ccopt"; A"-DUSE_XSLT"]);
@@ -384,17 +404,25 @@ dispatch begin function
     flag ["c"; "compile"; "use_win32"]
         (S[A"-ccopt"; A"-DUSEWIN32"]);
 
-    flag ["c"; "compile"] (S ccompileflags);
-    flag ["c"; "link"] (S clinkflags);
-    flag ["ocaml"; "compile"] (S ccompileflags);
-    flag ["ocaml"; "link"] (S clinkflags);
+    flag ["c"; "compile"]
+        (S ccompileflags);
 
-    dep  ["link"; "ocaml"; "use_gzcaml"] ["libgzcaml.a"; "libzlibstubs.a"];
-    dep  ["link"; "ocaml"; "use_parallel"] ["libmpicaml.a"];
+    flag ["c"; "link"]
+        (S clinkflags);
 
-    (* As an approximation all our C files use the headers.
-       Note: This will import headers in the build directory. *)
-    dep  ["compile"; "c"] headers;
+    flag ["ocaml"; "compile"]
+        (S ccompileflags);
+
+    flag ["ocaml"; "link"]
+        (S clinkflags);
+
+    dep ["link"; "ocaml"; "use_gzcaml"]
+        ["libgzcaml.a"; "libzlibstubs.a"];
+
+    dep ["link"; "ocaml"; "use_parallel"]
+        ["libmpicaml.a"];
+
+    dep ["compile"; "c"] headers;
 
 | _ -> ()
 
