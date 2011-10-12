@@ -50,8 +50,7 @@ type static_spec = {
 
 type static_state = [ `Bits of BitSet.t | `List of int list ] option
 
-let static_state_to_list x =
-    match x with
+let static_state_to_list x = match x with
     | `List x -> x
     | `Bits x -> BitSet.to_list x 
 
@@ -828,15 +827,16 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
 
 let add_all_taxa taxa new_taxa =
     let old_taxa = Array.to_list taxa in
-    let new_taxa = 
-        List.filter (fun x -> 
-            not (List.exists 
-            (function None -> false | Some y -> x = y) 
-            old_taxa)) 
-        new_taxa 
+    let new_taxa =
+        List.filter
+            (fun x ->
+                not (List.exists (function None -> false
+                                         | Some y -> x = y)
+                                 old_taxa))
+            new_taxa
     in
     let new_taxa = List.map (fun x -> Some x) new_taxa in
-    Array.append taxa (Array.of_list new_taxa)
+    Array.append taxa (Array.of_list (List.rev new_taxa))
 
 let add_prealigned_characters file chars (acc:nexus) = 
     let form = chars.P.char_format in
@@ -1639,13 +1639,16 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
             let taxa =
                 if cnt <> List.length taxa_list then
                     failwith ("Illegal NEXUS file: the number of taxa does " ^
-                    "not match the DIMENSIONS value of the TAXA block")
-                else add_all_taxa acc.taxa taxa_list
+                              "not match the DIMENSIONS value of the TAXA block")
+                else
+                    add_all_taxa acc.taxa taxa_list
             in
             { acc with taxa = taxa }
+
     | P.Characters chars -> 
             Status.user_message Status.Information "Adding data from Characters block";
             add_prealigned_characters file chars acc
+
     | P.Error block ->
             Status.user_message Status.Error
                 ("There@ is@ a@ parsing@ error@ in@ the@ block@ " ^
@@ -1655,10 +1658,12 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                  "continue@ with@ the@ rest@ of@ the@ file,@ but@ I@ " ^
                  "advice@ you@ to@ verify@ the@ cause@ of@ the@ error.");
             acc
+
     | P.Assumptions lst ->
             Status.user_message Status.Information "Adding data from Assumptions block";
             List.iter (update_assumptions acc) lst;
             acc
+
     | P.Trees (translations, newtrees) ->
             Status.user_message Status.Information "Adding data from Trees block";
             let handle_tree tree = 
@@ -1667,6 +1672,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
             in
             let newtrees = List.map handle_tree newtrees in
             {acc with trees = acc.trees @ newtrees }
+
     | P.Unaligned data ->
             Status.user_message Status.Information "Adding data from Unaligned block";
             let char_spec = 
@@ -1686,7 +1692,9 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                         failwith "POY can't handle continuous types"
             in
             let res = Fasta.of_string (FileContents.AlphSeq alph) unal in
-            { acc with unaligned = (default_unaligned res alph) :: acc.unaligned;};
+            { acc with 
+                unaligned = (default_unaligned res alph) :: acc.unaligned; }
+
     | P.Sets data -> 
             Status.user_message Status.Information "Adding data from Sets block";
             List.iter 
@@ -1700,6 +1708,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                             ("I will ignore the set "^name^" defined in the NEXUS file."))
                 data;
             acc
+
     | P.Poy block ->
         Status.user_message Status.Information "Adding data from POY block";
         List.fold_left
