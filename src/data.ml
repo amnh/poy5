@@ -1826,6 +1826,8 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                 let tcm,name = match u.Nexus.File.u_opening with
                     | None -> tcm, name
                     | Some v ->
+                        if v=0 then tcm,name
+                        else begin
                         Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine v);
                         let name = match name with
                             | Substitution_Indel (a,b) -> 
@@ -1835,6 +1837,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                             | _ -> assert( false )
                         in
                         tcm, name
+                        end
                 in
                 let name = match u.Nexus.File.u_level with
                     | Some level -> Level (name, level)
