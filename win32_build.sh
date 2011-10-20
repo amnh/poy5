@@ -8,11 +8,12 @@ source $HOME/.keychain/${HOSTNAME}-sh
 sequential=0
 parallel=0
 ncurses=0
-configuration=${CONFIGURE_OPTIONS}
-MACHOST=""
 make_installers=0
 update=0
 version=${BUILD_VERSION}
+concorde="--with-concorde-dir=/home/andres/concorde"
+
+configuration="${concorde} ${CONFIGURATION_OPTIONS}"
 
 while getopts 'uspnm' OPTION; do
     case $OPTION in
@@ -30,7 +31,6 @@ while getopts 'uspnm' OPTION; do
         ;;
         m)
         make_installers=1
-        MACHOST="samson"
         ;;
         ?)
         printf "Usage: \n%s [OPTION]*\n\n-m HOST create installers in the HOST computer (uses ssh for this step)\n-u update from the subversion repository\n-s compile sequential flat \n-p parallel flat version\n-n compile sequential ncurses." $(basename $0)
@@ -110,8 +110,8 @@ fi
 if [ $make_installers -eq 1 ]; then
     rm -f /cygdrive/c/POY_Installer.exe
     ./create_installers.bat
-    if ! scp /cygdrive/c/POY_Installer.exe ${MACHOST}:poy_distro/source_code/binaries/windows/; then
-        echo "I could not copy the resulting executable in $MACHOST!"
-        exit 1
-    fi
+    #if ! scp /cygdrive/c/POY_Installer.exe ${MACHOST}:poy_distro/source_code/binaries/windows/; then
+    #    echo "I could not copy the resulting executable in $MACHOST!"
+    #    exit 1
+    #fi
 fi
