@@ -55,13 +55,6 @@ and clinkflags =
     if Sys.os_type = "Win32" then flags
     else A"-cc" ::  A cc :: flags
 
-
-let olinkflags =
-    clinkflags @ !Options.ocaml_lflags
-
-and ocompileflags =
-    ccompileflags @ !Options.ocaml_cflags
-
 (* List of headers *)
 let headers =
     [
