@@ -3778,7 +3778,7 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
     }
     else {
         failwith("why are we dealing with affine inside a regular alignment function?\n");
-        if (swaped) {
+       /* if (swaped) {
             while (end >= beg) {
                 if (*end & (ALIGN << shifter)) {
                     if (0 == shifter) {
@@ -3914,7 +3914,7 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
                     }
                 } 
             }
-        }
+        }*/
     }
     return;
 }
