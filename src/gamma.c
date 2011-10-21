@@ -20,6 +20,7 @@
 #include <stdlib.h> /* malloc, calloc, srand, RAND_MAX */
 #include <string.h> /* memcpy, memset */
 #include <assert.h>
+#include <malloc.h>
 
 #include "config.h" //defines if likelihood, use_.., et cetera
 #include <math.h>   //log,exp

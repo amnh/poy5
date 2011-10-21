@@ -80,24 +80,31 @@ CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
 USE_LIKELIHOOD="true"
-LIBS="-lm $LIBS"
 
 # System dependent options
 case ${OS_INFORMATION} in
     x86_64*)
         OCAMLFLAGS="-fno-PIC $OCAMLFLAGS" 
         CFLAGS="-fPIC $CFLAGS"
+        LIBS="-lm $LIBS"
         ;;
     *-apple-*)
         CFLAGS="-I /usr/include/malloc $CFLAGS"
+        LIBS="-lm $LIBS"
         ;;
     *-cygwin*)
         USEWIN32="true"
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
+        #unlike above, m is implemented in msvcrt
+        LIBS="$LIBS"
+        #below, so malloc/realloc is not redefined to rpl_malloc
+        ac_cv_func_realloc_0_nonnull=yes
+        ac_cv_func_malloc_0_nonnull=yes
         ;;
     *)
+        LIBS="-lm $LIBS"
         ;;
 esac
 
@@ -377,15 +384,25 @@ case ${OS_INFORMATION} in
             [AC_MSG_RESULT([Not enabling Likelihood])])
         ;;
     *)
-        AS_IF(  [test $USE_LIKELIHOOD = "false"],
-            [AC_MSG_RESULT( [Not enabling Likelihood])],
+        AS_IF([test $USE_LIKELIHOOD = "false"],
+              [],
+              AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
+                AC_CHECK_LIB(g2c,main,LFORTRAN="-lg2c",
+                  AC_CHECK_LIB(f2c,main,LFORTRAN="-lf2c",
+                    [AC_MSG_RESULT(Cannot find appropriate fortran library, disabling likelihood);
+                     USE_LIKELIHOOD="false"]))))
+
+        AS_IF([test $USE_LIKELIHOOD = "false"],
+            [AC_MSG_RESULT([Not enabling Likelihood])],
             [AC_CHECK_LIB([lapack],[main],
-                [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"; 
-                 AC_MSG_RESULT( [Found lapack and enabling Likelihood]); LIBS="-llapack -lblas -lgfortran $LIBS"],
-                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood] )]
-        )])
+                [USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood"; 
+                 AC_MSG_RESULT([Found lapack and enabling Likelihood]); LIBS="-llapack -lblas $LFORTRAN $LIBS"],
+                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood] )])
+            ])
         ;;
 esac
+
+
 
 CC_VERSION="`$CC --version`"
 POY_VERSION_NUMBER="`$MERCURIAL`"

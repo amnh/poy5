@@ -243,7 +243,12 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
         fo ("@[UserType "^name^" (StepMatrix) = "^(string_of_int s)^"@]@\n");
         fo "@[";
         for i = 0 to s-1 do
-            fo ((Alphabet.match_code i a)^" ");
+            try fo ((Alphabet.match_code i a)^" ")
+            with _ -> ()
+(*                begin*)
+(*                    Alphabet.print a;*)
+(*                    failwith ("Could not find "^string_of_int i^" in alphabet")*)
+(*                end*)
         done;
         fo "@]@\n@[";
         List.fold_left
