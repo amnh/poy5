@@ -3733,49 +3733,22 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
      * Note that this two lines could be defined as macros, but we (I?) have
      * decided not to do so to keep it readable. Besides, once correct, there is
      * nothing (or very few things) to do here. */
+
+    //why we are checking affine_flag here? we have whole other set of function
+    //dealing with affine alignment and backtrace, we should never use the
+    //"else" part of this "if"
     if (!(cm_get_affine_flag (c))) {
-        if (swaped) {
-            while (end >= beg) {
-                if (*end & ALIGN) {
-                    algn_s1--;
-                    new_item_for_r1 = my_get(s1,algn_s1);
-                    my_prepend(r1,new_item_for_r1);
-                    algn_s2--;
-                    new_item_for_r2 = my_get(s2,algn_s2);
-                    my_prepend(r2,new_item_for_r2);
-                    end -= l + 1;
-                } 
-                else if (*end & INSERT) {
-                    new_item_for_r1 = cm_get_gap (c);
-                    my_prepend(r1,new_item_for_r1);
-                    algn_s2--;
-                    new_item_for_r2 = my_get(s2,algn_s2);
-                    my_prepend(r2,new_item_for_r2);
-                    end -= 1;
-                } 
-                else {
-                    assert (*end & DELETE);
-                    algn_s1--;
-                    new_item_for_r1 = my_get (s1,algn_s1);
-                    my_prepend(r1,new_item_for_r1);
-                    new_item_for_r2 = cm_get_gap (c);
-                    my_prepend(r2,new_item_for_r2);
-                    end -= l;
-                }
-            }
-        }
-        else {
-            while (end >= beg) {
-                if (*end & ALIGN) {
-                    algn_s1--;
-                    new_item_for_r1 = my_get(s1,algn_s1);
-                    my_prepend(r1,new_item_for_r1);
-                    algn_s2--;
-                    new_item_for_r2 = my_get(s2,algn_s2);
-                    my_prepend(r2,new_item_for_r2);
-                    end -= l + 1;
-                } 
-                else if (*end & DELETE) {
+        /* Please note that in sequence.ml, function [create_edited_2] 
+         * pass the longer seq as seq1.
+         * I know it's different in affine alignment(algn_fill_plane_3_aff), 
+         * or alignment from newkkonen ( newkkonen.c), 
+         * or the floating version from likelihood (according to nic). 
+         * as a result, INSERT here is acctually DELETE in those three.
+         * Also, since seq1/seq2 are already swapped before passing, I don't
+         * think we need the do this with if(swapped)...else...
+         */
+            while (end >= beg) { 
+                if (*end & DELETE) {
                     algn_s1--;
                     new_item_for_r1 = my_get(s1,algn_s1);
                     my_prepend(r1, new_item_for_r1);
@@ -3783,6 +3756,15 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
                     my_prepend(r2,new_item_for_r2);
                     end -= l;
                 } 
+                else if (*end & ALIGN) {
+                    algn_s1--;
+                    new_item_for_r1 = my_get(s1,algn_s1);
+                    my_prepend(r1,new_item_for_r1);
+                    algn_s2--;
+                    new_item_for_r2 = my_get(s2,algn_s2);
+                    my_prepend(r2,new_item_for_r2);
+                    end -= l + 1;
+                }
                 else {
                     assert (*end & INSERT);
                     new_item_for_r1 = cm_get_gap (c);
@@ -3793,9 +3775,9 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
                     end -= 1;
                 }
             }
-        }
     }
     else {
+        failwith("why are we dealing with affine inside a regular alignment function?\n");
         if (swaped) {
             while (end >= beg) {
                 if (*end & (ALIGN << shifter)) {
