@@ -26,6 +26,7 @@ AC_SUBST(DUSE_LARGE_ALPHABETS)
 AC_SUBST(DUSE_VERIFY_COSTS)
 AC_SUBST(DUSEGRAPHICS)
 AC_SUBST(DUSEWIN32)
+AC_SUBST(PATH_PREFIX)
 
 AC_SUBST(OUSE_NATIVEDYNLINK)
 AC_SUBST(OUSE_XSLT)
@@ -80,6 +81,7 @@ CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
 USE_LIKELIHOOD="true"
+PATH_PREFIX="/usr/"
 
 # System dependent options
 case ${OS_INFORMATION} in
@@ -111,7 +113,7 @@ esac
 INTERFACE_SELECTED="true"
 
 AC_ARG_ENABLE([interface], [AS_HELP_STRING([--enable-interface],
-              [Force POY's user interface. Valid options are flat, ncurses, readline, and html. The default is ncurses, if ncurses is not found, then the readline interface is used, if readline is not present either, then choose the flat interface.])],
+              [Force POYs user interface. Valid options are flat, ncurses, readline, and html. The default is ncurses, if ncurses is not found, then the readline interface is used, if readline is not present either, then choose the flat interface.])],
               [USEINTERFACE=$enableval],
               [USEINTERFACE="ncurses"; INTERFACE_SELECTED="false"; DUSENCURSES="-DUSENCURSES"; OUSENCURSES=",use_ncurses"])
 
@@ -120,11 +122,12 @@ AC_ARG_WITH(extras, [AS_HELP_STRING([--with-extras],
             [EXTRAS=$withval],[])
 
 AC_CHECK_PROGS([MERCURIAL], [hg])
+AC_ARG_WITH(version-number,
+            [AS_HELP_STRING([--with-version-number], [Use the configuration provided version number (used for release purposes only).])],
+            [MERCURIAL="echo $withval"],[MERCURIAL="hg id -i"])
 
-AC_ARG_WITH(version-number, [AS_HELP_STRING([--with-version-number], [Use the configuration provided version number (used for release purposes only).])], [MERCURIAL="echo $withval"],[MERCURIAL="$MERCURIAL id -i"])
-
-AC_ARG_WITH(ocaml-flags, [AS_HELP_STRING([--with-ocaml-flags], 
-            [Add the following flags to the ocaml compiler.])],
+AC_ARG_WITH(ocaml-flags, 
+            [AS_HELP_STRING([--with-ocaml-flags], [Add the following flags to the ocaml compiler.])],
             [OCAMLFLAGS=$withval],[])
 
 AC_ARG_ENABLE([mpi], [AS_HELP_STRING([--enable-mpi], 
@@ -182,6 +185,9 @@ AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
                 concorde_dir=$withval
               fi],[])
 
+AC_ARG_WITH([prefix], [AS_HELP_STRING([--prefix=<DIR>],
+            [set the build path for libraries; it should contain <DIR>/include and <DIR>/lib (for x-compiling)])],
+            [ PATH_PREFIX=$withval],[PATH_PREFIX="/usr/"])
 
 AC_MSG_CHECKING([for concorde.a])
 if test -f "$concorde_dir/concorde.a"; then
