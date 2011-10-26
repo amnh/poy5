@@ -2943,10 +2943,11 @@ case ${OS_INFORMATION} in
         # m(ath) is located in msvcrt
         LIBS="$LIBS"
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
-        ac_cv_func_malloc_0_nonnull=no
-        ac_cv_func_realloc_0_nonnull=no
+        ac_cv_func_realloc_0_nonnull=yes
+        ac_cv_func_malloc_0_nonnull=yes
         ;;
     *)
+        LIBS="-lm $LIBS"
         ;;
 esac
 
@@ -5246,6 +5247,119 @@ fi
         ;;
     *)
         if test $USE_LIKELIHOOD = "false"; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lgfortran" >&5
+$as_echo_n "checking for main in -lgfortran... " >&6; }
+if ${ac_cv_lib_gfortran_main+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lgfortran  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_gfortran_main=yes
+else
+  ac_cv_lib_gfortran_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_gfortran_main" >&5
+$as_echo "$ac_cv_lib_gfortran_main" >&6; }
+if test "x$ac_cv_lib_gfortran_main" = xyes; then :
+  LFORTRAN="-lgfortran"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lg2c" >&5
+$as_echo_n "checking for main in -lg2c... " >&6; }
+if ${ac_cv_lib_g2c_main+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lg2c  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_g2c_main=yes
+else
+  ac_cv_lib_g2c_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_g2c_main" >&5
+$as_echo "$ac_cv_lib_g2c_main" >&6; }
+if test "x$ac_cv_lib_g2c_main" = xyes; then :
+  LFORTRAN="-lg2c"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lf2c" >&5
+$as_echo_n "checking for main in -lf2c... " >&6; }
+if ${ac_cv_lib_f2c_main+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lf2c  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_f2c_main=yes
+else
+  ac_cv_lib_f2c_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_f2c_main" >&5
+$as_echo "$ac_cv_lib_f2c_main" >&6; }
+if test "x$ac_cv_lib_f2c_main" = xyes; then :
+  LFORTRAN="-lf2c"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Cannot find appropriate fortran library" >&5
+$as_echo "Cannot find appropriate fortran library" >&6; };
+                     USE_LIKELIHOOD="false"
+fi
+
+fi
+
+fi
+
+fi
+
+        if test $USE_LIKELIHOOD = "false"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not enabling Likelihood" >&5
 $as_echo "Not enabling Likelihood" >&6; }
 else
@@ -5280,14 +5394,14 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_main" >&5
 $as_echo "$ac_cv_lib_lapack_main" >&6; }
 if test "x$ac_cv_lib_lapack_main" = xyes; then :
-  USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood";
+  USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood";
                  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Found lapack and enabling Likelihood" >&5
-$as_echo "Found lapack and enabling Likelihood" >&6; }; LIBS="-llapack -lblas -lgfortran $LIBS"
+$as_echo "Found lapack and enabling Likelihood" >&6; }; LIBS="-llapack -lblas $LFORTRAN $LIBS"
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: lapack not found; continuing without Likelihood " >&5
 $as_echo "lapack not found; continuing without Likelihood " >&6; }
-
 fi
+
 
 fi
         ;;

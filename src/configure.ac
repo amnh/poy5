@@ -100,10 +100,11 @@ case ${OS_INFORMATION} in
         # m(ath) is located in msvcrt
         LIBS="$LIBS"
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
-        ac_cv_func_malloc_0_nonnull=no
-        ac_cv_func_realloc_0_nonnull=no
+        ac_cv_func_realloc_0_nonnull=yes
+        ac_cv_func_malloc_0_nonnull=yes
         ;;
     *)
+        LIBS="-lm $LIBS"
         ;;
 esac
 
@@ -383,13 +384,21 @@ case ${OS_INFORMATION} in
             [AC_MSG_RESULT([Not enabling Likelihood])])
         ;;
     *)
-        AS_IF(  [test $USE_LIKELIHOOD = "false"],
-            [AC_MSG_RESULT( [Not enabling Likelihood])],
+        AS_IF([test $USE_LIKELIHOOD = "false"],
+              [],
+              AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
+                AC_CHECK_LIB(g2c,main,LFORTRAN="-lg2c",
+                  AC_CHECK_LIB(f2c,main,LFORTRAN="-lf2c",
+                    [AC_MSG_RESULT(Cannot find appropriate fortran library, disabling likelihood);
+                     USE_LIKELIHOOD="false"]))))
+
+        AS_IF([test $USE_LIKELIHOOD = "false"],
+            [AC_MSG_RESULT([Not enabling Likelihood])],
             [AC_CHECK_LIB([lapack],[main],
-                [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"; 
-                 AC_MSG_RESULT( [Found lapack and enabling Likelihood]); LIBS="-llapack -lblas -lgfortran $LIBS"],
-                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood] )]
-        )])
+                [USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood"; 
+                 AC_MSG_RESULT([Found lapack and enabling Likelihood]); LIBS="-llapack -lblas $LFORTRAN $LIBS"],
+                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood] )])
+            ])
         ;;
 esac
 

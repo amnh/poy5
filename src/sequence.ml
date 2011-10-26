@@ -580,10 +580,20 @@ module Align = struct
 
     external c_max_cost_2 : s -> s -> Cost_matrix.Two_D.m -> int = "algn_CAML_worst_2"
 
+    (*[c_cost_2] and [c_cost_2_limit] return the alignment cost, the result of
+    * alignment is stored in Matrix.m, we can retrieve it with
+    * [extract_edited_2] *)
     external c_cost_2 :
         s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int -> int =
             "algn_CAML_simple_2"
 
+    external c_cost_2_limit :
+        s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int -> int -> int ->
+            int -> int -> int -> int = "algn_CAML_limit_2_bc" "algn_CAML_limit_2"
+
+    (*[cost_2_affine] and [c_align_affine_3] for affine alignment,
+    * besides cost, [c_align_affine_3] also give
+    * us alignment, which is called traceback in algn.c *)
     external c_align_affine_3 : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> 
         s -> s -> s -> s -> int = "algn_CAML_align_affine_3_bc"
         "algn_CAML_align_affine_3"
@@ -601,11 +611,7 @@ module Align = struct
             c_align_affine_3 si sj cm Matrix.default resi resj median
             medianwg in
         (median, resi, resj, cost, medianwg)
-
-    external c_cost_2_limit :
-        s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int -> int -> int ->
-            int -> int -> int -> int = "algn_CAML_limit_2_bc" "algn_CAML_limit_2"
-
+    
     let max_cost_2 a b c =
         let gap = Cost_matrix.Two_D.gap c in
         if is_empty a gap || is_empty b gap then 0
@@ -846,6 +852,8 @@ module Align = struct
         let g1 = count_gaps s1 m1
         and g2 = count_gaps s2 m1 in
         let gaps = max g1 g2 in
+        (*note that we pass longer seq as seq1 to the cside, this is different
+        * in newkkonen/affine alignement/likelihood*)
         if ls1 >= ls2 then
             let deltaw = gaps + deltaw_calc ls1 ls2 in
             c_cost_2 s1 s2 m1 m2 deltaw
@@ -989,7 +997,6 @@ module Align = struct
             | _ ->
                     let tc = cost_2 s1 s2 c m in   
                     let s1p, s2p = create_edited_2 s1 s2 m c in   
-                 (*   Printf.printf "editing cost = %d\n%!" tc;*)
                     s1p, s2p, tc   
         in 
         match first_gap with

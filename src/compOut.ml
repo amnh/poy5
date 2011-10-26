@@ -243,7 +243,12 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
         fo ("@[UserType "^name^" (StepMatrix) = "^(string_of_int s)^"@]@\n");
         fo "@[";
         for i = 0 to s-1 do
-            fo ((Alphabet.match_code i a)^" ");
+            try fo ((Alphabet.match_code i a)^" ")
+            with _ -> ()
+(*                begin*)
+(*                    Alphabet.print a;*)
+(*                    failwith ("Could not find "^string_of_int i^" in alphabet")*)
+(*                end*)
         done;
         fo "@]@\n@[";
         List.fold_left
@@ -326,10 +331,8 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
             let rec add_ = function
                 | Data.Substitution_Indel (a, b) -> 
                     add_ab code pos posstr a b;
-                    add_go code pos posstr 0
                 | Data.Input_file (name, _) -> 
                     add_name code pos posstr name;
-                    add_go code pos posstr 0
                 | Data.Substitution_Indel_GapOpening (a, b, x) ->
                     add_ab code pos posstr a b;
                     add_go code pos posstr x

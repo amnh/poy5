@@ -1799,12 +1799,13 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                 else 
                     ~-1
             in
+            let seq = u.Nexus.File.u_data in
             match u.Nexus.File.u_model with
             | Some _ ->
                 process_parsed_sequences 
                     false u.Nexus.File.u_weight (Substitution_Indel (1,2))
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
-                    `DO false u.Nexus.File.u_alph file `Ml data u.Nexus.File.u_data
+                    `DO false u.Nexus.File.u_alph file `Ml data seq
                     u.Nexus.File.u_model u.Nexus.File.u_pam
             | None ->
                 let tcm,name = match u.Nexus.File.u_tcm with
@@ -1825,6 +1826,8 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                 let tcm,name = match u.Nexus.File.u_opening with
                     | None -> tcm, name
                     | Some v ->
+                        if v=0 then tcm,name
+                        else begin
                         Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine v);
                         let name = match name with
                             | Substitution_Indel (a,b) -> 
@@ -1834,6 +1837,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                             | _ -> assert( false )
                         in
                         tcm, name
+                        end
                 in
                 let name = match u.Nexus.File.u_level with
                     | Some level -> Level (name, level)
@@ -1842,11 +1846,11 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                 let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
                 process_parsed_sequences false u.Nexus.File.u_weight name tcm
                                         tcm3d `DO false u.Nexus.File.u_alph file
-                                        `Seq data u.Nexus.File.u_data None
-                                        u.Nexus.File.u_pam
+                                        `Seq data seq None u.Nexus.File.u_pam
         in
         List.fold_left ~f:(single_sequence_adder) 
-                       ~init:data file_out.Nexus.File.unaligned
+                       ~init:data
+                       file_out.Nexus.File.unaligned
     in
     let cnsets,csets = (* create `character <--> setname` tables *)
         let character_nsets = create_ht () in

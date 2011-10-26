@@ -264,7 +264,7 @@ module CMPLAlign : A = struct
         let gap = Alphabet.get_gap m.static.MlModel.alph in
         let med= create_s a b and ea= create_s a b and eb= create_s a b in
         let () = full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                                m.static.MlModel.ui ta tb a b ea eb med gap in
+                                m.static.MlModel.ui a b ea eb med gap in
         let ea,eb,med = 
             if filter_gap
                 then ea, eb, remove_gaps (Alphabet.get_gap m.alph) med
