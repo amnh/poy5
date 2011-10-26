@@ -199,7 +199,7 @@ module CMPLAlign : A = struct
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
-        float -> float -> s -> s -> s -> s -> s -> int ->
+        s -> s -> s -> s -> s -> int ->
             unit 
         = "falign_CAML_backtrace_wrapper" "falign_CAML_backtrace"
 
@@ -226,7 +226,7 @@ module CMPLAlign : A = struct
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
-        float -> float -> s -> s -> s -> int ->
+        s -> s -> s -> int ->
             unit 
         = "falign_CAML_median_wrapper" "falign_CAML_median"
 
@@ -282,7 +282,7 @@ module CMPLAlign : A = struct
         let med= create_s a b in
         let gap = Alphabet.get_gap m.static.MlModel.alph in
         let () = median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                                  m.static.MlModel.ui ta tb a b med gap in
+                                  m.static.MlModel.ui a b med gap in
         if filter_gap
             then remove_gaps (Alphabet.get_gap m.alph) med
             else med

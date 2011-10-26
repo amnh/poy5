@@ -50,7 +50,7 @@
 #define CDIR         DIRECTION_MATRIX
 #define MAX(a,b)     (a>=b)?a:b
 #define MIN(a,b)     (a<=b)?a:b
-#define EQUALS(a,b)  fabs(a-b)<EPSILON
+#define FEQUALS(a,b) fabs(a-b)<EPSILON
 #define ISSET(x,i)   ((1<<i)&x)
 #define GET(x,i)     seq_get(x,i)
 
@@ -226,7 +226,7 @@ general_cost(const seqt x, const seqt y, fcmt *FA, const int i, const int j)
         cost_ins = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i),      FA->fmat->gap );
         cost_del = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j)      );
 
-        if( EQUALS(cost_aln,cost_ins) ){
+        if( FEQUALS(cost_aln,cost_ins) ){
             temp_dir = ALIGN | INSERT;
             temp_min = MIN(cost_aln,cost_ins);
         } else if ( cost_aln < cost_ins ){
@@ -236,7 +236,7 @@ general_cost(const seqt x, const seqt y, fcmt *FA, const int i, const int j)
             temp_dir = INSERT;
             temp_min = cost_ins;
         }
-        if( EQUALS( temp_min, cost_del ) ){
+        if( FEQUALS( temp_min, cost_del ) ){
             temp_dir |=  DELETE;
             temp_min  = MIN(temp_min,cost_del);
         } else if ( cost_del < temp_min ){
@@ -274,7 +274,7 @@ void update_exclude_row( fcmt *FA, const seqt x, const seqt y, const int i, cons
     cost_aln = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i),      GET(y,j));
     cost_del = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j));
 
-    if( EQUALS(cost_aln, cost_del) ){
+    if( FEQUALS(cost_aln, cost_del) ){
         DSET( FA, place, ALIGN | DELETE );
         FA->costs[place] = MIN( cost_aln, cost_del );
         FA->nukk[place] = MIN( 1 + FA->nukk[(j-1)*x->len+i], 
@@ -303,7 +303,7 @@ void update_exclude_col( fcmt *FA, const seqt x, const seqt y, const int i, cons
     cost_aln = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i), GET(y,j)      );
     cost_ins = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i), FA->fmat->gap );
 
-    if( EQUALS(cost_aln, cost_ins) ){
+    if( FEQUALS(cost_aln, cost_ins) ){
         DSET( FA, place, ALIGN | INSERT );
         FA->costs[place] = MIN( cost_aln, cost_ins );
         FA->nukk[place] = MIN( 1 + FA->nukk[j*x->len + (i-1)],
@@ -336,7 +336,7 @@ void update_all( fcmt *FA, const seqt x, const seqt y, const int i, const int j 
     cost_ins = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i),      FA->fmat->gap );
     cost_del = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j)      );
 
-    if( EQUALS(cost_aln,cost_ins) ){
+    if( FEQUALS(cost_aln,cost_ins) ){
         temp_dir = ALIGN | INSERT;
         temp_min = MIN(cost_aln,cost_ins);
         temp_gap =  MIN( 1 + FA->nukk[j*x->len + (i-1)],
@@ -350,7 +350,7 @@ void update_all( fcmt *FA, const seqt x, const seqt y, const int i, const int j 
         temp_min = cost_ins;
         temp_gap =  1 + FA->nukk[j*x->len + (i-1)];
     }
-    if( EQUALS( temp_min, cost_del ) ){
+    if( FEQUALS( temp_min, cost_del ) ){
         temp_dir |=  DELETE;
         temp_min  = MIN(temp_min,cost_del);
         temp_gap  = MIN( 1 + FA->nukk[(j-1)*x->len+i], temp_gap );
@@ -411,10 +411,9 @@ void build_strip( const seqt x, const seqt y, fcmt *FA, const int k )
 
 void update_barrier( const seqt x, const seqt y, fcmt *FA, const int k, const int ok )
 {
-    int i_min, i_max, i, b, ob, j, p_max;
+    int i_min, i_max, i, b, j, p_max;
 
     b  =  (k - (y->len - x->len)) / 2;
-    ob = (ok - (y->len - x->len)) / 2;
 
     p_max = 1;
     for( j=1; j < y->len; ++j ) {
@@ -464,14 +463,13 @@ double nukk_falign( const seqt x, const seqt y, fcmt *FA )
 
 value
 falign_CAML_median(value oSpace, value oMat, value oU, value oD, value oUi,
-                   value ota, value otb, value oa, value ob, value om, value ogap)
+                   value oa, value ob, value om, value ogap)
 {
     CAMLparam5( oSpace, oMat, oU, oD, oUi );
-    CAMLxparam5( ota, otb, oa, ob, om );
-    CAMLxparam1( ogap );
+    CAMLxparam4( ogap, oa, ob, om );
 
     seqt a,b, m;
-    double ta, tb, *PA, *PB;
+    double *PA, *PB;
     fcmt results;
     mat *space;
     int mat_size, alph, fcm_size, gap;
@@ -483,9 +481,6 @@ falign_CAML_median(value oSpace, value oMat, value oU, value oD, value oUi,
     results.direc = Matrices_struct( oMat );
     alph = Bigarray_val(oU)->dim[0];
     gap = Int_val( ogap );
-
-    ta = Double_val( ota );
-    tb = Double_val( otb );
 
     /* we need to ensure that we didn't "clear" the memory earlier; although we
      * never actually clear it, we need to at least ensure that an alignment is
@@ -523,7 +518,7 @@ value falign_CAML_median_wrapper( value* argv, int argn )
 {
     return falign_CAML_median
         (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6],
-            argv[7], argv[8], argv[9], argv[10]);
+            argv[7], argv[8]);
 }
 
 value
@@ -547,15 +542,14 @@ falign_CAML_print_alignments( value oSpace, value oMat, value oAlen, value oBlen
 
 value
 falign_CAML_backtrace( value oSpace, value oMat, value oU, value oD, value oUi,
-                        value ota, value otb, value oa, value ob, value oea,
-                         value oeb, value om, value ogap)
+                       value oa, value ob, value oea, value oeb, value om, value ogap)
 {
     CAMLparam5( oSpace, oMat, oU, oD, oUi );
-    CAMLxparam5( ota, otb, oa, ob, oea );
-    CAMLxparam3( oeb, om, ogap );
+    CAMLxparam5( oa, ob, oea, oeb, om );
+    CAMLxparam1( ogap );
 
     seqt a,b, ea, eb, m;
-    double ta, tb, *PA, *PB;
+    double *PA, *PB;
     fcmt results;
     mat *space;
     int mat_size, alph, fcm_size, gap;
@@ -569,9 +563,6 @@ falign_CAML_backtrace( value oSpace, value oMat, value oU, value oD, value oUi,
     results.direc = Matrices_struct( oMat );
     alph = Bigarray_val(oU)->dim[0];
     gap = Int_val( ogap );
-
-    ta = Double_val( ota );
-    tb = Double_val( otb );
 
     /* we need to ensure that we didn't "clear" the memory earlier; although we
      * never actually clear it, we need to at least ensure that an alignment is
@@ -609,7 +600,7 @@ value falign_CAML_backtrace_wrapper( value* argv, int argn )
 {
     return falign_CAML_backtrace
         (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6],
-            argv[7], argv[8], argv[9], argv[10], argv[11], argv[12]);
+            argv[7], argv[8], argv[9], argv[10]);
 }
 
 
@@ -769,19 +760,18 @@ value falign_CAML_nukk_2_wrapper( value* argv, int argn )
 
 
 value
-falign_CAML_cost_2(value oSpace, value oU, value oD, value oUi, value ot, value oa, value ob, value ogap)
+falign_CAML_cost_2(value oSpace, value oU, value oD, value oUi, value ot, value oa, value ob)
 {
-    CAMLparam5( oSpace, oU, oD, oUi, ogap );
-    CAMLxparam3( ot, oa, ob );
+    CAMLparam5( oSpace, oU, oD, oUi, ot );
+    CAMLxparam2( oa, ob );
     CAMLlocal1( ocosts );
 
     double t, *P, *TMP, costs, min_cost;
-    int alph, gap, i, aj, bj;
+    int alph, i, aj, bj;
     seqt a, b;
     mat *space;
 
     t = Double_val( ot );
-    gap = Int_val( ogap );
     Seq_custom_val( a, oa );
     Seq_custom_val( b, ob );
     assert( a->len == b->len );
@@ -824,7 +814,7 @@ falign_CAML_cost_2(value oSpace, value oU, value oD, value oUi, value ot, value 
 value falign_CAML_cost_2_wrapper( value* argv, int argn )
 {
     return falign_CAML_cost_2
-        (argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7]);
+        (argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6]);
 }
 
 
