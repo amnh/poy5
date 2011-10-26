@@ -80,15 +80,16 @@ CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
 USE_LIKELIHOOD="true"
-LIBS="-lm $LIBS"
 
 # System dependent options
 case ${OS_INFORMATION} in
     x86_64*)
+        LIBS="-lm $LIBS"
         OCAMLFLAGS="-fno-PIC $OCAMLFLAGS" 
         CFLAGS="-fPIC $CFLAGS"
         ;;
     *-apple-*)
+        LIBS="-lm $LIBS"
         CFLAGS="-I /usr/include/malloc $CFLAGS"
         ;;
     *-cygwin*)
@@ -96,6 +97,11 @@ case ${OS_INFORMATION} in
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
+        # m(ath) is located in msvcrt
+        LIBS="$LIBS"
+        # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
+        ac_cv_func_malloc_0_nonnull=no
+        ac_cv_func_realloc_0_nonnull=no
         ;;
     *)
         ;;
