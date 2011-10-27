@@ -185,8 +185,8 @@ AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
                 concorde_dir=$withval
               fi],[])
 
-AC_ARG_WITH([prefix], [AS_HELP_STRING([--prefix=<DIR>],
-            [set the build path for libraries; it should contain <DIR>/include and <DIR>/lib (for x-compiling)])],
+AC_ARG_WITH([prefix], [AS_HELP_STRING([--with-prefix=<DIR>],
+            [Set the build path for libraries; it should contain <DIR>/include and <DIR>/lib (for x-compiling)])],
             [ PATH_PREFIX=$withval],[PATH_PREFIX="/usr/"])
 
 AC_MSG_CHECKING([for concorde.a])
@@ -355,7 +355,7 @@ esac
 # Final fix to compile in windows
 case ${OS_INFORMATION} in
     *-cygwin*)
-        LIBS="-link -mwin32 $LIBS"
+        LIBS="-mwin32 $LIBS"
         ;;
     *)
         ;;
