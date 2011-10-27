@@ -653,6 +653,7 @@ OUSEREADLINE
 OUSE_LIKELIHOOD
 OUSE_XSLT
 OUSE_NATIVEDYNLINK
+PATH_PREFIX
 DUSEWIN32
 DUSEGRAPHICS
 DUSE_VERIFY_COSTS
@@ -729,6 +730,7 @@ enable_likelihood
 enable_large_alphabets
 enable_cost_verification
 with_concorde_dir
+with_prefix
 with_xslt_config
 '
       ac_precious_vars='build_alias
@@ -1351,7 +1353,7 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-interface      Force POY's user interface. Valid options are flat,
+  --enable-interface      Force POYs user interface. Valid options are flat,
                           ncurses, readline, and html. The default is ncurses,
                           if ncurses is not found, then the readline interface
                           is used, if readline is not present either, then
@@ -1405,6 +1407,8 @@ Optional Packages:
   --with-ocaml-flags      Add the following flags to the ocaml compiler.
   --with-concorde-dir=<DIR>
                           set the path to concorde library
+  --prefix=<DIR>          set the build path for libraries; it should contain
+                          <DIR>/include and <DIR>/lib (for x-compiling)
 Select a different xslt-config program to detect the configuration options of libxslt.
 
 Some influential environment variables:
@@ -2919,30 +2923,32 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
 USE_LIKELIHOOD="true"
+PATH_PREFIX="/usr/"
 
 # System dependent options
 case ${OS_INFORMATION} in
     x86_64*)
+        LIBS="-lm $LIBS"
         OCAMLFLAGS="-fno-PIC $OCAMLFLAGS"
         CFLAGS="-fPIC $CFLAGS"
-        LIBS="-lm $LIBS"
         ;;
     *-apple-*)
-        CFLAGS="-I /usr/include/malloc $CFLAGS"
         LIBS="-lm $LIBS"
+        CFLAGS="-I /usr/include/malloc $CFLAGS"
         ;;
     *-cygwin*)
         USEWIN32="true"
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
-        #unlike above, m is implemented in msvcrt
+        # m(ath) is located in msvcrt
         LIBS="$LIBS"
-        #below, so malloc/realloc is not redefined to rpl_malloc
+        # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
         ;;
@@ -3011,12 +3017,11 @@ fi
 done
 
 
-
 # Check whether --with-version-number was given.
 if test "${with_version_number+set}" = set; then :
   withval=$with_version_number; MERCURIAL="echo $withval"
 else
-  MERCURIAL="$MERCURIAL id -i"
+  MERCURIAL="hg id -i"
 fi
 
 
@@ -3107,6 +3112,14 @@ if test "${with_concorde_dir+set}" = set; then :
               fi
 fi
 
+
+
+# Check whether --with-prefix was given.
+if test "${with_prefix+set}" = set; then :
+  withval=$with_prefix;  PATH_PREFIX=$withval
+else
+  PATH_PREFIX="/usr/"
+fi
 
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for concorde.a" >&5
@@ -5406,8 +5419,6 @@ fi
 fi
         ;;
 esac
-
-
 
 CC_VERSION="`$CC --version`"
 POY_VERSION_NUMBER="`$MERCURIAL`"

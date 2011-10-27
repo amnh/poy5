@@ -15,6 +15,11 @@ let interface =
         "status_@USEINTERFACE@.ml"
 
 
+(** Prefix / Root Options **)
+let prefix   = "@PATH_PREFIX@"
+let path_inc = prefix^"/include/"
+let path_lib = prefix^"/lib"
+
 let split string = 
     let len = String.length string in
     let res = ref [] in
@@ -301,16 +306,19 @@ dispatch begin function
 
     (* When one compile C code using the zlib *)
     flag ["link"; "ocaml"; "use_zlib"]
-        (S[A"-cclib"; A zlib_lib]);
+        (S[A"-cclib"; A zlib_lib;
+           A"-ccopt"; A"-I"; A"-ccopt"; A path_lib]);
 
     (* If `static' is true then every ocaml link in bytecode will add -custom *)
     if static then flag ["link"; "ocaml"; "byte"] (A"-custom");
 
     flag ["link"; "ocaml"; "use_poy"]
-        (S[A"-cclib"; A"-lpoycside"; A"-cclib"; A"-L."]);
+        (S[A"-cclib"; A"-lpoycside"; A"-cclib"; A"-L.";
+           A"-ccopt"; A"-I"; A"-ccopt"; A path_lib]);
 
     flag ["c"]
-        (S[A"-ccopt"; A"-I"; A"-ccopt"; A"/usr/include/malloc"]);
+        (S[A"-ccopt"; A"-I"; A"-ccopt"; A (path_inc^"malloc");
+           A"-ccopt"; A"-I"; A"-ccopt"; A path_inc]);
     flag ["c"; "use_char8"]
         (S[A"-ccopt"; A"-DCHARSIZE=8"]);
     flag ["c"; "use_char16"]
