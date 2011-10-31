@@ -1,0 +1,80 @@
+\documentclass[11pt]{article}
+\usepackage{geometry}
+\geometry{letterpaper}
+%\geometry{landscape}                % Activate for for rotated page geometry
+%\usepackage[parfill]{parskip}    % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{epstopdf}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+\title{POY Documentation}
+\author{Louise Crowley}
+%\date{10/28/2011}                                           % Activate to display a given date or no date
+
+\begin{document}
+\maketitle
+
+\section{Major additions to POY 5.0}
+\subsection{Likelihood (Nick, Ward, John)}
+\bigskip
+I don't know jack about this.
+\subsection{Chromosomal Characters}
+\bigskip
+
+Questions: Vinh's Code (Lin/Ward)
+\begin{enumerate}
+\item{Are we going to make any reference to Vinh's original code?}  
+\item{Are any of his options still in use?}
+\item{Will this be referenced in the documentation?}
+\end{enumerate}
+\bigskip
+Questions: MAUVE (Lin/Ward)
+\begin{enumerate}
+\item{Which part of MAUVE are be using \emph{exactly}? It will be necessary to compare Mauve Original and Progressive Mauve to see which parts of which we are using (Lin).  I know we are mostly using the Original algorithm, but I think there are some parts, which are in the Progressive algorithm, that we are using.}
+\item{It would be useful (for me anyway) to have a flow chart of how we handle these data types, from the initial reading in of a fasta file to the final output.  At what stage in the analysis is Mauve is involved?  Use of Fixed States? How the Newkonnen algorithm is involved etc:}
+\item{Did 'we' ever consider using multi-LAGAN, which is better at handling more divergent genomes and better suited for interspecies comparison?}
+\item{In the initial stage of analysis where Mauve is aligning the sequences, what about the unaligned regions that MAUVE doesn't align?}
+\item{LCBs, and seeds will all need to be explained.  Given that LCBs are a part of multi-MUMs, will this have to be explained, or is this not an option that the user defines? Is a string the same as a seed?  Do we have spaced seeds?  They are palindromic, correct?} 
+\end{enumerate}
+\bigskip
+Questions: Diagnosis file (Lin/Ward)
+\begin{enumerate}
+\item{How is the diagnose file outputted -- what are all the options?}
+\item{We can output a synteny block image, correct? Is Mauve called for this part?}
+\end{enumerate}
+\bigskip
+
+\section{Documentation}
+\begin{enumerate}
+\item{Change 4.0 to 5.0}
+\item{Typos (Louise)}
+\item{All of the documentation needs to be checked for "currently not supported", to see whether this is still true.}
+\item{The code from 4.0 and 5.0 needs to be compared to see what's new (especially if Andres put in more things after the last release and these have not been documented) (Nick).}
+\item{When to invoke the long sequences option when compiling - for 32 bit and 64 bit computer architecture.}
+\end{enumerate}
+
+\section{Tutorials}
+\begin{enumerate}
+\item{Add additional tutorials, e.g Timed Search, Bootstrap, an example of drift (Louise).}
+\item{Redo all Chromosomal Tutorials (4.6-4.9).  The current tutorials state that they are only for demonstration purposes -- these are inadequate for the new code (Louise, Megan, Lin).}
+\item{Examples for every new option should be included -- these will go in the \emph{Transform} section (Louise, Megan, Lin).}
+\item{Dummy files for the chromosomal data types, as well as cost matrices, will have to be included (Megan, Louise).}
+\end{enumerate}
+
+\section{Additional Questions/Points}
+\begin{enumerate}
+\item{Megan and I feel that it is a misnomer to refer to \emph{Locus Costs}, given that it is not referring to a functional gene.  Perhaps in the documentation we should refer to the synteny bock content, hereafter locus cost".  This can be included an an operational definition of a locus in a note.}
+\item{Redo all Chromosomal tutorials (4.6-4.9).  The current tutorials state that they are only for demonstration purposes -- these are inadequate for the new code (Louise, Megan, Lin).}
+\item{Examples for every new option should be included -- these will go in the \emph{Transform} section (Louise, Megan, Lin).}
+\end{enumerate}
+
+\end{document}  
+
+
+
+
+
+
+
+
