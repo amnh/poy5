@@ -1,6 +1,7 @@
-This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2008.8.22)  31 OCT 2011 11:20
+This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2008.8.22)  31 OCT 2011 17:57
 entering extended mode
 \write18 enabled.
+ file:line:error style messages enabled.
  %&-line parsing enabled.
 **POY5.tex
 (./POY5.tex
@@ -193,7 +194,7 @@ Here is how much of TeX's memory you used:
 r/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr12.pfb></usr/local/te
 xlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr17.pfb></usr/local/texlive/2008
 /texmf-dist/fonts/type1/bluesky/cm/cmti10.pfb>
-Output written on POY5.pdf (3 pages, 44718 bytes).
+Output written on POY5.pdf (3 pages, 44996 bytes).
 PDF statistics:
  32 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
