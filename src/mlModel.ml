@@ -1324,11 +1324,16 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
             false, m_custom priors assoc xs a_size, lk_spec.substitution, lk_spec.use_gap
     in
     (* ensure that when priors are not =, we use a model that asserts that *)
-    let () = 
-        match lk_spec.base_priors with
+    let lk_spec = match lk_spec.base_priors with
         | Estimated _  when sym -> failwith "JC69/K80 require equal priors"
-        | Given _ when sym -> failwith "JC69/K80 require equal priors"
-        | _ -> ()
+            Status.user_message Status.Warning 
+                "I am using equal priors as required in the selected likelihood model";
+            { lk_spec with base_priors = Equal }
+        | Given _ when sym ->
+            Status.user_message Status.Warning
+                "I am using equal priors as required in the selected likelihood model";
+            { lk_spec with base_priors = Equal }
+        | (Estimated _ | Equal | Given _) -> lk_spec
     in
     let (u_,d_,ui_) = diagonalize sym sub_mat in
     {

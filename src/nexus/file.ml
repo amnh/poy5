@@ -429,34 +429,34 @@ let rec general_apply_on_character_set find set_table characters f x =
     let last = (Array.length characters) - 1 in
     match x with
     | P.Range (a, b, step) ->
-            let b = match b with
-                | None -> last
-                | Some b -> b
-            in
-            let rec loop i = 
-                if i > b then ()
-                else begin 
-                    f (i - 1);
-                    loop (i + step);
-                end;
-            in
-            loop a
+        let b = match b with
+            | None -> last
+            | Some b -> b
+        in
+        let rec loop i = 
+            if i > b then ()
+            else begin 
+                f (i - 1);
+                loop (i + step);
+            end;
+        in
+        loop a
     | P.Single v  -> f (v - 1);
     | P.Name name ->
-            if Hashtbl.mem set_table (String.uppercase name) then
-                List.iter 
-                    (general_apply_on_character_set find set_table characters f)
-                    (Hashtbl.find set_table (String.uppercase name))
-            else begin
-                match String.uppercase name with
-                | "ALL" ->
-                    general_apply_on_character_set find set_table characters f 
-                        (P.Range (1, (Some last), 1))
-                | "."   ->
-                    f (last - 1)
-                | name  ->
-                    f (find characters name)
-            end
+        if Hashtbl.mem set_table (String.uppercase name) then
+            List.iter 
+                (general_apply_on_character_set find set_table characters f)
+                (Hashtbl.find set_table (String.uppercase name))
+        else begin
+            match String.uppercase name with
+            | "ALL" ->
+                general_apply_on_character_set find set_table characters f 
+                    (P.Range (1, (Some last), 1))
+            | "."   ->
+                f (last - 1)
+            | name  ->
+                f (find characters name)
+        end
 
 let apply_on_character_set = general_apply_on_character_set find_character
 
@@ -1329,8 +1329,8 @@ let compute_static_priors alph u_gap (priors,count,gcount) inverse state =
 let get_verify_alphabet (n:nexus) chars : Alphabet.a =
     let first_alph = ref None in
     List.iter
-        (apply_on_character_set 
-            n.csets 
+        (apply_on_character_set
+            n.csets
             n.characters
             (fun i -> match !first_alph with
                 | None -> first_alph := Some n.characters.(i).st_alph;
@@ -1604,7 +1604,7 @@ let apply_likelihood_model params acc =
                         acc.characters.(i) <- { acc.characters.(i) with st_type = st_m; }))
                     xs
         end
-    and convert_unaligned lst = 
+    and convert_unaligned lst =
         List.map
             (fun un ->
                 let str_spec = match pi with
@@ -1762,8 +1762,8 @@ let process_parsed file parsed : nexus =
         | P.Poy _, P.Characters _ ->   1
         | P.Unaligned _, P.Poy _  -> ~-1
         | P.Poy _, P.Unaligned _  ->   1
-        | P.Sets _, P.Poy _       ->   1
-        | P.Poy _, P.Sets _       -> ~-1
+        | P.Sets _, P.Poy _       -> ~-1
+        | P.Poy _, P.Sets _       ->   1
         | P.Assumptions _, _      -> ~-1
         | _ , P.Assumptions _     ->   1
         | _, _                    ->   0 (* keep everything else in the same order *)
