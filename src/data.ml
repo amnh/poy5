@@ -5897,14 +5897,8 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         | `AffinePartition (_, gapcost, gapopening) ->
                 (fun len -> gapopening + (len * gapcost))
     in
-    let present_absent_alph = 
-        Alphabet.list_to_a 
-        [("present", 1, None); ("absent", 2, None)] 
-        "absent" None Alphabet.Sequential
-    in
     let encoding len = 
-        present_absent_alph,
-        (Parser.OldHennig.Encoding.gap_encoding (compute_cost len))
+        Alphabet.present_absent, Parser.OldHennig.Encoding.gap_encoding (compute_cost len)
     in
     let make_indel_blocks_encoding lst = 
         let res = List.rev_map (fun (_, x) -> encoding x) lst in

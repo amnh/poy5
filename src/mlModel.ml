@@ -1325,7 +1325,7 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
     in
     (* ensure that when priors are not =, we use a model that asserts that *)
     let lk_spec = match lk_spec.base_priors with
-        | Estimated _  when sym -> failwith "JC69/K80 require equal priors"
+        | Estimated _  when sym ->
             Status.user_message Status.Warning 
                 "I am using equal priors as required in the selected likelihood model";
             { lk_spec with base_priors = Equal }
