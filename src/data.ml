@@ -2818,13 +2818,14 @@ let create_alpha_c2_breakinvs (data : d) chcode =
 
     let spec = Hashtbl.find data.character_specs chcode in  
     let c2, alpha,dynpam = match spec with 
-    | Dynamic dspec -> dspec.tcm2d, dspec.alph, dspec.pam
-    | _ -> failwith "Transfrom_annchroms_to_breakinvs: Not Dynamic" 
+        | Dynamic dspec -> dspec.tcm2d, dspec.alph, dspec.pam
+        | _ -> failwith "Transfrom_annchroms_to_breakinvs: Not Dynamic" 
     in  
     let use_ukk =
         match dynpam.align_meth with
-        | Some `NewKK -> true
-        | _ -> false
+        | Some `NewKK   -> true
+        | Some `Default -> false
+        | None          -> false
     in
     let chrom_ls = get_dynas data chcode in 
         
@@ -4755,9 +4756,9 @@ let compute_fixed_states filename data code polymph =
         | None   -> false
     in
     let align_with_newkk = match dhs.pam.align_meth with
-        | Some `NewKK -> true
-        | None        -> false
-        | Some _      -> false
+        | Some `NewKK   -> true
+        | None          -> false
+        | Some `Default -> false
     in
     let taxon_sequences = Hashtbl.create 1667 in
     let sequences_taxon = Hashtbl.create 1667 in
