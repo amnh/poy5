@@ -80,6 +80,7 @@ let string = "@[@[Welcome to @{<b>POY@} " ^ version_string ^ "@]@." ^
                      rephrase ("@[compiled on " ^ CompileFlags.time
                       ^ " with parallel " ^ is_true CompileFlags.str_parallel
                       ^ ", interface " ^ get_interface CompileFlags.str_interface
-                      ^ ", and likelihood " ^ is_true CompileFlags.str_likelihood ^
+                      ^ ", likelihood " ^ is_true CompileFlags.str_likelihood 
+                      ^ ", and concorde " ^ is_true CompileFlags.str_concorde ^
                       ".@]@,@[" ^
                      "POY version " ^ version_string ^ ", Copyright (C) 2007, 2008 Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, and the American Museum of Natural History. POY 4.0 comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@]")
