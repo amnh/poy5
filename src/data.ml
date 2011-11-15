@@ -1465,6 +1465,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
         done; 
         !res
     in
+
     let original_filename = file in
     let locus_name = 
         let c = ref (-1) in
@@ -1504,141 +1505,148 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             state = dyna_state;
             pam = dyna_pam;
             weight = weight; 
-            polymorphism = `Do_All} 
+            polymorphism = `Do_All; }
         in
         Hashtbl.replace data.character_specs chcode (Dynamic dspec);
         Hashtbl.replace data.character_names file chcode;
         Hashtbl.replace data.character_codes chcode file;
         chcode, data
-    in 
-    let single_loci_processor acc res = 
-        let chcode, data = add_character acc in 
-        (* Now a function to process one taxon at a time to be 
-        * folded over the taxa collected in the [file]. *)
+    in
+    let single_loci_processor acc res =
+        let chcode, data = add_character acc in
+        (* Now a function to process one taxon at a time to be
+         * folded over the taxa collected in the [file]. *)
         let process_a_taxon data (seq, taxon) =
-            (* Here is where, at the parser level, the fixed 
-            * states support should be added *)
-            let data, tcode = 
-                process_taxon_code data taxon original_filename 
+            (* Here is where, at the parser level, the fixed
+             * states support should be added *)
+            let data, tcode =
+                process_taxon_code data taxon original_filename
             in
             let tl = get_taxon_characters data tcode in
-            let seqa = 
+            let seqa =
                 let makeone seqa = {seq=seqa; code = -1} in
-                match dyna_state with 
+                match dyna_state with
                 | `Ml  when not prealigned -> Array.map makeone seq 
                 | `Seq when not prealigned -> Array.map makeone seq
-                | `SeqPrealigned -> Array.map makeone seq
-                | _ -> Array.map (fun x -> x --> 
-                        Sequence.del_first_char --> makeone) seq 
-            in 
-            let dyna_data = {seq_arr =  seqa} in 
-            let _ = 
+                | `SeqPrealigned           -> Array.map makeone seq
+                | `Chromosome | `Genome
+                | `Annotated  | `Breakinv 
+                | `Seq | `Ml (* when prealigned *) ->
+                    Array.map (fun x -> makeone (Sequence.del_first_char x)) seq
+            in
+            let dyna_data = { seq_arr = seqa; } in 
+            let () = 
                 let spc =
                     let maxlen =
                         Array.fold_left ~f:(fun acc x ->
                             max acc (Sequence.length x.seq)) ~init:0 
                         seqa
                     in
-                    if 2 <= maxlen then `Specified
-                    else `Unknown
+                    if 2 <= maxlen 
+                        then `Specified else 
+                    if prealigned && maxlen <> 0
+                        then `Specified 
+                        else `Unknown
                 in
-                Hashtbl.replace tl chcode (Dyna (chcode, dyna_data), spc) 
+                Hashtbl.replace tl chcode (Dyna (chcode, dyna_data),spc) 
             in
             Hashtbl.replace data.taxon_characters tcode tl;
             data
         in
         List.fold_left ~f:process_a_taxon ~init:data res
     in
-    let process_annotated_chrom data = 
-        let arr = Array.of_list res in 
-        let num_loci = Array.length arr in 
-        
-        let mat = Array.map Array.of_list arr in 
-        let locus0 = mat.(0) in 
-        let num_taxa = Array.length locus0 in 
-        let chcode, data = add_character data in 
+    let process_annotated_chrom data =
+        let arr = Array.of_list res in
+        let num_loci = Array.length arr in
+        let mat = Array.map Array.of_list arr in
+        let locus0 = mat.(0) in
+        let num_taxa = Array.length locus0 in
+        let chcode, data = add_character data in
         data.seg_code_gen := 0;
-        let rec add_taxon data t = 
-            match t >= num_taxa with
-            | true -> data 
+        let rec add_taxon data t = match t >= num_taxa with
+            | true -> data
             | false ->
-                  let seq, taxon = locus0.(t) in  
-                  let data, tcode =  
-                      process_taxon_code data taxon original_filename  
-                  in 
-                  let rec get_annchrom rev_seq_ls l =
-                      if l = num_loci then List.rev rev_seq_ls
-                      else begin
-                           let seq, _ = mat.(l).(t) in 
-                           let len = Sequence.length seq in 
-                           match len > 1 with 
-                           | false -> get_annchrom rev_seq_ls (l + 1)
-                           | true -> 
-                                 incr data.seg_code_gen; 
-                                 let code = !(data.seg_code_gen) in   
-                                 incr data.seg_code_gen; (** this code is for
-                                                             the negative state *)                                     
-                                 let clean_seq = Sequence.sub seq 1 (len - 1) in 
-                                 let rev_seq_ls = 
-                                     {seq = clean_seq; code = code}::rev_seq_ls 
-                                 in 
-                                 get_annchrom rev_seq_ls (l + 1)
-                      end 
-                  in 
-                  let seq_arr = Array.of_list (get_annchrom [] 0) in 
-                  let chrom_data = {seq_arr =  seq_arr} in  
-                  let tl = get_taxon_characters data tcode in 
-                  let _ =  
-                      Hashtbl.replace tl chcode 
-                      (Dyna (chcode, chrom_data), `Specified) 
-                  in 
-                  Hashtbl.replace data.taxon_characters tcode tl;
-                  add_taxon data (t + 1)
-        in 
+                let seq, taxon = locus0.(t) in
+                let data, tcode =
+                    process_taxon_code data taxon original_filename
+                in
+                let rec get_annchrom rev_seq_ls l =
+                    if l = num_loci then
+                        List.rev rev_seq_ls
+                    else begin
+                        let seq, _ = mat.(l).(t) in
+                        let len = Sequence.length seq in
+                        match len > 1 with
+                        | false -> get_annchrom rev_seq_ls (l + 1)
+                        | true ->
+                            incr data.seg_code_gen;
+                            let code = !(data.seg_code_gen) in
+                            (** this code is for the negative state *)
+                            incr data.seg_code_gen;
+                            let clean_seq = Sequence.sub seq 1 (len - 1) in
+                            let rev_seq_ls =
+                                {seq = clean_seq; code = code}::rev_seq_ls
+                            in
+                            get_annchrom rev_seq_ls (l + 1)
+                    end
+                in
+                let seq_arr = Array.of_list (get_annchrom [] 0) in
+                let chrom_data = {seq_arr =  seq_arr} in
+                let tl = get_taxon_characters data tcode in
+(*                let spc =*)
+(*                    if 2 <= maxlen*)
+(*                        then `Specified else *)
+(*                    if prealigned *)
+(*                        then `Specified *)
+(*                        else `Unknown*)
+(*                in*)
+                Hashtbl.replace tl chcode (Dyna (chcode, chrom_data), `Specified);
+                Hashtbl.replace data.taxon_characters tcode tl;
+                add_taxon data (t+1)
+        in
         add_taxon data 0
-    in 
-    let process_genome data = 
-        let num_genome = List.length (List.hd res) in 
-        let num_chrom = List.length res in 
-        let max_chrom_len = ref 0 in 
-        let genome_arr = Array.init num_genome 
-            (fun ti -> Array.init num_chrom 
-                 (fun ci -> 
-                      let chrom, name = List.nth (List.nth res ci) ti in 
-                      max_chrom_len := max !max_chrom_len (Sequence.length chrom);
-                      (chrom, name)
-                 )
-            )
-        in 
-        let chcode, data =  add_character data in 
-        Array.fold_left 
+    in
+    let process_genome data =
+        let num_genome = List.length (List.hd res) in
+        let num_chrom = List.length res in
+        let max_chrom_len = ref 0 in
+        let genome_arr =
+            Array.init num_genome
+                (fun ti ->
+                    Array.init num_chrom
+                        (fun ci ->
+                            let chrom, name = List.nth (List.nth res ci) ti in
+                            max_chrom_len := max !max_chrom_len (Sequence.length chrom);
+                            (chrom, name)))
+        in
+        let chcode, data =  add_character data in
+        Array.fold_left
             ~f:(fun data chrom_arr ->
-                 let chrom_ls = Array.fold_left 
-                     ~f:(fun chrom_ls (chrom, _) ->
-                          let chrom_len = Sequence.length chrom in 
-                          match chrom_len with
-                          | 1 -> chrom_ls
-                          | _ ->
+                let chrom_ls =
+                    Array.fold_left
+                        ~f:(fun chrom_ls (chrom, _) ->
+                            let chrom_len = Sequence.length chrom in
+                            match chrom_len with
+                            | 1 -> chrom_ls
+                            | _ ->
                                 let clean_chrom = Sequence.sub chrom 1 (chrom_len - 1) in
-                                incr data.seg_code_gen;                          
-                                let code = data.seg_code_gen in  
-                                {seq = clean_chrom; code = !code}::chrom_ls
-                     ) ~init:[] chrom_arr 
-                 in 
-                 let genome_data = {seq_arr = Array.of_list (List.rev chrom_ls)} in
-                 let _, taxon_name = chrom_arr.(0) in 
-                 let data, tcode = 
-                     process_taxon_code data taxon_name original_filename 
-                 in
-                 let tl = get_taxon_characters data tcode in 
-                 let _ = 
-                     Hashtbl.replace tl chcode 
-                     (Dyna (chcode, genome_data), `Specified) in 
-                 let _ =  
-                     Hashtbl.replace data.taxon_characters tcode tl
-                 in
-                 data
-            ) ~init:data genome_arr
+                                incr data.seg_code_gen;
+                                let code = data.seg_code_gen in
+                                {seq = clean_chrom; code = !code}::chrom_ls)
+                        ~init:[]
+                        chrom_arr
+                in
+                let genome_data = {seq_arr = Array.of_list (List.rev chrom_ls)} in
+                let _, taxon_name = chrom_arr.(0) in
+                let data, tcode =
+                    process_taxon_code data taxon_name original_filename
+                in
+                let tl = get_taxon_characters data tcode in
+                Hashtbl.replace tl chcode (Dyna (chcode, genome_data), `Specified);
+                Hashtbl.replace data.taxon_characters tcode tl;
+                data)
+            ~init:data
+            genome_arr
     in 
     let individual_fragments x = 
         List.map (List.map ~f:(fun (seq, t) -> [|seq|], t)) x
@@ -1662,15 +1670,14 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
         if annotated then process_annotated_chrom data 
         else if dyna_state = `Genome then process_genome data
         else if `DO = default_mode || `GeneralNonAdd = default_mode then
-            match (res --> individual_fragments) with
+            match individual_fragments res with
             | [x] ->
-                    locus_name := (fun () -> original_filename);
-                    single_loci_processor data x
+                locus_name := (fun () -> original_filename);
+                single_loci_processor data x
             | [] -> data
             | x -> List.fold_left ~f:single_loci_processor ~init:data x
         else 
-            (res --> merge_fragments -->
-            single_loci_processor data)
+            single_loci_processor data (merge_fragments res)
     in 
     data
 
@@ -1694,12 +1701,13 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
     (* Now we add the codes to the data *)
     Array.iter ~f:(add_static_character_spec data) codes;
     (* And now a function to add one taxon at a time to the data *)
-    let data = Array.fold_left ~f:(fun data name ->
-        match name with
-        | Some name ->
-                let data, _ = process_taxon_code data name file in
-                data
-        | None -> data) ~init:data file_out.Nexus.File.taxa 
+    let data =
+        Array.fold_left
+            ~f:(fun data name -> match name with
+                | Some name -> fst (process_taxon_code data name file)
+                | None      -> data)
+            ~init:data
+            file_out.Nexus.File.taxa
     in
     for row = 0 to len_taxa - 1 do
         (* We ignore the data because we already processed the names *)
@@ -1716,8 +1724,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                             | Some _ -> `Specified
                             | None -> `Unknown
                         in
-                        Hashtbl.replace tl chcode 
-                        ((Stat (chcode, it)), specified);
+                        Hashtbl.replace tl chcode ((Stat (chcode, it)), specified);
                     end;
                     (column + 1)
                 in
@@ -1735,10 +1742,13 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
     (* We add the trees *)
     let data = 
         let cnt = ref 0 in
-        let trees = List.rev_map ~f:
-                (fun x ->
-                    (x, file, (incr cnt; !cnt))) file_out.Nexus.File.trees in
-        { data with trees = data.trees @ trees } in
+        let trees = 
+            List.rev_map
+                ~f:(fun x -> (x, file, (incr cnt; !cnt)))
+                file_out.Nexus.File.trees
+        in
+        { data with trees = data.trees @ trees }
+    in
     (* combine the branch lengths of the root if it's a rooted tree *)
     let () =
         let unroot_branch_lengths table tree node1 node2 =
@@ -1828,15 +1838,15 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                     | Some v ->
                         if v=0 then tcm,name
                         else begin
-                        Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine v);
-                        let name = match name with
-                            | Substitution_Indel (a,b) -> 
-                                Substitution_Indel_GapOpening (a,b,v)
-                            | Input_file (name,lst) ->
-                                Input_file_GapOpening (name,lst,v)
-                            | _ -> assert( false )
-                        in
-                        tcm, name
+                            Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine v);
+                            let name = match name with
+                                | Substitution_Indel (a,b) -> 
+                                    Substitution_Indel_GapOpening (a,b,v)
+                                | Input_file (name,lst) ->
+                                    Input_file_GapOpening (name,lst,v)
+                                | _ -> assert( false )
+                            in
+                            tcm, name
                         end
                 in
                 let name = match u.Nexus.File.u_level with
@@ -1850,7 +1860,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
         in
         List.fold_left ~f:(single_sequence_adder) 
                        ~init:data
-                       file_out.Nexus.File.unaligned
+                        file_out.Nexus.File.unaligned
     in
     let cnsets,csets = (* create `character <--> setname` tables *)
         let character_nsets = create_ht () in
@@ -2044,7 +2054,7 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 alphabet
         in
         let res = List.filter (function [[]], _ | [], _ -> false | _ -> true) res
         in
-        let _ = (* Output a message with the contents of the file *)
+        let () = (* Output a message with the contents of the file *)
             let num_taxa = List.length res in
             let taxa_contents = 
                 let file = FileStream.filename file in
@@ -2062,8 +2072,7 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm tcm3 alphabet
                         "fragments.@]" else "fragment.@]@.")
                 end
             in
-            Status.user_message Status.Information (taxa_contents ^
-            sequence_contents);
+            Status.user_message Status.Information (taxa_contents ^ sequence_contents);
         in
         close_in ch;
         if check_if_taxa_are_ok (FileStream.filename file) 
@@ -2217,10 +2226,11 @@ let rec process_analyze_only_taxa meth data =
                 data.character_codes 0)
             in
             let process_taxon txn_lst =
-                Hashtbl.fold (fun _ (_, item) spec ->
-                    match item with
-                    | `Specified -> spec + 1
-                    | `Unknown -> spec) txn_lst 0
+                Hashtbl.fold
+                    (fun _ (_, item) spec -> match item with
+                        | `Specified -> spec + 1
+                        | `Unknown -> spec)
+                    txn_lst 0
             in
             let add_or_remove_taxon code taxon_cs (included, excluded) =
                 let spec = process_taxon taxon_cs in
@@ -3822,7 +3832,6 @@ let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods
             (fun x -> 
                 try Hashtbl.find data.character_codes x 
                 with | Not_found ->
-                    print data;
                     failwithf "Cannot find %d in character_codes" x)
             (get_chars_codes_comp data ccodes)
     in
@@ -4085,6 +4094,7 @@ let make_char_sets sets d =
 (** [compute_priors data chars] computes the observed frequencies for all the
  * elements in the alphabet shared by the characters *)
 let compute_priors data chars u_gap = 
+    let debug_priors = false in
     let size, alph = verify_alphabet data chars in
     let size = if u_gap then size else size-1 in
     let priors = Array.make size 0.0 in
@@ -4126,16 +4136,18 @@ let compute_priors data chars u_gap =
     let counter = float_of_int !counter
     and gcounter = float_of_int !gap_counter
     and gap_contribution = (float_of_int !gap_counter) /. (float_of_int size) in
-(*    Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;*)
-(*    Array.iter (Printf.printf "|%f") priors;*)
-(*    Printf.printf "|]\n%!";*)
+    if debug_priors then begin
+        Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;
+        Array.iter (Printf.printf "|%f") priors;
+        Printf.printf "|]\n%!";
+    end;
     let final_priors = 
         if u_gap then begin
             let total_added_gaps = 
                 float_of_int
                     (List.fold_left ~f:(fun acc x -> (!longest - x) + acc) ~init:0 !lengths)
             in
-(*            Printf.printf "Total added gaps = %f\n%!" total_added_gaps;*)
+            if debug_priors then Printf.printf "Total added gaps = %f\n%!" total_added_gaps;
             priors.(gap_char) <- priors.(gap_char) +. total_added_gaps;
             let counter = counter -. gcounter +. total_added_gaps;
             and weight  = gcounter /. (float_of_int size) in
@@ -4144,10 +4156,12 @@ let compute_priors data chars u_gap =
             Array.map (fun x ->(x -. gap_contribution) /. counter) priors
         end
     in
-(*    let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in*)
-(*    Printf.printf "Final Priors (%f): [" sum;*)
-(*    Array.iter (Printf.printf "|%f") final_priors;*)
-(*    Printf.printf "|]\n%!";*)
+    if debug_priors then begin
+        let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in
+        Printf.printf "Final Priors (%f): [" sum;
+        Array.iter (Printf.printf "|%f") final_priors;
+        Printf.printf "|]\n%!";
+    end;
     final_priors
 
 
@@ -4269,18 +4283,19 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
         | _, _ -> failwith "Data.remove_absent_present_encodings failure"
     in
     (* test if we are using STATIC likelihood somewhere *)
-    let test_using_likelihood data = 
+    let test_using_likelihood data =
         let ret = ref false in
         Hashtbl.iter
             (fun x spec -> match spec with
-                | Static {Nexus.File.st_type = st_type} -> 
+                | Static {Nexus.File.st_type = st_type} ->
                     ret := !ret || (is_likelihood st_type)
                 | _ -> ())
             data.character_specs;
         (!ret || ignore)
     (* find if we are using the absent/present alphabet *)
-    and is_present_absent a = 
-        try let _ = Alphabet.match_base "present" a in true
+    and is_present_absent a =
+        try let _ = Alphabet.match_base "present" a
+            and _ = Alphabet.match_base "absent" in true
         with | _ -> false
     (* apply the absent/present encoding column to the previous column *)
     and is_present tcode code state spec = match spec,state with
@@ -4297,12 +4312,12 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
             let data_list = Nexus.File.static_state_to_list data
             and absent = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
             List.mem absent data_list
-        | Static sspec, (Stat (code,None),_) -> 
+        | Static sspec, (Stat (code,None),_) ->
             (* do the lookup anyway to ensure it exists *)
             let _ = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
             false
         | _,_ -> failwith "Incorrect Match2"
-    and branch_remove branch name = match branch with 
+    and branch_remove branch name = match branch with
         | Some branch ->
             Hashtbl.iter
                 (fun name v_set ->
@@ -4344,18 +4359,19 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
                          data.taxon_characters;
             n
         in
-        let map = 
+        let map,chars =
             List.fold_left
-                ~f:(fun acc k -> match Hashtbl.find data.character_specs k with
+                ~f:(fun (acc,chars) k -> match Hashtbl.find data.character_specs k with
                     | Static {Nexus.File.st_alph = st_alph;}
                         when is_present_absent st_alph ->
                             apply_absent_encoding copy_branch copy_spec copy_char copy_names copy_codes k;
-                            IntMap.map 
+                            IntMap.map
                                 (fun x -> List.filter (fun y -> not (y = k)) x)
-                                acc
-                    | Static _ -> acc
-                    | (Dynamic _ | Set | Kolmogorov _ ) -> assert false)
-                ~init:data.dynamic_static_codes
+                                acc, k::chars
+                    | Static x ->
+                            acc, chars
+                    | (Dynamic _ | Set | Kolmogorov _) -> assert false)
+                ~init:(data.dynamic_static_codes,[])
                 (get_code_from_characters_restricted_comp `AllStatic data chars)
         in
         { data with character_specs      = copy_spec;
@@ -4364,9 +4380,10 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
                     character_codes      = copy_codes;
                     dynamic_static_codes = map;
                     branches             = copy_branch;
-                    static_dynamic_codes = reverse_dynamic_static_codes map; }
+                    static_dynamic_codes = reverse_dynamic_static_codes map; },
+        chars
     end else begin
-        data
+        data,[]
     end
 
 
@@ -4430,11 +4447,13 @@ IFDEF USE_LIKELIHOOD THEN
             in
             apply_likelihood_model_on_chars data chars model
     in
-    List.fold_left ~f:(transform_char_set)
-                   ~init:(remove_absent_present_encodings ~ignore:true data chars)
-                   (categorize_characters_comp data chars)
+    let d,removed = remove_absent_present_encodings ~ignore:true data chars in
+    let all_chars = categorize_characters_comp d chars in
+    List.fold_left ~f:(transform_char_set) ~init:d all_chars
+
 ELSE
-    failwith "Likelihood not enabled: download different binary or contact mailing list" 
+    failwith "Likelihood not enabled: download different binary or contact mailing list"
+
 END
 
 let get_tran_code_meth data meth = 
@@ -4515,29 +4534,21 @@ let hashtbl_filter f y =
 
 let process_ignore_character report data code_set =
     let data = duplicate data in
-    let rep msg = 
-        if report then
-            Status.user_message Status.Information msg
-        else ()
-    in
-    rep "@[Characters@ excluded:@[<v 2>@,@[<v>";
     let compare x = not (All_sets.Integers.mem x code_set) in
     let compare1 code _ = not (All_sets.Integers.mem code code_set) in
     try
         (* Remove each character in the code set *)
         let new_cign =
-            All_sets.Integers.fold (fun code new_cign ->
-                let name = 
-                    Hashtbl.find data.character_codes code 
-                in
-                rep (StatusCommon.escape name ^ "@,");
-                Hashtbl.remove data.character_names name;
-                Hashtbl.remove data.character_codes code;
-                Hashtbl.remove data.character_specs code;
-                name :: new_cign) code_set 
+            All_sets.Integers.fold
+                (fun code new_cign ->
+                    let name = Hashtbl.find data.character_codes code in
+                    Hashtbl.remove data.character_names name;
+                    Hashtbl.remove data.character_codes code;
+                    Hashtbl.remove data.character_specs code;
+                    name :: new_cign)
+                code_set 
                 data.ignore_character_set
         in
-        rep "@]@]@]@\n%!";
         let non_additive_1 = List.filter compare data.non_additive_1 
         and non_additive_8 = List.filter compare data.non_additive_8
         and non_additive_16 = List.filter compare data.non_additive_16
@@ -4547,9 +4558,10 @@ let process_ignore_character report data code_set =
         and static_ml = List.filter compare data.static_ml
         and sankoff = List.map (fun x -> List.filter compare x) data.sankoff 
         and dynamics = List.filter compare data.dynamics in
-        Hashtbl.iter (fun code lst ->
-            Hashtbl.replace data.taxon_characters code 
-            (hashtbl_filter compare1 lst)) data.taxon_characters;
+        Hashtbl.iter 
+            (fun code lst ->
+                Hashtbl.replace data.taxon_characters code (hashtbl_filter compare1 lst))
+            data.taxon_characters;
         let sankoff = List.filter (function [] -> false | _ -> true) sankoff in
         { data with
             ignore_character_set = new_cign;
@@ -4563,15 +4575,13 @@ let process_ignore_character report data code_set =
             dynamics = dynamics;
             static_ml = static_ml;
         }
-    with
-    | Not_found -> 
-            rep "@]@]@]@\n%!";
-            let msg = 
-                "Could not find a character " ^
-                ". I will ignore it and continue without processing it." 
-            in
-            Status.user_message Status.Error msg;
-            data
+    with | Not_found -> 
+        let msg = 
+            "Could not find a character. " ^
+            "I will ignore it and continue without processing it." 
+        in
+        Status.user_message Status.Error msg;
+        data
 
 let process_ignore_characters report data characters = 
     let codes = get_chars_codes data characters in
@@ -4579,7 +4589,7 @@ let process_ignore_characters report data characters =
         List.fold_left  ~f:(fun acc x -> All_sets.Integers.add x acc)
                         ~init:All_sets.Integers.empty codes
     in
-    (process_ignore_character report data codes)
+    process_ignore_character report data codes
 
 let process_analyze_only_characters_file report dont_complement data files =
     let codes = 
@@ -4600,7 +4610,7 @@ let process_analyze_only_characters_file report dont_complement data files =
         if dont_complement then  (`Some codes)
         else complement_characters data (`Some codes) 
     in
-    (process_ignore_characters report data items)
+    process_ignore_characters report data items
 
 let process_ignore_characters_file report data file =
     try
@@ -4608,15 +4618,17 @@ let process_ignore_characters_file report data file =
         let items = Parser.IgnoreList.of_channel ch in
         let items = List.map trim items in
         close_in ch;
-        (process_ignore_characters report data (`Names items))
-    with
-    | err ->
-            let file = FileStream.filename file in
-            let msg = "Error while attempting to read the " ^
-            "ignore characters file " ^ StatusCommon.escape file 
-            ^ ". I will continue without processing it." in
-            Status.user_message Status.Error msg;
-            data
+        process_ignore_characters report data (`Names items)
+    with | err ->
+        let file = FileStream.filename file in
+        let msg = 
+            Printf.sprintf
+                ("Error while attempting to read the ignore characters file %s."
+                    ^^" I will continue without processing it.")
+                (StatusCommon.escape file)
+        in
+        Status.user_message Status.Error msg;
+        data
 
 let replace_name_in_spec name = function
     | Static e -> Static { e with Nexus.File.st_name = name }
@@ -5080,8 +5092,8 @@ let add_search_base_for_one_character_from_file data chars file character_name =
         try (Hashtbl.find data.character_names character_name)
         with | Not_found -> failwith "cannot add search base for non existing character"
     in
-    if debug_search_base then Printf.printf 
-    "Data.add_search_base_from_file %s, chcode=%d\n%!" file chcode;
+    if debug_search_base then 
+        Printf.printf "Data.add_search_base_from_file %s, chcode=%d\n%!" file chcode;
     let original_filename = file in
     let file = `Local file in 
     let alphabet = get_alphabet data chcode in
@@ -5170,17 +5182,8 @@ let add_search_base_for_one_character_from_file data chars file character_name =
                         Sequence.del_first_char --> makeone) seq 
             in 
             let dyna_data = {seq_arr =  seqa} in 
-            let _ = 
-                let spc =
-                    let maxlen =
-                        Array.fold_left ~f:(fun acc x ->
-                            max acc (Sequence.length x.seq)) ~init:0 
-                        seqa
-                    in
-                    if 2 <= maxlen then `Specified
-                    else `Unknown
-                in
-                Hashtbl.replace tl chcode (Dyna (chcode, dyna_data), spc) 
+            let () = 
+                Hashtbl.replace tl chcode (Dyna (chcode, dyna_data), `Specified) 
             in
             Hashtbl.replace data.searchbase_characters tcode tl;
             data
@@ -5251,9 +5254,9 @@ let classify_characters_by_alphabet_size data chars =
     let make_tuple_of_character_and_size acc char =
         let size = 
             data 
-            --> get_sequence_alphabet char
-            --> Alphabet.to_sequential 
-            --> Alphabet.distinct_size
+                --> get_sequence_alphabet char
+                --> Alphabet.to_sequential 
+                --> Alphabet.distinct_size
         in
         (char, size) :: acc
     in
@@ -5922,10 +5925,12 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
                 | (Stat _), _
                 | _, `Unknown -> acc
                 | (Dyna (_, d)), `Specified ->
-                        match d.seq_arr with
+                    begin match d.seq_arr with
                         | [|v|] -> v.seq :: acc
                         | _ -> assert false
-            else acc
+                    end
+            else 
+                acc
         in
         let sequences =
             Hashtbl.fold process_taxon data.taxon_characters [] 
@@ -5943,100 +5948,96 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         | `AllOne _
         | `AllSankoff None -> []
     in
-    let process_taxon a b ((enc, names, acc) as res)=
+    let process_taxon a b ((enc, names, acc) as res) =
         if Hashtbl.mem b code then
             match Hashtbl.find b code with
-            | (Stat _), _
+            | (Stat _), _ -> res
             | _, `Unknown -> res
-            | (Dyna (_, d)), `Specified ->
-                    match d.seq_arr with
-                    | [|v|] -> 
-                            let name = code_taxon a data
-                            and enc =
-                                match enc with
-                                | [||] -> 
-                                        (* We have to generate the encoding *)
-                                        let initial_acc = 
-                                            match tcm_case with
-                                            | `AllSankoff (Some _)
-                                            | `AffinePartition _ -> 
-                                                    make_indel_blocks_encoding
-                                                    blocks
-                                            | _ -> []
-                                        in
-                                        let res = 
-                                            Sequence.fold_right (fun acc base ->
-                                            do_encoding base acc) initial_acc v.seq
-                                        in
-                                        Array.of_list res
-                                | _ -> enc
-                            and seq = 
-                                let initial_acc =
-                                    match tcm_case with
-                                    | `AllSankoff (Some _)
-                                    | `AffinePartition _ ->
-                                            make_indel_blocks blocks v.seq
-                                    | _ -> []
-                                in
-                                Sequence.fold_right 
-                                (fun acc base ->
-                                    let base = 
-                                        if base = gap then 0
-                                        else base 
-                                    in
-                                    do_states `Exists base acc) 
-                                initial_acc v.seq
+            | (Dyna (_, d)), _ -> 
+                begin match d.seq_arr with
+                | [|v|] ->
+                    let enc = match enc with
+                        | [||] -> 
+                            (* We have to generate the encoding *)
+                            let initial_acc = match tcm_case with
+                                | `AllSankoff (Some _)
+                                | `AffinePartition _ -> make_indel_blocks_encoding blocks
+                                | _ -> []
                             in
-                            let seq = Array.of_list seq in
-                            if Array.length seq <> Array.length enc then begin
-                                Status.user_message Status.Error
-                                ("The@ prealigned@ sequences@ in@ " ^
-                                code_character code data ^ "@ do@ not@ have@ \
-                                the@ same@ length.@ The@ taxon@ " ^ name ^ "@ \
-                                has@ a@ sequence@ of@ length@ " ^ string_of_int 
-                                (Array.length seq) ^ "@ while@ the@ expected@ \
-                                length@ is@ " ^ string_of_int (Array.length enc));
-                                failwith "Illegal prealigned molecular sequences."
-                            end;
-                            enc, (Some name) :: names, seq :: acc
-                    | _ -> 
-                            failwith 
-                            "Aren't sequences supposed to be just one?"
-        else res
+                            let res = 
+                                Sequence.fold_right 
+                                    (fun acc base -> do_encoding base acc)
+                                    initial_acc v.seq
+                            in
+                            Array.of_list res
+                        | _ -> enc
+                    and seq =
+                        let initial_acc = match tcm_case with
+                            | `AllSankoff (Some _)
+                            | `AffinePartition _ -> make_indel_blocks blocks v.seq
+                            | _ -> []
+                        in
+                        Sequence.fold_right 
+                            (fun acc base ->
+                                let base = if base = gap then 0 else base in
+                                do_states `Exists base acc)
+                            initial_acc v.seq
+                    and name = code_taxon a data in
+                    let seq = Array.of_list seq in
+                    if Array.length seq <> Array.length enc then begin
+                        Status.user_message Status.Error
+                        ("The@ prealigned@ sequences@ in@ " ^
+                        code_character code data ^ "@ do@ not@ have@ \
+                        the@ same@ length.@ The@ taxon@ " ^ name ^ "@ \
+                        has@ a@ sequence@ of@ length@ " ^ string_of_int 
+                        (Array.length seq) ^ "@ while@ the@ expected@ \
+                        length@ is@ " ^ string_of_int (Array.length enc));
+                        failwith "Illegal prealigned molecular sequences."
+                    end;
+                    enc, (Some name) :: names, seq :: acc
+                | _ -> assert false
+            end
+        else 
+            res
     in
     let enc, names, matrix = 
         Hashtbl.fold process_taxon data.taxon_characters ([||], [], [])
     in
     let newenc = 
         let table = Hashtbl.create 1667 in
-        Array.iter (fun ((alph, enc) as r) ->
-            if not (Hashtbl.mem table r) then
-                let alph = Alphabet.to_sequential alph in
-                let alph = Parser.OldHennig.generate_alphabet (Some alph) enc in
-                Hashtbl.replace table r alph) enc;
-
-        Array.init (Array.length enc) (fun pos ->
-            let alph = Hashtbl.find table enc.(pos) in
-            let _, enc = enc.(pos) in
-            Parser.OldHennig.to_new_spec character_name alph enc pos) 
+        Array.iter 
+            (fun ((alph, enc) as r) ->
+                if not (Hashtbl.mem table r) then
+                    let alph = Alphabet.to_sequential alph in
+                    let alph = Parser.OldHennig.generate_alphabet (Some alph) enc in
+                    Hashtbl.replace table r alph
+                else
+                    ())
+            enc;
+        Array.init 
+            (Array.length enc) 
+            (fun pos ->
+                let alph = Hashtbl.find table enc.(pos) in
+                Parser.OldHennig.to_new_spec character_name alph (snd enc.(pos)) pos)
     in
     let matrix = 
         let matrix = Array.of_list matrix in
         let table = Hashtbl.create 1667 in
         Array.init (Array.length matrix) 
-            (fun x -> Array.init (Array.length enc)
-            (fun y -> 
-                let _, enc = enc.(y) in
-                Parser.OldHennig.to_new_atom table newenc.(y) enc matrix.(x).(y)))
+            (fun x -> 
+                Array.init (Array.length enc)
+                    (fun y -> 
+                        Parser.OldHennig.to_new_atom table newenc.(y) 
+                                            (snd enc.(y)) matrix.(x).(y)))
     in
     let res =
-        { (Nexus.File.empty_parsed ()) with
-          Nexus.File.taxa = Array.of_list names;
-          characters = newenc;
-          matrix = matrix;
-        } in
-    Nexus.File.fill_observed res.Nexus.File.characters
-        res.Nexus.File.matrix;
+        { Nexus.File.empty_parsed () with
+            Nexus.File.taxa = Array.of_list names;
+            characters = newenc;
+            matrix = matrix;
+        }
+    in
+    Nexus.File.fill_observed res.Nexus.File.characters res.Nexus.File.matrix;
     character_name, res
 
 type tcm_class =

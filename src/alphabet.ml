@@ -123,10 +123,10 @@ let check_level alph =
     else false
 
 let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst gap all kind =
-    let debug = false in
     let a_size = List.length lst in
-    if debug then Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b, \
-    case sensitive=%b\n%!" a_size init3D respect_case;
+    if debug then 
+        Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b, \
+            case sensitive=%b\n%!" a_size init3D respect_case;
     let add (s2c, c2s, cmp, cnt) (a, b, c) =
         if debug then Printf.printf "add %s,%d to s2c; %!" a b;
         let uppa = 
@@ -154,25 +154,28 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
                 Status.user_message Status.Error
                 ("could not find the gap " ^ gap);
                 raise err
-    and all_code = 
-        match all with
+    and all_code = match all with
         | Some all ->
-                Some (All_sets.StringMap.find 
-                (if respect_case then
-                    String.uppercase all
-                else all ) s2c)
+            let all = 
+                All_sets.StringMap.find 
+                    (if respect_case then String.uppercase all else all)
+                    s2c
+            in
+            Some all
         | None -> None
     in
 
-    { comb_to_list = All_sets.IntegerMap.empty; 
+    { comb_to_list = All_sets.IntegerMap.empty;
       list_to_comb = All_sets.IntegerListMap.empty;
       level = 0; ori_size = 0;
-      string_to_code = s2c; 
-      code_to_string = c2s; 
-      gap = gap_code; all = all_code;
-      size = a_size; 
-      kind = kind; complement = cmp; orientation = orientation;
-      threeD = init3D}
+      string_to_code = s2c;
+      code_to_string = c2s;
+      gap = gap_code;
+      all = all_code;
+      size = a_size;
+      kind = kind; complement = cmp;
+      orientation = orientation;
+      threeD = init3D; }
 
 (* used to calculate costs of gaps in static characters / implied alignments *)
 let present_absent =
@@ -302,11 +305,12 @@ let find_comb codelist alpha=
      | Not_found -> raise (Illegal_List codelist)
 
 let match_base x alph =
-    try
-        let x = String.uppercase x in
-        All_sets.StringMap.find x alph.string_to_code 
-    with
-    | Not_found -> raise (Illegal_Character x)
+    (* in cases where case matters *)
+    try All_sets.StringMap.find x alph.string_to_code 
+    with | Not_found ->
+        try All_sets.StringMap.find (String.uppercase x) alph.string_to_code 
+        with | Not_found -> 
+            raise (Illegal_Character x)
 
 let find_base = match_base
 

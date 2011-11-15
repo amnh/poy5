@@ -1595,10 +1595,11 @@ let load_data (meth : Methods.input) data nodes =
             reader false false data meth
         | `Prealigned (meth, tcm, gap_opening) ->
             prealigned_files := [];
-            let data = reader false true data meth in
+            let data = reader false true data meth in (* read data as dynamic *)
             let data = Data.categorize (Data.remove_taxa_to_ignore data) in
             let files = List.flatten !prealigned_files in
             let chars =
+                (* list of characters to filter after conversion to static *)
                 let chars = List.rev_map (function `Local x | `Remote x -> (x ^ ".*")) files in
                 `Names (true,chars)
             in
@@ -1615,8 +1616,7 @@ let load_data (meth : Methods.input) data nodes =
                         (Cost_matrix.Affine gap_opening)
                 else data
             in
-            Data.prealigned_characters ImpliedAlignment.analyze_tcm data
-            chars
+            Data.prealigned_characters ImpliedAlignment.analyze_tcm data chars 
     in
     let data = annotated_reader data meth in   
     let data = Data.categorize (Data.remove_taxa_to_ignore data) in 

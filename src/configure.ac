@@ -387,9 +387,10 @@ AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 # Time to handle the lapack checks
 case ${OS_INFORMATION} in
     *-apple-*)
-        AS_IF([test $USE_LIKELIHOOD = "true"],
-            [LIBS="-framework veclib $LIBS"; AC_DEFINE(HAVE_LIBLAPACK, 1, "lapack confirmation")],
-            [AC_MSG_RESULT([Not enabling Likelihood])])
+        AS_IF(  [test $USE_LIKELIHOOD = "true"],
+                [LIBS="-framework veclib $LIBS";USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
+                 OUSE_LIKELIHOOD=",use_likelihood";AC_MSG_RESULT([Found lapack and enabling Likelihood]);],
+                [AC_MSG_RESULT([Not enabling Likelihood])])
         ;;
     *)
         AS_IF([test $USE_LIKELIHOOD = "false"],
