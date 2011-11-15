@@ -197,10 +197,12 @@ if test -f "$concorde_dir/concorde.a"; then
    CONCORDE_CFLAGS="-I$concorde_dir/INCLUDE"
    CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE"
    LIBS="-L$concorde_dir $LIBS"
+   USE_CONCORDE="true"
    OUSE_CONCORDE=",use_concorde"
    DUSE_CONCORDE="-DUSE_CONCORDE"
 else
    AC_MSG_RESULT([no])
+   USE_CONCORDE="false"
    CONCORDE_LIB=""
    CONCORDE_CFLAGS=""
    OUSE_CONCORDE=""
