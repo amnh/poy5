@@ -176,8 +176,7 @@ module Two_D = struct
             let l = ch#read_line in
             make_file_string ch (str ^ " " ^  l);
         with
-        | End_of_file -> 
-                str;;
+        | End_of_file -> str;;
 
     let match_num = 
         Str.regexp " *\\([1-90\\-]+\\) *\\(.*\\)";;
@@ -190,6 +189,8 @@ module Two_D = struct
                 let v = Pervasives.int_of_string v in
                 load_all_integers r (v :: l);
         | false ->
+                if (List.length l)=0 then failwith "input file does not start with integers!"
+                else ();
                 List.rev l;;
 
     let load_file_as_list ch =
@@ -1096,6 +1097,7 @@ module Two_D = struct
 
     let of_channel ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
         let use_comb = if level = 1 then false else use_comb in
+        let debug = false in
         if debug then 
         Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," 
         use_comb level all_elements;
@@ -1339,8 +1341,17 @@ module Two_D = struct
                         Printf.printf "best=%d; %!" best in
                     best
 
-    let of_file ?(use_comb = true) ?(level = 0) file all_elements =
+    let of_file ?(use_comb = true) ?(level = 0) file all_elements is_dna_or_ami =
         let ch = FileStream.Pervasives.open_in file in
+        (*for custom_alphabet & break_inversion, first line of cost_matrix is
+        * alphabet.parser function "load_file_as_list" is expecting pure cost
+        * matrix, just like those in dna and amino-acid, so we need to get rid
+        * of the first line here.*)
+        if is_dna_or_ami then ()
+        else begin
+            let alpha = FileStream.Pervasives.input_line ch in
+            if debug then Printf.printf "get rid of first non-integer line of cost matrix file\n%!";
+        end;
         if debug then Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!"
         use_comb level;
         let res = of_channel ~use_comb ~level:level all_elements ch in

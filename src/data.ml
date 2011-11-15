@@ -5062,12 +5062,15 @@ let assign_tcm_to_characters_from_file data chars file =
                 let is_aminoacids = 
                     if (alphabet = Alphabet.aminoacids)||(alphabet = Alphabet.aminoacids_use_3d) 
                     then true else false in
+                let is_dna_or_ami =
+                     if (alphabet = Alphabet.aminoacids)||(alphabet = Alphabet.dna)
+                     then true else false in
                 let level =
                     match level with
                     | None -> 
                             (if is_aminoacids then 1 else 0) 
                     | Some l -> l in
-                let tcm,mat = Cost_matrix.Two_D.of_file ~level:level f x in
+                let tcm,mat = Cost_matrix.Two_D.of_file ~level:level f x is_dna_or_ami in
                 tcm, Input_file ((FileStream.filename f), mat))
     in
     assign_tcm_to_characters data chars None tcm
