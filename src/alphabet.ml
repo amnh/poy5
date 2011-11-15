@@ -443,18 +443,17 @@ module Lexer = struct
                 try single_processor issue_warnings respect_case stream acc 
                 (CM.find c x) with
                 | Not_found as err ->
-                        if issue_warnings then begin
-                            Printf.printf "respect_case=%b\n%!" respect_case;
-                            Status.user_message Status.Error 
+                    if issue_warnings then begin
+                        Status.user_message Status.Error 
                             ("I@ could@ not@ find@ the@ character@ " ^ 
-                            (StatusCommon.escape (String.make 1 c)) ^ 
-                            "@ in@ position@ " ^
-                            string_of_int (Stream.count stream));
-                            Status.user_message Status.Error
+                             (StatusCommon.escape (String.make 1 c)) ^ 
+                             "@ in@ position@ " ^ string_of_int (Stream.count stream));
+                        Status.user_message Status.Error
                             ("I@ found@ an@ illegal@ character@ in@ " ^
-                            "the@ " ^ "last@ file@ I@ was@ reading.");
-                        end else ();
-                        raise err
+                             "the@ " ^ "last@ file@ I@ was@ reading.");
+                    end else 
+                        ();
+                    raise err
 
     let make_simplified_lexer style respect_case issue_warnings a =
         let lexer = internal_lexer respect_case a in
