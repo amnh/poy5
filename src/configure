@@ -3091,7 +3091,7 @@ fi
 if test "${with_prefix+set}" = set; then :
   withval=$with_prefix;  PATH_PREFIX=$withval
 else
-  PATH_PREFIX="/usr"
+  PATH_PREFIX="/"
 fi
 
 
@@ -3105,7 +3105,8 @@ case ${OS_INFORMATION} in
         ;;
     *-apple-*)
         LIBS="-isysroot $PATH_PREFIX -lm $LIBS"
-        CFLAGS="-isysroot $PATH_PREFIX $CFLAGS"
+        CFLAGS="-I $PATH_PREFIX/usr/include/malloc -isysroot $PATH_PREFIX $CFLAGS"
+        PATH_PREFIX="$PATH_PREFIX/usr"
         ;;
     *-cygwin*)
         USEWIN32="true"

@@ -160,7 +160,7 @@ AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
 
 AC_ARG_WITH([prefix], [AS_HELP_STRING([--with-prefix=<DIR>],
             [Set the build path for libraries; it should contain <DIR>/include and <DIR>/lib (for x-compiling)])],
-            [ PATH_PREFIX=$withval],[PATH_PREFIX="/usr"])
+            [ PATH_PREFIX=$withval],[PATH_PREFIX="/"])
 
 
 # System dependent options -----
@@ -172,7 +172,8 @@ case ${OS_INFORMATION} in
         ;;
     *-apple-*)
         LIBS="-isysroot $PATH_PREFIX -lm $LIBS"
-        CFLAGS="-isysroot $PATH_PREFIX $CFLAGS"
+        CFLAGS="-I $PATH_PREFIX/usr/include/malloc -isysroot $PATH_PREFIX $CFLAGS"
+        PATH_PREFIX="$PATH_PREFIX/usr"
         ;;
     *-cygwin*)
         USEWIN32="true"
