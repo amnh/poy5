@@ -81,34 +81,7 @@ CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
 USE_LIKELIHOOD="true"
-PATH_PREFIX="/usr/"
-
-# System dependent options
-case ${OS_INFORMATION} in
-    x86_64*)
-        LIBS="-lm $LIBS"
-        OCAMLFLAGS="-fno-PIC $OCAMLFLAGS" 
-        CFLAGS="-fPIC $CFLAGS"
-        ;;
-    *-apple-*)
-        LIBS="-lm $LIBS"
-        CFLAGS="-I /usr/include/malloc $CFLAGS"
-        ;;
-    *-cygwin*)
-        USEWIN32="true"
-        DUSEWIN32="-DUSEWIN32"
-        OUSEWIN32=",use_win32"
-        CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
-        # m(ath) is located in msvcrt
-        LIBS="$LIBS"
-        # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
-        ac_cv_func_realloc_0_nonnull=yes
-        ac_cv_func_malloc_0_nonnull=yes
-        ;;
-    *)
-        LIBS="-lm $LIBS"
-        ;;
-esac
+PATH_PREFIX="/usr"
 
 INTERFACE_SELECTED="true"
 
@@ -187,7 +160,36 @@ AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
 
 AC_ARG_WITH([prefix], [AS_HELP_STRING([--with-prefix=<DIR>],
             [Set the build path for libraries; it should contain <DIR>/include and <DIR>/lib (for x-compiling)])],
-            [ PATH_PREFIX=$withval],[PATH_PREFIX="/usr/"])
+            [ PATH_PREFIX=$withval],[PATH_PREFIX="/usr"])
+
+
+# System dependent options -----
+case ${OS_INFORMATION} in
+    x86_64*)
+        LIBS="-lm $LIBS"
+        OCAMLFLAGS="-fno-PIC $OCAMLFLAGS" 
+        CFLAGS="-fPIC $CFLAGS"
+        ;;
+    *-apple-*)
+        LIBS="-isysroot $PATH_PREFIX -lm $LIBS"
+        CFLAGS="-isysroot $PATH_PREFIX $CFLAGS"
+        ;;
+    *-cygwin*)
+        USEWIN32="true"
+        DUSEWIN32="-DUSEWIN32"
+        OUSEWIN32=",use_win32"
+        CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
+        # m(ath) is located in msvcrt
+        LIBS="$LIBS"
+        # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
+        ac_cv_func_realloc_0_nonnull=yes
+        ac_cv_func_malloc_0_nonnull=yes
+        ;;
+    *)
+        LIBS="-lm $LIBS"
+        ;;
+esac
+
 
 AC_MSG_CHECKING([for concorde.a])
 if test -f "$concorde_dir/concorde.a"; then
