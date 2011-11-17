@@ -58,6 +58,12 @@ let print alpha =
         | Sequential -> Printf.printf "alph kind:Sequential\n%!"
         | Extended_Bit_Flags -> Printf.printf "alph kind:Extended_Bit_Flags\n%!"
     in
+    Printf.printf
+    "level=%d,ori_size=%d,gap=%d,size=%d,orientation=%b,threeD=%b,%!"
+    alpha.level alpha.ori_size alpha.gap alpha.size alpha.orientation alpha.threeD;
+    let () = match alpha.all with
+    | None -> Printf.printf "no all elements\n%!"
+    | Some x -> Printf.printf "all elements=%d\n%!" x in
     All_sets.IntegerMap.iter 
         (fun code char -> Printf.fprintf stdout "%i %s\n" code char)
         alpha.code_to_string;
@@ -124,6 +130,7 @@ let check_level alph =
 
 let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst gap all kind =
     let a_size = List.length lst in
+    let debug = false in
     if debug then 
         Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b, \
             case sensitive=%b\n%!" a_size init3D respect_case;
@@ -167,12 +174,13 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
 
     { comb_to_list = All_sets.IntegerMap.empty;
       list_to_comb = All_sets.IntegerListMap.empty;
-      level = 0; ori_size = 0;
+      level = 0; 
       string_to_code = s2c;
       code_to_string = c2s;
       gap = gap_code;
       all = all_code;
       size = a_size;
+      ori_size = a_size;
       kind = kind; complement = cmp;
       orientation = orientation;
       threeD = init3D; }
@@ -290,6 +298,13 @@ let aminoacids =
 let aminoacids_use_3d =
     list_to_a ~init3D:true aminoacids_char_list gap_repr (Some "X") Sequential 
 
+(** [is_aminoacids] return true is alph is aminoacids, it might be with
+* any level value, it doesn't matter*)
+let is_aminoacids alph =
+    if ( alph.code_to_string = aminoacids.code_to_string ) then true
+    else false
+
+
 
 let find_codelist comb alpha=
     try
@@ -376,6 +391,8 @@ let get_gap a =
 let get_missing _ = "?"
 
 let get_level a = a.level
+
+let set_level a newlevel = { a with level = newlevel }
 
 let to_list a =
     let res =
