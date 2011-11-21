@@ -1182,8 +1182,7 @@ module Two_D = struct
 
     let create_cm_by_level m level oldlevel all_elements =
         let ori_sz = get_ori_a_sz m in
-        if debug then Printf.printf "create cm by level=%d, oldlevel=%d,\
-        ori_sz=%d,all_elements=%d\n%!"
+        if debug then Printf.printf "create cm by level=%d, oldlevel=%d,ori_sz=%d,all_elements=%d\n%!"
         level oldlevel ori_sz all_elements;
         let ori_list = ori_cm_to_list m in
         let newm =

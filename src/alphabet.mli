@@ -70,6 +70,10 @@ val aminoacids : a
 * it, which might take a long time.*)
 val aminoacids_use_3d : a
 
+(** [is_aminoacids] return true is alph is aminoacids, it might be with
+* any level, it doesn't matter*)
+val is_aminoacids : a -> bool
+
 (** [of_string l] creates an encoding for the string list [l] to produce an 
     alphabet. *)
 val of_string : ?respect_case:bool -> ?orientation:bool -> ?init3D:bool -> string list -> string -> string option -> a
@@ -151,6 +155,9 @@ val print : a -> unit
 
 (** [check_level a] returns true if level>1 && level<=a_sz*)
 val check_level : a -> bool
+
+(** [set_level newlevel] returns the alphabet with new level value*)
+val set_level : a -> int -> a
 
 (** {2 Extracting and Generating Alphabets} *)
 

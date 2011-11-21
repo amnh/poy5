@@ -43,7 +43,7 @@ let output_infof format =
     Printf.ksprintf (Status.user_message Status.Information) format
 
 let debug_kolmo = false
-let debug_level = false 
+let debug_level = false
 let debug_search_base = false 
 
 type dynhom_opts = 
@@ -1802,9 +1802,9 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
             let all_elements =
                 if alph = Alphabet.nucleotides then
                     31
-                else if alph = Alphabet.aminoacids then
+                else if Alphabet.is_aminoacids alph then
                     21
-                else if alph = Alphabet.aminoacids_use_3d then
+                else if Alphabet.is_aminoacids alph then
                     21
                 else 
                     ~-1
@@ -2936,7 +2936,7 @@ let create_alpha_c2_breakinvs (data : d) chcode =
     let gen_cost_mat = 
         Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls 
         (if alpha = Alphabet.nucleotides then 31 
-              else if (alpha = Alphabet.aminoacids)||(alpha = Alphabet.aminoacids_use_3d) 
+              else if (Alphabet.is_aminoacids alpha) 
               then 21 else (-1))
     in  
 
@@ -4979,7 +4979,7 @@ let compute_fixed_states filename data code polymph =
 
 (* make sure we call Data.categorize (Data.remove_taxa_to_ignore data) before
      calling this function to update tcm. *)
-let assign_tcm_to_characters data chars foname tcm =
+let assign_tcm_to_characters data chars foname tcm newalph =
     (* Get the character codes and filter those that are of the sequence class.
     * This allows simpler specifications by the users, for example, even though
     * morphological characters are loaded, an (all, create_tcm:(1,1)) will
@@ -5013,9 +5013,7 @@ let assign_tcm_to_characters data chars foname tcm =
                     else 
                         let all_elements = 
                             if dspec.alph = Alphabet.nucleotides then 31
-                            else if (dspec.alph = Alphabet.aminoacids)||
-                            (dspec.alph = Alphabet.aminoacids_use_3d)
-                            then 21
+                            else if (Alphabet.is_aminoacids dspec.alph) then 21
                             else (-1)
                         in
                         let tcm, tcmfile = tcm all_elements in
@@ -5030,7 +5028,7 @@ let assign_tcm_to_characters data chars foname tcm =
                         in
                         tcm, tcm3d, tcmfile
                 in
-                (Dynamic { dspec with tcm = tcmfile; tcm2d = tcm; tcm3d = tcm3 }), 
+                (Dynamic { dspec with tcm = tcmfile; tcm2d = tcm; tcm3d = tcm3; alph = newalph}), 
                 code
                 | _, code -> raise (Invalid_Character code))
             chars_specs
@@ -5061,31 +5059,44 @@ let assign_tcm_to_characters data chars foname tcm =
 
 
 let assign_tcm_to_characters_from_file data chars file =
-    let tcm = match file with
-        | None ->
-            (fun x -> 
-                Cost_matrix.Two_D.default, Substitution_Indel (1,2))
-        | Some (f,level) ->
-            (fun x ->
-                let alphabet = match get_chars_codes_comp data chars with
-                    | x::_ -> get_alphabet data x
-                    | []   -> failwith "No characters selected in transform"
-                in
-                let is_aminoacids = 
-                    if (alphabet = Alphabet.aminoacids)||(alphabet = Alphabet.aminoacids_use_3d) 
-                    then true else false in
-                let is_dna_or_ami =
-                     if (alphabet = Alphabet.aminoacids)||(alphabet = Alphabet.dna)
-                     then true else false in
-                let level =
-                    match level with
-                    | None -> 
-                            (if is_aminoacids then 1 else 0) 
-                    | Some l -> l in
-                let tcm,mat = Cost_matrix.Two_D.of_file ~level:level f x is_dna_or_ami in
-                tcm, Input_file ((FileStream.filename f), mat))
+    let alphabet = 
+        match get_chars_codes_comp data chars with
+        | x::_ -> get_alphabet data x
+        | []   -> failwith "No characters selected in transform"
     in
-    assign_tcm_to_characters data chars None tcm
+    let is_aminoacids = Alphabet.is_aminoacids alphabet in
+    let is_dna = if alphabet = Alphabet.dna then true else false in
+    let is_dna_or_ami = (is_dna || is_aminoacids) in
+    let oldlevel,ori_sz = 
+        Alphabet.get_level alphabet,  Alphabet.get_ori_size alphabet in
+    let tcm,newalph= match file with
+        | None ->
+            (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2)),
+            alphabet
+        | Some (f,level) ->
+            let level,use_comb =
+                match level with
+                | None -> 
+                        if is_dna then 0,true
+                        else if (Alphabet.check_level alphabet) then oldlevel,true
+                        else if oldlevel=1 then oldlevel,false
+                        else 0,false
+                | Some l ->
+                        if is_dna then 0,true
+                        else if l<=1 then l,false
+                        else if l>ori_sz then ori_sz,true
+                        else l,true in
+            (fun x ->
+                if debug_level then Printf.printf
+                "assign_tcm_to_characters_from_file,ori_sz=%d,oldlevel=%d,\
+                newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b\n%!"
+                ori_sz oldlevel level use_comb is_dna is_aminoacids;
+                if debug_level then Alphabet.print alphabet;
+                let tcm,mat = Cost_matrix.Two_D.of_file ~use_comb:use_comb ~level:level f x is_dna_or_ami in
+                tcm, Input_file ((FileStream.filename f), mat)),
+                Alphabet.set_level alphabet level
+    in
+    assign_tcm_to_characters data chars None tcm newalph 
 
 let add_search_base_for_one_character_from_file data chars file character_name =
     let chcode = 
@@ -5298,7 +5309,7 @@ let assign_transformation_gaps data chars transformation gaps =
                                         (size < 7) size transformation gaps x, 
                         (Substitution_Indel (transformation, gaps)))
                 in
-                assign_tcm_to_characters data chars None tcm)
+                assign_tcm_to_characters data chars None tcm alphabet)
             ~init:data alphabet_sizes
 
 let codes_with_same_tcm codes data =
@@ -5320,7 +5331,7 @@ let codes_with_same_tcm codes data =
 
 
 let assign_level data chars level =
-    if debug_level then Printf.printf "Data.assign_level\n%!";
+    if debug_level then Printf.printf "Data.assign_level,level=%d\n%!" level;
     let make_level level = function
         | Level (otcm,_) -> Level (otcm,level)
         | x -> Level (x, level)
@@ -5348,6 +5359,8 @@ let assign_level data chars level =
                         else
                             ori_sz
                     in
+                    if debug_level then Printf.printf
+                    "Data.assign_level,oldlevel=%d,newlevel=%d\n%!" oldlevel level;
                     if combnum <= 0 then begin
                         output_info ("The alphabet size based on the new level is"^
                                      " too large. I will NOT apply any changes.\n%!");
@@ -5359,11 +5372,11 @@ let assign_level data chars level =
                         b
                     end
                 in
-                (true, a),(fun _ -> b,name))
+                (true, a),(fun _ -> b,name),Alphabet.set_level alph level)
             (codes_with_same_tcm codes data)
     in
     List.fold_left 
-        ~f:(fun acc (a, tcm) -> assign_tcm_to_characters acc (`Some a) None tcm)
+        ~f:(fun acc (a, tcm, newalph) -> assign_tcm_to_characters acc (`Some a) None tcm newalph)
         ~init:data codes
 
 let rec make_affine cost_model tcmfile = match tcmfile with
@@ -5407,7 +5420,7 @@ let rec assign_affine_gap_cost data chars cost =
                     else 
                         b
                 in 
-                (true, a), (fun _ -> b, make_affine cost tcmfile))
+                (true, a), (fun _ -> b, make_affine cost tcmfile),alph)
             (codes_with_same_tcm codes data)
     in
     let cost = 
@@ -5417,8 +5430,8 @@ let rec assign_affine_gap_cost data chars cost =
         | Cost_matrix.Affine x -> string_of_int x
     in
     List.fold_left 
-        ~f:(fun acc (a, b) ->
-            assign_tcm_to_characters acc (`Some a) (Some cost) b)
+        ~f:(fun acc (a, b, alph) ->
+            assign_tcm_to_characters acc (`Some a) (Some cost) b alph)
         ~init:data codes
 
 let rec assign_prep_tail filler data chars filit =
@@ -5436,15 +5449,15 @@ let rec assign_prep_tail filler data chars filit =
             let codes = codes_with_same_tcm codes data in
             let codes =
                 List.map
-                    (fun (a, b, _,tcmfile) -> 
+                    (fun (a, b, alph,tcmfile) -> 
                         let b = Cost_matrix.Two_D.clone b in
                         let () = filler arr b in
-                        (true, a), (fun _ -> b,tcmfile))
+                        (true, a), (fun _ -> b,tcmfile),alph)
                     codes
             in
             List.fold_left 
-                ~f:(fun acc (a, b) ->
-                    assign_tcm_to_characters acc (`Some a) None b) 
+                ~f:(fun acc (a, b, alph) ->
+                    assign_tcm_to_characters acc (`Some a) None b alph) 
                 ~init:data codes
 
 let assign_prepend data chars filit =
