@@ -123,8 +123,7 @@ AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences],
 
 AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
               [Enable the postprocessing of XML output using XSLT templates.  This option requires libxml2.])],
-               [USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"],
-               [USE_XSLT="false"])
+               [USE_XSLT="true"], [USE_XSLT="false"])
 
 AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--disable-likelihood],
               [Disable the use of static and dynamic likelihood functions. We
@@ -159,8 +158,17 @@ AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
               fi],[])
 
 AC_ARG_WITH([prefix], [AS_HELP_STRING([--with-prefix=<DIR>],
-            [Set the build path for libraries; it should contain <DIR>/include and <DIR>/lib (for x-compiling)])],
+            [Set the build path for libraries; it should contain <DIR>/include
+             and <DIR>/lib (for windows/linux), and in OSX is equivlent to
+             setting isysroot (requiring <DIR>/usr to exist).])],
             [ PATH_PREFIX=$withval],[PATH_PREFIX="/"])
+
+AC_ARG_WITH([xslt-config], 
+            [AS_HELP_STRING([--with-xslt-config=<PROG>],
+                [Select a different xslt-config program to detect the
+                 configuration options of libxslt.])],
+            [XSLT_CONFIG=$withval],[XSLT_CONFIG="xslt-config"])
+
 
 
 # System dependent options -----
@@ -176,15 +184,16 @@ case ${OS_INFORMATION} in
         PATH_PREFIX="$PATH_PREFIX/usr"
         ;;
     *-cygwin*)
+        # m(ath) is located in msvcrt
         USEWIN32="true"
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
-        # m(ath) is located in msvcrt
-        LIBS="$LIBS"
+        LIBS="-mwin32 -static $LIBS"
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
+        AS_IF([test $USEPARALLEL = "true"],[LIBS="-lmpi $LIBS"])
         ;;
     *)
         LIBS="-lm $LIBS"
@@ -277,27 +286,24 @@ AS_IF([test $USEINTERFACE = "ncurses"],
 
 
 # Time to verify if we can compile with xslt
-XSLT_CONFIG="xslt-config"
-AC_ARG_WITH([xslt-config], 
-            [Select a different xslt-config program to detect the configuration options of libxslt.],
-            [XSLT_CONFIG=$withval], [AC_CHECK_PROGS([XSLT_CONFIG],[xslt-config],[xslt-config])])
-
-oLIBS="$LIBS"
-NEWLIBS="`$XSLT_CONFIG --libs`"
-LIBS="$LIBS $NEWLIBS"
-oFLAGS="$CFLAGS"
-CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
+# Use XSLT-Config if it exists; Otherwise, assume it's in the path
 AS_IF([test $USE_XSLT = "true"],
-      [AC_CHECK_LIB([xml2], [xmlCreatePushParserCtxt], [
-       CFLAGS="$CFLAGS `$XSLT_CONFIG --cflags`"
-       AC_DEFINE(HAVE_XSLT)
-       USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"], [
-            LIBS="$oLIBS"
-            CFLAGS="$oFLAGS"
-            AC_MSG_WARN(I could not find XSLT. I will remove the its support.)
-        ])],[ LIBS="$oLIBS"
-             CFLAGS="$oFLAGS"
-             ])
+    [AC_CHECK_PROG([XSLTLIBS],[$XSLT_CONFIG],
+                   [`$XSLT_CONFIG --libs`],
+                   ["-lxslt -lxml2"])]
+    [AC_CHECK_PROG([XSLTFLAGS],[$XSLT_CONFIG],
+                   [`$XSLT_CONFIG --cflags`],
+                   [""])],
+    [])
+oLIBS="$LIBS"
+LIBS="$LIBS $XSLTLIBS"
+AS_IF([test $USE_XSLT = "true"],
+      [AC_CHECK_LIB([xml2],[main],
+        [AC_DEFINE(HAVE_XSLT)
+         CFLAGS="$CFLAGS $XSLTFLAGS"
+         USE_XSLT="true";DUSE_XSLT="-DUSE_XSLT";OUSE_XSLT=",use_xslt"])],
+      [LIBS="$oLIBS"])
+
 
 AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([termcap],[tgetent],[LIBS="-ltermcap $LIBS"], [AC_CHECK_LIB([curses],[tgetent],[LIBS="-lcurses $LIBS"], [AC_CHECK_LIB([ncurses],[tgetent],[LIBS="-lncurses $LIBS"], [AC_MSG_FAILURE([The readline interface requires one of the following: termcap, curses, or ncurses.])])])])],[])
 
@@ -357,14 +363,6 @@ case $OCAMLVERSION in
         ;;
 esac
 
-# Final fix to compile in windows
-case ${OS_INFORMATION} in
-    *-cygwin*)
-        LIBS="-mwin32 $LIBS"
-        ;;
-    *)
-        ;;
-esac
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -397,12 +395,12 @@ case ${OS_INFORMATION} in
         ;;
     *)
         AS_IF([test $USE_LIKELIHOOD = "false"],
-              [],
-              AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
+            [AC_MSG_RESULT([Not enabling Likelihood])],
+            [AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
                 AC_CHECK_LIB(g2c,main,LFORTRAN="-lg2c",
                   AC_CHECK_LIB(f2c,main,LFORTRAN="-lf2c",
                     [AC_MSG_RESULT(Cannot find appropriate fortran library, disabling likelihood);
-                     USE_LIKELIHOOD="false"]))))
+                     USE_LIKELIHOOD="false"])))])
 
         AS_IF([test $USE_LIKELIHOOD = "false"],
             [AC_MSG_RESULT([Not enabling Likelihood])],
