@@ -276,14 +276,6 @@ fi
 #        )]
 #    )
 
-# Checking for libraries according to the user's options.
-AS_IF([test $USEINTERFACE = "ncurses"], 
-      [AC_CHECK_LIB([ncurses], [scrollok], [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)], 
-      [AS_IF([test $INTERFACE_SELECTED = "true"], 
-             [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.])], 
-             [USEINTERFACE="readline"; DUSEREADLINE="-DUSEREADLINE"; OUSEREADLINE=",use_readline"])])],[])
-
-
 # Time to verify if we can compile with xslt
 # Use XSLT-Config if it exists; Otherwise, assume it's in the path
 AC_CHECK_PROG([HAVE_XSLTCONFIG],[$XSLT_CONFIG],yes,no)
@@ -305,14 +297,21 @@ if test "$USE_XSLT" = "true"; then
         [LIBS="$oLIBS"])
 fi
 
+# Checking for libraries according to the user's options.
+AS_IF([test $USEINTERFACE = "ncurses"],
+      [AC_CHECK_LIB([ncurses], [main],
+            [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
+            [AS_IF([test $INTERFACE_SELECTED = "true"],
+                [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. See ./configure --help for more information.])],
+                [USEINTERFACE="flat"])])],
+      [])
+AS_IF([test $USEINTERFACE = "readline"],
+        [AC_CHECK_LIB([readline], [readline],
+            [LIBS="-lreadline $LIBS";AC_DEFINE(HAVE_LIBREADLINE)
+             USEINTERFACE="readline";DUSEREADLINE="-DUSEREADLINE";OUSEREADLINE=",use_readline"],
+            [AC_MSG_FAILURE([The readline interface requires the readline library. See ./configure --help for more information.])])],
+        [])
 
-AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([termcap],[tgetent],[LIBS="-ltermcap $LIBS"], [AC_CHECK_LIB([curses],[tgetent],[LIBS="-lcurses $LIBS"], [AC_CHECK_LIB([ncurses],[tgetent],[LIBS="-lncurses $LIBS"], [AC_MSG_FAILURE([The readline interface requires one of the following: termcap, curses, or ncurses.])])])])],[])
-
-AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([readline], [readline],
-      [LIBS="-lreadline $LIBS"; AC_DEFINE(HAVE_LIBREADLINE)], [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or choose the readline interface. See ./configure --help for more information.])])])
-
-#AS_IF([test $USEPARALLEL = "true"], [AC_CHECK_LIB([$MPILNAME], [MPI_Init],
-#      [LIBS="-l$MPILNAME $LIBS"], [AC_MSG_FAILURE([In order to compile the parallel version, an implemention of MPI is required. However, I failed while checking for $MPILNAME.])])])
 
 # Check for malloc, if not there, this is most likely a Mac OS X.
 AC_CHECK_HEADER(malloc.h,[],[AC_CHECK_HEADER(/usr/include/malloc/malloc.h,[CFLAGS="-I /usr/include/malloc/ $CFLAGS"], [AC_MSG_FAILURE([Could not find malloc.h])])])

@@ -3222,62 +3222,6 @@ fi
 #        )]
 #    )
 
-# Checking for libraries according to the user's options.
-
-if test $USEINTERFACE = "ncurses"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for scrollok in -lncurses" >&5
-$as_echo_n "checking for scrollok in -lncurses... " >&6; }
-if ${ac_cv_lib_ncurses_scrollok+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lncurses  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char scrollok ();
-int
-main ()
-{
-return scrollok ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ncurses_scrollok=yes
-else
-  ac_cv_lib_ncurses_scrollok=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_scrollok" >&5
-$as_echo "$ac_cv_lib_ncurses_scrollok" >&6; }
-if test "x$ac_cv_lib_ncurses_scrollok" = xyes; then :
-  LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";$as_echo "#define HAVE_LIBNCURSES 1" >>confdefs.h
-
-else
-  if test $INTERFACE_SELECTED = "true"; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.
-See \`config.log' for more details" "$LINENO" 5; }
-else
-  USEINTERFACE="readline"; DUSEREADLINE="-DUSEREADLINE"; OUSEREADLINE=",use_readline"
-fi
-fi
-
-fi
-
-
 # Time to verify if we can compile with xslt
 # Use XSLT-Config if it exists; Otherwise, assume it's in the path
 # Extract the first word of "$XSLT_CONFIG", so it can be a program name with args.
@@ -3327,7 +3271,8 @@ if test "$USE_XSLT" = "true"; then
         LIBS="-lxslt -lxml2 $LIBS"
     fi
 
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lxml2" >&5
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lxml2" >&5
 $as_echo_n "checking for main in -lxml2... " >&6; }
 if ${ac_cv_lib_xml2_main+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -3403,89 +3348,11 @@ fi
 
 fi
 
-
-if test $USEINTERFACE = "readline"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -ltermcap" >&5
-$as_echo_n "checking for tgetent in -ltermcap... " >&6; }
-if ${ac_cv_lib_termcap_tgetent+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ltermcap  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char tgetent ();
-int
-main ()
-{
-return tgetent ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_termcap_tgetent=yes
-else
-  ac_cv_lib_termcap_tgetent=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_termcap_tgetent" >&5
-$as_echo "$ac_cv_lib_termcap_tgetent" >&6; }
-if test "x$ac_cv_lib_termcap_tgetent" = xyes; then :
-  LIBS="-ltermcap $LIBS"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -lcurses" >&5
-$as_echo_n "checking for tgetent in -lcurses... " >&6; }
-if ${ac_cv_lib_curses_tgetent+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcurses  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char tgetent ();
-int
-main ()
-{
-return tgetent ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_curses_tgetent=yes
-else
-  ac_cv_lib_curses_tgetent=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_curses_tgetent" >&5
-$as_echo "$ac_cv_lib_curses_tgetent" >&6; }
-if test "x$ac_cv_lib_curses_tgetent" = xyes; then :
-  LIBS="-lcurses $LIBS"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tgetent in -lncurses" >&5
-$as_echo_n "checking for tgetent in -lncurses... " >&6; }
-if ${ac_cv_lib_ncurses_tgetent+:} false; then :
+# Checking for libraries according to the user's options.
+if test $USEINTERFACE = "ncurses"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lncurses" >&5
+$as_echo_n "checking for main in -lncurses... " >&6; }
+if ${ac_cv_lib_ncurses_main+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -3493,47 +3360,41 @@ LIBS="-lncurses  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char tgetent ();
+
 int
 main ()
 {
-return tgetent ();
+return main ();
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ncurses_tgetent=yes
+  ac_cv_lib_ncurses_main=yes
 else
-  ac_cv_lib_ncurses_tgetent=no
+  ac_cv_lib_ncurses_main=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_tgetent" >&5
-$as_echo "$ac_cv_lib_ncurses_tgetent" >&6; }
-if test "x$ac_cv_lib_ncurses_tgetent" = xyes; then :
-  LIBS="-lncurses $LIBS"
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_main" >&5
+$as_echo "$ac_cv_lib_ncurses_main" >&6; }
+if test "x$ac_cv_lib_ncurses_main" = xyes; then :
+  LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";$as_echo "#define HAVE_LIBNCURSES 1" >>confdefs.h
+
 else
+  if test $INTERFACE_SELECTED = "true"; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "The readline interface requires one of the following: termcap, curses, or ncurses.
+as_fn_error $? "The ncurses interface requires the ncurses library. See ./configure --help for more information.
 See \`config.log' for more details" "$LINENO" 5; }
+else
+  USEINTERFACE="flat"
+fi
 fi
 
 fi
-
-fi
-
-fi
-
 if test $USEINTERFACE = "readline"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for readline in -lreadline" >&5
 $as_echo_n "checking for readline in -lreadline... " >&6; }
@@ -3572,19 +3433,18 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_readline_readline" >&5
 $as_echo "$ac_cv_lib_readline_readline" >&6; }
 if test "x$ac_cv_lib_readline_readline" = xyes; then :
-  LIBS="-lreadline $LIBS"; $as_echo "#define HAVE_LIBREADLINE 1" >>confdefs.h
+  LIBS="-lreadline $LIBS";$as_echo "#define HAVE_LIBREADLINE 1" >>confdefs.h
 
+             USEINTERFACE="readline";DUSEREADLINE="-DUSEREADLINE";OUSEREADLINE=",use_readline"
 else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "The ncurses interface requires the ncurses library. Either install it, or choose the readline interface. See ./configure --help for more information.
+as_fn_error $? "The readline interface requires the readline library. See ./configure --help for more information.
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 fi
 
-#AS_IF([test $USEPARALLEL = "true"], [AC_CHECK_LIB([$MPILNAME], [MPI_Init],
-#      [LIBS="-l$MPILNAME $LIBS"], [AC_MSG_FAILURE([In order to compile the parallel version, an implemention of MPI is required. However, I failed while checking for $MPILNAME.])])])
 
 # Check for malloc, if not there, this is most likely a Mac OS X.
 ac_ext=c
