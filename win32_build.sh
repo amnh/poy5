@@ -22,8 +22,8 @@ version=${BUILD_VERSION}
     # FOR OUR SLIGHTLY LESS MYSTERIOUS WINDOWS 7 MACHINE(S)
     destination="/cygdrive/c/poy_builds/${BUILD_VERSION}"
     concorde="--with-concorde-dir=/home/Developer/programs/concorde/"
-    basic_cflags="-msse3 -O3 -I/usr/i686-pc-mingw32/xslt_xml2/include/ -L/usr/i686-pc-mingw32/xslt_xml2/lib/"
-    basic_lflags="${LFLAGS}"
+    basic_cflags="-msse3 -O3 -I/usr/i686-pc-mingw32/libxml_xslt/include/ ${CFLAGS}"
+    basic_lflags="-L/usr/i686-pc-mingw32/libxml_xslt/lib/ ${LFLAGS}"
     mpi_cflags="-I/cygdrive/c/MPICH2/include/ ${basic_cflags}"
     mpi_lflags="-L/cygdrive/c/MPICH2/lib/ -lmpi ${basic_lflags}"
     ncurses_cflags="-I/home/Developer/programs/PDCurses-3.4/ -L/home/Developer/programs/PDCurses-3.4/mingw-build/ ${basic_cflags}"
