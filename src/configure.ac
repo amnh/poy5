@@ -123,8 +123,7 @@ AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences],
 
 AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
               [Enable the postprocessing of XML output using XSLT templates.  This option requires libxml2.])],
-               [USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"],
-               [USE_XSLT="false"])
+               [USE_XSLT="true"], [USE_XSLT="false"])
 
 AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--disable-likelihood],
               [Disable the use of static and dynamic likelihood functions. We
@@ -159,8 +158,17 @@ AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
               fi],[])
 
 AC_ARG_WITH([prefix], [AS_HELP_STRING([--with-prefix=<DIR>],
-            [Set the build path for libraries; it should contain <DIR>/include and <DIR>/lib (for x-compiling)])],
+            [Set the build path for libraries; it should contain <DIR>/include
+             and <DIR>/lib (for windows/linux), and in OSX is equivlent to
+             setting isysroot (requiring <DIR>/usr to exist).])],
             [ PATH_PREFIX=$withval],[PATH_PREFIX="/"])
+
+AC_ARG_WITH([xslt-config], 
+            [AS_HELP_STRING([--with-xslt-config=<PROG>],
+                [Select a different xslt-config program to detect the
+                 configuration options of libxslt.])],
+            [XSLT_CONFIG=$withval],[XSLT_CONFIG="xslt-config"])
+
 
 
 # System dependent options -----
@@ -176,15 +184,15 @@ case ${OS_INFORMATION} in
         PATH_PREFIX="$PATH_PREFIX/usr"
         ;;
     *-cygwin*)
+        # m(ath) is located in msvcrt
         USEWIN32="true"
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
-        # m(ath) is located in msvcrt
-        LIBS="$LIBS"
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
+        AS_IF([test $USEPARALLEL = "true"],[LIBS="-lmpi $LIBS"])
         ;;
     *)
         LIBS="-lm $LIBS"
@@ -268,44 +276,43 @@ fi
 #        )]
 #    )
 
-# Checking for libraries according to the user's options.
-AS_IF([test $USEINTERFACE = "ncurses"], 
-      [AC_CHECK_LIB([ncurses], [scrollok], [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)], 
-      [AS_IF([test $INTERFACE_SELECTED = "true"], 
-             [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.])], 
-             [USEINTERFACE="readline"; DUSEREADLINE="-DUSEREADLINE"; OUSEREADLINE=",use_readline"])])],[])
-
-
 # Time to verify if we can compile with xslt
-XSLT_CONFIG="xslt-config"
-AC_ARG_WITH([xslt-config], 
-            [Select a different xslt-config program to detect the configuration options of libxslt.],
-            [XSLT_CONFIG=$withval], [AC_CHECK_PROGS([XSLT_CONFIG],[xslt-config],[xslt-config])])
+# Use XSLT-Config if it exists; Otherwise, assume it's in the path
+AC_CHECK_PROG([HAVE_XSLTCONFIG],[$XSLT_CONFIG],yes,no)
+if test "$USE_XSLT" = "true"; then
+    oLIBS="$LIBS"
+    if test "$HAVE_XSLTCONFIG" = "yes"; then
+        LIBS="`$XSLT_CONFIG --libs` $LIBS"
+        CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
+    else
+        LIBS="-lxslt -lxml2 $LIBS"
+    fi
 
-oLIBS="$LIBS"
-NEWLIBS="`$XSLT_CONFIG --libs`"
-LIBS="$LIBS $NEWLIBS"
-oFLAGS="$CFLAGS"
-CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
-AS_IF([test $USE_XSLT = "true"],
-      [AC_CHECK_LIB([xml2], [xmlCreatePushParserCtxt], [
-       CFLAGS="$CFLAGS `$XSLT_CONFIG --cflags`"
-       AC_DEFINE(HAVE_XSLT)
-       USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"], [
-            LIBS="$oLIBS"
-            CFLAGS="$oFLAGS"
-            AC_MSG_WARN(I could not find XSLT. I will remove the its support.)
-        ])],[ LIBS="$oLIBS"
-             CFLAGS="$oFLAGS"
-             ])
+    AC_CHECK_LIB([xml2],[main],
+        [AC_CHECK_LIB([xslt],[main],
+            [AC_DEFINE(HAVE_XSLT)
+             CFLAGS="$CFLAGS $XSLTFLAGS"
+             DUSE_XSLT="-DUSE_XSLT";OUSE_XSLT=",use_xslt"],
+            [LIBS="$oLIBS"])],
+        [LIBS="$oLIBS"])
+fi
 
-AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([termcap],[tgetent],[LIBS="-ltermcap $LIBS"], [AC_CHECK_LIB([curses],[tgetent],[LIBS="-lcurses $LIBS"], [AC_CHECK_LIB([ncurses],[tgetent],[LIBS="-lncurses $LIBS"], [AC_MSG_FAILURE([The readline interface requires one of the following: termcap, curses, or ncurses.])])])])],[])
-
-AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([readline], [readline],
-      [LIBS="-lreadline $LIBS"; AC_DEFINE(HAVE_LIBREADLINE)], [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or choose the readline interface. See ./configure --help for more information.])])])
-
-#AS_IF([test $USEPARALLEL = "true"], [AC_CHECK_LIB([$MPILNAME], [MPI_Init],
-#      [LIBS="-l$MPILNAME $LIBS"], [AC_MSG_FAILURE([In order to compile the parallel version, an implemention of MPI is required. However, I failed while checking for $MPILNAME.])])])
+# Checking for libraries according to the user's options.
+AS_IF([test $USEINTERFACE = "ncurses"],
+      [AC_CHECK_LIB([ncurses], [main],
+            [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
+            [AS_IF([test $INTERFACE_SELECTED = "true"],
+                [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. See ./configure --help for more information.])],
+                [USEINTERFACE="readline"])])],
+      [])
+AS_IF([test $USEINTERFACE = "readline"],
+        [AC_CHECK_LIB([readline], [readline],
+            [LIBS="-lreadline $LIBS";AC_DEFINE(HAVE_LIBREADLINE)
+             USEINTERFACE="readline";DUSEREADLINE="-DUSEREADLINE";OUSEREADLINE=",use_readline"],
+            [AS_IF([test $INTERFACE_SELECTED = "true"],
+                [AC_MSG_FAILURE([The readline interface requires the readline library. See ./configure --help for more information.])],
+                [USEINTERFACE="flat"])])],
+        [])
 
 # Check for malloc, if not there, this is most likely a Mac OS X.
 AC_CHECK_HEADER(malloc.h,[],[AC_CHECK_HEADER(/usr/include/malloc/malloc.h,[CFLAGS="-I /usr/include/malloc/ $CFLAGS"], [AC_MSG_FAILURE([Could not find malloc.h])])])
@@ -357,14 +364,6 @@ case $OCAMLVERSION in
         ;;
 esac
 
-# Final fix to compile in windows
-case ${OS_INFORMATION} in
-    *-cygwin*)
-        LIBS="-mwin32 $LIBS"
-        ;;
-    *)
-        ;;
-esac
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -397,12 +396,12 @@ case ${OS_INFORMATION} in
         ;;
     *)
         AS_IF([test $USE_LIKELIHOOD = "false"],
-              [],
-              AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
+            [AC_MSG_RESULT([Not enabling Likelihood])],
+            [AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
                 AC_CHECK_LIB(g2c,main,LFORTRAN="-lg2c",
                   AC_CHECK_LIB(f2c,main,LFORTRAN="-lf2c",
                     [AC_MSG_RESULT(Cannot find appropriate fortran library, disabling likelihood);
-                     USE_LIKELIHOOD="false"]))))
+                     USE_LIKELIHOOD="false"])))])
 
         AS_IF([test $USE_LIKELIHOOD = "false"],
             [AC_MSG_RESULT([Not enabling Likelihood])],
