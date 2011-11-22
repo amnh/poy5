@@ -303,15 +303,16 @@ AS_IF([test $USEINTERFACE = "ncurses"],
             [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
             [AS_IF([test $INTERFACE_SELECTED = "true"],
                 [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. See ./configure --help for more information.])],
-                [USEINTERFACE="flat"])])],
+                [USEINTERFACE="readline"])])],
       [])
 AS_IF([test $USEINTERFACE = "readline"],
         [AC_CHECK_LIB([readline], [readline],
             [LIBS="-lreadline $LIBS";AC_DEFINE(HAVE_LIBREADLINE)
              USEINTERFACE="readline";DUSEREADLINE="-DUSEREADLINE";OUSEREADLINE=",use_readline"],
-            [AC_MSG_FAILURE([The readline interface requires the readline library. See ./configure --help for more information.])])],
+            [AS_IF([test $INTERFACE_SELECTED = "true"],
+                [AC_MSG_FAILURE([The readline interface requires the readline library. See ./configure --help for more information.])],
+                [USEINTERFACE="flat"])])],
         [])
-
 
 # Check for malloc, if not there, this is most likely a Mac OS X.
 AC_CHECK_HEADER(malloc.h,[],[AC_CHECK_HEADER(/usr/include/malloc/malloc.h,[CFLAGS="-I /usr/include/malloc/ $CFLAGS"], [AC_MSG_FAILURE([Could not find malloc.h])])])

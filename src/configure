@@ -3390,7 +3390,7 @@ $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "The ncurses interface requires the ncurses library. See ./configure --help for more information.
 See \`config.log' for more details" "$LINENO" 5; }
 else
-  USEINTERFACE="flat"
+  USEINTERFACE="readline"
 fi
 fi
 
@@ -3437,14 +3437,17 @@ if test "x$ac_cv_lib_readline_readline" = xyes; then :
 
              USEINTERFACE="readline";DUSEREADLINE="-DUSEREADLINE";OUSEREADLINE=",use_readline"
 else
+  if test $INTERFACE_SELECTED = "true"; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "The readline interface requires the readline library. See ./configure --help for more information.
 See \`config.log' for more details" "$LINENO" 5; }
+else
+  USEINTERFACE="flat"
+fi
 fi
 
 fi
-
 
 # Check for malloc, if not there, this is most likely a Mac OS X.
 ac_ext=c
