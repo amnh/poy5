@@ -607,8 +607,7 @@ LIBOBJS
 EGREP
 GREP
 CPP
-XSLTFLAGS
-XSLTLIBS
+HAVE_XSLTCONFIG
 CONFIG_DATE
 OCAMLVERSION
 USE_NATIVEDYNLINK
@@ -3129,7 +3128,6 @@ case ${OS_INFORMATION} in
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
-        LIBS="-mwin32 -static $LIBS"
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
@@ -3282,16 +3280,15 @@ fi
 
 # Time to verify if we can compile with xslt
 # Use XSLT-Config if it exists; Otherwise, assume it's in the path
-if test $USE_XSLT = "true"; then :
-  # Extract the first word of "$XSLT_CONFIG", so it can be a program name with args.
+# Extract the first word of "$XSLT_CONFIG", so it can be a program name with args.
 set dummy $XSLT_CONFIG; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_prog_XSLTLIBS+:} false; then :
+if ${ac_cv_prog_HAVE_XSLTCONFIG+:} false; then :
   $as_echo_n "(cached) " >&6
 else
-  if test -n "$XSLTLIBS"; then
-  ac_cv_prog_XSLTLIBS="$XSLTLIBS" # Let the user override the test.
+  if test -n "$HAVE_XSLTCONFIG"; then
+  ac_cv_prog_HAVE_XSLTCONFIG="$HAVE_XSLTCONFIG" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
 for as_dir in $PATH
@@ -3300,7 +3297,7 @@ do
   test -z "$as_dir" && as_dir=.
     for ac_exec_ext in '' $ac_executable_extensions; do
   if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_XSLTLIBS="`$XSLT_CONFIG --libs`"
+    ac_cv_prog_HAVE_XSLTCONFIG="yes"
     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -3308,62 +3305,29 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_prog_XSLTLIBS" && ac_cv_prog_XSLTLIBS=""-lxslt -lxml2""
+  test -z "$ac_cv_prog_HAVE_XSLTCONFIG" && ac_cv_prog_HAVE_XSLTCONFIG="no"
 fi
 fi
-XSLTLIBS=$ac_cv_prog_XSLTLIBS
-if test -n "$XSLTLIBS"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $XSLTLIBS" >&5
-$as_echo "$XSLTLIBS" >&6; }
+HAVE_XSLTCONFIG=$ac_cv_prog_HAVE_XSLTCONFIG
+if test -n "$HAVE_XSLTCONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAVE_XSLTCONFIG" >&5
+$as_echo "$HAVE_XSLTCONFIG" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 fi
 
 
-    # Extract the first word of "$XSLT_CONFIG", so it can be a program name with args.
-set dummy $XSLT_CONFIG; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_prog_XSLTFLAGS+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$XSLTFLAGS"; then
-  ac_cv_prog_XSLTFLAGS="$XSLTFLAGS" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_XSLTFLAGS="`$XSLT_CONFIG --cflags`"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
+if test "$USE_XSLT" = "true"; then
+    oLIBS="$LIBS"
+    if test "$HAVE_XSLTCONFIG" = "yes"; then
+        LIBS="`$XSLT_CONFIG --libs` $LIBS"
+        CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
+    else
+        LIBS="-lxslt -lxml2 $LIBS"
+    fi
 
-  test -z "$ac_cv_prog_XSLTFLAGS" && ac_cv_prog_XSLTFLAGS=""""
-fi
-fi
-XSLTFLAGS=$ac_cv_prog_XSLTFLAGS
-if test -n "$XSLTFLAGS"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $XSLTFLAGS" >&5
-$as_echo "$XSLTFLAGS" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-fi
-oLIBS="$LIBS"
-LIBS="$LIBS $XSLTLIBS"
-if test $USE_XSLT = "true"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lxml2" >&5
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lxml2" >&5
 $as_echo_n "checking for main in -lxml2... " >&6; }
 if ${ac_cv_lib_xml2_main+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -3394,14 +3358,49 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_xml2_main" >&5
 $as_echo "$ac_cv_lib_xml2_main" >&6; }
 if test "x$ac_cv_lib_xml2_main" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lxslt" >&5
+$as_echo_n "checking for main in -lxslt... " >&6; }
+if ${ac_cv_lib_xslt_main+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lxslt  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_xslt_main=yes
+else
+  ac_cv_lib_xslt_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_xslt_main" >&5
+$as_echo "$ac_cv_lib_xslt_main" >&6; }
+if test "x$ac_cv_lib_xslt_main" = xyes; then :
   $as_echo "#define HAVE_XSLT 1" >>confdefs.h
 
-         CFLAGS="$CFLAGS $XSLTFLAGS"
-         USE_XSLT="true";DUSE_XSLT="-DUSE_XSLT";OUSE_XSLT=",use_xslt"
+             CFLAGS="$CFLAGS $XSLTFLAGS"
+             DUSE_XSLT="-DUSE_XSLT";OUSE_XSLT=",use_xslt"
+else
+  LIBS="$oLIBS"
 fi
 
 else
   LIBS="$oLIBS"
+fi
+
 fi
 
 

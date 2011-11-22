@@ -189,7 +189,6 @@ case ${OS_INFORMATION} in
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
-        LIBS="-mwin32 -static $LIBS"
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
@@ -287,22 +286,24 @@ AS_IF([test $USEINTERFACE = "ncurses"],
 
 # Time to verify if we can compile with xslt
 # Use XSLT-Config if it exists; Otherwise, assume it's in the path
-AS_IF([test $USE_XSLT = "true"],
-    [AC_CHECK_PROG([XSLTLIBS],[$XSLT_CONFIG],
-                   [`$XSLT_CONFIG --libs`],
-                   ["-lxslt -lxml2"])]
-    [AC_CHECK_PROG([XSLTFLAGS],[$XSLT_CONFIG],
-                   [`$XSLT_CONFIG --cflags`],
-                   [""])],
-    [])
-oLIBS="$LIBS"
-LIBS="$LIBS $XSLTLIBS"
-AS_IF([test $USE_XSLT = "true"],
-      [AC_CHECK_LIB([xml2],[main],
-        [AC_DEFINE(HAVE_XSLT)
-         CFLAGS="$CFLAGS $XSLTFLAGS"
-         USE_XSLT="true";DUSE_XSLT="-DUSE_XSLT";OUSE_XSLT=",use_xslt"])],
-      [LIBS="$oLIBS"])
+AC_CHECK_PROG([HAVE_XSLTCONFIG],[$XSLT_CONFIG],yes,no)
+if test "$USE_XSLT" = "true"; then
+    oLIBS="$LIBS"
+    if test "$HAVE_XSLTCONFIG" = "yes"; then
+        LIBS="`$XSLT_CONFIG --libs` $LIBS"
+        CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
+    else
+        LIBS="-lxslt -lxml2 $LIBS"
+    fi
+
+    AC_CHECK_LIB([xml2],[main],
+        [AC_CHECK_LIB([xslt],[main],
+            [AC_DEFINE(HAVE_XSLT)
+             CFLAGS="$CFLAGS $XSLTFLAGS"
+             DUSE_XSLT="-DUSE_XSLT";OUSE_XSLT=",use_xslt"],
+            [LIBS="$oLIBS"])],
+        [LIBS="$oLIBS"])
+fi
 
 
 AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([termcap],[tgetent],[LIBS="-ltermcap $LIBS"], [AC_CHECK_LIB([curses],[tgetent],[LIBS="-lcurses $LIBS"], [AC_CHECK_LIB([ncurses],[tgetent],[LIBS="-lncurses $LIBS"], [AC_MSG_FAILURE([The readline interface requires one of the following: termcap, curses, or ncurses.])])])])],[])
