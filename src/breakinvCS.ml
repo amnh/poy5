@@ -51,6 +51,9 @@ type t = {
     chromosome of multichromosome genes, n = 1,2,3,...... *) 
 }
 
+let print thist =
+    IntMap.iter (fun _ med -> Breakinv.print med) thist.meds
+
 let cardinal x = IntMap.fold (fun _ _ acc -> acc + 1) x.meds 0
 
 (** [of_array spec arr code] creates a breakinv set
@@ -103,21 +106,25 @@ let same_codes a b =
 * between breakinv character sets [a] and [b] *)
 let median2 (a : t) (b : t) =
     (* We will use imperative style for this function *)
+    let debug = false in
     let empty = IntMap.empty in
     let median code (meda : meds_t) (medians, costs, recosts, total_cost, total_recost) = 
         let medb : meds_t = IntMap.find code b.meds in
-        let medab = Breakinv.find_meds2 meda medb in
-        (*debug msg
-        Printf.printf "MEDIAN2, meda is : %!";
+        if debug then begin
+        Printf.printf "breakinvCS.median2, meda is : %!";
         List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
         meda.Breakinv.med_ls;
         Printf.printf "medb is : %!";
         List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
         medb.Breakinv.med_ls;
+        end;
+        let medab = Breakinv.find_meds2 meda medb in
+        if debug then begin
         Printf.printf "medab is : %!";
-        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
+        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq;)
         medab.Breakinv.med_ls;
-        debug msg*)
+        Printf.printf "\n%!";
+        end;
         let new_median = IntMap.add code medab medians 
         and new_costs = 
             IntMap.add code (float_of_int medab.Breakinv.total_cost) costs  
@@ -168,7 +175,9 @@ let flatten t_lst =
        let medls_lst = List.map (fun x -> x.Breakinv.med_ls
        ) medst_lst in
        let add_seqlst:Sequence.s list = 
-           List.map (fun x -> (List.hd x).BreakinvAli.seq) medls_lst 
+           List.map (fun x -> 
+               (List.hd x).BreakinvAli.seq 
+               ) medls_lst 
        in
        let parent_seq = (List.hd (parent_medst.Breakinv.med_ls)).BreakinvAli.seq in
        let add_seqlst = parent_seq::add_seqlst in
@@ -179,7 +188,7 @@ let flatten t_lst =
        | _ ->  
            List.map2 
                (fun (addseq:Sequence.s) (seqlst:Sequence.s list) -> 
-                  addseq :: seqlst  
+                addseq :: seqlst  
                ) add_seqlst seq_lstlst;
     ) parent.meds [[]]
 

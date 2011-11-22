@@ -407,8 +407,7 @@ gapcode re_meth =  (* we will consider gap(indel) in the match *)
     let len1 = if (end1 mod 2)=0 then end1+2 else end1+3
     and len2 = if (end2 mod 2)=0 then end2+2 else end2+3 in
     (*debug msg
-    Printf.printf "make cost matrix and array, gapcode=%d,\ 
-    code1_arr/code2_arr = \n %!" gapcode;
+    Printf.printf "make cost matrix and array, gapcode=%d,code1_arr/code2_arr = \n %!" gapcode;
     Utl.printIntArr code1_arr; Utl.printIntArr code2_arr; 
     debug msg*)
     let cost_list = ref [] in
@@ -460,7 +459,7 @@ gapcode re_meth =  (* we will consider gap(indel) in the match *)
   (*  Printf.printf "check in cost matrix:\n%!"; Utl.printIntMat in_cost_mat;*)
     Printf.printf "check cost array:\n%!";
     Array.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
-    ) cost_array;   Printf.printf "\n\n%!";
+    ) cost_array;   Printf.printf "\n%!";
  debug msg*)
     out_cost_mat, cost_array
 

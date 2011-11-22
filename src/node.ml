@@ -233,6 +233,20 @@ type node_data =
             given node *)
     }
 
+
+let print_node_data (data : node_data) = 
+    Printf.fprintf stdout "Taxon code: %i, number characters: %i\n" data.taxon_code (List.length data.characters);
+    let dynamic_ls = List.filter (fun ch -> 
+                                  match ch with 
+                                  | Dynamic _ -> true
+                                  | _ -> false ) data.characters 
+    in 
+    Printf.fprintf stdout "Number dynamics: %i, " (List.length dynamic_ls); 
+
+    print_newline ()
+
+
+
 let print_times n =
     let get_times = function 
         | Nonadd8 x  -> x.time
@@ -1273,7 +1287,8 @@ let convert_2_lst chars tbl : float option list =
 
 
 let median ?branches code old a b =
-    if  debug_treebuild then Printf.printf "node.ml median -> %!";
+    if  debug_treebuild then Printf.printf "\nnode.ml median,nodea:%d,nodeb:%d %!"
+    a.taxon_code b.taxon_code;
     (* the code is negative if we are calculating on an edge *)
     let code = match code with
         | Some code -> code
@@ -2317,7 +2332,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         fun tcode acc ->
             current_snapshot "Generating taxon";
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
-(*            Printf.printf "Generating Taxon %d\nHas Characters: %!" tcode;*)
+            if debug then Printf.printf "\n Generating Taxon %d Has Characters: \n%!" tcode;
 (*            Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) tcharacters;*)
 (*            print_newline ();*)
             let get_character_with_code_n_weight gen_new (w, acc, cnt) (weight, code) = 
@@ -2327,10 +2342,13 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 | Not_found -> weight, (gen_new code) :: acc, cnt
             in
             let get_character_with_code gen_new acc code = 
+                if debug then Printf.printf "get char with code=%d," code;
                 try 
                     (Hashtbl.find tcharacters code) :: acc
                 with
-                | Not_found -> (gen_new code) :: acc
+                | Not_found ->
+                        if debug then Printf.printf "not found, gen new;\n%!";
+                        (gen_new code) :: acc
             in
             let addmapper gen_new ((x, y), arr) =
                 let a, b, cnt = 
@@ -2420,7 +2438,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                           (fun dyna -> extract_dynamic !data dyna tcode) 
                           ldynamic_chars 
                       in
-                      let c : cs list = List.map (fun c -> Dynamic c) c in 
+                      let c : cs list = List.map (fun c -> Dynamic c) c in
                       { result with characters = c @ result.characters } 
             in
             let result = (* KOLMO *)
@@ -2713,8 +2731,8 @@ let flatten_cslist (characters_lst: cs list list) =
     in
     let generate_delimiters (seqlstlst: Sequence.s list list) = 
         List.map (fun seqlst ->
-                    List.map (fun seq -> Sequence.length seq) seqlst 
-                 ) seqlstlst 
+            List.map (fun seq -> Sequence.length seq) seqlst 
+        ) seqlstlst 
     in
     let lst_node_chrom_seqlst = transpose seq_lstlstlst in
     let lst_node_median_seqlst = List.map 
@@ -2748,7 +2766,8 @@ let multi_to_single_chromosome node_data newseq delimiters =
     match (List.hd old_characters) with
     | Dynamic cs ->
             let new_preliminary = DynamicCS.update_t cs.preliminary newseq delimiters in
-            Dynamic {cs with preliminary = new_preliminary}
+            Dynamic {cs with preliminary = new_preliminary;
+            final=new_preliminary;}
     | _ -> 
     failwith ("multichromosome to singlechromosome : we only deal with DynamicCS now")
     in
@@ -3650,18 +3669,6 @@ let add_exclude set n =
     }
 
 let remove_exclude n = { n with exclude_sets = []; exclude_info = [] }
-
-
-let print_node_data (data : node_data) = 
-    Printf.fprintf stdout "Taxon code: %i, number characters: %i\n" data.taxon_code (List.length data.characters);
-    let dynamic_ls = List.filter (fun ch -> 
-                                  match ch with 
-                                  | Dynamic _ -> true
-                                  | _ -> false ) data.characters 
-    in 
-    Printf.fprintf stdout "Number dynamics: %i, " (List.length dynamic_ls); 
-
-    print_newline ()
 
 
 let get_sequences _ node =

@@ -41,6 +41,12 @@ type meds_t = {
 }
 
 
+let print medst =
+    Printf.printf "meds_t : {\n med_ls =\n%!%!";
+    List.iter (fun bkt -> BreakinvAli.print bkt ) medst.med_ls;
+    Printf.printf "total_cost=%d,total_recost=%d\n}\n%!" medst.total_cost
+    medst.total_recost
+
 (** [init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
 * created from a sequence of general character [seq]*)

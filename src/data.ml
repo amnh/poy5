@@ -1524,7 +1524,8 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             in
             let tl = get_taxon_characters data tcode in
             let seqa =
-                let makeone seqa = {seq=seqa; code = -1} in
+                let makeone seqa = 
+                    {seq=seqa; code = -1} in
                 match dyna_state with
                 | `Ml  when not prealigned -> Array.map makeone seq 
                 | `Seq when not prealigned -> Array.map makeone seq

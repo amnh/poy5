@@ -45,6 +45,8 @@ val capacity : s -> int
  * that can be changed at runtime. The current capacity of a sequence is calculated
  * here. *)
 
+val remove_gaps : s -> ?gapcode:int -> bool -> s
+
 val length_without_gap : ?gap:int -> s -> int
 
 val length : s -> int

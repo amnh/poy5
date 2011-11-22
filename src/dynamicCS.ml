@@ -143,6 +143,7 @@ let print dyn = match dyn with
     | ChromCS ch -> ChromCS.print ch
     | AnnchromCS ch -> AnnchromCS.print ch 
     | SeqCS ch -> SeqCS.check_characters_type ch
+    | BreakinvCS ch -> BreakinvCS.print ch  
     | _ -> print_endline "Do not print non-chromosome characters"
 
 (** [copy_chrom_map s_ch d_ch] copies the choromosome map
@@ -278,7 +279,7 @@ let of_array spec genome_arr code taxon num_taxa =
                 Array.map 
                 (fun (genome_data, genome_code) ->
                     let first_seq = 
-                        genome_data.Data.seq_arr.(0).Data.seq in  
+                        genome_data.Data.seq_arr.(0).Data.seq in 
                     (first_seq, genome_code)) genome_arr
             in 
             begin match meth with
@@ -557,7 +558,13 @@ let flatten t_lst =
           ) t_lst in
           SeqCS.flatten seqCS_t_lst
     | _ -> failwith ("we don't deal with this type of dynmaic data now")
-     
+     (*
+let generate_delimiters seqlstlst is_breakinv =
+    if is_breakinv then
+        BreakinvCS.generate_delimiters seqlstlst
+    else
+        seqCS.generate_delimiters seqlstlst
+     *)
 
 (* return 1 if we are dealing with this kind of dynamic data for multi-chromosome.*)
 let is_available in_data =
@@ -574,12 +581,8 @@ let update_t oldt newseqlst delimiterslst =
     match oldt with
     | BreakinvCS bk_t ->
        BreakinvCS ( BreakinvCS.update_t bk_t newseqlst delimiterslst )
-       (*skip SeqCS now, back later*)
     | SeqCS seqcs_t ->
             SeqCS ( SeqCS.update_t seqcs_t newseqlst delimiterslst ) 
-  (*  | ChromCS chrom_t ->
-            ChromCS ( ChromCS.update_t seqcs_t newseqlst delimiterslst ) 
-  *)
     |_ -> failwith ("we don't update this , not yet")
     in
     newt
