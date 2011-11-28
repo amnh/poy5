@@ -1052,10 +1052,9 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
                     
     in
     let leafs = List.fold_left ~f:leaves ~init:[] tree in
-    let _ =
-        warn_if_repeated_and_choose_uniquely leafs 
-            ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ") file
-    in
+    ignore
+        (warn_if_repeated_and_choose_uniquely leafs 
+            ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ") file);
     let res = 
         List.fold_left ~f:(stop_if_not_all_terminals_in_tree)
                        ~init:data.taxon_names
@@ -1730,12 +1729,10 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                     (column + 1)
                 in
                 if Array.length (file_out.Nexus.File.matrix) > 0 then
-                    let _ : int = 
-                        Array.fold_left ~f:add_character 
-                                        ~init:0
-                                        file_out.Nexus.File.matrix.(row)
-                    in ()
-                else ();
+                    ignore
+                        (Array.fold_left ~f:add_character 
+                                         ~init:0
+                                         file_out.Nexus.File.matrix.(row));
                 Hashtbl.replace data.taxon_characters tcode tl;
                 let did = Status.get_achieved st in
                 Status.full_report ~adv:(did + 1) st;
@@ -3461,7 +3458,7 @@ let convert_dyna_spec data chcode spec transform_meth =
                 | Dynamic x -> x
                 | _ -> failwith "Impossible"
             in
-        let _ =
+        let () =
             (* First check if the transformation is legal  *)
             match dspec.state, transform_meth with 
             | `Seq, `Seq_to_Chrom _
@@ -4017,8 +4014,8 @@ let get_alphabet data c =
 let verify_alphabet data chars =
     match List.map (get_alphabet data) chars with
     | h :: t ->
-        let _ = 
-            List.fold_left
+        ignore 
+            (List.fold_left
                 ~f:(fun acc x -> 
                         if x = h then acc 
                         else begin
@@ -4026,8 +4023,7 @@ let verify_alphabet data chars =
                             Alphabet.print h;
                             failwith "The alphabet of the characters is different"
                         end)
-                ~init:true t
-        in
+                ~init:true t);
         let alph = Alphabet.to_sequential h in
         (Alphabet.size alph), alph
     | [] -> failwith "No alphabet to verify?"
@@ -4295,8 +4291,9 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
         (!ret || ignore)
     (* find if we are using the absent/present alphabet *)
     and is_present_absent a =
-        try let _ = Alphabet.match_base "present" a
-            and _ = Alphabet.match_base "absent" in true
+        try ignore(Alphabet.match_base "present" a);
+            ignore(Alphabet.match_base "absent"  a);
+            true
         with | _ -> false
     (* apply the absent/present encoding column to the previous column *)
     and is_present tcode code state spec = match spec,state with
@@ -4305,7 +4302,7 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
             and present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
             List.mem present data_list
         | Static sspec, (Stat (code,None),_) ->
-            let _ = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
+            ignore (Alphabet.match_base "present" sspec.Nexus.File.st_alph);
             true
         | _,_ -> failwith "Incorrect Match1"
     and is_absent tcode code state spec = match spec,state with
@@ -4315,7 +4312,7 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
             List.mem absent data_list
         | Static sspec, (Stat (code,None),_) ->
             (* do the lookup anyway to ensure it exists *)
-            let _ = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
+            ignore (Alphabet.match_base "absent" sspec.Nexus.File.st_alph);
             false
         | _,_ -> failwith "Incorrect Match2"
     and branch_remove branch name = match branch with
@@ -6258,7 +6255,7 @@ let apply_on_static ordered unordered sankoff likelihood char data =
 
 let guess_class_and_add_file annotated is_prealigned data filename =
     if file_exists data filename then
-        let _ =
+        let () =
             let filename = FileStream.filename filename in
             let msg = 
                 "@[A@ file@ with@ name@ " ^ StatusCommon.escape filename ^ 
