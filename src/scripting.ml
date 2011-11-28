@@ -3939,18 +3939,19 @@ END
                 failwith ("Illegal command " ^ name)
             end
     | `StoreTrees -> 
-            { run with trees = `Empty; stored_trees = run.trees }
+            { run with trees = `Empty;
+                       stored_trees = run.trees }
     | `UnionStored ->
             { run with trees = Sexpr.union run.stored_trees run.trees;
-            stored_trees = `Empty }
+                       stored_trees = `Empty }
     | `GetStored ->
-            { run with trees = run.stored_trees; stored_trees = `Empty }
+            { run with trees = run.stored_trees;
+                       stored_trees = `Empty }
     | `OnEachTree (dosomething, mergingscript) ->
             let name = emit_identifier () in
             let run = folder run (`Store ([`Data], name)) in
             let run = 
-                if not (List.exists (function #Methods.transform -> true | _ ->
-                    false) dosomething) then
+                if not (List.exists (function #Methods.transform -> true | _ -> false) dosomething) then
                     { run with original_trees = run.trees } 
                 else run
             in

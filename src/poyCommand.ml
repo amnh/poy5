@@ -1747,9 +1747,8 @@ let create_expr () =
                 right_parenthesis -> `KML (plugin, csv) ] |
                 [ LIDENT "new"; ":"; x = STRING ->
                     StatusCommon.Files.closef x ();
-                    let _ = StatusCommon.Files.openf ~mode:`New x in
-                    `File x
-                    ] |
+                    ignore (StatusCommon.Files.openf ~mode:`New x []);
+                    `File x ] |
                 [ LIDENT "asciitrees" ; y = OPT optional_collapse -> 
                     match y with
                     | Some (`Collapse y) -> `Ascii y

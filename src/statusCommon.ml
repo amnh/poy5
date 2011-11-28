@@ -323,22 +323,24 @@ module Files = struct
         end;
         match kind with
         | Filename ->
-                last_filename := str;
-                let complete_filename = complete_filename kind str !counter in
-                if complete_filename = "" then complete_filename
-                else if !last_basedir.[(String.length !last_basedir) - 1] <>
-                comparator then
-                    !prefix ^ !last_basedir ^ sep_string ^ complete_filename 
-                else 
-                    !prefix ^ !last_basedir ^ complete_filename 
+            last_filename := str;
+            let complete_filename = complete_filename kind str !counter in
+            if complete_filename = "" then 
+                complete_filename
+            else if !last_basedir.[(String.length !last_basedir) - 1] <> comparator then
+                !prefix ^ !last_basedir ^ sep_string ^ complete_filename 
+            else 
+                !prefix ^ !last_basedir ^ complete_filename 
         | Command ->
-                last_filename := str;
-                complete_filename kind str !counter
+            last_filename := str;
+            complete_filename kind str !counter
 
 
     let opened_files = Hashtbl.create 7
 
+
     let is_open file = Hashtbl.mem opened_files file
+
 
     let close_all_opened_files () =
         let closer _ (ch, _, close) =
@@ -349,17 +351,17 @@ module Files = struct
         in
         Hashtbl.iter closer opened_files 
 
+
     let assign_formatter_output f fo_ls = 
-        List.iter (fun fo -> 
-                       match fo with
-                       | Margin m -> 
-                               if m = Format.pp_get_margin f () then ()
-                               else begin
-                                   Format.pp_print_flush f ();
-                                   Format.pp_set_margin f m
-                               end
-                       | Compress -> ()
-                  ) fo_ls
+        List.iter
+            (function
+                | Margin m when m = Format.pp_get_margin f () -> ()
+                | Margin m -> 
+                    Format.pp_print_flush f ();
+                    Format.pp_set_margin f m
+                | Compress -> ())
+            fo_ls
+
 
     let get_margin filename =         
         match filename with
@@ -369,7 +371,6 @@ module Files = struct
                   let _, fo, _ =  Hashtbl.find opened_files filename in   
                   Format.pp_get_margin  fo ()   
               with  Not_found -> Format.get_margin () 
-
 
 
     let openf ?(mode = `Append) name fo_ls = 
@@ -382,23 +383,25 @@ module Files = struct
                 List.exists (function Compress -> true | _ ->
                 false) fo_ls 
             in
-            (let file_options = 
-                if is_compressed then
-                    [Pervasives.Open_wronly; Pervasives.Open_trunc;
-                    Pervasives.Open_creat; Pervasives.Open_binary]
-                else
-                match mode with
-                | `Append ->
+            let file_options = 
+                if is_compressed then begin
+                    Printf.printf "Creating new compressed file %s\n%!" name;
+                    [] (* not used; see below *)
+                end else match mode with
+                    | `Append ->
+                        Printf.printf "Appending file %s\n%!" name;
                         [Pervasives.Open_wronly; Pervasives.Open_append;
-                        Pervasives.Open_creat; Pervasives.Open_text]
-                | `New ->
+                         Pervasives.Open_creat; Pervasives.Open_text]
+                    | `New ->
+                        Printf.printf "Creating new file %s\n%!" name;
                         [Pervasives.Open_wronly; Pervasives.Open_trunc;
-                        Pervasives.Open_creat; Pervasives.Open_text]
+                         Pervasives.Open_creat; Pervasives.Open_text]
             in
             let ch = 
                 if not is_compressed then
                     `NotCompressed (open_out_gen file_options 0o644 name)
-                else `Zlib (Gz.open_out name)
+                else 
+                    `Zlib (Gz.open_out name)
             in
             let f, before_closing = 
                 match ch with
@@ -416,7 +419,7 @@ module Files = struct
             in
             assign_formatter_output f fo_ls;
             Hashtbl.add opened_files name (ch, f, before_closing);
-            f)
+            f
 
     let set_margin filename margin = 
         match filename with
