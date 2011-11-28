@@ -113,7 +113,7 @@ let mapi_ip f a =
         done;
     end else ()
 
-let randomize ar =
+let randomize ar = (* Fisher-Yates *)
     let l = Array.length ar - 1 in
     for i = 0 to l do
         let rnd = i + Random.int (l - i + 1) in
