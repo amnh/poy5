@@ -376,7 +376,7 @@ module Files = struct
     let openf ?(mode = `Append) name fo_ls = 
         if Hashtbl.mem opened_files name then 
             let _, f, _ = Hashtbl.find opened_files name in 
-            let _ = assign_formatter_output f fo_ls in
+            let () = assign_formatter_output f fo_ls in
             f
         else 
             let is_compressed = 
@@ -385,15 +385,12 @@ module Files = struct
             in
             let file_options = 
                 if is_compressed then begin
-                    Printf.printf "Creating new compressed file %s\n%!" name;
                     [] (* not used; see below *)
                 end else match mode with
                     | `Append ->
-                        Printf.printf "Appending file %s\n%!" name;
                         [Pervasives.Open_wronly; Pervasives.Open_append;
                          Pervasives.Open_creat; Pervasives.Open_text]
                     | `New ->
-                        Printf.printf "Creating new file %s\n%!" name;
                         [Pervasives.Open_wronly; Pervasives.Open_trunc;
                          Pervasives.Open_creat; Pervasives.Open_text]
             in
