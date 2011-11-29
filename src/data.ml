@@ -4268,9 +4268,9 @@ let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) =
  * ignore is set to true, in which case it will remove them with impunity! The
  * active/present columns in other characters are used for an additional cost to
  * that column, combined with the weight parameter. *)
-let remove_absent_present_encodings ?(ignore=false) data chars =
+let remove_absent_present_encodings ?(ignore_data=false) data chars =
     let is_likelihood = function
-        | Nexus.File.STLikelihood _ -> (true || ignore)
+        | Nexus.File.STLikelihood _ -> (true || ignore_data)
         | _ -> false
     (* transform a character to a gap *)
     and apply_gap_to_cs taxon_code char_code spec state = match spec,state with
@@ -4288,11 +4288,11 @@ let remove_absent_present_encodings ?(ignore=false) data chars =
                     ret := !ret || (is_likelihood st_type)
                 | _ -> ())
             data.character_specs;
-        (!ret || ignore)
+        (!ret || ignore_data)
     (* find if we are using the absent/present alphabet *)
     and is_present_absent a =
-        try ignore(Alphabet.match_base "present" a);
-            ignore(Alphabet.match_base "absent"  a);
+        try let () = ignore (Alphabet.match_base "present" a) 
+            and () = ignore (Alphabet.match_base "absent" a) in
             true
         with | _ -> false
     (* apply the absent/present encoding column to the previous column *)
@@ -4445,7 +4445,7 @@ IFDEF USE_LIKELIHOOD THEN
             in
             apply_likelihood_model_on_chars data chars model
     in
-    let d,removed = remove_absent_present_encodings ~ignore:true data chars in
+    let d,removed = remove_absent_present_encodings ~ignore_data:true data chars in
     let all_chars = categorize_characters_comp d chars in
     List.fold_left ~f:(transform_char_set) ~init:d all_chars
 
