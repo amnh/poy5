@@ -30,9 +30,10 @@ let io = 3
 let debugging = 4
 let barrier = 5
 
-type cost_modes = [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak |
-`Exhaustive_Strong | `Iterative of [`ThreeD of int option | `ApproxD of int
-option ]  ]
+type cost_modes = 
+    [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong 
+    | `Iterative of [`ThreeD of int option | `ApproxD of int option ] ]
+
 let cost : cost_modes ref = 
     ref `Normal
 
@@ -43,20 +44,20 @@ type support_tree =
     | Node of float * support_tree * support_tree
 
 type orientation_t = [
-| `Orintation
-| `NoOrientation
+    | `Orintation
+    | `NoOrientation
 ]
 
 
 type init3D_t = [
-| `Init3D
-| `NoInit3D
+    | `Init3D
+    | `NoInit3D
 ]
 
 type read_option_t = [
-| `Init3D of bool
-| `Orientation of bool
-| `Prealigned
+    | `Init3D of bool
+    | `Orientation of bool
+    | `Prealigned
 ]
 
 type prealigned_costs = [
@@ -196,19 +197,20 @@ type ml_substitution = [
 
 type ml_costfn = [ `MAL     (* maximum average likelihood *)
                  | `MPL     (* most parsimonious likelihood *)
-                 | `FLK     (* dynamic alignment with a single matrix *)
-                 ] 
+                 | `FLK     (* dynamic alignment with a single matrix *) ] 
 
 type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
+
 type ml_priors = [ `Estimate | `Given of float list | `Equal | `Consistent ]
+
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
+
 type ml_spec = 
     (characters * ml_costfn * ml_substitution * ml_site_variation option
         * ml_priors * ml_gap)
 
 type polymorphism_arg = [ |`Do_Nothing | `Pick_One | `Do_All  ]
-
 
 type char_transform = [
     | dynamic_char_transform
@@ -263,7 +265,7 @@ type support_output = [
     | `Bootstrap of summary_class
 ]
 
-type diagnosis_report_type =[ `StateOnly | `Normal ]
+type diagnosis_report_type = [ `StateOnly | `Normal ]
 
 type report = [
     | `KolmoMachine of string option

@@ -95,6 +95,8 @@ type tcm_definition =
     | Input_file_GapOpening of (string * (int list list) * int)
     | Level of (tcm_definition * int)
 
+let default_tcm = Substitution_Indel (1,1)
+
 type dynamic_hom_spec = {
     filename : string;
     fs : string;
@@ -1811,7 +1813,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
             match u.Nexus.File.u_model with
             | Some _ ->
                 process_parsed_sequences 
-                    false u.Nexus.File.u_weight (Substitution_Indel (1,2))
+                    false u.Nexus.File.u_weight default_tcm
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
                     `DO false u.Nexus.File.u_alph file `Ml data seq
                     u.Nexus.File.u_model u.Nexus.File.u_pam
@@ -1820,7 +1822,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                     | None ->
                         Cost_matrix.Two_D.of_transformations_and_gaps 
                                 (size < 7) size 1 2 all_elements,
-                        (Substitution_Indel (1,2))
+                        default_tcm
                     | Some (name,matrix) ->
                         let size = Array.length matrix in
                         assert( size > 0 );
@@ -5069,8 +5071,7 @@ let assign_tcm_to_characters_from_file data chars file =
         Alphabet.get_level alphabet,  Alphabet.get_ori_size alphabet in
     let tcm,newalph= match file with
         | None ->
-            (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2)),
-            alphabet
+            (fun x -> Cost_matrix.Two_D.default, default_tcm), alphabet
         | Some (f,level) ->
             let level,use_comb =
                 match level with
@@ -6294,7 +6295,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
             | Parser.Files.Is_XML| Parser.Files.Is_NewSeq->
                     let data = add_file [Characters] in
                     file_type_message "input@ sequences";
-                    process_molecular_file (Substitution_Indel (1,2))
+                    process_molecular_file default_tcm
                                            Cost_matrix.Two_D.default 
                                            Cost_matrix.Three_D.default
                                            annotated Alphabet.nucleotides `DO
@@ -6334,7 +6335,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
             | Parser.Files.Is_Unknown->
                     let data = add_file [Characters; Trees; CostMatrix] in
                     file_type_message "input@ sequences@ (default)";
-                    process_molecular_file (Substitution_Indel (1,2))
+                    process_molecular_file default_tcm
                                             Cost_matrix.Two_D.default 
                                             Cost_matrix.Three_D.default
                                             annotated Alphabet.nucleotides

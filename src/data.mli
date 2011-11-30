@@ -98,6 +98,8 @@ type tcm_definition =
     | Input_file_GapOpening of (string * (int list list) * int)
     | Level of (tcm_definition * int)
 
+val default_tcm : tcm_definition
+
 type fixed_state =
     {   costs   : float array array;
         seqs    : Sequence.s array;
