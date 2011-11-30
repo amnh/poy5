@@ -98,6 +98,8 @@ type tcm_definition =
     | Input_file_GapOpening of (string * (int list list) * int)
     | Level of (tcm_definition * int)
 
+val default_tcm : tcm_definition
+
 type fixed_state =
     {   costs   : float array array;
         seqs    : Sequence.s array;
@@ -619,7 +621,7 @@ val convert_static_to_dynamic_branches : src:d -> dest:d -> d
 val sync_dynamic_to_static_model : src:d -> dest:d -> d
 val sync_static_to_dynamic_model : src:d -> dest:d -> d
 
-val remove_absent_present_encodings : ?ignore:bool -> d -> bool_characters -> d * int list
+val remove_absent_present_encodings : ?ignore_data:bool -> d -> bool_characters -> d * int list
 
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 

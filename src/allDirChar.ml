@@ -1091,7 +1091,7 @@ module F : Ptree.Tree_Operations
             in
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
-                let all_edges = Utl.random_array all_edges in
+                Array_ops.randomize all_edges;
                 let (changed,new_affected,new_ptree : adjust_acc) = 
                     let none_affected = IntMap.empty in
                     (* perform on each tree *)

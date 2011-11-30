@@ -861,7 +861,7 @@ let other_two_nbrs nbr node =
                             neighbors of %d are %d %d and %d" nbr id nbr1 nbr2
                             nbr3 
                         in
-                        let _ = Status.user_message Status.Error mst in
+                        Status.user_message Status.Error mst;
                         false
                     end);
                 (nbr1, nbr2)
@@ -1677,9 +1677,7 @@ let print_tree id tree =
                 (visit_node id prefix);
                 (visit_nbr rid new_prefix visited_n_l)
     in
-        let _ =
-            (print_tree_aux id empty_string All_sets.Integers.empty) in
-            ()
+    ignore (print_tree_aux id empty_string All_sets.Integers.empty)
 
 (** [print_forest forest]
     @return () - prints all the trees in the forest. *)
@@ -1845,7 +1843,7 @@ module Parse = struct
                     if List.exists (fun x -> x = ch) [","; ";"] then
                         read_branch acc
                     else
-                        let _ = 
+                        let () = 
                             let msg = 
                                 "I@ will@ use@ the@ character@ " ^ ch ^ 
                                 " in@ position@ " ^ string_of_int character ^ 

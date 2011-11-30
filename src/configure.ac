@@ -77,11 +77,22 @@ AC_SUBST(USE_NATIVEDYNLINK)
 AC_SUBST(OCAMLVERSION)
 AC_SUBST(CONFIG_DATE)
 
+AC_SUBST(CC_NOASNEEDED)
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
 USE_LIKELIHOOD="true"
-PATH_PREFIX="/usr"
+
+# Set the default; OSX adds usr later to avoid conflict with sysroot/isysroot
+case ${OS_INFORMATION} in
+    *-apple-*)
+        PATH_PREFIX="/"
+        ;;
+    *)
+        PATH_PREFIX="/usr"
+        ;;
+esac
 
 INTERFACE_SELECTED="true"
 
@@ -161,7 +172,7 @@ AC_ARG_WITH([prefix], [AS_HELP_STRING([--with-prefix=<DIR>],
             [Set the build path for libraries; it should contain <DIR>/include
              and <DIR>/lib (for windows/linux), and in OSX is equivlent to
              setting isysroot (requiring <DIR>/usr to exist).])],
-            [ PATH_PREFIX=$withval],[PATH_PREFIX="/"])
+            [ PATH_PREFIX=$withval])
 
 AC_ARG_WITH([xslt-config], 
             [AS_HELP_STRING([--with-xslt-config=<PROG>],
@@ -199,6 +210,17 @@ case ${OS_INFORMATION} in
         ;;
 esac
 
+
+oCFLAGS="$CFLAGS"
+CFLAGS="$FLAGS -Wl,--no-as-needed"
+AC_MSG_CHECKING([whether we need to add --no-as-needed linking option])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], 
+                                     [[ 
+                                        int main(){ return 0; } 
+                                    ]])], 
+                  [AC_MSG_RESULT([yes]); CC_NOASNEEDED="true"],
+                  [AC_MSG_RESULT([no]); CC_NOASNEEDED="false"]) 
+CFLAGS=$oCFLAGS
 
 AC_MSG_CHECKING([for concorde.a])
 if test -f "$concorde_dir/concorde.a"; then
@@ -315,7 +337,10 @@ AS_IF([test $USEINTERFACE = "readline"],
         [])
 
 # Check for malloc, if not there, this is most likely a Mac OS X.
-AC_CHECK_HEADER(malloc.h,[],[AC_CHECK_HEADER(/usr/include/malloc/malloc.h,[CFLAGS="-I /usr/include/malloc/ $CFLAGS"], [AC_MSG_FAILURE([Could not find malloc.h])])])
+AC_CHECK_HEADER(malloc.h,[],
+                [AC_CHECK_HEADER("$PATH_PREFIX/include/malloc/malloc.h",
+                                [CFLAGS="-I $PATH_PREFIX/include/malloc/ $CFLAGS"],
+                                [AC_MSG_FAILURE([Could not find malloc.h])])])
 
 AC_CHECK_PROGS([OCAML], [ocaml])
 AC_CHECK_PROGS([OCAMLC], [ocamlc.opt ocamlc])
@@ -364,7 +389,6 @@ case $OCAMLVERSION in
         ;;
 esac
 
-
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([fcntl.h float.h limits.h stddef.h stdint.h stdlib.h string.h strings.h sys/ioctl.h sys/time.h unistd.h],[],[],[AC_INCLUDES_DEFAULT])
@@ -377,13 +401,16 @@ AC_TYPE_SIZE_T
 AC_HEADER_TIME
 AC_STRUCT_TM
 
-# Checks for library functions.
-AC_SEARCH_LIBS([zlibVersion],[z])
-AC_SEARCH_LIBS([exp],[m])
 AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STAT
+
+AC_SEARCH_LIBS([zlibVersion],[z])
+
+#this will only pass if m is already included; we include from OS switch above,
+# or uncomment the line below for more complex cases.
+#AC_SEARCH_LIBS([exp],[m])
 AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 
 # Time to handle the lapack checks

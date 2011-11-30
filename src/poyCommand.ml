@@ -1702,7 +1702,7 @@ let create_expr () =
                 [ LIDENT "log"; ":"; x = STRING -> `Logfile (Some x) ] |
                 [ LIDENT "log"; ":"; LIDENT "new"; ":"; x = STRING ->
                     StatusCommon.Files.closef x ();
-                    let _ = StatusCommon.Files.openf ~mode:`New x in
+                    ignore (StatusCommon.Files.openf ~mode:`New x []);
                     `Logfile (Some x) ] |
                 [ LIDENT "nolog" -> `Logfile None ] |
                 [ LIDENT "seed"; ":"; x = neg_integer -> `SetSeed (int_of_string x) ] |
@@ -1755,9 +1755,8 @@ let create_expr () =
                 right_parenthesis -> `KML (plugin, csv) ] |
                 [ LIDENT "new"; ":"; x = STRING ->
                     StatusCommon.Files.closef x ();
-                    let _ = StatusCommon.Files.openf ~mode:`New x in
-                    `File x
-                    ] |
+                    ignore (StatusCommon.Files.openf ~mode:`New x []);
+                    `File x ] |
                 [ LIDENT "asciitrees" ; y = OPT optional_collapse -> 
                     match y with
                     | Some (`Collapse y) -> `Ascii y

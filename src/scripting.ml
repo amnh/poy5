@@ -1477,7 +1477,7 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left 
                     (fun d f -> 
                         Data.process_molecular_file
-                                (Data.Substitution_Indel (1,2))
+                                Data.default_tcm
                                 Cost_matrix.Two_D.default
                                 Cost_matrix.Three_D.default annotated
                                 Alphabet.nucleotides mode is_prealigned `Seq d f)
@@ -1494,7 +1494,7 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left 
                     (fun d f ->
                         Data.process_molecular_file
-                                (Data.Substitution_Indel (1,2))
+                                Data.default_tcm
                                 Cost_matrix.Two_D.default 
                                 Cost_matrix.Three_D.default annotated
                                 Alphabet.nucleotides `DO false `Chromosome d f)
@@ -1512,7 +1512,7 @@ let load_data (meth : Methods.input) data nodes =
                     List.fold_left
                         (fun d f ->
                             Data.process_molecular_file
-                                    (Data.Substitution_Indel (1,2))
+                                    Data.default_tcm
                                     Cost_matrix.Two_D.default 
                                     Cost_matrix.Three_D.default annotated
                                     Alphabet.nucleotides `DO false `Genome d f)
@@ -1535,7 +1535,7 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left 
                     (fun d f -> 
                         Data.process_molecular_file 
-                                    (Data.Substitution_Indel (1,2))
+                                    Data.default_tcm
                                     Cost_matrix.Two_D.default_aminoacids
                                     (Lazy.force Cost_matrix.Three_D.default_aminoacids)
                                     annotated alpha `DO is_prealigned `Seq d f)
@@ -3939,18 +3939,19 @@ END
                 failwith ("Illegal command " ^ name)
             end
     | `StoreTrees -> 
-            { run with trees = `Empty; stored_trees = run.trees }
+            { run with trees = `Empty;
+                       stored_trees = run.trees }
     | `UnionStored ->
             { run with trees = Sexpr.union run.stored_trees run.trees;
-            stored_trees = `Empty }
+                       stored_trees = `Empty }
     | `GetStored ->
-            { run with trees = run.stored_trees; stored_trees = `Empty }
+            { run with trees = run.stored_trees;
+                       stored_trees = `Empty }
     | `OnEachTree (dosomething, mergingscript) ->
             let name = emit_identifier () in
             let run = folder run (`Store ([`Data], name)) in
             let run = 
-                if not (List.exists (function #Methods.transform -> true | _ ->
-                    false) dosomething) then
+                if not (List.exists (function #Methods.transform -> true | _ -> false) dosomething) then
                     { run with original_trees = run.trees } 
                 else run
             in

@@ -867,12 +867,10 @@ char_nonadd_CAML_basic_union (value v, value self, value a, value b)
 {
     CAMLparam4 (v, self, a, b);
     nacat na, nb, nself, nres;
-    long len;
 
     Nonadd_Custom_val(a,na);
     Nonadd_Custom_val(b,nb);
     Nonadd_Custom_val(self,nself);
-    len = na->len;
     assert (nself->len == na->len);
     assert (na->len == nb->len);
 
@@ -893,12 +891,9 @@ char_nonadd_CAML_basic_union_par (value v, value a, value b)
 {
     CAMLparam3 (v, a, b);
     nacat na, nb, nres;
-    long len;
 
     Nonadd_Custom_val(a,na);
     Nonadd_Custom_val(b,nb);
-    len = na->len;
-    assert (na->len == nb->len);
 
     /* performs an allocation */
     assert (na->len == nb->len);
@@ -917,12 +912,9 @@ char_nonadd_CAML_basic_median (value v, value a, value b)
 {
     CAMLparam3 (v, a, b);
     nacat na, nb, nres;
-    long len;
 
     Nonadd_Custom_val(a,na);
     Nonadd_Custom_val(b,nb);
-    len = na->len;
-    assert (len = nb->len);
 
     /* performs an allocation */
     Nonadd_Custom_val(a,na);
@@ -943,10 +935,8 @@ char_nonadd_CAML_reroot_median (value v, value a, value b)
 {
     CAMLparam3 (v, a, b);
     nacat na, nb, nres;
-    long len;
 
     Nonadd_Custom_val(a,na);
-    len = na->len;
 
     /* performs an allocation */
     Nonadd_Custom_val(a,na);
@@ -968,13 +958,10 @@ char_nonadd_CAML_basic_median_mutate (value a, value b, value res)
 {
     CAMLparam3 (a, b, res);
     nacat na, nb, nres;
-    long len;
 
     Nonadd_Custom_val(a,na);
     Nonadd_Custom_val(b,nb);
     Nonadd_Custom_val(res,nres);
-
-    len = na->len;
 
     assert (na->len == nb->len);
     assert (na->len == nres->len);
@@ -1244,20 +1231,13 @@ char_nonadd_CAML_to_list (value va)
     nacat a;
     long i;
     nac *adata;
-    nacat copy_data;
-    long initial_len;
 
     d_zero = caml_copy_double (0.);
-
     Nonadd_Custom_val(va,a);
-    copy_data = a;
-    initial_len = a->len;
     adata = GET_DATA (a);
     res = Val_long (0);          /* empty list */
 
     for (i = a->len - 1; i >= 0; i--) {
-        assert (a == copy_data);
-        assert (a->len == initial_len);
         temp_elt = caml_alloc_tuple (2);
         Store_field (temp_elt, 0, Val_long (0));
         Store_field (temp_elt, 1, Val_long (adata[i]));
