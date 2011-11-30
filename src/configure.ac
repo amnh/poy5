@@ -77,6 +77,8 @@ AC_SUBST(USE_NATIVEDYNLINK)
 AC_SUBST(OCAMLVERSION)
 AC_SUBST(CONFIG_DATE)
 
+AC_SUBST(CC_NOASNEEDED)
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
@@ -208,6 +210,17 @@ case ${OS_INFORMATION} in
         ;;
 esac
 
+
+oCFLAGS="$CFLAGS"
+CFLAGS="$FLAGS -Wl,--no-as-needed"
+AC_MSG_CHECKING([whether we need to add --no-as-needed linking option])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], 
+                                     [[ 
+                                        int main(){ return 0; } 
+                                    ]])], 
+                  [AC_MSG_RESULT([yes]); CC_NOASNEEDED="true"],
+                  [AC_MSG_RESULT([no]); CC_NOASNEEDED="false"]) 
+CFLAGS=$oCFLAGS
 
 AC_MSG_CHECKING([for concorde.a])
 if test -f "$concorde_dir/concorde.a"; then

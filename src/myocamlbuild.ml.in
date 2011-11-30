@@ -401,8 +401,9 @@ dispatch begin function
         (S[A"-ccopt"; A"-DUSEWIN32"]);
 
     (* for GCC 4.5+ linker and ocamlbuild link order fix *)
-    flag ["ocaml"; "link"]
-        (S [A"-cclib";A"-Wl,--no-as-needed"]);
+    if @CC_NOASNEEDED@ then
+        flag ["ocaml"; "link"]
+            (S [A"-cclib";A"-Wl,--no-as-needed"]);
 
     flag ["ocaml"; "compile"]
         (S ccompileflags);
