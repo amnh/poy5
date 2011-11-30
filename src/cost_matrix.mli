@@ -56,8 +56,8 @@ module Two_D : sig
     * claculating all the possible combinations (effective size 2^a) iff com is
     * true, using the affine cost model aff and gap opening go and gap 
     * extension ge.  *)
-    external create : int -> bool -> int -> int -> int -> int -> int -> int -> m = 
-        "cm_CAML_create_bytecode" "cm_CAML_create"
+    external create : int -> bool -> int -> int -> int -> int -> int -> int ->
+        int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
     
     (** [clone x] creates a fresh copy of the cost matrix x *)
     
@@ -90,7 +90,7 @@ module Two_D : sig
     (** [of_channel file] parse the file containing a cost matrix and returns
     the processed data. Raise an Illegal_Cm_Format if the format can't be
     parsed. *)
-    val of_channel: ?orientation:bool -> ?use_comb:bool -> ?level:int -> int ->
+    val of_channel: ?tie_breaker:Methods.keep_method -> ?orientation:bool -> ?use_comb:bool -> ?level:int -> int ->
         FileStream.greader -> m * int list list
 
     (** [of_channel_nocomb file] parse the file containing a cost matrix and
@@ -127,7 +127,7 @@ module Two_D : sig
 
     (* [create_cm_by_level m level oldlevel all_elements] creates a new cost matrix based on the
     * original matrix and new level value, returns the new matrix *)
-    val create_cm_by_level : m -> int -> int -> int -> m
+    val create_cm_by_level : m -> int -> int -> int -> Methods.keep_method -> m
 
     (** [set_cost x y cm v] sets the cost of transforming element x into y in cost
     * matrix cm to v*)
@@ -234,7 +234,8 @@ module Two_D : sig
 
     (** [print_intlist list] prints out the int list, for debug....*)
     val print_intlist: int list -> unit
-    val of_file : ?use_comb:bool -> ?level:int -> FileStream.f -> int -> bool -> m * int list list
+
+    val of_file : ?tie_breaker:Methods.keep_method -> ?use_comb:bool -> ?level:int -> FileStream.f -> int -> bool -> m * int list list
 
     (* [matrix_of_file fn file] Read a file into an array array, and map a
        function over the values; we ensure that the matrix is rectangular. *)

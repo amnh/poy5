@@ -45,6 +45,7 @@ struct cm {
     int gap_open;
     int is_metric;
     int all_elements;
+    int tie_breaker; //0=random,1=pick first,2=pick last
     int *combmap; // the combination codelist to combination code map [a,b] --> c
     int *comb2list; // the combination code to combination code list map c-->[a,b]
     int *cost;
@@ -82,6 +83,10 @@ cm_get_alphabet_size (cmt c);
 // Retrieves the original alphabet size
 inline int
 cm_get_ori_a_size (cmt c);
+
+// Retrieves the tie_breaker, 0=random,1=pick first,2=pick last
+inline int
+cm_get_tie_breaker (cmt c);
 
 // Retrieves the level value
 inline int
@@ -301,7 +306,8 @@ struct cm_3d {
     int ori_a_sz;          //original alphabet size, add for level
     int map_sz;            // size of the map for combination code list to combination code, add for level
     int level;              // level value, add for level
-    int gap_startNO;        // the position of fisrt code in alphabet [x1,x2,x3....,x1/x2,x1/x3,.....] that has "gap". 
+    int gap_startNO;        // the position of fisrt code in alphabet [x1,x2,x3....,x1/x2,x1/x3,.....] that has "gap".
+    int tie_breaker;
     int *comblist_2_combcode;   // the combination codelist to combination code map [a,b] --> c
     int *combcode_2_comblist; // the combination code to combination code list map c-->[a,b]
     int *cost;              /** The transformation cost matrix. */

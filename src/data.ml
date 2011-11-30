@@ -5074,26 +5074,27 @@ let assign_tcm_to_characters_from_file data chars file =
         | None ->
             (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2)),
             alphabet
-        | Some (f,level) ->
-            let level,use_comb =
-                match level with
+        | Some (f,level_and_tie_breaker) ->
+            let level,tie_breaker,use_comb =
+                match level_and_tie_breaker with
                 | None -> 
-                        if is_dna then 0,true
-                        else if (Alphabet.check_level alphabet) then oldlevel,true
-                        else if oldlevel=1 then oldlevel,false
-                        else 0,false
-                | Some l ->
-                        if is_dna then 0,true
-                        else if l<=1 then l,false
-                        else if l>ori_sz then ori_sz,true
-                        else l,true in
+                        if is_dna then 0,`Keep_Random,true
+                        else if (Alphabet.check_level alphabet) then
+                            oldlevel,`Keep_Random,true
+                        else if oldlevel=1 then oldlevel,`Keep_Random,false
+                        else 0,`Keep_Random,false
+                | Some (l,tb) ->
+                        if is_dna then 0,tb,true
+                        else if l<=1 then l,tb,false
+                        else if l>ori_sz then ori_sz,tb,true
+                        else l,tb,true in
             (fun x ->
                 if debug_level then Printf.printf
                 "assign_tcm_to_characters_from_file,ori_sz=%d,oldlevel=%d,\
                 newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b\n%!"
                 ori_sz oldlevel level use_comb is_dna is_aminoacids;
                 if debug_level then Alphabet.print alphabet;
-                let tcm,mat = Cost_matrix.Two_D.of_file ~use_comb:use_comb ~level:level f x is_dna_or_ami in
+                let tcm,mat = Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker ~use_comb:use_comb ~level:level f x is_dna_or_ami in
                 tcm, Input_file ((FileStream.filename f), mat)),
                 Alphabet.set_level alphabet level
     in
@@ -5331,7 +5332,7 @@ let codes_with_same_tcm codes data =
     List.fold_left ~f:assign_matching ~init:[] codes
 
 
-let assign_level data chars level =
+let assign_level data chars tie_breaker level =
     if debug_level then Printf.printf "Data.assign_level,level=%d\n%!" level;
     let make_level level = function
         | Level (otcm,_) -> Level (otcm,level)
@@ -5369,7 +5370,7 @@ let assign_level data chars level =
                     end else begin
                         let b = Cost_matrix.Two_D.clone b in
                         let b = Cost_matrix.Two_D.create_cm_by_level b level
-                        oldlevel all_elements in
+                        oldlevel all_elements tie_breaker in
                         b
                     end
                 in

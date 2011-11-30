@@ -4063,6 +4063,7 @@ __inline void
 inline void
 #endif
 algn_ancestor_2 (seqt s1, seqt s2, cmt m, seqt sm ) {
+    int uselevel;  
     SEQT *begin1, *begin2;
     int interm;
     int i, gap, is_combinations, cost_model;

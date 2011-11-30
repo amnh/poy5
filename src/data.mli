@@ -536,7 +536,7 @@ val process_rename_characters : d -> (string * string) -> d
 val assign_transformation_gaps :
     d -> bool_characters -> int -> int -> d
 
-val assign_level : d -> bool_characters -> int -> d 
+val assign_level : d -> bool_characters -> Methods.keep_method -> int -> d 
     
 val assign_affine_gap_cost : 
     d -> bool_characters -> Cost_matrix.cost_model -> d
@@ -548,7 +548,7 @@ val assign_prepend :
     d -> bool_characters -> [ `File of FileStream.f | `Array of int array ] -> d
 
 val assign_tcm_to_characters_from_file :
-    d -> bool_characters -> (FileStream.f * int option) option -> d
+    d -> bool_characters -> (FileStream.f * (int*Methods.keep_method) option) option -> d
 
 val add_search_base_from_file : 
     d -> bool_characters -> (string * string) list -> d
