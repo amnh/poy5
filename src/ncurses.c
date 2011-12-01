@@ -508,6 +508,19 @@ ncurs_CAML_isprint (value v) {
 }
 
 value
+ncurs_CAML_keyhome (value unit) {
+    CAMLparam1(unit);
+    CAMLreturn(Val_int (KEY_HOME));
+}
+
+value
+ncurs_CAML_keyend (value unit) {
+    CAMLparam1(unit);
+    CAMLreturn(Val_int (KEY_END));
+}
+
+
+value
 ncurs_CAML_keyup (value unit) {
     CAMLparam1(unit);
     CAMLreturn(Val_int (KEY_UP));
