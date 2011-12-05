@@ -345,9 +345,7 @@ let addcs_to_formater ((tag, attr, cont) : Xml.xml) =
                 Buffer.add_string c ", ";
                 Buffer.add_string c max;
                 Buffer.add_string c "]";
-                [|name; cclass; cost; recost;
-                chrom_ref; map; 
-                `String (Buffer.contents c)|]
+                [|name; cclass; cost; `String "-,-"; recost; chrom_ref; map; `String (Buffer.contents c)|]
         | _ -> raise (Illegal_formater "addcs_to_formater 2")
     end else raise (Illegal_formater "addcs_to_formater 3")
 
@@ -386,7 +384,7 @@ let nonaddcs_to_formater ((tag, attr, cont) : Xml.xml) =
                     StatusCommon.escape (Buffer.contents c)
             | _ -> raise (Illegal_formater "nonaddcs_to_formater 2")
         in
-        [| name; cclass; cost; recost; chrom_ref; map; `String states |]
+        [| name; cclass; cost; `String "-,-"; recost; chrom_ref; map; `String states |]
     end else raise (Illegal_formater "nonaddcs_to_formater")
 
 let sankcs_to_formater ((tag, attr, cont) : Xml.xml) =
@@ -395,6 +393,7 @@ let sankcs_to_formater ((tag, attr, cont) : Xml.xml) =
     else raise (Illegal_formater "sankcs_to_formater")
 
 let seq_to_formater ((tag, attr, cont) : Xml.xml) : Xml.unstructured array  =
+    Printf.printf "seq\n%!";
     if tag = Xml.Characters.sequence then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let chrom_ref = `String "-" in 
@@ -538,19 +537,23 @@ let dyn_likelihood_to_formater ((tag, attr, cont) as xml: Xml.xml) =
     end else
         raise (Illegal_formater "dyn_likelihood_to_formater")
 
-let node_character_to_formater ((tag, _, _) as v) =
-         if tag = Xml.Characters.sequence     then seq_to_formater v
-    else if tag = Xml.Characters.chromosome   then chrom_to_formater v
-    else if tag = Xml.Characters.genome       then genome_to_formater v
-    else if tag = Xml.Characters.breakinv     then breakinv_to_formater v
-    else if tag = Xml.Characters.annchrom     then annchrom_to_formater v
-    else if tag = Xml.Characters.sankoff      then sankcs_to_formater v
-    else if tag = Xml.Characters.nonadditive  then nonaddcs_to_formater v
-    else if tag = Xml.Characters.additive     then addcs_to_formater v
-    else if tag = Xml.Characters.likelihood   then likelihood_to_formater v
-    else if tag = Xml.Characters.dlikelihood  then dyn_likelihood_to_formater v
-    else
-        raise (Illegal_formater ("node_character_to_formater: " ^ tag) )
+let node_character_to_formater length ((tag, _, _) as v) =
+    let data =
+             if tag = Xml.Characters.sequence     then seq_to_formater v
+        else if tag = Xml.Characters.chromosome   then chrom_to_formater v
+        else if tag = Xml.Characters.genome       then genome_to_formater v
+        else if tag = Xml.Characters.breakinv     then breakinv_to_formater v
+        else if tag = Xml.Characters.annchrom     then annchrom_to_formater v
+        else if tag = Xml.Characters.sankoff      then sankcs_to_formater v
+        else if tag = Xml.Characters.nonadditive  then nonaddcs_to_formater v
+        else if tag = Xml.Characters.additive     then addcs_to_formater v
+        else if tag = Xml.Characters.likelihood   then likelihood_to_formater v
+        else if tag = Xml.Characters.dlikelihood  then dyn_likelihood_to_formater v
+        else
+            raise (Illegal_formater ("node_character_to_formater: " ^ tag))
+    in
+    assert( length = Array.length data );
+    data
 
 let node_to_formater st (tag, attr, cont) =
     let assoc x y = Xml.value_to_string (List.assoc x y) in
@@ -571,13 +574,14 @@ let node_to_formater st (tag, attr, cont) =
             | #Xml.structured as x -> Sexpr.to_list (Xml.eagerly_compute x)
             | _ -> raise (Illegal_formater "node_to_formater 2")
         in
-        let lst = List.map (fun item -> node_character_to_formater item) lst in
+        let header= [|"@{<u>Characters@}"; "@{<u>Class@}"; "@{<u>Cost@}";
+                      "@{<u>Child Branch Lengths@}"; "@{<u>Rearrangement Cost@}";
+                      "@{<u>Chrom Ref@}"; "@{<u>Median Map@}"; "@{<u>States@}"|]
+        in
+        let lst = 
+            List.map (fun item -> node_character_to_formater (Array.length header) item) lst in
         let lst =
-            let arr = [|"@{<u>Characters@}"; "@{<u>Class@}"; "@{<u>Cost@}";
-                        "@{<u>Child Branch Lengths@}"; "@{<u>Rearrangement Cost@}";
-                        "@{<u>Chrom Ref@}"; "@{<u>Median Map@}"; "@{<u>States@}"|]
-            in
-            arr :: (List.map (Array.map Xml.value_to_string) lst)
+           header :: (List.map (Array.map Xml.value_to_string) lst)
         in
         user_messagef st "@\n@\n@[<v 0>@{<b>%s@}@\n" name;
         user_messagef st "@[<v 0>@{<u>Cost %s@}@\n" cost;
