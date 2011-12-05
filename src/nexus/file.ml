@@ -761,37 +761,29 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
         if not labels then 
             let cntr = ref (-1) in
             (fun stream -> incr cntr; 
-                let pre_spaced = consume_spaces stream in
-                if not pre_spaced then
-                    Status.user_message Status.Warning
-                        ("Taxon Code "^(string_of_int !cntr)^" may be read"
-                         ^" wrong; check the previous taxons character length.");
-                if !cntr = taxa_len then 
+                ignore (consume_spaces stream);
+                if !cntr = taxa_len then begin
                     (* If we are at the end of the stream, we are just
                     * fine, so we attempt to provoque an End of File
                     , so we attempt to provoque an End of File error* error *)
-                    let _ = Stream.next stream in
-                    let _ = Status.user_message Status.Error
-                    ("Your@ input@ matrix@ declares@ fewer@ " ^
-                    "terminals@ than@ there@ are@ on@ it.") in
+                    ignore( Stream.next stream );
+                    let () = 
+                        Status.user_message Status.Error
+                            ("Your@ input@ matrix@ declares@ fewer@ " ^
+                             "terminals@ than@ there@ are@ on@ it.")
+                    in
                     failwith "Illegal input file"
-                else
-                match taxa.(!cntr) with
-                | Some x -> x
-                | None -> failwith "Taxon undefined")
+                end else match taxa.(!cntr) with
+                    | Some x -> x
+                    | None -> failwith "Taxon undefined")
         else 
             (fun stream ->
-                let pre_spaced = consume_spaces stream in
+                ignore (consume_spaces stream);
                 let b = Buffer.create 13 in
                 while not (is_space stream) do
                     Buffer.add_char b (Stream.next stream)
                 done;
-                let name = Buffer.contents b in
-                if not pre_spaced then
-                    Status.user_message Status.Warning
-                        ("Taxon "^name^" may be read wrong; "
-                         ^"check the previous taxons character length.");
-                name)
+                Buffer.contents b)
     in
     let rec taxon_processor x position =
         match x with
