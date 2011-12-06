@@ -10,6 +10,8 @@ struct mgr_genome_struct *mgr_genome_list;
 struct mgr_genome_struct *mgr_genome_list_copy;
 struct mgr_genome_struct median_genome;
 
+struct mgr_genome_struct * mgr_out_genome_list;
+
 struct mgr_genome_struct * mgr_genome_list_cap;
 
 mgr_distmem_t distmem_mgrmed;

@@ -551,12 +551,12 @@ let flatten t_lst =
           | _ -> failwith "ERROR data type in flatten of dynamicCS.ml"
           ) t_lst in
           BreakinvCS.flatten bkCS_t_lst
-    | SeqCS _ -> 
+    (*| SeqCS _ -> 
           let seqCS_t_lst = List.map (fun x -> match x with
           | SeqCS x_seqCS -> x_seqCS
           | _ -> failwith "ERROR data type in flatten of dynamicCS.ml"
           ) t_lst in
-          SeqCS.flatten seqCS_t_lst
+          SeqCS.flatten seqCS_t_lst*)
     | _ -> failwith ("we don't deal with this type of dynmaic data now")
      (*
 let generate_delimiters seqlstlst is_breakinv =
@@ -576,14 +576,17 @@ let is_available in_data =
     in
     res
 
-let update_t oldt newseqlst delimiterslst =
+let update_t oldt file_median_seq file_median_chrom_seqdeli =
     let newt = 
     match oldt with
     | BreakinvCS bk_t ->
-       BreakinvCS ( BreakinvCS.update_t bk_t newseqlst delimiterslst )
-    | SeqCS seqcs_t ->
-            SeqCS ( SeqCS.update_t seqcs_t newseqlst delimiterslst ) 
-    |_ -> failwith ("we don't update this , not yet")
+       let new_bk_t_lst = BreakinvCS.update_t bk_t file_median_seq file_median_chrom_seqdeli
+       in
+       List.map (fun x -> BreakinvCS x ) new_bk_t_lst
+    (*| SeqCS seqcs_t ->
+            SeqCS ( SeqCS.update_t seqcs_t file_median_seq file_median_chrom_seqdeli ) 
+    *)
+    |_ -> failwith ("dynaicCS.update_t,we don't update this datatype for multi-chromosome functions under MGR")
     in
     newt
     

@@ -1525,8 +1525,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             in
             let tl = get_taxon_characters data tcode in
             let seqa =
-                let makeone seqa = 
-                    {seq=seqa; code = -1} in
+                let makeone seqa = {seq=seqa; code = -1} in
                 match dyna_state with
                 | `Ml  when not prealigned -> Array.map makeone seq 
                 | `Seq when not prealigned -> Array.map makeone seq
@@ -5166,8 +5165,9 @@ let add_search_base_for_one_character_from_file data chars file character_name =
         ref (fun () ->
             incr c;
             original_filename  ^ ":" ^ string_of_int !c)
-    in 
+    in
     let single_loci_processor acc res = 
+        let debug_search_base = false in
         if debug_search_base then Printf.printf "single_loci_processor\n%!";
         (*let data = add_searchbase_to_character acc chcode in*) 
         (* Now a function to process one taxon at a time to be 
@@ -5212,9 +5212,14 @@ let add_search_base_for_one_character_from_file data chars file character_name =
             match (res --> individual_fragments) with
             | [x] ->
                     locus_name := (fun () -> original_filename);
+                    Printf.printf "only one fragments,call single_loci_processor\n%!";
                     single_loci_processor data x
-            | [] -> data
-            | x -> List.fold_left ~f:single_loci_processor ~init:data x
+            | [] -> 
+                    Printf.printf "data remain unchanged\n%!";
+                    data
+            | x -> 
+                    Printf.printf "fold on single_loci_processor (len=%d) \n%!" (List.length x);
+                    List.fold_left ~f:single_loci_processor ~init:data x
        (* else 
             (res --> merge_fragments -->
             single_loci_processor data) *)
