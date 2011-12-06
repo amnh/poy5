@@ -61,6 +61,7 @@
 /* Cost Fn Mode Codes */
 #define MPLCOST      1
 #define MALCOST      0
+#define SMPLCOST     2
 
 #define KAHANSUMMATION       /* reduce error in sum over likelihood vector? */
  
@@ -1135,15 +1136,52 @@ double logMPLlikelihood( const mll* l,const double* ws,const double* pi,const do
 #endif
 }
 
+double logSMPLlikelihood( const mll* l,const double* ws,const double* pi,const double* prob)
+{
+#ifdef KAHANSUMMATION
+    int i; 
+    double ret_s,ret_c,ret_y,ret_t;
+
+    ret_s = logSMPL_site(l,ws[0],pi,prob,0);
+    ret_c = 0.0;
+    for(i = 1;i<l->c_len; i++)
+    {
+        ret_y = (logSMPL_site(l,ws[i],pi,prob,i)) - ret_c;
+        ret_t = ret_s + ret_y;
+        ret_c = (ret_t - ret_s) - ret_y;
+        ret_s = ret_t;
+    }
+    return ( -ret_s );
+#else
+    int i;
+    double ret;
+    ret = 0.0;
+    for(i=0;i<l->c_len;i++)
+        ret += logMPL_site(l,ws[i],pi,prob,i);
+    return ( -ret );
+#endif
+}
+
+
 double
 loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob,
-                const double pinvar, const int mpl)
+                const double pinvar, const int cost)
 {
-    if( 0 == mpl ){
-        return logMALlikelihood( l, ws, pi, prob, pinvar );
-    } else {
-        return logMPLlikelihood( l, ws, pi, prob );
+    double total_cost;
+    switch( cost ){
+        case MALCOST : 
+            total_cost = logMALlikelihood( l, ws, pi, prob, pinvar );
+            break;
+        case MPLCOST: 
+            total_cost = logMPLlikelihood( l, ws, pi, prob );
+            break;
+        case SMPLCOST: 
+            total_cost = logSMPLlikelihood( l, ws, pi, prob );
+            break;
+        default :
+            assert( FALSE );
     }
+    return total_cost;
 }
 
 /* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
