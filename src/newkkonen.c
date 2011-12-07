@@ -540,7 +540,7 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
 
 int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, int lenX, int lenY, int go)
 {
-    int debug = 1;
+    int debug = 0;
     int p = (newT - (lenY-lenX))/2;
     if (debug) { printf ("increaseT, newT=%d,p=%d,",newT,p); fflush(stdout); }
     int res_cost=-1; 
@@ -568,7 +568,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
 void
 init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m)
 {
-    int debug = 1;
+    int debug = 0;
     int i=0;
     //expand sign
     int expand_diag_size=1;
@@ -702,7 +702,7 @@ int trivial_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cm
 int
 newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int go, const cmt c, newkkmat_p m) {
     assert(s1_len<=s2_len);
-    int debug = 1;
+    int debug = 0;
     int debug2 = 0;
     if (debug)  { printf("newkk_algn,lenx=%d,leny=%d\n",s1_len,s2_len);fflush(stdout);}
     if (s1_len * MUCH_LONGER < s2_len) 
@@ -773,7 +773,9 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a)
     assert (s2_len >= s1_len);
     int res;
     int gap_open = tc->gap_open;
-    printf("newkkonen_CAML_algn,gap_open=%d\n",gap_open); fflush(stdout);
+    int debug = 0;
+    if (debug) {
+    printf("newkkonen_CAML_algn,gap_open=%d\n",gap_open); fflush(stdout);}
     res = newkk_algn (s1p, s2p, s1_len,s2_len,gap_open,tc, mp);
     CAMLreturn(Val_int(res));
 };
@@ -781,7 +783,7 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a)
 void trivial_backtrace(const seqt s1, const seqt s2, seqt alis1, seqt alis2, 
         int len1, int len2, const cmt c) 
 {
-    int debug = 1;
+    int debug = 0;
     if(debug) {
        printf("trivial backtrace,len1=%d,len2=%d\n",len1,len2); fflush(stdout); }
     int i;
