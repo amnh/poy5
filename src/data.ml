@@ -799,7 +799,7 @@ let rec aux_add_synonym stack data (a, b) =
     (* We need to check if [a] already has an assigned synonym *)
     if (a = b) then begin
         let msg = String.concat " to " (a :: (List.rev (b :: stack))) in
-        output_warningf "I'm@ ignoring@ the@ self-synonym@ %s.@" msg;
+        output_warningf "I'm@ ignoring@ the@ self-synonym@ %s." msg;
         data
     end else if All_sets.StringMap.mem a data.synonyms then begin
         (* Hum ... so we do have a synonym, we need now to check if [(a, b)]
@@ -1952,7 +1952,7 @@ let add_static_file ?(report = true) style data (file : FileStream.f) =
         let file = FileStream.filename file in
         let msg =
             Printf.sprintf
-               ("Couldn't@ open@ file@ %s@ to@ load@ the@ data.@ The@"^^
+               ("Couldn't@ open@ file@ %s@ to@ load@ the@ data.@ The@ "^^
                 "system@ error@ message@ is@ %s.")
                file err
         in

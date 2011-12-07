@@ -1311,18 +1311,18 @@ let create_expr () =
             ]];
         ml_substitution: 
             [
-                [ "jc69" -> `JC69 ] |
-                [ "f81" -> `F81 ] |
+                [ LIDENT "jc69" -> `JC69 ] |
+                [ LIDENT "f81" -> `F81 ] |
                 (* values of these types get checked later *)
-                [ "f84";   x = OPT ml_floatlist -> `F84   x ] |
-                [ "k80";   x = OPT ml_floatlist -> `K2P   x ] |
-                [ "k2p";   x = OPT ml_floatlist -> `K2P   x ] |
-                [ "hky";   x = OPT ml_floatlist -> `HKY85 x ] |
-                [ "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
-                [ "tn93";  x = OPT ml_floatlist -> `TN93  x ] |
-                [ "gtr";   x = OPT ml_floatlist -> `GTR   x ] |
-                [ "file"; ":"; x = STRING -> `File x ] |
-                [ "custom"; ":"; x = STRING -> `Custom x ]
+                [ LIDENT "f84";   x = OPT ml_floatlist -> `F84   x ] |
+                [ LIDENT "k80";   x = OPT ml_floatlist -> `K2P   x ] |
+                [ LIDENT "k2p";   x = OPT ml_floatlist -> `K2P   x ] |
+                [ LIDENT "hky";   x = OPT ml_floatlist -> `HKY85 x ] |
+                [ LIDENT "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
+                [ LIDENT "tn93";  x = OPT ml_floatlist -> `TN93  x ] |
+                [ LIDENT "gtr";   x = OPT ml_floatlist -> `GTR   x ] |
+                [ LIDENT "file"; ":"; x = STRING -> `File x ] |
+                [ LIDENT "custom"; ":"; x = STRING -> `Custom x ]
             ];
         site_properties:
             [
@@ -1332,16 +1332,16 @@ let create_expr () =
             ];
         ml_rates: 
             [
-                [ "gamma";":";left_parenthesis;x = INT; d = site_properties -> 
+                [ LIDENT "gamma";":";left_parenthesis;x = INT; d = site_properties -> 
                     let d = match d with | Some [x] -> Some x | None -> None
                         | _ -> failwith "Improper Gamma Argument" in
                     Some (`Gamma (int_of_string x, d)) ] |
-                [ "theta";":";left_parenthesis;x = INT; d = site_properties -> 
+                [ LIDENT "theta";":";left_parenthesis;x = INT; d = site_properties -> 
                     let d = match d with | Some [x;y] -> Some (x,y) | None -> None
                         | _ -> failwith "Improper Theta Argument" in
                         Some (`Theta (int_of_string x, d)) ] |
-                [ "constant" -> None ] |
-                [ "none" -> None ]
+                [ LIDENT "constant" -> None ] |
+                [ LIDENT "none" -> None ]
             ];
         ml_priors:
             [ 
@@ -1358,12 +1358,12 @@ let create_expr () =
               [ x = integer_or_float -> `Coupled (float_of_string x) ] ];
         ml_gaps:
             [
-                ["gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
+                [LIDENT "gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
                     match x with | Some x -> x | None -> `Independent ]
             ];
         ml_costfn:
             [
-                ["mal" -> `MAL] | ["mpl" -> `MPL] | ["flk" -> `FLK]
+                [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL] | [LIDENT "flk" -> `FLK]
             ];
         partitioned_mode:
             [   
@@ -1373,9 +1373,9 @@ let create_expr () =
         ml_properties:
             [
                 [ x = ml_substitution   -> `ML_subst x] |
-                [ "rates";":"; left_parenthesis; x = ml_rates; right_parenthesis
+                [ LIDENT "rates";":"; left_parenthesis; x = ml_rates; right_parenthesis
                                         -> `ML_vars  x] |
-                [ "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
+                [ LIDENT "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
                                         -> `ML_prior x] |
                 [ x = ml_gaps           -> `ML_gaps  x] |
                 [ x = ml_costfn         -> `ML_cost  x]
@@ -1385,22 +1385,23 @@ let create_expr () =
                 [","; x = polymorphism_parameter -> x ]
             ];
         polymorphism_parameter:
-        [
-            [ LIDENT "ignore_polymorphism" -> `Do_Nothing ] |
-            [ LIDENT "simple_polymorphism" -> `Pick_One] |
-            [ LIDENT "full_polymorphism" -> `Do_All]
-        ];
+            [
+                [ LIDENT "ignore_polymorphism" -> `Do_Nothing ] |
+                [ LIDENT "simple_polymorphism" -> `Pick_One] |
+                [ LIDENT "full_polymorphism" -> `Do_All]
+            ];
         fixed_states_option :
-        [
-           [":"; left_parenthesis; x = OPT [z=STRING->z]; y = OPT optional_poly;
-           right_parenthesis -> (x,y) ]
-        ];
+            [
+               [":"; left_parenthesis; 
+                    x = OPT [z=STRING->z]; y = OPT optional_poly;
+               right_parenthesis -> (x,y) ]
+            ];
         level_and_tiebreaker :
-        [
-            [ left_parenthesis; x = INT; ","; y = keep_method; right_parenthesis
-            ->(int_of_string x,y) ]|
-            [ x=INT -> (int_of_string x,`Keep_Random) ]
-        ];
+            [
+                [ left_parenthesis; x = INT; ","; y = keep_method; right_parenthesis
+                ->(int_of_string x,y) ]|
+                [ x=INT -> (int_of_string x,`Keep_Random) ]
+            ];
         transform_method:
             [
                 [ LIDENT "origin_cost"; ":"; x = integer_or_float ->
@@ -1477,7 +1478,7 @@ let create_expr () =
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `CustomToBreakinv x ] | 
                 [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                         [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] |
-                [   LIDENT "custom_alphabet"; ":"; left_parenthesis; x = LIST0 
+                [ LIDENT "custom_alphabet"; ":"; left_parenthesis; x = LIST0 
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x] |
                 [ LIDENT "breakinv"; ":"; left_parenthesis; x = LIST0 
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
@@ -1485,8 +1486,6 @@ let create_expr () =
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
                 [ LIDENT "genome"; ":"; left_parenthesis; x = LIST0 
                         [ x = genome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
-                (*[ LIDENT "dynamic_pam"; ":"; left_parenthesis; x = LIST0 
-                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | *)
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
                 [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
                 [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->
@@ -1497,12 +1496,12 @@ let create_expr () =
             ];
         tcm_arguments:
             [
-                    [ x = INT; ","; y = INT -> `Gap (int_of_string x, int_of_string y)] |
-                    [ x = STRING; level_value = OPT optional_level -> 
-                        match level_value with 
-                        | None -> `Tcm (x,None)
-                        | Some y -> `Tcm (x,Some y)
-                    ]
+                [ x = INT; ","; y = INT -> `Gap (int_of_string x, int_of_string y)] |
+                [ x = STRING; level_value = OPT optional_level -> 
+                    match level_value with 
+                    | None -> `Tcm (x,None)
+                    | Some y -> `Tcm (x,Some y)
+                ]
             ];
         optional_kolmogorov_parameters: 
             [ 
@@ -1511,10 +1510,11 @@ let create_expr () =
                     right_parenthesis  -> 
                         let default = (None, None) in
                         let x = 
-                            List.fold_left (fun acc x ->
-                                match x with 
-                                | `Event n -> (Some n, snd acc)
-                                | `IndelSub n -> (fst acc, Some n) ) default 
+                            List.fold_left 
+                                (fun acc x -> match x with 
+                                    | `Event n -> (Some n, snd acc)
+                                    | `IndelSub n -> (fst acc, Some n))
+                                default 
                                 x
                         in
                         `Seq_to_Kolmogorov (`AtomicIndel x) ] 
@@ -1551,11 +1551,9 @@ let create_expr () =
         annotate_param:
             [
                 [ LIDENT "default"; ","; x = INT; ","; y = INT; ","; z = INT 
-                -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
-                [ LIDENT "mauve"; ","; a = FLOAT; ","; b = INT; ","; c =
-                    FLOAT; ","; d = INT 
-                -> `Mauve (float_of_string a,int_of_string b, float_of_string
-                c, int_of_string d) ]
+                    -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
+                [ LIDENT "mauve"; ","; a = FLOAT; ","; b = INT; ","; c = FLOAT; ","; d = INT 
+                    -> `Mauve (float_of_string a,int_of_string b, float_of_string c, int_of_string d) ]
             ];
         genome_argument:
             [
@@ -1663,11 +1661,10 @@ let create_expr () =
                     `PrintWDir ]
             ];
         clear_diagnosis:
-            [ [ "clear" -> false ] | [ "preserve" -> true ] ];
+            [ [ LIDENT "clear" -> false ] | [ LIDENT "preserve" -> true ] ];
         store_class:
             [ [ ","; left_parenthesis; x = LIST0 [ x = store_class_list -> x ]
-            SEP ",";
-            right_parenthesis -> x ] ];
+                SEP ","; right_parenthesis -> x ] ];
         store_class_list:
             [ 
                 [ LIDENT "data" -> `Data ] |
@@ -1732,8 +1729,7 @@ let create_expr () =
                         None -> None | Some x -> Some (int_of_string x)
                     in
                     `ThreeD iterations ] |
-                [ LIDENT "approximate"; iterations = OPT
-                optional_integer_or_float -> 
+                [ LIDENT "approximate"; iterations = OPT optional_integer_or_float -> 
                     let iterations =
                         match iterations with
                         | None -> None | Some x -> Some (int_of_string x)
@@ -1983,38 +1979,38 @@ let create_expr () =
             ];
         memory:
             [
-                [ "gb"; ":"; x = INT -> ((int_of_string x) * 
+                [ LIDENT "gb"; ":"; x = INT -> ((int_of_string x) * 
                     1000 * 1000 * (1000 / (Sys.word_size / 8))) ] |
-                [ "mb"; ":"; x = INT ->((int_of_string x) * 
+                [ LIDENT "mb"; ":"; x = INT ->((int_of_string x) * 
                     1000 * 1000 / (Sys.word_size / 8)) ]
             ];
 
 
         model_iter2:
             [
-                ["threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
-                ["max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
-                ["neighborhood"; ":"; x = FLOAT -> `NeighborhoodModel (float_of_string x) ] |
-                ["never" -> `NullModel] |
-                ["always" -> `AlwaysModel]
+                [LIDENT "threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
+                [LIDENT "max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
+                [LIDENT "neighborhood"; ":"; x = FLOAT -> `NeighborhoodModel (float_of_string x) ] |
+                [LIDENT "never" -> `NullModel] |
+                [LIDENT "always" -> `AlwaysModel]
             ];
         model_iter :
             [
-                ["never" -> `NullModel] |
-                ["always" -> `AlwaysModel] |
+                [LIDENT "never" -> `NullModel] |
+                [LIDENT "always" -> `AlwaysModel] |
                 [ left_parenthesis; x = model_iter2; right_parenthesis -> x]
             ];
         branch_iter :
             [
-                ["never" -> `NullBranches] |
-                ["all_branches" -> `AllBranches] |
-                ["join_delta" -> `JoinDeltaBranches] |
-                ["join_region" -> `NeighborhoodBranches]
+                [LIDENT "never" -> `NullBranches] |
+                [LIDENT "all_branches" -> `AllBranches] |
+                [LIDENT "join_delta" -> `JoinDeltaBranches] |
+                [LIDENT "join_region" -> `NeighborhoodBranches]
             ];
         iterate_options:
             [
-                ["model"; ":"; x = model_iter -> x] |
-                ["branch"; ":"; x = branch_iter -> x]
+                [LIDENT "model"; ":"; x = model_iter -> x] |
+                [LIDENT "branch"; ":"; x = branch_iter -> x]
             ];
         iteration_method:
             [
@@ -2277,7 +2273,7 @@ let create_expr () =
                 [ x = swap_method -> (x :> swapa) ] |
                 [ x = keep_method -> (x :> swapa) ] |
                 [ x = threshold_and_trees -> (x :> swapa) ] |
-                [ x = cost_calculation -> (x :> swapa) ] |
+                [ x = transform -> (x :> swapa) ] |
                 [ LIDENT "forest"; a = OPT optional_integer_or_float -> 
                     match a with
                     | None -> `Forest 0.
