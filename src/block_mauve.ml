@@ -41,6 +41,7 @@ let debug_remove_bad_match =  false
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
 let debug_search_outside = false
+let skip_huge_nonlcb_block = true
 
 (*this is a cost matrix between ATGC and ATGC. default matrix used by Mauve *)
 let hodx_matrix = [| 
@@ -5586,10 +5587,9 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
             * will be big too. we won't choose the match them as a pair
             * later, therefore we don't need to know exact cost&alignment
             * between them*)
-            (*let sublen1 = right1-left1+1 and sublen2 = right2-left2+1 in
-            if (sublen1 > !maximum_lcb_len)&&(sublen2 > !maximum_lcb_len)
-    *)
-            if (0>1)
+
+            let sublen1 = right1-left1+1 and sublen2 = right2-left2+1 in
+            if skip_huge_nonlcb_block && (sublen1 > !maximum_lcb_len) && (sublen2 > !maximum_lcb_len)
             then begin
                 if debug then 
                     Printf.printf "skip this huge non-lcb block\n%!";
