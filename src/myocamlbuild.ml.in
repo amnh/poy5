@@ -405,6 +405,9 @@ dispatch begin function
         flag ["ocaml"; "link"]
             (S [A"-cclib";A"-Wl,--no-as-needed"]);
 
+    flag ["shared"; "link"]
+        (S [A"-ccopt";A"-shared"]);
+
     flag ["ocaml"; "compile"]
         (S ccompileflags);
 
