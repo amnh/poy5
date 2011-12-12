@@ -67,6 +67,8 @@ module Two_D = struct
     external get_ori_a_sz : m -> int = "cm_CAML_get_ori_a_sz"
     external set_map_sz : m -> int -> unit = "cm_CAML_set_map_sz"
     external get_map_sz : m -> int = "cm_CAML_get_map_sz"
+    external set_tie_breaker : m -> int -> unit = "cm_CAML_set_tie_breaker"
+    external get_tie_breaker : m -> int = "cm_CAML_get_tie_breaker"
     external ini_combmap : m -> int -> unit = "cm_CAML_ini_combmap"
     external ini_comb2list: m -> int -> unit = "cm_CAML_ini_comb2list"
     external set_combmap: int -> int -> int -> m -> unit = "cm_CAML_set_combmap"
@@ -106,8 +108,8 @@ module Two_D = struct
     external set_tail : int -> int -> m -> unit = "cm_CAML_set_tail"
     external get_tail : int -> m -> int = "cm_CAML_get_tail"
     external get_prepend : int -> m -> int = "cm_CAML_get_prepend"
-    external create : int -> bool -> int -> int -> int -> int -> int -> int -> m = 
-        "cm_CAML_create_bytecode" "cm_CAML_create"
+    external create : int -> bool -> int -> int -> int -> int -> int -> int ->
+    int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
     external clone : m -> m = "cm_CAML_clone"
 
     let use_combinations = true
@@ -130,6 +132,7 @@ module Two_D = struct
     let check_level cm =
         let level = get_level cm in
         let size = get_ori_a_sz cm in
+        (*for level=1 , unlike alphabet, cm don't consider it using level*)
         (level>1) && (level<=size)
     ;;
 
@@ -748,7 +751,6 @@ module Two_D = struct
         done
    
     let fill_best_cost_and_median_for_some_combinations m a_sz level all_elements = 
-        let debug = false in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
         let numerator = Utl.p_m_n (a_sz-1) (level-1) in
@@ -887,12 +889,30 @@ module Two_D = struct
                 end;
             done;
         done;
+        (*tie_breaker,
+        * if m1 and m2 are equally good as median of a and b, but we can only keep one :
+            * 0 : randomly pick one
+            * 1 : pick first
+            * 2 : pick last *)
+        let tie_breaker = get_tie_breaker m in
+        if debug then Printf.printf "tie_breaker for median = %d\n%!" tie_breaker;
         let matrix = 
             Array.map (fun arr ->
                 Array.map (fun x -> 
                     let len = List.length x in
                     if len = 0 then 0
-                    else List.nth x (Random.int len)) 
+                    else begin
+                        if tie_breaker=0 then
+                            List.nth x (Random.int len) 
+                        else if tie_breaker=1 then
+                            List.nth x 0
+                        else if tie_breaker=2 then
+                            List.nth x (len-1)
+                        else
+                            failwith "unkown tie_breaker code in cost_matrix.fill_median"
+                        ;
+                    end
+                )
                 arr) 
             matrix
         in
@@ -1049,9 +1069,8 @@ module Two_D = struct
            end;
         res 
 
-    let fill_cost_matrix ?(use_comb=true) ?(level = 0) ?(suppress=false) 
+    let fill_cost_matrix ?(tie_breaker=`Keep_Random) ?(use_comb=true) ?(level = 0) ?(suppress=false) 
                             l a_sz all_elements =
-    let debug = false in
         let pure_a_sz = 
             if all_elements=(a_sz-1) && level>1 && level<a_sz then
                 a_sz-1
@@ -1063,19 +1082,25 @@ module Two_D = struct
             if pure_a_sz<>a_sz then num_comb+1,num_withgap+1
             else num_comb,num_withgap
         in
+        let tb =  match tie_breaker with
+            | `Keep_Random -> 0
+            | `First -> 1
+            | `Last -> 2 
+        in
         if debug then Printf.printf 
         "fill cost matrix :\
         a_sz = %d(pure a_sz=%d), use_comb=%b,level=%d,num_comb=%d(%d),all_elements=%d (list len=%d)\n%!"
         a_sz pure_a_sz use_comb level num_comb num_withgap all_elements (List.length l);
         let m =  (*Note: use_comb is 'int' in cm.c*)
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
-            use_gap_opening all_elements level num_comb (num_comb-num_withgap+1)
+            use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
         in
         let (uselevel:bool) = check_level m in
         (*let all_elements =
            if uselevel then num_comb else all_elements
         in*) 
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
+        if debug then Printf.printf "uselevel=%b\n%!" uselevel;
         if use_comb then
             if suppress || (input_is_metric l a_sz) then
                let () = set_metric m in
@@ -1095,7 +1120,7 @@ module Two_D = struct
         fill_default_prepend_tail m;
         m
 
-    let of_channel ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
+    let of_channel ?(tie_breaker = `Keep_Random) ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
         let use_comb = if level = 1 then false else use_comb in
         let debug = false in
         if debug then 
@@ -1141,7 +1166,7 @@ module Two_D = struct
                 let m = 
                     match orientation with 
                     | false ->
-                          fill_cost_matrix ~use_comb:use_comb ~level:level l w all_elements 
+                          fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:use_comb ~level:level l w all_elements 
                     | true ->
                           let l_arr = Array.of_list l in          
                           let w2 = w * 2 - 1 in  
@@ -1155,14 +1180,14 @@ module Two_D = struct
                               done;  
                           done; 
                           let l2 = List.rev !l2 in 
-                          fill_cost_matrix ~use_comb:use_comb l2 w2 all_elements
+                          fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:use_comb l2 w2 all_elements
                 in
                 m, matrix_list;;
 
     let of_list ?(use_comb=true) ?(level=0) ?(suppress=false) l all_elements =
         (* This function assumes that the list is a square matrix, list of
         * lists, all of the same size *)
-    let debug = false in
+        let debug = false in
         let w = List.length l in
         let l = List.flatten l in
         if debug then Printf.printf "cost_matrix of_list,w=%d\n" w;
@@ -1180,14 +1205,14 @@ module Two_D = struct
         let l = List.flatten l in
         fill_cost_matrix ~use_comb:false l w all_elements
 
-    let create_cm_by_level m level oldlevel all_elements =
+    let create_cm_by_level m level oldlevel all_elements tie_breaker =
         let ori_sz = get_ori_a_sz m in
         if debug then Printf.printf "create cm by level=%d, oldlevel=%d,ori_sz=%d,all_elements=%d\n%!"
         level oldlevel ori_sz all_elements;
         let ori_list = ori_cm_to_list m in
         let newm =
             if (level <= 1) then
-                fill_cost_matrix ~use_comb:false ~level:0 ori_list ori_sz
+                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:0 ori_list ori_sz
                 all_elements (*~-1*) 
             else if (level>ori_sz) then
                 fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements (*~-1*)
@@ -1340,7 +1365,7 @@ module Two_D = struct
                         Printf.printf "best=%d; %!" best in
                     best
 
-    let of_file ?(use_comb = true) ?(level = 0) file all_elements is_dna_or_ami =
+    let of_file ?(tie_breaker = `Keep_Random) ?(use_comb = true) ?(level = 0) file all_elements is_dna_or_ami =
         let ch = FileStream.Pervasives.open_in file in
         (*for custom_alphabet & break_inversion, first line of cost_matrix is
         * alphabet.parser function "load_file_as_list" is expecting pure cost
@@ -1353,7 +1378,7 @@ module Two_D = struct
         end;
         if debug then Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!"
         use_comb level;
-        let res = of_channel ~use_comb ~level:level all_elements ch in
+        let res = of_channel ~tie_breaker:tie_breaker ~use_comb ~level:level all_elements ch in
         ch#close_in;
         res
 

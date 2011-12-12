@@ -169,11 +169,11 @@ val to_single_root : ChromCS.IntSet.t -> t -> float option -> float * float * t
 * output is  [ seqlst_node1; seqlst_node2; ....]
 * each seqlst_nodex is the sequence list of all the medians keep in this node. 
 * *)
-val flatten :  t list -> Sequence.s list list
+val flatten :  t list -> int * Sequence.s list list
 
 val is_available : t -> int
 
-val update_t : t -> Sequence.s list -> int list list -> t
+val update_t : t -> Sequence.s list list -> int list list list -> t list
 
 val single_to_multi : t -> t list
 

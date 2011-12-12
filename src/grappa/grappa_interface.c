@@ -308,18 +308,19 @@ value grappa_CAML_better_capping (value c_gene1, value c_gene2, value num_genes)
     CAMLparam3(c_gene1,c_gene2,num_genes);
     int NUM_GENES = Int_val(num_genes);
     long dims[1]; dims[0] = NUM_GENES;
-    struct genome_struct *g1, *g2, *out_genome_list;
+    struct genome_struct *g1, *g2;
     g1 = (struct genome_struct *) Data_custom_val (c_gene1);
     g2 = (struct genome_struct *) Data_custom_val (c_gene2);
-    out_genome_list =
-    (struct genome_struct *) malloc (1*sizeof (struct genome_struct) );
+    struct genome_struct * out_genome_list;
+
+    out_genome_list = (struct genome_struct *) malloc (sizeof (struct genome_struct) );
     if ( out_genome_list == ( struct genome_struct * ) NULL )
         failwith ("ERROR: genome_list in grappa_CAML_better_capping is NULL" );
     out_genome_list[0].gnamePtr =( char * ) malloc ( MAX_NAME * sizeof ( char ) );
     sprintf (out_genome_list[0].gnamePtr, "%i", 0);
     if ( out_genome_list[0].gnamePtr == ( char * ) NULL )
         failwith( "ERROR: gname of genome_list in grappa_CAML_better_capping is NULL" );
-    out_genome_list[0].genes =( int * ) malloc ( NUM_GENES * sizeof ( int ) );
+    out_genome_list[0].genes =( int * ) malloc ( 3*NUM_GENES * sizeof ( int ) );
     out_genome_list[0].delimiters = (int *) malloc (NUM_GENES * sizeof (int) );
     out_genome_list[0].magic_number = GRAPPA_MAGIC_NUMBER;
     out_genome_list[0].encoding = NULL; //we don't need encoding and gnamePtr;
@@ -328,7 +329,6 @@ value grappa_CAML_better_capping (value c_gene1, value c_gene2, value num_genes)
     CAMLlocal1 (c_genome_arr);
     c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 10000);
     out_genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
-//    fprintf(stdout, "better capping , genome list addr=%p\n",out_genome_arr);
     out_genome_arr->magic_number = GRAPPA_MAGIC_NUMBER;
     out_genome_arr->genome_ptr = out_genome_list;    
     assert(GRAPPA_MAGIC_NUMBER == out_genome_list[0].magic_number);
@@ -342,6 +342,7 @@ value
 grappa_CAML_inv_med 
 (value medsov, value c_gene1, value c_gene2, value c_gene3, value num_genes,value circular)
 {
+    int debug=0;
     CAMLparam5(medsov,c_gene1,c_gene2,c_gene3,num_genes);
     CAMLxparam1(circular);
     CAMLlocal1(res);
@@ -367,12 +368,14 @@ grappa_CAML_inv_med
     convert_mem_t * convertmem_p; convertmem_p = &CONVERT_MEM;
     old_max_num_genes = cond3mem_p->max_num_genes;
 
-
+    if (debug) {
+    printf("grappa_interface.grappa_CAML_inv_med,MEDIAN_SOLVER=%d,MAX_NAME=%d\n",MEDIAN_SOLVER,MAX_NAME); 
+    fflush(stdout); }
+    
     out_genome_list =
         ( struct genome_struct * ) malloc ( 1 *
                                             sizeof ( struct genome_struct ) );
-    if ( out_genome_list == ( struct genome_struct * ) NULL )
-        fprintf ( stderr, "ERROR: genome_list NULL\n" );
+    if ( out_genome_list == ( struct genome_struct * ) NULL )fprintf ( stderr, "ERROR: genome_list NULL\n" );
     out_genome_list[0].gnamePtr =
             ( char * ) malloc ( MAX_NAME * sizeof ( char ) );
     sprintf (out_genome_list[0].gnamePtr, "%i", 0);

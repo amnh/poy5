@@ -2331,7 +2331,9 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         !data, 
         fun tcode acc ->
             current_snapshot "Generating taxon";
+            let debug = false in
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
+            let chfilenames = !data.Data.character_codes in
             if debug then Printf.printf "\n Generating Taxon %d Has Characters: \n%!" tcode;
 (*            Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) tcharacters;*)
 (*            print_newline ();*)
@@ -2342,13 +2344,15 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 | Not_found -> weight, (gen_new code) :: acc, cnt
             in
             let get_character_with_code gen_new acc code = 
-                if debug then Printf.printf "get char with code=%d," code;
+                if debug then begin
+                    Printf.printf "get char with code=%d\n%!" code;
+                end;
                 try 
-                    (Hashtbl.find tcharacters code) :: acc
+                    (Hashtbl.find tcharacters code,Hashtbl.find chfilenames code) :: acc
                 with
                 | Not_found ->
                         if debug then Printf.printf "not found, gen new;\n%!";
-                        (gen_new code) :: acc
+                        (gen_new code,"") :: acc
             in
             let addmapper gen_new ((x, y), arr) =
                 let a, b, cnt = 
@@ -2435,7 +2439,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 | _ ->
                       let c = 
                           List.map 
-                          (fun dyna -> extract_dynamic !data dyna tcode) 
+                          (fun (dyna,fname) -> extract_dynamic !data dyna tcode) 
                           ldynamic_chars 
                       in
                       let c : cs list = List.map (fun c -> Dynamic c) c in
@@ -2447,7 +2451,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 | _ ->
                         let c = 
                             List.map 
-                            (fun kolm -> extract_kolmo !data kolm tcode)
+                            (fun (kolm,fname) -> extract_kolmo !data kolm tcode)
                             lkolmo_chars
                         in
                         let total_cost = 
@@ -2464,7 +2468,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                     match lst with
                     | [] -> result
                     | _ ->
-                            let v = List.map extract_stat lst in
+                            let v = List.map (fun (sankcs,fname) -> extract_stat
+                            sankcs ) lst in
                             let tcm =
                                 match v with
                                 | (_, code) :: _ -> Data.get_tcm code !data
@@ -2672,11 +2677,12 @@ let flatten cs_lst=
     | _ -> failwith ("we only deal with DynamicCS now")
     ) cs_lst
     in
-    let seq_lstlst = DynamicCS.flatten dycs_lst in
-    seq_lstlst
+    DynamicCS.flatten dycs_lst 
 
-let flatten_cslist (characters_lst: cs list list) =
-    let (seq_lstlstlst:Sequence.s list list list) 
+let flatten_cslist (characters_lst: cs list list) data =
+    let debug = false in
+    if debug then Printf.printf "node.flatten_cslst -> %!";
+    let (seq_lstlstlst:(int * Sequence.s list list ) list)
     = mapN flatten characters_lst in 
     (* for BreakinvCS, seq_lstlstlst is like following ( other dynamicCS data
     * types I know in are simpler than this):
@@ -2712,6 +2718,68 @@ let flatten_cslist (characters_lst: cs list list) =
           )
       }
     *)
+    if debug then Printf.printf "before flatten_cslist seq_lstlstlst = \n%!";
+    let getfilename filename_w_taxoncode =
+        (*if we have more than one chromsome in a taxon of a file
+        * fiel1.fas
+        * >t1
+        * a b c @ d e
+        * >t2
+        * a c b @ e d
+        * each chromosome become a character, with name filename^":"^"which
+        * taxon is it in"
+        * ( see data.ml
+        *   let locus_name = 
+            let c = ref (-1) in
+            ref (fun () -> incr c; file ^ ":" ^ string_of_int !c)
+            in)
+        * for the example above, we have
+        *         chmosome1 chmosome2
+        * file1   file1:0   file1:1
+        *
+        * this function get the filename out of string "filename:int"
+        * *)
+        let idx = ref 0 and len = ref 0 in
+        String.iter (fun chr -> 
+            if chr=':' then len := !idx
+            else idx := !idx + 1;
+        ) filename_w_taxoncode;
+        if !len=0 then (*just one chromosome in that taxon of that file, there is no ":"*)
+            filename_w_taxoncode
+        else 
+            String.sub filename_w_taxoncode 0 !len
+    in
+    let tbl = Hashtbl.create 50 in (*filename -> chrom_node_med lstlstlst*)
+    List.iter ( fun (character_code,thischrom) ->
+        let filename_w_taxoncode = 
+            try Hashtbl.find data.Data.character_codes character_code 
+            with Not_found -> failwith "could not find some charater in data.charcter_codes" 
+        in
+        let filename = getfilename filename_w_taxoncode in
+        if filename="" then failwith "node.ml getfilename return empty string";
+        if debug then Printf.printf "add chrom_node_med to tbl with filename = %s\n%!" filename;
+        if Hashtbl.mem tbl filename then
+            let oldrecord = Hashtbl.find tbl filename in
+            Hashtbl.replace tbl filename (oldrecord@[thischrom])
+        else
+            Hashtbl.add tbl filename [thischrom]
+    ) seq_lstlstlst;
+    let file_chrom_node_med = Hashtbl.fold (fun filename chrom_node_med acc ->
+        acc@[(filename,chrom_node_med)]
+    ) tbl [] in
+    (*[tranpose take a matrix, return its transposed form]
+     * { 
+         * a1,a2,a3,....,an;
+         * b1,b2,b3,....,bn;
+         * ......
+         * x1,x2,x3,....,xn;
+         * ....
+         * }
+         become
+        { a1,b1,....,x1,...;
+          a2,b2,....,x2,...;
+          .....
+          an,bn,....,xn,...;}*)
     let transpose in_lstlst =
         let len = List.length (List.hd in_lstlst) in
         let out_lstlst = ref [] in
@@ -2723,7 +2791,7 @@ let flatten_cslist (characters_lst: cs list list) =
             let len = List.length in_lst in
             for i = 0 to len-1 do
                 let out_i = List.nth out_lstlst i in
-                out_i := (List.nth in_lst i)::(!out_i); 
+                out_i := (List.nth in_lst i)::(!out_i);  (*reversed?*)
             done;
         ) in_lstlst;
         let out_lstlst = List.map (fun out_i -> !out_i) out_lstlst in
@@ -2734,13 +2802,21 @@ let flatten_cslist (characters_lst: cs list list) =
             List.map (fun seq -> Sequence.length seq) seqlst 
         ) seqlstlst 
     in
-    let lst_node_chrom_seqlst = transpose seq_lstlstlst in
-    let lst_node_median_seqlst = List.map 
-        (fun node_chrom_seqlst -> transpose node_chrom_seqlst
-        )lst_node_chrom_seqlst in
-    let deli_lstlstlst = List.map generate_delimiters lst_node_median_seqlst
+    let file_node_chrom_med = 
+        List.map (fun (filename,chrom_node_med) -> filename,transpose chrom_node_med
+        ) file_chrom_node_med in
+    let file_node_median_chrom = 
+        List.map ( fun (filename,node_chrom_med) ->
+            List.map (fun chrom_med -> transpose chrom_med
+            ) node_chrom_med 
+    ) file_node_chrom_med in 
+    let node_file_median_chrom_seq = transpose file_node_median_chrom in 
+    let node_file_median_chrom_seqdeli = 
+        List.map (fun file_median_chrom ->
+            List.map generate_delimiters file_median_chrom
+    ) node_file_median_chrom_seq
     in
-    lst_node_median_seqlst, deli_lstlstlst
+    node_file_median_chrom_seq, node_file_median_chrom_seqdeli
 
 let single_to_multi_chromosome single_cs =
     let dynCS_t_list:DynamicCS.t list =
@@ -2760,30 +2836,34 @@ let single_to_multi_chromosome single_cs =
     in
     List.map (fun dynCS_t_r -> Dynamic dynCS_t_r ) dynCS_t_r_list 
 
-let multi_to_single_chromosome node_data newseq delimiters =
+let multi_to_single_chromosome node_data file_median_seq file_median_chrom_seqdeli (*newseq delimiters*) =
     let old_characters = node_data.characters in
     let new_characters = 
     match (List.hd old_characters) with
     | Dynamic cs ->
-            let new_preliminary = DynamicCS.update_t cs.preliminary newseq delimiters in
-            Dynamic {cs with preliminary = new_preliminary;
-            final=new_preliminary;}
+            let new_preliminary_lst = 
+                DynamicCS.update_t cs.preliminary file_median_seq file_median_chrom_seqdeli in
+            List.map (fun x -> 
+                Dynamic {cs with preliminary = x; final=x;}
+            ) new_preliminary_lst
     | _ -> 
     failwith ("multichromosome to singlechromosome : we only deal with DynamicCS now")
     in
-    { node_data with characters = [new_characters] }   
+    { node_data with characters = new_characters }   
 
-let transform_multi_chromosome ( nodes : node_data list ) =
+let transform_multi_chromosome ( nodes : node_data list ) data =
     let available = 
         is_available (List.hd nodes).characters 
     in
     if (available=1) then begin
     let characters_lst: cs list list = List.map (fun x -> x.characters) nodes in
-    let (seq_lstlstlst:Sequence.s list list list),(delimiter_lstlstlst: int list
-        list list) = flatten_cslist characters_lst
+    let (node_file_median_chrom_seq:Sequence.s list list list list),
+    (node_file_median_chrom_seqdeli: int list list list list) = 
+        flatten_cslist characters_lst data
     in
         (* now the seq_lstlstlst is like this:
-          {
+          file 1:
+            {
             (
             [seq of 1th median of 1th chromosome of 1th node;
              seq of 1th median of 2th chromosome of 1th node;
@@ -2804,27 +2884,46 @@ let transform_multi_chromosome ( nodes : node_data list ) =
             )
             .......
             ( ... )
-          }
+          };
+          file 2:
+            {
+                ......
+            }
         * *)
         (*debug msg 
         Printf.printf "check delimiters list after flatten =>\n%!";
-        List.iter (fun intlstlst -> 
-            Printf.printf "(\n%!";
-            List.iter (fun intlst -> Printf.printf "[%!";
-               List.iter (Printf.printf "%d,%!") intlst; 
-                Printf.printf "]\n%!"; )intlstlst;  Printf.printf ")\n%!";
-            )delimiter_lstlstlst;
+        List.iter (fun intlstlstlst ->
+        Printf.printf "node{\n%!";
+        List.iter(fun intlstlst -> 
+            Printf.printf "file(%!";
+            List.iter (fun intlst -> 
+                Printf.printf "median[%!";
+                List.iter (Printf.printf "%d,%!") intlst; 
+                Printf.printf "]\n%!"; )intlstlst;  
+            Printf.printf ")\n%!";
+        ) intlstlstlst;
+        Printf.printf "}\n%!";
+        )node_file_median_chrom_seqdeli;
         Printf.printf "check seq list =>\n%!";
-        List.iter (fun seqlstlst -> 
-            Printf.printf "(\n%!";
+        List.iter (fun seq_lstlstlst ->
+            Printf.printf "node{\n%!";
+            List.iter (fun seqlstlst ->
+            Printf.printf "file(\n%!";
             List.iter (fun seqlst -> 
-                Printf.printf "{%!";   List.iter (Sequence.printseqcode) seqlst; 
-                Printf.printf "}\n%!") seqlstlst; Printf.printf ")\n%!";
-        )seq_lstlstlst;
+                Printf.printf "median[%!";   List.iter (Sequence.printseqcode) seqlst; 
+                Printf.printf "]\n%!") seqlstlst; 
+            Printf.printf ")\n%!";
+            )seq_lstlstlst;
+            Printf.printf "}\n%!";
+        ) node_file_median_chrom_seq;
          debug msg*)
-        let nodelst_medlst_seq = List.map (fun node_medlst_seqlst ->
-            List.map (fun node_med_seqlst -> Sequence.concat node_med_seqlst)
-            node_medlst_seqlst) seq_lstlstlst
+        let node_file_median_seq = 
+            List.map ( fun file_median_chrom_seq ->
+                List.map (fun median_chrom_seq ->
+                    List.map (fun chrom_seq -> Sequence.concat chrom_seq)
+                    median_chrom_seq;
+                ) file_median_chrom_seq;
+            ) node_file_median_chrom_seq;(* file_seq_lstlstlst;*)
         in
         (* note: after concat, nodelst_medlst_seq is
         * { ( sequence of 1th median); ( sequence of 2th median ); .... }
@@ -2836,16 +2935,23 @@ let transform_multi_chromosome ( nodes : node_data list ) =
         * *)
         (* debug msg
         Printf.printf "after concat: %!";
-        List.iter (fun seqlst ->
-            Printf.printf "(\n%!";
-            List.iter (Sequence.printseqcode) seqlst;
-            Printf.printf ")\n%!";
-        )nodelst_medlst_seq;
+        List.iter (fun file_median_seq ->
+            Printf.printf "node{\n%!";
+            List.iter (fun seqlst ->
+                Printf.printf "file (\n%!";
+                List.iter (Sequence.printseqcode) seqlst;
+                Printf.printf ")\n%!";
+            ) file_median_seq;
+            Printf.printf "}\n%!";
+        ) node_file_median_seq;
          debug msg*)
         let new_nodedata_lst = 
-        map3 (fun old_nodedata node_medlst_seq deli_lstlst -> 
-            multi_to_single_chromosome old_nodedata node_medlst_seq deli_lstlst)
-         nodes nodelst_medlst_seq delimiter_lstlstlst in
+        map3 (fun old_nodedata file_median_seq file_median_chrom_seqdeli -> 
+            multi_to_single_chromosome old_nodedata file_median_seq file_median_chrom_seqdeli)
+         nodes 
+         node_file_median_seq 
+         node_file_median_chrom_seqdeli 
+        in
         new_nodedata_lst
     end
     else 
@@ -2961,7 +3067,7 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
     current_snapshot "Node.load_data end";
     let nodes =
         match sign_dyna with
-        | h::t -> transform_multi_chromosome nodes 
+        | h::t -> transform_multi_chromosome nodes data
         | _ -> nodes
     in
     data, nodes

@@ -107,6 +107,8 @@ type chromosome_args = [
 
 type polymorphism_arg = Methods.polymorphism_arg
 
+type tie_breaker = Methods.keep_method
+
 type transform_method = [
     | `RandomizedTerminals
     | `AlphabeticTerminals
@@ -118,8 +120,8 @@ type transform_method = [
     | `UseLikelihood of 
         ( Methods.ml_costfn * Methods.ml_substitution * 
           Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
-    | `Level of int
-    | `Tcm of (string * int option)
+    | `Level of (int * tie_breaker )
+    | `Tcm of (string * (int * tie_breaker) option)
     | `Gap of (int * int)
     | `AffGap of int
     | `TailInput of int array
@@ -434,9 +436,9 @@ let transform_transform acc (id, x) =
             | `UseParsimony -> (`UseParsimony id) :: acc
             | `UseLikelihood (a, b, c, d, e) ->
                     (`UseLikelihood (id, a, b, c, d, e)) :: acc
-            | `Level (l) -> (`Assign_Level (l,id))::acc
-            | `Tcm (f,l) -> 
-                    (`Assign_Transformation_Cost_Matrix ((Some ((`Local f),l)), id)) :: acc
+            | `Level (l,tb) -> (`Assign_Level (l,tb,id))::acc
+            | `Tcm (f,l_and_tb) -> 
+                    (`Assign_Transformation_Cost_Matrix ((Some ((`Local f),l_and_tb)), id)) :: acc
             | `SearchBased f -> (`Search_Based (f,id)) :: acc
             | `Gap (a, b) -> 
                     (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
@@ -1390,9 +1392,15 @@ let create_expr () =
             ];
         fixed_states_option :
             [
-               [":"; left_parenthesis;
+               [":"; left_parenthesis; 
                     x = OPT [z=STRING->z]; y = OPT optional_poly;
-                right_parenthesis -> (x,y) ]
+               right_parenthesis -> (x,y) ]
+            ];
+        level_and_tiebreaker :
+            [
+                [ left_parenthesis; x = INT; ","; y = keep_method; right_parenthesis
+                ->(int_of_string x,y) ]|
+                [ x=INT -> (int_of_string x,`Keep_Random) ]
             ];
         transform_method:
             [
@@ -1411,7 +1419,7 @@ let create_expr () =
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
-                [ LIDENT "level"; ":"; x = INT -> `Level (int_of_string x) ] |
+                [ LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
                 [ LIDENT "tcm"; ":"; left_parenthesis; 
                      x = tcm_arguments; right_parenthesis -> x ] |
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
@@ -1492,7 +1500,7 @@ let create_expr () =
                 [ x = STRING; level_value = OPT optional_level -> 
                     match level_value with 
                     | None -> `Tcm (x,None)
-                    | Some y -> `Tcm (x,Some (int_of_string y))
+                    | Some y -> `Tcm (x,Some y)
                 ]
             ];
         optional_kolmogorov_parameters: 
@@ -1683,7 +1691,7 @@ let create_expr () =
         optional_string:
             [ [  ":"; x = STRING -> x ] ];
         optional_level:
-            [ [ ","; y = INT -> y] ];
+            [ [ ","; y=level_and_tiebreaker -> y ] ];
         setting:
             [
                 [ LIDENT "timer"; ":"; x = INT -> `TimerInterval (int_of_string x) ] |

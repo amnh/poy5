@@ -39,6 +39,19 @@ let cost : cost_modes ref =
 
 type filename = [ `Local of string | `Remote of string ]
 
+(* When a maximum number of trees max is to be kept, and the total
+* number of trees is higher than that max, the method used to mantain the
+* max value.
+*
+* [Fifo] will simply keep the first trees found.
+* [Lifo] will keep the last trees found.
+* [Random] will keep a random subset of the trees found. 
+* Now we also use this type as tie_breaker for cost matrix*)
+type keep_method = [
+    | `First
+    | `Last
+    | `Keep_Random ]
+
 type support_tree = 
     | Leaf of int
     | Node of float * support_tree * support_tree
@@ -61,7 +74,7 @@ type read_option_t = [
 ]
 
 type prealigned_costs = [
-    | `Assign_Transformation_Cost_Matrix of (filename * int option) 
+    | `Assign_Transformation_Cost_Matrix of (filename * (int*keep_method) option) 
     | `Create_Transformation_Cost_Matrix of (int * int) ]
 
 type simple_input = [
@@ -110,11 +123,11 @@ type prep_tail_spec = [
 ]
 
 type level = [
-    | `Assign_Level of (int * characters)
+    | `Assign_Level of (int * keep_method * characters)
 ]
 
 type transform_cost_matrix = [
-    | `Assign_Transformation_Cost_Matrix of ((filename * int option) option * characters)
+    | `Assign_Transformation_Cost_Matrix of ((filename * (int * keep_method) option) option * characters)
     | `Create_Transformation_Cost_Matrix of (int * int * characters)
     | `Assign_Affine_Gap_Cost of (int * characters)
     | `Assign_Tail_Cost of (prep_tail_spec * characters)
@@ -303,18 +316,6 @@ type report = [
     | `Nodes of string option
     | `RootName of string
 ]
-
-(* When a maximum number of trees max is to be kept, and the total
-* number of trees is higher than that max, the method used to mantain the
-* max value.
-*
-* [Fifo] will simply keep the first trees found.
-* [Lifo] will keep the last trees found.
-* [Random] will keep a random subset of the trees found. *)
-type keep_method = [
-    | `First
-    | `Last
-    | `Keep_Random ]
 
 
 type store_class = [

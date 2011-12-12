@@ -300,7 +300,7 @@ let pick_delimiters med1 med2 med_seq =
 * finds all medians between breakinv sequence [med1] and [med2]
 * allowing rearrangements *) 
 let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam = 
-    (* debug msg  
+    (* debug msg 
     let print_intlist lst = 
         Printf.printf "[%!";
         List.iter (Printf.printf "%d,") lst;
@@ -312,7 +312,7 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
     Printf.printf " delimiter list = \n%!";
     print_intlist med1.delimiter_lst; print_intlist med2.delimiter_lst; 
-   debug msg *)
+     debug msg *)
     let len1wg = Sequence.length med1.seq 
     and len2wg = Sequence.length med2.seq in
     if (len1wg<>len2wg) then
@@ -361,7 +361,7 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
             GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv seq1 seq2
             pure_gen_cost_mat alpha ali_pam.re_meth ali_pam.swap_med 
             ali_pam.circular orientation 
-        in 
+        in
         let re_seq2 =
             Utl.filterArr (Sequence.to_array alied_gen_seq2) (fun code2 -> code2 != Alphabet.get_gap alpha)
         in     
@@ -392,7 +392,8 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                  let len1 = List.length med1.delimiter_lst 
                  and len2 =  List.length med2.delimiter_lst in
                  let med_seq, newdelimiters =
-                     if gaplen>0 then med_seq,med1.delimiter_lst
+                     if gaplen>0 then 
+                         med_seq,med1.delimiter_lst
                      else 
                      match med1.delimiter_lst,med2.delimiter_lst with
                      | h1::t1, h2::t2 -> 

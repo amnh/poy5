@@ -89,12 +89,13 @@ let standardize3 (genomeX:int array) (genomeY:int array) (genomeZ:int array) =
     sta_genomeX, sta_genomeY, sta_genomeZ
 
 let de_standardize3 ori_arr standar_arr arrsize =
-    assert(arrsize>0);
+    if arrsize<=0 then failwith "utlGrappa.de_standardize3,arrsize=0";
     let res_arr = Array.init arrsize 
     ( fun idx ->  
         let tmp = standar_arr.(idx) in
-        assert(tmp<>0);
-        if (tmp>0) then ori_arr.(tmp-1) 
+        if tmp=0 
+            then failwith "utlGrappa.de_standardize3,we have code=0 in standar array"
+        else if (tmp>0) then ori_arr.(tmp-1) 
         else - ori_arr.((abs tmp)-1)
     ) in
     res_arr

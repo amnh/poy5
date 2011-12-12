@@ -48,7 +48,9 @@ type t = {
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
     breakinv_pam : Data.dyna_pam_t; 
     code : int;                     (** The set code. n = this is nth 
-    chromosome of multichromosome genes, n = 1,2,3,...... *) 
+    chromosome of multichromosome genes, n = 1,2,3,...... ,
+    also the key to hashtbl data.character_codes, the map between the character
+    codes and their corresponding names. in data.ml, each chromosome is a character.*) 
 }
 
 let print thist =
@@ -168,7 +170,8 @@ let median3 p n c1 c2 =
     { n with meds = medp12_map; }
 
 let flatten t_lst = 
-    let parent = List.hd t_lst in
+    let parent = List.hd t_lst in (*we only have one item in t_lst to start with*)
+    parent.code,
     IntMap.fold ( fun kn parent_medst (seq_lstlst:Sequence.s list list) ->
        let medst_lst = List.map (fun x ->  IntMap.find kn x.meds
        ) (List.tl t_lst) in
@@ -193,19 +196,27 @@ let flatten t_lst =
     ) parent.meds [[]]
 
 (* is the nth of IntMap corresponding to nth of the sequence list? *)
-let update_t oldt (newseqlst:Sequence.s list) (delimiterslst: int list list) =
+let update_t oldt (file_median_seq:Sequence.s list list) (file_median_chrom_seqdeli: int list list list) =
     let i = ref 0 in
+    List.map2 (fun median_seq median_chrom_seqdeli ->
+    i := 0;
     let newmedsMap = 
       IntMap.mapi ( fun key old_meds_t ->
           (* Printf.printf "key is %d\n%!" key; when we have only one median of
           * each node, key is 1. what if we have more than one median?*)
-          let res = Breakinv.update_medst old_meds_t (List.nth newseqlst !i) (List.nth
-          delimiterslst !i) in
+          let res = Breakinv.update_medst old_meds_t (List.nth median_seq !i) (List.nth
+          median_chrom_seqdeli !i) in
           i := !i +1 ;
           res
       ) oldt.meds
     in
-    { oldt with meds = newmedsMap }
+    (*we only update median sequences and code here, I hope it's enough.
+    * also I'm not sure about the code. this code used to be the key for hashtbl
+    * in data.ml : character_codes. if we merge multi-chromosome of a node in a
+    * file into a single chromsome with delimiters, the mapping between old keys
+    * and their characters won't be correct.*)
+    { oldt with meds = newmedsMap; code = !i }
+    ) file_median_seq file_median_chrom_seqdeli
 
 let single_to_multi single_t =
     let maxlen = ref 0 in
