@@ -214,30 +214,31 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | Some x -> x
         in
         (** We need to present some output; find a decent depth and that percentage done **)
-        (* let report_depth,report_percent =
+        let report_depth,report_percent =
             let rec n acc t = match t with
                 | 0 | 1 | 2 | 3 -> acc
                 | t             -> n (acc*(2*t-5)) (t-1)
-            in
-            let depth = min (List.length nodes) 6 and p = ref 0.0 in
+            and st = Status.create "Branch and Bound Build Procedure" (Some 100)
+                                   "% complete"
+            and depth = min (List.length nodes) 6
+            and p = ref 0.0 in
             depth,
             (fun depth ->
                 let p_incr = (1.0 /. float (n 1 depth)) *. 100.0 in
-                let c = !p in p := !p +. p_incr; c)
-        in *)
+                p := p_incr +. !p;
+                Status.full_report ~adv:(int_of_float !p) st)
+        in
         let rec aux_branch_and_bound depth ((bound, best_trees) as acc) tree
                     edges cur_handle other_handles =
             match edges with
             | (Tree.Edge (x, y)) :: t ->
-(*                if report_depth = depth then*)
-(*                    Printf.printf "Searched %f%%\n%!" (report_percent depth);*)
+                if report_depth = depth then report_percent depth;
                 let new_tree, _ =
                     TreeOps.join_fn adj_mgr [] (Tree.Edge_Jxn (x,y)) cur_handle tree
                 in
                 let new_cost = Ptree.get_cost `Adjusted new_tree in
                 if new_cost >  bound +. threshold then begin
-(*                    if depth < report_depth then*)
-(*                        Printf.printf "Searched %f%%\n%!" (report_percent depth);*)
+                    if depth < report_depth then report_percent depth;
                     aux_branch_and_bound depth acc tree t cur_handle other_handles
                 end else begin
                     let acc = match other_handles with
