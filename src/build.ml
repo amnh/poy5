@@ -213,65 +213,67 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | None -> max_float /. 2.
             | Some x -> x
         in
-        let rec aux_branch_and_bound ((bound, best_trees) as acc) 
-                                        tree edges cur_handle other_handles =
+        (** We need to present some output; find a decent depth and that percentage done **)
+        (* let report_depth,report_percent =
+            let rec n acc t = match t with
+                | 0 | 1 | 2 | 3 -> acc
+                | t             -> n (acc*(2*t-5)) (t-1)
+            in
+            let depth = min (List.length nodes) 6 and p = ref 0.0 in
+            depth,
+            (fun depth ->
+                let p_incr = (1.0 /. float (n 1 depth)) *. 100.0 in
+                let c = !p in p := !p +. p_incr; c)
+        in *)
+        let rec aux_branch_and_bound depth ((bound, best_trees) as acc) tree
+                    edges cur_handle other_handles =
             match edges with
             | (Tree.Edge (x, y)) :: t ->
-                    let new_tree, _ = 
-                        TreeOps.join_fn adj_mgr [] (Tree.Edge_Jxn (x, y)) cur_handle tree
+(*                if report_depth = depth then*)
+(*                    Printf.printf "Searched %f%%\n%!" (report_percent depth);*)
+                let new_tree, _ =
+                    TreeOps.join_fn adj_mgr [] (Tree.Edge_Jxn (x,y)) cur_handle tree
+                in
+                let new_cost = Ptree.get_cost `Adjusted new_tree in
+                if new_cost >  bound +. threshold then begin
+(*                    if depth < report_depth then*)
+(*                        Printf.printf "Searched %f%%\n%!" (report_percent depth);*)
+                    aux_branch_and_bound depth acc tree t cur_handle other_handles
+                end else begin
+                    let acc = match other_handles with
+                        | nh :: oh ->
+                            aux_branch_and_bound (depth+1) acc new_tree
+                                (edges_of_tree new_tree) (Tree.Single_Jxn nh) oh
+                        | [] -> 
+                            let realbound = bound +. threshold in
+                            if new_cost < bound then
+                                new_cost, select_appropriate (new_cost +. threshold) (new_tree :: best_trees)
+                            else if new_cost <= realbound then
+                                (bound, select_appropriate realbound (new_tree::best_trees))
+                            else
+                                acc
                     in
-                    let new_cost = Ptree.get_cost `Adjusted new_tree in
-                    if new_cost >  bound +. threshold then 
-                        aux_branch_and_bound acc tree t cur_handle other_handles
-                    else begin
-                        let acc =
-                            match other_handles with
-                            | nh :: oh ->
-                                        aux_branch_and_bound acc new_tree 
-                                        (edges_of_tree new_tree)  (Tree.Single_Jxn nh)
-                                        oh
-                            | [] -> 
-                                    let realbound = bound +. threshold in
-                                    if new_cost < bound then
-                                        new_cost, 
-                                        select_appropriate 
-                                        (new_cost +. threshold)
-                                        (new_tree :: best_trees)
-                                    else if new_cost <= realbound then
-                                        let nl = (new_tree ::  best_trees) in
-                                        (bound, select_appropriate realbound nl)
-                                    else acc
-                        in
-                        aux_branch_and_bound acc tree t cur_handle
-                        other_handles
-                    end
+                    aux_branch_and_bound depth acc tree t cur_handle other_handles
+                end
             | [] -> acc
         in
         let initial_tree = disjoin_tree data nodes in
         let _, trees =
             if max_trees < 1 then 0., []
-            else
-                match nodes with
+            else begin match List.map Node.taxon_code nodes with
                 | f :: s :: tail ->
-                        let codef = Node.taxon_code f 
-                        and codes = Node.taxon_code s in
-                        let new_tree, _ = 
-                            TreeOps.join_fn adj_mgr []
-                                           (Tree.Single_Jxn codef) 
-                                           (Tree.Single_Jxn codes) initial_tree
-                        in
-                        let res =
-                            match tail with
-                            | t :: tail ->
-                                    aux_branch_and_bound (bound, []) new_tree 
-                                    (edges_of_tree new_tree) 
-                                    (Tree.Single_Jxn (Node.taxon_code t))
-                                    (List.map Node.taxon_code tail)
-                            | [] -> Ptree.get_cost `Adjusted new_tree,
-                            [new_tree]
-                        in
-                        res
+                    let new_tree, _ =
+                        TreeOps.join_fn adj_mgr [] (Tree.Single_Jxn f) (Tree.Single_Jxn s) initial_tree
+                    in
+                    begin match tail with
+                        | t :: tail ->
+                            let edges = edges_of_tree new_tree in
+                            aux_branch_and_bound 3 (bound,[]) new_tree edges (Tree.Single_Jxn t) tail
+                        | [] ->
+                            Ptree.get_cost `Adjusted new_tree, [new_tree]
+                    end
                 | _ -> 0., [initial_tree]
+            end
         in
         Sexpr.of_list (List.map PtreeSearch.uppass trees)
 
