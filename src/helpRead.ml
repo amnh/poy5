@@ -68,35 +68,51 @@ let make_help_line title usage description cross_ref =
     Printf.sprintf "@[<v 2>@{<b>%s%s:@}@ @[<hov 2>%s@]%s@]@,"
         title (if usage = "" then "" else " " ^ usage) (replace description) oth
 
+let failwithf format = Printf.ksprintf failwith format
 
 let rec read_help_file_structure ?acc file =
-    let input_line ?(skip_blank=false) file =
+    let input_line ?(skip_blank=true) file =
         let rec il file =
             let l = input_line file in
-            if 0 = String.compare l ""
-            then (if skip_blank then il file else l)
+            if 0 = String.compare l "" then
+                begin if skip_blank
+                    then il file
+                    else l
+                end
             else if l.[0] = '#'
-            then il file
-            else l in
-        il file in
+                then il file
+                else l
+        in
+        let res = il file in
+        res
+    in
     let acc = match acc with | Some a -> a | None -> [] in
     try
-        let name = input_line ~skip_blank:true file in
+        let name = input_line file in
         let desc = input_line file in
-        let desc = if 0 = String.compare desc "." then "" else desc in
+        let desc = 
+            if 0 = String.compare desc "." then 
+                failwithf "No description for command %s" name
+            else 
+                desc
+        in
         let xref = ref [] in
         let rec get file =
-            let l = input_line file in
-            if l = "" then []
-            else if l.[0] = '['
-            then begin
-                let split = Str.regexp ";[ \t]*" in
-                let l = Str.global_replace (Str.regexp "^\\[[ \t]*") "" l in
-                let l = Str.global_replace (Str.regexp "[ \t]*\\]$") "" l in
-                xref := Str.split split l;
-                (get file)
-            end
-            else l :: (get file) in
+            try
+                let l = input_line file in
+                if l = "." then []
+                else if l.[0] = '['
+                then begin
+                    let split = Str.regexp ";[ \t]*" in
+                    let l = Str.global_replace (Str.regexp "^\\[[ \t]*") "" l in
+                    let l = Str.global_replace (Str.regexp "[ \t]*\\]$") "" l in
+                    xref := Str.split split l;
+                    (get file)
+                end
+                else l :: (get file)
+            with _ -> 
+                []
+        in
         let lines = get file in
         let text = String.concat "\n" lines in
         read_help_file_structure ~acc:((name, desc, text, !xref) :: acc) file

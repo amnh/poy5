@@ -32,11 +32,18 @@ let find_with_regexp reg (a, b) =
 let output_help_item description =
     Status.user_message Status.Information description
 
+let output_help_head description =
+    let description = "@[<v 2>@{<c:cyan>"^description^"@}@]" in
+    Status.user_message Status.Information description
+
 let rec help = function
     | None       ->
-        help (Some ".")
-    | Some "index"
-    | Some "all" ->
+        help (Some "index")
+    | Some "index" ->
+        Status.user_message Status.Information "@[<v 2>@{<b>Help Topics:@}@,@[@[<h>";
+        List.iter (fun x -> output_help_head (fst x)) index;
+        Status.user_message Status.Information "@]@]@]@,"
+    | Some "all"   ->
         List.iter (fun x -> output_help_item (snd x)) index
     | Some it    ->
         try output_help_item (List.assoc it index)
