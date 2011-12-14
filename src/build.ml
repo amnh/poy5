@@ -21,6 +21,8 @@ let () = SadmanOutput.register "Build" "$Revision: 2871 $"
 
 let debug_profile_memory = false
 
+let (-->) a b = b a
+
 let current_snapshot x = 
     if debug_profile_memory then 
         let () = Printf.printf "%s\n%!" x in
@@ -138,10 +140,13 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         Array_ops.randomize arr;
         Array.to_list arr
 
+
     let single_wagner_search_manager = new Queues.wagner_srch_mgr true 1 0.0
+
 
     let set_of_leafs data = 
         map_of_list (fun x -> Node.taxon_code x) data 
+
 
     let disjoin_tree data node =
         let leafs = set_of_leafs node in
@@ -150,40 +155,19 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         let tree = PtreeSearch.uppass tree in
         tree
 
+
     let edges_of_tree tree =
         Tree.EdgeSet.fold (fun x acc -> x :: acc) tree.Ptree.tree.Tree.d_edges []
 
-    let random_tree data nodes adj_mgr =
-        let pick_random_edge tree =
-            let edges = edges_of_tree tree in
-            let arr = Array.of_list edges in
-            Array_ops.randomize arr;
-            arr.(0)
+
+    let random_tree (data : Data.d) (nodes : a list) adj_mgr =
+        let tree : phylogeny = 
+            { (Ptree.empty data) with
+                Ptree.tree = Tree.random (List.map Node.taxon_code nodes);
+                Ptree.node_data = map_of_list Node.taxon_code nodes; }
         in
-        let rec aux_random_constructor tree node =
-            let tree, _ = 
-                let (Tree.Edge (x, y)) = pick_random_edge tree in
-                TreeOps.join_fn adj_mgr [] (Tree.Edge_Jxn (x, y)) node tree
-                in
-                tree
-        in
-        let initial_tree = disjoin_tree data nodes in
-        let nodes = 
-            let nodes = Array.of_list nodes in
-            Array_ops.randomize nodes;
-            Array.to_list nodes
-        in
-        let nodes = 
-            List.map (fun x -> Tree.Single_Jxn (Node.taxon_code
-                x)) nodes
-        in
-        match nodes with
-        | f :: s :: tail ->
-                let new_tree, _ = TreeOps.join_fn adj_mgr [] f s initial_tree in
-                Sexpr.fold_status
-                    "Random tree" ~eta:true aux_random_constructor new_tree 
-                    (Sexpr.of_list tail)
-        | _ -> initial_tree
+        tree --> PtreeSearch.downpass --> PtreeSearch.uppass
+
 
     let branch_and_bound keep_method max_trees threshold data nodes bound adj_mgr =
         let select_appropriate bound_plus_threshold lst =

@@ -145,21 +145,54 @@ type break_jxn = id * id
 
 (** The empty u_tree. *)
 val empty : unit -> u_tree
+
+(** [get_id n] get node id from node; the first int in the tuple *)
 val get_id : node -> int
+
+(** [int_of_id i] transform an id to an integer; identity function here *)
 val int_of_id : id -> int 
+
+(** [is_handle i] checks if i is a handle in the tree *)
 val is_handle : int -> u_tree -> bool
+
+(** [is_edge e t] checks if e is an edge in t *)
 val is_edge : edge -> u_tree -> bool
+
+(** [normalized_edge e t] flips elements of the edge to ensure that it is
+    contained in the tree,t *)
 val normalize_edge : edge -> u_tree -> edge
+
+(** [get_node_id i t] get node id from it's integer; ensures that it is valid  **)
 val get_node_id : int -> u_tree -> id
+
+(** [get_handle_id i t] get handle id from it's integer; ensures that it is valid  **)
 val get_handle_id : int -> u_tree -> id
+
+(** [get_handle_id i t] gets the handle attached to the subtree containing i *)
 val handle_of : id -> u_tree -> id
+
+(** [get_handles t] get the set of handles for the tree *)
 val get_handles : u_tree -> All_sets.Integers.t
+
+(** [handle_list t] get the list of handles in t *)
 val handle_list : u_tree -> int list
-val get_nodes : u_tree -> node list   
+
+(** [get_nodes t] get list of nodes *)
+val get_nodes : u_tree -> node list
+
+(** [get_node_ids t] get the integer keys of the nodes *)
 val get_node_ids : u_tree -> int list
+
+(** [get_node i t] get the node for i; neighbors information *)
 val get_node : int -> u_tree -> node
+
+(** [get_all_leaves t] return all the leaf nodes *)
 val get_all_leaves : u_tree -> id list
+
+(** [is_leaf i t] return if i is a Leaf(i,_) *)
 val is_leaf : int -> u_tree -> bool
+
+(** [is_single i t] return if i is a Single(i) *)
 val is_single : int -> u_tree -> bool
 val get_edge : int * int -> u_tree -> edge
 val get_parent : int -> u_tree -> int
@@ -169,6 +202,7 @@ val get_path_to_handle : int -> u_tree -> int * edge list
 val break : break_jxn -> u_tree -> u_tree * break_delta
 val join : join_jxn -> join_jxn -> u_tree -> u_tree * join_delta
 val make_disjoint_tree : int list -> u_tree
+val random : int list -> u_tree
 val move_handle : int -> u_tree -> u_tree * int list
 val edge_map : (edge -> 'a) -> u_tree -> (edge * 'a) list
 val pre_order_edge_map : (edge -> 'a) -> int -> u_tree -> 
