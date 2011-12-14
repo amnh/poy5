@@ -4120,63 +4120,61 @@ END
                         print_table title table;
                         run
             | `CompareSequences (filename, complement, ch1, ch2) ->
-                    let all_of_them = 
-                        Data.compare_pairs ch1 ch2 complement run.data
-                    in
-                    List.iter (fun (n1, n2, c) ->
-                        Status.user_message (Status.Output (filename, false,
-                        []))
-                        ("@[" ^ StatusCommon.escape n1 ^ " " ^ 
-                        StatusCommon.escape n2 ^ " " ^ string_of_float c ^ "@]@\n")) 
+                let all_of_them = Data.compare_pairs ch1 ch2 complement run.data in
+                List.iter
+                    (fun (n1, n2, c) ->
+                        Status.user_message (Status.Output (filename, false, []))
+                            (Printf.sprintf "@[%s %s %f@]@\n"
+                                (StatusCommon.escape n1) (StatusCommon.escape n2) c))
                     all_of_them;
-                    run
+                run
             | `ExplainScript (script, filename) ->
-                    let script = PoyCommand.of_file false script in
-                    Analyzer.explain_tree filename script;
-                    run
+                let script = PoyCommand.of_file false script in
+                Analyzer.explain_tree filename script;
+                run
             | `Pairwise (filename,chars) ->
                 failwith "NOT DONE"
             | `Model (filename,chars) ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
                 begin match (Sexpr.to_list run.trees) with
-                | [] -> 
-                    let cs = Data.get_chars_codes_comp run.data chars in
-                    let chars = 
-                        Data.get_code_from_characters_restricted 
-                                    `Likelihood run.data (`Some cs)
-                    in
-                    let model  = Data.get_likelihood_model run.data chars
-                    and name   = Data.get_character_set_name run.data chars
-                    and ntaxa  = run.data.Data.number_of_taxa in
-                    let name = match name with | Some name -> name | None -> "" in
-                    fo ("@[<hov 0>Set Name: "^name^"@]@\n");
-                    fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                    MlModel.output_model fo `Hennig model None
-                | trees -> 
-                    List.iter
-                        (fun t ->
-                            let charss = Data.categorize_static_likelihood_by_model chars t.Ptree.data in
-                            let tname  = match t.Ptree.tree.Tree.tree_name with 
-                                       | Some tname -> tname 
-                                       | None -> ""
-                            in
-                            List.iter
-                                (fun chars -> 
-                                    let model  = Data.get_likelihood_model t.Ptree.data chars
-                                    and cost   = TreeOps.total_cost t `Adjusted (Some chars)
-                                    and length = TreeOps.tree_size t (Some chars)
-                                    and cname  = Data.get_character_set_name t.Ptree.data chars
-                                    and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                                    let cname  = match cname with | Some cname -> cname | None -> "" in
-                                    fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
-                                    fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
-                                    fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                                    fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
-                                    fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                                    MlModel.output_model fo `Hennig model None;
-                                    fo "@\n")
-                                charss)
-                        (trees)
+                    | [] -> 
+                        let cs = Data.get_chars_codes_comp run.data chars in
+                        let chars = 
+                            Data.get_code_from_characters_restricted 
+                                        `Likelihood run.data (`Some cs)
+                        in
+                        let model  = Data.get_likelihood_model run.data chars
+                        and name   = Data.get_character_set_name run.data chars
+                        and ntaxa  = run.data.Data.number_of_taxa in
+                        let name = match name with | Some name -> name | None -> "" in
+                        fo ("@[<hov 0>Set Name: "^name^"@]@\n");
+                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                        MlModel.output_model fo `Hennig model None
+                    | trees -> 
+                        List.iter
+                            (fun t ->
+                                let charss = Data.categorize_static_likelihood_by_model chars t.Ptree.data in
+                                let tname  = match t.Ptree.tree.Tree.tree_name with 
+                                           | Some tname -> tname 
+                                           | None -> ""
+                                in
+                                List.iter
+                                    (fun chars -> 
+                                        let model  = Data.get_likelihood_model t.Ptree.data chars
+                                        and cost   = TreeOps.total_cost t `Adjusted (Some chars)
+                                        and length = TreeOps.tree_size t (Some chars)
+                                        and cname  = Data.get_character_set_name t.Ptree.data chars
+                                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                                        let cname  = match cname with | Some cname -> cname | None -> "" in
+                                        fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
+                                        fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
+                                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                                        fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
+                                        fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                                        MlModel.output_model fo `Hennig model None;
+                                        fo "@\n")
+                                    charss)
+                            (trees)
                 end;
                 run
             | `Script (filename,script) -> 
@@ -4199,17 +4197,17 @@ END
                 Status.resize_history size;
                 run
             | `Dataset filename ->
-                    if check_suffix filename nexus_extensions then
-                        folder run (`Nexus filename)
-                    else if check_suffix filename hennig_extensions then
-                        folder run (`FasWinClad filename)
-                    else begin
-                       let fmt = (Data.to_formatter [] run.data) in
-                        PoyFormaters.data_to_status filename fmt;
-                        (* Flush the formatter *)
-                        Status.user_message (Status.Output (filename, false, [])) "%!"; 
-                        run
-                    end
+                if check_suffix filename nexus_extensions then
+                    folder run (`Nexus filename)
+                else if check_suffix filename hennig_extensions then
+                    folder run (`FasWinClad filename)
+                else begin
+                   let fmt = (Data.to_formatter [] run.data) in
+                    PoyFormaters.data_to_status filename fmt;
+                    (* Flush the formatter *)
+                    Status.user_message (Status.Output (filename, false, [])) "%!"; 
+                    run
+                end
             | `Xslt (file, style) ->
                 let () =
 IFDEF USE_XSLT THEN
@@ -4244,80 +4242,37 @@ END
                 in
                 run
             | `Diagnosis (diag_report_type,filename) ->
-    (*
-    * For brief report -- the four lines has 
-    * node name, 
-    * Cost, 
-    * Rearrangement cost, Children : children name. 
-    * unadjusted node_data is being used. (see function "get_unadjusted" in allDirChar).
-    * "Cost" is the node_data.total_cost, if the node is not a root (if the node 
-    * is the root, it will report 0 in Cost). 
-    * "Recost" is the sum of two subtree_cost from its children, and the cost
-    * between its two children (median2 function take care of this).
-    * Note, both "Cost" and "Recost" do not include cost between current node
-    * and its parent, which means the cost we see in detailed report of this
-    * node is not included.
-    * For detailed node data report -- 
-    * "haracters        Class        Cost        Rearrangement Cost .. blablabla" 
-    * followed by brief report, has actual gene contents print out.
-    * Preliminary and final are from unadjusted node_data. (see function "get_unadjusted"
-    * in allDirChar.ml, node_data contains preliminary and final -- that's from type `a r in
-* node.ml ). 
-    * Single is from adjusted node_data (funtion "get_single" in allDirChar.ml). Single is the preliminary of that node_data.
-    * function "cs_to_formatter" is "delayed" in detailed node data report. 
-    * it won't be forced untill PoyFormater calls "Xml.eagerly_compute".
-    * Note, function "get_single" and "ge_unadjusted" in allDirChar
-    * are together looks like this "let get_single, get_unadjusted = blablabla...."
-    *)
-                    let trees = 
-                        (* This would be used to rediagnose the tree to the
-                         * data, but since the data is in the tree are
-                         * consistent, and we are not changing the data, this is
-                         * fine. *)
-                      (*  let classify = false in
-                        let run = update_trees_to_data ~classify false true run
-                        in *)
-                      (*TreeOps.to_formatter will call function "to_formatter"
-                      * in allDirChar.ml*)
-                        Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  
-                    in
-                    Status.user_message (Status.Output (filename, false, [])) "@[";
-                    Sexpr.leaf_iter (PoyFormaters.trees_to_formater filename []) trees;
-                    (* Flush the formatter *)
-                    Status.user_message (Status.Output (filename, false, []))
-                                        "@]%!";
-                    run
+                let trees = Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  in
+                Status.user_message (Status.Output (filename, false, [])) "@[";
+                Sexpr.leaf_iter (PoyFormaters.trees_to_formater filename []) trees;
+                Status.user_message (Status.Output (filename, false, [])) "@]%!";
+                run
             | `GraphicDiagnosis (diag_report_type,filename) ->
-                    let trees =
-                        (* let classify = false in
-                           let run = update_trees_to_data ~classify false true run in*)
-                        Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  
-                    in 
-                    GraphicsPs.display_diagnosis "Diagnosis" filename trees;
-                    (* Flush the formatter *)
-                    run
+                let trees = Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  in 
+                GraphicsPs.display_diagnosis "Diagnosis" filename trees;
+                run
             | `TimeDelta (title, filename) ->
-                    let prev_time = !range_timer in
-                    range_timer := Timer.start ();
-                    let total_time = Timer.get_user prev_time in
-                    Status.user_message (Status.Output (filename, false, [])) 
+                let prev_time = !range_timer in
+                range_timer := Timer.start ();
+                let total_time = Timer.get_user prev_time in
+                Status.user_message
+                    (Status.Output (filename, false, []))
                     ("@[" ^ StatusCommon.escape title ^ " " ^ string_of_float total_time ^ "@]@,%!");
-                    run
+                run
             | `MstR filename ->
-                    Build.report_mst run.data run.nodes filename;
-                    run
+                Build.report_mst run.data run.nodes filename;
+                run
             | `TreeCosts filename ->
-                    let res = Buffer.create 97 in
-                    Sexpr.leaf_iter (fun x ->
-                        let cost = Ptree.get_cost `Adjusted x in
-                        let str = string_of_float cost in
-                        Buffer.add_string res str;
-                        Buffer.add_string res ":") 
-                    run.trees;
-                    Buffer.add_string res "\n%!";
-                    Status.user_message (Status.Output (filename, false, []))
-                    (Buffer.contents res);
-                    run
+                let res = Buffer.create 97 in
+                Sexpr.leaf_iter (fun x ->
+                    let cost = Ptree.get_cost `Adjusted x in
+                    let str = string_of_float cost in
+                    Buffer.add_string res str;
+                    Buffer.add_string res ":") 
+                run.trees;
+                Buffer.add_string res "\n%!";
+                Status.user_message (Status.Output (filename, false, [])) (Buffer.contents res);
+                run
             | `TreesStats filename ->
               let fo = Status.Output (filename, false, []) in
                 let htbl = Hashtbl.create 19 in
@@ -4337,18 +4292,20 @@ END
                     arr.(cnt).(1) <- `Int b;
                     cnt + 1
                 in
-                let comparison a b =
-                    match a.(0), b.(0) with
+                let comparison a b = match a.(0), b.(0) with
                     | `Int a, `Int b -> a - b
                     | `Float a, `Float b -> compare a b
                     | `Int _, _ -> -1
                     | _, _ -> 1
                 in
-                let _ = Hashtbl.fold folder htbl 1 in
+                ignore( Hashtbl.fold folder htbl 1 );
                 Array.sort comparison arr;
-                let arr = Array.map 
-                    (Array.map (function `Float x -> string_of_float x 
-                    | `Int x -> string_of_int x)) arr
+                let arr =
+                    Array.map
+                        (Array.map (function
+                                    | `Float x -> string_of_float x
+                                    | `Int x -> string_of_int x))
+                        arr
                 in
                 arr.(0).(0) <- "Tree length   ";
                 arr.(0).(1) <- "Number of hits";
@@ -4357,78 +4314,78 @@ END
                 Status.user_message fo "@]\n%!";
                 run
             | `SearchStats filename ->
-                    let fo = Status.Output (filename, false, []) in
-                    let costs = All_sets.FloatMap.fold (fun a b acc ->
-                        [|string_of_float a; string_of_int b|] :: acc) 
-                        run.search_results.tree_costs_found [] 
-                    in
-                    let costs = List.sort (fun a b -> 
-                        match a, b with
-                        | [|a; _|], [|b; _|] ->
+                let fo = Status.Output (filename, false, []) in
+                let costs =
+                    All_sets.FloatMap.fold
+                        (fun a b acc -> [|string_of_float a; string_of_int b|] :: acc)
+                        run.search_results.tree_costs_found
+                        []
+                in
+                let costs =
+                    List.sort
+                        (fun a b -> match a, b with
+                            | [|a; _|], [|b; _|] ->
                                 compare (float_of_string a) (float_of_string b)
-                        | _ -> assert false) costs 
-                    in
-                    let costs = 
-                        [|"# of Builds + TBR "; string_of_int
-                        run.search_results.total_builds|] ::
-                        [|"# of Fuse         "; string_of_int
-                        run.search_results.total_fuse|] ::
-                        [|"# of Ratchets     "; string_of_int
-                        run.search_results.total_ratchet|] ::
-                        [|"                  "; "              "|] ::
-                        [|"Tree length       "; "Number of hits"|] :: costs 
-                    in
-                    Status.user_message fo 
-                    "@{<b>Search Stats:@}@[<v 2>@,";
-                    Status.output_table fo (Array.of_list costs);
-                    Status.user_message fo "@]\n%!";
-                    run
+                            | _ -> assert false)
+                        costs
+                in
+                let costs = 
+                    [|"# of Builds + TBR "; string_of_int run.search_results.total_builds|] ::
+                    [|"# of Fuse         "; string_of_int run.search_results.total_fuse|] ::
+                    [|"# of Ratchets     "; string_of_int run.search_results.total_ratchet|] ::
+                    [|"                  "; "              "|] ::
+                    [|"Tree length       "; "Number of hits"|] :: costs 
+                in
+                Status.user_message fo "@{<b>Search Stats:@}@[<v 2>@,";
+                Status.output_table fo (Array.of_list costs);
+                Status.user_message fo "@]\n%!";
+                run
             | `Trees (ic, filename) ->
-                    let rec remove_style acc = function
-                        | [] -> acc
-                        | `NexusStyle :: tl 
-                        | `HennigStyle :: tl-> remove_style acc tl
-                        | hd :: tl -> remove_style (hd::acc) tl
-                    in
-                    let ic = 
-                        if check_suffix filename nexus_extensions then
-                            `NexusStyle :: (remove_style [] ic)
-                        else if check_suffix filename hennig_extensions then
-                            `HennigStyle :: (remove_style [] ic)
-                        else ic
-                    in
-                    PTS.report_trees ic filename run.trees;
-                    run
+                let rec remove_style acc = function
+                    | [] -> acc
+                    | `NexusStyle :: tl 
+                    | `HennigStyle :: tl-> remove_style acc tl
+                    | hd :: tl -> remove_style (hd::acc) tl
+                in
+                let ic = 
+                    if check_suffix filename nexus_extensions then
+                        `NexusStyle :: (remove_style [] ic)
+                    else if check_suffix filename hennig_extensions then
+                        `HennigStyle :: (remove_style [] ic)
+                    else ic
+                in
+                PTS.report_trees ic filename run.trees;
+                run
             | `CrossReferences (chars, filename) ->
                 Data.report_taxon_file_cross_reference chars run.data filename;
                 run
             | `KolmoMachine filename ->
-                    let data =
-                        Data.report_kolmogorov_machine filename run.data
-                    in
-                    { run with data = data }
+                let data =
+                    Data.report_kolmogorov_machine filename run.data
+                in
+                { run with data = data }
             | `TerminalsFiles filename ->
                 Data.report_terminals_files filename
                 run.data.Data.taxon_files run.data.Data.ignore_taxa_set;
                 run
             | `Nodes filename ->
-              let fo = Status.Output (filename, false, []) in
-              let nodes = List.map Node.to_string run.nodes in
-              List.iter (Status.user_message fo) nodes;
-              Status.user_message fo "%!";
-              run
+                let fo = Status.Output (filename, false, []) in
+                let nodes = List.map Node.to_string run.nodes in
+                List.iter (Status.user_message fo) nodes;
+                Status.user_message fo "%!";
+                run
             | `Supports _ 
             | `GraphicSupports _ as meth ->
                     handle_support_output run meth;
                     run
             | `Clades fn ->
-              let counter = ref (-1) in
-              Sexpr.leaf_iter
-                  (output_clade_file run.data fn
-                       (fun () -> incr counter; !counter))
-                  run.trees;
-              Status.user_message (Status.Output (None, false,[])) "%!";
-              run
+                let counter = ref (-1) in
+                Sexpr.leaf_iter
+                    (output_clade_file run.data fn
+                        (fun () -> incr counter; !counter))
+                    run.trees;
+                Status.user_message (Status.Output (None, false,[])) "%!";
+                run
             | #Methods.diagnosis as meth ->
                 warn_if_no_trees_in_memory run.trees;
                 let () = 
@@ -4436,19 +4393,20 @@ END
                 in
                 run
             | `Save (fn, comment) ->
-                (try
+                begin try
                     PoyFile.store_file (comment, run, !Methods.cost) fn;
                     run
-                with
-                | err ->
-                        let msg = "Could@ not@ open@ the@ file@ " ^ fn ^ 
-                        "@ due@ to@ a@ system@ error.@ The@ error@ \
-                        message@ is@ : " ^ StatusCommon.escape
-                        (Printexc.to_string err) in
-                        Status.user_message Status.Error msg;
-                        run)
+                with | err ->
+                    let msg = 
+                        "Could@ not@ open@ the@ file@ " ^ fn ^ 
+                        "@ due@ to@ a@ system@ error.@ The@ error@ message@ is@ : " ^ 
+                        StatusCommon.escape (Printexc.to_string err)
+                    in
+                    Status.user_message Status.Error msg;
+                    run
+                end
             | `Load fn ->
-                (try 
+                begin try 
                     let (comment, run, cost_mode)  = PoyFile.read_file fn in
                     Methods.cost := cost_mode;
                     let descr = 
@@ -4457,23 +4415,17 @@ END
                         | Some d -> d
                     in
                     Status.user_message Status.Information 
-                    ("@[<v 2>Loading file " ^ StatusCommon.escape fn ^ "@,@[" ^ 
-                    StatusCommon.escape descr ^
-                    "@]@]");
+                        ("@[<v 2>Loading file " ^ StatusCommon.escape fn 
+                        ^ "@,@[" ^ StatusCommon.escape descr ^ "@]@]");
                     run
-                with
-                | PoyFile.InvalidFile ->
-                        let msg = "The file " ^ StatusCommon.escape 
-                        fn ^ " is not a@ valid"
-                        ^ "@ POY@ fileformat." in
-                        Status.user_message Status.Error msg;
-                        run)
-(*                | err ->*)
-(*                        let msg = "Could@ not@ open@ the@ file@ " ^ fn ^ *)
-(*                        "@ due@ to@ a@ system@ error.@ The@ error@ \*)
-(*                        message@ is@ : " ^ Printexc.to_string err in*)
-(*                        Status.user_message Status.Error msg;*)
-(*                        run)*)
+                with | PoyFile.InvalidFile ->
+                    let msg = 
+                        "The file " ^ StatusCommon.escape fn ^ 
+                        " is not a@ valid" ^ "@ POY@ fileformat."
+                    in
+                    Status.user_message Status.Error msg;
+                    run
+                end
             | `Root where ->
                 let tres = 
                     Sexpr.map

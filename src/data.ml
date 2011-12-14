@@ -1098,8 +1098,6 @@ let process_trees data file =
             branches_to_map data None None (List.map (fun (x,_,_) -> x) trees)
         in
         let branches = if found then Some branches else None in
-        Status.user_message Status.Information msg;
-            (match data.root_at with | None -> "none" | Some _ -> "some");
         { data with trees = data.trees @ trees;
                     branches = branches;
                     iterate_branches = (not found);}
