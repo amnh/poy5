@@ -198,7 +198,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | None -> max_float /. 2.
             | Some x -> x
         (* create status for ncurses *)
-        and st = Status.create "Branch and Bound Build" (Some 100) "% complete" in
+        and st = Status.create "Branch and Bound Build" (Some 100) "percent complete" in
         let () = Status.full_report ~adv:(0) st in
         (* We need to present some output; find a decent depth and that percentage done *)
         let report_depth,report_percent =
@@ -773,13 +773,14 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 in
                 let maj = List.length tree_list in
                 Ptree.consensus PtreeSearch.never_collapse 
-                (fun code -> Data.code_taxon code data) maj 
-                (Sexpr.to_list trees) 
-                (match data.Data.root_at with
-                | Some v -> v
-                | None ->
-                        let f = Sexpr.first trees in
-                        Ptree.choose_leaf f)
+                    (fun code -> Data.code_taxon code data)
+                    (maj)
+                    (Sexpr.to_list trees) 
+                    (match data.Data.root_at with
+                        | Some v -> v
+                        | None ->
+                            let f = Sexpr.first trees in
+                            Ptree.choose_leaf f)
             | Some file ->
                     match (Data.process_trees data file).Data.trees with
                     | [((_,[t]), _, _) as one] -> Data.verify_trees data one; t
@@ -933,10 +934,12 @@ module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n) (EdgeH : Edg
 
         let replace_contents downpass uppass get_code nodes data ptree =
             let nt = { (Ptree.empty data) with Ptree.tree = ptree.Ptree.tree } in
-            uppass (downpass 
-            (List.fold_left (fun nt node ->
-                Ptree.add_node_data (get_code node) node nt) 
-            nt nodes))
+            nodes 
+                --> List.fold_left
+                        (fun nt node ->
+                            Ptree.add_node_data (get_code node) node nt) nt
+                --> downpass
+                --> uppass
 
         let from_s_to_h = replace_contents TOH.downpass TOH.uppass NodeH.taxon_code 
         let from_h_to_s = replace_contents TOS.downpass TOS.uppass NodeS.taxon_code

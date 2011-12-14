@@ -1099,6 +1099,7 @@ let process_trees data file =
         in
         let branches = if found then Some branches else None in
         Status.user_message Status.Information msg;
+            (match data.root_at with | None -> "none" | Some _ -> "some");
         { data with trees = data.trees @ trees;
                     branches = branches;
                     iterate_branches = (not found);}
@@ -1255,11 +1256,12 @@ let rec process_searchbase_code data taxon file =
             All_sets.StringMap.add taxon (All_sets.Strings.singleton file)
             data.searchbase_files 
         in
-        (*not sure if we need to do this: 
-        let data = pick_code_for_root code data in*)
-        { data with number_of_taxa = data.number_of_taxa + 1;
-        searchbase_names = searchbase_names; searchbase_codes = searchbase_codes; 
-        searchbase_files = searchbase_files }, code
+        let data = pick_code_for_root code data in
+        { data with
+            number_of_taxa = data.number_of_taxa + 1;
+            searchbase_names = searchbase_names; searchbase_codes = searchbase_codes;
+            searchbase_files = searchbase_files },
+        code
     end
 
 

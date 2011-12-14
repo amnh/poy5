@@ -1254,7 +1254,7 @@ let ndebug_no_catch = true
 let reroot_at_outgroup run =
     let reroot_at_outgroup data ptree =
         match data.Data.root_at with
-        | None -> ptree
+        | None          -> ptree
         | Some outgroup ->
                try let nbr = Ptree.get_parent outgroup ptree in
                    let ptree, update =
@@ -2101,7 +2101,8 @@ let get_trees_for_support support_class run =
     | `Bremer (Some input_files) ->
             S.bremer_of_input_file_but_trust_input_cost 
                 (match run.data.Data.root_at with
-                    | Some x -> x | None -> failwith "no root?")
+                    | Some x -> x 
+                    | None -> failwith "no root?")
                 (fun x -> Data.code_taxon x run.data)
                 run.data
                 input_files
@@ -3724,16 +3725,11 @@ END
     | #Methods.transform as meth ->
             process_transform run meth
     | #Methods.build as meth ->
-            let build_initial = Build.build_initial_trees in
-            (match MainBuild.get_transformations meth with
+        let build_initial = Build.build_initial_trees in
+        begin match MainBuild.get_transformations meth with
             | [] ->
-                let trees = build_initial run.trees run.data run.nodes meth in
-                let newrun =
-                    { run with  
-                    data = { run.data with Data.root_at = None };
-                            trees = trees; }
-                in
-                newrun
+                let trees = build_initial run.trees data run.nodes meth in
+                { run with trees = trees }
             | trans ->
                 let run = temporary_transforms trans run in
                 let run_and_untransform (run, untransforms) =
@@ -3743,7 +3739,8 @@ END
                     let run = { run with trees = tree } in
                     List.fold_left (fun r f -> f r) run untransforms
                 in
-                run_and_untransform run)
+                run_and_untransform run
+        end
     | #Methods.local_optimum as meth ->
             warn_if_no_trees_in_memory run.trees;
             let sets = 

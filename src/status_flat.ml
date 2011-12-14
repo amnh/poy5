@@ -96,9 +96,7 @@ let main_loop f =
 let to_do_if_parallel =
     ref (fun t m ->
             let msg, ch, f, append = type_string t in
-            (* We only escape the format string; not formatter output; this
-                allows % symbols; and was a cause of a bug earlier. *)
-            let msg = msg ^ (StatusCommon.escapef m) ^ append in
+            let msg = msg ^ m ^ append in
             let msg = StatusCommon.string_to_format msg in
             let () = StatusCommon.Format.fprintf ch msg in
             begin match t with
