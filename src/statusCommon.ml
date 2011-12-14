@@ -25,9 +25,11 @@ external string_to_format : string -> ('a, 'b, 'c) format = "%identity"
 
 type formatter_output = | Margin of int | Compress
 
+let escapef str = 
+    Str.global_replace (Str.regexp "%") "%%" str
+
 let escape str =
-    let str = Str.global_replace (Str.regexp "%") "%%" str in
-    Str.global_replace (Str.regexp "@") "@@" str
+    Str.global_replace (Str.regexp "@") "@@" (escapef str)
 
 module CommandCompletion = struct
     let commands = [
