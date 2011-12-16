@@ -24,47 +24,37 @@ let () = SadmanOutput.register "HelpIndex" "$Revision: 1644 $"
 let index = Help.index
 
 let find_with_regexp reg (a, b) = 
-    try 
-        let _ = Str.search_forward reg a 0 in
-        true
-    with
-    | _ -> 
-        try 
-            let _ = Str.search_forward reg b 0 in
-            true
-        with
-        | _ -> false
+    try ignore( Str.search_forward reg a 0 ); true
+    with | _ -> 
+        try ignore( Str.search_forward reg b 0 ); true
+        with | _ -> false
 
-let output_help_item (name, description) =
+let output_help_item description =
     Status.user_message Status.Information description
 
-let rec help item =
-    match item with
-    | None ->
-            help (Some ".")
-    | Some "index"
-    | Some "all" ->
-          List.iter output_help_item index
-    | Some it ->
-          try
-              let item = List.assoc it index in
-              output_help_item (it, item)
-          with
-          | Not_found ->
-                  let regex = Str.regexp it in
-                  match List.filter (find_with_regexp regex) index with
-                  | [] -> 
-                          let msg = 
-                              "Could not find help file \"" ^ it ^ "\""
-                          in
-                          Status.user_message Status.Information msg
-                  | lst -> 
-                          List.iter output_help_item lst
+let output_help_head description =
+    let description = "@[<v 2>@{<c:cyan>"^description^"@}@]" in
+    Status.user_message Status.Information description
+
+let rec help = function
+    | None       ->
+        help (Some "index")
+    | Some "index" ->
+        Status.user_message Status.Information "@[<v 2>@{<b>Help Topics:@}@,@[@[<h>";
+        List.iter (fun x -> output_help_head (fst x)) index;
+        Status.user_message Status.Information "@]@]@]@,"
+    | Some "all"   ->
+        List.iter (fun x -> output_help_item (snd x)) index
+    | Some it    ->
+        try output_help_item (List.assoc it index)
+        with | Not_found ->
+            let regex = Str.regexp it in
+            begin match List.filter (find_with_regexp regex) index with
+                | []  -> output_help_item ("Could not find help file \""^it^"\"")
+                | lst -> List.iter (fun x -> output_help_item (snd x)) lst
+            end
 
 let help_if_exists it =
-    try
-        if List.exists (fun (x, _) -> x = it) index then
-            Status.user_message Status.Information 
-            ("You can find information using the command 'help (" ^ it ^ ")'")
-    with
-    | Not_found -> ()
+    try if List.exists (fun (x, _) -> x = it) index then
+        output_help_item ("You can find information using the command 'help ("^it^")'")
+    with | Not_found -> ()

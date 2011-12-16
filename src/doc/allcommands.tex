@@ -240,7 +240,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                         {}
                      \argumentdefinition{resample}{\obligatory{\poyint}}
                         {The value of the argument \poyargument{resample} specifies the
-                        number of resampling pseudoreplicates. The default of \\
+                        number of resampling pseudoreplicates. The default of 
                         \poyargument{resample} is \texttt{5}.}
                         {}
                \end{description}  
@@ -286,7 +286,7 @@ The \poycommand{calculate\_support} command does not output support values by de
 
 	\end{arguments}
 
-    \poydefaults{bremer, build(trees:1, randomized), \\ swap(trees:1)}
+    \poydefaults{bremer, build(trees:1, randomized),  swap(trees:1)}
     {By default \poy will calculate the bremer support for each tree in memory node by node.
     However, if no trees stored in memory, executing the command
     \poycommand{calculate\_support()} does not have any effect.}
@@ -302,7 +302,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             each tree in memory for every node and keeping up to two
             best trees per search round.}
           
-          \poyexample{calculate\_support(bremer, build(of\_file:"new\_trees"), \\
+          \poyexample{calculate\_support(bremer, build(of\_file:"new\_trees"), 
           swap(tbr, trees:2))}
             {Calculates Bremer support values by performing TBR swapping on 
             each tree in the file \texttt{new\_trees} located in the current
@@ -311,10 +311,10 @@ The \poycommand{calculate\_support} command does not output support values by de
             
          \poyexample{calculate\_support(bootstrap)}
          {Calculates Bootstrap support values under default settings. This command
-         is equivalent to \poycommand{calculate\_support(bootstrap:5, \\ build(trees:1,
+         is equivalent to \poycommand{calculate\_support(bootstrap:5,  build(trees:1,
          randomized), swap(trees:1))}.}
 	
-        \poyexample{calculate\_support(bootstrap:100, build(trees:5), \\
+        \poyexample{calculate\_support(bootstrap:100, build(trees:5), 
             swap(trees:1))}
             {Calculates Bootstrap support values performing one random resampling with
             replacement, followed by 5 Wagner tree builds (by random addition sequence)
@@ -323,7 +323,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             is repeated 100 times.}
         
         \poyexample{calculate\_support(jackknife:(resample:1000), 
-            build(), \\ swap(tbr, trees:5))}
+            build(),  swap(tbr, trees:5))}
             {Calculates Jackknife support values randomly removing 36 percent of the
             characters (the default of \poycommand{jackknife}), building 10
             Wagner trees by random addition sequence (the default of
@@ -816,7 +816,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             fragments) and upweighting them by a factor of 5. Branch swapping is
             performed using TBR and keeping up to 5 optimal trees in each iteration.}
             
-            \poyexample{perturb(transform(static\_approx), ratchet:(0.2,5), \\
+            \poyexample{perturb(transform(static\_approx), ratchet:(0.2,5), 
             iterations:25, swap(tbr, trees:5))}
             {Transforms all applicable (\emph{i.e.} dynamic homology sequence characters) using
             \poyargument{transform} into static characters. 
@@ -1005,7 +1005,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             additive character matrix (in Hennig86 format) is \texttt{[253,368]}. 
             To scale the values, a transformation is applied to the character 
             \texttt{winglength} as follows:
-            \poycommand{transform((characters,names:("winglength")),\\(weightfactor:0.01))}.
+            \poycommand{transform((characters,names:("winglength")), (weightfactor:0.01))}.
 	\end{statement}
 	
         \argumentdefinition{aminoacids}{\obligatory{(\poystring list)}}
@@ -1029,9 +1029,8 @@ The \poycommand{calculate\_support} command does not output support values by de
             (for a sample script using this data type see tutorial \texttt{4.7}.} 
             {}
 
-        \argumentdefinition{breakinv}{\obligatory{(STRING, STRING, 
-        [orientation:\poybool, init3D:\poybool])}}
-            {An \\ enhancement of the data file type \poyargument{custom\_alphabet} allowing
+        \argumentdefinition{breakinv}{\obligatory{(STRING, STRING, [orientation:\poybool, init3D:\poybool])}}
+            {An  enhancement of the data file type \poyargument{custom\_alphabet} allowing
             rearrangement events specified using \poycommand{dynamic\_pam()}. Syntactically,
             breakinv data type is identical to custom\_alphabet data type.} 
             {breakinv}
@@ -1054,8 +1053,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             \nccross{transform}{transformcommand}.} 
             {}
             
-            \argumentdefinition{custom\_alphabet}{\obligatory{(STRING, STRING, 
-        [orientation:\poybool, init3D:\poybool])}}
+            \argumentdefinition{custom\_alphabet}{\obligatory{(STRING, STRING, [orientation:\poybool, init3D:\poybool])}}
             {Reads the data in the user-defined alphabet format. The first string argument is
             the name of a datafile that contains custom-alphabet sequences in FASTA format. 
             The characters can be (but are not required to be) separated by spaces.
@@ -1073,39 +1071,28 @@ The \poycommand{calculate\_support} command does not output support values by de
             row correspond to a gap. It is impotant that the cost matrix must be symmetrical. An example 
             of a valid custom alphabet input file is provided below:
        	  
-	  \texttt{alpha beta gamma delta \\
-            0 2 1 2 5 \\
-            2 0 2 1 5 \\
-            1 2 0 2 5 \\
-            2 1 2 0 5 \\
-            5 5 5 5 0}
+	        \texttt{alpha beta gamma delta  0 2 1 2 5  2 0 2 1 5  1 2 0 2 5  2 1 2 0 5  5 5 5 5 0}
             
-           In this example, the cost of transformation of \texttt{alpha} into \texttt{beta} is \texttt{2},
-           and cost of a deletion or insertion of any of the four elements costs \texttt{5}.
+            In this example, the cost of transformation of \texttt{alpha} into \texttt{beta} is \texttt{2},
+            and cost of a deletion or insertion of any of the four elements costs \texttt{5}.
            
-           An example of a corresponding input file:
+            An example of a corresponding input file:
        
-           \texttt{$>$Taxon1\\
-	alphabetagammadelta\\
-	$>$Taxon2\\
-	alphabetabetagammadelta\\
-	$>$Taxon3\\
-	alphabetabetadelta}
+            \texttt{$>$Taxon1 alphabetagammadelta $>$Taxon2 alphabetabetagammadelta $>$Taxon3 alphabetabetadelta}
 	
-	The optional arguments of \poyargument{custom\_alphabet} include \poyargument{orientation}
-	and \poyargument{init3D}, both of which require obligatory boolean values. The argument
-	\poyargument{orientation} allows the user to specify the orientation of custom-defined alphabet
-	characters. The \emph{tilde} symbol (``$\sim$'') preceding an alphabet character indicates
-	the negative orientation. The options are \poyargument{orientation:true}
-	or \poycommand{orientation:false}. The default option is \texttt{true}.
+            The optional arguments of \poyargument{custom\_alphabet} include \poyargument{orientation}
+            and \poyargument{init3D}, both of which require obligatory boolean values. The argument
+            \poyargument{orientation} allows the user to specify the orientation of custom-defined alphabet
+            characters. The \emph{tilde} symbol (``$\sim$'') preceding an alphabet character indicates
+            the negative orientation. The options are \poyargument{orientation:true}
+            or \poycommand{orientation:false}. The default option is \texttt{true}.
 	
-	The argument \poyargument{init3D} indicates that if program will calculate in advance
-	the medians for all triplets of characters (a, b, c). The options are \poyargument{init3D:true} or
-	\poyargument{init3D:false}. The default option is \texttt{true}.
-	
-	\poycommand{custom\_alphabet}
-	can be transformed into \poycommand{breakinv} using \poycommand{transform}.}
-	 {customalphabet}
+            The argument \poyargument{init3D} indicates that if program will calculate in advance
+            the medians for all triplets of characters (a, b, c). The options are \poyargument{init3D:true} or
+            \poyargument{init3D:false}. The default option is \texttt{true}.
+            
+	        \poycommand{custom\_alphabet} can be transformed into \poycommand{breakinv} using \poycommand{transform}.}
+	        {customalphabet}
         
         \argumentdefinition{genome}{\obligatory{(\poystring list)}}
             {Specifies that the data listed in the string argument are
@@ -1138,7 +1125,7 @@ The \poycommand{calculate\_support} command does not output support values by de
         
         \argumentdefinition{prealigned}{\obligatory{(read argument,
         tcm:\poystring [,gap\_opening:\poyint])}}
-            {Specifies that \\ the input sequences are prealigned and
+            {Specifies that  the input sequences are prealigned and
             should be assigned the transformation cost matrix from the 
             input file defined by the string argument. (See the argument~\nccross{tcm}{transformtcm} 
             of the command \poycommand{transform}.)}
@@ -1146,7 +1133,7 @@ The \poycommand{calculate\_support} command does not output support values by de
         
         \argumentdefinition{prealigned}{\obligatory{(read argument,
         tcm:(\poyint, \poyint) [,gap\_opening:\poyint])}}
-            {Specifies that\\ the input sequences are prealigned and should be
+            {Specifies that the input sequences are prealigned and should be
             assigned substitution and indel costs as defined by the
             \poyargument{tcm} and \poyargument{gapopening} arguments. (See the argument~\nccross{tcm}{transformtcm} 
             of the command \poycommand{transform}.)}
@@ -1186,7 +1173,7 @@ The \poycommand{calculate\_support} command does not output support values by de
         \poyexample{read("hennig1.ss", "chel2.FASTA", aminoacids:("a.FASTA"))}
             {Reads the Hennig86 file \texttt{hennig1.ss}, the FASTA file \texttt{chel2.FASTA}
             containing nucleotide sequences, and the amino acid
-            sequence file \\ \texttt{a.FASTA}.}
+            sequence file  \texttt{a.FASTA}.}
             
         \poyexample{read(custom\_alphabet:("my\_data", "alphabet"))}
         {Reads the first file, \texttt{my\_data}, containing data in the format of a custom
@@ -1195,7 +1182,7 @@ The \poycommand{calculate\_support} command does not output support values by de
         characters is considered and prior calculation of medians for their triplets
         (\texttt{init3D:true}) is performed.}
             
-           \poyexample{read(annotated:("filea.txt", "fileb.txt"), \\ chromosome:("filec.txt"))}
+           \poyexample{read(annotated:("filea.txt", "fileb.txt"),  chromosome:("filec.txt"))}
            {Reads three files containing chromosome-type sequence data.
            The sequences in two files,
             \texttt{filea.txt} and \texttt{fileb.txt}, contain pipes (``~$\vline$~'') separating
@@ -1348,36 +1335,38 @@ The \poycommand{calculate\_support} command does not output support values by de
                 item listed first is going to be substituted for all the subsequently listed names. Consider,
                 for example, a two-line synonymy file below:
                 
-                \texttt{alpha beta gamma \\
-                delta 1\\}
+                \texttt{alpha beta gamma  delta 1}
                  
-                 When this file is imported, the items \texttt{beta} and \texttt{gamma} will be
-                 renamed as \texttt{alpha} and the item \texttt{1} will be renamed as \texttt{delta}
-                 in all subsequently imported datafiles.}
+                When this file is imported, the items \texttt{beta} and \texttt{gamma} will be
+                renamed as \texttt{alpha} and the item \texttt{1} will be renamed as \texttt{delta}
+                in all subsequently imported datafiles.}
                 {}
+
                 \argumentdefinition{(STRING, STRING)}{}
                 {Specifies the names of individual items to be renamed. The first item is renamed
-                as the second item: specifying \texttt{("alpha",\\"beta")} renames the character or taxon
+                as the second item: specifying \texttt{("alpha","beta")} renames the character or taxon
                 \texttt{alpha} to \texttt{beta}. To specify multiple pairwise name substitution, several 
                 name pairs can be listed: \texttt{("alpha","beta"),("gamma","delta").}}
                 {}
                 
                 \begin{statement}
-                Note that when \poycommand{rename} is applied by specifying pairs of
-                 synonyms in the command's argument,
-                the substitute name is listed \emph{second}. However,  the substitute name 
-                appears \emph{first} in a synonymy file, followed by one or more synonyms.
+                    Note that when \poycommand{rename} is applied by specifying pairs of
+                    synonyms in the command's argument, the substitute name is
+                    listed \emph{second}. However,  the substitute name appears
+                    \emph{first} in a synonymy file, followed by one or more synonyms.
                 \end{statement}
 	      \end{argumentgroup}
 	      
-          \end{arguments}
+    \end{arguments}
           
-          \begin{poyexamples}
+    \begin{poyexamples}
+
         \poyexample{rename(terminals,"synfile")}{This command renames terminal names
             contained in the synonymy file \texttt{synfile} in all subsequently imported datafiles.}
             \poyexample{rename(terminals,("Mytilus\_sp","Mytilus\_edulis"))}{This command
             renames terminal taxon \texttt{Mytilus\_sp} as \texttt{Mytilus\_edulis} in all subsequently
             imported datafiles.}
+
     \end{poyexamples}
 
 \end{command}
@@ -1443,7 +1432,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                 a character identifier (see command  \nccross{select}{select}) and
                 the file names (specified in the the string value) is used to select specific
                 datafiles to be cross-referenced. For example, if a
-                command \poycommand{cross\_references:names:\\("file1")} is
+                command \poycommand{cross\_references:names:("file1")} is
                 executed, the output is produced only for \texttt{file1}.
                 
                 The argument \poyargument{cross\_references:all} generates
@@ -1598,9 +1587,9 @@ The \poycommand{calculate\_support} command does not output support values by de
                 To print the bremer supports of the trees in memory, using as
                 reference trees stored in a file, 
                 \poyargument{bremer} accepts an optional string argument
-                (as in \poycommand{report(supports:\\bremer:"file.txt")}, 
+                (as in \poycommand{report(supports:bremer:"file.txt")}, 
                 or a list of strings encloed in parentheses (as in
-                \poycommand{report(supports:\\bremer:("file1.txt",
+                \poycommand{report(supports:bremer:("file1.txt",
                 "file2.txt"))}. The argument's value specifies the files containing lists of trees and costs (as
                 those generated by \ccross{visited}), that should be used with
                 their annotated cost to assign the bremer support values. 
@@ -1740,7 +1729,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                 characters must first be transformed into static characters
                 using the \poycommand{transform} command (see example in tutorial \texttt{4.2}): 
                 \begin{flushleft}
-                    \poycommand{transform ((all, static\_approx))} \\
+                    \poycommand{transform ((all, static\_approx))} 
                     \poycommand{report ("report.ss", phastwinclad)}
                 \end{flushleft}}
                 {}
@@ -1751,7 +1740,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                 example, 
                 \begin{flushleft}
                 \poycommand{transform ((names:("fragment\_1", "fragment\_2"),
-                static\_approx))} \\
+                static\_approx))} 
                 \poycommand{report ("myfile.ss", phastwinclad)}
                 \end{flushleft}
                 will produce Hennig86 files only for
@@ -1905,7 +1894,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             {This command saves all trees in memory in
             PDF format to the file \texttt{filename.pdf}.}
 
-		\poyexample{report(asciitrees, "file1", trees:(newick, nomargin), \\ "file2", graphtrees)}
+		\poyexample{report(asciitrees, "file1", trees:(newick, nomargin), "file2", graphtrees)}
 		{This command displays a tree in ascii format on screen and outputs
 		to \texttt{file1} trees with zero-length branches collapsed in Newick format
 		in a single line (using no margin, the format compatible with \emph{TreeView}). It
@@ -1921,7 +1910,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             Hennig86.
             \index{general}{export!hennig}\index{general}{export!nona} \index{general}{export!tnt}}
             
-         \poyexample{report("my\_results", data, diagnosis, consensus, \\consensus:75,
+         \poyexample{report("my\_results", data, diagnosis, consensus, consensus:75,
          "consensus", graphconsensus)}
          {This command reports the requested types of outputs (\emph{i.e.}
         reports on the data, diagnosis, and strict consensus and 75 percent
@@ -1943,7 +1932,7 @@ The \poycommand{calculate\_support} command does not output support values by de
           the implied alignments only for characters contained in datafiles
           \texttt{SSU} and \texttt{LSU}.}
           
-          \poyexample{report("scipt1\_analysis", script\_analysis:"/users/datafiles/\\script1.poy")}
+          \poyexample{report("scipt1\_analysis", script\_analysis:"/users/datafiles/script1.poy")}
           {This command produces the file \texttt{scipt1\_analysis} that lists the commands from
           the input script file \texttt{script1.poy} in the order that optimizes parallelization and
           memory consumption. In this example the complete path (\texttt{/users/datafiles/script1.poy})
@@ -2027,13 +2016,13 @@ The \poycommand{calculate\_support} command does not output support values by de
             \texttt{alldata.poy} located in the current working directory, as
             printed by \poycommand{pwd()}.}
 
-        \poyexample{save("alldata.poy", "My total evidence \\data")}
+        \poyexample{save("alldata.poy", "My total evidence data")}
             {This command performs the same operation as described in the example above,
             but, in addition, it includes the string \texttt{My total
             evidence data} with the file \texttt{alldata.poy},
             which can later be retrieved using the command \ccross{inspect}.}
 
-        \poyexample{save("/Users/andres/test/alldata.poy", "My total evidence \\data")}
+        \poyexample{save("/Users/andres/test/alldata.poy", "My total evidence data")}
             {This command performs the same operation as the command described above
             with the important difference that the file \texttt{alldata.poy} generated in the
             directory \texttt{/Users/andres/test/} instead of the current working directory.}
@@ -2148,9 +2137,9 @@ The \poycommand{calculate\_support} command does not output support values by de
             best hits is at most 385 steps.}
 	
 	\poyexample {For Parallel Implementation of \poycommand{search}}
-            {{search(max\_time:0:6:0)}\\
-	                      {search(max\_time:0:6:0)}\\
-	                      {search(max\_time:0:4:0)}\\
+            {{search(max\_time:0:6:0)}
+	                      {search(max\_time:0:6:0)}
+	                      {search(max\_time:0:4:0)}
             {This series of commands will attempt as many builds, swaps, ratchets, and tree
             fusings as possible within the specified total time of 16 hours.  Trees are exchanged among
              processors at the end of each \poycommand{search} and the best unique trees
@@ -2355,28 +2344,26 @@ The \poycommand{calculate\_support} command does not output support values by de
 
 	\begin{poyexamples}
         
-        
-        \poyexample{select(terminals,names:("t1", "t2", "t3", "t4", "t5"), \\ 
-            characters, names:("chel.aln:0"))}
-            {This command selects only terminals \texttt{t1},  \texttt{t2},
-             \texttt{t3},  \texttt{t4}, and  \texttt{t5} and use data only from the
-              fragment  \texttt{0} contained in the file \texttt{chel.aln}.}
+        \poyexample{select(terminals,names:("t1", "t2", "t3", "t4", "t5"), characters, names:("chel.aln:0"))}
+        {This command selects only terminals \texttt{t1},  \texttt{t2},
+        \texttt{t3},  \texttt{t4}, and  \texttt{t5} and use data only from the
+        fragment \texttt{0} contained in the file \texttt{chel.aln}.}
 	
-	\poyexample{select(terminals, missing:50)}
-	{This command excludes from subsequent analyses all the terminals that
-	have more than 50 percent of characters missing. The list of included and excluded
-	terminals is automatically reported on screen.}
+        \poyexample{select(terminals, missing:50)}
+        {This command excludes from subsequent analyses all the terminals that
+        have more than 50 percent of characters missing. The list of included and excluded
+        terminals is automatically reported on screen.}
 	
-	\poyexample{select(optimal)}
-            {Selects all optimal (best cost) trees and discards suboptimal trees from
-            memory. The pool of optimal trees might contain duplicate trees (that can
-            be removed using \poyargument{unique}).}
+	    \poyexample{select(optimal)}
+        {Selects all optimal (best cost) trees and discards suboptimal trees from
+        memory. The pool of optimal trees might contain duplicate trees (that can
+        be removed using \poyargument{unique}).}
             
-	\poyexample{select(unique, within:2.0)}
-	{This command selects all topologically unique optimal and suboptimal trees
-	the cost of which does not exceed that of the best current cost by more than
-	2. For example, if the best current cost is 49, all unique trees that fall within
-	the cost range 49--51 are selected.}
+	    \poyexample{select(unique, within:2.0)}
+    	{This command selects all topologically unique optimal and suboptimal trees
+	    the cost of which does not exceed that of the best current cost by more than
+    	2. For example, if the best current cost is 49, all unique trees that fall within
+	    the cost range 49--51 are selected.}
 	
 	\end{poyexamples}
 
@@ -2392,13 +2379,12 @@ The \poycommand{calculate\_support} command does not output support values by de
 	\syntax{\obligatory{(\optional{argument list})}}
 
 	\begin{poydescription}
-            Changes the settings of \poy. This command performs diverse auxiliary 
-            functions, from setting the seed of the random number generator to
-            selecting a terminal for rooting output trees.
-            
-            There is no default setting for \poycommand{set} and the order of its
-            arguments is arbitrary.
-            
+        Changes the settings of \poy. This command performs diverse auxiliary 
+        functions, from setting the seed of the random number generator to
+        selecting a terminal for rooting output trees.
+        
+        There is no default setting for \poycommand{set} and the order of its
+        arguments is arbitrary.
 	\end{poydescription}
 
 	\begin{arguments}
@@ -2479,23 +2465,24 @@ The \poycommand{calculate\_support} command does not output support values by de
                 {Applies the Iterative Pass optimization for the tree cost
                 calculations. There are two forms of iterative pass: if the
                 argument value is \poyargument{exact} (the default), then a complete three
-                dimensional alignment is computed, as described for POY 3.0 in~\cite{wheeler2003a}. 
+                dimensional alignment is computed, as described for POY 3.0 in~\cite{wheeler2003a}.
                 Otherwise, if the argument value is \poyargument{approximate}, then the iterations
                 approximate the three dimensional alignment using pairwise
-                alignments. 
-                For chromosome characters, 
-                the three dimentional alignment for three chromosomes
-                is computed by separating into smaller three dimentional
-                alignments of short sequences whose lengths are smaller 
-                or equal to \poyargument{max\_3d\_len}. The default value
-                is \texttt{200}.
+                alignments.
+                
+                For chromosome characters, the three dimentional alignment for
+                three chromosomes is computed by separating into smaller three
+                dimentional alignments of short sequences whose lengths are
+                smaller or equal to \poyargument{max\_3d\_len}. The default
+                value is \texttt{200}.
 
-                If the argument value is \poyargument{exact}, this method improves the tree
-                cost estimation but at the expense of a tremendous execution
-                time. When approximate the execution time footprint is much
-                smaller, and far less memory consumption.
-                A heuristic strategy is to apply  \poyargument{iterative} at the 
-                very end of an analysis to polish the final set of trees and perform a final search. 
+                If the argument value is \poyargument{exact}, this method
+                improves the tree cost estimation but at the expense of a
+                tremendous execution time. When approximate the execution time
+                footprint is much smaller, and far less memory consumption.  A
+                heuristic strategy is to apply  \poyargument{iterative} at the
+                very end of an analysis to polish the final set of trees and
+                perform a final search.
                 
                 Both arguments accept an optional integer, stating the maximum
                 number of iterations that can be performed. If no integer is
@@ -2592,7 +2579,7 @@ The \poycommand{calculate\_support} command does not output support values by de
 	\end{arguments}
 
     \begin{poyexamples}
-        \poyexample{store("initial\_tcm") \\ transform(tcm:(1,1)) \\ use("initial\_tcm")}
+        \poyexample{store("initial\_tcm") transform(tcm:(1,1)) use("initial\_tcm")}
             {The first command, \poycommand{store}, stores the current
             characters and trees under the
             name \texttt{initial\_tcm}. The second command,
@@ -3130,13 +3117,8 @@ The \poycommand{calculate\_support} command does not output support values by de
             cost of the A to T substitution is equal to the cost of T to A
             substitution). For example:
 	        \begin{center}
-            \texttt{0 2 1 2 4 \\
-            2 0 2 1 4 \\
-            1 2 0 2 4 \\
-            2 1 2 0 4 \\
-            4 4 4 4 0} 
-            \end{center}
-            }
+                \texttt{0 2 1 2 4  2 0 2 1 4  1 2 0 2 4  2 1 2 0 4  4 4 4 4 0} 
+            \end{center} }
             {transformtcmmatrix}
 
             \argumentdefinition{weight}{\obligatory{argument}}
@@ -3196,7 +3178,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             {customtobreakinv}
              
         \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
-           {Transforms nucleotide type data into \\ chromosome type data to allow
+           {Transforms nucleotide type data into chromosome type data to allow
             rearrangements, inversions, and locus-level indel operations.  The
             chromosome-specific options (\emph{e.g.}  \poyargument{locus\_breakpoint}, 
             \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, and \poyargument{locus\_indel}) can be specified by the argument
@@ -3495,48 +3477,50 @@ The \poycommand{calculate\_support} command does not output support values by de
 		\poyexample{transform((dynamic, weight:4))}{Applies the same
 		weight (an integer value \texttt{4}) to all dynamic homology characters.}
 
-        		\poyexample{transform((all, tcm:(1,1)), (names:("gen1",
-        		"gen2"), \\ static\_approx), (names:("gen3"), tcm:"molmatrix"))}  
-            	{Applies the substitution and indel costs \texttt{1} to all characters, then applies static approximation
-            	using that tcm to characters in files \texttt{gen1} and \texttt{gen2}, and for file
-            	gen3, it invokes a different transformation cost matrix, contained
-            	in the file molmatrix. Beware that the file name should be exactly
-            	as it was reported with \poycommand{report(data)}, which differs from the actual
-            	file name (\poycommand{report (data)} reports files as fileX:N).}
+        \poyexample{transform((all, tcm:(1,1)), (names:("gen1", "gen2"), static\_approx), (names:("gen3"), tcm:"molmatrix"))}  
+        {Applies the substitution and indel costs \texttt{1} to all characters, then applies static approximation
+        using that tcm to characters in files \texttt{gen1} and \texttt{gen2}, and for file
+        gen3, it invokes a different transformation cost matrix, contained
+        in the file molmatrix. Beware that the file name should be exactly
+        as it was reported with \poycommand{report(data)}, which differs from the actual
+        file name (\poycommand{report (data)} reports files as fileX:N).}
 
-        		\poyexample{transform((all, tcm:(1,1)), (names:("gen1:3",
-        		"gen2:10", \\"gen3:1", "gen4:5"), static\_approx), (names:("gen5", \\
-        		"gen6"), tcm:"Molmatrix1"))}
-            	{Applies \poyargument{tcm (1,1)} to all characters, then applies
-            	static approximation to the sequence data contained in files \texttt{gen1}, \texttt{gen2},
-            	\texttt{gen3}, and \texttt{gen4} according to this transformation cost
-            	matrix, and applies the custom transformation cost matrix contained in the file
-            	\texttt{Molmatrix1} to the sequence data contained in files \texttt{gen5} and
-            	\texttt{gen6}.}
-         
-         		\poyexample{transform(fixed\_states)}
-        		 {Transformed all sequence characters into fixed states characters.}
-            
-          	\poyexample{transform((names:("gen1", "gen4"), fixed\_states))}
-           	{Transformed only specified sequence characters (\texttt{gen1} and
-           	\texttt{gen4}) into fixed states characters.}
-           
-           	\poyexample{transform(custom\_to\_breakinv:(circular:true))}
-           	{In this example all custom\_alphabet data is transformed into the breakinv data type 
-		and is treated as a circular chromosome.}
-          
-          	\poyexample{transform(seq\_to\_chrom:(locus\_indel:(50, 1.0), min\_seed\_length:15))} 
-          	{All applicable (\emph{i.e.} sequence) data are transformed into chromosome
-          	data with the minimum length of identical contiguous sequence fragments which form
-	          the seeds of homologous blocks set at  \texttt{15} nucleotides and the locus-level gap
-	         opening cost is set at \texttt{50} with a gap extension cost at \texttt{1.0}.}
-              
-          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, median:1, circular:false)))} 
-             	{This example shows the transformation of chromosomal data using the argument \poyargument{dynamic\_pam}
-		to set the locus rearrangement (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or more nucleotides 
-		are considered in determining possible rearrangements between identified seeds.  The chromosome data are
-		treated as linear and only a single set of median rearrangements are stored.}
-            
+        \poyexample{transform((all, tcm:(1,1)), (names:("gen1:3",
+        "gen2:10", "gen3:1", "gen4:5"), static\_approx), (names:("gen5", 
+        "gen6"), tcm:"Molmatrix1"))}
+        {Applies \poyargument{tcm (1,1)} to all characters, then applies
+        static approximation to the sequence data contained in files \texttt{gen1}, \texttt{gen2},
+        \texttt{gen3}, and \texttt{gen4} according to this transformation cost
+        matrix, and applies the custom transformation cost matrix contained in the file
+        \texttt{Molmatrix1} to the sequence data contained in files \texttt{gen5} and
+        \texttt{gen6}.}
+ 
+        \poyexample{transform(fixed\_states)}
+         {Transformed all sequence characters into fixed states characters.}
+    
+        \poyexample{transform((names:("gen1", "gen4"), fixed\_states))}
+        {Transformed only specified sequence characters (\texttt{gen1} and
+        \texttt{gen4}) into fixed states characters.}
+       
+        \poyexample{transform(custom\_to\_breakinv:(circular:true))}
+        {In this example all custom\_alphabet data is transformed into the
+        breakinv data type and is treated as a circular chromosome.}
+      
+        \poyexample{transform(seq\_to\_chrom:(locus\_indel:(50, 1.0), min\_seed\_length:15))} 
+        {All applicable (\emph{i.e.} sequence) data are transformed into
+        chromosome data with the minimum length of identical contiguous sequence
+        fragments which form the seeds of homologous blocks set at  \texttt{15}
+        nucleotides and the locus-level gap opening cost is set at \texttt{50}
+        with a gap extension cost at \texttt{1.0}.}
+
+        \poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, median:1, circular:false)))} 
+        {This example shows the transformation of chromosomal data using the
+        argument \poyargument{dynamic\_pam} to set the locus rearrangement
+        (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or
+        more nucleotides are considered in determining possible rearrangements
+        between identified seeds.  The chromosome data are treated as linear and
+        only a single set of median rearrangements are stored.}
+
 	\end{poyexamples}	    
 
 \end{command}
@@ -3560,7 +3544,7 @@ The \poycommand{calculate\_support} command does not output support values by de
 	\end{poydescription}
 	
 	\begin{poyexamples}
-        \poyexample{store("initial\_tcm") \\ transform(tcm:(1,1)) \\ use("initial\_tcm")}
+        \poyexample{store("initial\_tcm")  transform(tcm:(1,1))  use("initial\_tcm")}
             {The first command, \poycommand{store}, stores the current
             characters and trees under the
             name \texttt{initial\_tcm}. The second command,

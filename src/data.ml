@@ -372,6 +372,37 @@ type d = {
     root_at : int option;
 }
 
+(** [compare d1 d2] Compare two data; we only return a boolean since ordering
+    would be completely undefined and chaotic. The comparison ignores things
+    that are not relevant to the DIAGNOSIS of the tree. This is to avoid
+    rediagnosising a tree, even though it has inconsequential details changed in
+    the parallel pipeline (scripting module). *)
+let compare data1 data2 : bool =
+    (data1.number_of_taxa = data2.number_of_taxa)
+        && (data1.synonyms = data2.synonyms)
+        && (data1.do_fs = data2.do_fs)
+        && (data1.current_fs = data2.current_fs)
+        && (data1.current_fs_file = data2.current_fs_file)
+        && (data1.taxon_files = data2.taxon_files)
+        && (data1.taxon_names = data2.taxon_names)
+        && (data1.taxon_codes = data2.taxon_codes)
+        && (data1.taxon_characters = data2.taxon_characters)
+        && (data1.searchbase_files = data2.searchbase_files)
+        && (data1.searchbase_names = data2.searchbase_names)
+        && (data1.searchbase_codes = data2.searchbase_codes)
+        && (data1.searchbase_characters = data2.searchbase_characters)
+        && (data1.character_names = data2.character_names)
+        && (data1.character_codes = data2.character_codes)
+        && (data1.character_sets = data2.character_sets)
+        && (data1.character_nsets = data2.character_nsets)
+        && (data1.character_specs = data2.character_specs)
+        && (data1.ignore_taxa_set = data2.ignore_taxa_set)
+        && (data1.ignore_character_set = data2.ignore_character_set)
+        && (data1.iterate_branches = data2.iterate_branches)
+        && (data1.complex_schema = data2.complex_schema)
+        && (data1.files = data2.files)
+        && (data1.machine = data2.machine)
+
 type bool_characters = [
     | `All
     | `Some of (bool * int list)
@@ -1100,7 +1131,6 @@ let process_trees data file =
             branches_to_map data None None (List.map (fun (x,_,_) -> x) trees)
         in
         let branches = if found then Some branches else None in
-        Status.user_message Status.Information msg;
         { data with trees = data.trees @ trees;
                     branches = branches;
                     iterate_branches = (not found);}
@@ -1155,7 +1185,7 @@ let find_code_for_root_if_removed data =
         if Hashtbl.mem data.taxon_characters c
         then 
             data
-        else
+        else begin
             let nc = 
                 Hashtbl.fold 
                     (fun c _ acc -> match acc with
@@ -1166,6 +1196,7 @@ let find_code_for_root_if_removed data =
                     data.taxon_characters None
             in
             { data with root_at = nc }
+        end
     | None -> data
 
 let pick_code_for_root code data = match data.root_at with
@@ -1211,7 +1242,6 @@ let rec process_taxon_code data taxon file =
             All_sets.StringMap.add taxon (All_sets.Strings.singleton file)
             data.taxon_files
         in
-        let data = pick_code_for_root code data in
         { data with
             number_of_taxa = data.number_of_taxa + 1;
             taxon_names = taxon_names;
@@ -1257,11 +1287,12 @@ let rec process_searchbase_code data taxon file =
             All_sets.StringMap.add taxon (All_sets.Strings.singleton file)
             data.searchbase_files 
         in
-        (*not sure if we need to do this: 
-        let data = pick_code_for_root code data in*)
-        { data with number_of_taxa = data.number_of_taxa + 1;
-        searchbase_names = searchbase_names; searchbase_codes = searchbase_codes; 
-        searchbase_files = searchbase_files }, code
+        let data = pick_code_for_root code data in
+        { data with
+            number_of_taxa = data.number_of_taxa + 1;
+            searchbase_names = searchbase_names; searchbase_codes = searchbase_codes;
+            searchbase_files = searchbase_files },
+        code
     end
 
 
@@ -5725,7 +5756,7 @@ let report_taxon_file_cross_reference chars data filename =
                     | Not_found -> false
                 in
                 let codes = get_chars_codes_comp data chars in
-                let codes = List.sort compare codes in
+                let codes = List.sort Pervasives.compare codes in
                 let codes_arr = Array.of_list codes 
                 and chars_arr = 
                     let name x = StatusCommon.escape (Hashtbl.find
@@ -6003,19 +6034,20 @@ let change_taxon_codes reorder_function data =
         data.taxon_characters;
         res
     in
-    let root = 
-        match data.root_at with
+    let root = match data.root_at with
         | None -> None
         | Some code -> 
                 try Some (Hashtbl.find htbl code) with
                 | _ -> None
     in
-    { data with taxon_names = taxon_names; taxon_codes = taxon_codes;
-    taxon_characters = taxon_characters; root_at = root }, htbl
+    { data with taxon_names = taxon_names;
+                taxon_codes = taxon_codes;
+                taxon_characters = taxon_characters;
+                root_at = root },
+    htbl
 
 let randomize_taxon_codes meth data = 
-    let f = 
-        match meth with
+    let f = match meth with
         | `RandomizedTerminals -> Array_ops.randomize 
         | `AlphabeticTerminals ->
                 Array.stable_sort ~cmp:(fun a b ->

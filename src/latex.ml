@@ -30,14 +30,15 @@ let o str = output_string !channel str
 
 let rec produce_latex = function
     | Command ("begin", (Word h :: tl)) ->
-            (match h with
+        begin match h with
             | "command" -> 
-                    (match tl with
+                begin match tl with
                     | h :: _ -> 
-                            o "@]\n\n";
-                            produce_latex h;
-                            o "\n.\n@[<v 2>"
-                    | [] -> failwith "command with no args?")
+                        o "@]\n\n.\n";
+                        produce_latex h;
+                        o "\n@[<v 2>"
+                    | [] -> failwith "command with no args?"
+                end
             | "description" ->
                     o "@,@[<v 2>@,@["
             | "poydescription" ->
@@ -45,7 +46,7 @@ let rec produce_latex = function
             | "arguments" ->
                     o "@,@,@[<v 2>@{<c:cyan>Arguments@}@,@,@[<v>"
             | "argumentgroup" ->
-                    (match tl with
+                begin match tl with
                     | [title ; description] ->
                             o "@,@[<v 2>@{<c:cyan>@[";
                             produce_latex title;
@@ -55,14 +56,16 @@ let rec produce_latex = function
                             o "@,@[<v 2>@{<c:cyan>@[";
                             produce_latex title;
                             o "@]@}@,@[";
-                    | _ -> failwith "argumentgroup without the necessary args?")
+                    | _ -> failwith "argumentgroup without the necessary args?"
+                end
             | "statement" -> o "@,@[@,@["
             | "poyexamples" -> o "@,@[<v 2>@{<c:cyan>Examples@}@,@,@[<v>"
             | "poyalso" -> o "@,@[<v 2>@[@{<c:cyan>See Also@}@]@,@,@[<v>"
             | "flushleft" 
             | "center" -> o "@[<v 2>@,@[" 
             | "atsymbol" -> o "@@"
-            | _ -> ())
+            | _ -> ()
+        end
     | Command ("%", []) -> o "%"
     | Command (h, []) when h = "" -> ()
     | Command (h, []) when h.[0] = '_' -> o h
@@ -92,7 +95,7 @@ let rec produce_latex = function
             produce_latex example;
             o "@}@]@,@[";
             produce_latex explanation;
-            o "@]@]@,@,";
+            o " @]@]@,@,@?";
     | Command ("ncross", [arg; _])
     | Command ("cross", [arg]) ->
             o "@[";
@@ -105,14 +108,12 @@ let rec produce_latex = function
     | Command ("ccross", [Word arg])
     | Command ("nccross", [Word arg; _]) ->
             o (arg ^ " (see help (" ^ arg ^ ")) ");
-    | Command _ -> ()
+    | Command (_,c) ->
+            List.iter produce_latex c
     | Text lst -> 
             List.iter produce_latex lst;
     | Word x -> 
             if x <> "~" then o x;
-            (*
-            if x <> "(" && x <> "[" then o " ";
-            *)
     | WordNoSpace x -> 
             if x <> "~" then o x
     | Blank -> o " "
@@ -246,8 +247,7 @@ let rec collapse2 = function
     | (Word a) :: (Command (h, [])) :: t when h.[0] = '_' ->
             Word (a ^ h) :: (collapse2 t)
     | ((Word a) as h) :: (((Word b) :: _) as t) ->
-            if b = "." || b = "," || b = ")" || b = "]" || b = "," 
-                || b = ";" then
+            if b = "." || b = "," || b = ")" || b = "]" || b = "," || b = ";" then
                 (WordNoSpace a) :: (collapse2 t)
             else h :: (collapse2 t)
     | h :: t -> h :: (collapse2 t)
@@ -336,10 +336,9 @@ let rec the_parser mode fstream =
 
 let process mode fstree = 
     let res = the_parser mode fstree in
-    let generator = 
-        match mode with
+    let generator = match mode with
         | `OnlineHelp -> produce_latex
-        | `Troff -> produce_troff
+        | `Troff      -> produce_troff
     in
     List.iter generator res
 
@@ -348,44 +347,43 @@ let process_file mode filename output_file =
     channel := open_out output_file;
     o (".TH POY 1 LOCAL\n");
     o (".SH NAME\npoy \\- A phylogenetic analysis program using dynamic \
-    homologies\n.SH SYNOPSIS\n.B poy [options] filename.\n\
-    .SH DESCRIPTION\npoy is a phylogenetic analysis program for morphological \
-    and molecular characters with support for dynamic homology characters: \
-    that is, supports the analysis of unaligned sequences.\n.SH OPTIONS\n\
-    .TP 5\n\
-    -w\n\
-    Run poy in the specified working directory. \n\
-    .TP\n\
-    -e\n\
-    Exit upon error. \n\
-    .TP\n\
-    -d\n\
-    Dump filename in case of error. \n\
-    .TP\n\
-    -q \n\
-    Don't wait for input other than the program argument script. \n\
-    .TP\n\
-    -no-output-xml \n\
-    Do not generate the output.xml file. \n\
-    .TP\n\
-    -help\n\
-    Display this list of options. \n\
-    .TP\n\
-    --help\n\
-    Display this list of options. \n\
-    \n.SH VERSION\n 4.0." ^ (Str.global_replace (Str.regexp " ") ""
-    BuildNumber.build) ^ "\n\
-    .SH COMMANDS\n.P\n\
-    For complete documentation go to \
-    http://research.amnh.org/scicomp/projects/poy.php.\n\
-    The following are the valid commands for \n\
-    .B poy.");
+        homologies\n.SH SYNOPSIS\n.B poy [options] filename.\n\
+        .SH DESCRIPTION\npoy is a phylogenetic analysis program for morphological \
+        and molecular characters with support for dynamic homology characters: \
+        that is, supports the analysis of unaligned sequences.\n.SH OPTIONS\n\
+        .TP 5\n\
+        -w\n\
+        Run poy in the specified working directory. \n\
+        .TP\n\
+        -e\n\
+        Exit upon error. \n\
+        .TP\n\
+        -d\n\
+        Dump filename in case of error. \n\
+        .TP\n\
+        -q \n\
+        Don't wait for input other than the program argument script. \n\
+        .TP\n\
+        -no-output-xml \n\
+        Do not generate the output.xml file. \n\
+        .TP\n\
+        -help\n\
+        Display this list of options. \n\
+        .TP\n\
+        --help\n\
+        Display this list of options. \n\
+        \n.SH VERSION\n 4.0." ^ (Str.global_replace (Str.regexp " ") "" BuildNumber.build) ^ "\n\
+        .SH COMMANDS\n.P\n\
+        For complete documentation go to \
+        http://research.amnh.org/scicomp/projects/poy.php.\n\
+        The following are the valid commands for \n\
+        .B poy.");
     process mode ch;
     o "\n.SH AUTHOR\npoy was written by Andres Varon, Le Sy Vinh, \
-    Illya Bomash, and Ward Wheeler.\n.PP\nThis manual page was written \
-    by Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, \
-    Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
-    Taran Grant, and William Leo Smith.\n.RS\n\n"
+        Illya Bomash, and Ward Wheeler.\n.PP\nThis manual page was written \
+        by Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, \
+        Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
+        Taran Grant, and William Leo Smith.\n.RS\n\n"
 
 let () = 
     let () = process_file `OnlineHelp "../doc/allcommands.tex" "help.txt"in

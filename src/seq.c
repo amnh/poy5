@@ -158,13 +158,9 @@ __inline void
 inline void
 #endif
 seq_reverse (seqt src, seqt tgt) {
-    SEQT *a, *b, *c;
     int i;
     tgt->len = src->len;
     tgt->begin = tgt->head + (tgt->cap - tgt->len);
-    a = seq_get_begin (src);
-    b = seq_get_begin (tgt);
-    c = seq_get_end (src);
     for (i = 0; i < src->len; i++) 
         *(tgt->begin + i) = *(src->end - i);
     return;
