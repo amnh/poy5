@@ -17,6 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+let debug = false
+
 type parsed = 
     | Word of string
     | WordNoSpace of string
@@ -28,10 +30,31 @@ let channel = ref stdout
 
 let o str = output_string !channel str
 
+let print_parsed l =
+    let rec print_parsed d x = 
+        let () = print_depth d in
+        match x with
+            | Word x        -> Printf.printf "Word:%s\n" x
+            | WordNoSpace x -> Printf.printf "Word:%s\n" x
+            | Blank         -> Printf.printf "' '\n";
+            | Text l        -> List.iter (print_parsed (d+1)) l;
+            | Command (x,l) -> Printf.printf "CMD:%s\n" x;
+                               List.iter (print_parsed (d+1)) l
+    and print_depth x =
+        if x = 0 
+            then ()
+            else begin
+                Printf.printf "\t";
+                print_depth (x-1)
+            end
+    in
+    if debug then print_parsed 0 l else ()
+
 let rec produce_latex = function
-    | Command ("begin", (Word h :: tl)) ->
+    | (Command ("begin", (Word h :: tl))) as command ->
         begin match h with
-            | "command" -> 
+            | "command" ->
+                print_parsed command;
                 begin match tl with
                     | h :: _ -> 
                         o "@]\n\n.\n";
@@ -296,8 +319,7 @@ let rec the_parser mode fstream =
             get_param (acc @ [(Text res)]) fstream
         end else acc
     in
-    let skip1 = [' '; '\t'; '\\'; '\010'; '\013'; '{'; '}'; ','; '.'; ')'; '(';
-            '['; ']'; '~'] 
+    let skip1 = [' '; '\t'; '\\'; '\010'; '\013'; '{'; '}'; ','; '.'; ')'; '('; '['; ']'; '~'] 
     and noskip = ['('; ')'; ','; '.'; '['; ']'; '~'] in
     let get_comm fstream =
         fstream#skip_ws_nl;
@@ -316,7 +338,9 @@ let rec the_parser mode fstream =
     in
     let rec split_on_commands acc fstream = 
         if is_end_of_file fstream then
-            List.rev acc
+            let data = List.rev acc in
+            let () = List.iter print_parsed data in
+            data
         else if is_blank fstream then
             split_on_commands (Blank :: acc) fstream
         else if is_close_command fstream then 
