@@ -66,14 +66,12 @@ let get_new_seq_ref_code () =
     incr gen_seq_ref_code;
     new_seq_ref_code
 
-let deref ptr = 
-    match ptr with
+let deref ptr = match ptr with
     | Some content -> content 
     | None -> failwith "It is a null pointer" 
             
 
-let is_null ptr = 
-    match ptr with
+let is_null ptr = match ptr with
     | None -> true 
     | _ -> false     
 
@@ -103,14 +101,13 @@ let compare_non_dec_list (l1 : int list) (l2 : int list) : bool =
 * as  the sum of array elements from [pos1] to [pos2]. 
 * Note that [pos1] is not necessary smaller than [pos2] *)
 let get_sum_arr (a : int array) (pos1 : int) (pos2 : int) = 
-    let rec add pos en sum =
-        match pos > en with
-            | true -> sum
-            | false -> add (pos + 1) en (sum + a.(pos))
+    let rec add pos en sum = match pos > en with
+        | true  -> sum
+        | false -> add (pos + 1) en (sum + a.(pos))
     in
     match pos1 < pos2 with
-        | true -> add pos1 pos2 0 
-        | false -> add pos2 pos1 0 
+    | true  -> add pos1 pos2 0 
+    | false -> add pos2 pos1 0 
     
     
 
@@ -118,8 +115,7 @@ let get_sum_arr (a : int array) (pos1 : int) (pos2 : int) =
 * this function returns an inverted array [arr'] where 
 * orders of elements from [start_pos] to [end_pos] are inverted.
 * Note that element directions (+/-) are kept unchanged *)
-let invert_subarr (arr :  'a array) 
-    (start_pos : int) (end_pos : int) = 
+let invert_subarr (arr :  'a array) (start_pos : int) (end_pos : int) = 
     for offset = 0 to (end_pos - start_pos + 1) / 2 - 1 do
         let tmp = arr.(start_pos + offset) in
         arr.(start_pos + offset) <- arr.(end_pos - offset);
@@ -172,23 +168,21 @@ let get_common arr1 arr2 equal =
     Array.of_list ls1, Array.of_list ls2
 
 let get_common3 arr1 arr2 arr3 equal =
-    let ls1 = Array.to_list arr1 in
-    let ls2 = Array.to_list arr2 in 
-    let ls3 = Array.to_list arr3 in 
-    let ls1 = List.filter 
-    (fun code1 -> 
-        ( (find_index arr2 code1 equal) != -1 ) && ( (find_index arr3 code1 equal) != -1)
-     ) ls1 
-    in
-    let ls2 = List.filter 
-    (fun code2 -> 
-        ( (find_index arr1 code2 equal) != -1 ) && ( (find_index arr3 code2 equal) != -1)
-     ) ls2 
-    in
-    let ls3 = List.filter 
-    (fun code3 -> 
-        ( (find_index arr1 code3 equal) != -1 ) && ( (find_index arr2 code3 equal) != -1)
-     ) ls3 
+    let ls1 =
+        List.filter
+            (fun code1 ->
+                ((find_index arr2 code1 equal) != -1) && ((find_index arr3 code1 equal) != -1))
+            (Array.to_list arr1)
+    and ls2 =
+        List.filter
+            (fun code2 ->
+                ((find_index arr1 code2 equal) != -1) && ((find_index arr3 code2 equal) != -1))
+            (Array.to_list arr2)
+    and ls3 =
+        List.filter
+            (fun code3 ->
+                ((find_index arr1 code3 equal) != -1) && ((find_index arr2 code3 equal) != -1))
+            (Array.to_list arr3)
     in
     Array.of_list ls1, Array.of_list ls2, Array.of_list ls3
     
@@ -232,8 +226,8 @@ let rec remove_nth ?(acc=[]) list n =
 
     
 (** Given two arrays [src_arr], [des_arr], and an array index [pos],
-* this function returns [des_arr'] where [src_arr] is inserted
-* into [des_arr] at position [pos] *)
+    this function returns [des_arr'] where [src_arr] is inserted
+    into [des_arr] at position [pos] *)
 let insert_arr src_arr des_arr pos =
     let src_len = Array.length src_arr in 
     let des_len = Array.length des_arr in 
@@ -250,10 +244,10 @@ let insert_arr src_arr des_arr pos =
     add des_arr pos (des_len - 1);
     arr
 
-(** This function is code by Andres, please ask Andres 
-* for more information *)    
-let rec pairwisep p list =
-    match list with
+(** [pairwisep p l] Apply a predicate [p] to a list with the head of a list and
+    the lists tail.  Thus, a list of, [a;b;c;d], would apply (p a [b;c;d]), (p b
+    [c;d]) ... until one of these is false, which we then return. *)
+let rec pairwisep p list = match list with
     | l :: ls ->
           let bools = List.map (p l) ls in
           if List.fold_left (&&) true bools
@@ -267,8 +261,8 @@ let filterArr arr f =
 
 
 (** Given a list [elem_ls] and an integer number [k],
-* this function return a list of [k] elements chosen
-* randomly from the list [elem_ls] *)
+    this function return a list of [k] elements chosen
+    randomly from the list [elem_ls] *)
 let get_k_random_elem elem_ls k = 
     let elem_arr = Array.of_list elem_ls in 
     let len = Array.length elem_arr in 
@@ -301,7 +295,8 @@ let get_k_random_elem elem_ls k =
 
 
 (** Given two arrays [arr1], [arr2] and compare function [cmp_fun],
-* this function returns true if [arr1] and [arr2] are identical, otherwise false *)
+    this function returns true if [arr1] and [arr2] are identical, otherwise
+    false *)
 let isEqualArr arr1 arr2 cmp_fun = 
     if Array.length arr1 != Array.length arr2 then false
     else begin
@@ -320,8 +315,8 @@ let filterArray fil_fun arr =
 
 
 (** Given an array [arr] and a list [break_ls] : (int * int) list,
-* this function returns a list of segments which 
-* are broken arcording to the [break_ls] *)
+    this function returns a list of segments which are broken arcording to the
+    [break_ls] *)
 let break_array arr break_ls = 
     let rev_seg_ls = 
         List.fold_left 
@@ -346,8 +341,7 @@ let printIntSet s =
     print_newline (); flush stdout
 
 
-let get_dir dir =  
-    match dir with 
+let get_dir dir =  match dir with 
     | `Positive -> "+" 
     | `Negative -> "-" 
     | _ -> "" 

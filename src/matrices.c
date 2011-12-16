@@ -268,11 +268,11 @@ value
 mat_CAML_get_value (value res, value mw, value mh, value vrow, value vcolumn) {
     CAMLparam5(res, mw, mh, vrow, vcolumn);
     matricest m;
-    int w, h, row, column; 
+    int w, row, column /*,h */; 
     DIRECTION_MATRIX *mm;
     m = Matrices_struct(res);
     w = Int_val(mw);
-    h = Int_val(mh);
+    /* h = Int_val(mh); */
     row = Int_val(vrow);
     column = Int_val(vcolumn);
     mm = mat_get_2d_direct(m);
