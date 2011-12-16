@@ -1275,20 +1275,20 @@ let report_memory () =
     and ( --> ) a b = b a 
     and stat = Gc.stat () in
     "@[<v 2>@{<b>Memory usage:@}@,@[<v>" 
-    --> append "Minor Words" stat.Gc.minor_words string_of_float
-    --> append "Promoted Words" stat.Gc.promoted_words string_of_float
-    --> append "Major Words" stat.Gc.major_words string_of_float
-    --> append "Major Collections" stat.Gc.major_collections string_of_int
-    --> append "Heap Words" stat.Gc.heap_words string_of_int
-    --> append "Heap Chunks" stat.Gc.heap_chunks string_of_int
-    --> append "Live Words" stat.Gc.live_words string_of_int
-    --> append "Free Words" stat.Gc.free_words string_of_int
-    --> append "Free Blocks" stat.Gc.free_blocks string_of_int
-    --> append "Largest Free" stat.Gc.largest_free string_of_int
-    --> append "Fragments" stat.Gc.fragments string_of_int
-    --> append "Compactions" stat.Gc.compactions string_of_int
-    --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
-    --> fun x -> x ^ "@]@]%!"
+        --> append "Minor Words" stat.Gc.minor_words string_of_float
+        --> append "Promoted Words" stat.Gc.promoted_words string_of_float
+        --> append "Major Words" stat.Gc.major_words string_of_float
+        --> append "Major Collections" stat.Gc.major_collections string_of_int
+        --> append "Heap Words" stat.Gc.heap_words string_of_int
+        --> append "Heap Chunks" stat.Gc.heap_chunks string_of_int
+        --> append "Live Words" stat.Gc.live_words string_of_int
+        --> append "Free Words" stat.Gc.free_words string_of_int
+        --> append "Free Blocks" stat.Gc.free_blocks string_of_int
+        --> append "Largest Free" stat.Gc.largest_free string_of_int
+        --> append "Fragments" stat.Gc.fragments string_of_int
+        --> append "Compactions" stat.Gc.compactions string_of_int
+        --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
+        --> fun x -> x ^ "@]@]%!"
 
 let explode_filenames files =
     (*
@@ -1318,7 +1318,7 @@ END
  * data of the trees, or update the data to the tree (if load_data is false).
  * This is done when cost modes and other settings have been changed, and does
  * not affect the data or how the data is created. *) 
-let rediagnose_trees ?(classify=true) load_data run = 
+let rediagnose_trees ?(classify=true) load_data run =
     let replacer nodes nd = 
         let code = Node.taxon_code nd in
         try All_sets.IntegerMap.find code nodes with
@@ -1365,12 +1365,14 @@ let update_trees_to_data ?(classify=true) force load_data run =
     in
     let run = { run with nodes = nodes; data = data } in
     let len = (Sexpr.length run.trees) + (Sexpr.length run.stored_trees) in
-    if len > 0 then
+    if len > 0 then begin
         let st = Status.create "Diagnosis"  (Some len) "Recalculating trees" in
-        let nodes = 
-            List.fold_left (fun acc nd -> 
-                let code = Node.taxon_code nd in
-                All_sets.IntegerMap.add code nd acc) All_sets.IntegerMap.empty run.nodes
+        let nodes =
+            List.fold_left
+                (fun acc nd ->
+                    let code = Node.taxon_code nd in
+                    All_sets.IntegerMap.add code nd acc)
+                All_sets.IntegerMap.empty run.nodes
         in
         let replacer nd = 
             let code = Node.taxon_code nd in
@@ -1406,7 +1408,9 @@ let update_trees_to_data ?(classify=true) force load_data run =
         let stored = Sexpr.map (doit replacer) run.stored_trees in
         Status.finished st;
         { run with trees = trees; stored_trees = stored }
-    else run
+    end else begin
+        run
+    end
 
 let process_transform (run : r) (meth : Methods.transform) =
     match meth with
@@ -1764,6 +1768,7 @@ let output_clade_file data fn counter tree =
         ";\ncc-.;\nproc /;\n";
     close_out file
 
+
 let runtime_store rediagnose run meth =
     let store name run clas =
         match clas with
@@ -1788,7 +1793,8 @@ let runtime_store rediagnose run meth =
         match clas with
         | `Data -> 
                 let data, nodes = find run.data_store in
-                (changed || (run.data <> data)), { run with data = data; nodes = nodes}
+                let changed = changed || not (Data.compare run.data data) in
+                changed, { run with data = data; nodes = nodes}
         | `Trees ->
                 true, { run with trees = find run.tree_store }
         | `Bremer ->
@@ -1810,9 +1816,10 @@ let runtime_store rediagnose run meth =
             let changed, nrun = 
                 try List.fold_left (set name) (false, run) clas with
                 | Not_found -> 
-                        Status.user_message Status.Error ("The@ state@ of@ " ^
-                        "search@ " ^ name ^ "@ has@ not@ been@ defined.@ " ^
-                        "I@ will@ continue@ with@ the@ current@ state.");
+                    Status.user_message Status.Error 
+                        ("The@ state@ of@ search@ " ^ name ^
+                         "@ has@ not@ been@ defined.@ @ will@ continue@ " ^
+                         "with@ the@ current@ state.");
                         false, run
             in
             if changed && List.exists do_rediagnose clas then
@@ -3328,7 +3335,7 @@ let rec folder (run : r) meth =
     let res = match meth with
     (* The following methods are only used by the parallel execution *)
     | `Barrier -> (* Wait for synchronization with every other process *)
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering barrier";
             let print_io_messages () =
                 let gotit, rank, tag = 
@@ -3376,57 +3383,16 @@ IFDEF USEPARALLEL THEN
             in
             do_barrier true 1;
             run
-            (*
-            let my_rank = Mpi.comm_rank Mpi.comm_world in
-            if my_rank <> 0 then
-                let () = Mpi.send () 0 Methods.barrier Mpi.comm_world in
-                print_msg "Calling barrier";
-                let () = Mpi.barrier Mpi.comm_world in
-                run
-            else
-                let counter_of_barriers = ref (Mpi.comm_size Mpi.comm_world) in
-                let rec test () = 
-                    if 1 < !counter_of_barriers then
-                        (* We first attempt to receive any messages *)
-                        let gotit, rank, tag = 
-                            Mpi.iprobe Mpi.any_source Methods.io Mpi.comm_world
-                        in
-                        if not gotit then 
-                            let gotbar, rank, tag = 
-                                Mpi.iprobe Mpi.any_source Methods.barrier
-                                Mpi.comm_world 
-                            in
-                            if not gotbar then 
-                                let _ = Timer.nanosleep 0 250000. in
-                                test ()
-                            else begin
-                                let _ = Mpi.receive rank tag Mpi.comm_world in
-                                decr counter_of_barriers;
-                                test ()
-                            end
-                        else
-                            let _ = 
-                                let (t : Status.c), (msg : string) = 
-                                    Mpi.receive rank tag Mpi.comm_world in
-                                Status.user_message t msg 
-                            in
-                            test ()
-                    else 
-                        let () = print_msg "Calling barrier" in
-                        let _ = Mpi.barrier Mpi.comm_world in
-                        run
-                in
-                test ()
-            *)
-ELSE 
-                run 
-END
+        ELSE
+            run 
+        END
+
     | `GatherTrees (joiner, continue) ->
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering Gather Trees";
             (* We define a function to reduce in parallel the results *)
             let receive_trees run other_rank =
-IFDEF USE_LARGE_MESSAGES THEN
+        IFDEF USE_LARGE_MESSAGES THEN
                 print_msg "It is time for me to receive the trees!!!!";
                 let tbl = Queue.create () in
                 let got_size = ref false in
@@ -3480,16 +3446,16 @@ IFDEF USE_LARGE_MESSAGES THEN
                 and stored_trees = Sexpr.of_list (Array.to_list !stored_trees) in
                 { run with trees = Sexpr.union run.trees trees; stored_trees =
                     Sexpr.union run.stored_trees stored_trees }
-ELSE
+        ELSE
                 print_msg "I will use cheap messages";
                 let dec = Mpi.receive other_rank Methods.do_job Mpi.comm_world
                 in
                 print_msg ("Received from " ^ string_of_int other_rank);
                 decode_trees print_msg dec run
-END
+        END
             in
             let send_trees run other_rank =
-IFDEF USE_LARGE_MESSAGES THEN
+        IFDEF USE_LARGE_MESSAGES THEN
                 let map_root r =
                     let nr = 
                         match r.Ptree.root_median with
@@ -3525,19 +3491,14 @@ IFDEF USE_LARGE_MESSAGES THEN
                 Array.iteri (send_tree 0) trees;
                 Array.iteri (send_tree 1) stored_trees;
                 ()
-ELSE
+        ELSE
                 print_msg "I will use cheap messages";
                 let enc = encode_trees print_msg run in
                 print_msg ("Sending to " ^ string_of_int other_rank);
                 Mpi.send enc other_rank Methods.do_job
                 Mpi.comm_world
-END
+        END
             in
-            (*
-            let send_trees run other_rank =
-            and receive_trees run other_rank =
-            in
-            *)
             let reduce_in_pairs bit run =
                 let other_rank = compute_other_rank bit in
                 print_msg ("Exchanging between " ^ string_of_int my_rank ^ " and " 
@@ -3576,25 +3537,12 @@ END
             let run = reduce_them_all 1 run in
             print_msg "Finished all gather";
             List.fold_left folder run continue
-            (*
-            let res = Mpi.allgather (encode_trees run) Mpi.comm_world in
-            print_msg "Finished Gather Trees";
-            let run = { run with trees = `Empty; stored_trees = `Empty } in
-            let run =
-                Array.fold_left 
-                (fun run treeset ->
-                    let run = decode_trees treeset run in
-                    List.fold_left folder run joiner)
-                run
-                res
-            in
-            List.fold_left folder run continue
-            *)
-ELSE 
+        ELSE 
                 run 
-END
+        END
+
     | `GatherJackknife ->
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering jackknife";
             let res = Mpi.allgather (encode_jackknife run) Mpi.comm_world in
             let run =
@@ -3607,11 +3555,11 @@ IFDEF USEPARALLEL THEN
             in
             print_msg "Exiting jackknife";
             run
-ELSE 
-                run 
-END
+        ELSE
+            run
+        END
     | `GatherBremer ->
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering bremer";
             let res = Mpi.allgather (encode_bremer run) Mpi.comm_world in
             let run = 
@@ -3624,11 +3572,12 @@ IFDEF USEPARALLEL THEN
             in
             print_msg "Exiting bootstrap";
             run
-ELSE 
-                run 
-END
+        ELSE 
+            run
+        END
+
     | `GatherBootstrap ->
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering bootstrap";
             let res = Mpi.allgather (encode_bootstrap run) Mpi.comm_world in
             let run = 
@@ -3641,18 +3590,19 @@ IFDEF USEPARALLEL THEN
             in
             print_msg "Exiting bootstrap";
             run
-ELSE 
-                run 
-END
-    | `SelectYourTrees -> 
-IFDEF USEPARALLEL THEN
+        ELSE
+            run
+        END
+    | `SelectYourTrees ->
+        IFDEF USEPARALLEL THEN
             print_msg "Entering select trees";
             let run = filter_my_trees run in
             print_msg "Exiting select trees";
             run
-ELSE 
-                run 
-END
+        ELSE
+            run
+        END
+
     | `Skip
     | `Entry -> run
     | `Plugin (name, args) ->
@@ -3728,88 +3678,78 @@ END
         let build_initial = Build.build_initial_trees in
         begin match MainBuild.get_transformations meth with
             | [] ->
-                let trees = build_initial run.trees data run.nodes meth in
-                { run with trees = trees }
+                let trees = build_initial run.trees run.data run.nodes meth in
+                { run with trees = trees; }
             | trans ->
-                let run = temporary_transforms trans run in
-                let run_and_untransform (run, untransforms) =
-                    let tree = 
-                        build_initial run.trees run.data run.nodes meth
-                    in
-                    let run = { run with trees = tree } in
-                    List.fold_left (fun r f -> f r) run untransforms
-                in
-                run_and_untransform run
+                let run,untransforms = temporary_transforms trans run in
+                let tree = build_initial run.trees run.data run.nodes meth in
+                let run = { run with trees = tree } in
+                List.fold_left (fun r f -> f r) run untransforms
         end
     | #Methods.local_optimum as meth ->
             warn_if_no_trees_in_memory run.trees;
-            let sets = 
+            let sets =
                 let `LocalOptimum m = meth in
                 TreeSearch.sets m.Methods.tabu_join run.data run.trees 
             in
             let do_search run = match is_forest meth with
                 | Some cost ->
-                    PTS.forest_search
-                        run.data 
-                        run.queue 
-                        cost 
-                        meth run.trees
+                    PTS.forest_search run.data run.queue cost meth run.trees
                 | None ->
-                    PTS.find_local_optimum
-                        run.data
-                        run.queue
-                        run.trees sets meth 
+                    PTS.find_local_optimum run.data run.queue run.trees sets meth
             in
-            (match TreeSearch.get_transformations meth with
-            | [] ->
-                let trees = do_search run in
-                { run with trees = trees }
-            | trans when only_multistatic trans ->
-                let (run, untransforms) = temporary_transforms trans run in
-                let trees = do_search run in
-                let run = { run with trees = trees } in
-                let run = List.fold_left (fun r f -> f r) run untransforms in
-                { run with trees = run.trees }
-            | trans ->
-                let runs = explode_trees run in
-                let runs = 
-                    Sexpr.map_status
-                    "Transforming each tree independently"
-                    ~eta:true
-                    (temporary_transforms trans) 
-                    runs 
-                in
-                let run_and_untransform (run, untransforms) =
+            begin match TreeSearch.get_transformations meth with
+                | [] ->
+                    let trees = do_search run in
+                    { run with trees = trees }
+                | trans when only_multistatic trans ->
+                    let (run, untransforms) = temporary_transforms trans run in
                     let trees = do_search run in
                     let run = { run with trees = trees } in
-                    let run = 
-                        List.fold_left (fun r f -> f r) run untransforms
+                    let run = List.fold_left (fun r f -> f r) run untransforms in
+                    { run with trees = run.trees }
+                | trans ->
+                    let runs = explode_trees run in
+                    let runs = 
+                        Sexpr.map_status
+                            "Transforming each tree independently"
+                            ~eta:true (temporary_transforms trans) 
+                            runs
                     in
-                    Sexpr.first run.trees
-                in
-                let trees = Sexpr.map run_and_untransform runs in
-                { run with trees = trees })
-    | `StandardSearch (max_time, min_time, min_hits, max_memory, target_cost,
-    visited, user_constraint) ->
-            let get_default x def = 
-                match x with
+                    let run_and_untransform (run, untransforms) =
+                        let trees = do_search run in
+                        let run = { run with trees = trees } in
+                        let run = 
+                            List.fold_left (fun r f -> f r) run untransforms
+                        in
+                        Sexpr.first run.trees
+                    in
+                    let trees = Sexpr.map run_and_untransform runs in
+                    { run with trees = trees }
+            end
+    | `StandardSearch (max_time, min_time, min_hits, max_memory, target_cost, visited, user_constraint) ->
+            let get_default x def = match x with
                 | None -> def
                 | Some x -> x
             in
             let max_time = get_default max_time 3600. in
             let min_time = get_default min_time max_time in
-            automated_search (List.fold_left folder) max_time min_time 
-            (get_default max_memory (2 * 1000 * 1000 * (1000 / (Sys.word_size /
-            8)))) (get_default min_hits max_int) target_cost visited
-            user_constraint run
+            let max_mem  = get_default max_memory (2 * 1000 * 1000 * (1000 / (Sys.word_size / 8))) in
+            automated_search (List.fold_left folder) max_time min_time
+                        max_mem (get_default min_hits max_int) target_cost
+                        visited user_constraint run
+
     | #Methods.perturb_method as meth ->
             warn_if_no_trees_in_memory run.trees;
             { run with trees = CT.perturbe run.data run.trees meth }
     | `Fusing ((_, _, _, _, x, _) as params) ->
             warn_if_no_trees_in_memory run.trees;
-            (try { run with trees = PTS.fusing run.data run.queue run.trees
-            params } with
-            | Failure "Tree fusing: must have at least two trees" -> run)
+            begin
+                try 
+                    { run with trees = PTS.fusing run.data run.queue run.trees params }
+                with | Failure "Tree fusing: must have at least two trees" ->
+                    run
+            end
     | `Bootstrap (it, a, b, c) -> 
             let meth = `Bootstrap (it, a, b, (run.data.Data.root_at)) in
             let run = reroot_at_outgroup run in

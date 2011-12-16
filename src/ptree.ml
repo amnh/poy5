@@ -2499,17 +2499,19 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
 
 
 let make_tree majority_cutoff coder builder map = 
-    let sets = 
-        Tree.CladeFPMap.fold (fun set cnt lst ->
-        if cnt >= majority_cutoff then (set, cnt) :: lst 
-        else lst) 
-        map
-        []
+    let sets =
+        Tree.CladeFPMap.fold
+            (fun set cnt lst ->
+                if cnt >= majority_cutoff then (set, cnt) :: lst
+                else lst)
+            map
+            []
     in
-    let sets = 
-        List.sort (fun (x, _) (y, _) -> 
-        (All_sets.Integers.cardinal x) - 
-        (All_sets.Integers.cardinal y)) sets
+    let sets =
+        List.sort
+            (fun (x, _) (y, _) ->
+                (All_sets.Integers.cardinal x) - (All_sets.Integers.cardinal y))
+            sets
     in
     let trees = List.fold_left builder All_sets.IntegerMap.empty sets in
     let tree, _ = All_sets.IntegerMap.find !coder trees in
@@ -2520,18 +2522,14 @@ let consensus is_collapsable to_string maj trees root =
     let print_frequency = maj <> number_of_trees 
     and number_of_trees = float_of_int number_of_trees 
     and coder = ref 0 in
-    let tree_builder = 
-        build_a_tree to_string number_of_trees print_frequency coder
-    in
-
-    trees -->
-        List.map (fun x ->
-                    let y = get_parent root x in
-                    Tree.reroot (root, y) x.tree, is_collapsable x)
-    --> List.fold_left (fun acc (x, y) ->
-                            add_tree_to_counters y acc x)
-                       Tree.CladeFPMap.empty
-    --> make_tree maj coder tree_builder
+    let tree_builder = build_a_tree to_string number_of_trees print_frequency coder in
+    trees
+        --> List.map (fun x ->
+                        let y = get_parent root x in
+                        Tree.reroot (root, y) x.tree, is_collapsable x)
+        --> List.fold_left (fun acc (x, y) -> add_tree_to_counters y acc x)
+                           Tree.CladeFPMap.empty
+        --> make_tree maj coder tree_builder
 
 
 let preprocessed_consensus to_string maj num_trees map =
