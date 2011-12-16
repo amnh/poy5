@@ -2982,7 +2982,7 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
                 && 0. <> Data.get_weight char data)
         else (fun _ -> true)
     in
-    let sign_dyna = List.filter is_mem data.Data.dynamics in
+    (*let sign_dyna = List.filter is_mem data.Data.dynamics in*)
     let data, generate_taxon = 
         current_snapshot "start nonadd sets";
         let n8 = List.filter is_mem data.Data.non_additive_8
@@ -3065,11 +3065,12 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
     in
     let nodes, data = structure_into_sets data nodes in
     current_snapshot "Node.load_data end";
-    let nodes =
+    (* do this inside data.ml
+    * let nodes =
         match sign_dyna with
         | h::t -> transform_multi_chromosome nodes data
         | _ -> nodes
-    in
+    in*)
     data, nodes
 
 (* OUTPUT TO XML *)

@@ -274,24 +274,34 @@ let of_array spec genome_arr code taxon num_taxa =
             | `Ml,Some m -> MlCS (MlDynamicCS.make (spec.Data.alph) t m)
             | `Ml,None -> failwith "DynamicCS.of_array; No likelihood model found"
             end
-    | `Breakinv | `Chromosome as meth ->
+    | `Breakinv ->
+    (*for breakinv and chromosome, we are only expecting one sequence in 
+    * Data.seq_arr -- since we only have one character per input file.*)
             let seq_arr = 
                 Array.map 
                 (fun (genome_data, genome_code) ->
-                    let first_seq = 
-                        genome_data.Data.seq_arr.(0).Data.seq in 
-                    (first_seq, genome_code)) genome_arr
+                    let first_seq_deli = 
+                        genome_data.Data.seq_arr.(0) in
+                    let first_seq = first_seq_deli.Data.seq in 
+                    let first_deli = first_seq_deli.Data.delimiter
+                    in
+                    (first_seq, first_deli, genome_code)) genome_arr
             in 
-            begin match meth with
-            | `Breakinv -> 
-                    let t = BreakinvCS.of_array spec seq_arr code in
-                    BreakinvCS t
-            | `Chromosome  ->
-                    let t = 
-                        ChromCS.of_array spec seq_arr code taxon num_taxa 
-                    in 
-                    ChromCS t
-            end
+            let t = BreakinvCS.of_array spec seq_arr code in
+            BreakinvCS t
+    | `Chromosome  ->
+            let seq_arr = 
+                Array.map 
+                (fun (genome_data, genome_code) ->
+                    let first_seqa = 
+                        genome_data.Data.seq_arr.(0) in
+                    let first_seq = first_seqa.Data.seq in 
+                    (first_seq, genome_code)) genome_arr
+            in
+            let t = 
+                ChromCS.of_array spec seq_arr code taxon num_taxa 
+            in 
+            ChromCS t
     | `Annotated -> 
           let t = AnnchromCS.of_array spec genome_arr code  taxon num_taxa in
           AnnchromCS t 

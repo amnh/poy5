@@ -236,6 +236,7 @@ val transform_range_to_codes : string -> int -> int -> [> `Names of string list]
 
 type 'a seq_t = {
     seq : 'a;
+    delimiter : int list;
     code : int;
 }
 

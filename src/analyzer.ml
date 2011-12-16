@@ -19,6 +19,8 @@
 
 let () = SadmanOutput.register "Analyzer" "$Revision: 1616 $"
 
+let debug = false
+
 let (-->) a b = b a
 
 type channels = 
@@ -420,6 +422,7 @@ let dependency_relations (init : Methods.script) =
                         [(trees @ fn, fn, init, NonComposable)], filename,
                         false
                 | `GraphicDiagnosis (_,filename) ->
+                        Printf.printf "report graphic diagnosis with filename %s\n%!" filename;
                         let fn = filename_to_list (Some filename) in
                         [(datantrees @ fn, fn, init, NonComposable)], 
                         Some filename, false
@@ -1404,6 +1407,9 @@ let entry res =
     Tree v
 
 let make_root_trees script =
+    if debug then
+    Printf.printf "make_root_trees,script lst len=%d\n%!"
+    (List.length script);
     thread_id := 0;
     script 
     --> List.map dependency_relations
@@ -1453,6 +1459,9 @@ let analyze (script : Methods.script list) : Methods.script list =
         else script 
     in
     *)
+    if debug then
+    Printf.printf "Analyzer.analyze1,input listlen=%d\n%!"
+    (List.length script);
     let (_, _, _, _, _, channels), res = 
         script --> make_root_trees
     in
@@ -1521,9 +1530,24 @@ let rec correct_parallel_pipelines_with_internal_transform (res : Methods.script
 
 
 let analyze script = 
+    if debug then
+    Printf.printf "Analyzer.analyze2 input lst len = %d\n%!"
+    (List.length script);
     let scripts = break_in_independent_sections script in 
+    if debug then
+    Printf.printf "after break_in_independent_sections,len=%d\n%!"
+    (List.length scripts);
     let res = List.flatten (List.map analyze scripts) in
+    if debug then
+    Printf.printf "before parallel,lstlen=%d\n%!"
+    (List.length res);
+    let res =
     correct_parallel_pipelines_with_internal_transform res
+    in
+    if debug then
+    Printf.printf "Analyzer.analyze2 reslst len = %d\n%!"
+    (List.length res);
+    res
 
 let script_to_string (init : Methods.script) =
     match init with
