@@ -1298,14 +1298,26 @@ let create_expr () =
         transform:
             [
                 [ LIDENT "transform";
-                    left_parenthesis; x = identifiers_opt; right_parenthesis -> x ]
+                    left_parenthesis;
+                    x = id_opt_lst;
+                    right_parenthesis -> x ]
+            ];
+        id_opt_lst:
+            [
+                [ 
+                    y = LIST1 [left_parenthesis; x = identifiers_opt; right_parenthesis -> x
+                    ] SEP "," ->`Transform (List.flatten y)
+                ] |
+                [
+                    y = identifiers_opt -> `Transform y
+                ]
             ];
         identifiers_opt:
             [ [id = identifiers; ","; left_parenthesis; 
                 x = LIST0 [ y = transform_method -> y] SEP ","; right_parenthesis ->
-                    `Transform (List.map (fun trf -> (id,trf)) x) ] |
+                    (List.map (fun trf -> (id,trf)) x) ] |
               [ x = LIST0 [ y = transform_method -> y] SEP "," ->
-                    `Transform (List.map (fun trf -> (`All,trf)) x) ]
+                    (List.map (fun trf -> (`All,trf)) x) ]
             ];
         ml_floatlist:
             [[
