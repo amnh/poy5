@@ -53,25 +53,23 @@ let option_to_string b =
     let build_string = " build " 
     and rcstring = " Release Candidate " in
     match release_option with
-    | Development ->
-            name
-            --> append " Development"
-            --> append build_string
-            --> append patch_version
-    | Official -> b
-    | Candidate x ->
-            b 
-            --> append rcstring
-            --> append (string_of_int x) 
+        | Official    -> b
+        | Development ->
+            name --> append " Development"
+                 --> append build_string
+                 --> append patch_version
+        | Candidate x ->
+            b   --> append rcstring
+                --> append (string_of_int x) 
 
 let small_version_string = 
     let concatenator x acc = acc ^ string_of_int x in
     let dot = "." in
-    "" 
-    --> concatenator major_version --> append dot
-    --> concatenator minor_version 
-    --> if_run (0 <> release_version) append dot
-    --> if_run (0 <> release_version) concatenator release_version 
+    ""  --> concatenator major_version
+        --> append dot
+        --> concatenator minor_version 
+        --> if_run (0 <> release_version) append dot
+        --> if_run (0 <> release_version) concatenator release_version 
 
 let version_string = option_to_string small_version_string
 
