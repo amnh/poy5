@@ -61,9 +61,9 @@ let cardinal x = IntMap.fold (fun _ _ acc -> acc + 1) x.meds 0
 (** [of_array spec arr code] creates a breakinv set
 * from an array of sequences [arr] *)
 let of_array spec arr code = 
-    let adder (meds, costs, recosts) (seq, key) = 
+    let adder (meds, costs, recosts) (seq,delimiter,key) = 
         let med = 
-            Breakinv.init_med seq spec.Data.tcm2d spec.Data.alph spec.Data.pam 
+            Breakinv.init_med seq delimiter spec.Data.tcm2d spec.Data.alph spec.Data.pam 
         in 
         (IntMap.add key med meds), 
         (IntMap.add key 0.0 costs), 

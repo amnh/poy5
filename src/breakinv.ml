@@ -50,8 +50,9 @@ let print medst =
 (** [init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
 * created from a sequence of general character [seq]*)
-let init_med (seq : Sequence.s) gen_cost_mat alpha breakinv_pam = 
-    {med_ls = [(BreakinvAli.init seq [])];
+let init_med (seq : Sequence.s) delimiter gen_cost_mat alpha breakinv_pam = 
+    let newmed = BreakinvAli.init seq delimiter in
+    {med_ls = [newmed];
      num_med = 1;   
      total_cost = 0;  
      total_recost = 0;  

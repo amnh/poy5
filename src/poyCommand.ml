@@ -21,6 +21,8 @@ exception Exit
 
 let () = SadmanOutput.register "PoyCommand" "$Revision: 810 $"
 
+let debug = false 
+
 type read_option_t = [
 | `Init3D of bool
 | `Orientation of bool
@@ -1259,6 +1261,7 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
             (transform_support_arguments x) :: acc
     | `Calculate _ -> acc
     | `Report x ->
+            Printf.printf "transform_report_arguments\n%!";
             (transform_report_arguments x) @ acc
     | `Select x ->
             (transform_select_arguments x) @ acc
@@ -2560,6 +2563,7 @@ string] list)  =
     do_analysis optimize (List.flatten res)
 
 and do_analysis optimize res =
+    if debug then Printf.printf "do analysis,optimize=%b\n%!" optimize;
     if optimize then Analyzer.analyze res
     else res
 
@@ -2579,16 +2583,25 @@ and of_parsed optimize lst =
     res
 
 and of_stream optimize str =
+    if debug then
+    Printf.printf "poyCommand.of_stream start,\n%!";
     let cur_directory = Sys.getcwd () in
     let expr = create_expr () in
     let res = 
         str (* --> add_command_to_console_script *)
             --> Gram.parse expr (Loc.mk "<stream>")
             --> transform_all_commands
+    in
+    if debug then
+    Printf.printf "commands list len=%d\n%!" (List.length res);
+    let res = res
             --> List.map (process_commands false)
             --> List.flatten
             --> do_analysis optimize
     in
+    if debug then
+    Printf.printf "commands list len2=%d\n%!" 
+    (List.length res);        
     let cur_directory = simplify_directory cur_directory in
     Sys.chdir cur_directory;
     res
@@ -2598,8 +2611,10 @@ and of_channel optimize ch =
     of_stream optimize (Stream.of_channel ch)
 
 and of_file optimize f =
+    Printf.printf "poyCommand.of_file %s,optimize=%b\n%!" f optimize;
     let ch = open_in f in
     let r = of_channel optimize ch in
+    Printf.printf "end of of_file %s\n%!" f;
     close_in ch;
     r
 
