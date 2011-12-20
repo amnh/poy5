@@ -689,7 +689,7 @@ int get_indel_cost (const seqt s, int len, const cmt c)
 
 int trivial_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c)
 {
-    int debug = 1;
+    int debug = 0;
     if (debug)  { printf("trivial algn\n");fflush(stdout);}
     int indelcost1 = get_indel_cost (s1,s1_len,c);
     int indelcost2 = get_indel_cost (s2,s2_len,c);

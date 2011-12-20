@@ -123,14 +123,14 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
 let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     let debug = true and debug2 = false in
     let min_cover_ratio:float = ChromPam.get_min_cover_ratio ali_pam
-    and min_lcb_ratio = ChromPam.get_min_lcb_ratio ali_pam
+    and min_lcb_ratio:float = ChromPam.get_min_lcb_ratio ali_pam
     and min_lcb_len = ChromPam.get_min_lcb_len ali_pam
     and max_lcb_len = ChromPam.get_max_lcb_len ali_pam
     in
     let use_ukk = ChromPam.use_ukk ali_pam in
     if debug then begin
         Printf.printf "====  create general ali with mauve, len1=%d,len2=%d\
-         min lcb ratio/len = %f/%d, min cover R = %f, min bk penalty = %d\n%!"
+         min lcb ratio = %f, min cover R = %f, min lcblen =%f, max lcblen=%f \n%!"
     (Sequence.length seq1) (Sequence.length seq2) min_lcb_ratio min_lcb_len 
     min_cover_ratio max_lcb_len;
     if debug2 then Sequence.printseqcode seq1;

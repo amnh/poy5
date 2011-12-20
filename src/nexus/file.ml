@@ -1457,19 +1457,23 @@ let apply_chrome_model set params acc =
     let create_annotation xs : Dyn_pam.annotate_tool_t =
         if List.mem (P.Annot_Type `Mauve) xs then begin
             let qual =
-                let x = List.find (function | P.Annot_Quality _ -> true | _ -> false) xs in
-                match x with | P.Annot_Quality x -> x | _ -> assert false
+                try let x = List.find (function | P.Annot_Quality _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Quality x -> x | _ -> assert false
+                with | Not_found -> 35.0
             and minl = 
-                let x = List.find (function | P.Annot_Min _ -> true | _ -> false) xs in
-                match x with | P.Annot_Min x -> x | _ -> assert false
+                try let x = List.find (function | P.Annot_Min _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Min_Percent x -> x | _ -> assert false
+                with | Not_found -> 0.01
             and maxl = 
-                let x = List.find (function | P.Annot_Max _ -> true | _ -> false) xs in
-                match x with | P.Annot_Max x -> x | _ -> assert false
+                try let x = List.find (function | P.Annot_Max _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Max_Percent x -> x | _ -> assert false
+                with | Not_found -> 0.10
             and cvrg = 
-                let x =List.find (function | P.Annot_Coverage _ -> true | _ -> false) xs in
-                match x with | P.Annot_Coverage x -> x | _ -> assert false
+                try let x =List.find (function | P.Annot_Coverage _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Coverage x -> x | _ -> assert false
+                with | Not_found -> 0.35
             in
-            `Mauve (qual,minl,cvrg,maxl)
+            `Mauve (qual,cvrg,minl,maxl)
         end else begin
             let minl =
                 try let x =List.find (function | P.Annot_Min _ -> true | _ -> false) xs in
