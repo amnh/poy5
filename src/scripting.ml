@@ -3875,39 +3875,43 @@ let rec folder (run : r) meth =
             let run = reroot_at_outgroup run in 
             match meth with
             | `SequenceStats (filename, ch) ->
-                    let arr = 
-                        let all_of_them = Data.sequence_statistics ch run.data in
-                        let arr =
-                            Array.of_list 
-                            (List.map (fun (name, stats) ->
-                                let cnt = float_of_int stats.Data.sequences in
-                                let len_avg =
-                                    (float_of_int stats.Data.sum_lengths) /. cnt 
-                                in
-                                let dis_avg = 
-                                    stats.Data.sum_distances /. 
-                                        (((cnt *. cnt) /. 2.) -. (cnt /. 2.))
-                                in
-                                [|name; string_of_int stats.Data.max_length; 
-                                string_of_int stats.Data.min_length;
-                                string_of_float len_avg; 
-                                string_of_float stats.Data.max_distance; 
-                                string_of_float stats.Data.min_distance; 
-                                string_of_float dis_avg|]) all_of_them)
-                        in
-                        Array.init (1 + Array.length arr) (function 0 ->
-                            [|"Character"; "Max Length"; "Min Length"; 
-                            "Average Length"; "Maximum Distance"; 
-                            "Minimum Distance"; "Average Distance"|] | n -> arr.(n - 1)) 
-                    and fo = Status.Output (filename, false, []) in
-                    Status.user_message fo 
-                    "@{<b>Sequence Statistics:@}@[<v 2>@,";
-                    Status.output_table fo arr;
-                    Status.user_message fo "@]\n%!";
-                    run
+                let arr =
+                    let all_of_them = Data.sequence_statistics ch run.data in
+                    let arr =
+                        Array.of_list 
+                            (List.map
+                                (fun (name, stats) ->
+                                    let cnt = float_of_int stats.Data.sequences in
+                                    let len_avg = (float_of_int stats.Data.sum_lengths) /. cnt in
+                                    let dis_avg =
+                                        let numr = stats.Data.sum_distances
+                                        and denm = ((cnt *. cnt) /. 2.) -. (cnt /. 2.) in
+                                        numr /. denm
+                                    in
+                                    [|  name;
+                                        string_of_int stats.Data.max_length; 
+                                        string_of_int stats.Data.min_length;
+                                        string_of_float len_avg; 
+                                        string_of_float stats.Data.max_distance; 
+                                        string_of_float stats.Data.min_distance; 
+                                        string_of_float dis_avg |])
+                                all_of_them)
+                    in
+                    Array.init 
+                        (1 + Array.length arr)
+                        (function
+                            | 0 ->
+                                [|"Character"; "Max Length"; "Min Length"; "Average Length";
+                                  "Maximum Distance"; "Minimum Distance"; "Average Distance"|]
+                            | n -> arr.(n - 1))
+                and fo = Status.Output (filename, false, []) in
+                Status.user_message fo 
+                "@{<b>Sequence Statistics:@}@[<v 2>@,";
+                Status.output_table fo arr;
+                Status.user_message fo "@]\n%!";
+                run
             | `Ci (filename, ch) | `Ri (filename, ch) as meth ->
-                    let realch = 
-                        match ch with
+                    let realch = match ch with
                         | Some x -> x
                         | None -> `All
                     in

@@ -40,9 +40,10 @@ let rec help = function
     | None       ->
         help (Some "index")
     | Some "index" ->
-        Status.user_message Status.Information "@[<v 2>@{<b>Help Topics:@}@,@[@[<h>";
-        List.iter (fun x -> output_help_head (fst x)) index;
-        Status.user_message Status.Information "@]@]@]@,"
+        let build x y = x ^ "@ @[<v 2>@{<c:cyan>" ^ y ^ "@}@]@," in
+        let str = "@[@{<b>Help Topics :@}@]@," in
+        let str = List.fold_left (fun y (x,_) -> build y x) str index in
+        Status.user_message Status.Information (str^"@,@,")
     | Some "all"   ->
         List.iter (fun x -> output_help_item (snd x)) index
     | Some it    ->

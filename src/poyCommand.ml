@@ -147,7 +147,7 @@ type transform_method = [
     | `AnnchromToBreakinv of chromosome_args list
     | `ChromToSeq of chromosome_args list
     | `BreakinvToSeq of chromosome_args list
-    | `Seq_to_Kolmogorov of Methods.kolmo_model
+(*    | `Seq_to_Kolmogorov of Methods.kolmo_model*)
     | `OriginCost of float
 ]
 
@@ -469,7 +469,7 @@ let transform_transform acc (id, x) =
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
             | `CustomToBreakinv x -> (`Custom_to_Breakinv (id, x)) :: acc
             | `AnnchromToBreakinv x -> (`Annchrom_to_Breakinv (id, x)) :: acc
-            | `Seq_to_Kolmogorov x -> (`Seq_to_Kolmogorov (id, x)) :: acc
+(*            | `Seq_to_Kolmogorov x -> (`Seq_to_Kolmogorov (id, x)) :: acc*)
             | `ChangeDynPam x -> (`Change_Dyn_Pam (id, x)) :: acc
             | `ChromToSeq x -> (`Chrom_to_Seq (id, x)) :: acc
             | `BreakinvToSeq x -> (`Breakinv_to_Custom (id, x)) :: acc
@@ -1502,11 +1502,11 @@ let create_expr () =
                 [ LIDENT "genome"; ":"; left_parenthesis; x = LIST0 
                         [ x = genome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
-                [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
-                [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->
-                    match y with
-                    | None -> `Seq_to_Kolmogorov (`AtomicIndel (None, None))
-                    | Some x -> x ]
+                [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ]
+(*              | [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->*)
+(*                    match y with*)
+(*                    | None -> `Seq_to_Kolmogorov (`AtomicIndel (None, None))*)
+(*                    | Some x -> x ]*)
 
             ];
         tcm_arguments:
@@ -1518,34 +1518,34 @@ let create_expr () =
                     | Some y -> `Tcm (x,Some y)
                 ]
             ];
-        optional_kolmogorov_parameters: 
-            [ 
-                [ ":"; left_parenthesis; 
-                    x = LIST0 [ x = kolmogorov_parameters -> x] SEP ","; 
-                    right_parenthesis  -> 
-                        let default = (None, None) in
-                        let x = 
-                            List.fold_left 
-                                (fun acc x -> match x with 
-                                    | `Event n -> (Some n, snd acc)
-                                    | `IndelSub n -> (fst acc, Some n))
-                                default 
-                                x
-                        in
-                        `Seq_to_Kolmogorov (`AtomicIndel x) ] 
-            ];
-        kolmogorov_parameters:
-            [
-                [ LIDENT "event"; ":"; x = FLOAT -> 
-                    `Event (float_of_string x) ] | 
-                [ LIDENT "indelsub"; ":"; left_parenthesis; insertion = FLOAT;
-                    ","; deletion = FLOAT; ","; substitution = FLOAT;
-                    right_parenthesis -> 
-                        `IndelSub
-                        (float_of_string insertion,
-                        float_of_string deletion, 
-                        float_of_string substitution) ]
-            ];
+(*        optional_kolmogorov_parameters: *)
+(*            [ *)
+(*                [ ":"; left_parenthesis; *)
+(*                    x = LIST0 [ x = kolmogorov_parameters -> x] SEP ","; *)
+(*                    right_parenthesis  -> *)
+(*                        let default = (None, None) in*)
+(*                        let x = *)
+(*                            List.fold_left *)
+(*                                (fun acc x -> match x with *)
+(*                                    | `Event n -> (Some n, snd acc)*)
+(*                                    | `IndelSub n -> (fst acc, Some n))*)
+(*                                default *)
+(*                                x*)
+(*                        in*)
+(*                        `Seq_to_Kolmogorov (`AtomicIndel x) ] *)
+(*            ];*)
+(*        kolmogorov_parameters:*)
+(*            [*)
+(*                [ LIDENT "event"; ":"; x = FLOAT -> *)
+(*                    `Event (float_of_string x) ] | *)
+(*                [ LIDENT "indelsub"; ":"; left_parenthesis; insertion = FLOAT;*)
+(*                    ","; deletion = FLOAT; ","; substitution = FLOAT;*)
+(*                    right_parenthesis -> *)
+(*                        `IndelSub*)
+(*                        (float_of_string insertion,*)
+(*                        float_of_string deletion, *)
+(*                        float_of_string substitution) ]*)
+(*            ];*)
         informative_characters:
             [
                 [ ":"; LIDENT "keep" -> false ] |
@@ -1784,7 +1784,7 @@ let create_expr () =
                 [ LIDENT "treestats" -> `TreesStats ] |
                 [ LIDENT "searchstats" -> `SearchStats ] |
                 [ LIDENT "treecosts" -> `TreeCosts ] |
-                [ LIDENT "kolmo_machine" -> `KolmoMachine ] |
+(*                [ LIDENT "kolmo_machine" -> `KolmoMachine ] |*)
                 [ LIDENT "timer"; ":"; x = STRING -> `TimeDelta x ] |
                 [ LIDENT "_mst" -> `MstR ] | 
                 [ LIDENT "consensus"; x = OPT optional_integer_or_float -> 
@@ -1800,17 +1800,16 @@ let create_expr () =
                 [ LIDENT "clades" -> `Clades ] |
                 [ LIDENT "phastwinclad" -> `FasWinClad ] | 
                 [ LIDENT "nexus" -> `Nexus ] | 
-                [ LIDENT "lkmodel"; ":"; left_parenthesis; 
-                    x = old_identifiers; right_parenthesis -> `Model x ] | 
+                [ LIDENT "lkmodel"; ":"; x = old_identifiers -> `Model x ] | 
                 [ LIDENT "lkmodel" -> `Model `All ] | 
                 [ LIDENT "script" -> `Script (!console_script) ] |
                 [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |
                 [ LIDENT "pairwise" -> `Pairwise `All ] |
-                [ LIDENT "seq_stats"; ":"; ch = old_identifiers ->
-                    `SequenceStats ch ] |
+                [ LIDENT "seq_stats"; ":"; ch = old_identifiers -> `SequenceStats ch ] |
+                [ LIDENT "seq_stats" -> `SequenceStats `All ] |
                 [ LIDENT "ci"; ":"; ch = old_identifiers -> `Ci (Some ch) ] |
-                [ LIDENT "ri"; ":"; ch = old_identifiers -> `Ri (Some ch) ] |
                 [ LIDENT "ci" -> `Ci None ] |
+                [ LIDENT "ri"; ":"; ch = old_identifiers -> `Ri (Some ch) ] |
                 [ LIDENT "ri" -> `Ri None ] |
                 [ LIDENT "compare"; ":"; left_parenthesis; complement = boolean;
                     ","; ch1 = old_identifiers; ","; ch2 = old_identifiers;

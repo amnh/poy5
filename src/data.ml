@@ -3602,16 +3602,20 @@ let statistics_of_alignments seqs pairs =
     and s_min = ref max_int 
     and s_sum = ref 0 in
     (* Gathed the distance data *)
-    Stack.iter (fun (_, _, cost) ->
+    Stack.iter
+        (fun (_, _, cost) ->
             d_min := min !d_min cost;
             d_max := max !d_max cost;
-            d_sum := !d_sum + cost;) pairs;
+            d_sum := !d_sum + cost;)
+        pairs;
     (* Gather the sequence data *)
-    Stack.iter (fun seq ->
-        let len = Sequence.length seq in
-        s_max := max !s_max len;
-        s_min := min !s_min len;
-        s_sum := !s_sum + len) seqs;
+    Stack.iter
+        (fun seq ->
+            let len = Sequence.length seq in
+            s_max := max !s_max len;
+            s_min := min !s_min len;
+            s_sum := !s_sum + len)
+        seqs;
     { max_length = !s_max;
         min_length = !s_min;
         sum_lengths = !s_sum;
