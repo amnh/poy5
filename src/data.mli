@@ -56,7 +56,7 @@ type polymorphism_t = Methods.polymorphism_arg
 
 (* none of the following should be in this module ... *)
 type annotate_tool_t =
-    [ `Default of int * int * int | `Mauve of float * int * float * int ]
+    [ `Default of int * int * int | `Mauve of float * float * float * float ]
 type median_solver_t =
     [ `Albert
     | `BBTSP

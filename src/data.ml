@@ -5077,7 +5077,7 @@ let compute_fixed_states filename data code polymph =
                     end;
             let cost =
                 if annotate_with_mauve then
-                    let min_lcb_ratio,min_lcb_len,min_cover_ratio,min_bk_penalty = 
+                    let min_lcb_ratio,min_cover_ratio,min_lcb_len,max_lcb_len = 
                         match dhs.pam.annotate_tool with
                         | Some (`Mauve (a,b,c,d)) -> a,b,c,d
                         | _ -> assert(false)                        
@@ -5098,8 +5098,8 @@ let compute_fixed_states filename data code polymph =
                     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
                             edit_cost,full_code_lstlst,len_lst1 =
                         Block_mauve.get_matcharr_and_costmatrix seqx seqy
-                                min_lcb_ratio min_lcb_len min_cover_ratio 
-                                min_bk_penalty l_i_c dhs.tcm2d align_with_newkk
+                                min_lcb_ratio min_cover_ratio min_lcb_len
+                                max_lcb_len l_i_c dhs.tcm2d align_with_newkk
                     in
                     if debug then begin 
                         Printf.printf "code1/code2 arr from block_mauve:\n%!";

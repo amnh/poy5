@@ -138,7 +138,7 @@ type transform_cost_matrix = [
 type median_solver_chosen = [ `MGR | `SimpleLK | `ChainedLK | `COALESTSP | `BBTSP |
 `Siepel | `Albert | `Vinh  ]
 
-type annotate_tool = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
+type annotate_tool = [ `Mauve of (float*float*float*float) | `Default of (int*int*int) ]
 
 type align_meth = [ `NewKK | `Default ]
 

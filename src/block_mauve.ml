@@ -5121,7 +5121,7 @@ total_range_lst  =
 
 
 let search_inside_a_lcb lcbrecord seq0 seq1 in_seqarr min_len max_len mum_tbl seed2pos_tbl cost_mat use_ukk =
-    let debug = true in
+    let debug = false in
     if debug then 
         Printf.printf "Search inside a lcb ,min and max len = %d/%d\n%!" min_len max_len;
         if debug then Printf.printf "work on lcb:%!";
@@ -5525,7 +5525,7 @@ Sequence.s and int array to this function.*)
 code_range_lst1 code_range_lst2 gen_gap_code
 block_gap_cost locus_indel_cost ali_mat gen_cost_mat len_lst1 base use_ukk 
 mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chunck lcb*) =
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     if debug then Printf.printf "fill_in_cost_ali_mat with basecode=%d\n%!"
     base;
     let set_cost code1 code2 cost = gen_cost_mat.(code1).(code2) <- cost in
@@ -5672,12 +5672,18 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
 * is cost_mat), full_cost_listlst is a little bit redundant here, for it
 * contains the two code array, but it also has the begin and end point of each
 * block. *)
-let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_lcb_len
-min_cover_ratio max_lcb_len 
+let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio min_lcb_len max_lcb_len 
 locus_indel_cost cost_mat use_ukk =
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     (*transform poy costmatrix into hodx_matrix in mauve*)
     fill_in_hmatrix cost_mat;
+    let len1 = Sequence.length seq1 and len2 = Sequence.length seq2 in
+    let minlen = if (len1>len2) then len2 else len1 in
+    let min_lcb_len,max_lcb_len = 
+        (float_of_int minlen) *. min_lcb_len,
+        (float_of_int minlen)*. max_lcb_len in
+    let min_lcb_len,max_lcb_len = 
+        int_of_float min_lcb_len, int_of_float max_lcb_len in
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
     let in_seqarr = [|seq1arr;seq2arr|] in
@@ -5799,7 +5805,7 @@ let get_seqlst_for_mauve in_seq =
     
 let output2mauvefile filename cost old_cost alied_gen_seq1 alied_gen_seq2 full_code_lstlst
 ali_mat gen_gap_code len_lst1 seqsize1 seqsize2 = 
-let debug = true in
+        let debug = false in
         (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in
         let oc = open_out filename in*)
         let rewrite = match old_cost with
