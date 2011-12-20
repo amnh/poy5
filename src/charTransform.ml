@@ -234,9 +234,12 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         new_data, new_tree
 
     let ratchet_tree data probability severity tree =
-        let new_data, changed = ratchet data probability severity in
-        let new_data, nodes = new_data --> Data.categorize --> Node.load_data in
-        new_data, substitute_nodes nodes tree, changed
+        if (Hashtbl.length data.Data.character_codes) > 1 then
+            let new_data, changed = ratchet data probability severity in
+            let new_data, nodes = new_data --> Data.categorize --> Node.load_data in
+            new_data, substitute_nodes nodes tree, changed
+        else
+            data, tree, 0
 
     let fix_implied_alignments remove_non_informative chars data tree = 
         let st = 
