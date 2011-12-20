@@ -2476,10 +2476,10 @@ IFDEF USEPARALLEL THEN
         end else ()
 END
 
-let automated_search folder max_time min_time max_memory min_hits target_cost
-visited user_constraint run =
+let automated_search folder max_time min_time max_memory min_hits target_cost visited user_constraint run =
     let module FPSet = Set.Make (Ptree.Fingerprint) in
-    let has_dynamic = Data.has_dynamic run.data in
+    let has_dynamic = Data.has_dynamic run.data
+    and do_static_approx = Data.can_do_static_approx run.data in
     let timer = Timer.start () in
     let search_results = ref empty_search_results in
     let get_memory () = (Gc.stat ()).Gc.heap_words in
@@ -2487,10 +2487,7 @@ visited user_constraint run =
     let trees = ref run.trees in
     let exhausted = ref FPSet.empty in
     let ratchets = ref 0 in
-    let best_cost = ref 
-        (match target_cost with
-        | None -> max_float 
-        | Some x -> x)
+    let best_cost = ref (match target_cost with | None -> max_float | Some x -> x)
     and hits = ref 0 
     and memory_change = ref (get_memory ())
     and memory_limit = ref false 
@@ -2615,7 +2612,7 @@ IFDEF USEPARALLEL THEN
                         else ahts), min best abest, max ax x) 
                     (0, 0, 0, 0, max_float, 0) arr in
             let run =
-                (if not_final then
+                if not_final then
                     folder run [`GatherTrees ([`BestN None], [])]
                 else if mem < max_memory then
                     folder run [`GatherTrees ([`Unique], [])]
@@ -2624,25 +2621,25 @@ IFDEF USEPARALLEL THEN
                     let mmax = Array.fold_left max 0 arr in
                     let mmax = max 1 (mmax / 2) in
                     let run = folder run [`Unique; `BestN (Some mmax)] in
-                    folder run [`GatherTrees ([`Unique; `BestN (Some mmax)],
-                    [])])
+                    folder run [`GatherTrees ([`Unique; `BestN (Some mmax)],[])]
             in
             let run =
                 if not_final then
                     { run with trees = Sexpr.union run.trees my_trees }
-                else run
+                else
+                    run
             in
-            let search_results = 
-                !search_results 
-                --> incr_search_results `Builds iterations_counter
-                --> incr_search_results `Fuse fuse_counter
-                --> incr_search_results `Ratchet ratchet_counter
+            let search_results =
+                !search_results
+                    --> incr_search_results `Builds iterations_counter
+                    --> incr_search_results `Fuse fuse_counter
+                    --> incr_search_results `Ratchet ratchet_counter
             in
-            { run with search_results = search_results }, 
+            { run with search_results = search_results },
             iterations_counter, fuse_counter, hits, best
 ELSE
-        let search_results = 
-                !search_results 
+        let search_results =
+            !search_results
                 --> incr_search_results `Builds !iterations_counter
                 --> incr_search_results `Fuse !fuse_counter
                 --> incr_search_results `Ratchet !ratchets
@@ -2812,17 +2809,17 @@ END
                     [APOY tbr; APOY timeout:[`Dynamic time]] --> add_constraint
                 in
                 let nrun = 
+                    (**** TODO ****)
                     exec nrun 
-                    (if has_dynamic then
-                        (CPOY 
-                        perturb (iterations:4, transform (tcm:(1,1),
-                        static_approx), timeout:[`Dynamic remaining_time],
-                        swap { swap_args }))
-                    else
-                        (CPOY 
-                        perturb (iterations:4, timeout:[`Dynamic
-                        remaining_time], swap { swap_args }) 
-                        swap (timeout:[`Dynamic remaining_time], randomized)))
+                        (if (not do_static_approx) && has_dynamic then
+                            (CPOY 
+                            perturb (iterations:4, timeout:[`Dynamic remaining_time], swap { swap_args }))
+                        else if has_dynamic then
+                            (CPOY 
+                            perturb (iterations:4, transform (tcm:(1,1), static_approx), timeout:[`Dynamic remaining_time], swap { swap_args }))
+                        else
+                            (CPOY 
+                            perturb (iterations:4, timeout:[`Dynamic remaining_time], swap { swap_args }) swap (timeout:[`Dynamic remaining_time], randomized)))
                 in
                 trees := Sexpr.union nrun.trees !trees;
                 update_information (`Initial nrun);

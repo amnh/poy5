@@ -614,6 +614,7 @@ val make_direct_optimization : bool_characters -> d -> d
 val make_partitioned : [`Clip | `NoClip] -> bool_characters -> d -> d
 
 val has_dynamic : d -> bool 
+val can_do_static_approx : d -> bool
 val has_likelihood: d -> bool 
 val type_of_dynamic_likelihood: d -> Methods.ml_costfn option
 

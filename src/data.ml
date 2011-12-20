@@ -5955,7 +5955,26 @@ let has_dynamic d =
     | [], [] -> false
     | _      -> true
 
-
+let can_do_static_approx d = match d.dynamics with
+    (* static doesn't do static_approx *)
+    | [] -> false
+    (* we do not do static approx if we only have
+            - genome, chrome, *custom*, breakinv *)
+    | xs ->
+        List.fold_left
+            ~f:(fun acc x -> match Hashtbl.find d.character_specs x with
+                | Dynamic d ->
+                    begin match d.state with
+                        (* custom is defined in Seq but not well... *)
+                        | `Seq | `Ml | `Annotated -> true
+                        | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> acc
+                    end
+                (* only dynamics... *)
+                | Static _ -> assert false
+                | Set      -> assert false
+                | Kolmogorov _  -> assert false)
+            ~init:false
+            xs
 
 (* [sync_model_branches copy translate src dest] sync the data from the src to
  * destination. Copy defines if the data returned is a copy, or if the
