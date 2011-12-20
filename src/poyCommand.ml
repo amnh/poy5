@@ -2604,15 +2604,14 @@ and of_stream optimize str =
             --> transform_all_commands
     in
     if debug then
-    Printf.printf "commands list len=%d\n%!" (List.length res);
+        Printf.printf "commands list len=%d\n%!" (List.length res);
     let res = res
             --> List.map (process_commands false)
             --> List.flatten
             --> do_analysis optimize
     in
     if debug then
-    Printf.printf "commands list len2=%d\n%!" 
-    (List.length res);        
+        Printf.printf "commands list len2=%d\n%!" (List.length res);        
     let cur_directory = simplify_directory cur_directory in
     Sys.chdir cur_directory;
     res
@@ -2622,10 +2621,8 @@ and of_channel optimize ch =
     of_stream optimize (Stream.of_channel ch)
 
 and of_file optimize f =
-    Printf.printf "poyCommand.of_file %s,optimize=%b\n%!" f optimize;
     let ch = open_in f in
     let r = of_channel optimize ch in
-    Printf.printf "end of of_file %s\n%!" f;
     close_in ch;
     r
 
