@@ -2830,109 +2830,96 @@ END
         raise Exit
     with
     | Exit ->
-            Status.finished search_iteration_status;
-            let do_exhaustive_round r =
-                if not has_dynamic then r
-                else
-                    let r' = r in
-                    let compare_trees a b =
-                        let cost = Ptree.get_cost `Adjusted in
-                        compare (cost a) (cost b)
-                    in
-                    let prev = !Methods.cost in
-                    match prev with
-                    | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ -> r
-                    | `Normal | `Normal_plus_Vitamines ->
-                            try
-                                let potential, not_potential = 
-                                    Sexpr.split (fun x ->
-                                    not 
-                                    (FPSet.mem (Ptree.Fingerprint.fingerprint x)
-                                    !exhausted)) r.trees 
-                                in
-                                match List.sort compare_trees 
-                                    (Sexpr.to_list potential) with
-                                | [] -> r
-                                | h :: t ->
-                                        let r = { r with trees = `Single h } in
-                                        Methods.cost := `Exhaustive_Weak;
-                                        let r = 
-                                            let args = 
-                                                [APOY timeout:[`Dynamic remaining_time]] -->
-                                                    add_visited --> add_constraint
-                                            in
-                                            exec r (CPOY swap {args})
-                                        in
-                                        let h = Sexpr.first r.trees in
-                                        exhausted := FPSet.add 
-                                        (Ptree.Fingerprint.fingerprint h)
-                                        !exhausted;
-                                        Methods.cost := prev;
-                                        let r =
-                                            { r with trees = Sexpr.union r.trees (Sexpr.union
-                                            not_potential (Sexpr.of_list t)) }
-                                        in
-                                        update_information (`Others (r', r));
-                                        r
-                            with
-                            | err ->
-                                    Methods.cost := prev;
-                                    raise err
-            in
-            let fuse_iteration_status = 
-                Status.create "Fusing Trees" None "" in
-            try
-                run := { !run with trees = !trees };
-                let len = Sexpr.length !trees in
-                trees := `Empty;
-                for i = 0 to (2 * len) do
-                    if 0. < remaining_time () then begin 
-                        incr fuse_counter;
-                        Status.message fuse_iteration_status 
-                        ("Generation " ^ string_of_int !fuse_counter);
-                        update_information (`Others (!run, !run));
-                    end;
-                    Status.full_report fuse_iteration_status;
-                    stop_if_necessary `Fuse;
-                    let fus = 
-                        let swap_args = 
-                            [APOY tbr; APOY timeout:[`Dynamic remaining_time]] -->
-                                add_randomized --> add_visited --> add_constraint
-                        in
-                        CPOY fuse (iterations:1, swap { swap_args })
-                    in
-                    let r = exec !run fus in 
-                    update_information (`Others (!run, r));
-                    run := r;
-                    stop_if_necessary `Other;
-                done;
-                let r = 
-                    let c = command_processor (CPOY select (unique)) in
-                    folder !run c 
+        Status.finished search_iteration_status;
+        let do_exhaustive_round r =
+            if not has_dynamic then r
+            else begin
+                let r' = r in
+                let compare_trees a b =
+                    let cost = Ptree.get_cost `Adjusted in
+                    compare (cost a) (cost b)
                 in
-                let r = do_exhaustive_round r in
-                trees := r.trees;
-                run := { r with trees = `Empty };
-                Status.finished fuse_iteration_status;
-            with
-            | Exit ->
-                    Status.finished fuse_iteration_status;
-                    raise Exit
+                let prev = !Methods.cost in
+                match prev with
+                | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ -> r
+                | `Normal | `Normal_plus_Vitamines ->
+                    try
+                        let potential, not_potential = 
+                            Sexpr.split
+                                (fun x ->
+                                    not (FPSet.mem (Ptree.Fingerprint.fingerprint x) !exhausted))
+                                r.trees 
+                        in
+                        match List.sort compare_trees (Sexpr.to_list potential) with
+                        | [] -> r
+                        | h :: t ->
+                            let r = { r with trees = `Single h } in
+                            Methods.cost := `Exhaustive_Weak;
+                            let r = 
+                                let args = 
+                                    [APOY timeout:[`Dynamic remaining_time]] -->
+                                        add_visited --> add_constraint
+                                in
+                                exec r (CPOY swap {args})
+                            in
+                            let h = Sexpr.first r.trees in
+                            exhausted := FPSet.add (Ptree.Fingerprint.fingerprint h) !exhausted;
+                            Methods.cost := prev;
+                            let r =
+                                { r with trees = Sexpr.union r.trees (Sexpr.union not_potential (Sexpr.of_list t)) }
+                            in
+                            update_information (`Others (r', r));
+                            r
+                    with | err ->
+                        Methods.cost := prev;
+                        raise err
+            end
+        in
+        let fuse_iteration_status = Status.create "Fusing Trees" None "" in
+        try
+            run := { !run with trees = !trees };
+            let len = Sexpr.length !trees in
+            trees := `Empty;
+            for i = 0 to (2 * len) do
+                if 0. < remaining_time () then begin 
+                    incr fuse_counter;
+                    Status.message fuse_iteration_status ("Generation " ^ string_of_int !fuse_counter);
+                    update_information (`Others (!run, !run));
+                end;
+                Status.full_report fuse_iteration_status;
+                stop_if_necessary `Fuse;
+                let fus = 
+                    let swap_args = 
+                        [APOY tbr; APOY timeout:[`Dynamic remaining_time]] -->
+                            add_randomized --> add_visited --> add_constraint
+                    in
+                    CPOY fuse (iterations:1, swap { swap_args })
+                in
+                let r = exec !run fus in 
+                update_information (`Others (!run, r));
+                run := r;
+                stop_if_necessary `Other;
+            done;
+            let r = folder !run (command_processor (CPOY select (unique))) in
+            let r = do_exhaustive_round r in
+            trees := r.trees;
+            run := { r with trees = `Empty };
+            Status.finished fuse_iteration_status;
+        with | Exit ->
+            Status.finished fuse_iteration_status;
+            raise Exit
     done;
     !run
-    with 
-    | Exit -> 
-            let r, iterations_counter, fuse_counter, hits, _ = 
-                collect_results false
-            in
-            Status.finished st;
-            Status.user_message Status.Information 
+    with | Exit -> 
+        let r, iterations_counter, fuse_counter, hits, _ = collect_results false in
+        Status.finished st;
+        Status.user_message Status.Information 
             ("The search evaluated " ^ string_of_int iterations_counter ^ 
             " independent repetitions with ratchet and fusing " ^
             "for " ^ string_of_int fuse_counter ^ " generations. " ^
             "The shortest tree was found " ^ string_of_int hits ^ 
             " times.");
-            folder r [`Unique]
+        folder r [`Unique]
 
 
 let rec process_application run item = 
