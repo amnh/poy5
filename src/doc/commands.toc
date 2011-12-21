@@ -1,0 +1,274 @@
+\contentsline {chapter}{\numberline {1}What is \texttt {POY5}\xspace }{9}{chapter.1}
+\contentsline {section}{\numberline {1.1}The structure of \texttt {POY5}\xspace documentation}{9}{section.1.1}
+\contentsline {chapter}{\numberline {2}\texttt {POY5}\xspace Quick Start}{11}{chapter.2}
+\contentsline {section}{\numberline {2.1}Requirements: software and hardware}{11}{section.2.1}
+\contentsline {subsection}{\numberline {2.1.1}Software}{11}{subsection.2.1.1}
+\contentsline {subsection}{\numberline {2.1.2}Hardware}{11}{subsection.2.1.2}
+\contentsline {section}{\numberline {2.2}Obtaining and installing \texttt {POY5}\xspace }{11}{section.2.2}
+\contentsline {subsection}{\numberline {2.2.1}Installing from the binaries}{11}{subsection.2.2.1}
+\contentsline {subsection}{\numberline {2.2.2}Compiling from the source}{13}{subsection.2.2.2}
+\contentsline {section}{\numberline {2.3}The Graphical User Interface}{14}{section.2.3}
+\contentsline {subsection}{\numberline {2.3.1}POY menu bar}{15}{subsection.2.3.1}
+\contentsline {subsection}{\numberline {2.3.2}POY Launcher}{16}{subsection.2.3.2}
+\contentsline {subsection}{\numberline {2.3.3}The \emph {Analyses} menu}{17}{subsection.2.3.3}
+\contentsline {subsubsection}{Tree searching options}{18}{section*.5}
+\contentsline {subsubsection}{Support calculation options}{25}{section*.10}
+\contentsline {paragraph}{Search for Bremer}{28}{figure.2.11}
+\contentsline {paragraph}{Report Bremer}{28}{section*.15}
+\contentsline {subsubsection}{Diagnosis}{28}{section*.16}
+\contentsline {subsubsection}{\emph {Script editing and the Interactive Console}}{28}{section*.18}
+\contentsline {subsection}{\numberline {2.3.4}The \emph {View} menu}{30}{subsection.2.3.4}
+\contentsline {section}{\numberline {2.4}Using the Interactive Console}{31}{section.2.4}
+\contentsline {subsection}{\numberline {2.4.1}The interface}{32}{subsection.2.4.1}
+\contentsline {subsection}{\numberline {2.4.2}Starting a \texttt {POY5}\xspace session using the \emph {Interactive Console}}{32}{subsection.2.4.2}
+\contentsline {subsection}{\numberline {2.4.3}Entering commands}{35}{subsection.2.4.3}
+\contentsline {subsection}{\numberline {2.4.4}Browsing the output}{35}{subsection.2.4.4}
+\contentsline {subsection}{\numberline {2.4.5}Switching between the windows}{36}{subsection.2.4.5}
+\contentsline {subsection}{\numberline {2.4.6}Importing data}{36}{subsection.2.4.6}
+\contentsline {subsection}{\numberline {2.4.7}Inspecting data}{38}{subsection.2.4.7}
+\contentsline {subsection}{\numberline {2.4.8}Building the initial trees}{41}{subsection.2.4.8}
+\contentsline {subsection}{\numberline {2.4.9}Performing a local search}{42}{subsection.2.4.9}
+\contentsline {subsection}{\numberline {2.4.10}Selecting trees}{44}{subsection.2.4.10}
+\contentsline {subsection}{\numberline {2.4.11}Visualizing the results}{45}{subsection.2.4.11}
+\contentsline {subsection}{\numberline {2.4.12}Interrupting a process}{45}{subsection.2.4.12}
+\contentsline {subsection}{\numberline {2.4.13}Reporting errors}{47}{subsection.2.4.13}
+\contentsline {subsection}{\numberline {2.4.14}Exiting}{47}{subsection.2.4.14}
+\contentsline {section}{\numberline {2.5}Creating and running \texttt {POY5}\xspace scripts}{47}{section.2.5}
+\contentsline {section}{\numberline {2.6}Obtaining help}{49}{section.2.6}
+\contentsline {section}{\numberline {2.7}WWW resources}{50}{section.2.7}
+\contentsline {chapter}{\numberline {3}\texttt {POY5}\xspace Commands}{53}{chapter.3}
+\contentsline {section}{\numberline {3.1}\texttt {POY5}\xspace command structure}{53}{section.3.1}
+\contentsline {subsection}{\numberline {3.1.1}Brief description}{53}{subsection.3.1.1}
+\contentsline {paragraph}{Primitive values}{53}{section*.25}
+\contentsline {paragraph}{Labeled values}{53}{section*.26}
+\contentsline {paragraph}{List of arguments}{53}{section*.27}
+\contentsline {paragraph}{Commands}{53}{section*.28}
+\contentsline {subsection}{\numberline {3.1.2}Grammar specification}{54}{subsection.3.1.2}
+\contentsline {section}{\numberline {3.2}Notation}{56}{section.3.2}
+\contentsline {section}{\numberline {3.3}Command reference}{58}{section.3.3}
+\contentsline {subsection}{\numberline {3.3.1}build}{58}{subsection.3.3.1}
+\contentsline {subsubsection}{Syntax}{58}{section*.29}
+\contentsline {subsubsection}{Description}{58}{section*.30}
+\contentsline {subsubsection}{Arguments}{58}{section*.31}
+\contentsline {subsubsection}{Defaults}{60}{section*.32}
+\contentsline {subsubsection}{Examples}{60}{section*.33}
+\contentsline {subsection}{\numberline {3.3.2}calculate\_support}{61}{subsection.3.3.2}
+\contentsline {subsubsection}{Syntax}{61}{section*.34}
+\contentsline {subsubsection}{Description}{61}{section*.35}
+\contentsline {subsubsection}{Arguments}{61}{section*.36}
+\contentsline {paragraph}{Support calculation methods}{61}{section*.37}
+\contentsline {paragraph}{Search strategy}{62}{section*.38}
+\contentsline {subsubsection}{Defaults}{63}{section*.39}
+\contentsline {subsubsection}{Examples}{63}{section*.40}
+\contentsline {subsubsection}{See also}{64}{section*.41}
+\contentsline {subsection}{\numberline {3.3.3}clear\_memory}{64}{subsection.3.3.3}
+\contentsline {subsubsection}{Syntax}{64}{section*.42}
+\contentsline {subsubsection}{Description}{65}{section*.43}
+\contentsline {subsubsection}{Arguments}{65}{section*.44}
+\contentsline {subsubsection}{Defaults}{65}{section*.45}
+\contentsline {subsubsection}{Examples}{65}{section*.46}
+\contentsline {subsubsection}{See also}{65}{section*.47}
+\contentsline {subsection}{\numberline {3.3.4}cd}{65}{subsection.3.3.4}
+\contentsline {subsubsection}{Syntax}{65}{section*.48}
+\contentsline {subsubsection}{Description}{65}{section*.49}
+\contentsline {subsubsection}{Arguments}{65}{section*.50}
+\contentsline {subsubsection}{Examples}{66}{section*.51}
+\contentsline {subsubsection}{See also}{66}{section*.52}
+\contentsline {subsection}{\numberline {3.3.5}echo}{66}{subsection.3.3.5}
+\contentsline {subsubsection}{Syntax}{66}{section*.53}
+\contentsline {subsubsection}{Description}{66}{section*.54}
+\contentsline {subsubsection}{Arguments}{66}{section*.55}
+\contentsline {paragraph}{Output class}{66}{section*.56}
+\contentsline {subsubsection}{Examples}{66}{section*.57}
+\contentsline {subsubsection}{See also}{67}{section*.58}
+\contentsline {subsection}{\numberline {3.3.6}exit}{67}{subsection.3.3.6}
+\contentsline {subsubsection}{Syntax}{67}{section*.59}
+\contentsline {subsubsection}{Description}{67}{section*.60}
+\contentsline {subsubsection}{Examples}{67}{section*.61}
+\contentsline {subsubsection}{See also}{67}{section*.62}
+\contentsline {subsection}{\numberline {3.3.7}fuse}{67}{subsection.3.3.7}
+\contentsline {subsubsection}{Syntax}{67}{section*.63}
+\contentsline {subsubsection}{Description}{68}{section*.64}
+\contentsline {subsubsection}{Arguments}{68}{section*.65}
+\contentsline {subsubsection}{Defaults}{68}{section*.66}
+\contentsline {subsubsection}{Examples}{68}{section*.67}
+\contentsline {subsubsection}{See also}{69}{section*.68}
+\contentsline {subsection}{\numberline {3.3.8}help}{69}{subsection.3.3.8}
+\contentsline {subsubsection}{Syntax}{69}{section*.69}
+\contentsline {subsubsection}{Description}{69}{section*.70}
+\contentsline {subsubsection}{Arguments}{69}{section*.71}
+\contentsline {subsubsection}{Defaults}{69}{section*.72}
+\contentsline {subsubsection}{Examples}{70}{section*.73}
+\contentsline {subsection}{\numberline {3.3.9}inspect}{70}{subsection.3.3.9}
+\contentsline {subsubsection}{Syntax}{70}{section*.74}
+\contentsline {subsubsection}{Description}{70}{section*.75}
+\contentsline {subsubsection}{Examples}{70}{section*.76}
+\contentsline {subsubsection}{See also}{71}{section*.77}
+\contentsline {subsection}{\numberline {3.3.10}load}{71}{subsection.3.3.10}
+\contentsline {subsubsection}{Syntax}{71}{section*.78}
+\contentsline {subsubsection}{Description}{71}{section*.79}
+\contentsline {subsubsection}{Examples}{71}{section*.80}
+\contentsline {subsubsection}{See also}{72}{section*.81}
+\contentsline {subsection}{\numberline {3.3.11}perturb}{72}{subsection.3.3.11}
+\contentsline {subsubsection}{Syntax}{72}{section*.82}
+\contentsline {subsubsection}{Description}{72}{section*.83}
+\contentsline {subsubsection}{Arguments}{72}{section*.84}
+\contentsline {subsubsection}{Defaults}{73}{section*.85}
+\contentsline {subsubsection}{Examples}{74}{section*.86}
+\contentsline {subsubsection}{See also}{74}{section*.87}
+\contentsline {subsection}{\numberline {3.3.12}pwd}{75}{subsection.3.3.12}
+\contentsline {subsubsection}{Syntax}{75}{section*.88}
+\contentsline {subsubsection}{Description}{75}{section*.89}
+\contentsline {subsubsection}{Examples}{75}{section*.90}
+\contentsline {subsubsection}{See also}{75}{section*.91}
+\contentsline {subsection}{\numberline {3.3.13}quit}{75}{subsection.3.3.13}
+\contentsline {subsubsection}{Syntax}{75}{section*.92}
+\contentsline {subsubsection}{Description}{75}{section*.93}
+\contentsline {subsubsection}{Examples}{76}{section*.94}
+\contentsline {subsubsection}{See also}{76}{section*.95}
+\contentsline {subsection}{\numberline {3.3.14}read}{76}{subsection.3.3.14}
+\contentsline {subsubsection}{Syntax}{76}{section*.96}
+\contentsline {subsubsection}{Description}{76}{section*.97}
+\contentsline {subsubsection}{Arguments}{77}{section*.98}
+\contentsline {paragraph}{Data file types}{77}{section*.99}
+\contentsline {subsubsection}{Defaults}{81}{section*.100}
+\contentsline {subsubsection}{Examples}{82}{section*.101}
+\contentsline {subsubsection}{See also}{83}{section*.102}
+\contentsline {subsection}{\numberline {3.3.15}rediagnose}{83}{subsection.3.3.15}
+\contentsline {subsubsection}{Syntax}{83}{section*.103}
+\contentsline {subsubsection}{Description}{83}{section*.104}
+\contentsline {subsubsection}{Examples}{83}{section*.105}
+\contentsline {subsection}{\numberline {3.3.16}recover}{83}{subsection.3.3.16}
+\contentsline {subsubsection}{Syntax}{83}{section*.106}
+\contentsline {subsubsection}{Description}{83}{section*.107}
+\contentsline {subsubsection}{Examples}{84}{section*.108}
+\contentsline {subsubsection}{See also}{84}{section*.109}
+\contentsline {subsection}{\numberline {3.3.17}redraw}{84}{subsection.3.3.17}
+\contentsline {subsubsection}{Syntax}{84}{section*.110}
+\contentsline {subsubsection}{Description}{84}{section*.111}
+\contentsline {subsubsection}{Examples}{84}{section*.112}
+\contentsline {subsection}{\numberline {3.3.18}rename}{85}{subsection.3.3.18}
+\contentsline {subsubsection}{Syntax}{85}{section*.113}
+\contentsline {subsubsection}{Description}{85}{section*.114}
+\contentsline {subsubsection}{Arguments}{85}{section*.115}
+\contentsline {paragraph}{Identifiers}{85}{section*.116}
+\contentsline {paragraph}{Specifying items to be renamed}{86}{section*.117}
+\contentsline {subsubsection}{Examples}{86}{section*.118}
+\contentsline {subsection}{\numberline {3.3.19}report}{87}{subsection.3.3.19}
+\contentsline {subsubsection}{Syntax}{87}{section*.119}
+\contentsline {subsubsection}{Description}{87}{section*.120}
+\contentsline {subsubsection}{Arguments}{87}{section*.121}
+\contentsline {paragraph}{Reporting to files}{87}{section*.122}
+\contentsline {paragraph}{Terminals and characters}{87}{section*.123}
+\contentsline {paragraph}{Trees}{89}{section*.124}
+\contentsline {paragraph}{Implied alignments}{92}{section*.125}
+\contentsline {paragraph}{Exporting static homology data}{92}{section*.126}
+\contentsline {paragraph}{diagnosis}{93}{section*.127}
+\contentsline {paragraph}{Other arguments}{94}{section*.128}
+\contentsline {subsubsection}{Defaults}{95}{section*.129}
+\contentsline {subsubsection}{Examples}{95}{section*.130}
+\contentsline {subsubsection}{See also}{97}{section*.131}
+\contentsline {subsection}{\numberline {3.3.20}run}{98}{subsection.3.3.20}
+\contentsline {subsubsection}{Syntax}{98}{section*.132}
+\contentsline {subsubsection}{Description}{98}{section*.133}
+\contentsline {subsubsection}{Examples}{98}{section*.134}
+\contentsline {subsubsection}{See also}{98}{section*.135}
+\contentsline {subsection}{\numberline {3.3.21}save}{98}{subsection.3.3.21}
+\contentsline {subsubsection}{Syntax}{98}{section*.136}
+\contentsline {subsubsection}{Description}{99}{section*.137}
+\contentsline {subsubsection}{Examples}{99}{section*.138}
+\contentsline {subsubsection}{See also}{99}{section*.139}
+\contentsline {subsection}{\numberline {3.3.22}search}{100}{subsection.3.3.22}
+\contentsline {subsubsection}{Syntax}{100}{section*.140}
+\contentsline {subsubsection}{Description}{100}{section*.141}
+\contentsline {subsubsection}{Arguments}{100}{section*.142}
+\contentsline {subsubsection}{Defaults}{101}{section*.143}
+\contentsline {subsubsection}{Examples}{102}{section*.144}
+\contentsline {subsubsection}{See also}{102}{section*.145}
+\contentsline {subsection}{\numberline {3.3.23}select}{102}{subsection.3.3.23}
+\contentsline {subsubsection}{Syntax}{102}{section*.146}
+\contentsline {subsubsection}{Description}{102}{section*.147}
+\contentsline {subsubsection}{Arguments}{102}{section*.148}
+\contentsline {paragraph}{Select terminals and characters}{102}{section*.149}
+\contentsline {paragraph}{Character and terminal identifiers}{103}{section*.150}
+\contentsline {paragraph}{Select trees}{105}{section*.151}
+\contentsline {subsubsection}{Defaults}{105}{section*.152}
+\contentsline {subsubsection}{Examples}{106}{section*.153}
+\contentsline {subsubsection}{See also}{106}{section*.154}
+\contentsline {subsection}{\numberline {3.3.24}set}{106}{subsection.3.3.24}
+\contentsline {subsubsection}{Syntax}{106}{section*.155}
+\contentsline {subsubsection}{Description}{106}{section*.156}
+\contentsline {subsubsection}{Arguments}{107}{section*.157}
+\contentsline {paragraph}{Application settings}{107}{section*.158}
+\contentsline {paragraph}{Cost calculation}{107}{section*.159}
+\contentsline {paragraph}{Randomized routines}{109}{section*.160}
+\contentsline {subsubsection}{Defaults}{109}{section*.161}
+\contentsline {subsubsection}{Examples}{109}{section*.162}
+\contentsline {subsubsection}{See also}{110}{section*.163}
+\contentsline {subsection}{\numberline {3.3.25}store}{110}{subsection.3.3.25}
+\contentsline {subsubsection}{Syntax}{110}{section*.164}
+\contentsline {subsubsection}{Description}{110}{section*.165}
+\contentsline {subsubsection}{Arguments}{110}{section*.166}
+\contentsline {subsubsection}{Examples}{110}{section*.167}
+\contentsline {subsubsection}{See also}{110}{section*.168}
+\contentsline {subsection}{\numberline {3.3.26}swap}{111}{subsection.3.3.26}
+\contentsline {subsubsection}{Syntax}{111}{section*.169}
+\contentsline {subsubsection}{Description}{111}{section*.170}
+\contentsline {subsubsection}{Arguments}{111}{section*.171}
+\contentsline {paragraph}{Neighborhood}{111}{section*.172}
+\contentsline {paragraph}{Trajectory}{112}{section*.173}
+\contentsline {paragraph}{Branch break order}{112}{section*.174}
+\contentsline {paragraph}{Join method}{113}{section*.175}
+\contentsline {paragraph}{Reroot order}{113}{section*.176}
+\contentsline {paragraph}{Trajectory samples}{113}{section*.177}
+\contentsline {paragraph}{Character transformation}{114}{section*.178}
+\contentsline {paragraph}{Tree selection}{114}{section*.179}
+\contentsline {subsubsection}{Defaults}{115}{section*.180}
+\contentsline {subsubsection}{Examples}{115}{section*.181}
+\contentsline {subsubsection}{See also}{116}{section*.182}
+\contentsline {subsection}{\numberline {3.3.27}transform}{116}{subsection.3.3.27}
+\contentsline {subsubsection}{Syntax}{116}{section*.183}
+\contentsline {subsubsection}{Description}{116}{section*.184}
+\contentsline {subsubsection}{Arguments}{116}{section*.185}
+\contentsline {paragraph}{Identifiers}{116}{section*.186}
+\contentsline {paragraph}{Methods}{117}{section*.187}
+\contentsline {paragraph}{Chromosomal transformation methods}{121}{section*.188}
+\contentsline {subsubsection}{Defaults}{127}{section*.189}
+\contentsline {subsubsection}{Examples}{127}{section*.190}
+\contentsline {subsection}{\numberline {3.3.28}use}{129}{subsection.3.3.28}
+\contentsline {subsubsection}{Syntax}{129}{section*.191}
+\contentsline {subsubsection}{Description}{129}{section*.192}
+\contentsline {subsubsection}{Examples}{129}{section*.193}
+\contentsline {subsubsection}{See also}{130}{section*.194}
+\contentsline {subsection}{\numberline {3.3.29}version}{130}{subsection.3.3.29}
+\contentsline {subsubsection}{Syntax}{130}{section*.195}
+\contentsline {subsubsection}{Description}{130}{section*.196}
+\contentsline {subsubsection}{Examples}{130}{section*.197}
+\contentsline {subsection}{\numberline {3.3.30}wipe}{130}{subsection.3.3.30}
+\contentsline {subsubsection}{Syntax}{130}{section*.198}
+\contentsline {subsubsection}{Description}{130}{section*.199}
+\contentsline {subsubsection}{Examples}{130}{section*.200}
+\contentsline {chapter}{\numberline {4}\texttt {POY5}\xspace Heuristics: A Practical Guide}{131}{chapter.4}
+\contentsline {section}{\numberline {4.1}Introduction}{131}{section.4.1}
+\contentsline {section}{\numberline {4.2}Data treatment}{132}{section.4.2}
+\contentsline {section}{\numberline {4.3}Character optimization}{133}{section.4.3}
+\contentsline {section}{\numberline {4.4}Tree searching}{134}{section.4.4}
+\contentsline {section}{\numberline {4.5}Chromosomal heuristics}{135}{section.4.5}
+\contentsline {subsection}{\numberline {4.5.1}Breakinv character}{135}{subsection.4.5.1}
+\contentsline {subsection}{\numberline {4.5.2}Annotated chromosome character}{136}{subsection.4.5.2}
+\contentsline {subsection}{\numberline {4.5.3}Chromosome character}{137}{subsection.4.5.3}
+\contentsline {section}{\numberline {4.6}Transformation cost regimes}{139}{section.4.6}
+\contentsline {chapter}{\numberline {5}\texttt {POY5}\xspace Tutorials}{141}{chapter.5}
+\contentsline {section}{\numberline {5.1}Preparing data for analyzing in \texttt {POY5}\xspace }{141}{section.5.1}
+\contentsline {section}{\numberline {5.2}Combining search strategies}{142}{section.5.2}
+\contentsline {section}{\numberline {5.3}Searching under iterative pass}{144}{section.5.3}
+\contentsline {section}{\numberline {5.4}Bremer support}{146}{section.5.4}
+\contentsline {section}{\numberline {5.5}Jackknife support}{148}{section.5.5}
+\contentsline {section}{\numberline {5.6}Sensitivity analysis}{149}{section.5.6}
+\contentsline {section}{\numberline {5.7}Chromosome analysis: unannotated sequences}{152}{section.5.7}
+\contentsline {section}{\numberline {5.8}Chromosome analysis: annotated sequences}{154}{section.5.8}
+\contentsline {section}{\numberline {5.9}Custom alphabet break inversion characters}{155}{section.5.9}
+\contentsline {section}{\numberline {5.10}Genome analysis: multiple chromosomes}{157}{section.5.10}
+\contentsline {section}{Bibliography}{159}{section.5.10}
+\contentsline {section}{General Index}{160}{section.5.10}
+\contentsline {section}{POY 3.0 Commands Index}{161}{section.5.10}
