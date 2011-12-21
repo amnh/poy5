@@ -1212,12 +1212,18 @@ int mgr_invdist (int * g1, int * g2, int num_genes, int * deli1, int * deli2, in
 /* given a pair of delimeters: in_deli1 and in_deli2, fill out_g2 with a better "capping" of g2 */
 void better_capping (int * g1, int * g2, int num_genes, int * in_deli1, int * in_deli2, int num_deli1, int num_deli2, struct genome_struct * out_g2)
 {
+    int debug=0;
     int i;
     struct mgr_genome_struct *tmplist = NULL;
     mgr_distmem_t * dist_mem_cap = &distmem_capgraph;
     int max_num_deli = 0;
     if(num_deli1>num_deli2) max_num_deli = num_deli1;
     else max_num_deli = num_deli2;
+
+    if (debug) { 
+        printf ("better_capping,num_genes=%d,num_deli1=%d,num_deli2=%d\n",num_genes,num_deli1,num_deli2); 
+        fflush(stdout); }
+
 /*
     struct mgr_genome_struct * mgr_genome_list;
     mgr_genome_list = 
@@ -1235,14 +1241,15 @@ void better_capping (int * g1, int * g2, int num_genes, int * in_deli1, int * in
     multi_to_single (mgr_genome_list_cap[1].genes, g2, in_deli2, num_genes, num_deli2, max_num_deli);
     num_genes = num_genes + max_num_deli * 2 ;
 
-    //int num_chromosomes = max_num_deli;
+    int num_chromosomes = max_num_deli;
     tmplist = mgr_genome_list_cap;
-    //int dis = mcdist_capgraph 
-       // (tmplist, tmplist++, num_genes, num_chromosomes, dist_mem_cap,NULL);
+    int dis = mcdist_capgraph 
+        (tmplist, tmplist++, num_genes, num_chromosomes, dist_mem_cap,NULL);
+
     for(i=0;i<num_genes;i++)
     {
         mgr_genome_list_cap[2].genes[i] = dist_mem_cap->cappedp2[i];
-    }
+    } 
     int real_deli_num = single_to_multi ( mgr_genome_list_cap[2].genes, out_g2->genes, out_g2->delimiters, num_genes,max_num_deli);
     out_g2->deli_num =  real_deli_num;
 

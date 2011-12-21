@@ -143,6 +143,7 @@ let print dyn = match dyn with
     | ChromCS ch -> ChromCS.print ch
     | AnnchromCS ch -> AnnchromCS.print ch 
     | SeqCS ch -> SeqCS.check_characters_type ch
+    | BreakinvCS ch -> BreakinvCS.print ch  
     | _ -> print_endline "Do not print non-chromosome characters"
 
 (** [copy_chrom_map s_ch d_ch] copies the choromosome map
@@ -273,24 +274,34 @@ let of_array spec genome_arr code taxon num_taxa =
             | `Ml,Some m -> MlCS (MlDynamicCS.make (spec.Data.alph) t m)
             | `Ml,None -> failwith "DynamicCS.of_array; No likelihood model found"
             end
-    | `Breakinv | `Chromosome as meth ->
+    | `Breakinv ->
+    (*for breakinv and chromosome, we are only expecting one sequence in 
+    * Data.seq_arr -- since we only have one character per input file.*)
             let seq_arr = 
                 Array.map 
                 (fun (genome_data, genome_code) ->
-                    let first_seq = 
-                        genome_data.Data.seq_arr.(0).Data.seq in  
-                    (first_seq, genome_code)) genome_arr
+                    let first_seq_deli = 
+                        genome_data.Data.seq_arr.(0) in
+                    let first_seq = first_seq_deli.Data.seq in 
+                    let first_deli = first_seq_deli.Data.delimiter
+                    in
+                    (first_seq, first_deli, genome_code)) genome_arr
             in 
-            begin match meth with
-            | `Breakinv -> 
-                    let t = BreakinvCS.of_array spec seq_arr code in
-                    BreakinvCS t
-            | `Chromosome  ->
-                    let t = 
-                        ChromCS.of_array spec seq_arr code taxon num_taxa 
-                    in 
-                    ChromCS t
-            end
+            let t = BreakinvCS.of_array spec seq_arr code in
+            BreakinvCS t
+    | `Chromosome  ->
+            let seq_arr = 
+                Array.map 
+                (fun (genome_data, genome_code) ->
+                    let first_seqa = 
+                        genome_data.Data.seq_arr.(0) in
+                    let first_seq = first_seqa.Data.seq in 
+                    (first_seq, genome_code)) genome_arr
+            in
+            let t = 
+                ChromCS.of_array spec seq_arr code taxon num_taxa 
+            in 
+            ChromCS t
     | `Annotated -> 
           let t = AnnchromCS.of_array spec genome_arr code  taxon num_taxa in
           AnnchromCS t 
@@ -550,14 +561,20 @@ let flatten t_lst =
           | _ -> failwith "ERROR data type in flatten of dynamicCS.ml"
           ) t_lst in
           BreakinvCS.flatten bkCS_t_lst
-    | SeqCS _ -> 
+    (*| SeqCS _ -> 
           let seqCS_t_lst = List.map (fun x -> match x with
           | SeqCS x_seqCS -> x_seqCS
           | _ -> failwith "ERROR data type in flatten of dynamicCS.ml"
           ) t_lst in
-          SeqCS.flatten seqCS_t_lst
+          SeqCS.flatten seqCS_t_lst*)
     | _ -> failwith ("we don't deal with this type of dynmaic data now")
-     
+     (*
+let generate_delimiters seqlstlst is_breakinv =
+    if is_breakinv then
+        BreakinvCS.generate_delimiters seqlstlst
+    else
+        seqCS.generate_delimiters seqlstlst
+     *)
 
 (* return 1 if we are dealing with this kind of dynamic data for multi-chromosome.*)
 let is_available in_data =
@@ -569,18 +586,17 @@ let is_available in_data =
     in
     res
 
-let update_t oldt newseqlst delimiterslst =
+let update_t oldt file_median_seq file_median_chrom_seqdeli =
     let newt = 
     match oldt with
     | BreakinvCS bk_t ->
-       BreakinvCS ( BreakinvCS.update_t bk_t newseqlst delimiterslst )
-       (*skip SeqCS now, back later*)
-    | SeqCS seqcs_t ->
-            SeqCS ( SeqCS.update_t seqcs_t newseqlst delimiterslst ) 
-  (*  | ChromCS chrom_t ->
-            ChromCS ( ChromCS.update_t seqcs_t newseqlst delimiterslst ) 
-  *)
-    |_ -> failwith ("we don't update this , not yet")
+       let new_bk_t_lst = BreakinvCS.update_t bk_t file_median_seq file_median_chrom_seqdeli
+       in
+       List.map (fun x -> BreakinvCS x ) new_bk_t_lst
+    (*| SeqCS seqcs_t ->
+            SeqCS ( SeqCS.update_t seqcs_t file_median_seq file_median_chrom_seqdeli ) 
+    *)
+    |_ -> failwith ("dynaicCS.update_t,we don't update this datatype for multi-chromosome functions under MGR")
     in
     newt
     

@@ -53,33 +53,41 @@ let option_to_string b =
     let build_string = " build " 
     and rcstring = " Release Candidate " in
     match release_option with
-    | Development ->
-            name
-            --> append " Development"
-            --> append build_string
-            --> append patch_version
-    | Official -> b
-    | Candidate x ->
-            b 
-            --> append rcstring
-            --> append (string_of_int x) 
+        | Official    -> b
+        | Development ->
+            name --> append " Development"
+                 --> append build_string
+                 --> append patch_version
+        | Candidate x ->
+            b   --> append rcstring
+                --> append (string_of_int x) 
 
 let small_version_string = 
     let concatenator x acc = acc ^ string_of_int x in
     let dot = "." in
-    "" 
-    --> concatenator major_version --> append dot
-    --> concatenator minor_version 
-    --> if_run (0 <> release_version) append dot
-    --> if_run (0 <> release_version) concatenator release_version 
+    ""  --> concatenator major_version
+        --> append dot
+        --> concatenator minor_version 
+        --> if_run (0 <> release_version) append dot
+        --> if_run (0 <> release_version) concatenator release_version 
 
 let version_string = option_to_string small_version_string
 
+let version_num_string = Printf.sprintf "%d.%02d" major_version minor_version
 
-let string = "@[@[Welcome to @{<b>POY@} " ^ version_string ^ "@]@." ^
-                     rephrase ("@[compiled on " ^ CompileFlags.time
-                      ^ " with parallel " ^ is_true CompileFlags.str_parallel
-                      ^ ", interface " ^ get_interface CompileFlags.str_interface
-                      ^ ", and likelihood " ^ is_true CompileFlags.str_likelihood ^
-                      ".@]@,@[" ^
-                     "POY version " ^ version_string ^ ", Copyright (C) 2007, 2008 Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, and the American Museum of Natural History. POY 4.0 comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@]")
+let copyright_authors = 
+    rephrase ("@[Copyright (C) 2007, 2008 Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, and the American Museum of Natural History.@]@,")
+
+let warrenty_information =
+    rephrase ("@[POY "^ version_num_string ^" comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@,")
+
+let compile_information =
+    rephrase ("@[Compiled on " ^ CompileFlags.time
+            ^ " with parallel " ^ is_true CompileFlags.str_parallel
+            ^ ", interface " ^ get_interface CompileFlags.str_interface
+            ^ ", likelihood " ^ is_true CompileFlags.str_likelihood
+            ^ ", and concorde " ^ is_true CompileFlags.str_concorde ^ ".@]@,")
+
+let string = 
+    "@[@[Welcome to @{<b>POY@} " ^ version_string ^ "@]@."
+    ^ compile_information ^ copyright_authors ^ warrenty_information ^ "@]@."

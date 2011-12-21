@@ -26,6 +26,8 @@ let () = SadmanOutput.register "BreakinvAli" "$Revision: 911 $"
 
 let debug = false
 let fprintf = Printf.fprintf
+let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
+let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 
 (** Data structure to contain a breakinv sequence *)
 type breakinv_t = {
@@ -45,6 +47,20 @@ type breakinv_t = {
 
     delimiter_lst : int list (* delimiter list for multichromosome *)
 }
+
+
+let print bkt =
+    Printf.printf "[ seq=%!";
+    Sequence.printseqcode bkt.seq;
+    Printf.printf "alied_med=%!";
+    Sequence.printseqcode bkt.alied_med;
+    Printf.printf "alied_seq1=%!";
+    Sequence.printseqcode bkt.alied_seq1;
+    Printf.printf "alied_seq2=%!";
+    Sequence.printseqcode bkt.alied_seq2;
+    Printf.printf "cost1=%d,cost2=%d,recost1=%d,recost2=%d\n%!"
+    bkt.cost1 bkt.cost2 bkt.recost1 bkt.recost2;
+    Printf.printf "]\n%!"
 
 
 (** Data structure to contain parameters 
@@ -85,7 +101,8 @@ let breakinvPam_default = {
 
 
 (** [init seq] creates a new breakinv sequence from [seq] *)
-let init seq delimiters =  {        
+let init seq delimiters =  
+    {        
     seq = seq;  
     alied_med = Sequence.get_empty_seq ();
     alied_seq1 = Sequence.get_empty_seq ();
@@ -167,26 +184,41 @@ let get_recost user_pams =
 * computes total cost between two breakinv sequences [med1] and [med2].
 * the total cost = editing cost + rearrangement cost *)
 let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
-(*debug msg 
-    Printf.printf "breakinvAli.cmp_cost: %!"; 
+    let debug = false in
+    let len1wg = Sequence.length med1.seq 
+    and len2wg = Sequence.length med2.seq in
+    (*remove gaps if there is any from medseq*)
+    let gapcode = Alphabet.get_gap alpha in
+    let seq1 = Sequence.remove_gaps med1.seq ~gapcode:gapcode false in
+    let seq2 = Sequence.remove_gaps med2.seq ~gapcode:gapcode false in
+    if debug then begin
+    Printf.printf "breakinvAli.cmp_cost,gapcod=%d: \n%!" gapcode; 
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
- debug msg*)
+    end;
+   
     let ali_pam = get_breakinv_pam breakinv_pam in     
-    let len1 = Sequence.length med1.seq in 
-    let len2 = Sequence.length med2.seq in 
+    let len1 = Sequence.length seq1 in 
+    let len2 = Sequence.length seq2 in 
     let orientation = Alphabet.get_orientation alpha in
+    if len1<>len2 then
+        failwith ("cmp_cost funciton in breakinvAli.ml.ERROR:input sequence without gap have different length");
+    let gaplen1 = len1wg - len1 
+    and gaplen2 = len2wg - len2 in
+    if debug && (gaplen1>0||gaplen2>0) then
+        info_user_message "cmp_cost funciton in breakinvAli.ml.\
+        Warning:we have gaps in input, ignore them";
     if (len1 < 1) || (len2 < 1) then 0, (0, 0)
     else begin
         match ali_pam.symmetric with
         | true ->
                 let cost12, (recost12a,recost12b), _, _ =
-                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med1.seq
-                  med2.seq pure_gen_cost_mat alpha ali_pam.re_meth 
+                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv seq1
+                  seq2 pure_gen_cost_mat alpha ali_pam.re_meth 
                   ali_pam.swap_med ali_pam.circular orientation
               in 
               let cost21, (recost21a,recost21b), _, _ = 
-                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med2.seq
-                  med1.seq pure_gen_cost_mat alpha ali_pam.re_meth 
+                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv seq2
+                  seq1 pure_gen_cost_mat alpha ali_pam.re_meth 
                   ali_pam.swap_med ali_pam.circular orientation
               in 
               if cost12 <= cost21 then cost12, (recost12a,recost12b)
@@ -194,12 +226,12 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         | false ->
               let cost, recost, _, _ = 
                   if Sequence.compare med1.seq med2.seq < 0 then                       
-                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq
-                      med2.seq pure_gen_cost_mat alpha ali_pam.re_meth 
+                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv seq1
+                      seq2 pure_gen_cost_mat alpha ali_pam.re_meth 
                       ali_pam.swap_med ali_pam.circular orientation 
                   else 
-                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med2.seq
-                      med1.seq pure_gen_cost_mat alpha ali_pam.re_meth 
+                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv seq2
+                      seq1 pure_gen_cost_mat alpha ali_pam.re_meth 
                       ali_pam.swap_med ali_pam.circular orientation
               in      
               cost , recost
@@ -268,7 +300,7 @@ let pick_delimiters med1 med2 med_seq =
 * finds all medians between breakinv sequence [med1] and [med2]
 * allowing rearrangements *) 
 let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam = 
-    (* debug msg  
+    (* debug msg 
     let print_intlist lst = 
         Printf.printf "[%!";
         List.iter (Printf.printf "%d,") lst;
@@ -278,20 +310,58 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
     (* debug msg  
     Printf.printf "find_simple_med2_ls in breakinvAli.ml,med1/med2.seq = :\n";
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
-   (* Printf.printf " delimiter list = \n%!";
-    Utl.printIntArr med1.delimiter_lst; Utl.printIntArr med2.delimiter_lst; *)
+    Printf.printf " delimiter list = \n%!";
+    print_intlist med1.delimiter_lst; print_intlist med2.delimiter_lst; 
      debug msg *)
-    let len1 = Sequence.length med1.seq in 
-    let len2 = Sequence.length med2.seq in
+    let len1wg = Sequence.length med1.seq 
+    and len2wg = Sequence.length med2.seq in
+    if (len1wg<>len2wg) then
+        failwith ("median funciton in breakinvAli.ml.ERROR:input sequence have different length");
+    (*I add this for multipul data file input.
+    * file1 has t1 and t2
+        * >t1
+        * abc
+        * >t2
+        * bca
+    * file2 has only t3 and t4
+        * >t3
+        * cab
+        * >t4
+        * bac
+    * then we have for t1 and t2, med1.seq=[abc][-] and med2.seq=[bca][-] 
+    How about this?
+    * file1 
+        * >t1 
+        * abc
+        * >t2
+        * a
+    * file2:
+        * >t1
+        * there is no t1 in file2
+        * >t2
+        * bc
+    * here we end up having med1.seq=[abc][-] and med2.seq=[a][bc], is this
+    * allowed?*)
+    let gapcode = Alphabet.get_gap alpha in
+    let seq1 = Sequence.remove_gaps med1.seq ~gapcode:gapcode false in
+    let seq2 = Sequence.remove_gaps med2.seq ~gapcode:gapcode false in
+    let len1 = Sequence.length seq1 in 
+    let len2 = Sequence.length seq2 in
+    if len1<>len2 then
+        failwith ("median funciton in breakinvAli.ml.ERROR:input sequence without gap have different length");
+    let gaplen = len1wg - len1 in
+    if gaplen>0 then
+        info_user_message "median funciton in breakinvAli.ml.\
+        Warning:we have gaps in input, median function will ignore the gaps "; 
     let orientation = Alphabet.get_orientation alpha in
     if len1 < 1 then 0, (0, 0), [med2]
     else if len2 < 1 then 0, (0, 0), [med1] 
     else begin        
         let total_cost, (recost1, recost2), alied_gen_seq1, alied_gen_seq2 = 
-            GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq med2.seq
+            GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv seq1 seq2
             pure_gen_cost_mat alpha ali_pam.re_meth ali_pam.swap_med 
             ali_pam.circular orientation 
-        in 
+        in
         let re_seq2 =
             Utl.filterArr (Sequence.to_array alied_gen_seq2) (fun code2 -> code2 != Alphabet.get_gap alpha)
         in     
@@ -310,12 +380,21 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                               else -re_seq2.(index) + 1
                      ) (Array.length re_seq2)
                  in
+                 let med_seq = 
+                     if gaplen>0 then
+                         let gapseq = Sequence.create_gap_seq ~gap:gapcode gaplen in
+                         Sequence.concat [med_seq;gapseq]
+                     else med_seq
+                 in
                  (* create delimiter for the new median *)
                  (* just pick the better one from its two parents, for now *)
                  (* then we do "find better capping" after this*)
                  let len1 = List.length med1.delimiter_lst 
                  and len2 =  List.length med2.delimiter_lst in
                  let med_seq, newdelimiters =
+                     if gaplen>0 then 
+                         med_seq,med1.delimiter_lst
+                     else 
                      match med1.delimiter_lst,med2.delimiter_lst with
                      | h1::t1, h2::t2 -> 
                          if (len1=1)&&(len2=1) then
@@ -331,7 +410,7 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                  in
                  (* debug msg
                  Printf.printf "seqcode with better capping:\n%!";
-                 Sequence.printseqcode med_seq; Utl.printIntArr newdelimiters; 
+                 Sequence.printseqcode med_seq; print_intlist newdelimiters; 
                  debug msg *)
                  let newrefcode =  Utl.get_new_chrom_ref_code () in
                  let med = 

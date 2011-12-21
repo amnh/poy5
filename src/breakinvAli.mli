@@ -54,6 +54,7 @@ type breakinvPam_t = {
   kept_wag : int;
 }
 
+val print : breakinv_t -> unit
 
 val breakinvPam_default : breakinvPam_t
 

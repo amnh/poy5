@@ -429,34 +429,34 @@ let rec general_apply_on_character_set find set_table characters f x =
     let last = (Array.length characters) - 1 in
     match x with
     | P.Range (a, b, step) ->
-            let b = match b with
-                | None -> last
-                | Some b -> b
-            in
-            let rec loop i = 
-                if i > b then ()
-                else begin 
-                    f (i - 1);
-                    loop (i + step);
-                end;
-            in
-            loop a
+        let b = match b with
+            | None -> last
+            | Some b -> b
+        in
+        let rec loop i = 
+            if i > b then ()
+            else begin 
+                f (i - 1);
+                loop (i + step);
+            end;
+        in
+        loop a
     | P.Single v  -> f (v - 1);
     | P.Name name ->
-            if Hashtbl.mem set_table (String.uppercase name) then
-                List.iter 
-                    (general_apply_on_character_set find set_table characters f)
-                    (Hashtbl.find set_table (String.uppercase name))
-            else begin
-                match String.uppercase name with
-                | "ALL" ->
-                    general_apply_on_character_set find set_table characters f 
-                        (P.Range (1, (Some last), 1))
-                | "."   ->
-                    f (last - 1)
-                | name  ->
-                    f (find characters name)
-            end
+        if Hashtbl.mem set_table (String.uppercase name) then
+            List.iter 
+                (general_apply_on_character_set find set_table characters f)
+                (Hashtbl.find set_table (String.uppercase name))
+        else begin
+            match String.uppercase name with
+            | "ALL" ->
+                general_apply_on_character_set find set_table characters f 
+                    (P.Range (1, (Some last), 1))
+            | "."   ->
+                f (last - 1)
+            | name  ->
+                f (find characters name)
+        end
 
 let apply_on_character_set = general_apply_on_character_set find_character
 
@@ -761,37 +761,29 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
         if not labels then 
             let cntr = ref (-1) in
             (fun stream -> incr cntr; 
-                let pre_spaced = consume_spaces stream in
-                if not pre_spaced then
-                    Status.user_message Status.Warning
-                        ("Taxon Code "^(string_of_int !cntr)^" may be read"
-                         ^" wrong; check the previous taxons character length.");
-                if !cntr = taxa_len then 
+                ignore (consume_spaces stream);
+                if !cntr = taxa_len then begin
                     (* If we are at the end of the stream, we are just
                     * fine, so we attempt to provoque an End of File
                     , so we attempt to provoque an End of File error* error *)
-                    let _ = Stream.next stream in
-                    let _ = Status.user_message Status.Error
-                    ("Your@ input@ matrix@ declares@ fewer@ " ^
-                    "terminals@ than@ there@ are@ on@ it.") in
+                    ignore( Stream.next stream );
+                    let () = 
+                        Status.user_message Status.Error
+                            ("Your@ input@ matrix@ declares@ fewer@ " ^
+                             "terminals@ than@ there@ are@ on@ it.")
+                    in
                     failwith "Illegal input file"
-                else
-                match taxa.(!cntr) with
-                | Some x -> x
-                | None -> failwith "Taxon undefined")
+                end else match taxa.(!cntr) with
+                    | Some x -> x
+                    | None -> failwith "Taxon undefined")
         else 
             (fun stream ->
-                let pre_spaced = consume_spaces stream in
+                ignore (consume_spaces stream);
                 let b = Buffer.create 13 in
                 while not (is_space stream) do
                     Buffer.add_char b (Stream.next stream)
                 done;
-                let name = Buffer.contents b in
-                if not pre_spaced then
-                    Status.user_message Status.Warning
-                        ("Taxon "^name^" may be read wrong; "
-                         ^"check the previous taxons character length.");
-                name)
+                Buffer.contents b)
     in
     let rec taxon_processor x position =
         match x with
@@ -1329,8 +1321,8 @@ let compute_static_priors alph u_gap (priors,count,gcount) inverse state =
 let get_verify_alphabet (n:nexus) chars : Alphabet.a =
     let first_alph = ref None in
     List.iter
-        (apply_on_character_set 
-            n.csets 
+        (apply_on_character_set
+            n.csets
             n.characters
             (fun i -> match !first_alph with
                 | None -> first_alph := Some n.characters.(i).st_alph;
@@ -1465,19 +1457,23 @@ let apply_chrome_model set params acc =
     let create_annotation xs : Dyn_pam.annotate_tool_t =
         if List.mem (P.Annot_Type `Mauve) xs then begin
             let qual =
-                let x = List.find (function | P.Annot_Quality _ -> true | _ -> false) xs in
-                match x with | P.Annot_Quality x -> x | _ -> assert false
+                try let x = List.find (function | P.Annot_Quality _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Quality x -> x | _ -> assert false
+                with | Not_found -> 35.0
             and minl = 
-                let x = List.find (function | P.Annot_Min _ -> true | _ -> false) xs in
-                match x with | P.Annot_Min x -> x | _ -> assert false
+                try let x = List.find (function | P.Annot_Min _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Min_Percent x -> x | _ -> assert false
+                with | Not_found -> 0.01
             and maxl = 
-                let x = List.find (function | P.Annot_Max _ -> true | _ -> false) xs in
-                match x with | P.Annot_Max x -> x | _ -> assert false
+                try let x = List.find (function | P.Annot_Max _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Max_Percent x -> x | _ -> assert false
+                with | Not_found -> 0.10
             and cvrg = 
-                let x =List.find (function | P.Annot_Coverage _ -> true | _ -> false) xs in
-                match x with | P.Annot_Coverage x -> x | _ -> assert false
+                try let x =List.find (function | P.Annot_Coverage _ -> true | _ -> false) xs in
+                    match x with | P.Annot_Coverage x -> x | _ -> assert false
+                with | Not_found -> 0.35
             in
-            `Mauve (qual,minl,cvrg,maxl)
+            `Mauve (qual,cvrg,minl,maxl)
         end else begin
             let minl =
                 try let x =List.find (function | P.Annot_Min _ -> true | _ -> false) xs in
@@ -1604,7 +1600,7 @@ let apply_likelihood_model params acc =
                         acc.characters.(i) <- { acc.characters.(i) with st_type = st_m; }))
                     xs
         end
-    and convert_unaligned lst = 
+    and convert_unaligned lst =
         List.map
             (fun un ->
                 let str_spec = match pi with
@@ -1762,8 +1758,8 @@ let process_parsed file parsed : nexus =
         | P.Poy _, P.Characters _ ->   1
         | P.Unaligned _, P.Poy _  -> ~-1
         | P.Poy _, P.Unaligned _  ->   1
-        | P.Sets _, P.Poy _       ->   1
-        | P.Poy _, P.Sets _       -> ~-1
+        | P.Sets _, P.Poy _       -> ~-1
+        | P.Poy _, P.Sets _       ->   1
         | P.Assumptions _, _      -> ~-1
         | _ , P.Assumptions _     ->   1
         | _, _                    ->   0 (* keep everything else in the same order *)

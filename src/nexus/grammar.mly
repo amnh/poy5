@@ -513,9 +513,9 @@ annotation_options :
     | QUALITY EQUAL FLOAT SEMICOLON annotation_options
             { (P.Annot_Quality (float_of_string $3)) :: $5 }
     | MIN EQUAL INTEGER SEMICOLON annotation_options
-            { (P.Annot_Min (int_of_string $3)) :: $5 }
+            { (P.Annot_Min_Percent (float_of_string $3)) :: $5 }
     | MAX EQUAL INTEGER SEMICOLON annotation_options
-            { (P.Annot_Max (int_of_string $3)) :: $5 }
+            { (P.Annot_Max_Percent (float_of_string $3)) :: $5 }
     | COVERAGE EQUAL FLOAT SEMICOLON annotation_options
             {   let len = float_of_string $3 in
                 assert( len > 0.0 && len <= 1.0 );

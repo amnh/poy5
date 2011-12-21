@@ -152,6 +152,19 @@ cm_set_ori_a_sz (cmt c, int v) {
     return;
 }
 
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_set_tie_breaker (cmt c, int v) {
+    assert(c != NULL);
+    c->tie_breaker = v;
+    return;
+}
+
+
 #ifdef _WIN32
 static __inline void
 #else
@@ -210,6 +223,18 @@ cm_set_ori_a_sz_3d (cm_3dt c, int v) {
     c->ori_a_sz = v;
     return;
 }
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_set_tie_breaker_3d (cm_3dt c, int v) {
+    assert(c != NULL);
+    c->tie_breaker = v;
+    return;
+}
+
 
 #ifdef _WIN32
 static __inline void
@@ -508,7 +533,8 @@ cm_CAML_bigarr_to_comb2list (value bigarr, value cm) {
  */
 cmt 
 cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
-        int is_metric, int all_elements, cmt res, int level, int comb_num, int gap_startNO) {
+        int is_metric, int all_elements, cmt res, int level, int comb_num, int gap_startNO,\
+        int tie_breaker) {
     int debug=0;
     size_t size; 
     size_t combmatrix_size; 
@@ -523,6 +549,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     cm_set_all_elements (res, all_elements);
     cm_set_affine (res, do_aff, gap_open);
     res->is_metric = is_metric;
+    cm_set_tie_breaker(res,tie_breaker);
     if (combinations != 0) {
         cm_set_level(res,level);
         cm_set_map_sz(res, comb_num);
@@ -730,6 +757,29 @@ cm_get_alphabet_size (const cmt c) {
     assert(c != NULL);
     return c->a_sz;
 }
+
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_tie_breaker (const cmt c) {
+    assert(c != NULL);
+    return c->tie_breaker;
+}
+
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_tie_breaker_3d (const cm_3dt c) {
+    assert(c != NULL);
+    return c->tie_breaker;
+}
+
 
 #ifdef _WIN32
 __inline int
@@ -1886,10 +1936,10 @@ cm_CAML_clone (value v) {
     //fprintf(stdout,"clone, c->map_sz=%d,c->a_sz=%d,level=%d,", c->map_sz,c->a_sz,c->level); fflush(stdout);
     if (c->combinations)
         cm_set_val (c->lcm, c->combinations, c->cost_model_type, \
-                c->gap_open, c->is_metric, c->all_elements, clone2, c->level, c->map_sz, c->gap_startNO);
+                c->gap_open, c->is_metric, c->all_elements, clone2, c->level, c->map_sz, c->gap_startNO, c->tie_breaker);
     else
         cm_set_val (c->a_sz, c->combinations, c->cost_model_type, \
-                c->gap_open, c->is_metric, c->all_elements, clone2, 1, c->a_sz, 0);
+                c->gap_open, c->is_metric, c->all_elements, clone2, 1, c->a_sz, 0, c->tie_breaker);
     level = c->level;
     a_sz = c->map_sz;
     combmatrix_size = (c->map_sz+1)  * (c->map_sz+1);
@@ -1927,6 +1977,20 @@ cm_CAML_clone_3d (value v) {
     CAMLreturn(clone);
 }
 
+
+value 
+cm_CAML_set_tie_breaker_3d (value c, value v) {
+    CAMLparam2 (c, v);
+    cm_set_tie_breaker_3d (Cost_matrix_struct_3d(c), Int_val(v));
+    CAMLreturn (Val_unit);
+}
+
+value 
+cm_CAML_set_tie_breaker (value c, value v) {
+    CAMLparam2 (c, v);
+    cm_set_tie_breaker (Cost_matrix_struct(c), Int_val(v));
+    CAMLreturn (Val_unit);
+}
 
 value 
 cm_CAML_set_gap_3d (value c, value v) {
@@ -2030,6 +2094,19 @@ cm_CAML_set_a_sz (value cm, value v) {
     CAMLparam2 (cm, v);
     cm_set_a_sz (Cost_matrix_struct(cm), Int_val(v));
     CAMLreturn(Val_unit);
+}
+
+
+value 
+cm_CAML_get_tie_breaker_3d (value c) {
+    CAMLparam1 (c);
+    CAMLreturn (Val_int((cm_get_tie_breaker_3d (Cost_matrix_struct_3d(c)))));
+}
+
+value 
+cm_CAML_get_tie_breaker (value c) {
+    CAMLparam1 (c);
+    CAMLreturn (Val_int((cm_get_tie_breaker (Cost_matrix_struct(c)))));
 }
 
 value 
@@ -2382,28 +2459,28 @@ cm_CAML_create_3d_bc (value *argv, int argn) {
 
 
 value
-cm_CAML_create (value a_sz, value combine, value aff, value go, value all, value level, value combine_number, value gap_start) {
+cm_CAML_create (value a_sz, value combine, value aff, value go, value all, value level, value combine_number, value gap_start, value tie_breaker) {
     CAMLparam5(a_sz, combine, aff, go, all);
-    CAMLxparam3(level, combine_number, gap_start);
+    CAMLxparam4(level, combine_number, gap_start, tie_breaker);
     value tmp;
     cmt m;
     tmp = alloc_custom (&cost_matrix, sizeof(struct cm), 1, 1000000);
     m = Cost_matrix_struct(tmp);
     //init matrix with -1/NULL
     m->a_sz = m->lcm = m->gap = m->cost_model_type = m->gap_open = 
-        m->all_elements = m->ori_a_sz = m->map_sz = m->level = m->gap_startNO = -1;
+        m->all_elements = m->ori_a_sz = m->map_sz = m->level = m->gap_startNO = m->tie_breaker= -1;
     m->combmap = m->comb2list = m->cost = m->worst = m->prepend_cost = m->tail_cost = NULL;
     m->median = NULL;
     //allocate memory
     cm_set_val (Int_val(a_sz), Bool_val(combine), Int_val(aff), Int_val(go), \
-            0, Int_val(all), m, Int_val(level), Int_val(combine_number), Int_val(gap_start));
+            0, Int_val(all), m, Int_val(level), Int_val(combine_number), Int_val(gap_start), Int_val(tie_breaker));
     CAMLreturn(tmp);
 }
 
 value 
 cm_CAML_create_bytecode (value * argv, int argn){
     return (cm_CAML_create 
-        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5],argv[6],argv[7]));
+        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5],argv[6],argv[7],argv[8]));
 }
 
 value 

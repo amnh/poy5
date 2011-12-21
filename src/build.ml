@@ -21,6 +21,8 @@ let () = SadmanOutput.register "Build" "$Revision: 2871 $"
 
 let debug_profile_memory = false
 
+let (-->) a b = b a
+
 let current_snapshot x = 
     if debug_profile_memory then 
         let () = Printf.printf "%s\n%!" x in
@@ -138,10 +140,13 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         Array_ops.randomize arr;
         Array.to_list arr
 
+
     let single_wagner_search_manager = new Queues.wagner_srch_mgr true 1 0.0
+
 
     let set_of_leafs data = 
         map_of_list (fun x -> Node.taxon_code x) data 
+
 
     let disjoin_tree data node =
         let leafs = set_of_leafs node in
@@ -150,40 +155,19 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         let tree = PtreeSearch.uppass tree in
         tree
 
+
     let edges_of_tree tree =
         Tree.EdgeSet.fold (fun x acc -> x :: acc) tree.Ptree.tree.Tree.d_edges []
 
-    let random_tree data nodes adj_mgr =
-        let pick_random_edge tree =
-            let edges = edges_of_tree tree in
-            let arr = Array.of_list edges in
-            Array_ops.randomize arr;
-            arr.(0)
+
+    let random_tree (data : Data.d) (nodes : a list) adj_mgr =
+        let tree : phylogeny = 
+            { (Ptree.empty data) with
+                Ptree.tree = Tree.random (List.map Node.taxon_code nodes);
+                Ptree.node_data = map_of_list Node.taxon_code nodes; }
         in
-        let rec aux_random_constructor tree node =
-            let tree, _ = 
-                let (Tree.Edge (x, y)) = pick_random_edge tree in
-                TreeOps.join_fn adj_mgr [] (Tree.Edge_Jxn (x, y)) node tree
-                in
-                tree
-        in
-        let initial_tree = disjoin_tree data nodes in
-        let nodes = 
-            let nodes = Array.of_list nodes in
-            Array_ops.randomize nodes;
-            Array.to_list nodes
-        in
-        let nodes = 
-            List.map (fun x -> Tree.Single_Jxn (Node.taxon_code
-                x)) nodes
-        in
-        match nodes with
-        | f :: s :: tail ->
-                let new_tree, _ = TreeOps.join_fn adj_mgr [] f s initial_tree in
-                Sexpr.fold_status
-                    "Random tree" ~eta:true aux_random_constructor new_tree 
-                    (Sexpr.of_list tail)
-        | _ -> initial_tree
+        tree --> PtreeSearch.downpass --> PtreeSearch.uppass
+
 
     let branch_and_bound keep_method max_trees threshold data nodes bound adj_mgr =
         let select_appropriate bound_plus_threshold lst =
@@ -209,70 +193,79 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         | h :: lst -> lst
                         | [] -> assert false)
         in
+        (* calculate the initial bound if nto provided; /2 for threshold *)
         let bound = match bound with
             | None -> max_float /. 2.
             | Some x -> x
+        (* create status for ncurses *)
+        and st = Status.create "Branch and Bound Build" (Some 100) "percent complete" in
+        let () = Status.full_report ~adv:(0) st in
+        (* We need to present some output; find a decent depth and that percentage done *)
+        let report_depth,report_percent =
+            (* the number of possibilities at level n *)
+            let n t =
+                let rec n acc t = match t with
+                    | 0 | 1 | 2 | 3 -> acc
+                    | t             -> n (acc*(2*t-5)) (t-1)
+                in
+                n 1 t
+            (* depth=6 will prune ~1% of the tree (having 105 possibilities) *)
+            and depth = max 1 (min ((List.length nodes)-1) 6) and p = ref 0.0 in
+            depth,
+            (fun depth ->
+                let p_incr = (1.0 /. float (n depth)) *. 100.0 in
+                p := p_incr +. !p;
+                Status.full_report ~adv:(int_of_float !p) st)
         in
-        let rec aux_branch_and_bound ((bound, best_trees) as acc) 
-                                        tree edges cur_handle other_handles =
+        let rec aux_branch_and_bound depth ((bound, best_trees) as acc) tree
+                    edges cur_handle other_handles =
             match edges with
             | (Tree.Edge (x, y)) :: t ->
-                    let new_tree, _ = 
-                        TreeOps.join_fn adj_mgr [] (Tree.Edge_Jxn (x, y)) cur_handle tree
+                if report_depth = depth then report_percent depth;
+                let new_tree, _ =
+                    TreeOps.join_fn adj_mgr [] (Tree.Edge_Jxn (x,y)) cur_handle tree
+                in
+                let new_cost = Ptree.get_cost `Adjusted new_tree in
+                if new_cost >  bound +. threshold then begin
+                    if depth < report_depth then report_percent depth;
+                    aux_branch_and_bound depth acc tree t cur_handle other_handles
+                end else begin
+                    let acc = match other_handles with
+                        | nh :: oh ->
+                            aux_branch_and_bound (depth+1) acc new_tree
+                                (edges_of_tree new_tree) (Tree.Single_Jxn nh) oh
+                        | [] -> 
+                            let realbound = bound +. threshold in
+                            if new_cost < bound then
+                                new_cost, select_appropriate (new_cost +. threshold) (new_tree :: best_trees)
+                            else if new_cost <= realbound then
+                                (bound, select_appropriate realbound (new_tree::best_trees))
+                            else
+                                acc
                     in
-                    let new_cost = Ptree.get_cost `Adjusted new_tree in
-                    if new_cost >  bound +. threshold then 
-                        aux_branch_and_bound acc tree t cur_handle other_handles
-                    else begin
-                        let acc =
-                            match other_handles with
-                            | nh :: oh ->
-                                        aux_branch_and_bound acc new_tree 
-                                        (edges_of_tree new_tree)  (Tree.Single_Jxn nh)
-                                        oh
-                            | [] -> 
-                                    let realbound = bound +. threshold in
-                                    if new_cost < bound then
-                                        new_cost, 
-                                        select_appropriate 
-                                        (new_cost +. threshold)
-                                        (new_tree :: best_trees)
-                                    else if new_cost <= realbound then
-                                        let nl = (new_tree ::  best_trees) in
-                                        (bound, select_appropriate realbound nl)
-                                    else acc
-                        in
-                        aux_branch_and_bound acc tree t cur_handle
-                        other_handles
-                    end
+                    aux_branch_and_bound depth acc tree t cur_handle other_handles
+                end
             | [] -> acc
         in
         let initial_tree = disjoin_tree data nodes in
         let _, trees =
             if max_trees < 1 then 0., []
-            else
-                match nodes with
+            else begin match List.map Node.taxon_code nodes with
                 | f :: s :: tail ->
-                        let codef = Node.taxon_code f 
-                        and codes = Node.taxon_code s in
-                        let new_tree, _ = 
-                            TreeOps.join_fn adj_mgr []
-                                           (Tree.Single_Jxn codef) 
-                                           (Tree.Single_Jxn codes) initial_tree
-                        in
-                        let res =
-                            match tail with
-                            | t :: tail ->
-                                    aux_branch_and_bound (bound, []) new_tree 
-                                    (edges_of_tree new_tree) 
-                                    (Tree.Single_Jxn (Node.taxon_code t))
-                                    (List.map Node.taxon_code tail)
-                            | [] -> Ptree.get_cost `Adjusted new_tree,
-                            [new_tree]
-                        in
-                        res
+                    let new_tree, _ =
+                        TreeOps.join_fn adj_mgr [] (Tree.Single_Jxn f) (Tree.Single_Jxn s) initial_tree
+                    in
+                    begin match tail with
+                        | t :: tail ->
+                            let edges = edges_of_tree new_tree in
+                            aux_branch_and_bound 3 (bound,[]) new_tree edges (Tree.Single_Jxn t) tail
+                        | [] ->
+                            Ptree.get_cost `Adjusted new_tree, [new_tree]
+                    end
                 | _ -> 0., [initial_tree]
+            end
         in
+        let () = Status.finished st in
         Sexpr.of_list (List.map PtreeSearch.uppass trees)
 
     let sort_list_of_trees ptrees = 
@@ -780,13 +773,14 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 in
                 let maj = List.length tree_list in
                 Ptree.consensus PtreeSearch.never_collapse 
-                (fun code -> Data.code_taxon code data) maj 
-                (Sexpr.to_list trees) 
-                (match data.Data.root_at with
-                | Some v -> v
-                | None ->
-                        let f = Sexpr.first trees in
-                        Ptree.choose_leaf f)
+                    (fun code -> Data.code_taxon code data)
+                    (maj)
+                    (Sexpr.to_list trees) 
+                    (match data.Data.root_at with
+                        | Some v -> v
+                        | None ->
+                            let f = Sexpr.first trees in
+                            Ptree.choose_leaf f)
             | Some file ->
                     match (Data.process_trees data file).Data.trees with
                     | [((_,[t]), _, _) as one] -> Data.verify_trees data one; t
@@ -892,7 +886,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                                 Array.init n 
                                     (fun x ->
                                         Status.full_report ~adv:x st;
-                                        PtreeSearch.uppass (random_tree data nodes adj_mgr))
+                                        random_tree data nodes adj_mgr)
                             in
                             Status.finished st;
                             Sexpr.of_list (Array.to_list arr)
@@ -904,7 +898,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     Array.init n 
                         (fun x ->
                             Status.full_report ~adv:x st;
-                            PtreeSearch.uppass (random_tree data nodes adj_mgr)) 
+                            random_tree data nodes adj_mgr)
                 in
                 Status.finished st;
                 Sexpr.of_list (Array.to_list arr)
@@ -940,10 +934,12 @@ module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n) (EdgeH : Edg
 
         let replace_contents downpass uppass get_code nodes data ptree =
             let nt = { (Ptree.empty data) with Ptree.tree = ptree.Ptree.tree } in
-            uppass (downpass 
-            (List.fold_left (fun nt node ->
-                Ptree.add_node_data (get_code node) node nt) 
-            nt nodes))
+            nodes 
+                --> List.fold_left
+                        (fun nt node ->
+                            Ptree.add_node_data (get_code node) node nt) nt
+                --> downpass
+                --> uppass
 
         let from_s_to_h = replace_contents TOH.downpass TOH.uppass NodeH.taxon_code 
         let from_h_to_s = replace_contents TOS.downpass TOS.uppass NodeS.taxon_code

@@ -48,17 +48,22 @@ type t = {
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
     breakinv_pam : Data.dyna_pam_t; 
     code : int;                     (** The set code. n = this is nth 
-    chromosome of multichromosome genes, n = 1,2,3,...... *) 
+    chromosome of multichromosome genes, n = 1,2,3,...... ,
+    also the key to hashtbl data.character_codes, the map between the character
+    codes and their corresponding names. in data.ml, each chromosome is a character.*) 
 }
+
+let print thist =
+    IntMap.iter (fun _ med -> Breakinv.print med) thist.meds
 
 let cardinal x = IntMap.fold (fun _ _ acc -> acc + 1) x.meds 0
 
 (** [of_array spec arr code] creates a breakinv set
 * from an array of sequences [arr] *)
 let of_array spec arr code = 
-    let adder (meds, costs, recosts) (seq, key) = 
+    let adder (meds, costs, recosts) (seq,delimiter,key) = 
         let med = 
-            Breakinv.init_med seq spec.Data.tcm2d spec.Data.alph spec.Data.pam 
+            Breakinv.init_med seq delimiter spec.Data.tcm2d spec.Data.alph spec.Data.pam 
         in 
         (IntMap.add key med meds), 
         (IntMap.add key 0.0 costs), 
@@ -103,21 +108,25 @@ let same_codes a b =
 * between breakinv character sets [a] and [b] *)
 let median2 (a : t) (b : t) =
     (* We will use imperative style for this function *)
+    let debug = false in
     let empty = IntMap.empty in
     let median code (meda : meds_t) (medians, costs, recosts, total_cost, total_recost) = 
         let medb : meds_t = IntMap.find code b.meds in
-        let medab = Breakinv.find_meds2 meda medb in
-        (*debug msg
-        Printf.printf "MEDIAN2, meda is : %!";
+        if debug then begin
+        Printf.printf "breakinvCS.median2, meda is : %!";
         List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
         meda.Breakinv.med_ls;
         Printf.printf "medb is : %!";
         List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
         medb.Breakinv.med_ls;
+        end;
+        let medab = Breakinv.find_meds2 meda medb in
+        if debug then begin
         Printf.printf "medab is : %!";
-        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
+        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq;)
         medab.Breakinv.med_ls;
-        debug msg*)
+        Printf.printf "\n%!";
+        end;
         let new_median = IntMap.add code medab medians 
         and new_costs = 
             IntMap.add code (float_of_int medab.Breakinv.total_cost) costs  
@@ -161,14 +170,17 @@ let median3 p n c1 c2 =
     { n with meds = medp12_map; }
 
 let flatten t_lst = 
-    let parent = List.hd t_lst in
+    let parent = List.hd t_lst in (*we only have one item in t_lst to start with*)
+    parent.code,
     IntMap.fold ( fun kn parent_medst (seq_lstlst:Sequence.s list list) ->
        let medst_lst = List.map (fun x ->  IntMap.find kn x.meds
        ) (List.tl t_lst) in
        let medls_lst = List.map (fun x -> x.Breakinv.med_ls
        ) medst_lst in
        let add_seqlst:Sequence.s list = 
-           List.map (fun x -> (List.hd x).BreakinvAli.seq) medls_lst 
+           List.map (fun x -> 
+               (List.hd x).BreakinvAli.seq 
+               ) medls_lst 
        in
        let parent_seq = (List.hd (parent_medst.Breakinv.med_ls)).BreakinvAli.seq in
        let add_seqlst = parent_seq::add_seqlst in
@@ -179,24 +191,32 @@ let flatten t_lst =
        | _ ->  
            List.map2 
                (fun (addseq:Sequence.s) (seqlst:Sequence.s list) -> 
-                  addseq :: seqlst  
+                addseq :: seqlst  
                ) add_seqlst seq_lstlst;
     ) parent.meds [[]]
 
 (* is the nth of IntMap corresponding to nth of the sequence list? *)
-let update_t oldt (newseqlst:Sequence.s list) (delimiterslst: int list list) =
+let update_t oldt (file_median_seq:Sequence.s list list) (file_median_chrom_seqdeli: int list list list) =
     let i = ref 0 in
+    List.map2 (fun median_seq median_chrom_seqdeli ->
+    i := 0;
     let newmedsMap = 
       IntMap.mapi ( fun key old_meds_t ->
           (* Printf.printf "key is %d\n%!" key; when we have only one median of
           * each node, key is 1. what if we have more than one median?*)
-          let res = Breakinv.update_medst old_meds_t (List.nth newseqlst !i) (List.nth
-          delimiterslst !i) in
+          let res = Breakinv.update_medst old_meds_t (List.nth median_seq !i) (List.nth
+          median_chrom_seqdeli !i) in
           i := !i +1 ;
           res
       ) oldt.meds
     in
-    { oldt with meds = newmedsMap }
+    (*we only update median sequences and code here, I hope it's enough.
+    * also I'm not sure about the code. this code used to be the key for hashtbl
+    * in data.ml : character_codes. if we merge multi-chromosome of a node in a
+    * file into a single chromsome with delimiters, the mapping between old keys
+    * and their characters won't be correct.*)
+    { oldt with meds = newmedsMap; code = !i }
+    ) file_median_seq file_median_chrom_seqdeli
 
 let single_to_multi single_t =
     let maxlen = ref 0 in

@@ -424,18 +424,17 @@ let of_parser spec weights characters =
         Array.map farray_to_int32 aa_chars -->
             Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
     in
+    let costfn = MlModel.get_costfn_code computed_model in
     let lk_chars = match computed_model.MlModel.invar with
-        | Some _ -> bigarray_s ba_chars (Some aa_chars) 
-                        (MlModel.get_costfn_code computed_model)
-        | None   -> bigarray_s ba_chars None
-                        (MlModel.get_costfn_code computed_model)
+        | Some _ -> bigarray_s ba_chars (Some aa_chars) costfn
+        | None   -> bigarray_s ba_chars None costfn
     in
     let pinvar  = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
     and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights 
     and codes   = Array.map (fun (x,y) -> y) characters in
     assert( (Bigarray.Array1.dim weights) = (Bigarray.Array3.dim2 ba_chars));
     assert( (Array.length codes) = (Bigarray.Array3.dim2 ba_chars));
-    let loglike = 
+    let loglike =
         loglikelihood lk_chars weights computed_model.MlModel.pi_0
                       computed_model.MlModel.prob pinvar
                       (MlModel.get_costfn_code computed_model)
@@ -452,8 +451,8 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
     let str_time = function | Some x -> `Float x | None -> `String "None"
     and alphabet = mine.model.MlModel.alph in
     let rec make_single_vec char_code single_ray =
-        (Array.to_list 
-            (Array.mapi 
+        (Array.to_list
+            (Array.mapi
                 (fun state_code value ->
                     let alph = Alphabet.match_code state_code alphabet in
                     (PXML -[Xml.Characters.state]
@@ -461,9 +460,9 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                         ([Xml.Alphabet.value] = [`Float value])
                         { `Empty } --))
                 single_ray))
-
-    and make_single char_code single_ray = 
-        let name = Data.code_character mine.codes.(char_code) data in 
+    and make_single char_code single_ray =
+        let name = try Data.code_character char_code data
+                   with | _ -> failwithf "Cannot find code : %d" char_code in
         (PXML
             -[Xml.Characters.vector]
                 ([Xml.Data.code] = [`Int char_code])
@@ -475,9 +474,10 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
         let likelihood_vec,invariant_vec = s_bigarray mine.chars in
         (PXML
             -[Xml.Characters.characters]
-            {  
-                let r = Array.to_list (barray_3matrix (likelihood_vec)).(0) in
-                `Set (List.map2 (make_single) (Array.to_list mine.codes) r)
+            {
+                let r = (barray_3matrix (likelihood_vec)).(0) in
+                assert( (Array.length r) = (Array.length mine.codes) );
+                `Set (List.map2 (make_single) (Array.to_list mine.codes) (Array.to_list r))
             }
         --)
     and model_data = MlModel.to_formatter mine.model in
@@ -485,6 +485,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
         (* tag *)
         -[Xml.Characters.likelihood]
             (* attributes *)
+            ([Xml.Characters.name] = [`String "-"])
             ([Xml.Characters.cost] = [`Float mine.mle])
             ([Xml.Nodes.min_time] = [str_time t1])
             ([Xml.Nodes.oth_time] = [str_time t2])

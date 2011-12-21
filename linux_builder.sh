@@ -9,12 +9,11 @@
 # Arguments 
 #   1 - release number 
 
-export FLAGS="-static -static-libgcc -O3 -msse3"
+export FLAGS="-static -static-libgcc -O3 -msse3 -I /usr/lib/x86_64-linux-gnu"
 
 LINUX_DIRECTORY=linux
 rm -rf linux
 mkdir  linux
-
 
 # Build the version to be paired with the GUI
 if ! ./configure --with-version-number=$1 --enable-interface=html CFLAGS="${FLAGS}" ; then

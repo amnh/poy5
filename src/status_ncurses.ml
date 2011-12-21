@@ -538,7 +538,7 @@ let print ty t =
         in
         StatusCommon.Format.fprintf f t;
         if do_close then closer ();
-        let _ = 
+        let () = 
             match ty, StatusCommon.information_redirected () with
             | (Output (None, _, opt)), Some filename ->
                     let f = StatusCommon.Files.openf filename opt in
@@ -632,7 +632,7 @@ let do_output_table t v =
     if not !are_we_parallel || 0 = !my_rank then begin
         let a, b, c = formatter_of_type t in
         StatusCommon.Tables.output a b c v;
-        let _ = 
+        let () = 
             match StatusCommon.information_redirected () with
             | None -> ()
             | Some filename ->
@@ -726,10 +726,7 @@ let keyCp = 16
 let keyCn = 14
 let keyright = NcursesML.keyright ()
 let keyleft = NcursesML.keyleft ()
-let resize = 
-    let v = NcursesML.resize () in
-    v
-
+let resize = NcursesML.resize ()
 let err = NcursesML.error ()
 
 let print_prompt () =
@@ -815,6 +812,9 @@ let using_interface = ref false
 
 let is_interactive () = !using_interface
 
+let ignore_keys = [ 330 (* delete key *);
+                    383 (* shift+delete key *) ]
+
 let main_loop f =
     using_interface := true;
     (* output a newline *)
@@ -822,7 +822,6 @@ let main_loop f =
 
     (* keep command history *)
     let cmds = ref (Dequeue.push_back !command_history "") in
-
 
     let hist_up () =
         if Dequeue.is_empty !cmds
@@ -849,10 +848,18 @@ let main_loop f =
             let (y, x) = NcursesML.getyx !console in
             if x = 0 then 
                 NcursesML.wmove !console (y - 1) ((parconsole_width ()) - 3)
-            else NcursesML.waddstr !console bschar;
+            else
+                NcursesML.waddstr !console bschar;
             NcursesML.wdelch !console;
             NcursesML.refresh ~w:(!console) ();
         done;
+        NcursesML.refresh ~w:!console ()
+    in
+    let delete ?(n=1) () =
+        let (y,x) = NcursesML.getyx !console in
+        NcursesML.wmove !console y (x+1);
+        NcursesML.wdelch !console;
+        NcursesML.wmove !console y x;
         NcursesML.refresh ~w:!console ()
     in
 
@@ -860,27 +867,25 @@ let main_loop f =
         List.fold_left (fun acc x -> x :: acc) accbc accac
     in
 
-    let do_keyleft bc ac = 
-        match bc with
+    let do_keyleft bc ac = match bc with
         | h :: t ->
-                let (y, x) = NcursesML.getyx !console in
-                if x = 0 then
-                    NcursesML.wmove !console (y - 1) ((parconsole_width ()) - 3)
+            let (y, x) = NcursesML.getyx !console in
+            if x = 0
+                then NcursesML.wmove !console (y - 1) ((parconsole_width ()) - 3)
                 else NcursesML.wmove !console y (x - 1);
-                NcursesML.refresh ~w:!console ();
-                t, (h :: ac)
+            NcursesML.refresh ~w:!console ();
+            t, (h :: ac)
         | [] -> bc, ac
     in
 
-    let do_keyright bc ac =
-        match ac with
+    let do_keyright bc ac = match ac with
         | h :: t ->
-                let (y, x) = NcursesML.getyx !console in
-                if x = ((parconsole_width ()) - 3) then
-                    NcursesML.wmove !console (y + 1) 0
+            let (y, x) = NcursesML.getyx !console in
+            if x = ((parconsole_width ()) - 3)
+                then NcursesML.wmove !console (y + 1) 0
                 else NcursesML.wmove !console y (x + 1);
-                NcursesML.refresh ~w:!console ();
-                (h :: bc),t
+            NcursesML.refresh ~w:!console ();
+            (h :: bc),t
         | [] -> bc, ac
     in
 
@@ -920,75 +925,79 @@ let main_loop f =
         match before with
         | h :: rest when find_limit h -> "", before
         | h :: t ->
-                backspace ();
-                let (y, x) = NcursesML.getyx !console in
-                List.iter (NcursesML.waddstr !console) accac;
-                NcursesML.waddstr !console " ";
-                NcursesML.wmove !console y x;
-                NcursesML.refresh ~w:!console ();
-                let a, b = grab_filename_prefix find_limit t accac in
-                a ^ h, b
+            backspace ();
+            let (y, x) = NcursesML.getyx !console in
+            List.iter (NcursesML.waddstr !console) accac;
+            NcursesML.waddstr !console " ";
+            NcursesML.wmove !console y x;
+            NcursesML.refresh ~w:!console ();
+            let a, b = grab_filename_prefix find_limit t accac in
+            a ^ h, b
         | [] -> "", []
 
     in
     let prepend_string list to_add accac = 
         let list = ref list in
-        String.iter (fun x ->
-            let c = String.make 1 x in
-            NcursesML.waddstr !console c;
-            let (y, x) = NcursesML.getyx !console in
-            List.iter (NcursesML.waddstr !console) accac;
-            NcursesML.wmove !console y x;
-            NcursesML.refresh ~w:!console ();
-            list :=  c :: !list) to_add;
+        String.iter
+            (fun x ->
+                let c = String.make 1 x in
+                NcursesML.waddstr !console c;
+                let (y, x) = NcursesML.getyx !console in
+                List.iter (NcursesML.waddstr !console) accac;
+                NcursesML.wmove !console y x;
+                NcursesML.refresh ~w:!console ();
+                list :=  c :: !list)
+            to_add;
         NcursesML.refresh ~w:!console ();
         !list 
     in
 
     let prepend_to_before find_limit new_before completed_name to_complete accac =
         let _, pre = grab_filename_prefix find_limit new_before accac in
-        let to_add = 
-            if completed_name = "" then to_complete else completed_name
-        in
+        let to_add = if completed_name = "" then to_complete else completed_name in
         prepend_string pre to_add accac
     in
 
     let do_keytab before after =
         let find_limit, t = check_limit_of_command_autocompletion before in
         let str, new_before = grab_filename_prefix find_limit before after in
-        let _ =
-            match !did_tab with
+        let () = match !did_tab with
             | Begin -> failwith "How is this possible?"
             | First -> last_string_to_try_in_tab := str
             | Continue -> ()
         in
-        let str = 
-            StatusCommon.Files.complete_filename
-            t !last_string_to_try_in_tab 
-        in
+        let str = StatusCommon.Files.complete_filename t !last_string_to_try_in_tab in
         prepend_to_before find_limit new_before str !last_string_to_try_in_tab after, after
     in
 
     let rec read_line accbc accac =
         NcursesML.halfdelay 1;
         let res = NcursesML.wgetch !console in
-        let _ =
+        let () =
             if res = keytab then
                 update_tab true
-            else if res <> err then update_tab false
+            else if res <> err then 
+                update_tab false
         in
+
+        (* ignore keys *)
+        if List.mem res ignore_keys then begin
+            read_line accbc accac
+
         (* Enter key *)
-        if res = err then begin
+        end else if res = err then begin
             NcursesML.do_update ();
             if (sigwinchhandler ()) then begin
                 redraw_screen ();
-                let _ = print_prompt () in
-                ()
+                ignore (print_prompt ())
             end;
             read_line accbc accac
+
+        (* tab key *)
         end else if res = keytab then begin
             let accbc, accac = do_keytab accbc accac in
             read_line accbc accac
+
         end else if res = 10 then begin
             sb_reset info_scrollback;
             let acc = fuse accbc accac in
@@ -1000,10 +1009,14 @@ let main_loop f =
             store_command str;
             f str
 
+        (* foreward delete -- does not work *)
+        end else if res = 330 || res = 383 then begin
+            delete ();
+            read_line accbc accac
+
         (* Backspace *)
         end else if res = keybackspace || res = 127 || res = 8 then begin
-            (if [] <> accbc then
-                 backspace ());
+            (if [] <> accbc then backspace ());
             let accbc = (match accbc with _ :: t -> t | [] -> []) in
             let (y, x) = NcursesML.getyx !console in
             List.iter (NcursesML.waddstr !console) accac;
@@ -1012,10 +1025,12 @@ let main_loop f =
             NcursesML.refresh ~w:!console ();
             read_line accbc accac
 
+        (* left key manipulates cursor position *)
         end else if res = keyleft then begin
             let accbc, accac = do_keyleft accbc accac in
             read_line accbc accac
 
+        (* right key manipulates cursor position *)
         end else if res = keyright then begin
             let accbc, accac = do_keyright accbc accac in
             read_line accbc accac
@@ -1026,6 +1041,7 @@ let main_loop f =
             let hist = hist_up () in
             NcursesML.waddstr !console hist;
             read_line (list_of_string hist) []
+
         (* Down in command history *)
         end else if res = keyCn then begin
             backspace ~n:(List.length accbc) ();
@@ -1037,6 +1053,7 @@ let main_loop f =
         end else if res = keyup then begin
             sb_back_pageful ~scrollby:1 info_scrollback;
             read_line accbc accac
+
         (* Scroll down one line *)
         end else if res = keydown then begin
             sb_forward_pageful ~scrollby:1 info_scrollback;
@@ -1046,44 +1063,40 @@ let main_loop f =
         end else if res = keynpage then begin
             sb_forward_pageful info_scrollback;
             read_line accbc accac
+
         (* Page up *)
         end else if res = keyppage then begin
             sb_back_pageful info_scrollback;
             read_line accbc accac
 
+        (* resize window *)
         end else if res = resize then begin
             redraw_screen ();
-            let _ = print_prompt () in
+            ignore (print_prompt ());
             read_line accbc accac
+
         (* Normal input *)
         end else if NcursesML.isprint res then begin
-            try
-                let c = 
-                    if res = 92 then "\\" 
-                    else String.make 1 (Char.chr res)
-                in
+            try let c = if res = 92 then "\\" else String.make 1 (Char.chr res) in
                 begin match accac with
-                | [] ->
-                        NcursesML.waddstr !console c;
-                | _ :: t ->
-                        NcursesML.waddstr !console c;
-                        let (y, x) = NcursesML.getyx !console in
-                        List.iter (NcursesML.waddstr !console) accac;
-                        NcursesML.wmove !console y x;
+                    | []  -> NcursesML.waddstr !console c;
+                    | _::t-> NcursesML.waddstr !console c;
+                             let (y, x) = NcursesML.getyx !console in
+                             List.iter (NcursesML.waddstr !console) accac;
+                             NcursesML.wmove !console y x;
                 end;
                 NcursesML.refresh ~w:!console ();
                 read_line (c :: accbc) accac
-            with
-            | err -> read_line accbc accac
+            with | err -> read_line accbc accac
         end else begin
             if ndebug_keycode then
                 NcursesML.waddstr !console (string_of_int res);
             read_line accbc accac
         end
     in
-    let _ = f "" in
+    let () = f "" in
     while true do
-        let _ = print_prompt () in
+        ignore (print_prompt ());
         cmds := (Dequeue.push_back !command_history "");
         read_line [] [];
     done
@@ -1117,4 +1130,4 @@ let resize_sbbuffer len sbb =
 let resize_history len = 
     resize_sbbuffer len info_scrollback
 
-let _ = Callback.register "ncursesml_redraw" redraw_screen
+let () = Callback.register "ncursesml_redraw" redraw_screen

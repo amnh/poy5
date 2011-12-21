@@ -216,6 +216,8 @@ external wdeleteln : window -> unit = "ncurs_CAML_wdeleteln"
 
 external isprint : int -> bool = "ncurs_CAML_isprint"
 
+external keyhome : unit -> int = "ncurs_CAML_keyhome"
+external keyend : unit -> int = "ncurs_CAML_keyend"
 external keyup : unit -> int = "ncurs_CAML_keyup"
 external keydown : unit -> int = "ncurs_CAML_keydown"
 external keyleft : unit -> int = "ncurs_CAML_keyleft"

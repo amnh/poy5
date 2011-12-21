@@ -826,12 +826,15 @@ let reorient_node parent child tree =
 (** [fix_path_to_handle tree list] changes nodes and reorients edges to provide
     consistency when moving a handle *)
 let rec fix_path_to_handle tree list = match list with
-| [] -> tree
-| [new_handle] -> tree
-| p :: c :: list ->
-      let tree = tree --> remove_edge (Edge (p, c))
-          --> add_edge (Edge (c, p)) --> reorient_node c p in
-      fix_path_to_handle tree (c :: list)
+    | [] -> tree
+    | [new_handle] -> tree
+    | p :: c :: list ->
+        let tree = 
+            tree --> remove_edge (Edge (p, c))
+                 --> add_edge (Edge (c, p))
+                 --> reorient_node c p
+        in
+        fix_path_to_handle tree (c :: list)
 
 
 (** Function to move the node handle from one node to another.
@@ -861,7 +864,7 @@ let other_two_nbrs nbr node =
                             neighbors of %d are %d %d and %d" nbr id nbr1 nbr2
                             nbr3 
                         in
-                        let _ = Status.user_message Status.Error mst in
+                        Status.user_message Status.Error mst;
                         false
                     end);
                 (nbr1, nbr2)
@@ -877,73 +880,68 @@ let other_two_nbrs nbr node =
             and new trees as a {!Tree.tree_delta} structure. *)
 let break jxn tree =
     let (e1, e2) = jxn in
-
     assert(verify_edge (Edge (e1, e2)) tree);
-
     (* Check whether root is on left side or right side *)
     let handle_left = is_edge (Edge (e1, e2)) tree in
-
     (* Handle the left side *)
-
     let node1 = get_node e1 tree in
     let node2 = get_node e2 tree in
     let handle_side handle_our_side node other_vertex tree = 
         match node with
         | Leaf (id, _) ->
-              (* if it's a leaf: make it a single *)
-              let tree = tree --> remove_node id --> add_node (Single id) in
-
-              (* add a handle if it's not already *)
-              let tree =
-                  if not handle_our_side
-                  then add_handles [id] tree
-                  else tree in
-
-              tree, id, Single_Jxn id, `Single (id, not handle_our_side)
-
+            (* if it's a leaf: make it a single *)
+            let tree = tree --> remove_node id --> add_node (Single id) in
+            (* add a handle if it's not already *)
+            let tree =
+                if not handle_our_side
+                then add_handles [id] tree
+                else tree
+            in
+            tree, id, Single_Jxn id, `Single (id, not handle_our_side)
         | Interior (id, n1, n2, n3) ->
-              let l = id in
-              let l1, l2 = other_two_nbrs other_vertex node in
-              let new_root = not handle_our_side || (is_handle l tree) in
-
-              let tree, jxn, root =
-                  if new_root
-                  then begin
-                      let tree =
-                          if is_handle l tree then remove_handle l tree else tree in
-                      let tree = tree --> add_handle l1 --> add_edge (Edge (l1, l2))
-                          --> replace_nbr_in_tree l l2 l1
-                          --> replace_nbr_in_tree l l1 l2
-                          --> reorient_node l1 l2
-                          --> reorient_node l2 l1
-                      in
-                      tree, Edge_Jxn (l1, l2),Some l1
-                  end
-                  else begin
-                      let li, lj =
-                          if is_edge (Edge (l1, l)) tree then l1, l2 else l2, l1 in
-                      let tree = tree --> add_edge (Edge (li, lj))
-                          --> replace_nbr_in_tree l li lj
-                          --> replace_nbr_in_tree l lj li
-                          --> reorient_node li lj
-                      in
-                      tree, Edge_Jxn (li, lj), None
-                  end in
-              let tree = tree
-                  --> remove_edge_either (Edge(l, l1))
-                  --> remove_edge_either (Edge(l, l2))
-                  --> remove_node l in
-
-              tree, id, jxn, `Edge (l, l1, l2, root)
+            let l = id in
+            let l1, l2 = other_two_nbrs other_vertex node in
+            let new_root = not handle_our_side || (is_handle l tree) in
+            let tree, jxn, root =
+                if new_root then begin
+                    let tree = if is_handle l tree 
+                        then remove_handle l tree
+                        else tree
+                    in
+                    let tree = 
+                        tree --> add_handle l1
+                             --> add_edge (Edge (l1, l2))
+                             --> replace_nbr_in_tree l l2 l1
+                             --> replace_nbr_in_tree l l1 l2
+                             --> reorient_node l1 l2
+                             --> reorient_node l2 l1
+                    in
+                    tree, Edge_Jxn (l1, l2),Some l1
+                end else begin
+                    let li, lj = if is_edge (Edge (l1, l)) tree 
+                        then l1, l2
+                        else l2, l1
+                    in
+                    let tree = 
+                        tree --> add_edge (Edge (li, lj))
+                             --> replace_nbr_in_tree l li lj
+                             --> replace_nbr_in_tree l lj li
+                             --> reorient_node li lj
+                    in
+                    tree, Edge_Jxn (li, lj), None
+                end
+            in
+            let tree = 
+                tree --> remove_edge_either (Edge(l, l1))
+                     --> remove_edge_either (Edge(l, l2))
+                     --> remove_node l
+            in
+            tree, id, jxn, `Edge (l, l1, l2, root)
         | Single _ -> assert false
     in
-
-    let tree, t1_handle, t1_jxn, ld = handle_side handle_left node1 e2 tree in
-    let tree, t2_handle, t2_jxn, rd = handle_side (not handle_left) node2 e1 tree
-    in
-
+    let tree,t1_handle,t1_jxn,ld = handle_side handle_left node1 e2 tree in
+    let tree,t2_handle,t2_jxn,rd = handle_side (not handle_left) node2 e1 tree in
     let tree = remove_edge_either (Edge(e1, e2)) tree in
-
     if debug_tests then test_tree tree;
     tree, (ld, rd)
 
@@ -951,18 +949,18 @@ let break jxn tree =
 (** [make_minimal_tree]
     @return the minimal unrooted tree with 3 leaf nodes. *)
 let make_minimal_tree () =
-    let nd1 = Interior(1, 2, 3, 4) and
-        nd2 = Leaf(2, 1) and
-        nd3 = Leaf(3, 1) and
-        nd4 = Leaf(4, 1) and
-        e1 = Edge(1, 2) and
-        e2 = Edge(1, 3) and
-        e3 = Edge(1, 4) in
+    let nd1 = Interior(1, 2, 3, 4)
+    and nd2 = Leaf(2, 1)
+    and nd3 = Leaf(3, 1)
+    and nd4 = Leaf(4, 1)
+    and e1 = Edge(1, 2)
+    and e2 = Edge(1, 3)
+    and e3 = Edge(1, 4) in
     let bt = (add_nodes [nd1; nd2; nd3; nd4] (empty ())) in
     let bt = (add_edges [e1; e2; e3] bt) in
     let bt = (add_handle 1 bt) in
     if debug_tests then test_tree bt;
-        bt
+    bt
 
 (** [edge_map f tree]
     @param f function to be applied to each edge of the tree.
@@ -972,7 +970,8 @@ let make_minimal_tree () =
 let edge_map f tree =
     let edges = (EdgeSet.elements tree.d_edges) in
     let results = (List.map f edges) in
-        (List.combine edges results)
+    (List.combine edges results)
+
 
 (** [join jxn1 jxn2 atree]
     @param jxn1 jxn in the first tree to which the second tree will
@@ -996,7 +995,6 @@ let join jxn1 jxn2 tree =
            --> add_edge (Edge (e1, ex_nd))
            --> add_edge (Edge (ex_nd, e2))
     in
-
     (* changes and return tree, left new node id, and a function to make
        the actual node given its neighbor's id *)
     let tree, lid, lnode, ldel = 
@@ -1052,6 +1050,33 @@ let join jxn1 jxn2 tree =
     let path = rpath in
     if debug_tests then test_tree tree;
     tree, (ldel, rdel, path)
+
+
+(** [random t] 
+    @param t - t to create new random tree from
+    @return  - a uniformally random tree *)
+let random (nodes : int list)  : u_tree =
+    let random_edge t =
+        let ray = Array.of_list (EdgeSet.elements t.d_edges) in
+        let i = Random.int (Array.length ray) in
+        ray.(i)
+    in
+    let rec n_list n =
+        if n = 1 then [] else n :: (n_list (n-1))
+    and add_node t n =
+        let (Edge (a,b)) = random_edge t in
+        let t,_ = join (Single_Jxn n) (Edge_Jxn (a,b)) t in
+        t
+    in
+    let tree = make_disjoint_tree nodes in
+    match nodes with
+    | a :: b :: t ->
+        let acc,_ = join (Single_Jxn a) (Single_Jxn b) tree in
+        List.fold_left (add_node) acc t
+    | a :: [] ->
+        tree
+    | [] ->
+        assert false
 
 (** [pre_order_edge_map f id btree]
     @param id id of the node whose subtree will be mapped.
@@ -1677,9 +1702,7 @@ let print_tree id tree =
                 (visit_node id prefix);
                 (visit_nbr rid new_prefix visited_n_l)
     in
-        let _ =
-            (print_tree_aux id empty_string All_sets.Integers.empty) in
-            ()
+    ignore (print_tree_aux id empty_string All_sets.Integers.empty)
 
 (** [print_forest forest]
     @return () - prints all the trees in the forest. *)
@@ -1845,7 +1868,7 @@ module Parse = struct
                     if List.exists (fun x -> x = ch) [","; ";"] then
                         read_branch acc
                     else
-                        let _ = 
+                        let () = 
                             let msg = 
                                 "I@ will@ use@ the@ character@ " ^ ch ^ 
                                 " in@ position@ " ^ string_of_int character ^ 

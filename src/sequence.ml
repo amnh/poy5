@@ -200,7 +200,7 @@ let of_list l =
     let seq = create length in
     aux_of_list (ref seq) l 0;;
 
-let remove_gaps s2' cm =
+let remove_gaps2 s2' cm =
     let remove_gaps gap seq base = 
         if base <> gap then 
             let _ = prepend seq base in
@@ -213,6 +213,21 @@ let remove_gaps s2' cm =
     in
     prepend res (Cost_matrix.Two_D.gap cm);
     res
+
+let remove_gaps s2' ?(gapcode=Alphabet.gap) prependgap =
+    let remove_gap gap seq base = 
+        if base <> gap then 
+            let _ = prepend seq base in
+            seq
+        else seq
+    in
+    let res = 
+        fold_right (remove_gap gapcode) 
+        (create (length s2')) s2'
+    in
+    if prependgap then prepend res gapcode;
+    res
+
 
 let is_empty seq gap =
     let length = length seq in
@@ -1136,7 +1151,7 @@ module Align = struct
             in
             (*Printf.printf "; s1' and s2' = %!"; printseqcode s1'; printseqcode s2';
             Printf.printf "end of sequence.ml \n%!";*)
-            remove_gaps (mapi get_closest s2') cm, cst
+            remove_gaps2 (mapi get_closest s2') cm, cst
         else
             let s1', s2', comp =
                 if 0 = compare s1 s2 then
@@ -1173,7 +1188,7 @@ module Align = struct
                 (*let _ =
                 Printf.printf ", s2' = %!"; printseqcode s2'
                 in*)
-                remove_gaps s2' cm
+                remove_gaps2 s2' cm
             in
             (*Printf.printf ", s2' = %!"; printseqcode s2';
             Printf.printf "end of sequence.ml \n%!";*)
@@ -1447,7 +1462,7 @@ module NewkkAlign = struct
                     else v'
                 else v
             in
-            remove_gaps (mapi get_closest s2') cm, cst
+            remove_gaps2 (mapi get_closest s2') cm, cst
         else
             let s1', s2', comp =
                 if 0 = compare s1 s2 then
@@ -1481,7 +1496,7 @@ module NewkkAlign = struct
                     in
                     mapi get_closest s2' 
                 in
-                remove_gaps s2' cm
+                remove_gaps2 s2' cm
             in
             (* We must recalculate the distance between sequences because the
             * set ditance calculation is an upper bound in the affine gap cost

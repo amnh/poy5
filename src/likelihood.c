@@ -61,6 +61,7 @@
 /* Cost Fn Mode Codes */
 #define MPLCOST      1
 #define MALCOST      0
+#define SMPLCOST     2
 
 #define KAHANSUMMATION       /* reduce error in sum over likelihood vector? */
  
@@ -1046,6 +1047,35 @@ logMPL_site( const mll* l, const double weight, const double* pi,
     return max_v;
 }
 
+/** Smooth/soft Max function; does not contain a sharp discontinuity;
+
+                        log ( \summation_{i=0}^{n} \exp^{kx_i} )
+    smax(x_0...x_n|k) = ----------------------------------------
+                                            k
+
+        where k is some smoothness factor. If we set k to the actual maximum,
+    we can avoid some terms and reduce error, and better reflect the actual 
+    max function.
+
+    See, http://www.johndcook.com/blog/2010/01/13/soft-maximum/
+    and, http://www.johndcook.com/blog/2010/01/20/how-to-compute-the-soft-maximum/ */
+double
+logSMPL_site( const mll* l, const double weight, const double* pi,
+                    const double* prob, const int i )
+{
+    int r, j, c;
+    double maximum, s_max;
+    maximum = logMPL_site( l, 1.0, pi, prob, i );
+    for(r=0; r < l->rates;++r){
+        c = (r * (l->stride * l->c_len)) + (l->stride * i);
+        for(j=0; j < l->stride; ++j){
+            s_max += exp( (l->lv_s[c+j] + log(pi[j])) - maximum );
+        }
+    }
+    s_max = (maximum + log(s_max)) * weight;
+    return s_max;
+}
+
 /** [loglikelihood ml p prob %]
  * returns loglikelihood of a character set. |p| = l->stride
  *                                           |prob| = l->rates
@@ -1106,15 +1136,52 @@ double logMPLlikelihood( const mll* l,const double* ws,const double* pi,const do
 #endif
 }
 
+double logSMPLlikelihood( const mll* l,const double* ws,const double* pi,const double* prob)
+{
+#ifdef KAHANSUMMATION
+    int i; 
+    double ret_s,ret_c,ret_y,ret_t;
+
+    ret_s = logSMPL_site(l,ws[0],pi,prob,0);
+    ret_c = 0.0;
+    for(i = 1;i<l->c_len; i++)
+    {
+        ret_y = (logSMPL_site(l,ws[i],pi,prob,i)) - ret_c;
+        ret_t = ret_s + ret_y;
+        ret_c = (ret_t - ret_s) - ret_y;
+        ret_s = ret_t;
+    }
+    return ( -ret_s );
+#else
+    int i;
+    double ret;
+    ret = 0.0;
+    for(i=0;i<l->c_len;i++)
+        ret += logMPL_site(l,ws[i],pi,prob,i);
+    return ( -ret );
+#endif
+}
+
+
 double
 loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob,
-                const double pinvar, const int mpl)
+                const double pinvar, const int cost)
 {
-    if( 0 == mpl ){
-        return logMALlikelihood( l, ws, pi, prob, pinvar );
-    } else {
-        return logMPLlikelihood( l, ws, pi, prob );
+    double total_cost;
+    switch( cost ){
+        case MALCOST : 
+            total_cost = logMALlikelihood( l, ws, pi, prob, pinvar );
+            break;
+        case MPLCOST: 
+            total_cost = logMPLlikelihood( l, ws, pi, prob );
+            break;
+        case SMPLCOST: 
+            total_cost = logSMPLlikelihood( l, ws, pi, prob );
+            break;
+        default :
+            assert( FALSE );
     }
+    return total_cost;
 }
 
 /* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
@@ -1143,7 +1210,7 @@ likelihood_CAML_loglikelihood( value * argv, int argn )
 /** SSE functions for medians */
 #ifdef __SSE3__
 //some definitions to make reasoning easier.
-#define _mm_hmul_pd(x)  _mm_mul_pd(x,_mm_shuffle_pd(x,x,_MM_SHUFFLE2(0,1))) 
+#define _mm_hmul_pd(x)  _mm_mul_pd(x,_mm_shuffle_pd(x,x,_MM_SHUFFLE2(0,1)))
 #define load_next2(x)   _mm_load_pd( x )
 #define load_next1(x)   _mm_load_sd( x )
 
@@ -1152,7 +1219,7 @@ inline __m128d dotproduct2x2(__m128d a, __m128d b, __m128d pa, __m128d pb){
     return _mm_hadd_pd( a, b );
 }
 inline __m128d dotproduct2x1(__m128d a, __m128d b, __m128d pa, __m128d pb){
-     a = _mm_mul_sd( a, pa );        b = _mm_mul_sd( b, pb );
+     a = _mm_mul_sd( a, pa );       b = _mm_mul_sd( b, pb );
     return _mm_shuffle_pd( a, b, 0x00 );
 }
 #endif
@@ -1254,6 +1321,7 @@ median_MAL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
             cmll->lv_s[len+j] = MAX((tmp2[j]*tmp1[j]),0);
     } */
 }
+
 void
 median_MPL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
                  mll* cmll, const int rate_idx )

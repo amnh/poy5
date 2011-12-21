@@ -30,37 +30,51 @@ let io = 3
 let debugging = 4
 let barrier = 5
 
-type cost_modes = [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak |
-`Exhaustive_Strong | `Iterative of [`ThreeD of int option | `ApproxD of int
-option ]  ]
+type cost_modes = 
+    [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong 
+    | `Iterative of [`ThreeD of int option | `ApproxD of int option ] ]
+
 let cost : cost_modes ref = 
     ref `Normal
 
 type filename = [ `Local of string | `Remote of string ]
+
+(* When a maximum number of trees max is to be kept, and the total
+* number of trees is higher than that max, the method used to mantain the
+* max value.
+*
+* [Fifo] will simply keep the first trees found.
+* [Lifo] will keep the last trees found.
+* [Random] will keep a random subset of the trees found. 
+* Now we also use this type as tie_breaker for cost matrix*)
+type keep_method = [
+    | `First
+    | `Last
+    | `Keep_Random ]
 
 type support_tree = 
     | Leaf of int
     | Node of float * support_tree * support_tree
 
 type orientation_t = [
-| `Orintation
-| `NoOrientation
+    | `Orintation
+    | `NoOrientation
 ]
 
 
 type init3D_t = [
-| `Init3D
-| `NoInit3D
+    | `Init3D
+    | `NoInit3D
 ]
 
 type read_option_t = [
-| `Init3D of bool
-| `Orientation of bool
-| `Prealigned
+    | `Init3D of bool
+    | `Orientation of bool
+    | `Prealigned
 ]
 
 type prealigned_costs = [
-    | `Assign_Transformation_Cost_Matrix of (filename * int option) 
+    | `Assign_Transformation_Cost_Matrix of (filename * (int*keep_method) option) 
     | `Create_Transformation_Cost_Matrix of (int * int) ]
 
 type simple_input = [
@@ -109,11 +123,11 @@ type prep_tail_spec = [
 ]
 
 type level = [
-    | `Assign_Level of (int * characters)
+    | `Assign_Level of (int * keep_method * characters)
 ]
 
 type transform_cost_matrix = [
-    | `Assign_Transformation_Cost_Matrix of ((filename * int option) option * characters)
+    | `Assign_Transformation_Cost_Matrix of ((filename * (int * keep_method) option) option * characters)
     | `Create_Transformation_Cost_Matrix of (int * int * characters)
     | `Assign_Affine_Gap_Cost of (int * characters)
     | `Assign_Tail_Cost of (prep_tail_spec * characters)
@@ -124,7 +138,7 @@ type transform_cost_matrix = [
 type median_solver_chosen = [ `MGR | `SimpleLK | `ChainedLK | `COALESTSP | `BBTSP |
 `Siepel | `Albert | `Vinh  ]
 
-type annotate_tool = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
+type annotate_tool = [ `Mauve of (float*float*float*float) | `Default of (int*int*int) ]
 
 type align_meth = [ `NewKK | `Default ]
 
@@ -196,19 +210,20 @@ type ml_substitution = [
 
 type ml_costfn = [ `MAL     (* maximum average likelihood *)
                  | `MPL     (* most parsimonious likelihood *)
-                 | `FLK     (* dynamic alignment with a single matrix *)
-                 ] 
+                 | `FLK     (* dynamic alignment with a single matrix *) ] 
 
 type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
+
 type ml_priors = [ `Estimate | `Given of float list | `Equal | `Consistent ]
+
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
+
 type ml_spec = 
     (characters * ml_costfn * ml_substitution * ml_site_variation option
         * ml_priors * ml_gap)
 
 type polymorphism_arg = [ |`Do_Nothing | `Pick_One | `Do_All  ]
-
 
 type char_transform = [
     | dynamic_char_transform
@@ -263,7 +278,7 @@ type support_output = [
     | `Bootstrap of summary_class
 ]
 
-type diagnosis_report_type =[ `StateOnly | `Normal ]
+type diagnosis_report_type = [ `StateOnly | `Normal ]
 
 type report = [
     | `KolmoMachine of string option
@@ -301,18 +316,6 @@ type report = [
     | `Nodes of string option
     | `RootName of string
 ]
-
-(* When a maximum number of trees max is to be kept, and the total
-* number of trees is higher than that max, the method used to mantain the
-* max value.
-*
-* [Fifo] will simply keep the first trees found.
-* [Lifo] will keep the last trees found.
-* [Random] will keep a random subset of the trees found. *)
-type keep_method = [
-    | `First
-    | `Last
-    | `Keep_Random ]
 
 
 type store_class = [

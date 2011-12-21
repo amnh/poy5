@@ -1254,7 +1254,7 @@ let ndebug_no_catch = true
 let reroot_at_outgroup run =
     let reroot_at_outgroup data ptree =
         match data.Data.root_at with
-        | None -> ptree
+        | None          -> ptree
         | Some outgroup ->
                try let nbr = Ptree.get_parent outgroup ptree in
                    let ptree, update =
@@ -1275,20 +1275,20 @@ let report_memory () =
     and ( --> ) a b = b a 
     and stat = Gc.stat () in
     "@[<v 2>@{<b>Memory usage:@}@,@[<v>" 
-    --> append "Minor Words" stat.Gc.minor_words string_of_float
-    --> append "Promoted Words" stat.Gc.promoted_words string_of_float
-    --> append "Major Words" stat.Gc.major_words string_of_float
-    --> append "Major Collections" stat.Gc.major_collections string_of_int
-    --> append "Heap Words" stat.Gc.heap_words string_of_int
-    --> append "Heap Chunks" stat.Gc.heap_chunks string_of_int
-    --> append "Live Words" stat.Gc.live_words string_of_int
-    --> append "Free Words" stat.Gc.free_words string_of_int
-    --> append "Free Blocks" stat.Gc.free_blocks string_of_int
-    --> append "Largest Free" stat.Gc.largest_free string_of_int
-    --> append "Fragments" stat.Gc.fragments string_of_int
-    --> append "Compactions" stat.Gc.compactions string_of_int
-    --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
-    --> fun x -> x ^ "@]@]%!"
+        --> append "Minor Words" stat.Gc.minor_words string_of_float
+        --> append "Promoted Words" stat.Gc.promoted_words string_of_float
+        --> append "Major Words" stat.Gc.major_words string_of_float
+        --> append "Major Collections" stat.Gc.major_collections string_of_int
+        --> append "Heap Words" stat.Gc.heap_words string_of_int
+        --> append "Heap Chunks" stat.Gc.heap_chunks string_of_int
+        --> append "Live Words" stat.Gc.live_words string_of_int
+        --> append "Free Words" stat.Gc.free_words string_of_int
+        --> append "Free Blocks" stat.Gc.free_blocks string_of_int
+        --> append "Largest Free" stat.Gc.largest_free string_of_int
+        --> append "Fragments" stat.Gc.fragments string_of_int
+        --> append "Compactions" stat.Gc.compactions string_of_int
+        --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
+        --> fun x -> x ^ "@]@]%!"
 
 let explode_filenames files =
     (*
@@ -1318,7 +1318,7 @@ END
  * data of the trees, or update the data to the tree (if load_data is false).
  * This is done when cost modes and other settings have been changed, and does
  * not affect the data or how the data is created. *) 
-let rediagnose_trees ?(classify=true) load_data run = 
+let rediagnose_trees ?(classify=true) load_data run =
     let replacer nodes nd = 
         let code = Node.taxon_code nd in
         try All_sets.IntegerMap.find code nodes with
@@ -1365,12 +1365,14 @@ let update_trees_to_data ?(classify=true) force load_data run =
     in
     let run = { run with nodes = nodes; data = data } in
     let len = (Sexpr.length run.trees) + (Sexpr.length run.stored_trees) in
-    if len > 0 then
+    if len > 0 then begin
         let st = Status.create "Diagnosis"  (Some len) "Recalculating trees" in
-        let nodes = 
-            List.fold_left (fun acc nd -> 
-                let code = Node.taxon_code nd in
-                All_sets.IntegerMap.add code nd acc) All_sets.IntegerMap.empty run.nodes
+        let nodes =
+            List.fold_left
+                (fun acc nd ->
+                    let code = Node.taxon_code nd in
+                    All_sets.IntegerMap.add code nd acc)
+                All_sets.IntegerMap.empty run.nodes
         in
         let replacer nd = 
             let code = Node.taxon_code nd in
@@ -1406,7 +1408,9 @@ let update_trees_to_data ?(classify=true) force load_data run =
         let stored = Sexpr.map (doit replacer) run.stored_trees in
         Status.finished st;
         { run with trees = trees; stored_trees = stored }
-    else run
+    end else begin
+        run
+    end
 
 let process_transform (run : r) (meth : Methods.transform) =
     match meth with
@@ -1477,7 +1481,7 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left 
                     (fun d f -> 
                         Data.process_molecular_file
-                                (Data.Substitution_Indel (1,2))
+                                Data.default_tcm
                                 Cost_matrix.Two_D.default
                                 Cost_matrix.Three_D.default annotated
                                 Alphabet.nucleotides mode is_prealigned `Seq d f)
@@ -1494,7 +1498,7 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left 
                     (fun d f ->
                         Data.process_molecular_file
-                                (Data.Substitution_Indel (1,2))
+                                Data.default_tcm
                                 Cost_matrix.Two_D.default 
                                 Cost_matrix.Three_D.default annotated
                                 Alphabet.nucleotides `DO false `Chromosome d f)
@@ -1512,7 +1516,7 @@ let load_data (meth : Methods.input) data nodes =
                     List.fold_left
                         (fun d f ->
                             Data.process_molecular_file
-                                    (Data.Substitution_Indel (1,2))
+                                    Data.default_tcm
                                     Cost_matrix.Two_D.default 
                                     Cost_matrix.Three_D.default annotated
                                     Alphabet.nucleotides `DO false `Genome d f)
@@ -1535,7 +1539,7 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left 
                     (fun d f -> 
                         Data.process_molecular_file 
-                                    (Data.Substitution_Indel (1,2))
+                                    Data.default_tcm
                                     Cost_matrix.Two_D.default_aminoacids
                                     (Lazy.force Cost_matrix.Three_D.default_aminoacids)
                                     annotated alpha `DO is_prealigned `Seq d f)
@@ -1595,10 +1599,11 @@ let load_data (meth : Methods.input) data nodes =
             reader false false data meth
         | `Prealigned (meth, tcm, gap_opening) ->
             prealigned_files := [];
-            let data = reader false true data meth in
+            let data = reader false true data meth in (* read data as dynamic *)
             let data = Data.categorize (Data.remove_taxa_to_ignore data) in
             let files = List.flatten !prealigned_files in
             let chars =
+                (* list of characters to filter after conversion to static *)
                 let chars = List.rev_map (function `Local x | `Remote x -> (x ^ ".*")) files in
                 `Names (true,chars)
             in
@@ -1615,8 +1620,7 @@ let load_data (meth : Methods.input) data nodes =
                         (Cost_matrix.Affine gap_opening)
                 else data
             in
-            Data.prealigned_characters ImpliedAlignment.analyze_tcm data
-            chars
+            Data.prealigned_characters ImpliedAlignment.analyze_tcm data chars 
     in
     let data = annotated_reader data meth in   
     let data = Data.categorize (Data.remove_taxa_to_ignore data) in 
@@ -1764,6 +1768,7 @@ let output_clade_file data fn counter tree =
         ";\ncc-.;\nproc /;\n";
     close_out file
 
+
 let runtime_store rediagnose run meth =
     let store name run clas =
         match clas with
@@ -1788,7 +1793,8 @@ let runtime_store rediagnose run meth =
         match clas with
         | `Data -> 
                 let data, nodes = find run.data_store in
-                (changed || (run.data <> data)), { run with data = data; nodes = nodes}
+                let changed = changed || not (Data.compare run.data data) in
+                changed, { run with data = data; nodes = nodes}
         | `Trees ->
                 true, { run with trees = find run.tree_store }
         | `Bremer ->
@@ -1810,9 +1816,10 @@ let runtime_store rediagnose run meth =
             let changed, nrun = 
                 try List.fold_left (set name) (false, run) clas with
                 | Not_found -> 
-                        Status.user_message Status.Error ("The@ state@ of@ " ^
-                        "search@ " ^ name ^ "@ has@ not@ been@ defined.@ " ^
-                        "I@ will@ continue@ with@ the@ current@ state.");
+                    Status.user_message Status.Error 
+                        ("The@ state@ of@ search@ " ^ name ^
+                         "@ has@ not@ been@ defined.@ @ will@ continue@ " ^
+                         "with@ the@ current@ state.");
                         false, run
             in
             if changed && List.exists do_rediagnose clas then
@@ -2101,7 +2108,8 @@ let get_trees_for_support support_class run =
     | `Bremer (Some input_files) ->
             S.bremer_of_input_file_but_trust_input_cost 
                 (match run.data.Data.root_at with
-                    | Some x -> x | None -> failwith "no root?")
+                    | Some x -> x 
+                    | None -> failwith "no root?")
                 (fun x -> Data.code_taxon x run.data)
                 run.data
                 input_files
@@ -2468,10 +2476,10 @@ IFDEF USEPARALLEL THEN
         end else ()
 END
 
-let automated_search folder max_time min_time max_memory min_hits target_cost
-visited user_constraint run =
+let automated_search folder max_time min_time max_memory min_hits target_cost visited user_constraint run =
     let module FPSet = Set.Make (Ptree.Fingerprint) in
-    let has_dynamic = Data.has_dynamic run.data in
+    let has_dynamic = Data.has_dynamic run.data
+    and do_static_approx = Data.can_do_static_approx run.data in
     let timer = Timer.start () in
     let search_results = ref empty_search_results in
     let get_memory () = (Gc.stat ()).Gc.heap_words in
@@ -2479,10 +2487,7 @@ visited user_constraint run =
     let trees = ref run.trees in
     let exhausted = ref FPSet.empty in
     let ratchets = ref 0 in
-    let best_cost = ref 
-        (match target_cost with
-        | None -> max_float 
-        | Some x -> x)
+    let best_cost = ref (match target_cost with | None -> max_float | Some x -> x)
     and hits = ref 0 
     and memory_change = ref (get_memory ())
     and memory_limit = ref false 
@@ -2607,7 +2612,7 @@ IFDEF USEPARALLEL THEN
                         else ahts), min best abest, max ax x) 
                     (0, 0, 0, 0, max_float, 0) arr in
             let run =
-                (if not_final then
+                if not_final then
                     folder run [`GatherTrees ([`BestN None], [])]
                 else if mem < max_memory then
                     folder run [`GatherTrees ([`Unique], [])]
@@ -2616,25 +2621,25 @@ IFDEF USEPARALLEL THEN
                     let mmax = Array.fold_left max 0 arr in
                     let mmax = max 1 (mmax / 2) in
                     let run = folder run [`Unique; `BestN (Some mmax)] in
-                    folder run [`GatherTrees ([`Unique; `BestN (Some mmax)],
-                    [])])
+                    folder run [`GatherTrees ([`Unique; `BestN (Some mmax)],[])]
             in
             let run =
                 if not_final then
                     { run with trees = Sexpr.union run.trees my_trees }
-                else run
+                else
+                    run
             in
-            let search_results = 
-                !search_results 
-                --> incr_search_results `Builds iterations_counter
-                --> incr_search_results `Fuse fuse_counter
-                --> incr_search_results `Ratchet ratchet_counter
+            let search_results =
+                !search_results
+                    --> incr_search_results `Builds iterations_counter
+                    --> incr_search_results `Fuse fuse_counter
+                    --> incr_search_results `Ratchet ratchet_counter
             in
-            { run with search_results = search_results }, 
+            { run with search_results = search_results },
             iterations_counter, fuse_counter, hits, best
 ELSE
-        let search_results = 
-                !search_results 
+        let search_results =
+            !search_results
                 --> incr_search_results `Builds !iterations_counter
                 --> incr_search_results `Fuse !fuse_counter
                 --> incr_search_results `Ratchet !ratchets
@@ -2804,17 +2809,17 @@ END
                     [APOY tbr; APOY timeout:[`Dynamic time]] --> add_constraint
                 in
                 let nrun = 
+                    (**** TODO ****)
                     exec nrun 
-                    (if has_dynamic then
-                        (CPOY 
-                        perturb (iterations:4, transform (tcm:(1,1),
-                        static_approx), timeout:[`Dynamic remaining_time],
-                        swap { swap_args }))
-                    else
-                        (CPOY 
-                        perturb (iterations:4, timeout:[`Dynamic
-                        remaining_time], swap { swap_args }) 
-                        swap (timeout:[`Dynamic remaining_time], randomized)))
+                        (if (not do_static_approx) && has_dynamic then
+                            (CPOY 
+                            perturb (iterations:4, timeout:[`Dynamic remaining_time], swap { swap_args }))
+                        else if has_dynamic then
+                            (CPOY 
+                            perturb (iterations:4, transform (tcm:(1,1), static_approx), timeout:[`Dynamic remaining_time], swap { swap_args }))
+                        else
+                            (CPOY 
+                            perturb (iterations:4, timeout:[`Dynamic remaining_time], swap { swap_args }) swap (timeout:[`Dynamic remaining_time], randomized)))
                 in
                 trees := Sexpr.union nrun.trees !trees;
                 update_information (`Initial nrun);
@@ -2825,109 +2830,96 @@ END
         raise Exit
     with
     | Exit ->
-            Status.finished search_iteration_status;
-            let do_exhaustive_round r =
-                if not has_dynamic then r
-                else
-                    let r' = r in
-                    let compare_trees a b =
-                        let cost = Ptree.get_cost `Adjusted in
-                        compare (cost a) (cost b)
-                    in
-                    let prev = !Methods.cost in
-                    match prev with
-                    | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ -> r
-                    | `Normal | `Normal_plus_Vitamines ->
-                            try
-                                let potential, not_potential = 
-                                    Sexpr.split (fun x ->
-                                    not 
-                                    (FPSet.mem (Ptree.Fingerprint.fingerprint x)
-                                    !exhausted)) r.trees 
-                                in
-                                match List.sort compare_trees 
-                                    (Sexpr.to_list potential) with
-                                | [] -> r
-                                | h :: t ->
-                                        let r = { r with trees = `Single h } in
-                                        Methods.cost := `Exhaustive_Weak;
-                                        let r = 
-                                            let args = 
-                                                [APOY timeout:[`Dynamic remaining_time]] -->
-                                                    add_visited --> add_constraint
-                                            in
-                                            exec r (CPOY swap {args})
-                                        in
-                                        let h = Sexpr.first r.trees in
-                                        exhausted := FPSet.add 
-                                        (Ptree.Fingerprint.fingerprint h)
-                                        !exhausted;
-                                        Methods.cost := prev;
-                                        let r =
-                                            { r with trees = Sexpr.union r.trees (Sexpr.union
-                                            not_potential (Sexpr.of_list t)) }
-                                        in
-                                        update_information (`Others (r', r));
-                                        r
-                            with
-                            | err ->
-                                    Methods.cost := prev;
-                                    raise err
-            in
-            let fuse_iteration_status = 
-                Status.create "Fusing Trees" None "" in
-            try
-                run := { !run with trees = !trees };
-                let len = Sexpr.length !trees in
-                trees := `Empty;
-                for i = 0 to (2 * len) do
-                    if 0. < remaining_time () then begin 
-                        incr fuse_counter;
-                        Status.message fuse_iteration_status 
-                        ("Generation " ^ string_of_int !fuse_counter);
-                        update_information (`Others (!run, !run));
-                    end;
-                    Status.full_report fuse_iteration_status;
-                    stop_if_necessary `Fuse;
-                    let fus = 
-                        let swap_args = 
-                            [APOY tbr; APOY timeout:[`Dynamic remaining_time]] -->
-                                add_randomized --> add_visited --> add_constraint
-                        in
-                        CPOY fuse (iterations:1, swap { swap_args })
-                    in
-                    let r = exec !run fus in 
-                    update_information (`Others (!run, r));
-                    run := r;
-                    stop_if_necessary `Other;
-                done;
-                let r = 
-                    let c = command_processor (CPOY select (unique)) in
-                    folder !run c 
+        Status.finished search_iteration_status;
+        let do_exhaustive_round r =
+            if not has_dynamic then r
+            else begin
+                let r' = r in
+                let compare_trees a b =
+                    let cost = Ptree.get_cost `Adjusted in
+                    compare (cost a) (cost b)
                 in
-                let r = do_exhaustive_round r in
-                trees := r.trees;
-                run := { r with trees = `Empty };
-                Status.finished fuse_iteration_status;
-            with
-            | Exit ->
-                    Status.finished fuse_iteration_status;
-                    raise Exit
+                let prev = !Methods.cost in
+                match prev with
+                | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ -> r
+                | `Normal | `Normal_plus_Vitamines ->
+                    try
+                        let potential, not_potential = 
+                            Sexpr.split
+                                (fun x ->
+                                    not (FPSet.mem (Ptree.Fingerprint.fingerprint x) !exhausted))
+                                r.trees 
+                        in
+                        match List.sort compare_trees (Sexpr.to_list potential) with
+                        | [] -> r
+                        | h :: t ->
+                            let r = { r with trees = `Single h } in
+                            Methods.cost := `Exhaustive_Weak;
+                            let r = 
+                                let args = 
+                                    [APOY timeout:[`Dynamic remaining_time]] -->
+                                        add_visited --> add_constraint
+                                in
+                                exec r (CPOY swap {args})
+                            in
+                            let h = Sexpr.first r.trees in
+                            exhausted := FPSet.add (Ptree.Fingerprint.fingerprint h) !exhausted;
+                            Methods.cost := prev;
+                            let r =
+                                { r with trees = Sexpr.union r.trees (Sexpr.union not_potential (Sexpr.of_list t)) }
+                            in
+                            update_information (`Others (r', r));
+                            r
+                    with | err ->
+                        Methods.cost := prev;
+                        raise err
+            end
+        in
+        let fuse_iteration_status = Status.create "Fusing Trees" None "" in
+        try
+            run := { !run with trees = !trees };
+            let len = Sexpr.length !trees in
+            trees := `Empty;
+            for i = 0 to (2 * len) do
+                if 0. < remaining_time () then begin 
+                    incr fuse_counter;
+                    Status.message fuse_iteration_status ("Generation " ^ string_of_int !fuse_counter);
+                    update_information (`Others (!run, !run));
+                end;
+                Status.full_report fuse_iteration_status;
+                stop_if_necessary `Fuse;
+                let fus = 
+                    let swap_args = 
+                        [APOY tbr; APOY timeout:[`Dynamic remaining_time]] -->
+                            add_randomized --> add_visited --> add_constraint
+                    in
+                    CPOY fuse (iterations:1, swap { swap_args })
+                in
+                let r = exec !run fus in 
+                update_information (`Others (!run, r));
+                run := r;
+                stop_if_necessary `Other;
+            done;
+            let r = folder !run (command_processor (CPOY select (unique))) in
+            let r = do_exhaustive_round r in
+            trees := r.trees;
+            run := { r with trees = `Empty };
+            Status.finished fuse_iteration_status;
+        with | Exit ->
+            Status.finished fuse_iteration_status;
+            raise Exit
     done;
     !run
-    with 
-    | Exit -> 
-            let r, iterations_counter, fuse_counter, hits, _ = 
-                collect_results false
-            in
-            Status.finished st;
-            Status.user_message Status.Information 
+    with | Exit -> 
+        let r, iterations_counter, fuse_counter, hits, _ = collect_results false in
+        Status.finished st;
+        Status.user_message Status.Information 
             ("The search evaluated " ^ string_of_int iterations_counter ^ 
             " independent repetitions with ratchet and fusing " ^
             "for " ^ string_of_int fuse_counter ^ " generations. " ^
             "The shortest tree was found " ^ string_of_int hits ^ 
             " times.");
-            folder r [`Unique]
+        folder r [`Unique]
 
 
 let rec process_application run item = 
@@ -3287,281 +3279,6 @@ END
                     to_register_dependencies
             end
 
-            (*
-            module Build = struct
-                type arguments = (int * Methods.build * Methods.transform list)
-                let name = "build"
-
-                let process_argument ((n, meth, trans) as acc) (argument :
-                    Analyzer.pc_pv Analyzer.arguments_pv) =
-                    match argument with
-                    | `Lident "random" ->
-                            begin match meth with
-                            | `Nj
-                            | `Prebuilt _ -> acc
-                            | `Wagner_Ordered x 
-                            | `Wagner_Distances x 
-                            | `Wagner_Mst x
-                            | `Build_Random x 
-                            | `Wagner_Rnd x -> 
-                                    (n, (`Build_Random x), trans)
-                            | `Constraint _ ->
-                                    raise (IllegalArgument ("Constraint tree \
-                                    has already been selected as build \
-                                    method.", argument))
-                            | `Branch_and_Bound _ ->
-                                    raise (IllegalArgument ("Branch and bound \
-                                    tree has already been selected as build \
-                                    method.", argument))
-                            end
-                    | `Lident "constraint" | `Labeled ("constraint", _) as opt ->
-                            let file = 
-                                match opt with
-                                | `Lident "constraint" -> None
-                                | `Labeled ("constraint", `String x) -> Some (`Local x)
-                                | _ -> 
-                                        raise (IllegalArgument ("constraint
-                                        expects a string with filename.",
-                                        argument))
-                            in
-                            begin match meth with
-                            | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
-                            | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
-                            | `Wagner_Mst (keep_max, _, keep_method, lst, _)
-                            | `Build_Random (keep_max, _, keep_method, lst, _) 
-                            | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
-                                    (n, (`Constraint (1, 0.0, file, lst)), trans)
-                            | `Branch_and_Bound _ ->
-                                    raise (IllegalArgument ("Branch and bound \
-                                    has already been selected as build method.", 
-                                    argument))
-                            | `Constraint _ ->
-                                    raise (IllegalArgument ("Constraint has \
-                                    already been selected as build method.",
-                                    argument))
-                            | `Nj -> 
-                                    raise (IllegalArgument ("Neighbor joining \
-                                    has already been selected as build method.", 
-                                    argument))
-                            | `Prebuilt _ -> 
-                                    raise (IllegalArgument ("Prebuilt has \
-                                    already been selected as build method.", 
-                                    argument))
-                            end
-                    | `Lident "branch_and_bound"
-                    | `Labeled ("branch_and_bound", `Int _)
-                    | `Labeled ("branch_and_bound", `Float _) as opt ->
-                            let bound = 
-                                match opt with
-                                | `Lident _ -> None
-                                | `Labeled (_, `Int x)
-                                | `Labeled (_, `Float x) -> float_of_string x
-                            in
-                            begin match meth with
-                            | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
-                            | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
-                            | `Wagner_Mst (keep_max, _, keep_method, lst, _)
-                            | `Build_Random (keep_max, _, keep_method, lst, _) 
-                            | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
-                                    (n, (`Branch_and_Bound (bound, None, keep_method,
-                                    keep_max, lst)), trans)
-                            | `Branch_and_Bound x ->
-                                    (n, `Branch_and_Bound x, trans)
-                            | `Constraint _ ->
-                                    raise (IllegalArgument ("Constraint has \
-                                    already been selected as build method.",
-                                    argument))
-                            | `Nj -> 
-                                    raise (IllegalArgument ("Neighbor joining \
-                                    has already been selected as build method.",
-                                    argument))
-                            | `Prebuilt _ -> 
-                                    raise (IllegalArgument ("Prebuilt has \
-                                    already been selected as build method.",
-                                    argument))
-                            end
-                    | `Lident "_distances" ->
-                            begin match meth with
-                            | `Prebuilt _
-                            | `Wagner_Distances _ -> acc
-                            | `Wagner_Mst x
-                            | `Wagner_Rnd x 
-                            | `Wagner_Ordered x
-                            | `Build_Random x -> (n, (`Wagner_Distances x), trans)
-                            | `Constraint _ ->
-                                    failwith 
-                                    "Constraint has already been selected as build method."
-                            | `Branch_and_Bound _ -> 
-                                    failwith
-                                    "Branch and bound tree has already been selected as build method."
-                            | `Nj -> 
-                                    failwith 
-                                    "Neighbor joining has already been selected as build method."
-                            end
-                    | `Lident "_mst" ->
-                            begin match meth with
-                            | `Prebuilt _
-                            | `Wagner_Mst _ -> acc
-                            | `Wagner_Distances x
-                            | `Wagner_Rnd x 
-                            | `Wagner_Ordered x
-                            | `Build_Random x -> (n, (`Wagner_Mst x), trans)
-                            | `Constraint _ ->
-                                    failwith 
-                                    "Constraint has already been selected as build method."
-                            | `Branch_and_Bound _ -> 
-                                    failwith
-                                    "Branch and bound tree has already been selected as build method."
-                            | `Nj -> 
-                                    failwith 
-                                    "Neighbor joining has already been selected as build method."
-                            end
-                    | `Lident "randomized" ->
-                            begin match meth with
-                            | `Prebuilt _
-                            | `Wagner_Rnd _ -> acc
-                            | `Wagner_Distances x
-                            | `Wagner_Mst x
-                            | `Wagner_Ordered x
-                            | `Build_Random x -> (n, (`Wagner_Rnd x), trans)
-                            | `Constraint _ ->
-                                    failwith 
-                                    "Constraint has already been selected as build method."
-                            | `Branch_and_Bound _ -> 
-                                    failwith
-                                    "Branch and bound tree has already been selected as build method."
-                            | `Nj -> 
-                                    failwith 
-                                    "Neighbor joining has already been selected as build method."
-                            end
-                    | `Lident "as_is" ->
-                            begin match meth with
-                            | `Prebuilt _
-                            | `Wagner_Ordered _ -> acc
-                            | `Wagner_Distances x
-                            | `Wagner_Mst x
-                            | `Build_Random x 
-                            | `Wagner_Rnd x -> (n, (`Wagner_Ordered x), trans)
-                            | `Constraint _ ->
-                                    failwith 
-                                    "Constraint has already been selected as build method."
-                            | `Branch_and_Bound _ -> 
-                                    failwith
-                                    "Branch and bound tree has already been selected as build method."
-                            | `Nj -> 
-                                    failwith 
-                                    "Neighbor joining has already been selected as build method."
-                            end
-                    | `Labeled ("threshold", `Int x)
-                    | `Labeled ("threshold", `Float x) ->
-                            let x = float_of_string x in
-                            let converter (a, _, c, d, e) = (a, x, c, d, e) in
-                            let nmeth = 
-                                match meth with
-                                | `Branch_and_Bound _
-                                | `Constraint _
-                                | `Build_Random _
-                                | `Nj
-                                | `Prebuilt _ -> meth
-                                | `Wagner_Distances y -> 
-                                        `Wagner_Distances (converter y)
-                                | `Wagner_Mst y -> 
-                                        `Wagner_Mst (converter y)
-                                | `Wagner_Rnd y -> 
-                                        `Wagner_Rnd (converter y)
-                                | `Wagner_Ordered y -> 
-                                        `Wagner_Ordered (converter y)
-                            in
-                            n, nmeth, trans
-                    | `Int x | `Labeled ("trees", `Int x) ->
-                            (int_of_string x, meth, trans)
-                    | `Labeled ("lookahead", `Int x) ->
-                            let x = int_of_string x in
-                            let converter (_, b, c, d, e) = (x, b, c, d, e) in
-                            let nmeth = 
-                                match meth with
-                                | `Branch_and_Bound _
-                                | `Constraint _
-                                | `Build_Random _
-                                | `Nj
-                                | `Prebuilt _ -> meth
-                                | `Wagner_Distances y -> 
-                                        `Wagner_Distances (converter y)
-                                | `Wagner_Mst y -> 
-                                        `Wagner_Mst (converter y)
-                                | `Wagner_Rnd y -> 
-                                        `Wagner_Rnd (converter y)
-                                | `Wagner_Ordered y -> 
-                                        `Wagner_Ordered (converter y)
-                            in
-                            n, nmeth, trans
-                    | `Lident "last" | `Lident "first" | `Lident "random" as x
-                    ->
-                            let x = 
-                                match x with
-                                | `Lident "last" -> `Last
-                                | `Lident "first" -> `First
-                                | `Lident "random" -> `Keep_Random
-                            in
-                            let converter (a, b, _, c, d) = (a, b, x, c, d) in
-                            let nmeth = 
-                                match meth with
-                                | `Constraint _
-                                | `Nj
-                                | `Prebuilt _ -> meth
-                                | `Wagner_Distances y -> 
-                                        `Wagner_Distances (converter y)
-                                | `Wagner_Mst y -> 
-                                        `Wagner_Mst (converter y)
-                                | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
-                                | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
-                                | `Build_Random y -> `Build_Random (converter y)
-                                | `Branch_and_Bound (a, b, _, c, d) ->
-                                        `Branch_and_Bound (a, b, x, c, d)
-                            in
-                            n, nmeth, trans
-                    | `CommandArg x ->
-                            let t = transform_transform_arguments x in
-                            (n, meth, (t @ trans))
-                    | #Methods.tabu_join_strategy as tabu ->
-                            let converter (a, b, c, d, _) = (a, b, c, d, tabu) in
-                            let nmeth = 
-                                match meth with
-                                | `Constraint _
-                                | `Branch_and_Bound _
-                                | `Nj
-                                | `Prebuilt _ -> meth
-                                | `Wagner_Distances y -> 
-                                        `Wagner_Distances (converter y)
-                                | `Wagner_Mst y -> 
-                                        `Wagner_Mst (converter y)
-                                | `Wagner_Rnd y -> 
-                                        `Wagner_Rnd (converter y)
-                                | `Wagner_Ordered y -> 
-                                        `Wagner_Ordered (converter y)
-                                | `Build_Random y -> 
-                                        `Build_Random (converter y)
-                            in
-                            n, nmeth, trans
-
-                let dependencies (_, meth, _) = 
-                    match meth with
-                    | `Branch_and_Bound _
-                    | `Nj
-                    | `Prebuilt _ ->
-                            [([Data], [Data; Trees], init, Linnearizable)]
-                    | `Build (_, _, lst) when List.exists is_tree_dependent lst ->
-                            [([Data; Trees], [Data; Trees], init, Parallelizable)]
-                    | `Build (_, (`Constraint (_, _, Some _, _)), _) ->
-                            [([Data; Trees], [Trees], init, Parallelizable)]
-                    | `Build (_, (`Constraint (_, _, None, _)), _) ->
-                            [([Data; Trees], [Trees], init, NonComposable)]
-                    | `Build _
-                    | `Build_Random _ ->
-                            [([Data], [Trees], init, Parallelizable)]
-            end
-            *)
-
             let build run arguments = run
             let change_wdir run arguments = run
             let clear_memory run arguments = run
@@ -3602,7 +3319,7 @@ let rec folder (run : r) meth =
     let res = match meth with
     (* The following methods are only used by the parallel execution *)
     | `Barrier -> (* Wait for synchronization with every other process *)
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering barrier";
             let print_io_messages () =
                 let gotit, rank, tag = 
@@ -3650,57 +3367,16 @@ IFDEF USEPARALLEL THEN
             in
             do_barrier true 1;
             run
-            (*
-            let my_rank = Mpi.comm_rank Mpi.comm_world in
-            if my_rank <> 0 then
-                let () = Mpi.send () 0 Methods.barrier Mpi.comm_world in
-                print_msg "Calling barrier";
-                let () = Mpi.barrier Mpi.comm_world in
-                run
-            else
-                let counter_of_barriers = ref (Mpi.comm_size Mpi.comm_world) in
-                let rec test () = 
-                    if 1 < !counter_of_barriers then
-                        (* We first attempt to receive any messages *)
-                        let gotit, rank, tag = 
-                            Mpi.iprobe Mpi.any_source Methods.io Mpi.comm_world
-                        in
-                        if not gotit then 
-                            let gotbar, rank, tag = 
-                                Mpi.iprobe Mpi.any_source Methods.barrier
-                                Mpi.comm_world 
-                            in
-                            if not gotbar then 
-                                let _ = Timer.nanosleep 0 250000. in
-                                test ()
-                            else begin
-                                let _ = Mpi.receive rank tag Mpi.comm_world in
-                                decr counter_of_barriers;
-                                test ()
-                            end
-                        else
-                            let _ = 
-                                let (t : Status.c), (msg : string) = 
-                                    Mpi.receive rank tag Mpi.comm_world in
-                                Status.user_message t msg 
-                            in
-                            test ()
-                    else 
-                        let () = print_msg "Calling barrier" in
-                        let _ = Mpi.barrier Mpi.comm_world in
-                        run
-                in
-                test ()
-            *)
-ELSE 
-                run 
-END
+        ELSE
+            run 
+        END
+
     | `GatherTrees (joiner, continue) ->
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering Gather Trees";
             (* We define a function to reduce in parallel the results *)
             let receive_trees run other_rank =
-IFDEF USE_LARGE_MESSAGES THEN
+        IFDEF USE_LARGE_MESSAGES THEN
                 print_msg "It is time for me to receive the trees!!!!";
                 let tbl = Queue.create () in
                 let got_size = ref false in
@@ -3754,16 +3430,16 @@ IFDEF USE_LARGE_MESSAGES THEN
                 and stored_trees = Sexpr.of_list (Array.to_list !stored_trees) in
                 { run with trees = Sexpr.union run.trees trees; stored_trees =
                     Sexpr.union run.stored_trees stored_trees }
-ELSE
+        ELSE
                 print_msg "I will use cheap messages";
                 let dec = Mpi.receive other_rank Methods.do_job Mpi.comm_world
                 in
                 print_msg ("Received from " ^ string_of_int other_rank);
                 decode_trees print_msg dec run
-END
+        END
             in
             let send_trees run other_rank =
-IFDEF USE_LARGE_MESSAGES THEN
+        IFDEF USE_LARGE_MESSAGES THEN
                 let map_root r =
                     let nr = 
                         match r.Ptree.root_median with
@@ -3799,19 +3475,14 @@ IFDEF USE_LARGE_MESSAGES THEN
                 Array.iteri (send_tree 0) trees;
                 Array.iteri (send_tree 1) stored_trees;
                 ()
-ELSE
+        ELSE
                 print_msg "I will use cheap messages";
                 let enc = encode_trees print_msg run in
                 print_msg ("Sending to " ^ string_of_int other_rank);
                 Mpi.send enc other_rank Methods.do_job
                 Mpi.comm_world
-END
+        END
             in
-            (*
-            let send_trees run other_rank =
-            and receive_trees run other_rank =
-            in
-            *)
             let reduce_in_pairs bit run =
                 let other_rank = compute_other_rank bit in
                 print_msg ("Exchanging between " ^ string_of_int my_rank ^ " and " 
@@ -3850,25 +3521,12 @@ END
             let run = reduce_them_all 1 run in
             print_msg "Finished all gather";
             List.fold_left folder run continue
-            (*
-            let res = Mpi.allgather (encode_trees run) Mpi.comm_world in
-            print_msg "Finished Gather Trees";
-            let run = { run with trees = `Empty; stored_trees = `Empty } in
-            let run =
-                Array.fold_left 
-                (fun run treeset ->
-                    let run = decode_trees treeset run in
-                    List.fold_left folder run joiner)
-                run
-                res
-            in
-            List.fold_left folder run continue
-            *)
-ELSE 
+        ELSE 
                 run 
-END
+        END
+
     | `GatherJackknife ->
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering jackknife";
             let res = Mpi.allgather (encode_jackknife run) Mpi.comm_world in
             let run =
@@ -3881,11 +3539,11 @@ IFDEF USEPARALLEL THEN
             in
             print_msg "Exiting jackknife";
             run
-ELSE 
-                run 
-END
+        ELSE
+            run
+        END
     | `GatherBremer ->
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering bremer";
             let res = Mpi.allgather (encode_bremer run) Mpi.comm_world in
             let run = 
@@ -3898,11 +3556,12 @@ IFDEF USEPARALLEL THEN
             in
             print_msg "Exiting bootstrap";
             run
-ELSE 
-                run 
-END
+        ELSE 
+            run
+        END
+
     | `GatherBootstrap ->
-IFDEF USEPARALLEL THEN
+        IFDEF USEPARALLEL THEN
             print_msg "Entering bootstrap";
             let res = Mpi.allgather (encode_bootstrap run) Mpi.comm_world in
             let run = 
@@ -3915,18 +3574,19 @@ IFDEF USEPARALLEL THEN
             in
             print_msg "Exiting bootstrap";
             run
-ELSE 
-                run 
-END
-    | `SelectYourTrees -> 
-IFDEF USEPARALLEL THEN
+        ELSE
+            run
+        END
+    | `SelectYourTrees ->
+        IFDEF USEPARALLEL THEN
             print_msg "Entering select trees";
             let run = filter_my_trees run in
             print_msg "Exiting select trees";
             run
-ELSE 
-                run 
-END
+        ELSE
+            run
+        END
+
     | `Skip
     | `Entry -> run
     | `Plugin (name, args) ->
@@ -3939,18 +3599,19 @@ END
                 failwith ("Illegal command " ^ name)
             end
     | `StoreTrees -> 
-            { run with trees = `Empty; stored_trees = run.trees }
+            { run with trees = `Empty;
+                       stored_trees = run.trees }
     | `UnionStored ->
             { run with trees = Sexpr.union run.stored_trees run.trees;
-            stored_trees = `Empty }
+                       stored_trees = `Empty }
     | `GetStored ->
-            { run with trees = run.stored_trees; stored_trees = `Empty }
+            { run with trees = run.stored_trees;
+                       stored_trees = `Empty }
     | `OnEachTree (dosomething, mergingscript) ->
             let name = emit_identifier () in
             let run = folder run (`Store ([`Data], name)) in
             let run = 
-                if not (List.exists (function #Methods.transform -> true | _ ->
-                    false) dosomething) then
+                if not (List.exists (function #Methods.transform -> true | _ -> false) dosomething) then
                     { run with original_trees = run.trees } 
                 else run
             in
@@ -3998,95 +3659,81 @@ END
     | #Methods.transform as meth ->
             process_transform run meth
     | #Methods.build as meth ->
-            let build_initial = Build.build_initial_trees in
-            (match MainBuild.get_transformations meth with
+        let build_initial = Build.build_initial_trees in
+        begin match MainBuild.get_transformations meth with
             | [] ->
                 let trees = build_initial run.trees run.data run.nodes meth in
-                let newrun =
-                    { run with  
-                    data = { run.data with Data.root_at = None };
-                            trees = trees; }
-                in
-                newrun
+                { run with trees = trees; }
             | trans ->
-                let run = temporary_transforms trans run in
-                let run_and_untransform (run, untransforms) =
-                    let tree = 
-                        build_initial run.trees run.data run.nodes meth
-                    in
-                    let run = { run with trees = tree } in
-                    List.fold_left (fun r f -> f r) run untransforms
-                in
-                run_and_untransform run)
+                let run,untransforms = temporary_transforms trans run in
+                let tree = build_initial run.trees run.data run.nodes meth in
+                let run = { run with trees = tree } in
+                List.fold_left (fun r f -> f r) run untransforms
+        end
     | #Methods.local_optimum as meth ->
             warn_if_no_trees_in_memory run.trees;
-            let sets = 
+            let sets =
                 let `LocalOptimum m = meth in
                 TreeSearch.sets m.Methods.tabu_join run.data run.trees 
             in
             let do_search run = match is_forest meth with
                 | Some cost ->
-                    PTS.forest_search
-                        run.data 
-                        run.queue 
-                        cost 
-                        meth run.trees
+                    PTS.forest_search run.data run.queue cost meth run.trees
                 | None ->
-                    PTS.find_local_optimum
-                        run.data
-                        run.queue
-                        run.trees sets meth 
+                    PTS.find_local_optimum run.data run.queue run.trees sets meth
             in
-            (match TreeSearch.get_transformations meth with
-            | [] ->
-                let trees = do_search run in
-                { run with trees = trees }
-            | trans when only_multistatic trans ->
-                let (run, untransforms) = temporary_transforms trans run in
-                let trees = do_search run in
-                let run = { run with trees = trees } in
-                let run = List.fold_left (fun r f -> f r) run untransforms in
-                { run with trees = run.trees }
-            | trans ->
-                let runs = explode_trees run in
-                let runs = 
-                    Sexpr.map_status
-                    "Transforming each tree independently"
-                    ~eta:true
-                    (temporary_transforms trans) 
-                    runs 
-                in
-                let run_and_untransform (run, untransforms) =
+            begin match TreeSearch.get_transformations meth with
+                | [] ->
+                    let trees = do_search run in
+                    { run with trees = trees }
+                | trans when only_multistatic trans ->
+                    let (run, untransforms) = temporary_transforms trans run in
                     let trees = do_search run in
                     let run = { run with trees = trees } in
-                    let run = 
-                        List.fold_left (fun r f -> f r) run untransforms
+                    let run = List.fold_left (fun r f -> f r) run untransforms in
+                    { run with trees = run.trees }
+                | trans ->
+                    let runs = explode_trees run in
+                    let runs = 
+                        Sexpr.map_status
+                            "Transforming each tree independently"
+                            ~eta:true (temporary_transforms trans) 
+                            runs
                     in
-                    Sexpr.first run.trees
-                in
-                let trees = Sexpr.map run_and_untransform runs in
-                { run with trees = trees })
-    | `StandardSearch (max_time, min_time, min_hits, max_memory, target_cost,
-    visited, user_constraint) ->
-            let get_default x def = 
-                match x with
+                    let run_and_untransform (run, untransforms) =
+                        let trees = do_search run in
+                        let run = { run with trees = trees } in
+                        let run = 
+                            List.fold_left (fun r f -> f r) run untransforms
+                        in
+                        Sexpr.first run.trees
+                    in
+                    let trees = Sexpr.map run_and_untransform runs in
+                    { run with trees = trees }
+            end
+    | `StandardSearch (max_time, min_time, min_hits, max_memory, target_cost, visited, user_constraint) ->
+            let get_default x def = match x with
                 | None -> def
                 | Some x -> x
             in
             let max_time = get_default max_time 3600. in
             let min_time = get_default min_time max_time in
-            automated_search (List.fold_left folder) max_time min_time 
-            (get_default max_memory (2 * 1000 * 1000 * (1000 / (Sys.word_size /
-            8)))) (get_default min_hits max_int) target_cost visited
-            user_constraint run
+            let max_mem  = get_default max_memory (2 * 1000 * 1000 * (1000 / (Sys.word_size / 8))) in
+            automated_search (List.fold_left folder) max_time min_time
+                        max_mem (get_default min_hits max_int) target_cost
+                        visited user_constraint run
+
     | #Methods.perturb_method as meth ->
             warn_if_no_trees_in_memory run.trees;
             { run with trees = CT.perturbe run.data run.trees meth }
     | `Fusing ((_, _, _, _, x, _) as params) ->
             warn_if_no_trees_in_memory run.trees;
-            (try { run with trees = PTS.fusing run.data run.queue run.trees
-            params } with
-            | Failure "Tree fusing: must have at least two trees" -> run)
+            begin
+                try 
+                    { run with trees = PTS.fusing run.data run.queue run.trees params }
+                with | Failure "Tree fusing: must have at least two trees" ->
+                    run
+            end
     | `Bootstrap (it, a, b, c) -> 
             let meth = `Bootstrap (it, a, b, (run.data.Data.root_at)) in
             let run = reroot_at_outgroup run in
@@ -4212,39 +3859,43 @@ END
             let run = reroot_at_outgroup run in 
             match meth with
             | `SequenceStats (filename, ch) ->
-                    let arr = 
-                        let all_of_them = Data.sequence_statistics ch run.data in
-                        let arr =
-                            Array.of_list 
-                            (List.map (fun (name, stats) ->
-                                let cnt = float_of_int stats.Data.sequences in
-                                let len_avg =
-                                    (float_of_int stats.Data.sum_lengths) /. cnt 
-                                in
-                                let dis_avg = 
-                                    stats.Data.sum_distances /. 
-                                        (((cnt *. cnt) /. 2.) -. (cnt /. 2.))
-                                in
-                                [|name; string_of_int stats.Data.max_length; 
-                                string_of_int stats.Data.min_length;
-                                string_of_float len_avg; 
-                                string_of_float stats.Data.max_distance; 
-                                string_of_float stats.Data.min_distance; 
-                                string_of_float dis_avg|]) all_of_them)
-                        in
-                        Array.init (1 + Array.length arr) (function 0 ->
-                            [|"Character"; "Max Length"; "Min Length"; 
-                            "Average Length"; "Maximum Distance"; 
-                            "Minimum Distance"; "Average Distance"|] | n -> arr.(n - 1)) 
-                    and fo = Status.Output (filename, false, []) in
-                    Status.user_message fo 
-                    "@{<b>Sequence Statistics:@}@[<v 2>@,";
-                    Status.output_table fo arr;
-                    Status.user_message fo "@]\n%!";
-                    run
+                let arr =
+                    let all_of_them = Data.sequence_statistics ch run.data in
+                    let arr =
+                        Array.of_list 
+                            (List.map
+                                (fun (name, stats) ->
+                                    let cnt = float_of_int stats.Data.sequences in
+                                    let len_avg = (float_of_int stats.Data.sum_lengths) /. cnt in
+                                    let dis_avg =
+                                        let numr = stats.Data.sum_distances
+                                        and denm = ((cnt *. cnt) /. 2.) -. (cnt /. 2.) in
+                                        numr /. denm
+                                    in
+                                    [|  name;
+                                        string_of_int stats.Data.max_length; 
+                                        string_of_int stats.Data.min_length;
+                                        string_of_float len_avg; 
+                                        string_of_float stats.Data.max_distance; 
+                                        string_of_float stats.Data.min_distance; 
+                                        string_of_float dis_avg |])
+                                all_of_them)
+                    in
+                    Array.init 
+                        (1 + Array.length arr)
+                        (function
+                            | 0 ->
+                                [|"Character"; "Max Length"; "Min Length"; "Average Length";
+                                  "Maximum Distance"; "Minimum Distance"; "Average Distance"|]
+                            | n -> arr.(n - 1))
+                and fo = Status.Output (filename, false, []) in
+                Status.user_message fo 
+                "@{<b>Sequence Statistics:@}@[<v 2>@,";
+                Status.output_table fo arr;
+                Status.user_message fo "@]\n%!";
+                run
             | `Ci (filename, ch) | `Ri (filename, ch) as meth ->
-                    let realch = 
-                        match ch with
+                    let realch = match ch with
                         | Some x -> x
                         | None -> `All
                     in
@@ -4397,63 +4048,61 @@ END
                         print_table title table;
                         run
             | `CompareSequences (filename, complement, ch1, ch2) ->
-                    let all_of_them = 
-                        Data.compare_pairs ch1 ch2 complement run.data
-                    in
-                    List.iter (fun (n1, n2, c) ->
-                        Status.user_message (Status.Output (filename, false,
-                        []))
-                        ("@[" ^ StatusCommon.escape n1 ^ " " ^ 
-                        StatusCommon.escape n2 ^ " " ^ string_of_float c ^ "@]@\n")) 
+                let all_of_them = Data.compare_pairs ch1 ch2 complement run.data in
+                List.iter
+                    (fun (n1, n2, c) ->
+                        Status.user_message (Status.Output (filename, false, []))
+                            (Printf.sprintf "@[%s %s %f@]@\n"
+                                (StatusCommon.escape n1) (StatusCommon.escape n2) c))
                     all_of_them;
-                    run
+                run
             | `ExplainScript (script, filename) ->
-                    let script = PoyCommand.of_file false script in
-                    Analyzer.explain_tree filename script;
-                    run
+                let script = PoyCommand.of_file false script in
+                Analyzer.explain_tree filename script;
+                run
             | `Pairwise (filename,chars) ->
                 failwith "NOT DONE"
             | `Model (filename,chars) ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
                 begin match (Sexpr.to_list run.trees) with
-                | [] -> 
-                    let cs = Data.get_chars_codes_comp run.data chars in
-                    let chars = 
-                        Data.get_code_from_characters_restricted 
-                                    `Likelihood run.data (`Some cs)
-                    in
-                    let model  = Data.get_likelihood_model run.data chars
-                    and name   = Data.get_character_set_name run.data chars
-                    and ntaxa  = run.data.Data.number_of_taxa in
-                    let name = match name with | Some name -> name | None -> "" in
-                    fo ("@[<hov 0>Set Name: "^name^"@]@\n");
-                    fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                    MlModel.output_model fo `Hennig model None
-                | trees -> 
-                    List.iter
-                        (fun t ->
-                            let charss = Data.categorize_static_likelihood_by_model chars t.Ptree.data in
-                            let tname  = match t.Ptree.tree.Tree.tree_name with 
-                                       | Some tname -> tname 
-                                       | None -> ""
-                            in
-                            List.iter
-                                (fun chars -> 
-                                    let model  = Data.get_likelihood_model t.Ptree.data chars
-                                    and cost   = TreeOps.total_cost t `Adjusted (Some chars)
-                                    and length = TreeOps.tree_size t (Some chars)
-                                    and cname  = Data.get_character_set_name t.Ptree.data chars
-                                    and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                                    let cname  = match cname with | Some cname -> cname | None -> "" in
-                                    fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
-                                    fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
-                                    fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                                    fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
-                                    fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                                    MlModel.output_model fo `Hennig model None;
-                                    fo "@\n")
-                                charss)
-                        (trees)
+                    | [] -> 
+                        let cs = Data.get_chars_codes_comp run.data chars in
+                        let chars = 
+                            Data.get_code_from_characters_restricted 
+                                        `Likelihood run.data (`Some cs)
+                        in
+                        let model  = Data.get_likelihood_model run.data chars
+                        and name   = Data.get_character_set_name run.data chars
+                        and ntaxa  = run.data.Data.number_of_taxa in
+                        let name = match name with | Some name -> name | None -> "" in
+                        fo ("@[<hov 0>Set Name: "^name^"@]@\n");
+                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                        MlModel.output_model fo `Hennig model None
+                    | trees -> 
+                        List.iter
+                            (fun t ->
+                                let charss = Data.categorize_static_likelihood_by_model chars t.Ptree.data in
+                                let tname  = match t.Ptree.tree.Tree.tree_name with 
+                                           | Some tname -> tname 
+                                           | None -> ""
+                                in
+                                List.iter
+                                    (fun chars -> 
+                                        let model  = Data.get_likelihood_model t.Ptree.data chars
+                                        and cost   = TreeOps.total_cost t `Adjusted (Some chars)
+                                        and length = TreeOps.tree_size t (Some chars)
+                                        and cname  = Data.get_character_set_name t.Ptree.data chars
+                                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                                        let cname  = match cname with | Some cname -> cname | None -> "" in
+                                        fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
+                                        fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
+                                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                                        fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
+                                        fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                                        MlModel.output_model fo `Hennig model None;
+                                        fo "@\n")
+                                    charss)
+                            (trees)
                 end;
                 run
             | `Script (filename,script) -> 
@@ -4476,17 +4125,17 @@ END
                 Status.resize_history size;
                 run
             | `Dataset filename ->
-                    if check_suffix filename nexus_extensions then
-                        folder run (`Nexus filename)
-                    else if check_suffix filename hennig_extensions then
-                        folder run (`FasWinClad filename)
-                    else begin
-                       let fmt = (Data.to_formatter [] run.data) in
-                        PoyFormaters.data_to_status filename fmt;
-                        (* Flush the formatter *)
-                        Status.user_message (Status.Output (filename, false, [])) "%!"; 
-                        run
-                    end
+                if check_suffix filename nexus_extensions then
+                    folder run (`Nexus filename)
+                else if check_suffix filename hennig_extensions then
+                    folder run (`FasWinClad filename)
+                else begin
+                   let fmt = (Data.to_formatter [] run.data) in
+                    PoyFormaters.data_to_status filename fmt;
+                    (* Flush the formatter *)
+                    Status.user_message (Status.Output (filename, false, [])) "%!"; 
+                    run
+                end
             | `Xslt (file, style) ->
                 let () =
 IFDEF USE_XSLT THEN
@@ -4521,80 +4170,37 @@ END
                 in
                 run
             | `Diagnosis (diag_report_type,filename) ->
-    (*
-    * For brief report -- the four lines has 
-    * node name, 
-    * Cost, 
-    * Rearrangement cost, Children : children name. 
-    * unadjusted node_data is being used. (see function "get_unadjusted" in allDirChar).
-    * "Cost" is the node_data.total_cost, if the node is not a root (if the node 
-    * is the root, it will report 0 in Cost). 
-    * "Recost" is the sum of two subtree_cost from its children, and the cost
-    * between its two children (median2 function take care of this).
-    * Note, both "Cost" and "Recost" do not include cost between current node
-    * and its parent, which means the cost we see in detailed report of this
-    * node is not included.
-    * For detailed node data report -- 
-    * "haracters        Class        Cost        Rearrangement Cost .. blablabla" 
-    * followed by brief report, has actual gene contents print out.
-    * Preliminary and final are from unadjusted node_data. (see function "get_unadjusted"
-    * in allDirChar.ml, node_data contains preliminary and final -- that's from type `a r in
-* node.ml ). 
-    * Single is from adjusted node_data (funtion "get_single" in allDirChar.ml). Single is the preliminary of that node_data.
-    * function "cs_to_formatter" is "delayed" in detailed node data report. 
-    * it won't be forced untill PoyFormater calls "Xml.eagerly_compute".
-    * Note, function "get_single" and "ge_unadjusted" in allDirChar
-    * are together looks like this "let get_single, get_unadjusted = blablabla...."
-    *)
-                    let trees = 
-                        (* This would be used to rediagnose the tree to the
-                         * data, but since the data is in the tree are
-                         * consistent, and we are not changing the data, this is
-                         * fine. *)
-                      (*  let classify = false in
-                        let run = update_trees_to_data ~classify false true run
-                        in *)
-                      (*TreeOps.to_formatter will call function "to_formatter"
-                      * in allDirChar.ml*)
-                        Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  
-                    in
-                    Status.user_message (Status.Output (filename, false, [])) "@[";
-                    Sexpr.leaf_iter (PoyFormaters.trees_to_formater filename []) trees;
-                    (* Flush the formatter *)
-                    Status.user_message (Status.Output (filename, false, []))
-                                        "@]%!";
-                    run
+                let trees = Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  in
+                Status.user_message (Status.Output (filename, false, [])) "@[";
+                Sexpr.leaf_iter (PoyFormaters.trees_to_formater filename []) trees;
+                Status.user_message (Status.Output (filename, false, [])) "@]%!";
+                run
             | `GraphicDiagnosis (diag_report_type,filename) ->
-                    let trees =
-                        (* let classify = false in
-                           let run = update_trees_to_data ~classify false true run in*)
-                        Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  
-                    in 
-                    GraphicsPs.display_diagnosis "Diagnosis" filename trees;
-                    (* Flush the formatter *)
-                    run
+                let trees = Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  in 
+                GraphicsPs.display_diagnosis "Diagnosis" filename trees;
+                run
             | `TimeDelta (title, filename) ->
-                    let prev_time = !range_timer in
-                    range_timer := Timer.start ();
-                    let total_time = Timer.get_user prev_time in
-                    Status.user_message (Status.Output (filename, false, [])) 
+                let prev_time = !range_timer in
+                range_timer := Timer.start ();
+                let total_time = Timer.get_user prev_time in
+                Status.user_message
+                    (Status.Output (filename, false, []))
                     ("@[" ^ StatusCommon.escape title ^ " " ^ string_of_float total_time ^ "@]@,%!");
-                    run
+                run
             | `MstR filename ->
-                    Build.report_mst run.data run.nodes filename;
-                    run
+                Build.report_mst run.data run.nodes filename;
+                run
             | `TreeCosts filename ->
-                    let res = Buffer.create 97 in
-                    Sexpr.leaf_iter (fun x ->
-                        let cost = Ptree.get_cost `Adjusted x in
-                        let str = string_of_float cost in
-                        Buffer.add_string res str;
-                        Buffer.add_string res ":") 
-                    run.trees;
-                    Buffer.add_string res "\n%!";
-                    Status.user_message (Status.Output (filename, false, []))
-                    (Buffer.contents res);
-                    run
+                let res = Buffer.create 97 in
+                Sexpr.leaf_iter (fun x ->
+                    let cost = Ptree.get_cost `Adjusted x in
+                    let str = string_of_float cost in
+                    Buffer.add_string res str;
+                    Buffer.add_string res ":") 
+                run.trees;
+                Buffer.add_string res "\n%!";
+                Status.user_message (Status.Output (filename, false, [])) (Buffer.contents res);
+                run
             | `TreesStats filename ->
               let fo = Status.Output (filename, false, []) in
                 let htbl = Hashtbl.create 19 in
@@ -4614,18 +4220,20 @@ END
                     arr.(cnt).(1) <- `Int b;
                     cnt + 1
                 in
-                let comparison a b =
-                    match a.(0), b.(0) with
+                let comparison a b = match a.(0), b.(0) with
                     | `Int a, `Int b -> a - b
                     | `Float a, `Float b -> compare a b
                     | `Int _, _ -> -1
                     | _, _ -> 1
                 in
-                let _ = Hashtbl.fold folder htbl 1 in
+                ignore( Hashtbl.fold folder htbl 1 );
                 Array.sort comparison arr;
-                let arr = Array.map 
-                    (Array.map (function `Float x -> string_of_float x 
-                    | `Int x -> string_of_int x)) arr
+                let arr =
+                    Array.map
+                        (Array.map (function
+                                    | `Float x -> string_of_float x
+                                    | `Int x -> string_of_int x))
+                        arr
                 in
                 arr.(0).(0) <- "Tree length   ";
                 arr.(0).(1) <- "Number of hits";
@@ -4634,78 +4242,78 @@ END
                 Status.user_message fo "@]\n%!";
                 run
             | `SearchStats filename ->
-                    let fo = Status.Output (filename, false, []) in
-                    let costs = All_sets.FloatMap.fold (fun a b acc ->
-                        [|string_of_float a; string_of_int b|] :: acc) 
-                        run.search_results.tree_costs_found [] 
-                    in
-                    let costs = List.sort (fun a b -> 
-                        match a, b with
-                        | [|a; _|], [|b; _|] ->
+                let fo = Status.Output (filename, false, []) in
+                let costs =
+                    All_sets.FloatMap.fold
+                        (fun a b acc -> [|string_of_float a; string_of_int b|] :: acc)
+                        run.search_results.tree_costs_found
+                        []
+                in
+                let costs =
+                    List.sort
+                        (fun a b -> match a, b with
+                            | [|a; _|], [|b; _|] ->
                                 compare (float_of_string a) (float_of_string b)
-                        | _ -> assert false) costs 
-                    in
-                    let costs = 
-                        [|"# of Builds + TBR "; string_of_int
-                        run.search_results.total_builds|] ::
-                        [|"# of Fuse         "; string_of_int
-                        run.search_results.total_fuse|] ::
-                        [|"# of Ratchets     "; string_of_int
-                        run.search_results.total_ratchet|] ::
-                        [|"                  "; "              "|] ::
-                        [|"Tree length       "; "Number of hits"|] :: costs 
-                    in
-                    Status.user_message fo 
-                    "@{<b>Search Stats:@}@[<v 2>@,";
-                    Status.output_table fo (Array.of_list costs);
-                    Status.user_message fo "@]\n%!";
-                    run
+                            | _ -> assert false)
+                        costs
+                in
+                let costs = 
+                    [|"# of Builds + TBR "; string_of_int run.search_results.total_builds|] ::
+                    [|"# of Fuse         "; string_of_int run.search_results.total_fuse|] ::
+                    [|"# of Ratchets     "; string_of_int run.search_results.total_ratchet|] ::
+                    [|"                  "; "              "|] ::
+                    [|"Tree length       "; "Number of hits"|] :: costs 
+                in
+                Status.user_message fo "@{<b>Search Stats:@}@[<v 2>@,";
+                Status.output_table fo (Array.of_list costs);
+                Status.user_message fo "@]\n%!";
+                run
             | `Trees (ic, filename) ->
-                    let rec remove_style acc = function
-                        | [] -> acc
-                        | `NexusStyle :: tl 
-                        | `HennigStyle :: tl-> remove_style acc tl
-                        | hd :: tl -> remove_style (hd::acc) tl
-                    in
-                    let ic = 
-                        if check_suffix filename nexus_extensions then
-                            `NexusStyle :: (remove_style [] ic)
-                        else if check_suffix filename hennig_extensions then
-                            `HennigStyle :: (remove_style [] ic)
-                        else ic
-                    in
-                    PTS.report_trees ic filename run.trees;
-                    run
+                let rec remove_style acc = function
+                    | [] -> acc
+                    | `NexusStyle :: tl 
+                    | `HennigStyle :: tl-> remove_style acc tl
+                    | hd :: tl -> remove_style (hd::acc) tl
+                in
+                let ic = 
+                    if check_suffix filename nexus_extensions then
+                        `NexusStyle :: (remove_style [] ic)
+                    else if check_suffix filename hennig_extensions then
+                        `HennigStyle :: (remove_style [] ic)
+                    else ic
+                in
+                PTS.report_trees ic filename run.trees;
+                run
             | `CrossReferences (chars, filename) ->
                 Data.report_taxon_file_cross_reference chars run.data filename;
                 run
             | `KolmoMachine filename ->
-                    let data =
-                        Data.report_kolmogorov_machine filename run.data
-                    in
-                    { run with data = data }
+                let data =
+                    Data.report_kolmogorov_machine filename run.data
+                in
+                { run with data = data }
             | `TerminalsFiles filename ->
                 Data.report_terminals_files filename
                 run.data.Data.taxon_files run.data.Data.ignore_taxa_set;
                 run
             | `Nodes filename ->
-              let fo = Status.Output (filename, false, []) in
-              let nodes = List.map Node.to_string run.nodes in
-              List.iter (Status.user_message fo) nodes;
-              Status.user_message fo "%!";
-              run
+                let fo = Status.Output (filename, false, []) in
+                let nodes = List.map Node.to_string run.nodes in
+                List.iter (Status.user_message fo) nodes;
+                Status.user_message fo "%!";
+                run
             | `Supports _ 
             | `GraphicSupports _ as meth ->
                     handle_support_output run meth;
                     run
             | `Clades fn ->
-              let counter = ref (-1) in
-              Sexpr.leaf_iter
-                  (output_clade_file run.data fn
-                       (fun () -> incr counter; !counter))
-                  run.trees;
-              Status.user_message (Status.Output (None, false,[])) "%!";
-              run
+                let counter = ref (-1) in
+                Sexpr.leaf_iter
+                    (output_clade_file run.data fn
+                        (fun () -> incr counter; !counter))
+                    run.trees;
+                Status.user_message (Status.Output (None, false,[])) "%!";
+                run
             | #Methods.diagnosis as meth ->
                 warn_if_no_trees_in_memory run.trees;
                 let () = 
@@ -4713,19 +4321,20 @@ END
                 in
                 run
             | `Save (fn, comment) ->
-                (try
+                begin try
                     PoyFile.store_file (comment, run, !Methods.cost) fn;
                     run
-                with
-                | err ->
-                        let msg = "Could@ not@ open@ the@ file@ " ^ fn ^ 
-                        "@ due@ to@ a@ system@ error.@ The@ error@ \
-                        message@ is@ : " ^ StatusCommon.escape
-                        (Printexc.to_string err) in
-                        Status.user_message Status.Error msg;
-                        run)
+                with | err ->
+                    let msg = 
+                        "Could@ not@ open@ the@ file@ " ^ fn ^ 
+                        "@ due@ to@ a@ system@ error.@ The@ error@ message@ is@ : " ^ 
+                        StatusCommon.escape (Printexc.to_string err)
+                    in
+                    Status.user_message Status.Error msg;
+                    run
+                end
             | `Load fn ->
-                (try 
+                begin try 
                     let (comment, run, cost_mode)  = PoyFile.read_file fn in
                     Methods.cost := cost_mode;
                     let descr = 
@@ -4734,23 +4343,17 @@ END
                         | Some d -> d
                     in
                     Status.user_message Status.Information 
-                    ("@[<v 2>Loading file " ^ StatusCommon.escape fn ^ "@,@[" ^ 
-                    StatusCommon.escape descr ^
-                    "@]@]");
+                        ("@[<v 2>Loading file " ^ StatusCommon.escape fn 
+                        ^ "@,@[" ^ StatusCommon.escape descr ^ "@]@]");
                     run
-                with
-                | PoyFile.InvalidFile ->
-                        let msg = "The file " ^ StatusCommon.escape 
-                        fn ^ " is not a@ valid"
-                        ^ "@ POY@ fileformat." in
-                        Status.user_message Status.Error msg;
-                        run)
-(*                | err ->*)
-(*                        let msg = "Could@ not@ open@ the@ file@ " ^ fn ^ *)
-(*                        "@ due@ to@ a@ system@ error.@ The@ error@ \*)
-(*                        message@ is@ : " ^ Printexc.to_string err in*)
-(*                        Status.user_message Status.Error msg;*)
-(*                        run)*)
+                with | PoyFile.InvalidFile ->
+                    let msg = 
+                        "The file " ^ StatusCommon.escape fn ^ 
+                        " is not a@ valid" ^ "@ POY@ fileformat."
+                    in
+                    Status.user_message Status.Error msg;
+                    run
+                end
             | `Root where ->
                 let tres = 
                     Sexpr.map

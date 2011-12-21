@@ -1,6 +1,6 @@
 
 type annotate_tool_t = 
-    [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
+    [ `Mauve of (float*float*float*float) | `Default of (int*int*int) ]
 
 type median_solver_t =
     [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP | `ChainedLK | `SimpleLK ]
@@ -111,9 +111,9 @@ let annotate_to_nexus fo annot : unit = match annot with
         fo ("@[Annotations@, ");
         fo ("@[Model = Mauve;@]@, ");
         fo ("@[Quality = "^(string_of_float w)^";@]@, ");
-        fo ("@[Min = "^(string_of_int x)^";@]@, ");
-        fo ("@[Max = "^(string_of_int z)^";@]@, ");
-        fo ("@[Coverge = "^(string_of_float y)^";@]@, ");
+        fo ("@[Coverge = "^(string_of_float x)^";@]@, ");
+        fo ("@[Min = "^(string_of_float z)^";@]@, ");
+        fo ("@[Max = "^(string_of_float y)^";@]@, ");
         fo ("@,;@,@]")
     | None ->
         assert false

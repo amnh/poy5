@@ -1598,8 +1598,8 @@ let is_available in_data =
 let flatten t_lst = 
     List.map ( fun x -> 
     let gapcode = Alphabet.get_gap x.alph in
-        let seqchar_arr =  x.characters in
-        List.map (fun x -> match x with
+    let seqchar_arr =  x.characters in
+    List.map (fun x -> match x with
         | Heuristic_Selection dos_single_seq ->
                 let ori_seq = dos_single_seq.DOS.sequence in
                 (* for multi-chromosome,
@@ -1616,9 +1616,9 @@ let flatten t_lst =
                 ) (Sequence.create ((Sequence.length ori_seq)-1)) ori_seq 
                 in
                 new_seq   
-        | _ -> failwith "not there yet"
+        | _ -> failwith "seqCS.flatten,only work for Heuristic_Selection type"
         ) (Array.to_list seqchar_arr)
-    ) t_lst
+    ) t_lst 
 
 let update_t oldt (newseqlst:Sequence.s list) (delimiterslst: int list list)  =
     let i = ref 0 in

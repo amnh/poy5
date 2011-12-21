@@ -124,26 +124,36 @@ val of_parser : Nexus.File.static_spec -> float array -> ((Nexus.File.static_sta
  * toplevel interaction and prototyping new code. *)
 val of_parser_simple : string -> MlModel.model -> t
 
-(* The extra cost incurred by the root of the tree. *)
+(** [root_cost t] The extra cost incurred by the root of the tree. *)
 val root_cost : t -> float
 
-(* [distance a b at bt] computes the -log likelihood of [b] given [a] with
-* branch lengths [at] and [bt]. *)
+(** [distance a b at bt] computes the -log likelihood of [b] given [a] with
+    branch lengths [at] and [bt]. *)
 val distance : t -> t -> float -> float -> float
 
-(* to be able to see the results on each vertex of the tree. *)
+(** [to_formatter ...] return the results on each vertex of the tree in an XML
+    format; for diagnosis output and further transformations. *)
 val to_formatter : Xml.attributes -> t -> float option * float option -> 
                         Data.d -> Xml.xml Sexpr.t list
 
+(** [extract_states t] return the branches, codes and character states for the
+    tree; this is used to get a fixed median for a node. **)
 val extract_states : t -> (float * int * MlModel.chars) list 
 
+(** [get_codes t] return the codes of the characters in this median *)
 val get_codes : t -> int array
+
+(** [get_model t] return the model of the chracters **)
 val get_model : t -> MlModel.model
+
+(** [set_model m t] Set the model for t; this DOES NOT UPDATE THE MEDIAN, and
+    should only be used on leaves of the tree to avoid reparsing data. **)
 val set_model : MlModel.model -> t -> t
 
 ELSE
 
 val likelihood_error : string
+
 val minimum_bl : unit -> float
 
 END

@@ -7,17 +7,15 @@ let altitude_difference = 50000.
 * temporal and gis information *)
 let ancestor a b =
     (* We extract the contents of the data structure to make the functions below
-    * les verbose *)
+      les verbose *)
     let agis = a.TemporalGIS.coordinates
     and bgis = b.TemporalGIS.coordinates 
     and adate = a.TemporalGIS.date
     and bdate = b.TemporalGIS.date in
     (* The altitude is the maximum of both plus the delta factor *)
-    let altitude = 
-        altitude_difference +.  (max agis.GIS.altitude bgis.GIS.altitude)
-    in
+    let altitude = altitude_difference +.  (max agis.GIS.altitude bgis.GIS.altitude) in
     (* The horizontal location is just in between the vertices, but the altitude
-    * is not in between them, instead is what we have chossen. *)
+       is not in between them, instead is what we have chossen. *)
     let center = { GIS.center_points agis bgis with GIS.altitude = altitude } in
     (* The date will be the minimum between them *)
     let date = TemporalGIS.min_date adate bdate in
@@ -29,23 +27,21 @@ let ancestor a b =
 * supramap. *)
 let rec adjust_tree tree =
     match tree with
-    | Parser.Tree.Leaf _ -> tree (* We don't change the contents of a leaf *)
-    | Parser.Tree.Node ([chld1; chld2], (node, gis)) ->
-            (* We must first adjust the two children *)
-            let chld1 = adjust_tree chld1
-            and chld2 = adjust_tree chld2 in
-            let gis_1 = KTree.extract_gis chld1
-            and gis_2 = KTree.extract_gis chld2 in
-            let ancestor = ancestor gis_1 gis_2 in
-            Parser.Tree.Node ([chld1; chld2], (node, ancestor))
-    | Parser.Tree.Node (_, _) -> 
-            (* We just received a tree that is not binary. We can't handle this
-            * case *)
-            failwith "Non-binary intput tree"
+    | Tree.Parse.Leafp _ -> tree (* We don't change the contents of a leaf *)
+    | Tree.Parse.Nodep ([chld1; chld2], (node, gis)) ->
+        (* We must first adjust the two children *)
+        let chld1 = adjust_tree chld1
+        and chld2 = adjust_tree chld2 in
+        let gis_1 = KTree.extract_gis chld1
+        and gis_2 = KTree.extract_gis chld2 in
+        let ancestor = ancestor gis_1 gis_2 in
+        Tree.Parse.Nodep ([chld1; chld2], (node, ancestor))
+    | Tree.Parse.Nodep (_, _) -> 
+        (* We just received a tree that is not binary. We can't handle this case *)
+        failwith "Non-binary intput tree"
 
 
-(* Now we need to produce all the nice styles that will be used in
-our supramap *)
+(* Now we need to produce all the nice styles that will be used in our supramap *)
 let styles () =
     let supramap_url suffix =
         (* A function to prepend the correct URL to the resources of the styles
@@ -53,17 +49,16 @@ let styles () =
         ("http://supramap.osu.edu/supramap/" ^ suffix) 
     in
     (* this is not really a valid XML because it has no root, but a collection
-    * of documents. Therefore we start
-    * the definition with -set instead of a plain - which produces an XML with
-    * root *)
+       of documents. Therefore we start the definition with -set instead of a
+       plain - which produces an XML with root *)
     (PXML -set
             -Style (id="00a") 
                 -IconStyle -scale 0.35 -- 
                     -Icon -href { 
                         (* This example shows how to inject code to generate
-                        * output. In this case, between {} I include OCaml code,
-                        * that produces a string holding the url that needs to
-                        * be printed *)
+                           output. In this case, between {} I include OCaml code,
+                           that produces a string holding the url that needs to
+                           be printed *)
                         string supramap_url "images/circle.png" } --
                 -- --
                 -LabelStyle -scale 0 -- --
@@ -93,21 +88,21 @@ let styles () =
             --
         --)
 
-(* Apply the function [contents] on the value if not None, otherwise produce 
-* the empty XML. This is convenient if, for example, there is Some ancestor,
-* or None at all *)
+(** [optional contents v] Apply the function [contents] on the value if not
+    None, otherwise produce the empty XML. This is convenient if, for example,
+    there is Some ancestor, or None at all *)
 let optional contents v =
     match v with
     | None -> (PXML ---)
     | Some v -> contents v
 
-(* A function to produce a row in a table of HTML *)
+(** [do_row title contents]  A function to produce a row in a table of HTML *)
 let do_row title contents =
     let c = 
         (* We must first extract the string representation of the contents of
-        * the row. But the contents can not be structured data, it can only be a
-        * simple value, so we match those cases, otherwise we will leave the
-        * cell empty *)
+           the row. But the contents can not be structured data, it can only be a
+           simple value, so we match those cases, otherwise we will leave the
+           cell empty *)
         match contents with
         | #Xml.unstructured as contents -> Xml.value_to_string contents
         | _ -> ""
@@ -118,19 +113,18 @@ let do_row title contents =
             -td -a (href=[string ("#pm_" ^ c)]) 
             [(contents :> Xml.xml Xml.contents)] -- -- --)
 
+
+(** A function to generate a pair of rows, with the two descendants of a vertex. *)
 let make_pair (l, r) = 
-    (* A function to generate a pair of rows, with the two descendants of a
-    * vertex. *)
     (PXML 
         -set 
             {do_row "Descendant:" l} 
             {do_row "Descendant:" r} 
         --)
 
+(** [family_summary_html top node ()] this is a delayed type, see
+    [node_information for further information regarding this function *)
 let family_summary_html topology node () = 
-    (* We include the () at the end to produce a delayed type. 
-    * You will see the note in the next function, [node_information] which
-    * explains better what is the idea behind it. *)
     let ancestor = KTree.ancestor topology node
     and sister = KTree.sister topology node
     and children = KTree.children topology node in
@@ -146,11 +140,11 @@ let family_summary_html topology node () =
             { optional make_pair children } --)
 
 let ( --> ) a b = b a
-(* Now we are ready to define the functions to format the actual list of
-* transformations *)
+(* Now we are ready to define the functions to format the actual list of transformations *)
 
-(* First we must be able to recognize if something is a transition, when
-* comparing a pair of strings of transformations between nucleotides *)
+(** [is_transition a b]  First we must be able to recognize if something is a
+    transition, when comparing a pair of strings of transformations between
+    nucleotides *)
 let is_transition str1 str2 =
     match str1, str2 with
     | "A", "G"
@@ -171,10 +165,10 @@ let string_of_states states =
     * <value>state</value>, concatenate them in a string separated only by
     * semicolons *)
     states
-    --> Xml.children Xml.Characters.value 
-    --> Sexpr.map (fun x -> x --> Xml.value --> Xml.value_to_string)
-    --> Sexpr.to_list
-    --> String.concat ";"
+        --> Xml.children Xml.Characters.value 
+        --> Sexpr.map (fun x -> x --> Xml.value --> Xml.value_to_string)
+        --> Sexpr.to_list
+        --> String.concat ";"
 
 let type_of_event data name node_states ance_states =
     let name = Xml.value_to_string name in
@@ -185,13 +179,12 @@ let type_of_event data name node_states ance_states =
         * little bit strange, so we better simplify the alphabet to
         * the minimum expression and compare with it *)
         code 
-        --> Data.get_alphabet data 
-        --> Alphabet.to_sequential 
-        --> Alphabet.to_list 
-        --> List.map fst 
-        --> (fun alph ->
-            alph = ["A"; "C"; "G"; "T"] || 
-                alph = ["A"; "C"; "G"; "T"; "-"])
+            --> Data.get_alphabet data 
+            --> Alphabet.to_sequential 
+            --> Alphabet.to_list 
+            --> List.map fst 
+            --> (fun alph ->
+                    alph = ["A"; "C"; "G"; "T"] || alph = ["A"; "C"; "G"; "T"; "-"])
     in
     let res =
         if is_nucleotide then
@@ -341,21 +334,21 @@ let dump_character arguments run =
     match arguments with
     | `List lst ->
             (* We sort the arguments to make it order independent *)
-            let lst = List.sort compare lst in
-            (match lst with
+        begin match List.sort compare lst with
             | [ `Labled ("csv", `String csv);
-            `Labled ("file", `String output_file);
-            `Labled ("name", `String character) ] ->
-                    let _ =
-                        (CPOY 
+                `Labled ("file", `String output_file);
+                `Labled ("name", `String character) ] ->
+                let () =
+                    ignore
+                        ((CPOY 
                             select (characters, names:([character]))
-                            report ([output_file], kml:(supramap, [csv]))
-                            ) 
-                        --> PoyCommand.of_parsed false 
-                        --> Phylo.run ~start:run
-                    in
-                    run
-            | _ -> failwith error_message)
+                                    report ([output_file], kml:(supramap, [csv]))) 
+                            --> PoyCommand.of_parsed false
+                            --> Phylo.run ~start:run)
+                in
+                run
+            | _ -> failwith error_message
+        end
     | _ -> failwith error_message
 
 let () = Phylo.register_function "kml" dump_character
