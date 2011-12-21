@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2008.8.22)  20 DEC 2011 16:23
+This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2008.8.22)  21 DEC 2011 13:23
 entering extended mode
 \write18 enabled.
  file:line:error style messages enabled.
@@ -589,6 +589,10 @@ File: doc/figures/simplesearch_window.jpg Graphic file (type jpg)
 
 <use doc/figures/simplesearch_window.jpg> [18 <./doc/figures/simplesearch_menu.
 jpg> <./doc/figures/simplesearch_window.jpg>]
+Underfull \hbox (badness 10000) in paragraph at lines 261--268
+
+ []
+
 <doc/figures/simplesearch_window_filled.jpg, id=613, 501.875pt x 568.1225pt>
 File: doc/figures/simplesearch_window_filled.jpg Graphic file (type jpg)
 
@@ -616,24 +620,25 @@ Overfull \hbox (6.02669pt too wide) in paragraph at lines 343--345
 chet. 
  []
 
-<doc/figures/searchwithratchet_menu.jpg, id=636, 327.2225pt x 288.07625pt>
+[22]
+<doc/figures/searchwithratchet_menu.jpg, id=642, 327.2225pt x 288.07625pt>
 File: doc/figures/searchwithratchet_menu.jpg Graphic file (type jpg)
 
 <use doc/figures/searchwithratchet_menu.jpg>
-<doc/figures/searchwithratchet_window.jpg, id=637, 501.875pt x 603.25375pt>
+<doc/figures/searchwithratchet_window.jpg, id=643, 501.875pt x 603.25375pt>
 File: doc/figures/searchwithratchet_window.jpg Graphic file (type jpg)
 
-<use doc/figures/searchwithratchet_window.jpg> [22] [23 <./doc/figures/searchwi
-thratchet_menu.jpg> <./doc/figures/searchwithratchet_window.jpg>]
-<doc/figures/searchwithperturb_menu.jpg, id=649, 326.21875pt x 288.07625pt>
+<use doc/figures/searchwithratchet_window.jpg>
+<doc/figures/searchwithperturb_menu.jpg, id=645, 326.21875pt x 288.07625pt>
 File: doc/figures/searchwithperturb_menu.jpg Graphic file (type jpg)
 
 <use doc/figures/searchwithperturb_menu.jpg>
-<doc/figures/searchwithperturb_window.jpg, id=650, 501.875pt x 603.25375pt>
+<doc/figures/searchwithperturb_window.jpg, id=646, 501.875pt x 603.25375pt>
 File: doc/figures/searchwithperturb_window.jpg Graphic file (type jpg)
 
-<use doc/figures/searchwithperturb_window.jpg> [24 <./doc/figures/searchwithper
-turb_menu.jpg> <./doc/figures/searchwithperturb_window.jpg>]
+<use doc/figures/searchwithperturb_window.jpg> [23 <./doc/figures/searchwithrat
+chet_menu.jpg> <./doc/figures/searchwithratchet_window.jpg>] [24 <./doc/figures
+/searchwithperturb_menu.jpg> <./doc/figures/searchwithperturb_window.jpg>]
 <doc/figures/bootstrap_menu.jpg, id=658, 328.22626pt x 288.07625pt>
 File: doc/figures/bootstrap_menu.jpg Graphic file (type jpg)
 
@@ -641,74 +646,71 @@ File: doc/figures/bootstrap_menu.jpg Graphic file (type jpg)
 <doc/figures/bootstrap_window.jpg, id=659, 501.875pt x 502.87875pt>
 File: doc/figures/bootstrap_window.jpg Graphic file (type jpg)
 
-<use doc/figures/bootstrap_window.jpg> [25 <./doc/figures/bootstrap_menu.jpg> <
-./doc/figures/bootstrap_window.jpg>]
-<doc/figures/jackknife_menu.jpg, id=669, 326.21875pt x 288.07625pt>
+<use doc/figures/bootstrap_window.jpg>
+<doc/figures/jackknife_menu.jpg, id=661, 326.21875pt x 288.07625pt>
 File: doc/figures/jackknife_menu.jpg Graphic file (type jpg)
 
 <use doc/figures/jackknife_menu.jpg>
-<doc/figures/jackknife_window.jpg, id=670, 501.875pt x 502.87875pt>
+<doc/figures/jackknife_window.jpg, id=662, 501.875pt x 502.87875pt>
 File: doc/figures/jackknife_window.jpg Graphic file (type jpg)
 
 <use doc/figures/jackknife_window.jpg>
 
-LaTeX Warning: Reference `fig:search_for_bremer_menu' on page 26 undefined on i
+LaTeX Warning: Reference `fig:search_for_bremer_menu' on page 25 undefined on i
 nput line 452.
 
 
-LaTeX Warning: Citation `Bremer1988' on page 26 undefined on input line 452.
+LaTeX Warning: Citation `Bremer1988' on page 25 undefined on input line 452.
 
 
-LaTeX Warning: Citation `Kallersjoetal1992' on page 26 undefined on input line 
+LaTeX Warning: Citation `Kallersjoetal1992' on page 25 undefined on input line 
 452.
 
-<doc/figures/searchforbremer_menu.jpg, id=672, 526.96875pt x 288.07625pt>
+[25] [26 <./doc/figures/bootstrap_menu.jpg> <./doc/figures/bootstrap_window.jpg
+> <./doc/figures/jackknife_menu.jpg> <./doc/figures/jackknife_window.jpg>]
+<doc/figures/searchforbremer_menu.jpg, id=678, 526.96875pt x 288.07625pt>
 File: doc/figures/searchforbremer_menu.jpg Graphic file (type jpg)
 
 <use doc/figures/searchforbremer_menu.jpg>
-<doc/figures/searchforbremer_window.jpg, id=673, 501.875pt x 568.1225pt>
+<doc/figures/searchforbremer_window.jpg, id=679, 501.875pt x 568.1225pt>
 File: doc/figures/searchforbremer_window.jpg Graphic file (type jpg)
 
 <use doc/figures/searchforbremer_window.jpg>
-<doc/figures/reportbremer_window.jpg, id=674, 501.875pt x 469.755pt>
+<doc/figures/reportbremer_window.jpg, id=680, 501.875pt x 469.755pt>
 File: doc/figures/reportbremer_window.jpg Graphic file (type jpg)
 
-<use doc/figures/reportbremer_window.jpg> [26 <./doc/figures/jackknife_menu.jpg
-> <./doc/figures/jackknife_window.jpg>] [27 <./doc/figures/searchforbremer_menu
-.jpg> <./doc/figures/searchforbremer_window.jpg> <./doc/figures/reportbremer_wi
-ndow.jpg>] <doc/figures/diagnose_menu.jpg, id=690, 326.21875pt x 288.07625pt>
+<use doc/figures/reportbremer_window.jpg> [27 <./doc/figures/searchforbremer_me
+nu.jpg>] <doc/figures/diagnose_menu.jpg, id=691, 326.21875pt x 288.07625pt>
 File: doc/figures/diagnose_menu.jpg Graphic file (type jpg)
 
 <use doc/figures/diagnose_menu.jpg>
-<doc/figures/diagnose_window.jpg, id=691, 501.875pt x 472.76625pt>
+<doc/figures/diagnose_window.jpg, id=692, 501.875pt x 472.76625pt>
 File: doc/figures/diagnose_window.jpg Graphic file (type jpg)
 
 <use doc/figures/diagnose_window.jpg>
-<doc/figures/openpoyscript_menu.jpg, id=694, 327.2225pt x 288.07625pt>
+<doc/figures/openpoyscript_menu.jpg, id=695, 327.2225pt x 288.07625pt>
 File: doc/figures/openpoyscript_menu.jpg Graphic file (type jpg)
 
-<use doc/figures/openpoyscript_menu.jpg> [28] [29 <./doc/figures/diagnose_menu.
-jpg> <./doc/figures/diagnose_window.jpg> <./doc/figures/openpoyscript_menu.jpg>
-] <doc/figures/runinteractive_menu.jpg, id=712, 327.2225pt x 288.07625pt>
+<use doc/figures/openpoyscript_menu.jpg> [28 <./doc/figures/searchforbremer_win
+dow.jpg> <./doc/figures/reportbremer_window.jpg>] [29 <./doc/figures/diagnose_m
+enu.jpg> <./doc/figures/diagnose_window.jpg> <./doc/figures/openpoyscript_menu.
+jpg>] <doc/figures/runinteractive_menu.jpg, id=714, 327.2225pt x 288.07625pt>
 File: doc/figures/runinteractive_menu.jpg Graphic file (type jpg)
 
 <use doc/figures/runinteractive_menu.jpg>
-<doc/figures/create_script_window.jpg, id=713, 327.2225pt x 256.96pt>
+<doc/figures/create_script_window.jpg, id=715, 327.2225pt x 256.96pt>
 File: doc/figures/create_script_window.jpg Graphic file (type jpg)
 
 <use doc/figures/create_script_window.jpg>
-<doc/figures/view_menu.jpg, id=717, 303.1325pt x 49.18375pt>
+<doc/figures/view_menu.jpg, id=719, 303.1325pt x 49.18375pt>
 File: doc/figures/view_menu.jpg Graphic file (type jpg)
 
 <use doc/figures/view_menu.jpg>
-<doc/figures/output_window.jpg, id=718, 387.4475pt x 423.5825pt>
+<doc/figures/output_window.jpg, id=720, 387.4475pt x 423.5825pt>
 File: doc/figures/output_window.jpg Graphic file (type jpg)
 
-<use doc/figures/output_window.jpg>
-Underfull \vbox (badness 2726) has occurred while \output is active []
-
- [30 <./doc/figures/runinteractive_menu.jpg> <./doc/figures/create_script_windo
-w.jpg>]
+<use doc/figures/output_window.jpg> [30 <./doc/figures/runinteractive_menu.jpg>
+ <./doc/figures/create_script_window.jpg>]
 Underfull \hbox (badness 10000) in paragraph at lines 572--573
 
  []
@@ -723,8 +725,8 @@ LaTeX Warning: Citation `farris1988' on page 31 undefined on input line 579.
 <doc/figures/figinterface.jpg, id=737, 498.86375pt x 562.1pt>
 File: doc/figures/figinterface.jpg Graphic file (type jpg)
 
-<use doc/figures/figinterface.jpg>
-<doc/figures/figprocess.jpg, id=743, 504.88625pt x 604.2575pt>
+<use doc/figures/figinterface.jpg> [32 <./doc/figures/figinterface.jpg>]
+<doc/figures/figprocess.jpg, id=747, 504.88625pt x 604.2575pt>
 File: doc/figures/figprocess.jpg Graphic file (type jpg)
 
 <use doc/figures/figprocess.jpg>
@@ -734,10 +736,10 @@ File: doc/figures/figlogowindows.jpg Graphic file (type jpg)
  <use doc/figures/figlogowindows.jpg>
 File: doc/figures/figlogomac.jpg Graphic file (type jpg)
 
-<use doc/figures/figlogomac.jpg> [32] [33 <./doc/figures/figinterface.jpg>]
-[34 <./doc/figures/figprocess.jpg>]
+<use doc/figures/figlogomac.jpg>
 File: doc/figures/figlogolinux.jpg Graphic file (type jpg)
- <use doc/figures/figlogolinux.jpg> [35]
+ <use doc/figures/figlogolinux.jpg> [33]
+[34 <./doc/figures/figprocess.jpg>] [35]
 <doc/figures/reading_example.jpg, id=770, 414.04688pt x 186.6975pt>
 File: doc/figures/reading_example.jpg Graphic file (type jpg)
 
@@ -751,7 +753,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 685--687
 
  []
 
-[36]
+[36 <./doc/figures/reading_example.jpg>]
 Underfull \hbox (badness 10000) in paragraph at lines 688--689
 
  []
@@ -766,7 +768,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 697--698
 
  []
 
-[37 <./doc/figures/reading_example.jpg>]
+[37]
 
 LaTeX Warning: No positions in optional float specifier.
                Default added (so using `tbp') on input line 720.
@@ -774,41 +776,44 @@ LaTeX Warning: No positions in optional float specifier.
 <doc/figures/reading_example2.jpg, id=788, 434.37282pt x 303.38344pt>
 File: doc/figures/reading_example2.jpg Graphic file (type jpg)
 
-<use doc/figures/reading_example2.jpg> [38] [39 <./doc/figures/reading_example2
-.jpg>] <doc/figures/report2.jpg, id=800, 499.8675pt x 284.06125pt>
+<use doc/figures/reading_example2.jpg> [38 <./doc/figures/reading_example2.jpg>
+] <doc/figures/report2.jpg, id=796, 499.8675pt x 284.06125pt>
 File: doc/figures/report2.jpg Graphic file (type jpg)
 
 <use doc/figures/report2.jpg>
-<doc/figures/report3.jpg, id=801, 378.41376pt x 254.9525pt>
+<doc/figures/report3.jpg, id=797, 378.41376pt x 254.9525pt>
 File: doc/figures/report3.jpg Graphic file (type jpg)
 
-<use doc/figures/report3.jpg> [40 <./doc/figures/report2.jpg> <./doc/figures/re
+<use doc/figures/report3.jpg> [39 <./doc/figures/report2.jpg> <./doc/figures/re
 port3.jpg>]
 
 LaTeX Warning: No positions in optional float specifier.
                Default added (so using `tbp') on input line 767.
 
-<doc/figures/crossref.jpg, id=808, 628.3475pt x 620.3175pt>
+<doc/figures/crossref.jpg, id=804, 628.3475pt x 620.3175pt>
 File: doc/figures/crossref.jpg Graphic file (type jpg)
 
-<use doc/figures/crossref.jpg> [41 <./doc/figures/crossref.jpg>]
-<doc/figures/building1.jpg, id=820, 589.20125pt x 258.9675pt>
+<use doc/figures/crossref.jpg>
+Underfull \vbox (badness 3838) has occurred while \output is active []
+
+ [40 <./doc/figures/crossref.jpg>]
+<doc/figures/building1.jpg, id=816, 589.20125pt x 258.9675pt>
 File: doc/figures/building1.jpg Graphic file (type jpg)
 
 <use doc/figures/building1.jpg>
-<doc/figures/building2.jpg, id=821, 302.12875pt x 149.55875pt>
+<doc/figures/building2.jpg, id=817, 302.12875pt x 149.55875pt>
 File: doc/figures/building2.jpg Graphic file (type jpg)
 
-<use doc/figures/building2.jpg> [42]
-<doc/figures/swap1.jpg, id=829, 589.20125pt x 258.9675pt>
+<use doc/figures/building2.jpg> [41]
+<doc/figures/swap1.jpg, id=825, 589.20125pt x 258.9675pt>
 File: doc/figures/swap1.jpg Graphic file (type jpg)
 
 <use doc/figures/swap1.jpg>
-<doc/figures/swap2.jpg, id=830, 299.1175pt x 141.52875pt>
+<doc/figures/swap2.jpg, id=826, 299.1175pt x 141.52875pt>
 File: doc/figures/swap2.jpg Graphic file (type jpg)
 
-<use doc/figures/swap2.jpg> [43 <./doc/figures/building1.jpg> <./doc/figures/bu
-ilding2.jpg>]
+<use doc/figures/swap2.jpg> [42 <./doc/figures/building1.jpg> <./doc/figures/bu
+ilding2.jpg>] [43 <./doc/figures/swap1.jpg> <./doc/figures/swap2.jpg>]
 
 LaTeX Warning: No positions in optional float specifier.
                Default added (so using `tbp') on input line 843.
@@ -820,35 +825,35 @@ File: doc/figures/select.jpg Graphic file (type jpg)
 
 LaTeX Warning: Reference `report' on page 44 undefined on input line 855.
 
-[44 <./doc/figures/swap1.jpg> <./doc/figures/swap2.jpg>]
+
 Overfull \hbox (1.20583pt too wide) in paragraph at lines 858--859
 []\OT1/cmr/m/n/10.95 (-20) The com-mand \OT1/cmtt/l/n/10.95 report("my[]-first[
 ]-trees.txt", trees) \OT1/cmr/m/n/10.95 (-20) re-ports the trees
  []
 
-<doc/figures/asciitree.jpg, id=848, 453.695pt x 679.53876pt>
+<doc/figures/asciitree.jpg, id=843, 453.695pt x 679.53876pt>
 File: doc/figures/asciitree.jpg Graphic file (type jpg)
 
 <use doc/figures/asciitree.jpg>
-<doc/figures/pstree.jpg, id=849, 495.8525pt x 503.8825pt>
+<doc/figures/pstree.jpg, id=844, 495.8525pt x 503.8825pt>
 File: doc/figures/pstree.jpg Graphic file (type jpg)
 
-<use doc/figures/pstree.jpg>
+<use doc/figures/pstree.jpg> [44 <./doc/figures/select.jpg>] [45 <./doc/figures
+/asciitree.jpg> <./doc/figures/pstree.jpg>]
 Underfull \hbox (badness 10000) in paragraph at lines 878--879
 
  []
 
-[45 <./doc/figures/select.jpg>] [46 <./doc/figures/asciitree.jpg> <./doc/figure
-s/pstree.jpg>]
+
 Underfull \hbox (badness 10000) in paragraph at lines 883--885
 
  []
 
-<doc/figures/figerror1.jpg, id=861, 528.97626pt x 604.2575pt>
+<doc/figures/figerror1.jpg, id=857, 528.97626pt x 604.2575pt>
 File: doc/figures/figerror1.jpg Graphic file (type jpg)
 
 <use doc/figures/figerror1.jpg>
-<doc/figures/figerror2.jpg, id=862, 528.97626pt x 604.2575pt>
+<doc/figures/figerror2.jpg, id=858, 528.97626pt x 604.2575pt>
 File: doc/figures/figerror2.jpg Graphic file (type jpg)
 
 <use doc/figures/figerror2.jpg>
@@ -856,34 +861,34 @@ File: doc/figures/figerror2.jpg Graphic file (type jpg)
 LaTeX Warning: No positions in optional float specifier.
                Default added (so using `tbp') on input line 909.
 
-<doc/figures/exithelp.jpg, id=864, 456.70625pt x 285.065pt>
+<doc/figures/exithelp.jpg, id=860, 456.70625pt x 285.065pt>
 File: doc/figures/exithelp.jpg Graphic file (type jpg)
 
-<use doc/figures/exithelp.jpg> [47] [48 <./doc/figures/figerror1.jpg> <./doc/fi
+<use doc/figures/exithelp.jpg> [46] [47 <./doc/figures/figerror1.jpg> <./doc/fi
 gures/figerror2.jpg> <./doc/figures/exithelp.jpg>]
-<doc/figures/commandlist.jpg, id=877, 219.82124pt x 142.5325pt>
+<doc/figures/commandlist.jpg, id=872, 219.82124pt x 142.5325pt>
 File: doc/figures/commandlist.jpg Graphic file (type jpg)
 
 <use doc/figures/commandlist.jpg>
-<doc/figures/script.jpg, id=878, 399.4925pt x 200.75pt>
+<doc/figures/script.jpg, id=873, 399.4925pt x 200.75pt>
 File: doc/figures/script.jpg Graphic file (type jpg)
 
-<use doc/figures/script.jpg> [49]
+<use doc/figures/script.jpg> [48]
 
-LaTeX Warning: Citation `wheeleretal2006' on page 50 undefined on input line 95
+LaTeX Warning: Citation `wheeleretal2006' on page 49 undefined on input line 95
 9.
 
-<doc/figures/figpoybook.jpg, id=885, 466.74374pt x 702.625pt>
+<doc/figures/figpoybook.jpg, id=880, 466.74374pt x 702.625pt>
 File: doc/figures/figpoybook.jpg Graphic file (type jpg)
 
-<use doc/figures/figpoybook.jpg> [50 <./doc/figures/commandlist.jpg> <./doc/fig
+<use doc/figures/figpoybook.jpg> [49 <./doc/figures/commandlist.jpg> <./doc/fig
 ures/script.jpg>]
 Overfull \hbox (2.00638pt too wide) in paragraph at lines 972--973
 []\OT1/cmr/m/n/10.95 (-20) has down-load-able com-pressed files of \OT1/cmtt/l/
 n/10.95 POY5 \OT1/cmr/m/n/10.95 (-20) bi-na-ries, source
  []
 
-) [51 <./doc/figures/figpoybook.jpg>] [52
+[50 <./doc/figures/figpoybook.jpg>]) [51] [52
 
 ]
 Chapter 3.
@@ -1446,7 +1451,7 @@ r/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmssbx10.pfb></usr/local
 -dist/fonts/type1/bluesky/cm/cmti10.pfb></usr/local/texlive/2008/texmf-dist/fon
 ts/type1/bluesky/cm/cmtt10.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/
 bluesky/cm/cmtt12.pfb>
-Output written on commands.pdf (161 pages, 7472603 bytes).
+Output written on commands.pdf (161 pages, 7472375 bytes).
 PDF statistics:
  1845 PDF objects out of 2073 (max. 8388607)
  496 named destinations out of 1000 (max. 131072)
