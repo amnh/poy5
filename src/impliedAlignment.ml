@@ -27,6 +27,7 @@ module Codes = All_sets.IntegerMap
 module Handles = All_sets.Integers
 module IntSet = All_sets.Integers
 
+let (-->) a b = b a
 
 type dyna_state_t = Data.dyna_state_t
 
@@ -2669,16 +2670,16 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 | `Random _ | `Missing _ | `All | `AllStatic | `AllDynamic as x ->
                         `Some (Data.get_chars_codes data x)
             in
-            let codes = 
-                match codes with
+            let codes = match codes with
                 | `Some x -> x
                 | _ -> failwith "Impossible?"
             in
             (* Ensure we are not removing anything that is not affected by this
-            * transformation *)
-            let dyn = 
-                (Data.get_code_from_characters_restricted `Dynamic data 
-                (`Some codes))
+                transformation *)
+            let dyn =
+                (`Some codes)
+                    --> Data.get_code_from_characters_restricted `Dynamic data
+                    --> Data.filter_non_static_approx_characters data
             in
             List.filter (fun x -> List.exists (fun y -> y = x) dyn) codes 
         in

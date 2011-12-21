@@ -2478,8 +2478,7 @@ END
 
 let automated_search folder max_time min_time max_memory min_hits target_cost visited user_constraint run =
     let module FPSet = Set.Make (Ptree.Fingerprint) in
-    let has_dynamic = Data.has_dynamic run.data
-    and do_static_approx = Data.can_do_static_approx run.data in
+    let has_dynamic = Data.has_dynamic run.data in
     let timer = Timer.start () in
     let search_results = ref empty_search_results in
     let get_memory () = (Gc.stat ()).Gc.heap_words in
@@ -2809,12 +2808,8 @@ END
                     [APOY tbr; APOY timeout:[`Dynamic time]] --> add_constraint
                 in
                 let nrun = 
-                    (**** TODO ****)
                     exec nrun 
-                        (if (not do_static_approx) && has_dynamic then
-                            (CPOY 
-                            perturb (iterations:4, timeout:[`Dynamic remaining_time], swap { swap_args }))
-                        else if has_dynamic then
+                        (if has_dynamic then
                             (CPOY 
                             perturb (iterations:4, transform (tcm:(1,1), static_approx), timeout:[`Dynamic remaining_time], swap { swap_args }))
                         else

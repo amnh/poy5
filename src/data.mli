@@ -514,6 +514,8 @@ val get_code_from_characters_restricted : classes -> d -> characters -> int list
 
 val get_code_from_characters_restricted_comp : classes -> d -> bool_characters -> int list 
 
+val filter_non_static_approx_characters : ?comp:bool -> d -> int list -> int list
+
 val transform_dynamic :
     Methods.dynamic_char_transform ->
   d -> d
@@ -614,7 +616,6 @@ val make_direct_optimization : bool_characters -> d -> d
 val make_partitioned : [`Clip | `NoClip] -> bool_characters -> d -> d
 
 val has_dynamic : d -> bool 
-val can_do_static_approx : d -> bool
 val has_likelihood: d -> bool 
 val type_of_dynamic_likelihood: d -> Methods.ml_costfn option
 

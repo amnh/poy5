@@ -5955,26 +5955,34 @@ let has_dynamic d =
     | [], [] -> false
     | _      -> true
 
-let can_do_static_approx d = match d.dynamics with
-    (* static doesn't do static_approx *)
-    | [] -> false
-    (* we do not do static approx if we only have
-            - genome, chrome, *custom*, breakinv *)
-    | xs ->
-        List.fold_left
-            ~f:(fun acc x -> match Hashtbl.find d.character_specs x with
-                | Dynamic d ->
-                    begin match d.state with
-                        (* custom is defined in Seq but not well... *)
-                        | `Seq | `Ml | `Annotated -> true
-                        | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> acc
-                    end
-                (* only dynamics... *)
-                | Static _ -> assert false
-                | Set      -> assert false
-                | Kolmogorov _  -> assert false)
-            ~init:false
-            xs
+
+let can_do_static_approx_code d x =
+    let appropriate_alphabet_size ds =
+(*        let seqalph = Alphabet.to_sequential ds.alph in*)
+(*        Alphabet.print ds.alph;*)
+(*        Printf.printf "%d/%d/%d || %d/%d/%d\n%!"*)
+(*            (Alphabet.get_ori_size ds.alph) (Alphabet.size ds.alph) (Alphabet.distinct_size ds.alph)*)
+(*            (Alphabet.get_ori_size seqalph) (Alphabet.size seqalph) (Alphabet.distinct_size seqalph);*)
+(*        Alphabet.print seqalph;*)
+        10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
+    in
+    match Hashtbl.find d.character_specs x with
+        | Dynamic d when appropriate_alphabet_size d ->
+            begin match d.state with
+                | `Seq      | `Annotated  | `Ml                      -> true
+                | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
+            end
+        (* only dynamics with alphabet < 10 *)
+        | Dynamic d     -> false
+        | Static _      -> false
+        | Set           -> false
+        | Kolmogorov _  -> false
+
+
+let filter_non_static_approx_characters ?(comp=true) d xs =
+    if comp then List.filter (can_do_static_approx_code d) xs
+            else List.filter (fun x -> not (can_do_static_approx_code d x)) xs
+
 
 (* [sync_model_branches copy translate src dest] sync the data from the src to
  * destination. Copy defines if the data returned is a copy, or if the
