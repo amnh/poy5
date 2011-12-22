@@ -403,7 +403,7 @@ let compare data1 data2 : bool =
         && (data1.files = data2.files)
         && (data1.machine = data2.machine)
 
-type bool_characters = [
+type bool_characters = Methods.characters (* [
     | `All
     | `Some of (bool * int list)
     | `Names of (bool * string list)
@@ -413,7 +413,7 @@ type bool_characters = [
     | `AllDynamic
     | `Missing of (bool * int)
     | `Range of (bool * string * int * int)
-]
+] *)
 
 type characters = [
     | `All
@@ -5958,12 +5958,6 @@ let has_dynamic d =
 
 let can_do_static_approx_code d x =
     let appropriate_alphabet_size ds =
-(*        let seqalph = Alphabet.to_sequential ds.alph in*)
-(*        Alphabet.print ds.alph;*)
-(*        Printf.printf "%d/%d/%d || %d/%d/%d\n%!"*)
-(*            (Alphabet.get_ori_size ds.alph) (Alphabet.size ds.alph) (Alphabet.distinct_size ds.alph)*)
-(*            (Alphabet.get_ori_size seqalph) (Alphabet.size seqalph) (Alphabet.distinct_size seqalph);*)
-(*        Alphabet.print seqalph;*)
         10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
     in
     match Hashtbl.find d.character_specs x with
@@ -5973,11 +5967,11 @@ let can_do_static_approx_code d x =
                 | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
             end
         (* only dynamics with alphabet < 10 *)
-        | Dynamic d     -> false
-        | Static _      -> false
-        | Set           -> false
-        | Kolmogorov _  -> false
+        | Dynamic d     -> false | Static _      -> false
+        | Set           -> false | Kolmogorov _  -> false
 
+let can_all_chars_do_static_approx d xs =
+    List.fold_left ~f:(fun acc x -> acc && (can_do_static_approx_code d x)) ~init:true xs
 
 let filter_non_static_approx_characters ?(comp=true) d xs =
     if comp then List.filter (can_do_static_approx_code d) xs
