@@ -449,26 +449,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 this transformation."
 
 
-    let rec all_pairs f acc lst =
-        match lst with
-        | h :: t -> 
-                let acc = List.fold_left (f h) acc t in
-                all_pairs f acc t
-        | [] -> acc
-(** no one calls this function,just set use_ukk false*)
-    let count_all_pairs (_, a, m) (ones, mores) (_, b, _) use_ukk =
-        let use_ukk = false in
-        let _ = 
-            if use_ukk then
-                Sequence.NewkkAlign.align_2 a b m Sequence.NewkkAlign.default_ukkm
-            else
-                Sequence.Align.align_2 a b m Matrix.default 
-        in
-        let bt = Sequence.Align.make_backtrack a b Matrix.default in
-        match Sequence.Align.count_paths bt with
-        | 1 -> (ones + 1, mores)
-        | _ -> (ones, mores + 1)
-
     let get_roots tree = 
         let get_handle ptree = All_sets.Integers.choose (Ptree.get_handles ptree) in
         let get_component_of_handle ptree = 
@@ -481,6 +461,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         get_component_of_handle tree
 
+
     let post_order_in_every_handle f ptree acc = 
         let process_handle x acc =
             match (Ptree.get_component_root x ptree).Ptree.root_median with
@@ -491,6 +472,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             | _ -> acc
         in
         All_sets.Integers.fold process_handle ptree.Ptree.tree.Tree.handles acc
+
 
     (* A function that maps a tree that has only nodes to a tree that has tuples
     * in each node, being each tuple the node and the union of the nodes it
@@ -847,8 +829,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 end
         | [] -> tree
 
-    let process_static_approx prefix remove chars remove_non_informative data filter tree =
-        IA.to_static_homologies remove filter_characters false remove_non_informative chars data tree
+    let process_static_approx prefix remove chars remove_non_informative _ filter tree =
+        let char_codes = Data.get_chars_codes_comp tree.Ptree.data chars in
+        if not (Data.can_all_chars_do_static_approx tree.Ptree.data char_codes) then
+            begin
+                let m = "Data contains characters that do not support static \
+                    approx. I will skip over these and do the best that I can."
+                in
+                Status.user_message Status.Warning m
+            end;
+        IA.to_static_homologies remove filter false remove_non_informative
+                                chars tree.Ptree.data tree
 
 
     let get_char_codes (chars : Methods.characters)  data =
@@ -1030,12 +1021,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 (try
                     let len = Sexpr.length trees in
                     let _, data = 
-                        Sexpr.fold_left (fun (cnt, acc) x ->
-                            cnt + 1,
-                            process_static_approx ("ImpliedAlignment" ^
-                            string_of_int cnt) (cnt = len) chars 
-                            remove_non_informative 
-                            acc filter_characters x) (1, data) trees
+                        Sexpr.fold_left
+                            (fun (cnt, acc) x ->
+                                cnt + 1,
+                                process_static_approx ("ImpliedAlignment"^string_of_int cnt)
+                                    (cnt = len) chars remove_non_informative acc filter_characters x)
+                            (1, data)
+                            trees
                     in
                     data --> Data.categorize --> Node.load_data 
                 with
@@ -1056,8 +1048,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 else ();
                 (try
                     (select_shortest trees)
-                    --> process_static_approx "ImpliedAlignment" true chars remove_non_informative data
-                    filter_characters 
+                    --> process_static_approx "ImpliedAlignment" true chars
+                                remove_non_informative data filter_characters 
                     --> Data.categorize
                     --> Node.load_data 
                 with

@@ -2053,13 +2053,6 @@ let is_forest = function
 
 let build_has_exact = build_has `Exact
 
-let has_static_approx meth = 
-    List.exists (function 
-        `MultiStatic_Aprox _
-        | `Static_Aprox _
-        | `Automatic_Static_Aprox _ -> true
-        | _ -> false) meth
-
 let only_multistatic meth =
     List.fold_left (fun acc x ->
         acc & (match x with
