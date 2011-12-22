@@ -275,10 +275,8 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \makeatother
 
 \include{version}
-\author{\textbf {Program and Documentation POY 5.0} \\ Andr\'es Var\'on \\ Nicholas Lucaroni \\Lin Hong \\Ward C. Wheeler \\ \bigskip \textbf{Documentation POY 5.0} \\Louise M. Crowley \\ John S. S. Denton \\ Megan Cevasco }
-
-\include{version}
-\author{\textbf {Program and Documentation POY 4.0} \\ Andr\'es Var\'on \\ Nicholas Lucaroni \\Lin Hong \\Le Sy Vinh \\ Illya Bomash \\ Ward C. Wheeler \\ \bigskip \textbf{Documentation POY 4.0} 
+\author{\textbf {Program and Documentation} \\ Andr\'es Var\'on \\ Nicholas Lucaroni \\Lin Hong \\Ward C. Wheeler \\ \bigskip 
+\textbf{Documentation} \\ Louise M. Crowley \\ John S. S. Denton \\ Megan Cevasco}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %	BODY TEXT OF THE DOCUMENT     
@@ -290,7 +288,17 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 
 \thispagestyle{empty}
 
-\vspace*{4.00cm}
+\vspace*{5.00cm}
+
+\begin{flushleft}
+\textbf{Previous Version POY 4}\\
+\vspace*{1.00cm}
+\textbf {Program and Documentation} \\ Andr\'es Var\'on \\Le Sy Vinh \\ Illya Bomash \\ Ward C. Wheeler \\
+\vspace*{0.50cm}
+\textbf{Documentation} \\ Ilya T\"emkin \\ Megan Cevasco \\ Kurt M. Pickett \\ Juli\'an Faivovich \\ Taran Grant \\ William Leo Smith}
+\end{flushleft}
+
+\vspace*{5.00cm}
 
 \begin{flushleft}
     \small
@@ -312,14 +320,14 @@ Richard Gilder Graduate School and Department of Ichthyology, American Museum of
 \smallskip
 {\it
 Megan Cevasco} \\
-Coastal Carolina University, Department of Biology, Conway, SC, U.S.A.  \\
+Coastal Carolina University, Department of Biology, Conway, SC, U.S.A. \\
 \smallskip
 {\it
 Le Sy Vinh}\\
 \hl{???} \\
 {\it
 Ilya T\"emkin} \\
-\hl{Northern Virginia Community College}\\
+Northern Virginia Community College, Annandale Campus, VA, U.S.A. \\
 \smallskip
 {\it
 Illya Bomash}\\
@@ -343,16 +351,14 @@ Department of Zoology, The Field Museum of Natural History, Chicago, IL, U.S.A.\
 
 \vspace*{0.25cm}
 The American Museum of Natural History\\
-\copyright \hl {2007} by The American Museum of Natural History \\
-All rights reserved. Published \hl{2007} ???
+\copyright \hl {2011} by The American Museum of Natural History \\
+All rights reserved. Published \hl{2011}
 
 \vspace*{0.25cm}
 \hl{
-\emph{Var\'on, A., N. Lucaroni, L. Hong, L. S. Vinh, I. Bomash, W. C. Wheeler.} 2011.}
+\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} 2011.}
 \texttt{POY} 5.0.\buildnumber\ R.C. New York, American Museum of
-Natural History. \hl{Documentation by Var\'on, A., L. S. Vinh, I. Bomash,
-W. C. Wheeler, I. T\"emkin, M. Cevasco, L. M. Crowley, J. S. S. Denton, K. M. Pickett, J. Faivovich, T. Grant, and
-W. L. Smith.} \url{http://research.amnh.org/scicomp/projects/poy.php}
+Natural History. \hl{Documentation by Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler, L. M. Crowley, J. S. S. Denton, M. Cevasco} \url{http://research.amnh.org/scicomp/projects/poy.php}
 
 \vspace*{0.5cm}
 
@@ -373,7 +379,7 @@ and
 \chapter{What is \poy}
 
 \poy is a flexible, multi-platform program for phylogenetic analysis of molecular and other data. %under various optimality criteria.
-An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} \hl{fix references to 2001a, b} allowing optimization of unaligned sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, support values, and implied alignments \hl{chromosomal output?}. \poy provides a unified approach to co-optimizing different types of data, such as morphological and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale genomic events (translocations, inversions, and duplications).
+An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} \hl{fix references to 2001a, b} allowing optimization of unaligned sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, support values and implied alignments.  In addition, \poy can output \hl{synteny block maps from the analysis of chromosomal and genomic data, as well as supra map stuff?}. \poy provides a unified approach to co-optimizing different types of data, such as morphological and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale genomic events (translocations, inversions, and duplications).
 
 \section{The structure of \poy documentation}
 Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to the program's two working environments, the \emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The following chapter, \emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their understanding helps creating building efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
