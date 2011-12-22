@@ -256,7 +256,11 @@ The \emph{Simple Search} window (Figure~\ref{fig:simple_search_window}, right) p
         Contains the list of files that are to be input into \poy. These include
         character files in nucleotide, Hennig86, and Nexus formats as well as tree files. (Character data in other formats can be input by specifying additional arguments in the script. See \ccross{read}.) Note: If a Nexus file is input, a gap-opening cost can not be specified, as gaps are independent in this file format.
     \item[Input Parameters]
+<<<<<<< local
     	Holds fields to specify the optimality criterion (parsimony or likelihood), the datatype (sequence, break inversion, chromosome, custom alphabet, genome or qualitative) and whether these data types should be treated as prealigned (if possible).  Qualitative data are any non-sequence, prealigned data type (e.g. morphological, behavioral).  These character types are optimized as additive, non-additive or Sankoff characters.  This information should be found in the data file.
+=======
+    	Holds fields to specify the optimality criterion (parsimony or likelihood), the datatype (sequence, break inversion, chromosome, custom alphabet, genome or qualitative) and whether these data types should be treated as prealigned (if possible).  Qualitative data are any non-sequence, prealigned data type (e.g. morphological, behavioral).  These character types are optimized as additive, non-additive or Sankoff characters.
+>>>>>>> other
     \item[Sequence Parameters]
         Holds fields to specify the substitution, indel, and gap opening costs. Enter \texttt{0} if no
         gap opening cost is desired. If the value of a parameter is not specified, the default values are used. The default value for both substitutions and insertion deletion events is 1. Within Sequence Parameters an additional subsection is invoked depending on the character type.  \hl{This subsection relates to the costs associated with ....}\\
