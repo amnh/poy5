@@ -1,4 +1,4 @@
-\chapter{\poy Quick Start}
+hg push\chapter{\poy Quick Start}
 
 \section{Requirements: software and hardware}
 
@@ -13,7 +13,7 @@ particular requirements for disk space, but XML and diagnosis report files can b
 
 \section{Obtaining and installing \poy}
 \subsection{Installing from the binaries}
-\poy installers for Linux, Windows XP, and Mac OSX, source code, and documentation in PDF format are available from the \poy Download website at the American Museum of Natural History Computational Sciences: \hl{library website?}
+\poy installers for Linux, Windows XP, and Mac OSX, source code, and documentation in PDF format are available from the \poy Download website at the \hl{American Museum of Natural History Computational Sciences}:
 
 \begin{center}
 \url{http://research.amnh.org/scicomp/projects/poy.php}
@@ -260,10 +260,7 @@ The \emph{Simple Search} window (Figure~\ref{fig:simple_search_window}, right) p
     \item[Input Parameters]
     	Holds fields to specify the optimality criterion (parsimony or likelihood), the datatype 
 	(sequence, break inversion, chromosome, custom alphabet, genome or qualitative) 
-	and whether these data types should be treated as prealigned (if possible).  Qualitative 
-	data are any non-sequence, prealigned data type (e.g. morphological, behavioral).  
-	These character types are optimized as additive, non-additive or Sankoff characters.  
-	This information should be found in the data file.
+	and whether these data types should be treated as prealigned (if possible).  
     \item[Sequence Parameters]
         Holds fields to specify the substitution, indel, and gap opening costs. Enter \texttt{0} if no
         gap opening cost is desired. If the value of a parameter is not specified, the default values 
@@ -271,8 +268,11 @@ The \emph{Simple Search} window (Figure~\ref{fig:simple_search_window}, right) p
         Within Sequence Parameters an additional subsection is invoked depending on the 
         character type (except for \emph{Sequence} characters, where only indel, substitution 
         and gap opening costs are involved).
+\end{description}   
+     
         \begin{itemize} 
-        		\item \textbf{Break Inversion Parameters} Holds a drop down menu wherein the user specifies
+        		\item \textbf{Break Inversion Parameters} Break Inversion Characters are those that ...
+		Holds a drop down menu wherein the user specifies
 		 whether \emph{Locus Inversion} or \emph{Locus Breakpoint} \hl{(hyperlink to commands)}
 		 costs are calculated.
 		 The default cost for both \emph{Locus Inversion} and \emph{Locus Breakpoint} is set to 10. 
@@ -284,9 +284,14 @@ The \emph{Simple Search} window (Figure~\ref{fig:simple_search_window}, right) p
 				Locus Indel Exte
 		\item \textbf{Custom Alphabet Parameters}
 		\item \textbf{Genome Parameters}
-		\item \textbf{Qualitative Parameters}
-	\end{itemize}
-        
+		\item \textbf{Qualitative Parameters} Qualitative data are any non-sequence, prealigned 
+		data type (e.g. morphological, behavioral). These character types are optimized as additive, 
+		non-additive or Sankoff characters. This information should be found in the data file.
+	\end{itemize}    
+\begin{description}
+%\setlength{\labelwidth}{0pt}
+\setlength{\labelsep}{5pt}
+\setlength{\itemindent}{0pt}%
     \item[Search Parameters]
         Holds one field to set the number of independent random addition replicates to be generated.
     \item[Output Files]
