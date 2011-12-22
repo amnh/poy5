@@ -2986,7 +2986,7 @@
             for detailed description of identifiers.
         \end{argumentgroup}
            
-           \begin{argumentgroup}{Methods}
+        \begin{argumentgroup}{Methods}
             This set of arguments specifies different transformations that can be applied
             to selected characters. If multiple transformation methods are applied
             sequentially in the same list of arguments, the effect of the methods listed
@@ -3188,13 +3188,10 @@
             postpone our decision to later steps of building, which could
             result in better tree cost }
             {level}
+        \end{argumentgroup}
+         
 
-
-      
-
-      \end{argumentgroup}
-           
-       \begin{argumentgroup}{Likelihood transformation methods}
+        \begin{argumentgroup}{Likelihood transformation methods}
             This set of arguments enables analysis using several variants of the
             maximum likelihood criterion.
 
@@ -3225,67 +3222,73 @@
                 POY requires a model of character substitution to be specified
                 during the transformation to likelihood characters. Valid models are:
 
-            \begin{description}
+                \begin{description}
 
-                \argumentdefinition{jc69/neyman}{}
-                    {The model of Jukes and Cantor (1969). A single rate class. All
-                    equilibrium frequencies are forced to be equal. This model
-                    will work for any size alphabet.}
-                    {jc69}
+                    \argumentdefinition{jc69/neyman}{}
+                        {The model of Jukes and Cantor (1969). A single rate
+                        class. All equilibrium frequencies are forced to be
+                        equal. This model will work for any size alphabet.}
+                        {jc69}
 
-                \argumentdefinition{f81}{}
-                    {The model of Felsenstein (1981). A single rate class,
-                    proportional to the equilibrium frequencies. This model will
-                    work for any size alphabet.}
-                    {f81}
+                    \argumentdefinition{f81}{}
+                        {The model of Felsenstein (1981). A single rate class,
+                        proportional to the equilibrium frequencies. This model
+                        will work for any size alphabet.}
+                        {f81}
 
-                \argumentdefinition{k2p/k80}{}
-                    {The model of Kimura (1980). Transitions and transversions are
-                    constrained to have separate rate classes. All equilibrium
-                    frequencies are forced to be equal.}
-                    {k2p}
+                    \argumentdefinition{k2p/k80}{}
+                        {The model of Kimura (1980). Transitions and
+                        transversions are constrained to have separate rate
+                        classes. All equilibrium frequencies are forced to be
+                        equal.}
+                        {k2p}
 
-                \argumentdefinition{f84}{}
-                    {The model of Felsenstein (1984). Rates are constrained as in
-                    k2p, but are also proportional to the equilibrium frequencies.}
-                    {f84}
+                    \argumentdefinition{f84}{}
+                        {The model of Felsenstein (1984). Rates are constrained
+                        as in k2p, but are also proportional to the equilibrium
+                        frequencies.}
+                        {f84}
 
-                \argumentdefinition{hky85}{}
-                    {Three rate classes: transversions (purine / pyrimidine), and
-                    independent classes for purine-purine and pyrimidine-pyrimidine
-                    transitions. Rates are also proportional to equilibrium
-                    frequencies.}
-                    {hky85}
+                    \argumentdefinition{hky85}{}
+                        {Three rate classes: transversions (purine /
+                        pyrimidine), and independent classes for purine-purine
+                        and pyrimidine-pyrimidine transitions. Rates are also
+                        proportional to equilibrium frequencies.}
+                        {hky85}
 
-                \argumentdefinition{gtr}{}
-                    {The model of Tavar\'{e} (1986). The most general reversible,
-                    stationary model of nucleotide substitution, and the one most
-                    frequently selected by information criteria. All rates
-                    constrained to be independent. This model works for any size
-                    alphabet, but note that there are $\frac{N (N-1)}{2}$ rates,
-                    where $N$ is the alphabet size.}
-                    {gtr}
+                    \argumentdefinition{gtr}{}
+                        {The model of Tavar\'{e} (1986). The most general
+                        reversible, stationary model of nucleotide substitution,
+                        and the one most frequently selected by information
+                        criteria. All rates constrained to be independent. This
+                        model works for any size alphabet, but note that there
+                        are $\frac{N (N-1)}{2}$ rates, where $N$ is the alphabet
+                        size.}
+                        {gtr}
 
-                \argumentdefinition{file}{}
-                    {An external file containing a matrix of estimated rate values.}
-                    {file}
+                    \argumentdefinition{file}{}
+                        {An external file containing a matrix of estimated rate
+                        values.}
+                        {file}
 
-                \argumentdefinition{custom}{}
-                    {An external file in which the rate class constraints of the
-                    Q-matrix are specified. Dominant diagonal entries of this
-                    Q-matrix are constrained so as to sum rows and columns to zero.
-                    A dash (`-') may be used as a placeholder in the custom
-                    Q-matrix, and entries constrained to be equal must be specified
-                    as letters (a,b,c,...) or numbers (0,1,2,...). The matrix must
-                    be symmetric. Base frequencies are multiplied through. Note
-                    that the structure of a custom matrix can be arbitrary and need
-                    not be equal to any of the above named models. Alfaro and
-                    Huelsenbeck (2004) note that many of the unnamed variants of the
-                    256 possible GTR submodels outperform the named models examined
-                    in commonly-used model selection programs.}
-                    {custom}
+                    \argumentdefinition{custom}{}
+                        {An external file in which the rate class constraints of
+                        the Q-matrix are specified. Dominant diagonal entries of
+                        this Q-matrix are constrained so as to sum rows and
+                        columns to zero.  A dash (`-') may be used as a
+                        placeholder in the custom Q-matrix, and entries
+                        constrained to be equal must be specified as letters
+                        (a,b,c,...) or numbers (0,1,2,...). The matrix must be
+                        symmetric. Base frequencies are multiplied through. Note
+                        that the structure of a custom matrix can be arbitrary
+                        and need not be equal to any of the above named models.
+                        Alfaro and Huelsenbeck (2004) note that many of the
+                        unnamed variants of the 256 possible GTR submodels
+                        outperform the named models examined in commonly-used
+                        model selection programs.}
+                        {custom}
 
-            \end{description}}
+                \end{description}}
             {model}
 
             \argumentdefinition{rates}{}
@@ -3310,32 +3313,169 @@
                 \begin{description}
 
                     \argumentdefinition{gamma}{}
-                    {Apply a gamma distribution, $\gamma(\alpha,\beta)$, of rate
-                    variation across characters. The mean rate for the
-                    distribution is set to 1.0 ($\alpha = \beta$), thus one
-                    addtional parameter is estimated.}
-                    {gamma}
+                        {Apply a gamma distribution, $\gamma(\alpha,\beta)$, of
+                        rate variation across characters. The mean rate for the
+                        distribution is set to 1.0 ($\alpha = \beta$), thus one
+                        addtional parameter is estimated.}
+                        {gamma}
 
                     \argumentdefinition{theta}{}
-                    {Apply a gamma distribution with an additional invariable
-                    rate class optimized to be the proportion of invariant sites
-                    in the data.}
-                    {theta}
+                        {Apply a gamma distribution with an additional
+                        invariable rate class optimized to be the proportion of
+                        invariant sites in the data.}
+                        {theta}
 
                     \argumentdefinition{none}{}
-                    {Apply a single rate category to all sites.}
-                    {none}
+                        {Apply a single rate category to all sites.}
+                        {none}
 
                 \end{description}}
                 {rates}
 
+                \argumentdefinition{priors}{}
+                    {The equilibrium frequencies of the characters in the stationary
+                    Markov process. The conditional probability of the data is
+                    multiplied by these frequencies to yield the likelihood score.
+                    In systematics applications, the observed (empirical)
+                    frequencies of the characters in the data are often used as an
+                    approximation to the likelihood-optimized frequencies. This
+                    approximation is sensible for sequences evolving nearly
+                    neutrally, but this approximation breaks down for sequences
+                    under moderate or strong selection.
+
+                    \begin{description}
+
+                        \argumentdefinition{equal}{}
+                            {Constrains each of the equilibrium frequencies to be
+                            $\frac{1}{r}$, where $r$ is the character alphabet size.}
+                            {equal}
+
+                        \argumentdefinition{estimate}{}
+                            {Uses observed frequencies of the characters to
+                            approximate the ML-optimized equilibrium frequencies.
+                            Under dynamic likelihood, the indel equilibrium
+                            frequency is estimated to be the minimum number of
+                            indels required to align all the sequences, $\pi_{gap} =
+                            \sum_i=0^n ||S_{\hat{i}}|| - ||S_i||$, where
+                            $S_{\hat{i}}$ is the longest sequence.}
+                            {estimate}
+
+                            \argumentdefinition{given:(FLOAT LIST)}{}
+                            {Uses equilibrium frequencies given as a comma-separated list specified by the user.}
+                            {given}
+
+                    \end{description}}
+                {priors}
+
+                \argumentdefinition{cost}{}
+                    {Specifies the variant of relative likelihood (\textit{sensu}
+                    Steel and Penny [2000]) used by POY to calculate the costs at
+                    each node and score the topology.
+
+                    \begin{description}
+
+                        \argumentdefinition{mal}{}
+                            {Specifies the standard criterion of maximum average
+                            likelihood (Felsteinstein, 1978), in which the
+                            likelihood is derived from the sum over all internal
+                            vertex labelings. Because the vertex assignments are
+                            marginalized, this version of relative likelihood is not
+                            compatible with simultaneous estimation of alignment and
+                            topology (dynamic likelihood).}
+                            {mal}
+
+                        \argumentdefinition{mpl}{}
+                            {Specifies the criterion of most parsimonious likelihood
+                            (Barry and Hartigan, 1987), in which the likelihood is
+                            derived from the set of most probable state assignments
+                            at each node. Under this criterion, vertex state
+                            assignments are not marginalized, and so this variant of
+                            relative likelihood is compatible with dynamic
+                            likelihood. However, several studies have noted that
+                            parameters under this criterion may not be identifiable
+                            (citation needed) and that the method may not be consistent
+                            (Mossel and Steel, 2009).}
+                            {mpl}
+
+                    \end{description}}
+                    {cost}
+
+                \argumentdefinition{gapmode}{}
+                    {Defines how atomistic gaps (indels) are treated in likelihood analysis. When implemented, the POY approach to indels on static likelihood characters follows McGuire et al. (2001), but expands the implementation outside the F84 model. POY is unique among likelihood implementations both by enabling indel parameterization for any reversible, stationary model applied to static characters and, more crucially, for implementing dynamic likelihood for truly simultaneous alignment and topology inference. Indel-aware models are scarce, but see Rivas and Eddy (2008), Redelings and Suchard (2005, 2007) for alternative parameterizations, and Liu et al. (2009) for an iterative approximation of simultaneous inference under the MAL criterion.
+
+                    Note that under dynamic likelihood, only the coupled option is implemented. Options are:
+
+                    \begin{description}
+
+                        \argumentdefinition{missing}{}
+                            {Specifies that indels be treated under standard
+                            assumptions, thus making analyses in POY for a given
+                            model and alignment comparable to other
+                            implementations such as RAxML and GARLi. Under this
+                            assumption, indels are not a part of the character
+                            alphabet (``missing'' data, in this context), and
+                            are given probability one.}
+                            {missing}
+
+                        \argumentdefinition{coupled}{}
+                            {Specifies that atomistic indels are a character,
+                            with rates of nucleotide-to-indel substitution
+                            constrained to be equal to one another. For example,
+                            the Q-matrix
+
+                            \begin{equation*}
+                                Q_{coupled} =
+                                    \begin{bmatrix}
+                                        -3 \alpha - \beta & \alpha & \alpha & \alpha & \beta \\
+                                        \alpha & -3 \alpha - \beta & \alpha & \alpha & \beta \\
+                                        \alpha & \alpha & -3 \alpha - \beta & \alpha & \beta \\
+                                        \alpha & \alpha & \alpha & -3 \alpha - \beta & \beta \\
+                                        \beta & \beta & \beta & \beta & -4 \beta
+                                \end{bmatrix}
+                            \end{equation*}
+
+                            specifies a Jukes-Cantor matrix augmented to
+                            estimate nucleotide-to-indel substitutions as a
+                            coupled parameter separate from
+                            nucleotide-to-nucleotide substitutions. In
+                            accordance with other likelihood implementations,
+                            the diagonal entries of the Q-matrix are normalized
+                            by the trace to scale their mean rate to one.}
+                            {coupled}
+
+                        \argumentdefinition{independent}{}
+                            {Specifies that atomistic indels are a character,
+                            with rates of nucleotide-to-indel substitution
+                            constrained to be estimated separately. For example,
+                            the Q-matrix
+
+                            \begin{equation*}
+                                Q_{independent} =
+                                    \begin{bmatrix}
+                                        -3 \alpha - \chi & \alpha & \alpha & \alpha & \chi \\
+                                        \alpha & -3 \alpha - \kappa & \alpha & \alpha & \kappa \\
+                                        \alpha & \alpha & -3 \alpha - \mu & \alpha & \mu \\
+                                        \alpha & \alpha & \alpha & -3 \alpha - \gamma & \gamma \\
+                                        \chi & \kappa & \mu & \gamma & - \chi - \kappa - \mu - \gamma
+                                    \end{bmatrix}
+                            \end{equation*}
+
+                            specifies a Jukes-Cantor matrix augmented to
+                            estimate each nucleotide-to-indel substitution as a
+                            unique rate separate from nucleotide-to-nucleotide
+                            substitutions. In accordance with other likelihood
+                            implementations, the diagonal entries of the
+                            Q-matrix are normalized by the trace to scale their
+                            mean rate to one.}
+                            {independent}
+
+                    \end{description}}
+                {gapmode}
+
         \end{argumentgroup}
 
 
-
-
-
-       \begin{argumentgroup}{Chromosomal transformation methods}
+        \begin{argumentgroup}{Chromosomal transformation methods}
            For chromosome and genome character types, \poy optimizes nucleotide-, 
            locus-, and chromosome-level variation simultaneously. The arguments in this group
            transform nucleotide characters into chromosomal character
@@ -3620,8 +3760,8 @@
                         {swapmed}
 
        
-          \end{description}
-	\end{argumentgroup}
+            \end{description}
+        \end{argumentgroup}
 	\end{arguments}
 	
 
