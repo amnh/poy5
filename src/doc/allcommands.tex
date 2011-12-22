@@ -3194,6 +3194,147 @@
 
       \end{argumentgroup}
            
+       \begin{argumentgroup}{Likelihood transformation methods}
+            This set of arguments enables analysis using several variants of the
+            maximum likelihood criterion.
+
+            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gapmode,cost)}}
+                {Transforms the characters to either static or dynamic likelihood
+                characters using the specified model.}
+                {likelihood}
+
+            \begin{statement}
+                Dynamic likelihood for unaligned sequence data is
+                implemented only as most parsimonious likelihood (MPL) (Barry and
+                Hartigan, 1987). Both maximum average likelihood (MAL) (Felsenstein,
+                1978) and most parsimonious likelihood are implementable on
+                static characters.
+            \end{statement}
+
+            \begin{statement}
+                It is important to note that dynamic likelihood characters
+                necessarily include gaps/indels as a state in the character
+                alphabet. See information for \poycommand{gapmode()}, below.
+            \end{statement}
+
+            \argumentdefinition{model}{}
+                {Defines the reversible stochastic Markov model of evolution.
+                Models in POY, as in other standard likelihood implementations,
+                employ globally homogeneous models (jayaswal2005), which
+                estimate rates using a single matrix over the entire topology.
+                POY requires a model of character substitution to be specified
+                during the transformation to likelihood characters. Valid models are:
+
+            \begin{description}
+
+                \argumentdefinition{jc69/neyman}{}
+                    {The model of Jukes and Cantor (1969). A single rate class. All
+                    equilibrium frequencies are forced to be equal. This model
+                    will work for any size alphabet.}
+                    {jc69}
+
+                \argumentdefinition{f81}{}
+                    {The model of Felsenstein (1981). A single rate class,
+                    proportional to the equilibrium frequencies. This model will
+                    work for any size alphabet.}
+                    {f81}
+
+                \argumentdefinition{k2p/k80}{}
+                    {The model of Kimura (1980). Transitions and transversions are
+                    constrained to have separate rate classes. All equilibrium
+                    frequencies are forced to be equal.}
+                    {k2p}
+
+                \argumentdefinition{f84}{}
+                    {The model of Felsenstein (1984). Rates are constrained as in
+                    k2p, but are also proportional to the equilibrium frequencies.}
+                    {f84}
+
+                \argumentdefinition{hky85}{}
+                    {Three rate classes: transversions (purine / pyrimidine), and
+                    independent classes for purine-purine and pyrimidine-pyrimidine
+                    transitions. Rates are also proportional to equilibrium
+                    frequencies.}
+                    {hky85}
+
+                \argumentdefinition{gtr}{}
+                    {The model of Tavar\'{e} (1986). The most general reversible,
+                    stationary model of nucleotide substitution, and the one most
+                    frequently selected by information criteria. All rates
+                    constrained to be independent. This model works for any size
+                    alphabet, but note that there are $\frac{N (N-1)}{2}$ rates,
+                    where $N$ is the alphabet size.}
+                    {gtr}
+
+                \argumentdefinition{file}{}
+                    {An external file containing a matrix of estimated rate values.}
+                    {file}
+
+                \argumentdefinition{custom}{}
+                    {An external file in which the rate class constraints of the
+                    Q-matrix are specified. Dominant diagonal entries of this
+                    Q-matrix are constrained so as to sum rows and columns to zero.
+                    A dash (`-') may be used as a placeholder in the custom
+                    Q-matrix, and entries constrained to be equal must be specified
+                    as letters (a,b,c,...) or numbers (0,1,2,...). The matrix must
+                    be symmetric. Base frequencies are multiplied through. Note
+                    that the structure of a custom matrix can be arbitrary and need
+                    not be equal to any of the above named models. Alfaro and
+                    Huelsenbeck (2004) note that many of the unnamed variants of the
+                    256 possible GTR submodels outperform the named models examined
+                    in commonly-used model selection programs.}
+                    {custom}
+
+            \end{description}}
+            {model}
+
+            \argumentdefinition{rates}{}
+                {Specifies the nature of among-site rate variation. Rate
+                variation distributions allow multipliers to be applied to
+                separate groups of characters. This additional parameterization
+                frequently improves observed likelihood scores.
+                Commonly-employed distributions for parameterizing among-site
+                variation are the gamma distribution ($\Gamma$) and this
+                distribution with an additional invariable rate class, the theta
+                distribution ($\Theta$).
+                
+                It should be noted that although many researchers apply both a
+                gamma and theta in likelihood analyses, the parameter values
+                inferred are correlated (Sullivan, 1999).  It has therefore been
+                recommended that a proportion of invariant sites be
+                ``pseudo''-estimated by increasing the number of discrete
+                categories for the gamma distribution to account for very low
+                rate character groups. The mean of each class is used to define
+                the rate for the discrete category.
+
+                \begin{description}
+
+                    \argumentdefinition{gamma}{}
+                    {Apply a gamma distribution, $\gamma(\alpha,\beta)$, of rate
+                    variation across characters. The mean rate for the
+                    distribution is set to 1.0 ($\alpha = \beta$), thus one
+                    addtional parameter is estimated.}
+                    {gamma}
+
+                    \argumentdefinition{theta}{}
+                    {Apply a gamma distribution with an additional invariable
+                    rate class optimized to be the proportion of invariant sites
+                    in the data.}
+                    {theta}
+
+                    \argumentdefinition{none}{}
+                    {Apply a single rate category to all sites.}
+                    {none}
+
+                \end{description}}
+                {rates}
+
+        \end{argumentgroup}
+
+
+
+
+
        \begin{argumentgroup}{Chromosomal transformation methods}
            For chromosome and genome character types, \poy optimizes nucleotide-, 
            locus-, and chromosome-level variation simultaneously. The arguments in this group
