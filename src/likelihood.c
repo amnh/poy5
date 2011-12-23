@@ -25,6 +25,8 @@
 
 #undef __SSE3__
 
+#undef __SSE3__
+
 #ifdef __SSE3__
 #include <pmmintrin.h>      //SSE instrinsics
 #endif
