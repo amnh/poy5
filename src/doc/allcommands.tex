@@ -1038,7 +1038,8 @@
         [orientation:\poybool, init3D:\poybool])}}
             {An \\ enhancement of the data file type \poyargument{custom\_alphabet} allowing
             rearrangement events specified using \poycommand{dynamic\_pam()}. Syntactically,
-            breakinv data type is identical to custom\_alphabet data type.} 
+            breakinv data type is identical to custom\_alphabet data type.  If \texttt{init3D} is set to
+            \texttt{true}, execution will be faster, but will require very large amounts of memory.} 
             {breakinv}
 
         \argumentdefinition{chromosome}{\obligatory{(\poystring list)}}
@@ -1049,18 +1050,20 @@
             events such as rearrangements, inversions, and large-scale
             insertions and deletions (including duplications). These parameter
             options (\emph{e.g.} inversion cost) are specified using the
-            argument \poycommand{dynamic\_pam} in the
+            %argument \poycommand{dynamic\_pam} in the%
             command~\nccross{transform}{transformcommand}.  
             Unlike when using \poycommand{annotated} data type,
             both locus-level and nucleotide-level homologies
-            are determined dynamically~\cite{vinh2007} (see tutorial \texttt{4.6}). If chromosome sequences were imported as
+            are determined dynamically~\cite{darlingetal2004, vinh2007} 
+            %change tutorial--or add new one?
+            (see tutorial \texttt{4.6}). If chromosome sequences were imported as
             nucleotide type data, they can be converted to chromosome type data
             using the argument \poyargument{seq\_to\_chrom} of
             \nccross{transform}{transformcommand}.} 
             {}
             
             \argumentdefinition{custom\_alphabet}{\obligatory{(STRING, STRING, 
-        [orientation:\poybool, init3D:\poybool])}}
+        [orientation:\poybool, init3D:\poybool, \poylident])}}
             {Reads the data in the user-defined alphabet format. The first string argument is
             the name of a datafile that contains custom-alphabet sequences in FASTA format. 
             The characters can be (but are not required to be) separated by spaces.
@@ -1107,6 +1110,11 @@
 	The argument \poyargument{init3D} indicates that if program will calculate in advance
 	the medians for all triplets of characters (a, b, c). The options are \poyargument{init3D:true} or
 	\poyargument{init3D:false}. The default option is \texttt{true}.
+	
+	If the optional argument \poylident is \texttt{prealigned}, the sequences are
+	treated as aligned sequences.
+	
+	The default heuristic \texttt{level} is $2$.  This can be changed via the command \poycommand{transform}.
 	
 	\poycommand{custom\_alphabet}
 	can be transformed into \poycommand{breakinv} using \poycommand{transform}.}
@@ -2986,7 +2994,7 @@
             for detailed description of identifiers.
         \end{argumentgroup}
            
-        \begin{argumentgroup}{Methods}
+           \begin{argumentgroup}{Methods}
             This set of arguments specifies different transformations that can be applied
             to selected characters. If multiple transformation methods are applied
             sequentially in the same list of arguments, the effect of the methods listed
@@ -3011,15 +3019,6 @@
             in memory.}
             {autosequencepartition}
             
-        \argumentdefinition{j}{\poylident}
-            {Simmilar to the previous, with the difference that no tree is
-            required prior the partition, and large sequence length variations
-            at the tips are treated as missing data. If \poylident is clip then
-            a large difference in length in the tips is assumed to be caused by
-            missing data. For clip to take effect, at least two fragments must
-            be found. If \poylident is noclip, then tips are treated like
-            any other fragment.}
-            {transformpartitioned}
         \argumentdefinition{direct\_optimization}{}
           {Transforms the characters specified so that the initial assignment of sequences to 
           the internal vertices of a tree use direct
@@ -3029,14 +3028,21 @@
           characters.}
           {directoptimization}
 
-        \argumentdefinition{fixed\_states}{}
+        \argumentdefinition{fixed\_states}{\optional{(\poystring, \poylident)}}
           {Transforms the characters specified in fixed state characters~\cite{wheeler1999a}
           where the initial assignment of sequences to the internal vertices of
           the tree is one of the observed sequences. If the observed sequences
           contain ambiguities, only those that resolve closest to another
           sequence are added to the set of valid states. This method is
-          recommended for large alphabets (more than or equal to 7 elements). It is only
-          applicable to dynamic homology characters.}
+          recommended for large alphabets ($\ge$ 7 elements). It is only
+          applicable to dynamic homology characters.  The optional arguments may be specified
+          for use with the \texttt{chromosome} character type.  The \poystring specifies the
+          root name of MAUVE \cite{darlingetal2004} readable files ( ``\poystring\_$i$\_$j$.alignment'' 
+          where $i$ and $j$ are median states) to generate 
+          graphical sequence maps between median states.  If \poylident is \texttt{ignore\_polymorphism},
+          new potential median states will not be generated through resolution of sequence ambiguities
+          (reducing execution time), otherwise
+          new medians are generated as mentioned above.}
           {fixedstates}
           
         \argumentdefinition{gap\_opening}{\obligatory{\poyint}}
@@ -3053,6 +3059,19 @@
             This method is applicable only to dynamic homology characters with
             the nucleotide alphabet.} 
             {gapopening}
+            
+          \argumentdefinition{level}{\obligatory{(\poyint}, \poylident)}
+          {The integer argument specifies the heuristic level in median sequence calculation.  
+            This determines the number of possible states stored at each median sequence position.  
+            For nucleotide data, all possibilities are stored.  The default for amino acid sequences is $1$
+            and for \texttt{custom\_alphabet} characters it is $2$.  Storage and set up time increase combinatorially with
+            level number. 
+            If the \poylident is \texttt{first}, ties are broken (if the number of equally costly states is greater than the level number)
+            by choosing the first median state examined; if \texttt{last}, the last state, and if \texttt{at\_random} then at random.
+            
+            The default choice method is \texttt{first}.
+	}
+          {level}
 
         \argumentdefinition{multi\_static\_approx}{}
             {Calculates the implied alignment for each tree in memory
@@ -3062,12 +3081,28 @@
             for heuristic search purposes and is applicable only to dynamic homology characters.}
             {multistaticapprox}
 
-            \argumentdefinition{prealigned}{}
+           \argumentdefinition{partitioned}{\obligatory{\poylident}} %or is it \optional ?
+            {Similar to \texttt{auto\_sequence\_partition}, with the difference that no tree is
+            required prior the partition, and large sequence length variations
+            at the ends of sequences are treated as missing data. If \poylident is \texttt{clip} then
+            a large difference in length in the sequence ends is assumed to be caused by
+            missing data. For \texttt{clip} to take effect, at least two fragments must
+            be found. If \poylident is \texttt{noclip}, then sequence ends are treated like
+            any other fragment.}
+            {transformpartitioned}
+            
+        \argumentdefinition{prealigned}{}
                 {Treats the sequences as prealigned and uses the
                 cost regime according to the specified transformation cost
                 matrix. All other cost parameters are ignored (including affine
                 gap costs). This command requires that all the specified sequences have the same length.}
                 {prealignedtransform}
+                
+        \argumentdefinition{search\_based}{\obligatory{(\poystring, \poystring)}}
+        {Transforms the optimization of \texttt{fixed\_states} characters to \texttt{search\_based}
+        optimization \cite{wheeler2003b} by adding the sequences found in the file specified by the second argument to the character specified by the 
+        first argument.}
+        {searchbased}
             
         \argumentdefinition{sequence\_partition}{\obligatory{\poyint}}
             {Partitions the sequences in the argument's value number of
@@ -3078,7 +3113,7 @@
             {Transforms the sequences to the static homology characters
             corresponding to their implied alignments and their transformation
             cost matrix~\cite{wheeler2003}. The resulting characters and their number will vary
-            depending on the characteristic of transformation coGst matrix
+            depending on the characteristic of transformation cost matrix
             assigned to each sequence. For example, if the cost of both substitutions
             and indels is \texttt{1}, then one non-additive character is created per
             each homologous position in the implied alignment. If the cost of
@@ -3143,7 +3178,7 @@
             (\poyargument{tcm:(1,2)}).}
             {transformtcm}
 
-            \argumentdefinition{tcm}{\obligatory{\poystring}}
+            \argumentdefinition{tcm}{\obligatory{(\poystring, \poyint)}}
             {Defines the transformation cost matrix by importing a file (specified by
             the string value) that contains a user defined nucleotide
             transformation cost matrix. This method is applicable only to dynamic homology characters.
@@ -3163,6 +3198,11 @@
             2 1 2 0 4 \\
             4 4 4 4 0} 
             \end{center}
+            The integer argument specifies the heuristic level in median sequence calculation.  
+            This determines the number of possible states stored at each median sequence position.  
+            For nucleotide data, all possibilities are stored.  The default for amino acid sequences is $1$
+            and for \texttt{custom\_alphabet} characters it is $2$.  Storage and set up time increase combinatorially with
+            level number. 
             }
             {transformtcmmatrix}
 
@@ -3188,294 +3228,13 @@
             postpone our decision to later steps of building, which could
             result in better tree cost }
             {level}
-        \end{argumentgroup}
-         
-
-        \begin{argumentgroup}{Likelihood transformation methods}
-            This set of arguments enables analysis using several variants of the
-            maximum likelihood criterion.
-
-            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gapmode,cost)}}
-                {Transforms the characters to either static or dynamic likelihood
-                characters using the specified model.}
-                {likelihood}
-
-            \begin{statement}
-                Dynamic likelihood for unaligned sequence data is
-                implemented only as most parsimonious likelihood (MPL) (Barry and
-                Hartigan, 1987). Both maximum average likelihood (MAL) (Felsenstein,
-                1978) and most parsimonious likelihood are implementable on
-                static characters.
-            \end{statement}
-
-            \begin{statement}
-                It is important to note that dynamic likelihood characters
-                necessarily include gaps/indels as a state in the character
-                alphabet. See information for \poycommand{gapmode()}, below.
-            \end{statement}
-
-            \argumentdefinition{model}{}
-                {Defines the reversible stochastic Markov model of evolution.
-                Models in POY, as in other standard likelihood implementations,
-                employ globally homogeneous models (jayaswal2005), which
-                estimate rates using a single matrix over the entire topology.
-                POY requires a model of character substitution to be specified
-                during the transformation to likelihood characters. Valid models are:
-
-                \begin{description}
-
-                    \argumentdefinition{jc69/neyman}{}
-                        {The model of Jukes and Cantor (1969). A single rate
-                        class. All equilibrium frequencies are forced to be
-                        equal. This model will work for any size alphabet.}
-                        {jc69}
-
-                    \argumentdefinition{f81}{}
-                        {The model of Felsenstein (1981). A single rate class,
-                        proportional to the equilibrium frequencies. This model
-                        will work for any size alphabet.}
-                        {f81}
-
-                    \argumentdefinition{k2p/k80}{}
-                        {The model of Kimura (1980). Transitions and
-                        transversions are constrained to have separate rate
-                        classes. All equilibrium frequencies are forced to be
-                        equal.}
-                        {k2p}
-
-                    \argumentdefinition{f84}{}
-                        {The model of Felsenstein (1984). Rates are constrained
-                        as in k2p, but are also proportional to the equilibrium
-                        frequencies.}
-                        {f84}
-
-                    \argumentdefinition{hky85}{}
-                        {Three rate classes: transversions (purine /
-                        pyrimidine), and independent classes for purine-purine
-                        and pyrimidine-pyrimidine transitions. Rates are also
-                        proportional to equilibrium frequencies.}
-                        {hky85}
-
-                    \argumentdefinition{gtr}{}
-                        {The model of Tavar\'{e} (1986). The most general
-                        reversible, stationary model of nucleotide substitution,
-                        and the one most frequently selected by information
-                        criteria. All rates constrained to be independent. This
-                        model works for any size alphabet, but note that there
-                        are $\frac{N (N-1)}{2}$ rates, where $N$ is the alphabet
-                        size.}
-                        {gtr}
-
-                    \argumentdefinition{file}{}
-                        {An external file containing a matrix of estimated rate
-                        values.}
-                        {file}
-
-                    \argumentdefinition{custom}{}
-                        {An external file in which the rate class constraints of
-                        the Q-matrix are specified. Dominant diagonal entries of
-                        this Q-matrix are constrained so as to sum rows and
-                        columns to zero.  A dash (`-') may be used as a
-                        placeholder in the custom Q-matrix, and entries
-                        constrained to be equal must be specified as letters
-                        (a,b,c,...) or numbers (0,1,2,...). The matrix must be
-                        symmetric. Base frequencies are multiplied through. Note
-                        that the structure of a custom matrix can be arbitrary
-                        and need not be equal to any of the above named models.
-                        Alfaro and Huelsenbeck (2004) note that many of the
-                        unnamed variants of the 256 possible GTR submodels
-                        outperform the named models examined in commonly-used
-                        model selection programs.}
-                        {custom}
-
-                \end{description}}
-            {model}
-
-            \argumentdefinition{rates}{}
-                {Specifies the nature of among-site rate variation. Rate
-                variation distributions allow multipliers to be applied to
-                separate groups of characters. This additional parameterization
-                frequently improves observed likelihood scores.
-                Commonly-employed distributions for parameterizing among-site
-                variation are the gamma distribution ($\Gamma$) and this
-                distribution with an additional invariable rate class, the theta
-                distribution ($\Theta$).
-                
-                It should be noted that although many researchers apply both a
-                gamma and theta in likelihood analyses, the parameter values
-                inferred are correlated (Sullivan, 1999).  It has therefore been
-                recommended that a proportion of invariant sites be
-                ``pseudo''-estimated by increasing the number of discrete
-                categories for the gamma distribution to account for very low
-                rate character groups. The mean of each class is used to define
-                the rate for the discrete category.
-
-                \begin{description}
-
-                    \argumentdefinition{gamma}{}
-                        {Apply a gamma distribution, $\gamma(\alpha,\beta)$, of
-                        rate variation across characters. The mean rate for the
-                        distribution is set to 1.0 ($\alpha = \beta$), thus one
-                        addtional parameter is estimated.}
-                        {gamma}
-
-                    \argumentdefinition{theta}{}
-                        {Apply a gamma distribution with an additional
-                        invariable rate class optimized to be the proportion of
-                        invariant sites in the data.}
-                        {theta}
-
-                    \argumentdefinition{none}{}
-                        {Apply a single rate category to all sites.}
-                        {none}
-
-                \end{description}}
-                {rates}
-
-                \argumentdefinition{priors}{}
-                    {The equilibrium frequencies of the characters in the stationary
-                    Markov process. The conditional probability of the data is
-                    multiplied by these frequencies to yield the likelihood score.
-                    In systematics applications, the observed (empirical)
-                    frequencies of the characters in the data are often used as an
-                    approximation to the likelihood-optimized frequencies. This
-                    approximation is sensible for sequences evolving nearly
-                    neutrally, but this approximation breaks down for sequences
-                    under moderate or strong selection.
-
-                    \begin{description}
-
-                        \argumentdefinition{equal}{}
-                            {Constrains each of the equilibrium frequencies to be
-                            $\frac{1}{r}$, where $r$ is the character alphabet size.}
-                            {equal}
-
-                        \argumentdefinition{estimate}{}
-                            {Uses observed frequencies of the characters to
-                            approximate the ML-optimized equilibrium frequencies.
-                            Under dynamic likelihood, the indel equilibrium
-                            frequency is estimated to be the minimum number of
-                            indels required to align all the sequences, $\pi_{gap} =
-                            \sum_i=0^n ||S_{\hat{i}}|| - ||S_i||$, where
-                            $S_{\hat{i}}$ is the longest sequence.}
-                            {estimate}
-
-                            \argumentdefinition{given:(FLOAT LIST)}{}
-                            {Uses equilibrium frequencies given as a comma-separated list specified by the user.}
-                            {given}
-
-                    \end{description}}
-                {priors}
-
-                \argumentdefinition{cost}{}
-                    {Specifies the variant of relative likelihood (\textit{sensu}
-                    Steel and Penny [2000]) used by POY to calculate the costs at
-                    each node and score the topology.
-
-                    \begin{description}
-
-                        \argumentdefinition{mal}{}
-                            {Specifies the standard criterion of maximum average
-                            likelihood (Felsteinstein, 1978), in which the
-                            likelihood is derived from the sum over all internal
-                            vertex labelings. Because the vertex assignments are
-                            marginalized, this version of relative likelihood is not
-                            compatible with simultaneous estimation of alignment and
-                            topology (dynamic likelihood).}
-                            {mal}
-
-                        \argumentdefinition{mpl}{}
-                            {Specifies the criterion of most parsimonious likelihood
-                            (Barry and Hartigan, 1987), in which the likelihood is
-                            derived from the set of most probable state assignments
-                            at each node. Under this criterion, vertex state
-                            assignments are not marginalized, and so this variant of
-                            relative likelihood is compatible with dynamic
-                            likelihood. However, several studies have noted that
-                            parameters under this criterion may not be identifiable
-                            (citation needed) and that the method may not be consistent
-                            (Mossel and Steel, 2009).}
-                            {mpl}
-
-                    \end{description}}
-                    {cost}
-
-                \argumentdefinition{gapmode}{}
-                    {Defines how atomistic gaps (indels) are treated in likelihood analysis. When implemented, the POY approach to indels on static likelihood characters follows McGuire et al. (2001), but expands the implementation outside the F84 model. POY is unique among likelihood implementations both by enabling indel parameterization for any reversible, stationary model applied to static characters and, more crucially, for implementing dynamic likelihood for truly simultaneous alignment and topology inference. Indel-aware models are scarce, but see Rivas and Eddy (2008), Redelings and Suchard (2005, 2007) for alternative parameterizations, and Liu et al. (2009) for an iterative approximation of simultaneous inference under the MAL criterion.
-
-                    Note that under dynamic likelihood, only the coupled option is implemented. Options are:
-
-                    \begin{description}
-
-                        \argumentdefinition{missing}{}
-                            {Specifies that indels be treated under standard
-                            assumptions, thus making analyses in POY for a given
-                            model and alignment comparable to other
-                            implementations such as RAxML and GARLi. Under this
-                            assumption, indels are not a part of the character
-                            alphabet (``missing'' data, in this context), and
-                            are given probability one.}
-                            {missing}
-
-                        \argumentdefinition{coupled}{}
-                            {Specifies that atomistic indels are a character,
-                            with rates of nucleotide-to-indel substitution
-                            constrained to be equal to one another. For example,
-                            the Q-matrix
-
-                            \begin{equation*}
-                                Q_{coupled} =
-                                    \begin{bmatrix}
-                                        -3 \alpha - \beta & \alpha & \alpha & \alpha & \beta \\
-                                        \alpha & -3 \alpha - \beta & \alpha & \alpha & \beta \\
-                                        \alpha & \alpha & -3 \alpha - \beta & \alpha & \beta \\
-                                        \alpha & \alpha & \alpha & -3 \alpha - \beta & \beta \\
-                                        \beta & \beta & \beta & \beta & -4 \beta
-                                \end{bmatrix}
-                            \end{equation*}
-
-                            specifies a Jukes-Cantor matrix augmented to
-                            estimate nucleotide-to-indel substitutions as a
-                            coupled parameter separate from
-                            nucleotide-to-nucleotide substitutions. In
-                            accordance with other likelihood implementations,
-                            the diagonal entries of the Q-matrix are normalized
-                            by the trace to scale their mean rate to one.}
-                            {coupled}
-
-                        \argumentdefinition{independent}{}
-                            {Specifies that atomistic indels are a character,
-                            with rates of nucleotide-to-indel substitution
-                            constrained to be estimated separately. For example,
-                            the Q-matrix
-
-                            \begin{equation*}
-                                Q_{independent} =
-                                    \begin{bmatrix}
-                                        -3 \alpha - \chi & \alpha & \alpha & \alpha & \chi \\
-                                        \alpha & -3 \alpha - \kappa & \alpha & \alpha & \kappa \\
-                                        \alpha & \alpha & -3 \alpha - \mu & \alpha & \mu \\
-                                        \alpha & \alpha & \alpha & -3 \alpha - \gamma & \gamma \\
-                                        \chi & \kappa & \mu & \gamma & - \chi - \kappa - \mu - \gamma
-                                    \end{bmatrix}
-                            \end{equation*}
-
-                            specifies a Jukes-Cantor matrix augmented to
-                            estimate each nucleotide-to-indel substitution as a
-                            unique rate separate from nucleotide-to-nucleotide
-                            substitutions. In accordance with other likelihood
-                            implementations, the diagonal entries of the
-                            Q-matrix are normalized by the trace to scale their
-                            mean rate to one.}
-                            {independent}
-
-                    \end{description}}
-                {gapmode}
-
-        \end{argumentgroup}
 
 
-        \begin{argumentgroup}{Chromosomal transformation methods}
+      
+
+      \end{argumentgroup}
+           
+       \begin{argumentgroup}{Chromosomal transformation methods}
            For chromosome and genome character types, \poy optimizes nucleotide-, 
            locus-, and chromosome-level variation simultaneously. The arguments in this group
            transform nucleotide characters into chromosomal character
@@ -3503,7 +3262,7 @@
             be specified subsequently, as a separate step (for a sample script using this character transformation see tutorial \texttt{4.8}).}
             {customtobreakinv}
              
-        \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
+           \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
            {Transforms nucleotide type data into \\ chromosome type data to allow
             rearrangements, inversions, and locus-level indel operations.  The
             chromosome-specific options (\emph{e.g.}  \poyargument{locus\_breakpoint}, 
@@ -3512,9 +3271,9 @@
            are specified, its default values are applied.}
            {seqtochrom}
            
-            \argumentdefinition{dynamic\_pam}{\obligatory{([argument list])}}
+            \argumentdefinition{chromosome}{\obligatory{([argument list])}}
             {Specifies parameters for creating chro\-mosome- and genome-level HTUs (medians).
-            The arguments of \poyargument{dynamic\_pam} define homologous blocks within unannotated chromosome sequences using
+            The arguments of \poyargument{chromosome} define homologous blocks within unannotated chromosome sequences using
             (\poyargument{min\_seed\_length}, \poyargument{min\_loci\_len}, and \poyargument{min\_rearranged\_len}); specify the cost
             of locus-level transformation events: (i.e.
             \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, or \poyargument{locus\_breakpoint},
@@ -3545,7 +3304,13 @@
 		\end{figure}
 		
 	\begin{description}
-            
+            	\argumentdefinition{annotate}{\obligatory{(\poylident,\poyfloat,\poyfloat,\poyfloat,\poyfloat)}}
+                        {Specifies the annotation method for unannotated chromosome sequences.
+                        If \poylident is \texttt{mauve} the MAUVE algorithm is used \cite{darlingetal2004} with
+                        float parameters quality of lcb, lcb coverage, minimum length of lcb (percent), maximum length of lcb (percentage). 
+                        Percent calculations are based on the shorter of two sequences compared.}
+                        {annotate}
+
             	\argumentdefinition{med\_approx}{\obligatory{\poybool}}
                         {Approximates chromosome medians using a fixed-states
                         approach. This is most useful to accelerating tree
@@ -3760,8 +3525,8 @@
                         {swapmed}
 
        
-            \end{description}
-        \end{argumentgroup}
+          \end{description}
+	\end{argumentgroup}
 	\end{arguments}
 	
 
@@ -3821,17 +3586,33 @@
             	matrix, and applies the custom transformation cost matrix contained in the file
             	\texttt{Molmatrix1} to the sequence data contained in files \texttt{gen5} and
             	\texttt{gen6}.}
+	
+		\poyexample{transform(names:("mycustom.fas"),(tcm:("mycustom.mat",2)))}
+		{This examples transforms the cost matrix used to optimize custom\_alphabet 
+		character ``mycustom.fas'' to ``mycustom.mat'' and uses heuristic level $2$.}
          
-         		\poyexample{transform(fixed\_states)}
-        		 {Transformed all sequence characters into fixed states characters.}
+         	\poyexample{transform(fixed\_states)}
+        		 {Transformes all sequence characters into fixed states characters.}
+		 
+		 \poyexample{transform(level:2)}
+		 {Transforms all heuristic median calculations to level $2$ and breaking ties
+		 \texttt{first}}
             
           	\poyexample{transform((names:("gen1", "gen4"), fixed\_states))}
            	{Transformed only specified sequence characters (\texttt{gen1} and
            	\texttt{gen4}) into fixed states characters.}
            
            	\poyexample{transform(custom\_to\_breakinv:(circular:true))}
-           	{In this example all custom\_alphabet data is transformed into the breakinv data type 
+           	{In this example, all custom\_alphabet data is transformed into the breakinv data type 
 		and is treated as a circular chromosome.}
+		
+		\poyexample{transform(search\_based:(("mycustom\_char1.fas","mycustom\_extra1.fas"),("mycustom\_char2.fas","mycustom\_extra2.fas")))}
+		{This command adds the sequences found in ``mycustom\_extra1.fas'' and ``mycustom\_extra2.fas'' to \texttt{fixed\_states} characters 
+		``mycustom\_char1.fas'' and ``mycustom\_char2.fas'' respectively.}
+		
+		\poyexample{transform(search\_based:"mycustom\_extra.fas")}
+		{Adds sequences in ``mycustom\_extra.fas'' to all \texttt{fixed\_states} 
+		characters.}
           
           	\poyexample{transform(seq\_to\_chrom:(locus\_indel:(50, 1.0), min\_seed\_length:15))} 
           	{All applicable (\emph{i.e.} sequence) data are transformed into chromosome
@@ -3839,11 +3620,22 @@
 	          the seeds of homologous blocks set at  \texttt{15} nucleotides and the locus-level gap
 	         opening cost is set at \texttt{50} with a gap extension cost at \texttt{1.0}.}
               
-          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, median:1, circular:false)))} 
-             	{This example shows the transformation of chromosomal data using the argument \poyargument{dynamic\_pam}
-		to set the locus rearrangement (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or more nucleotides 
-		are considered in determining possible rearrangements between identified seeds.  The chromosome data are
-		treated as linear and only a single set of median rearrangements are stored.}
+%          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, median:1, circular:false)))} 
+%             	{This example shows the transformation of chromosomal data using the argument \poyargument{dynamic\_pam}
+%		to set the locus rearrangement (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or more nucleotides 
+%		are considered in determining possible rearrangements between identified seeds.  The chromosome data are
+%		treated as linear and only a single set of median rearrangements are stored.}
+
+		\poyexample{transform(fixed\_states:("shrimp",ignore\_polymorphism))}
+		{This example shows the optional arguments for a MAUVE-based fixed\_states analysis.
+		Here, MAUVE genome alignment files will be generated with the names ``shrimp\_$i$\_$j$.alignment'' where $i$ and $j$ are
+		median states.  Sequence ambiguities will not be resolved to generate additional medians beyond those determined by the
+		data.}
+		
+		\poyexample{transform(chromosome:(annotate:(mauve,35.0,0.35,0.01,0.10)))}
+		{This command specifies the use of MAUVE annotation with 35.0 for quality of lcb,
+		35\% coverage of all sequences by lcb's, 1\% min length of lcb (100 for length 10,000 
+		sequence), and 10\% max length (1000 for kength 10,000 sequence).}
             
 	\end{poyexamples}	    
 
