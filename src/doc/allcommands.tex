@@ -3203,16 +3203,16 @@
 
             \begin{statement}
                 Dynamic likelihood for unaligned sequence data is
-                implemented only as most parsimonious likelihood (MPL) (Barry and
-                Hartigan, 1987). Both maximum average likelihood (MAL) (Felsenstein,
-                1978) and most parsimonious likelihood are implementable on
-                static characters.
+                implemented only as most parsimonious likelihood (MPL)
+                \cite{barryandhartigan1987}. Both maximum average likelihood (MAL) and
+                most parsimonious likelihood are implementable on static
+                characters.
             \end{statement}
 
             \begin{statement}
-                It is important to note that dynamic likelihood characters
-                necessarily include gaps/indels as a state in the character
-                alphabet. See information for \poycommand{gapmode}, below.
+                Dynamic likelihood characters necessarily include gaps/indels as
+                a state in the character alphabet. See information for
+                \poycommand{gapmode}, below.
             \end{statement}
 
             \argumentdefinition{model}{}
@@ -3237,33 +3237,35 @@
                 \begin{description}
 
                     \argumentdefinition{jc69/neyman}{}
-                        {The model of Jukes and Cantor (1969) under nucleotide
-                        data, or Neyman (1971) in general. A single rate
-                        class. All equilibrium frequencies are forced to be
-                        equal. This model will work for any size alphabet.}
+                        {The model of Jukes and Cantor \cite{jukesandcantor1969}
+                        under nucleotide data, or Neyman \cite{neyman1971} in general. A
+                        single rate class. All equilibrium frequencies are
+                        forced to be equal. This model will work for any size
+                        alphabet.}
                         {jc69}
 
                     \argumentdefinition{f81}{}
-                        {The model of Felsenstein (1981). A single rate class,
-                        proportional to the equilibrium frequencies. This model
-                        will work for any size alphabet.}
+                        {The model of Felsenstein \cite{felsenstein1981}. A
+                        single rate class, proportional to the equilibrium
+                        frequencies. This model will work for any size
+                        alphabet.}
                         {f81}
 
                     \argumentdefinition{k2p/k80}{}
-                        {The model of Kimura (1980). Transitions and
+                        {The model of Kimura \cite{kimura1980}. Transitions and
                         transversions are constrained to have separate rate
                         classes. All equilibrium frequencies are forced to be
                         equal.}
                         {k2p}
 
                     \argumentdefinition{f84}{}
-                        {The model of Felsenstein (1984). Rates are constrained
-                        as in k2p, but are also proportional to the equilibrium
-                        frequencies.}
+                        {The model of Felsenstein \cite{felsenstein1980}. Rates
+                        are constrained as in k2p, but are also proportional to
+                        the equilibrium frequencies.}
                         {f84}
 
                     \argumentdefinition{hky85}{}
-                        {The model of Hasegawa (1984,1985). Three rate classes:
+                        {The model of Hasegawa \cite{hasegawa1984}. Three rate classes:
                         transversions (purine / pyrimidine), and independent
                         classes for purine-purine and pyrimidine-pyrimidine
                         transitions. Rates are also proportional to equilibrium
@@ -3271,15 +3273,15 @@
                         {hky85}
 
                     \argumentdefinition{tn93}{}
-                        {The model of Tamura and Nei (1993).  Three rate
-                        classes: transversions (purine / pyrimidine), and
+                        {The model of Tamura and Nei \cite{tamura1993}. Three
+                        rate classes: transversions (purine / pyrimidine), and
                         independent classes for purine-purine and
                         pyrimidine-pyrimidine transitions. Rates are also
                         proportional to equilibrium frequencies.}
                         {tn93}
 
                     \argumentdefinition{gtr}{}
-                        {The model of Tavar\'{e} (1986). The most general
+                        {The model of Tavar\'{e} \cite{tavare1986}. The most general
                         reversible, stationary model of nucleotide substitution,
                         and the one most frequently selected by information
                         criteria. All rates constrained to be independent. This
@@ -3319,10 +3321,10 @@
                 separate groups of characters. This additional parameterization
                 frequently improves observed likelihood scores.
                 Commonly-employed distributions for parameterizing among-site
-                variation are the gamma distribution ($\Gamma$) and this
-                distribution with an additional invariable rate class, the theta
-                distribution ($\Theta$). This is only useful for more then two
-                taxa.
+                variation are the discreet gamma distribution ($\Gamma$)
+                \cite{yang1994a} and this distribution with an additional
+                invariable rate class, the theta distribution ($\Theta$)
+                \cite{gu1995}. This is only useful for more then two taxa.
                 
                 \begin{statement}
                     Under MAL the rates are naturally averaged across the
@@ -3339,13 +3341,13 @@
                 \begin{statement}
                     It should be noted that although many researchers apply both
                     a gamma and theta in likelihood analyses, the parameter
-                    values inferred are correlated (Sullivan, 1999).  It has
+                    values inferred are correlated \cite{sullivan1999}.  It has
                     therefore been recommended that a proportion of invariant
                     sites be ``pseudo''-estimated by increasing the number of
                     discrete categories for the gamma distribution to account
                     for very low rate character groups. The mean of each class
                     is used to define the rate for the discrete category.
-                \end{statement}    
+                \end{statement}
 
                 \begin{description}
 
@@ -3392,17 +3394,18 @@
 
                         \argumentdefinition{estimate}{}
                             {Uses observed frequencies of the characters to
-                            approximate the ML-optimized equilibrium frequencies.
-                            Under dynamic likelihood, the indel equilibrium
-                            frequency is estimated to be the minimum number of
-                            indels required to align all the sequences, $\pi_{gap} =
-                            \frac{\sum_{i=0}^n |S_{\hat{i}}| - |S_i|}{n
-                            |S_{\hat{i}}|}$, where
+                            approximate the ML-optimized equilibrium
+                            frequencies.  Under dynamic likelihood, the indel
+                            equilibrium frequency is estimated to be the minimum
+                            number of indels required to align all the
+                            sequences, $\pi_{gap} = \frac{\sum_{i=0}^n
+                            |S_{\hat{i}}| - |S_i|}{n |S_{\hat{i}}|}$, where
                             $S_{\hat{i}}$ is the longest sequence.}
                             {estimate}
 
                             \argumentdefinition{given:(FLOAT LIST)}{}
-                            {Uses equilibrium frequencies given as a comma-separated list specified by the user.}
+                            {Uses equilibrium frequencies given as a
+                            comma-separated list specified by the user.}
                             {given}
 
                     \end{description}}
