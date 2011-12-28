@@ -1,3 +1,21 @@
+/* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *\
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+\* USA                                                                        */
 
 #include <stdio.h>
 #include <malloc.h>
@@ -110,9 +128,9 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk)
         thisdiag->len = diaglen;
     }
     //set expand sign
-    if (debug) { 
-        printf ("total_len_in_use=%li <=> total_len=%li\n", m->total_len_in_use, m->total_len); 
-        fflush(stdout); }
+/*    if (debug) {
+        printf ("total_len_in_use=%li <=> total_len=%li\n", m->total_len_in_use, m->total_len);
+        fflush(stdout); }*/
     if (m->total_len_in_use <= m->total_len) expand_diagonal = 0;
     else 
     {
@@ -176,10 +194,10 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk)
     //update diag_size and total_len if we expand our memory
     if (expand_diag_size) { m->diag_size = m->diag_size_in_use; }
     if (expand_diagonal) { m->total_len = m->total_len_in_use; }
-    if (debug) 
+    /*if (debug) 
     { printf ("Total size of memory we are using :%lu(%lu) cells, diag_size=%d(%d)\n",
             m->total_len_in_use,m->total_len,m->diag_size_in_use,m->diag_size); 
-        fflush(stdout);}
+        fflush(stdout);} */
     /*for (i=0;i<newsize;i++)
     {
         fprintf (stdout,"i=%d,diaglen=%d;",i,(m->diagonal_size_arr)[i]);
@@ -235,7 +253,7 @@ get_idx (int i,int j,newkkmat_p m, int * whichdiag,int * idx_in_my_diag, int * a
 void 
 get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECTION_MATRIX * dir, DIRECTION_MATRIX *  max_gapnum, int * affP, int * affQ )
 {
-    int debug = 0;
+/*    int debug = 0;*/
     ukkdiag_p thisdiag = m->diagonal;
     assert(whichdiag < m->size);
     thisdiag += whichdiag;
@@ -250,7 +268,7 @@ get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECT
     *max_gapnum = thisgapnumarr[idx_in_my_diag];
     *affP = thisParr[idx_in_my_diag];
     *affQ = thisQarr[idx_in_my_diag];
-    if (debug) { printf("get ukkcost,diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d,affP=%d,affQ=%d\n",whichdiag,idx_in_my_diag,*cost,*dir,*max_gapnum); fflush(stdout);}
+/*    if (debug) { printf("get ukkcost,diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d,affP=%d,affQ=%d\n",whichdiag,idx_in_my_diag,*cost,*dir,*max_gapnum); fflush(stdout);}*/
 };
 
 void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIRECTION_MATRIX dir,DIRECTION_MATRIX  max_gapnum, int affP, int affQ)
@@ -578,7 +596,7 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m)
     baseband = lenY-lenX+1;
     oldlen = m->total_len;
     len = lenX * baseband;
-    if (debug) { printf ("newkkonen init_mat,oldlen = %li, lenx=%d,leny=%d,baseband=%d,\n",oldlen,lenX,lenY,baseband); fflush(stdout); }
+/*    if (debug) { printf ("newkkonen init_mat,oldlen = %li, lenx=%d,leny=%d,baseband=%d,\n",oldlen,lenX,lenY,baseband); fflush(stdout); }*/
     assert(m != NULL);
     //k is init to 0
     m->k=0;
@@ -588,7 +606,7 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m)
     m->diag_size_in_use = baseband; //array of diagonal size, start with [lenx,lenx,....]
     //set total_len_in_use to len, may increase later
     m->total_len_in_use = len;
-    if (debug) { printf ("sizeofint=%lu,sizeoflong=%lu,len=%li <=> oldlen=%li\n", sizeof(int),sizeof(long),len, oldlen); fflush(stdout);}
+/*    if (debug) { printf ("sizeofint=%lu,sizeoflong=%lu,len=%li <=> oldlen=%li\n", sizeof(int),sizeof(long),len, oldlen); fflush(stdout);}*/
     //set expand sign
     if (len<=oldlen) 
     {
@@ -689,7 +707,7 @@ int get_indel_cost (const seqt s, int len, const cmt c)
 
 int trivial_algn (const seqt s1, const seqt s2, int s1_len, int s2_len, const cmt c)
 {
-    int debug = 1;
+    int debug = 0;
     if (debug)  { printf("trivial algn\n");fflush(stdout);}
     int indelcost1 = get_indel_cost (s1,s1_len,c);
     int indelcost2 = get_indel_cost (s2,s2_len,c);
@@ -707,50 +725,51 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
     if (debug)  { printf("newkk_algn,lenx=%d,leny=%d\n",s1_len,s2_len);fflush(stdout);}
     if (s1_len * MUCH_LONGER < s2_len) 
     {
-        trivial_algn (s1,s2,s1_len,s2_len,c);
+        return trivial_algn (s1,s2,s1_len,s2_len,c);
     }
-    else {
-    init_mat (s1_len,s2_len,m);
-    int gapcode = cm_get_gap (c); 
-    int delta = get_delta (c);
-    int i; 
-    int bb = m->baseband;
-    assert(bb>0);
-    if (debug)
+    else 
     {
-        printf("baseband=%d,gapcode=%d,delta=%d\n",bb,gapcode,delta);
-    fflush(stdout);
-    }
-    set_ukkcost(0,0,m,0,START,0,0,0);
-    if (debug) {printf("init first row\n"); fflush(stdout);}
-    for (i=1;i<bb;i++)
-    {
-       //if ((s1_len==234)&&(s2_len==10578)&&(i==3648)) debug2=1;
-       //these 4 Int will be used again and again, reset them before use.
-       if (debug2) { printf("init (0,%d) ",i); fflush(stdout); }
-        int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
-        get_idx(0,i-1,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
-        int precost; DIRECTION_MATRIX predir; DIRECTION_MATRIX pre_gapnum; 
-        int affP=0, affQ=0;
-        get_ukkcost(whichdiag,idx_in_my_diag,m, &precost, &predir, &pre_gapnum, &affP, &affQ);
-        whichdiag=0; idx_in_my_diag=0; at_leftborder=0; at_rightborder=0;
-        get_idx(0,i,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
-        int thiscost=0;
-        int thisP=INT_MAX/2,thisQ=0;
-        DIRECTION_MATRIX dir=DO_INSERT;
-        int thiscode = seq_get (s2,i);
-        get_cmcost(c,thiscode,gapcode,&thiscost);
-        thiscost += precost;
-        if (i==1) { thiscost += go; }
-        thisQ = thiscost;
-        if (debug2) { printf("with %d; whichdiag=%d,idx=%d,dir=%d,gapnum=%d\n ", thiscost,whichdiag,idx_in_my_diag,dir,pre_gapnum+1); fflush(stdout);}
-        set_ukkcost(whichdiag,idx_in_my_diag,m, thiscost, dir, pre_gapnum+1,thisP,thisQ);
-    }
-    int iniT = (m->baseband) * delta;
-    if (debug) {printf ("done with first row, call increaseT with iniT=%d\n",iniT); fflush(stdout);}
-    int rescost = increaseT (s1,s2,m,c,iniT,s1_len,s2_len,go); 
-    if (debug) {printf("end of newkk_algn,cost=%d\n\n",rescost); fflush(stdout);}
-    return rescost;
+        init_mat (s1_len,s2_len,m);
+        int gapcode = cm_get_gap (c); 
+        int delta = get_delta (c);
+        int i; 
+        int bb = m->baseband;
+        assert(bb>0);
+        if (debug)
+        {
+            printf("baseband=%d,gapcode=%d,delta=%d\n",bb,gapcode,delta);
+            fflush(stdout);
+        }
+        set_ukkcost(0,0,m,0,START,0,0,0);
+        if (debug) {printf("init first row\n"); fflush(stdout);}
+        for (i=1;i<bb;i++)
+        {
+           //if ((s1_len==234)&&(s2_len==10578)&&(i==3648)) debug2=1;
+           //these 4 Int will be used again and again, reset them before use.
+           if (debug2) { printf("init (0,%d) ",i); fflush(stdout); }
+            int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
+            get_idx(0,i-1,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
+            int precost; DIRECTION_MATRIX predir; DIRECTION_MATRIX pre_gapnum; 
+            int affP=0, affQ=0;
+            get_ukkcost(whichdiag,idx_in_my_diag,m, &precost, &predir, &pre_gapnum, &affP, &affQ);
+            whichdiag=0; idx_in_my_diag=0; at_leftborder=0; at_rightborder=0;
+            get_idx(0,i,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
+            int thiscost=0;
+            int thisP=INT_MAX/2,thisQ=0;
+            DIRECTION_MATRIX dir=DO_INSERT;
+            int thiscode = seq_get (s2,i);
+            get_cmcost(c,thiscode,gapcode,&thiscost);
+            thiscost += precost;
+            if (i==1) { thiscost += go; }
+            thisQ = thiscost;
+            if (debug2) { printf("with %d; whichdiag=%d,idx=%d,dir=%d,gapnum=%d\n ", thiscost,whichdiag,idx_in_my_diag,dir,pre_gapnum+1); fflush(stdout);}
+            set_ukkcost(whichdiag,idx_in_my_diag,m, thiscost, dir, pre_gapnum+1,thisP,thisQ);
+        }
+        int iniT = (m->baseband) * delta;
+        if (debug) {printf ("done with first row, call increaseT with iniT=%d\n",iniT); fflush(stdout);}
+        int rescost = increaseT (s1,s2,m,c,iniT,s1_len,s2_len,go); 
+        if (debug) {printf("end of newkk_algn,cost=%d\n\n",rescost); fflush(stdout);}
+        return rescost;
     }
 };
 

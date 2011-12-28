@@ -130,6 +130,8 @@ type annot_data =
     | Annot_Quality of float
     | Annot_Min of int
     | Annot_Max of int
+    | Annot_Min_Percent of float
+    | Annot_Max_Percent of float
     | Annot_Coverage of float
     | Annot_Type of [`Mauve | `Default]
     | Annot_Rearrangement of int

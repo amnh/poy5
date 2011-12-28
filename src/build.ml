@@ -193,22 +193,27 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         | h :: lst -> lst
                         | [] -> assert false)
         in
+        (* calculate the initial bound if nto provided; /2 for threshold *)
         let bound = match bound with
             | None -> max_float /. 2.
             | Some x -> x
-        in
-        (** We need to present some output; find a decent depth and that percentage done **)
+        (* create status for ncurses *)
+        and st = Status.create "Branch and Bound Build" (Some 100) "percent complete" in
+        let () = Status.full_report ~adv:(0) st in
+        (* We need to present some output; find a decent depth and that percentage done *)
         let report_depth,report_percent =
-            let rec n acc t = match t with
-                | 0 | 1 | 2 | 3 -> acc
-                | t             -> n (acc*(2*t-5)) (t-1)
-            and st = Status.create "Branch and Bound Build Procedure" (Some 100)
-                                   "% complete"
-            and depth = min (List.length nodes) 6
-            and p = ref 0.0 in
+            (* the number of possibilities at level n *)
+            let n t =
+                let rec n acc t = match t with
+                    | 0 | 1 | 2 | 3 -> acc
+                    | t             -> n (acc*(2*t-5)) (t-1)
+                in
+                n 1 t
+            (* depth=6 will prune ~1% of the tree (having 105 possibilities) *)
+            and depth = max 1 (min ((List.length nodes)-1) 6) and p = ref 0.0 in
             depth,
             (fun depth ->
-                let p_incr = (1.0 /. float (n 1 depth)) *. 100.0 in
+                let p_incr = (1.0 /. float (n depth)) *. 100.0 in
                 p := p_incr +. !p;
                 Status.full_report ~adv:(int_of_float !p) st)
         in
@@ -260,6 +265,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 | _ -> 0., [initial_tree]
             end
         in
+        let () = Status.finished st in
         Sexpr.of_list (List.map PtreeSearch.uppass trees)
 
     let sort_list_of_trees ptrees = 
@@ -767,13 +773,14 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 in
                 let maj = List.length tree_list in
                 Ptree.consensus PtreeSearch.never_collapse 
-                (fun code -> Data.code_taxon code data) maj 
-                (Sexpr.to_list trees) 
-                (match data.Data.root_at with
-                | Some v -> v
-                | None ->
-                        let f = Sexpr.first trees in
-                        Ptree.choose_leaf f)
+                    (fun code -> Data.code_taxon code data)
+                    (maj)
+                    (Sexpr.to_list trees) 
+                    (match data.Data.root_at with
+                        | Some v -> v
+                        | None ->
+                            let f = Sexpr.first trees in
+                            Ptree.choose_leaf f)
             | Some file ->
                     match (Data.process_trees data file).Data.trees with
                     | [((_,[t]), _, _) as one] -> Data.verify_trees data one; t
@@ -879,7 +886,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                                 Array.init n 
                                     (fun x ->
                                         Status.full_report ~adv:x st;
-                                        PtreeSearch.uppass (random_tree data nodes adj_mgr))
+                                        random_tree data nodes adj_mgr)
                             in
                             Status.finished st;
                             Sexpr.of_list (Array.to_list arr)
@@ -891,7 +898,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     Array.init n 
                         (fun x ->
                             Status.full_report ~adv:x st;
-                            PtreeSearch.uppass (random_tree data nodes adj_mgr)) 
+                            random_tree data nodes adj_mgr)
                 in
                 Status.finished st;
                 Sexpr.of_list (Array.to_list arr)
@@ -927,10 +934,12 @@ module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n) (EdgeH : Edg
 
         let replace_contents downpass uppass get_code nodes data ptree =
             let nt = { (Ptree.empty data) with Ptree.tree = ptree.Ptree.tree } in
-            uppass (downpass 
-            (List.fold_left (fun nt node ->
-                Ptree.add_node_data (get_code node) node nt) 
-            nt nodes))
+            nodes 
+                --> List.fold_left
+                        (fun nt node ->
+                            Ptree.add_node_data (get_code node) node nt) nt
+                --> downpass
+                --> uppass
 
         let from_s_to_h = replace_contents TOH.downpass TOH.uppass NodeH.taxon_code 
         let from_h_to_s = replace_contents TOS.downpass TOS.uppass NodeS.taxon_code

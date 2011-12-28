@@ -4,12 +4,11 @@
 	
  	\begin{poydescription}
         Builds Wagner trees~\cite{farris1970}. Building multiple trees with a randomized addition of terminals allows for
-        the evaluation of many more possible tree topologies and generates a
-        diversity of trees for subsequent analysis. The arguments of the command
-        \poycommand{build} specify the number of trees to be generated and
-        the order in which terminals are added during a singe tree building procedure. During tree
+        the evaluation of many more possible tree topologies and generates a diversity of trees for subsequent analysis. 
+        The arguments of the command \poycommand{build} specify the number of trees to be generated and
+        the order in which terminals are added during a single tree building procedure. During tree
         building, \poy reports in the \emph{Current Job} window of the ncurses interface
-        which of the terminal addition strategies is currently used.
+        which of the \hl{terminal addition strategies} is currently used.
         
 
         By default \poy replaces the trees stored in memory with those generated
@@ -31,9 +30,10 @@
 	\begin{arguments}
 
         \argumentdefinition{all}{}
-            {Turns off all preference strategies for adding branches
+            {Turns off all \hl{preference strategies} for adding branches
             and simply tries all possible addition positions for
-            all terminals.}
+            all terminals.  By default only one tree is built but
+            the number of  trees can be specified by the argument \poyargument{trees}.}
             {allbuild}
 
         \argumentdefinition{as\_is}{} 
@@ -74,13 +74,11 @@
             implementation is deterministic).}{}
 
         \argumentdefinition{random}{}
-            {Generates a tree at random.  All possible trees have equal
-            probability.}
+            {Generates a tree at random.  All possible trees have equal probability.}
             {buildrandom}
 
-		\argumentdefinition{randomized}{} 
-            {Indicates that terminals are added in random order on every Wagner
-            tree built. This is a default tree-building strategy.}
+	\argumentdefinition{randomized}{} 
+            {Indicates that terminals are added in random order on every Wagner tree built. This is a default tree-building strategy.}
             {randomized}
 
         \argumentdefinition{threshold}{\obligatory{\poyfloat}}
@@ -97,7 +95,7 @@
             also used as an argument of the command \nccross{swap}{swapcommand}
             but with different meaning.
             
-            The value \texttt{0} generates no trees but it \emph{retains} all trees in memory.
+                        	The value \texttt{0} generates no trees but it \emph{retains} all trees in memory.
             This is useful, for example, in the \ccross{bremer} support calculation,
             where instead of generating new trees per each node, the searches are
             performed on the trees in the neighborhood of the current trees in memory.}
@@ -109,7 +107,7 @@
             {}
 
         \argumentdefinition{of\_file}{\obligatory{\poystring}}
-            {Imports tree file included in the file path of the argument. This command is
+            {Imports a tree file included in the file path of the argument. This command is
             useful for importing starting trees for calculating \ccross{bremer} support.
             In other contexts the command \ccross{read} can be used with the same effect.}
             {offile}
@@ -145,10 +143,14 @@
             	\poyexample{build(branch\_and\_bound, trees:5)}
             {Builds trees using branch and bound method and keeps up to
             5 optimal trees in memory.}
-            
+                    
 	\end{poyexamples}
 
 \end{command}
+
+%%%%%%%%%%%%%%
+%calculate_support
+%%%%%%%%%%%%%%
 
 \begin{command}{calculate\_support}{calculatesupport}
 
@@ -164,17 +166,42 @@
             with zero-length branches collapsed.
             All the arguments of \poycommand{calculate\_support} command are optional and
             their order is arbitrary.  For examples of scripts implementing support measures see 
-            tutorials \texttt{4.3} and \texttt{4.4}. 
+           \hl{ tutorials \texttt{4.3} and \texttt{4.4}}. 
             
-The \poycommand{calculate\_support} command does not output support values by default. The output of
-            support values must be requested using the command~\ccross{report}. 
-            This is particularly important for
-            Jackknife and Bootstrap support values, as these sampling techniques
-            do not require the presence of trees in memory. Therefore, it is
-            possible to perform the sampling for support values \emph{before}
+	  The \poycommand{calculate\_support} command does not output support values by default. The output of
+            support values must be requested using the command~\ccross{report}. This is particularly important for Jackknife and Bootstrap support values, as these sampling techniques
+            do not require the presence of trees in memory. Therefore, it is possible to perform the sampling for support values \emph{before}
             the tree of interest has been found.
-            
-            \begin{statement}
+                    \end{poydescription}
+                    
+              
+	\begin{arguments}
+		\begin{argumentgroup}{Support calculation methods}
+            {The following commands allow selecting among several methods for
+            calculating support.} 
+
+			\argumentdefinition{bootstrap}{\optional{\poyint}}
+                {Calculates Bootstrap support~\cite{Felsenstein1985}. 
+                The integer value specifies
+                the number of resampling iterations (pseudoreplicates). If the value
+                is omitted, 5 pseudoreplicates are performed by default.} 
+                {}
+                
+			\argumentdefinition{bremer}{}
+                {Calculates Bremer support values ~\cite{Bremer1988, Kallersjoetal1992}
+                for each tree in memory by performing independent constrained searches for each
+                node. The parameters for the searches can be modified using arguments
+                described under \emph{Search strategy}.} 
+                {}
+  
+			\argumentdefinition{jackknife}{\optional{([argument list])}}
+                {Calculates Jackknife support~\cite{Farrisetal1996} using the 
+                sampling parameters specified by the arguments. The arguments of
+                \poyargument{jackknife} are optional and their order is arbitrary. If
+                both values are omitted, the default values of each argument is used.}
+                {}
+        
+                     \begin{statement}
                 In the context of dynamic
                 homology, the characters being sampled during pseudoreplicates
                 are entire sequence fragments, not individual nucleotides.
@@ -197,41 +224,15 @@ The \poycommand{calculate\_support} command does not output support values by de
                  transformed data to reach the local maximum for the static
                  homology characters prior to calculating support values.
             \end{statement}
-            
-            \end{poydescription}
-
-	\begin{arguments}
-		\begin{argumentgroup}{Support calculation methods}
-            {The following commands allow selecting among several methods for
-            calculating support.} 
-
-			\argumentdefinition{bremer}{}
-                {Calculates Bremer support~\cite{Bremer1988, Kallersjoetal1992}
-                for each tree in memory by performing independent constrained searches for each
-                node. The parameters for the searches can be modified using arguments
-                described under \emph{Search strategy}.} 
-                {}
-\begin{statement}
+          
+      \begin{statement}
   	  The placement of the root affects calculation of Bremer support values.
 	  Therefore, it is critical to specify the root prior to executing
 	  \poycommand{calculate\_support}. See the description of the
 	  command \nccross{set}{root} on how to specify the root.
-	\end{statement}
-
-			\argumentdefinition{bootstrap}{\optional{\poyint}}
-                {Calculates Bootstrap support~\cite{Felsenstein1985}. 
-                The integer value specifies
-                the number of resampling iterations (pseudoreplicates). If the value
-                is omitted, 5 pseudoreplicates are performed by default.} 
-                {}
-
-			\argumentdefinition{jackknife}{\optional{([argument list])}}
-                {Calculates Jackknife support~\cite{Farrisetal1996} using the 
-                sampling parameters specified by the arguments. The arguments of
-                \poyargument{jackknife} are optional and their order is arbitrary. If
-                both values are omitted, the default values of each argument is used.}
-                {}
-                
+	\end{statement}          
+                       
+	        
                 \begin{description}
                     \argumentdefinition{remove}{\obligatory{\poyfloat}}
                         {The value of the argument \poyargument{remove} specifies the
@@ -265,9 +266,9 @@ The \poycommand{calculate\_support} command does not output support values by de
              For calculating Jackknife
              and Bootstrap supports, it specifies the number of
              Wagner tree builds per pseudoreplicate.  Single best trees from all
-             psudoreplicates are used to calculate the support values. If
-             multiple best trees are recovered in a pseudoreplicate, one 
-             is selected. If \poyargument{build} is
+             pseudoreplicates are used to calculate the support values. If
+             multiple best trees are recovered in a pseudoreplicate, \hl{one 
+             is selected (at random? the first one?}. If \poyargument{build} is
              omitted from the argument list of \poycommand{calculate\_support},
              a single random addition Wagner tree per
              pseudoreplicate is built by default. This is equivalent to 
@@ -288,8 +289,12 @@ The \poycommand{calculate\_support} command does not output support values by de
 
     \poydefaults{bremer, build(trees:1, randomized), \\ swap(trees:1)}
     {By default \poy will calculate the bremer support for each tree in memory node by node.
-    However, if no trees stored in memory, executing the command
+    However, if no trees are stored in memory, executing the command
     \poycommand{calculate\_support()} does not have any effect.}
+    
+   % \poycommand{calculate_support (jackknife: (remove: X, resample: 5))}
+    
+    %\poycommand{calculate_support (bootstrap: (remove: X, resample: X))}
 
 	\begin{poyexamples} 
 
@@ -1033,7 +1038,8 @@ The \poycommand{calculate\_support} command does not output support values by de
         [orientation:\poybool, init3D:\poybool])}}
             {An \\ enhancement of the data file type \poyargument{custom\_alphabet} allowing
             rearrangement events specified using \poycommand{dynamic\_pam()}. Syntactically,
-            breakinv data type is identical to custom\_alphabet data type.} 
+            breakinv data type is identical to custom\_alphabet data type.  If \texttt{init3D} is set to
+            \texttt{true}, execution will be faster, but will require very large amounts of memory.} 
             {breakinv}
 
         \argumentdefinition{chromosome}{\obligatory{(\poystring list)}}
@@ -1044,18 +1050,20 @@ The \poycommand{calculate\_support} command does not output support values by de
             events such as rearrangements, inversions, and large-scale
             insertions and deletions (including duplications). These parameter
             options (\emph{e.g.} inversion cost) are specified using the
-            argument \poycommand{dynamic\_pam} in the
+            %argument \poycommand{dynamic\_pam} in the%
             command~\nccross{transform}{transformcommand}.  
             Unlike when using \poycommand{annotated} data type,
             both locus-level and nucleotide-level homologies
-            are determined dynamically~\cite{vinh2007} (see tutorial \texttt{4.6}). If chromosome sequences were imported as
+            are determined dynamically~\cite{darlingetal2004, vinh2007} 
+            %change tutorial--or add new one?
+            (see tutorial \texttt{4.6}). If chromosome sequences were imported as
             nucleotide type data, they can be converted to chromosome type data
             using the argument \poyargument{seq\_to\_chrom} of
             \nccross{transform}{transformcommand}.} 
             {}
             
             \argumentdefinition{custom\_alphabet}{\obligatory{(STRING, STRING, 
-        [orientation:\poybool, init3D:\poybool])}}
+        [orientation:\poybool, init3D:\poybool, \poylident])}}
             {Reads the data in the user-defined alphabet format. The first string argument is
             the name of a datafile that contains custom-alphabet sequences in FASTA format. 
             The characters can be (but are not required to be) separated by spaces.
@@ -1102,6 +1110,11 @@ The \poycommand{calculate\_support} command does not output support values by de
 	The argument \poyargument{init3D} indicates that if program will calculate in advance
 	the medians for all triplets of characters (a, b, c). The options are \poyargument{init3D:true} or
 	\poyargument{init3D:false}. The default option is \texttt{true}.
+	
+	If the optional argument \poylident is \texttt{prealigned}, the sequences are
+	treated as aligned sequences.
+	
+	The default heuristic \texttt{level} is $2$.  This can be changed via the command \poycommand{transform}.
 	
 	\poycommand{custom\_alphabet}
 	can be transformed into \poycommand{breakinv} using \poycommand{transform}.}
@@ -1478,6 +1491,12 @@ The \poycommand{calculate\_support} command does not output support values by de
                 the trees found.}
                 {searchstats}
 
+            \argumentdefinition{searchstats}{}
+                {Outputs a summary of the results of the last search command,
+                including the number of builds, fuse, ratchet, and the costs of
+                the trees found.}
+                {searchstats}
+
             \argumentdefinition{seq\_stats}{\obligatory{identifiers}}
                 {Outputs a summary of the sequences specified in the argument
                 value, for all taxa. The summary includes the maximum, minimum,
@@ -1647,8 +1666,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                 
                 \begin{description}
                     \argumentdefinition{total}{}
-                        {Includes the total cost of a tree in square brackets
-                        after each tree.}
+                        {Includes the total cost of a tree in square brackets after each tree.}
                         {total}
 
                     \argumentdefinition{\_cost}{}
@@ -1669,8 +1687,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                         {}
                         
                     \argumentdefinition{nexus}{}
-                        {Outputs the trees in the NEXUS format, inside a TREE
-                        block.}
+                        {Outputs the trees in the NEXUS format, inside a TREE block.}
                         {nexusreport}
                     
                     \begin{statement}
@@ -1694,7 +1711,13 @@ The \poycommand{calculate\_support} command does not output support values by de
                         default), but if \poycommand{false}--no branches are
                         collapsed.}
                         {}
-                    \end{description}}
+                    \end{description}
+                If the report is directed
+                to a file with extension ``nex'' or ``nexus'' then
+                the output is suitable for a nexus file (trees inside a TREES
+                block). Hennig format is produced if the report is directed
+                to a file with extension ``ss'' or ``hen'' or ``hennig''. In
+                these two cases, all other formatting options are ignored.}
                 {treesreport}
 
 		\end{argumentgroup}
@@ -1733,7 +1756,19 @@ The \poycommand{calculate\_support} command does not output support values by de
             {The following commands export the static homology characters
             currently in memory.}
 
-            \argumentdefinition{phastwinclad}{}
+            \argumentdefinition{nexus}{}
+                {Produces a file in the NEXUS format that contains all the
+                characters currently in memory.  In
+                order to export an implied alignment as a NEXUS file, the
+                characters must first be transformed into static characters
+                using the \poycommand{transform} command (see the Hennig86 example in tutorial \texttt{4.2}): 
+                \begin{flushleft}
+                    \poycommand{transform ((all, static\_approx))} \\
+                    \poycommand{report ("report.nexus", nexus, trees:(nexus))}
+                \end{flushleft}}
+                {}
+                
+             \argumentdefinition{phastwinclad}{}
                 {Produces a file in the Hennig86 format that contains the
                 additive and nonadditive characters currently in memory.  In
                 order to export an implied alignment as a Hennig86 file, the
@@ -2252,9 +2287,9 @@ The \poycommand{calculate\_support} command does not output support values by de
            \argumentdefinition{missing}{\obligatory{\poyint}}
                 {Selects terminals or characters to be included in the analysis
                 based on the proportion of missing data. The
-                integer value sets the maximum percentage of missing
-                data. Terminals or characters that have \emph{more} missing data
-                than defined by the value are included in the analysis.}
+                integer value sets the \hl{maximum} percentage of missing
+                data in the analysis. Terminals or characters that have \emph{more} missing data
+                than that of the defined value are included in the analysis.}
                 {}
                
                 \argumentdefinition{not missing}{\obligatory{\poyint}}
@@ -2984,15 +3019,6 @@ The \poycommand{calculate\_support} command does not output support values by de
             in memory.}
             {autosequencepartition}
             
-        \argumentdefinition{partitioned}{\poylident}
-            {Simmilar to the previous, with the difference that no tree is
-            required prior the partition, and large sequence length variations
-            at the tips are treated as missing data. If \poylident is clip then
-            a large difference in length in the tips is assumed to be caused by
-            missing data. For clip to take effect, at least two fragments must
-            be found. If \poylident is noclip, then tips are treated like
-            any other fragment.}
-            {transformpartitioned}
         \argumentdefinition{direct\_optimization}{}
           {Transforms the characters specified so that the initial assignment of sequences to 
           the internal vertices of a tree use direct
@@ -3002,14 +3028,21 @@ The \poycommand{calculate\_support} command does not output support values by de
           characters.}
           {directoptimization}
 
-        \argumentdefinition{fixed\_states}{}
+        \argumentdefinition{fixed\_states}{\optional{(\poystring, \poylident)}}
           {Transforms the characters specified in fixed state characters~\cite{wheeler1999a}
           where the initial assignment of sequences to the internal vertices of
           the tree is one of the observed sequences. If the observed sequences
           contain ambiguities, only those that resolve closest to another
           sequence are added to the set of valid states. This method is
-          recommended for large alphabets (more than or equal to 7 elements). It is only
-          applicable to dynamic homology characters.}
+          recommended for large alphabets ($\ge$ 7 elements). It is only
+          applicable to dynamic homology characters.  The optional arguments may be specified
+          for use with the \texttt{chromosome} character type.  The \poystring specifies the
+          root name of MAUVE \cite{darlingetal2004} readable files ( ``\poystring\_$i$\_$j$.alignment'' 
+          where $i$ and $j$ are median states) to generate 
+          graphical sequence maps between median states.  If \poylident is \texttt{ignore\_polymorphism},
+          new potential median states will not be generated through resolution of sequence ambiguities
+          (reducing execution time), otherwise
+          new medians are generated as mentioned above.}
           {fixedstates}
           
         \argumentdefinition{gap\_opening}{\obligatory{\poyint}}
@@ -3026,6 +3059,19 @@ The \poycommand{calculate\_support} command does not output support values by de
             This method is applicable only to dynamic homology characters with
             the nucleotide alphabet.} 
             {gapopening}
+            
+          \argumentdefinition{level}{\obligatory{(\poyint}, \poylident)}
+          {The integer argument specifies the heuristic level in median sequence calculation.  
+            This determines the number of possible states stored at each median sequence position.  
+            For nucleotide data, all possibilities are stored.  The default for amino acid sequences is $1$
+            and for \texttt{custom\_alphabet} characters it is $2$.  Storage and set up time increase combinatorially with
+            level number. 
+            If the \poylident is \texttt{first}, ties are broken (if the number of equally costly states is greater than the level number)
+            by choosing the first median state examined; if \texttt{last}, the last state, and if \texttt{at\_random} then at random.
+            
+            The default choice method is \texttt{first}.
+	}
+          {level}
 
         \argumentdefinition{multi\_static\_approx}{}
             {Calculates the implied alignment for each tree in memory
@@ -3035,12 +3081,28 @@ The \poycommand{calculate\_support} command does not output support values by de
             for heuristic search purposes and is applicable only to dynamic homology characters.}
             {multistaticapprox}
 
-            \argumentdefinition{prealigned}{}
+           \argumentdefinition{partitioned}{\obligatory{\poylident}} %or is it \optional ?
+            {Similar to \texttt{auto\_sequence\_partition}, with the difference that no tree is
+            required prior the partition, and large sequence length variations
+            at the ends of sequences are treated as missing data. If \poylident is \texttt{clip} then
+            a large difference in length in the sequence ends is assumed to be caused by
+            missing data. For \texttt{clip} to take effect, at least two fragments must
+            be found. If \poylident is \texttt{noclip}, then sequence ends are treated like
+            any other fragment.}
+            {transformpartitioned}
+            
+        \argumentdefinition{prealigned}{}
                 {Treats the sequences as prealigned and uses the
                 cost regime according to the specified transformation cost
                 matrix. All other cost parameters are ignored (including affine
                 gap costs). This command requires that all the specified sequences have the same length.}
                 {prealignedtransform}
+                
+        \argumentdefinition{search\_based}{\obligatory{(\poystring, \poystring)}}
+        {Transforms the optimization of \texttt{fixed\_states} characters to \texttt{search\_based}
+        optimization \cite{wheeler2003b} by adding the sequences found in the file specified by the second argument to the character specified by the 
+        first argument.}
+        {searchbased}
             
         \argumentdefinition{sequence\_partition}{\obligatory{\poyint}}
             {Partitions the sequences in the argument's value number of
@@ -3051,7 +3113,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             {Transforms the sequences to the static homology characters
             corresponding to their implied alignments and their transformation
             cost matrix~\cite{wheeler2003}. The resulting characters and their number will vary
-            depending on the characteristic of transformation coGst matrix
+            depending on the characteristic of transformation cost matrix
             assigned to each sequence. For example, if the cost of both substitutions
             and indels is \texttt{1}, then one non-additive character is created per
             each homologous position in the implied alignment. If the cost of
@@ -3116,7 +3178,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             (\poyargument{tcm:(1,2)}).}
             {transformtcm}
 
-            \argumentdefinition{tcm}{\obligatory{\poystring}}
+            \argumentdefinition{tcm}{\obligatory{(\poystring, \poyint)}}
             {Defines the transformation cost matrix by importing a file (specified by
             the string value) that contains a user defined nucleotide
             transformation cost matrix. This method is applicable only to dynamic homology characters.
@@ -3136,6 +3198,11 @@ The \poycommand{calculate\_support} command does not output support values by de
             2 1 2 0 4 \\
             4 4 4 4 0} 
             \end{center}
+            The integer argument specifies the heuristic level in median sequence calculation.  
+            This determines the number of possible states stored at each median sequence position.  
+            For nucleotide data, all possibilities are stored.  The default for amino acid sequences is $1$
+            and for \texttt{custom\_alphabet} characters it is $2$.  Storage and set up time increase combinatorially with
+            level number. 
             }
             {transformtcmmatrix}
 
@@ -3195,7 +3262,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             be specified subsequently, as a separate step (for a sample script using this character transformation see tutorial \texttt{4.8}).}
             {customtobreakinv}
              
-        \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
+           \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
            {Transforms nucleotide type data into \\ chromosome type data to allow
             rearrangements, inversions, and locus-level indel operations.  The
             chromosome-specific options (\emph{e.g.}  \poyargument{locus\_breakpoint}, 
@@ -3204,9 +3271,9 @@ The \poycommand{calculate\_support} command does not output support values by de
            are specified, its default values are applied.}
            {seqtochrom}
            
-            \argumentdefinition{dynamic\_pam}{\obligatory{([argument list])}}
+            \argumentdefinition{chromosome}{\obligatory{([argument list])}}
             {Specifies parameters for creating chro\-mosome- and genome-level HTUs (medians).
-            The arguments of \poyargument{dynamic\_pam} define homologous blocks within unannotated chromosome sequences using
+            The arguments of \poyargument{chromosome} define homologous blocks within unannotated chromosome sequences using
             (\poyargument{min\_seed\_length}, \poyargument{min\_loci\_len}, and \poyargument{min\_rearranged\_len}); specify the cost
             of locus-level transformation events: (i.e.
             \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, or \poyargument{locus\_breakpoint},
@@ -3237,7 +3304,13 @@ The \poycommand{calculate\_support} command does not output support values by de
 		\end{figure}
 		
 	\begin{description}
-            
+            	\argumentdefinition{annotate}{\obligatory{(\poylident,\poyfloat,\poyfloat,\poyfloat,\poyfloat)}}
+                        {Specifies the annotation method for unannotated chromosome sequences.
+                        If \poylident is \texttt{mauve} the MAUVE algorithm is used \cite{darlingetal2004} with
+                        float parameters quality of lcb, lcb coverage, minimum length of lcb (percent), maximum length of lcb (percentage). 
+                        Percent calculations are based on the shorter of two sequences compared.}
+                        {annotate}
+
             	\argumentdefinition{med\_approx}{\obligatory{\poybool}}
                         {Approximates chromosome medians using a fixed-states
                         approach. This is most useful to accelerating tree
@@ -3513,17 +3586,33 @@ The \poycommand{calculate\_support} command does not output support values by de
             	matrix, and applies the custom transformation cost matrix contained in the file
             	\texttt{Molmatrix1} to the sequence data contained in files \texttt{gen5} and
             	\texttt{gen6}.}
+	
+		\poyexample{transform(names:("mycustom.fas"),(tcm:("mycustom.mat",2)))}
+		{This examples transforms the cost matrix used to optimize custom\_alphabet 
+		character ``mycustom.fas'' to ``mycustom.mat'' and uses heuristic level $2$.}
          
-         		\poyexample{transform(fixed\_states)}
-        		 {Transformed all sequence characters into fixed states characters.}
+         	\poyexample{transform(fixed\_states)}
+        		 {Transformes all sequence characters into fixed states characters.}
+		 
+		 \poyexample{transform(level:2)}
+		 {Transforms all heuristic median calculations to level $2$ and breaking ties
+		 \texttt{first}}
             
           	\poyexample{transform((names:("gen1", "gen4"), fixed\_states))}
            	{Transformed only specified sequence characters (\texttt{gen1} and
            	\texttt{gen4}) into fixed states characters.}
            
            	\poyexample{transform(custom\_to\_breakinv:(circular:true))}
-           	{In this example all custom\_alphabet data is transformed into the breakinv data type 
+           	{In this example, all custom\_alphabet data is transformed into the breakinv data type 
 		and is treated as a circular chromosome.}
+		
+		\poyexample{transform(search\_based:(("mycustom\_char1.fas","mycustom\_extra1.fas"),("mycustom\_char2.fas","mycustom\_extra2.fas")))}
+		{This command adds the sequences found in ``mycustom\_extra1.fas'' and ``mycustom\_extra2.fas'' to \texttt{fixed\_states} characters 
+		``mycustom\_char1.fas'' and ``mycustom\_char2.fas'' respectively.}
+		
+		\poyexample{transform(search\_based:"mycustom\_extra.fas")}
+		{Adds sequences in ``mycustom\_extra.fas'' to all \texttt{fixed\_states} 
+		characters.}
           
           	\poyexample{transform(seq\_to\_chrom:(locus\_indel:(50, 1.0), min\_seed\_length:15))} 
           	{All applicable (\emph{i.e.} sequence) data are transformed into chromosome
@@ -3531,11 +3620,22 @@ The \poycommand{calculate\_support} command does not output support values by de
 	          the seeds of homologous blocks set at  \texttt{15} nucleotides and the locus-level gap
 	         opening cost is set at \texttt{50} with a gap extension cost at \texttt{1.0}.}
               
-          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, median:1, circular:false)))} 
-             	{This example shows the transformation of chromosomal data using the argument \poyargument{dynamic\_pam}
-		to set the locus rearrangement (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or more nucleotides 
-		are considered in determining possible rearrangements between identified seeds.  The chromosome data are
-		treated as linear and only a single set of median rearrangements are stored.}
+%          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, median:1, circular:false)))} 
+%             	{This example shows the transformation of chromosomal data using the argument \poyargument{dynamic\_pam}
+%		to set the locus rearrangement (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or more nucleotides 
+%		are considered in determining possible rearrangements between identified seeds.  The chromosome data are
+%		treated as linear and only a single set of median rearrangements are stored.}
+
+		\poyexample{transform(fixed\_states:("shrimp",ignore\_polymorphism))}
+		{This example shows the optional arguments for a MAUVE-based fixed\_states analysis.
+		Here, MAUVE genome alignment files will be generated with the names ``shrimp\_$i$\_$j$.alignment'' where $i$ and $j$ are
+		median states.  Sequence ambiguities will not be resolved to generate additional medians beyond those determined by the
+		data.}
+		
+		\poyexample{transform(chromosome:(annotate:(mauve,35.0,0.35,0.01,0.10)))}
+		{This command specifies the use of MAUVE annotation with 35.0 for quality of lcb,
+		35\% coverage of all sequences by lcb's, 1\% min length of lcb (100 for length 10,000 
+		sequence), and 10\% max length (1000 for kength 10,000 sequence).}
             
 	\end{poyexamples}	    
 

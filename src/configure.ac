@@ -383,7 +383,7 @@ case $OCAMLVERSION in
             DUSE_NATIVEDYNLINK="-DUSE_NATIVEDYNLINK"
         else 
             AC_MSG_RESULT([no])
-            USE_NATIVEDYNLINK="true"
+            USE_NATIVEDYNLINK="false"
         fi
 	    rm -f str.cmxs*
         ;;

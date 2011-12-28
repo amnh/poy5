@@ -22,8 +22,8 @@ version=${BUILD_VERSION}
     # FOR OUR SLIGHTLY LESS MYSTERIOUS WINDOWS 7 MACHINE(S)
     destination="/cygdrive/c/poy_builds/${BUILD_VERSION}"
     concorde="--with-concorde-dir=/home/Developer/programs/concorde/"
-    basic_cflags="-msse3 -O3 -I/usr/i686-pc-mingw32/libxml_xslt/include/ ${CFLAGS}"
-    basic_lflags="-L/usr/i686-pc-mingw32/libxml_xslt/lib/ ${LFLAGS}"
+    basic_cflags="-msse3 -O3 -I/usr/i686-pc-mingw32/libxml_xslt/include/"
+    basic_lflags="${LFLAGS} -L/usr/i686-pc-mingw32/libxml_xslt/lib/"
     mpi_cflags="-I/cygdrive/c/MPICH2/include/ ${basic_cflags}"
     mpi_lflags="-L/cygdrive/c/MPICH2/lib/ -lmpi ${basic_lflags}"
     ncurses_cflags="-I/home/Developer/programs/PDCurses-3.4/ -L/home/Developer/programs/PDCurses-3.4/mingw-build/ ${basic_cflags}"
@@ -75,20 +75,26 @@ if [ $update -eq 1 ]; then
     fi
 fi
 
-rm -rf ${destination}
+#rm -rf ${destination}
 
-mkdir ${destination}
+#mkdir ${destination}
+
+
+rm -rf ncurses_poy.exe
+rm -rf par_poy.exe
+rm -rf seq_poy.exe
 
 cd src
-
 if [ $ncurses -eq 1 ]; then
     # We first compile the regular ncurses interface
-    if ! ./configure $configuration --enable-xslt --enable-interface=ncurses CFLAGS="$ncurses_cflags" LFLAGS="$ncurses_lflags"; then
+    if ! ./configure $configuration --enable-xslt --enable-interface=ncurses CFLAGS="$ncurses_cflags" LIBS="$ncurses_lflags"; then
         echo "Configuration failed!"
-        exit 1
+    else
+        compile_executable
+        if [ -e _build/poy.native ]; then
+            cp _build/poy.native ../ncurses_poy.exe
+        fi
     fi
-    compile_executable
-    cp _build/poy.native ../ncurses_poy.exe
 #   if [$make_installers -eq 1]; then
 #       if ! cp -f ./_build/poy.native ${destination}/bin/ncurses_poy.exe; then
 #           echo "I could not replace the executable in the distribution"
@@ -104,12 +110,14 @@ fi
 
 if [ $sequential -eq 1 ]; then
     # Now we compile the html interface
-    if ! ./configure $configuration --enable-xslt --enable-interface=html CFLAGS="$basic_cflags" LFLAGS="$basic_lflags"; then
+    if ! ./configure $configuration --enable-xslt --enable-interface=html CFLAGS="$basic_cflags" LIBS="$basic_lflags"; then
         echo "Configuration failed!"
-        exit 1
+    else
+        compile_executable
+        if [ -e _build/poy.native ]; then
+            cp _build/poy.native ../seq_poy.exe
+        fi
     fi
-    compile_executable
-    cp _build/poy.native ../seq_poy.exe
 #   if [ $make_installers -eq 1 ]; then
 #       if ! cp -f ./_build/poy.native ${destination}/bin/seq_poy.exe; then
 #           echo "I could not replace the executable in the distribution"
@@ -125,12 +133,14 @@ fi
 
 if [ $parallel -eq 1 ]; then
     # Now we compile the parallel interface
-    if ! ./configure $configuration --enable-xslt --enable-interface=html --enable-mpi CFLAGS="$mpi_cflags" LFLAGS="$mpi_lflags"; then
+    if ! ./configure $configuration --enable-xslt --enable-interface=html --enable-mpi CFLAGS="$mpi_cflags" LIBS="$mpi_lflags"; then
         echo "Configuration failed!"
-        exit 1
+    else
+        compile_executable
+        if [ -e _build/poy.native ]; then
+            cp _build/poy.native ../par_poy.exe
+        fi
     fi
-    compile_executable
-    cp _build/poy.native ../par_poy.exe
 #   if [$make_installers -eq 1]; then
 #       if ! cp -f ./_build/poy.native ${destination}/bin/par_poy.exe; then
 #           echo "I could not replace the executable in the distribution"

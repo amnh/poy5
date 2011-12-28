@@ -45,7 +45,7 @@ val print : meds_t -> unit
 * a breakinv character list with only one element 
 * created from a sequence of general character [seq]*)
 val init_med :
-  Sequence.s ->
+  Sequence.s -> int list ->
   Cost_matrix.Two_D.m -> Alphabet.a -> Data.dyna_pam_t -> meds_t
 
 (** [keep chrom_pam med_ls] returns a sublist of median list

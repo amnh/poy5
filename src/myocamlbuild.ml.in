@@ -1,3 +1,22 @@
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
+
 open Ocamlbuild_plugin
 open Command
 
@@ -214,6 +233,8 @@ dispatch begin function
         "doc/figures/searchwithratchet_menu.jpg";
         "doc/figures/searchwithratchet_window.jpg";
         "doc/figures/select.jpg";
+        "doc/figures/timedsearch_menu.jpg";
+        "doc/figures/timedsearch_window.jpg";
         "doc/figures/simplesearch_menu.jpg";
         "doc/figures/simplesearch_script.jpg";
         "doc/figures/simplesearch_window.jpg";
@@ -260,15 +281,6 @@ dispatch begin function
         ~deps:["helpRead.native"; "help.txt"]
         begin fun env _build ->
             Cmd (S [A "./helpRead.native"; A "-html"])
-        end;
-
-    rule "OCaml native shared library"
-        ~prod:"%.cmxs"
-        ~dep:"%.cmx"
-        begin fun env _build ->
-            let cmx = env "%.cmx" and cmxs = env "%.cmxs" in
-            let tags = tags_of_pathname cmx++"shared"++"cmxs" in
-            Cmd(S[!(Options.ocamlopt); T tags; A "-o"; P cmxs; A "-shared"; P cmx ])
         end;
 
     rule "status.ml file generation"

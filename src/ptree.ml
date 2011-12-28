@@ -1165,125 +1165,113 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                        tree.
         @param cost_fn function to determine the cost of the tree.
         @return the wagner tree. i.e. best spr tree over the given data. *)
-    let make_wagner_tree ?(sequence) ptree 
+    let make_wagner_tree ?(sequence) ptree
             (i_mgr    : (Tree_Ops.a, Tree_Ops.b) nodes_manager option)
             (srch_mgr : (Tree_Ops.a, Tree_Ops.b) wagner_mgr)
-            (create_tabu_mgr : (('a, b) p_tree -> int -> (Tree_Ops.a, Tree_Ops.b) wagner_edges_mgr)) = 
-        let nodes = 
-            match sequence with
-            | None -> Tree.handle_list ptree.tree
-            | Some r -> List.map (fun x -> handle_of x ptree) r 
+            (create_tabu_mgr : (('a, b) p_tree -> int -> (Tree_Ops.a, Tree_Ops.b) wagner_edges_mgr)) =
+        let nodes = match sequence with
+            | None   -> Tree.handle_list ptree.tree
+            | Some r -> List.map (fun x -> handle_of x ptree) r
         in
-        (* make sure you have atleast two nodes to build a tree 
-         *  (one edge only) of type a -- b *)
-        let res = 
-            match nodes with
+        (* make sure you have atleast two nodes to build a tree
+           (one edge only) of type a -- b *)
+        let res = match nodes with
             | n1 :: n2 :: rest ->
-                    let status = 
-                        Status.create "Wagner" (Some (2 + List.length rest)) ""
+                let status = Status.create "Wagner" (Some (2 + List.length rest)) "" in
+                (* build one edge tree with h1 h2 *)
+                let h1 = Tree.get_handle_id n1 ptree.tree
+                and h2 = Tree.get_handle_id n2 ptree.tree in
+                let j1, j2 =
+                    let get_corrected_jnx nd = match get_node nd ptree with
+                        | Tree.Single _ -> Tree.Single_Jxn nd
+                        | Tree.Leaf (x, y)
+                        | Tree.Interior (x, y, _, _) -> Tree.Edge_Jxn (x, y)
                     in
-                    (* build one edge tree with h1 h2 *)
-                    let h1 = Tree.get_handle_id n1 ptree.tree
-                    and h2 = Tree.get_handle_id n2 ptree.tree in
-                    let j1, j2 =
-                        let get_corrected_jnx nd =
-                            match get_node nd ptree with
-                            | Tree.Single _ -> Tree.Single_Jxn nd
-                            | Tree.Leaf (x, y)
-                            | Tree.Interior (x, y, _, _) -> Tree.Edge_Jxn (x, y)
-                        in
-                        (get_corrected_jnx h1), (get_corrected_jnx h2)
+                    (get_corrected_jnx h1), (get_corrected_jnx h2)
+                in
+                let ptree, tree_delta = (Tree_Ops.join_fn i_mgr [] j1 j2 ptree) in
+                (* Now we ensure that the root is located in between the two 
+                   handles that we just joined. This is needed for constrained
+                   building. *)
+                let ptree  = 
+                    let l, r, _ = tree_delta in
+                    let new_vertex x = match x with
+                        | `Single (x, _)
+                        | `Edge (x, _, _, _) -> x
                     in
-                    let ptree, tree_delta = (Tree_Ops.join_fn i_mgr [] j1 j2 ptree) in
-                    (* Now we ensure that the root is located in between the two 
-                    * handles that we just joined. This is needed for constrained
-                    * building. *)
-                    let ptree  = 
-                        let l, r, _ = tree_delta in
-                        let new_vertex x = 
-                            match x with
-                            | `Single (x, _)
-                            | `Edge (x, _, _, _) -> x
-                        in
-                        let l = new_vertex l 
-                        and r = new_vertex r in
-                        let tree, inc = 
-                            Tree_Ops.reroot_fn i_mgr true (Tree.Edge (l, r)) ptree 
-                        in
-                        Tree_Ops.incremental_uppass tree inc
+                    let l = new_vertex l and r = new_vertex r in
+                    let tree, inc =
+                        Tree_Ops.reroot_fn i_mgr true (Tree.Edge (l, r)) ptree
                     in
-                    let cst = get_cost `Adjusted ptree in
-                    (* function adds the given nd to each of the edges of pt and
-                    * picks the tree/s according to some optimality criterion. *)
-                    let add_node_everywhere (pt, cst, tabu_mgr) nd srch_mgr =
-                        let j2, nd_data =
-                            match (get_component_root nd ptree).root_median with
-                            | None -> assert false
-                            | Some ((`Edge (x, y)), z) -> (Tree.Edge_Jxn (x, y)), z
-                            | Some ((`Single x), z) -> (Tree.Single_Jxn x), z
-                        in
-                        tabu_mgr#next_clade nd_data;
-                        (* function to add a node to an edge and determine the 
-                        * optimality of the resulting tree. *)
-                        let add_node_to_edge e srch_mgr tabu_mgr = 
-                            let Tree.Edge(e1, e2) = e in
-                            let h1 = (Tree.get_node_id e1 pt.tree) 
-                            and h2 = (Tree.get_node_id e2 pt.tree) in
-                            let j1 = Tree.Edge_Jxn(h1, h2) in
-                            let status:t_status = 
-                                (srch_mgr#process Tree_Ops.cost_fn i_mgr infinity 
-                                     nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr) 
-                            in
-                            status, srch_mgr
-                        in
-                        (* Sequentially add rest of the nodes keeping
-                        * the best tree/s *)
-                        let srch_mgr = 
-                            let rec do_all_edges srch_mgr tabu_mgr =
-                                match tabu_mgr#next_edge with
-                                | None -> srch_mgr
-                                | Some e ->
-                                        let _, mgr = 
-                                            add_node_to_edge e srch_mgr tabu_mgr
-                                        in
-                                        do_all_edges mgr tabu_mgr
-                            in
-                            do_all_edges srch_mgr tabu_mgr
-                        in
-                        (* There has to be at least one new tree *)
-                        assert(srch_mgr#any_trees) ;
-                        () 
+                    Tree_Ops.incremental_uppass tree inc
+                in
+                let cst = get_cost `Adjusted ptree in
+                (* function adds the given nd to each of the edges of pt and
+                   picks the tree/s according to some optimality criterion. *)
+                let add_node_everywhere (pt, cst, tabu_mgr) nd srch_mgr =
+                    let j2, nd_data =
+                        match (get_component_root nd ptree).root_median with
+                        | None -> assert false
+                        | Some ((`Edge (x, y)), z) -> (Tree.Edge_Jxn (x, y)), z
+                        | Some ((`Single x), z) -> (Tree.Single_Jxn x), z
                     in
-                  (* sequentially add rest of the nodes to the
-                  * tree *)
-                  let rec seq_add nodes srch_mgr added = 
-                      match nodes with
-                      | [] -> srch_mgr
-                      | nd :: rest ->
-                              let n_srch_mgr = (srch_mgr#clone) in
-                              assert(n_srch_mgr#any_trees = false) ;
-                              while srch_mgr#any_trees do 
-                                  let (_, cst, _) as it = srch_mgr#next_tree in
-                                  Status.full_report ~msg:("Wagner tree with cost "
-                                  ^ string_of_float (cst))
-                                  ~adv:(added) status;
-                                  add_node_everywhere it nd n_srch_mgr;
-                                  n_srch_mgr#evaluate;
-                              done;
-                              (seq_add rest n_srch_mgr (added + 1))
-                  in
-                  let tabu_mgr = create_tabu_mgr ptree h1 in
-                  srch_mgr#init [(ptree, cst, Cost(infinity), tabu_mgr)] ;
-                  let result = (seq_add rest srch_mgr 2) in
-                  Status.finished status;
-                  result
-                  (* need at least two nodes *)
-          | _ -> 
-                  new mymgr ptree
+                    tabu_mgr#next_clade nd_data;
+                    (* function to add a node to an edge and determine the
+                       optimality of the resulting tree. *)
+                    let add_node_to_edge e srch_mgr tabu_mgr = 
+                        let Tree.Edge(e1, e2) = e in
+                        let h1 = (Tree.get_node_id e1 pt.tree)
+                        and h2 = (Tree.get_node_id e2 pt.tree) in
+                        let j1 = Tree.Edge_Jxn(h1, h2) in
+                        let status:t_status =
+                            srch_mgr#process Tree_Ops.cost_fn i_mgr infinity
+                                 nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr
+                        in
+                        status, srch_mgr
+                    in
+                    (* Sequentially add rest of the nodes keeping the best tree/s *)
+                    let srch_mgr = 
+                        let rec do_all_edges srch_mgr tabu_mgr =
+                            match tabu_mgr#next_edge with
+                            | None -> srch_mgr
+                            | Some e ->
+                                let _, mgr = add_node_to_edge e srch_mgr tabu_mgr in
+                                do_all_edges mgr tabu_mgr
+                        in
+                        do_all_edges srch_mgr tabu_mgr
+                    in
+                    (* There has to be at least one new tree *)
+                    assert(srch_mgr#any_trees);
+                    () 
+                in
+                (* sequentially add rest of the nodes to the tree *)
+                let rec seq_add nodes srch_mgr added = match nodes with
+                    | []       -> srch_mgr
+                    | nd::rest ->
+                        let n_srch_mgr = (srch_mgr#clone) in
+                        assert(n_srch_mgr#any_trees = false) ;
+                        while srch_mgr#any_trees do 
+                            let (_, cst, _) as it = srch_mgr#next_tree in
+                            Status.full_report ~msg:("Wagner tree with cost "^string_of_float cst)
+                                               ~adv:(added) status;
+                            add_node_everywhere it nd n_srch_mgr;
+                            n_srch_mgr#evaluate;
+                        done;
+                        seq_add rest n_srch_mgr (added+1)
+                in
+                let tabu_mgr = create_tabu_mgr ptree h1 in
+                srch_mgr#init [(ptree, cst, Cost(infinity), tabu_mgr)] ;
+                let result = (seq_add rest srch_mgr 2) in
+                Status.finished status;
+                result
+            (* need at least two nodes *)
+            | _ -> new mymgr ptree
         in
         List.map fst (res#results)
-    
+
+                
 let trees_considered = ref 0
+
 
 let fix_edge ptree ((Tree.Edge (e1, e2)) as edge) =
     (* if the edge is in tree, return the edge. *)
@@ -1299,6 +1287,7 @@ let fix_edge ptree ((Tree.Edge (e1, e2)) as edge) =
 type searcher =
         (Tree_Ops.a, Tree_Ops.b) search_mgr ->
             (Tree_Ops.a, Tree_Ops.b) search_mgr
+
 type search_step = 
         (Tree_Ops.a, Tree_Ops.b) p_tree ->
             (Tree_Ops.a, Tree_Ops.b) tabu_mgr ->
@@ -2510,17 +2499,19 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
 
 
 let make_tree majority_cutoff coder builder map = 
-    let sets = 
-        Tree.CladeFPMap.fold (fun set cnt lst ->
-        if cnt >= majority_cutoff then (set, cnt) :: lst 
-        else lst) 
-        map
-        []
+    let sets =
+        Tree.CladeFPMap.fold
+            (fun set cnt lst ->
+                if cnt >= majority_cutoff then (set, cnt) :: lst
+                else lst)
+            map
+            []
     in
-    let sets = 
-        List.sort (fun (x, _) (y, _) -> 
-        (All_sets.Integers.cardinal x) - 
-        (All_sets.Integers.cardinal y)) sets
+    let sets =
+        List.sort
+            (fun (x, _) (y, _) ->
+                (All_sets.Integers.cardinal x) - (All_sets.Integers.cardinal y))
+            sets
     in
     let trees = List.fold_left builder All_sets.IntegerMap.empty sets in
     let tree, _ = All_sets.IntegerMap.find !coder trees in
@@ -2531,18 +2522,14 @@ let consensus is_collapsable to_string maj trees root =
     let print_frequency = maj <> number_of_trees 
     and number_of_trees = float_of_int number_of_trees 
     and coder = ref 0 in
-    let tree_builder = 
-        build_a_tree to_string number_of_trees print_frequency coder
-    in
-
-    trees -->
-        List.map (fun x ->
-                    let y = get_parent root x in
-                    Tree.reroot (root, y) x.tree, is_collapsable x)
-    --> List.fold_left (fun acc (x, y) ->
-                            add_tree_to_counters y acc x)
-                       Tree.CladeFPMap.empty
-    --> make_tree maj coder tree_builder
+    let tree_builder = build_a_tree to_string number_of_trees print_frequency coder in
+    trees
+        --> List.map (fun x ->
+                        let y = get_parent root x in
+                        Tree.reroot (root, y) x.tree, is_collapsable x)
+        --> List.fold_left (fun acc (x, y) -> add_tree_to_counters y acc x)
+                           Tree.CladeFPMap.empty
+        --> make_tree maj coder tree_builder
 
 
 let preprocessed_consensus to_string maj num_trees map =

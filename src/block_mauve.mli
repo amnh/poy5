@@ -1,4 +1,21 @@
-
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *\
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+\* USA                                                                        *)
 
 
 type m_i = {  (* the ith element M_i of a local mum *)
@@ -76,7 +93,8 @@ type lcb = {
 * is cost_mat), full_cost_listlst is a little bit redundant here, for it
 * contains the two code array, but it also has the begin and end point of each
 * block. *)
-val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> int -> float -> int ->
+val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> float ->
+    float -> float ->
 int*int -> Cost_matrix.Two_D.m ->  bool -> 
     int array * int array * int array array *
 (int*Sequence.s*Sequence.s) array array * int * int * 

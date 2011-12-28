@@ -21,6 +21,8 @@ exception Exit
 
 let () = SadmanOutput.register "PoyCommand" "$Revision: 810 $"
 
+let debug = false 
+
 type read_option_t = [
 | `Init3D of bool
 | `Orientation of bool
@@ -145,7 +147,7 @@ type transform_method = [
     | `AnnchromToBreakinv of chromosome_args list
     | `ChromToSeq of chromosome_args list
     | `BreakinvToSeq of chromosome_args list
-    | `Seq_to_Kolmogorov of Methods.kolmo_model
+(*    | `Seq_to_Kolmogorov of Methods.kolmo_model*)
     | `OriginCost of float
 ]
 
@@ -467,7 +469,7 @@ let transform_transform acc (id, x) =
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
             | `CustomToBreakinv x -> (`Custom_to_Breakinv (id, x)) :: acc
             | `AnnchromToBreakinv x -> (`Annchrom_to_Breakinv (id, x)) :: acc
-            | `Seq_to_Kolmogorov x -> (`Seq_to_Kolmogorov (id, x)) :: acc
+(*            | `Seq_to_Kolmogorov x -> (`Seq_to_Kolmogorov (id, x)) :: acc*)
             | `ChangeDynPam x -> (`Change_Dyn_Pam (id, x)) :: acc
             | `ChromToSeq x -> (`Chrom_to_Seq (id, x)) :: acc
             | `BreakinvToSeq x -> (`Breakinv_to_Custom (id, x)) :: acc
@@ -1259,6 +1261,7 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
             (transform_support_arguments x) :: acc
     | `Calculate _ -> acc
     | `Report x ->
+            Printf.printf "transform_report_arguments\n%!";
             (transform_report_arguments x) @ acc
     | `Select x ->
             (transform_select_arguments x) @ acc
@@ -1295,14 +1298,26 @@ let create_expr () =
         transform:
             [
                 [ LIDENT "transform";
-                    left_parenthesis; x = identifiers_opt; right_parenthesis -> x ]
+                    left_parenthesis;
+                    x = id_opt_lst;
+                    right_parenthesis -> x ]
+            ];
+        id_opt_lst:
+            [
+                [ 
+                    y = LIST1 [left_parenthesis; x = identifiers_opt; right_parenthesis -> x
+                    ] SEP "," ->`Transform (List.flatten y)
+                ] |
+                [
+                    y = identifiers_opt -> `Transform y
+                ]
             ];
         identifiers_opt:
             [ [id = identifiers; ","; left_parenthesis; 
                 x = LIST0 [ y = transform_method -> y] SEP ","; right_parenthesis ->
-                    `Transform (List.map (fun trf -> (id,trf)) x) ] |
+                    (List.map (fun trf -> (id,trf)) x) ] |
               [ x = LIST0 [ y = transform_method -> y] SEP "," ->
-                    `Transform (List.map (fun trf -> (`All,trf)) x) ]
+                    (List.map (fun trf -> (`All,trf)) x) ]
             ];
         ml_floatlist:
             [[
@@ -1487,11 +1502,11 @@ let create_expr () =
                 [ LIDENT "genome"; ":"; left_parenthesis; x = LIST0 
                         [ x = genome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
-                [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
-                [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->
-                    match y with
-                    | None -> `Seq_to_Kolmogorov (`AtomicIndel (None, None))
-                    | Some x -> x ]
+                [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ]
+(*              | [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->*)
+(*                    match y with*)
+(*                    | None -> `Seq_to_Kolmogorov (`AtomicIndel (None, None))*)
+(*                    | Some x -> x ]*)
 
             ];
         tcm_arguments:
@@ -1503,34 +1518,34 @@ let create_expr () =
                     | Some y -> `Tcm (x,Some y)
                 ]
             ];
-        optional_kolmogorov_parameters: 
-            [ 
-                [ ":"; left_parenthesis; 
-                    x = LIST0 [ x = kolmogorov_parameters -> x] SEP ","; 
-                    right_parenthesis  -> 
-                        let default = (None, None) in
-                        let x = 
-                            List.fold_left 
-                                (fun acc x -> match x with 
-                                    | `Event n -> (Some n, snd acc)
-                                    | `IndelSub n -> (fst acc, Some n))
-                                default 
-                                x
-                        in
-                        `Seq_to_Kolmogorov (`AtomicIndel x) ] 
-            ];
-        kolmogorov_parameters:
-            [
-                [ LIDENT "event"; ":"; x = FLOAT -> 
-                    `Event (float_of_string x) ] | 
-                [ LIDENT "indelsub"; ":"; left_parenthesis; insertion = FLOAT;
-                    ","; deletion = FLOAT; ","; substitution = FLOAT;
-                    right_parenthesis -> 
-                        `IndelSub
-                        (float_of_string insertion,
-                        float_of_string deletion, 
-                        float_of_string substitution) ]
-            ];
+(*        optional_kolmogorov_parameters: *)
+(*            [ *)
+(*                [ ":"; left_parenthesis; *)
+(*                    x = LIST0 [ x = kolmogorov_parameters -> x] SEP ","; *)
+(*                    right_parenthesis  -> *)
+(*                        let default = (None, None) in*)
+(*                        let x = *)
+(*                            List.fold_left *)
+(*                                (fun acc x -> match x with *)
+(*                                    | `Event n -> (Some n, snd acc)*)
+(*                                    | `IndelSub n -> (fst acc, Some n))*)
+(*                                default *)
+(*                                x*)
+(*                        in*)
+(*                        `Seq_to_Kolmogorov (`AtomicIndel x) ] *)
+(*            ];*)
+(*        kolmogorov_parameters:*)
+(*            [*)
+(*                [ LIDENT "event"; ":"; x = FLOAT -> *)
+(*                    `Event (float_of_string x) ] | *)
+(*                [ LIDENT "indelsub"; ":"; left_parenthesis; insertion = FLOAT;*)
+(*                    ","; deletion = FLOAT; ","; substitution = FLOAT;*)
+(*                    right_parenthesis -> *)
+(*                        `IndelSub*)
+(*                        (float_of_string insertion,*)
+(*                        float_of_string deletion, *)
+(*                        float_of_string substitution) ]*)
+(*            ];*)
         informative_characters:
             [
                 [ ":"; LIDENT "keep" -> false ] |
@@ -1552,8 +1567,9 @@ let create_expr () =
             [
                 [ LIDENT "default"; ","; x = INT; ","; y = INT; ","; z = INT 
                     -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
-                [ LIDENT "mauve"; ","; a = FLOAT; ","; b = INT; ","; c = FLOAT; ","; d = INT 
-                    -> `Mauve (float_of_string a,int_of_string b, float_of_string c, int_of_string d) ]
+                [ LIDENT "mauve"; ","; a = FLOAT; ","; b = FLOAT; ","; c = FLOAT;
+                ","; d = FLOAT 
+                    -> `Mauve (float_of_string a,float_of_string b, float_of_string c, float_of_string d) ]
             ];
         genome_argument:
             [
@@ -1768,7 +1784,7 @@ let create_expr () =
                 [ LIDENT "treestats" -> `TreesStats ] |
                 [ LIDENT "searchstats" -> `SearchStats ] |
                 [ LIDENT "treecosts" -> `TreeCosts ] |
-                [ LIDENT "kolmo_machine" -> `KolmoMachine ] |
+(*                [ LIDENT "kolmo_machine" -> `KolmoMachine ] |*)
                 [ LIDENT "timer"; ":"; x = STRING -> `TimeDelta x ] |
                 [ LIDENT "_mst" -> `MstR ] | 
                 [ LIDENT "consensus"; x = OPT optional_integer_or_float -> 
@@ -1784,17 +1800,16 @@ let create_expr () =
                 [ LIDENT "clades" -> `Clades ] |
                 [ LIDENT "phastwinclad" -> `FasWinClad ] | 
                 [ LIDENT "nexus" -> `Nexus ] | 
-                [ LIDENT "lkmodel"; ":"; left_parenthesis; 
-                    x = old_identifiers; right_parenthesis -> `Model x ] | 
+                [ LIDENT "lkmodel"; ":"; x = old_identifiers -> `Model x ] | 
                 [ LIDENT "lkmodel" -> `Model `All ] | 
                 [ LIDENT "script" -> `Script (!console_script) ] |
                 [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |
                 [ LIDENT "pairwise" -> `Pairwise `All ] |
-                [ LIDENT "seq_stats"; ":"; ch = old_identifiers ->
-                    `SequenceStats ch ] |
+                [ LIDENT "seq_stats"; ":"; ch = old_identifiers -> `SequenceStats ch ] |
+                [ LIDENT "seq_stats" -> `SequenceStats `All ] |
                 [ LIDENT "ci"; ":"; ch = old_identifiers -> `Ci (Some ch) ] |
-                [ LIDENT "ri"; ":"; ch = old_identifiers -> `Ri (Some ch) ] |
                 [ LIDENT "ci" -> `Ci None ] |
+                [ LIDENT "ri"; ":"; ch = old_identifiers -> `Ri (Some ch) ] |
                 [ LIDENT "ri" -> `Ri None ] |
                 [ LIDENT "compare"; ":"; left_parenthesis; complement = boolean;
                     ","; ch1 = old_identifiers; ","; ch2 = old_identifiers;
@@ -2560,6 +2575,7 @@ string] list)  =
     do_analysis optimize (List.flatten res)
 
 and do_analysis optimize res =
+    if debug then Printf.printf "do analysis,optimize=%b\n%!" optimize;
     if optimize then Analyzer.analyze res
     else res
 
@@ -2579,16 +2595,24 @@ and of_parsed optimize lst =
     res
 
 and of_stream optimize str =
+    if debug then
+    Printf.printf "poyCommand.of_stream start,\n%!";
     let cur_directory = Sys.getcwd () in
     let expr = create_expr () in
     let res = 
         str (* --> add_command_to_console_script *)
             --> Gram.parse expr (Loc.mk "<stream>")
             --> transform_all_commands
+    in
+    if debug then
+        Printf.printf "commands list len=%d\n%!" (List.length res);
+    let res = res
             --> List.map (process_commands false)
             --> List.flatten
             --> do_analysis optimize
     in
+    if debug then
+        Printf.printf "commands list len2=%d\n%!" (List.length res);        
     let cur_directory = simplify_directory cur_directory in
     Sys.chdir cur_directory;
     res
