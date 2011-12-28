@@ -1368,7 +1368,7 @@ let create_expr () =
             ];
         ml_gap_options :
             [ [ LIDENT "missing" -> `Missing ] |
-              [ LIDENT "independent" -> `Independent] |
+              [ LIDENT "character" -> `Independent] |
               [ LIDENT "coupled" -> `Coupled 1.0 ] |
               [ x = integer_or_float -> `Coupled (float_of_string x) ] ];
         ml_gaps:
@@ -1430,7 +1430,7 @@ let create_expr () =
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
                         let v,w,x,y,z = process_likelihood_commands lst in
-                        `UseLikelihood (v,w, x, y, z) ] |
+                        `UseLikelihood (v, w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
