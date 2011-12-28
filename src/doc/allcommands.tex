@@ -3193,11 +3193,12 @@
 
         \begin{argumentgroup}{Likelihood transformation methods}
             This set of arguments enables analysis using several variants of the
-            maximum likelihood criterion.
+            maximum likelihood criterion. 
 
             \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gapmode,cost)}}
-                {Transforms the characters to either static or dynamic likelihood
-                characters using the specified model.}
+                {Transforms the specified characters to either static or dynamic
+                likelihood characters. All arguments are optional; the defaults
+                are presented in the sub-sections below.}
                 {likelihood}
 
             \begin{statement}
@@ -3211,21 +3212,33 @@
             \begin{statement}
                 It is important to note that dynamic likelihood characters
                 necessarily include gaps/indels as a state in the character
-                alphabet. See information for \poycommand{gapmode()}, below.
+                alphabet. See information for \poycommand{gapmode}, below.
             \end{statement}
 
             \argumentdefinition{model}{}
                 {Defines the reversible stochastic Markov model of evolution.
                 Models in POY, as in other standard likelihood implementations,
-                employ globally homogeneous models (jayaswal2005), which
+                employ globally homogeneous models (jayaswal 2005), which
                 estimate rates using a single matrix over the entire topology.
                 POY requires a model of character substitution to be specified
-                during the transformation to likelihood characters. Valid models are:
+                during the transformation to likelihood characters.
+
+                Parameters can be specifed by following the model name with a
+                colon, left parenthesis, and a list of numbers for the
+                particular model, followed by a closing parenthesis, (ie,
+                k2p:(2.0) )
+
+                \begin{statement}
+                    All matrices are normalized so the mean rate is one. This
+                    allows branch lengths to represent the expected number of
+                    transformations averaged over the sequence length.
+                \end{statement}
 
                 \begin{description}
 
                     \argumentdefinition{jc69/neyman}{}
-                        {The model of Jukes and Cantor (1969). A single rate
+                        {The model of Jukes and Cantor (1969) under nucleotide
+                        data, or Neyman (1971) in general. A single rate
                         class. All equilibrium frequencies are forced to be
                         equal. This model will work for any size alphabet.}
                         {jc69}
@@ -3250,11 +3263,20 @@
                         {f84}
 
                     \argumentdefinition{hky85}{}
-                        {Three rate classes: transversions (purine /
-                        pyrimidine), and independent classes for purine-purine
-                        and pyrimidine-pyrimidine transitions. Rates are also
-                        proportional to equilibrium frequencies.}
+                        {The model of Hasegawa (1984,1985). Three rate classes:
+                        transversions (purine / pyrimidine), and independent
+                        classes for purine-purine and pyrimidine-pyrimidine
+                        transitions. Rates are also proportional to equilibrium
+                        frequencies.}
                         {hky85}
+
+                    \argumentdefinition{tn93}{}
+                        {The model of Tamura and Nei (1993).  Three rate
+                        classes: transversions (purine / pyrimidine), and
+                        independent classes for purine-purine and
+                        pyrimidine-pyrimidine transitions. Rates are also
+                        proportional to equilibrium frequencies.}
+                        {tn93}
 
                     \argumentdefinition{gtr}{}
                         {The model of Tavar\'{e} (1986). The most general
@@ -3292,37 +3314,55 @@
             {model}
 
             \argumentdefinition{rates}{}
-                {Specifies the nature of among-site rate variation. Rate
+                {Specifies the distribution of rates among sites. Rate
                 variation distributions allow multipliers to be applied to
                 separate groups of characters. This additional parameterization
                 frequently improves observed likelihood scores.
                 Commonly-employed distributions for parameterizing among-site
                 variation are the gamma distribution ($\Gamma$) and this
                 distribution with an additional invariable rate class, the theta
-                distribution ($\Theta$).
+                distribution ($\Theta$). This is only useful for more then two
+                taxa.
                 
-                It should be noted that although many researchers apply both a
-                gamma and theta in likelihood analyses, the parameter values
-                inferred are correlated (Sullivan, 1999).  It has therefore been
-                recommended that a proportion of invariant sites be
-                ``pseudo''-estimated by increasing the number of discrete
-                categories for the gamma distribution to account for very low
-                rate character groups. The mean of each class is used to define
-                the rate for the discrete category.
+                \begin{statement}
+                    Under MAL the rates are naturally averaged across the
+                    discreete distribution, while under MPL we select the best
+                    rate class for the assignment of each character. Because
+                    dynamic likelihood characters alignment matrix would select
+                    one rate class for alignment and this is equivlent to a
+                    constant muliplication of the branch length, dynamic mpl
+                    characters do not support rate distribution. These are
+                    automatically taken out if applied during a transform and a
+                    warning of that affect is reported.
+                \end{statement}
+
+                \begin{statement}
+                    It should be noted that although many researchers apply both
+                    a gamma and theta in likelihood analyses, the parameter
+                    values inferred are correlated (Sullivan, 1999).  It has
+                    therefore been recommended that a proportion of invariant
+                    sites be ``pseudo''-estimated by increasing the number of
+                    discrete categories for the gamma distribution to account
+                    for very low rate character groups. The mean of each class
+                    is used to define the rate for the discrete category.
+                \end{statement}    
 
                 \begin{description}
 
-                    \argumentdefinition{gamma}{}
-                        {Apply a gamma distribution, $\gamma(\alpha,\beta)$, of
-                        rate variation across characters. The mean rate for the
-                        distribution is set to 1.0 ($\alpha = \beta$), thus one
-                        addtional parameter is estimated.}
+                    \argumentdefinition{gamma[:(N,$\alpha$)]}{}
+                        {Apply a discreet gamma distribution of N classes,
+                        $\gamma(\alpha,\beta)$, of rate variation across
+                        characters. The mean rate for the distribution is set to
+                        1.0 ($\alpha = \beta$), thus one addtional parameter is
+                        estimated. The default for N is 4. If $\alpha$ is
+                        not given the parameter is optimized.}
                         {gamma}
 
-                    \argumentdefinition{theta}{}
-                        {Apply a gamma distribution with an additional
-                        invariable rate class optimized to be the proportion of
-                        invariant sites in the data.}
+                    \argumentdefinition{theta[:(N,$\alpha$,\%]}{}
+                        {Apply a discreet gamma distribution with an additional
+                        invariable rate class (thus N+1 rate classes in total).
+                        The default for N is 4. $\alpha$ and \% are optimized if
+                        not given.}
                         {theta}
 
                     \argumentdefinition{none}{}
@@ -3347,7 +3387,7 @@
 
                         \argumentdefinition{equal}{}
                             {Constrains each of the equilibrium frequencies to be
-                            $\frac{1}{r}$, where $r$ is the character alphabet size.}
+                            $\frac{1}{a}$, where $a$ is the character alphabet size.}
                             {equal}
 
                         \argumentdefinition{estimate}{}
@@ -3356,7 +3396,8 @@
                             Under dynamic likelihood, the indel equilibrium
                             frequency is estimated to be the minimum number of
                             indels required to align all the sequences, $\pi_{gap} =
-                            \sum_i=0^n ||S_{\hat{i}}|| - ||S_i||$, where
+                            \frac{\sum_{i=0}^n |S_{\hat{i}}| - |S_i|}{n
+                            |S_{\hat{i}}|}$, where
                             $S_{\hat{i}}$ is the longest sequence.}
                             {estimate}
 
@@ -3394,16 +3435,36 @@
                             likelihood. However, several studies have noted that
                             parameters under this criterion may not be identifiable
                             (citation needed) and that the method may not be consistent
-                            (Mossel and Steel, 2009).}
+                            (Mossel and Steel, 2009).
+                            
+%                           % \begin{statement}
+%                           %     We use a smoothing function for the maximum
+%                           %     parsimonious likelihood on static characters
+%                           %     based off the smooth maximum (Cook 2010), thus
+%                           %     costs reported during finding optimizations may
+%                           %     be slightly off. The final costs are exact to
+%                           %     computational numerical precision.
+%                           % \end{statement}
+                            }
                             {mpl}
 
                     \end{description}}
                     {cost}
 
                 \argumentdefinition{gapmode}{}
-                    {Defines how atomistic gaps (indels) are treated in likelihood analysis. When implemented, the POY approach to indels on static likelihood characters follows McGuire et al. (2001), but expands the implementation outside the F84 model. POY is unique among likelihood implementations both by enabling indel parameterization for any reversible, stationary model applied to static characters and, more crucially, for implementing dynamic likelihood for truly simultaneous alignment and topology inference. Indel-aware models are scarce, but see Rivas and Eddy (2008), Redelings and Suchard (2005, 2007) for alternative parameterizations, and Liu et al. (2009) for an iterative approximation of simultaneous inference under the MAL criterion.
-
-                    Note that under dynamic likelihood, only the coupled option is implemented. Options are:
+                    {Defines how atomistic gaps (indels) are treated in
+                    likelihood analysis. When implemented, the POY approach to
+                    indels on static likelihood characters follows McGuire et
+                    al. (2001), but expands the implementation outside the F84
+                    model. POY is unique among likelihood implementations both
+                    by enabling indel parameterization for any reversible,
+                    stationary model applied to static characters and, more
+                    crucially, for implementing dynamic likelihood for truly
+                    simultaneous alignment and topology inference. Indel-aware
+                    models are scarce, but see Rivas and Eddy (2008), Redelings
+                    and Suchard (2005, 2007) for alternative parameterizations,
+                    and Liu et al. (2009) for an iterative approximation of
+                    simultaneous inference under the MAL criterion.
 
                     \begin{description}
 
@@ -3424,7 +3485,7 @@
                             the Q-matrix
 
                             \begin{equation*}
-                                Q_{coupled} =
+                                Q =
                                     \begin{bmatrix}
                                         -3 \alpha - \beta & \alpha & \alpha & \alpha & \beta \\
                                         \alpha & -3 \alpha - \beta & \alpha & \alpha & \beta \\
@@ -3443,31 +3504,13 @@
                             by the trace to scale their mean rate to one.}
                             {coupled}
 
-                        \argumentdefinition{independent}{}
-                            {Specifies that atomistic indels are a character,
-                            with rates of nucleotide-to-indel substitution
-                            constrained to be estimated separately. For example,
-                            the Q-matrix
-
-                            \begin{equation*}
-                                Q_{independent} =
-                                    \begin{bmatrix}
-                                        -3 \alpha - \chi & \alpha & \alpha & \alpha & \chi \\
-                                        \alpha & -3 \alpha - \kappa & \alpha & \alpha & \kappa \\
-                                        \alpha & \alpha & -3 \alpha - \mu & \alpha & \mu \\
-                                        \alpha & \alpha & \alpha & -3 \alpha - \gamma & \gamma \\
-                                        \chi & \kappa & \mu & \gamma & - \chi - \kappa - \mu - \gamma
-                                    \end{bmatrix}
-                            \end{equation*}
-
-                            specifies a Jukes-Cantor matrix augmented to
-                            estimate each nucleotide-to-indel substitution as a
-                            unique rate separate from nucleotide-to-nucleotide
-                            substitutions. In accordance with other likelihood
-                            implementations, the diagonal entries of the
-                            Q-matrix are normalized by the trace to scale their
-                            mean rate to one.}
-                            {independent}
+                        \argumentdefinition{character}{}
+                            {Specifies that atomistic indels are a character
+                            without adding an additional rate class --except
+                            under GTR where we keep the unrestricted nature of the
+                            model intact, and each indel-nucleotide rate has its
+                            own class.}
+                            {character}
 
                     \end{description}}
                 {gapmode}
