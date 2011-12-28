@@ -24,7 +24,6 @@
 #include <time.h>
 
 #undef __SSE3__
-
 #ifdef __SSE3__
 #include <pmmintrin.h>      //SSE instrinsics
 #endif

@@ -703,22 +703,6 @@ let move_handle id ptree =
 let fix_handle_neighbor h n ptree =
     { ptree with tree = Tree.fix_handle_neighbor h n ptree.tree }
 
-(* 
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    How do we specify that edges have no data and no need to update
-    edge data ? 
-    let rev_edge pt edge = 
-        let Tree.Edge(e1, e2) = edge in
-        let rev = Tree.Edge(e2, e1) in
-        let ed = (get_edge_data edge pt) in
-        let pt = (remove_edge_data edge pt) in
-        let pt = (add_edge_data rev ed pt) in
-            pt
-    in
-        (List.fold_left rev_edge ptree edges)
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-*)
-
 (** [pre_order_node_visit f id ptree acc]
     Function to perform a pre order node visit on the tree.
     See {!Tree.pre_order_node_visit} *)
