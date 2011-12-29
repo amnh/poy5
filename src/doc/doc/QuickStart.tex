@@ -1,10 +1,15 @@
-hg push\chapter{\poy Quick Start}
+\chapter{\poy Quick Start}
 
 \section{Requirements: software and hardware}
 
 \subsection{Software}
-\poy is a platform-independent, open-source program that can be compiled for many operating systems and hardware configurations, including Mac OSX, Microsoft Windows XP, and Linux. %\poy \emph{binaries}\index{general}{binaries} (compiled application file) is the only piece of software necessary to run \poy%. 
-The intuitive graphical user interface of \poy provides all the functionality for running analyses using pull-down menus and field selections, as well as creating and running \poy scripts. Some utility programs (such as Notepad and Ghostscript for Windows, TextEdit for Mac, or Nano for Linux), can help preparing \poy scripts and formatting data files, while others (such as Adobe Acrobat) can facilitate viewing the graphical output in PDF (Portable Document Format).
+\poy is a platform-independent, open-source program that can be compiled for many operating systems 
+and hardware configurations, including Mac OSX, Microsoft Windows XP, and Linux. %\poy \emph{binaries}
+%\index{general}{binaries} (compiled application file) is the only piece of software necessary to run \poy%. 
+The intuitive \emph{Graphical User Interface} of \poy provides all the functionality for running analyses using pull-down 
+menus and field selections, as well as creating and running \poy scripts. Some utility programs (such as Notepad 
+and Ghostscript for Windows, TextEdit for Mac, or Nano for Linux), can help preparing \poy scripts and formatting 
+data files, while others (such as Adobe Acrobat) can facilitate viewing the graphical output in PDF (Portable Document Format).
 
 \subsection{Hardware}
 \poy runs on a variety of computers from laptops and desktops to Beowulf clusters 
@@ -13,7 +18,8 @@ particular requirements for disk space, but XML and diagnosis report files can b
 
 \section{Obtaining and installing \poy}
 \subsection{Installing from the binaries}
-\poy installers for Linux, Windows XP, and Mac OSX, source code, and documentation in PDF format are available from the \poy Download website at the \hl{American Museum of Natural History Computational Sciences}:
+\poy installers for Linux, Windows XP, and Mac OSX, source code, and documentation in PDF format are available from 
+the \poy Download website at the \hl{American Museum of Natural History Computational Sciences}:
 
 \begin{center}
 \url{http://research.amnh.org/scicomp/projects/poy.php}
@@ -21,7 +27,7 @@ particular requirements for disk space, but XML and diagnosis report files can b
 The latest source code can also be obtained from \poy Google Group website:
 \begin{center}
 \url{http://code.google.com/p/poy4/source}
-\hl{new link needed}
+\hl{new link}
 \end{center}
 The following detailed step-by-step instructions will guide you through downloading and installing \poy \emph{binaries} for various platforms.
 
@@ -36,11 +42,18 @@ The following detailed step-by-step instructions will guide you through download
 		\begin{itemize}
 			\item
                 Download the
-                \href{http://research.amnh.org/scicomp/projects/poy.php}{\emph poy5} folder to the desktop by selecting the \emph{Windows} download link. \hl{This should cover WINXP and Windows 7} 
+                \href{http://research.amnh.org/scicomp/projects/poy.php}{\emph poy5} folder to the desktop by 
+                selecting the \emph{Windows} download link.
 
 			\item 
-           Open the \emph{POY\_Installer.exe} from the \emph{poy5} folder and follow the installation instructions. You will need Administrator privileges to install the application. 
-           By default, the Windows version of \poy is installed without parallel execution support. If you have Windows XP SP2, Windows Vista or Windows 7 and possess more than one core or processor, you can take advantage of this processing power by installing the parallel components \href{http://www-unix.mcs.anl.gov/mpi/}{MICH2}. Note: The developers encountered problems when using MICH2 1.4.1.p1, therefore it is advised that the user install MICH2 1.4, where no problems were encountered.
+           Open the \emph{POY\_Installer.exe} from the \emph{poy5} folder and follow the installation instructions. 
+           You will need Administrator privileges to install the application. 
+           By default, the Windows version of \poy is installed without parallel execution support. If you have 
+           Windows XP SP2, Windows Vista or Windows 7 and possess more than one core or processor, you 
+           can take advantage of this processing power by installing the parallel components 
+           \href{http://www-unix.mcs.anl.gov/mpi/}{MICH2}. 
+           Note: The developers encountered problems when using MICH2 1.4.1.p1, therefore it is advised that the 
+           user install MICH2 1.4, where no problems were encountered.
           \end{itemize}
 
 	\begin{minipage}[c]{0.074\textwidth}
@@ -53,9 +66,11 @@ The following detailed step-by-step instructions will guide you through download
 	            \begin{itemize}
 			\item Download
             \href{http://research.amnh.org/scicomp/projects/poy.php}{\emph{poy-buildXXXX.dmg}} disk image 
-             to the desktop. The complete installation of the Mac OSX version of \poy includes \hl{MPICH2 1.4.1}, which is used to communicate processes during parallel execution.
+             to the desktop. The complete installation of the Mac OSX version of \poy includes MPICH2 1.4.1, 
+             which is used to communicate processes during parallel execution.
             		\item Drag the \poy application from the disk \emph{poy5} and drop it into the \emph{Applications}
-            folder on the hard drive.  Note: During the first execution in parallel you will be asked by the Firewall to unblock \poy and MPICH, this is necessary for the successful execution of the program.
+            folder on the hard drive.  Note: During the first execution in parallel you will be asked by the Firewall to 
+            unblock \poy and MPICH, this is necessary for the successful execution of the program.
 		\end{itemize}
 
 	\begin{minipage}[c]{0.074\textwidth}
@@ -66,55 +81,77 @@ The following detailed step-by-step instructions will guide you through download
 	   	\subsubsection*{Linux}
 	\end{minipage}
 		\begin{itemize}
-			\item  Download the 
-    \href{http://research.amnh.org/scicomp/projects/poy.php}{gzipped} file.
-    			\item Untar and ungzip the \emph{poy-buildXXX.tar.gz} file.
-			\item Run the command \texttt{tar -Pxvzf poy5.tar.gz} as a
-    super user in the newly created \emph{poy5} directory.
-    The GUI will be installed in \texttt{/opt/poy5/Contents/POY} directory
-    and terminal binaries in \texttt{/opt/poy5/Resources/ncurses\_poy} directory.
-    			\item The following packages are required to guarantee the proper functioning of the many options available in \poy: BLAS, LAPACK, MPICH2, ncurses, readline, XSLT, XML2 ....
+			\item  No binaries are available for the Linux operating system.  The user should compile
+			\poy directly from the source (see Section~\ref{Compilingfromsource}). 
 		\end{itemize} 
 
 \end{flushleft}
 
 \subsection{Compiling from the source}
+\label{Compilingfromsource}
 
-For the majority of users, downloading the binaries from the \poy download site will suffice.  However, in some cases it may be %either necessary: analysis of chromosomal and genomic data (\textgreater16383 nucleotides long); \hl{likelihood analyses}; or if working with large alphabets (\textgreater255 elements), or%
- desirable--user preference for working in a command-line environment or running \poy analyses in parallel (in the case of Linux machines or on a cluster computer)--to compile \poy directly from the source code (see Table %\ref{InterfaceGuide} and%
-  \ref{ParallelizationGuide}). If the user chooses to compile, it is advisable to check out the various configuration options that can be found in {\tt ./configure --help}. \\
+For the majority of users, downloading the binaries from the \poy download site will suffice.  However, in 
+some cases it may be %either necessary: analysis of chromosomal and genomic data (\textgreater16383 
+%nucleotides long); \hl{likelihood analyses}; or if working with large alphabets (\textgreater255 elements), or%
+ desirable--user preference for working in a command-line environment or running \poy analyses in parallel 
+ (in the case of Linux machines or on a cluster computer)--to compile \poy directly from the source code (see 
+ Table %\ref{InterfaceGuide} and% 
+  \ref{ParallelizationGuide}). If the user chooses to compile, it is advisable to check out the various configuration 
+  options that can be found in {\tt ./configure --help}. \\
 \\
 In order to compile \poy the following tools are required:
 
 \begin{enumerate}
-    \item The \href{http://www.gnu.org/software/make/}{GNU Make 3.8} utility. \hl{same versions?}
-    \item OCaml \href{http://www.ocaml.org}{version 3.10.0.} or later. \hl{same versions?}
+    \item The \href{http://www.gnu.org/software/make/}{GNU Make 3.8} utility. 
+    \item OCaml \href{http://www.ocaml.org}{version 3.11.2.} or later. 
     \item A C compiler, for example \href{http://gcc.gnu.org/} {The GNU Compiler Collection.}
     \item \href{http://www.zlib.net}{The zlib compression library.}
-    \item The Linear Algebra PACKage \href {http://www.netlib.org/lapack/}{LAPACK} must be installed in order to use the likelihood option.
-    \item The \href{http://www.gnu.org/s/ncurses} {ncurses library} is necessary to compile the default interface, i.e. \emph{ncurses} or the interactive console. If this library is not available, the \emph{flat} interface will be compiled instead.
-   \item The Message Passing Interface \href{http://www-unix.mcs.anl.gov/mpi/}{MICH2}, which is used to communicate processes during parallel execution.
-  %  the complete installation includes MPICH2 \hl{1.06 p1}. MPICH is used to communicate processes during parallel execution (if you didn't know what it is you most likely don't have it), select the custom installation option and remove that component. During the first execution in parallel you will be asked by the Windows Firewall to unblock \poy and MPICH: this is necessary for the successful execution of the program.
+    \item The Linear Algebra PACKage \href {http://www.netlib.org/lapack/}{LAPACK} must be installed in order to 
+    use the likelihood option.
+    \item The \href{http://www.gnu.org/s/ncurses} {ncurses library} is necessary to compile the default interface, 
+    i.e. \emph{ncurses} or the interactive console. If this library is not available, the \emph{flat} interface will be 
+    compiled instead.
+   \item The Message Passing Interface \href{http://www-unix.mcs.anl.gov/mpi/}{MICH2}, which is used to communicate 
+   processes during parallel execution.
+  %  the complete installation includes MPICH2 \hl{1.06 p1}. MPICH is used to communicate processes during 
+  %parallel execution (if you didn't know what it is you most likely don't have it), select the custom installation option 
+  %and remove that component. During the first execution in parallel you will be asked by the Windows Firewall to 
+  %unblock \poy and MPICH: this is necessary for the successful execution of the program.
 \end{enumerate}
 Download, ungzip, and untar the
-\href{http://research.amnh.org/scicomp/projects/poy.php}{\poy source code}.  In a terminal window, change directories to the path of this uncompressed directory.  In order to compile under default setting type:
+\href{http://research.amnh.org/scicomp/projects/poy.php}{\poy source code}.  In a terminal window, change directories 
+to the path of this uncompressed directory.  In order to compile under default setting type:
 \begin{verbatim}
 	./configure
 	make
 	make install
 \end{verbatim}
 
-This script will compile both the \emph{Graphical User Interface} and \emph{Interactive Console} or \emph{ncurses} interface.  Another configuration option includes a \emph{readline} interface.  Similar to the \emph{ncurses} interface, this allows for the use of arrow keys to modify commands and browse command history.  An \emph{html} interface is  available. A \emph{flat} interface is also available that supports the running of the program in parallel irrespective of the operating system. This version is run through a terminal window. In order to run \poy in parallel environments, \href{http://www-unix.mcs.anl.gov/mpi/}{Message Passing Interface} must be invoked. More than likely, your system administrator already has one installed and should be able to provide you with the proper paths to set your config file. In order to compile this \emph{flat} version with parallel support type: 
+This script will compile both the \emph{Graphical User Interface} and \emph{Interactive Console} or \emph{ncurses} 
+interface.  Another configuration option includes a \emph{readline} interface.  Similar to the \emph{ncurses} interface, 
+this allows for the use of arrow keys to modify commands and browse command history.  An \emph{html} interface is  
+available. A \emph{flat} interface is also available that supports the running of the program in parallel irrespective of 
+the operating system. This version is run through a terminal window. In order to run \poy in parallel environments, 
+\href{http://www-unix.mcs.anl.gov/mpi/}{Message Passing Interface} must be invoked. More than likely, your system 
+administrator already has one installed and should be able to provide you with the proper paths to set your config file. 
+In order to compile this \emph{flat} version with parallel support type: 
 	\begin{verbatim}
 	./configure --enable-interface=flat --enable-mpi CC=mpicc
 	make
 	make install
 	\end{verbatim}
-[Note: CC=mpicc is not available for the Windows version of mpi, therefore it is not necessary to include this component in the compiling script.] %Table \ref{InterfaceGuide} should be used as a guide as to the type of interface that should be employed depending on the type of data ('standard' or 'long') and the optimality criterion (parsimony or likelihood) chosen to analyze this data.
+[Note: CC=mpicc is not available for the Windows version of mpi, therefore it is not necessary to include this component in the compiling script.] 
+
+%Table \ref{InterfaceGuide} should be used as a guide as to the type of interface that should be 
+%employed depending on the type of data ('standard' or 'long') and the optimality criterion (parsimony or likelihood) chosen to analyze this data.
 
 %\begin{table}[t] 
 %\small
-%\caption{Interface Guide. 'Standard' data equates to a molecular sequence or single partition that is less than 16383 nucleotides in length or 255 elements long, while 'long' data partitions reach lengths greater than these values. The field 'config+' indicates that the options long-sequences and/or large-alphabets must be enabled during compiling for these datatypes to be analyzed. A distinction is made between the interactive console or ncurses that is downloaded from the website (binaries) or that which is compiled from the source.}
+%\caption{Interface Guide. 'Standard' data equates to a molecular sequence or single partition that is less than 16383 
+%nucleotides in length or 255 elements long, while 'long' data partitions reach lengths greater than these values. The field 
+%'config+' indicates that the options long-sequences and/or large-alphabets must be enabled during compiling for these 
+%datatypes to be analyzed. A distinction is made between the interactive console or ncurses that is downloaded from the 
+%website (binaries) or that which is compiled from the source.}
 %\label{InterfaceGuide} 
 %\begin{center}
 %\renewcommand{\arraystretch}{1.5}
@@ -133,13 +170,25 @@ This script will compile both the \emph{Graphical User Interface} and \emph{Inte
 
 \section{The Graphical User Interface}
 
-Two of the working environments that \poy provides are the \emph{Graphical User Interface} and the \emph{Interactive Console} (also known as  \emph{ncurses} interface). The \emph{Graphical User Interface} has a user-friendly appearance like other native stand-alone applications where different functions are accessible through menus and windows. Thus, the entire analysis can be carried out by clicking on appropriate selections and, where necessary, typing specifications in designated fields. Currently, the \emph{Graphical User Interface} is appropriate for the analysis of data with parsimony as the  optimality criterion or with likelihood, with minimal model selection.  
+Two of the working environments that \poy provides are the \emph{Graphical User Interface} and the 
+\emph{Interactive Console} (also known as  \emph{ncurses} interface). The \emph{Graphical User 
+Interface} has a user-friendly appearance like other native stand-alone applications where different 
+functions are accessible through menus and windows. Thus, the entire analysis can be 
+carried out by clicking on appropriate selections and, where necessary, typing specifications in 
+designated fields. Currently, the \emph{Graphical User Interface} is appropriate for the analysis of 
+data with parsimony as the  optimality criterion or with likelihood, with minimal model selection.  
 
-On the other hand, the \emph{Interactive Console} requires a detailed knowledge of \poy commands, their arguments, and the conventions of \poy scripting. All these features are described in the \emph{POY Commands} chapter (\ref{commands}).
+On the other hand, the \emph{Interactive Console} requires a detailed knowledge of \poy commands, 
+their arguments, and the conventions of \poy scripting. All these features are described in the 
+\emph{POY Commands} chapter (\ref{commands}).
 
-Even though the Mac OSX version of the \emph{Graphical User Interface} is used for screen shots throughout this chapter, the Windows and Linux(GTK+) versions contain the same items and functionality, differing only in the generic window format specific to each platform.
+Even though the Mac OSX version of the \emph{Graphical User Interface} is used for screen 
+shots throughout this chapter, the Windows and Linux(GTK+) versions contain the same items and 
+functionality, differing only in the generic window format specific to each platform.
 
-When \poy is first opened, two items appear on the screen: the menu bar across the top and the \emph{POY Launcher} window (Figure~\ref{fig:menu_launcher_window}). (Note that in Linux and Windows the menu bar is within the launcher window.)
+When \poy is first opened, two items appear on the screen: the \poy menu bar across the top and the 
+\emph{POY Launcher} window (Figure~\ref{fig:menu_launcher_window}). (Note that in Linux and 
+Windows the menu bar is within the launcher window.)
 
 \begin{figure}[htpb]
     \begin{center}
@@ -152,14 +201,17 @@ When \poy is first opened, two items appear on the screen: the menu bar across t
 \subsection{POY menu bar}
 The menu bar contains the following drop-down menus:
 \begin{description}
-%\setlength{\labelwidth}{0pt}
-\setlength{\labelsep}{5pt}
-\setlength{\itemindent}{0pt}%
-\item[POY] (Mac OSX only) contains generic items as with other Mac OSX applications. This pull down menu allows selection of the \emph{About POY} window (Figure~\ref{fig:about_window}) that lists the current version of \poy, a copy write statement, and the address of the \poy website. In addition, it includes a \emph{Quit POY} tab that closes the program. 
-\item[Analyses]    contains options for different types of tree searches, calculation of support values, tree diagnosis, and their respective outputs. Other items in this menu open the \emph{POY Launcher} (Open Launcher) and the \emph{Interactive Console}.
+\item[POY] (Mac OSX only) contains generic items as with other Mac OSX applications. This pull down 
+menu allows selection of the \emph{About POY} window (Figure~\ref{fig:about_window}) that lists the 
+current version of \poy, a copy right statement, and the address of the \poy website. In addition, it includes 
+a \emph{Quit POY} tab that closes the program. 
+\item[Analyses]    contains options for different types of tree searches, calculation of support values, tree 
+diagnosis, and their respective outputs. Other items in this menu open the \emph{POY Launcher} 
+(Open Launcher) and the \emph{Interactive Console}.
 \item[Edit] contains standard tools for undoing, cutting, copying, pasting, deleting, and selecting.
-\item[View] opens the \emph{Output} window to display the results (including warning and error messages) and the current state of the analysis. 
-This \emph{Output} window also contains an \emph{update} tab.  It also contains the \emph{About POY} menu item in Windows and Linux.  
+\item[View] opens the \emph{Output} window to display the results (including warning and error messages) 
+and the current state of the analysis. This \emph{Output} window also contains an \emph{update} tab.  
+It also contains the \emph{About POY} menu item in Windows and Linux.  
 \item[Help] opens the \poy \emph{Manual} in PDF format (requires a PDF viewer).
 \end{description}
 
@@ -173,23 +225,28 @@ This \emph{Output} window also contains an \emph{update} tab.  It also contains 
 \end{figure}
 
 \subsection{POY Launcher} 
-The \emph{POY Launcher} is the only window that automatically opens upon starting \poy. This allows the user to import a previously created script, designate a working directory, specify the number of processors, and start the analysis.
+The \emph{POY Launcher} is the only window that automatically opens upon starting \poy. This allows the user to 
+import a previously created script, designate a working directory, specify the number of processors, and start the analysis.
 
 \begin{description}
-%\setlength{\labelwidth}{0pt}
-\setlength{\labelsep}{5pt}
-\setlength{\itemindent}{0pt}%
-	 \item[Select the script to run]
-     Allows the user to specify the location of a \poy script.
-	\item[Select the working directory]
-    The working directory is the
-    directory that contains the input data and output files. By default, the working directory is set to be the same as the
-    directory containing the selected \poy script. 
-	\item[Select the number of processors]
-    If more than one computer processor is available, up to 8 cores can be designated for running the analysis. It is important to note that once specified, the selection is applied to \emph{all} subsequent analyses in the current \poy session. The selection of the number of processors is disabled for Linux platforms. Table \ref{ParallelizationGuide} is a guide to the parallelization ability of \poy depending on the operating system and the \poy interface being used. Note that parallelization is \emph{never} supported in interactive sessions, see Section~\ref{interactiveconsole}.
-    	\item[Run the analysis]
-    Clicking the \emph{Run} button starts the execution of the selected script. Once the script is initiated, the \emph{Run} button
-    becomes the \emph{Cancel} button that can be used to interrupt a \poy session.
+	\item[Select the script to run] 
+	Allows the user to specify the location of a \poy script.
+	\item[Select the working directory] 
+	The working directory is the directory that contains 
+	the input data and output files. By default, the working directory is set to be the same 
+	as the directory containing the selected \poy script. 
+	\item[Select the number of processors] 
+	If more than one computer processor is available, up to 
+	8 cores can be designated for running the analysis. It is important to note that once specified, the 
+	selection is applied to \emph{all} subsequent analyses in the current \poy session. The selection 
+	of the number of processors is disabled for Linux platforms. Table \ref{ParallelizationGuide} is a 
+	guide to the parallelization ability of \poy depending on the operating system and the \poy interface 
+	being used. Note that parallelization is \emph{never} supported in interactive sessions, see 
+	Section~\ref{interactiveconsole}.
+    	\item[Run the analysis] 
+	Clicking the \emph{Run} button starts the execution of the selected script. 
+	Once the script is initiated, the \emph{Run} button becomes the \emph{Cancel} button that can be 
+	used to interrupt a \poy session.
 \end{description}
 
 \begin{table}[t] 
@@ -198,7 +255,7 @@ The \emph{POY Launcher} is the only window that automatically opens upon startin
 \label{ParallelizationGuide} 
 \begin{center}
 \renewcommand{\arraystretch}{1.5}
-\begin{tabular}{p{3.0cm}  p{1.0cm}  p{2.75cm}  p{2.75cm}  p{1.0cm}} 
+\begin{tabular}{p{3.0cm}  p{1.0cm}  p{2.60cm}  p{2.60cm}  p{1.0cm}} 
 \hline
 	Operating System & GUI & Interactive Console (binaries) & Interactive Console (source) & Flat \\
 \hline
@@ -216,9 +273,14 @@ error message in the upper part of the \emph{POY Launcher} window,
 such as \texttt{POY finished with an error}.
 
 \subsection{The \emph{Analyses} menu}
-The \emph{Analyses} menu is the main toolbox of the \poy GUI interface (Figure~\ref{fig:simple_search_window}, left). Selections are subdivided into four functional categories. The first three deal with tree searching, support calculation, and tree diagnosis; the fourth one is used for  script management or interactive command execution that bypasses the menu-driven script generating. Each of the menu items is described below in the order it appears on the menu.
+The \emph{Analyses} menu is the main toolbox of the \poy GUI interface (Figure~\ref{fig:simple_search_window}, left). 
+Selections are subdivided into four functional categories. The first three deal with tree searching, support calculation, 
+and tree diagnosis; the fourth one is used for  script management or interactive command execution that bypasses the 
+menu-driven script generating. Each of the menu items is described below in the order it appears on the menu.
 
-Most options are consistently applied through different kinds of analysis. Therefore, all options are described in detail only for the \emph{Simple Search} analysis. The descriptions of other analyses are made with reference to the the \emph{Simple Search} and focus on unique options.
+Most options are consistently applied through different kinds of analysis. Therefore, all options are described in detail 
+only for the \emph{Simple Search} analysis. The descriptions of other analyses are made with reference to the the 
+\emph{Simple Search} and focus on unique options.
 
 %%%%%%%%%%%
 %Tree search options
@@ -226,12 +288,21 @@ Most options are consistently applied through different kinds of analysis. There
 
 \subsubsection{Tree searching options}
 
-A number of different tree searching options are available through the \emph{Graphical User Interface}.  These include a \emph{Simple Search}, \emph{Timed Search}, \emph{Search with Ratchet} and \emph{Search with Perturb}.
+A number of different tree searching options are available through the \emph{Graphical User Interface}.  
+These include a \emph{Simple Search}, \emph{Timed Search}, \emph{Search with Ratchet} and 
+\emph{Search with Perturb}. 
 
 \subsubsection*{\emph{Simple Search}}
-The \emph{Simple Search} window permits the analysis of a number of different data types, including a range of molecular characters (from DNA sequences to whole genomes), custom alphabet characters, and qualitative characters, under parsimony.  It is also possible to carry out a likelihood analysis of DNA sequence data under a number of different models.  
-In the most simplest sense, a typical search involves a series of steps. First, initial trees are generated by random addition sequence from the imported character data. These trees are then subjected to branch swapping, subsequent to which a subset of trees is selected for the report.
-The \emph{Simple Search} window (Figure~\ref{fig:simple_search_window}, right) provides the most common and basic options for a standard tree search in \poy that must either (in some cases or) be selected by clicking appropriate buttons or typed. Note that \emph{all the empty fields must be filled in}, otherwise the default values will be used. The window is subdivided into five sections: 
+The \emph{Simple Search} window permits the analysis of a number of different data types, 
+including a range of molecular characters (from DNA sequences to complete genomes), custom alphabet 
+characters, and qualitative characters, under parsimony.  It is also possible to carry out a likelihood 
+analysis of DNA sequence data under a number of different models.  In the most simplest sense, a 
+typical search involves a series of steps. First, initial trees are generated by random addition sequence 
+from the imported character data. These trees are then subjected to branch swapping, after which trees 
+are selected to report. The \emph{Simple Search} window (Figure~\ref{fig:simple_search_window}, right) 
+provides the most common and basic options for a standard tree search in \poy that must be selected 
+by either clicking the appropriate buttons or by typing. Note that \emph{all} the empty fields \emph{must} 
+be filled in, otherwise the default values will be used. The window is subdivided into five sections: 
 
 \begin{figure}
 \centering
@@ -243,64 +314,209 @@ The \emph{Simple Search} window (Figure~\ref{fig:simple_search_window}, right) p
 	   	\includegraphics[width=\textwidth]{doc/figures/simplesearch_window.jpg}
    	\end{minipage}
 	
-\caption{The \emph{Simple Search} window. Selecting \emph{Simple Search} from the \emph{Analysis} menu (left) opens the \emph{Simple Search} window options (right).}
+\caption{The \emph{Simple Search} window. Selecting \emph{Simple Search} from the \emph{Analysis} menu (left) 
+opens the \emph{Simple Search} window options (right).}
 \label{fig:simple_search_window}
 \end{figure}
 
 \begin{description}
-%\setlength{\labelwidth}{0pt}
-\setlength{\labelsep}{5pt}
-\setlength{\itemindent}{0pt}%
+\setlength{\parindent}{0.5cm}
     \item[Input Files]
-        Contains the list of files that are to be input into \poy. These include
-        character files in nucleotide, Hennig86, and Nexus formats as well as tree files. 
-        (Character data in other formats can be input by specifying additional arguments in the script. 
-        See \ccross{read}.) Note: If a Nexus file is input, a gap-opening cost can not be specified, 
-        as gaps are independent in this file format.
+       	 Contains the list of files that are to be input into \poy. These include
+       	character files in nucleotide, Hennig86, and Nexus formats, as well as tree files. 
+       	(Character data in other formats can be input by specifying additional arguments in the script. 
+      	 See \ccross{read}.) Note: If a Nexus file is input, a gap-opening cost can not be specified, 
+      	 as gaps are treated as independent in this file format.
+    
+    \item[Search Parameters]
+        	Holds one field to set the number of independent random addition replicates to be generated.
+    
     \item[Input Parameters]
     	Holds fields to specify the optimality criterion (parsimony or likelihood), the datatype 
-	(sequence, break inversion, chromosome, custom alphabet, genome or qualitative) 
-	and whether these data types should be treated as prealigned (if possible).  
+	(sequence, chromosome, genome, custom alphabet, break inversion or qualitative) 
+	and whether these data types should be treated as prealigned (if possible). It is important to note, that in 
+	the \emph{Sequence Parameters} section for a parsimony analysis below, the user may be required 
+	to specify the cost associated with a 	\emph{Locus Breakpoint}, \emph{Locus Inversion} or 
+	\emph{Locus Indel}, depending on the data type. In these cases, \emph{Locus} should not be taken to be 
+	the functional, biological unit in the classical sense, 	but only as a homologous segment of a 
+	sequence of characters.
+	
+	\indent Currently, it is only possible to perform a likelihood analysis of DNA sequences and 
+	not of the other character types. These sequences can be prealigned.  A description of the
+	\emph{Likelihood Model Parameters} follows the \emph{Sequence Parameters} required for 
+	a parsimony analysis below.
+	
     \item[Sequence Parameters]
-        Holds fields to specify the substitution, indel, and gap opening costs. Enter \texttt{0} if no
+        Holds fields to specify the substitution, indel, and gap opening costs of sequences. Enter \texttt{0} if no
         gap opening cost is desired. If the value of a parameter is not specified, the default values 
-        are used. The default value for both substitutions and insertion deletion events is 1. 
-        Within Sequence Parameters an additional subsection is invoked depending on the 
+        are used. The default value for both substitutions and insertion deletion events is \texttt{1} 
+        and that of gap-opening is \texttt{0}. 
+        Within Sequence Parameters, an additional subsection is invoked depending on the 
         character type (except for \emph{Sequence} characters, where only indel, substitution 
-        and gap opening costs are involved).
+        and gap opening costs are involved).  For more detailed explanations of the different data types 
+        see below and  \poycommand{transform}.
 \end{description}   
      
-        \begin{itemize} 
-        		\item \textbf{Break Inversion Parameters} Break Inversion Characters are those that ...
-		Holds a drop down menu wherein the user specifies
-		 whether \emph{Locus Inversion} or \emph{Locus Breakpoint} \hl{(hyperlink to commands)}
-		 costs are calculated.
-		 The default cost for both \emph{Locus Inversion} and \emph{Locus Breakpoint} is set to 10. 
-		 In addition, the \emph{Level} must also be specified.  \hl{The level ....}  The higher the \emph{Level}, 
-		 the greater the heuristic, but this will be both computationally and temporally expensive. 
-		 The default level for both is set to 2.  Note: for this character type, the data can not be prealigned.
-       		\item  \textbf{Chromosome and Mauve Parameters} 	Locus Breakpoint Cost/Locus Inversion Cost: default 10\\
-        				Locus Indel Opening Cost: default 10\\
-				Locus Indel Exte
-		\item \textbf{Custom Alphabet Parameters}
-		\item \textbf{Genome Parameters}
-		\item \textbf{Qualitative Parameters} Qualitative data are any non-sequence, prealigned 
-		data type (e.g. morphological, behavioral). These character types are optimized as additive, 
-		non-additive or Sankoff characters. This information should be found in the data file.
-	\end{itemize}    
 \begin{description}
 %\setlength{\labelwidth}{0pt}
 \setlength{\labelsep}{5pt}
 \setlength{\itemindent}{0pt}%
-    \item[Search Parameters]
-        Holds one field to set the number of independent random addition replicates to be generated.
-    \item[Output Files]
-        Designates the names and locations of files containing different kinds of results of the analysis. 
-By default, all of these output options are generated, with default names applied.  The names can then be changed 
-in the generated script or the option can be removed entirely.  As implied by their respective titles, the \emph{tree} 
-buttons output trees in both parenthetical and postscript form.
-        \hl{Need to give descriptions of output files here, diagnosis and analyzed data information are not intuitive.
-        Also, the different output buttons generate a file, but this is not saved in the script}
+\setlength{\parindent}{0.5cm}
+	\item [Chromosome Parameters] \emph{Chromosome} characters are multi-locus 
+		nucleotide sequences and can include nuclear chromosomes, as well as, mitochondrial 
+		and viral genomes. It is possible to submit either \emph{Annotated} or \emph{Unannotated} 
+		chromosomes. Within \emph{Annotated} chromosomes,  homologous regions, such as loci,
+		are separated with the pipe symbol\\ `` $\vert$ ''.  \emph{Unannotated} chromosomes are entirely 
+		without delimiters. For \emph{Unannotated} chromosomes, the Mauve Parameters, must be set
+		by the user.  These parameters (\emph{Max. Match, Min. Match, Match Quality} and \emph {Match 
+		Coverage})
+		 are employed by the Mauve aligner to find regions of homology or synteny blocks 
+		 between chromosomes (see the argument~\nccross{annotate}{chromosomeannotate} 
+		 within the chromosomal transformation methods of the command \poycommand{transform}). 
+		 Default values for these parameters are provided in the \emph{GUI}.
+		            	
+		\indent Within this subsection it is necessary to specify both \emph{Locus Indel} and rearrangement 
+		(\emph{Locus Breakpoint} or \emph{Locus Inversion}) costs.  The cost of a \emph{Locus Indel} 
+		is by default set to 10 plus 0.9 times the length of the locus (see the argument~\nccross{locus\_indel}
+		{chromosomelocusindel}  within the chromosomal transformation methods of the command 
+		\poycommand{transform}). Rearrangements of homologous regions (as defined by the user in 
+		the case of \emph{Annotated} chromosomes or as determined by the Mauve aligner as in 
+		\emph{Unannotated} chromosomes) are then optimized using either \emph{Locus Breakpoint} 
+		or \emph{Locus Inversion} costs (see the arguments~\nccross{locus\_breakpoint}
+		{chromosomelocusbreakpoint} and~\nccross{locus\_inversion}{chromosomelocusinversion}
+		 within the chromosomal transformation methods of the command \poycommand{transform}). 
+		 The default cost for both is set to 10. The user must also specify the 
+		\emph{Median solver} for the optimization of rearrangements. The default median solver is 
+		\emph{Caprara}, but the user can alternatively choose \emph{BBTSP, Coaletsp, 
+		Chainlk, Siepel, Simpllk} and \emph{Vinh} (see the argument~\nccross{median\_solver}
+		{chromosomemediansolver} within the chromosomal transformation methods of the command 
+		\poycommand{transform}).
+		
+		\indent The user must also specify whether the chromosome is \emph{Circular} (true) or linear (false).
+		Due to restrictions placed by the provided median solvers, it is not possible to submit pre-aligned 
+		data files for both \emph{Annotated} and \emph{Unannotated} chromosomes. 
+		
+		
+	\item [Genome Parameters] \emph{Genome} characters are multi-locus, multi-chro-mosomal nucleotide 
+		sequences, wherein transformations (i.e. indels, substitutions, and rearrangements) are optimized 
+		at the sequence, locus \emph{and} chromosomal level.  Within the genome data file, individual 
+		chromosomes are separated by the  ``\atsymbol'' symbol and the individual chromosomes remain 
+		\emph{Unannotated}. 
+		
+		\indent As with \emph{Unannotated Chromosome} characters, homologous regions are determined 
+		using the Mauve parameters \emph{Max. Match, Min. Match, Match Quality} and 
+		\emph {Match Coverage}. Default values for these parameters are provided in the \emph{GUI}.
+		The \emph{Locus Indel} and rearrangement (\emph{Locus Breakpoint} or \emph{Locus Inversion}) 
+		costs are set by the user. The cost of a \emph{Locus Indel} is by default set to 10 plus 0.9 times 
+		the length of the locus (see the argument~\nccross{locus\_indel} {chromosomelocusindel}  
+		within the 	chromosomal transformation methods of the command \poycommand{transform}). 
+		Rearrangements of homologous regions, as determined  by the Mauve aligner, are then 
+		optimized using either \emph{Locus Breakpoint} or \emph{Locus Inversion} costs 
+		(see the arguments~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} 
+		and~\nccross{locus\_inversion}{chromosomelocusinversion} within the chromosomal 
+		transformation methods of the command \poycommand{transform}). 
+		The default cost for both is set to 10. A \emph{Median solver} must also be specified for the 
+		optimization of rearrangements. The default median solver is \emph{Caprara}, 
+		but the user can alternatively choose \emph{BBTSP, Coaletsp, 
+		Chainlk, Siepel, Simpllk} and \emph{Vinh} (see the argument~\nccross{median\_solver}
+		{chromosomemediansolver} within the chromosomal transformation methods of the command 
+		\poycommand{transform}).
+		
+		\indent Two other costs must be set for the analysis of this data type--\emph{Translocation} 
+		events and \emph{Chromosome Indel}. The cost of the \emph{Translocation} of a region of one 
+		chromosome to another chromosome is set by default to 10.  The cost of the insertion or deletion
+		of an entire chromosome is by default set to 10 plus 0.9 times the length of the chromosome.
+				
+		As with \emph{Chromosome} characters, it is not possible to input pre-aligned data files, due to 
+		restrictions placed by the provided median solvers. 
+		
+	\item [Custom Alphabet Parameters] \emph{Custom Alphabet} characters are \\those that
+		are defined by the user, and come in alphabet format. With this data type, only insertion-deletion 
+		events are allowed. \emph{Custom Alphabet} characters can be input as prealigned. Within this 
+		subsection, the user must specify the heuristic \emph{Level} of the median sequence calculation.
+		\emph{Direct Optimization} is involved in median calculation in this case. Because calculating the median 
+		states between custom alphabet strings becomes more computationally intensive (and time 
+		consuming) as the number of elements in the alphabet increases, the user should select a heuristic 
+		level of median calculation appropriate for their data.  The default level is set to 2.
+		
+		\indent In addition to the data file, the user is require to upload a \emph {Cost Matrix} that specifies 
+		the substitution and indel transformation costs for alphabet elements.  By selecting the 
+		\emph {Cost Matrix} button within this subsection, the user can upload a cost matrix that 
+		specifies these costs for their custom alphabet data. For details on the format requirements for 
+		custom alphabet data files and their associated cost matrices see the 
+		argument~\nccross{custom\_alphabet}{customalphabet} within the command 	\poycommand{read}).
+
+	\item [Break Inversion Parameters] \emph{Break Inversion} characters are an enhancement of 				
+		\emph{Custom 	Alphabet} characters, in which element rearrangements are calculated, as well as
+		 substitutions and indels. The median solvers provided restrict the analysis of prealigned data. 
+		 The rearrangement costs for \emph{Break Inversion} characters can be optimized using 
+		 either \emph{Locus Breakpoint} or \emph{Locus Inversion} approaches (see the 
+		 arguments~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} and~\nccross{locus\_inversion}
+		 {chromosomelocusinversion} within the \hl{chromosomal transformation} methods of the command 
+		 \poycommand{transform}). The default cost for both is set to 10. A \emph{Median solver} must also be 
+		 specified for the optimization of rearrangements. The default median solver is \emph{Caprara}, 
+		 but the user can alternatively choose \emph{BBTSP, Coaletsp, Chainlk, Siepel, Simpllk} and 
+		 \emph{Vinh} (see the argument~\nccross{median\_solver}{chromosomemediansolver} within the 
+		 chromosomal transformation methods of the command \poycommand{transform}). Linked to the 
+		 median solver, the \emph{Level} must also be specified. The \emph{Level} specifies the heuristic 
+		 level of median sequence calculation. The calculation of median states between 
+		 \emph {Break Inversion} strings becomes more computationally intensive (and time consuming) 
+		 as the number of elements in the alphabet increases, the user should select a heuristic level 
+		 of median calculation appropriate for their data.  The default level is set to 2.
+		 
+
+		\indent The requirements for \emph{Break Inversion} character types are identical to those for 
+		 \emph{Custom Alphabet} characters, with respect to substitution and indel transformation costs. 
+		 By selecting the Cost Matrix button within this subsection, the user can upload a 
+		 cost matrix to specify these costs. The user should see the argument~\nccross{custom\_alphabet}
+		 {customalphabet} within the command \poycommand{read} for details on the format requirements 
+		 for these cost matrices, which are identical in form to those for \emph{Custom Alphabet} characters.
+ 	
+	\item [Qualitative Parameters] \emph{Qualitative} data are any non-sequence, prealigned 
+		data type (e.g. morphological, behavioral). These character types are optimized as additive, 
+		non-additive or Sankoff characters and this information should be included in the data file.
+	\end{description}
+	
+\begin{description}
+\setlength{\parindent}{0.5cm}
+	\item[Likelihood Model Parameters]
+     		   Holds fields to specify the \emph{likelihood model} of character substitution under which 
+		   the analysis will be performed.  Available models include JC69/Neyman, F81, K2P/K80, F84, 
+		   HKY85, TN93 and GTR. 
+		   
+		   \indent \emph{Rate Distribution} specifies the nature of among-site variation. 
+		   Rate variation distributions allow multipliers to be applied to separate groups of characters. 
+		   These distributions can be set as to an either \emph{Constant}, \emph{Gamma} (for non-zero 
+		   rate variation) or  \emph{Theta} (for parameterization of invariant sites).  
+		   
+		   \indent \emph{Rate Classes} \hl{ it has therefore been recommended that a proportion of 
+		   invariant sites be ``pseudo''-estimated by increasing the number of discrete categories for 
+		   the gamma distribution to account for very low rate character groups. The mean of each class 
+		   is used to define the rate for the discrete category.}
+		   
+		   \indent \emph{Gap Treatment}
+		   
+		   \indent \emph{Cost Method}
+		   
+		   \indent \emph{Priors}   \hl{The equilibrium frequencies of the characters in the stationary Markov 
+		   process. The conditional probability of the data is multiplied by these frequencies to yield the 
+		   likelihood score. The observed (empirical) frequencies of the characters in the data are often 
+		   used as an approximation to the likelihood-optimized frequencies. This approximation is sensible 
+		   for sequences evolving nearly neutrally, but this approximation breaks down for sequences under 
+		   moderate or strong selection.}
+        
+        \item[Output Files]
+        		Designates the names and locations of files containing different kinds of results of the analysis. 
+        		By default, all of these output options are generated, with default names applied.  The names can 
+      		then be changed in the generated script or the option can be removed entirely.  As implied by their 
+        		respective titles, the \emph{tree} buttons output trees in both parenthetical (most parsimonious and 
+        		consensus trees) and postscript form. 
+        
+        		\indent A diagnosis file provides information relating to the analysis. Information in this file includes, 
+		the cost of the tree, the rearrangement costs (in the case of the analysis of chromosome, genome and 
+		break inversion data types), as well as information about each resulting node in the tree.  At each node, 
+		the user with a cost of the tree down to that node, a rearrangement cost (if applicable), the 'children' 
+		coming from this node       
 \end{description}
 
 \begin{figure}
@@ -345,9 +561,6 @@ The script can be edited by typing in the commands directly in the \emph{Script 
 \end{figure}
 
 \begin{description}
-%\setlength{\labelwidth}{0pt}
-\setlength{\labelsep}{5pt}
-\setlength{\itemindent}{0pt}%
     \item[Maximum time] The maximum total execution time for the search. The time is specified as
         days:hours:minutes.
     \item[Minimum time] The minimum total execution time for the search. The time is specified as
@@ -363,9 +576,6 @@ This heuristic search is a powerful tool for analyzing data. The number of round
 The parsimony ratchet is a heuristic strategy to escape the local optima during tree searching~\cite{Nixon1999}. The ratchet reweights a given percentage of characters for a specified number of iterations of a search. An analysis is then performed and the resulting tree topology is evaluated using the original data matrix with all characters equally weighted to determine the length of the tree. The \emph{Search with Ratchet} (Figure~\ref{fig:search_with_ratchet_window}) follows the same basic steps of a simple search but includes the ratchet step after the swap. In addition to the same sequence alignment and search parameters as described for the \emph{Simple Search} window, the \emph{Search Parameters} section provides the following ratchet parameters fields:
 
 \begin{description}
-%\setlength{\labelwidth}{0pt}
-\setlength{\labelsep}{5pt}
-\setlength{\itemindent}{0pt}%
     \item[Ratchet iterations] The number of iterations for the parsimony
         ratchet.
     \item[Severity] The severity parameter of the parsimony ratchet (the weight
@@ -407,8 +617,8 @@ transformation cost matrix perturbation as follows:
 
 \begin{description}
 %\setlength{\labelwidth}{0pt}
-\setlength{\labelsep}{5pt}
-\setlength{\itemindent}{0pt}%
+%\setlength{\labelsep}{5pt}
+%\setlength{\itemindent}{0pt}%
     \item[Perturb iterations] Sets the number of perturb iterations to be performed.
     \item[Substitutions] Specifies the cost of the perturbed substitutions.
     \item[Indels] Specifies the cost of the perturbed indels.
@@ -420,16 +630,13 @@ During this heuristic search, \poy performs a parsimony ratchet search during ea
 
 It is possible to calculate different support values using this interface.  Two of these measures, Bootstrap and Jackknife, involve resampling techniques, while the third, Bremer support, is an optimality-based measure based on the cost of the tree. 
 
-None of the support calculation windows include functions for tree building and searching. Therefore, one of the input files must contain trees for which support values are going to be calculated. \hl{Put jackknife before bremer}
+None of the support calculation windows include functions for tree building and searching. Therefore, one of the input files must contain trees for which support values are going to be calculated.
 
 \subsubsection*{\emph{Bootstrap}}
 
 As a resampling technique, the non-parametric \emph{Bootstrap} resamples the original data, creating a simulated dataset equal to the size of the original dataset.  The characters are replaced in between each iteration. The \emph{Bootstrap} window (Figure~\ref{fig:bootstrap}) specifies parameters for estimating the Bootstrap support values. In addition to the \emph{Simple Search} window fields, it contains a a field for the bootstrap parameters, in this case a \emph{Pseudoreplicates} field, to specify the number of bootstrap pseudoreplicates.
 
 \begin{description}
-%\setlength{\labelwidth}{0pt}
-\setlength{\labelsep}{5pt}
-\setlength{\itemindent}{0pt}%
     \item[Pseudoreplicates] Specifies the number of resampling iterations.
 \end{description}
 
@@ -466,9 +673,6 @@ the number of Jackknife pseudoreplicates (\emph{Pseudoreplicates}) and the numbe
 \end{figure}
 
 \begin{description}
-%\setlength{\labelwidth}{0pt}
-\setlength{\labelsep}{5pt}
-\setlength{\itemindent}{0pt}%
     \item[Pseudoreplicates] Specifies the number of resampling iterations.
     \item[Remove] Specifies the percentage of characters being deleted during a pseudoreplicate.
 \end{description}
@@ -586,7 +790,7 @@ The \emph{View} menu contains the \emph{Output} window which is subdivided into 
 \label{fig:results_and_status_windows}
 \end{figure}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %INTERACTIVE CONSOLE%
 %%%%%%%%%%%%%%%
 \section{Using the Interactive Console} \label{interactiveconsole}
