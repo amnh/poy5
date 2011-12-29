@@ -1261,7 +1261,7 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
             (transform_support_arguments x) :: acc
     | `Calculate _ -> acc
     | `Report x ->
-            Printf.printf "transform_report_arguments\n%!";
+            if debug then Printf.printf "transform_report_arguments\n%!";
             (transform_report_arguments x) @ acc
     | `Select x ->
             (transform_select_arguments x) @ acc
