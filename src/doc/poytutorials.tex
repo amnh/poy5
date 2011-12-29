@@ -6,16 +6,9 @@ The tutorials use sample datasets that are provided with \poy installation but c
 \begin{center}
 \texttt{http://research.amnh.org/scicomp/projects/poy.php}
 \end{center}
-The minimal required items to run the tutorial analyses are the \poy application and the sample datafiles. Running these analyses requires some familiarity with the \poy interface and command structure that can be found in the preceding chapters.
+The minimal required items to run the tutorial analyses are the \poy application and the sample datafiles. Running these analyses requires some familiarity with \poy interface and command structure that can be found in the preceding chapters.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Preparing data for analyzing in \poy}{\label{tutorial1}}
-
-terminal names can not have spaces, or the symbols \@ or \%
-\$ after the taxon name but before GenBank accession number -- everything after the taxon name is commented out.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Combining search strategies}{\label{tutorial1}}
+\section{Combining  search strategies}{\label{tutorial1}}
 The following script implements a strategy for a thorough search. This is accomplished by generating a large number of independent initial trees by random addition sequence and combining different search strategies that aim at thoroughly exploring local tree space and escape the effect of composite optima by effectively traversing the tree space. In addition, this script shows how to output the status of the search to a log file and calculate the duration of the search. 
 
 \begin{verbatim}
@@ -42,7 +35,7 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* search using all data *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they  are useful for housekeeping purposes.
+\item \texttt{(* search using all data *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
 \item \texttt{read("9.fas","31.ss", aminoacids:("41.aa"))}
 This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
 \item \texttt{set(seed:1,log:"all\_data\_search.log",root:"t1")} The \poycommand{set} command specifies conditions prior to tree searching. The \poyargument{seed} is used to ensure that the subsequent randomization procedures (such as tree building and selecting) are reproducible. Specifying the log produces a file, \texttt{all\_data\_search.log} that provides an additional means to monitor the process of the search. The outgroup (\texttt{taxon1}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity. By default, the analysis is performed using direct optimization.
@@ -60,7 +53,6 @@ This command imports all the nucleotide sequence datafiles (all files with the e
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Searching under iterative pass}{\label{tutorial2}}
 The following script implements a strategy for a thorough search under iterative pass optimization. The iterative pass optimization is a very time consuming procedure that makes it impractical to conduct under this kind of optimization (save for very small datasets that can be analyzed within reasonable time). The iterative pass, however, can be used for the most advanced stages of the analysis for the final refinement, when a potential global optimum has been reached through searches under other kinds of optimization (such as direct optimization). Therefore, this tutorial begins with importing an existing tree (rather than performing tree building from scratch) and subjecting it to local branch swapping under iterative pass.
 
@@ -78,7 +70,7 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* search using all data under ip *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{(* search using all data under ip *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
 \item \texttt{read("9.fas","31.ss",aminoacids:("41.aa"))} This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
 \item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most optimal tree from prior analyses. 
 \item \texttt{transform(tcm:(1,2),gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
@@ -90,7 +82,6 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Bremer support}{\label{tutorial 3}}
 
 This tutorial builds on the previous tutorials to illustrate Bremer support 
@@ -113,7 +104,7 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* Bremer support part1: generating trees *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes. 
+\item \texttt{(* Bremer support part1: generating trees *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes. 
 \item \texttt{read("18s.fas","28s.fas")} This command imports the nucleotide sequence files \texttt{18s.fas, 28s.fas}.
 \item \texttt{set(root:"Americhernus")} The \poycommand{set} command specifies conditions prior to tree searching. The outgroup (\texttt{Americhernus}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity.     
 \item \texttt{build(200)} This commands initializes tree-building and generates 200 random-addition trees.      
@@ -128,7 +119,6 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Jackknife support}{\label{tutorial 4}}
 
 This tutorial illustrates calculating Jackknife support values for trees constructed with static homology characters.  Although it is possible to calculate both Jackknife and Bootstrap support values 
@@ -148,7 +138,7 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* Jackknife support for static homology trees *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{(* Jackknife support for static homology trees *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
 \item \texttt{read(prealigned:("28s.aln",tcm:(1,2)))} This command imports the prealigned nucleotide sequence file \texttt{28s.aln}, and treats the characters as static with the prescribed transformation cost matrix.
 \item \texttt{set(root:"Americhernus")} The \poycommand{set} command specifies conditions prior to tree searching. The outgroup (\texttt{Americhernus}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity.     
 \item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees. It is essential that trees are either specified from a file or that trees are built and loaded in memory before attempting to calculate support values.
@@ -159,7 +149,6 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Sensitivity analysis}{\label{tutorial 5}}
 
 This tutorial demonstrates how data for parameter sensitivity analysis is generated. Sensitivity analysis \cite{wheeler1995} is a method of exploring the effect of relative costs of substitutions (transitions and transversions) and indels (insertions and deletions), either with or without taking gap extension cost into account. The approach consists of multiple iterations of the same search strategy under different parameters, (\emph{i.e} combinations of substitution and indel costs. Obviously, such analysis might become time consuming and certain methods are shown here how to achieve the results in reasonable time. This tutorial also shows the utility of the command \poycommand{store} and how transformation cost matrixes are imported and used.
@@ -190,7 +179,7 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* sensitivity analysis *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{(* sensitivity analysis *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
 \item \texttt{read("9.fas")} This command imports all dynamic homology nucleotide data.
 \item \texttt{set(root:"t1")} The outgroup (\texttt{taxon1}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity.
 \item \texttt{store("original\_data")} This commands stores the current state of analysis in memory in a temporary file, \texttt{original\_data}.
@@ -208,7 +197,6 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Chromosome analysis: unannotated sequences}{\label{tutorial 6}}
 
 This tutorial illustrates the analysis of chromosome-level transformations using 
@@ -232,7 +220,7 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* Chromosome analysis of unannotated sequences *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{(* Chromosome analysis of unannotated sequences *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
 \item \texttt{read(chromosome:("mit5.txt"))} This command imports the unannotated chromosomal sequence file \texttt{mit5.txt}. The argument \poyargument{chromosome} specifies the characters as unannotated chromosomes.
 \item \texttt{transform((all,dynamic\_pam:(locus\_breakpoint:20,locus\_indel:\\(10,1.5),circular:true,seed\_length:15,rearranged\_len:50,sig\_block\_len:50,median:2,swap\_med:1)))}  The \poycommand{trans\-form} followed by the argument \poyargument{dynamic\_pam} specifies the conditions to be applied when calculating chromosome-level HTUs (medians).  The argument \poyargument{locus\_breakpoint:20} applies a breakpoint distance between chromosome loci with the integer value determining the rearrangement cost. The argument \poyargument{locus\_indel:10,1.5} specifies the indel costs for the chromosomal segments, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  As the type of chromosomal sequences being analyzed are of mitochondrial origin, the argument \poyargument{circular:true} treats each chromosome sequence as a continuous rather than linear. The argument \poyargument{seed\_length:15} sets the minimum length of identical continuous fragments (seeds) at 15.  As seeds are the foundation for larger homologous blocks setting the seed length to an integer appropriate for the data is critical to optimizing the efficiency with which the program correctly identifies chromosomal fragments and detects rearrangements.  The \poyargument{rearranged\_len} argument sets the lower limit for number of nucleotides between two seeds such that each is considered independent of the other.  Independent seeds belong to separate homologous blocks such that rearrangement events between blocks can be detected.  The argument \poyargument{sig\_block\_len} provides the integer value determining the minimum number of nucleotides constituting an homologous block.  In this example, because the data are mitochondrial containing relatively short homologous tRNA sequences, both the \poyargument{rearranged\_len} and the \poyargument{sig\_block\_len} were set to values below the defaults for these arguments.  The \poyargument{median} specifies the number of best cost locus-rearrangements which will be considered for each HTU (median), while the \poyargument{swap\_med} argument specifies the maximum number of swapping iterations performed in searching for the best pairwise alignment between two chromosomes.  Because values for the \poyargument{median} and \poyargument{swap\_med} arguments set above the default (1) will significantly increase the calculation time, the default values are recommended for larger chromosomal data sets.
 \item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees. It is highly recommended that a greater number of Wagner builds be implemented when analyzing data for purposes other than this demonstration.
@@ -243,7 +231,6 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Chromosome analysis: annotated sequences}{\label{tutorial 7}}
 
 This tutorial illustrates the analysis of chromosome-level transformations using 
@@ -264,7 +251,7 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* Chromosome analysis of annotated sequences  *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{(* Chromosome analysis of annotated sequences  *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
 \item \texttt{read(annotated:("aninv2"))} This command imports the annotated chromosomal sequence file \texttt{aninv2}. The argument \poyargument{annotated} specifies the characters. 
 \item \texttt{transform((all,dynamic\_pam:(inversion:20,locus\_indel:\\(10,1.5),median:1,swap\_med:1)))}  The \poycommand{transform} follow\-ed by the argument \poyargument{dynamic\_pam} specifies the conditions to be applied when calculating chromosome-level HTUs (medians).  The argument \poyargument{inversion:\\20} applies an inversion distance between chromosome loci with the integer value determining the rearrangement cost. The argument \poyargument{locus\_indel:10,1.5} specifies the indel costs for the chromosomal segments, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  The default values are applied to the arguments \poyargument{circular}  \poyargument{median} and \poyargument{swap\_med} arguments to minimize the time require for these nested search options.   To more exhaustively perform these calculations trees generated from initial builds can be imported to the program and reevaluated with values greater than 1 designated for the \poyargument{median} and \poyargument{swap\_med} arguments.
 \item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees.  It is highly recommended that a greater number of Wagner builds be implemented when analyzing data for purposes other than this demonstration.
@@ -274,8 +261,7 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Custom alphabet break inversion characters}{\label{tutorial 8}}
+\section{Custom alphabet and break inversion characters}{\label{tutorial 8}}
 
 This tutorial illustrates the analysis of the break inversion character type.  Break inversion characters are generated by transforming user-defined \poyargument {custom\_alphabet} characters.  
 For example, observations of developmental stages could be represented in a corresponding array such that for each terminal taxon there is a sequence of observed developmental stages which are represented by a user-defined alphabet.  To allow rearrangement as well as indel events to be considered among alphabet elements, requires transforming the \poyargument {custom\_alphabet} sequences to \poyargument {breakinv} characters. 
@@ -306,7 +292,6 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Genome analysis: multiple chromosomes}{\label{tutorial 9}}
 
 This tutorial illustrates the analysis of genome-level transformations using data from multiple chromosomes. 
@@ -328,7 +313,7 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* Genome analysis of multiple chromosomes*)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{(* Genome analysis of multiple chromosomes*)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
 \item \texttt{read(genome:("gen5bp"))} This command imports the genomic sequence file \texttt{mit5.txt}. The argument \poyargument{genome} specifies the characters as data consisting of multiple chromomsomes.
 \item \texttt{transform((all,dynamic\_pam:(chrom\_breakpoint:80,chrom\_indel:\\(15, 2.5),locus\_breakpoint:20,locus\_indel:(10,1.5),\\median:1,swap\_med:1)))}  The \poycommand{transform} followed by the argument \poyargument{dynamic\_pam} specifies the conditions to be applied when calculating genome-level HTUs (medians). The argument \poyargument{chrom\_breakpoint:80} applies a breakpoint distance between chromosomes with the integer value determining the rearrangement cost. The argument \poyargument{chrom\_indel:15,1.5} specifies the indel costs for each entire chromosome, whereby the integer sets the gap opening cost and the float sets the gap extension cost.  The argument \poyargument{inversion:20} applies an inversion distance between chromosome loci with the integer value determining the rearrangement cost. The argument \poyargument{locus\_indel:10,1.5} specifies the indel costs for the chromosomal segments, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  The default values are applied to the \poyargument{median} and \poyargument{swap\_med} arguments to minimize the time require for these nested search options.   To more exhaustively perform these calculations trees generated from initial builds can be imported to the program and reevaluated with values greater than 1 designated for the \poyargument{median} and \poyargument{swap\_med} arguments
 \item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees.  It is highly recommended that a greater number of Wagner builds be implemented when analyzing data for purposes other than this demonstration.
