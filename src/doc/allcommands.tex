@@ -3218,14 +3218,14 @@
             \argumentdefinition{model}{}
                 {Defines the reversible stochastic Markov model of evolution.
                 Models in POY, as in other standard likelihood implementations,
-                employ globally homogeneous models (jayaswal 2005), which
+                employ globally homogeneous models \cite{jayaswal2005estimation}, which
                 estimate rates using a single matrix over the entire topology.
                 POY requires a model of character substitution to be specified
                 during the transformation to likelihood characters.
 
-                Parameters can be specifed by following the model name with a
+                Parameters can be specified by following the model name with a
                 colon, left parenthesis, and a list of numbers for the
-                particular model, followed by a closing parenthesis, (ie,
+                particular model, followed by a closing parenthesis, (\emph{i.e.},
                 k2p:(2.0) )
 
                 \begin{statement}
@@ -3240,12 +3240,12 @@
                         {The model of Jukes and Cantor \cite{jukesandcantor1969}
                         under nucleotide data, or Neyman \cite{neyman1971} in general. A
                         single rate class. All equilibrium frequencies are
-                        forced to be equal. This model will work for any size
+                        constrained to be equal. This model will work for any size
                         alphabet.}
                         {jc69}
 
                     \argumentdefinition{f81}{}
-                        {The model of Felsenstein \cite{felsenstein1981}. A
+                        {The model of Felsenstein 1981 \cite{felsenstein1981}. A
                         single rate class, proportional to the equilibrium
                         frequencies. This model will work for any size
                         alphabet.}
@@ -3254,12 +3254,12 @@
                     \argumentdefinition{k2p/k80}{}
                         {The model of Kimura \cite{kimura1980}. Transitions and
                         transversions are constrained to have separate rate
-                        classes. All equilibrium frequencies are forced to be
+                        classes. All equilibrium frequencies are constrained to be
                         equal.}
                         {k2p}
 
                     \argumentdefinition{f84}{}
-                        {The model of Felsenstein \cite{felsenstein1980}. Rates
+                        {The model of Felsenstein 1984 \cite{felsenstein1980}. Rates
                         are constrained as in k2p, but are also proportional to
                         the equilibrium frequencies.}
                         {f84}
@@ -3306,8 +3306,8 @@
                         symmetric. Base frequencies are multiplied through. Note
                         that the structure of a custom matrix can be arbitrary
                         and need not be equal to any of the above named models.
-                        Alfaro and Huelsenbeck (2004) note that many of the
-                        unnamed variants of the 256 possible GTR submodels
+                        Huelsenbeck \emph{et al} \cite{huelsenbeck2004bayesian} note that many of the
+                        unnamed variants of the 203 possible GTR submodels
                         outperform the named models examined in commonly-used
                         model selection programs.}
                         {custom}
@@ -3321,19 +3321,19 @@
                 separate groups of characters. This additional parameterization
                 frequently improves observed likelihood scores.
                 Commonly-employed distributions for parameterizing among-site
-                variation are the discreet gamma distribution ($\Gamma$)
+                variation are the discrete gamma distribution ($\Gamma$)
                 \cite{yang1994a} and this distribution with an additional
-                invariable rate class, the theta distribution ($\Theta$)
+                invariant rate class, the theta distribution ($\Theta$)
                 \cite{gu1995}. This is only useful for more then two taxa.
                 
                 \begin{statement}
                     Under MAL the rates are naturally averaged across the
-                    discreete distribution, while under MPL we select the best
+                    discrete distribution, while under MPL we select the best
                     rate class for the assignment of each character. Because
-                    dynamic likelihood characters alignment matrix would select
-                    one rate class for alignment and this is equivlent to a
-                    constant muliplication of the branch length, dynamic mpl
-                    characters do not support rate distribution. These are
+                    dynamic likelihood characters' alignment matrix would select
+                    one rate class for alignment, and this is equivalent to a
+                    constant multiplication of the branch length, dynamic MPL
+                    characters do not support rate distribution. Rate distributions are
                     automatically taken out if applied during a transform and a
                     warning of that affect is reported.
                 \end{statement}
@@ -3352,18 +3352,18 @@
                 \begin{description}
 
                     \argumentdefinition{gamma[:(N,$\alpha$)]}{}
-                        {Apply a discreet gamma distribution of N classes,
+                        {Apply a discrete gamma distribution of $N$ classes,
                         $\gamma(\alpha,\beta)$, of rate variation across
                         characters. The mean rate for the distribution is set to
-                        1.0 ($\alpha = \beta$), thus one addtional parameter is
-                        estimated. The default for N is 4. If $\alpha$ is
+                        1.0 (\emph{i.e.} $\alpha = \beta$), thus one additional parameter is
+                        estimated. The default for $N$ is 4. If $\alpha$ is
                         not given the parameter is optimized.}
                         {gamma}
 
                     \argumentdefinition{theta[:(N,$\alpha$,\%]}{}
-                        {Apply a discreet gamma distribution with an additional
-                        invariable rate class (thus N+1 rate classes in total).
-                        The default for N is 4. $\alpha$ and \% are optimized if
+                        {Apply a discrete gamma distribution with an additional
+                        invariable rate class (thus $N+1$ rate classes in total).
+                        The default for $N$ is 4. $\alpha$ and \% are optimized if
                         not given.}
                         {theta}
 
@@ -3389,7 +3389,7 @@
 
                         \argumentdefinition{equal}{}
                             {Constrains each of the equilibrium frequencies to be
-                            $\frac{1}{a}$, where $a$ is the character alphabet size.}
+                            $\frac{1}{r}$, where $r$ is the character alphabet size.}
                             {equal}
 
                         \argumentdefinition{estimate}{}
@@ -3398,8 +3398,14 @@
                             frequencies.  Under dynamic likelihood, the indel
                             equilibrium frequency is estimated to be the minimum
                             number of indels required to align all the
-                            sequences, $\pi_{gap} = \frac{\sum_{i=0}^n
-                            |S_{\hat{i}}| - |S_i|}{n |S_{\hat{i}}|}$, where
+                            sequences: 
+                            
+                            \begin{equation*}
+                            \pi_{gap} = \frac{\sum_{i=0}^n
+                            |S_{\hat{i}}| - |S_i|}{n |S_{\hat{i}}|}
+                            \end{equation*}
+                            
+                             where
                             $S_{\hat{i}}$ is the longest sequence.}
                             {estimate}
 
@@ -3413,14 +3419,14 @@
 
                 \argumentdefinition{cost}{}
                     {Specifies the variant of relative likelihood (\textit{sensu}
-                    Steel and Penny [2000]) used by POY to calculate the costs at
+                    \cite{steel2000parsimony}) used by POY to calculate the costs at
                     each node and score the topology.
 
                     \begin{description}
 
                         \argumentdefinition{mal}{}
                             {Specifies the standard criterion of maximum average
-                            likelihood (Felsteinstein, 1978), in which the
+                            likelihood \cite{felsenstein1981}, in which the
                             likelihood is derived from the sum over all internal
                             vertex labelings. Because the vertex assignments are
                             marginalized, this version of relative likelihood is not
@@ -3430,7 +3436,7 @@
 
                         \argumentdefinition{mpl}{}
                             {Specifies the criterion of most parsimonious likelihood
-                            (Barry and Hartigan, 1987), in which the likelihood is
+                            \cite{barryandhartigan1987}, in which the likelihood is
                             derived from the set of most probable state assignments
                             at each node. Under this criterion, vertex state
                             assignments are not marginalized, and so this variant of
@@ -3438,10 +3444,10 @@
                             likelihood. However, several studies have noted that
                             parameters under this criterion may not be identifiable
                             (citation needed) and that the method may not be consistent
-                            (Mossel and Steel, 2009).
+                            \cite[for example]{mossel2009shrinkage}.
                             
 %                           % \begin{statement}
-%                           %     We use a smoothing function for the maximum
+%                           %     We use a smoothing function for the most
 %                           %     parsimonious likelihood on static characters
 %                           %     based off the smooth maximum (Cook 2010), thus
 %                           %     costs reported during finding optimizations may
@@ -3457,16 +3463,15 @@
                 \argumentdefinition{gapmode}{}
                     {Defines how atomistic gaps (indels) are treated in
                     likelihood analysis. When implemented, the POY approach to
-                    indels on static likelihood characters follows McGuire et
-                    al. (2001), but expands the implementation outside the F84
+                    indels on static likelihood characters follows McGuire \emph{et al} \cite{mcguire2001models}, but expands the implementation outside the F84
                     model. POY is unique among likelihood implementations both
                     by enabling indel parameterization for any reversible,
                     stationary model applied to static characters and, more
                     crucially, for implementing dynamic likelihood for truly
                     simultaneous alignment and topology inference. Indel-aware
-                    models are scarce, but see Rivas and Eddy (2008), Redelings
-                    and Suchard (2005, 2007) for alternative parameterizations,
-                    and Liu et al. (2009) for an iterative approximation of
+                    models are scarce, but see Rivas and Eddy \cite{rivas2008probabilistic}, and Redelings and Suchard \cite{redelings2005joint,redelings2007incorporating}
+                    for alternative parameterizations,
+                    and Liu \emph{et al} \cite{liu2009rapid} for an iterative approximation of
                     simultaneous inference under the MAL criterion.
 
                     \begin{description}
