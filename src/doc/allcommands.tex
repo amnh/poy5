@@ -1078,9 +1078,10 @@
             The transformation cost matrix contains the rows and columns in which the
             positions from left to right and top to bottom correspond to the sequence of the
             elements as they are listed in the alphabet. An extra rightmost column and lowermost
-            row correspond to a gap. It is important that the cost matrix must be symmetrical. An 	   	  example 
+            row correspond to a gap. It is important that the cost matrix must be symmetrical. An example 
             of a valid custom alphabet input file is provided below:
-       	  
+       	  {customalphabet}
+	  
 	  \texttt{alpha beta gamma delta \\
             0 2 1 2 5 \\
             2 0 2 1 5 \\
@@ -1122,7 +1123,7 @@
         
         \argumentdefinition{genome}{\obligatory{(\poystring list)}}
             {Specifies that the data listed in the string argument are
-            multichromosomal nucleotide sequences with the ``\atsymbol'' sign 
+            multi-chromosomal nucleotide sequences with the ``\atsymbol'' sign 
             separating individual chromosomes. This data type
             allows for chromosome-level rearrangements specified by
            % the argument \nccross{dynamic\_pam}{dynamicpam} of
@@ -2993,7 +2994,7 @@
             for detailed description of identifiers.
         \end{argumentgroup}
            
-           \begin{argumentgroup}{Methods}
+        \begin{argumentgroup}{Methods}
             This set of arguments specifies different transformations that can be applied
             to selected characters. If multiple transformation methods are applied
             sequentially in the same list of arguments, the effect of the methods listed
@@ -3067,7 +3068,6 @@
             level number. 
             If the \poylident is \texttt{first}, ties are broken (if the number of equally costly states is greater than the level number)
             by choosing the first median state examined; if \texttt{last}, the last state, and if \texttt{at\_random} then at random.
-            
             The default choice method is \texttt{first}.}
           {level}
 
@@ -3229,11 +3229,344 @@
             result in better tree cost }
             {level}
 
-
-   
-      \end{argumentgroup}
+        \end{argumentgroup}
+         
+        \begin{argumentgroup}{Likelihood transformation methods}
+            This set of arguments enables analysis using several variants of the
+            maximum likelihood criterion. 
            
-       \begin{argumentgroup}{Chromosomal transformation methods}
+            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gapmode,cost)}}
+                {Transforms the specified characters to either static or dynamic
+                likelihood characters. All arguments are optional; the defaults
+                are presented in the sub-sections below.}
+                {likelihood}
+
+            \begin{statement}
+                Dynamic likelihood for unaligned sequence data is
+                implemented only as most parsimonious likelihood (MPL)
+                \cite{barryandhartigan1987}. Both maximum average likelihood (MAL) and
+                most parsimonious likelihood are implementable on static
+                characters.
+            \end{statement}
+
+            \begin{statement}
+                Dynamic likelihood characters necessarily include gaps/indels as
+                a state in the character alphabet. See information for
+                \poycommand{gapmode}, below.
+            \end{statement}
+
+            \argumentdefinition{model}{}
+                {Defines the reversible stochastic Markov model of evolution.
+                Models in POY, as in other standard likelihood implementations,
+                employ globally homogeneous models \cite{jayaswal2005estimation}, which
+                estimate rates using a single matrix over the entire topology.
+                POY requires a model of character substitution to be specified
+                during the transformation to likelihood characters.
+
+                Parameters can be specified by following the model name with a
+                colon, left parenthesis, and a list of numbers for the
+                particular model, followed by a closing parenthesis, (\emph{i.e.},
+                k2p:(2.0) )
+
+                \begin{statement}
+                    All matrices are normalized so the mean rate is one. This
+                    allows branch lengths to represent the expected number of
+                    transformations averaged over the sequence length.
+                \end{statement}
+
+                \begin{description}
+
+                    \argumentdefinition{jc69/neyman}{}
+                        {The model of Jukes and Cantor \cite{jukesandcantor1969}
+                        under nucleotide data, or Neyman \cite{neyman1971} in general. A
+                        single rate class. All equilibrium frequencies are
+                        constrained to be equal. This model will work for any size
+                        alphabet.}
+                        {jc69}
+
+                    \argumentdefinition{f81}{}
+                        {The model of Felsenstein 1981 \cite{felsenstein1981}. A
+                        single rate class, proportional to the equilibrium
+                        frequencies. This model will work for any size
+                        alphabet.}
+                        {f81}
+
+                    \argumentdefinition{k2p/k80}{}
+                        {The model of Kimura \cite{kimura1980}. Transitions and
+                        transversions are constrained to have separate rate
+                        classes. All equilibrium frequencies are constrained to be
+                        equal.}
+                        {k2p}
+
+                    \argumentdefinition{f84}{}
+                        {The model of Felsenstein 1984 \cite{felsenstein1980}. Rates
+                        are constrained as in k2p, but are also proportional to
+                        the equilibrium frequencies.}
+                        {f84}
+
+                    \argumentdefinition{hky85}{}
+                        {The model of Hasegawa \cite{hasegawa1984}. Three rate classes:
+                        transversions (purine / pyrimidine), and independent
+                        classes for purine-purine and pyrimidine-pyrimidine
+                        transitions. Rates are also proportional to equilibrium
+                        frequencies.}
+                        {hky85}
+
+                    \argumentdefinition{tn93}{}
+                        {The model of Tamura and Nei \cite{tamura1993}. Three
+                        rate classes: transversions (purine / pyrimidine), and
+                        independent classes for purine-purine and
+                        pyrimidine-pyrimidine transitions. Rates are also
+                        proportional to equilibrium frequencies.}
+                        {tn93}
+
+                    \argumentdefinition{gtr}{}
+                        {The model of Tavar\'{e} \cite{tavare1986}. The most general
+                        reversible, stationary model of nucleotide substitution,
+                        and the one most frequently selected by information
+                        criteria. All rates constrained to be independent. This
+                        model works for any size alphabet, but note that there
+                        are $\frac{N (N-1)}{2}$ rates, where $N$ is the alphabet
+                        size.}
+                        {gtr}
+
+                    \argumentdefinition{file}{}
+                        {An external file containing a matrix of estimated rate
+                        values.}
+                        {file}
+
+                    \argumentdefinition{custom}{}
+                        {An external file in which the rate class constraints of
+                        the Q-matrix are specified. Dominant diagonal entries of
+                        this Q-matrix are constrained so as to sum rows and
+                        columns to zero.  A dash (`-') may be used as a
+                        placeholder in the custom Q-matrix, and entries
+                        constrained to be equal must be specified as letters
+                        (a,b,c,...) or numbers (0,1,2,...). The matrix must be
+                        symmetric. Base frequencies are multiplied through. Note
+                        that the structure of a custom matrix can be arbitrary
+                        and need not be equal to any of the above named models.
+                        Huelsenbeck \emph{et al} \cite{huelsenbeck2004bayesian} note that many of the
+                        unnamed variants of the 203 possible GTR submodels
+                        outperform the named models examined in commonly-used
+                        model selection programs.}
+                        {custom}
+
+                \end{description}}
+            {model}
+
+            \argumentdefinition{rates}{}
+                {Specifies the distribution of rates among sites. Rate
+                variation distributions allow multipliers to be applied to
+                separate groups of characters. This additional parameterization
+                frequently improves observed likelihood scores.
+                Commonly-employed distributions for parameterizing among-site
+                variation are the discrete gamma distribution ($\Gamma$)
+                \cite{yang1994a} and this distribution with an additional
+                invariant rate class, the theta distribution ($\Theta$)
+                \cite{gu1995}. This is only useful for more then two taxa.
+                
+                \begin{statement}
+                    Under MAL the rates are naturally averaged across the
+                    discrete distribution, while under MPL we select the best
+                    rate class for the assignment of each character. Because
+                    dynamic likelihood characters' alignment matrix would select
+                    one rate class for alignment, and this is equivalent to a
+                    constant multiplication of the branch length, dynamic MPL
+                    characters do not support rate distribution. Rate distributions are
+                    automatically taken out if applied during a transform and a
+                    warning of that affect is reported.
+                \end{statement}
+
+                \begin{statement}
+                    It should be noted that although many researchers apply both
+                    a gamma and theta in likelihood analyses, the parameter
+                    values inferred are correlated \cite{sullivan1999}.  It has
+                    therefore been recommended that a proportion of invariant
+                    sites be ``pseudo''-estimated by increasing the number of
+                    discrete categories for the gamma distribution to account
+                    for very low rate character groups. The mean of each class
+                    is used to define the rate for the discrete category.
+                \end{statement}
+
+                \begin{description}
+
+                    \argumentdefinition{gamma[:(N,$\alpha$)]}{}
+                        {Apply a discrete gamma distribution of $N$ classes,
+                        $\gamma(\alpha,\beta)$, of rate variation across
+                        characters. The mean rate for the distribution is set to
+                        1.0 (\emph{i.e.} $\alpha = \beta$), thus one additional parameter is
+                        estimated. The default for $N$ is 4. If $\alpha$ is
+                        not given the parameter is optimized.}
+                        {gamma}
+
+                    \argumentdefinition{theta[:(N,$\alpha$,\%]}{}
+                        {Apply a discrete gamma distribution with an additional
+                        invariable rate class (thus $N+1$ rate classes in total).
+                        The default for $N$ is 4. $\alpha$ and \% are optimized if
+                        not given.}
+                        {theta}
+
+                    \argumentdefinition{none}{}
+                        {Apply a single rate category to all sites.}
+                        {none}
+
+                \end{description}}
+                {rates}
+
+                \argumentdefinition{priors}{}
+                    {The equilibrium frequencies of the characters in the stationary
+                    Markov process. The conditional probability of the data is
+                    multiplied by these frequencies to yield the likelihood score.
+                    In systematics applications, the observed (empirical)
+                    frequencies of the characters in the data are often used as an
+                    approximation to the likelihood-optimized frequencies. This
+                    approximation is sensible for sequences evolving nearly
+                    neutrally, but this approximation breaks down for sequences
+                    under moderate or strong selection.
+
+                    \begin{description}
+
+                        \argumentdefinition{equal}{}
+                            {Constrains each of the equilibrium frequencies to be
+                            $\frac{1}{r}$, where $r$ is the character alphabet size.}
+                            {equal}
+
+                        \argumentdefinition{estimate}{}
+                            {Uses observed frequencies of the characters to
+                            approximate the ML-optimized equilibrium
+                            frequencies.  Under dynamic likelihood, the indel
+                            equilibrium frequency is estimated to be the minimum
+                            number of indels required to align all the
+                            sequences: 
+                            
+                            \begin{equation*}
+                            \pi_{gap} = \frac{\sum_{i=0}^n
+                            |S_{\hat{i}}| - |S_i|}{n |S_{\hat{i}}|}
+                            \end{equation*}
+                            
+                             where
+                            $S_{\hat{i}}$ is the longest sequence.}
+                            {estimate}
+
+                            \argumentdefinition{given:(FLOAT LIST)}{}
+                            {Uses equilibrium frequencies given as a
+                            comma-separated list specified by the user.}
+                            {given}
+
+                    \end{description}}
+                {priors}
+
+                \argumentdefinition{cost}{}
+                    {Specifies the variant of relative likelihood (\textit{sensu}
+                    \cite{steel2000parsimony}) used by POY to calculate the costs at
+                    each node and score the topology.
+
+                    \begin{description}
+
+                        \argumentdefinition{mal}{}
+                            {Specifies the standard criterion of maximum average
+                            likelihood \cite{felsenstein1981}, in which the
+                            likelihood is derived from the sum over all internal
+                            vertex labelings. Because the vertex assignments are
+                            marginalized, this version of relative likelihood is not
+                            compatible with simultaneous estimation of alignment and
+                            topology (dynamic likelihood).}
+                            {mal}
+
+                        \argumentdefinition{mpl}{}
+                            {Specifies the criterion of most parsimonious likelihood
+                            \cite{barryandhartigan1987}, in which the likelihood is
+                            derived from the set of most probable state assignments
+                            at each node. Under this criterion, vertex state
+                            assignments are not marginalized, and so this variant of
+                            relative likelihood is compatible with dynamic
+                            likelihood. However, several studies have noted that
+                            parameters under this criterion may not be identifiable
+                            (citation needed) and that the method may not be consistent
+                            \cite[for example]{mossel2009shrinkage}.
+                            
+%                           % \begin{statement}
+%                           %     We use a smoothing function for the most
+%                           %     parsimonious likelihood on static characters
+%                           %     based off the smooth maximum (Cook 2010), thus
+%                           %     costs reported during finding optimizations may
+%                           %     be slightly off. The final costs are exact to
+%                           %     computational numerical precision.
+%                           % \end{statement}
+                            }
+                            {mpl}
+
+                    \end{description}}
+                    {cost}
+
+                \argumentdefinition{gapmode}{}
+                    {Defines how atomistic gaps (indels) are treated in
+                    likelihood analysis. When implemented, the POY approach to
+                    indels on static likelihood characters follows McGuire \emph{et al} \cite{mcguire2001models}, but expands the implementation outside the F84
+                    model. POY is unique among likelihood implementations both
+                    by enabling indel parameterization for any reversible,
+                    stationary model applied to static characters and, more
+                    crucially, for implementing dynamic likelihood for truly
+                    simultaneous alignment and topology inference. Indel-aware
+                    models are scarce, but see Rivas and Eddy \cite{rivas2008probabilistic}, and Redelings and Suchard \cite{redelings2005joint,redelings2007incorporating}
+                    for alternative parameterizations,
+                    and Liu \emph{et al} \cite{liu2009rapid} for an iterative approximation of
+                    simultaneous inference under the MAL criterion.
+
+                    \begin{description}
+
+                        \argumentdefinition{missing}{}
+                            {Specifies that indels be treated under standard
+                            assumptions, thus making analyses in POY for a given
+                            model and alignment comparable to other
+                            implementations such as RAxML and GARLi. Under this
+                            assumption, indels are not a part of the character
+                            alphabet (``missing'' data, in this context), and
+                            are given probability one.}
+                            {missing}
+
+                        \argumentdefinition{coupled}{}
+                            {Specifies that atomistic indels are a character,
+                            with rates of nucleotide-to-indel substitution
+                            constrained to be equal to one another. For example,
+                            the Q-matrix
+
+                            \begin{equation*}
+                                Q =
+                                    \begin{bmatrix}
+                                        -3 \alpha - \beta & \alpha & \alpha & \alpha & \beta \\
+                                        \alpha & -3 \alpha - \beta & \alpha & \alpha & \beta \\
+                                        \alpha & \alpha & -3 \alpha - \beta & \alpha & \beta \\
+                                        \alpha & \alpha & \alpha & -3 \alpha - \beta & \beta \\
+                                        \beta & \beta & \beta & \beta & -4 \beta
+                                \end{bmatrix}
+                            \end{equation*}
+
+                            specifies a Jukes-Cantor matrix augmented to
+                            estimate nucleotide-to-indel substitutions as a
+                            coupled parameter separate from
+                            nucleotide-to-nucleotide substitutions. In
+                            accordance with other likelihood implementations,
+                            the diagonal entries of the Q-matrix are normalized
+                            by the trace to scale their mean rate to one.}
+                            {coupled}
+
+                        \argumentdefinition{character}{}
+                            {Specifies that atomistic indels are a character
+                            without adding an additional rate class --except
+                            under GTR where we keep the unrestricted nature of the
+                            model intact, and each indel-nucleotide rate has its
+                            own class.}
+                            {character}
+
+                    \end{description}}
+                {gapmode}
+
+        \end{argumentgroup}
+
+
+        \begin{argumentgroup}{Chromosomal transformation methods}
            For chromosome and genome character types, \poy optimizes nucleotide-, 
            locus-, and chromosome-level variation simultaneously. The arguments in this group
            transform nucleotide characters into chromosomal character
@@ -3283,6 +3616,7 @@
              and \poyargument {med\_approx}).  Under default settings, the pairwise distance between two chromosome segments or two 
              chromosomes is determined using breakpoint rather than inversion calculations and the rest of the arguments are executed 
              under their default settings.}
+            {chromosome}
 
 		 \begin{figure} [!htbp]
    		 \begin{center}
@@ -3309,7 +3643,7 @@
                         float parameters quality of lcb (default value 35), lcb coverage (default .30), 
                         minimum length of lcb as a percentage of sequence lenght (default .01), maximum length of lcb as a percentage of 
                         sequence length ( default .10).  Percent calculations are based on the shorter of two sequences compared.}
-                        {annotate}
+                        {chromosomeannotate}
 
             	\argumentdefinition{med\_approx}{\obligatory{\poybool}}
                         {Approximates chromosome medians using a fixed-states
@@ -3327,7 +3661,8 @@
                         {newkkonen}
                         
                         \argumentdefinition{locus\_breakpoint}{\obligatory{\poyint}}
-                        {Calculates the breakpoint distance \cite{blanchetteetal1997}
+                        {Breakpoints are chromosomal regions affected by rearrangements.  The \emph{Locus Breakpoint}
+                         calculates the breakpoint distance \cite{blanchetteetal1997}
                         between two pairs of chromosomes given the cost for rearrangement
                         specified by an integer value.  The breakpoint distance calculation considers
                         a chromosome or genome $G = (x_1, \ldots, x_n)$of $n$ gene, wherein each
@@ -3337,18 +3672,18 @@
                         The breakpoint distance takes into account rearrangements but not inversions.
                         Given $G$ and $G'$, a pair of genes $(g_i, g_j)$ is a breakpoint if $(g_i, g_j)$ occur 
                         consecutively in $G$ but neither $(g_i, g_j)$ nor $(-g_j, -g_i)$ occur
-                        consectively in $G'$  \cite{sankoffandblanchette1998}.  The breakpoint distance between $G$
+                        consectively in $G'$  \cite{sankoffandblanchette1997}.  The breakpoint distance between $G$
 		     and $G^\prime$ is the number of breakpoints between them.  Figure \ref{fig:distance} 
                         shows two breakpoints between $G$ and $G^\prime$. The breakpoint can be calculated 
                         easily in linear time.  This argument \emph{cannot} be used in
                         conjunction with \poyargument{locus\_inversion}.or
                         \poyargument{locus\_dcj}. The default
                         value of \poyargument{locus\_breakpoint} is \texttt{10}.} 
-                        {locusbreakpoint} 
+                        {chromosomelocusbreakpoint} 
                         
                         \argumentdefinition{locus\_dcj}{\obligatory{\poyint}}
                         {Calculates the double cut and join
-                        distance~\cite{yancopoulos:2005}
+                        distance~\cite{Yancopoulosetal2005}
                         between two chromosome segments given the cost for each
                         event specified by the integer value. The inversion distance
                         takes in consideration rearrangements and
@@ -3373,7 +3708,7 @@
                         This argument \emph{cannot} be used in conjunction with
                         \poyargument{locus\_breakpoint} or
                         \poyargument{locus\_dcj}.} 
-                        {locusinversion}  
+                        {chromosomelocusinversion}  
 
 		     \argumentdefinition{locus\_indel}{\obligatory{(\poyint, \poyfloat)}} 
                         {Specifies the cost for insertion/deletion of a
@@ -3382,7 +3717,7 @@
                         cost ($e$).  The indel cost for a fragment of length $l$ is
                         specified by the following formula:
                        $o + l \times e$. The default values are $o=10, e=1.0$.}
-                        {locusindel}
+                        {chromosomelocusindel}
 
 		     %\argumentdefinition{min\_seed\_length}{\obligatory{\poyint}}
                         %{Specifies the minimum length of identical (invariant,
@@ -3429,7 +3764,6 @@
                              %is \texttt{200}}
                              %{minrearrangementlen}
 
-
  			%\begin{figure} [!htbp]
    		 	%\begin{center}
         			%\includegraphics[width=0.8\textwidth]{doc/figures/chromfig1.jpg}
@@ -3454,8 +3788,9 @@
 
        
                    \begin{statement}
-  		Note that the arguments \poyargument{locus\_breakpoint} and \poyargument {chrom\_breakpoint} cannot be used
-		simultaneously with the arguments \poyargument{locus\_inversion} and \poyargument{chrom\_inversion}
+  		Note that the arguments \poyargument{locus\_breakpoint} and \poyargument 
+		{chrom\_breakpoint} cannot be used simultaneously with the arguments 
+		\poyargument{locus\_inversion} and \poyargument{chrom\_inversion}
 		as they designate \emph{alternative} methods of calculating distance between two chromosomes.
 		If both arguments are specified, the latter will be executed. The order of other locus level arguments
 		is arbitrary. 
@@ -3506,8 +3841,7 @@
                        default median solver is \texttt {caprara}. Note: coe package is required for \textt {chainedlk} and \textt {simplelk}
                        median solvers. Download Concorde package from 
                        http://www.tsp.gatech.edu//concorde/downloads/downloads.htm.}
-                       {mediansolver}
-
+                       {chromosomemediansolver}
 
               \argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
                         {Defines the maximum number of Wagner\-based possible ancestral sequence
@@ -3527,8 +3861,8 @@
                         {swapmed}
 
        
-          \end{description}
-	\end{argumentgroup}
+            \end{description}
+        \end{argumentgroup}
 	\end{arguments}
 	
 
