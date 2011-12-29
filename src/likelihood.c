@@ -24,7 +24,6 @@
 #include <time.h>
 
 #undef __SSE3__
-
 #ifdef __SSE3__
 #include <pmmintrin.h>      //SSE instrinsics
 #endif
@@ -69,6 +68,7 @@
 #define MIN(a,b) (a <= b)?a:b
 #define SHIFT(a,b,c,d) (a)=(b);(b)=(c);(c)=(d)
 #define SIGN(a,b) (b>0)?fabs(a):-fabs(a)
+#define EQUALS(a,b) fabs(a-b)<1e-6
 
 /* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
 /*                     used to ensure no imaginary roots when diagonalizing */
@@ -1959,16 +1959,19 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     /* bracket a region; a and b become the bracket with temp */
     iter = 0;
     while( iter <= MAX_ITER ){
-        /* printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb); */
+        //printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb);
         /* bracketed */
         if( (fa > fx) && (fx < fb)){
             break;
+        /* check if they are equal; the branch is a nussance paramater */
+        } else if( EQUALS(fa,fx) && EQUALS(fb,fx) ){
+            bracketed = 0; break;
         /* increasing; move left: (new,left,middle) */
         } else if (fa < fx && fx < fb){
             b = x; fb = fx;
             x = a; fx = fa;
             a = MAX( BL_MIN, golden_exterior_l( x,b ) );
-            assert ( a <= x );
+            //assert ( a < x || EQUALS(a,x) );
             single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
             fa = temp.ll;
         /* decreasing; move right: (middle,right,new) */
@@ -1976,7 +1979,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
             a = x; fa = fx;
             x = b; fx = fb;
             b = MAX (BL_MIN, golden_exterior_r( a, x ) );
-            assert ( b >= x );
+            //assert ( b > x || EQUALS(b,x) );
             single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
             fb = temp.ll;
         /* convergence or curvature issue */

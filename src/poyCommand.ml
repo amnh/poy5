@@ -1366,34 +1366,30 @@ let create_expr () =
                     x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
                     right_parenthesis -> `Given x ]
             ];
-        ml_gap_options :
+        ml_gap :
             [ [ LIDENT "missing" -> `Missing ] |
-              [ LIDENT "independent" -> `Independent] |
+              [ LIDENT "character" -> `Independent] |
               [ LIDENT "coupled" -> `Coupled 1.0 ] |
-              [ x = integer_or_float -> `Coupled (float_of_string x) ] ];
-        ml_gaps:
-            [
-                [LIDENT "gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
-                    match x with | Some x -> x | None -> `Independent ]
-            ];
+              [ LIDENT "coupled"; ":"; x = integer_or_float -> `Coupled (float_of_string x) ] ];
         ml_costfn:
             [
                 [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL] | [LIDENT "flk" -> `FLK]
             ];
         partitioned_mode:
             [   
-                [ LIDENT "clip" -> `Clip ] |
-                [ LIDENT "noclip" -> `NoClip ]
+                [ LIDENT "clip" -> `Clip ] | [ LIDENT "noclip" -> `NoClip ]
             ];
         ml_properties:
             [
-                [ x = ml_substitution   -> `ML_subst x] |
+                [ x = ml_substitution
+                                -> `ML_subst x] |
                 [ LIDENT "rates";":"; left_parenthesis; x = ml_rates; right_parenthesis
-                                        -> `ML_vars  x] |
+                                -> `ML_vars  x] |
                 [ LIDENT "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
-                                        -> `ML_prior x] |
-                [ x = ml_gaps           -> `ML_gaps  x] |
-                [ x = ml_costfn         -> `ML_cost  x]
+                                -> `ML_prior x] |
+                [ LIDENT "gap"; ":"; left_parenthesis; x = ml_gap; right_parenthesis
+                                -> `ML_gaps  x] |
+                [ x = ml_costfn -> `ML_cost  x]
             ];
         optional_poly :
             [
@@ -1430,7 +1426,7 @@ let create_expr () =
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
                         let v,w,x,y,z = process_likelihood_commands lst in
-                        `UseLikelihood (v,w, x, y, z) ] |
+                        `UseLikelihood (v, w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
