@@ -1995,8 +1995,6 @@ let create_expr () =
                 [ LIDENT "mb"; ":"; x = INT ->((int_of_string x) * 
                     1000 * 1000 / (Sys.word_size / 8)) ]
             ];
-
-
         model_iter2:
             [
                 [LIDENT "threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
@@ -2025,7 +2023,7 @@ let create_expr () =
             ];
         iteration_method:
             [
-                [ LIDENT "iteration"; ":";
+                [ LIDENT "optimize"; ":";
                     left_parenthesis;
                         a = LIST1 [x = iterate_options -> x] SEP ",";
                     right_parenthesis -> a ]
