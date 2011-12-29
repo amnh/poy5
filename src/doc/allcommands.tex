@@ -74,10 +74,10 @@
             implementation is deterministic).}{}
 
         \argumentdefinition{random}{}
-            {Generates a tree at random.  All possible trees have equal probability.}
+            {Generates a tree at random to diagnose. All possible trees have equal probability.}
             {buildrandom}
 
-	\argumentdefinition{randomized}{} 
+	    \argumentdefinition{randomized}{} 
             {Indicates that terminals are added in random order on every Wagner tree built. This is a default tree-building strategy.}
             {randomized}
 
@@ -115,6 +115,52 @@
         \argumentdefinition{STRING}{}
             {This is a shortcut of the argument \poyargument{of\_file}.}
             {}
+
+        \argumentdefinition{optimize:(model:([options]),branch:([options]))}{}
+            {Specifies when we optimize the likelihood model and how we optimize
+            the branches. These options are also available in the
+            \poycommand{fuse()} and \poycommand{swap()} commands.
+
+            \begin{description}
+
+                \argumentdefinition{model:(never)}{}
+                    {Do not optimize the model during the build. After the build a
+                    round of optimizations will occur.}
+                    {modelnever}
+
+                \argumentdefinition{model:(always)}{}
+                    {Optimize the model after every join.}
+                    {modelalways}
+
+                \argumentdefinition{model:(threshold:FLOAT)}{}
+                    {Optimize the model if the cost of the current models join is
+                    better by \poyargument{FLOAT} times the current best cost.}
+                    {modelthreshold}
+
+                \argumentdefinition{model:(max\_count:INT)}{}
+                    {Optimize the model after INT joins. This can be useful during
+                    the build process where we do improve the model, but where after
+                    every join it can be time consuming.}
+                    {maxcount}
+                    
+                \argumentdefinition{branch:(never)}{}
+                    {Do not optimize the branches during the build process. We use
+                    an estimate based on the proportion of sites that transform.
+                    There is a final round of optimization after building.}
+                    {branchnever}
+
+                \argumentdefinition{branch:(all\_branches)}{}
+                    {Optimize all branch lengths on each join.}
+                    {allbranches}
+
+                \argumentdefinition{branch:(join\_region)}{}
+                    {Optimize a maximum of five branches; the new edge, and the two
+                    edges on either side.}
+                    {joinregion}
+
+            \end{description}
+            }
+            {optimize}
 
    \end{arguments}
       
@@ -538,6 +584,53 @@
             No swapping is performed under default settings.
             See the description of the command~\nccross{swap}{swapcommand}.}
             {}
+
+        \argumentdefinition{optimize:(model:([options]),branch:([options]))}{}
+            {Specifies when we optimize the likelihood model and how we optimize
+            the branches. These options are also available in the
+            \poycommand{build()} and \poycommand{swap()} commands.
+
+            \begin{description}
+
+                \argumentdefinition{model:(never)}{}
+                    {Do not optimize the model during the build. After the build a
+                    round of optimizations will occur.}
+                    {modelnever}
+
+                \argumentdefinition{model:(always)}{}
+                    {Optimize the model after every join.}
+                    {modelalways}
+
+                \argumentdefinition{model:(threshold:FLOAT)}{}
+                    {Optimize the model if the cost of the current models join is
+                    better by \poyargument{FLOAT} times the current best cost.}
+                    {modelthreshold}
+
+                \argumentdefinition{model:(max\_count:INT)}{}
+                    {Optimize the model after INT joins. This can be useful during
+                    the build process where we do improve the model, but where after
+                    every join it can be time consuming.}
+                    {maxcount}
+                    
+                \argumentdefinition{branch:(never)}{}
+                    {Do not optimize the branches during the build process. We use
+                    an estimate based on the proportion of sites that transform.
+                    There is a final round of optimization after building.}
+                    {branchnever}
+
+                \argumentdefinition{branch:(all\_branches)}{}
+                    {Optimize all branch lengths on each join.}
+                    {allbranches}
+
+                \argumentdefinition{branch:(join\_region)}{}
+                    {Optimize a maximum of five branches; the new edge, and the two
+                    edges on either side.}
+                    {joinregion}
+
+            \end{description}
+            }
+            {optimize}
+
 
     \end{arguments}
     
@@ -2641,39 +2734,83 @@
 	\syntax{\obligatory{(\optional{argument list})}}
 
 	\begin{poydescription} 
-            \poycommand{swap} is the basic local search function in \poy. This
-            command implements a family of algorithms collectively known in systematics as
-            branch swapping and in combinatorial optimization as hill climbing. They proceed by clipping parts of a given tree and
-            attaching them in different positions.  It can be
-            used to perform a local search from a set of trees loaded in memory.
+        \poycommand{swap} is the basic local search function in \poy. This
+        command implements a family of algorithms collectively known in systematics as
+        branch swapping and in combinatorial optimization as hill climbing. They proceed by clipping parts of a given tree and
+        attaching them in different positions.  It can be
+        used to perform a local search from a set of trees loaded in memory.
 
-            Swapping is performed on all trees in memory. During a search,
-            \poycommand{swap} can collect information about the
-            visited trees and perform various kinds of checkpoints to reduce
-            information loss in case if \poy crashes.
+        Swapping is performed on all trees in memory. During a search,
+        \poycommand{swap} can collect information about the
+        visited trees and perform various kinds of checkpoints to reduce
+        information loss in case if \poy crashes.
 
-            \poycommand{swap} is also used as an argument for other
-            commands to specify a local search strategy in other contexts, for example,
-            in calculating support values using the command
-            \nccross{calculate\_support}{calculatesupport}.
-            
-            All arguments of \poycommand{swap} are optional and their order
-            is arbitrary. The argument of different groups can be combined to tune the search heuristics, but the arguments within each group of are mutually exclusive. (If more than one arguments of one group is listed, only the last one is executed.)
-            
-        \end{poydescription}
+        \poycommand{swap} is also used as an argument for other
+        commands to specify a local search strategy in other contexts, for example,
+        in calculating support values using the command
+        \nccross{calculate\_support}{calculatesupport}.
+        
+        All arguments of \poycommand{swap} are optional and their order
+        is arbitrary. The argument of different groups can be combined to tune the search heuristics, but the arguments within each group of are mutually exclusive. (If more than one arguments of one group is listed, only the last one is executed.)
+    \end{poydescription}
 
 	\begin{arguments}
 
-	\begin{argumentgroup}{Neighborhood}
-	{A neighborhood is a subset of topologies reachable from a given one by a given search method. The basic standard procedures for local search in phylogenetic analysis are SPR and TBR~\cite{swofford1990}. The nearest-neighbor interchanges (NNI) swapping strategy is implemented by combining 
+	    \begin{argumentgroup}{Likelihood Optimization}
+            {Specifies when we optimize the likelihood model and how we optimize
+            the branches furing a swap. \poycommand{fuse()} and \poycommand{build()} commands.}
+            \argumentdefinition{optimize:(model:([options]),branch:([options]))}{}
+                {\begin{description}
+
+                    \argumentdefinition{model:(never)}{}
+                        {Do not optimize the model during the build. After the build a
+                        round of optimizations will occur.}
+                        {modelnever}
+
+                    \argumentdefinition{model:(always)}{}
+                        {Optimize the model after every join.}
+                        {modelalways}
+
+                    \argumentdefinition{model:(threshold:FLOAT)}{}
+                        {Optimize the model if the cost of the current models join is
+                        better by \poyargument{FLOAT} times the current best cost.}
+                        {modelthreshold}
+
+                    \argumentdefinition{model:(max\_count:INT)}{}
+                        {Optimize the model after INT joins. This can be useful during
+                        the build process where we do improve the model, but where after
+                        every join it can be time consuming.}
+                        {maxcount}
+                        
+                    \argumentdefinition{branch:(never)}{}
+                        {Do not optimize the branches during the build process. We use
+                        an estimate based on the proportion of sites that transform.
+                        There is a final round of optimization after building.}
+                        {branchnever}
+
+                    \argumentdefinition{branch:(all\_branches)}{}
+                        {Optimize all branch lengths on each join.}
+                        {allbranches}
+
+                    \argumentdefinition{branch:(join\_region)}{}
+                        {Optimize a maximum of five branches; the new edge, and the two
+                        edges on either side.}
+                        {joinregion}
+
+                \end{description} }
+                {optimize}
+        \end{argumentgroup}
+
+	    \begin{argumentgroup}{Neighborhood}
+	        {A neighborhood is a subset of topologies reachable from a given one by a given search method. The basic standard procedures for local search in phylogenetic analysis are SPR and TBR~\cite{swofford1990}. The nearest-neighbor interchanges (NNI) swapping strategy is implemented by combining 
             the arguments \poyargument{spr} and \poyargument{sectorial} (see \emph{Join method} group of
             arguments): \poycommand{swap(spr, sectorial:1)}.
             \index{general}{NNI|see{swap}}
             \index{general}{nearest-neighbor interchanges|see{swap}}}
             \label{swap_neigh}
 
-	      \argumentdefinition{alternate}{}
-	     {Performs \poyargument{spr} and \poyargument{tbr}
+	        \argumentdefinition{alternate}{}
+	            {Performs \poyargument{spr} and \poyargument{tbr}
                 swapping iteratively until a local optimum is found.
                 This is a specific strategy of performing \poyargument{tbr},
                 as the trees visited by \poyargument{spr} are a subset
@@ -2681,7 +2818,7 @@
                 {}
 
             \argumentdefinition{spr}{\optional{once}}
-	{This argument performs \poyargument{spr} swapping, starting
+	            {This argument performs \poyargument{spr} swapping, starting
                 from the current trees in memory and subsequently repeating
                 the SPR procedure until  a local optimum is found. If the optional value
                 \poyargument{once} is specified, \poyargument{spr} 
@@ -2689,7 +2826,7 @@
                 {}
 
             \argumentdefinition{tbr}{\optional{once}}
-	      {This argument performs \poyargument{tbr} swapping, starting
+	            {This argument performs \poyargument{tbr} swapping, starting
                 from the current trees in memory and subsequently repeating
                 the TBR procedure until  a local optimum is found.  If the optional value
                 \poyargument{once} is specified, \poyargument{tbr} 
@@ -2698,81 +2835,81 @@
 
         \end{argumentgroup}
 
-    \begin{argumentgroup}{Trajectory}
-        {The following arguments define the direction of the search in the defined
-        neighborhood.}
+        \begin{argumentgroup}{Trajectory}
+            {The following arguments define the direction of the search in the defined
+            neighborhood.}
 
-        \argumentdefinition{around}{}
-            {Changes the trajectory of a search by
-            completely exploring the neighborhood of the current
-            tree in memory and choosing the best swap position
-            before continuing.
-            The default in \poy is to choose the first one
-            available that shows a better cost than the current
-            best cost.}
-            {}
+            \argumentdefinition{around}{}
+                {Changes the trajectory of a search by
+                completely exploring the neighborhood of the current
+                tree in memory and choosing the best swap position
+                before continuing.
+                The default in \poy is to choose the first one
+                available that shows a better cost than the current
+                best cost.}
+                {}
 
-        \argumentdefinition{annealing}{\obligatory{(\poyfloat, \poyfloat)}}
-            {Uses simmulated annealing~\cite{Kirkpatrick1983}. If the argument's value is $(a, b)$, 
-            \poy accepts a tree with cost $c$ when the best known tree has
-            cost $d$ with probability $\exp{(- (c - d) / t)}$, where
-            $t = a \times \exp{- i / b}$ and $i$ is the number of tree
-            evaluated in the local search.}
-            {}
+            \argumentdefinition{annealing}{\obligatory{(\poyfloat, \poyfloat)}}
+                {Uses simmulated annealing~\cite{Kirkpatrick1983}. If the argument's value is $(a, b)$, 
+                \poy accepts a tree with cost $c$ when the best known tree has
+                cost $d$ with probability $\exp{(- (c - d) / t)}$, where
+                $t = a \times \exp{- i / b}$ and $i$ is the number of tree
+                evaluated in the local search.}
+                {}
 
-        \argumentdefinition{drifting}{\obligatory{(\poyfloat, \poyfloat)}}
-            {Uses \poy drifting function~\cite{goloboff1999}. If the argument's value is
-            $(a, b)$, then \poy always accepts a tree with better cost than
-            the current best cost, with probability $a$ a tree with equal cost,
-            and with probability $1 / b + d$ a tree with cost $d$ greater
-            than the current best cost.}
-            {}
+            \argumentdefinition{drifting}{\obligatory{(\poyfloat, \poyfloat)}}
+                {Uses \poy drifting function~\cite{goloboff1999}. If the argument's value is
+                $(a, b)$, then \poy always accepts a tree with better cost than
+                the current best cost, with probability $a$ a tree with equal cost,
+                and with probability $1 / b + d$ a tree with cost $d$ greater
+                than the current best cost.}
+                {}
 
-	\end{argumentgroup}
+	    \end{argumentgroup}
 
-	\begin{argumentgroup}{Branch break order}
-		{During the local search, a branch is broken and local branch swapping
-		is performed (see \emph{Neighborhood} group of arguments), the
-		precise choice of which branches
-        should be broken first can affect both the speed and the local
-        optimum found by the program. The following arguments select among
-        the different strategies available in \poy.}
+	    \begin{argumentgroup}{Branch break order}
+            {During the local search, a branch is broken and local branch swapping
+            is performed (see \emph{Neighborhood} group of arguments), the
+            precise choice of which branches
+            should be broken first can affect both the speed and the local
+            optimum found by the program. The following arguments select among
+            the different strategies available in \poy.}
         
-        \argumentdefinition{once}{}
-            {Breaks each branch only once during a local search; that is, if a
-            broken branch does not yield a better tree, it is never broken again,
-            no matter how many changes occur along the search trajectory.}
-            {once}
+            \argumentdefinition{once}{}
+                {Breaks each branch only once during a local search; that is, if a
+                broken branch does not yield a better tree, it is never broken again,
+                no matter how many changes occur along the search trajectory.}
+                {once}
 
-        \argumentdefinition{randomized}{}
-            {Chooses branches uniformly at random for breakages.}
-            {}
+            \argumentdefinition{randomized}{}
+                {Chooses branches uniformly at random for breakages.}
+                {}
 
-        \argumentdefinition{distance}{}
-            {Gives higher priority to those branches with the greatest length.}
-            {}
+            \argumentdefinition{distance}{}
+                {Gives higher priority to those branches with the greatest length.}
+                {}
 
-    \end{argumentgroup}
+        \end{argumentgroup}
 
-    \begin{argumentgroup}{Join method}
-        {After breaking a tree (using SPR or TBR), the following 
-        arguments control the selection of the positions to join the broken
-        clades.}
+        \begin{argumentgroup}{Join method}
+            {After breaking a tree (using SPR or TBR), the following 
+            arguments control the selection of the positions to join the broken
+            clades.}
 
-            \argumentdefinition{constraint}{\optional{\poyint | 
-            (depth:\poyint, file:\poystring)}}
-                {Sets
-                constraints on the join locations during the search using both a tree and an optional maximum distance
-                from the break branch. Only sets defined either in the input
-                file, or in the strict consensus of the files in memory to consider during swapping. An integer value of
-                \poyargument{depth} specifies the maximum distance from the
-                break branch to attempt joins. The string value for
-                \poyargument{file} specifies an input file containing a single
-                tree that defines topological constraints. Under default settings,
-                \poyargument{constraint}
-                will use a consensus tree from the files in memory and perform
-                swapping with the value of \poyargument{depth} set to \texttt{0}
-                (no maximum distance is specified).}
+            \argumentdefinition{constraint}{\optional{\poyint | (depth:\poyint, file:\poystring)}}
+                {Sets constraints on the join locations during the search
+                using both a tree and an optional maximum distance from the
+                break branch. Only sets defined either in the input file, or
+                in the strict consensus of the files in memory to consider
+                during swapping. An integer value of \poyargument{depth}
+                specifies the maximum distance from the break branch to
+                attempt joins. The string value for \poyargument{file}
+                specifies an input file containing a single tree that
+                defines topological constraints. Under default settings,
+                \poyargument{constraint} will use a consensus tree from the
+                files in memory and perform swapping with the value of
+                \poyargument{depth} set to \texttt{0} (no maximum distance
+                is specified).}
                 {swapconstraint}
 
             \argumentdefinition{all}{\optional{\poyint}}
@@ -2787,64 +2924,64 @@
                 in the path connecting them. If no argument is given, then no
                 distance limit is set.}
                 {}
-		
-    \end{argumentgroup}
+            
+        \end{argumentgroup}
 
-    \begin{argumentgroup}{Reroot order}
-        {During TBR, the following options control the order of the rerooting.}
+        \begin{argumentgroup}{Reroot order}
+            {During TBR, the following options control the order of the rerooting.}
 
-        \argumentdefinition{bfs}{\optional{\poyint}}
-            {Reroots using breath first search~\cite{cormen2001} from the broken edge, within the
-            arguments value distance from the root of the clade. If no value is
-            given, there is no limit distance for the rerooting. By default, \poyargument{bfs}
-            is used with no limit distance for the rerooting.}
-            {}
+            \argumentdefinition{bfs}{\optional{\poyint}}
+                {Reroots using breath first search~\cite{cormen2001} from the broken edge, within the
+                arguments value distance from the root of the clade. If no value is
+                given, there is no limit distance for the rerooting. By default, \poyargument{bfs}
+                is used with no limit distance for the rerooting.}
+                {}
 
-    \end{argumentgroup}
+        \end{argumentgroup}
 
-	\begin{argumentgroup}{Trajectory samples}
-	{During the search, \poy visits a large number of trees. For some applications
-	 it might be desirable to  collect information about the trees examined during a
-	 search: for example, to provide backups of the state of a
-        search (in an unlikely crash), or to examine the characteristics of the alignments.
-        The difference from the \poycommand{swap} arguments is that the user can
-        choose any combination of trajectory samples, and that can be 
-        used during the search. None of the trajectory samples is used by
-        default.}
+	    \begin{argumentgroup}{Trajectory samples}
+	        {During the search, \poy visits a large number of trees. For some
+            applications it might be desirable to  collect information about the
+            trees examined during a search: for example, to provide backups of
+            the state of a search (in an unlikely crash), or to examine the
+            characteristics of the alignments.  The difference from the
+            \poycommand{swap} arguments is that the user can choose any
+            combination of trajectory samples, and that can be used during the
+            search. None of the trajectory samples is used by default.}
 
-	\argumentdefinition{recover}{}
-	{Stores the current best tree in memory that can be recovered in
-            case of failure. If it is necessary to recover such
-            trees after an aborted command, use ~\ccross{recover}. 
-            If the program terminates normally, the stored trees are exactly
-            those produced at the end of the \poycommand{swap}. Using
-            \poyargument{recover}, however, requires twice as much memory
-            compared to swapping without it.}
-            {recoverarg}
+	        \argumentdefinition{recover}{}
+	            {Stores the current best tree in memory that can be recovered in
+                case of failure. If it is necessary to recover such trees after
+                an aborted command, use ~\ccross{recover}.  If the program
+                terminates normally, the stored trees are exactly those produced
+                at the end of the \poycommand{swap}. Using
+                \poyargument{recover}, however, requires twice as much memory
+                compared to swapping without it.}
+                {recoverarg}
 
-     \argumentdefinition{timeout}{\obligatory{\poyint}}
-            {Specifies the number of seconds after which tree branch
-            swapping is stopped. The current best tree is the result of the
-            swap after the timeout.} 
-            {}
+             \argumentdefinition{timeout}{\obligatory{\poyint}}
+                {Specifies the number of seconds after which tree branch
+                swapping is stopped. The current best tree is the result of the
+                swap after the timeout.} 
+                {}
 
-        \argumentdefinition{timedprint}{\obligatory{(\poyint, \poystring)}}
-	{\poyargument{timedprint:(n, "trees.txt")} prints the current
-            best tree in memory to the file \texttt{trees.txt}, at least every 
-            \texttt{n} seconds. However, \poy typically underestimates the amount of
-            time and, therefore, the samples can be slightly sparcer. \poyargument{timedprint} 
-            can only be used in combination with the argument \poyargument{recover}.}
-            {}
+            \argumentdefinition{timedprint}{\obligatory{(\poyint, \poystring)}}
+	            { \poyargument{timedprint:(n, "trees.txt")} prints the current
+                best tree in memory to the file \texttt{trees.txt}, at least every 
+                \texttt{n} seconds. However, \poy typically underestimates the amount of
+                time and, therefore, the samples can be slightly sparcer. \poyargument{timedprint} 
+                can only be used in combination with the argument \poyargument{recover}.}
+                {}
 
-		\argumentdefinition{trajectory}{\optional{\poystring}}
-			{\poyargument{trajectory:"better.txt"} will store every new tree
+		    \argumentdefinition{trajectory}{\optional{\poystring}}
+			    {\poyargument{trajectory:"better.txt"} will store every new tree
                 found with a better score during the local search in the file
                 \texttt{better.txt}. The string is the filename where the
                 trajectory is to be stored, which is optional (indicated by
                 brackets); if not added, the trees are printed in the standard
                 output (flat interface) or the output window (ncurses
                 interface).}
-            {} 
+                {} 
 
         \argumentdefinition{visited}{\optional{\poystring}}
             {\poyargument{visited:"visited.txt"} will store every visited tree
@@ -2857,40 +2994,39 @@
     
     \end{argumentgroup}
 
-    \begin{argumentgroup}{Character transformation}
-    	{}
-	
-	\argumentdefinition{transform}{}
-            {Specifies a type of character transformation to be performed
-            \emph{prior} to swapping.
-            See the command~\nccross{transform}{transformcommand} for
-            the description of the methods of character type transformations
-            and character selection.}
-            {}
-    \end{argumentgroup}
+        \begin{argumentgroup}{Character transformation} {}
+	    
+	        \argumentdefinition{transform}{}
+                {Specifies a type of character transformation to be performed
+                \emph{prior} to swapping.
+                See the command~\nccross{transform}{transformcommand} for
+                the description of the methods of character type transformations
+                and character selection.}
+                {}
+        \end{argumentgroup}
             
-    \begin{argumentgroup}{Tree selection}
-        {As the tree search proceeds, a tree may or may not be selected to
-        continue the search or to return as a result. The following
-        arguments determine under what conditions can a tree be acceptable
-        during the search.}
+        \begin{argumentgroup}{Tree selection}
+            {As the tree search proceeds, a tree may or may not be selected to
+            continue the search or to return as a result. The following
+            arguments determine under what conditions can a tree be acceptable
+            during the search.}
 
-        \argumentdefinition{threshold}{\obligatory{\poyfloat}}
-            {Sets the percentage cost for suboptimal
-            trees that are more exhaustively evaluated during the swap,
-            meaning that trees within the threshold are subject to an extra
-            round of swapping. For example, if the current
-            optimal tree has cost 450, and \poyargument{threshold:10} is specified, trees
-            with cost at most 495 are swapped.  \poyargument{threshold} is
-            equivalent to \emph{slop} of  \texttt{POY3}.}
-            {thresholdswap}
+            \argumentdefinition{threshold}{\obligatory{\poyfloat}}
+                {Sets the percentage cost for suboptimal
+                trees that are more exhaustively evaluated during the swap,
+                meaning that trees within the threshold are subject to an extra
+                round of swapping. For example, if the current
+                optimal tree has cost 450, and \poyargument{threshold:10} is specified, trees
+                with cost at most 495 are swapped.  \poyargument{threshold} is
+                equivalent to \emph{slop} of  \texttt{POY3}.}
+                {thresholdswap}
 
-        \argumentdefinition{trees}{\obligatory{\poyint}}
-            {Maximum number of best trees that are retained in a search round,
-            per tree in memory.}
-            {treesswap}
+            \argumentdefinition{trees}{\obligatory{\poyint}}
+                {Maximum number of best trees that are retained in a search round,
+                per tree in memory.}
+                {treesswap}
 
-    \end{argumentgroup}
+        \end{argumentgroup}
     
 	\end{arguments}
 
