@@ -3,14 +3,14 @@
     \syntax{\obligatory{(\optional{argument list})}}
 	
  	\begin{poydescription}
-        Builds Wagner trees~\cite{farris1970}. Building multiple trees with a randomized addition of terminals allows for
-        the evaluation of many more possible tree topologies and generates a diversity of trees for subsequent analysis. 
+        Builds Wagner trees~\cite{farris1970}. Building multiple trees with a randomized addition 
+        of terminals allows for the evaluation of many more possible tree topologies and generates 
+        a diversity of trees for subsequent analysis. 
         The arguments of the command \poycommand{build} specify the number of trees to be generated and
         the order in which terminals are added during a single tree building procedure. During tree
         building, \poy reports in the \emph{Current Job} window of the ncurses interface
         which of the \hl{terminal addition strategies} is currently used.
         
-
         By default \poy replaces the trees stored in memory with those generated
         in a subsequent build. For example, executing \poycommand{build(10)}
         followed by \poycommand{build(20)} will replace the 10 trees generated
@@ -54,7 +54,7 @@
             {Builds trees using the set of constraints specified by the consensus
             tree input file. If no input file is provided, the constraint is calculated as
             the strict consensus of the trees in memory. Every tree built
-            using this method is subjected to the same randomization as wagner
+            using this method is subjected to the same randomization as Wagner
             builds within each constraint.}
             {buildconstraint}
 
@@ -78,7 +78,8 @@
             {buildrandom}
 
 	\argumentdefinition{randomized}{} 
-            {Indicates that terminals are added in random order on every Wagner tree built. This is a default tree-building strategy.}
+            {Indicates that terminals are added in random order on every Wagner tree built. 
+            This is a default tree-building strategy.}
             {randomized}
 
         \argumentdefinition{threshold}{\obligatory{\poyfloat}}
@@ -1028,17 +1029,17 @@
             {Specifies that the data listed in the string argument are chromosomal
             sequences with pipes (`` $\vline$ '') separating individual
             loci. This data type allows for locus-level rearrangements specified by
-            the argument \nccross{dynamic\_pam}{dynamicpam} of the command
-            \nccross{transform}{transformcommand}. Locus homologies are
-            determined dynamically, but based on annotated regions~\cite{vinh2006}
+            %the argument \nccross{dynamic\_pam}{dynamicpam} of%
+              the command \nccross{transform}{transformcommand}. Locus homologies are
+            determined dynamically, but based on annotated regions~\cite{vinh2006}. 
             (for a sample script using this data type see tutorial \texttt{4.7}.} 
             {}
 
         \argumentdefinition{breakinv}{\obligatory{(STRING, STRING, 
         [orientation:\poybool, init3D:\poybool])}}
             {An \\ enhancement of the data file type \poyargument{custom\_alphabet} allowing
-            rearrangement events specified using \poycommand{dynamic\_pam()}. Syntactically,
-            breakinv data type is identical to custom\_alphabet data type.} 
+            rearrangement events. %specified using \poycommand{dynamic\_pam()}%. 
+            Syntactically, breakinv data type is identical to custom\_alphabet data type.  If \texttt{init3D} 	   is set to \texttt{true}, execution will be faster, but will require very large amounts of memory.} 
             {breakinv}
 
         \argumentdefinition{chromosome}{\obligatory{(\poystring list)}}
@@ -1049,23 +1050,25 @@
             events such as rearrangements, inversions, and large-scale
             insertions and deletions (including duplications). These parameter
             options (\emph{e.g.} inversion cost) are specified using the
-            argument \poycommand{dynamic\_pam} in the
+            %argument \poycommand{dynamic\_pam} in the%
             command~\nccross{transform}{transformcommand}.  
             Unlike when using \poycommand{annotated} data type,
             both locus-level and nucleotide-level homologies
-            are determined dynamically~\cite{vinh2007} (see tutorial \texttt{4.6}). If chromosome sequences were imported as
+            are determined dynamically~\cite{darlingetal2004, vinh2007} 
+            %change tutorial--or add new one?%
+            (see tutorial \texttt{4.6}). If chromosome sequences were imported as
             nucleotide type data, they can be converted to chromosome type data
             using the argument \poyargument{seq\_to\_chrom} of
             \nccross{transform}{transformcommand}.} 
             {}
             
             \argumentdefinition{custom\_alphabet}{\obligatory{(STRING, STRING, 
-        [orientation:\poybool, init3D:\poybool])}}
+        [orientation:\poybool, init3D:\poybool, \poylident])}}
             {Reads the data in the user-defined alphabet format. The first string argument is
             the name of a datafile that contains custom-alphabet sequences in FASTA format. 
             The characters can be (but are not required to be) separated by spaces.
             
-            The second string argument is the name of a custom-alphabet input file that contains two parts:
+            The second string argument is the name of a custom-alphabet input file that contains two    	   parts:
             an alphabet itself, where the alphabet elements are separated by spaces, and a
             transformation cost matrix. The elements in an alphabet can be letters, digits, or
             both, as long as one element is not a prefix of another  (``prefix-free''). For
@@ -1075,7 +1078,7 @@
             The transformation cost matrix contains the rows and columns in which the
             positions from left to right and top to bottom correspond to the sequence of the
             elements as they are listed in the alphabet. An extra rightmost column and lowermost
-            row correspond to a gap. It is impotant that the cost matrix must be symmetrical. An example 
+            row correspond to a gap. It is important that the cost matrix must be symmetrical. An 	   	  example 
             of a valid custom alphabet input file is provided below:
        	  
 	  \texttt{alpha beta gamma delta \\
@@ -1097,7 +1100,7 @@
 	$>$Taxon3\\
 	alphabetabetadelta}
 	
-	The optional arguments of \poyargument{custom\_alphabet} include \poyargument{orientation}
+	The optional arguments of \poyargument{custom\_alphabet} include \poyargument	  {orientation}
 	and \poyargument{init3D}, both of which require obligatory boolean values. The argument
 	\poyargument{orientation} allows the user to specify the orientation of custom-defined alphabet
 	characters. The \emph{tilde} symbol (``$\sim$'') preceding an alphabet character indicates
@@ -1108,6 +1111,11 @@
 	the medians for all triplets of characters (a, b, c). The options are \poyargument{init3D:true} or
 	\poyargument{init3D:false}. The default option is \texttt{true}.
 	
+	If the optional argument \poylident is \texttt{prealigned}, the sequences are
+	treated as aligned sequences.
+	
+	The default heuristic \texttt{level} is $2$.  This can be changed via the command \poycommand{transform}.
+	
 	\poycommand{custom\_alphabet}
 	can be transformed into \poycommand{breakinv} using \poycommand{transform}.}
 	 {customalphabet}
@@ -1117,14 +1125,13 @@
             multichromosomal nucleotide sequences with the ``\atsymbol'' sign 
             separating individual chromosomes. This data type
             allows for chromosome-level rearrangements specified by
-            the argument
-            \nccross{dynamic\_pam}{dynamicpam} of the command
-            \nccross{transform}{transformcommand}. Chromosome
-            homologies are determined dynamically using distance
-            threshold levels specified by the argument
-            \nccross{chrom\_hom}{chromhom}
-            of \nccross{transform}{transformcommand}(for a sample script using this data type see tutorial \texttt{4.9}.} 
-            {}
+           % the argument \nccross{dynamic\_pam}{dynamicpam} of
+           the command \nccross{transform}{transformcommand}. Chromosome
+            homologies are determined using the Mauve aligner ~\cite{darlingetal2004} within 	 	
+            %distance threshold levels specified by the argument \nccross{chrom\_hom}{chromhom}
+            the command \nccross{transform}{transformcommand}
+            (for a sample script using this data type see tutorial \texttt{4.9}.} 
+            {genome}
             
         \argumentdefinition{nucleotides}{\obligatory{(\poystring list)}}
             {Specifies that the data in the list of files hold nucleotide
@@ -3011,15 +3018,6 @@
             in memory.}
             {autosequencepartition}
             
-        \argumentdefinition{j}{\poylident}
-            {Simmilar to the previous, with the difference that no tree is
-            required prior the partition, and large sequence length variations
-            at the tips are treated as missing data. If \poylident is clip then
-            a large difference in length in the tips is assumed to be caused by
-            missing data. For clip to take effect, at least two fragments must
-            be found. If \poylident is noclip, then tips are treated like
-            any other fragment.}
-            {transformpartitioned}
         \argumentdefinition{direct\_optimization}{}
           {Transforms the characters specified so that the initial assignment of sequences to 
           the internal vertices of a tree use direct
@@ -3029,14 +3027,21 @@
           characters.}
           {directoptimization}
 
-        \argumentdefinition{fixed\_states}{}
+        \argumentdefinition{fixed\_states}{\optional{(\poystring, \poylident)}}
           {Transforms the characters specified in fixed state characters~\cite{wheeler1999a}
           where the initial assignment of sequences to the internal vertices of
           the tree is one of the observed sequences. If the observed sequences
           contain ambiguities, only those that resolve closest to another
           sequence are added to the set of valid states. This method is
-          recommended for large alphabets (more than or equal to 7 elements). It is only
-          applicable to dynamic homology characters.}
+          recommended for large alphabets ($\ge$ 7 elements). It is only
+          applicable to dynamic homology characters.  The optional arguments may be specified
+          for use with the \texttt{chromosome} character type.  The \poystring specifies the
+          root name of Mauve \cite{darlingetal2004} readable files ( ``\poystring\_$i$\_$j$.alignment'' 
+          where $i$ and $j$ are median states) to generate graphical sequence maps between median states. The default
+           is set as \poylident is \texttt{full\_polymorphism} which will consider all sequence ambiguities, but this option is also the most 
+           time consuming. Alternatively, \poylident is \texttt{single\_polymorphism} and \poylident is \texttt{ignore\_polymorphism} can be 
+           implemented whereby new potential median states will be generated which considered fewer sequence polymorphisms in their 
+           calculations, thus reducing execution time.}
           {fixedstates}
           
         \argumentdefinition{gap\_opening}{\obligatory{\poyint}}
@@ -3053,6 +3058,18 @@
             This method is applicable only to dynamic homology characters with
             the nucleotide alphabet.} 
             {gapopening}
+            
+          \argumentdefinition{level}{\obligatory{(\poyint}, \poylident)}
+          {The integer argument specifies the heuristic level in median sequence calculation.  
+            This determines the number of possible states stored at each median sequence position.  
+            For nucleotide data, all possibilities are stored.  The default for amino acid sequences is $1$
+            and for \texttt{custom\_alphabet} characters it is $2$.  Storage and set up time increase combinatorially with
+            level number. 
+            If the \poylident is \texttt{first}, ties are broken (if the number of equally costly states is greater than the level number)
+            by choosing the first median state examined; if \texttt{last}, the last state, and if \texttt{at\_random} then at random.
+            
+            The default choice method is \texttt{first}.}
+          {level}
 
         \argumentdefinition{multi\_static\_approx}{}
             {Calculates the implied alignment for each tree in memory
@@ -3062,12 +3079,28 @@
             for heuristic search purposes and is applicable only to dynamic homology characters.}
             {multistaticapprox}
 
-            \argumentdefinition{prealigned}{}
+           \argumentdefinition{partitioned}{\obligatory{\poylident}} %or is it \optional ?
+            {Similar to \texttt{auto\_sequence\_partition}, with the difference that no tree is
+            required prior the partition, and large sequence length variations
+            at the ends of sequences are treated as missing data. If \poylident is \texttt{clip} then
+            a large difference in length in the sequence ends is assumed to be caused by
+            missing data. For \texttt{clip} to take effect, at least two fragments must
+            be found. If \poylident is \texttt{noclip}, then sequence ends are treated like
+            any other fragment.}
+            {transformpartitioned}
+            
+        \argumentdefinition{prealigned}{}
                 {Treats the sequences as prealigned and uses the
                 cost regime according to the specified transformation cost
                 matrix. All other cost parameters are ignored (including affine
                 gap costs). This command requires that all the specified sequences have the same length.}
                 {prealignedtransform}
+                
+        \argumentdefinition{search\_based}{\obligatory{(\poystring, \poystring)}}
+        {Transforms the optimization of \texttt{fixed\_states} characters to \texttt{search\_based}
+        optimization \cite{wheeler2003b} by adding the sequences found in the file specified by the second argument to the character specified by the 
+        first argument.}
+        {searchbased}
             
         \argumentdefinition{sequence\_partition}{\obligatory{\poyint}}
             {Partitions the sequences in the argument's value number of
@@ -3078,7 +3111,7 @@
             {Transforms the sequences to the static homology characters
             corresponding to their implied alignments and their transformation
             cost matrix~\cite{wheeler2003}. The resulting characters and their number will vary
-            depending on the characteristic of transformation coGst matrix
+            depending on the characteristic of transformation cost matrix
             assigned to each sequence. For example, if the cost of both substitutions
             and indels is \texttt{1}, then one non-additive character is created per
             each homologous position in the implied alignment. If the cost of
@@ -3122,7 +3155,8 @@
             in the alphabet separated by spaces. The last element in the list is the
             cost of the indel of a gap (should be 0). Instead of a file, the list can
             be the input of the argument, in the same order, separated by commas.
-            Synonym of the argument \poyargument{ti}. This method is applicable only to dynamic homology characters.} 
+            Synonym of the argument \poyargument{ti}. This method is applicable only to 
+            dynamic homology characters.} 
             {trailinginsertion}
 
         \argumentdefinition{trailing\_deletion}{\obligatory{\poystring /(\poyint list)}}
@@ -3133,17 +3167,19 @@
             in the alphabet separated by spaces. The last element in the list is the
             cost of the indel of a gap (should be 0). Instead of a file, the list can
             be the input of the argument, in the same order, separated by commas.
-            Synonym of the argument \poyargument{td}. This method is applicable only to dynamic homology characters.} 
+            Synonym of the argument \poyargument{td}. This method is applicable only to 
+            dynamic homology characters.} 
             {trailinginsertion}
 
              \argumentdefinition{tcm}{\obligatory{(\poyint, \poyint)}}
             {Defines transformation cost matrix. The first integer value specifies
             substitution cost, the second integer value defines indel cost. By default,
-            the cost of substitution is \texttt{1}, and the cost of an indel is \texttt{2}
-            (\poyargument{tcm:(1,2)}).}
+            the cost of substitutions and indels are both \texttt{1}.  Note: previous versions of POY, had
+            the cost of an indel set to \texttt{2}
+            (\poyargument{tcm:(1,1)}).}
             {transformtcm}
 
-            \argumentdefinition{tcm}{\obligatory{\poystring}}
+            \argumentdefinition{tcm}{\obligatory{(\poystring, \poyint)}}
             {Defines the transformation cost matrix by importing a file (specified by
             the string value) that contains a user defined nucleotide
             transformation cost matrix. This method is applicable only to dynamic homology characters.
@@ -3163,7 +3199,11 @@
             2 1 2 0 4 \\
             4 4 4 4 0} 
             \end{center}
-            }
+            The integer argument specifies the heuristic level in median sequence calculation.  
+            This determines the number of possible states stored at each median sequence position.  
+            For nucleotide data, all possibilities are stored.  The default for amino acid sequences is $1$
+            and for \texttt{custom\_alphabet} characters it is $2$.  Storage and set up time increase combinatorially with
+            level number.}
             {transformtcmmatrix}
 
             \argumentdefinition{weight}{\obligatory{argument}}
@@ -3190,8 +3230,7 @@
             {level}
 
 
-      
-
+   
       \end{argumentgroup}
            
        \begin{argumentgroup}{Chromosomal transformation methods}
@@ -3201,49 +3240,49 @@
            to allow for translocations, inversions, and indel events both at the locus-level for chromosomal data
            and at the chromosome-level for genomic data.
            
-          The functions to calculate breakpoint and inversion distances between two
-	sequences of gene orders are taken from GRAPPA, Genome
-	Rearrangements Analysis under Parsimony and other Phylogenetic Algorithms ~     \cite{baderetal2002},
-	available at \texttt{http://www.cs.unm.edu/\~{}moret/GRAPPA/}.
+         The functions to calculate breakpoint and inversion distances between two
+	sequences of gene orders are taken from the rearrangement software packages: GRAPPA, Genome
+	Rearrangements Analysis under Parsimony and other Phylogenetic Algorithms \cite{baderetal2002}, 
+	and MGR, Multiple Genome Rearrangements \cite{bourqueandpevzner2002}, as well as from the 	 
+	Concord TSP Solver available at \texttt{http://www.tsp.gatech.edu/concorde/}.
 	
 	 \argumentdefinition{breakinv\_to\_custom}{}
-            {Transforms \poyargument{breakinv} character type into \poyargument{custom\_alphabet} characters.
-            This transformation prevents the use of rearrangement operations.} 
+            {Transforms \poyargument{breakinv} character type into \poyargument{custom\_alphabet} 	 
+            characters. This transformation prevents the use of rearrangement operations.} 
             {breakinvtocustom}
 
            \argumentdefinition{custom\_to\_breakinv}{\obligatory{([argument list])}}
-            {Transforms \poyargument{custom\_alphabet} characters into the \poyargument{breakinv} character type to 
-            allow for rearrangement operations (translocations and inversions; duplications are not currently supported).  
-            This argument is useful, for example, when \poyargument{custom\_alphabet} characters are used to define a sequence of
-            individual genes and one is interested in detecting potential change in their order within a chromosome. 
+            {Transforms \poyargument{custom\_alphabet} characters into the \poyargument{breakinv} character type to allow for 
+            rearrangement operations (translocations and inversions; duplications are not currently supported). This argument is useful, for 
+            example, when \poyargument{custom\_alphabet} characters are used to define a sequence of individual genes and one is 
+            interested in detecting potential change in their order within a chromosome. 
             See the command~\ccross{read} for the description on how to load the \poyargument{custom\_
             alphabet} and \poyargument{breakinv} character types. The optional list of arguments
             includes the arguments of the \poyargument{dynamic\_pam} that can also
-            be specified subsequently, as a separate step (for a sample script using this character transformation see tutorial \texttt{4.8}).}
+            be specified subsequently, as a separate step (for a sample script using this character 	transformation see tutorial \texttt{4.8}).}
             {customtobreakinv}
              
-        \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
+           \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
            {Transforms nucleotide type data into \\ chromosome type data to allow
             rearrangements, inversions, and locus-level indel operations.  The
             chromosome-specific options (\emph{e.g.}  \poyargument{locus\_breakpoint}, 
-            \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, and \poyargument{locus\_indel}) can be specified by the argument
-            \poyargument{dynamic\_pam} If no \poyargument{dynamic\_pam} values
-           are specified, its default values are applied.}
+            \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, and \poyargument{locus\_indel}) can be 
+            specified by the argument.}
+            %\poyargument{dynamic\_pam} If no \poyargument{dynamic\_pam} values are specified, its default values are applied%
            {seqtochrom}
            
-            \argumentdefinition{dynamic\_pam}{\obligatory{([argument list])}}
+            \argumentdefinition{chromosome}{\obligatory{([argument list])}}
             {Specifies parameters for creating chro\-mosome- and genome-level HTUs (medians).
-            The arguments of \poyargument{dynamic\_pam} define homologous blocks within unannotated chromosome sequences using
-            (\poyargument{min\_seed\_length}, \poyargument{min\_loci\_len}, and \poyargument{min\_rearranged\_len}); specify the cost
-            of locus-level transformation events: (i.e.
-            \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, or \poyargument{locus\_breakpoint},
-            and \poyargument{locus\_indel});  specify the cost of chromosome-level transformation events: 
-            (i.e. \poyargument{chrom\_breakpoint}, and \poyargument{chrom\_indel}); 
-            take into account whether the chromosome is linear or circular (\poyargument{circular}); and implement a number of heuristic
-            procedures to accelerate computations (\poyargument{median}, \poyargument{swap\_med}, and \poyargument{med\_approx}).
-            Under default settings, the pairwise distance between two chromosome segments or two chromosomes is determined 
-            using breakpoint rather than inversion calculations and the rest of the arguments are executed under their default settings.}
-            {dynamicpam}
+            The arguments of \poyargument{chromosome} define homologous blocks within unannotated chromosome sequences by
+             specifying parameters within the Mauve aligner \cite{darlingetal2004} including block quality, block coverage, 	       		   	   
+             minimum and maximum block length. Users also specify the costs assigned to locus-level transformation events:
+            %(\poyargument{min\_seed\_length}, \poyargument{min\_loci\_len}, and \poyargument{min\_rearranged\_len}); specify thecost
+            (i.e. \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, or \poyargument{locus\_breakpoint}, and
+             \poyargument {locus\_indel}), take into account whether the chromosome is linear or circular (\poyargument{circular}), and
+             implement a number of 	heuristic procedures to accelerate computations (\poyargument{median}, \poyargument{swap\_med}, 
+             and \poyargument {med\_approx}).  Under default settings, the pairwise distance between two chromosome segments or two 
+             chromosomes is determined using breakpoint rather than inversion calculations and the rest of the arguments are executed 
+             under their default settings.}
 
 		 \begin{figure} [!htbp]
    		 \begin{center}
@@ -3264,7 +3303,14 @@
 		\end{figure}
 		
 	\begin{description}
-            
+            	\argumentdefinition{annotate}{\obligatory{(\poylident,\poyfloat,\poyfloat,\poyfloat,\poyfloat)}}
+                        {Specifies the annotation method for unannotated chromosome sequences.
+                        If \poylident is \texttt{mauve} the Mauve algorithm is used \cite{darlingetal2004} with
+                        float parameters quality of lcb (default value 35), lcb coverage (default .30), 
+                        minimum length of lcb as a percentage of sequence lenght (default .01), maximum length of lcb as a percentage of 
+                        sequence length ( default .10).  Percent calculations are based on the shorter of two sequences compared.}
+                        {annotate}
+
             	\argumentdefinition{med\_approx}{\obligatory{\poybool}}
                         {Approximates chromosome medians using a fixed-states
                         approach. This is most useful to accelerating tree
@@ -3273,6 +3319,12 @@
                         fixed-states optimization. The default value is
                         \texttt{false}.}
                         {medapprox}
+                        
+                        \argumentdefinition{newkkonen}{\optional{\poylident}}
+                        {The optional \textt {newkkonen} argument can be used with chromosomal or genomic data to minimize memory 
+                        consumption during the alignment of LCBs.  This option, however, may slow the alignment process and is only 
+                        recommended for very large chromosomal data sets to reduce memory consumption.}
+                        {newkkonen}
                         
                         \argumentdefinition{locus\_breakpoint}{\obligatory{\poyint}}
                         {Calculates the breakpoint distance \cite{blanchetteetal1997}
@@ -3306,6 +3358,7 @@
                         \poyargument{locus\_breakpoint} or
                         \poyargument{locus\_inversion}.} 
                         {locusdcj}
+                        
                         \argumentdefinition{locus\_inversion}{\obligatory{\poyint}}
                         {Calculates the inversion distance~\cite{hanenhalliandpevzner1995}
                         between two chromosome segments given the cost for inversion
@@ -3331,93 +3384,89 @@
                        $o + l \times e$. The default values are $o=10, e=1.0$.}
                         {locusindel}
 
-		     \argumentdefinition{min\_seed\_length}{\obligatory{\poyint}}
-                        {Specifies the minimum length of identical (invariant,
-                        completely conserved) contiguous sequence fragments
-                        during comparison between two chromosomes. The integer
-                        value of \poyargument{min\_seed\_length} is the number of
-                        nucleotides. Correct identification of such fragments
-                        facilitates detecting chromosome rearrangement events and
-                        accelerates other operations (such as tree building and
-                        swapping). However, if \poyargument{min\_seed\_length} value
-                        is set too low (detecting many short fragments) or
-                        too high (such that no identical fragments are detected)
-                        the time required for subsequent searching procedures
-                        may significantly increase. The optimal \poyargument{min\_seed\_length} 
-                        value depends on the specifics of  a given dataset (see Figure \ref{fig:chrom}).
-                        The default value of \poyargument{min\_seed\_length} is \texttt{9}.}
-                        {minseedlength}
+		     %\argumentdefinition{min\_seed\_length}{\obligatory{\poyint}}
+                        %{Specifies the minimum length of identical (invariant,
+                        %completely conserved) contiguous sequence fragments
+                        %during comparison between two chromosomes. The integer
+                        %value of \poyargument{min\_seed\_length} is the number of
+                        %nucleotides. Correct identification of such fragments
+                        %facilitates detecting chromosome rearrangement events and
+                        %accelerates other operations (such as tree building and
+                        %swapping). However, if \poyargument{min\_seed\_length} value
+                        %is set too low (detecting many short fragments) or
+                        %too high (such that no identical fragments are detected)
+                        %the time required for subsequent searching procedures
+                        %may significantly increase. The optimal \poyargument{min\_seed\_length} 
+                        %value depends on the specifics of  a given dataset (see Figure \ref{fig:chrom}).
+                        %The default value of \poyargument{min\_seed\_length} is \texttt{9}.}
+                        %{minseedlength}
 
-                          \argumentdefinition{min\_loci\_len}{\obligatory{\poyint}}
-                          {Creates a pairwise alignment between two chromosomes to
-                          detect conserved areas (``blocks''). However, only blocks of
-                          lengths (in number of nucleotides) greater or equal to the specified \poyargument{min\_loci\_len}
-                          value are considered as hypothetically
-                          homologous blocks and used as anchors to divide chromosomes into
-                          fragments. Thus, increasing the value of \poyargument{min\_loci\_len} decreases
-                           the chance of inferring small-size rearrangements (see Figure \ref{fig:chrom}). 
-                           The default value is \texttt{100}.} 
-                           {minlocilen}
+                          %\argumentdefinition{min\_loci\_len}{\obligatory{\poyint}}
+                          %{Creates a pairwise alignment between two chromosomes to
+                          %detect conserved areas (``blocks''). However, only blocks of
+                          %lengths (in number of nucleotides) greater or equal to the specified \poyargument{min\_loci\_len}
+                          %value are considered as hypothetically
+                          %homologous blocks and used as anchors to divide chromosomes into
+                          %fragments. Thus, increasing the value of \poyargument{min\_loci\_len} decreases
+                           %the chance of inferring small-size rearrangements (see Figure \ref{fig:chrom}). 
+                           %The default value is \texttt{100}.} 
+                           %{minlocilen}
                            
-                           \argumentdefinition{min\_rearrangement\_len}{\obligatory{\poyint}} 
-                            {Two seeds are said to be \emph{non-rearranged}, 
-               	           if their distance is less than the predefined threshold value set
-	                    for \poyargument{min\_rearrangement\_len}.  In other words, it is unlikely 
-	                    that rearrangement operations can occur between two non-rearranged seeds
-	                    if they are connected (see Figure \ref{fig:chrom}).
-	                    The default value is \texttt{100}}
-                             {minrearrangementlen}
+                           %\argumentdefinition{min\_rearrangement\_len}{\obligatory{\poyint}} 
+                            %{Two seeds are said to be \emph{non-rearranged}, 
+               	           %if their distance is less than the predefined threshold value set
+	                    %for \poyargument{min\_rearrangement\_len}.  In other words, it is unlikely 
+	                    %that rearrangement operations can occur between two non-rearranged seeds
+	                    %if they are connected (see Figure \ref{fig:chrom}).
+	                    %The default value is \texttt{100}}
+                             %{minrearrangementlen}
+
+                           %\argumentdefinition{max\_3d\_len}{\obligatory{\poyint}} 
+                            %{The three dimentional alignment for three chromosomes
+                            %is computed by separating into smaller three dimentional
+                            %alignments of short sequences whose lengths are smaller 
+                            %or equalt to \poyargument{max\_3d\_len}. The default value
+                             %is \texttt{200}}
+                             %{minrearrangementlen}
 
 
-                           \argumentdefinition{max\_3d\_len}{\obligatory{\poyint}} 
-                            {The three dimentional alignment for three chromosomes
-                            is computed by separating into smaller three dimentional
-                            alignments of short sequences whose lengths are smaller 
-                            or equalt to \poyargument{max\_3d\_len}. The default value
-                             is \texttt{200}}
-                             {minrearrangementlen}
+ 			%\begin{figure} [!htbp]
+   		 	%\begin{center}
+        			%\includegraphics[width=0.8\textwidth]{doc/figures/chromfig1.jpg}
+    			%\end{center}
+    			%\caption{The effect of dynamic parameter arguments (\poyargument{seed\_length, min\_rearrangement\_len}, 
+			%and \poyargument{min\_loci\_len}) on determining homologous blocks in unannotated chromosomal sequences.
+			 %\emph{Case A} allows for rearrangements between the short homologous blocks within the 				     
+			%blue brackets constructed upon six nucleotide seeds (red and green), \emph{Case B} 
+			%restricts rearrangement between seeds that are less than \texttt{28} nucleotides apart.
+			 %\emph{Case C} restricts rearrangement by requiring homologous blocks at least \texttt{50} nucleotides
+			  %in length. \emph{Case D} restricts recognition of homology between sequences by setting seed length
+			   %of conserved seeds at \texttt{15}.}
+    		%\label{fig:chrom}
+		%\end{figure}
 
-
- 			\begin{figure} [!htbp]
-   		 	\begin{center}
-        			\includegraphics[width=0.8\textwidth]{doc/figures/chromfig1.jpg}
-    			\end{center}
-    			\caption{The effect of dynamic parameter arguments (\poyargument{seed\_length, min\_rearrangement\_len}, 
-			and \poyargument{min\_loci\_len}) on determining homologous blocks in unannotated chromosomal sequences.
-			 \emph{Case A} allows for rearrangements between the short homologous blocks within the 				     
-			blue brackets constructed upon six nucleotide seeds (red and green), \emph{Case B} 
-			restricts rearrangement between seeds that are less than \texttt{28} nucleotides apart.
-			 \emph{Case C} restricts rearrangement by requiring homologous blocks at least \texttt{50} nucleotides
-			  in length. \emph{Case D} restricts recognition of homology between sequences by setting seed length
-			   of conserved seeds at \texttt{15}.}
-    		\label{fig:chrom}
-		\end{figure}
-
-                       \argumentdefinition{chrom\_breakpoint}{\obligatory{\poyint}} 
-      		     {Calculates the breakpoint distance~\cite{blanchetteetal1997}
-                        between two sequences of multiple chromosomes given the cost for
-                        rearrangement specified by an integer value. The breakpoint distance
-                        takes into account locus rearrangements between non-homologous
-                        chromosomes (translocations) but not inversions. For further discussion on 
+                       \argumentdefinition{translocation}{\obligatory{\poyint}} 
+      		     {Calculates the a cost for moving a sequence (locus) between non-homologus chromosomes (translocation).
+                         The cost for rearrangement is a breakpoint calculation specified by an integer value. For further discussion on 
                         how breakpoint distance is calculated see the argument \poyargument{locus\_breakpoint}.  
-                        The default value of \poyargument{chrom\_breakpoint} is \texttt{100}.} 
-                        {chrombreakpoint}
+                        The default value of \poyargument{translocation} is \texttt{100}.} 
+                        {translocation}
 
        
                    \begin{statement}
   		Note that the arguments \poyargument{locus\_breakpoint} and \poyargument {chrom\_breakpoint} cannot be used
 		simultaneously with the arguments \poyargument{locus\_inversion} and \poyargument{chrom\_inversion}
 		as they designate \emph{alternative} methods of calculating distance between two chromosomes.
-		If both arguments are specified, the latter will be executed. The order of other arguments of
-		\poyargument{dynamic\_pam} is arbitrary. 
+		If both arguments are specified, the latter will be executed. The order of other locus level arguments
+		is arbitrary. 
 		\end{statement}
 
-		     \argumentdefinition{chrom\_hom}{\obligatory{(\poyfloat)}}
-                       {Specifies the lower limit of distance between two chromosomes
-                        beyond which the chromosomes are not considered to be
-                        homologous. The default value of \poyargument{chrom\_hom}
-                        is \texttt{0.75}.}
-                        {chromhom}
+		     %\argumentdefinition{chrom\_hom}{\obligatory{(\poyfloat)}}
+                       %{Specifies the lower limit of distance between two chromosomes
+                       % beyond which the chromosomes are not considered to be
+                        %homologous. The default value of \poyargument{chrom\_hom}
+                        %is \texttt{0.75}.}
+                        %{chromhom}
                         
                          \argumentdefinition{chrom\_indel}{\obligatory{(\poyint, \poyfloat)}}
                         {Specifies the cost for insertion and deletion of a chromosome in analysis of
@@ -3449,16 +3498,15 @@
                         all generated rearrangements.}
                         {median}
 
-               \argumentdefinition{median\_solver}{\obligatory{\poyint}}
+               \argumentdefinition{median\_solver:}{\obligatory{\poylident}}
                        {Specifies the median solver. User can choose from
-                       default(caprara),vinh,siepel,bbtsp,coaletsp,chainedlk and simplelk. The
-                       default median solver is caprara median solver. Note:
-                       Concorde package is required for chainedlk and simplelk
-                       median solver. Download Concorde package from 
-                       http://www.tsp.gatech.edu//concorde/downloads/downloads.htm.
-                       }
+                       the following solvers: \texttt {caprara,siepel,bbtsp,coaletsp}from GRAPPA \cite{baderetal2002},  
+                       \texttt {mgr} \cite{bourqueandpevzner2002}, \textt {vinh} \cite{vinh2006}, and \textt {chainedlk, simplelk}
+                       from the Concord package \cite{http://www.tsp.gatech.edu/concorde/}. The
+                       default median solver is \texttt {caprara}. Note: coe package is required for \textt {chainedlk} and \textt {simplelk}
+                       median solvers. Download Concorde package from 
+                       http://www.tsp.gatech.edu//concorde/downloads/downloads.htm.}
                        {mediansolver}
-
 
 
               \argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
@@ -3540,29 +3588,57 @@
             	matrix, and applies the custom transformation cost matrix contained in the file
             	\texttt{Molmatrix1} to the sequence data contained in files \texttt{gen5} and
             	\texttt{gen6}.}
+	
+		\poyexample{transform(names:("mycustom.fas"),(tcm:("mycustom.mat",2)))}
+		{This examples transforms the cost matrix used to optimize custom\_alphabet 
+		character ``mycustom.fas'' to ``mycustom.mat'' and uses heuristic level $2$.}
          
-         		\poyexample{transform(fixed\_states)}
-        		 {Transformed all sequence characters into fixed states characters.}
+         	\poyexample{transform(fixed\_states)}
+        		 {Transformes all sequence characters into fixed states characters.}
+		 
+		 \poyexample{transform(level:2)}
+		 {Transforms all heuristic median calculations to level $2$ and breaking ties
+		 \texttt{first}}
             
           	\poyexample{transform((names:("gen1", "gen4"), fixed\_states))}
            	{Transformed only specified sequence characters (\texttt{gen1} and
            	\texttt{gen4}) into fixed states characters.}
            
            	\poyexample{transform(custom\_to\_breakinv:(circular:true))}
-           	{In this example all custom\_alphabet data is transformed into the breakinv data type 
+           	{In this example, all custom\_alphabet data is transformed into the breakinv data type 
 		and is treated as a circular chromosome.}
+		
+		\poyexample{transform(search\_based:(("mycustom\_char1.fas","mycustom\_extra1.fas"),("mycustom\_char2.fas","mycustom\_extra2.fas")))}
+		{This command adds the sequences found in ``mycustom\_extra1.fas'' and ``mycustom\_extra2.fas'' to \texttt{fixed\_states} characters 
+		``mycustom\_char1.fas'' and ``mycustom\_char2.fas'' respectively.}
+		
+		\poyexample{transform(search\_based:"mycustom\_extra.fas")}
+		{Adds sequences in ``mycustom\_extra.fas'' to all \texttt{fixed\_states} 
+		characters.}
           
-          	\poyexample{transform(seq\_to\_chrom:(locus\_indel:(50, 1.0), min\_seed\_length:15))} 
-          	{All applicable (\emph{i.e.} sequence) data are transformed into chromosome
-          	data with the minimum length of identical contiguous sequence fragments which form
-	          the seeds of homologous blocks set at  \texttt{15} nucleotides and the locus-level gap
-	         opening cost is set at \texttt{50} with a gap extension cost at \texttt{1.0}.}
+          	\poyexample{transform(seq\_to\_chrom:(locus\_indel:(50, 1.0)))} 
+          	{All applicable (\emph{i.e.} sequence) data are transformed into chromosome data 
+		%with the minimum length of identical contiguous sequence fragments  which form the seeds of homologous blocks set at  
+		%\texttt{15} nucleotides 
+		and the locus-level gap opening cost is set at \texttt{50} with a gap extension cost at \texttt{1.0}.}
               
-          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, median:1, circular:false)))} 
-             	{This example shows the transformation of chromosomal data using the argument \poyargument{dynamic\_pam}
-		to set the locus rearrangement (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or more nucleotides 
-		are considered in determining possible rearrangements between identified seeds.  The chromosome data are
-		treated as linear and only a single set of median rearrangements are stored.}
+%          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, 
+%		median:1, circular:false)))} 
+%             	{This example shows the transformation of chromosomal data using the argument \poyargument{dynamic\_pam}
+%		to set the locus rearrangement (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or more nucleotides 
+%		are considered in determining possible rearrangements between identified seeds.  The chromosome data are
+%		treated as linear and only a single set of median rearrangements are stored.}
+
+		\poyexample{transform(fixed\_states:("shrimp",ignore\_polymorphism))}
+		{This example shows the optional arguments for a Mauve-based fixed\_states analysis.
+		Here, MAUVE genome alignment files will be generated with the names ``shrimp\_$i$\_$j$.alignment'' where $i$ and $j$ 
+		are median states.  Sequence ambiguities will not be resolved to generate additional medians beyond those determined 
+		by the data.}
+		
+		\poyexample{transform(chromosome:(annotate:(mauve,35.0,0.35,0.01,0.10)))}
+		{This command specifies the use of Mauve annotation with 35.0 for quality of lcb,
+		35\% coverage of all sequences by lcb's, 1\% min length of lcb (100 for length 10,000 
+		sequence), and 10\% max length (1000 for length 10,000 sequence).}
             
 	\end{poyexamples}	    
 
