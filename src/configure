@@ -3151,10 +3151,20 @@ fi
 esac
 
 
-oCFLAGS="$CFLAGS"
-CFLAGS="$FLAGS -Wl,--no-as-needed"
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether we need to add -no-as-needed compile option" >&5
-$as_echo_n "checking whether we need to add -no-as-needed compile option... " >&6; }
+# System dependent options -----
+case ${OS_INFORMATION} in
+    *-cygwin*)
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether we need to add --no-as-needed linking option" >&5
+$as_echo_n "checking whether we need to add --no-as-needed linking option... " >&6; }
+        CC_NOASNEEDED="false"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: not needed for flexlink" >&5
+$as_echo "not needed for flexlink" >&6; };
+        ;;
+    *)
+        oCFLAGS="$CFLAGS"
+        CFLAGS="$FLAGS -Wl,--no-as-needed"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether we need to add --no-as-needed linking option" >&5
+$as_echo_n "checking whether we need to add --no-as-needed linking option... " >&6; }
 
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -3163,7 +3173,7 @@ int
 main ()
 {
 
-                                        int main(){ return 0; }
+                                                int main(){ return 0; }
 
   ;
   return 0;
@@ -3177,7 +3187,9 @@ else
 $as_echo "no" >&6; }; CC_NOASNEEDED="false"
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-CFLAGS=$oCFLAGS
+        CFLAGS=$oCFLAGS
+        ;;
+esac
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for concorde.a" >&5
 $as_echo_n "checking for concorde.a... " >&6; }
@@ -4328,7 +4340,7 @@ $as_echo "yes" >&6; }
         else
             { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-            USE_NATIVEDYNLINK="true"
+            USE_NATIVEDYNLINK="false"
         fi
 	    rm -f str.cmxs*
         ;;

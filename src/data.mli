@@ -208,7 +208,7 @@ type specs =
 type specified = [ `Specified | `Unknown ]
 
 
-type bool_characters = [
+type bool_characters = Methods.characters (*[
     | `All
     | `Some of (bool * int list)
     | `Names of (bool * string list)
@@ -218,7 +218,7 @@ type bool_characters = [
     | `AllDynamic
     | `Missing of (bool * int)
     | `Range of ( bool * string * int * int)
-]
+]*)
 
 
 
@@ -515,6 +515,10 @@ type classes =
 val get_code_from_characters_restricted : classes -> d -> characters -> int list
 
 val get_code_from_characters_restricted_comp : classes -> d -> bool_characters -> int list 
+
+val filter_non_static_approx_characters : ?comp:bool -> d -> int list -> int list
+
+val can_all_chars_do_static_approx : d -> int list -> bool
 
 val transform_dynamic :
     Methods.dynamic_char_transform ->

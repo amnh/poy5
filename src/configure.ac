@@ -211,16 +211,26 @@ case ${OS_INFORMATION} in
 esac
 
 
-oCFLAGS="$CFLAGS"
-CFLAGS="$FLAGS -Wl,--no-as-needed"
-AC_MSG_CHECKING([whether we need to add --no-as-needed linking option])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], 
-                                     [[ 
-                                        int main(){ return 0; } 
-                                    ]])], 
-                  [AC_MSG_RESULT([yes]); CC_NOASNEEDED="true"],
-                  [AC_MSG_RESULT([no]); CC_NOASNEEDED="false"]) 
-CFLAGS=$oCFLAGS
+# System dependent options -----
+case ${OS_INFORMATION} in
+    *-cygwin*)
+        AC_MSG_CHECKING([whether we need to add --no-as-needed linking option])
+        CC_NOASNEEDED="false"
+        AC_MSG_RESULT([not needed for flexlink]);
+        ;;
+    *)
+        oCFLAGS="$CFLAGS"
+        CFLAGS="$FLAGS -Wl,--no-as-needed"
+        AC_MSG_CHECKING([whether we need to add --no-as-needed linking option])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], 
+                                             [[ 
+                                                int main(){ return 0; } 
+                                            ]])], 
+                          [AC_MSG_RESULT([yes]); CC_NOASNEEDED="true"],
+                          [AC_MSG_RESULT([no]); CC_NOASNEEDED="false"]) 
+        CFLAGS=$oCFLAGS
+        ;;
+esac
 
 AC_MSG_CHECKING([for concorde.a])
 if test -f "$concorde_dir/concorde.a"; then
