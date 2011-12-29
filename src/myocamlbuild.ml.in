@@ -420,6 +420,12 @@ dispatch begin function
     flag ["shared"; "link"]
         (S [A"-ccopt";A"-shared"]);
 
+    flag ["c"; "compile"]
+        (S ccompileflags);
+
+    flag ["c"; "link"]
+        (S clinkflags);
+
     flag ["ocaml"; "compile"]
         (S ccompileflags);
 
