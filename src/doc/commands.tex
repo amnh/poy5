@@ -277,7 +277,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 
 \include{version}
 \author{\textbf {Program and Documentation} \\ Andr\'es Var\'on \\ Nicholas Lucaroni \\Lin Hong \\Ward C. Wheeler \\ \bigskip 
-\textbf{Documentation} \\ Louise M. Crowley \\ John S. S. Denton \\ Megan Cevasco}
+\textbf{Documentation} \\ Louise M. Crowley \\ Megan Cevasco \\John S. S. Denton}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %	BODY TEXT OF THE DOCUMENT     
@@ -308,12 +308,10 @@ Andr\'es Var\'on}\\
 Jane Street Capitol, 1 New York Plaza, New York, NY, U.S.A. \\
 \smallskip 
 {\it
-Nicholas Lucaroni\\
-Lin Hong \\
-Louise M. Crowley \\
-Ward C. Wheeler \\
+Louise M. Crowley, Lin Hong, Nicholas Lucaroni, Ward C. Wheeler \\
 }
 Division of Invertebrate Zoology, American Museum of Natural History, New York, NY, U.S.A.\\
+\smallskip
 {\it
 John S. S. Denton\\
 }
@@ -322,21 +320,12 @@ Richard Gilder Graduate School and Department of Ichthyology, American Museum of
 {\it
 Megan Cevasco} \\
 Coastal Carolina University, Department of Biology, Conway, SC, U.S.A. \\
-\smallskip
-{\it
-Le Sy Vinh}\\
-\hl{???} \\
-{\it
-Ilya T\"emkin} \\
-Northern Virginia Community College, Annandale Campus, VA, U.S.A. \\
-\smallskip
+\vspace*{1.15cm}
+
+
 {\it
 Illya Bomash}\\
 Department of Physiology And Biophysics, Weill Medical College of Cornell University, New York, NY, U.S.A.\\
-\smallskip
-{\it
-Kurt M. Pickett}\\
-\hl{Department of Biology, University of Vermont, Burlington, VT, U.S.A.} \\
 \smallskip
 {\it
 Juli\'an Faivovich}\\
@@ -344,24 +333,36 @@ Divisi\'on Herpetolog\'ia, Museo Argentino de Ciencias Naturales - CONICET, Buen
 \smallskip
 {\it
 Taran Grant}\\
-\hl{???} \\
+Universidade de S\~{a}o Paulo, Instituto de Bioci\^{e}ncias, Departamento de Zoologia, Cidade Universit\'aria, 
+S\~{a}o Paulo, Brasil.\\
+\smallskip
+{\it
+Kurt M. Pickett}\\
+Department of Biology, University of Vermont, Burlington, VT, U.S.A. \\
 \smallskip
 {\it
 William Leo Smith}\\
 Department of Zoology, The Field Museum of Natural History, Chicago, IL, U.S.A.\\
+\smallskip
+{\it
+Ilya T\"emkin} \\
+Northern Virginia Community College, Annandale Campus, VA, U.S.A. \\
+\smallskip
+{\it
+Le Sy Vinh}\\
+College of Technology and Information Technology Institute, Vietnam National University, Hanoi, Vietnam.  \\
 
-\vspace*{0.25cm}
+\vspace*{1.15cm}
 The American Museum of Natural History\\
-\copyright \hl {2011} by The American Museum of Natural History \\
-All rights reserved. Published \hl{2011}
+\copyright 2011 by The American Museum of Natural History, \\
+All rights reserved. Published 2011.
 
 \vspace*{0.25cm}
-\hl{
-\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} 2011.}
-\texttt{POY} 5.0.\buildnumber\ R.C. New York, American Museum of
-Natural History. \hl{Documentation by Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler, L. M. Crowley, J. S. S. Denton, M. Cevasco} \url{http://research.amnh.org/scicomp/projects/poy.php}
+\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} 2011. \texttt{POY} 5.0.\buildnumber\ R.C. New York, 
+American Museum of Natural History. L. M. Crowley, M. Cevasco, J. S. S. Denton. 
+\url{http://research.amnh.org/scicomp/projects/poy.php}
 
-\vspace*{0.5cm}
+\vspace*{0.25cm}
 
 Available online at
 \url{http://research.amnh.org/scicomp/projects/poy.php}
@@ -379,12 +380,18 @@ and
 
 \chapter{What is \poy}
 
-\poy is a flexible, multi-platform program for phylogenetic analysis of molecular and other data. %under various optimality criteria.
-An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} \hl{fix references to 2001a, b} allowing optimization of unaligned sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, support values and implied alignments.  In addition, \poy can output \hl{synteny block maps from the analysis of chromosomal and genomic data, as well as supra map stuff?}. \poy provides a unified approach to co-optimizing different types of data, such as morphological and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale genomic events (translocations, inversions, and duplications).
+\poy is a flexible, multi-platform program for the phylogenetic analysis of a diversity of data types. %under various optimality criteria.
+An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} allowing optimization of unaligned sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, support values and implied alignments.  In addition, \poy can also output synteny block maps from the analysis of both chromosomal and genomic data. \poy provides a unified approach to co-optimizing different types of data, such as morphological and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale genomic events (translocations, inversions, and duplications).
 
 \section{The structure of \poy documentation}
-Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to the program's two working environments, the \emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The following chapter, \emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their understanding helps creating building efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
+Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to two of the program's working environments, the \emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The following chapter, \emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their understanding helps creating building efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
 
+\section{What's new in \poy}
+New Features\\
+New Commands\\
+Major Bug fies?\\
+Improvements\\
+New Compilation requirements?\
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %QUICKSTART
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -402,7 +409,7 @@ Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first f
 
 \poy interprets and executes \emph{scripts} issued by the end user.  These can
 come from \emph{Graphical User Interface} and the command line in the \emph{Interactive Console} of the program, or from an
-input file. \hl{I added GUI here also, as the user generates a script in the GUI}. A script is a list of \emph{commands}, separated by any number of whitespace characters (spaces, tabs, or newlines). Each command consists of a name in lower case (\poylident), followed by a list of arguments separated by commas and enclosed in parentheses. Most of the arguments are optional, in
+input file. A script is a list of \emph{commands}, separated by any number of whitespace characters (spaces, tabs, or newlines). Each command consists of a name in lower case (\poylident), followed by a list of arguments separated by commas and enclosed in parentheses. Most of the arguments are optional, in
 which case \poy has default values.
 
 In \poy, we recognize four types of command arguments: \emph{primitive values},
@@ -536,7 +543,7 @@ Each command description entry contains the following sections:
 \end{itemize}
 
 \begin{statement}
-    \textbf{Default syntax}. The default syntax for all commands is the same: it includes the command name followed by empty parentheses, e.g. \poycommand{swap()}. However, within the descriptions of each command the default settings include the entire argument list for illustrative purposes only (i.e. in the case of \poycommand{swap()} the entire argument list appears as \poycommand{swap(trees:1, TBR, threshold:0, bfs)}).
+\textbf{Default syntax}. The default syntax for all commands is the same: it includes the command name followed by empty parentheses, e.g. \poycommand{swap()}. However, within the descriptions of each command the default settings include the entire argument list for illustrative purposes only (i.e. in the case of \poycommand{swap()} the entire argument list appears as \poycommand{swap(trees:1, TBR, threshold:0, bfs)}).
 \end{statement}
 
 \begin{statement} \label{commandorder}

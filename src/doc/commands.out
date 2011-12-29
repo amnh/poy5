@@ -1,5 +1,6 @@
 \BOOKMARK [0][-]{chapter.1}{What is POY5}{}
 \BOOKMARK [1][-]{section.1.1}{The structure of POY5 documentation}{chapter.1}
+\BOOKMARK [1][-]{section.1.2}{What's new in POY5}{chapter.1}
 \BOOKMARK [0][-]{chapter.2}{POY5 Quick Start}{}
 \BOOKMARK [1][-]{section.2.1}{Requirements: software and hardware}{chapter.2}
 \BOOKMARK [2][-]{subsection.2.1.1}{Software}{section.2.1}
@@ -71,7 +72,7 @@
 \BOOKMARK [1][-]{section.4.2}{Data treatment}{chapter.4}
 \BOOKMARK [1][-]{section.4.3}{Character optimization}{chapter.4}
 \BOOKMARK [1][-]{section.4.4}{Tree searching}{chapter.4}
-\BOOKMARK [1][-]{section.4.5}{Chromosomal heuristics}{chapter.4}
+\BOOKMARK [1][-]{section.4.5}{Chromosome heuristics}{chapter.4}
 \BOOKMARK [2][-]{subsection.4.5.1}{Breakinv character}{section.4.5}
 \BOOKMARK [2][-]{subsection.4.5.2}{Annotated chromosome character}{section.4.5}
 \BOOKMARK [2][-]{subsection.4.5.3}{Chromosome character}{section.4.5}
@@ -84,8 +85,8 @@
 \BOOKMARK [1][-]{section.5.5}{Sensitivity analysis}{chapter.5}
 \BOOKMARK [1][-]{section.5.6}{Chromosome analysis: unannotated sequences}{chapter.5}
 \BOOKMARK [1][-]{section.5.7}{Chromosome analysis: annotated sequences}{chapter.5}
-\BOOKMARK [1][-]{section.5.8}{Custom alphabet break inversion characters}{chapter.5}
+\BOOKMARK [1][-]{section.5.8}{Custom alphabet and break inversion characters}{chapter.5}
 \BOOKMARK [1][-]{section.5.9}{Genome analysis: multiple chromosomes}{chapter.5}
 \BOOKMARK [1][-]{section.5.9}{Bibliography}{chapter.5}
-\BOOKMARK [1][-]{section.5.9}{General Index}{chapter.5}
-\BOOKMARK [1][-]{section.5.9}{POY 3.0 Commands Index}{chapter.5}
+\BOOKMARK [1][-]{chapter*.202}{General Index}{chapter.5}
+\BOOKMARK [1][-]{chapter*.202}{POY 3.0 Commands Index}{chapter.5}
