@@ -82,7 +82,7 @@ type chromPairAliPam_t = {
     re_meth : re_meth_t;
 
     (** The cost of a breakpoint happing between two chromosome *)
-    chrom_breakpoint : int;
+    translocation : int;
     
     (** The maximum number of medians at one node kept during the search*)
     keep_median : int;
@@ -133,3 +133,4 @@ val get_max_lcb_len : chromPairAliPam_t -> float
 
 val use_ukk : chromPairAliPam_t -> bool
 
+val use_mauve_annotator : chromPairAliPam_t -> bool 

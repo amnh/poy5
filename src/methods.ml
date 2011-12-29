@@ -146,7 +146,7 @@ type align_meth = [ `NewKK | `Default ]
 type chromosome_pam_t = [
     | `Locus_Inversion of int
     | `Locus_Breakpoint of int
-    | `Chrom_Breakpoint of int
+    | `Translocation of int
     | `Circular of bool
     | `Locus_Indel_Cost of (int * int)
     | `Chrom_Indel_Cost of (int * int)

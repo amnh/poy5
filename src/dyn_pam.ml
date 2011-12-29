@@ -39,7 +39,7 @@ type dyna_pam_t = {
     chrom_hom : int option;
 
     (** The cost of a breakpoint happing between two chromosome *)
-    chrom_breakpoint : int option;
+    translocation : int option;
     
     (** The maximum number of medians at one node kept during the search*)
     keep_median : int option;
@@ -78,7 +78,7 @@ let dyna_pam_default = {
     locus_indel_cost = Some (10, 100);
     chrom_indel_cost = Some (10, 100);
     chrom_hom = Some 200;
-    chrom_breakpoint = Some 100;
+    translocation = Some 100;
     keep_median = Some 1;
     swap_med = Some 1;
     approx = Some false;
@@ -160,7 +160,7 @@ let to_nexus fo pam chars : unit =
         fo "@[Genome@, ";
         fo ("@[median = "^string_of_int (get_some pam.keep_median)^";@]@, ");
         fo (if 1 = (get_some pam.circular) then "@[circular;@]@, " else "");
-        fo ("@[breakpoint = "^string_of_int (get_some pam.chrom_breakpoint)^";@]@, ");
+        fo ("@[breakpoint = "^string_of_int (get_some pam.translocation)^";@]@, ");
         fo ("@[distance = "^string_of_float ((float_of_int (get_some pam.chrom_hom))/. 100.0) ^";@]@, ");
         fo (match pam.locus_indel_cost with
             | Some (x,y) ->

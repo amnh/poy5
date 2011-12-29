@@ -81,10 +81,10 @@ val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> float ->
 int*int -> Cost_matrix.Two_D.m ->  bool -> 
     int array * int array * int array array *
 (int*Sequence.s*Sequence.s) array array * int * int * 
-(int * (int * int)) list list * int
+(int * (int * int) * int list) list list * int
 
 val output2mauvefile : string -> int -> (int option) -> int array -> int array
--> (int * (int * int)) list list -> (int*Sequence.s*Sequence.s) array
+-> (int * (int * int) * int list) list list -> (int*Sequence.s*Sequence.s) array
 array ->int -> int -> int -> int -> unit 
 
     

@@ -85,7 +85,7 @@ type chromosome_args = [
     | `Chrom_Hom of int 
     
     (** The cost of a breakpoint happing between two chromosome *)
-    | `Chrom_Breakpoint of int (* Breakpoint cost between loci of two different chromosomes *)
+    | `Translocation of int (* Breakpoint cost between loci of two different chromosomes *)
 
     (** The maximum number of medians at one node kept during the search*)
     | `Keep_Median of int 
@@ -1565,7 +1565,7 @@ let create_expr () =
             ];
         annotate_param:
             [
-                [ LIDENT "default"; ","; x = INT; ","; y = INT; ","; z = INT 
+                [ LIDENT "vinh"; ","; x = INT; ","; y = INT; ","; z = INT 
                     -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
                 [ LIDENT "mauve"; ","; a = FLOAT; ","; b = FLOAT; ","; c = FLOAT;
                 ","; d = FLOAT 
@@ -1574,9 +1574,8 @@ let create_expr () =
         genome_argument:
             [
                 [ LIDENT "newkkonen" -> `Align_Meth `NewKK ]|
-                [ LIDENT "chrom_breakpoint"; ":"; c = INT -> 
-                      `Chrom_Breakpoint (int_of_string c) ]  |
-                [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
+                [ LIDENT "translocation"; ":"; c = INT -> 
+                      `Translocation (int_of_string c) ]  |
                 [ LIDENT "chrom_indel"; ":"; left_parenthesis; o = INT; 
                 ","; e = integer_or_float; right_parenthesis ->
                       `Chrom_Indel_Cost ( (int_of_string o), 
@@ -1587,6 +1586,7 @@ let create_expr () =
             ];
         chromosome_argument:
             [
+                [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
                 [ LIDENT "newkkonen" -> `Align_Meth `NewKK ]|
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
                     match c with
@@ -1707,7 +1707,7 @@ let create_expr () =
         optional_string:
             [ [  ":"; x = STRING -> x ] ];
         optional_level:
-            [ [ ","; y=level_and_tiebreaker -> y ] ];
+            [ [ ","; LIDENT "level"; ":"; y=level_and_tiebreaker -> y ] ];
         setting:
             [
                 [ LIDENT "timer"; ":"; x = INT -> `TimerInterval (int_of_string x) ] |
@@ -2623,10 +2623,10 @@ and of_channel optimize ch =
     of_stream optimize (Stream.of_channel ch)
 
 and of_file optimize f =
-    Printf.printf "poyCommand.of_file %s,optimize=%b\n%!" f optimize;
+    if debug then Printf.printf "poyCommand.of_file %s,optimize=%b\n%!" f optimize;
     let ch = open_in f in
     let r = of_channel optimize ch in
-    Printf.printf "end of of_file %s\n%!" f;
+    if debug then Printf.printf "end of of_file %s\n%!" f;
     close_in ch;
     r
 

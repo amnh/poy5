@@ -77,7 +77,7 @@ type dyna_pam_t = {
   locus_indel_cost : (int * int) option;
   chrom_indel_cost : (int * int) option;
   chrom_hom : int option;
-  chrom_breakpoint : int option;
+  translocation : int option;
   keep_median : int option;
   swap_med : int option;
   approx : bool option;
@@ -88,6 +88,8 @@ type dyna_pam_t = {
 }
 val dyna_pam_default : dyna_pam_t
 (* done *)
+
+val use_mauve_annotator : dyna_pam_t -> bool 
 
 type clip = Clip | NoClip
 

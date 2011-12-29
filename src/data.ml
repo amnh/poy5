@@ -2896,7 +2896,7 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
             ([T.locus_indel_cost] = [locus_indel_str])
             ([T.chrom_indel_cost] = [chrom_indel_str])
             ([T.chrom_hom] = [handle_int pam.chrom_hom])
-            ([T.chrom_breakpoint] = [handle_int pam.chrom_breakpoint])
+            ([T.translocation] = [handle_int pam.translocation])
             (*([T.sig_block_len] = [handle_int pam.sig_block_len])
             ([T.rearranged_len] = [handle_int pam.rearranged_len])*)
             ([T.keep_median] = [handle_int pam.keep_median])
@@ -2976,7 +2976,7 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
         | `Annotate_Tool c -> {dyna_pam with annotate_tool = Some c}
         | `Locus_Inversion c -> {dyna_pam with re_meth = Some (`Locus_Inversion c)}
         | `Locus_Breakpoint c -> {dyna_pam with re_meth = Some (`Locus_Breakpoint c)}
-        | `Chrom_Breakpoint c -> {dyna_pam with chrom_breakpoint = Some c}
+        | `Translocation c -> {dyna_pam with translocation = Some c}
         | `Circular c -> 
               if c then {dyna_pam with circular = Some 1}
               else {dyna_pam with circular = Some 0}
@@ -2992,6 +2992,11 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
         | `Max_kept_wag c -> {dyna_pam with max_kept_wag = Some c}) 
     ~init:old_dynpam dyna_pam_ls
 
+let use_mauve_annotator user_pam =
+    match user_pam.annotate_tool with
+    | Some (`Mauve (_,_,_,_))  -> true
+    | Some (`Default (_,_,_)) -> false
+    | None -> false
 
 let get_dynas data dyna_code = 
     Hashtbl.fold

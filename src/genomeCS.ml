@@ -334,9 +334,7 @@ let get_active_ref_code t =
 let to_single ref_codes (root : t option) single_parent mine = 
     let previous_total_cost = mine.total_cost in 
     let c2 = mine.c2 in 
-
     let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =        
-
         let amed = 
             try
                 List.find (fun med -> 
@@ -344,8 +342,6 @@ let to_single ref_codes (root : t option) single_parent mine =
                           ) med.Genome.med_ls
             with Not_found -> List.hd med.Genome.med_ls
         in         
-
-
         let parent_med = IntMap.find code single_parent.meds in  
         let aparent_med = List.hd parent_med.Genome.med_ls in 
 
@@ -359,7 +355,6 @@ let to_single ref_codes (root : t option) single_parent mine =
                           (fun idx medt -> {medt with GenomeAli.seq = single_chrom_arr.(idx)} )
                              amed.GenomeAli.chrom_arr}
                   in  
-
                   let cost, (recost1, recost2) = GenomeAli.cmp_cost amed aparent_med c2
                       med.Genome.chrom_pam in 
                   
@@ -369,17 +364,13 @@ let to_single ref_codes (root : t option) single_parent mine =
                   let single_root = GenomeAli.to_single_root amed c2 in
                   0, 0, single_root 
         in 
-        
-
         let single_med = GenomeAli.change_to_single amed single_genome in 
         let single_med = {med with Genome.med_ls = [single_med]} in 
-
         let new_single = IntMap.add code single_med acc_meds in
         let new_costs = IntMap.add code (float_of_int cost) acc_costs in 
         let new_recosts = IntMap.add code (float_of_int recost) acc_recosts in 
         new_single, new_costs, new_recosts, (acc_total_cost + cost)
     in
-
     let meds, costs,  recosts, total_cost = 
         match root with
         | Some root ->
@@ -387,8 +378,6 @@ let to_single ref_codes (root : t option) single_parent mine =
         | None ->
               IntMap.fold median mine.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
     in 
-
-
     previous_total_cost, float_of_int total_cost, 
     {mine with meds = meds; 
          costs = costs;

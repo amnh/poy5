@@ -121,7 +121,7 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
     gen_cost_mat, ali_mat
 
 let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     let min_cover_ratio:float = ChromPam.get_min_cover_ratio ali_pam
     and min_lcb_ratio:float = ChromPam.get_min_lcb_ratio ali_pam
     and min_lcb_len = ChromPam.get_min_lcb_len ali_pam
@@ -150,7 +150,7 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
         Utl.printIntArr alied_gen_seq1; 
         Utl.printIntArr alied_gen_seq2; 
     end;
-    let _ = match outputtofile with 
+    let () = match outputtofile with 
     | Some filename ->
         Block_mauve.output2mauvefile filename cost old_cost alied_gen_seq1 alied_gen_seq2 
         full_code_lstlst ali_mat gen_gap_code len_lst1 (Sequence.length seq1)
@@ -165,6 +165,8 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
         print_newline();
     end;
     let cost = cost + edit_cost in
+    (*I pass cost,(0,rc) as total cost,(recost1, recost2) back, since we are
+    * using left child as median, recost1 is 0, recost2=rc.*)
     full_code_lstlst, gen_gap_code, ali_mat,
     (Array.to_list alied_gen_seq1),(Array.to_list alied_gen_seq2), cost,(0,rc)
 
