@@ -103,10 +103,6 @@ let get_recost user_pams =
             | `Locus_Breakpoint c -> c
             | `Locus_Inversion c -> c
 
-let use_mauve_annotator user_pams =
-    match user_pams.ChromPam.annotate_tool with
-    | `Mauve (_,_,_,_)  ->  true
-    | `Default (_,_,_) -> false
 
 
 (** [clone_seg s] return a fresh clone of segment [s] *)
@@ -376,7 +372,7 @@ gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,
     if debug then Printf.printf "create median mauve : \n%!";
     let get_range full_code_lstlst in_code in_seqNO = 
         let res = ref (-1,-1) in
-        List.iter (fun (code,(left,right)) ->
+        List.iter (fun (code,(left,right),_) ->
             if (code=in_code) then res := (left,right)
         ) (List.nth full_code_lstlst in_seqNO);
         !res
@@ -628,7 +624,7 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
                       } 
         in  
         let total_cost, recost1, recost2 =
-            match (use_mauve_annotator ali_pam) with
+            match (ChromPam.use_mauve_annotator ali_pam) with
             | true ->
                 if debug2 then Printf.printf "cmp_simple_cost,call mauve annotater \n%!";
                 let _,_,_,_,_, total_cost, (recost1, recost2) =
@@ -665,7 +661,6 @@ let cmp_cost med1 med2 cost_mat chrom_pams state =
     | `Genome -> {ali_pam with ChromPam.negative = false}
     | `Chromosome -> ali_pam
     in 
-
     let cost, recost =  
         match ali_pam.ChromPam.symmetric with
         | true ->
@@ -732,7 +727,7 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam
     end 
     else 
         let total_cost,recost,med_ls =
-        match (use_mauve_annotator ali_pam) with
+        match (ChromPam.use_mauve_annotator ali_pam) with
         | true ->
         if debug2 then Printf.printf "find_simple_med2_ls,call mauve annotater \n%!";
         (*base_code+2 is the start code for non-lcb block*)
@@ -765,7 +760,7 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam
                  med::med_ls
             ) all_order_ls []
         | false ->
-        if debug2 then Printf.printf "find_simple_med2_ls,call default annotater\n%!";
+        if debug2 then Printf.printf "find_simple_med2_ls,call vinh annotater\n%!";
         let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in 
         let subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, alied_gen_seq1,
             alied_gen_seq2, total_cost, (_, recost)  = 

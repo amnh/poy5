@@ -825,8 +825,8 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                       <:expr<`Locus_Inversion $c$>> ]  |
                 [ LIDENT "locus_breakpoint"; ":"; c = flex_integer -> 
                       <:expr<`Locus_Breakpoint $c$>> ]  |
-                [ LIDENT "chrom_breakpoint"; ":"; c = flex_integer -> 
-                      <:expr<`Chrom_Breakpoint $c$>> ]  |
+                [ LIDENT "translocation"; ":"; c = flex_integer -> 
+                      <:expr<`Translocation $c$>> ]  |
                 [ LIDENT "circular"; ":"; e = boolean -> <:expr<`Circular $e$>>] |
                 [ LIDENT "locus_indel"; ":"; left_parenthesis; o = flex_integer; 
                     ","; e = flex_float; right_parenthesis ->

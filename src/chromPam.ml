@@ -76,7 +76,7 @@ type chromPairAliPam_t = {
     re_meth : re_meth_t;
 
     (** The cost of a breakpoint happing between two chromosome *)
-    chrom_breakpoint : int;
+    translocation : int;
     
     (** The maximum number of medians at one node kept during the search*)
     keep_median : int;
@@ -127,7 +127,7 @@ let chromPairAliPam_default = {
     mismat_cost = 50;
 
     re_meth  = `Locus_Breakpoint 10;
-    chrom_breakpoint = 100;
+    translocation = 100;
 
     keep_median = 1;
     swap_med = 1;
@@ -146,7 +146,7 @@ let chromPairAliPam_default = {
     detected_3d_len = 200;
     kept_wag = 1;
 
-    annotate_tool = `Default (100,100,9);
+    annotate_tool = `Mauve (35.0,0.30,0.03,0.10);
 
     align_meth = `Default;
 }
@@ -162,9 +162,9 @@ let get_chrom_pam user_chrom_pam =
     in 
 
     let chrom_pam = 
-        match user_chrom_pam.Data.chrom_breakpoint with
+        match user_chrom_pam.Data.translocation with
         | None -> chrom_pam
-        | Some chrom_breakpoint -> {chrom_pam with chrom_breakpoint = chrom_breakpoint}
+        | Some translocation -> {chrom_pam with translocation = translocation}
     in 
 
     let chrom_pam = 
@@ -265,7 +265,7 @@ let cloneChromPairPam (donor : chromPairAliPam_t) = {
 
     locus_indel_cost = donor.locus_indel_cost;
     chrom_indel_cost = donor.chrom_indel_cost;
-    chrom_breakpoint = donor.chrom_breakpoint;
+    translocation = donor.translocation;
     chrom_hom = donor.chrom_hom;
 
     circular = donor.circular;
@@ -352,5 +352,11 @@ let use_ukk pam =
     match pam.align_meth with
     | `NewKK -> true
     | _ -> false
+
+let use_mauve_annotator user_pams =
+    match user_pams.annotate_tool with
+    | `Mauve (_,_,_,_)  ->  true
+    | `Default (_,_,_) -> false
+
 
 

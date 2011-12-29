@@ -1388,7 +1388,7 @@ let apply_genome_model set params (acc: nexus) : nexus =
         | P.Genome_Indel (x,y) ->
             { current with Dyn_pam.chrom_indel_cost = Some (x,int_of_float (y*.100.0)); }
         | P.Genome_Breakpoint x ->
-            { current with Dyn_pam.chrom_breakpoint = Some x; }
+            { current with Dyn_pam.translocation = Some x; }
         | P.Genome_Distance x ->
             { current with Dyn_pam.chrom_hom = Some (int_of_float (x*.100.0)); }
         | P.Genome_Circular true ->

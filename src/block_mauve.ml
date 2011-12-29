@@ -36,7 +36,7 @@ let info_user_message format = Printf.ksprintf (Status.user_message Status.Infor
 * my guess is, it's doing bit arr operations, which should be
 * faster in c_side. anyway, we are not using dyn1 now.*)
 let faster_remove = true
-let debug_main = true
+let debug_main = false
 let debug_remove_bad_match =  false 
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
@@ -5005,7 +5005,7 @@ let rec get_init_lcbs seedNOlstlst
 seed2pos_tbl mum_tbl 
 in_seq_size_lst init_num_mums 
 min_lcb_ratio min_lcb_len previous_fullcovR=
-    let debug = true in
+    let debug = false in
     if debug then Printf.printf "get initial lcbs with min_lcbR=%f,min_lcblen=%d\n%!"
     min_lcb_ratio min_lcb_len;
     assert(min_lcb_ratio > 0. );
@@ -5658,7 +5658,7 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
         else () (*we don't need to ali mauve-recognized block with other blocks*)
     ) code_range_lst2 
     ) code_range_lst1 ; 
-    Printf.printf "end of fill_in_cost_ali_mat, return edit_cost between lcb \
+    if debug then Printf.printf "end of fill_in_cost_ali_mat, return edit_cost between lcb \
     blocks=%d\n%!" !edit_cost;
     !edit_cost
 
@@ -5669,7 +5669,7 @@ mum_tbl seed2pos_tbl lcb_tbl(* these hashtbl are here for search inside huge chu
 * output two code array of matching blocks, a cost_mat between lcb blocks and non-lcb
 * blocks, ali_mat is the cost and alignment sequence between lcb blocks.
 * NOTE: edit_cost is the total editing cost between lcb blocks (which is not included
-* is cost_mat), full_cost_listlst is a little bit redundant here, for it
+* is cost_mat), full_cost_lstlst is a little bit redundant here, for it
 * contains the two code array, but it also has the begin and end point of each
 * block. *)
 let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio min_lcb_len max_lcb_len 
@@ -5751,12 +5751,12 @@ locus_indel_cost cost_mat use_ukk =
     (List.hd full_code_lstlst) (List.nth full_code_lstlst 1) 
     gen_gap_code block_gap_cost locus_indel_cost ali_mat
     gen_cost_mat len_lst1 base use_ukk mum_tbl seed2pos_tbl lcb_tbl in
-    let full_code_lstlst = List.map (fun full_code_lst ->
+    (*let full_code_lstlst = List.map (fun full_code_lst ->
         List.map (fun (code,(l,r),_ ) -> code,(l,r)
         ) full_code_lst;
     ) full_code_lstlst
-    in
-    Printf.printf "end of main function in block_mauve. return\n%!";
+    in*)
+    if debug then Printf.printf "end of main function in block_mauve. return\n%!";
     code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,edit_cost,full_code_lstlst,len_lst1
 
 (** [get_range_with_code] return the range of match block code1 and block code2. if
@@ -5768,12 +5768,12 @@ let get_range_with_code code1 code2 full_code_lstlst gen_gap_code totalsize1 tot
     if debug then Printf.printf "get range with code %d,%d,gapcode=%d,total size1,2=%d,%d%!" 
     code1 code2 gen_gap_code totalsize1 totalsize2;
     let left1,right1 = 
-        List.fold_left (fun acc (codex,(left,right)) ->
+        List.fold_left (fun acc (codex,(left,right),_) ->
         if code1=codex then (left,right)
         else acc ) (-1,-1) (List.hd full_code_lstlst)
     in
     let left2,right2 = 
-        List.fold_left (fun acc (codey,(left,right)) ->
+        List.fold_left (fun acc (codey,(left,right),_) ->
         if code2=codey then (left,right)
         else acc ) (-1,-1) (List.nth full_code_lstlst 1)
     in
