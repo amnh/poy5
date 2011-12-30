@@ -1,0 +1,3927 @@
+CHANGES BETWEEN 4.1.2.1 and 5.0.0
+
+New Features
+    - Added likelihood criterion for diagnosing trees.
+        - Added methods of optimization for likelihood during build/swap/fuse
+        - Support for dynamic and static characters under a variety of models.
+        - Most Parsimonious and Maximum Average Likelihood cost models.
+        - Static and Dynamic character support for likelihood, including any
+          alphabet size (ie, discrete morphological characters, amino acid, ...)
+    - Added a variety of median solvers for rearrangements.
+    - Support for Genome and Chromosome characters with annotator Mauve.
+    - New selection method for polymorphic data in fixed state characters.
+    - Added level support on all alphabets sizes.
+    - Changed default TCM to 1,1.
+    - Updated configure scripts for newer versions of gcc and ocaml.
+    - Low memory option for alignment of sequences.
+    - Changed command for transform for dealing with identifiers.
+    - Require one type of delimiters in data files.
+    - Choice of equally costly medians can be user specified.
+    - pre-aligned for custom-alphabet and amino-acid characters.
+    - Allow additional medians by search-based command for fixed state
+      characters.
+    - Internal assignment in diagnosis output of fixed state characters print
+      taxon name.
+    - Default for amino-acid to not use 3D alignment in up-pass
+    - Better support for manipulating and calling character sets in data
+    - Graphic output for mauve outlining alignment of blocks and rearrangements
+
+Bugs Fixed:
+    - Memory leaks in grappa interface.
+    - Building random trees does not use a modified Wagner build.
+    - Missing data is presented as a '?' in output from implied alignments.
+    - Avoid rediagnosing trees before certain operations.
+    - Issues in reading prealigned phylip files.
+    - Better support for all features of NEXUS files.
+        - Added POY block to nexus files for our specific needs, including
+          likelihood, chromosome, genome, and dynamic character information.
+    - Detecting file types is more accurate.
+    - Parsing file types has better support.
+    - Can transform Break Inversion and Custom alphabet with cost matrix file.
+    - Replaced command dynamic_pam to deal with new datatypes.
+        - now chromosome, genome, breakinv, etc.
+    - Priority for backtrace in the alignments standardized between floating
+      point alignment (dynamic likelihood), affine, and sequence characters.
+    - Nexus output is fully produced when called in the report command
+      --includes trees, set information, data, etc.
+    - Support for scientific notation of floating point numbers in parsers.
+    - Custom Alphabet and Break Inversion data characters case sensitive.
+    - Fixed and improved POY help documentation 
+    - Initial cost for downpass in fixed state characters was incorrect (up-pass
+      and final costs were correct).
+    - Status messages during branch and bound build (after every 1% complete).
+    - 3D option set to false is observed after re-diagnosis.
+    - all element code (X) in amino acid is treated as a polymorphism
+    - Improved max_time behavior in searching
+    - Fixed cost issue in rearrangement for annotated characters
+
+Features eliminated:
+    - dynamic_pam command has been replaced by the commands chromosome, genome,
+      breakinv, and custom_alphabet.
+
+New Commands:
+    - transform( likelihood:( ... ) )
+    - transform( genome:( ... ) )
+    - transform( chromosome:( ... ) )
+    - transform( breakinv:( ... ) )
+    - transform( custom_alphabet:( ... ) )
+    - transform( parsimony )
+    - transform( level:INT )
+    - set( partition:( ... ))
+    - set( codon_partition:( ... ))
+    - swap/fuse/build( optimize:(model:(...),branches:(...)) )
+    - report( trees:(branches) )
+    - report( lkmodel )
+
+Changed Commands:
+    - transform( [IDS], (transformations,...) )
+    - read( custom_alphabet:([datafile],[costmatrix],[prealigned]))
+
+
+CHANGES BETWEEN 4.1.2 and 4.1.2.1
+
+New Features:
+    - Added support for NEXUS output in the portal binary.
+
+Bugs Fixed:
+    - Output of NEXUS files when terminals are filtered, 
+      or dynamic homology characters are not present could 
+      produce errors or a file that POY itself could not 
+      read (Felipe G. Grazziotin).
+
+
+CHANGES BETWEEN 4.1.1. and 4.1.2
+
+New Features:
+    - Added build (nj) to build a tree using the neighbor joining
+      algorithm. The algorithm implementation is deterministic, so
+      only one tree can be produce for each dataset.
+    - Added read (prealigned:(....., gap_opening:INT)) to read
+      prealigned sequences and assign each indel block a gap opening
+      cost.
+    - The build process now uses ocamlbuild instead of plain
+      Makefiles. 
+    - The distributed binaries are the first to support plugins for
+      POY, but the feature is still experimental.
+    - Improved the NEXUS file format support, by adding the POY block,
+      which now includes: GAPOPENING, TCM, and WTSET. All the
+      characters in POY can now be stored in one NEXUS file that can
+      be reloaded later. The support for NEXUS files has improved to
+      allow more transparent interaction with other applications.
+    - POY now interprets all the ASSUMPTION block commands in NEXUS
+      files that the program can apply (e.g. EXSET, TYPESET, and
+      USERTYPE).
+    - Added report (nexus) and report (trees:(nexus)) to generate
+      output in nexus format. 
+    - report ("out.ext", data, trees) produce NEXUS or hennig format
+      depending on ext. If the extension of the filename to which data
+      and trees are generated is "nexus" or "nex" then the data and
+      trees are generated in NEXUS format. If the extension is "hen",
+      "hennig", or "ss", then the format is Hennig86. For example,
+      report ("out.nexus", data,trees) is equivalent to report
+      ("out.nexus", nexus, trees:(nexus)).
+    - Replace spaces with underscores in taxon names of NEXUS files.
+    - Added support to newick files with branch lengths. The branches
+      are ignored.
+    - Added support to 1~4 ranges.
+    - Bremer support values can output on the branches of a consensus
+      tree or any user provided input tree. (See the new commands
+      below.)
+
+New Commands:
+    - report (nexus trees:(nexus)).
+    - transform (dynamic_pam:(locus:dcj:INT))
+    - report (supports:bremer:of_file:("file1", "file2", ...)) 
+
+Features eliminated:
+    - Dropped ti and td
+    - ':' is not accepted in a taxon name, required for newick file
+      format. For example "mytaxon:1" is not an acceptable taxon name
+      anymore.
+
+Bugs Fixed:
+    - Fixed issue 72.
+    - Fixed incorrect description of select (missing) in the
+      documentation.
+    - Annotated chromosomes could produce incorrect costs 
+    - Fixed compilation problems of the portal
+    - Data.get_tcm2d error (Buz Wilson, Katrina Menard).
+    - Sankoff characters where not applied the user defined weight.
+    - Branch collapsing in Sankoff and Additive characters could be
+      incorrect.
+    - Tree scores with additive characters may be incorrect (Taran
+      Grant). This only happened if the additive character had state
+      7.
+    - search (constraint) and swap (constraint) have multiple fixes to 
+      better guarantee the restrictions set by the constraint.
+    - 0 length branches now appear with 0 bremer support when bremer is 
+      reported.
+    - Fixed compilation error in Mac OS X 64 bits using OCaml 3.11.0.
+    - The total rearrangement cost included indels for rearranged
+      elements.
+
+CHANGES BETWEEN 4.1 and 4.1.1
+
+Improvements:
+
+    - Simplified naming of single fragments and partitioned sequences:
+      now the number only appears if more than one fragment is loaded.
+      For example, if a file a.fas has only one fragment, the old
+      naming convention for that character was a.fas:0.  The name for
+      the character is now a.fas.
+
+    - Improved the message for bad NEXUS files comming from Mesquite.
+
+Bugs Fixed:
+
+    - search () used too much memory in some cost regimes, causing a
+      dramatic drop in the application performance when searching
+      those costs.
+
+CHANGES BETWEEN 4.0.2911 AND 4.1
+
+Improvements:
+    - Improved detection of inconsistencies in synonym files.
+    - ci and ri could fail with a Not_found error when static 
+      homology characters where missing in an input file.
+    - The characters produced from an implied alignment keep
+      the name of the original sequence character. For example, 
+      the first base in the implied alignment of chel.aln:0 gets
+      the name chel.aln:0:ia:0.
+    - Improved the graphical output, now in pdf format.
+    - If the synonyms file is not found, POY stops the script
+      execution.
+    - New command to report bremer values using multiple input files
+      containing trees collected during a search.  For example, if a
+      user has 5 separate files containing trees collected
+      independently using swap (visited:"file1"), swap
+      (visited:"file2")..., swap (visited:"file5"), then the created
+      files can be used to produce the bremer support values using
+      report (supports:bremer:("file1", "file2", ..., "file5"))
+    - New command report (supports:[jackknife|bootstrap]:"FILE") and
+      report (graphsupports:[jackknife|bootstrap]:"FILE"). FILE
+      contains input trees, and the report contains those trees with
+      the corresponding support annotations. 
+    - Added support for compression using the zlib library in bremer
+      files using swap (visited:"file"). The files produced can be
+      decompressed with gunzip.
+    - Removed the need to make depend before compiling any target.
+
+Bugs Fixed:
+    - swap with non-additive characters can fail with segfault.
+    - swap (visited:"file") fails in windows.
+    - Diagnosis of Sankoff characters could fail.
+    - Sankoff characters diagnosis in XML did not print correct human
+      symbols.
+    - Bogus warning message when reading a list of trees.
+    - Compressed bremer files fail to use all of the trees.
+    - Additive characters do not appear in the diagnosis.
+    - Improved the precission of the maximum time when using search ()
+    - Fixed stack overflow / seg fault when reading a large number of
+      trees.
+
+New Compilation Requirements:
+    - Made OCaml 3.10.2 or superior a requirement (due to Camlp4
+      bugs).
+    - POY now needs the zlib library.
+
+CHANGES BETWEEN 2885 AND 2911
+    BUGS FIXED:
+    - Printing long trees in parenthetical notation could cause a crash.
+    - After compiling with --enable-xslt poy behaves as if not enabled.
+    - Transform (static_approx) with aa characters can fail.
+    - Test build/build9.poy fails.
+    - Issue#69 and some improvements to the Makefile rules.
+    - Multiple improvements and bugfixes in the swapers and tabu managers.
+    - Compressed files did not handle \r\n -> \n conversion in win32.
+    - Crash in Mac OS X - PPC.
+    - Fixed bug in the phastwinclad output.
+    - Hennig and Nexus parsers do not handle polymorphisms.
+    - Issue #67
+    - Iterative pass under affine and missing data could assing power sequences
+      (and therefore incorrect tree cost).
+    - Reading some very large files could cause a stack overflow error.
+    - Some input file channels where never closed, and many forks can be used.
+    - Windows fails on report (supports:bremer:"x") 
+    - read (prealigned:("x", y)) some times fails.
+    - reading trees containing synonyms after rename () does not work.
+    - report (supports:bremer:"file") contained values for the root.
+
+    IMPROVEMENTS:
+    - Significant improvements in the performance of search (): it finds
+      better trees.
+    - Added -enable-xslt to the top configure for help purposes.
+    - Added support to make install DESTDIR=path
+    - Upon reading trees, POY verifies that all the loaded terminals are
+      present.
+    - Some times WinClada fails to read trees in Hennig format.
+    - Reduced memory consumption in XML conversion functions.
+    - Changed from Error to Warning the "You are loading a non-metric TCM"
+      message.
+    - Added XML file for SWAMI bioinformatics portals, and the companion
+      poy_server program.
+
+CHANGES BETWEEN 2880 AND 2885:
+    - Bugfix: Reading some very large files could cause a stack
+      overflow error.
+    - swap (visited:"f") and report (supports:bremer:"f") compress the
+      file f.
+    - Bugfix: swap (visited) could print the wrong cost when only
+      static homology characters have been loaded (Taran Grant).
+    - New Arguments: report->searchstats, build->threshold,
+      build->lookahead, transform->max_kept_wag
+    - Improved the handling of the program arguments for better
+      execution in more implementations of MPI.
+    - Bugfix: Static approx fail to add gaps in non-affine sankoff
+      matrices.
+    - Bugfix: Make sure that characters that should be ignored
+      according to the Nexus and Hennig files are indeed ignored.
+    - Bugfix: help () did not work! Issue# 65.
+    - Multiple documentation improvements.
+    - Bugfix: Missing sequences could cause bogus 0-length branches in
+      the tree.
+    - Improved build (_mst).
+    - Bugfix: Duplicate character names in input files overwrite older
+      ones.
+    - Bugfix: Hennig/TNT parser do not accept empty comment in xread
+      command.
+    - Bugfix: The ncurses interface some times, misteriously,
+      internally deletes characters that are not deleted in the
+      screen, producing illegal commands.
+    - Improved error messages for Mesquite's TITLE command in NEXUS
+      files.
+    - Improved detection of Hennig/NONA/TNT files.
+    - Eliminated the full help on command errors. This is only
+      confusing.
+    - Improved the behavior of the GenBank file format parser.
+    - Bugfix: Equate within polymorphisms didn't parse in
+      Hennig/Nexus.
+    - Hennig parser now interprets the nstates command.
+
+CHANGES BETWEEN 2870 AND 2880:
+    - Improved static approx for annotated chromosomes.
+    - Fixed multiple bugs in the implied alignment for chromosomal and genome characters
+    - Issue #55: Sorted the characters by code in report(crossreferences:names:("x")).
+    - Issue #57: Use non-additive characters in more cases after static approx.
+    - Fixed typo in report (memory) (Campations is Compactions).
+    - Issue #58: read ("unexistant") causes a hang in POY when running in parallel.
+    - Fixed bug in genome alignment
+    - Documentation update: Reference filed partially updated to reflect more uniform 2 intial format.
+    - Fixed Issue #56 and added set (iterative:false).
+    - Cleaned some harsh words in source code.
+    - Fixed cost matrix problem in the genome character
+    - Improved various details in the set (iterative:false) algorithm.
+    - Fixed Issue# 59 and removed bogus user messages.
+    - Added the options iterative:exact and iterative:approximate.
+    - Fixed Issue #60
+    - Modified heuristic of search (), and fixed diagnosis bug under iterative.
+    - Fix a bug in suffix tree creation.
+    - Bugfix: transform (weight) does not automatically update trees in memory.
+    - Improved the behavior of the tree selection under negative weights.
+    - Bugfix: accept negative values for random number generator seed.
+    - Minor fixes in report(data)
+    - Added seq.h header to eliminate a compile time warning.
+    - Added files to ignore from the documentation and compilation accessory files.
+    - Bugfix: Issue #61
+    - Bugfix: help (search) shows many results but not just the command search.
+    - Bugfix: help (search) shows a paragraph with vertical boxing (missing brackets).
+    - Bugfix: help (search) shows all the See Also items in one line.
+    - Added man pages.
+    - Bugfix: Issue #62
+    - Bugfix: The Fixed States field of report (data) is always empty.
+    - Handle negative segments in chromosomes when creating implied alignment
+    - Take into account inverted segments in annotated chromosomes
+    - Bugfix: Fixed a wrong case handling in the diagonal extension opening a gap.
+    - Simplified the execution of the changes introduced in the previous commit.
+    - The iterative algorithm now follows a postorder traversal.
+    - Added search->visited argument.
+    - Added search->constraint
+    - Fixed bug in file constraint ignored during break.
+    - Change kept_wag default value from 3 to 2
+    - Activated iterative algorithms for chromosome characters
+    - Improved 3D-chromosome and genome alignments
+    - Fixed bug in build with internal transform.
+    - Fixed bug in analyzer for expressions like build (10, transform (static_approx))
+
+CHANGES BETWEEN 2635 AND 2870:
+
+Improvements:
+
+    - Added a new initial assignment of sequences using fixed states.
+    - Added the new argument transform -> direct_optimization and
+      modified transform -> fixed_states.
+    - Multiple crashes in parallel execution have been corrected.
+    - Massive improvements in affine gap cost.
+    - Added filters for redundant tree evaluations during spr and tbr.
+    - Improved TBR.
+    - Changed the default swap strategy from alternate to TBR.
+    - Improved the command search ().
+    - Newick is the new default format for all the parenthetical tree
+      output functions.
+    - Reduced memory consumption by more than half for DH chars.
+    - Improvements in the performance of perturb operations.
+    - Added the command set->timer:INT.
+    - Limited number of rediagnosis performed during search.
+    - Improved the performance of swap(constraint).
+    - Disabled iterative in non-sequence chars.
+    - Modified the following arguments for better readability:
+        1. seq_to_breakinv -> custom_to_breakinv
+        2. breakinv_to_seq -> breakinv_to_custom
+        3. breakpoint -> locus_breakpoint
+        4. inversion -> locus_inversion
+        5. approx -> med_approx
+        6. sig_block_len -> min_loci_len
+        7. rearranged_len -> min_rearrangement_len
+    - Speedup tree fusing.
+    - Modified timeout's behavior (see documentation.)
+    - Moved the select (terminals) report from stdout to stderr, where
+      it belongs.
+    - Improved transform (static_approx) when using affine and sankoff
+      tcm's.
+    - Simplified representation of SankCS.t to reduce memory
+      consumption.
+    - Reduced the number of reports of the current search state.
+    - Improved tree fusing by not swapping those trees that are
+      already in the population.
+
+Compilation Changes:
+    - New Configure Option: --enable-large-messages. See ./configure --help.
+
+Bugs Fixed:
+
+    Bugfix:
+        Symptom:
+            Searches under gap_opening:x can fail with a segmentation 
+            fault (Buz Wilson).
+        Problem:
+            The computation of the medians under affine is not atomic, 
+            yet some heuristics assumed they where, breaking some 
+            invariants.
+        Solution:
+            Store the complete median for use, and don't recompute the 
+            individual medians.
+
+    Bugfix:
+        Symptom:
+            Certain scripts containing wipe () fail to be analyzed 
+            (Lara Lopardo).
+        Problem:
+            The analyzer has a glitch for wipe () and use ().
+        Solution:
+            Analyze the portions separation by wipe () and use () 
+            independently.
+
+    Bugfix:
+        Symptom:
+            Orientation and init3D are true even if the user doesn't
+            set it to that value.
+        Problem:
+            We check if the list of options does not contain 
+            `Orientation false or `Init3D false, but the default 
+            selection contains an empty list, makeing this true.
+        Solution:
+            Check if the list of options contains `Orientation true 
+            or `Init3D true.
+
+    Bugfix:
+        Symptom:
+            Reading an input tree when data some terminals have been
+            selected causes a Not_found error.
+        Problem:
+            We assign code in the tree by counting the number of
+            leaves instead of the number of taxa loaded in Data.d. 
+        Solution:
+            Use the parameter in Data.d.
+
+    Bugfix:
+        Symptom:
+            transform (randomize_terminals) fails with a Not_found
+            error.
+
+        Problem:
+            We eliminate all the data and recompute the tree de novo.
+            But before recomputing we compare the nodes to see if
+            something really needs to be recomputed, the problem is
+            that some of the nodes are missing!
+
+        Solution:
+            force the update and if the error occurs, trigger the
+            update.
+
+    Bugfix:
+        Symptom:
+            report (diagnosis) may show some bogus character states.
+        Problem:
+            The reported characters remain classified in groups,
+            therefore, for some of the input characters, the reported
+            states may not match, thought the overall cost is correct.
+        Solution:
+            Reload the tree with the raw nodes, without
+            classification.
+
+
+    Bugfix:
+        Symptom:
+            transform () together with use () and store () may result
+            in empty datasets.
+        Problem:
+            The nodes are not necessarily regenerated when the data is
+            loaded back with the use () command. 
+        Solution:
+            To avoid this problem, we store both the data and the
+            nodes, and use them when requested. This has 0 speed
+            penalty, and some memory penalty.
+        
+    Bugfix:
+        Symptom:
+            If there are 0 characters loaded, a Random.int error is
+            raised when the calculate_support (bootstrap) command is
+            issued.
+        Problem:
+            We don't verify if the number of characters is greater
+            than 0 before doing the resample, and Random.int requires
+            a positive integer.
+        Solution:
+            If there are 0 characters, there is nothing to resample.
+            Just return the same array.
+
+    Bugfix:
+        Symptom:
+            Assertion failure when the input tree contains terminals
+            that don't exist in the input files.
+        Problem:
+            We don't verify the leaves before attempting to build the
+            tree, which has now a predefined set of codes. If the
+            input tree contains _more_ leaves than vertices require
+            the input data to produce a tree, the program will break
+            an assertion.
+        Solution:
+            Check the leaf names before attempting to load the tree.
+
+    Bugfix:
+        Symptom:
+            read ("bleh") produces a background File Not Found
+            messages in windows, which can appear anywhere in the
+            screen.
+        Problem:
+            We don't use proper handling of stderr in the windows port
+            for this kind of command.
+        Solution:
+            Redirect stdin, stderr, and stdout, ignoring the first two
+            completely in every architecture, by using not the system,
+            but directly OCaml's Unix module.
+
+    Bugfix:
+        Symptom:
+            Some times POY prints a large number instead of INF for
+            trivial Bremer support values.
+        Problem:
+            We check if the number is large, but floating point
+            comparison may fail.
+        Solution:
+            We now do a rough comparison for a number half of the
+            internal infinity number (Pervasives.float_of_int
+            (Pervasives.max_int / 4)) and if larger, then we assume it
+            is just infinity.
+
+    Fixed typo in Perturbing message (was Perburbing) (Buz Wilson).
+
+    Bugfix:
+        Symptom:
+            Reading a nexus file with comments inside the matrix
+            itself failed with Segmentation fault.
+
+        Problem:
+            We have an endless loop that causes an Stack Overflow
+            error, which can be a segmentation fault in some
+            architectures.
+
+        Solution:
+            Fix the endless loop by incrementing the counter before
+            making the recursive call.
+
+    Bugfix:
+        Symptom:
+            Reading UNALIGNED blocks in NEXUS files fails.
+        Problem:
+            Internally we convert the NEXUS matrix into a FASTA file,
+            but the generated file is ... incorrect.
+        Solution:
+            Make sure that the resulting file is correct.
+            
+    Symptom: 
+        read (aminoacids:("A")) transform (tcm:(1,1)) report (ia)
+        fails with a Not_found error (Boyan Alexandrov).
+    Problem:
+        The gap code is not the last code of the alphabet, which is an
+        assumption of the tcm generator.
+    Solution:
+        Exchange the integer code of the X and the gap.
+
+    Symptom:
+        Tree fusing fails when running static homology characters only
+        (Ward Wheeler).
+    Problem:
+        When using static homology characters only, no information is
+        attached to an edge, but the functions assume (and assert)
+        that there is indeed information associated with an edge.
+    Solution:
+        Generalize the code to consider the other possible set of
+        algorithms.
+    
+    Fixed bug in the serialization of the three dimensional cost
+    matrices.
+
+    Symptom:
+        During parallel execution, if the dataset includes additive
+        characters, POY may crash (Fernando Marques).
+    Problem:
+        The serialization functions for additive characters did not
+        use proepr macros for 64 bit and 32 bit environments. They
+        also assumed that successive mem_malloc calls would produce
+        successive memory locations (clearly incorrect).
+    Solution:
+        Define the required macros to handle properly native integers,
+        and serialize and deserialize all the vectors independently.
+
+    Symptom: 
+        poy script.txt when poy is compiled in parallel fails for the
+        following script:
+            read ("x")
+            build (10)
+            select ()
+            swap ()
+            report (trees)
+        with the Warning: "No trees in memory" (Fernando Marquez)
+    Problem:
+        The `GatherTrees command does not run the merging instructions
+        if only one process is being executed.
+    Solution:
+        For every branch of the tree exchange algorithm, run the
+        joiner set of instructions.
+
+    Symptom: 
+        Issue 51 (loucrow and Fernando Marquez).
+    Problem:
+        The GatherTrees command had some bugs in the way it was
+        merging trees from different processes. 
+    Solution:   
+        Simply merge the stored_trees and trees fields from
+        Scripting.run and do not postprocess trees thanks to the
+        change described above.
+
+    Symptom:
+        Reading a NONA/TNT file produces trees rooted in the last
+        terminal of the file (Federico Lopez).
+    Problem:
+        The parser of NONA/TNT files, just as the Nexus parser,
+        produces the output in inverse order.
+    Solution:
+        Repeat the solution for Nexus files in 2635 with NONA/TNT
+        files.
+    
+    Symptom: 
+        select (terminals, "filename") outputs a table of included and
+        excluded for each slave.
+    Problem:
+        Although we filter output for slaves, table output is not
+        being filtered out.
+    Solution:
+        Filter the table output to include only output requests from
+        the slaves.
+
+
+CHANGES BETWEEN 2602 AND 2635:
+
+Bugfixes:
+    - read (prealigned:("file.txt", tcm:(1,1))) report (phastwinclad)
+      prints an error when file.txt contains fragments and some
+      fragments are missing (Julian Faivovich).
+
+    - Removed a bogus @ sign in the description of an input file type.
+    
+    - An error appears for chromosome characters when iterative pass
+      is set before swap command.
+
+    - ./configure --enable-interface=readline; make fails under x86-64
+      linux (Dan Janies)
+
+    - The first taxon in a nexus file is treated as the last one
+      instead of honoring the input file order. This makes the last
+      terminal the effective default root for nexus files (Federico
+      Lopez).
+
+    - Fixed Issue #49
+    - Fixed Issue #48
+    - Fixed Issue #45 
+    - Fixed Issue #40
+    - Fixed-Partial Issue #38
+    - Fixed Issue #37
+    - Fixed Issue #20
+
+Improvements:
+
+    - subversion is not required to compile anymore and versions
+      compiled using the code.google.com site as well as the
+      downloaded source code have the correct build number.
+
+    - Added message to the Search Status showing the current tree cost
+      calculation algorithm.
+
+    - Made the selection of a root of a tree deterministic (for cost
+      calculations).
+
+    - Reduced the number of tree diagnosis during OnEachTree
+      operations and after reading an input file. This should reduce
+      considerably the execution time for non-trivial tree sizes.
+
+CHANGES BETWEEN 2398 AND 2602:
+------------------------------------------------------------------------
+r2588 | andres | 2008-02-04 17:23:35 -0500 (Mon, 04 Feb 2008) | 8 lines
+
+Bugfix:
+    Symptom: 
+        Issue #36
+    Problem: 
+        A newline is hinted to the pretty printer, but it is almost never used.
+    Solution:
+        Make the newline an obligatory one.
+
+------------------------------------------------------------------------
+r2587 | andres | 2008-02-04 14:24:53 -0500 (Mon, 04 Feb 2008) | 3 lines
+
+Improvements: Hardcoded the machine that takes care of the generation of the
+release binaries.
+
+------------------------------------------------------------------------
+r2586 | andres | 2008-02-04 14:23:57 -0500 (Mon, 04 Feb 2008) | 15 lines
+
+Bugfix:
+    Symptom: 
+        Running POY in parallel produces duplicated output for many functions.
+        Running POY in parallel in windows produces an MPI error message at the
+        end.
+    Problem:
+        We use the rank of the process to decide how to do IO. Only process 0
+        (the master), is allowed to produce output, otherwise it should be piped
+        through the master as plain messages. This is not being done properly in
+        the html interface which is used in the GUI based parallel execution.
+
+    Solution:
+        Make a uniform interface and set the rank when the parallel printer is
+        set upon the program initialization (Status.is_parallel).
+
+------------------------------------------------------------------------
+r2585 | andres | 2008-02-02 18:44:13 -0500 (Sat, 02 Feb 2008) | 4 lines
+
+Bugfix:
+    A bogus test failure due to an incorrect cost stored in one of the test
+    files.
+
+------------------------------------------------------------------------
+r2584 | andres | 2008-02-02 10:45:36 -0500 (Sat, 02 Feb 2008) | 5 lines
+
+Improvements:
+    Automatically cleanup the temporary files (to reduce the ammount of garbage
+    left after a test), and if not needed, leave the output going directly to
+    stdio so that the buildbot catches the results.
+
+------------------------------------------------------------------------
+r2583 | andres | 2008-02-01 18:19:19 -0500 (Fri, 01 Feb 2008) | 4 lines
+
+Bugfix:
+    Modified the test_line program to properly signal buildbot when there is an
+    error in a batch of tests.
+
+------------------------------------------------------------------------
+r2582 | andres | 2008-02-01 17:02:19 -0500 (Fri, 01 Feb 2008) | 3 lines
+
+Improvements:
+    Added compilation rules for poy_test at the top level.
+
+------------------------------------------------------------------------
+r2580 | andres | 2008-02-01 14:15:29 -0500 (Fri, 01 Feb 2008) | 4 lines
+
+Improvements:
+    Added the new ocaml-flags options from the src/configure.ac to the topmost
+    configure file.
+
+------------------------------------------------------------------------
+r2579 | andres | 2008-02-01 14:15:05 -0500 (Fri, 01 Feb 2008) | 4 lines
+
+Improvements:
+    Multiple improvements in the randomTree utility. See the --help for more
+    information about the new options and their behavior.
+
+------------------------------------------------------------------------
+r2578 | andres | 2008-02-01 13:30:09 -0500 (Fri, 01 Feb 2008) | 7 lines
+
+Bugfix:
+    Symptom: Compiling with the html interface fails.
+
+    Problem: There is no Warning constructor in Status_html
+
+    Solution: Add the constructor.
+
+------------------------------------------------------------------------
+r2575 | vinh | 2008-01-30 08:36:23 -0500 (Wed, 30 Jan 2008) | 2 lines
+
+Continue working on iterative pass for chromosome characters
+
+------------------------------------------------------------------------
+r2574 | andres | 2008-01-25 18:11:50 -0500 (Fri, 25 Jan 2008) | 5 lines
+
+Improvements:
+
+    Added the constructor Status.Warning for warning messages. This resolves
+    Issue #24 in a clean manner.
+
+------------------------------------------------------------------------
+r2573 | andres | 2008-01-25 17:57:41 -0500 (Fri, 25 Jan 2008) | 6 lines
+
+Bugfix:
+    Symptom: Issue #33
+    Problem: We don't add the files whose type is not autodetected to the list
+    of read files.
+    Solution: Add all the files whose type is specified by the user.
+
+------------------------------------------------------------------------
+r2572 | andres | 2008-01-25 17:46:33 -0500 (Fri, 25 Jan 2008) | 4 lines
+
+Bugfix:
+    Symptom: Issue #34
+    Problem: We never handled these cases in the script postprocessing.
+
+------------------------------------------------------------------------
+r2571 | andres | 2008-01-25 10:09:56 -0500 (Fri, 25 Jan 2008) | 12 lines
+
+Bugfix:
+    Symptom: 
+        running tests with only one processor doesn't generate test_all.log
+        (Megan Harrison)
+    Problem: 
+        The script uses Unix.waitpid () although tests with only
+        one processor have no children processes. This causes a
+        non-handled exception, skipping the necessary file concatenation
+        functions.
+    Solution:
+        If only 1 process is requested, skip the Unix.waitpid function.
+
+------------------------------------------------------------------------
+r2570 | andres | 2008-01-23 11:32:34 -0500 (Wed, 23 Jan 2008) | 4 lines
+
+Improvements:
+    Added options for the selective compilation of windows binaries. Check bash
+    win32_build.sh --help for more information.
+
+------------------------------------------------------------------------
+r2569 | andres | 2008-01-23 11:05:32 -0500 (Wed, 23 Jan 2008) | 3 lines
+
+Improvements:
+    Cleaned up the parallel execution message added in 2568.
+
+------------------------------------------------------------------------
+r2568 | andres | 2008-01-23 10:50:29 -0500 (Wed, 23 Jan 2008) | 4 lines
+
+Improvements:
+    When executing in parallel, the initialization messages report the number of
+    processes being executed.
+
+------------------------------------------------------------------------
+r2567 | andres | 2008-01-23 09:56:15 -0500 (Wed, 23 Jan 2008) | 4 lines
+
+Improvements:
+    Reduced the verbosity of the program by turning off the node loading status
+    messages.
+
+------------------------------------------------------------------------
+r2566 | andres | 2008-01-18 11:32:33 -0500 (Fri, 18 Jan 2008) | 2 lines
+
+Removed the debugging flag which was committed by mistake.
+
+------------------------------------------------------------------------
+r2565 | andres | 2008-01-18 08:16:36 -0500 (Fri, 18 Jan 2008) | 5 lines
+
+Bugfix:
+    The Makefile.local from the previous revision contained extra
+    definitions for clean using ::, but Makefile.in did not. This
+    rendered make useless. The problem is being fixed here.
+
+------------------------------------------------------------------------
+r2564 | andres | 2008-01-18 08:14:12 -0500 (Fri, 18 Jan 2008) | 4 lines
+
+New Features:
+    Added the utility program randomTree to generate random trees,
+    in newick format, with branch lengths. Used for simulations.
+
+------------------------------------------------------------------------
+r2562 | vinh | 2008-01-17 22:07:00 -0500 (Thu, 17 Jan 2008) | 3 lines
+
+Improvement:
+	Continue working on iterative pass for chromosome characters
+
+------------------------------------------------------------------------
+r2560 | andres | 2008-01-17 18:23:35 -0500 (Thu, 17 Jan 2008) | 3 lines
+
+Improvements:
+    Added the windows parallel version to the compilation rules.
+
+------------------------------------------------------------------------
+r2558 | andres | 2008-01-17 18:00:16 -0500 (Thu, 17 Jan 2008) | 6 lines
+
+Bugfix:
+    Symptom: A test of cd and pwd fails with no apparent reason.
+    Problem: The path is different in each machine being tested, therefore there
+    is no good reference file to compare with.
+    Solution: Remove the reference file.
+
+------------------------------------------------------------------------
+r2556 | andres | 2008-01-17 17:51:53 -0500 (Thu, 17 Jan 2008) | 6 lines
+
+Bugfix:
+    Symptom: Test search07.poy fails.
+    Problem: We don't filter non-unionable characters before calling 
+    auto_sequence_partition and auto_static_approx.
+    Solution: Filter them out!
+
+------------------------------------------------------------------------
+r2553 | andres | 2008-01-17 14:33:34 -0500 (Thu, 17 Jan 2008) | 15 lines
+
+Bugfix:
+    Symptom:
+        Windows paths appear not to work properly and behave in strange manners
+        (like duplicating slashes when using ctrl-p) (ncurses interface).
+    Problem:
+        We worked around the slash problem as a scape character in the lexer by
+        escaping the individual characters. However, we are using now a special
+        purpose lexer that ignores escape sequences, and therefore, there is no
+        need to escape the slashes anymore.
+        In addition, we did not use a special character separator between unix
+        and win32.
+    Solution:
+        Pick the correct path separator according to the OS, and eliminate the
+        character escaping functions from the command line history in ncurses.
+
+------------------------------------------------------------------------
+r2551 | ilya | 2008-01-16 14:18:02 -0500 (Wed, 16 Jan 2008) | 12 lines
+
+Documentation Update:
+    - Made substantial improvements and corrections
+      to the following documents:
+      - commands.tex
+      - allcommands.tex
+      - QuickStart.tex
+      - poyheuristics.tex
+      - poytutorials.tex
+    - Added a new figure and corrected an existing
+      figure for the 'Simple Search' section of the
+      QuickStart.tex
+
+------------------------------------------------------------------------
+r2550 | andres | 2008-01-15 12:22:53 -0500 (Tue, 15 Jan 2008) | 7 lines
+
+Improvements:
+    Fixed the compilation procedures for Windows by removing the unelegant
+    steps. 
+
+    Updated the source version of PDCurses to 3.3 (we where using 2.8). This
+    improves performance and overall experience for the end users.
+
+------------------------------------------------------------------------
+r2549 | andres | 2008-01-14 15:00:23 -0500 (Mon, 14 Jan 2008) | 3 lines
+
+Bugfix:
+    Corrected a syntax error that did not permit compilation in OCaml 3.10.1.
+
+------------------------------------------------------------------------
+r2548 | andres | 2008-01-13 17:06:55 -0500 (Sun, 13 Jan 2008) | 4 lines
+
+Bugfix:
+    Added some more missing test reference files, and updated the error message
+    of a test to match better the characteristics of the test.
+
+------------------------------------------------------------------------
+r2547 | andres | 2008-01-12 14:01:32 -0500 (Sat, 12 Jan 2008) | 4 lines
+
+Improvements:
+    Replaced the poy_test program configuration from the readline to
+    the flat interface.
+
+------------------------------------------------------------------------
+r2546 | andres | 2008-01-12 13:56:58 -0500 (Sat, 12 Jan 2008) | 5 lines
+
+Improvements:
+    Placed the LIBS environment at the end of every compilation rule which
+    needed it to eliminate compile-time errors due to undefined symbols (gcc's
+    linking sensibility). This was particularly important under windows.
+
+------------------------------------------------------------------------
+r2545 | andres | 2008-01-11 16:08:40 -0500 (Fri, 11 Jan 2008) | 2 lines
+
+Reverting changes from revision 2544 which where made by mistake.
+
+------------------------------------------------------------------------
+r2544 | andres | 2008-01-11 16:07:44 -0500 (Fri, 11 Jan 2008) | 3 lines
+
+Improvements:
+    Added the --with-ocaml-flags option to pass options for the OCaml compilers.
+
+------------------------------------------------------------------------
+r2543 | andres | 2008-01-11 16:07:08 -0500 (Fri, 11 Jan 2008) | 3 lines
+
+Improvements:
+    Upon failure, during a test, the exception is raised not hidden.
+
+------------------------------------------------------------------------
+r2542 | andres | 2008-01-11 11:35:17 -0500 (Fri, 11 Jan 2008) | 10 lines
+
+Bugfix:
+    Symptom:
+        No test successfully sends a reporting email.
+    Problem:
+        The recipient list should be extracted from the email header, however
+        the -t flag is missing from the sendmail command (this is required to
+        extract the recipient list).
+    Solution:
+        Add the -t flag in every sendmail call.
+
+------------------------------------------------------------------------
+r2541 | andres | 2008-01-11 11:34:07 -0500 (Fri, 11 Jan 2008) | 11 lines
+
+Bugfix:
+    Symptom: 
+        make poy_test fails with an unresolved dependency.
+    Problem:
+        status.ml is preprocesses by Camlp4, which means that it is filtered
+        from the default dependency check list. However, when it is included
+        back for dependency generation using Camlp4 as preprocessor, the mli is
+        not added again.
+    Solution:
+        Append status.mli to the dependency generation list after scripting.mli
+
+------------------------------------------------------------------------
+r2540 | andres | 2008-01-11 10:57:01 -0500 (Fri, 11 Jan 2008) | 4 lines
+
+Improvements:
+    The log cleanup step of run_test will now eliminate not only test_all.xml
+    but all the process-specific logs.
+
+------------------------------------------------------------------------
+r2539 | andres | 2008-01-11 10:55:25 -0500 (Fri, 11 Jan 2008) | 3 lines
+
+Bugfixes:
+    Fixed the new application tests so that they can be executed successfully.
+
+------------------------------------------------------------------------
+r2537 | megan | 2008-01-10 19:20:02 -0500 (Thu, 10 Jan 2008) | 4 lines
+
+Tests Update:
+    Added missing data files gen5bp, gen11bp, gen20bp, Inv1.fas, Inv2.fas,
+    ua15.fas and the test file ann.
+
+------------------------------------------------------------------------
+r2535 | megan | 2008-01-10 09:05:04 -0500 (Thu, 10 Jan 2008) | 4 lines
+
+Documentation:
+    Added description of iterative pass for chromosome characters and expanded
+    description of iterative pass in set command
+
+------------------------------------------------------------------------
+r2534 | megan | 2008-01-10 08:53:28 -0500 (Thu, 10 Jan 2008) | 3 lines
+
+Tests Update:
+    Added test file "addons" with ci, ri, fasta and true cost tests 
+
+------------------------------------------------------------------------
+r2533 | megan | 2008-01-10 08:40:40 -0500 (Thu, 10 Jan 2008) | 3 lines
+
+Test update:
+    Added the test files ua_inv2.fas, gen, and unann
+
+------------------------------------------------------------------------
+r2532 | andres | 2008-01-09 09:36:18 -0500 (Wed, 09 Jan 2008) | 7 lines
+
+Improvements:
+    Added support for concurrent test execution. Now a list of tests can be run
+    in parallel in multiple processors of the same machine.
+
+    The run_test.sh script now requires a fourth argument specifying the number
+    of processors to be used in the batch of tests.
+
+------------------------------------------------------------------------
+r2531 | andres | 2008-01-08 22:19:17 -0500 (Tue, 08 Jan 2008) | 5 lines
+
+Bugfix:
+    Updated the Makefile.in to handle properly USEWIN32 != true as opposed to 
+    USEWIN32 == false (which is never set). This bug was introduced during the
+    latest changes to properly execute the configure scripts in windows.
+
+------------------------------------------------------------------------
+r2530 | andres | 2008-01-08 22:17:04 -0500 (Tue, 08 Jan 2008) | 6 lines
+
+Improvements:
+    Ported the tests to run properly in windows.
+
+    Multiple minor improvements to execute the tests and configuration scripts
+    in windows.
+
+------------------------------------------------------------------------
+r2529 | andres | 2008-01-08 18:00:58 -0500 (Tue, 08 Jan 2008) | 5 lines
+
+Improvements:
+    Cleanup the *.win32 files that are not required anymore
+    Update the win32_build.sh script for the new compilation procedures under
+    windows.
+
+------------------------------------------------------------------------
+r2528 | andres | 2008-01-08 17:55:05 -0500 (Tue, 08 Jan 2008) | 4 lines
+
+Updated support for configuration and compilation scripts under windows. 
+
+Updated version.ml to recognize properly the html interface flags.
+
+------------------------------------------------------------------------
+r2527 | andres | 2008-01-08 16:59:52 -0500 (Tue, 08 Jan 2008) | 4 lines
+
+Improvements:
+    First changes towards configuration scripts for windows (to automate tests
+    in that platform too).
+
+------------------------------------------------------------------------
+r2525 | andres | 2008-01-08 16:31:58 -0500 (Tue, 08 Jan 2008) | 4 lines
+
+Bugfix:
+    Typo in the previous modification of status_flat.ml, modifying a function
+    name by mistake.
+
+------------------------------------------------------------------------
+r2524 | andres | 2008-01-08 16:26:47 -0500 (Tue, 08 Jan 2008) | 6 lines
+
+Improvements:
+    Fixed the version message to include the flat interface.
+
+    Added help information in the configuration scripts to support the flat
+    interface.
+
+------------------------------------------------------------------------
+r2523 | andres | 2008-01-08 15:51:44 -0500 (Tue, 08 Jan 2008) | 5 lines
+
+New Features:
+    Activated again the flat interface option, which removes the dependencies
+    both in ncurses and readline. This is needed to activate the tests in the
+    win32 platform.
+
+------------------------------------------------------------------------
+r2522 | andres | 2008-01-08 13:57:28 -0500 (Tue, 08 Jan 2008) | 3 lines
+
+Improvements:
+    Added the Makefile.win32 for graphps which was missing.
+
+------------------------------------------------------------------------
+r2521 | andres | 2008-01-08 13:48:14 -0500 (Tue, 08 Jan 2008) | 5 lines
+
+Bugfix:
+    The compilation of win32 binaries was broken as the latests changes in
+    Makefile.in had not been reflected in Makefile.win32. This has been
+    corrected now.
+
+------------------------------------------------------------------------
+r2518 | andres | 2008-01-07 17:44:45 -0500 (Mon, 07 Jan 2008) | 13 lines
+
+Bugfix:
+    Symptom: Issue #22
+    Problem: We don't keep the gap_opening cost anywhere, nor properly assign
+    the tcm name within the character specification.
+    Solution: Store the information in the necessary data structure.
+
+Interface Changes:
+    Added the Tags.Characters.gap_opening tag.
+    
+Other Changes:
+    Replaced the assignment of tcm name from "Default" to "tcm:(1,2)" which is
+    properly documented.
+
+------------------------------------------------------------------------
+r2517 | andres | 2008-01-07 16:01:34 -0500 (Mon, 07 Jan 2008) | 5 lines
+
+Bugfix:
+    Symptom: Issue #18 (Ilya Temkin).
+    Problem: We don't filter out the ignored terminals.
+    Solution: Filter out ignored terminals.
+
+------------------------------------------------------------------------
+r2516 | andres | 2008-01-07 15:24:52 -0500 (Mon, 07 Jan 2008) | 11 lines
+
+Bugfix:
+    Symptom:
+        Using additive characters uses an unbounded ammount of memory (Fernando
+        Marques).
+        
+    Problem:
+        A line of code was duplicated, causing a double allocation and the
+        effective loss of the memory allocated in one of the calls.
+
+    Solution: Delete the line responsible.
+
+------------------------------------------------------------------------
+r2515 | andres | 2008-01-06 19:43:41 -0500 (Sun, 06 Jan 2008) | 11 lines
+
+Improvements:
+
+Added the Scripting.Make.PhyloTree interface to simplify external scripts.
+
+New Features:
+report -> ci[:identifier]
+report -> ri[:identifier]
+
+Report the ci and ri indexes for individual characters (if the identifiers are
+specified), or for the full trees (if no identifiers are specified).
+
+------------------------------------------------------------------------
+r2514 | andres | 2008-01-06 19:31:12 -0500 (Sun, 06 Jan 2008) | 5 lines
+
+Improvements:
+    Added when missing and fixed bugs and definitions in the minimum possible
+    and maximum possible cost of sets of non-additive, additve, and sankoff
+    characters.
+
+------------------------------------------------------------------------
+r2513 | andres | 2008-01-06 19:29:41 -0500 (Sun, 06 Jan 2008) | 4 lines
+
+Interface Improvements:
+    Added the Data.apply_on_static function, which will be used for ri and ci
+    computations.
+
+------------------------------------------------------------------------
+r2512 | andres | 2008-01-06 19:28:16 -0500 (Sun, 06 Jan 2008) | 9 lines
+
+Interface Improvements:
+
+Added three new functions  to the Ptree module:
+
+post_order_downpass_style 
+get_roots 
+extract_bremer 
+
+
+------------------------------------------------------------------------
+r2511 | andres | 2008-01-06 12:52:43 -0500 (Sun, 06 Jan 2008) | 7 lines
+
+Inteface Changes:
+    The to_list function of the C interface for non-additive characters returns
+    a dummy cost of 1., as we don't keep the cost of each individual character
+    within the vector of characters. This value is non desirable for the actual
+    use of the list produced, therefore, I'm changing it to 0. too simplify the
+    computation of character indexes (ci and ri).
+
+------------------------------------------------------------------------
+r2509 | vinh | 2007-12-29 10:21:41 -0500 (Sat, 29 Dec 2007) | 2 lines
+
+Continue working on iterative pass for chrom and genome characters
+
+------------------------------------------------------------------------
+r2507 | vinh | 2007-12-28 11:40:54 -0500 (Fri, 28 Dec 2007) | 3 lines
+
+Improvement:
+    Change the default value of max_3d_len from 200 to max_int
+
+------------------------------------------------------------------------
+r2502 | ilya | 2007-12-27 10:49:20 -0500 (Thu, 27 Dec 2007) | 4 lines
+
+Documentation Update:
+    - Corrected multiple minor errors and syntactic inconsistencies
+      in the 'QuickStart.tex' and 'allcommands.tex' files.
+
+------------------------------------------------------------------------
+r2500 | vinh | 2007-12-26 10:41:21 -0500 (Wed, 26 Dec 2007) | 6 lines
+
+Improvement:
+    Parameter "max_3d_len" is added which is the maximum 
+    sequence length to align 3 sequences in order to
+    reduce the time consuming for iterative pass for chromosomes.
+
+
+------------------------------------------------------------------------
+r2498 | vinh | 2007-12-21 10:54:13 -0500 (Fri, 21 Dec 2007) | 2 lines
+
+Continue working on iterative pass for genome character
+
+------------------------------------------------------------------------
+r2496 | vinh | 2007-12-20 12:34:01 -0500 (Thu, 20 Dec 2007) | 5 lines
+
+Improvement:
+    Finished the iterative pass for chromosome character. Working on 
+    iterative pass for genome
+
+
+------------------------------------------------------------------------
+r2494 | vinh | 2007-12-13 13:13:21 -0500 (Thu, 13 Dec 2007) | 3 lines
+
+Improvement:
+    The first version of comprehensive iterative pass for chromosome character
+
+------------------------------------------------------------------------
+r2491 | vinh | 2007-11-27 14:17:56 -0500 (Tue, 27 Nov 2007) | 3 lines
+
+Improvement:
+    The first version of exhausive iterative pass for breakinv and annotated characters
+
+------------------------------------------------------------------------
+r2489 | vinh | 2007-11-27 14:11:57 -0500 (Tue, 27 Nov 2007) | 6 lines
+
+Improvement:
+    Add an optional parameter first_gap into align_3 and readjust_3 functions
+    in the sequence modul which indicates that if the first characters of 
+    three are gaps or not. If not, a gap will be inserted into sequences before     aligning them
+
+
+------------------------------------------------------------------------
+r2488 | megan | 2007-11-27 14:11:06 -0500 (Tue, 27 Nov 2007) | 3 lines
+
+Documentation:
+    Updated references in poylibrary.bib
+
+------------------------------------------------------------------------
+r2486 | megan | 2007-11-27 11:00:34 -0500 (Tue, 27 Nov 2007) | 4 lines
+
+Documentation:
+    Edited allcommands from join method on, tutorials, and heuristic guide
+
+
+------------------------------------------------------------------------
+r2484 | ilya | 2007-11-26 22:03:40 -0500 (Mon, 26 Nov 2007) | 7 lines
+
+Documentation Update:
+    Numerous improvements to the documentation files:
+    - QuickStart.tex
+    - commands.tex
+    - allcommands.tex
+    - poytutorials.tex 
+
+------------------------------------------------------------------------
+r2483 | andres | 2007-11-26 18:57:00 -0500 (Mon, 26 Nov 2007) | 10 lines
+
+Bugfix:
+    Symptom:
+        save ("filename") fails under MS Windows.
+
+    Problem:
+        We don't open a binary but a text channel, which fails under windows.
+
+    Solution:
+        Replace open_in and open_out with open_in_bin and open_out_bin.
+
+------------------------------------------------------------------------
+r2482 | ilya | 2007-11-20 18:54:13 -0500 (Tue, 20 Nov 2007) | 3 lines
+
+Documentation Update:
+    - Corrected the heading of the Heuristic Guide chapter
+
+------------------------------------------------------------------------
+r2481 | andres | 2007-11-20 18:06:40 -0500 (Tue, 20 Nov 2007) | 7 lines
+
+Improvements:
+    Added functions to the AddCS and NonaddCS modules for minimum and maximum
+    cost of a character.
+
+    Modified the Makefile to properly fill the new dependency between AddCS and
+    NonaddCS.
+
+------------------------------------------------------------------------
+r2480 | andres | 2007-11-20 18:03:46 -0500 (Tue, 20 Nov 2007) | 12 lines
+
+Bugfix:
+
+    Symptom:
+        read (prealigned:("x", y)) does not work when run from a script.
+
+    Problem:
+        The script analyzer ignores the `Prealigned constructor by mistake,
+        eliminating the command after analyzing the script.
+
+    Solution:
+        Add the propre handling of the `Prealigned case in the script analyzer.
+
+------------------------------------------------------------------------
+r2479 | ilya | 2007-11-20 17:35:01 -0500 (Tue, 20 Nov 2007) | 4 lines
+
+Documentation Update:
+    - Numerous minor changes in the documentation formating, command
+      description, and grammar.
+
+------------------------------------------------------------------------
+r2477 | megan | 2007-11-20 13:26:42 -0500 (Tue, 20 Nov 2007) | 3 lines
+
+Documentation:
+    Incorporated edits of Ward Wheeler to QuickStart.tex
+
+------------------------------------------------------------------------
+r2476 | megan | 2007-11-20 13:25:16 -0500 (Tue, 20 Nov 2007) | 3 lines
+
+Documentation:
+    incorporated edits from Ward Wheeler on allcommand document
+
+------------------------------------------------------------------------
+r2473 | vinh | 2007-11-19 16:15:31 -0500 (Mon, 19 Nov 2007) | 9 lines
+
+Bug fixed:
+    Syndrom: The iterative pass does not improve the tree 
+    Problem: The cost of the tree was calculated from unadjusted tree
+             instead of adjusted tree (see function 
+                                      adjust_until_nothing_changes)
+
+    Solution: The cost of the tree is calculated from the adjusted tree
+
+
+------------------------------------------------------------------------
+r2471 | andres | 2007-11-18 08:42:56 -0500 (Sun, 18 Nov 2007) | 12 lines
+
+Bugfix:
+    Symptom:
+        ./configure --enable-long-sequence fails in the compilation step of the
+        sequence.ml module (Ward Wheeler)
+
+    Problem:
+        The new split function in Sequence does not have proper type conversion
+        for the different sequence lengths between Int32 and int.
+
+    Solution:
+        Do the proper conversions.
+
+------------------------------------------------------------------------
+r2466 | andres | 2007-11-13 14:05:56 -0500 (Tue, 13 Nov 2007) | 7 lines
+
+Bugfix:
+    Added the configuration environment DOCSTRING to generate the proper
+    document version number for echo depending on the OS version being used.
+    Leopard does recognize \n in an echo string as a newline, but linux and
+    Tiger doesn't so we escape the \ in leopard while we don't for the rest.
+
+
+------------------------------------------------------------------------
+r2464 | megan | 2007-11-13 12:10:00 -0500 (Tue, 13 Nov 2007) | 3 lines
+
+Documentation:
+    Updated Bremer Tutorial to reflect error noted by Paola
+
+------------------------------------------------------------------------
+r2463 | andres | 2007-11-12 18:17:38 -0500 (Mon, 12 Nov 2007) | 4 lines
+
+Improvements:
+    Modified the automated building scripts to use not the hardcoded URL, but
+    the MACHOST environment variable.
+
+------------------------------------------------------------------------
+r2461 | andres | 2007-11-12 18:03:14 -0500 (Mon, 12 Nov 2007) | 4 lines
+
+Bugfix:
+    Removed some debugging messages left behind for the new sequence_partition
+    command.
+
+------------------------------------------------------------------------
+r2460 | ilya | 2007-11-12 15:39:12 -0500 (Mon, 12 Nov 2007) | 3 lines
+
+Tests Update:
+    - commited several changes to test scripts.
+
+------------------------------------------------------------------------
+r2458 | andres | 2007-11-10 09:33:12 -0500 (Sat, 10 Nov 2007) | 7 lines
+
+Bugfixes:
+    Various small bugfixes in the sequence_partition function.
+
+Improvements:
+    Added assertion checking in the Sequence.split function to catch illegal
+    splits quickly.
+
+------------------------------------------------------------------------
+r2456 | megan | 2007-11-09 21:09:56 -0500 (Fri, 09 Nov 2007) | 3 lines
+
+Testing:
+    Updated test files within transform, fuse, build, report
+
+------------------------------------------------------------------------
+r2455 | megan | 2007-11-09 21:01:56 -0500 (Fri, 09 Nov 2007) | 3 lines
+
+Testing:
+    updated test lines in megan_tests
+
+------------------------------------------------------------------------
+r2453 | andres | 2007-11-09 17:43:54 -0500 (Fri, 09 Nov 2007) | 17 lines
+
+New Command:
+
+report -> fasta
+report -> treecosts
+
+See the program documentation for further information.
+
+Documentation Fix:
+
+    The specification of implied_alignment and ia was incorrect. Replaced the
+    value of the argument from poysstring to identifiers.
+
+Interface Changes:
+    Added another argument to Implied_Alignments to include a boolean for
+    whether or not a header should be included in the output (for the fasta
+    functionality).
+
+------------------------------------------------------------------------
+r2452 | andres | 2007-11-09 17:41:33 -0500 (Fri, 09 Nov 2007) | 4 lines
+
+Bugfix:
+    Improved the Makefile.in rules to be able to compile the documentation in
+    Mac OS X Leopard and POSIX compilant systems.
+
+------------------------------------------------------------------------
+r2451 | andres | 2007-11-09 17:30:31 -0500 (Fri, 09 Nov 2007) | 4 lines
+
+Bugfix:
+    Removed a bogus pseudorandom number generator initialization call in the
+    main module.
+
+------------------------------------------------------------------------
+r2449 | andres | 2007-11-09 17:24:34 -0500 (Fri, 09 Nov 2007) | 12 lines
+
+New Command:
+
+transform -> sequence_partition:INT
+
+See the program documentation for further information.
+
+Interface changes: 
+    Modified Automatic_Sequence_Partition to include a third argument holding
+    an optional number of fragments. If no fragments are requested, then the
+    function partitions automatically, otherwise, it will just break in as many
+    fragments are requested.
+
+------------------------------------------------------------------------
+r2446 | andres | 2007-11-09 17:09:00 -0500 (Fri, 09 Nov 2007) | 3 lines
+
+Improvements:
+    The test script will now report errors to Vinh, Megan, Ilya, and Andres.
+
+------------------------------------------------------------------------
+r2444 | megan | 2007-11-08 10:59:37 -0500 (Thu, 08 Nov 2007) | 3 lines
+
+Tutorials:
+    Added 28s.aln file to tutorial_data folder
+
+------------------------------------------------------------------------
+r2442 | megan | 2007-11-08 10:43:14 -0500 (Thu, 08 Nov 2007) | 3 lines
+
+Documentation:
+    Updated tutorials (designated input files)
+
+------------------------------------------------------------------------
+r2441 | megan | 2007-11-08 10:27:18 -0500 (Thu, 08 Nov 2007) | 5 lines
+
+Testing:
+    Added transform test script folder
+Tutorials:
+    Added tutorial_data folder with data and scripts of all documented tutorials
+
+------------------------------------------------------------------------
+r2440 | megan | 2007-11-08 10:23:16 -0500 (Thu, 08 Nov 2007) | 3 lines
+
+Testing:
+    Updated test script folders build fuse and report
+
+------------------------------------------------------------------------
+r2439 | megan | 2007-11-08 10:17:05 -0500 (Thu, 08 Nov 2007) | 3 lines
+
+Testing:
+    Updated megan_test file with transform tests
+
+------------------------------------------------------------------------
+r2438 | andres | 2007-11-08 09:17:51 -0500 (Thu, 08 Nov 2007) | 18 lines
+
+Bugfix:
+    Symptom:
+        read ("1.fas")
+        set (iterative)
+        build (1)
+        Fails with a Not_found error (Ilya Temkin, Bug # ).
+
+    Problem:
+        There is a bug in the function to convert fast three directional trees
+        to one directional trees.
+
+    Solution:
+        Do not convert the trees to one direction. There is no need to do this
+        anymore as we can collect the necessary chromosomal codes without the
+        conversion (this was the only use of the function). 
+        Therefore, there is no need to fix the bug, just replace the function
+        calls.
+
+------------------------------------------------------------------------
+r2436 | ilya | 2007-11-07 21:16:24 -0500 (Wed, 07 Nov 2007) | 3 lines
+
+Tests Update:
+    - multiple modifications to test scripts
+
+------------------------------------------------------------------------
+r2434 | megan | 2007-11-06 10:55:49 -0500 (Tue, 06 Nov 2007) | 4 lines
+
+Testing:
+    Added folders build, fuse, and report with test scripts, std err std output
+    and xml files.
+
+------------------------------------------------------------------------
+r2432 | megan | 2007-11-06 09:59:37 -0500 (Tue, 06 Nov 2007) | 3 lines
+
+Testing
+    added megan_tests file to run build, fuse, and report tests
+
+------------------------------------------------------------------------
+r2430 | megan | 2007-11-06 07:24:20 -0500 (Tue, 06 Nov 2007) | 3 lines
+
+documentation:
+    Revised poytutorials to reflect actual data files
+
+------------------------------------------------------------------------
+r2426 | andres | 2007-11-05 15:33:50 -0500 (Mon, 05 Nov 2007) | 6 lines
+
+Bugfix:
+    Fixed the trees for tests that where left without the taxon name
+    modification of the previous row of commits (2416-2424).
+    
+    Updated some costs that where failing before.
+
+------------------------------------------------------------------------
+r2425 | andres | 2007-11-05 14:41:56 -0500 (Mon, 05 Nov 2007) | 16 lines
+
+Bugfix:
+    Symptom:
+        Calculating support values for Jackknife and Bootstrap could have
+        incorrect results (Mark Simmons).
+
+    Problem:
+        The classifier of characters was ignoring the weight for certain kinds
+        of characters, causing an overall incorrect tree cost that was only
+        noticeable during jackknife and bootstrap computations. Regular analyses
+        where affected, but almost nobody uses complex weighting schemes with
+        weights equal to 0.
+
+    Solution:
+        Take into consideration the weight in the character and do not ignore
+        characters with weight 0 comparison.
+
+------------------------------------------------------------------------
+r2422 | ilya | 2007-11-01 13:30:42 -0400 (Thu, 01 Nov 2007) | 5 lines
+
+Tests Update:
+    - Tests are committed for 'perturb', 'swap', 'search', 'set', and
+      accessory commands (such as 'run', 'echo', etc.) and were placed
+      in folders with corresponding names
+
+------------------------------------------------------------------------
+r2421 | ilya | 2007-11-01 13:25:50 -0400 (Thu, 01 Nov 2007) | 4 lines
+
+Tests Update:
+    - Ilya's scripts committed. They are all contained in the file
+      "ilya_scripts"
+
+------------------------------------------------------------------------
+r2420 | ilya | 2007-11-01 13:14:04 -0400 (Thu, 01 Nov 2007) | 4 lines
+
+Tests Update:
+    - Corrected terminal names in .ss files by changing the "T" to "t"
+      in the prefix.
+
+------------------------------------------------------------------------
+r2419 | ilya | 2007-11-01 13:11:42 -0400 (Thu, 01 Nov 2007) | 5 lines
+
+Tests Update:
+    - Changed terminal names in the remaining datafiles (.san, .aa) by adding
+      a prefix "t" to make it consistent with Hennig86 file format requiring
+      sung letters for taxon names.
+
+------------------------------------------------------------------------
+r2418 | ilya | 2007-11-01 13:07:21 -0400 (Thu, 01 Nov 2007) | 5 lines
+
+Tests Update:
+    - Corrested terminal names in all fas files: added a prefix "t"
+      to each terminal name to make is consistent with Hennig86
+      requirement for taxon names
+
+------------------------------------------------------------------------
+r2416 | vinh | 2007-11-01 10:40:51 -0400 (Thu, 01 Nov 2007) | 5 lines
+
+Improvement:
+    Using Sequence.align2 to align two general character sequences
+    instead of Ocaml's function
+
+
+------------------------------------------------------------------------
+r2407 | megan | 2007-10-25 14:51:29 -0400 (Thu, 25 Oct 2007) | 3 lines
+
+Documentation:
+    -revised the Bremmer tutorial
+
+------------------------------------------------------------------------
+r2405 | andres | 2007-10-25 14:07:00 -0400 (Thu, 25 Oct 2007) | 5 lines
+
+Improvements:
+    Removed the recomputation of trees and interior states from saved and loaded
+    trees to improve overall performance and be able to use the feature within
+    scripts without hitting the speed of the application.
+
+------------------------------------------------------------------------
+r2402 | vinh | 2007-10-25 13:21:28 -0400 (Thu, 25 Oct 2007) | 6 lines
+
+Bug fixed:
+    Syndrom: Create an empty single genome
+    Problem: The single state for a single node is empty
+    Solution: Fix it, if it's a single node, then return its own genomes
+
+
+------------------------------------------------------------------------
+r2401 | andres | 2007-10-24 15:09:17 -0400 (Wed, 24 Oct 2007) | 11 lines
+
+Bugfix:
+    Symptom:
+        build (random) select () could fail with an AllDirNode.is_collapsible
+        failure.
+
+    Problem:    
+        We don't do uppass on random trees.
+
+    Solution:
+        Add the necessary uppass evaluations.
+
+------------------------------------------------------------------------
+r2399 | andres | 2007-10-24 11:34:07 -0400 (Wed, 24 Oct 2007) | 14 lines
+
+Bugfix:
+    Symptoms: 
+        echo ("%") would cause the program to crash.
+        Issue #11 (Paola Pedraza).
+
+    Problem:
+        % and @ are special formatting characters, and they are not properly
+        % escaped.
+
+    Solution:
+        Escape every user-provided string that is to be used in printed output.
+
+
+
+------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------
+r2397 | ilya | 2007-10-23 15:55:09 -0400 (Tue, 23 Oct 2007) | 6 lines
+
+Documentation Update:
+    - Included a substitute figure for the title page;
+    - Make numerous improvements to the QuickStart.tex;
+    - Corrected formatting of TOC and the link to Google
+      Repository in 'commands.tex'
+
+------------------------------------------------------------------------
+r2392 | andres | 2007-10-23 10:42:55 -0400 (Tue, 23 Oct 2007) | 16 lines
+
+Improvements:
+    Added support for store, and use trees, data, jackknife, bootstrap, or
+    bremer. The feature will remain undocumented until we find some use for it
+    (it's only for research purposes for now).
+
+Bugfix:
+    Symptom:
+        read ("a") build (1) read ("b") does not automatically update the tree
+        cost.
+
+    Problem:
+        After reading the data, we never really update the tree.
+
+    Solution: 
+        Do it!
+
+CHANGES BETWEEN 2318 AND 2398:
+
+Overview:
+
+This release contains only documentation improvements and bugfixes. The parallel
+execution of numerous scripts should have important performance improvements.
+
+Details:
+
+------------------------------------------------------------------------
+r2397 | ilya | 2007-10-23 15:55:09 -0400 (Tue, 23 Oct 2007) | 6 lines
+
+Documentation Update:
+    - Included a substitute figure for the title page;
+    - Make numerous improvements to the QuickStart.tex;
+    - Corrected formatting of TOC and the link to Google
+      Repository in 'commands.tex'
+
+------------------------------------------------------------------------
+r2392 | andres | 2007-10-23 10:42:55 -0400 (Tue, 23 Oct 2007) | 16 lines
+
+Bugfix:
+    Symptom:
+        read ("a") build (1) read ("b") does not automatically update the tree
+        cost.
+
+    Problem:
+        After reading the data, we never really update the tree.
+
+    Solution: 
+        Do it!
+
+------------------------------------------------------------------------
+r2388 | megan | 2007-10-23 08:21:12 -0400 (Tue, 23 Oct 2007) | 3 lines
+
+Documentation:
+    Added Annotated Chromosome and BreakInv tutorials
+
+------------------------------------------------------------------------
+r2385 | andres | 2007-10-22 17:13:38 -0400 (Mon, 22 Oct 2007) | 14 lines
+
+Bugfix:
+    Symptom:
+        build (10) report (ia) merges in one long sequence, all the trees, as if
+        we had 10 characters and only one tree in the implied alignment (Gonzalo
+        Giribet).
+    Problem:
+        We do not iterate over the trees to produce the implied alignment, but
+        we first compute all the implied alignments, and after merging, iterate
+        to print them out, effectively merging different trees.
+    Solution (Interface Change):
+        Diagnosis.diagnose should accept one tree at a time, and output its
+        diagnosis, for each independent tree.
+
+
+------------------------------------------------------------------------
+r2383 | andres | 2007-10-22 16:56:32 -0400 (Mon, 22 Oct 2007) | 4 lines
+
+Improvements:
+    Several improvement to reduce bad decision making when attempting to
+    optimize a script.
+
+------------------------------------------------------------------------
+r2382 | megan | 2007-10-22 11:46:34 -0400 (Mon, 22 Oct 2007) | 3 lines
+
+Documentation:
+    Updated Bremer Tutorial with visited strategy
+
+------------------------------------------------------------------------
+r2381 | andres | 2007-10-20 14:21:21 -0400 (Sat, 20 Oct 2007) | 5 lines
+
+Bugfix:
+    Removed the thread index of the skip command automatically added by the
+    analyzer, to avoid filling a bogus dependency (and possibly erroneous)
+    dependency to an empty command (aka. Skip).
+
+------------------------------------------------------------------------
+r2380 | andres | 2007-10-20 11:09:58 -0400 (Sat, 20 Oct 2007) | 3 lines
+
+Bugfix: 
+    Removed a directory name that caused a bogus test failure.
+
+------------------------------------------------------------------------
+r2378 | andres | 2007-10-19 17:48:35 -0400 (Fri, 19 Oct 2007) | 3 lines
+
+Improvements:
+    Added tests for the analyzer using the tutorial scripts. 
+
+------------------------------------------------------------------------
+r2374 | andres | 2007-10-19 16:42:04 -0400 (Fri, 19 Oct 2007) | 9 lines
+
+Improvements:
+    Added rules to properly compose Parallelizable operations and be able
+    to extend pipelines, even if we hit a non composable operation after a
+    sequence of composable parallelizable functions.
+
+Bugfix:
+    Replaced Build_Random with Build in the type Analyzer.all_methods. This was
+    a typo in the previous commit.
+
+------------------------------------------------------------------------
+r2371 | andres | 2007-10-19 15:15:43 -0400 (Fri, 19 Oct 2007) | 4 lines
+
+Improvements:
+    Added a nice error message when the user attempts to set an invalid terminal
+    as root. This resolves issue 10.
+
+------------------------------------------------------------------------
+r2369 | andres | 2007-10-19 15:00:31 -0400 (Fri, 19 Oct 2007) | 21 lines
+
+Improvements:
+    - Parallelized build (constraint)
+    - Added parallelization support for many simple cases that where not
+      parallelized before (for instace build (10) transform (static_approx)
+      build (10)).
+
+Bugfix:
+    Symptom:
+        build (2) build (3)  builds in total 6 trees instead of 5 as expected.
+    Problem:
+        The parallel operations between builds are pipelined, causing a
+        multiplicative effect.
+
+    Solution:
+        Verify the kind of compositions intended between Parallelizable
+        commands.
+
+Interface Changes:
+    Added the `Skip command, which does ... nothing. A placeholder useful for
+    the script analyzer.
+
+------------------------------------------------------------------------
+r2364 | andres | 2007-10-18 16:16:28 -0400 (Thu, 18 Oct 2007) | 3 lines
+
+Improvements:
+    Now filter characters with weight 0.
+
+------------------------------------------------------------------------
+r2363 | ilya | 2007-10-18 16:15:29 -0400 (Thu, 18 Oct 2007) | 5 lines
+
+Documentation Update:
+    - Included Sensitivity Analysis tutorial ('poytutorials.tex');
+    - Improved formatting of 'poytutorials.tex';
+    - Corrected the title of the front page ('commands.tex')
+
+------------------------------------------------------------------------
+r2361 | andres | 2007-10-18 16:03:26 -0400 (Thu, 18 Oct 2007) | 20 lines
+
+Improvements:
+    
+    - Added the NonaddCS.is_potentially_informative, and
+      AddCS.is_potentially_informative to verify if a set of observations is
+      could produce a tree with cost greater than 0.
+
+    - Added Data.apply_bool to apply a bolean function only to certain
+      characters (currently only additive or nonadditive), without the need of
+      unwrapping the Data.d structure.
+
+    - Modified the Jackknife support calculation. Instead of selecting a certain
+      fraction of characters, each character is assigned weight 0 with the
+      selected probability of remotion to allow the computation of support
+      values with very few characters (and the easy verification of small
+      examples).
+
+    - Removed an error that was raised when very few characters existed to
+      compute a reasonable Jackknife.
+
+
+------------------------------------------------------------------------
+r2358 | megan | 2007-10-18 11:42:28 -0400 (Thu, 18 Oct 2007) | 3 lines
+
+Added documentation:
+    - tutorial for ("Genome Analysis")
+
+------------------------------------------------------------------------
+r2355 | megan | 2007-10-18 07:46:33 -0400 (Thu, 18 Oct 2007) | 3 lines
+
+Added:
+Annotated chromosome tutorial (mt data set)
+
+------------------------------------------------------------------------
+r2354 | megan | 2007-10-17 20:53:53 -0400 (Wed, 17 Oct 2007) | 4 lines
+
+Created new Bremer Support tutorial using dynamic characters
+Created new Jackknife Support tutorial using static characters
+
+
+------------------------------------------------------------------------
+r2351 | vinh | 2007-10-17 17:46:32 -0400 (Wed, 17 Oct 2007) | 8 lines
+
+Bug fixed:
+    Syndrom: Crashed with annotated chromosomes
+    Problem: The complement code of "*" (code=31) is zero 
+             which is an illegal code.
+
+    Solution: Change complement of gap is gap, of "*" is "*", of "?" is "?"
+
+
+------------------------------------------------------------------------
+r2349 | andres | 2007-10-17 17:13:55 -0400 (Wed, 17 Oct 2007) | 13 lines
+
+Bugfix:
+    
+    Symptom:
+        read ("chel.aln") build (1) transform (auto_sequence_partition) 
+        transform (auto_sequence_partition) .... (* repeat n times *) decreases
+        the overall tree cost.
+
+    Problem:
+        Sequence.split removes the tail of the last resulting sequence.
+
+    Solution:
+        Don't extract len - 1 but len elements from the last sequence.
+
+------------------------------------------------------------------------
+r2348 | andres | 2007-10-17 16:36:40 -0400 (Wed, 17 Oct 2007) | 13 lines
+
+Bugfix:
+    Symptom:
+        read ("fasta") build (1) transform (static_approx) report (phastwinclad)
+        fails with a Data.get_alphabet error.
+
+    Problem:
+        There is a duplicated function: Data.get_alphabet, with an old and a new
+        definition. The old definition did not handle static homology
+        characters.
+
+    Solution:
+        Eliminate the old definition of Data.get_alphabet.
+
+------------------------------------------------------------------------
+r2346 | andres | 2007-10-17 16:21:35 -0400 (Wed, 17 Oct 2007) | 14 lines
+
+Bugfix:
+    Symptom:
+        A script containing store instructions ignores the instructions. The
+        named stores do not appear when used once the script is finished.
+
+    Problem:
+        The analyzer automatically cleans up unused stored program states,
+        including not only the internal program stored states, but also the
+        user stored states, which might be used in the unknown future.
+
+    Solution:
+        Only remove the internal states of the program (those with prefix __poy
+        in the name).
+
+------------------------------------------------------------------------
+r2344 | andres | 2007-10-17 15:34:40 -0400 (Wed, 17 Oct 2007) | 4 lines
+
+Improvements:
+    Added the -error flag to the Test_line program to expect an abnormal program
+    termination in the poy_test execution of a test line.
+
+------------------------------------------------------------------------
+r2342 | ilya | 2007-10-17 12:13:08 -0400 (Wed, 17 Oct 2007) | 6 lines
+
+Documentation Update:
+    - Corrected the addresses and names of authors ('commands.tex');
+    - Expanded comments for 'iterative' argument of 'set' ('allcommands.tex');
+    - Completed tutorial 2 ('Searching under Iterative Pass')
+      ('poytutorials.tex')
+
+------------------------------------------------------------------------
+r2340 | andres | 2007-10-17 08:36:09 -0400 (Wed, 17 Oct 2007) | 19 lines
+
+Bugfix:
+    Symptom: 
+        report ("file", trees:(nomargin)) fails to produce any output (Christian
+        Kehlmaier).
+
+    Problem:
+        Changing the margin size of the pretty printer causes the current output not
+        to be properly flushed from the pretty printer (an OCaml bug?).
+
+    Solution (Workaround):
+        Check if the marging is changing, if it is, flush the formater before
+        continuing printing.
+
+Interface Changes:
+    Modified the command nomargin. Instead of setting the margin to max_int, it
+    sets it to the maximum stored in OCaml Format module, to be able to
+    recognize if the margin has not changed when normargin is set.
+
+
+------------------------------------------------------------------------
+r2338 | andres | 2007-10-16 17:56:06 -0400 (Tue, 16 Oct 2007) | 16 lines
+
+Bugfix:
+
+    Fix issue 8.
+    Symptom: 
+        Calculate bremer support with a small number of random addition
+        sequences per clade shows infinite support values (Mark Simmons).
+
+    Problem:
+        We use the IEEE infinity to represent bad tree costs. However, the
+        comparsion of infinities and their diferences cause incorrect
+        calculations.
+
+    Solution:
+        Replace infinity with float_of_int max_int to maintain a high value with
+        better precision in the cost comparison computations.
+
+------------------------------------------------------------------------
+r2336 | andres | 2007-10-16 13:55:31 -0400 (Tue, 16 Oct 2007) | 8 lines
+
+Improvements:
+    Fills enhancement issue request 6. POY now properly recognize small custom
+    alphabet (less than 6 elements), and uses the stronger, all combination
+    algorithm of Direct Optimization to optimize the alignments.
+
+Interface Changes:
+    Added Alphabet.explote. See the documentation for further information.
+
+------------------------------------------------------------------------
+r2334 | andres | 2007-10-16 11:34:50 -0400 (Tue, 16 Oct 2007) | 4 lines
+
+Improvements:
+    Changed the default xml report to test.xml and added support for the odiff
+    option in test_line.ml
+
+------------------------------------------------------------------------
+r2332 | andres | 2007-10-16 10:41:09 -0400 (Tue, 16 Oct 2007) | 7 lines
+
+Improvements:
+    Updated the test scripts to handle the options -inputfile, -costfile,
+    -costlessfile, -stderr, -stdout, -diff, -ostderr, -ostdout, -odiff. 
+
+    Changed the behavior of ./poy_test -cl x to check for the tree cost being
+    less than or equal to x, instead of strictly less than x.
+
+------------------------------------------------------------------------
+r2330 | andres | 2007-10-15 14:44:31 -0400 (Mon, 15 Oct 2007) | 8 lines
+
+Improvements:
+    Improved the support calculation algorithm to match the request in issue 2.
+    After each replicate, zero length branches are collapsed in each resulting
+    best tree, the strict consensus is computed, and the clades in that strict
+    consensus are added to the overall counters.
+
+    This fixes request issue 2 (Mark Simmons).
+
+------------------------------------------------------------------------
+r2328 | andres | 2007-10-15 13:44:08 -0400 (Mon, 15 Oct 2007) | 23 lines
+
+Bugfix:
+    Symptom: Issue 1. Consensus tree does not match the expected result from the
+    input trees. It contains more unresolved branches than it should (Mark
+    Simmons).
+
+    Problem:
+        The consensus file is correct. The problem comes from the branch
+        collapsing functions, that are collapsing branches that should not be.
+        The collapsing for dynamic homology characters should only use the
+        single assignment, not the ambiguous assignment for Dynamic homology
+        characters.
+
+    Solution:
+        Dynamic homology characters evaluate if they are or not collapsible
+        using the adjusted assignment, while static homology characters use the
+        final state assignment.
+
+Interface Changes:
+    Node.is_collapsable accepts an extra argument of type [`Any | `Static |
+    `Dynamic ] to select the appropriate vertex state to compute the result.
+
+    The Node.is_collapsable function calculates the distance of every Dynamic
+    homology character using the standard distance as opposed to the
+    tabu_distance as before.
+
+------------------------------------------------------------------------
+r2327 | ilya | 2007-10-15 13:38:58 -0400 (Mon, 15 Oct 2007) | 6 lines
+
+Documentation Update:
+    - Updated titles of figure in the 'QuickStart.tex' by
+      replacing all upper-case characters with lower-case characters;
+    - Includeded the tutorial for iterative pass (in 'poytutorials.tex');
+      still unfinished.
+
+------------------------------------------------------------------------
+r2326 | ilya | 2007-10-15 13:27:56 -0400 (Mon, 15 Oct 2007) | 4 lines
+
+Documentation Update:
+    - Added a missing figure ('searchforbremer_menu.jpg') for
+      the 'QuickStart.tex'
+
+------------------------------------------------------------------------
+r2323 | andres | 2007-10-15 11:09:06 -0400 (Mon, 15 Oct 2007) | 2 lines
+
+Continue removing files to unify filename conventions.
+
+------------------------------------------------------------------------
+r2322 | andres | 2007-10-15 11:07:12 -0400 (Mon, 15 Oct 2007) | 2 lines
+
+Removing all upper case names to unify filename conventions.
+
+------------------------------------------------------------------------
+r2321 | andres | 2007-10-15 10:59:00 -0400 (Mon, 15 Oct 2007) | 17 lines
+
+Bugfixes:
+    Symptom: Issue 4. Some NEXUS files fail to be loaded (Ward Wheeler).
+    Problem:
+        Two problems: We don't report any error message when there are illegal
+        commands in the Assumtion block (in the bug report the Charset command
+        inside the Assupmtion block is an illegal command for Nexus), 
+        and we don't ignore spaces when attempting to read NoLabels, failing to
+        recognize the end of the input, and therefore, not raising an exception
+        (End_of_file) which is expected to verify the sanity of the declared
+        magtrix size and true matrix size with NoLabel options in the Data
+        block.
+
+    Solution:
+        Add the necessary error messages, ignore the spaces when reading nexus
+        files with NoLabel, and before reporting an error, verify that we really
+        have reached the last element in the matrix stream.
+
+------------------------------------------------------------------------
+r2320 | ilya | 2007-10-15 10:58:17 -0400 (Mon, 15 Oct 2007) | 3 lines
+
+Documentation Update:
+    - changed all the uppercase letters in names of figures to lower case
+
+------------------------------------------------------------------------
+r2319 | andres | 2007-10-15 09:28:07 -0400 (Mon, 15 Oct 2007) | 2 lines
+
+Bugfix: Resolve issue #3 (http://code.google.com/p/poy4/issues/detail?id=3).
+Minor cosmetic improvement.
+
+------------------------------------------------------------------------
+
+
+
+CHANGES BETWEEN 2205 AND 2318:
+
+Overview:
+
+
+    Command Change:
+        - Replaced transform (fixedstates) with transform (fixed_states) to
+          improve command naming consistency.
+    General Program Behaviour:
+        - Multiple improvements and bugfixes in the GUI for all platforms.
+    Analysis new features and most important bug fixes:
+        - Building with constraint trees is now supported (build (constraint)).
+        - Building trees using branch and bound, and generating trees at random
+          is now supported (build (branch_and_bound), build (random)).
+        - Resolved iterative pass bug that could cause the program not to
+          terminate.
+        - Inversions now detect not the inverted sequence, but the inverted
+          complement of the sequence.
+        - New symmetric option for chromosomal characters to guarantee the
+          symmetry of the distance between a pair of chromosomes (constant extra
+          time complexity).
+        - Changed the default value of rearranged_len from 1000 to 100
+          so that we can cover smaller rearrangements
+        - Changed the default value of chrom_hom from 2.0 to 0.75 to
+          avoid wrong homologous statements between distantly related
+          chromosomes.
+    Compilation:
+        - ./configure --enable-mpi does not require now the name of the mpi
+          library. Just use it to enable parallel execution using MPI.
+
+Detailed Changes:
+------------------------------------------------------------------------
+r2292 | ilya | 2007-10-09 12:30:44 -0400 (Tue, 09 Oct 2007) | 4 lines
+
+Documentation Update:
+    - Added explanatory statements regarding the arguments
+      'seed' and 'iterative' of the command 'set'.
+
+------------------------------------------------------------------------
+r2282 | ilya | 2007-10-08 13:16:10 -0400 (Mon, 08 Oct 2007) | 4 lines
+
+
+cumentation Update:
+    - Improved and corrected the description of 'rename' command
+
+------------------------------------------------------------------------
+r2281 | ilya | 2007-10-08 13:15:06 -0400 (Mon, 08 Oct 2007) | 3 lines
+
+Documentation Update:
+    - Updated and corrected the description of GUI
+
+------------------------------------------------------------------------
+r2280 | ilya | 2007-10-08 13:14:01 -0400 (Mon, 08 Oct 2007) | 4 lines
+
+
+Documentation Update:
+    - Updated screenshots for the QuickStart
+
+------------------------------------------------------------------------
+r2277 | andres | 2007-10-06 11:54:21 -0400 (Sat, 06 Oct 2007) | 6 lines
+
+Improvements:
+    Override the default Camlp4 Lexer with a simplified lexer that ignores the
+    escape sequences (with the exception of \") so that Windows and Unix users can write
+    exactly the sequence of characters that they desire in the POY command line
+    without needing to know anything about escape sequences.
+
+------------------------------------------------------------------------
+r2275 | andres | 2007-10-05 16:40:18 -0400 (Fri, 05 Oct 2007) | 3 lines
+
+Improvements:
+    Made the slaves quiet in parallel execution.
+
+------------------------------------------------------------------------
+r2273 | andres | 2007-10-05 11:40:27 -0400 (Fri, 05 Oct 2007) | 11 lines
+
+Bugfix:
+    Symptom: Specifying transform (gap_opening:x) for aminoacid characters could
+    cause a crash (Ilya Temkin)
+
+    Problem: The clone function for cost matrices passed the incorrect alphabet
+    size for non-combination matrices.
+
+    Solution: If the matrix is for a non-combination alphabet, do not pass the
+    logarithm of the overall size of the alphabet as alphabet size, but the
+    total number of elements.
+
+------------------------------------------------------------------------
+r2272 | andres | 2007-10-05 11:03:07 -0400 (Fri, 05 Oct 2007) | 30 lines
+
+Bugfix:
+    Symptom:
+        swap (around) fails with an error message (Megan Harrison).
+
+    Problem:
+        We do not update properly the tabu manager inside the queue manager.
+
+    Solution:
+        Update the tabu manager after doing the joins and breaks inside the
+        around queue manager.
+
+Bugfix:
+    
+    Symptom:
+        swap (around) may continue in an endless loop.
+
+    Problem:
+        We don't update correctly the final edge to test to continue iterating
+        during the local search, leaving it as -1, reaching a loop that can never 
+        finish as the edge counter must be a positive integer.
+   
+    Solution:
+        Update the final edge position correctly.
+
+Interface Changes:
+    Modified the Ptree.alternate_spr_tbr and renamed it to Ptree.alternate, to
+    accept as part of it's input the spr and tbr functions to be used in the spr
+    and tbr steps.
+
+------------------------------------------------------------------------
+r2269 | andres | 2007-10-04 11:48:28 -0400 (Thu, 04 Oct 2007) | 3 lines
+
+Improvements:
+    Updated the scripts to the new --enable-mpi configuration flag.
+
+------------------------------------------------------------------------
+r2264 | vinh | 2007-10-04 08:57:13 -0400 (Thu, 04 Oct 2007) | 8 lines
+
+Improvement:
+    A dummy solution for iterative pass for chromosome characters are 
+    implemented. It makes sure that the iterative pass is available for
+    all characters.
+    However, a comprehensive solution needs to be developed in order to 
+    increase the quality of the tree
+
+------------------------------------------------------------------------
+r2263 | andres | 2007-10-03 16:51:13 -0400 (Wed, 03 Oct 2007) | 8 lines
+
+Improvements:
+    The implied alignments now merge sequences belonging to the same input
+    file. The sequences are separated by a space, making them readable in other
+    FASTA reading programs.
+
+Changes:
+    Removed the 80 character margin for printing out implied alignments.
+
+------------------------------------------------------------------------
+r2261 | vinh | 2007-10-03 11:19:36 -0400 (Wed, 03 Oct 2007) | 11 lines
+
+Bug fixed:
+    Symptom: The total cost in the diagnosis does not match the tree cost
+    Problem: Forgot to delete the gaps 
+             when calculating the cost between single sequences
+
+    Solution: deleting the gaps before calculating
+
+------------------------------------------------------------------------
+r2260 | andres | 2007-10-03 09:00:15 -0400 (Wed, 03 Oct 2007) | 10 lines
+
+Bugfix:
+    Symptom:
+        Compiling with --enable-large-alphabets fails (automated test).
+
+    Problem: 
+        A typo in the DESERIALIZE_SEQT macro left an invalid function.
+
+    Solution:
+        Correct the typo.
+
+------------------------------------------------------------------------
+r2259 | andres | 2007-10-03 08:56:31 -0400 (Wed, 03 Oct 2007) | 20 lines
+
+New Features:
+
+New Argument:
+
+build -> constraint[:STRING]
+
+    See the function documentation for further information.
+
+------------------------------------------------------------------------
+r2258 | andres | 2007-10-03 08:50:59 -0400 (Wed, 03 Oct 2007) | 4 lines
+
+Improvements:
+    Added the new wagner tabu manager Tabu.constrained_dfs_wagner for tree building under a
+    certain constraint.
+
+------------------------------------------------------------------------
+r2257 | andres | 2007-10-01 18:42:46 -0400 (Mon, 01 Oct 2007) | 15 lines
+
+Bugfix: 
+    Symptom: Segmentation error when using 'inspect' (Ilya Temkin, bug 277)
+
+    Problem: 
+        The marshaling functions did not handle properly the different sequence
+        representations (for long and short alphabets).
+
+    Solution:
+        Added the necessary macros in seq.h and the proper calls in cm.c and
+        seq.c depending on the alphabet size.
+
+------------------------------------------------------------------------
+r2256 | andres | 2007-10-01 18:24:29 -0400 (Mon, 01 Oct 2007) | 10 lines
+
+Bugfix:
+    Symptom: 
+        swap (recover) does not recover the trees when running inside a
+        pipeline (Norberto Giannini).
+    Problem:    
+        Between commands we always clean the queue of recovered trees.
+    Solution:
+        Do not clean the queue. We fully depend on the user to limit the memory
+        consumption of the command.
+
+------------------------------------------------------------------------
+r2253 | andres | 2007-10-01 14:23:07 -0400 (Mon, 01 Oct 2007) | 3 lines
+
+Improvements:
+    Changed fixedstates to fixed_states. This fixes bug 268.
+
+------------------------------------------------------------------------
+r2252 | andres | 2007-10-01 14:19:32 -0400 (Mon, 01 Oct 2007) | 4 lines
+
+Bugfix:
+
+    Symptom:
+	    According to the documentation, if the filename is not
+	    specified, the execution of the following command should
+	    produce out put on screen:
+	        echo ("print on screen", output)
+	    Instead, poy detects a syntactical error (Ilya Temking, bug 279)
+    Problem : We don't handle the case that is promissed in the documentation.
+    Solution: Handle it!
+
+
+------------------------------------------------------------------------
+r2251 | andres | 2007-10-01 14:09:38 -0400 (Mon, 01 Oct 2007) | 5 lines
+
+Improvements:
+
+    New Command Feature:
+        The ratchet parameters are now optional. This fixes request 280.
+
+------------------------------------------------------------------------
+r2249 | andres | 2007-10-01 14:04:22 -0400 (Mon, 01 Oct 2007) | 4 lines
+
+Improvements:
+    To improve consistency, run () now is an illegal command, and requires an
+    argument.
+
+------------------------------------------------------------------------
+r2247 | andres | 2007-10-01 13:57:33 -0400 (Mon, 01 Oct 2007) | 5 lines
+
+Improvements:
+    Improved the behavior of search (build) according to the feature request
+    285. search will now by default _build trees_.
+
+
+------------------------------------------------------------------------
+r2246 | andres | 2007-10-01 13:44:55 -0400 (Mon, 01 Oct 2007) | 5 lines
+
+Bugfix:
+
+    Symptom:
+            Executing the script below issues the following error:
+
+            Error: 
+                Command error in file /Users/ilyat/Desktop/Untitled.txt 
+                line 4 between characters 5 and 6 :
+                [swap_argument] expected after [left_parenthesis] 
+                (in [swap]) 
+
+            The script:
+                read ("FILENAME")
+                build (2)
+                swap(constraint:4)
+
+            I suspect that this syntax was intended to be synonymous
+            with swap(constraint:(depth:4)), which does work 
+            (Ilya Temkin, bug 287).
+
+    Problem: We don't have a rule for this case in the parser.
+
+    Solution: Add the proper rule in the command line parser.
+
+------------------------------------------------------------------------
+r2245 | andres | 2007-10-01 13:16:23 -0400 (Mon, 01 Oct 2007) | 9 lines
+
+Bugfix:
+    Symptom:
+        The arguments 'weight' and 'weightfactor' of the 'transform' command are
+        properly applied (as can be seen by comparison of tree costs with and
+        without weighting) but there is no corresponding report (generated
+        either by 'report(data)' or outputed as XML) showing which characters
+        have been transformed and what weights have been applied (Ilya Temkin,
+        bug 274).
+
+    Problem: The functionality was missing.
+
+    Solution: Add the necessary functions.
+
+------------------------------------------------------------------------
+r2244 | vinh | 2007-09-28 08:50:24 -0400 (Fri, 28 Sep 2007) | 11 lines
+
+Bug fixed:
+    Symptom: ua2.poy failed
+
+    Problem: costs do not match because of fixing the orientation problem 
+    for chromosomes
+
+    Solution: Changed the cost in the cost_tests
+
+------------------------------------------------------------------------
+r2241 | andres | 2007-09-24 13:38:01 -0400 (Mon, 24 Sep 2007) | 12 lines
+
+Bugfix:
+    Symptom:
+        Iterative pass may never finish.
+    Problem:
+        The tree cost check invariant was dropped by mistake (that after each
+        iterative pass the overall tree cost must have dropped).
+    Solution:
+        Restore the invariant check. 
+
+------------------------------------------------------------------------
+r2238 | vinh | 2007-09-21 14:09:14 -0400 (Fri, 21 Sep 2007) | 13 lines
+
+Bug fixed:
+    Symptom: 
+        The misunderstanding of inversion for chromosome chracter. 
+        One inversion not only reverse the order of one sequence 
+        but also convert all nucleotides into their complements.
+    
+    Problem: 
+        Inversion is not detected correctly
+
+    Solution: 
+        When convert a sequence, the nucleotides are also converted.
+
+------------------------------------------------------------------------
+r2237 | vinh | 2007-09-21 14:06:24 -0400 (Fri, 21 Sep 2007) | 6 lines
+
+Improvement:
+    Add the complement_chrom function to the sequence module.
+    It is the same as complement function for sequence, 
+    but no gap is inserted at the begin
+
+------------------------------------------------------------------------
+r2231 | vinh | 2007-09-19 14:40:15 -0400 (Wed, 19 Sep 2007) | 7 lines
+
+Improvement:
+    Add the symmetric option for chromosome character. If symmetric
+    is set to true, the median between two chromosomes (X,Y) will
+    be the best medians between (X,Y) and (Y, Z). This solves 
+    the symmetric problem of chromosome characters
+
+
+------------------------------------------------------------------------
+r2230 | vinh | 2007-09-19 14:38:23 -0400 (Wed, 19 Sep 2007) | 10 lines
+
+Bug fixed: impliedAlignment.ml
+    Symptom: assert fail when checking if the chromosome length 
+             is greater than 1 in the calculate_indels function
+
+    Problem: the chromosome length can be 1 if it does not contain 
+             any extra gap at the begin as assumed in for sequence
+
+    Solution: Check if the first base is a gap
+    
+
+------------------------------------------------------------------------
+r2229 | ilya | 2007-09-18 17:46:58 -0400 (Tue, 18 Sep 2007) | 4 lines
+
+Documentation Update:
+    - Included 'xslt' argument for the 'report'
+      command in the 'allcommands.tex' document
+
+------------------------------------------------------------------------
+r2226 | andres | 2007-09-18 13:26:55 -0400 (Tue, 18 Sep 2007) | 3 lines
+
+Improvements:
+    Made the file reading procedure remote to support execution in enyo.
+
+------------------------------------------------------------------------
+r2225 | andres | 2007-09-18 13:26:21 -0400 (Tue, 18 Sep 2007) | 5 lines
+
+Improvements:
+    Moved the Status initialization functions for parallel execution from Main
+    to Scripting.Make to simplify the execution of other programs using POY as
+    a library.
+
+------------------------------------------------------------------------
+r2222 | andres | 2007-09-18 10:51:29 -0400 (Tue, 18 Sep 2007) | 10 lines
+
+Bugfix:
+    Symptom:
+        Building a random tree fails with an "Unsupported" message.
+
+    Problem:
+        The sadman information was not added, and instead raises the exception.
+
+    Solution:   
+        Add the required sadman information.
+
+------------------------------------------------------------------------
+r2218 | andres | 2007-09-16 19:50:32 -0400 (Sun, 16 Sep 2007) | 18 lines
+
+New Command:
+
+New Argument:
+    build -> random 
+    
+    See the function documentation for further information.
+
+Bugfix:
+    Symptom:
+        build (branch_and_bound) may return with suboptimal trees.
+
+    Problem:
+        We use as bound for the last tree found the previous best
+        cost plus the threshold.
+
+    Solution:
+        Use the new best cost plus the threshold.
+
+------------------------------------------------------------------------
+r2216 | andres | 2007-09-16 16:18:52 -0400 (Sun, 16 Sep 2007) | 9 lines
+
+New Feature:
+
+    Added branch and bound to the build methods. See build->branch_and_bound for
+    more documentation.
+
+New Command:
+build -> branch_and_bound[:FLOAT]
+
+------------------------------------------------------------------------
+r2215 | vinh | 2007-09-14 15:41:52 -0400 (Fri, 14 Sep 2007) | 6 lines
+
+Bug fixed:
+    Symptom: could not compile
+    Problem: chrom_hom was set to 0.75
+    Solution: chrom_hom is set to 75 
+
+
+------------------------------------------------------------------------
+r2214 | vinh | 2007-09-14 14:04:39 -0400 (Fri, 14 Sep 2007) | 2 lines
+
+Added missing default and suggested values for chromosome parameters
+
+------------------------------------------------------------------------
+r2213 | vinh | 2007-09-14 13:28:00 -0400 (Fri, 14 Sep 2007) | 3 lines
+
+Changed to default value of chrom_hom from 2.0 to 0.71 as described 
+in the documentation
+
+
+CHANGES BETWEEN 1983 AND 2205:
+
+Overview:
+
+    General Program Behaviour:
+        - Drastic improvements in memory consumption.
+        - 30% speed improvement in alignment performance for windows and linux
+          for alignments without gap opening (contribution of Johan Anas).
+        - New GUI for Windows, Mac OS X (universal), and Linux (GTK2 - x86).
+        - New Windows installers.
+        - Added full support for Nexus files.
+        - Added support for cname commands from WinClada/Nona/TNT files.
+        - Added support for character names in input and output.
+        - Added XSLT support for postprocessing POY's output. A user can now 
+          write a small xslt transform and ask POY to produce, for example,
+          a tree with branch lengths, or a postscript file with the table 
+          format required by a particular journal in the apomorphy lists.
+    Analysis Features:
+        - Iterative pass for DNA sequences only.
+        - Static approximation for affine gap costs produce blocks of indels as
+          separate characters. As a result, the cost of a tree after static
+          approx do not change drastically and heuristics can be applied without
+          distorting the tree search.
+        - Implied alignments and static approximation for chromosome, 
+          annotated chromosome and breakinv characters.
+        - New consensus-like tree generated from jackknife and bootstrap clade
+          frequency counts.
+    Compilation:
+        - Drastic simplification of configuration and compilation steps.
+        - Removed the gcc requirement. Any modern ISO 99 C compiler is enough.
+        - Numerous new options in configure step (see ./configure --help).
+        - POY now REQUIRES OCaml 3.10.0 for compilation.
+
+    Many many many bugfixes. 
+
+Detailed Changes:
+
+Improvement:
+
+Improvements:
+    Improvements (by Johan Anas, anas.johan@gmail.com):
+    30% performance improvements in intel processors under Windows and Linux OS.
+
+
+Documentation Changes:
+    Improved the description of select (missing)
+
+Improvement:
+    The XML output now uses prefix Ancestor and Descendant to
+    distinguish the same features from ancestor and descent characters
+    in the diagnosis.  For example: AncestorReferenceCode,
+    DescentdantReferenceCode...
+    
+    
+Bugfix:
+    Symptom: 
+        The gap code in the alphabet and cost matrix is not the same 
+        for breakinv character with orientation.
+
+    Problem: 
+        Let n be the number of character states.  The alphabet size will be (2n
+        + 1) instead of (2n + 2) because there is no negative gap state.
+
+    Solution: 
+        Fix the problem in the of_channel function in cost_matrix.ml
+
+Improvements:
+    Removed most taxon name constraints when reading tree files. Only ;, [, ],
+    (, ), ;, and whitespaces have special meaning in terminals of an input tree.
+
+Improvements:
+    Reduced memory consumption by changing the representation of the sequences
+    from arrays of integers to arrays of unsigned chars. The new macro SEQT
+    defined in seq.h is the specified type for sequences. If someone wants to
+    analyze datasets with alphabets larger than 255, they will have to change
+    SEQT to int.
+
+Improvements:
+    Added support for various mst-based styles of build (See the Mst interface
+    for more information).
+    Added an option to verify the cost of a tree in the build queue managers.
+
+Improvements:
+    Removed all the remaining callse to clear_internals. Reducing memory is not
+    needed anymore (not to mention that it is hardly elegant).
+
+Change:
+    1. The locus and chromosome indel calculation is changed slightly 
+       to be consistent with the affine gap model as implemented for 
+       DNA sequence.
+       Before:
+            Cost = opening cost + (number characters - 1) * extension cost
+
+      Now:
+           Cost = opemmomg cost + number character * extension cost
+
+Bugfix:
+    Symptom:
+        Some auto_sequence_partition commands could fail with an assertion
+        failure.
+
+    Problem:
+        Internally, the left right checking for the tree traversion could swap
+        the nodes visited, but not their parents (which could be different at
+        the root level), leading to a node with itself as the putative parent.
+
+    Solution:
+        When swaping the nodes, swap the parents.
+
+Improvements:
+    Added numerous assertion checks for the auto_sequence_partition commands and
+    other related commands.
+
+Bugfix:
+    Symptom:
+        Tests for file 10.fas fail in the test machine vamsi.
+    Problem:
+        The prepend and tail costs arrays are allocated for type SEQT when they
+        should be for site int as they hold a cost. This causes a segfault when
+        we attempt to copy the contents of the cost matrix.
+    Solution:
+        Allocate the proper size.
+
+Bugfix:
+    Symptom:
+        auto-static-approx may fail under amd-64 architectures.
+
+    Problem:
+        We use a Bigarray with native-int representation in the OCaml side of
+        the sequence unions offset, but a regular 32-bit int in the C side of the
+        unions.
+
+    Solution:
+        We don't need 64 bits for the offsets, only 32 bits, so change the
+        representation in the OCaml side to in32_elt.
+
+
+New Configure Options:
+    --enable-long-sequences
+    --enable-large-alphabets
+
+    See ./configure --help for more information.
+
+Improvements:
+    Updated the camlp4 based parsers and related error handling 
+    to support camlp4 version 3.10.0.
+
+Improvement:
+    Diagnosis in xml formater for genome character is now available
+
+Improvements:
+    Added the gnu's config.guess and added the necessary tests in the
+    src/configure.ac and src/configure scripts to use -fno-PIC when running in
+    x86_64, as OCaml 3.10.0 is broken under the default options.
+
+Bugfix:
+    1. In poyCommand:
+    Symptom: 
+        The locus_breakpoint parameter did not work as described in documentation.
+
+    Problem: 
+        In poyCommand.ml, it was breakpoint instead locus_breakpoint
+    Solution: 
+        Change the breakpoint keyword to locus_breakpoint
+
+Improvement:
+    The single state for the multiple chromosome character is now available.
+
+Improvements (and bugfix):
+    Removed the duplicated specification of the upper and lowercase versions of
+    the nucleotide and aminoacid alphabets. Instead, we use the new
+    functionality to make a lexer that is not case sensitive.
+
+    This fixes the previous commit which left the program in a non-executable
+    state.
+
+New Features:
+    - Support for character names and labels in Hennig/Nona/TNT files (with the
+      cname command).
+    - Better support for command order and unknown commands in Hennig/Nona/TNT
+      files.
+    - report (diagnosis) and report (data) now include character labels and
+      weighting schemes.
+    - Support for real-valued weights for non-additive and additive characters.
+
+Bugfix:
+    
+    Symptom:
+        Parsing DNA sequence files with lower-case sequences fails.
+
+    Problem:
+        When using case insensitive parsers for alphabets (as molecular files
+        do), the lexer fails to convert each input character to its uppercase
+        representation.
+
+    Solution:
+        Add the appropriate Char.uppercase when needed.
+
+Bugfix:
+    Symptom:
+        report (diagnosis) can fail with a Not_found error when Additive
+        characters are present.
+
+    Problem:
+        The exception match has a typo.
+
+    Solution:
+        Correct the typo.
+
+Bugfix:
+    Symptom:
+        Some times, reading a file can turn into an endless loop.
+
+    Problem:
+        When we read_line using our internal FileStream objects, the library
+        fails to junk out some of the possible newline characters, while
+        accepting them as end of line markers, therefore never passing one of
+        the lines.
+
+    Solution:
+        Junk every valid class of newline character.
+
+Improvements:
+    Varius small improvements to the new Hennig/Nona/TNT parser.
+
+    Added support to read Nexus files. Still need impmroved error messaging and
+    a LOT of testing.
+
+Improvements:
+    Added support for implied alignments when using iterative pass. 
+
+Improvements:
+    Multiple simplifications to the configuration and compilation steps:
+
+    - The default ./configure script will test for ncurses, and if not found,
+      instead of failing will roll back to the readline interface.
+
+    - When compiling for readline, POY will check for the availability of
+      termcap, curses, or ncurses. These checks are non terminating.
+
+    - A manual check for malloc.h will try to use /usr/include/malloc/malloc.h
+      in case the failure occurs in Mac OS X.
+
+    - make will automatically handle properly the parallel or non-parallel
+      compilation steps, create dependencies. 
+
+    - make install should work cleanly now.
+
+Improvements:
+
+    Added support for --program-prefix, --program-suffix, and
+    --program-transform-name options in configure.
+
+Bugfix:
+    The size of the three dimensional and two dimensional matrices was
+    insufficient and caused a buffer overflow. Although this could lead to a
+    crash, it was not observed. Maybe other errors that we observed in the past
+    where caused by this?
+
+    The 3-dimensional matrix is again properly initialized depending on metric
+    settings and alphabet specification, just as the two dimensional matrix is.
+
+Improvements:
+    When converting from the POY to the ukkCommon sequence representation, don't
+    check for base value equality, but rather bitset intersection. In this way
+    we ensure proper filtering of sets of sequences into a single sequence.
+
+Bugfix:
+
+    When initializing the three dimensional matrix, handle properly the
+    non-metric cases by sticking to the union of sets of alphabet elements when
+    calculating the median, as opposed to any possible combination.
+
+Improvements:
+
+    Use the three dimensional matrix to pick the median of the 3-dimensional
+    readjustement (used in interative pass).
+
+Bugfix:
+    Symptom:
+        Starting poy in 64 bit architectures fails with an assertion failure.
+
+    Problem:
+        The three dimensional cost matrix is initialized with max_int, which in
+        a 64 bit architecture is larger than our C representation (32 bit
+        integer), which therefore has a negative number, yielding a set of
+        uninitialized matrix medians.
+
+    Solution:
+        Use the Int32.max_int number to initialize the matrix.
+
+Bugfix:
+    Symptom:
+        32 bit linux execution fails with an Assertion failure in
+        Cost_matrix.
+    Problem:
+        A previous bugfix for 64 bit environments produced a 32 
+        bit integer in 32 bit environments, when OCaml can handle 
+        integers with at most 31 bits.
+    Solution:
+        Override max_int in Cost_matrix.ml so that it's always 2^30 - 1.
+
+New Command:
+    report -> supports -> jackknife[:(individual | consensus)]
+    report -> graphsupports -> jackknife[:(individual | consensus)]
+    report -> supports -> bootstrap[:(individual | consensus)]
+    report -> graphsupports -> bootstrap[:(individual | consensus)]
+
+    See the program documentation for further information.
+
+
+Bugfix:
+    Symptom:
+        help () does not show all the help.
+
+    Problem:
+        Commenting latex breaks our latex parser! 
+
+    Workaround:
+        Don't comment the all_commands.tex file! 
+
+BugFixed:
+    Problem: User-defined parameters were not passed to compute 
+             medians for chromosome chracters when constructing
+             implied alignments.
+
+    Solution: Pass the user-defined parameters properly
+
+Improvement:
+    Add the attribute "definite" to the xml output
+    for the seq and  chromosome characters. If there
+    is no change between ancestor and descendant,  
+    definite=false, otherwise definite=true
+
+Improvements:
+    When reading dpread files, POY doesn't recognize when the input matrices are
+    really non-additive matrices. This causes a tremendous overhead in time and
+    space for the computations. I have added a function to check if the input
+    matrix is really a non-additive one.
+
+Bugfix:
+    Added compilation rules for the hennig and nexus lexers and parsers.
+
+Bugfix:
+    Symptom:
+        Reading prealigned files could fail with a Not_found error (Frederic
+        Legendre).
+
+    Problem:
+        If a taxon is missing from the input file, the program has no case to
+        handle gracefully the missing data.
+
+    Solution:
+        Ignore the missing taxon and continue with the next character.
+
+
+Improvements:
+    Better error message when the OCaml version dependency is not filled.
+
+Bugfix:
+    Symptom:
+        When converting sequences from chromosomal to regular sequence
+        characters, the transformation cost matrix assigned to them is rolled
+        back to the default.
+
+    Problem:
+        The tcm was never passed but always assumed. Therefore, the default was
+        assigned.
+
+    Solution:
+        This problem goes away once the defaults are removed from Data.d.
+
+Improvements:
+    Added support for the Unaligned block of Nexus files.
+
+Improvements:
+    Change the default value of rearranged_len from 1000 to 100
+    so that we can cover smaller rearrangements
+
+Bugfix:
+    Symptom:
+        Setting the margin on files that have not been opened yet has no effect
+        in the format of the file.
+
+    Problem:
+        We ignore the settings if there is no formatter assigned to a particular
+        filename. 
+
+
+    Solution:
+        If there is no file assigned to a name, create it, and assign it's
+        formatting properties immediately.
+
+Improvements:
+    Simplified the xml document formatting.
+
+Bugfix:
+    Symptom:    
+        Reading certain filetypes could make POY crash.
+
+    Problem:
+        We don't verify the correctness of the boundaries of the character 
+        codes when when using ranges.
+
+    Solution:
+        Check that we don't pass the number of actual characters and taxa 
+        being included in a matrix.
+
+Improvements:
+    Added support for libxslt and postprocessing of xml output using an xslt
+    template.
+
+New Configuration Options:
+    --enable-xslt
+    --with-xslt-config=program
+
+    See ./configure --help for more information
+
+New Commands:
+    report -> xslt:(STRING, STRING). The first string is the filename of the
+    output, the second the stylesheet to be applied to generate it.
+
+Bugfix:
+    Symptom:
+        report (diagnosis) can fail sometimes with a Invalid_code(_) exception.
+
+    Problem:
+        We assume that if no alphabet is assigned to a set of states, they are
+        integer codes, and each code matches it's string representation.
+        However, we start assigning codes from 1, when the input might start
+        from 0.
+
+    Solution:
+        Assign codes starting in 0.
+
+Bug Fixed:
+    Symptom: 
+        The Tcm transform did not go into chromosome data.
+    Problem: 
+        Forgot to pass tcm to chromosome characters. The 
+        default tcm was used.
+
+    Solution: 
+        Pass the transformed tcm to chromosome characters.
+
+Bugfix:
+    Symptom:
+        Custom alphabets of 65 elements cause a segmentation fault in 32 bit
+        architectures.
+
+    Problem:
+        1. The size of the cm matrix produces an allocation of size 0 which might
+           not be caught in some architectures.
+        2. We allocate cost matrices biger than required (twice as much as needed).
+
+    Solution:   
+        Check for a positive allocation size, otherwise fail with a meaningful
+        error message.
+        Allocate a tighter cost matrix.
+
+New Feature:
+    The cost matrix for custom alphabets is not obligatory anymore. Instead, if
+    such matrix is empty, we create a default matrix for the specified alphabet.
+
+Bugfix:
+    Symptom:
+        During tree fusing, POY can stop the procedure with an assertion failure
+        in line 1368 (Kurt M. Pickett).
+
+    Problem:
+        During a filtering step, we inconsistenly pick the adjusted and
+        unadjusted costs, causing a theoretically impossible situation.
+
+    Solution:
+        Always pick the adjusted cost.
+
+Bugfix:
+    Symptom:
+        Reading tread commands with comments from Hennig86/Nona files fails.
+
+    Problem:
+        The lexer did not have rules to ignore the comment.
+
+    Solution:
+        Add the required rules.
+
+Improvements:
+    Updated the diagnosis to properly handle iterative pass. The process caused
+    several changes in the interface of the functions related.
+
+New Features:
+    Added a stylesheet to produce a graphical tree output from the xml output.
+
+Improvments:
+    Factored out functions from the original svgtree.xsl in two components,
+    printtree.xsl and branchlength.xsl to handle the different portions of the
+    tree pretty printing transformations.
+
+Bug fixed:
+    Symptom: 
+        The cost of the tree after tranforming to static approximation for
+        chromosome and annotated chromosomes are higher then the cost before
+        transforming
+    Problem: 
+        The assignment of single sequence for the root for chromosome characters
+        are not correct. 
+
+    Solution: 
+        Assign the correct single states for the root of chromsome chracters
+
+Bug fixed:
+
+    Symptom: 
+        Transform to static approximation of breakinv chracters when orientation=true
+        cause the tree cost equal to zero. 
+
+    Problem: 
+        The negative gap (~-) problem. The cost between all states and negative gap 
+        is zero.
+
+
+    Solution: 
+        Fix such that the cost between all states and negative gap is the same
+        as positive gap
+
+Improvements:
+
+    Added coloring, branch lengths (the number), and optional parameters for the
+    stylesheets, like width of the strokes, color of the default strokes, among
+    others.
+
+Bugfix:
+    Symptom:
+        report (phastwinclad) does not change the character type of all the
+        characters.
+
+    Problem:
+        We recode the character type of those characters that are to be used in
+        an analysis. However, we print all the characters, even those that have
+        not relevance for the analysis itself.
+
+    Solution:
+        Recode every character, and don't limit the functions to those listed in
+        Data.d.<character_type>
+
+Bug fixed:
+    Symptom:
+        When diagnose the chromosome characters, the chromosome map between
+        handle and its parent is not correct.
+
+    Problem: 
+        We diagnose the map between handle and its child.
+
+    Solution: 
+        Diagnose the map between the handle and its parent.
+
+Bug fix:
+    Symptom: crashed when creating implied alignment
+
+    Problem: This script intended to test annotated chromosome, however, 
+    the read command specifies the data type as chromosome.
+
+    Solution: specify the data type as annotated in the read command
+
+Improvements:
+    Improved the character transformation for static homology characters under
+    affine gap costs, separating characters in the individual substitutions, and
+    the blocks of indels. Their state names match those indels occuring in the
+    sequences.
+
+Bugfix:
+    Symptom:
+        The maximum cost of the single assignment (and potentially preliminary
+        and final too), can be lower than the minimum cost.
+
+    Problem: 
+        The maximum distance function does not add the gap opening cost when
+        comparing a pair of aligned sequences.
+
+    Solution:
+        Add rules to include the gap opening cost.
+
+Bug fixed:
+    Symptom: Crashed when assign single states for trees with approx=true
+
+    Problem: The mean sequence between chromosomes A and B was assigned
+             by the true mean sequence between them, not A or B as requested
+             be approx=true
+
+    Solution: Asssign A for the mean sequence between A and B when approx=true
+             
+Bug fixed:
+    Symptom: Crashed when assign single states from the genome character
+    Problem: Wrongly adding the missing loci when creating the map 
+             between two chromosomes
+
+    Solution: Fix this mistake
+    
+
+------------------------------------------------------------------------
+r2160 | andres | 2007-08-29 16:51:18 -0400 (Wed, 29 Aug 2007) | 4 lines
+
+Improvements:
+    Improved proper handling of max distance when one of the sequences is
+    missing data.
+
+Improvements:
+    Completely dropped the gcc version requirements from the configuration
+    scripts and program documentation.
+
+Bugfix:
+    Symptom:
+        The maximum distance for the single sequence assignment is greater than
+        expected.
+
+    Problem:
+        The default cost being assigned to the gap opening when using linear gap
+        costs is 1, not 0. As no alignment is performed, we don't pick different
+        functions for the maximum distance between aligned sequences, but jusst
+        calculate the distance using the value stored for gap opening. The
+        stored value is not 0 under atomic costs, but 1, causing the disparity.
+
+    Solution:
+        Make the default value 0 for Linear cost matrices.
+Bugfix:
+    Symptom:
+        read (prealigned:("file", tcm:(1, x))) does not match the cost of the tree
+        when the alignment comes from the implied alignment for the same tree ,
+        and the same tcm, when x <> 1.
+    Problem:
+        The encoding functions recognize 0 as the gap representation, as this is
+        the implied alignment representation. However, we do pass the actual
+        code for the gap in the sequence, causing an extra character where the
+        encoding needs inapplicable data.
+    Solution:
+        Catch the gap case and conver it to a 0 before asking the encoder to
+        make the proper character code.
+
+Bugfix:
+    Symptom:
+        After reading prealigned sequences with tcm:(1, x) where x <> 1, the gap
+        representation is assigned a non-valid alphabet set (the same as the
+        alphabet itself!. 
+
+    Problem:
+        We remove the alphabet of each character and use the general alphabet of
+        the sequence for the encoding. 
+
+    Solution:
+        Use a per-character alphabet (as passed from the encoder function),
+        instead of the general sequence character alphabet.
+
+Bugfix:
+    Symptom:
+        Reporting phastwinclad produces a file with overly too many newlines (to
+        the point where it becomes an illegal file).
+
+    Problem:
+        We don't turn off the pretty printer and attempt to change the margin by
+        setting it to 0, which effectively doesn't change the margin in OCaml
+        3.10.0.
+
+    Solution:   
+        Set the margin to a large value, and make the newlines hard newlines
+        instead of formatter hints.
+
+Bugfix:
+
+    Symptom:
+        When multiple fragments have affine gap costs, the static approximation
+        does not properly add the blocks generated by each fragment.
+
+    Problem:
+        We don't fold over the list of all the sets of blocks, but only
+        operate in the first element of the list.
+
+    Solution:
+        Fold over the list to deal with every set of blocks.
+
+Bugfix:
+    Symptom:
+        report ("x", phastwinclad) can fail with a segmentation fault.
+
+    Problem:
+        The Format module can have a stack overflow for the large number of
+        columns that we accept in files for this kind of output (100000).
+
+    Solution:
+        As in a toilet: don't forget to flush, but be antiecological: flush
+        often.
+
+Improvements:
+    Added a configuration-time option to verify the cost of all pairwise
+    alignments (--enable-cost-verification). See the help for further
+    information. This simplifies the check of errors reported by tests when the
+    cost of a tree does not match the expected cost, as we might be changing
+    slightly the overall tree cost estimation, and there might be no error in reality.
+
+    This change required the modification of the configuration scripts and
+    Makefiles. seqCS.ml now needs to be preprecessed by camlp4 to handle the
+    compile time option properly.
+
+Documentation Update:
+    - Improved the description of the command 'use' and
+      supplied it with examples
+    - Corrected minor formatting inconsistencies
+
+Algorithm changed:
+    Change chromosome characters such that it is correct
+    for creating the implied alignment using single state
+
+Documentation update:
+    - Added missing examples and corrected existing examples
+      pertaining to the arguments 'gap_opening', 'weight',
+      'weightfactor', and 'fixedstates' of the command
+      'transform'.
+
+Documentation update:
+    - Improved descriptions of multiple arguments that were added
+      between builds 1852 and 2093
+
+Bugfix:
+    Symptom:
+        swap (trees:x) may finish with no trees in memory.
+
+    Problem:
+        The subset of trees selected at the end of the search contains one less
+        than the actual number of trees stored in the queue. If there are more
+        than one trees on it, the bug is unnoticeable, but if only one, then no
+        trees are returned.
+
+    Solution:
+        Fix the subarray size.
+
+Improvements:
+    Changed the color and welcome message to match the GUI icon and the new status
+    of the binaries (Release Candidate).
+
+CHANGES BETWEEN BUILD 1908 AND 1983
+
+IMPROVEMENTS AND NEW FEATURES:
+    - Mac OS X has a Graphical User Interface.
+    - Simplified the installation process in Mac OS X (just drag and drop).
+    - Added support for reading prealigned sequences.
+    - Added support to read CLUSTAL files.
+    - The calculation of bremer supports using swap (visited:"file") and report
+      (support:bremer:"file") was requiring the complete load on memory of the
+      input file "file". However, those files tend to be quite large, making
+      them useless. The new implementation reads the input file as a stream,
+      processing one tree at a time, and never loading the whole file in memory.
+      Although this method is slower, it makes usable any input file size.  
+    - Added the configure scripts for easier compilation in Unix systems.
+    - Added an html-output port. Instead of producing plain text, POY produces
+      html pages.
+    - Added the -f option to POY to avoid hanging in the absence of any further
+      script to run (waiting for user input in a non-interactive kind of run).
+      See poy --help for further information.
+    - Added the alphabet specification in the character definition output (report
+      (data)).
+    - Turn on the approx parameter for chromosome characters
+    - Added experimental support for iterative pass, BUT THIS IS NOT RECOMMENDED
+      FOR USE. This is expected to be fully supported in the next release.
+
+
+BUGFIXES:
+    - Some searches could cause an endless loop (notably swap (all)).
+    - transform (static_approx) fails for custom alphabets (Frederic Legendre).
+    - Reading some custom alphabet matrices could cause a Not_found error (Megan
+      Harrison).
+    - The postscript output of consensus trees does not follow the standard tree
+      order (depth, number of leaves) (Ward Wheeler).
+    - Consensus trees appear in a different order than regular trees (the
+      outgroup appears last) (Ward Wheeler).  Jackknife and Bootstrap support
+      values are overly too low (even many zeroes) (Gonzalo Giribet).
+    - Running transform (auto_sequence_partition) did not change the sequences
+      although the input did not show any length variation (Gonzalo Giribet).
+    - swap(exact) causes failwith "Get_active_ref_code in allDirChar.ml" even
+      for sequence character.
+
+NEW COMMANDS (SEE PROGRAM DOCUMENTATION):
+    report -> seq_stats
+    report -> compare
+    transform -> prealigned
+    read -> prealigned
+    set ->cost_calculation
+
+REMOVED COMMANDS
+    swap -> exact
+
+
+Changes between build 1902 and 1908
+
+                                    BUGFIXES
+
+Corrected a bug that affected the trees that POY prefers to test during a tree
+build and local search when some sequences where missing. This bug biased
+the searches depending on the ammount of missing data.
+
+Deactivated the aproximate argument for chromosomal analyses.
+
+Changes between build 1822 and 1902
+
+                         IMPROVEMENTS AND NEW FEATURES
+
+New Feature:
+    The ncurses interface now supports command autocompletion. Just press tab
+    and possible commands will be automatically completed.
+
+Improvements (Parallel):
+    The master process will not call the barrier until all other processes have
+    reached it. In the meanwhile it will continue to print whatever messages are
+    sent from the slaves. 
+
+    I believe this is the cause of a strange crash in some scripts including
+    swap (trajectory) or swap (visited) when running in parallel, but I am not
+    enterely sure.
+
+Improvements:
+    Added the function to output a single state for each internal node
+    for chromosome characters
+
+Improvements:
+    Added the function to output a single state for each internal nodes
+    for chromosome chracters
+
+User Interface Flat:
+    Added support for readline. This adds history, filename completion, line
+    edition, and a command prompt to the flat interface. It makes it very
+    powerful indeed.
+
+User Interface Ncurses:
+    Added the much needed filename autocompletion!. For example, if your current
+    directory has the files chel.aln, chel.ss, and chel.tree, typing:
+    read ("chel.<TAB>  
+    will complete to chel.aln
+    pressing tab again will complete to chel.ss
+    pressing tab again will complete to chel.tree
+    pressing tab agina will complete to chel.
+    pressing tab again will repeat the cycle.
+
+    It works for all strings. 
+
+Makefile Changes:
+    The readline library is now required by POY.
+
+Improvements:
+    After transform (fixedstates), assign the original name of the sequence
+    character to the resulting character, instead of the temporary filename.
+
+New Commands:
+    swap -> visited
+    report -> supports -> bremer [: STRING] (bremer existed in supports, 
+    but with no optional argument).
+
+    See the manual for further information.
+New Features:
+    report (phastwinclad) now includes Sankoff characters if the dataset has
+    them. The resulting file is a dpread file as defined in the POY
+    documentation.
+
+    Improvements:
+        The phastwinclad file report will respect the order of the bases in
+        regular sequences. In this way, it is possible to map each base in an
+        implied alignment to the corresponding bases (or combination of
+        characters), after the static approximation transformation (provided the
+        keep option is used in static_approx).
+
+    Improvements:
+        The static_approximation of extension gap costs does take into
+        consideration the characteristics of this gap cost regime. Although the
+        cost of the trees changes, we limit as much as possible the space
+        distortion by separating characters for gap openings, gap extension, and
+        substitutions.
+
+New Features:
+    New Argment:
+        build -> all
+        See the documentation for further information.
+
+New Commands:
+    swap -> visited
+    report -> supports -> bremer [: STRING] (bremer existed in supports, 
+    but with no optional argument).
+
+    See the manual for further information.
+
+                                    BUGFIXES
+
+Bugfix:
+    Symptom:
+        During some searches POY enters an endless loop (Johan Anas).
+
+    Problem:
+        The search manager of the alternate swap strategy is not propely cloned
+        when going from tbr to spr.
+
+    Solution:
+        Clone the search manager.
+
+Bugfix:
+    Symptom:
+        Starting poy with the ncurses interface in a white terminal can have the
+        background scrambled. This is known to happen at least in Mac OS X 
+        Terminal.app.
+
+    Problem: No problem. Apparently ncurses does not update the whole window.
+
+    Solution: Simply redraw the nucrses windwos again after launching POY.
+
+Bugfix:
+
+    Symptom:
+        Some pairwise alignments using extension gap have an incorrect (lower) cost
+        (Kevin Liu).
+
+    Problem:
+        The initialization of the first cell of each row had some small
+        invariants broken in some branches of the Ukkonnen barriers, leaving the
+        calculated cost incorrect.
+
+    Solution:
+        Update the invariants of the Ukkonnen barrier - based alignments to
+        match that of the full plane alignments (which is correct).
+
+Bugfix:
+
+    Symptom:
+        Dragging and dropping filenames with spaces does not work in Mac OS X
+        (Julian Faivovich).
+
+    Problem:
+        Mac OS X escapes the spaces when dragging and dropping them to the
+        terminal, while other OSes don't. The escape then is escaped internally
+        by POY producing a double \ which yields and unexistent path.
+
+    Solution:
+        Replace escaped spaces with regular spaces in every path.
+Bugfix:
+    Symptom:
+        transform (fixed_states) keep the old character set.
+
+    Problem:
+        The characters selected for the transform are never removed.
+
+    Solution:
+        Filter the necessary characters from the data.
+
+Bugfix:
+    Symptom:
+        Diagnosis of mixed character types causes a crash.
+
+    Problem:
+        Certain characters are filtered out from a single assingment, causing
+        internal inconsistencies, instead of being assigned themselves.
+
+    Solution:
+        Do not filter any character for the single assignment.
+
+Bugfix:
+    Symptom:
+        Using extended alphabets can cause POY to crash when producing an
+        implied alignment (Frederique Legendre).
+
+    Problem:
+        The implied alignment functions in POY assumed nucleotide alphabets in
+        many little details.
+
+    Solution:
+        Generalize the functions to deal with them properly.
+
+Bugfix:
+    Symptom:
+        Using extended alphabets can cause POY to crash during a search if the
+        cost regime is modified (eg. transform (tcm:(1,1))) (Ward Wheeler,
+        Frederique Legrenge).
+
+        Using transform (static_approx) of extended alphabets produces bogus
+        tree costs (even negative ones!). (Ward Wheeler).
+
+    Problem:
+        The tcm for all aphabets had size 5 (assuming a nucleotide size). 
+
+    Solution:
+        Generalize properly the tcm size after a transform.
+Bugfix:
+    Symptom:
+        Sankoff characters are not printed in the report (data) command.
+
+    Problem:
+        The contents of Saknoff characters was not processed in the to_formatter
+        function.
+
+    Solution:
+        Add the required processor.
+
+Bugfix:
+    Symptom:
+        transform (static_approx) for cost matrices that involve Sankoff
+        characters yields trees overly too short (Ward Wheeler).
+
+    Problem:
+        Gaps where being encoded as missing data.
+
+    Solution:
+        Code gaps as the fifth state they are.
+
+Bugfix:
+    Symptom:
+        When reading dpread files, a costs command does not properly handle
+        ranges of characters. For instance, costs 0.25 changes the cost of
+        characters 0 and 25 instead of characters 0 to 25.
+
+    Problem:
+        The dot is wrongly replaced with a space, being therefore interpreted as
+        a list of characters instead of a range.
+
+    Solution:
+        Remove the regex replacement.
+
+Bugfix:
+    Symptom:
+    
+        The application of format options in a file output is not performed if the
+        file's channel has already been opened.
+
+    Problem:
+        When the channel exists, there is no formatter call.
+
+    Solution:
+        Add the required function call.
+
+--------------------------------------------------------------------------------
+
+Changes between build 1724 and 1822.
+
+Bugfix:
+    
+    Symptom:
+        Some processes appear to take too long (Torsten Dikow)
+        Searching could continue with an endless loop.
+
+    Problem:
+        The threshold selection functions in the queue managers did not verify
+        the cost of a tree before adding it to the queue. This caused an
+        unlikely endless loop when swap (trees:1), but if trees > 1 or threshold
+        > 0.0, the likelihood is much greater.
+
+    Solution:
+        Verify the cost before filtering out.
+
+
+Bugfix:
+    
+    Symptom:
+        Including trajectory in the swap argument causes a Not_found exception
+        raised (Torsten Dikow).
+
+    Problem:
+        After transforming a tree when using static homology only characters,
+        the codes of the internal vertices is not valid anymore. But this
+        information is not required for trajectory reports.
+
+    Solution:
+        Catch the exception and return the empty string then.
+
+New Commands:
+    build (0) 
+    build (of_file:"filename")
+    build ("filename) 
+    are supported now. See the documentation for further details.
+
+Improvements:
+    Improved the performance of the support calculations.
+
+Improvements: 
+
+    The search performance has been improved if only static homology characters
+    are loaded. This will also work if the change comes from a (possibly
+    temporary) transform (for example transform (static_approx)).
+
+New Feature:
+
+    Added the -no-output-xml option to turn off all output.xml generation. 
+
+    The output.xml file will not be generated by processes other than the master
+    in a parallel run. This is causing possible crashes when running in
+    parallel.
+
+Bugfix:
+
+    Symptom:
+        Reading trees from a hennig file makes them "sticky", loading them once
+        after reading any other file, although a select (best:0) has already
+        been requested eliminating them (Paola Pedraza).
+
+    Problem:
+        The trees are stored temporarily in the Data.d structure, but they are
+        not removed after loading. 
+
+    Solution:
+        Upon loading the trees from Data.d, make the list empty.
+
+Bugfix:
+
+    Symptom:
+
+        Calculating costs with negative weights yield strange tree costs (Paola
+        Pedraza).
+
+    Problem:
+        The adjusted tree lengths did not include the weight of the sequences in
+        in the adjustement, causing the lengths to be positive, making a
+        substraction the addition of negative values.
+        The incorrect function was Node.total_cost_of_type
+
+    Solution:
+        Multiply the cost of each type by the corresponding weight.
+
+Bugfix:
+    Symptom:
+        POY crashes during bootstrap if using static_approx (Louise Crowley, Ward
+        Wheeler).
+
+    Problem:
+        An incorrect filtering in the interior vertices caused an incorrect set
+        of homologous characters.
+
+    Solution:
+        The previous implementation used a per-node filtering because loading
+        nodes was too slow. We have replaced it now with an in Data.d
+        resampling, and loading fresh nodes. There is no need to repeat complex
+        code in the Nodes.
+
+Improvements:
+
+    The timed_printout sampler now is called more often, to achieve a
+    more accurate sampling rate.
+
+Bugfix:
+
+    The timedprint did not update the contents of the timer, effectively
+    triggering the print functions every time it was called after the first n
+    seconds. 
+
+    This has been corrected now.
+
+Improvements:
+
+    Increased the checking speed of the timedprint.
+
+Improvements:
+
+    Added support for proper error message printing and exit code (1), when the
+    program finishes with an uncaught error.
+
+Bugfix:
+    The thread identifier of Concurrent was in reverse order, making it
+    impossible to find it's corresponding `Store label during linnearization.
+
+Improvements:
+    The behavior of the swap (timout:n) command has been changed. Now the
+    command will timeout argument is used in a per-trajectory basis, not in a
+    per-search basis. In this way, the behaviour of a script is more
+    predictable, and it's easier to use a timeout argument inside other commands
+    such as perturb or fuse.
+
+    For example, if swap (timeout:10) is used, each tree will be swaped for at
+    most 10 seconds, and returned. Therefore, if there are 10 trees, at most 100
+    seconds will be spent on the search. If used with the recover argument, the
+    user will be guaranteed to have in memory the best tree that could be found
+    with a 10 second search performed on each of the input trees.
+
+Bugfix:
+    Multiple bugfixes in the affine gap cost calculation backtrace and
+    pairwise distance function for sets of sequences.
+
+New Feature:
+    Supports the calculation of affine gap cost regimes where the TCM itself
+    is non-metric (Kevin Liu).
+
+Bugfix:
+
+    Symptom: 
+        The calculation of the length of a tree under affine gap cost model is
+        incorrect (Kevin Liu).
+
+    Problem:
+        The selection of an affine gap cost model requires two consecutive
+        commands. First, the desired substitution, gap extension costs are set
+        using the tcm argument of transform, and then the gap opening cost is
+        set. 
+
+        POY implements a correction of the pairwise distance for affine costs, 
+        but the correction was incomplete even when the transformation cost
+        matrix itself is not metric, and there where still some holes in the
+        metric case.
+
+    Solution:
+        Whenever a set of medians could have either a block of gaps, or a block
+        of bases, and a new alignment could break it in two sections, add to the
+        total cost the gap opening paramenter (alwasy). In the same way, if the
+        cost between an a pair of aligned sequences includes a gap in exactly one 
+        of them in their respective sets, add the gap opening cost.
+
+Bugfix:
+
+    Symptom:
+        Attempting to do tree fusing when only one (or no) trees are in memory
+        cancels the script (Ward Wheeler, Torsten Dikow).
+
+    Problem:
+        The error raised by the fusing function passes uncaught.
+
+    Solution:
+        Catch the error and continue the regular execution of the rest of the
+        script.
+
+Bugfix:
+    Symptoms:
+        Some times the order of execution is different from the input script
+        (although the execution itself is still correct).
+
+    Problem:
+        A case in the analyzer didn't have the necessary child sorting function.
+
+    Solution:
+        Add the children sorting function to the case that missed it.
+
+
+Bugfix:
+    Symptom:
+        Scripts that run sevaral searches using different cost regimes do not
+        produce correct output, but rather repeat the results of one of the
+        searches, or do not produce output at all (Joseph Spagna, Christian
+        Kehlmaier, Ilya Temkin, Paola Pedraza).
+
+        A simplified example of such behavior is the script 
+            read ("a") build (1) transform (tcm:(1,1))
+        which terminates in the interactive state of the POY session with no
+        trees in memory.
+
+    Problem:
+        Two related problems are occurring: although POY analyzes the data
+        dependencies of the script correctly, it is storing the global state of
+        the program when selecting a different execution path in a script.
+        Therefore, if a command (like transform (tcm:(1,1)) only depends on the
+        data as produced after read ("a"), and affects both data and trees, the
+        analyzer has to properly select the correct source for each component,
+        instead of using the global state of the search as produced right after
+        the read command.
+
+        Similarly, although reporting sets a file output constraint, this
+        constraint is immediately fulfilled at the time of execution of the
+        command if other commands outputting to the same file have already been
+        executed. For this reason, the execution of the reports should not be
+        delayed due to this constraint, but rather ensured to occur _after_
+        other reports to the same file occur. This can be guaranteed by simply
+        ensuring the correct order of execution as input by the user, which is
+        already done in the current code.
+
+    Solution:
+        Add a parameter in the Store, Set, and Discard constructors of the POY
+        scripting to specify the class of information (Data, Trees, Jackknife,
+        Bootstrap, or Bremer) to be stored, and ensure that the appropriate
+        information is stored when more than one execution path is possible.
+        This solution has been implemented in the last two commits to the source
+        repository.
+
+        For the report problem, simply drop the filename constraint, and only
+        include it in the field that specifies what components are affected by a
+        command. This solution is implemented in this commit, to finish solving
+        the overall problem.
+
+New Command:
+
+    report -> timer 
+        See the user documentation for further information.
+
+
+Improvements:
+
+    Added functionality to recover a single median assignment to each vertex for
+    tree cost verification. 
+
+New Feature:
+
+    Implied alignment is now available for chromosome character
+    (but not yet annotated chromosome and breakinv chracters)
+
+
+New Feature:
+
+    If the diagnosis or the data are reported to an XML file (a file with
+    extension xml), then the output is not formatted as tables as usual, but as
+    an XML dump. Currently the format of this XML file is not very well
+    established though and will change in the future.
+
