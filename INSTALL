@@ -42,8 +42,8 @@ make
 make install 
 
 By default the compilation scripts will try to use the ncurses, or the readline
-interface if available. If none is, it may fail. In that case use the flat
-interface as follows:
+interface if available. If none is it will default to a flat interface. You can
+manually specify this by the following:
 
 ./configure --enable-interface=flat
 make
@@ -62,6 +62,9 @@ implementation recommendations, but a typical compilation would be:
 make
 make install
 
+Windows machines do not come with mpicc and setting this can be ignored. The
+configure script will guess that 1) the libraries are in the path and 2) that
+they are named conventionally.
 
 *****************************************************************************
 4- Compiling POY for SWAMI, PISE, or web portals

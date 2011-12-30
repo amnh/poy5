@@ -1,8 +1,8 @@
 README
 
 ----------------------------------
-POY 4.0 Alpha
+POY 5.0 Alpha
 -----------------------------------
 This is the Phylogenetic Analysis Program using Direct Optimization.  See the
-user documentation in docs/commands.pdf (requires Latex2e).
+user documentation in src/doc/commands.pdf
 
