@@ -339,10 +339,9 @@ opens the \emph{Simple Search} window options (right).}
 	(sequence, chromosome, genome, custom alphabet, break inversion or qualitative) 
 	and whether these data types should be treated as prealigned (if possible). 
 	
-	\indent Currently, it is only possible to perform a likelihood analysis of DNA sequences and 
-	not of the other character types. These sequences can be prealigned.  A description of the
-	\emph{Likelihood Model Parameters} follows the \emph{Sequence Parameters} required for 
-	a parsimony analysis below.
+	\indent Currently, it is only possible to perform a likelihood analysis of DNA sequences (prealigned 
+	being permitted), morphology and qualitative character types. A description of the \emph{Likelihood 
+	Model Parameters} follows the \emph{Sequence Parameters} required for a parsimony analysis below.
 	
 \begin{statement}
     \textbf{Locus definition}. In the \emph{Sequence Parameters} section for a parsimony analysis, the user may be required 
@@ -462,9 +461,8 @@ opens the \emph{Simple Search} window options (right).}
 		 specified for the optimization of rearrangements. The default median solver is \emph{Caprara}, 
 		 but the user can alternatively choose \emph{BBTSP, Coaletsp, Chainlk, Siepel, Simpllk} and 
 		 \emph{Vinh} (see the argument~\nccross{median\_solver}{chromosomemediansolver} within the 
-		 chromosomal transformation methods of the command \poycommand{transform}). Linked to the 
-		 median solver, the \emph{Level} must also be specified. The \emph{Level} specifies the heuristic 
-		 level of median sequence calculation. The calculation of median states between 
+		 chromosomal transformation methods of the command \poycommand{transform}).  
+		 The calculation of median states between 
 		 \emph {Break Inversion} strings becomes more computationally intensive (and time consuming) 
 		 as the number of elements in the alphabet increases, the user should select a heuristic level 
 		 of median calculation appropriate for their data.  The default level is 2.
@@ -509,7 +507,7 @@ opens the \emph{Simple Search} window options (right).}
 
 		   \indent \emph{Cost Method} specifies the form of likelihood employed.  The options for pre aligned data 
 		   (sequence and qualititative) are \emph{MAL} for \emph{maximum average likelihood} and {MPL} for 
-		   \emph{most parsimonious likelihood} \cite{BarryandHartigan1987}. Unaligned sequences can only be 
+		   \emph{most parsimonious likelihood} \cite{barryandhartigan1987}. Unaligned sequences can only be 
 		   optimized using \emph{MPL}.
 		   
 		   \indent \emph{Priors} \emph{Priors} specifies the method for calculating prior probabilities for states.  
