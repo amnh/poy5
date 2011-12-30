@@ -4124,7 +4124,7 @@ if debug2 then Printf.printf "work on cell.%d.%d(size=%d)\n%!" j (j+k) size;
     res_lcbs,(float reslen)/.avg_in_seq_size,res_lcbtbl
 (*
 let remove_bad_lcbs_dyn2 (lcbs:int list list list) lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst num_of_mums old_cov_rate = 
-let debug = true and debug2 = false in
+let debug = false and debug2 = false in
     if debug then Printf.printf "remove bad lcbs dyn2\n%!";
     if debug then print_lcblst lcbs;
     if debug2 then Hashtbl.iter (fun key record ->
@@ -5327,7 +5327,7 @@ max_lcb_len cost_mat use_ukk =
         done; 
         (*end of inner while loop*)
         if debug_main then Printf.printf "\n --------  Outer loop, remove bad lcbs ----- \n%!";
-        if !any_improvement_inner then begin
+        if !any_improvement_inner && (List.length (List.hd !inner_lcbs))>2 then begin
             let new_outer_lcbs, new_outer_covR, new_outer_lcb_tbl = 
                 if faster_remove then
                     remove_bad_lcbs_dyn !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
