@@ -1,0 +1,31 @@
+concorde.h is made by all head files inside ./INCLUDE
+modify concorde.h before make is useless
+
+I should modify config.h.in, but I'm lazy
+
+if we run ./configure, config.h will be replaced.
+
+what I disabled
+
+in ./INCLUDE/config.h
+HAVE_GETHOSTNAME CCSIGNAL_SIGACTION HAVE_SLEEP 
+
+in ./INCLUDE/machdefs.h
+include <sys/socket.h> ..... <sys/resource.h>
+CC_NETREADY 
+
+
+Here is some explanation 
+
+On Linux, you would call getrusage and check the returned struct rusage's
+ru_isrss member (integral unshared stack size).
+
+From the MINGW site and its sourceforge site's tracking of patches, I see that
+in May of 2008 there was some patching done around getrusage and it looks like
+it's been generally supported for quite a while. You should check carefully for
+any caveats in terms of how much of the typical Linux functionality is supported
+by MinGW
+
+
+Here is something about sys/resource.h missing under mingw 
+http://old.nabble.com/Re-:Re:--sys-resource.h-td14949253.html
