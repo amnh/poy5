@@ -1613,6 +1613,11 @@
                 language.}
                 {}
 
+            \argumentdefinition{lkmodel}{}
+                {Reports the likelihood model, costs, and tree length for the
+                characters in memory in a similar style as phylip.}
+                {}
+
 		\end{argumentgroup}
 
 		\begin{argumentgroup}{Trees}
@@ -1767,6 +1772,10 @@
                         {Include the cost in square brackets for every subtree in the tree. (These 
                         are \emph{not} branch lengths.)}
                         {cost}
+
+                    \argumentdefinition{branches}{}
+                        {report tree with likelihood branch lengths included.}
+                        {}
 
                     \argumentdefinition{hennig}{}
                         {Prepends the \poycommand{tread} command to the list of

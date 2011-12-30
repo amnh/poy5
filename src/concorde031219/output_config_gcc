@@ -1,0 +1,86 @@
+loading cache ./config.cache
+checking host system type... localhost
+checking for prespecified compiler options... yes
+    Using default CC:       gcc
+    Using default CPPFLAGS: -ansi -pedantic -Wall -W -Wtraditional -Wundef -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs
+    Using default CFLAGS:   -g -03 -m64
+    Using default LDFLAGS:  
+checking for gcc... (cached) gcc
+checking whether the C compiler (gcc -g -03 -m64 ) works... yes
+checking whether the C compiler (gcc -g -03 -m64 ) is a cross-compiler... no
+checking whether we are using GNU C... (cached) yes
+checking whether gcc accepts -g... (cached) yes
+checking whether make sets ${MAKE}... (cached) yes
+checking for ranlib... (cached) ranlib
+checking for sh... (cached) /bin/sh
+checking for file suffixes... o, a, 
+checking for sqrt in -lm... (cached) yes
+checking for -lnsl... (cached) no
+checking for -lsocket... (cached) no
+checking for bfd_open_file in -lbfd... (cached) no
+checking for xstrerror in -liberty... (cached) no
+checking how to run the C preprocessor... (cached) gcc -E
+checking for ANSI C header files... (cached) yes
+checking whether time.h and sys/time.h may both be included... (cached) yes
+checking for stdlib.h... (cached) yes
+checking for math.h... (cached) yes
+checking for string.h... (cached) yes
+checking for strings.h... (cached) yes
+checking for errno.h... (cached) yes
+checking for assert.h... (cached) yes
+checking for sys/time.h... (cached) yes
+checking for time.h... (cached) yes
+checking for stddef.h... (cached) yes
+checking for unistd.h... (cached) yes
+checking for malloc.h... (cached) no
+checking for sys/types.h... (cached) yes
+checking for sys/stat.h... (cached) yes
+checking for fcntl.h... (cached) yes
+checking for signal.h... (cached) yes
+checking for sys/socket.h... (cached) yes
+checking for netinet/in.h... (cached) yes
+checking for netdb.h... (cached) yes
+checking for sys/resource.h... (cached) yes
+checking for sys/param.h... (cached) yes
+checking for sys/times.h... (cached) yes
+checking for working const... (cached) yes
+checking for void... (cached) yes
+checking for size_t... (cached) yes
+checking for pid_t... (cached) yes
+checking return type of signal handlers... (cached) void
+checking for u_char... (cached) yes
+checking for missing printf prototype... (cached) no
+checking for missing gethostname prototype... (cached) no
+checking for missing getrusage prototype... (cached) no
+checking usable sigaction()... (cached) yes
+checking for __attribute__... (cached) yes
+checking for gethostname... (cached) yes
+checking for socket... (cached) yes
+checking for strdup... (cached) yes
+checking for getrusage... (cached) yes
+checking for times... (cached) yes
+checking for clock... (cached) yes
+checking for sleep... (cached) yes
+checking for sigaction... (cached) yes
+checking for signal... (cached) yes
+creating ./config.status
+creating Makefile
+creating BIGGUY/Makefile
+creating COMBS/Makefile
+creating CUT/Makefile
+creating EDGEGEN/Makefile
+creating FMATCH/Makefile
+creating HELDKARP/Makefile
+creating INCLUDE/Makefile.common
+creating KDTREE/Makefile
+creating LINKERN/Makefile
+creating LOCALCUT/Makefile
+creating LP/Makefile
+creating PQ/Makefile
+creating TINY/Makefile
+creating TOOLS/Makefile
+creating TSP/Makefile
+creating UTIL/Makefile
+creating VERIFY/Makefile
+creating INCLUDE/config.h
+INCLUDE/config.h is unchanged
