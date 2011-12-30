@@ -1,5 +1,5 @@
-(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
-(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
+(* Copyright (C) 2011 AndrÃ©s VarÃ³n, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -76,7 +76,7 @@ let version_string = option_to_string small_version_string
 let version_num_string = Printf.sprintf "%d.%02d" major_version minor_version
 
 let copyright_authors = 
-    rephrase ("@[Copyright (C) 2007, 2008 Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, and the American Museum of Natural History.@]@,")
+    rephrase ("@[Copyright (C) 2011, 2012 Andres Varon, Nicholas Lucaroni, Lin Hong, Ward Wheeler, and the American Museum of Natural History.@]@,")
 
 let warrenty_information =
     rephrase ("@[POY "^ version_num_string ^" comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@,")

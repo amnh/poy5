@@ -368,7 +368,7 @@ Available online at
 \url{http://research.amnh.org/scicomp/projects/poy.php}
 and
 \url{http://code.google.com/p/poy5/} 
-\hl{new link needed}
+
 
 \end{flushleft}
 
@@ -387,11 +387,27 @@ An essential feature of \poy is that it implements the concept of dynamic homolo
 Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to two of the program's working environments, the \emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The following chapter, \emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their understanding helps creating building efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
 
 \section{What's new in \poy}
-New Features\\
-New Commands\\
-Major Bug fies?\\
-Improvements\\
-New Compilation requirements?\
+There are myriad new features and options in \poy.  These are described and documented in full in the pages that follow.  
+\begin{itemize}
+\item{New optimality criterion--likelihood.  Maximum Average Likelihood (MAL) analysis
+can now be performed on qualitative data of any alphabet size and aligned sequence data 
+(including gaps as missing, independent, or coupled in 5-state models).  Most Parsimonious Likelihood (MPL)
+can also be employed on these data types as well as unaligned sequences under an MPL-DO heuristic.  
+Multiple models are available and different models can be assigned to partitions within a combined analysis. 
+}
+\item{The MAUVE genome aligner algorithm has been implemented as an annotation option
+for unnannotated chromosomal and genomic (mutli-chromosomal) data.}
+\item{The transform option \texttt{level} has been added to increase control and heuristic effectiveness 
+for amino acid and custom\_alphabet sequence character types.}
+\item{Search-Based sequence optimization has been added through the \texttt{transform} command.}
+\item{Additional median solvers implemented for rearrangement analysis in break\_inv, chromosome, and genome 
+sequence characters.}
+\item{XML-based output for easy parsing of diagnostic information.}
+\item{A change in the default indel cost from 2 to 1.  After over 20 years (MALIGN to POY), time for a change.}
+\item{New required packages for compilation to support likelihood and median solvers.}
+\item{A diversity of bug fixes and smaller enhancements.}
+\end{itemize}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %QUICKSTART
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -408,9 +424,11 @@ New Compilation requirements?\
 \subsection{Brief description} \label{commands}
 
 \poy interprets and executes \emph{scripts} issued by the end user.  These can
-come from \emph{Graphical User Interface} and the command line in the \emph{Interactive Console} of the program, or from an
-input file. A script is a list of \emph{commands}, separated by any number of whitespace characters (spaces, tabs, or newlines). Each command consists of a name in lower case (\poylident), followed by a list of arguments separated by commas and enclosed in parentheses. Most of the arguments are optional, in
-which case \poy has default values.
+come from \emph{Graphical User Interface} and the command line in the \emph{Interactive Console} 
+of the program, or from an input file. A script is a list of \emph{commands}, separated by any number of 
+whitespace characters (spaces, tabs, or newlines). Each command consists of a name in lower case 
+(\poylident), followed by a list of arguments separated by commas and enclosed in parentheses. 
+Most of the arguments are optional, in which case \poy has default values.
 
 In \poy, we recognize four types of command arguments: \emph{primitive values},
 \emph{labeled values}, \emph{commands}, and \emph{lists of arguments}.
@@ -574,7 +592,7 @@ Each command description entry contains the following sections:
 \section{Command reference}
 \input{doc/allcommands}
 
-<<<<<<< .working
+
 \chapter{\poy Heuristics: A Practical Guide}
 \input{doc/poyheuristics}
 

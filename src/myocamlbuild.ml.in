@@ -1,5 +1,5 @@
-(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
-(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
+(* Copyright (C) 2011  Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -199,6 +199,7 @@ dispatch begin function
         "doc/figures/building2.jpg";
         "doc/figures/commandlist.jpg";
         "doc/figures/create_script_window.jpg";
+        "doc/figures/create_script_menu.jpg";
         "doc/figures/crossref.jpg";
         "doc/figures/diagnose_menu.jpg";
         "doc/figures/diagnose_window.jpg";
@@ -216,7 +217,7 @@ dispatch begin function
         "doc/figures/jackknife_menu.jpg";
         "doc/figures/jackknife_window.jpg";
         "doc/figures/menu_launcher_window.jpg";
-        "doc/figures/openpoyscript_menu.jpg";
+        "doc/figures/openpoylauncher_menu.jpg";
         "doc/figures/output_window.jpg";
         "doc/figures/pstree.jpg";
         "doc/figures/reading_example.jpg";

@@ -1,5 +1,5 @@
-(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
-(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
+(* Copyright (C) 2011 AndrÃ©s VarÃ³n, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -401,13 +401,13 @@ let process_file parsed mode output_file =
         process parsed mode channel;
         o "\n.SH AUTHOR\npoy was written by Andres Varon, Le Sy Vinh, \
             Illya Bomash, and Ward Wheeler.\n.PP\nThis manual page was written \
-            by Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, \
+            by Andres Varon, Lin Hong, Nicholas Lucaroni, Ward Wheeler\
             Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
             Taran Grant, and William Leo Smith.\n.RS\n\n"
     | `OnlineHelp ->
         o (".\nauthors\n@[<v 2> poy was written by Andres Varon, Le Sy Vinh, \
             Illya Bomash, and Ward Wheeler.This manual page was written \
-            by Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, \
+            by Andres Varon, Lin Hong, Nicholas Lucaroni, Ward Wheeler\
             Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
             Taran Grant, and William Leo Smith.@]\n\n");
         o (".\ncopyright\n@[<v 2>"^ Version.copyright_authors ^ Version.warrenty_information  ^"@]");

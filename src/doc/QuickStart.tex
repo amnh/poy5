@@ -19,7 +19,7 @@ particular requirements for disk space, but XML and diagnosis report files can b
 \section{Obtaining and installing \poy}
 \subsection{Installing from the binaries}
 \poy installers for Windows and Mac OSX, source code, and documentation in PDF format are available from 
-the \poy download website at the Computational Sciences site of the \hl{American Museum of Natural History}:
+the \poy download website at the Computational Sciences site of the American Museum of Natural History:
 
 \begin{center}
 \url{http://research.amnh.org/scicomp/projects/poy.php}
@@ -28,7 +28,6 @@ the \poy download website at the Computational Sciences site of the \hl{American
 The latest source code can also be obtained from \poy Google Group website:
 \begin{center}
 \url{http://code.google.com/p/poy5/source}
-\hl{new link}
 \end{center}
 
 The following detailed step-by-step instructions will guide you through downloading and installing \poy \emph{binaries} for various platforms.
@@ -96,7 +95,7 @@ For the majority of users, downloading the binaries from the \poy download site 
 some cases it may be %either necessary: analysis of chromosomal and genomic data (\textgreater16383 
 %nucleotides long); \hl{likelihood analyses}; or if working with large alphabets (\textgreater255 elements), or%
  desirable--user preference for working in a command-line environment or running \poy analyses in parallel 
- (in the case of Linux machines or on a cluster computer)--to compile \poy directly from the source code (see 
+ (in the case of Linux machines or on a cluster computer), or necessary--in the case of Linux users--to compile \poy directly from the source code (see 
  Table %\ref{InterfaceGuide} and% 
   \ref{ParallelizationGuide}). If the user chooses to compile, it is advisable to check out the various configuration 
   options that can be found in {\tt ./configure --help}. \\
@@ -213,7 +212,7 @@ diagnosis, and their respective outputs. Other items in this menu open the \emph
 \item[Edit] Contains standard tools for undoing, cutting, copying, pasting, deleting, and selecting.
 \item[View] opens the \emph{Output} window to display the results (including warning and error messages) 
 and the current state of the analysis. This \emph{Output} window also contains an \emph{update} tab.  
-It also contains the \emph{About POY} menu item in Windows and Linux.  
+It also contains the \emph{About POY} menu item in Windows %and Linux.  
 \item[Help] Opens the \poy \emph{Manual} in PDF format (requires a PDF viewer).
 \end{description}
 
@@ -552,7 +551,7 @@ opens the \emph{Simple Search} window options (right).}
 	   	\includegraphics[width=\textwidth]{doc/figures/simplesearch_script.jpg}
    	\end{minipage}
 	
-    \caption{The \emph{Simple Search} window with specified search parameters and output files (left) and the corresponding \emph{Script Editor} window.}
+    \caption{The \emph{Simple Search} window with specified search parameters (left) and the corresponding \emph{Script Editor} window. Note that the names for the output files are left as the default names}
     \label{fig:ScriptEditor_Window}
 \end{figure}
 
@@ -773,15 +772,15 @@ and viewing the \emph{Diagnose} window options (right).}
 
 \subsubsection*{Open POY Launcher}
 
-Selecting \emph{Open POY Script} (Figure~\ref{fig:open_poy_script}) displays the \emph{POY Launcher} 
+Selecting \emph{Open POY Script} (Figure~\ref{fig:open_poy_launcher}) displays the \emph{POY Launcher} 
 window (Figure~\ref{fig:menu_launcher_window}), the function of which is described above.
 
 \begin{figure}[htpb]
     \begin{center}
-        \includegraphics[width=0.5\textwidth]{doc/figures/openpoyscript_menu.jpg}
+        \includegraphics[width=0.5\textwidth]{doc/figures/openpoylauncher_menu.jpg}
     \end{center}
-    \caption{The \emph{Open POY script} selection opens the \emph{POY Launcher} window.}
-    \label{fig:open_poy_script}
+    \caption{The \emph{Open POY Launcher} selection opens the \emph{POY Launcher} window.}
+    \label{fig:open_poy_launcher}
 \end{figure}
 
 \subsubsection*{Run Interactive Console}
@@ -796,7 +795,7 @@ that enables the user to run the analysis interactively by entering \poy command
 \end{minipage}
 \,
 \begin{minipage}[c]{0.52\textwidth}
-	   	\includegraphics[width=\textwidth]{doc/figures/create_script_window.jpg}
+	   	\includegraphics[width=\textwidth]{doc/figures/create_script_menu.jpg}
    	\end{minipage}
 \caption{The \emph{Run Interactive Console} selection (left) opens \poy interactive console in a new window. The \emph{Create Script} selection opens the \emph{Script Editor} window (Figure~\ref{fig:ScriptEditor_Window}).}
 \label{fig:runinteractive}
@@ -807,7 +806,7 @@ The \emph{Create Script} selection opens a blank \emph{Script Editor} window tha
 
 \subsection{The \emph{View} menu}
 
-The \emph{View} menu contains the \emph{Output} window which is subdivided into two fields: the upper \emph{Results and Errors} and lower \emph{Status of Search} (Figure~\ref{fig:results_and_status_windows}). These fields display, respectively, the results (including warning and error messages) and the current state of the analysis. These fields are not updated automatically and in order to display the current state of the analysis the user must click the \emph{Update} button. The \emph{View} menu also contains the \emph{About POY} window in Windows and Linux.
+The \emph{View} menu contains the \emph{Output} window which is subdivided into two fields: the upper \emph{Results and Errors} and lower \emph{Status of Search} (Figure~\ref{fig:results_and_status_windows}). These fields display, respectively, the results (including warning and error messages) and the current state of the analysis. These fields are not updated automatically and in order to display the current state of the analysis the user must click the \emph{Update} button. The \emph{View} menu also contains the \emph{About POY} window in Windows.
 
 \begin{figure}
 \centering
@@ -849,7 +848,7 @@ The \emph{Interactive Console} provides a terminal environment with enhanced abi
 
 \begin{figure}[htbp]
    \centering
-   \includegraphics[width=0.7\textwidth]{doc/figures/figinterface.jpg}
+   \includegraphics[width=0.9\textwidth]{doc/figures/figinterface.jpg}
    \caption{\poy interface displayed in the Terminal window prior to analysis. Note the cursor at the \poy prompt in the \emph{Interactive Console} and that the \emph{State of Stored Search} and \emph{Current Job} windows are empty.}
    \label{fig:figinterface}
 \end{figure}
@@ -866,7 +865,7 @@ The \emph{Interactive Console} provides a terminal environment with enhanced abi
 
 \begin{figure}[htbp]
    \centering
-   \includegraphics[width=0.7\textwidth]{doc/figures/figprocess.jpg}
+   \includegraphics[width=0.9\textwidth]{doc/figures/figprocess.jpg}
    \caption{\poy interactive console during a process. The \emph{POY Output} window displays (by default) the information on the input data files. The \emph{Interactive Console} lists the commands that have been consecutively executed. The \emph{Current Job} window shows the state of the current operation and the current tree score. The \emph{State of Stored Search} shows the time elapsed  since the last command, \commandstyle{swap}, was initiated.}
    \label{fig:figprocess}
 \end{figure}
@@ -933,7 +932,7 @@ The basic command to input data in \poy is \commandstyle{read()}, which includes
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.7\textwidth]{doc/figures/reading_example.jpg}
+        \includegraphics[width=0.9\textwidth]{doc/figures/reading_example.jpg}
     \end{center}
     \caption{Importing data files using the \emph{Interactive Console}. Two consecutive \commandstyle{read} commands specify both the morphological data file in Hennig86 format (\texttt{morpho.ss}), and the molecular data file in FASTA format (\texttt{28s.fas}). Note that \poy automatically reports  in the \emph{POY Output} window the names and types of files that have been imported.}
     \label{fig:readingexample}
@@ -981,7 +980,7 @@ Also, because \poy appends trees and data in memory, it is a good practice when 
 
 \begin{figure}[]
     \begin{center}
-        \includegraphics[width=0.6\textwidth]{doc/figures/reading_example2.jpg}
+        \includegraphics[width=0.9\textwidth]{doc/figures/reading_example2.jpg}
     \end{center}
     \caption{Building trees with morphological data only but continuing analysis using combined morphological and molecular data. This example shows how we can add data to the analysis incrementally by loading files at different points in the search. First, the morphological data are imported from \texttt{morpho.ss} file using \poycommand{read()} the and trees are built based on these data. Then molecular data from the \texttt{28s.fas} file are loaded into memory in addition to previously imported morphological data. Finally, subsequent analyses, \commandstyle{rediagnose()} and \commandstyle{swap()}, are conducted using the data in memory, that is the trees based on morphological data, and both morphological and molecular character sets.}
     \label{fig:reading_example2}
@@ -1028,7 +1027,7 @@ Another useful argument of \commandstyle{report} is \commandstyle{cross\_referen
 
 \begin{figure}[]
     \begin{center}
-        \includegraphics[width=0.6\textwidth]{doc/figures/crossref.jpg}
+        \includegraphics[width=0.9\textwidth]{doc/figures/crossref.jpg}
     \end{center}
     \caption{Visualizing missing data. The command \commandstyle{cross\_references} displays a table showing whether a given terminal (in the left column) is present (``+'') or absent (``-'') in each data file. In this example, \texttt{28s.fas} is missing for \emph{Amblypygid} and \emph{morpho.ss} for \emph{Hypochilus.}}
     \label{fig:crossref}
@@ -1104,7 +1103,7 @@ selects only unique trees of best cost. The remaining trees are deleted from mem
 
 \begin{figure}[]
     \begin{center}
-        \includegraphics[width=0.6\textwidth]{doc/figures/select.jpg}
+        \includegraphics[width=0.9\textwidth]{doc/figures/select.jpg}
     \end{center}
     \caption{Selecting unique best trees. Executing \commandstyle{select()} keeps only unique trees of best cost. The \emph{State of Stored Search} window reports that there is only one unique tree of best cost (\texttt{446}).}
     \label{fig:select}
@@ -1178,7 +1177,7 @@ To finish a \poy session, enter the command \commandstyle{exit()} (Figure~\ref{f
 
 \begin{figure}[]
     \begin{center}
-        \includegraphics[width=0.5\textwidth]{doc/figures/exithelp.jpg}
+        \includegraphics[width=0.7\textwidth]{doc/figures/exithelp.jpg}
     \end{center}
     \caption{Exiting \poy}
     \label{fig:exithelp}
@@ -1251,7 +1250,7 @@ menu of the graphical user interface or downloaded separately from \poy web site
 \url{http://research.amnh.org/scicomp/projects/poy.php}
 \end{center}
 \item[POY] interactive help can be obtained by entering \commandstyle{help()} at the \poy interactive console. To obtain help on a particular command, the name of the command must be specified in the parentheses following \commandstyle{help()}. For example, to learn about the command \commandstyle{exit}, type \commandstyle{help(exit)}. (Figure~\ref{fig:exithelp}.)
-\item[POY5 Mail Group] is an Internet-based forum for discussing all issues related to \poy and provides the best way to communicate with \poy developers on specific issues (see \emph{WWW resources} below). The website is located at \url{http://groups.google.com/group/poy5}. \hl{new link}
+\item[POY5 Mail Group] is an Internet-based forum for discussing all issues related to \poy and provides the best way to communicate with \poy developers on specific issues (see \emph{WWW resources} below). The website is located at \url{http://groups.google.com/group/poy5}. 
 \item[POY Book] (Wheeler et al., 2006 \emph{Dynamic Homology and Phylogenetic Systematics: A Unified Approach Using POY \cite{wheeleretal2006}}) provides a review of the theory behind \texttt{POY4} and by extension \poy, and contains formal descriptions of many algorithms implemented in the program and the descriptions of commands of the earlier version, \texttt{POY3}.
 \item[POY Paper] (Var\'on et al., 2010. \emph{POY version 4: Phylogenetic analysis using dynamic homologies \cite{Varonetal2010}} 
 provides a description of the overall goals, implementation and philosophy of POY.
@@ -1275,12 +1274,12 @@ provides a description of the overall goals, implementation and philosophy of PO
 
 \item[POY5 source code repository] Contains has downloadable \poy source code.  The site is powered by Google at 
 \begin{center}
-\url{http://code.google.com/p/poy5/source} \hl{new link}
+\url{http://code.google.com/p/poy5/source}
 \end{center}
 
 \item[POY5 Mail Group] Informs registered users via email of new developments, such as new versions and updates. It also provides  additional resources for obtaining help and a way for reporting bugs and other problems with \poy and its documentation. In addition, it allows users to receive and respond to each other's questions thus providing an open forum to  discuss the methods and applications of \poy. The users who choose not to register, have access to the archives of the postings but will not be able to either submit or receive emails from other users and \poy developers. The \emph{POY5 Mail Group} is hosted  by Google at
 	\begin{center}
-	\url{http://groups.google.com/group/poy5}  \hl{new link}
+	\url{http://groups.google.com/group/poy5}  
 	\end{center}
 	
 \end{description}
