@@ -1,12 +1,13 @@
 \section{Introduction}
 
-As the level of phylogenetic analysis increases---from individual loci to chromosomes to genomes containing multiple chromosomes---so does computational complexity. In \poy, a significant increase in computational time results from combining in single process cladogram searching with co-optimiza\-tion of nucleotide pairwise alignments, rearrangements of loci within a chromosome, and rearrangements of chromosome fragments within the genome . As a result, a phylogenetic analysis involves a set of nested computationally ``hard'' (NP-complete) problems that makes finding the exact solution impossible. In addition, the increasing sequence length heterogeneity (at the levels of nucleotides, loci, and chromosomes) and the ever-growing sizes of datasets further contribute to computational complexity making it impossible to obtain an exact solution in a reasonable time.
+As the level of phylogenetic analysis increases---from individual loci to chromosomes to genomes containing multiple chromosomes---so does computational complexity. In \poy, a significant increase in computational time results from combining in single process cladogram searching with co-optimiza\-tion of nucleotide pairwise alignments, rearrangements of loci within a chromosome, and rearrangements of chromosome fragments within the genome. As a result, a phylogenetic analysis involves a set of nested computationally ``hard'' (NP-complete) problems that makes finding exact solutions impossible. In addition,  increasing sequence length heterogeneity (at the levels of nucleotides, loci, and chromosomes) and the ever-growing sizes of datasets further contribute to computational complexity making it impossible to obtain an exact solution in reasonable time.
 
-To circumvent the problem computational intractability, and, hence, the speed of the analyses, \poy employs a battery of approximate, or heuristic, methods that function at different levels of analysis. As with all heuristic procedures, a tradeoff is involved: a substantial decrease in execution time comes at a price of obtaining possibly less accurate  and less precise results (however, the extent of the tradeoff is difficult to evaluate in the analyses of real large datasets). Therefore, it becomes important to understand the combined effect of different heuristic methods, so that the chosen search strategy balances the computational time with a ``reasonable'' accuracy of the result.
+To circumvent the problem of computational intractability, and, hence, the speed of the analyses, \poy employs a battery of approximate, or heuristic, methods that function at different levels of analysis. As with all heuristic procedures, a tradeoff is involved: a substantial decrease in execution time comes at a price of obtaining solutions with lower optimality (however, the extent of the tradeoff is difficult to evaluate in the analyses of real datasets). Therefore, it becomes important to understand the combined effect of different heuristic methods, so that the chosen search strategy balances the computational time with a ``reasonable'' quality of the result.
 
-Here we provide general guidelines for using different heuristic methods, explore their combined effect, and suggest the choice of parameters that can be explored to provide the best result for specific cases. Real datasets differ greatly in size and complexity, so that no single optimal strategy can be suggested. These guidelines, however, should enable the investigator to design an efficient strategy that will tailor to the peculiarities of a given dataset.
+Here we provide general guidelines for using different heuristic methods, explore their combined effect, and suggest the choice of parameters that can be explored to provide the best result for specific cases. Real datasets differ greatly in size and complexity, so that no single optimal strategy can be suggested. These guidelines, however, should enable the investigator to design an efficient strategy that can be tailored to the peculiarities of a given dataset.
 
-In addition to heuristic methods, this chapter attempts to assist with the selection of transformation cost regimes. Alternative cost regimes can significantly affect the outcome of the analysis, that becomes particularly apparent in dealing with large, genome-level datasets, where multiple cost regimes are used simultaneously to specify transformations at different levels of analysis. Most difficulties stem from selecting the most reasonable combination of parameters that affect optimization of DNA sequence data at the levels of nucleotides, loci, and chromosomes.
+In addition to heuristic methods, this chapter attempts to assist with the selection of transformation cost regimes. Alternative cost regimes can significantly affect the outcome of the analysis, this becomes particularly apparent in dealing with large, genome-level datasets, where multiple cost regimes are used simultaneously to specify transformations at different levels of analysis. Many problems stem from the difficulty in selecting the most reasonable combination of parameters 
+for the optimization of DNA sequence data at the levels of nucleotides, loci, and chromosomes.
 
 \section{Data treatment}
 
@@ -27,7 +28,9 @@ At the level of nucleotides, individual fragments in a locus can be separated by
 \end{center}
 
 \section{Character optimization}
-Minimizing overall cladogram cost is an NP hard problem dependent on the lowest cost assignment of HTU sequences.  POY implements direct optimization (DO; ~\cite{wheeler1996}) and fixed-states optimization (FSO; ~\cite{wheeler1999a}) heuristics to determine the set of HTU sequences comprising the internal nodes of each cladogram constructed.  Direct Optimization decomposes the problem into a series of two-node comparisons, calculating locally optimal solutions, which generates the total cladogram cost.  An advantage of direct optimization is that it allows for the exploration of a large diversity of putative homologies and selects the scheme that yields the most optimal solution. This is useful in analyzing sequences of different length, where site-to-site homologies are uncertain.  Because the procedure is based on a greedy algorithm, it requires multiple iterations (independent initial cladogram builds) and extensive tree searches to reach a potentially global minimum.  In contrast, fixed-states optimization does not calculate HTU sequences but rather optimizes those observed in terminal taxa. These internal node sequences then are diagnosed using dynamic programming based on a matrix of edit costs between sequences.  In the fixed-states implementation cladogram optimization is independent of sequence lengths, and as the number of sequences increase so to does the pool from which the HTU sequences are drawn, thereby improving cladogram cost estimation. Because of these properties fixed-states optimization is recommended as an initial approximation strategy for large data sets of variable length sequences.  
+Minimizing overall cladogram cost is an NP-Hard problem dependent on the lowest cost assignment of HTU sequences.  POY implements direct optimization (DO; ~\cite{wheeler1996}), fixed-states optimization (FSO; ~\cite{wheeler1999a}), and Search-Based (SBO;~\cite{Wheeler2003b}) heuristics to determine the set of HTU sequences comprising the internal nodes of each cladogram constructed.  Direct Optimization decomposes the problem into a series of two-node comparisons, calculating locally optimal solutions, which generates the total cladogram cost.  An advantage of direct optimization is that it allows for the exploration of a large diversity of putative homologies and selects the scheme that yields the most optimal solution. This is useful in analyzing sequences of different length, where site-to-site homologies are uncertain.  Because the procedure is based on a greedy algorithm, it requires multiple iterations (independent initial cladogram builds) and extensive tree searches to reach a potentially global minimum.  In contrast, fixed-states optimization does not calculate HTU sequences but rather optimizes those observed in terminal taxa. These internal node sequences then are diagnosed using dynamic programming based on a matrix of edit costs between sequences.  In the fixed-states implementation cladogram optimization is independent of sequence lengths, and as the number of sequences increase so to does the pool from which the HTU sequences are drawn, thereby improving cladogram cost estimation (this can be further improved using additional potential median sequences via SBO). 
+Because of these properties fixed-states optimization is recommended as an initial approximation strategy for large data sets with large variation in
+sequence length.  
 
 \begin{center}
 \begin{tabular}{| l  l  p{.35\textwidth}|}
@@ -35,8 +38,8 @@ Minimizing overall cladogram cost is an NP hard problem dependent on the lowest 
 Level of analysis&Heuristic&Implementation \\ \hline \hline
 Nucleotides&DO&Default strategy\\
 Nucleotides&FSO&\poycommand{transform(fixedstates)}\\
-Loci&FSO&\poycommand{transform(dynamic\_pam:(approx))}\\
-Chromosomes&NA&NA\\
+%Loci&FSO&\poycommand{transform(dynamic\_pam:(approx))}\\
+%Chromosomes&NA&NA\\
 \hline	
 \end{tabular}
 \end{center}
@@ -58,188 +61,188 @@ The aggressiveness of searches can be adjusted by varying parameters of the bran
 
 Further economies can be reached by using a combination of different character optimization methods. For example, initial searches can be conducted under faster static approximation (that converts sequence data into static homology characters; see \emph{Character optimization} section), whereas the final refinement can be performed using direct optimization.
 
-\section{Chromosome heuristics}
-Analysis of chromosomal data requires heuristic procedures to estimate
-rearrangement events in addition to nucleotide transformations. Chromosomal
-data are divided into four different classes, namely breakinv, annotated, 
-chromosome and genome. In the following we discuss the complexity of
-each class.
-
-\subsection{Breakinv character}
-Breakinv character is the most simple form of chromosome data. Each breakinv
-character (chromosome) is presented by a sequence of general alphabet characters each codes for
-one gene. The transformation cost matrix among characters is calculated in advance
-and provided by users. During the tree search, \emph{pairwise alignments with rearrangements} (PAR) 
-between two breakinv characters is constructed.
-The PAR generalizes the ordinary pairwise alignment by allowing rearrangements of character order. 
-Since an exact solution for the PAR problem is likely intractable, we developed
-a heuristic approach that is a compromise between computational expense and
-alignment quality~\cite{vinh2006}. The method is comprised of two phases: first, it
-creates an initial PAR using stepwise addition strategy; second, it improves the 
-initial PAR by pairwise position swapping techniques. The second step is
-repeated several iterations until either no improvement is found or the number
-of swap iterations exceeds a user-defined maximum number,
-\emph{swap\_med parameter}. 
-The runtime complexity of the approaches is O($n^4 \times swap\_med$) where $n$ is 
-the number of genes.
-
-\begin{table}[t]
-\caption{The influence of \emph{swap\_med} to running time and tree cost
-         on a dataset containing 22 taxa with approximate 20 genes}
-\label{swapMedComp} 
-\begin{center}
-\begin{tabular}{l c c}
-\hline
-	swap\_med & tree cost & time (seconds) \\
-\hline
- 	   0 		& 954 &   28 \\
- 	   1 		& 948 &   52 \\
- 	   2 		& 871 &   77 \\
- 	   4 		& 882 &   97 \\
- 	   8 		& 852 &   102 \\
-\hline
-\end{tabular}
-\end{center}
-\end{table}
-
-Table \ref{swapMedComp} shows that the increase of \emph{swap\_med} 
-results in increases the runtime. However, it does not guarantee the
-improvement of tree cost. The \emph{swap\_med} default is one.
-
-
-\subsection{Annotated chromosome character}
-The annotated character type is a more general presentation of chromosome data 
-than the breakinv character. Each annotated character consists of 
-a sequence of loci/genes separated by pipes (`` $\vline$ ''). 
-This data type allows for locus-level rearrangements as well as
-nucleotide transformations. Locus homologies are
-determined dynamically, but based on annotated regions~\cite{vinh2006}.
-Given that two annotated characters each have $m$ genes, the pairwise alignment method
-first calculates pairwise distances
-among genes are calculated and then applies the algorithm to reconstruct
-the PAR. 
-The runtime complexity of the algorithm is O($m^2 \times l^2 + n^4 \times
-swap\_med$) where $l$ is the average length of genes. Note that annotated
-character does not require characters to have the same number of genes.
-Although a large of number equally optimal PARs could be constructed
-between two annotated characters, only a user-defined maximum number of PARs, \emph{median},  are kept
-during the tree search. Our experience is that the increase of \emph{median}
-does not usually result in the improvement of tree cost. The default value of
-\emph{median} is one. 
-
-It takes approximately 4 minutes to construct a Wagner tree of 10 taxa each contains
-8 genes of length approximate 300 nucleotides. We conducted a 
-SPR search on the constructed Wanger tree to examine the runtime and tree
-improvement. SPR search takes approximately 13 minutes and reduces 
-the tree cost about one percent.
-
-
-
-\subsection{Chromosome character}
-
-Unannotated chromosomal sequences are the most general presentation of
-chromosome data where each chromosome consists of a long sequence of nucleotides.
-To analyze this character type we developed an approach to construct a \emph{comprehensive chromosome pairwise
- alignment} that fulfills four conditions:
-(1) all putative homologies among loci are determined automatically, 
-(2) each locus is either aligned with only one putatively homologous locus or
-considered as a locus indel, 
-(3) loci are allowed to rearrange
-(4) the total cost to transform one genome into another genome
-(i.e. nucleotide transformation costs, locus indel costs, 
-and locus order rearrangement costs) is minimized.  To this end, 
-the approach consists of two phases. First, reliable homologies 
-between two chromosomes are detected automatically. Second,
-conserved areas serve as anchors to divide each chromosome into 
-a sequence of separated loci.  To construct comprehensive chromosome
-pairwise alignments the same method used for annotated chromosomes is applied~\cite{vinh2007}. 
-Note that only a user-defined maximum number of PARs and medians are considered
-during the tree search.
-
-
-To find reliable homologies between two chromosomes, we apply a three-step algorithm.
-First, identical segments, called \emph{seeds}, with lengths greater or equal to
-user-defined \emph{seed\_length} between two genomes are detected using suffix tree
-structure. Detected seeds whose distance is not greater than
-\emph{rearranged\_len} are connected to construct larger conserved areas, called
-\emph{blocks}. Blocks whose lengths are greater than the user-defined significant block length 
-threshold \emph{sig\_block\_len} are considered as reliable homologies. 
-
-A discussion of the influence of \emph{seed\_len},
-\emph{sig\_block\_len} and \emph{rearranged\_len} follows:
-
-The best default value of \emph{seed\_len} is \texttt{t}.
-The higher the \emph{seed\_len} value, the fewer seeds are detected,
-that, in turn influences the number of blocks recognized. Conversely, if the
-value of seed\_length is low, an increased number of seeds and, consequently, a
-greater number of short blocks are detected.
-
-The default value of \emph{sig\_block\_len} is \texttt{100}. 
-If the value of \emph{sig\_block\_len} is low, small-size rearrangements are allowed;
-whereas if the value of \emph{sig\_block\_len} is high only large-size
-rearrangements can be detected.
-
-The \emph{rearranged\_len} parameter sets a threshold
-value under which homologous blocks separated by non-homologous regions can be
-considered as a single block. 
-The default for this parameter is \texttt{100}.  Therefore, if two inferred
-homologous blocks are separated by less than 100 nucleotides they will be
-treated as a single block in calculating of rearrangement events.
-
-Thus, the combination of parameters \poycommand{seed\_length}, 
-\poycommand{sig\_block\_len}, 
-and \poycommand{rearranged\_len} significantly influence the estimation of inferred rearrangements.
-
-\begin{table}[t]
-\caption{The influence of \emph{seed\_length} to the runtime and tree cost
-or 11 corona viruses 27-32kb in length}
-\label{seedLength} 
-\begin{center}
-\begin{tabular}{l c c}
-\hline
-	\emph{seed\_length} & tree cost & runtime (minutes) \\
-\hline
-         7             & 109085   & 16\\
-         9 (default)   & 91099   & 12\\
-         11            & 91524   & 13\\
-\hline
-\end{tabular}
-\end{center}
-\end{table}
-
-To examine the running time, we collect 11 corona viruses 
-27-13kb in length. The program takes about 12 minutes
-to reconstruct a Wagner tree, and around one hour 
-for SPR swapping.
-
-
-
-\begin{table}[t]
-\caption{The default and suggested values of different parameters for chromosome
-characters}
-\label{defaultPam} 
-\begin{center}
-\begin{tabular}{l c c}
-\hline
-	name & default value cost & suggested value \\
-\hline
-    \poycommand{seed\_length}     & 9   & 5-15\\
-    \poycommand{sig\_block\_len}  & 100 & 60-150\\
-    \poycommand{rearranged\_len}   & 100 & 50-1000\\
-    \poycommand{breakpoint}       &10   & 10-50\\
-    \poycommand{inversion}        &none & 15-35\\
-    \poycommand{approx}           &false& large data sets\\
-    \poycommand{median}           &1    & 1-2\\
-    \poycommand{swap\_med}        &1    & 1-2\\
-    \poycommand{locus\_indel}     &opening 10, extension 1  & opening 10, extension 1\\
-\hline
-\end{tabular}
-\end{center}
-\end{table}
-
-
-Table \ref{defaultPam} summarizes the default and suggested values of different
-parameters for chromosome characters.
+%\section{Chromosome heuristics}
+%Analysis of chromosomal data requires heuristic procedures to estimate
+%rearrangement events in addition to nucleotide transformations. Chromosomal
+%data are divided into four different classes, namely breakinv, annotated, 
+%chromosome and genome. In the following we discuss the complexity of
+%each class.
+%
+%\subsection{Breakinv character}
+%Breakinv character is the most simple form of chromosome data. Each breakinv
+%character (chromosome) is presented by a sequence of general alphabet characters each codes for
+%one gene. The transformation cost matrix among characters is calculated in advance
+%and provided by users. During the tree search, \emph{pairwise alignments with rearrangements} (PAR) 
+%between two breakinv characters is constructed.
+%The PAR generalizes the ordinary pairwise alignment by allowing rearrangements of character order. 
+%Since an exact solution for the PAR problem is likely intractable, we developed
+%a heuristic approach that is a compromise between computational expense and
+%alignment quality~\cite{vinh2006}. The method is comprised of two phases: first, it
+%creates an initial PAR using stepwise addition strategy; second, it improves the 
+%initial PAR by pairwise position swapping techniques. The second step is
+%repeated several iterations until either no improvement is found or the number
+%of swap iterations exceeds a user-defined maximum number,
+%\emph{swap\_med parameter}. 
+%The runtime complexity of the approaches is O($n^4 \times swap\_med$) where $n$ is 
+%the number of genes.
+%
+%\begin{table}[t]
+%\caption{The influence of \emph{swap\_med} to running time and tree cost
+%         on a dataset containing 22 taxa with approximate 20 genes}
+%\label{swapMedComp} 
+%\begin{center}
+%\begin{tabular}{l c c}
+%\hline
+%	swap\_med & tree cost & time (seconds) \\
+%\hline
+% 	   0 		& 954 &   28 \\
+% 	   1 		& 948 &   52 \\
+% 	   2 		& 871 &   77 \\
+% 	   4 		& 882 &   97 \\
+% 	   8 		& 852 &   102 \\
+%\hline
+%\end{tabular}
+%\end{center}
+%\end{table}
+%
+%Table \ref{swapMedComp} shows that the increase of \emph{swap\_med} 
+%results in increases the runtime. However, it does not guarantee the
+%improvement of tree cost. The \emph{swap\_med} default is one.
+%
+%
+%\subsection{Annotated chromosome character}
+%The annotated character type is a more general presentation of chromosome data 
+%than the breakinv character. Each annotated character consists of 
+%a sequence of loci/genes separated by pipes (`` $\vline$ ''). 
+%This data type allows for locus-level rearrangements as well as
+%nucleotide transformations. Locus homologies are
+%determined dynamically, but based on annotated regions~\cite{vinh2006}.
+%Given that two annotated characters each have $m$ genes, the pairwise alignment method
+%first calculates pairwise distances
+%among genes are calculated and then applies the algorithm to reconstruct
+%the PAR. 
+%The runtime complexity of the algorithm is O($m^2 \times l^2 + n^4 \times
+%swap\_med$) where $l$ is the average length of genes. Note that annotated
+%character does not require characters to have the same number of genes.
+%Although a large of number equally optimal PARs could be constructed
+%between two annotated characters, only a user-defined maximum number of PARs, \emph{median},  are kept
+%during the tree search. Our experience is that the increase of \emph{median}
+%does not usually result in the improvement of tree cost. The default value of
+%\emph{median} is one. 
+%
+%It takes approximately 4 minutes to construct a Wagner tree of 10 taxa each contains
+%8 genes of length approximate 300 nucleotides. We conducted a 
+%SPR search on the constructed Wanger tree to examine the runtime and tree
+%improvement. SPR search takes approximately 13 minutes and reduces 
+%the tree cost about one percent.
+%
+%
+%
+%\subsection{Chromosome character}
+%
+%Unannotated chromosomal sequences are the most general presentation of
+%chromosome data where each chromosome consists of a long sequence of nucleotides.
+%To analyze this character type we developed an approach to construct a \emph{comprehensive chromosome pairwise
+% alignment} that fulfills four conditions:
+%(1) all putative homologies among loci are determined automatically, 
+%(2) each locus is either aligned with only one putatively homologous locus or
+%considered as a locus indel, 
+%(3) loci are allowed to rearrange
+%(4) the total cost to transform one genome into another genome
+%(i.e. nucleotide transformation costs, locus indel costs, 
+%and locus order rearrangement costs) is minimized.  To this end, 
+%the approach consists of two phases. First, reliable homologies 
+%between two chromosomes are detected automatically. Second,
+%conserved areas serve as anchors to divide each chromosome into 
+%a sequence of separated loci.  To construct comprehensive chromosome
+%pairwise alignments the same method used for annotated chromosomes is applied~\cite{vinh2007}. 
+%Note that only a user-defined maximum number of PARs and medians are considered
+%during the tree search.
+%
+%
+%To find reliable homologies between two chromosomes, we apply a three-step algorithm.
+%First, identical segments, called \emph{seeds}, with lengths greater or equal to
+%user-defined \emph{seed\_length} between two genomes are detected using suffix tree
+%structure. Detected seeds whose distance is not greater than
+%\emph{rearranged\_len} are connected to construct larger conserved areas, called
+%\emph{blocks}. Blocks whose lengths are greater than the user-defined significant block length 
+%threshold \emph{sig\_block\_len} are considered as reliable homologies. 
+%
+%A discussion of the influence of \emph{seed\_len},
+%\emph{sig\_block\_len} and \emph{rearranged\_len} follows:
+%
+%The best default value of \emph{seed\_len} is \texttt{t}.
+%The higher the \emph{seed\_len} value, the fewer seeds are detected,
+%that, in turn influences the number of blocks recognized. Conversely, if the
+%value of seed\_length is low, an increased number of seeds and, consequently, a
+%greater number of short blocks are detected.
+%
+%The default value of \emph{sig\_block\_len} is \texttt{100}. 
+%If the value of \emph{sig\_block\_len} is low, small-size rearrangements are allowed;
+%whereas if the value of \emph{sig\_block\_len} is high only large-size
+%rearrangements can be detected.
+%
+%The \emph{rearranged\_len} parameter sets a threshold
+%value under which homologous blocks separated by non-homologous regions can be
+%considered as a single block. 
+%The default for this parameter is \texttt{100}.  Therefore, if two inferred
+%homologous blocks are separated by less than 100 nucleotides they will be
+%treated as a single block in calculating of rearrangement events.
+%
+%Thus, the combination of parameters \poycommand{seed\_length}, 
+%\poycommand{sig\_block\_len}, 
+%and \poycommand{rearranged\_len} significantly influence the estimation of inferred rearrangements.
+%
+%\begin{table}[t]
+%\caption{The influence of \emph{seed\_length} to the runtime and tree cost
+%or 11 corona viruses 27-32kb in length}
+%\label{seedLength} 
+%\begin{center}
+%\begin{tabular}{l c c}
+%\hline
+%	\emph{seed\_length} & tree cost & runtime (minutes) \\
+%\hline
+%         7             & 109085   & 16\\
+%         9 (default)   & 91099   & 12\\
+%         11            & 91524   & 13\\
+%\hline
+%\end{tabular}
+%\end{center}
+%\end{table}
+%
+%To examine the running time, we collect 11 corona viruses 
+%27-13kb in length. The program takes about 12 minutes
+%to reconstruct a Wagner tree, and around one hour 
+%for SPR swapping.
+%
+%
+%
+%\begin{table}[t]
+%\caption{The default and suggested values of different parameters for chromosome
+%characters}
+%\label{defaultPam} 
+%\begin{center}
+%\begin{tabular}{l c c}
+%\hline
+%	name & default value cost & suggested value \\
+%\hline
+%    \poycommand{seed\_length}     & 9   & 5-15\\
+%    \poycommand{sig\_block\_len}  & 100 & 60-150\\
+%    \poycommand{rearranged\_len}   & 100 & 50-1000\\
+%    \poycommand{breakpoint}       &10   & 10-50\\
+%    \poycommand{inversion}        &none & 15-35\\
+%    \poycommand{approx}           &false& large data sets\\
+%    \poycommand{median}           &1    & 1-2\\
+%    \poycommand{swap\_med}        &1    & 1-2\\
+%    \poycommand{locus\_indel}     &opening 10, extension 1  & opening 10, extension 1\\
+%\hline
+%\end{tabular}
+%\end{center}
+%\end{table}
+%
+%
+%Table \ref{defaultPam} summarizes the default and suggested values of different
+%parameters for chromosome characters.
 
 
 \section{Transformation cost regimes}
@@ -247,9 +250,21 @@ In analyses at the level of nucleotides, there are three general approaches to s
 \begin{description}
 \item[Equal costs] This approach assigns the same cost to all substitutions and indels, and does not take into account gap extension cost. For rationale for using this cost regime see Frost et al. \cite{frost2001} %and for other examples of its application see.
 \item[Homology maximization] This approach, developed by De Laet \cite{delaet2005}, assigns costs \texttt{2, 3, and 1} to transformations, gap opening, and gap extension respectively. %For examples using this methods see
-\item[Parameter sensitivity analysis] This method, suggested by Wheeler \cite{wheeler1995}, explores the effect of varying transformation costs by comparing results of analyses conducted under different cost regimes. Partition inconguence can subsequently be computed  for each cladogram and the parameter set that minimizes incongruence is selected as optimal. %For examples using this methods see
+\item[Parameter sensitivity analysis] This method, suggested by Wheeler \cite{wheeler1995}, explores the effect of varying transformation costs by comparing results of analyses conducted under different cost regimes. Partition incongruence can subsequently be computed  for each cladogram and the parameter set that minimizes incongruence is selected as optimal. %For examples using this methods see
 \end{description}
-More specifically, it depends on relative costs of nucleotide- and locus-level transformations. Nucleotide-level transformations are specified by tcm argument, the locus-level rearrangements are specified by locus\_breakpoint or inversion costs. If locus\_level rearrangement costs are extremely high, the rearrangements are not going to be counted. On the other hand, if their cost is very low (equal or slightly above that of the nucleotide-level rearrangements), rearrangements can be frequent (depending on the seed\_block\_len and seed\_length settings).
+More specifically, sequence optimization parameters depend on the relative costs of nucleotide- and locus-level transformations. Nucleotide-level transformations are specified by the \texttt{tcm} argument, the locus-level rearrangements are specified by \texttt{locus\_breakpoint} or \texttt{locus\_inversion} costs. If locus\_level rearrangement costs are extremely high, few rearrangements will be employed. On the other hand, if their cost is very low (equal or slightly above that of the nucleotide-level rearrangements), rearrangements can be frequent.
 
-When DNA sequence data is combined with morphological data, the cost for morphological character transformations is customarily is set to be the same as for substitutions.
+When DNA sequence data is combined with morphological data, the cost for morphological character transformations often is  set to be the same as for 
+nucleotide substitutions or indels.
 
+\section{Likelihood Analyses}
+The analysis of sequences data (whether prealigned or not) can be significantly more time consuming than 
+similar analyses under parsimony.  A basic strategy to improve execution times under likelihood
+is to perform initial, less complex analyses and build up through a series of increasingly more complex likelihood analyses
+until the desired level of model and search complexity are achieved.  
+
+One basic strategy is to begin with an initial parsimony analysis before transforming to likelihood.  In this way, 
+parsimony acts as a heuristic procedure to find likelihood results.  Once the likelihood transform is performed, model estimation can
+be performed at relatively long intervals, generating further time savings.  SPR and TBR neighborhoods also can be limited in
+early search stages.  Once solutions have been identified that are suspected to be near
+optimal, more exhaustive model estimation and search strategies can be performed.
