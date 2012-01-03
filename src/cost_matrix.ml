@@ -185,7 +185,11 @@ module Two_D = struct
     let calculate_alphabet_size l =
         let s = List.length l in 
         let a_sz = int_of_float (sqrt (float_of_int s)) in
-        if (a_sz * a_sz != s) then raise Illegal_Cm_Format
+        if (a_sz * a_sz != s) then begin
+            Status.user_message Status.Error
+            ("calculate alphabet size,a_sz="^string_of_int a_sz^",a_sz*a_sz!=length of list = "^string_of_int s);
+            raise Illegal_Cm_Format
+        end
         else a_sz;;
 
     let affine m = 
@@ -818,13 +822,13 @@ module Two_D = struct
                     | [_], [_] ->
                             set_median i j m (i lor j);
                             if debug then
-                                Status.user_message Status.Error
+                                Status.user_message Status.Information
                                 ("Setting the cost beteen " ^ string_of_int i ^ " and " ^
                                 string_of_int j ^ " to " ^ string_of_int (get_cost i
                                 j m));
                     | _, _ -> 
                             if debug then
-                                Status.user_message Status.Error
+                                Status.user_message Status.Information
                                 ("Setting the cost beteen " ^ string_of_int i ^ " and " ^
                                 string_of_int j ^ " to " ^ string_of_int !cost);
                             set_cost i j m !cost;
@@ -1102,7 +1106,6 @@ module Two_D = struct
 
     let of_channel ?(tie_breaker = `Keep_Random) ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
         let use_comb = if level = 1 then false else use_comb in
-        let debug = false in
         if debug then 
         Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," 
         use_comb level all_elements;

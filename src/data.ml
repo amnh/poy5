@@ -5239,7 +5239,7 @@ let assign_tcm_to_characters data chars foname tcm newalph =
                         let tcm, tcmfile = tcm all_elements in
                         ref_tcmfile := Some tcmfile;
                         if debug_level then 
-                            Printf.printf "assign_tcm_to_characters,calc tcm3d if init3D=true%!";
+                            Printf.printf "assign_tcm_to_characters,calc tcm3d if init3D=true\n%!";
                         let tcm3d =
                             if (Alphabet.use_3d dspec.alph) then
                                 Cost_matrix.Three_D.of_two_dim tcm
@@ -5284,9 +5284,10 @@ let assign_tcm_to_characters_from_file data chars file =
         | x::_ -> get_alphabet data x
         | []   -> failwith "No characters selected in transform"
     in
+    let is_nucleotides = if alphabet=Alphabet.nucleotides then true else false in
     let is_aminoacids = Alphabet.is_aminoacids alphabet in
     let is_dna = if alphabet = Alphabet.dna then true else false in
-    let is_dna_or_ami = (is_dna || is_aminoacids) in
+    let is_dna_or_ami_or_nucleotides = (is_dna || is_aminoacids || is_nucleotides) in
     let oldlevel,ori_sz = 
         Alphabet.get_level alphabet,  Alphabet.get_ori_size alphabet in
     let tcm,newalph= match file with
@@ -5297,7 +5298,7 @@ let assign_tcm_to_characters_from_file data chars file =
             let level,tie_breaker,use_comb =
                 match level_and_tie_breaker with
                 | None -> 
-                        if is_dna then 0,`Keep_Random,true
+                        if is_dna||is_nucleotides then 0,`Keep_Random,true
                         else if (Alphabet.check_level alphabet) then
                             oldlevel,`Keep_Random,true
                         else if oldlevel=1 then oldlevel,`Keep_Random,false
@@ -5310,10 +5311,13 @@ let assign_tcm_to_characters_from_file data chars file =
             (fun x ->
                 if debug_level then Printf.printf
                 "assign_tcm_to_characters_from_file,ori_sz=%d,oldlevel=%d,\
-                newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b\n%!"
-                ori_sz oldlevel level use_comb is_dna is_aminoacids;
+                newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b,is_nucl?%b\n%!"
+                ori_sz oldlevel level use_comb is_dna is_aminoacids is_nucleotides;
                 if debug_level then Alphabet.print alphabet;
-                let tcm,mat = Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker ~use_comb:use_comb ~level:level f x is_dna_or_ami in
+                let tcm,mat = 
+                        Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker ~use_comb:use_comb 
+                        ~level:level f x is_dna_or_ami_or_nucleotides 
+                in
                 tcm, Input_file ((FileStream.filename f), mat)),
                 Alphabet.set_level alphabet level
     in
