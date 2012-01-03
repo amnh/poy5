@@ -19,9 +19,6 @@ top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 prefix = @prefix@
 exec_prefix = @exec_prefix@
-bindir = $(exec_prefix)/bin
-infodir = $(prefix)/info
-libdir = $(prefix)/lib/gnudl
 mandir = $(prefix)/man/man1
 
 CC = @CC@
@@ -54,7 +51,7 @@ EXTRAS := @EXTRAS@
 OFLAGS := @OCAMLFLAGS@ 
 NATIVEDYNLINK := @NATIVEDYNLINK@
 
-.PHONY: commands.pdf poy.native poy.byte poy.top clean distclean
+.PHONY: commands.pdf poy.native poy.byte poy.top clean distclean install
 
 poy.top: 
 	$(OCAMLBUILD) $@
@@ -68,11 +65,20 @@ poy.native:
 commands.pdf:
 	$(OCAMLBUILD) $@
 
-all: poy.native poy.byte poy.top
+all: poy.native
+
+install:
+	test -d $(prefix) || mkdir $(prefix)
+	test -d $(prefix)/bin || mkdir $(prefix)/bin
+	cp _build/poy.native _build/poy
+	install -m 0755 _build/poy $(prefix)/bin
+	install -m 0644 _build/poy.1 $(mandir)
 
 clean:
+	rm -f poy.native poy.d.byte poy.top poy.byte
 	$(OCAMLBUILD) -clean
 
 distclean: clean
 	rm -f Makefile buildNumber.ml compileFlags.ml config.h \
-		config.log config.status _tags myocamlbuild.ml
+		config.log config.status _tags myocamlbuild.ml \
+		poy.native poy.byte poy.d.byte poy.top
