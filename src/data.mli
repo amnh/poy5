@@ -582,6 +582,8 @@ val get_locus_indel_cost : dyna_pam_t -> int * int
 
 val get_character_set_name : d -> int list -> string option
 
+val modified_characters : d -> d -> int
+
 val get_likelihood_model : d -> int list -> MlModel.model
 val apply_likelihood_model_on_chars : d -> int list -> MlModel.model -> d
 val verify_alphabet : d -> int list -> int * Alphabet.a

@@ -634,6 +634,22 @@ let get_character_set_name data codes : string option = match codes with
         else
             None
 
+let modified_characters data_one data_two : int =
+    let data_one = data_one.character_specs
+    and data_two = data_two.character_specs in
+    let data_one,data_two =
+        if (Hashtbl.length data_one) < (Hashtbl.length data_two)
+            then data_two,data_one
+            else data_one,data_two
+    and modified = ref 0 in
+    Hashtbl.iter
+        (fun k v1 ->
+            try let v2 = Hashtbl.find data_two k in
+                if v2 <> v1 then incr modified else ()
+            with | Not_found -> let () = incr modified in ())
+        data_one;
+    !modified
+
 let get_likelihood_model data chars = 
     let get_model x = match Hashtbl.find data.character_specs x with
         | Static dat ->
@@ -4207,11 +4223,11 @@ let get_tcm3d data c =
     | Kolmogorov dspec -> dspec.dhs.tcm3d
     | _ -> failwith "Data.get_tcm3d"
 
-let get_tcmfile data c =
-    match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec -> dspec.tcm
+let get_tcmfile data c = match Hashtbl.find data.character_specs c  with
+    | Dynamic dspec    -> dspec.tcm
     | Kolmogorov dspec -> dspec.dhs.tcm
-    | _ -> failwith "Data.get_tcmfile"
+    | Static dspec     -> failwith "Data.get_tcmfile; Cannot transform static data"
+    | Set              -> failwith "Data.get_tcmfile; Cannot transform set data"
 
 let get_model_opt data c = 
     match Hashtbl.find data.character_specs c with
@@ -5551,7 +5567,8 @@ let codes_with_same_tcm codes data =
     in
     let codes = 
         List.map 
-            ~f:(fun x -> x, get_tcm2d data x, get_alphabet data x,get_tcmfile data x)
+            ~f:(fun x -> 
+                    x, get_tcm2d data x, get_alphabet data x,get_tcmfile data x)
             codes
     in
     List.fold_left ~f:assign_matching ~init:[] codes
@@ -5635,7 +5652,7 @@ let rec make_affine cost_model tcmfile = match tcmfile with
             Level (make_affine cost_model inner,n)
 
 let rec assign_affine_gap_cost data chars cost =
-    let codes = get_chars_codes_comp data chars in
+    let codes = get_code_from_characters_restricted_comp `AllDynamic data chars in 
     let codes = 
         List.map 
             (fun (a, b, alph, tcmfile) -> 
