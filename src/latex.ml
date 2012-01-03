@@ -399,14 +399,14 @@ let process_file parsed mode output_file =
             The following are the valid commands for \n\
             .B poy.");
         process parsed mode channel;
-        o "\n.SH AUTHOR\npoy was written by Andres Varon, Le Sy Vinh, \
-            Illya Bomash, and Ward Wheeler.\n.PP\nThis manual page was written \
+        o "\n.SH AUTHOR\nPOY was written by Andres Varon, Lin Hong, \
+            NIcholas Lucaroni, and Ward Wheeler.\n.PP\nThis manual page was written \
             by Andres Varon, Lin Hong, Nicholas Lucaroni, Ward Wheeler\
             Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
             Taran Grant, and William Leo Smith.\n.RS\n\n"
     | `OnlineHelp ->
-        o (".\nauthors\n@[<v 2> poy was written by Andres Varon, Le Sy Vinh, \
-            Illya Bomash, and Ward Wheeler.This manual page was written \
+        o (".\nauthors\n@[<v 2> POY was written by Andres Varon, Lin Hong, \
+            Nicholas LUcaroni, and Ward Wheeler.This manual page was written \
             by Andres Varon, Lin Hong, Nicholas Lucaroni, Ward Wheeler\
             Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
             Taran Grant, and William Leo Smith.@]\n\n");

@@ -125,12 +125,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
     let transform func tq =
         let nodes = get_nodes tq in
-        let nodes' =
-            List.map func nodes in
-        if nodes' <> nodes                  (* If no transformations were performed,
-                                               nodes will not have changed *)
-        then nodes' :: tq
-        else tq
+        let nodes' = List.map func nodes in
+        if nodes' <> nodes
+            then nodes' :: tq
+            else tq
 
     let untransform = List.tl
 
@@ -927,55 +925,46 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
     let rec transform_node_characters trees (data,nodes) (meth : Methods.char_transform)  =
         let load_transformed_data new_data = 
-            let data, nodes =
-                new_data 
-                --> Data.categorize
-                --> Node.load_data 
-            in
+            let data, nodes = new_data --> Data.categorize --> Node.load_data in
            data, (List.rev nodes)
         in 
         let cleanup_extra_dynamics chars = 
-            List.filter (fun x -> 
-                let a = Data.get_alphabet data x in
-                let a = Alphabet.to_sequential a in
-                Alphabet.distinct_size a < 6 ) chars
+            List.filter
+                (fun x -> 
+                    let a = Data.get_alphabet data x in
+                    let a = Alphabet.to_sequential a in
+                    Alphabet.distinct_size a < 6)
+                chars
         in
         match meth with
         | `Automatic_Sequence_Partition (chars, sensible, mode) ->
-                (match 
-                    cleanup_extra_dynamics 
-                    (Data.get_code_from_characters_restricted_comp 
-                    `Dynamic data chars)
-                with
+            let codes = Data.get_code_from_characters_restricted_comp `Dynamic data chars in
+            begin match cleanup_extra_dynamics codes with
                 | [] -> data, nodes
                 | chars ->
-                        (* One problem we have is that auto sequence partition
-                        * can only work with nucleotide sequences, so we have to
-                        * filter those out. Actually, we will make it work with
-                        * those *)
-                        let chars = 
-                            List.fold_left 
+                    (* One problem we have is that auto sequence partition
+                     * can only work with nucleotide sequences, so we have to
+                     * filter those out. Actually, we will make it work with those *)
+                    let chars = 
+                        List.fold_left 
                             (fun acc x -> All_sets.Integers.add x acc)
-                            All_sets.Integers.empty
-                            chars
-                        in
-                        try
-                            trees
-                            --> select_shortest
-                            --> to_tupled_tree
-                            --> fun x -> partition_sequences mode sensible chars x data
-                            --> Data.categorize 
-                            --> Node.load_data 
-                        with
-                        | No_trees ->
-                            Status.user_message Status.Error
+                            All_sets.Integers.empty chars
+                    in
+                    try trees --> select_shortest
+                              --> to_tupled_tree
+                              --> fun x -> partition_sequences mode sensible chars x data
+                              --> Data.categorize 
+                              --> Node.load_data 
+                    with | No_trees ->
+                        Status.user_message Status.Error
                             ("An@ error@ has@ occured@ while@ attempting@ to@ "
                             ^ "do@ an@ automatic@ sequence@ partition.@ You@ "
                             ^ "have@ no@ trees@ in@ memory!@ In@ order@ to@ " ^
                             "produce@ an@ implied@ alignment@ POY@ needs@ a@ " ^
                             "loaded@ tree,@ you@ could@ simply@ build@ one@ " ^
                             "with@ build (1)");
-                            failwith "Illegal transform command")
+                        failwith "Illegal transform command"
+            end
         | `Automatic_Static_Aprox sensible ->
                 begin match analyze_sequences sensible data trees with
                 | [] -> data, nodes
@@ -1157,9 +1146,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
     let transform_nodes_trees trees data nodes (trans : Methods.tree_transform list) = 
         let len = List.length trans in 
-        let st = 
-            Status.create "Transforming" (Some len) " of transformations applied"
-        in
+        let st = Status.create "Transforming" (Some len) " of transformations applied" in
         let apply_transformation acc res =
             let res = transform_tree_characters acc res in
             let _ =
@@ -1173,20 +1160,19 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         res
 
     let transform_nodes trees data nodes (trans : Methods.char_transform list) = 
-        let len = List.length trans in 
-        let st = 
-            Status.create "Transforming" (Some len) " of transformations applied"
-        in
-        let apply_transformation trees acc res =
-
-            let res = transform_node_characters trees acc res in
-            let _ =
-                let ach = Status.get_achieved st in
-                Status.full_report ~adv:(ach +1) st
+        let n_trans = List.length trans in
+        let st1 = Status.create "Transforming" (Some n_trans) " transformations applied" in
+        let apply_transformation trees ((pd,_) as acc) res =
+            let n_chars = Hashtbl.length pd.Data.character_specs in
+            let st2 = Status.create "Transforming" (Some n_chars) " characters transformed" in
+            let (d,_) as res = transform_node_characters trees acc res in
+            let () =
+                Status.full_report ~adv:((Status.get_achieved st1)+1) st1;
+                Status.full_report ~adv:(Data.modified_characters pd d) st2
             in
             res
         in
         let res = List.fold_left (apply_transformation trees) (data,nodes) trans in
-        Status.finished st;
+        Status.finished st1;
         res
 end 
