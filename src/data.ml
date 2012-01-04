@@ -634,6 +634,22 @@ let get_character_set_name data codes : string option = match codes with
         else
             None
 
+let modified_characters data_one data_two : int =
+    let data_one = data_one.character_specs
+    and data_two = data_two.character_specs in
+    let data_one,data_two =
+        if (Hashtbl.length data_one) < (Hashtbl.length data_two)
+            then data_two,data_one
+            else data_one,data_two
+    and modified = ref 0 in
+    Hashtbl.iter
+        (fun k v1 ->
+            try let v2 = Hashtbl.find data_two k in
+                if v2 <> v1 then incr modified else ()
+            with | Not_found -> let () = incr modified in ())
+        data_one;
+    !modified
+
 let get_likelihood_model data chars = 
     let get_model x = match Hashtbl.find data.character_specs x with
         | Static dat ->
@@ -4207,11 +4223,11 @@ let get_tcm3d data c =
     | Kolmogorov dspec -> dspec.dhs.tcm3d
     | _ -> failwith "Data.get_tcm3d"
 
-let get_tcmfile data c =
-    match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec -> dspec.tcm
+let get_tcmfile data c = match Hashtbl.find data.character_specs c  with
+    | Dynamic dspec    -> dspec.tcm
     | Kolmogorov dspec -> dspec.dhs.tcm
-    | _ -> failwith "Data.get_tcmfile"
+    | Static dspec     -> failwith "Data.get_tcmfile; Cannot transform static data"
+    | Set              -> failwith "Data.get_tcmfile; Cannot transform set data"
 
 let get_model_opt data c = 
     match Hashtbl.find data.character_specs c with
@@ -5239,7 +5255,7 @@ let assign_tcm_to_characters data chars foname tcm newalph =
                         let tcm, tcmfile = tcm all_elements in
                         ref_tcmfile := Some tcmfile;
                         if debug_level then 
-                            Printf.printf "assign_tcm_to_characters,calc tcm3d if init3D=true%!";
+                            Printf.printf "assign_tcm_to_characters,calc tcm3d if init3D=true\n%!";
                         let tcm3d =
                             if (Alphabet.use_3d dspec.alph) then
                                 Cost_matrix.Three_D.of_two_dim tcm
@@ -5284,9 +5300,10 @@ let assign_tcm_to_characters_from_file data chars file =
         | x::_ -> get_alphabet data x
         | []   -> failwith "No characters selected in transform"
     in
+    let is_nucleotides = if alphabet=Alphabet.nucleotides then true else false in
     let is_aminoacids = Alphabet.is_aminoacids alphabet in
     let is_dna = if alphabet = Alphabet.dna then true else false in
-    let is_dna_or_ami = (is_dna || is_aminoacids) in
+    let is_dna_or_ami_or_nucleotides = (is_dna || is_aminoacids || is_nucleotides) in
     let oldlevel,ori_sz = 
         Alphabet.get_level alphabet,  Alphabet.get_ori_size alphabet in
     let tcm,newalph= match file with
@@ -5297,7 +5314,7 @@ let assign_tcm_to_characters_from_file data chars file =
             let level,tie_breaker,use_comb =
                 match level_and_tie_breaker with
                 | None -> 
-                        if is_dna then 0,`Keep_Random,true
+                        if is_dna||is_nucleotides then 0,`Keep_Random,true
                         else if (Alphabet.check_level alphabet) then
                             oldlevel,`Keep_Random,true
                         else if oldlevel=1 then oldlevel,`Keep_Random,false
@@ -5310,10 +5327,13 @@ let assign_tcm_to_characters_from_file data chars file =
             (fun x ->
                 if debug_level then Printf.printf
                 "assign_tcm_to_characters_from_file,ori_sz=%d,oldlevel=%d,\
-                newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b\n%!"
-                ori_sz oldlevel level use_comb is_dna is_aminoacids;
+                newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b,is_nucl?%b\n%!"
+                ori_sz oldlevel level use_comb is_dna is_aminoacids is_nucleotides;
                 if debug_level then Alphabet.print alphabet;
-                let tcm,mat = Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker ~use_comb:use_comb ~level:level f x is_dna_or_ami in
+                let tcm,mat = 
+                        Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker ~use_comb:use_comb 
+                        ~level:level f x is_dna_or_ami_or_nucleotides 
+                in
                 tcm, Input_file ((FileStream.filename f), mat)),
                 Alphabet.set_level alphabet level
     in
@@ -5551,7 +5571,8 @@ let codes_with_same_tcm codes data =
     in
     let codes = 
         List.map 
-            ~f:(fun x -> x, get_tcm2d data x, get_alphabet data x,get_tcmfile data x)
+            ~f:(fun x -> 
+                    x, get_tcm2d data x, get_alphabet data x,get_tcmfile data x)
             codes
     in
     List.fold_left ~f:assign_matching ~init:[] codes
@@ -5635,7 +5656,7 @@ let rec make_affine cost_model tcmfile = match tcmfile with
             Level (make_affine cost_model inner,n)
 
 let rec assign_affine_gap_cost data chars cost =
-    let codes = get_chars_codes_comp data chars in
+    let codes = get_code_from_characters_restricted_comp `AllDynamic data chars in 
     let codes = 
         List.map 
             (fun (a, b, alph, tcmfile) -> 
