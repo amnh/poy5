@@ -1064,39 +1064,45 @@ let create_med_mauve_annotator med1 med2 cost_mat ali_pam =
     (*function for id translocation of loci between chromosomes.*)
     let in_which_chromosome leftend rightend rangelst = 
         let idx = ref (-1) in
-        let reslst =
-        List.fold_left (fun acc (l,r) ->
+        List.fold_left (fun accset (l,r) ->
             idx := !idx + 1;
-            if leftend>=l && rightend<=r then !idx::acc
-            else if leftend<l && rightend>=l && rightend<=r then !idx::acc
-            else if leftend>=l && leftend<=r && rightend>r then !idx::acc
-            else acc
-        ) [] rangelst in
-        List.rev reslst;
+            if (leftend>=l && rightend<=r) || 
+            (leftend<l && rightend>=l && rightend<=r) ||
+            (leftend>=l && leftend<=r && rightend>r)  
+            then All_sets.Integers.add !idx accset 
+            else accset
+        ) All_sets.Integers.empty rangelst 
     in        
     let translocation,lcb2remove = List.fold_left (fun (trloc,lcb2rmv) ( code,(left,right),lcbkey ) ->
         if (List.length lcbkey)>0 then begin
-            let show_up_in1 = 
+            let show_up_in_seq1 =  
                 in_which_chromosome left right rangelst1 in
             let _,(l,r),_ = 
             try 
                 List.find (fun (_,(_,_),lk) -> (lk=lcbkey) ) (List.nth code_range_lstlst 1)
             with | Not_found -> failwith "could not find lcb in second code lst"
             in
-            let show_up_in2 = in_which_chromosome l r rangelst2 in
+            let show_up_in_seq2 = in_which_chromosome l r rangelst2 in
             if debug_median then begin
                 Printf.printf "lcb with code=%d,lcbkey=%!" code;
                 Utl.printIntArr (Array.of_list lcbkey); 
                 Printf.printf "in seq1 shows up in chrom:";
-                List.iter (Printf.printf " %d,") show_up_in1;
+                All_sets.Integers.iter (Printf.printf " %d,") show_up_in_seq1;
                 Printf.printf "; in seq2 shows up in chrom:";
-                List.iter (Printf.printf " %d,") show_up_in2;
+                All_sets.Integers.iter (Printf.printf " %d,") show_up_in_seq2;
                 print_newline();
             end;
-            List.fold_left (fun (acc,acclcb) chromNO ->
-                if (List.mem chromNO show_up_in2) then (acc,acclcb)
+            let uniset = All_sets.Integers.union show_up_in_seq2 show_up_in_seq1
+            and interset = All_sets.Integers.inter show_up_in_seq2 show_up_in_seq1
+            in
+            let uniset = All_sets.Integers.fold (fun chromNO accset ->
+                All_sets.Integers.remove chromNO accset
+            ) interset uniset in
+            All_sets.Integers.fold (fun crhomNO (acc,acclcb) ->
+                (*if (List.mem chromNO show_up_in_seq2) then (acc,acclcb)*)
+                if (All_sets.Integers.cardinal uniset)=0 then acc,acclcb
                 else acc+1,lcbkey::acclcb
-            ) (trloc,lcb2rmv) show_up_in1
+            ) show_up_in_seq1 (trloc,lcb2rmv) 
         end
         else trloc,lcb2rmv;
     ) (0,[]) (List.hd code_range_lstlst) in
