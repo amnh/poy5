@@ -35,7 +35,7 @@ val to_ori_arr : int array -> int array
  * It's like function [cmp_recost state seq1 seq2 reseq2 ...] when reseq2=seq2 
 * *)
 val cmp_recost_simple : int array -> int array ->
-  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> int
 
 
 (** [cmp_recost state seq1 seq2 reseq2 re_meth circular] returns
