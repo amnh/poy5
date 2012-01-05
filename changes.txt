@@ -4,6 +4,14 @@ New Features:
 
 
 Bugs Fixed:
+    - Fixed Makfile in src directory to perform the install, and removed the
+      Makefile/configuration in the root directory. These files were synonyms
+      for the ones the src directory and add no value to the compilation
+      process.
+    - Default for configuring with --enable-mpi is to set interface to flat.
+      This is a requirement that is oft forgotten and there is no reason why we
+      cannot facilitate that requirement. Setting interface to anything else
+      will over-write that choice.
 
 
 Feature Eliminated:

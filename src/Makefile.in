@@ -67,7 +67,7 @@ commands.pdf:
 
 all: poy.native
 
-install:
+install: poy.native
 	test -d $(prefix) || mkdir $(prefix)
 	test -d $(prefix)/bin || mkdir $(prefix)/bin
 	cp _build/poy.native _build/poy
