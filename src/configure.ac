@@ -454,13 +454,12 @@ case ${OS_INFORMATION} in
             [AC_CHECK_LIB([lapack],[main],
                 [USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood"; 
                  AC_MSG_RESULT([Found lapack and enabling Likelihood]); LIBS="-llapack -lblas $LFORTRAN $LIBS"],
-                #Cannot enable likelihood; check if this was enforced!
-                [if test $FORCE_LIKELIHOOD = "yes"; then
-                    AC_MSG_FAILURE( [Cannot find LAPACK routines to enable likelihood] )
-                 else
-                    AC_MSG_RESULT( [lapack not found; continuing without Likelihood] )
-                 fi])
-            ])
+                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood])])])
+
+        #if we cannot enable likelihood; check if this was forced!
+        if [(test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false")]; then
+            AC_MSG_FAILURE( [Cannot find LAPACK/FORTRAN routines to enable likelihood] )
+        fi
         ;;
 esac
 
