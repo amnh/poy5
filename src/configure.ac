@@ -336,7 +336,7 @@ if test "$USE_XSLT" = "true"; then
 fi
 
 
-AS_IF([test $USEPARALLEL = "true"],[$USEINTERFACE="flat"])
+AS_IF([test $USEPARALLEL = "true"],[USEINTERFACE="flat"])
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"],

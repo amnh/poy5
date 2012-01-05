@@ -3405,7 +3405,7 @@ fi
 
 
 if test $USEPARALLEL = "true"; then :
-  $USEINTERFACE="flat"
+  USEINTERFACE="flat"
 fi
 
 # Checking for libraries according to the user's options.
