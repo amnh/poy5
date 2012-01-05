@@ -55,10 +55,8 @@ val create_ls : int -> 'a -> 'a list
 val remove_nth : ?acc:'a list -> 'a list -> int -> 'a * 'a list
 val insert_arr : int array -> int array -> int -> int array
 val pairwisep : ('a -> 'a -> bool) -> 'a list -> bool
-val filterArr : 'a array -> ('a -> bool) -> 'a array
 val get_k_random_elem : 'a list -> int -> 'a list
 val isEqualArr : 'a array -> 'b array -> ('a -> 'b -> int) -> bool
-val filterArray : ('a -> bool) -> 'a array -> 'a array
 val break_array : 'a array -> (int * int) list -> 'a array list
 val max_arr : 'a array -> 'a
 val min_arr : 'a array -> 'a

@@ -78,7 +78,7 @@ let equal_content arr1 arr2 =
 
 (* [cmp_recost_simple seq1 seq2] is similar to [cmp_recost], except it only take
 * two sequence seq1 and seq2 as input, no 'reseq2' *)
-let cmp_recost_simple seq1 seq2 re_meth circular orientation =
+let cmp_recost_simple seq1 seq2 re_meth circular =
     let arr1, arr2 = Utl.get_common seq1 seq2 equal_orientation in 
     let res = 
         match re_meth with 
@@ -679,7 +679,7 @@ cost_matrix gapcode re_meth circular orientation  =
     let arr1, arr2 = to_ori_arr codem_matched_with_nongap,
     to_ori_arr codem_arr in
     let recost =  
-        cmp_recost_simple arr1 arr2 re_meth circular orientation in
+        cmp_recost_simple arr1 arr2 re_meth circular in
     let editingcost = matched_cost in
     let alied_code1,alied_codem = 
         Array.of_list alied_code1_lst, Array.of_list alied_codem_lst in

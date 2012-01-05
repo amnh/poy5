@@ -5305,20 +5305,18 @@ if test "x$ac_cv_lib_lapack_main" = xyes; then :
                  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Found lapack and enabling Likelihood" >&5
 $as_echo "Found lapack and enabling Likelihood" >&6; }; LIBS="-llapack -lblas $LFORTRAN $LIBS"
 else
-  #Cannot enable likelihood; check if this was enforced!
-                if test $FORCE_LIKELIHOOD = "yes"; then
-                    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: lapack not found; continuing without Likelihood" >&5
+$as_echo "lapack not found; continuing without Likelihood" >&6; }
+fi
+
+fi
+        #if we cannot enable likelihood; check if this was forced!
+        if (test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false"); then
+            { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Cannot find LAPACK routines to enable likelihood
+as_fn_error $? "Cannot find LAPACK/FORTRAN routines to enable likelihood
 See \`config.log' for more details" "$LINENO" 5; }
-                 else
-                    { $as_echo "$as_me:${as_lineno-$LINENO}: result: lapack not found; continuing without Likelihood " >&5
-$as_echo "lapack not found; continuing without Likelihood " >&6; }
-                 fi
-fi
-
-
-fi
+        fi
         ;;
 esac
 
