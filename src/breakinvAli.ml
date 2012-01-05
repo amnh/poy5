@@ -363,7 +363,7 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
             ali_pam.circular orientation 
         in
         let re_seq2 =
-            Utl.filterArr (Sequence.to_array alied_gen_seq2) (fun code2 -> code2 != Alphabet.get_gap alpha)
+            Array_ops.filter (fun code2 -> code2 != Alphabet.get_gap alpha) (Sequence.to_array alied_gen_seq2)
         in     
         let all_order_ls =  [(re_seq2, recost1, recost2)]  in 
         let med_ls = List.fold_left 

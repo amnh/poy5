@@ -835,9 +835,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
         Array.iter (Printf.printf "%d ") alied_code2_arr;
         print_newline();
    *)
-        let re_code2_arr = Utl.filterArr alied_code2_arr  
-            (fun code2 -> code2 != gen_gap_code)  
-        in 
+        let re_code2_arr = Array_ops.filter (fun code2 -> code2 != gen_gap_code) alied_code2_arr in 
         (*
         Printf.printf "re_code2_arr = \n" ;
         Array.iter (Printf.printf "%d ") re_code2_arr;

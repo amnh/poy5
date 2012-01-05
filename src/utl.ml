@@ -255,11 +255,6 @@ let rec pairwisep p list = match list with
           else false
     | [] -> true
 
-
-let filterArr arr f = 
-    Array.of_list ( List.filter f  (Array.to_list arr) )
-
-
 (** Given a list [elem_ls] and an integer number [k],
     this function return a list of [k] elements chosen
     randomly from the list [elem_ls] *)
@@ -310,10 +305,6 @@ let isEqualArr arr1 arr2 cmp_fun =
         check 0
     end 
         
-let filterArray fil_fun arr = 
-    Array.of_list (List.filter fil_fun (Array.to_list arr))
-
-
 (** Given an array [arr] and a list [break_ls] : (int * int) list,
     this function returns a list of segments which are broken arcording to the
     [break_ls] *)

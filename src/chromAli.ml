@@ -737,7 +737,7 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam
                 outputtofile old_cost
         in
         let alied_gen_seq2 = Array.of_list alied_code2_lst in
-        let re_gen_seq2 = Utl.filterArray 
+        let re_gen_seq2 = Array_ops.filter 
         (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
         let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
         let all_order_ls = 
@@ -766,7 +766,7 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam
             alied_gen_seq2, total_cost, (_, recost)  = 
             AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam 
         in
-        let re_gen_seq2 = Utl.filterArray 
+        let re_gen_seq2 = Array_ops.filter 
         (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
         let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
         let all_order_ls = 
