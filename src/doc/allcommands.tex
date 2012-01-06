@@ -119,48 +119,42 @@
         \argumentdefinition{optimize:(model:([options]),branch:([options]))}{}
             {Specifies when we optimize the likelihood model and how we optimize
             the branches. These options are also available in the
-            \poycommand{fuse()} and \poycommand{swap()} commands.
+            \poycommand{fuse()} and \poycommand{swap()} commands. In all cases a
+            complete round of optimization will occur after the completion of a
+            build.
 
             \begin{description}
 
                 \argumentdefinition{model:(never)}{}
-                    {Do not optimize the model during the build. After the build a
-                    round of optimizations will occur.}
-                    {modelnever}
+                    {Do not optimize the model during the build.}
+                    {buildmodelnever}
 
                 \argumentdefinition{model:(always)}{}
-                    {Optimize the model after every join.}
-                    {modelalways}
-
-                \argumentdefinition{model:(threshold:FLOAT)}{}
-                    {Optimize the model if the cost of the current models join is
-                    better by \poyargument{FLOAT} times the current best cost.}
-                    {modelthreshold}
+                    {Optimize the model after every additional taxa is added (default).}
+                    {buildmodelalways}
 
                 \argumentdefinition{model:(max\_count:INT)}{}
-                    {Optimize the model after INT joins. This can be useful during
-                    the build process where we do improve the model, but where after
-                    every join it can be time consuming.}
-                    {maxcount}
+                    {Optimize the model after every INT taxa are added to the tree.}
+                    {buildmaxcount}
                     
                 \argumentdefinition{branch:(never)}{}
                     {Do not optimize the branches during the build process. We use
-                    an estimate based on the proportion of sites that transform.
-                    There is a final round of optimization after building.}
-                    {branchnever}
+                    an estimate based on the proportion of sites that transform.}
+                    {buildbranchnever}
 
                 \argumentdefinition{branch:(all\_branches)}{}
-                    {Optimize all branch lengths on each join.}
-                    {allbranches}
+                    {Optimize all branch lengths after each taxa is added (default).}
+                    {buildallbranches}
 
                 \argumentdefinition{branch:(join\_region)}{}
-                    {Optimize a maximum of five branches; the new edge, and the two
-                    edges on either side.}
-                    {joinregion}
+                    {Optimize a maximum of three branches; the edge connecting
+                    the new taxa to the tree, and the two sides of that joined
+                    edge.}
+                    {buildjoinregion}
 
             \end{description}
             }
-            {optimize}
+            {buildoptimize}
 
    \end{arguments}
       
@@ -589,51 +583,40 @@
             {}
 
         \argumentdefinition{optimize:(model:([options]),branch:([options]))}{}
-            {Specifies the likelihood model and how the branches are optimized. 
-            These options are also available in the
-            \poycommand{build()} and \poycommand{swap()} commands.
+            {Specifies when the likelihood model and how the branches are
+            optimized during the fuse routine. These options are also available
+            in the \poycommand{build()} and \poycommand{swap()} commands. In all
+            cases a complete round of optimization will occur after the
+            completion of a build.
 
             \begin{description}
 
                 \argumentdefinition{model:(never)}{}
-                    {Do not optimize the model during the build. After the build a
-                    round of optimizations will occur.}
-                    {modelnever}
+                    {Do not optimize the model during the fuse.}
+                    {fusemodelnever}
 
                 \argumentdefinition{model:(always)}{}
-                    {Optimize the model after every join.}
-                    {modelalways}
+                    {Optimize the model after every join (default).}
+                    {fusemodelalways}
 
-                \argumentdefinition{model:(threshold:FLOAT)}{}
-                    {Optimize the model if the cost of the current models join is
-                    better by \poyargument{FLOAT} times the current best cost.}
-                    {modelthreshold}
-
-                \argumentdefinition{model:(max\_count:INT)}{}
-                    {Optimize the model after INT joins. This can be useful during
-                    the build process where the model is  improved, but  after which,
-                    every join  can be time consuming.}
-                    {maxcount}
-                    
                 \argumentdefinition{branch:(never)}{}
-                    {Do not optimize the branches during the build process. Estimates are made
-                    based on the proportion of sites that undergo a transformation.
-                    There is a final round of optimization after building.}
-                    {branchnever}
+                    {Do not optimize the branches during the fuse process.
+                    Estimates are made based on the proportion of sites that
+                    would undergo a transformation.}
+                    {fusebranchnever}
 
                 \argumentdefinition{branch:(all\_branches)}{}
                     {Optimize all branch lengths on each join.}
-                    {allbranches}
+                    {fuseallbranches}
 
                 \argumentdefinition{branch:(join\_region)}{}
                     {Optimize a maximum of five branches; the new edge, and the two
                     edges on either side.}
-                    {joinregion}
+                    {fusejoinregion}
 
             \end{description}
             }
-            {optimize}
-
+            {fuseoptimize}
 
     \end{arguments}
     
@@ -1179,13 +1162,17 @@
             row correspond to a gap. It is important that the cost matrix must be symmetrical. An example 
             of a valid custom alphabet input file is provided below:
        	  
-	  \texttt{alpha beta gamma delta \\
-            0 2 1 2 5 \\
-            2 0 2 1 5 \\
-            1 2 0 2 5 \\
-            2 1 2 0 5 \\
-            5 5 5 5 0}
-            
+            \begin{equation*}
+                \begin{array}{lllll}
+                      & alpha & beta & gamma & delta \\
+                    0 &     2 &    1 &     2 &     5 \\
+                    2 &     0 &    2 &     1 &     5 \\
+                    1 &     2 &    0 &     2 &     5 \\
+                    2 &     1 &    2 &     0 &     5 \\
+                    5 &     5 &    5 &     5 &     0
+                 \end{array}
+            \end{equation*} 
+
            In this example, the cost of transformation of \texttt{alpha} into \texttt{beta} is \texttt{2},
            and cost of a deletion or insertion of any of the four elements costs \texttt{5}.
            
@@ -2774,51 +2761,54 @@
 
 	\begin{arguments}
 
-	    \begin{argumentgroup}{Likelihood Optimization}
-            {Specifies when we optimize the likelihood model and how we optimize
-            the branches furing a swap. \poycommand{fuse()} and \poycommand{build()} commands.}
-            \argumentdefinition{optimize:(model:([options]),branch:([options]))}
-            For a sample scripts using likelihood optimization see tutorials \texttt{5.10} and \texttt{5.11}.
-            {}
-                {\begin{description}
+        \begin{argumentgroup}{Likelihood Optimization}
+            {Specifies when the likelihood model and how the branches of the
+            tree are optimized during the swap routine. These options are also
+            available in the \poycommand{build()} and \poycommand{fuse()}
+            commands. In all cases a complete round of optimization will occur
+            after the completion of a build.}
+
+            \argumentdefinition{optimize:(model:([options]),branch:([options]))}{}
+                {
+                \begin{description}
 
                     \argumentdefinition{model:(never)}{}
-                        {Do not optimize the model during the build. After the build a
-                        round of optimizations will occur.}
-                        {modelnever}
+                        {Do not optimize the model during the swap.}
+                        {swapmodelnever}
 
                     \argumentdefinition{model:(always)}{}
-                        {Optimize the model after every join.}
-                        {modelalways}
+                        {Optimize the model after every swap (default).}
+                        {swapmodelalways}
 
                     \argumentdefinition{model:(threshold:FLOAT)}{}
-                        {Optimize the model if the cost of the current models join is
-                        better by \poyargument{FLOAT} times the current best cost.}
-                        {modelthreshold}
+                        {Optimize the model if the cost of the join under the
+                        current model is within \poyargument{FLOAT} times the
+                        current best cost.}
+                        {swapmodelthreshold}
 
-                    \argumentdefinition{model:(max\_count:INT)}{}
-                        {Optimize the model after INT joins. This can be useful during
-                        the build process where we do improve the model, but where after
-                        every join it can be time consuming.}
-                        {maxcount}
-                        
                     \argumentdefinition{branch:(never)}{}
-                        {Do not optimize the branches during the build process. We use
-                        an estimate based on the proportion of sites that transform.
-                        There is a final round of optimization after building.}
-                        {branchnever}
+                        {Do not optimize the branches during the swap process.
+                        Estimates are made based on the proportion of sites that
+                        would undergo a transformation.}
+                        {swapbranchnever}
 
                     \argumentdefinition{branch:(all\_branches)}{}
-                        {Optimize all branch lengths on each join.}
-                        {allbranches}
+                        {Optimize all branch lengths on each join (default).}
+                        {swapallbranches}
 
                     \argumentdefinition{branch:(join\_region)}{}
                         {Optimize a maximum of five branches; the new edge, and the two
                         edges on either side.}
-                        {joinregion}
+                        {swapjoinregion}
+
+                    \argumentdefinition{branch:(join\_delta)}{}
+                        {Optimize the branches along the path from the break to the
+                        new join location.}
+                        {swapjoindelta}
 
                 \end{description} }
-                {optimize}
+                {swapoptimize}
+
         \end{argumentgroup}
 
 	    \begin{argumentgroup}{Neighborhood}
@@ -3330,19 +3320,22 @@
             The costs must be symmetrical (that is, the
             cost of the A to T substitution is equal to the cost of T to A
             substitution). For example:
-	        \begin{center}
-            \texttt{0 2 1 2 4 \\
-            2 0 2 1 4 \\
-            1 2 0 2 4 \\
-            2 1 2 0 4 \\
-            4 4 4 4 0} 
-            \end{center}
+
+            \begin{equation*}
+                \begin{array}{lllll}
+                    0 &     2 &    1 &     2 &     4 \\
+                    2 &     0 &    2 &     1 &     4 \\
+                    1 &     2 &    0 &     2 &     4 \\
+                    2 &     1 &    2 &     0 &     4 \\
+                    4 &     4 &    4 &     4 &     0
+                 \end{array}
+            \end{equation*} 
+
             The integer argument specifies the heuristic level in median sequence calculation.  
             This determines the number of possible states stored at each median sequence position.  
             For nucleotide data, all possibilities are stored.  The default for amino acid sequences is $1$
             and for \texttt{custom\_alphabet} characters it is $2$.  Storage and set up time increase combinatorially with
-            level number. 
-            }
+            level number.}
             {transformtcmmatrix}
 
                     \argumentdefinition{trailing\_insertion}{\obligatory{\poystring /(\poyint list)}}
@@ -3424,15 +3417,16 @@
                 POY requires a model of character substitution to be specified
                 during the transformation to likelihood characters.
 
-                Parameters can be specified by following the model name with a
-                colon, left parenthesis, and a list of numbers for the
-                particular model, followed by a closing parenthesis, (\emph{i.e.},
-                k2p:(2.0) )
+                Specific parameters for diagnosis can be specified by following
+                the model name with a colon, left parenthesis, and a list of
+                numbers for the particular model, followed by a closing
+                parenthesis, (\emph{i.e.}, k2p:(2.0) )
 
                 \begin{statement}
                     All matrices are normalized so the mean rate is one. This
                     allows branch lengths to represent the expected number of
-                    transformations averaged over the sequence length.
+                    transformations averaged over the sequence length. This is
+                    standard in most (if not all) likelihood programs.
                 \end{statement}
 
                 \begin{description}
@@ -3475,7 +3469,7 @@
 
                     \argumentdefinition{tn93}{}
                         {The model of Tamura and Nei \cite{tamura1993}. Three
-                        rate classes: transversions (purine / pyrimidine), and
+                        rate classes: transversions (purine/pyrimidine), and
                         independent classes for purine-purine and
                         pyrimidine-pyrimidine transitions. Rates are also
                         proportional to equilibrium frequencies.}
@@ -3493,24 +3487,59 @@
 
                     \argumentdefinition{file}{}
                         {An external file containing a matrix of estimated rate
-                        values.}
+                        values. The diagonal values are ignored and may take any
+                        value. As mentioned above, the rates of the matrix are
+                        normalized. The model is not optimized further. For example:
+ 
+                        \begin{equation*}
+                            \begin{array}{ccccc}
+                                0.0 & 2.0 & 1.0 & 2.0 & 4.0 \\
+                                2.0 & 0.0 & 0.0 & 1.0 & 4.0 \\
+                                1.0 & 2.0 & 0.0 & 2.0 & 4.0 \\
+                                2.0 & 1.0 & 2.0 & 0.0 & 4.0 \\
+                                4.0 & 4.0 & 4.0 & 4.0 & 0.0
+                             \end{array}
+                        \end{equation*} 
+
+                        Will be normalized so that the mean-rate is 1 and so
+                        that the rows sum to 0.0 to become (with equal base
+                        priors),
+
+                        \begin{equation*}
+                            \begin{array}{rrrrr}
+                                -0.865 &  0.192 &  0.096 &  0.192 &  0.384 \\
+                                 0.192 & -0.865 &  0.192 &  0.096 &  0.384 \\
+                                 0.096 &  0.192 & -0.865 &  0.192 &  0.384 \\
+                                 0.192 &  0.096 &  0.192 & -0.865 &  0.384 \\
+                                 0.384 &  0.384 &  0.384 &  0.384 & -1.538
+                             \end{array}
+                        \end{equation*} }
                         {file}
 
                     \argumentdefinition{custom}{}
                         {An external file in which the rate class constraints of
-                        the Q-matrix are specified. Dominant diagonal entries of
-                        this Q-matrix are constrained so as to sum rows and
-                        columns to zero.  A dash (`-') may be used as a
-                        placeholder in the custom Q-matrix, and entries
-                        constrained to be equal must be specified as letters
-                        (a,b,c,...) or numbers (0,1,2,...). The matrix must be
-                        symmetric. Base frequencies are multiplied through. Note
-                        that the structure of a custom matrix can be arbitrary
-                        and need not be equal to any of the above named models.
-                        Huelsenbeck \emph{et al} \cite{huelsenbeck2004bayesian} note that many of the
-                        unnamed variants of the 203 possible GTR submodels
-                        outperform the named models examined in commonly-used
-                        model selection programs.}
+                        the Q-matrix are specified. As previously mentioned
+                        diagonal elements are normalized and any character can
+                        be used as a placeholder (below we use a dash, `-'). Any
+                        ASCII character can be used to define an associated
+                        rate, but the matrix must be symmetric. For example, the
+                        following matrix will create a model where two
+                        parameters are ultimately optimized,
+
+                        \begin{equation*}
+                            \begin{array}{ccccc}
+                                - & a & c & d & e \\
+                                a & - & c & d & e \\
+                                c & c & - & d & e \\
+                                d & d & d & - & e \\
+                                e & e & e & e & -
+                             \end{array}
+                        \end{equation*}
+
+                        Huelsenbeck \emph{et al} \cite{huelsenbeck2004bayesian}
+                        note that many of the unnamed variants of the 203
+                        possible GTR submodels outperform the named models
+                        examined in commonly-used model selection programs.}
                         {custom}
 
                 \end{description}}

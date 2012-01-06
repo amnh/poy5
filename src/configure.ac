@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.60])
-AC_INIT([POY 4],[see VERSION],[poy4@googlegroups.com])
+AC_INIT([POY],[see VERSION],[poy4@googlegroups.com])
 AC_CONFIG_SRCDIR([add.c])
 AC_CONFIG_HEADERS([config.h])
 
@@ -82,7 +82,9 @@ AC_SUBST(CC_NOASNEEDED)
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
+
 USE_LIKELIHOOD="true"
+FORCE_LIKELIHOOD="no"
 
 # Set the default; OSX adds usr later to avoid conflict with sysroot/isysroot
 case ${OS_INFORMATION} in
@@ -140,7 +142,11 @@ AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--disable-likelihood],
               [Disable the use of static and dynamic likelihood functions. We
                will automatically detect and enable likelihood if we can --we
                require lapack routines to be installed.])],
-                [USE_LIKELIHOOD="false"])
+               [if test x"$enableval" = x"no"; then
+                    FORCE_LIKELIHOOD="no"; USE_LIKELIHOOD="false"
+                else
+                    FORCE_LIKELIHOOD="yes"
+                fi])
 
 #AC_ARG_ENABLE([concorde], [AS_HELP_STRING([--enable-concorde],
 #              [Enable the use of "CHLINKERN" and "GREEDYLK" tsp median solver. This
@@ -330,7 +336,7 @@ if test "$USE_XSLT" = "true"; then
 fi
 
 
-AS_IF([test $USEPARALLEL = "true"],[$USEINTERFACE="flat"])
+AS_IF([test $USEPARALLEL = "true"],[USEINTERFACE="flat"])
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"],
@@ -436,7 +442,7 @@ case ${OS_INFORMATION} in
         ;;
     *)
         AS_IF([test $USE_LIKELIHOOD = "false"],
-            [AC_MSG_RESULT([Not enabling Likelihood])],
+            [],
             [AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
                 AC_CHECK_LIB(g2c,main,LFORTRAN="-lg2c",
                   AC_CHECK_LIB(f2c,main,LFORTRAN="-lf2c",
@@ -448,8 +454,12 @@ case ${OS_INFORMATION} in
             [AC_CHECK_LIB([lapack],[main],
                 [USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood"; 
                  AC_MSG_RESULT([Found lapack and enabling Likelihood]); LIBS="-llapack -lblas $LFORTRAN $LIBS"],
-                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood] )])
-            ])
+                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood])])])
+
+        #if we cannot enable likelihood; check if this was forced!
+        if [(test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false")]; then
+            AC_MSG_FAILURE( [Cannot find LAPACK/FORTRAN routines to enable likelihood] )
+        fi
         ;;
 esac
 
