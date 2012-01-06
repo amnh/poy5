@@ -28,6 +28,7 @@ module IntSet :
     val split : elt -> t -> t * bool * t
   end
 val large_int : int
+val break_code : int -> int array
 val max_seq_len : int
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
 val gen_chrom_ref_code : int ref
@@ -50,7 +51,9 @@ val get_common3 :
 val insert : 'a array -> int -> 'a -> 'a array
 val swap_item : int -> int -> 'a array -> 'a array
 val printIntArr : int array -> unit
+val printIntArrWithIdx : int array -> unit
 val printIntMat : int array array -> unit
+val printIntMatWithIdx : int array array -> unit
 val create_ls : int -> 'a -> 'a list
 val remove_nth : ?acc:'a list -> 'a list -> int -> 'a * 'a list
 val insert_arr : int array -> int array -> int -> int array

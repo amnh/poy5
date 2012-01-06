@@ -111,6 +111,13 @@ val find_comb : int list -> a -> int
 (** Find  the specified complement of the element in the alphabet. If no
     complement is specified, return None. *)
 val complement : int -> a -> int option
+(** complement2 are the same as complement, just the result cannot be NONE*)
+val complement2 : int -> a -> int 
+
+(** rev_comp_lst just give us the complement seq, not reverse, use List.rev to do that *)
+val rev_comp_lst : int list -> a -> int list
+(** rev_comp_arr give us the reverse complement of seqarr *)
+val rev_comp_arr : int array -> a -> int array
 
 (** [rnd a] creates a function that generates random elements in the alphabet [a] *)
 val rnd : a -> (unit -> int)

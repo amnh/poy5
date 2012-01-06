@@ -304,8 +304,6 @@ let is_aminoacids alph =
     if ( alph.code_to_string = aminoacids.code_to_string ) then true
     else false
 
-
-
 let find_codelist comb alpha=
     try
         All_sets.IntegerMap.find comb alpha.comb_to_list 
@@ -879,6 +877,32 @@ let complement c alph =
     with | Not_found ->
         Printf.printf  "cannot find complement of %d in alphabet" c;
         assert(false)
+
+let complement2 c alph =
+    let res = 
+    try 
+    All_sets.IntegerMap.find c alph.complement
+    with | Not_found ->
+        Printf.printf  "cannot find complement of %d in alphabet" c;
+        assert(false)
+    in
+     match res with 
+    | Some y -> y
+    | None -> failwith "we are not expecting NONE complement"
+
+
+(*NOTE: rev_comp_lst just give us the complement seq, not reverse, use List.rev to do that*)
+let rev_comp_lst seqlst alph =
+    List.map (fun x ->  
+        complement2 x alph 
+    ) seqlst
+
+(*rev_comp_arr give us the reverse complement of seqarr*)
+let rev_comp_arr seqarr alph = 
+    let size = Array.length seqarr in
+    Array.mapi (fun idx x -> 
+        complement2 seqarr.(size-idx-1) alph         ) seqarr
+
 
 let of_file fn orientation init3D level respect_case =
     let file = FileStream.Pervasives.open_in fn in

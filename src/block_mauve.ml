@@ -23,7 +23,10 @@ let () = SadmanOutput.register "Block_mauve" "$Revision: 1553 $"
 (* W = weight, R = ratio *)
 
 open Printf
+open Block_mauve_seed
 let printIntArr = Utl.printIntArr
+let printIntMatWithIdx = Utl.printIntMatWithIdx
+let printIntMat = Utl.printIntMatWithIdx
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 (*now we have 3 different function for removing bad lcbs: greedy,
@@ -42,99 +45,6 @@ let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
 let debug_search_outside = false
 let skip_huge_nonlcb_block = true
-
-(*this is a cost matrix between ATGC and ATGC. default matrix used by Mauve *)
-let hodx_matrix = [| 
-           (*A*) (*C*) (*G*) (*T*) 
-  (*A*)  [|  91; -114;  -31; -123|];
-  (*C*)  [|-114;  100; -125;  -31|];
-  (*G*)  [| -31; -125;  100; -114|];
-  (*T*)  [|-123;  -31; -114;   91|];
-
-|]
-
-(*transform poy cost matrix into hodx_matrix in mauve*)
-let fill_in_hmatrix cost_mat = 
-    let debug = false in
-    let ac = Cost_matrix.Two_D.cost 1 2 cost_mat in
-    let ag = Cost_matrix.Two_D.cost 1 4 cost_mat in
-    let at = Cost_matrix.Two_D.cost 1 8 cost_mat in
-    let cg = Cost_matrix.Two_D.cost 2 4 cost_mat in
-    let ct = Cost_matrix.Two_D.cost 2 8 cost_mat in
-    let gt = Cost_matrix.Two_D.cost 4 8 cost_mat in
-    let aa = hodx_matrix.(0).(0) 
-    and cc = hodx_matrix.(1).(1)
-    and gg = hodx_matrix.(2).(2)
-    and tt = hodx_matrix.(3).(3) in
-    let r = (float_of_int ((aa+cc+gg+tt)*6)) /. 
-    (float_of_int (4*(ac+ag+at+cg+ct+gt))) in
-    let ac = int_of_float ((float_of_int ac) *. r) in
-    let ag = int_of_float ((float_of_int ag) *. r) in
-    let at = int_of_float ((float_of_int at) *. r) in
-    let cg = int_of_float ((float_of_int cg) *. r) in
-    let ct = int_of_float ((float_of_int ct) *. r) in
-    let gt = int_of_float ((float_of_int gt) *. r) in
-    hodx_matrix.(0).(1) <- -ac;
-    hodx_matrix.(1).(0) <- -ac;
-    hodx_matrix.(0).(2) <- -ag;
-    hodx_matrix.(2).(0) <- -ag;
-    hodx_matrix.(0).(3) <- -at;
-    hodx_matrix.(3).(0) <- -at;
-    hodx_matrix.(1).(2) <- -cg;
-    hodx_matrix.(2).(1) <- -cg;
-    hodx_matrix.(1).(3) <- -ct;
-    hodx_matrix.(3).(1) <- -ct;
-    hodx_matrix.(3).(2) <- -gt;
-    hodx_matrix.(2).(3) <- -gt;
-    if debug then
-        Utl.printIntMat hodx_matrix
-
-
-
-let palindromic_spaced_seed_tbl =
-    let res = Hashtbl.create 15 in
-    let seed5 = [ [1;2;4;6;7];
-        [1;4;5;6;9];
-        [1;2;5;8;9]; ] in
-    Hashtbl.add res 5 seed5;
-    Hashtbl.add res 7
-    [
-        [1;2;5;7;9;12;13];
-        [1;3;4;8;12;13;15];
-        [1;2;4;8;12;14;15];
-    ];
-    Hashtbl.add res 9
-    [
-        [1;2;3;5;8;11;13;14;15];
-        [1;2;3;6;9;12;15;16;17];
-        [1;2;3;6;8;10;13;14;15];
-    ];
-    Hashtbl.add res 11
-    [
-        [1;2;3;5;7;10;13;15;17;18;19];
-        [1;2;3;6;9;11;13;16;19;20;21];
-        [1;2;3;4;7;9;11;14;15;16;17];
-    ];
-    Hashtbl.add res 13
-    [
-        [1;2;3;5;7;8;11;14;15;17;19;20;21];
-        [1;2;3;5;8;9;11;13;14;17;19;20;21];
-        (* 1111**1**1*1*1**1**1111 this one sucks *)
-    ];
-    Hashtbl.add res 15
-    [
-        [1;2;3;4;6;8;9;12;15;16;18;20;21;22;23]
-    ];
-    Hashtbl.add res 19
-    [
-        [1;2;3;4;6;7;9;10;11;13;15;16;17;19;20;22;23;24;25]
-    ];
-    Hashtbl.add res 21
-    [
-        [1;2;3;4;5;7;8;9;11;12;14;16;17;19;20;21;23;24;25;26;27]
-    ];
-    (*add 15 19 21 later*)
-    res
 
 type m_i = {  (* the ith element M_i of a local mum *)
     sequence_NO : int ; (*which sequence is this m_i in *)
@@ -239,7 +149,6 @@ let minimum_lcb_weight = 2
 let init_tb_size = 50
 let init_seed_size = 50
 let max_gap_num = 0  (*the w *)
-let seedNO_available_arr = ref (Array.make init_seed_size 1)
 
 (** some operation on int/int list/int array/etc.. we gonna need *)
 let to_ori_code code =
@@ -273,20 +182,6 @@ let get_avg_of_floatlst in_lst =
     ) in_lst;
     (!acc) /.(float (List.length in_lst))
 
-(*[get_proper_seedlen inlen] return the proper seedlen.
-* seedlen is the key to palindromic_spaced_seed_tbl, 
-* seedlen cannot be bigger than 21 , or smaller than 5. 
-* we only have entry for odd number, because even length of palidromic bring us
-* problems, check out A.D.'s paper "Procrastination leads to efficient
-* filtration for local multiple alignment".
-* also, there is no entry for 17.*)
-let get_proper_seedlen avg_seqlen =
-    let seedlen = int_of_float ( ceil (log (avg_seqlen))) in
-    let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
-    let seedlen = if (seedlen<5) then 5 else seedlen in
-    let seedlen = if (seedlen=17) then 19 else seedlen in
-    let seedlen = if (seedlen>21) then 21 else seedlen in
-    seedlen
 
 (*if lcb cover ratio is too small, we may need to align super big chunk of
 * sequences after mauve, user might want to adjust pameter like 
@@ -373,7 +268,7 @@ let print_int_list3 inlist =
 
 let print_int_lstlst3 inlstlst =
     List.iter (fun lst -> print_int_list3 lst) inlstlst
-
+(*
 let print_int_arr2 arr = 
     Array.iteri (fun idx item -> Printf.printf "[%d]:%d,%!"  idx item) arr;
     Printf.printf "\n%!"
@@ -387,9 +282,9 @@ let print_int_arr arr =
 
 let print_int_matrix m =
     Array.iter (fun arr ->
-            print_int_arr2 arr ;
+            printIntArr2 arr ;
     ) m
-
+*)
 let print_pos_list in_lst = 
     List.iter (fun pos ->
         Printf.printf 
@@ -429,7 +324,7 @@ let print_mum print_neighborhood print_unextendable in_mum =
         Printf.printf "MUM#%d\n%!" in_mum.seedNO;
         Printf.printf " mumkey : %d\n%!" in_mum.mumkey;
         Printf.printf " mumseq = %!";
-        print_int_arr in_mum.mumseq; 
+        printIntArr in_mum.mumseq; 
         Printf.printf " size: %d ,\n" in_mum.size;
         Printf.printf " subsuming_pointer(is subsumed by) = %d ,%!" in_mum.subsuming_pointer;
         Printf.printf " extendable = %d \n%!" in_mum.extendable;
@@ -527,9 +422,9 @@ let get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl =
         let _,seedseq1,w1 = Hashtbl.find seed2pos_tbl seedNO 
         and _,seedseq2,w2 = Hashtbl.find seed2pos_tbl res.seedNO in
         Printf.printf "seed1=%d,w=%d,%!" seedNO w1;
-        print_int_arr seedseq1;
+        printIntArr seedseq1;
         Printf.printf "; seed2=%d,w=%d,%!" res.seedNO w2;
-        print_int_arr seedseq2;
+        printIntArr seedseq2;
         Printf.printf "\n%!";
         assert(false);
     end;
@@ -623,33 +518,6 @@ let get_cons_id in_seq_size_lst num_of_mums =
     ) in_seq_size_lst;
     !acc *. (float num_of_mums) /. (float (List.length in_seq_size_lst))
 
-let expand_arr add_len = 
-    let add_arr = Array.make add_len 1 in
-    let add_lst = Array.to_list add_arr in
-    let ori_lst = Array.to_list !seedNO_available_arr in
-    let new_lst = ori_lst@add_lst in
-    seedNO_available_arr := Array.of_list new_lst
-
-let return_a_seedNO idx =
-    let seedNO_arr = !seedNO_available_arr in
-    seedNO_arr.(idx)<-1;
-    seedNO_available_arr := seedNO_arr
-
-let get_a_seedNO () = 
-    let found = ref (-1) in
-    let idx = ref 1 in
-    let seedNO_arr = !seedNO_available_arr in
-    let arrlen = Array.length seedNO_arr in
-    while (!found=(-1))&&(!idx<arrlen) do
-        if (seedNO_arr.(!idx)=1) then begin 
-            found := !idx;
-            seedNO_arr.(!idx)<-0;
-            seedNO_available_arr := seedNO_arr; 
-        end;
-        idx := !idx +1;
-    done;
-    if (!found = (arrlen-1)) then expand_arr init_seed_size;
-    !found
      
 let print_seedNO2seq_tbl in_tbl = 
     Hashtbl.iter (fun key record ->
@@ -743,37 +611,7 @@ let get_abs_lst in_lst =
     List.sort (fun x y -> compare x y) (List.map (fun x -> abs x) in_lst)
 
 let get_neg_rev_intlst in_lst =
-    List.rev (List.map (fun x -> -x ) in_lst)
-
-let break_code in_code =
-    let resarr = Array.make 4 0 in
-    let tmp_code = ref in_code in
-    for i = 3 downto 0 do
-        let base = int_of_float ( 2. ** (float_of_int i) )  in
-        if (!tmp_code >= base) then begin
-            resarr.(i)<-1;
-            tmp_code := !tmp_code - base;
-        end;
-    done;
-    assert( !tmp_code=0);
-    resarr
-    
-
-let rev_comp_chr x pos = 
-    match (Alphabet.complement x Alphabet.nucleotides) with 
-    | Some res -> res
-    | None -> failwith "cannot find complement, block_mauve.ml"
-
-(*NOTE: rev_comp_lst just give us the complement seq, not reverse, use List.rev to do that*)
-let rev_comp_lst seqlst =
-    List.map (fun x ->  rev_comp_chr x (-1)
-    ) seqlst
-
-(*rev_comp_arr give us the reverse complement of seqarr*)
-let rev_comp_arr seqarr = 
-    let size = Array.length seqarr in
-    Array.mapi (fun idx x -> rev_comp_chr seqarr.(size-idx-1) (size-idx-1)) seqarr
-
+    List.rev (List.map (fun x -> -x ) in_lst)    
 
 (* subsumed related function start *)
 let is_subsumed_by j_seed i_seed mum_tbl seed2pos_tbl =
@@ -1264,132 +1102,11 @@ let update_seed2pos_tbl seedNO new_pos_set new_mumseq seed2pos_tbl =
 let intlst2int inlst =
     List.fold_left (fun acc x -> acc*10+x ) 0 inlst
 
-let radix_sort inarr =
-    let max_size = 15 in
-    let debug = false in
-    let get_idx x = x-1  in
-    let size_digits = 
-        let _,_,_,first_seq,_ = inarr.(0) in
-        Array.length first_seq in
-    if debug then Printf.printf "digits size is %d\n%!" size_digits;
-    let sort_by_digit inarr digit =
-       (*List.sort (fun (_,_,_,lst1) (_,_,_,lst2) ->
-            compare (List.nth lst1 digit) (List.nth lst2 digit)
-        )inlst*)
-       if debug then Printf.printf "sort by digit %d\n%!" digit;
-        let count_arr = Array.make max_size 0 in
-        Array.iteri (fun i (seqNO,pos,dir,subseq,_) ->
-            let x = subseq.(digit) in
-            let idx = get_idx x in
-            assert((idx>=0)&&(idx<15)); (*chr not in [1,2,4,8]*)
-            count_arr.(idx) <- count_arr.(idx)+1; 
-            inarr.(i)<-(seqNO,pos,dir,subseq,idx);
-        ) inarr;
-        let index = ref 0 in
-        let full_count_arr = Array.make max_size (0,0,0) in
-        let _ = Array.fold_left ( fun pre_count count ->
-            full_count_arr.(!index) <- (count,0,pre_count); 
-            index := !index +1;
-            count+pre_count
-        ) 0 count_arr in
-        let sorted_inarr = Array.make (Array.length inarr) (0,0,0,[||],0) in
-        Array.iteri (fun i (seqNO,pos,dir,arr,idx) ->
-            let total_num,hit_num,bigger_than = full_count_arr.(idx) in
-            assert(hit_num<total_num);
-            let index2 = bigger_than + hit_num in
-            sorted_inarr.(index2)<-(seqNO,pos,dir,arr,idx);
-            full_count_arr.(idx) <- (total_num,hit_num+1,bigger_than);
-        )inarr;
-        sorted_inarr
-    in
-    let digit_arr = Array.init size_digits (fun x->size_digits-x-1) in
-    Array.fold_left (fun current_arrarr digit ->
-        sort_by_digit current_arrarr digit
-    ) inarr digit_arr 
-    (*
-    Array.fast_sort (fun x y ->
-                let (_,_,_,lstx) = x and (_,_,_,lsty)=y in
-                compare lstx lsty ) inarr;
-    inarr*)
-    
-    
-
-let extend_seq ext_dir init_matcharr seedweight inseqarr =
-    let debug = false in
-    if debug then Printf.printf "extend seq in dir=%d,seedW=%d\n%!" ext_dir
-    seedweight;
-    let new_seedweight = ref seedweight in
-    let posarr = init_matcharr in
-    let stillmatch = ref true in
-    while !stillmatch do
-        (*we modify posarr when we have a possible extension between current
-        * match and previous match, but this extension might not work for next
-        * match, in that case we need to undo the change, 
-        * "posarr_copy" is here for the way back*)
-        let posarr_copy = Array.init (Array.length posarr)  (fun i -> posarr.(i) ) in
-        let idx = ref (-1) in
-        let last_chr,last_dir = 
-            Array.fold_left (fun (pre_chr,pre_dir) (seqNO,pos,dir) ->
-            idx := !idx +1;
-            if debug then Printf.printf "check (%d,%d,%d) with (%d,%d)\n%!" 
-            seqNO pos dir pre_chr pre_dir;
-            if pre_chr<0 then (pre_chr,pre_dir) (*mismatch already happened*)
-            else begin
-                let inseq = inseqarr.(seqNO) in
-                let inseqlen = Array.length inseq in
-                let ext2right = if dir*ext_dir=1 then true else false in
-                let nexpos = 
-                    if ext2right then !new_seedweight+pos
-                    else pos-1
-                in
-                if debug then Printf.printf "nextpos=%d,%!" nexpos;
-                if nexpos>=0&&nexpos<inseqlen then begin
-                    let next_chr = 
-                        if pre_chr=0||dir=pre_dir then inseq.(nexpos)
-                        else rev_comp_chr inseq.(nexpos) nexpos
-                    in
-                    if debug then Printf.printf "chr=%d/%d\n%!" next_chr pre_chr;
-                    if pre_chr=0(*the first item*)||next_chr=pre_chr then 
-                        begin
-                            let _,oldpos,_ = posarr.(!idx) in
-                            let newpos =
-                                if ext2right then oldpos
-                                else oldpos-1
-                            in
-                            posarr.(!idx) <- (seqNO,newpos,dir);
-                            (next_chr,dir)
-                        end
-                    else (-1,-1)
-                end
-                else (-1,-1)
-            end
-            ) (0,0) posarr in
-        if last_chr<0 then begin (*undo extension, get out of while loop*)
-            Array.iteri (fun i record_copy ->
-                posarr.(i) <- record_copy ) posarr_copy;
-            stillmatch := false
-        end
-        else new_seedweight := !new_seedweight + 1;
-    done;
-    if debug then
-        Printf.printf "end of extend_seq, new seedweight = %d\n%!" !new_seedweight;
-    posarr,
-    !new_seedweight
-
-
-let extend_seq_in_both_dir matcharr seedweight inseqarr = 
-    let extend_matcharr,new_seedweight = 
-        extend_seq 1 matcharr seedweight inseqarr in
-    let res_matcharr,res_seedweight = 
-        extend_seq (-1) extend_matcharr new_seedweight inseqarr in
-    Array.sort (fun (seqNOx,_,_) (seqNOy,_,_) -> compare seqNOx seqNOy) res_matcharr;
-    res_matcharr,res_seedweight
-
 (*[add_seed_to_tbl] add match we found during [find_SML] to
 * mum_tbl/seed2pos/pos2seed tbl. expend the match to both direction before
 * adding it. if the result of extension is already in those tbls, skip this one*)
 let add_seed_to_tbl init_accarr init_seedweight inseqarr input_seqlst_size
-position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
+position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl seedNO_available_arr =
     let debug = false in
     if debug then begin
         Printf.printf "add seed to tbl,size of match arr=%d\n%!" 
@@ -1475,7 +1192,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
         let _,_,dir1 = ext_posarr.(1) in         
         let ext_2dir = dir0*dir1 in
         assert (seqNO=0);
-        let seedNO = get_a_seedNO () in
+        let seedNO = get_a_seedNO seedNO_available_arr in
         let newsign,seed2remove_lst = 
             Array.fold_left (fun (pre_sign,acclst) (ext_seqNO,ext_pos,_) -> 
             if pre_sign<>2 then begin
@@ -1511,7 +1228,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
                 seed2position_tbl in
                 remove_mum_from_mumtbl mum2remove mum_tbl;
                 Hashtbl.remove seed2position_tbl seed2remove;
-                return_a_seedNO seed2remove;
+                return_a_seedNO seed2remove seedNO_available_arr;
             ) seed2remove_lst;
         let ext_poslst = Array.to_list ext_posarr in
         if newsign=1 then begin
@@ -1555,12 +1272,12 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
             assert(sign_newmum); 
         end
         else
-            return_a_seedNO seedNO;
+            return_a_seedNO seedNO seedNO_available_arr;
     end
 
 
 let find_SML patternarr init_seedweight  inseqarr input_seqlst_size
-position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl = 
+position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl seedNO_available_arr = 
     let debug = false and debug2 = false in
     if debug then 
         Printf.printf "get sequences with index and possible seed
@@ -1594,7 +1311,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     if debug then 
         Printf.printf "append it with reverse complement of first sequence\n%!";
     let rev_seq_w_idx = Array.map (fun (sequenceNO,pos,dir,subseq,_) ->
-        let rev_subseq = rev_comp_arr subseq in
+        let rev_subseq = Alphabet.rev_comp_arr subseq Alphabet.nucleotides in
         let rev_pos = pos in
         (sequenceNO,rev_pos,-1,rev_subseq,0)
     ) inseqarr_w_idxarr.(0) in
@@ -1632,23 +1349,24 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
             else [(seqNO,pos,dir)] in
         if sign=0&&(List.length acc)>1 then 
             add_seed_to_tbl (Array.of_list acc) init_seedweight inseqarr input_seqlst_size
-            position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl;
+            position2seed_tbl_left position2seed_tbl_right seed2position_tbl
+            mum_tbl seedNO_available_arr;
         newacc
     ) [] sorted_arr in
     if (List.length last_acclst)>1 then 
         add_seed_to_tbl (Array.of_list last_acclst) init_seedweight inseqarr input_seqlst_size
-position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl
+position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl seedNO_available_arr
         
 
 (*try to deal with huge dataset, remember to use 64bits*)
 let scan_seqlst2 (inseqarr:int array array) patternarr mum_tbl
-position2seed_tbl_left position2seed_tbl_right seed2position_tbl debug=
+position2seed_tbl_left position2seed_tbl_right seed2position_tbl seedNO_available_arr debug=
     let input_seqarr_size = 2 in (*now we only have 2 input sequences*)
     let init_seedweight = patternarr.((Array.length patternarr)-1) in
     if debug then Printf.printf "scan_seqlst2, seedweight=%d, find_SML with inseqlst_w_idx_w_rev%!" 
     init_seedweight;
     find_SML patternarr init_seedweight inseqarr input_seqarr_size 
-    position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl ; 
+    position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl seedNO_available_arr; 
     if debug then Printf.printf "find_SML for reverse complement done\n%!";
     let debug2 = false in
     if debug2 then begin
@@ -1666,7 +1384,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl debug=
 
 let build_seed_and_position_tbl inseqarr init_seedlen 
 seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left pos2seed_tbl_right
-seed2pos_tbl mum_tbl debug
+seed2pos_tbl mum_tbl seedNO_available_arr debug
 =
     if debug then Printf.printf "build_seed_and_position_tbl, init_seedlen = %d\n%! "
     init_seedlen;
@@ -1684,7 +1402,7 @@ seed2pos_tbl mum_tbl debug
     end;
     let patternarr = Array.of_list seedpattern in
     let _ = scan_seqlst2 inseqarr patternarr  
-        mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl false in
+        mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl seedNO_available_arr false in
     if debug then begin
     (*Printf.printf "check position2seed tbl left and right\n%!";
     print_position2seedtbl pos2seed_tbl_left None;
@@ -2475,7 +2193,7 @@ let to_ori_position position lcb_range_lstlst =
 
 (*transpose positions of new_mum, join it with existing mums.*)
 let transpose_positions lcb_range_lstlst pos2seed_tbl_left pos2seed_tbl_right
-seed2pos_tbl mum_tbl new_mum = 
+seed2pos_tbl mum_tbl seedNO_available_arr new_mum  = 
 let debug = false in
     if debug then Printf.printf "mum before transpose: %!";
     if debug then print_mum false true new_mum;
@@ -2487,7 +2205,7 @@ let debug = false in
             {mi with left_end = ori_l; right_end = ori_r}
         ) new_mum.positions in
         if (!sign = true) then begin
-                let seedNO = get_a_seedNO () in
+                let seedNO = get_a_seedNO seedNO_available_arr in
                 let mumkey = get_mumkey_from_milst ori_positions in
                 let mum2add = { new_mum with 
                                 seedNO = seedNO;
@@ -2525,12 +2243,12 @@ let debug = false in
         end;
     end;
     (*we return the seedNO of original newmum anyway*)
-    return_a_seedNO new_mum.seedNO
+    return_a_seedNO new_mum.seedNO seedNO_available_arr
 
 
 (*transpose mums found outside current ones, join them to current ones.*)
 let transpose_mum_back lcb_range_lstlst new_mum_tbl new_seedNO2seq_tbl
-mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
+mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl seedNO_available_arr
 = 
     let debug = false in
     if debug then begin
@@ -2543,7 +2261,7 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
         ) lcb_range_lstlst;
     end;
     let ourf = transpose_positions lcb_range_lstlst pos2seed_tbl_left 
-    pos2seed_tbl_right seed2pos_tbl mum_tbl in
+    pos2seed_tbl_right seed2pos_tbl mum_tbl seedNO_available_arr in
     Hashtbl.iter (fun mumkey bt ->
         BinaryTree.iter_b_tree bt ourf printIntArr false
     ) new_mum_tbl;
@@ -2836,7 +2554,7 @@ let get_bkmatrix_codemap inarrarr get_neg_item =
         let ori = !ori in
         bkmatrix.(i).(j)<-(ori*code);
     done;
-    if debug then print_int_matrix bkmatrix;
+    if debug then printIntMatWithIdx bkmatrix;
     if debug2 then print_codemap codemap;
     bkmatrix,codemap,codemap2
 
@@ -2911,7 +2629,7 @@ let get_break_point_matrix_faster inarrarr get_neg_item lcb_param (*optional*) d
                 pre_pos := idx;
             | None -> () )
     done;
-    if debug then  print_int_matrix bkmatrix;
+    if debug then  printIntMatWithIdx bkmatrix;
     let bk_number = ref 0 in
     let i = 1 in
        for j=(sizey-1) downto 1 do
@@ -2989,37 +2707,6 @@ let get_range_of_a_lcb seedNOlst seqNO mum_tbl seed2pos_tbl=
     end;
     (leftend,rightend),ori
 *)
-(*score bwteen two sequences based on hodx matrix *)
-let get_score_from_2seq sequence1 sequence2 ori = 
-    let debug = false in
-    let seq1,seq2 = 
-        if ori=1 then sequence1,sequence2
-        else 
-            rev_comp_arr sequence1, sequence2
-    in      
-    assert ( (Array.length seq1)=(Array.length seq2) );
-    if debug then begin
-    Printf.printf "get score from 2seq\n%!";
-    print_int_arr seq1; print_int_arr seq2;
-    end;
-    Array_ops.fold_right_2 (fun acc x y -> 
-        let codearr1 = break_code x 
-        and codearr2 = break_code y in
-        if debug then begin 
-            Printf.printf "x=%d,y=%d,code1arr1/codearr2=\n%!" x y;
-        Utl.printIntArr codearr1; Utl.printIntArr codearr2;
-        end;
-        let maxv = ref (-125) in
-        Array.iteri (fun idx1 code1 ->
-            Array.iteri (fun idx2 code2 ->
-                if code1>0 && code2>0 then
-                    if !maxv< hodx_matrix.(idx1).(idx2) then
-                        maxv := hodx_matrix.(idx1).(idx2)
-            )codearr2
-        )codearr1;
-        if debug then Printf.printf "acc(%d)+%d=%d\n%!" acc !maxv (!maxv+acc);
-        acc + !maxv (*hodx_matrix.(atgc_2_idx x).(atgc_2_idx y) *)
-    ) 0 seq1 seq2
         
 (* get_score returns score of mum, and yes this works for more than 2
 * input sequence, but we only care about lcbs between 2 sequences *)
@@ -4469,9 +4156,9 @@ let debug = false and debug2 = false in
 *) 
 
 let update_k_seed_lst pre_jseedNO previous_k_lst pre_kposlst k_pos j_mumseq trim_from_left
-weight_reduce pos2seed_tbl1 pos2seed_tbl2 seed2pos_tbl mum_tbl =
+weight_reduce pos2seed_tbl1 pos2seed_tbl2 seed2pos_tbl mum_tbl seedNO_available_arr =
 let debug = false in
-    let k_seedNO = get_a_seedNO () in
+    let k_seedNO = get_a_seedNO seedNO_available_arr in
     let k_extsign = 0 in (*since mi and mj are both ext=0*)
     let k_milst = k_pos::pre_kposlst in
     let k_size = (List.length k_milst) in
@@ -4480,14 +4167,14 @@ let debug = false in
     let k_mumkey = get_mumkey_from_milst k_milst in
     if debug then begin
         Printf.printf "kmumkey = %d\n%!" k_mumkey;
-        print_int_arr j_mumseq;
+        printIntArr j_mumseq;
     end;
     let start_pos = 
         if trim_from_left then 0 
         else (Array.length j_mumseq)-weight_reduce
     in
     let k_mumseq = get_sub_seq2 j_mumseq start_pos weight_reduce in  
-    if debug then print_int_arr k_mumseq;
+    if debug then printIntArr k_mumseq;
     let new_kmum =  
         {seedNO=k_seedNO; 
         positions=k_milst; 
@@ -4540,7 +4227,7 @@ let debug = false in
 * for mumk, we wait until we have both subseqs, then create it.*)
 let update_tables mum_tbl mumj seqNO pos2seed_tbl1 oldpos newpos pos2seed_tbl2
 pos2 newweight seed2pos_tbl new_mi oldori weight_reduce min_weight trim_from_left 
-previous_k_lst = 
+previous_k_lst seedNO_available_arr = 
     let seedNO2upgrade_lst = ref [] in
     let jseedNO,j_mumseq,j_extsign,j_size =
         mumj.seedNO,mumj.mumseq,mumj.extendable,mumj.size in
@@ -4613,7 +4300,7 @@ previous_k_lst =
                 if (pre_jseedNO<>0) then 
                 update_k_seed_lst pre_jseedNO previous_k_lst 
                 pre_kposlst k_pos ori_jmumseq trim_from_left weight_reduce 
-                pos2seed_tbl1 pos2seed_tbl2 seed2pos_tbl mum_tbl
+                pos2seed_tbl1 pos2seed_tbl2 seed2pos_tbl mum_tbl seedNO_available_arr
                 else  
                     previous_k_lst@[(jseedNO,[k_pos],ori_jmumseq)] 
             in
@@ -4662,7 +4349,7 @@ previous_k_lst =
 * *)
 (*mums smaller than min_weight will be discarded*)
 let resolve_overlap_mum mum_tbl min_weight pos2seed_tbl_left 
-pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
+pos2seed_tbl_right seed2pos_tbl seedNO_available_arr debug debug_neighborhood =
     if debug then 
         Printf.printf "resolve overlap mums with min_weight = %d\n%!" min_weight;
     Hashtbl.iter (fun seedNO (_,_,_) ->
@@ -4694,16 +4381,18 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
     * When we trim mumj from right, it's another way around. I don't want to
     * write two "update_table" functions for each dir.*)
     let update_table_trim_right_or_left trim_from_left mumj current_mi new_mi
-    oldpos newpos pos2 new_jweight weight_reduce min_weight previous_k_lst =
+    oldpos newpos pos2 new_jweight weight_reduce min_weight previous_k_lst seedNO_available_arr =
         let record = current_mi in
         if (trim_from_left) then
             update_tables mum_tbl mumj record.sequence_NO pos2seed_tbl_left 
             oldpos newpos pos2seed_tbl_right pos2 new_jweight seed2pos_tbl 
             new_mi record.orientation weight_reduce min_weight true previous_k_lst 
+            seedNO_available_arr
         else 
             update_tables mum_tbl mumj record.sequence_NO pos2seed_tbl_right 
             oldpos newpos pos2seed_tbl_left pos2 new_jweight seed2pos_tbl 
             new_mi record.orientation weight_reduce min_weight false previous_k_lst
+            seedNO_available_arr
     in
     let seedlst = ref [] and removed_seedlst = ref [] in 
     Hashtbl.iter (fun key record -> seedlst := key::!seedlst ) seed2pos_tbl;
@@ -4797,7 +4486,7 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
                                 let current_klst,removej = 
                                 update_table_trim_right_or_left trim_from_left new_mj 
                                 record new_mi oldpos newpos pos2 new_jweight 
-                                weight_reduce min_weight !acc_k_lst in
+                                weight_reduce min_weight !acc_k_lst seedNO_available_arr in
                                 acc_k_lst := current_klst;
                                 if removej then begin
                                     continue_sign := false;
@@ -4842,6 +4531,7 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
                             update_table_trim_right_or_left trim_from_left  
                             new_mj record new_mi oldpos newpos pos2 
                             new_jweight weight_reduce min_weight !acc_k_lst
+                            seedNO_available_arr 
                             in
                             acc_k_lst := current_klst;
                             if removej then begin
@@ -4917,7 +4607,7 @@ let update_score_for_each_mum mum_tbl in_seqarr =
 (* search area outside existing lcb block. *)    
 let search_outside_lcbs inner_lcbs lcb_tbl mum_tbl
 pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
-in_seqarr in_seq_size_lst  =
+in_seqarr in_seq_size_lst seedNO_available_arr=
     let debug2 = false in
     if debug_search_outside then begin 
         info_user_message "search outside lcbs, lcb_tbl size = %d" 
@@ -4961,7 +4651,7 @@ in_seqarr in_seq_size_lst  =
         build_seed_and_position_tbl seq_outside_lcbs_arr new_seedlen 
         new_seq2seedNO_tbl new_seedNO2seq_tbl 
         new_pos2seed_tbl_left new_pos2seed_tbl_right 
-        new_seed2pos_tbl new_mum_tbl false in
+        new_seed2pos_tbl new_mum_tbl seedNO_available_arr false in
     if debug_search_outside then 
         info_user_message "build_seed_and_position_tbl done(newseed weight=%d)" new_seedweight;
     build_local_mums2 new_mum_tbl new_seed2pos_tbl 
@@ -4974,14 +4664,14 @@ in_seqarr in_seq_size_lst  =
     let res_pos2seed_tbl_right = Hashtbl.copy pos2seed_tbl_right in
     let res_seed2pos_tbl = Hashtbl.copy seed2pos_tbl in
     transpose_mum_back lcb_range_lstlst new_mum_tbl new_seedNO2seq_tbl
-    res_mum_tbl res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl;
+    res_mum_tbl res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl seedNO_available_arr;
     if debug_search_outside then 
         info_user_message "extend seeds in both direction,(total seed number = %d)" (Hashtbl.length res_seed2pos_tbl);
     extend_seeds res_mum_tbl res_seed2pos_tbl res_pos2seed_tbl_left res_pos2seed_tbl_right;
     if debug_search_outside then 
         info_user_message "resolve overlap mum";
     let num_of_mums = resolve_overlap_mum res_mum_tbl  (new_seedweight-1)
-    res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl false false in
+    res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl seedNO_available_arr false false in
     update_score_for_each_mum res_mum_tbl in_seqarr;
     (*get the new weight of lcbs*)
     let new_seedNOlstlst = 
@@ -5192,7 +4882,9 @@ max_lcb_len cost_mat use_ukk =
     maximum_lcb_len := max_lcb_len;
     minimum_cover_ratio := min_cover_ratio;
     let debug2 = false in
-    seedNO_available_arr := Array.make init_seed_size 1;
+    (*we keep array of available seed#, mark each not-inused # "1"*)
+    let seedNO_available_arr = ref (Array.make init_seed_size 1) in
+    (*seedNO_available_arr := Array.make init_seed_size 1;*)
     (*output result to file ...    
     * let outfile = "outfile.txt" in let oc = open_out outfile in*)
     let in_seqarr_size = 2 in
@@ -5223,7 +4915,7 @@ max_lcb_len cost_mat use_ukk =
     (*find initial mums*)
     let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
     seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
-    pos2seed_tbl_right seed2pos_tbl mum_tbl false in
+    pos2seed_tbl_right seed2pos_tbl mum_tbl seedNO_available_arr false in
     if debug_main then 
         Printf.printf "base seedweight=%d, call build_local_mums2 \n%!" seedweight;
     build_local_mums2 mum_tbl seed2pos_tbl 
@@ -5232,7 +4924,7 @@ max_lcb_len cost_mat use_ukk =
         Printf.printf "++++++++ init seedweight=%d, end of building mum\
         table\n%!" seedweight;
     let init_num_mums = resolve_overlap_mum mum_tbl (seedweight-1) 
-    pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl false false in
+    pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl seedNO_available_arr false false in
     update_score_for_each_mum mum_tbl in_seqarr;
     (*to do : too many if else here, do something*)
     let outer_lcb_tbl = ref (Hashtbl.create 0) in
@@ -5298,7 +4990,7 @@ max_lcb_len cost_mat use_ukk =
             num_of_mums = 
             search_outside_lcbs !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
             !inner_pos2seed_tbl_left !inner_pos2seed_tbl_right 
-            !inner_seed2pos_tbl in_seqarr in_seq_size_lst 
+            !inner_seed2pos_tbl in_seqarr in_seq_size_lst seedNO_available_arr 
             in
             if (num_of_mums>0)&&(!inner_old_covR < inner_new_covR) then begin
                 if debug_main then
@@ -5500,7 +5192,7 @@ max_lcb_len cost_mat use_ukk =
             if debug2 then print_int_list tmplst;
             tmplst
         ) outer_lcbs in
-        (*clear up*)
+        (*clear up,may not be since we create seedNO_available_arr at the beginning of this function*)
         seedNO_available_arr := Array.make init_seed_size 1;
         if debug_main then Printf.printf "end of create lcb tbl\n%!";
         (*return lcb table, lcbs, code list and range list*)

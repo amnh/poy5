@@ -75,6 +75,23 @@ let is_null ptr = match ptr with
     | None -> true 
     | _ -> false     
 
+
+(*int to bit array, int = 0~15*)
+let break_code in_code =
+    if in_code>15 || in_code<0 then
+        failwith ("break code only take int from 0 to 15");
+    let resarr = Array.make 4 0 in
+    let tmp_code = ref in_code in
+    for i = 3 downto 0 do
+        let base = int_of_float ( 2. ** (float_of_int i) )  in
+        if (!tmp_code >= base) then begin
+            resarr.(i)<-1;
+            tmp_code := !tmp_code - base;
+        end;
+    done;
+    assert( !tmp_code=0);
+    resarr
+
         
 (** Given two integer lists [l1] and [l2]
 * which are sorted non-decreasing. This function returns 
@@ -208,8 +225,16 @@ let printIntArr (arr : int array) =
         fprintf stdout "%3i" x) arr;
     print_newline ()
 
+let printIntArrWithIdx (arr :int array) =
+    Array.iteri (fun idx item -> Printf.printf "[%d]:%d,%!"  idx item) arr;
+    print_newline()
+
 let printIntMat (arr : int array array) = 
     Array.iter printIntArr arr;
+    print_newline ()
+
+let printIntMatWithIdx (arr : int array array) =
+    Array.iter printIntArrWithIdx arr;
     print_newline ()
 
 let create_ls len value = 
