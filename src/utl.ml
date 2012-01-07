@@ -237,8 +237,42 @@ let printIntMatWithIdx (arr : int array array) =
     Array.iter printIntArrWithIdx arr;
     print_newline ()
 
+let printIntList2 inlist = 
+    Printf.printf "[%!";
+    List.iter (fun x -> Printf.printf "%d,%!" x) inlist;
+    Printf.printf "] %!"
+
+let printIntList inlist = 
+    Printf.printf "[%!";
+    List.iter (fun x -> Printf.printf "%d,%!" x) inlist;
+    Printf.printf "]\n%!"
+
+let printIntListToFile oc inlist =
+    fprintf oc "[%!";
+    List.iter (fun x -> fprintf oc "%d,%!" x) inlist;
+    fprintf oc "]\n%!"
+
+let printIntListList inlstlst =
+    List.iter (fun lst ->
+        printIntList lst;
+    ) inlstlst
+
+let printIntListList2 inlstlst =
+    List.iter (fun lst ->
+        printIntList2 lst;
+    ) inlstlst;
+    print_newline()
+
+let printIntListListList inlstlstlst = 
+    List.iter (fun lstlst ->
+       printIntListList2 lstlst
+    ) inlstlstlst
+
 let create_ls len value = 
     Array.to_list (Array.init len (fun _ -> value))
+
+let get_neg_rev_intlst in_lst =
+    List.rev (List.map (fun x -> -x ) in_lst)
 
 (** [remove_nth list n] returns the [n]th element of [list] and [list] with the
     [n]th element removed. *)

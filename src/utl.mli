@@ -54,7 +54,16 @@ val printIntArr : int array -> unit
 val printIntArrWithIdx : int array -> unit
 val printIntMat : int array array -> unit
 val printIntMatWithIdx : int array array -> unit
+(** printIntList print a list of int, with a newline.*)
+val printIntList : int list -> unit
+(** printIntList print a list of int, without a newline.*)
+val printIntList2 : int list -> unit
+val printIntListList : int list list -> unit
+val printIntListList2 : int list list -> unit
+val printIntListListList : int list list list -> unit
+val printIntListToFile : out_channel -> int list -> unit
 val create_ls : int -> 'a -> 'a list
+val get_neg_rev_intlst : int list -> int list
 val remove_nth : ?acc:'a list -> 'a list -> int -> 'a * 'a list
 val insert_arr : int array -> int array -> int -> int array
 val pairwisep : ('a -> 'a -> bool) -> 'a list -> bool

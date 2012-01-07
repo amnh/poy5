@@ -5128,8 +5128,8 @@ let compute_fixed_states filename data code polymph =
                     in
                     if debug then begin 
                         Printf.printf "code1/code2 arr from block_mauve:\n%!";
-                    Block_mauve.print_int_list (Array.to_list code1_arr); 
-                    Block_mauve.print_int_list (Array.to_list code2_arr); 
+                    Utl.printIntList (Array.to_list code1_arr); 
+                    Utl.printIntList (Array.to_list code2_arr); 
                     end;
                     let re_meth = match dhs.pam.re_meth with
                         | Some value -> value
