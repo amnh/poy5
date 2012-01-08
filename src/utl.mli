@@ -50,6 +50,7 @@ val get_common3 :
   'a array -> 'a array -> 'a array -> ('a -> 'a -> int) -> 'a array * 'a array * 'a array
 val insert : 'a array -> int -> 'a -> 'a array
 val swap_item : int -> int -> 'a array -> 'a array
+val bigger_int : int -> int -> int
 val printIntArr : int array -> unit
 val printIntArrWithIdx : int array -> unit
 val printIntMat : int array array -> unit
@@ -64,6 +65,7 @@ val printIntListListList : int list list list -> unit
 val printIntListToFile : out_channel -> int list -> unit
 val create_ls : int -> 'a -> 'a list
 val get_neg_rev_intlst : int list -> int list
+val get_abs_intlst : int list -> int list
 val remove_nth : ?acc:'a list -> 'a list -> int -> 'a * 'a list
 val insert_arr : int array -> int array -> int -> int array
 val pairwisep : ('a -> 'a -> bool) -> 'a list -> bool
@@ -76,3 +78,5 @@ val printIntSet : IntSet.t -> unit
 val get_dir : [> `Negative | `Positive ] -> string
 val factorial :int -> int
 val p_m_n : int -> int -> int
+val get_avg_of_intlst : int list -> float
+val get_avg_of_floatlst : float list -> float

@@ -18,20 +18,6 @@
 \* USA                                                                        *)
 
 
-type lcb = {
-    seedNOlst : int list; (*each lcb is a list of mums,also the key to lcb_tbl*)
-    range_lst : Block_mauve_mum.m_i list; (*lcb_range we need is exactly the same truct as m_i,
-                           no need to create a new type here*)
-    ratio : float; (* [score/length] of seq in this lcb*)
-    ref_code : int; (*just a code for bk/rearr purpose*)
-    avg_range_len : int; (*average length from range_lst*)
-    (*score between subsequence contained by range_lst during lcb building.
-    * after we have lcb_tbl, huge lcb blocks are aligned seperately, score in
-    * function search_inside_each_lcb is set to alignment cost of seq in this lcb*)
-    score : int; 
-    alignment : Sequence.s array;
-}
-
 
 (** [get_matcharr_and_costmatrix] is the main function of this module. it take two
 * sequences, set of parameters (min lcb ratio, min lcb length, etc) and 
@@ -60,12 +46,5 @@ val create_lcb_tbl : int array array -> float -> float -> int ->
     (int * int) list list
 *)
 
-val print_lcb : lcb -> unit
-
-val print_lcblst : int list list list -> unit
-
-val get_abs_lst : int list -> int list
-
-val update_lcb_ref_code : (int list, lcb) Hashtbl.t -> int list -> int -> unit
 
 

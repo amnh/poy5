@@ -3,7 +3,6 @@ val palindromic_spaced_seed_tbl : (int,int list list) Hashtbl.t
    
 val fill_in_hmatrix : Cost_matrix.Two_D.m -> unit
 
-val get_proper_seedlen : float -> int
 
 val return_a_seedNO : int -> (int array) ref -> unit
 

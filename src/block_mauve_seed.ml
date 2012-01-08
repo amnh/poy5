@@ -28,7 +28,6 @@ let break_code = Utl.break_code
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 
-let init_seed_size = 50
 
 (*this is a cost matrix between ATGC and ATGC. default matrix used by Mauve *)
 let hodx_matrix = [| 
@@ -122,20 +121,6 @@ let palindromic_spaced_seed_tbl =
     res
 
 
-(*[get_proper_seedlen inlen] return the proper seedlen.
-* seedlen is the key to palindromic_spaced_seed_tbl, 
-* seedlen cannot be bigger than 21 , or smaller than 5. 
-* we only have entry for odd number, because even length of palidromic bring us
-* problems, check out A.D.'s paper "Procrastination leads to efficient
-* filtration for local multiple alignment".
-* also, there is no entry for 17.*)
-let get_proper_seedlen avg_seqlen =
-    let seedlen = int_of_float ( ceil (log (avg_seqlen))) in
-    let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
-    let seedlen = if (seedlen<5) then 5 else seedlen in
-    let seedlen = if (seedlen=17) then 19 else seedlen in
-    let seedlen = if (seedlen>21) then 21 else seedlen in
-    seedlen
 
 (******************** seedNO_available_arr and its functions ********************)
 (*we recreate this arr every time with [create_lcb_tbl]*)
@@ -166,7 +151,8 @@ let get_a_seedNO seedNO_available_arr =
         end;
         idx := !idx +1;
     done;
-    if (!found = (arrlen-1)) then expand_arr init_seed_size seedNO_available_arr;
+    if (!found = (arrlen-1)) then 
+expand_arr (Array.length !seedNO_available_arr) seedNO_available_arr;
     !found
 
 

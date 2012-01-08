@@ -274,6 +274,24 @@ let create_ls len value =
 let get_neg_rev_intlst in_lst =
     List.rev (List.map (fun x -> -x ) in_lst)
 
+let get_abs_intlst in_lst =
+    List.map (fun x -> abs x) in_lst
+
+(*return average of a int list, return float*)
+let get_avg_of_intlst in_lst =
+    let acc = ref 0 in
+    List.iter (fun size ->
+        acc := size + !acc
+    ) in_lst;
+    (float !acc) /.(float (List.length in_lst))
+
+let get_avg_of_floatlst in_lst =
+    let acc = ref 0. in
+    List.iter (fun size ->
+        acc := size +. !acc
+    ) in_lst;
+    (!acc) /.(float (List.length in_lst))
+
 (** [remove_nth list n] returns the [n]th element of [list] and [list] with the
     [n]th element removed. *)
 let rec remove_nth ?(acc=[]) list n =
@@ -378,6 +396,7 @@ let break_array arr break_ls =
     in 
     List.rev rev_seg_ls
 
+let bigger_int a b =  if (a>b) then a else b
 
 let max_arr arr = 
     Array.fold_left (fun v max_v -> if v > max_v then v else max_v) arr.(0) arr

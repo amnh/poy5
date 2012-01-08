@@ -38,6 +38,21 @@ let init_tb_size = 50
 
 let max_gap_num = 0  (*the w *)
 
+(*[get_proper_seedlen inlen] return the proper seedlen.
+* seedlen is the key to palindromic_spaced_seed_tbl, 
+* seedlen cannot be bigger than 21 , or smaller than 5. 
+* we only have entry for odd number, because even length of palidromic bring us
+* problems, check out A.D.'s paper "Procrastination leads to efficient
+* filtration for local multiple alignment".
+* also, there is no entry for 17.*)
+let get_proper_seedlen avg_seqlen =
+    let seedlen = int_of_float ( ceil (log (avg_seqlen))) in
+    let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
+    let seedlen = if (seedlen<5) then 5 else seedlen in
+    let seedlen = if (seedlen=17) then 19 else seedlen in
+    let seedlen = if (seedlen>21) then 21 else seedlen in
+    seedlen
+
 
 type m_i = {  (* the ith element M_i of a local mum *)
     sequence_NO : int ; (*which sequence is this m_i in *)

@@ -1,3 +1,5 @@
+val get_proper_seedlen : float -> int
+
 type m_i = {  (* the ith element M_i of a local mum *)
     sequence_NO : int ; (*which sequence is this m_i in *)
     left_end : int;  (*left end coordination of M_i*)
