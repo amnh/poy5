@@ -32,12 +32,12 @@ val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> float ->
     float -> float ->
 int*int -> Cost_matrix.Two_D.m ->  bool -> 
     int array * int array * int array array *
-(int*Sequence.s*Sequence.s) array array * int * int * 
-(int * (int * int) * int list) list list * int
+(int*Sequence.s*Sequence.s) array array * int * int * int *
+(int * (int * int) * int list) list list 
 
 val output2mauvefile : string -> int -> (int option) -> int array -> int array
 -> (int * (int * int) * int list) list list -> (int*Sequence.s*Sequence.s) array
-array ->int -> int -> int -> int -> unit 
+array ->int -> int -> int  -> unit 
 
     
 (* we don't call this directly outside of mauve any more

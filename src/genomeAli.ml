@@ -1050,9 +1050,10 @@ let create_med_mauve_annotator med1 med2 cost_mat ali_pam =
     alied_code1_lst, alied_code2_lst, total_cost, (recost1, recost2) =
     AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam None None
     in
+    let edit_and_indel_cost = total_cost - recost1 - recost2 in
     if debug_median then begin
-        Printf.printf "create_general_ali_mauve return with cost=%d(%d,%d),gen_gap_code=%d\n%!"
-        total_cost recost1 recost2 gen_gap_code;
+        Printf.printf "create_general_ali_mauve return with cost=%d(rc1=%d,rc2=%d)\n%!"
+        total_cost recost1 recost2;
         List.iter (fun lst ->
             List.iter (fun ( code,(l,r),lcbkey ) ->
                 Printf.printf " code=%d,(l=%d,r=%d)," code l r;
@@ -1132,11 +1133,11 @@ let create_med_mauve_annotator med1 med2 cost_mat ali_pam =
         Array.of_list (List.nth codelst_after_rmv 1) in
     let real_recost = GenAli.cmp_recost_simple arr1 arr2 ali_pam.ChromPam.re_meth 
     ali_pam.ChromPam.circular in
-    let recost2 = real_recost in 
+    let real_recost2 = real_recost in 
     if debug_median then begin
         Printf.printf "translocation number = %d,lcb code 2 remove = %!" translocation;
         List.iter (fun lcbkey -> Utl.printIntArr (Array.of_list lcbkey)) lcb2remove;  print_newline();
-        Printf.printf "after removing, recost = %d, code arr1/code arr2=\n%!" recost2;
+        Printf.printf "after removing, recost = %d, code arr1/code arr2=\n%!" real_recost2;
         Utl.printIntArr arr1; Utl.printIntArr arr2;
     end;
     (*about the median, what are we going to do here? the alignment seq and cost
@@ -1194,7 +1195,10 @@ let create_med_mauve_annotator med1 med2 cost_mat ali_pam =
         done;
         List.rev !res
     in
-    let total_cost = total_cost+ali_pam.ChromPam.translocation * translocation in
+    let total_cost = real_recost2+edit_and_indel_cost+ali_pam.ChromPam.translocation * translocation in
+    if debug_median then Printf.printf "update total cost with recost(%d) + \
+    edit&indel(%d),translocation number(%d)*trlcost(%d) = %d \n%!" real_recost2
+    edit_and_indel_cost translocation ali_pam.ChromPam.translocation total_cost;
     let genome_med = { 
             chrom_arr = Array.of_list new_med_chrom_arr;
             genome_ref_code = Utl.get_new_genome_ref_code ();

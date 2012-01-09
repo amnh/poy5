@@ -2150,7 +2150,8 @@ let search_inside_a_lcb lcbrecord seq0 seq1 min_len max_len mum_tbl seed2pos_tbl
         end
         else begin
             if debug then 
-                Printf.printf "this lcb is too large or too small to work with\n%!";
+                Printf.printf "this lcb is too large(>%d) or too small(<%d) to work with\n%!"
+                max_len min_len;
             [||],0
         end
 
@@ -2211,8 +2212,7 @@ max_lcb_len cost_mat use_ukk =
     let outer_old_covR = ref 0. in
     (*trivial case, no mum was found at all*)
     if (init_num_mums=0) then 
-        Printf.printf "we cannot find any mums, lower the requirement or use \
-        longer sequence.\n%!"
+        info_user_message "cannot find any mums, algn the sequence at once.\n%!"
     else begin
     if debug_main then
         Printf.printf "++++++++++ resolve_overlap_mum done (tbl size\

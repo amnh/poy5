@@ -137,11 +137,11 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     if debug2 then Sequence.printseqcode seq2;
     end;
     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,edit_cost,
-    full_code_lstlst,len_lst1 =
+    indel_cost,full_code_lstlst =
         Block_mauve.get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio
         min_lcb_len min_cover_ratio max_lcb_len
         ali_pam.ChromPam.locus_indel_cost cost_mat use_ukk in
-    if debug then Printf.printf "edit_cost betwen lcb blocks=%d\n%!" edit_cost;
+    if debug then Printf.printf "edit_cost betwen lcb blocks=%d,indel cost =%d\n%!" edit_cost indel_cost;
     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
         GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat gen_gap_code 
         ali_pam.ChromPam.re_meth ali_pam.ChromPam.circular false in
@@ -150,21 +150,23 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
         Utl.printIntArr alied_gen_seq1; 
         Utl.printIntArr alied_gen_seq2; 
     end;
+    if (Array.length alied_gen_seq1 <> Array.length code1_arr) then
+        failwith "aliMap, never align lcb block with indel block";
     let () = match outputtofile with 
     | Some filename ->
         Block_mauve.output2mauvefile filename cost old_cost alied_gen_seq1 alied_gen_seq2 
-        full_code_lstlst ali_mat gen_gap_code len_lst1 (Sequence.length seq1)
+        full_code_lstlst ali_mat gen_gap_code (Sequence.length seq1)
         (Sequence.length seq2)
     | None -> ()
     in
     if debug then begin
-        Printf.printf "mauve ali res : cost=%d(+edit cost=%d),rc=%d,alied_gen_seq1/2 = %!" 
-        cost edit_cost rc;
+        Printf.printf "mauve ali res : cost=%d(+edit cost=%d + indel cost=%d),rc=%d,alied_gen_seq1/2 = %!" 
+        cost edit_cost indel_cost rc;
         Utl.printIntList (Array.to_list alied_gen_seq1);
         Utl.printIntList (Array.to_list alied_gen_seq2);
         print_newline();
     end;
-    let cost = cost + edit_cost in
+    let cost = cost + edit_cost + indel_cost in
     (*I pass cost,(0,rc) as total cost,(recost1, recost2) back, since we are
     * using left child as median, recost1 is 0, recost2=rc.*)
     full_code_lstlst, gen_gap_code, ali_mat,

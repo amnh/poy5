@@ -5121,7 +5121,7 @@ let compute_fixed_states filename data code polymph =
                     * circular denpendency, we call get_matcharr_and_costmatrix and
                     * output2mauvefile seperately.*)
                     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
-                            edit_cost,full_code_lstlst,len_lst1 =
+                            edit_cost,indel_cost,full_code_lstlst =
                         Block_mauve.get_matcharr_and_costmatrix seqx seqy
                                 min_lcb_ratio min_cover_ratio min_lcb_len
                                 max_lcb_len l_i_c dhs.tcm2d align_with_newkk
@@ -5143,8 +5143,7 @@ let compute_fixed_states filename data code polymph =
                     gen_gap_code re_meth circular false in
                     (*remember the editing cost between lcbs is not included in
                     * the gen_cost_mat, therefore, is not in cost yet*)
-                    let cost = cost + edit_cost in 
-                    
+                    let cost = cost + edit_cost + indel_cost in 
                     let xname,yname = string_of_int x,string_of_int y in
                     let fullname = match filename with 
                         | None -> ""
@@ -5152,7 +5151,7 @@ let compute_fixed_states filename data code polymph =
                     in
                     Block_mauve.output2mauvefile fullname cost None 
                         alied_gen_seq1 alied_gen_seq2 full_code_lstlst ali_mat
-                        gen_gap_code len_lst1 (Sequence.length seqx) (Sequence.length seqy);
+                        gen_gap_code (Sequence.length seqx) (Sequence.length seqy);
                     float_of_int cost 
                 else if using_likelihood then
                     let model =
