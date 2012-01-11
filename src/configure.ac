@@ -45,6 +45,7 @@ AC_SUBST(OUSE_SSE3)
 AC_SUBST(OUSE_CONCORDE)
 
 AC_SUBST(USEINTERFACE)
+AC_SUBST(INTERFACETOP)
 AC_SUBST(USESHAREDHD)
 AC_SUBST(USEPARALLEL)
 AC_SUBST(USE_LARGE_MESSAGES)
@@ -341,7 +342,7 @@ AS_IF([test $USEPARALLEL = "true"],[USEINTERFACE="flat"])
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"],
       [AC_CHECK_LIB([ncurses], [main],
-            [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
+            [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";INTERFACETOP="NcursesML";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
             [AS_IF([test $INTERFACE_SELECTED = "true"],
                 [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. See ./configure --help for more information.])],
                 [USEINTERFACE="readline"])])],
@@ -466,5 +467,5 @@ esac
 CC_VERSION="`$CC --version`"
 POY_VERSION_NUMBER="`$MERCURIAL`"
 
-AC_CONFIG_FILES([Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml])
+AC_CONFIG_FILES([Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml poy.mltop])
 AC_OUTPUT

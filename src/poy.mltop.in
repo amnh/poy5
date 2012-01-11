@@ -15,6 +15,9 @@ BinaryTree
 BitSet
 Block
 Block_mauve
+Block_mauve_lcb
+Block_mauve_mum
+Block_mauve_seed
 Breakinv
 BreakinvAli
 BreakinvCS
@@ -32,6 +35,7 @@ CompOut
 CommandLexer
 Cost_matrix
 Data
+Dequeue
 Diagnosis
 DynamicCS
 Dyn_pam
@@ -69,6 +73,7 @@ MlModel
 MlDynamicCS
 MlStaticCS
 Mst
+@INTERFACETOP@
 Nexus
 Node
 NodeSig
