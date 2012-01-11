@@ -4989,7 +4989,7 @@ let auto_partition mode data code =
 
 
 let compute_fixed_states filename data code polymph =
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs

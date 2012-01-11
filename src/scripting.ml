@@ -1547,7 +1547,7 @@ let load_data (meth : Methods.input) data nodes =
         | `GeneralAlphabetSeq (seq, alph, read_options) ->
                 let data = Data.add_file data [Data.Characters] seq in
                 let orientation =
-                    (List.mem (`Orientation true) read_options) 
+                    (List.mem (`Orientation false) read_options) 
                 in
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let is_prealigned = List.mem (`Prealigned) read_options in
@@ -1575,7 +1575,10 @@ let load_data (meth : Methods.input) data nodes =
                 (** read breakinv data from files each breakinv is 
                  * presented as a sequence of general alphabets *)
                 let data = Data.add_file data [Data.Characters] seq in
-                let orientation = (List.mem (`Orientation true) read_options) in
+                let orientation =
+                    if (List.mem (`Orientation false) read_options) then false
+                    else true
+                in
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
