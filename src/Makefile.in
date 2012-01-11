@@ -65,7 +65,7 @@ poy.native:
 commands.pdf:
 	$(OCAMLBUILD) $@
 
-all: poy.native
+all: poy.byte poy.top poy.native
 
 install: poy.native
 	test -d $(prefix) || mkdir $(prefix)
