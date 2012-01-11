@@ -409,8 +409,9 @@ gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,
             (Sequence.length subseq1) (Sequence.length subseq2);
             let newseq,_ = (*we already have the cost from alignment_matrix*) 
                 Sequence.create_median_seq ~approx:`First subseq1 subseq2 cost_mat in
-            if debug then Printf.printf "ali_or_del_cost = %d\n %!" ali_or_del_cost; 
             let med_len = Sequence.cmp_num_not_gap newseq in 
+            if debug then Printf.printf "ali_or_del_cost = %d,med_len = %d(Wout_gap=%d)\n %!" 
+                ali_or_del_cost (Sequence.length newseq) med_len; 
             let sta, en, acc_len = 
                     match med_len with
                     | 0 -> -1, -1, acc_len

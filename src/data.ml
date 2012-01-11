@@ -4989,7 +4989,7 @@ let auto_partition mode data code =
 
 
 let compute_fixed_states filename data code polymph =
-    let debug = false in
+    let debug = true and debug2 = false in
     if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
@@ -5097,8 +5097,10 @@ let compute_fixed_states filename data code polymph =
         for y = x + 1 to states - 1 do
             if debug then begin
                         Printf.printf "work on seqx,seqy=\n%!";
-                        Sequence.printseqcode sequences.(x);
-                        Sequence.printseqcode  sequences.(y);
+                        if debug2 then begin
+                            Sequence.printseqcode sequences.(x);
+                            Sequence.printseqcode  sequences.(y);
+                        end;
                     end;
             let cost =
                 if annotate_with_mauve then
@@ -5128,8 +5130,8 @@ let compute_fixed_states filename data code polymph =
                     in
                     if debug then begin 
                         Printf.printf "code1/code2 arr from block_mauve:\n%!";
-                    Utl.printIntList (Array.to_list code1_arr); 
-                    Utl.printIntList (Array.to_list code2_arr); 
+                    Utl.printIntArr code1_arr; 
+                    Utl.printIntArr code2_arr; 
                     end;
                     let re_meth = match dhs.pam.re_meth with
                         | Some value -> value
@@ -5142,8 +5144,15 @@ let compute_fixed_states filename data code polymph =
                     GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat 
                     gen_gap_code re_meth circular false in
                     (*remember the editing cost between lcbs is not included in
-                    * the gen_cost_mat, therefore, is not in cost yet*)
-                    let cost = cost + edit_cost + indel_cost in 
+                    * the gen_cost_mat, we set cost between matching lcb to 0 in
+                    * block_mauve, just to make sure they are aligned to each other*)
+                    if debug then begin
+                        Printf.printf "cost <- cost(%d,rc=%d)+edit_cost(%d),\
+                        alied_code1/code2=\n%!" cost rc edit_cost;
+                        Utl.printIntArr alied_gen_seq1;
+                        Utl.printIntArr alied_gen_seq2;
+                    end;
+                    let cost = cost + edit_cost in 
                     let xname,yname = string_of_int x,string_of_int y in
                     let fullname = match filename with 
                         | None -> ""

@@ -150,8 +150,6 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
         Utl.printIntArr alied_gen_seq1; 
         Utl.printIntArr alied_gen_seq2; 
     end;
-    if (Array.length alied_gen_seq1 <> Array.length code1_arr) then
-        failwith "aliMap, never align lcb block with indel block";
     let () = match outputtofile with 
     | Some filename ->
         Block_mauve.output2mauvefile filename cost old_cost alied_gen_seq1 alied_gen_seq2 
@@ -160,13 +158,13 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     | None -> ()
     in
     if debug then begin
-        Printf.printf "mauve ali res : cost=%d(+edit cost=%d + indel cost=%d),rc=%d,alied_gen_seq1/2 = %!" 
-        cost edit_cost indel_cost rc;
+        Printf.printf "mauve ali res : cost=%d(indel cost=%d,+edit cost=%d),rc=%d,alied_gen_seq1/2 = %!" 
+        cost indel_cost edit_cost rc;
         Utl.printIntList (Array.to_list alied_gen_seq1);
         Utl.printIntList (Array.to_list alied_gen_seq2);
         print_newline();
     end;
-    let cost = cost + edit_cost + indel_cost in
+    let cost = cost + edit_cost in
     (*I pass cost,(0,rc) as total cost,(recost1, recost2) back, since we are
     * using left child as median, recost1 is 0, recost2=rc.*)
     full_code_lstlst, gen_gap_code, ali_mat,

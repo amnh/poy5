@@ -2248,6 +2248,9 @@ max_lcb_len cost_mat use_ukk =
     let current_num_of_mums = ref init_num_mums in
     let outer_sign = 
         ref ((init_covR_after< !maximum_cover_ratio)&&(init_covR_after>= !minimum_cover_ratio)) in
+    if debug_main && (init_covR_after< !minimum_cover_ratio) then
+        Printf.printf "the init round could not cover more than %f of all \
+        sequence, skip the part of removing bad lcbs\n%!" !minimum_cover_ratio;
     (*to do : create an inner function and an outer one, move this part out*)
     while (!outer_sign) do
         if debug_main then
