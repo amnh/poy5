@@ -44,8 +44,10 @@ AC_SUBST(OUSEWIN32)
 AC_SUBST(OUSE_SSE3)
 AC_SUBST(OUSE_CONCORDE)
 
-AC_SUBST(USEINTERFACE)
 AC_SUBST(INTERFACETOP)
+AC_SUBST(MPITOP)
+
+AC_SUBST(USEINTERFACE)
 AC_SUBST(USESHAREDHD)
 AC_SUBST(USEPARALLEL)
 AC_SUBST(USE_LARGE_MESSAGES)
@@ -119,7 +121,7 @@ AC_ARG_WITH(ocaml-flags,
 
 AC_ARG_ENABLE([mpi], [AS_HELP_STRING([--enable-mpi], 
               [Turns on parallel support using MPI. When using MPI remember to set CC to the appropriate mpicc compiler.])], 
-              [USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"], 
+              [USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"; MPITOP="Mpi"], 
               [USEPARALLEL="false"])
 
 AC_ARG_ENABLE([large-messages], [AS_HELP_STRING([--enable-large-messages], 

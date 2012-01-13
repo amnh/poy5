@@ -638,8 +638,9 @@ USEWIN32
 USE_LARGE_MESSAGES
 USEPARALLEL
 USESHAREDHD
-INTERFACETOP
 USEINTERFACE
+MPITOP
+INTERFACETOP
 OUSE_CONCORDE
 OUSE_SSE3
 OUSEWIN32
@@ -2933,6 +2934,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
@@ -3027,7 +3030,7 @@ fi
 
 # Check whether --enable-mpi was given.
 if test "${enable_mpi+set}" = set; then :
-  enableval=$enable_mpi; USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"
+  enableval=$enable_mpi; USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"; MPITOP="Mpi"
 else
   USEPARALLEL="false"
 fi

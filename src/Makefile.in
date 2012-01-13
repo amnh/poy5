@@ -65,6 +65,12 @@ poy.native:
 commands.pdf:
 	$(OCAMLBUILD) $@
 
+poy_test.byte: 
+	$(OCAMLBUILD) $@
+
+poy_test.native:
+	$(OCAMLBUILD) $@
+
 all: poy.byte poy.top poy.native
 
 install: poy.native
