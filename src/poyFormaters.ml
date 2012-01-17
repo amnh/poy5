@@ -393,7 +393,6 @@ let sankcs_to_formater ((tag, attr, cont) : Xml.xml) =
     else raise (Illegal_formater "sankcs_to_formater")
 
 let seq_to_formater ((tag, attr, cont) : Xml.xml) : Xml.unstructured array  =
-    Printf.printf "seq\n%!";
     if tag = Xml.Characters.sequence then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let chrom_ref = `String "-" in 
