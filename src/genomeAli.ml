@@ -1153,6 +1153,10 @@ let create_med_mauve_annotator med1 med2 cost_mat ali_pam =
             match chrom1_opt, chrom2_opt with
             | Some chrom1, Some chrom2 ->
                 if debug_median then Printf.printf "create med with chrom1 and chrom2\n%!";
+                (*Here we are filling in seq from one of chromosome as median
+                * seq. yes we can get the alied seq between genome1 and genome2, but
+                * that's for concatenated chromsome, not for each pair of them.
+                * cutting it does not make much sense.*)
                 let chrom1,chrom2 =
                     if Sequence.length chrom1.seq >= Sequence.length chrom2.seq
                     then chrom1,chrom2

@@ -540,8 +540,8 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
     expand_mat (m,newk,oldk);
     int i,j;
     for (i=0;i<lenX;i++)
+
         for (j= MAX(i-newk,0);j<=MIN(i+(lenY-lenX+newk),lenY-1);j++)
-        //for(j=0;j<lenY;j++)
         {
             if (/* outside_diagonal_area(i,j,newk,lenX,lenY) ||*/in_non_change_zone(i,j,oldk,lenX,lenY) ) {}
             else

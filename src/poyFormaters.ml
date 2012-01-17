@@ -583,7 +583,7 @@ let node_to_formater st (tag, attr, cont) =
         let lst =
            header :: (List.map (Array.map Xml.value_to_string) lst)
         in
-        user_messagef st "@\n@\n@[<v 0>@{<b>%s@}@\n" name;
+        user_messagef st "@\n@\n@[<v 0>@{<b>Name %s@}@\n" name;
         user_messagef st "@[<v 0>@{<u>Cost %s@}@\n" cost;
         user_messagef st "@[<v 0>@{<u>Rearrangement cost %s@}@\n" recost;
         user_messagef st "@[<v 0>@{<u>Children: %s %s@}@\n" child1_name child2_name;

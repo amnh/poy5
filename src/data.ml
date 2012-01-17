@@ -1645,8 +1645,14 @@ dyna_state dyna_pam weight prealigned domerge =
             (*each loci is a list of fragment, each fragment is a sequence*)
             let seq_t_arr = match taxon_chrom_loci_frag_seq with 
                 | [[loci_frag_seq]] -> (*this is a sequence list*) 
-                       if ! max_num_fragment < (List.length loci_frag_seq) then 
-                        max_num_fragment := (List.length loci_frag_seq)
+                       if !max_num_fragment < (List.length loci_frag_seq) then
+                           begin
+                           if !max_num_fragment=0 then
+                                max_num_fragment := (List.length loci_frag_seq)
+                           else
+                               failwith ("we have an inconsistent number of \
+                               fragments in sequence from input file:"^original_filename);
+                           end
                         else ();
                         Array.of_list ( List.map (fun fragseq -> (fragseq,t) )
                         loci_frag_seq )
