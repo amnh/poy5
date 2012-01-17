@@ -44,6 +44,9 @@ AC_SUBST(OUSEWIN32)
 AC_SUBST(OUSE_SSE3)
 AC_SUBST(OUSE_CONCORDE)
 
+AC_SUBST(INTERFACETOP)
+AC_SUBST(MPITOP)
+
 AC_SUBST(USEINTERFACE)
 AC_SUBST(USESHAREDHD)
 AC_SUBST(USEPARALLEL)
@@ -118,7 +121,7 @@ AC_ARG_WITH(ocaml-flags,
 
 AC_ARG_ENABLE([mpi], [AS_HELP_STRING([--enable-mpi], 
               [Turns on parallel support using MPI. When using MPI remember to set CC to the appropriate mpicc compiler.])], 
-              [USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"], 
+              [USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"; MPITOP="Mpi"], 
               [USEPARALLEL="false"])
 
 AC_ARG_ENABLE([large-messages], [AS_HELP_STRING([--enable-large-messages], 
@@ -341,7 +344,7 @@ AS_IF([test $USEPARALLEL = "true"],[USEINTERFACE="flat"])
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"],
       [AC_CHECK_LIB([ncurses], [main],
-            [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
+            [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";INTERFACETOP="NcursesML";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
             [AS_IF([test $INTERFACE_SELECTED = "true"],
                 [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. See ./configure --help for more information.])],
                 [USEINTERFACE="readline"])])],
@@ -466,5 +469,5 @@ esac
 CC_VERSION="`$CC --version`"
 POY_VERSION_NUMBER="`$MERCURIAL`"
 
-AC_CONFIG_FILES([Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml])
+AC_CONFIG_FILES([Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml poy.mltop])
 AC_OUTPUT

@@ -639,6 +639,8 @@ USE_LARGE_MESSAGES
 USEPARALLEL
 USESHAREDHD
 USEINTERFACE
+MPITOP
+INTERFACETOP
 OUSE_CONCORDE
 OUSE_SSE3
 OUSEWIN32
@@ -2931,6 +2933,9 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
@@ -3025,7 +3030,7 @@ fi
 
 # Check whether --enable-mpi was given.
 if test "${enable_mpi+set}" = set; then :
-  enableval=$enable_mpi; USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"
+  enableval=$enable_mpi; USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"; MPITOP="Mpi"
 else
   USEPARALLEL="false"
 fi
@@ -3441,7 +3446,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_main" >&5
 $as_echo "$ac_cv_lib_ncurses_main" >&6; }
 if test "x$ac_cv_lib_ncurses_main" = xyes; then :
-  LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";$as_echo "#define HAVE_LIBNCURSES 1" >>confdefs.h
+  LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";INTERFACETOP="NcursesML";OUSENCURSES=",use_ncurses";$as_echo "#define HAVE_LIBNCURSES 1" >>confdefs.h
 
 else
   if test $INTERFACE_SELECTED = "true"; then :
@@ -5310,6 +5315,7 @@ $as_echo "lapack not found; continuing without Likelihood" >&6; }
 fi
 
 fi
+
         #if we cannot enable likelihood; check if this was forced!
         if (test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false"); then
             { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
@@ -5323,7 +5329,7 @@ esac
 CC_VERSION="`$CC --version`"
 POY_VERSION_NUMBER="`$MERCURIAL`"
 
-ac_config_files="$ac_config_files Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml"
+ac_config_files="$ac_config_files Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml poy.mltop"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6032,6 +6038,7 @@ do
     "myocamlbuild.ml") CONFIG_FILES="$CONFIG_FILES myocamlbuild.ml" ;;
     "buildNumber.ml") CONFIG_FILES="$CONFIG_FILES buildNumber.ml" ;;
     "compileFlags.ml") CONFIG_FILES="$CONFIG_FILES compileFlags.ml" ;;
+    "poy.mltop") CONFIG_FILES="$CONFIG_FILES poy.mltop" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
