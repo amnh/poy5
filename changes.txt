@@ -1,6 +1,7 @@
 CHANGES BETWEEN 5.0.0 and 5.0.1
 
 New Features:
+    - orientation set to true by default for breakinversion data-type.
 
 
 Bugs Fixed:
@@ -12,6 +13,9 @@ Bugs Fixed:
       This is a requirement that is oft forgotten and there is no reason why we
       cannot facilitate that requirement. Setting interface to anything else
       will over-write that choice.
+    - Add Error message for input sequence with different number of
+      fragments(fragments are devided by '#'). 
+      bug report by torsten dikow <torsten@tdvia.de>.
 
 
 Feature Eliminated:
