@@ -16,7 +16,9 @@ Bugs Fixed:
     - Add Error message for input sequence with different number of
       fragments(fragments are devided by '#'). 
       bug report by torsten dikow <torsten@tdvia.de>.
-
+    - Improved Makefile and Configure scripts from minor errors. Also removed
+      Makefile and configure script from the root directory to avoid confusion
+      and easier to maintain. (Thanks to Jan De Laet).
 
 Feature Eliminated:
 
