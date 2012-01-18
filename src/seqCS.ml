@@ -692,13 +692,21 @@ module DOS = struct
             let algn s1 s2 =
                 let cm = c2 in
                 match Cost_matrix.Two_D.affine cm with
-                | Cost_matrix.Affine _ (*->
-                        let m, _, _, cost, _ = 
-                            if use_ukk then failwith "we don't deal with affine for ukk yet."
+                | Cost_matrix.Affine _ ->
+                        let median,cost =
+                            if use_ukk then 
+                                let s1',s2',c = 
+                                    Sequence.NewkkAlign.align_2 s1 s2 cm
+                                    Sequence.NewkkAlign.default_ukkm
+                                in
+                                Sequence.median_2 s1' s2' cm, c
                             else
-                            Sequence.Align.align_affine_3 s1 s2 cm in
-                        let m = Sequence.select_one m cm in
-                        create m, cost*)
+                                let m, _, _, cost, _ = 
+                                    Sequence.Align.align_affine_3 s1 s2 cm in
+                                m,cost
+                        in
+                        let m = Sequence.select_one median cm in
+                        create m, cost
                 | _ ->
                     let s1', s2', c =
                             if use_ukk then
@@ -769,9 +777,18 @@ module DOS = struct
         else 
             let seqm, tmpa, tmpb, tmpcost, seqmwg =
                 match Cost_matrix.Two_D.affine h.c2 with
-                | Cost_matrix.Affine _ (*-> 
-                        Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
-                *)
+                | Cost_matrix.Affine _ -> 
+                        if use_ukk then
+                            let tmpa,tmpb,tmpcost = 
+                                Sequence.NewkkAlign.align_2 a.sequence b.sequence 
+                                h.c2 Sequence.NewkkAlign.default_ukkm in
+                            let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2 in
+                            let seqmwg = 
+                                Sequence.median_2_with_gaps tmpa tmpb h.c2 
+                            in
+                            seqm, tmpa, tmpb, tmpcost, seqmwg
+                        else
+                            Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
                 | _ ->
                         let tmpa, tmpb, tmpcost =
                             if use_ukk then
@@ -787,7 +804,6 @@ module DOS = struct
                         in
                         seqm, tmpa, tmpb, tmpcost, seqmwg
             in
-            
             let rescost = make_cost tmpcost in
             if debug then begin 
                 let print_seqlist seq = Sequence.printseqcode seq; in
@@ -1116,9 +1132,17 @@ module PartitionedDOS = struct
                     clip_n_fix a b in
                 let seqm, tmpa, tmpb, cost, seqmwg =
                     match Cost_matrix.Two_D.affine h.c2 with
-                    | Cost_matrix.Affine _ (*-> 
-                            Sequence.Align.align_affine_3 
-                            a.DOS.sequence b.DOS.sequence h.c2*)
+                    | Cost_matrix.Affine _ ->
+                            if use_ukk then
+                                let tmpa,tmpb,tmpcost = Sequence.NewkkAlign.align_2 a.DOS.sequence 
+                                b.DOS.sequence h.c2 Sequence.NewkkAlign.default_ukkm in
+                                let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2 in
+                                let seqmwg = 
+                                    Sequence.median_2_with_gaps tmpa tmpb h.c2 
+                                in
+                                seqm, tmpa, tmpb, tmpcost, seqmwg
+                            else
+                                Sequence.Align.align_affine_3 a.DOS.sequence b.DOS.sequence h.c2
                     | _ ->
                             let tmpa, tmpb, cost = 
                                 if use_ukk then
