@@ -466,7 +466,6 @@ let median_2_with_gaps s1 s2 c =
         raise (Invalid_Argument "The size of the sequences is not the same.")
 
 let median_2 s1 s2 c =
-    Printf.printf "Median 2";
     let sz1 = length s1 
     and sz2 = length s2 in
     if (sz1 = sz2) then begin
@@ -615,7 +614,6 @@ module Align = struct
         "algn_CAML_cost_affine_3" 
 
     let align_affine_3 si sj cm =
-        Printf.printf "Affine Align 3\n%!";
         let len = length si + length sj + 2 in
         let resi = create len
         and resj = create len 
@@ -1080,7 +1078,6 @@ module Align = struct
             (Invalid_Argument "The size of the sequences is not the same.")
 
     let full_median_2 a b cm m = 
-        Printf.printf "FULL MEDIAN";
         match Cost_matrix.Two_D.affine cm with
         | Cost_matrix.Affine _ ->
                 let m, _, _, _, _ = align_affine_3 a b cm in
