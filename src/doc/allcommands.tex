@@ -3389,7 +3389,7 @@
             This set of arguments enables analysis using several variants of the
             maximum likelihood criterion. 
 
-            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gapmode,cost)}}
+            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gap,cost)}}
                 {Transforms the specified characters to either static or dynamic
                 likelihood characters. All arguments are optional; the defaults
                 are presented in the sub-sections below.}
@@ -3545,7 +3545,7 @@
                 \end{description}}
             {model}
 
-            \argumentdefinition{rates}{}
+            \argumentdefinition{rates:(TYPE)}{}
                 {Specifies the distribution of rates among sites. Rate
                 variation distributions allow multipliers to be applied to
                 separate groups of characters. This additional parameterization
@@ -3604,7 +3604,7 @@
                 \end{description}}
                 {rates}
 
-                \argumentdefinition{priors}{}
+                \argumentdefinition{priors:(TYPE)}{}
                     {The equilibrium frequencies of the characters in the stationary
                     Markov process. The conditional probability of the data is
                     multiplied by these frequencies to yield the likelihood score.
@@ -3677,12 +3677,12 @@
                             \cite[for example]{mossel2009shrinkage}.
                             
 %                           % \begin{statement}
-%                           %     We use a smoothing function for the most
+%                           %     We use a smoothing function for most
 %                           %     parsimonious likelihood on static characters
 %                           %     based off the smooth maximum (Cook 2010), thus
-%                           %     costs reported during finding optimizations may
+%                           %     costs reported during optimizations may
 %                           %     be slightly off. The final costs are exact to
-%                           %     computational numerical precision.
+%                           %     the computational numerical precision.
 %                           % \end{statement}
                             }
                             {mpl}
@@ -3690,7 +3690,7 @@
                     \end{description}}
                     {cost}
 
-                \argumentdefinition{gapmode}{}
+                \argumentdefinition{gap:(TYPE)}{}
                     {Defines how atomistic gaps (indels) are treated in
                     likelihood analysis. When implemented, the POY approach to
                     indels on static likelihood characters follows McGuire \emph{et al} \cite{mcguire2001models}, but expands the implementation outside the F84
@@ -3757,212 +3757,211 @@
 
 
         \begin{argumentgroup}{Chromosome transformation methods}
-           For chromosome and genome character types, \poy optimizes nucleotide-, 
-           locus-, and chromosome-level variation simultaneously. The arguments in this group
-           transform nucleotide characters into chromosomal character
-           to allow for translocations, inversions, and indel events both at the locus-level for chromosomal data
-           and at the chromosome-level for genomic data.
+            For chromosome and genome character types, \poy optimizes nucleotide-, 
+            locus-, and chromosome-level variation simultaneously. The arguments in this group
+            transform nucleotide characters into chromosomal character
+            to allow for translocations, inversions, and indel events both at the locus-level for chromosomal data
+            and at the chromosome-level for genomic data.
            
-          The functions to calculate breakpoint and inversion distances between two
-	sequences of gene orders are taken from the rearrangement software packages: GRAPPA, Genome
-	Rearrangements Analysis under Parsimony and other Phylogenetic Algorithms \cite{baderetal2002}, 
-	and MGR, Multiple Genome Rearrangements \cite{bourqueandpevzner2002}, as well as from the 	 
-	Concord TSP Solver available at \texttt{http://www.tsp.gatech.edu/concorde/}.
-		
-	 	\argumentdefinition{annotate}{\obligatory{(\poylident,\poyfloat,\poyfloat,\poyfloat,\poyfloat)}}
-                        {Specifies the annotation method for unannotated chromosome sequences.
-                        If \poylident is \texttt{mauve} the Mauve algorithm is used \cite{darlingetal2004} with
-                        float parameters quality of lcb (default value 35), lcb coverage (default .30), 
-                        minimum length of lcb as a percentage of sequence lenght (default .01), maximum length of lcb as a percentage of 
-                        sequence length ( default .10).  Percent calculations are based on the shorter of two sequences compared.}
-                        {annotate}
+            The functions to calculate breakpoint and inversion distances between
+            two sequences of gene orders are taken from the rearrangement software
+            packages: GRAPPA, Genome Rearrangements Analysis under Parsimony and
+            other Phylogenetic Algorithms \cite{baderetal2002}, and MGR, Multiple
+            Genome Rearrangements \cite{bourqueandpevzner2002}, as well as from
+            the Concord TSP Solver available at \texttt{http://www.tsp.gatech.edu/concorde/}.
+
+	 	    \argumentdefinition{annotate}{\obligatory{(\poylident,\poyfloat,\poyfloat,\poyfloat,\poyfloat)}}
+                {Specifies the annotation method for unannotated chromosome sequences.
+                If \poylident is \texttt{mauve} the Mauve algorithm is used \cite{darlingetal2004} with
+                float parameters quality of lcb (default value 35), lcb coverage (default .30), 
+                minimum length of lcb as a percentage of sequence lenght (default .01), maximum length of lcb as a percentage of 
+                sequence length ( default .10).  Percent calculations are based on the shorter of two sequences compared.}
+                {annotate}
                         
-                        \argumentdefinition{breakinv\_to\_custom}{}
-            {Transforms \poyargument{breakinv} character type into \poyargument{custom\_alphabet} characters.
-            This transformation prevents the use of rearrangement operations.} 
-            {breakinvtocustom}
+            \argumentdefinition{breakinv\_to\_custom}{}
+                {Transforms \poyargument{breakinv} character type into \poyargument{custom\_alphabet} characters.
+                This transformation prevents the use of rearrangement operations.} 
+                {breakinvtocustom}
 
             \argumentdefinition{chromosome}{\obligatory{([argument list])}}
-            {Specifies parameters for creating chro\-mosome- and genome-level HTUs (medians).
-            The arguments of \poyargument{chromosome} define homologous blocks within unannotated chromosome sequences by
-             specifying parameters within the Mauve aligner \cite{darlingetal2004} including block quality, block coverage, 	       		   	   
-             minimum and maximum block length. Users also specify the costs assigned to locus-level transformation events:
-            %(\poyargument{min\_seed\_length}, \poyargument{min\_loci\_len}, and \poyargument{min\_rearranged\_len}); specify thecost
-            (i.e. \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, or \poyargument{locus\_breakpoint}, and
-             \poyargument {locus\_indel}), take into account whether the chromosome is linear or circular (\poyargument{circular}), and
-             implement a number of 	heuristic procedures to accelerate computations (\poyargument{median}, \poyargument{swap\_med}, 
-             and \poyargument {med\_approx}).  Under default settings, the pairwise distance between two chromosome segments or two 
-             chromosomes is determined using breakpoint rather than inversion calculations and the rest of the arguments are executed 
-             under their default settings.}
-             {chromosome}
+                {Specifies parameters for creating chro\-mosome- and genome-level HTUs (medians).
+                The arguments of \poyargument{chromosome} define homologous blocks within unannotated chromosome sequences by
+                specifying parameters within the Mauve aligner \cite{darlingetal2004} including block quality, block coverage, 	       		   	   
+                minimum and maximum block length. Users also specify the costs assigned to locus-level transformation events:
+                %(\poyargument{min\_seed\_length}, \poyargument{min\_loci\_len}, and \poyargument{min\_rearranged\_len}); specify thecost
+                (i.e. \poyargument{locus\_inversion}, \poyargument{locus\_dcj}, or \poyargument{locus\_breakpoint}, and
+                \poyargument {locus\_indel}), take into account whether the chromosome is linear or circular (\poyargument{circular}), and
+                implement a number of 	heuristic procedures to accelerate computations (\poyargument{median}, \poyargument{swap\_med}, 
+                and \poyargument {med\_approx}).  Under default settings, the pairwise distance between two chromosome segments or two 
+                chromosomes is determined using breakpoint rather than inversion calculations and the rest of the arguments are executed 
+                under their default settings.}
+                {chromosome}
              
-                \argumentdefinition{chrom\_breakpoint}{\obligatory{\poyint}} 
-      		     {Calculates the breakpoint distance~\cite{blanchetteetal1997}
-                        between two sequences of multiple chromosomes given the cost for
-                        rearrangement specified by an integer value. The breakpoint distance
-                        takes into account locus rearrangements between non-homologous
-                        chromosomes (translocations) but not inversions. For further discussion on 
-                        how breakpoint distance is calculated see the argument \poyargument{locus\_breakpoint}.  
-                        The default value of \poyargument{chrom\_breakpoint} is \texttt{100}.} 
-                        {chrombreakpoint}
+            \argumentdefinition{chrom\_breakpoint}{\obligatory{\poyint}} 
+      		    {Calculates the breakpoint distance~\cite{blanchetteetal1997}
+                between two sequences of multiple chromosomes given the cost for
+                rearrangement specified by an integer value. The breakpoint distance
+                takes into account locus rearrangements between non-homologous
+                chromosomes (translocations) but not inversions. For further discussion on 
+                how breakpoint distance is calculated see the argument \poyargument{locus\_breakpoint}.  
+                The default value of \poyargument{chrom\_breakpoint} is \texttt{100}.} 
+                {chrombreakpoint}
                         
-                                 \argumentdefinition{chrom\_indel}{\obligatory{(\poyint, \poyfloat)}}
-                        {Specifies the cost for insertion and deletion of a chromosome in analysis of
-                        multiple chromosomes. The integer value sets gap opening
-                        cost ($o$), whereas the float value sets gap extension
-                        cost ($e$).  The indel cost for a fragment of length $l$ is
-                        specified by the following formula:
-                       $o + l \times e$. The default values are $o=10, e=1.0$.}
-                        {chromindel}
+            \argumentdefinition{chrom\_indel}{\obligatory{(\poyint, \poyfloat)}}
+                {Specifies the cost for insertion and deletion of a chromosome in analysis of
+                multiple chromosomes. The integer value sets gap opening
+                cost ($o$), whereas the float value sets gap extension
+                cost ($e$).  The indel cost for a fragment of length $l$ is
+                specified by the following formula:
+                    $o + l \times e$. The default values are $o=10, e=1.0$.}
+                {chromindel}
  
  	        \argumentdefinition{circular}{\obligatory{\poybool}} 
-                        {Specifies if chromosome is circular (boolean value 
-                        \texttt{true}) or linear (boolean value \texttt{false}).
-                        The default value of \poyargument{circular} is
-                        \texttt{false} (linear chromosome).}
-                        {circular}
+                {Specifies if chromosome is circular (boolean value
+                \texttt{true}) or linear (boolean value \texttt{false}). The
+                default value of \poyargument{circular} is \texttt{false}
+                (linear chromosome).}
+                {circular}
              
-             \argumentdefinition{custom\_to\_breakinv}{\obligatory{([argument list])}}
-           {Transforms \poyargument{custom\_alphabet} characters into the \poyargument{breakinv} character type to allow for 
-            rearrangement operations (translocations and inversions; duplications are not currently supported). This argument is useful, for 
-            example, when \poyargument{custom\_alphabet} characters are used to define a sequence of individual genes and one is 
-            interested in detecting potential change in their order within a chromosome. 
-            See the command~\ccross{read} for the description on how to load the \poyargument{custom\_
-            alphabet} and \poyargument{breakinv} character types. }%The optional list of arguments
-           % includes the arguments of the \poyargument{dynamic\_pam} that can also
-            %be specified subsequently, as a separate step 
-            For a sample script using this character transformation see tutorial \texttt{5.8}.
-            {customtobreakinv}
+            \argumentdefinition{custom\_to\_breakinv}{\obligatory{([argument list])}}
+                {Transforms \poyargument{custom\_alphabet} characters into the \poyargument{breakinv} character type to allow for 
+                rearrangement operations (translocations and inversions; duplications are not currently supported). This argument is useful, for 
+                example, when \poyargument{custom\_alphabet} characters are used to define a sequence of individual genes and one is 
+                interested in detecting potential change in their order within a chromosome. 
+                See the command~\ccross{read} for the description on how to load the \poyargument{custom\_
+                alphabet} and \poyargument{breakinv} character types. }%The optional list of arguments
+                % includes the arguments of the \poyargument{dynamic\_pam} that can also
+                %be specified subsequently, as a separate step 
+                For a sample script using this character transformation see tutorial \texttt{5.8}.
+                {customtobreakinv}
              
-               \begin{statement}
-  		Note that the arguments \poyargument{locus\_breakpoint} and \poyargument {chrom\_breakpoint} cannot be used
-		simultaneously with the arguments \poyargument{locus\_inversion} and \poyargument{chrom\_inversion}
-		as they designate \emph{alternative} methods of calculating distance between two chromosomes.
-		If both arguments are specified, the latter will be executed. The order of other locus level arguments
-		is arbitrary. 
-		\end{statement}
+            \begin{statement}
+  		        Note that the arguments \poyargument{locus\_breakpoint} and
+                \poyargument {chrom\_breakpoint} cannot be used simultaneously
+                with the arguments \poyargument{locus\_inversion} and
+                \poyargument{chrom\_inversion} as they designate
+                \emph{alternative} methods of calculating distance between two
+                chromosomes.  If both arguments are specified, the latter will
+                be executed. The order of other locus level arguments is
+                arbitrary.
+		    \end{statement}
 		
-              \argumentdefinition{locus\_breakpoint}{\obligatory{\poyint}}
-                        {Calculates the breakpoint distance \cite{blanchetteetal1997}
-                        between two pairs of chromosomes given the cost for rearrangement
-                        specified by an integer value.  The breakpoint distance calculation considers
-                        a chromosome or genome $G = (x_1, \ldots, x_n)$of $n$ gene, wherein each
-                        gene appears exactly once and its orientation is either positve or negative.  Gene
-                        orders are altered by gene rearrangement operations: gene inversion, gene translocation,
-                        gene inversion and translocation (see Figure \ref{fig:genomeRearrangement}).  
-                        The breakpoint distance takes into account rearrangements but not inversions.
-                        Given $G$ and $G'$, a pair of genes $(g_i, g_j)$ is a breakpoint if $(g_i, g_j)$ occur 
-                        consecutively in $G$ but neither $(g_i, g_j)$ nor $(-g_j, -g_i)$ occur
-                        consectively in $G'$  \cite{sankoffandblanchette1998}.  The breakpoint distance between $G$
-		     and $G^\prime$ is the number of breakpoints between them.  Figure \ref{fig:distance} 
-                        shows two breakpoints between $G$ and $G^\prime$. The breakpoint can be calculated 
-                        easily in linear time.  This argument \emph{cannot} be used in
-                        conjunction with \poyargument{locus\_inversion}.or
-                        \poyargument{locus\_dcj}. The default
-                        value of \poyargument{locus\_breakpoint} is \texttt{10}.} 
-                        {locusbreakpoint} 
+            \argumentdefinition{locus\_breakpoint}{\obligatory{\poyint}}
+                {Calculates the breakpoint distance \cite{blanchetteetal1997}
+                between two pairs of chromosomes given the cost for rearrangement
+                specified by an integer value.  The breakpoint distance calculation considers
+                a chromosome or genome $G = (x_1, \ldots, x_n)$of $n$ gene, wherein each
+                gene appears exactly once and its orientation is either positve or negative.  Gene
+                orders are altered by gene rearrangement operations: gene inversion, gene translocation,
+                gene inversion and translocation (see Figure \ref{fig:genomeRearrangement}).  
+                The breakpoint distance takes into account rearrangements but not inversions.
+                Given $G$ and $G'$, a pair of genes $(g_i, g_j)$ is a breakpoint if $(g_i, g_j)$ occur 
+                consecutively in $G$ but neither $(g_i, g_j)$ nor $(-g_j, -g_i)$ occur
+                consectively in $G'$  \cite{sankoffandblanchette1998}.  The breakpoint distance between $G$
+		        and $G^\prime$ is the number of breakpoints between them.  Figure \ref{fig:distance} 
+                shows two breakpoints between $G$ and $G^\prime$. The breakpoint can be calculated 
+                easily in linear time.  This argument \emph{cannot} be used in
+                conjunction with \poyargument{locus\_inversion}.or \poyargument{locus\_dcj}. The default
+                value of \poyargument{locus\_breakpoint} is \texttt{10}.} 
+                {locusbreakpoint} 
             
-		 \begin{figure} [!htbp]
-   		 \begin{center}
-        		\includegraphics[width=0.6\textwidth]{doc/figures/genomeRearrangement.pdf}
-    		\end{center}
-    		 \caption{Examples of gene rearrangements: inversions and translocations.}
-		 \label{fig:genomeRearrangement}
-		\end{figure}
+		    \begin{figure} [!htbp]
+   		        \begin{center}
+        		    \includegraphics[width=0.6\textwidth]{doc/figures/genomeRearrangement.pdf}
+    		    \end{center}
+    		    \caption{Examples of gene rearrangements: inversions and translocations.}
+		        \label{fig:genomeRearrangement}
+		    \end{figure}
 
-		\begin{figure}[!htbp]
-		\begin{center}
-        		\includegraphics[width=0.4\textwidth]{doc/figures/breakpointDis.pdf}
-      		\end{center}
-		  \caption{Rearrangement calculations between chromosomal or genomic data of six genes $g_1, \ldots, g_6$,
-                 	 where the rearrangement events are detected as either two breakpoints $(g_2, g_3), (g_5, g_6)$
-                   or a single inversion $(g_1, g_2, g_3)$.}
-                   \label{fig:distance}
-		\end{figure}
+		    \begin{figure}[!htbp]
+		        \begin{center}
+        		    \includegraphics[width=0.4\textwidth]{doc/figures/breakpointDis.pdf}
+      		    \end{center}
+		        \caption{Rearrangement calculations between chromosomal or genomic data of six genes $g_1, \ldots, g_6$,
+                    where the rearrangement events are detected as either two breakpoints $(g_2, g_3), (g_5, g_6)$
+                    or a single inversion $(g_1, g_2, g_3)$.}
+                \label{fig:distance}
+		    \end{figure}
 		
-	\begin{description}                 
+	        \begin{description}                 
                             
-                                               
-                        \argumentdefinition{locus\_dcj}{\obligatory{\poyint}}
-                        {Calculates the double cut and join
-                        distance~\cite{yancopoulosetal2005}
-                        between two chromosome segments given the cost for each
-                        event specified by the integer value. The inversion distance
-                        takes in consideration rearrangements and
-                        inversions. The dcj distance is normally smaller than
-                        the inversion and breakpoint distances.
-                        This argument \emph{cannot} be used in conjunction with
-                        \poyargument{locus\_breakpoint} or
-                        \poyargument{locus\_inversion}.} 
-                        {locusdcj}
+                \argumentdefinition{locus\_dcj}{\obligatory{\poyint}}
+                    {Calculates the double cut and join
+                    distance~\cite{yancopoulosetal2005}
+                    between two chromosome segments given the cost for each
+                    event specified by the integer value. The inversion distance
+                    takes in consideration rearrangements and
+                    inversions. The dcj distance is normally smaller than
+                    the inversion and breakpoint distances.
+                    This argument \emph{cannot} be used in conjunction with
+                    \poyargument{locus\_breakpoint} or
+                    \poyargument{locus\_inversion}.} 
+                    {locusdcj}
                         
-                             \argumentdefinition{locus\_indel}{\obligatory{(\poyint, \poyfloat)}} 
-                        {Specifies the cost for insertion/deletion of a
-                        chromosome segment. The integer value sets the gap opening
-                        cost ($o$), whereas the float value sets the gap extension
-                        cost ($e$).  The indel cost for a fragment of length $l$ is
-                        specified by the following formula:
-                       $o + l \times e$. The default values are $o=10, e=1.0$.}
-                        {locusindel}
+                \argumentdefinition{locus\_indel}{\obligatory{(\poyint, \poyfloat)}} 
+                    {Specifies the cost for insertion/deletion of a
+                    chromosome segment. The integer value sets the gap opening
+                    cost ($o$), whereas the float value sets the gap extension
+                    cost ($e$).  The indel cost for a fragment of length $l$ is
+                    specified by the following formula:
+                        $o + l \times e$. The default values are $o=10, e=1.0$.}
+                    {locusindel}
                         
-                        \argumentdefinition{locus\_inversion}{\obligatory{\poyint}}
-                        {Calculates the inversion distance~\cite{hanenhalliandpevzner1995}
-                        between two chromosome segments given the cost for inversion
-                        specified by the integer value. The inversion distance
-                        takes in consideration rearrangements and
-                        inversions. Given $G$ and $G^\prime$, the inversion distance between
-                        them is the number of inversions to convert chromosome or genome $G$ 
-                        into $G^\prime$ \cite{hanenhalliandpevzner1995}. Figure \ref{fig:distance} shows one inversion  
-                        between $G$ and $G^\prime$. The inversion can be calculated in linear time.
-                        The breakpoint distance is normally larger than
-                        inversion distance  and dcj distance.
-                        This argument \emph{cannot} be used in conjunction with
-                        \poyargument{locus\_breakpoint} or
-                        \poyargument{locus\_dcj}.} 
-                        {locusinversion}  
+                \argumentdefinition{locus\_inversion}{\obligatory{\poyint}}
+                    {Calculates the inversion distance~\cite{hanenhalliandpevzner1995}
+                    between two chromosome segments given the cost for inversion
+                    specified by the integer value. The inversion distance
+                    takes in consideration rearrangements and
+                    inversions. Given $G$ and $G^\prime$, the inversion distance between
+                    them is the number of inversions to convert chromosome or genome $G$ 
+                    into $G^\prime$ \cite{hanenhalliandpevzner1995}. Figure \ref{fig:distance} shows one inversion  
+                    between $G$ and $G^\prime$. The inversion can be calculated in linear time.
+                    The breakpoint distance is normally larger than
+                    inversion distance  and dcj distance.
+                    This argument \emph{cannot} be used in conjunction with
+                    \poyargument{locus\_breakpoint} or \poyargument{locus\_dcj}.} 
+                    {locusinversion}  
 
-		      \argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
-                        {Defines the maximum number of Wagner\-based possible ancestral sequence
-                        alignments kept to create the next set of alignments during the pairwise alignment
-                        with rearrangement process.  The default value of \poyargument{max\_kept\_wag} is 1,
-                        however, at every step in the pairwise alignment with rearrangement process, the original
-                        order (1...n) is always considered as a potential solution.}
-                        {maxkeptwag}
+		        \argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
+                    {Defines the maximum number of Wagner\-based possible ancestral sequence
+                    alignments kept to create the next set of alignments during the pairwise alignment
+                    with rearrangement process.  The default value of \poyargument{max\_kept\_wag} is 1,
+                    however, at every step in the pairwise alignment with rearrangement process, the original
+                    order (1...n) is always considered as a potential solution.}
+                    {maxkeptwag}
        		      
-		      \argumentdefinition{median}{\obligatory{\poyint}}
-                        {Specifies the number alternative locus and chromosome
-                        rearrangements of the best cost selected (randomly) for
-                        each HTU (hypothetical taxon unit) or median. Limiting the number of rearrangements
-                        stored in memory (smaller value of \poyargument{median})
-                        is heuristic strategy to accelerate calculations at the
-                        expense of thoroughness of the search. By default, only 1
-                        rearrangement is retained (the first one found). If more than
-                        one rearrangement is specified, the selected number of
-                        rearrangements is selected in random order from the pool of
-                        all generated rearrangements.}
-                        {median}
+		        \argumentdefinition{median}{\obligatory{\poyint}}
+                    {Specifies the number alternative locus and chromosome
+                    rearrangements of the best cost selected (randomly) for
+                    each HTU (hypothetical taxon unit) or median. Limiting the number of rearrangements
+                    stored in memory (smaller value of \poyargument{median})
+                    is heuristic strategy to accelerate calculations at the
+                    expense of thoroughness of the search. By default, only 1
+                    rearrangement is retained (the first one found). If more than
+                    one rearrangement is specified, the selected number of
+                    rearrangements is selected in random order from the pool of
+                    all generated rearrangements.}
+                    {median}
 
-              	\argumentdefinition{med\_approx}{\obligatory{\poybool}}
-                        {Approximates chromosome medians using a fixed-states
-                        approach. This is most useful to accelerating tree
-                        building and searching operations for large chromosomal
-                        data sets. The boolean value \texttt{true} applies the
-                        fixed-states optimization. The default value is
-                        \texttt{false}.}
-                        {medapprox}
+                \argumentdefinition{med\_approx}{\obligatory{\poybool}}
+                    {Approximates chromosome medians using a fixed-states
+                    approach. This is most useful to accelerating tree
+                    building and searching operations for large chromosomal
+                    data sets. The boolean value \texttt{true} applies the
+                    fixed-states optimization. The default value is
+                    \texttt{false}.}
+                    {medapprox}
                         
-                         \argumentdefinition{median\_solver}{\obligatory{\poyint}}
-                       {Specifies the median solver. User can choose from
-                       default(caprara),vinh,siepel,bbtsp,coaletsp,chainedlk and simplelk. The
-                       default median solver is caprara median solver. Note:
-                       Concorde package is required for chainedlk and simplelk
-                       median solver. Download Concorde package from \\
-                       http://www.tsp.gatech.edu//concorde/downloads/downloads.htm.
-                       }
-                       {mediansolver}
+                \argumentdefinition{median\_solver}{\obligatory{\poyint}}
+                   {Specifies the median solver. User can choose from
+                   default(caprara),vinh,siepel,bbtsp,coaletsp,chainedlk and simplelk. The
+                   default median solver is caprara median solver. Note:
+                   Concorde package is required for chainedlk and simplelk
+                   median solver. Download Concorde package from \\
+                   http://www.tsp.gatech.edu//concorde/downloads/downloads.htm.  }
+                   {mediansolver}
                        
                        
-                        
                         %\argumentdefinition{min\_seed\_length}{\obligatory{\poyint}}
                         %{Specifies the minimum length of identical (invariant,
                         %completely conserved) contiguous sequence fragments
