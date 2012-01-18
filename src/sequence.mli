@@ -213,8 +213,6 @@ val fold : ('a -> int -> 'a) -> 'a -> s -> 'a
 (** [init f l] creates a fresh sequence [s] such that [s](i) = [f] [i]. *)
 val init : (int -> int) -> int -> s
 
-val lambda : s
-
 val sub : s -> int -> int -> s
 
 val sub_ignore_gap : ?gap:int -> s -> int -> int -> s * int

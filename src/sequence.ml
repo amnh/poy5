@@ -25,32 +25,33 @@ exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
 let () = SadmanOutput.register "Sequence" "$Revision: 2871 $"
+
 external register : unit -> unit = "seq_CAML_register"
+let () = register ()
 
-let _ = 
-    register ()
+let ndebug = true
 
-let ndebug = true;;
+type s
 
-type s;;
+external c_reverse : (s -> s -> unit) = "seq_CAML_reverse"
 
-external c_reverse : (s -> s -> unit) = "seq_CAML_reverse";;
-external reverse_ip : (s -> unit) = "seq_CAML_reverse_ip";;
-external capacity : (s -> int) = "seq_CAML_get_cap";;
+external reverse_ip : (s -> unit) = "seq_CAML_reverse_ip"
+
+external capacity : (s -> int) = "seq_CAML_get_cap"
+
 external create : int -> s = "seq_CAML_create"
 
-external copy : (s -> s -> unit) = "seq_CAML_copy";;
+external copy : (s -> s -> unit) = "seq_CAML_copy"
 
-external length : (s -> int) = "seq_CAML_length";;
+external length : (s -> int) = "seq_CAML_length"
 
-external get : (s -> int -> int) = "seq_CAML_get";;
+external get : (s -> int -> int) = "seq_CAML_get"
 
 external c_median_2 :
-        s -> s -> Cost_matrix.Two_D.m -> s -> unit = "seq_CAML_median_2_no_gaps"
+    s -> s -> Cost_matrix.Two_D.m -> s -> unit = "seq_CAML_median_2_no_gaps"
 
 external c_median_2_with_gaps :
-    s -> s -> Cost_matrix.Two_D.m -> s -> unit =
-        "seq_CAML_median_2_with_gaps"
+    s -> s -> Cost_matrix.Two_D.m -> s -> unit = "seq_CAML_median_2_with_gaps"
 
 let get s x =
     assert (x >= 0);
@@ -61,31 +62,15 @@ let get s x =
 
 external count : (int -> int -> s -> int ) = "seq_CAML_count";;
 
-(*
-let get a b = 
-    assert (b >= 0);
-    assert (b < length a);
-    c_get a b
-*)
-
 external set : (s -> int -> int -> unit) = "seq_CAML_set";;
-
-(*
-let set a b c =
-    assert (b >= 0);
-    c_set a b c
-*)
 
 external prepend : s -> int -> unit = "seq_CAML_prepend";;
 
+
 let check_level cm =
-        let level = Cost_matrix.Two_D.get_level cm in
-        let size = Cost_matrix.Two_D.get_ori_a_sz cm in
-        let uselevel = 
-            if (level>1) && (level<=size) then true
-            else false
-        in
-        uselevel
+    let level = Cost_matrix.Two_D.get_level cm in
+    let size = Cost_matrix.Two_D.get_ori_a_sz cm in
+    (level>1) && (level<=size)
 
 
 let make_empty a =
@@ -93,8 +78,10 @@ let make_empty a =
     prepend s (Alphabet.get_gap a);
     s
 
+
 let map_to_array f s = 
     Array.init (length s) (fun x -> f (get s x)) 
+
 
 let mapi f s =
     let len = length s in
@@ -104,6 +91,7 @@ let mapi f s =
     done;
     new_s
 
+
 let map f s =
     let len = length s in
     let new_s = create len in
@@ -111,6 +99,7 @@ let map f s =
         prepend new_s (f (get s i));
     done;
     new_s
+
 
 let fold f acc s =
     let len = length s in
@@ -121,6 +110,7 @@ let fold f acc s =
     in
     folder acc 0
 
+
 let foldi f acc s =
     let len = length s in
     let rec folder acc pos = 
@@ -129,6 +119,7 @@ let foldi f acc s =
         else acc
     in
     folder acc 0
+
 
 let fold_right f acc s =
     let len = length s in
@@ -139,6 +130,7 @@ let fold_right f acc s =
     in
     folder acc (len - 1)
 
+
 let fold_righti f acc s =
     let len = length s in
     let rec folder acc pos =
@@ -148,12 +140,14 @@ let fold_righti f acc s =
     in
     folder acc (len - 1)
 
+
 let iter f s = 
     let len = length s in
     for i = len - 1 downto 0 do 
         f (get s i);
     done;
     ()
+
 
 let init f len = 
     let seq = create len in
@@ -162,10 +156,12 @@ let init f len =
     done;
     seq
 
+
 let resize n ns = 
     let v = create ns in
     copy !n v;
     n := v;;
+
 
 let clone n =
     let sz = length n in
@@ -173,10 +169,12 @@ let clone n =
     copy n res;
     res;;
 
+
 let reverse s1 = 
     let sp = create (length s1) in
     c_reverse s1 sp;
     sp;;
+
 
 let safe_reverse x = 
     let gap = get x 0 in
@@ -188,42 +186,46 @@ let safe_reverse x =
     y
 
 
-let rec aux_of_list seq l it =
-    match l with 
+let rec aux_of_list seq l it = match l with 
     | h :: t -> 
-            set !seq it h;
-            aux_of_list seq t (it + 1);
+        set !seq it h;
+        aux_of_list seq t (it + 1);
     | [] -> seq;;
+
 
 let of_list l =
     let length = List.length l in
     let seq = create length in
     aux_of_list (ref seq) l 0;;
 
+
 let remove_gaps2 s2' cm =
     let remove_gaps gap seq base = 
         if base <> gap then 
-            let _ = prepend seq base in
+            let () = prepend seq base in
             seq
         else seq
     in
     let res = 
         fold_right (remove_gaps (Cost_matrix.Two_D.gap cm)) 
-        (create (length s2')) s2'
+                   (create (length s2'))
+                   s2'
     in
     prepend res (Cost_matrix.Two_D.gap cm);
     res
 
+
 let remove_gaps s2' ?(gapcode=Alphabet.gap) prependgap =
     let remove_gap gap seq base = 
         if base <> gap then 
-            let _ = prepend seq base in
+            let () = prepend seq base in
             seq
         else seq
     in
     let res = 
         fold_right (remove_gap gapcode) 
-        (create (length s2')) s2'
+                   (create (length s2'))
+                   s2'
     in
     if prependgap then prepend res gapcode;
     res
@@ -241,31 +243,29 @@ let is_empty seq gap =
 
 
 let prepend_gap s m =
-    prepend s (Cost_matrix.Two_D.gap m);
+    let () = prepend s (Cost_matrix.Two_D.gap m) in
     s
 
 
 (* Why isn't ocaml making this function a loop rather than a recursive call? *)
 let rec aux_parse str seq alph = function 
-    | (-1) -> seq;
+    | -1 -> seq
     | it -> 
-          let rec get_base cur_str cur_it =
-              let ch = Char.escaped str.[cur_it] in
-              let new_str = ch ^ cur_str in 
-
-              begin try
-                  let code = Alphabet.match_base new_str alph in
-                  prepend seq code;
-                  cur_it
-              with
-              | Alphabet.Illegal_Character c -> 
-                    match cur_it with
+        let rec get_base cur_str cur_it =
+            let ch = Char.escaped str.[cur_it] in
+            let new_str = ch ^ cur_str in 
+            begin try
+                let code = Alphabet.match_base new_str alph in
+                prepend seq code;
+                cur_it
+            with | Alphabet.Illegal_Character c -> 
+                match cur_it with
                     | 0 -> raise (Invalid_Sequence (str, c, it))
                     | _ -> get_base new_str (cur_it - 1)
-              end
-          in
-          let new_it = get_base "" it in 
-            aux_parse str seq alph (new_it - 1) 
+            end
+        in
+        let new_it = get_base "" it in 
+        aux_parse str seq alph (new_it - 1) 
               
 
 let aux_parse_imp str seq alph =
@@ -275,31 +275,31 @@ let aux_parse_imp str seq alph =
             let v = Char.escaped str.[i] in
             prepend seq (Alphabet.match_base v alph);
         with
-        | Alphabet.Illegal_Character c -> raise (Invalid_Sequence (str, c, i));
+        | Alphabet.Illegal_Character c ->
+            raise (Invalid_Sequence (str, c, i));
     done;
     seq
+
 
 let of_string str alph =
     let len = String.length str in
     let seq = create len in
     aux_parse str seq alph (len - 1)
 
+
 let of_string_ls str_ls alph = 
     let len = List.length str_ls in 
     let seq = create len in
-
-    let rec aux_parse_ls str_ls alph = 
-        match str_ls with
+    let rec aux_parse_ls str_ls alph = match str_ls with
         | [] -> seq
         | hd::tl -> 
-              begin try
-                  let code = Alphabet.match_base hd alph in
-                  prepend seq code;              
-              with
-              | Alphabet.Illegal_Character c -> 
-                    failwith ("The character state " ^ c ^ " does not exists!!!")
-              end;
-              aux_parse_ls tl alph
+            begin try
+                let code = Alphabet.match_base hd alph in
+                prepend seq code;              
+            with | Alphabet.Illegal_Character c -> 
+                failwith ("The character state " ^ c ^ " does not exists!!!")
+            end;
+            aux_parse_ls tl alph
     in
     aux_parse_ls str_ls alph 
 
@@ -318,21 +318,21 @@ let to_string seq alph =
     done;
     Buffer.contents b
 
+
 let to_formater seq alph =
     let len = length seq in
     let b = Buffer.create len in
     for i = 0 to len - 1 do
         let tmp = get seq i in
         if(tmp=0) then
-            Printf.printf "Warning: try to get code 0 in alphabet map, check the
-            rest of sequence code: \n%!";
-        (*Printf.printf "\n to_formater,i=%d,seq = %s\n%!" i (to_string seq
-        * alph);*)
-        Buffer.add_string b (
+            Printf.printf "Warning: try to get code 0 in alphabet map, check the rest of sequence code: \n%!";
+        let str = 
             let v = Alphabet.match_code (get seq i) alph in
             if v = "@" then "@@"
             else if v = "%" then "%%"
-            else v);
+            else v
+        in
+        Buffer.add_string b str
     done;
     Buffer.contents b
 
@@ -340,6 +340,7 @@ let to_formater seq alph =
 let print chn seq alph =
     let str = to_string seq alph in
     Pervasives.output_string chn str;;
+
 
 let printseqcode seq =
     let len = length seq in
@@ -349,9 +350,11 @@ let printseqcode seq =
     done;
     Printf.printf "]\n%!"
 
+
 let copy_from_in x y z u =
     let to_copy = get x z in
     set y u to_copy
+
 
 let concat x = 
     let len = List.fold_left (fun x y -> x + length y) 0 x in
@@ -372,22 +375,17 @@ let concat x =
 let to_array s =
     Array.init (length s) (fun x -> get s x)
 
+
 (** [of_array code_arr] converts the code array [code_arr]
 * into a sequence *)
 let of_array code_arr = 
     let len = Array.length code_arr in 
     init (fun idx -> code_arr.(idx)) len  
 
-(*let rnd a len = *)
-(*    let f = Alphabet.rnd a in*)
-(*    init (fun x -> f ()) len*)
-
-let lambda = 
-    let gap = 16 in
-    init (fun x -> gap) 1
 
 let sub s st len =
     init (fun x -> get s (x + st)) len
+
 
 let sub_ignore_gap ?(gap=Alphabet.gap) s st len = 
     let debug = false in
@@ -458,17 +456,17 @@ let compare a b =
     | v -> v
 
 let median_2_with_gaps s1 s2 c =
-        let sz1 = length s1 
-        and sz2 = length s2 in
-        if (sz1 = sz2) then begin
-            let sp = create sz1 in
-            c_median_2_with_gaps s1 s2 c sp;
-            sp
-        end else 
-            raise 
-            (Invalid_Argument "The size of the sequences is not the same.")
+    let sz1 = length s1 
+    and sz2 = length s2 in
+    if (sz1 = sz2) then begin
+        let sp = create sz1 in
+        c_median_2_with_gaps s1 s2 c sp;
+        sp
+    end else 
+        raise (Invalid_Argument "The size of the sequences is not the same.")
 
 let median_2 s1 s2 c =
+    Printf.printf "Median 2";
     let sz1 = length s1 
     and sz2 = length s2 in
     if (sz1 = sz2) then begin
@@ -617,6 +615,7 @@ module Align = struct
         "algn_CAML_cost_affine_3" 
 
     let align_affine_3 si sj cm =
+        Printf.printf "Affine Align 3\n%!";
         let len = length si + length sj + 2 in
         let resi = create len
         and resj = create len 
@@ -1081,6 +1080,7 @@ module Align = struct
             (Invalid_Argument "The size of the sequences is not the same.")
 
     let full_median_2 a b cm m = 
+        Printf.printf "FULL MEDIAN";
         match Cost_matrix.Two_D.affine cm with
         | Cost_matrix.Affine _ ->
                 let m, _, _, _, _ = align_affine_3 a b cm in
