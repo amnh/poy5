@@ -84,6 +84,7 @@ struct newkkmat {
     // D_m_n = Min( D_m-1_n-1 + d(a_m,b_n), P_m_n , Q_m_n )
     // P_m_n = Min( D_m-k_n + w_k ), k=[1,m] = Min( D_m-1_n + w_1 , P_m-1_n + gap_cost )
     // Q_m_n = Min( D_m_n-k + w_k ), k=[1,m] = Min( D_m_n-1 + w_1 , Q_m_n-1 + gap_cost )
+    int total_len_affine;
     int * pool_affP;
     int * pool_affQ;
 };

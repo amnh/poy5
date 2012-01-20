@@ -1320,8 +1320,12 @@ module NewkkAlign = struct
     external init : unit -> unit = "newkkonen_CAML_initialize"
     external newkk_cost2 : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
          "newkkonen_CAML_algn"
+    external newkk_cost2_affine : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
+         "newkkonen_CAML_algn_affine"
     external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
         "newkkonen_CAML_backtrace_bc" "newkkonen_CAML_backtrace"
+    external newkk_backtrace_affine : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
+        "newkkonen_CAML_backtrace_affine_bc" "newkkonen_CAML_backtrace_affine"
     external get_k : ukkm -> int = "newkkonen_CAML_get_k"
     (*functions from cost_matrix.2d*)
     let gap_filter_for_combcode = Cost_matrix.Two_D.gap_filter_for_combcode
@@ -1353,7 +1357,14 @@ module NewkkAlign = struct
 *)
 
 
-    let get_alignment s1 s2 c m =
+    let call_newkk_backtrace s1 s2 s1p s2p c m affine =
+        if affine then
+            newkk_backtrace_affine s1 s2 s1p s2p c m
+        else
+            newkk_backtrace s1 s2 s1p s2p c m 
+
+
+    let get_alignment s1 s2 c m affine =
         let debug = false in
         let sz1 = length s1
         and sz2 = length s2 in
@@ -1363,9 +1374,9 @@ module NewkkAlign = struct
         (*call traceback function*)
         let size_compared = (sz1 <= sz2) in
         if size_compared then 
-            newkk_backtrace s1 s2 s1p s2p c m
+            call_newkk_backtrace s1 s2 s1p s2p c m affine
         else 
-            newkk_backtrace s2 s1 s2p s1p c m;
+            call_newkk_backtrace s2 s1 s2p s1p c m affine;
         if debug then begin 
             Printf.printf " seq1:%!"; printseqcode s1;
             Printf.printf " seq2:%!"; printseqcode s2;
@@ -1384,13 +1395,21 @@ module NewkkAlign = struct
         in
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
-            | Cost_matrix.Affine _ 
+            | Cost_matrix.Affine _ ->
+                    (*printseqcode s1; printseqcode s2;*)
+                    let tc = newkk_cost2_affine s1 s2 c m in   
+                    (*Printf.printf " editing cost = %d,call traceback\n%!"
+                    * tc;*)
+                    let s1p, s2p = get_alignment s1 s2 c m true in
+                    if exchange then s2p,s1p,tc
+                    else
+                    s1p, s2p, tc
             | _ ->
                     (*printseqcode s1; printseqcode s2;*)
                     let tc = newkk_cost2 s1 s2 c m in   
                     (*Printf.printf " editing cost = %d,call traceback\n%!"
                     * tc;*)
-                    let s1p, s2p = get_alignment s1 s2 c m in
+                    let s1p, s2p = get_alignment s1 s2 c m false in
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc   
@@ -1433,9 +1452,8 @@ module NewkkAlign = struct
     let full_median_2 a b cm m = 
         match Cost_matrix.Two_D.affine cm with
         | Cost_matrix.Affine _ (*->
-                failwith "we don't deal with affine in module NewKK now"
-                let m, _, _, _, _ = align_affine_3 a b cm in
-                m*)
+                let a, b, _ = align_2 a b cm m in
+                median_2 a b cm*)
         | _ ->
                 let a, b, _ = align_2 a b cm m in
                 median_2 a b cm
@@ -1535,11 +1553,16 @@ let readjust a b m cm parent use_ukk =
     let matr = Matrix.default in
     let algn s1 s2 =
         match Cost_matrix.Two_D.affine cm with
-        | Cost_matrix.Affine _ (*->
-                if use_ukk then failwith "we don't deal with affine for ukk yet."
+        | Cost_matrix.Affine _ ->  
+                if use_ukk then 
+                    let s1', s2', c =
+                    NewkkAlign.align_2 s1 s2 cm NewkkAlign.default_ukkm
+                    in
+                    let median = median_2 s1' s2' cm in
+                    c,median
                 else
-                let m, _, _, cost, _ = Align.align_affine_3 s1 s2 cm in
-                cost, m*)
+                    let m, _, _, cost, _ = Align.align_affine_3 s1 s2 cm in
+                    cost, m
         | _ ->
                 let s1', s2', c = 
                     if use_ukk then 

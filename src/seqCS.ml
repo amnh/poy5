@@ -1134,7 +1134,8 @@ module PartitionedDOS = struct
                     match Cost_matrix.Two_D.affine h.c2 with
                     | Cost_matrix.Affine _ ->
                             if use_ukk then
-                                let tmpa,tmpb,tmpcost = Sequence.NewkkAlign.align_2 a.DOS.sequence 
+                                let tmpa,tmpb,tmpcost =
+                                    Sequence.NewkkAlign.align_2 a.DOS.sequence 
                                 b.DOS.sequence h.c2 Sequence.NewkkAlign.default_ukkm in
                                 let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2 in
                                 let seqmwg = 
