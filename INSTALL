@@ -7,6 +7,7 @@ Contents
 3- Compiling POY for parallel execution
 4- Compiling POY for SWAMI, PISE, or web portals
 
+
 *****************************************************************************
 1- General requirements
 *****************************************************************************
@@ -22,12 +23,15 @@ In order to compile POY, the minimal requirements are:
 
 - The zlib compression library (http://www.zlib.net).
 
+- LAPACK (for likelihood analysis) (optional)
+
 For the readline interface the readline library is needed, and for the ncurses
 interface then ncurses is needed. If none of them is available, use the flat
 interface. 
 
 The last command should probably be run as superuser. Check the configuration
 options with ./configure --help.
+
 
 *****************************************************************************
 2- Compiling POY for one processor
@@ -37,14 +41,16 @@ To compile the program, first modify the relevant paths and options in config
 (there is a brief description on each group of options or you can see the
 program's documentation), and then simply:
 
+cd src/
 ./configure
 make 
 make install 
 
-By default the compilation scripts will try to use the ncurses, or the readline
-interface if available. If none is it will default to a flat interface. You can
-manually specify this by the following:
+By default the compilation scripts will try to use the ncurses, then the
+readline, then lastly the flat interface. You can manually specify this by the
+following:
 
+cd src/
 ./configure --enable-interface=flat
 make
 make install
@@ -54,9 +60,9 @@ make install
 3- Compiling POY for parallel execution
 *****************************************************************************
 
-For parallel execution you must use the flat interface. None of the others is
-recommendable. You also need MPI installed. To compile follow your MPI
-implementation recommendations, but a typical compilation would be:
+For parallel execution the flat interface is automatically set by default. You
+also need MPI installed. To compile follow your MPI implementation
+recommendations, but a typical compilation would be:
 
 ./configure --enable-interface=flat --enable-mpi CC=mpicc
 make
@@ -65,6 +71,7 @@ make install
 Windows machines do not come with mpicc and setting this can be ignored. The
 configure script will guess that 1) the libraries are in the path and 2) that
 they are named conventionally.
+
 
 *****************************************************************************
 4- Compiling POY for SWAMI, PISE, or web portals
@@ -75,7 +82,8 @@ application, a non-interactive version with limited functionality is provided as
 the poy_server application. To compile it for sequential or parallel execution,
 use the instructions above with the flat or readline interface. Then do:
 
-make portal.native
+cd src/
+make portal
 make install_server
 
 The program documentation is available in poy_server --help. The SWAMI xml

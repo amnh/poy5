@@ -3502,8 +3502,8 @@
                         \end{equation*} 
 
                         Will be normalized so that the mean-rate is 1 and so
-                        that the rows sum to 0.0 to become (with equal base
-                        priors),
+                        that the rows sum to 0.0 to become (with equal equilibrium
+                        frequencies),
 
                         \begin{equation*}
                             \begin{array}{rrrrr}
@@ -3557,7 +3557,7 @@
                 \cite{gu1995}. This is only useful for more then two taxa.
                 
                 \begin{statement}
-                    Under MAL the rates are naturally averaged across the
+                    Under MAL the rates are averaged across the
                     discrete distribution, while under MPL we select the best
                     rate class for the assignment of each character. Because
                     dynamic likelihood characters' alignment matrix would select
@@ -3565,7 +3565,7 @@
                     constant multiplication of the branch length, dynamic MPL
                     characters do not support rate distribution. Rate distributions are
                     automatically taken out if applied during a transform and a
-                    warning of that affect is reported.
+                    warning to that affect is reported.
                 \end{statement}
 
                 \begin{statement}
@@ -3630,6 +3630,7 @@
                             number of indels required to align all the
                             sequences: 
                             
+                           
                             \begin{equation*}
                             \pi_{gap} = \frac{\sum_{i=0}^n
                             |S_{\hat{i}}| - |S_i|}{n |S_{\hat{i}}|}
