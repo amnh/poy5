@@ -71,6 +71,35 @@ type dyna_state_t = [
     (** A sequence of gene names, rearrangements are allowed *)
     | `Breakinv ]
 
+
+let print_dyna_state x = 
+    Printf.printf "dyna state = %!";
+    match x with
+    | `SeqPrealigned -> Printf.printf "SeqPrealigned\n%!"
+    (** A short sequence, no rearrangements are allowed*)
+    | `Seq -> Printf.printf "Seq\n%!"
+    (** same as above but for likelihood characters *)
+    | `Ml -> Printf.printf "ML\n%!"
+    (** A long sequence, genes inside are broken automatically, rearrangements are allowed*)
+    | `Chromosome -> Printf.printf "Chromosome\n%!"
+    (** A set of chromosomes *)
+    | `Genome -> Printf.printf "Genome\n%!"
+    (** A list of shorted sequences annotated by piles, rearrangements are allowed *)
+    | `Annotated -> Printf.printf "Annotated\n%!"
+    (** A sequence of gene names, rearrangements are allowed *)
+    | `Breakinv -> Printf.printf "Breakinv\n%!"
+
+let print_transform_meth x =
+    Printf.printf "transform meth=%!";
+    match x with
+    | `Seq_to_Chrom _ -> Printf.printf "Seq_to_Chrom\n%!"
+    | `Custom_to_Breakinv _ -> Printf.printf "Custom_to_Breakinv\n%!"
+    | `Annchrom_to_Breakinv _ -> Printf.printf "Annchrom_to_Breakinv\n%!"
+    | `Chrom_to_Seq _ -> Printf.printf "Chrom_to_Seq\n%!"
+    | `Breakinv_to_Custom _ -> Printf.printf "Breakinv_to_Custom\n%!"
+    | `Change_Dyn_Pam _ -> Printf.printf "Change_Dyn_Pam\n%!"
+    | `Seq_to_Kolmogorov _ -> Printf.printf "Seq_to_Kolmogorov\n%!"
+
 type polymorphism_t = Methods.polymorphism_arg
 
 type clip = Clip | NoClip
@@ -3705,13 +3734,14 @@ let convert_dyna_spec data chcode spec transform_meth =
         let () =
             (* First check if the transformation is legal  *)
             match dspec.state, transform_meth with 
+            | _, `Change_Dyn_Pam _ 
             | `Seq, `Seq_to_Chrom _
             | `Seq, `Custom_to_Breakinv _
             | `Annotated, `Annchrom_to_Breakinv _
             | `Chromosome, `Chrom_to_Seq  _
             | `Breakinv, `Breakinv_to_Custom _
             | `Seq, `Seq_to_Kolmogorov _
-            | _, `Change_Dyn_Pam _ -> ()
+            -> ()
             | _, _ -> failwith "Illegal character transformation requested"
         in
         begin match transform_meth with (*
@@ -3816,6 +3846,7 @@ let convert_dyna_spec data chcode spec transform_meth =
                 Dynamic { dspec with 
                           alph = al; 
                           tcm2d = c2; 
+                          state = state;
                           pam = { pam with mode = pam_state } }
             in
             new_spec,data
