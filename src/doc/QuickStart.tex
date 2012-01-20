@@ -121,7 +121,7 @@ In order to compile \poy the following tools are required:
 \end{enumerate}
 Download, ungzip and untar the \href{http://research.amnh.org/scicomp/projects/poy.php}{\poy source code}.  
 In a terminal window, change directories to the path of this uncompressed directory.  
-In order to compile under default setting type:
+In order to compile under default setting, working in the source directory, type:
 \begin{verbatim}
 	./configure
 	make
@@ -495,28 +495,24 @@ opens the \emph{Simple Search} window options (right).}
 		   
 		   \indent \emph{Rate Classes} specifies the number of rate classes for the discrete \emph{Gamma}
 		   rate distribution. The user can choose between 8 rate classes for either \emph{Gamma} or \emph{Theta}
-		   models.
+		   models (the default is 2).
 		   
-		   \indent \emph{Gap Treatment}  specifies the treatment of indels. There are three options \emph{missing},
-		   \emph{independant}, and \emph{coupled}. When gaps are treated as \emph{missing}, they play no role 
-		   in the calculation of tree likelihoods. The \emph{character} option
-           treats indels as a fifth state; the rate parameter is the same the
-           base rate, except under GTR where we keep with the model and each
-           nucleotide-indel event has an independent rate. \emph{coupled} will
-           add an additional rate class for nucleotide-indel events. Under GTR
-           we set all nucleotide-indel events to the same rate.
-           
-		   \indent \emph{Cost Method} specifies the form of likelihood employed.
-           The options for pre aligned data (sequence and qualititative) are
-           \emph{MAL} for \emph{maximum average likelihood} and \emph{MPL} for
-           \emph{most parsimonious likelihood} \cite{barryandhartigan1987}.
-           Unaligned sequences can only be optimized using \emph{MPL}.
+		   \indent \emph{Gap Treatment}  specifies the treatment of indels.  There are three options \emph{missing},
+		   \emph{independant}, and \emph{coupled}.  When gaps are treated as \emph{missing}, they play no role 
+		   in the calculation of tree likelihoods.  The \emph{independent} options treats the insertion and deletion of 
+		   A, C, G, and T as different types of events that are independently estimated (hence additional parameters 
+		   over \emph{coupled}). When \emph{coupled} is specified, all indels are treated as the same event and 
+		   estimated as a single parameter.
+
+		   \indent \emph{Cost Method} specifies the form of likelihood employed.  The options for prealigned data 
+		   (sequence and qualititative) are \emph{MAL} for \emph{maximum average likelihood} and {MPL} for 
+		   \emph{most parsimonious likelihood} \cite{barryandhartigan1987}. Unaligned sequences can only be 
+		   optimized using \emph{MPL}.
 		   
 		   \indent \emph{Priors} \emph{Priors} specifies the method for calculating prior probabilities for states.  
 		   The options are \emph{equal}, where each state prior is set to 1 divided by the number of states, and 
-		   \emph{estimated}, where the priors are set by their frequency in the
-           data set. Under dynamic likelihood priors for gaps are estimated 
-		   by the naive minimum number of indel events to add to the data-set.
+		   \emph{estimated}, where the priors are set by their frequency in the data set.  Priors for gaps are estimated 
+		   by the maximum difference in length between input sequences.
 
         \item[Output Files]
         		Designates the names and locations of files containing results of the analysis. 

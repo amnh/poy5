@@ -227,7 +227,7 @@ exit()
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
 \item \texttt{report("chrom",diagnosis)}  The \poycommand{report} command in combination with a file name and the \poyargument{diagnosis} outputs the optimal median states and edge values to a specified file (\texttt{chrom}). 
 \item \texttt{report("consensustree",graphconsensus)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphconsensus} generates a pdf strict consensus file of the trees generated (\texttt{consensustree}). 
-\item \texttt{transform(fixed\_states:("mauveout", ignore\_polymorphism))}  The \poycommand{transform} command in combination with \poyargument{fixed\_states:("mauveout",ignore\_polymorphism))} is used to produce output that can be read into Mauve to generate a pairwise alignment tracking the movement of lcbs between sequences. Sequence ambiguities will not be resolved to generate additional medians beyond those determined by the data.
+\item \texttt{transform(fixed\_states:("mauveout", ignore\_polymorphism))}  \\The \poycommand{transform} command in combination with \poyargument{fixed\_states:\\("mauveout",ignore\_polymorphism))} is used to produce output that can be read into Mauve to generate a pairwise alignment tracking the movement of lcbs between sequences. Sequence ambiguities will not be resolved to generate additional medians beyond those determined by the data.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
@@ -240,8 +240,8 @@ identification of independent regions delineated by pipes  \texttt{"|"}.
 \begin{verbatim}
 (* Chromosome analysis of annotated sequences *)
 read(annotated:("aninv2"))
-transform(chromosome:(locus_inversion:20,locus_indel:(10,
-1.5),circular:false,median:1,swap_med:1)))
+transform(chromosome:(locus_inversion:20,locus_indel:(10,1.5),
+circular:false,median:1,swap_med:1)))
 build(100)
 swap()
 select()
@@ -269,8 +269,9 @@ For example, observations of developmental stages could be represented in a corr
 \begin{verbatim}
 (* Custom Alphabet to Breakinv characters *)
 read(custom_alphabet:("ca1.fas","m1.fas"))
-transform(custom_to_breakinv:()))
-transform(breakinv:(median_solver: siepel(locus_inversion:20, locus_indel:(10,1.5),median:1,swap_med:1)))
+transform(custom_to_breakinv:())
+transform(breakinv:(median_solver: siepel, locus_inversion:20, 
+locus_indel:(10,1.5),median:1,swap_med:1))
 build()
 swap()
 select()
@@ -283,7 +284,7 @@ exit()
 \item \texttt{(* Custom Alphabet to Breakinv characters  *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
 \item \texttt{read(custom\_alphabet:("ca1.fas","m1.fas"))} This command imports the user-defined \poyargument {custom\_alphabet} character file \texttt{ca1.fas} and the accompanying transformation matrix \texttt{m1.fas}.
 \item \texttt{transform(custom\_to\_breakinv)} This command transforms \poyargument {custom\_alphabet} characters to \poyargument {breakinv} characters which allow for rearrangement operations.
-\item \texttt{transform(breakinv:(median\_solver: siepel(locus\_inversion:20,locus\_indel:(10,1.5),median:1,swap\_med:1)))}  The \poycommand{transform} followed by the argument \poyargument{breakinv} specifies the conditions to be applied when calculating medians. The argument \poyargument{[median\_solver:siepel} specifies that the Siepel median from the GRAPPA software package \cite{baderetal2002} will be employed.  The argument \poyargument{locus \_inversion:20} applies an inversion rearrangement cost of 20 for \poyargument {breakinv} elements. The argument \poyargument{locus\_indel:10,1.5} specifies the indel costs for each \poyargument {breakinv} element, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  The default values are applied to the \poyargument{median} and \poyargument{swap\_med} arguments to minimize the time require for these nested search options.   To more exhaustively perform these calculations trees generated from initial builds can be imported to the program and reevaluated with values greater than 1 designated for the \poyargument{median} and \poyargument{swap\_med} arguments
+\item \texttt{transform(breakinv:(locus\_inversion:10,median\_solver:siepel, locus\_inversion:20, locus\_indel:(10,1.5),median:1,swap\_med:1))}  The \poycommand{transform} followed by the argument \poyargument{breakinv} specifies the conditions to be applied when calculating medians. The argument \poyargument{[median\_solver:siepel} specifies that the Siepel median from the GRAPPA software package \cite{baderetal2002} will be employed.  The argument \poyargument{locus \_inversion:20} applies an inversion rearrangement cost of 20 for \poyargument {breakinv} elements. The argument \poyargument{locus\_indel:10,1.5} specifies the indel costs for each \poyargument {breakinv} element, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  The default values are applied to the \poyargument{median} and \poyargument{swap\_med} arguments to minimize the time require for these nested search options.   To more exhaustively perform these calculations trees generated from initial builds can be imported to the program and reevaluated with values greater than 1 designated for the \poyargument{median} and \poyargument{swap\_med} arguments.
 \item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees.  It is highly recommended that a greater number of Wagner builds be implemented when analyzing data for purposes other than this demonstration.
 \item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
@@ -300,8 +301,8 @@ This tutorial illustrates the analysis of genome-level transformations using dat
 read (genome:("gen5bp"))
 transform(genome:(translocation:50))
 transform(chromosome:(annotate:(mauve,25,.3,0.01,.08)))
-transform(chromosome:(locus_breakpoint:80,locus_indel:
-(15,2.5),median:1,swap_med:1))
+transform(chromosome:(locus_breakpoint:80,locus_indel:(15,2.5),
+median:1,swap_med:1))
 build()
 swap()
 select()
@@ -314,8 +315,8 @@ exit()
 \item \texttt{(* Genome analysis of multiple chromosomes*)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
 \item \texttt{read(genome:("gen5bp"))} This command imports the genomic sequence file \texttt{mit5.txt}. The argument \poyargument{genome} specifies the characters as data consisting of multiple chromomsomes.
 \item \texttt{transform(genome:(translocation:50))} sets the breakpoint cost for the movement of lcbs from one chromosomal segment to another. 
-\item \texttt{transform(chromosome:(annotate:(mauve,25,.3,0.01,.08)))} The argument \poyargument{annotate:(mauve)} specifies that the program will use the Mauve aligner \cite{darlingetal2004} to determine locally collinear homologous blocks within the chromosomal sequences.  The values that follow the Mauve option set the parameters for determining the lcb homologies: quality, coverage, and minimum and maximum lcb length relative to overall sequence length. In this case the lcb quality parameter which represents the cost of the lcb divided by its length of lcb is set to the relatively low value of 25 to facilitate the detection of blocks within the sequences.  The higher the lcb quality values will result in more stringent lcb determination and likely fewer local collinear blocks recovered.  The second parameter withn the argument \poyargument{annotate:(mauve)} sets the minimum lcb sequence coverage at 30\% meaning that if total length of an input sequence is, for example,100, a minimum coverage of .30 would require a the total length of all lcbs to be at least 30. The default value of .01 or 1\% is sets the minimum length of a given lcb relative to the length of the entire sequence (e.g. 100 for a 10,000 nucleotide sequence). The maximum length allowed for an lcb in this example is set at 8\% of the length of the total sequence.
-\item \texttt{transform(chromosome:(locus\_breakpoint:20,locus\_indel:(10,1.5),\\median:1,swap\_med:1)))}  The \poycommand{transform} followed by the argument \poyargument{chromosome} specifies the conditions to be applied when calculating genome-level HTUs (medians). The argument \poyargument{chrom\_breakpoint:80} applies a breakpoint distance between chromosomes with the integer value determining the rearrangement cost. The argument \poyargument{chrom\_indel:15,1.5} specifies the indel costs for each entire chromosome, whereby the integer sets the gap opening cost and the float sets the gap extension cost.  The argument \poyargument{inversion:20} applies an inversion distance between chromosome loci with the integer value determining the rearrangement cost. The argument \poyargument{locus\_indel:10,1.5} specifies the indel costs for the chromosomal segments, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  The default values are applied to the \poyargument{median} and \poyargument{swap\_med} arguments to minimize the time require for these nested search options.   To more exhaustively perform these calculations trees generated from initial builds can be imported to the program and reevaluated with values greater than 1 designated for the \poyargument{median} and \poyargument{swap\_med} arguments
+\item \texttt{transform(chromosome:(annotate:(mauve,25,.3,0.01,.08)))} \\The argument \poyargument{annotate:(mauve)} specifies that the program will use the Mauve aligner \cite{darlingetal2004} to determine locally collinear homologous blocks within the chromosomal sequences.  The values that follow the Mauve option set the parameters for determining the lcb homologies: quality, coverage, and minimum and maximum lcb length relative to overall sequence length. In this case the lcb quality parameter which represents the cost of the lcb divided by its length of lcb is set to the relatively low value of 25 to facilitate the detection of blocks within the sequences.  The higher the lcb quality values will result in more stringent lcb determination and likely fewer local collinear blocks recovered.  The second parameter withn the argument \poyargument{annotate:(mauve)} sets the minimum lcb sequence coverage at 30\% meaning that if total length of an input sequence is, for example,100, a minimum coverage of .30 would require a the total length of all lcbs to be at least 30. The default value of .01 or 1\% is sets the minimum length of a given lcb relative to the length of the entire sequence (e.g. 100 for a 10,000 nucleotide sequence). The maximum length allowed for an lcb in this example is set at 8\% of the length of the total sequence.
+\item \texttt{transform(chromosome:(locus\_breakpoint:20,locus\_indel:\\(10,1.5),median:1,swap\_med:1)))}  The \poycommand{transform} followed by the argument \poyargument{chromosome} specifies the conditions to be applied when calculating genome-level HTUs (medians). The argument \poyargument{chrom\_breakpoint:80} applies a breakpoint distance between chromosomes with the integer value determining the rearrangement cost. The argument \poyargument{chrom\_indel:15,1.5} specifies the indel costs for each entire chromosome, whereby the integer sets the gap opening cost and the float sets the gap extension cost.  The argument \poyargument{inversion:20} applies an inversion distance between chromosome loci with the integer value determining the rearrangement cost. The argument \poyargument{locus\_indel:10,1.5} specifies the indel costs for the chromosomal segments, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  The default values are applied to the \poyargument{median} and \poyargument{swap\_med} arguments to minimize the time require for these nested search options.   To more exhaustively perform these calculations trees generated from initial builds can be imported to the program and reevaluated with values greater than 1 designated for the \poyargument{median} and \poyargument{swap\_med} arguments
 \item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees.  It is highly recommended that a greater number of Wagner builds be implemented when analyzing data for purposes other than this demonstration.
 \item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
@@ -340,10 +341,11 @@ perturb(transform(static_approx),iterations:50,ratchet:(0.2,3))
 fuse(iterations:200,swap())
 select()
 
-(* Transform the static data to likelihood characters, specifying a 
-    GTR + Gamma 4 model with empirical equilibrium frequencies under 
-    traditional MAL *)
-transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),gap:(missing),mal))
+(* Transform the static data to likelihood characters, specifying 
+  a GTR + Gamma 4 model with empirical equilibrium frequencies 
+  under traditional MAL *)
+transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),
+gap:(missing),mal))
 swap(spr,iteration:(model:(max_count:5),branch:join_region))
 select(best:1)
 report("9likelihood.tre",trees:(branches))
@@ -362,7 +364,7 @@ This command imports the nucleotide sequence datafile \texttt{9.fas} as prealign
 \item \texttt{perturb(transform(static\_approx),iterations:50,ratchet:\\(0.2,3))} This command subjects the resulting trees to 50 rounds of parsimony ratchet, re-weighting 20\% of characters by a factor of 3.
 \item \texttt{fuse(iterations:200,swap())} In this step, up to 200 swappings of subtrees identical in terminal composition but different in topology, are performed between pairs of best trees recovered in the previous step. This is another strategy for further exploration of tree space. Each resulting tree is further refined by local branch swapping under the default parameters of \poycommand{swap}.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
-\item \texttt{transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),gap:(missing),mal))} This command transforms the characters to static likelihood characters, using a GTR + $\Gamma 4$ model, with empirical equilibrium frequencies under standard MAL. In this model, indels are treated as ``missing'' data, as for the preceding parsimony search. Several default values, such as \texttt{gap:(missing)}, and \texttt{gamma:(4)} are listed explicitly.
+\item \texttt{transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),\\gap:(missing),mal))} This command transforms the characters to static likelihood characters, using a GTR + $\Gamma 4$ model, with empirical equilibrium frequencies under standard MAL. In this model, indels are treated as ``missing'' data, as for the preceding parsimony search. Several default values, such as \texttt{gap:(missing)}, and \texttt{gamma:(4)} are listed explicitly.
 \item \texttt{swap(spr,iteration:(model:(max\_count:5),branch:join\_region))} This command swaps the tree using subtree pruning and regrafting, specifying that iteration of likelihood model parameters will occur after every 5 joins, and that iteration of branches will occur only in the area around the join point. These iteration specifications are less strict than the defaults for the purpose of speeding up the swapping.
 \item \texttt{select(best:1)} This command saves the single most optimal topology (with branch lengths) in memory. Other trees are purged.
 \item \texttt{report("9likelihood.tre",trees:(branches))} This command outputs the topology, with branch lengths, in \texttt{.tre} format.
@@ -434,7 +436,7 @@ This command imports the nucleotide sequence datafile \texttt{9.fas} under the d
 \item \texttt{perturb(transform(static\_approx),iterations:50,ratchet:\\(0.2,3))} This command subjects the resulting trees to 50 rounds of parsimony ratchet, re-weighting 20\% of characters by a factor of 3.
 \item \texttt{fuse(iterations:200,swap())} In this step, up to 200 swappings of subtrees identical in terminal composition but different in topology, are performed between pairs of best trees recovered in the previous step. This is another strategy for further exploration of tree space. Each resulting tree is further refined by local branch swapping under the default parameters of \poycommand{swap}.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
-\item \texttt{transform(likelihood:(gtr,priors:(estimate),gap:(coupled),mpl))} This command transforms the characters to static likelihood characters, using a GTR model, with empirical equilibrium frequencies under dynamic MPL. Note that under dynamic MPL, the rate variation distribution is not enabled.
+\item \texttt{transform(likelihood:(gtr,priors:(estimate),gap:(coupled),\\mpl))} This command transforms the characters to static likelihood characters, using a GTR model, with empirical equilibrium frequencies under dynamic MPL. Note that under dynamic MPL, the rate variation distribution is not enabled.
 \item \texttt{swap(spr,iteration:(model:(max\_count:5)))} This command swaps the tree using subtree pruning and regrafting, specifying that iteration of likelihood model parameters will occur after every 5 joins. These iteration specifications are less strict than the defaults for the purpose of speeding up the swapping.
 \item \texttt{select(best:1)} This command saves the single most optimal topology (with branch lengths) in memory. Other trees are purged.
 \item \texttt{report("9likelihood.ia",ia:all)} This command saves the implied
