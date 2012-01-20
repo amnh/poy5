@@ -242,12 +242,13 @@ module NewkkAlign : sig
     
     val default_ukkm : ukkm
     (** [align_2 s s m ukkm] call c_side function "newkk_cost2" to get the cost,
-    * and function "get_alignment" for the alignment of two sequences*)
+    * if it's affine, it will call newkk_cost2_affine.
+    * function "get_alignment" is for the alignment of two sequences*)
     val align_2 :  ?first_gap:bool -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> s * s * int
     (** [get_alignment s s m ukkm] do traceback on ukk_matrix to get the
     * alignment of two sequences. cost_2 must be called before this. this
     * function is similar to function "create_edited_2" in module Align.*)
-    val get_alignment : s -> s -> Cost_matrix.Two_D.m -> ukkm -> s * s
+    val get_alignment : s -> s -> Cost_matrix.Two_D.m -> ukkm -> bool -> s * s
     (** [cost_2 s s m ukkm] do newkkonen alignment on two input sequence. return
     * the cost, store the alignment in ukkm, we can get the alignment by
     * traceback on ukkm later.*)
