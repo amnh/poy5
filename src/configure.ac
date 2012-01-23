@@ -99,15 +99,13 @@ case ${OS_INFORMATION} in
         ;;
 esac
 
-INTERFACE_SELECTED="true"
-
 AC_ARG_ENABLE([interface], [AS_HELP_STRING([--enable-interface],
               [Force POYs user interface. Valid options are flat, ncurses, readline, and html. The default is ncurses, if ncurses is not found, then the readline interface is used, if readline is not present either, then choose the flat interface.])],
-              [USEINTERFACE=$enableval],
+              [USEINTERFACE=$enableval;INTERFACE_SELECTED="true"],
               [USEINTERFACE="ncurses"; INTERFACE_SELECTED="false"; DUSENCURSES="-DUSENCURSES"; OUSENCURSES=",use_ncurses"])
 
-AC_ARG_WITH(extras, [AS_HELP_STRING([--with-extras], 
-            [Add the following object files to the final linking rules (needed for windows).])],
+AC_ARG_WITH([extras], [AS_HELP_STRING([--with-extras], 
+            [Add the following object files to the final linking rules.])],
             [EXTRAS=$withval],[])
 
 AC_CHECK_PROGS([MERCURIAL], [hg])
@@ -115,7 +113,7 @@ AC_ARG_WITH(version-number,
             [AS_HELP_STRING([--with-version-number], [Use the configuration provided version number (used for release purposes only).])],
             [MERCURIAL="echo $withval"],[MERCURIAL="hg id -i"])
 
-AC_ARG_WITH(ocaml-flags, 
+AC_ARG_WITH([ocaml-flags], 
             [AS_HELP_STRING([--with-ocaml-flags], [Add the following flags to the ocaml compiler.])],
             [OCAMLFLAGS=$withval],[])
 
@@ -138,18 +136,21 @@ AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences],
               [USE_LONG_SEQUENCES="false"])
 
 AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
-              [Enable the postprocessing of XML output using XSLT templates.  This option requires libxml2.])],
-               [USE_XSLT="true"], [USE_XSLT="false"])
-
-AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--disable-likelihood],
-              [Disable the use of static and dynamic likelihood functions. We
-               will automatically detect and enable likelihood if we can --we
-               require lapack routines to be installed.])],
-               [if test x"$enableval" = x"no"; then
-                    FORCE_LIKELIHOOD="no"; USE_LIKELIHOOD="false"
+              [Enable the postprocessing of XML output using XSLT templates.  This option requires libxml2 and libxslt.])],
+              [if test x"$enableval" = x"no"; then
+                    USE_XSLT="false"
                 else
+                    USE_XSLT="true"
+                fi],
+              [USE_XSLT="false"])
+
+AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
+              [Enable/Disable the use of static and dynamic likelihood functions. We will automatically detect and enable likelihood if we can --we require lapack routines to be installed.])],
+              [if test x"$enableval" = x"no"; then
+                    FORCE_LIKELIHOOD="no"; USE_LIKELIHOOD="false"
+               else
                     FORCE_LIKELIHOOD="yes"
-                fi])
+               fi])
 
 #AC_ARG_ENABLE([concorde], [AS_HELP_STRING([--enable-concorde],
 #              [Enable the use of "CHLINKERN" and "GREEDYLK" tsp median solver. This
@@ -178,15 +179,11 @@ AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
               fi],[])
 
 AC_ARG_WITH([prefix], [AS_HELP_STRING([--with-prefix=<DIR>],
-            [Set the build path for libraries; it should contain <DIR>/include
-             and <DIR>/lib (for windows/linux), and in OSX is equivlent to
-             setting isysroot (requiring <DIR>/usr to exist).])],
+            [Set the build path for libraries; it should contain <DIR>/include and <DIR>/lib (for windows/linux), and in OSX is equivlent to setting isysroot (requiring <DIR>/usr to exist).])],
             [ PATH_PREFIX=$withval])
 
-AC_ARG_WITH([xslt-config], 
-            [AS_HELP_STRING([--with-xslt-config=<PROG>],
-                [Select a different xslt-config program to detect the
-                 configuration options of libxslt.])],
+AC_ARG_WITH([xslt-config], [AS_HELP_STRING([--with-xslt-config=<PROG>],
+            [Select a different xslt-config program to detect the configuration options of libxslt.])],
             [XSLT_CONFIG=$withval],[XSLT_CONFIG="xslt-config"])
 
 
@@ -212,6 +209,8 @@ case ${OS_INFORMATION} in
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
+        # windows does not use mpicc to include libraries
+        # assume they are in the path and let the user include additional ones
         AS_IF([test $USEPARALLEL = "true"],[LIBS="-lmpi $LIBS"])
         ;;
     *)
@@ -220,7 +219,10 @@ case ${OS_INFORMATION} in
 esac
 
 
-# System dependent options -----
+# This is a bugfix for OCAMLBUILD; in recent versions of gcc the order of the
+# link arguments matters --the default changes from below to include libraries
+# as needed. OCAMLBUILD just throws them in the constructed command.
+#       Bug reported : http://caml.inria.fr/mantis/view.php?id=5441
 case ${OS_INFORMATION} in
     *-cygwin*)
         AC_MSG_CHECKING([whether we need to add --no-as-needed linking option])
@@ -365,7 +367,7 @@ AC_CHECK_HEADER(malloc.h,[],
                                 [CFLAGS="-I $PATH_PREFIX/include/malloc/ $CFLAGS"],
                                 [AC_MSG_FAILURE([Could not find malloc.h])])])
 
-AC_CHECK_PROGS([OCAML], [ocaml])
+AC_CHECK_PROGS([OCAML],[ocaml])
 AC_CHECK_PROGS([OCAMLC], [ocamlc.opt ocamlc])
 AC_CHECK_PROGS([OCAMLYACC], [ocamlyacc.opt ocamlyacc])
 AC_CHECK_PROGS([OCAMLLEX], [ocamllex.opt ocamllex])
@@ -462,7 +464,7 @@ case ${OS_INFORMATION} in
 
         #if we cannot enable likelihood; check if this was forced!
         if [(test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false")]; then
-            AC_MSG_FAILURE( [Cannot find LAPACK/FORTRAN routines to enable likelihood] )
+            AC_MSG_FAILURE( [Cannot find LAPACK/FORTRAN routines to enable likelihood analysis] )
         fi
         ;;
 esac

@@ -1381,11 +1381,11 @@ Optional Features:
                           fragments shorted than, say 12.000 bp, you are
                           unlikely to need this option.
   --enable-xslt           Enable the postprocessing of XML output using XSLT
-                          templates. This option requires libxml2.
-  --disable-likelihood    Disable the use of static and dynamic likelihood
-                          functions. We will automatically detect and enable
-                          likelihood if we can --we require lapack routines to
-                          be installed.
+                          templates. This option requires libxml2 and libxslt.
+  --enable-likelihood     Enable/Disable the use of static and dynamic
+                          likelihood functions. We will automatically detect
+                          and enable likelihood if we can --we require lapack
+                          routines to be installed.
   --enable-large-alphabets
                           Enable the analysis of alphabets larger than 255
                           elements. When using this option, more memory will
@@ -1404,7 +1404,7 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-extras           Add the following object files to the final linking
-                          rules (needed for windows).
+                          rules.
   --with-version-number   Use the configuration provided version number (used
                           for release purposes only).
   --with-ocaml-flags      Add the following flags to the ocaml compiler.
@@ -2953,11 +2953,9 @@ case ${OS_INFORMATION} in
         ;;
 esac
 
-INTERFACE_SELECTED="true"
-
 # Check whether --enable-interface was given.
 if test "${enable_interface+set}" = set; then :
-  enableval=$enable_interface; USEINTERFACE=$enableval
+  enableval=$enable_interface; USEINTERFACE=$enableval;INTERFACE_SELECTED="true"
 else
   USEINTERFACE="ncurses"; INTERFACE_SELECTED="false"; DUSENCURSES="-DUSENCURSES"; OUSENCURSES=",use_ncurses"
 fi
@@ -3062,7 +3060,11 @@ fi
 
 # Check whether --enable-xslt was given.
 if test "${enable_xslt+set}" = set; then :
-  enableval=$enable_xslt; USE_XSLT="true"
+  enableval=$enable_xslt; if test x"$enableval" = x"no"; then
+                    USE_XSLT="false"
+                else
+                    USE_XSLT="true"
+                fi
 else
   USE_XSLT="false"
 fi
@@ -3072,9 +3074,9 @@ fi
 if test "${enable_likelihood+set}" = set; then :
   enableval=$enable_likelihood; if test x"$enableval" = x"no"; then
                     FORCE_LIKELIHOOD="no"; USE_LIKELIHOOD="false"
-                else
+               else
                     FORCE_LIKELIHOOD="yes"
-                fi
+               fi
 fi
 
 
@@ -3152,6 +3154,8 @@ case ${OS_INFORMATION} in
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
+        # windows does not use mpicc to include libraries
+        # assume they are in the path and let the user include additional ones
         if test $USEPARALLEL = "true"; then :
   LIBS="-lmpi $LIBS"
 fi
@@ -3162,7 +3166,10 @@ fi
 esac
 
 
-# System dependent options -----
+# This is a bugfix for OCAMLBUILD; in recent versions of gcc the order of the
+# link arguments matters --the default changes from below to include libraries
+# as needed. OCAMLBUILD just throws them in the constructed command.
+#       Bug reported : http://caml.inria.fr/mantis/view.php?id=5441
 case ${OS_INFORMATION} in
     *-cygwin*)
         { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether we need to add --no-as-needed linking option" >&5
@@ -5324,7 +5331,7 @@ fi
         if (test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false"); then
             { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Cannot find LAPACK/FORTRAN routines to enable likelihood
+as_fn_error $? "Cannot find LAPACK/FORTRAN routines to enable likelihood analysis
 See \`config.log' for more details" "$LINENO" 5; }
         fi
         ;;

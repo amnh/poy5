@@ -1446,7 +1446,6 @@ let process_transform (run : r) (meth : Methods.transform) =
             { run with nodes = nodes; data = data; trees = trees }
 
 let load_data (meth : Methods.input) data nodes =
-    Printf.printf "Scripting.load_data\n%!";
     let prealigned_files = ref [] in
     let rec reader annotated is_prealigned data (meth : Methods.simple_input) = 
         match meth with
@@ -1457,7 +1456,6 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left Parser.of_file data files
                 *)
         | `AutoDetect files ->
-                Printf.printf "scripting.reader auto detect\n%!";
                 let files = explode_filenames files in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
@@ -1467,7 +1465,6 @@ let load_data (meth : Methods.input) data nodes =
                     files
         | `PartitionedFile files 
         | `Nucleotides files  as meth ->
-                Printf.printf "scripting.reader nucleotides\n%!";
                 let mode = 
                     match meth with
                     | `PartitionedFile _ -> `Partitioned Data.Clip
