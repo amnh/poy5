@@ -4150,15 +4150,23 @@ let categorize_sets data : int list list =
                         xs)
             (Hashtbl.fold (fun k v acc -> v::acc) data.character_sets [])
     in
-    (* add un-named sets from characters *)
-    let fcodes = 
+    (* add un-named sets from characters; seperate static and dynamic *)
+    let fcodes_static = 
         List.filter
             (fun x -> not (inner_find x named_sets))
-            (get_chars_codes_comp data `All)
+            (get_chars_codes_comp data `AllStatic)
+    and fcodes_dynamic = 
+        List.filter
+            (fun x -> not (inner_find x named_sets))
+            (get_chars_codes_comp data `AllDynamic)
     in
-    match fcodes with
+    match fcodes_static with
     | [] -> named_sets
-    | fc -> fc :: named_sets
+    | fc ->
+        begin match fcodes_dynamic with 
+            | [] -> fc :: named_sets
+            | fd -> fd :: fc :: named_sets
+        end
 
 
 let categorize_characters_comp data chars = match chars with
@@ -4166,10 +4174,10 @@ let categorize_characters_comp data chars = match chars with
     | othr ->
         let found set1 set2 = match set1 with
             | x::xs when List.mem x set2 ->
-                assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs);
+                (* assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs); *)
                 true
             | _::xs -> 
-                assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));
+                (* assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));*)
                 false
             | [] -> 
                 false
@@ -4290,8 +4298,7 @@ let verify_alphabet data chars =
                 ~f:(fun acc x -> 
                         if x = h then acc 
                         else begin
-                            Alphabet.print x;
-                            Alphabet.print h;
+                            (* Alphabet.print x; Alphabet.print h; *)
                             failwith "The alphabet of the characters is different"
                         end)
                 ~init:true t);
@@ -4548,7 +4555,7 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
         | Static sspec, (Stat (code,data),specified) ->
             let gap = Alphabet.get_gap sspec.Nexus.File.st_alph in
             (Stat (code, Some (`List [gap])),specified)
-        | _, _ -> failwith "Data.remove_absent_present_encodings failure"
+        | _, _ -> failwithf "Data.remove_absent_present_encodings failure: %d" char_code
     in
     (* test if we are using STATIC likelihood somewhere *)
     let test_using_likelihood data =
@@ -4630,7 +4637,8 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
         in
         let map,chars =
             List.fold_left
-                ~f:(fun (acc,chars) k -> match Hashtbl.find data.character_specs k with
+                ~f:(fun (acc,chars) k ->
+                    match Hashtbl.find data.character_specs k with
                     | Static {Nexus.File.st_alph = st_alph;}
                         when is_present_absent st_alph ->
                             apply_absent_encoding copy_branch copy_spec copy_char copy_names copy_codes k;
@@ -4643,6 +4651,7 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
                 ~init:(data.dynamic_static_codes,[])
                 (get_code_from_characters_restricted_comp `AllStatic data chars)
         in
+        print_newline ();
         { data with character_specs      = copy_spec;
                     taxon_characters     = copy_char;
                     character_names      = copy_names;
@@ -4695,8 +4704,7 @@ IFDEF USE_LIKELIHOOD THEN
     let u_gap = match use_gap with 
         | `Independent | `Coupled _ -> true | `Missing -> false
     in
-    let transform_char_set data chars =
-        match chars with
+    let transform_char_set data chars = match chars with
         | [] -> data
         | x::xs ->
             let dynamic = match Hashtbl.find data.character_specs x with
@@ -4717,6 +4725,7 @@ IFDEF USE_LIKELIHOOD THEN
             apply_likelihood_model_on_chars data chars model
     in
     let d,removed = remove_absent_present_encodings ~ignore_data:true data chars in
+    let d = categorize d in
     let all_chars = categorize_characters_comp d chars in
     List.fold_left ~f:(transform_char_set) ~init:d all_chars
 

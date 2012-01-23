@@ -4057,18 +4057,21 @@ let rec folder (run : r) meth =
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
                 begin match (Sexpr.to_list run.trees) with
                     | [] -> 
-                        let cs = Data.get_chars_codes_comp run.data chars in
-                        let chars = 
-                            Data.get_code_from_characters_restricted 
-                                        `Likelihood run.data (`Some cs)
-                        in
-                        let model  = Data.get_likelihood_model run.data chars
-                        and name   = Data.get_character_set_name run.data chars
-                        and ntaxa  = run.data.Data.number_of_taxa in
-                        let name = match name with | Some name -> name | None -> "" in
-                        fo ("@[<hov 0>Set Name: "^name^"@]@\n");
-                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                        MlModel.output_model fo `Hennig model None
+                        List.iter
+                            (fun xs ->
+                                let chars  = Data.get_code_from_characters_restricted
+                                                        `Likelihood run.data (`Some xs) in
+                                match chars with
+                                | []    -> ()
+                                | chars -> 
+                                    let model  = Data.get_likelihood_model run.data chars
+                                    and name   = Data.get_character_set_name run.data chars
+                                    and ntaxa  = run.data.Data.number_of_taxa in
+                                    let name = match name with | Some name -> name | None -> "" in
+                                    fo ("@[<hov 0>Set Name: "^name^"@]@\n");
+                                    fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                                    MlModel.output_model fo `Hennig model None)
+                            (Data.categorize_characters_comp run.data chars)
                     | trees -> 
                         List.iter
                             (fun t ->
@@ -4078,7 +4081,7 @@ let rec folder (run : r) meth =
                                            | None -> ""
                                 in
                                 List.iter
-                                    (fun chars -> 
+                                    (fun chars ->
                                         let model  = Data.get_likelihood_model t.Ptree.data chars
                                         and cost   = TreeOps.total_cost t `Adjusted (Some chars)
                                         and length = TreeOps.tree_size t (Some chars)

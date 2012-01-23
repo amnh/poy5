@@ -2527,44 +2527,42 @@ let rec process_commands optimize command =
             read_script_files false (List.map (fun x -> `Filename x) files)
     | x -> [x]
 
-and read_script_files optimize (files : [`Inlined of string | `Filename of
-string] list)  = 
+and read_script_files optimize (files : [`Inlined of string | `Filename of string] list)  = 
     let res = 
         List.map
-        (fun f -> 
-            let where = 
-                match f with
-                | `Filename f -> "file@ @{<b>" ^ f ^ "@}@"
-                | `Inlined f -> "inlined@ script"
-            in
-            try
-                match f with
-                | `Inlined f ->
+            (fun f -> 
+                let where = match f with
+                    | `Filename f -> "file@ @{<b>" ^ f ^ "@}@"
+                    | `Inlined f -> "inlined@ script"
+                in
+                try match f with
+                    | `Inlined f ->
                         let comm = of_string false f in
                         `Echo ("Running inlined script", `Information) :: comm
-                | `Filename f ->
+                    | `Filename f ->
                         let f = simplify_directory f in
                         let comm = of_file false f in
                         `Echo ("Running file " ^ f, `Information) :: comm
-            with
-            | Loc.Exc_located (a, Stream.Error err) ->
-                    let is_unknown = "illegal begin of expr" = err in
-                    let msg = "@[<v 4>@[Command@ error@ in@ " ^
-                    where ^ "@}@ line@ @{<b>" ^ string_of_int (Loc.start_line a) ^
-                    "@}@ between@ characters@ @{<b>" ^ 
-                    string_of_int ((Loc.start_off a) - (Loc.start_bol a))
-                    ^ "@} and @{<b>" ^
-                    string_of_int ((Loc.stop_off a) - (Loc.stop_bol a))
-                    ^ "@} :@]@,@[" ^
-                    (if is_unknown then "Unknown command" else
-                        err) ^ "@]@]\n" in
-                    Status.user_message Status.Error msg;
-                    failwith "Script execution stopped"
-            | err -> 
-                    Status.user_message Status.Error 
-                    ("Error@ while@ processing@ script@  " ^ where);
-                    raise err) 
-        files 
+                with 
+                    | Loc.Exc_located (a, Stream.Error err) ->
+                        let is_unknown = "illegal begin of expr" = err in
+                        let msg = 
+                            Printf.sprintf
+                                ("@[<v 4>@[Command@ error@ in@ %s@}@ line@ "^^
+                                 "@{<b>%d@}@ between@ characters@ @{<b>%d@}@ "^^
+                                 "and @{<b>%d@} :@]@,@[%s@]@]\n")
+                                (where) (Loc.start_line a)
+                                ((Loc.start_off a) - (Loc.start_bol a))
+                                ((Loc.stop_off a) - (Loc.stop_bol a))
+                                (if is_unknown then "Unknown command" else err)
+                        in
+                        Status.user_message Status.Error msg;
+                        failwith "Script execution stopped"
+                    | err ->
+                        Status.user_message Status.Error 
+                            ("Error@ while@ processing@ script@  " ^ where);
+                        raise err)
+            files 
     in
     do_analysis optimize (List.flatten res)
 
@@ -2600,8 +2598,8 @@ and of_stream optimize str =
     in
     if debug then
         Printf.printf "commands list len=%d\n%!" (List.length res);
-    let res = res
-            --> List.map (process_commands false)
+    let res =
+        res --> List.map (process_commands false)
             --> List.flatten
             --> do_analysis optimize
     in
