@@ -25,7 +25,8 @@ Bugs Fixed:
       static and dynamic) would fail in the transform due to alphabet size
       issues. We partition the data now between static and dynamic and then
       apply the transform to the characters (Thanks to Fernando Marques).
-
+    - Used non-affine alignment for affine models under parsimony; this has
+      been reverted correctly, and also includes affine low-mem ukkonen.
 
 Feature Eliminated:
 
