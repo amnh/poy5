@@ -338,8 +338,9 @@ if test "$USE_XSLT" = "true"; then
         [LIBS="$oLIBS"])
 fi
 
-
-AS_IF([test $USEPARALLEL = "true"],[USEINTERFACE="flat"])
+AS_IF( [test $USEPARALLEL = "true"],
+       AS_IF( [test $USEINTERFACE = "flat"], [], 
+              AC_MSG_RESULT([Setting interface to flat for mpi compilation]);USEINTERFACE="flat"))
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"],

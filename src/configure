@@ -3408,9 +3408,13 @@ fi
 
 fi
 
-
 if test $USEPARALLEL = "true"; then :
-  USEINTERFACE="flat"
+  if test $USEINTERFACE = "flat"; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Setting interface to flat for mpi compilation" >&5
+$as_echo "Setting interface to flat for mpi compilation" >&6; };USEINTERFACE="flat"
+fi
 fi
 
 # Checking for libraries according to the user's options.
