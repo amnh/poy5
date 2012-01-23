@@ -1,4 +1,4 @@
-CHANGES BETWEEN 5.0.0 and 5.0.1
+CHANGES BETWEEN 5.0.0a and 5.0.1a
 
 New Features:
     - orientation set to true by default for breakinversion data-type.
@@ -12,13 +12,20 @@ Bugs Fixed:
     - Default for configuring with --enable-mpi is to set interface to flat.
       This is a requirement that is oft forgotten and there is no reason why we
       cannot facilitate that requirement. Setting interface to anything else
-      will over-write that choice.
+      will over-write that choice and report a warning.
     - Add Error message for input sequence with different number of
       fragments(fragments are devided by '#'). 
-      bug report by torsten dikow <torsten@tdvia.de>.
+      bug report by Torsten Dikow.
     - Improved Makefile and Configure scripts from minor errors. Also removed
       Makefile and configure script from the root directory to avoid confusion
       and easier to maintain. (Thanks to Jan De Laet).
+    - Report lkmodel (to report likelihood model), was not working properly in
+      certain situations; without identifiers.  (Thanks to John Denton).
+    - Transform likelihood with multiple types (for example a combination of
+      static and dynamic) would fail in the transform due to alphabet size
+      issues. We partition the data now between static and dynamic and then
+      apply the transform to the characters (Thanks to Fernando Marques).
+
 
 Feature Eliminated:
 
@@ -30,7 +37,7 @@ Changed Commands:
 
 
 
-CHANGES BETWEEN 4.1.2.1 and 5.0.0
+CHANGES BETWEEN 4.1.2.1 and 5.0.0a
 
 New Features
     - Added likelihood criterion for diagnosing trees.

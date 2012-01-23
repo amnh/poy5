@@ -113,6 +113,17 @@ type characters = [
     | taxon_and_characters
 ]
 
+let characters_to_string (x:characters) : string = match x with
+    | `All            -> "all"
+    | `Random x       -> "random:"^(string_of_float x)
+    | `Names (_,y)    -> List.fold_left (fun acc x -> acc^","^x) "names:" y
+    | `CharSet (_,y)  -> List.fold_left (fun acc x -> acc^","^x) "sets:" y
+    | `Missing (_,h)  -> "missing:"^(string_of_int h)
+    | `Some _         -> "some"
+    | `AllStatic      -> "static"
+    | `AllDynamic     -> "dynamic"
+    | `Range (_,s,l,h)-> Printf.sprintf "range:%s %d-%d" s l h
+
 type information_contained = 
     [ `Nothing | `Cost | `HennigStyle | `Total | `Branches  | `Newick | `Margin of int
     | `NexusStyle | `Collapse of bool | `Chars of characters ]
