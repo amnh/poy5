@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = true
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -1446,7 +1446,7 @@ module F : Ptree.Tree_Operations
         in
         let new_cost = Ptree.get_cost `Adjusted new_tree in
         if debug_model_fn then
-            info_user_message "\tUpdated Dynamic Likelihood Score: %f --> %f" old_cost new_cost;
+            info_user_message "Updated Dynamic Likelihood Score: %f --> %f" old_cost new_cost;
         if new_cost < old_cost then new_tree else old_tree
 
 
