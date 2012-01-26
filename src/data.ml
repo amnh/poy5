@@ -4155,13 +4155,13 @@ let categorize_sets data : int list list =
             (fun x -> not (inner_find x named_sets))
             (get_chars_codes_comp data `AllDynamic)
     in
-    let sets = match fcodes_static with
+    let named_sets = match fcodes_static with
         | [] -> named_sets
         | fc -> fc :: named_sets in
-    let sets = match fcodes_dynamic with
+    let named_sets = match fcodes_dynamic with
         | [] -> named_sets
         | fc -> fc :: named_sets in
-    sets
+    named_sets
 
 
 let categorize_characters_comp data chars = match chars with
@@ -4723,11 +4723,8 @@ IFDEF USE_LIKELIHOOD THEN
     let d,removed = remove_absent_present_encodings ~ignore_data:true data chars in
     let d = categorize d in
     let all_chars = categorize_characters_comp d chars in
-    (* Printf.printf
-            "Transforming %d sets named %s to likelihood\n%!"
-            (List.length all_chars) (Methods.characters_to_string chars); *)
-    List.fold_left ~f:(transform_char_set) ~init:d all_chars
-
+    let data = List.fold_left ~f:(transform_char_set) ~init:d all_chars in
+    data
 ELSE
     failwith "Likelihood not enabled: download different binary or contact mailing list"
 
