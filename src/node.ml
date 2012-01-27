@@ -858,7 +858,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
             let model = MlStaticCS.get_model am.preliminary in
             let min_bl = MlStaticCS.minimum_bl () in
             let mine = begin match  model.MlModel.spec.MlModel.cost_fn with
-
                 (* MAL has full C functionality *)
                 | `MAL -> 
                     let modf = ref All_sets.Integers.empty in
@@ -879,7 +878,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                cost = cost;
                                sum_cost = cost +. bm.sum_cost +. am.sum_cost;
                                time = Some t1, Some t2, t3_opt; }
-
                 (* calculate the median1 for MPL with OCAML Brents *)
                 | `MPL ->
                     let calculate_single t = 
@@ -905,7 +903,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                 end
             in
             ei_map ptl atl btl ((StaticMl mine)::pa)
-        (* dynamic characters modify based on their integerized approx *)
+        (* dynamic characters *)
         | ((Dynamic pm) as pml)::ptl, (Dynamic am)::atl,(Dynamic bm)::btl ->
             begin match am.preliminary, bm.preliminary with
                 | DynamicCS.MlCS c1_pre, DynamicCS.MlCS c2_pre ->
@@ -1036,111 +1034,116 @@ let rec cs_final_states pn nn c1n c2n p n c1 c2 =
     | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> 
         n
     | Nonadd8 cp, Nonadd8 cn, Nonadd8 cc1, Nonadd8 cc2 -> 
-          let m = NonaddCS8.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary in
-          Nonadd8 { cn with final = m }
+        let m = NonaddCS8.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        Nonadd8 { cn with final = m }
     | Nonadd16 cp, Nonadd16 cn, Nonadd16 cc1, Nonadd16 cc2 -> 
-          let m = NonaddCS16.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary in
-          Nonadd16 { cn with final = m }
+        let m = NonaddCS16.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        Nonadd16 { cn with final = m }
     | Nonadd32 cp, Nonadd32 cn, Nonadd32 cc1, Nonadd32 cc2 -> 
-          let m = NonaddCS32.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary in
-          Nonadd32 { cn with final = m }
+        let m = NonaddCS32.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        Nonadd32 { cn with final = m }
     | Add cp, Add cn, Add cc1, Add cc2 -> 
-          let m = AddCS.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary in
-          Add { cn with final = m }
+        let m = AddCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        Add { cn with final = m }
     | Sank cp, Sank cn, Sank cc1, Sank cc2 ->
-          let m = SankCS.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary in
-          Sank { cn with final = m }
+        let m = SankCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        Sank { cn with final = m }
     | Dynamic cp, Dynamic cn, Dynamic cc1, Dynamic cc2 ->
-          let m = DynamicCS.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary in
-          Dynamic { cn with final = m }
+        IFDEF USE_LIKELIHOOD THEN
+            begin match cp.final with
+            | DynamicCS.MlCS _ ->
+                let ot1,ot2,ot3 = match cn.time with
+                    | Some x,Some y,Some z -> x, y, z
+                    | _  -> assert false
+                in
+                let res =
+                    DynamicCS.final_states cn.preliminary cc1.preliminary
+                                        cc2.preliminary cp.final ot1 ot2 ot3
+                in
+                Dynamic { cn with final = res; }
+            | _ -> 
+                let m = DynamicCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+                Dynamic { cn with final = m }
+            end
+        ELSE
+            let m = DynamicCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+            Dynamic { cn with final = m }
+        END
     | Kolmo cp, Kolmo cn, Kolmo cc1, Kolmo cc2 ->
-          let m = KolmoCS.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary in
-          Kolmo { cn with final = m }
+        let m = KolmoCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        Kolmo { cn with final = m }
     | Set cp, Set cn, Set cc1, Set cc2 ->
-          (match cn.preliminary.smethod with
-           | `Strictly_Same ->
-                 (* Apply in order to our children *)
-                 let res = map4 (cs_final_states pn nn c1n c2n)
-                     cp.preliminary.set cn.preliminary.set
-                     cc1.preliminary.set cc2.preliminary.set in
-                 (* Note: if anything else updates the cost, the cost should
-                  * also be recalculated here.  (But this shouldn't happen in
-                  * the 3-median...) *)
-                 let res = { cn.preliminary with set = res } in
-                 Set { cn with preliminary = res; final = res; }
-           | `Any_Of ((froml, fromr, medians), v) ->
-                 (* Get the "from" value for a node *)
-                 let get_from {smethod=m} = match m with
-                 | `Any_Of (l, _) -> l
-                 | _ -> assert false in (* Sets should be compatible *)
-
+        begin match cn.preliminary.smethod with
+            | `Strictly_Same ->
+                (* Apply in order to our children *)
+                let res =
+                    map4 (cs_final_states pn nn c1n c2n)
+                         cp.preliminary.set cn.preliminary.set
+                         cc1.preliminary.set cc2.preliminary.set
+                in
+                (* Note: if anything else updates the cost, the cost should
+                 * also be recalculated here.  (But this shouldn't happen in
+                 * the 3-median...) *)
+                let res = { cn.preliminary with set = res } in
+                Set { cn with preliminary = res; final = res; }
+            | `Any_Of ((froml, fromr, medians), v) ->
+                (* Get the "from" value for a node *)
+                let get_from {smethod=m} = match m with
+                    | `Any_Of (l, _) -> l
+                    | _ -> assert false
+                in
                  (* Get the from list specifically *)
-                 let get_from_list n =
+                let get_from_list n =
                      let (_, _, l) = get_from n in l in
                  (* Am I the left node? *)
-                     let (parent_left, _, _) = get_from cp.final in
-                 let is_left =
-                     nn.taxon_code = parent_left in
-                     let (_, parent_right, _) = get_from cp.final in
-                 let is_right =
-                     nn.taxon_code = parent_right in
-                 assert (is_left || is_right);
-
-                 (* Make a list: parent median and which of my children it came
-                    from *)
-                 let set = map2
-                     (fun median (l, r) ->
-                          if is_left
-                          then (median, l)
-                          else (median, r))
-                     cp.final.set (get_from_list cp.final) in
-                 let set, from =
-                     match medians with
-                     (* we're a leaf node (OTU); this is a special case for
-                        3-median *)
-                     | [] ->
-                           (List.map
-                                (fun (parent, my_index) ->
-                                     let median = List.nth cn.preliminary.set  my_index in
-                                     let left, right = median, median in
-                                     cs_final_states pn nn c1n c2n parent median left right)
-                                set,
-                            [])
+                let (parent_left, _, _) = get_from cp.final in
+                let is_left = nn.taxon_code = parent_left in
+                let (_, parent_right, _) = get_from cp.final in
+                let is_right = nn.taxon_code = parent_right in
+                assert (is_left || is_right);
+                (* Make a list: parent median and which of my children it came from *)
+                let set =
+                    map2 (fun median (l, r) -> if is_left then (median, l) else (median, r))
+                         cp.final.set
+                         (get_from_list cp.final)
+                in
+                let set, from = match medians with
+                    (* we're a leaf node (OTU); this is a special case for 3-median *)
+                    | [] ->
+                        (List.map
+                            (fun (parent, my_index) ->
+                                let median = List.nth cn.preliminary.set  my_index in
+                                let left, right = median, median in
+                                cs_final_states pn nn c1n c2n parent median left right)
+                            set,
+                        [])
                      (* real 3-median *)
-                     | _ ->
-                           List.split (List.map
-                               (fun (parent, my_index) ->
+                    | _ ->
+                        List.split
+                            (List.map
+                                (fun (parent, my_index) ->
                                     let median = List.nth cn.preliminary.set  my_index in
                                     let (l, r) = List.nth medians my_index      in
                                     let left =   List.nth cc1.preliminary.set l in
                                     let right =  List.nth cc2.preliminary.set r in
-                                    (cs_final_states pn nn c1n c2n parent median left right,
-                                     (l, r))
-                               )
-                               set) in
-                 let res = { cn.preliminary with
-                                 set = set;
-                                 smethod = `Any_Of ((froml, fromr, from), v);
-                           } in
-                 Set { cn with final = res }
-          )
+                                    (cs_final_states pn nn c1n c2n parent median left right, (l, r)))
+                                set)
+                in
+                let res =
+                    { cn.preliminary with
+                        set = set;
+                        smethod = `Any_Of ((froml, fromr, from), v); }
+                in
+                Set { cn with final = res }
+        end
     | Nonadd8 _, _, _, _ | Nonadd16 _, _, _, _ | Nonadd32 _, _, _, _ 
     | Add _, _, _, _ | Sank _, _, _, _ | Dynamic _, _, _, _  
     | Set _, _, _, _ | Kolmo _, _, _, _ | StaticMl _, _, _ ,_ ->
-          raise (Illegal_argument "cs_final_states")
+        raise (Illegal_argument "cs_final_states")
 
 let new_node_stats a b =
-    let num_child_edges =
-        a.num_child_edges + b.num_child_edges + 2 in
-    let num_height =
-        (max a.num_height b.num_height) + 1 in
+    let num_child_edges = a.num_child_edges + b.num_child_edges + 2 in
+    let num_height = (max a.num_height b.num_height) + 1 in
     (num_child_edges, num_height)
     
 let excludes_median a b =
@@ -1151,7 +1154,8 @@ let excludes_median a b =
         | `Either, a -> 0, a
         | a, `Either -> 0, a
         | `Excluded, `NotExcluded
-        | `NotExcluded, `Excluded -> 1, `Either in
+        | `NotExcluded, `Excluded -> 1, `Either
+    in
     List.map2
         (fun (s1, c1, card, count1) (s2, c2, _, count2) ->
              let cost, med = exclude_median (s1, s2) in

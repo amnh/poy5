@@ -636,8 +636,43 @@ let readjust c1 c2 mine t1 t2 =
     let modified = not ((total_cost mine) =. ncost) in
     modified,total_cost mine,ncost,(nt,t2),nmine
 
-
 let readjust3 mine c1 c2 par t1 t2 t3 =
+    assert( 0 = MlModel.compare (static_model mine) (static_model c2) );
+    assert( 0 = MlModel.compare (static_model mine) (static_model c1) );
+    assert( 0 = MlModel.compare (static_model mine) (static_model par));
+    let node = match c1.data, c2.data, par.data with
+        | FPAlign c1, FPAlign c2, FPAlign p ->
+            let ns = 
+                Array_ops.map_3
+                    (fun x y z ->
+                        let c,n,_ = FloatAlign.readjust x y z mine.model t1 t2 t3 in n)
+                    c1.ss c2.ss p.ss
+            in
+            FPAlign { ss = ns; }
+        | CMPLAlign c1, CMPLAlign c2, CMPLAlign p ->
+            let ns = 
+                Array_ops.map_3
+                    (fun x y z ->
+                        let c,n,_ = CMPLAlign.readjust x y z mine.model t1 t2 t3 in n)
+                    c1.ss c2.ss p.ss
+            in
+            CMPLAlign { ss = ns; }
+        | MPLAlign c1, MPLAlign c2, MPLAlign p ->
+            let ns = 
+                Array_ops.map_3
+                    (fun x y z ->
+                        let c,n,_ = MPLAlign.readjust x y z mine.model t1 t2 t3 in n)
+                    c1.ss c2.ss p.ss
+            in
+            MPLAlign { ss = ns; }
+        | Verify c1, Verify c2, Verify p                          -> assert false
+        | (MPLAlign _ | FPAlign _ | CMPLAlign _ | Verify _), _, _ -> assert false
+    in
+    {mine with data = node;}
+
+
+
+let readjust3_opt mine c1 c2 par t1 t2 t3 =
     let single_result =
         (function
             | [| t1; t2; t3 |] ->

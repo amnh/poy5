@@ -678,7 +678,7 @@ let readjust_lk mode to_adjust modified ch1 ch2 mine t1 t2 =
 let readjust_lk3 mode to_adjust modified ch1 ch2 mine par t1 t2 t3 =
     match ch1, ch2, mine, par with
     | MlCS ch1, MlCS ch2, MlCS mine, MlCS par ->
-        let m,pcost,cost,ts,res = MlDynamicCS.readjust3 mine ch1 ch2 par t1 t2 t3 in
+        let m,pcost,cost,ts,res = MlDynamicCS.readjust3_opt mine ch1 ch2 par t1 t2 t3 in
         if not m then (modified, pcost, pcost, (t1,t2,t3), (MlCS mine))
         else begin
             let x =
@@ -691,6 +691,13 @@ let readjust_lk3 mode to_adjust modified ch1 ch2 mine par t1 t2 t3 =
         end
      | _,_,_,_ -> assert false
 
+
+let final_states mine ch1 ch2 par t1 t2 t3 = 
+    match ch1,ch2,mine,par with
+    | MlCS ch1, MlCS ch2, MlCS mine, MlCS par ->
+        let res = MlDynamicCS.readjust3 mine ch1 ch2 par t1 t2 t3 in
+        MlCS res
+    | _,_,_,_ -> assert false
 
 
 (** [to_single ?is_root pre_ref_code alied_map p n] returns a node that contains per character a single state

@@ -108,8 +108,13 @@ val readjust : t -> t -> t -> float -> float -> bool * float * float * (float * 
 (** [readjust p a b t1 t2] optimize the branch lengths [t1] and [t2] from nodes
     [a] and [b] respectively, updating parent [p]. *)
 
-val readjust3 : t -> t -> t -> t -> float -> float -> float
+val readjust3 : t -> t -> t -> t -> float -> float -> float -> t
+(** Finds the final states from a pseudo three-d alignment (by doing all
+    pairwise alignments and finding the best final median. *)
+
+val readjust3_opt : t -> t -> t -> t -> float -> float -> float
     -> bool * float * float * (float * float * float) * t
+(** Optimization function of the branch lengths based on readjust3 above *)
 
 val to_single : t -> t -> float -> float * float * t
 (** [to_single p m t] Find the sequence for m as a sequence of assigned states,
