@@ -964,5 +964,6 @@ let leaf_sequences _ = failwith MlStaticCS.likelihood_error
 let to_formatter _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let prior _ = failwith MlStaticCS.likelihood_error
 let to_single _ _ _ = failwith MlStaticCS.likelihood_error
+let readjust3_opt _ _ _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 
 ENDIF
