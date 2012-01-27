@@ -14,19 +14,21 @@ Bugs Fixed:
       cannot facilitate that requirement. Setting interface to anything else
       will over-write that choice and report a warning.
     - Add Error message for input sequence with different number of
-      fragments(fragments are devided by '#'). 
-      bug report by Torsten Dikow.
+      fragments(fragments are devided by '#').  (bug report by Torsten Dikow).
     - Improved Makefile and Configure scripts from minor errors. Also removed
       Makefile and configure script from the root directory to avoid confusion
-      and easier to maintain. (Thanks to Jan De Laet).
+      and easier to maintain. (bug report by Jan De Laet).
     - Report lkmodel (to report likelihood model), was not working properly in
-      certain situations; without identifiers.  (Thanks to John Denton).
+      certain situations; without identifiers.  (bug report by John Denton).
     - Transform likelihood with multiple types (for example a combination of
       static and dynamic) would fail in the transform due to alphabet size
       issues. We partition the data now between static and dynamic and then
-      apply the transform to the characters (Thanks to Fernando Marques).
+      apply the transform to the characters. (bug report by Fernando Marques).
     - Used non-affine alignment for affine models under parsimony; this has
       been reverted correctly, and also includes affine low-mem ukkonen.
+    - Compiling supramap and cmxs libraries for dynamic linking rule was missing
+      in our myocamlbuild file. (bug report by Travis Treseder).
+
 
 Feature Eliminated:
 

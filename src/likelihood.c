@@ -834,7 +834,10 @@ compose_sym(double* P,const double* U,const double* D,const float t,int n,double
 
     alpha = 1; beta = 0; _tran = 'T'; ntran = 'N';
     memcpy(P, D, n*n*sizeof(double) );
-    if(t >= EPSILON || t == -1.0){
+    if(t == -1.0){ /** Instantaneous rate matrix **/
+        dgemm_(&ntran,&ntran, &n, &n, &n, &alpha, U, &n, P, &n, &beta, TMP, &n );
+        dgemm_(&ntran,&_tran,&n,&n,&n,&alpha,TMP,&n,U,&n,&beta,P,&n);
+    } else if(t >= EPSILON){
         apply_exp(P,n,n,t); //exp(D*t); along diagonal only
         //calculates: C = op(A)*op(B)*a + C*b
         dgemm_(&ntran,&ntran,        //format, op(A), op(B)
@@ -880,9 +883,11 @@ compose_gtr(double* P, const double* U, const double* D, const double* Ui,
 {
     double alpha,beta; char ntran;
     alpha = 1; beta = 0; ntran = 'N';
-
     memcpy(P,D,n*n*sizeof(double));
-    if(t >= EPSILON || t == -1.0){
+    if(t == -1.0){
+        dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,tmp,&n);
+        dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,tmp,&n,U,&n,&beta,P,&n);
+    } else if(t >= EPSILON || t == -1.0){
         apply_exp(P,n,n,t);
         //S is U*exp(D)...
         dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,tmp,&n);

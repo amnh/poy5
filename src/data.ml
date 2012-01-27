@@ -76,17 +76,11 @@ let print_dyna_state x =
     Printf.printf "dyna state = %!";
     match x with
     | `SeqPrealigned -> Printf.printf "SeqPrealigned\n%!"
-    (** A short sequence, no rearrangements are allowed*)
     | `Seq -> Printf.printf "Seq\n%!"
-    (** same as above but for likelihood characters *)
     | `Ml -> Printf.printf "ML\n%!"
-    (** A long sequence, genes inside are broken automatically, rearrangements are allowed*)
     | `Chromosome -> Printf.printf "Chromosome\n%!"
-    (** A set of chromosomes *)
     | `Genome -> Printf.printf "Genome\n%!"
-    (** A list of shorted sequences annotated by piles, rearrangements are allowed *)
     | `Annotated -> Printf.printf "Annotated\n%!"
-    (** A sequence of gene names, rearrangements are allowed *)
     | `Breakinv -> Printf.printf "Breakinv\n%!"
 
 let print_transform_meth x =
@@ -3881,27 +3875,28 @@ let type_of_dynamic_likelihood d = match d.dynamics with
         | _ -> None
 
 let rec get_code_from_name data name_ls = 
-  let code_ls = List.fold_right 
-      ~f:(fun name acc -> 
-              try 
-                  let code = Hashtbl.find_all data.character_names name in
-                  code @ acc
-              with 
-              | Not_found -> 
-                      (* We will try to use a regular expression to match the
-                      * requested item *)
+    let code_ls =
+        List.fold_right
+            ~f:(fun name acc -> 
+                try let code = Hashtbl.find_all data.character_names name in
+                    code @ acc
+                with | Not_found -> 
                     let nname = Str.regexp name in
-                    match Hashtbl.fold (fun stored_name code acc -> 
-                        if Str.string_match nname stored_name 0 then code :: acc
-                        else acc) data.character_names []
+                    match 
+                        Hashtbl.fold
+                            (fun stored_name code acc ->
+                                if Str.string_match nname stored_name 0
+                                    then code :: acc
+                                    else acc)
+                            data.character_names []
                     with
-                    | [] -> 
-                            failwith 
-                            ("The@ character@ " ^ name ^ 
-                            ",@ target@ of@ the@ transformation@ does@ not@ " ^
-                            "exist.");
-                    | r -> r @ acc
-         ) name_ls ~init:[] 
+                        | [] ->
+                            failwithf
+                                ("The@ character@ %s,@ target@ of@ the@ "^^
+                                 "transformation@ does@ not@ exist.") name;
+                        | r -> r @ acc)
+            ~init:[]
+            name_ls
   in
   code_ls
 
@@ -4160,13 +4155,13 @@ let categorize_sets data : int list list =
             (fun x -> not (inner_find x named_sets))
             (get_chars_codes_comp data `AllDynamic)
     in
-    match fcodes_static with
-    | [] -> named_sets
-    | fc ->
-        begin match fcodes_dynamic with 
-            | [] -> fc :: named_sets
-            | fd -> fd :: fc :: named_sets
-        end
+    let named_sets = match fcodes_static with
+        | [] -> named_sets
+        | fc -> fc :: named_sets in
+    let named_sets = match fcodes_dynamic with
+        | [] -> named_sets
+        | fc -> fc :: named_sets in
+    named_sets
 
 
 let categorize_characters_comp data chars = match chars with
@@ -4451,7 +4446,9 @@ let apply_likelihood_model_on_char_table replace data table codes model =
     if replace then begin
         (* replace only likelihood characters in set of codes *)
         List.iter
-            (fun code -> match Hashtbl.find table code with
+            (fun code ->
+                Printf.printf "Converting %d\n" code;
+                match Hashtbl.find table code with
                 | Static x when (is_likelihood x.Nexus.File.st_type) -> 
                     Hashtbl.replace table code
                         (Static {x with Nexus.File.st_type = model_enc; })
@@ -4651,7 +4648,6 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
                 ~init:(data.dynamic_static_codes,[])
                 (get_code_from_characters_restricted_comp `AllStatic data chars)
         in
-        print_newline ();
         { data with character_specs      = copy_spec;
                     taxon_characters     = copy_char;
                     character_names      = copy_names;
@@ -4701,7 +4697,7 @@ END
 * the likelihood model specified in [lk] *)
 let set_likelihood data (((chars,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
-    let u_gap = match use_gap with 
+    let u_gap = match use_gap with
         | `Independent | `Coupled _ -> true | `Missing -> false
     in
     let transform_char_set data chars = match chars with
@@ -4716,9 +4712,9 @@ IFDEF USE_LIKELIHOOD THEN
                 let compute_priors () = compute_priors data chars u_gap in
                 let alph_size,alph = verify_alphabet data chars in
                 let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
-                let lk_spec = 
-                    if dynamic then MlModel.remove_gamma_from_spec lk_spec 
-                               else lk_spec 
+                let lk_spec =
+                    if dynamic then MlModel.remove_gamma_from_spec lk_spec
+                               else lk_spec
                 in
                 MlModel.create alph lk_spec
             in
@@ -4727,8 +4723,8 @@ IFDEF USE_LIKELIHOOD THEN
     let d,removed = remove_absent_present_encodings ~ignore_data:true data chars in
     let d = categorize d in
     let all_chars = categorize_characters_comp d chars in
-    List.fold_left ~f:(transform_char_set) ~init:d all_chars
-
+    let data = List.fold_left ~f:(transform_char_set) ~init:d all_chars in
+    data
 ELSE
     failwith "Likelihood not enabled: download different binary or contact mailing list"
 
