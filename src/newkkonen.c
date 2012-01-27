@@ -740,18 +740,20 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
     {
         startj = ( (i-newk)>0 )?(i-newk):0 ;
         endj = ( (i+lenY-lenX+newk)<(lenY-1) )?(i+lenY-lenX+newk):(lenY-1) ;
-        if ((debug)&&(is_emptyqueue(thisq)==0)) printf("Warning,thisQ is not empty before update_a_row\n");
-        update_a_row (s1,s2,m,c,i,startj,endj,startj-1,prevq,thisq,newk,oldk,go);
-        transfer_queue (thisq,prevq);
-    }
-/*
-        for (j= MAX(i-newk,0);j<=MIN(i+(lenY-lenX+newk),lenY-1);j++)
-        {
+        if (affine) {
+            for (j= MAX(i-newk,0);j<=MIN(i+(lenY-lenX+newk),lenY-1);j++)
+            {
             if (in_non_change_zone(i,j,oldk,lenX,lenY) ) {}
             else
                 update_a_cell (s1,s2,m,c,i,j,newk,go);
+            }
         }
-*/
+        else {
+            if ((debug)&&(is_emptyqueue(thisq)==0)) printf("Warning,thisQ is not empty before update_a_row\n");
+            update_a_row (s1,s2,m,c,i,startj,endj,startj-1,prevq,thisq,newk,oldk,go);
+            transfer_queue (thisq,prevq);
+        }
+    }
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(lenX-1,lenY-1,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
     int cost; DIRECTION_MATRIX dir; DIRECTION_MATRIX gapnum;
