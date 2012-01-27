@@ -14,6 +14,7 @@ ncurses.o
 nonaddCSc8.o
 nonaddCSc16.o
 nonaddCSc32.o
+queue_with_linkedlist.o
 readlineml.o
 sleep.o
 ukk.checkp.o

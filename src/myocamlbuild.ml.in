@@ -153,6 +153,7 @@ let headers =
         "memstack.h";
         "newkkonen.h";
         "nonaddCSc.h";
+        "queue_with_linkedlist.h";
         "seq.h";
         "ukkCommon.h";
         "union.h";
