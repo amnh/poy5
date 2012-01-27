@@ -24,7 +24,7 @@ open Command
 let static = true
 let concordelib= "@CONCORDE_LIB@"
 let cc = "@CC@"
-let cflags = "@CFLAGS@"
+let cflags = "-Wall @CFLAGS@"
 let clibs = "@LIBS@"
 let interface = 
     if "@USEINTERFACE@" = "readline" then 
