@@ -32,7 +32,6 @@ val empty_str_spec : string_spec
 val likelihood_not_enabled : string
 (** string for erroring when likelihood is not enabled. *)
 
-
 val default_command :
     Methods.ml_costfn * Methods.ml_substitution * Methods.ml_site_variation option
         * Methods.ml_priors * Methods.ml_gap
@@ -115,6 +114,21 @@ val jc69_5 : spec
 val jc69_4 : spec
 (** sample spec for testing of 4 state JC69 *)
 
+val m_gtr : 
+    (float, 'a, 'b) Bigarray.Array1.t -> float array -> int -> (int * float) option
+        -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+(** [m_gtr pi co alph gap_r] build a gtr Q matrix from parameters **)
+
+val m_jc69 :
+    (float, 'a, 'b) Bigarray.Array1.t -> float -> int -> (int * float) option 
+        -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+(** [m_jc69 pi a alph gap_r] build a jc69 Q matrix from parameters **)
+
+val m_file :
+    (float, 'a, 'b) Bigarray.Array1.t -> float array array -> int
+        -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+(** [m_file pi co alph] build a Q matrix from an array of parameters **)
+
 type chars = [ `List of int list | `Packed of int ]
 (** list of set bits, or packed integer of set bits *)
 
@@ -181,6 +195,11 @@ val spec_from_classification :
 val compose : model -> float -> 
     (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 (** [compse m t] compose a matrix with the time *)
+
+val compose_model : 
+    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
+        -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+(** [compose_model Q t] create p from Q and t; raw function *)
 
 val subst_matrix : model -> float option -> 
     (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
