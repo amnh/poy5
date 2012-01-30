@@ -1032,6 +1032,11 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
         if (debug) {printf ("done with first row, call increaseT with iniT=%d\n",iniT); fflush(stdout);}
         int rescost = increaseT (s1,s2,m,c,iniT,s1_len,s2_len,go); 
         if (debug) {printf("end of newkk_algn,cost=%d\n\n",rescost); fflush(stdout);}
+        /* for test
+         * FILE * outf;
+        outf = fopen ("poy.out","w");
+        fprintf(outf,"%d",rescost);
+        fclose(outf);*/
         return rescost;
     }
 };

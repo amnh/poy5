@@ -1798,6 +1798,7 @@ original_filename file tcmfile tcm tcm3 default_mode lk_model alphabet dyna_stat
                     (*we are not expecting multi fragment here*)
                     match loci_frag_seq with
                     | [fragseq] -> (fragseq,b)
+                    | [] -> (Sequence.get_empty_seq (),b)
                     | _ -> failwith "we are doing annotated-chromosome here, there\
                 should not be any fragment('#') delimiters"
                 ) chrom_loci_frag_seq
@@ -1865,7 +1866,8 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
     (* in a file , we have a list of taxon followed by '>taxonname'
      ['>'taxon['@'chrom['|'loci['#'frag'#']'|']'@']]
     * *)
-    (*let x=ref 0 and y = ref 0 and z = ref 0 and w = ref 0 in
+    (* debug msg: this loop will print out seq from input file, by the format above  
+    let x=ref 0 and y = ref 0 and z = ref 0 and w = ref 0 in
     Printf.printf "Data.process_parsed_sequences\n%!";
     List.map (fun ((taxon_chrom_loci_frag_seq:Sequence.s list list list),b) ->
         Printf.printf "taxon.%d { \n%!" !x; 

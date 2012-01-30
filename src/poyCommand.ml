@@ -1495,6 +1495,8 @@ let create_expr () =
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
                 [ LIDENT "chromosome"; ":"; left_parenthesis; x = LIST0 
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
+                [ LIDENT "annotated"; ":"; left_parenthesis; x = LIST0 
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
                 [ LIDENT "genome"; ":"; left_parenthesis; x = LIST0 
                         [ x = genome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
