@@ -21,6 +21,7 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <limits.h>
+#include <string.h>
 #define NDEBUG 1
 #include <assert.h>
 #include <caml/mlvalues.h>
@@ -83,6 +84,24 @@ void print_int_arr (int * arr, int size)
     printf("]\n");
     fflush(stdout);
 };
+
+//we need to reset cells to 0 if we are doing speeding up version of newkkonen.
+//in the speeding up version, we compare the old cost to new cost in newkkmat,
+//old cost are supposed to be 0 if we haven't fill it yet, but we reuse memory all the time, that might not be true.
+void
+reset_mat_to_0 (newkkmat_p m)
+{
+    int debug = 0;
+    DIRECTION_MATRIX v = (DIRECTION_MATRIX) (-1);
+    MAT_SIZE total_len = m->total_len;
+    if (debug) printf ("reset matrix to 0, total_len=%d\n",total_len);
+    //reset cost
+    memset(m->pool_cost,(-1),total_len*sizeof(int));
+    //these two are not necessary.
+    memset(m->pool_dir,v,total_len*sizeof(DIRECTION_MATRIX));
+    memset(m->pool_gapnum,v,total_len*sizeof(DIRECTION_MATRIX));
+    return;
+}
 
 void
 expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
@@ -574,7 +593,7 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
     int oldaffP, oldaffQ;
     get_ukkcost(whichdiag,idx_in_my_diag, m, &oldcost, &olddir, &oldgapnum, &oldaffP, &oldaffQ, affine);
     if ((whichdiag<0)||(whichdiag>= m->diag_size_in_use)) {debug=1;}
-    if (debug) { printf("update_a_cell,(%d,%d),diag#.%d,idx#.%d,leftB=%d,rightB=%d\n",i,j,whichdiag,idx_in_my_diag,at_leftborder,at_rightborder); fflush(stdout);}
+    if (debug) { printf("update_a_cell,(%d,%d),diag#.%d,idx#.%d,leftB=%d,rightB=%d,oldcost=%d\n",i,j,whichdiag,idx_in_my_diag,at_leftborder,at_rightborder,oldcost); fflush(stdout);}
     if ( i==0 && j==0 ) return 0;//we don't update (0,0)
     else 
     {
@@ -658,8 +677,8 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
             if (debug) {printf("next_j=endj+1,done with this row\n"); fflush(stdout);}  
         }
         else {
-            if (debug) { printf("update this cell.(%d,%d)\n",i,next_j); fflush(stdout); }
             int costchange = update_a_cell (s1,s2,m,c,i,next_j,newk,go);
+            if (debug) { printf("update this cell.(%d,%d),costchange=%d\n",i,next_j,costchange); fflush(stdout); }
             //add next_j to this queue if necessary
             if ( costchange && !(in_new_left_band(i,next_j,newk,oldk)) ) {
                 /*  we only push j to this queue when the cost changes
@@ -684,7 +703,7 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
                     * it will be updated always. 
                  */
                 enqueue(thisq,next_j);
-                if (debug) {printf("push %d to thisq\n%!",next_j); fflush(stdout); }
+                if (debug) {printf("push %d to thisq\n",next_j); fflush(stdout); }
             }
             else {} //no need to add next_j to queue
             //update last_updated_j
@@ -906,7 +925,7 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m,int affine)
         m->pool_dir = realloc (m->pool_dir,len*sizeof(DIRECTION_MATRIX));
         m->pool_gapnum = realloc (m->pool_gapnum,len*sizeof(DIRECTION_MATRIX));
         if (affine) {
-            if (debug) {printf("expand affine P and Q diagnonal\n%!"); fflush(stdout);}
+            if (debug) {printf("expand affine P and Q diagnonal\n"); fflush(stdout);}
             m->pool_affP = realloc (m->pool_affP,len*sizeof(int));
         m->pool_affQ = realloc (m->pool_affQ,len*sizeof(int));}
         else
@@ -992,6 +1011,8 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
     }
     else 
     {
+        //reset newkkmat to 0 if we are reusing the memory block.
+        if (m->total_len > 0) reset_mat_to_0 (m);
         init_mat (s1_len,s2_len,m,affine);
         int gapcode = cm_get_gap (c); 
         int delta = get_delta (c);
@@ -1032,8 +1053,7 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
         if (debug) {printf ("done with first row, call increaseT with iniT=%d\n",iniT); fflush(stdout);}
         int rescost = increaseT (s1,s2,m,c,iniT,s1_len,s2_len,go); 
         if (debug) {printf("end of newkk_algn,cost=%d\n\n",rescost); fflush(stdout);}
-        /* for test
-         * FILE * outf;
+        /*FILE * outf;
         outf = fopen ("poy.out","w");
         fprintf(outf,"%d",rescost);
         fclose(outf);*/
