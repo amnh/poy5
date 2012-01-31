@@ -994,14 +994,16 @@ let apply_time root child parent =
             | Dynamic cnd, Dynamic pnd -> 
                 begin match cnd.preliminary,pnd.preliminary with
                 | DynamicCS.MlCS _,DynamicCS.MlCS _ ->
-                    info_user_message "%d has %s | %s | %s" (parent.taxon_code)
+                    if debug then begin
+                        info_user_message "%d has %s | %s | %s" (parent.taxon_code)
                                       (p_opt string_of_float (fst pnd.time))
                                       (p_opt string_of_float (snd pnd.time))
                                       (p_opt string_of_float (thr pnd.time));
-                    info_user_message "%d has %s | %s | %s" (child.taxon_code)
+                        info_user_message "%d has %s | %s | %s" (child.taxon_code)
                                       (p_opt string_of_float (fst cnd.time))
                                       (p_opt string_of_float (snd cnd.time))
                                       (p_opt string_of_float (thr cnd.time));
+                    end;
                     let time = replace_third cnd.time (apply_it p pnd.time) in
                     Dynamic { cnd with time = time }
                 | _,_ -> ch
@@ -1052,15 +1054,15 @@ let rec cs_final_states pn nn c1n c2n p n c1 c2 =
         IFDEF USE_LIKELIHOOD THEN
             begin match cp.final with
             | DynamicCS.MlCS _ ->
-                let ot1,ot2,ot3 = match cn.time with
-                    | Some x,Some y,Some z -> x, y, z
-                    | _  -> assert false
-                in
-                let res =
-                    DynamicCS.final_states cn.preliminary cc1.preliminary
-                                        cc2.preliminary cp.final ot1 ot2 ot3
-                in
-                Dynamic { cn with final = res; }
+                begin match cn.time with
+                    | Some x,Some y,Some z ->
+                        let res = DynamicCS.final_states cn.preliminary
+                                    cc1.preliminary cc2.preliminary cp.final x y z
+                        in
+                        Dynamic { cn with final = res; }
+                    | None  ,None  ,Some z -> n (* leaf node *)
+                    | _  -> print_times nn; assert false
+                end
             | _ -> 
                 let m = DynamicCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
                 Dynamic { cn with final = m }
@@ -1383,27 +1385,20 @@ let get_times_between_plus_codes (child:node_data) (parent:node_data option) =
 IFDEF USE_LIKELIHOOD THEN
         let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
         let f = match parent with
-            | None     ->
-(*                Printf.printf "thr";*)
-                thr
+            | None     -> thr
             | Some par ->
                 if par.min_child_code = child.min_child_code 
-                    then begin
-(*                        Printf.printf "fst";*)
-                        fst
-                    end else begin
-(*                        Printf.printf "snd";*)
-                        snd
-                    end
+                    then fst
+                    else snd
         in
         function
             | StaticMl z ->
-(*                Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt*)
-(*                                (snd z.time) pp_fopt (thr z.time);    *)
+                (*Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt
+                                  (snd z.time) pp_fopt (thr z.time);    *)
                 MlStaticCS.get_codes z.preliminary, f z.time
             | Dynamic z ->
-(*                Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt*)
-(*                                (snd z.time) pp_fopt (thr z.time);    *)
+                (*Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt
+                                  (snd z.time) pp_fopt (thr z.time);    *)
                 begin match z.preliminary with
                     | DynamicCS.MlCS x -> MlDynamicCS.get_codes x, f z.time
                     | _ -> null

@@ -26,9 +26,9 @@ Bugs Fixed:
       apply the transform to the characters. (bug report by Fernando Marques).
     - Used non-affine alignment for affine models under parsimony; this has
       been reverted correctly, and also includes affine low-mem ukkonen.
-    - Compiling supramap and cmxs libraries for dynamic linking rule was missing
+    - Compiling supramap and cmxs libraries dynamic linking rule was missing
       in our myocamlbuild file. (bug report by Travis Treseder).
-
+    - Diagnosis for Dynamic Likelihood characters did not work on leaf nodes.
 
 Feature Eliminated:
 

@@ -407,21 +407,33 @@ end
 
 let q_print n = 
     let adjusted_data_lst = match n.adjusted with
-    | None -> []
-    | Some x -> [x]
+        | None -> []
+        | Some x -> [x]
     in
     let taxon_code n = match n.unadjusted @ adjusted_data_lst with
         | h :: _ -> h.code
-        | [] -> failwith "AllDirNode.taxon_code"
+        | []     -> failwith "AllDirNode.taxon_code"
     in
     Printf.printf "Node %d has adjusted|unadjusted:\t" (taxon_code n);
-    List.iter (fun x -> match x.dir with 
+    List.iter (fun x -> match x.dir with
                     | Some (a,b) -> Printf.printf "(%d,%d) " a b
-                    | None -> Printf.printf "none ") adjusted_data_lst;
+                    | None       -> Printf.printf "none ")
+              adjusted_data_lst;
     print_string " | ";
-    List.iter (fun x -> match x.dir with 
+    List.iter (fun x -> match x.dir with
                     | Some (a,b) -> Printf.printf "(%d,%d) " a b
-                    | None -> Printf.printf "none ") n.unadjusted;
+                    | None       -> Printf.printf "none ")
+              n.unadjusted;
+    Printf.printf "\n\tUnadjusted Data:\n";
+    List.iter (fun x ->
+                print_string "\t\t";
+                Node.print_times (force_val x.lazy_node))
+              n.unadjusted;
+    Printf.printf "\n\tAdjusted Data:\n";
+    List.iter (fun x ->
+                print_string "\t\t";
+                Node.print_times (force_val x.lazy_node))
+              adjusted_data_lst;
     print_newline ()
 
 module AllDirF : NodeSig.S with type e = exclude with type n = node_data with
@@ -667,24 +679,25 @@ type nad8 = Node.Standard.nad8 = struct
         let na = get_desired_dir cur a
         and nb = get_desired_dir cur b 
         and ncur = get_desired_dir par cur 
-        and npar = 
-            match grandcode with
+        and npar = match grandcode with
             | Some x -> not_with x par.unadjusted
-            | None ->
-                    match par.unadjusted with
+            | None   ->
+                begin match par.unadjusted with
                     | [par] -> par
-                    | _ -> failwith "AllDirNode.final_states"
+                    | _     -> failwith "AllDirNode.final_states"
+                end
         in
         let node = {
-            lazy_node = OneDirF.final_states None 
+            lazy_node = 
+                OneDirF.final_states None 
                         npar.lazy_node ncur.lazy_node na.lazy_node nb.lazy_node;
             dir = Some (na.code, nb.code);
             code = taxon_code cur;
         } in
         match cur.unadjusted with
         | [_] -> { cur with unadjusted = [node] }
-        | _ -> let x, y = yes_with (taxon_code par) cur.unadjusted in
-                { cur with unadjusted = [x; y; node] }
+        | _   -> let x, y = yes_with (taxon_code par) cur.unadjusted in
+                 { cur with unadjusted = [x; y; node] }
 
     (** [get_times_between child par] 
      *
@@ -757,29 +770,7 @@ type nad8 = Node.Standard.nad8 = struct
             code = taxon_code child; }
         in
         { unadjusted = [node]; adjusted = Some node; }
-       
-        (**
-        let has_one code x = match x.dir with
-            | None -> true (* cannot be a leaf as well. should use median *)
-            | Some (a,b) -> a = code || b = code
-        in
-        let c_data = match child.unadjusted with
-            | [x] -> assert (match x.dir with | None -> true | Some _ -> false);
-                     x.lazy_node
-            |  _  -> failwith "AllDirNode.apply_time only apply_time on leaves"
-        and p_data = match parent.unadjusted with
-            | [x] -> assert(has_one (taxon_code child) x);
-                     x.lazy_node
-            |  _  -> let x,y = yes_with (taxon_code child) parent.unadjusted in
-                     x.lazy_node
-        in
-        let node = {
-            lazy_node = OneDirF.apply_time root c_data p_data;
-            dir = None;
-            code = taxon_code child; }
-        in
-        { unadjusted = [node]; adjusted = Some node; }
-        **)
+     
 
     (** [uppass_heuristic tbl curr ch1 ch2 par r]
      * [cur], at this point will have one direction ([ch1],[ch2]), after this call
@@ -847,9 +838,9 @@ type nad8 = Node.Standard.nad8 = struct
                     let timedat = force_val (either_with mc p_data.unadjusted).lazy_node in
                     Node.get_times_between timedat (Some (min_child_code (Some pc) m)))
         in
-(*        Printf.printf "(%d--%d):%a\t(%d--%d):%a\t(%d--%d):%a\n%!"*)
-(*            mc ac pp_opt_list (force_val time_M2A) mc bc pp_opt_list*)
-(*            (force_val time_M2B) mc pc pp_opt_list (force_val time_M2P);*)
+        (* Printf.printf "(%d--%d):%a\t(%d--%d):%a\t(%d--%d):%a\n%!"
+           mc ac pp_opt_list (force_val time_M2A) mc bc pp_opt_list
+           (force_val time_M2B) mc pc pp_opt_list (force_val time_M2P);*)
         (* call medians with times supplied *)
         let node_A = lazy_from_fun
             (fun () -> 
