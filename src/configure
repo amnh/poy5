@@ -2968,10 +2968,13 @@ if test "${with_extras+set}" = set; then :
 fi
 
 
-for ac_prog in hg
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
+
+# Check whether --with-version-number was given.
+if test "${with_version_number+set}" = set; then :
+  withval=$with_version_number; MERCURIAL="echo $withval"
+else
+  # Extract the first word of "hg", so it can be a program name with args.
+set dummy hg; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
 if ${ac_cv_prog_MERCURIAL+:} false; then :
@@ -2987,7 +2990,7 @@ do
   test -z "$as_dir" && as_dir=.
     for ac_exec_ext in '' $ac_executable_extensions; do
   if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_MERCURIAL="$ac_prog"
+    ac_cv_prog_MERCURIAL="`hg id -i`"
     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -2995,6 +2998,7 @@ done
   done
 IFS=$as_save_IFS
 
+  test -z "$ac_cv_prog_MERCURIAL" && ac_cv_prog_MERCURIAL="`cat ./VERSION | awk '{print $NF}'`"
 fi
 fi
 MERCURIAL=$ac_cv_prog_MERCURIAL
@@ -3007,15 +3011,6 @@ $as_echo "no" >&6; }
 fi
 
 
-  test -n "$MERCURIAL" && break
-done
-
-
-# Check whether --with-version-number was given.
-if test "${with_version_number+set}" = set; then :
-  withval=$with_version_number; MERCURIAL="echo $withval"
-else
-  MERCURIAL="hg id -i"
 fi
 
 
@@ -5338,7 +5333,7 @@ See \`config.log' for more details" "$LINENO" 5; }
 esac
 
 CC_VERSION="`$CC --version`"
-POY_VERSION_NUMBER="`$MERCURIAL`"
+POY_VERSION_NUMBER="$MERCURIAL"
 
 ac_config_files="$ac_config_files Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml poy.mltop"
 
