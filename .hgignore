@@ -10,6 +10,7 @@ poy.native
 poy.byte
 poy.d.byte
 poy.top
+poy_test.native
 .depend
 help.ml
 help.txt
@@ -40,6 +41,7 @@ nonaddCSc32.c
 nonaddCSc8.c
 ocaml-str
 poy
+poy.mltop
 status.ml
 doc/version.tex
 src/*.orig
