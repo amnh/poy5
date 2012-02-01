@@ -1,4 +1,4 @@
-val get_proper_seedlen : float -> int
+val get_proper_seedlen : int -> int
 
 type m_i = {  (* the ith element M_i of a local mum *)
     sequence_NO : int ; (*which sequence is this m_i in *)

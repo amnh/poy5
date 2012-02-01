@@ -285,6 +285,16 @@ let get_avg_of_intlst in_lst =
     ) in_lst;
     (float !acc) /.(float (List.length in_lst))
 
+let get_min_of_lst in_lst =
+    match in_lst with
+    | h::t ->
+        List.fold_left (fun accmin x ->
+            if x<accmin then x
+            else accmin
+        ) h t
+    | [] -> failwith "ERROR: Utl.get_min_of_intlst, empty list "
+
+
 let get_avg_of_floatlst in_lst =
     let acc = ref 0. in
     List.iter (fun size ->
