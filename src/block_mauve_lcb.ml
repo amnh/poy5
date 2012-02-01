@@ -37,6 +37,7 @@ let debug_search_outside = false
 * faster in c_side. anyway, we are not using dyn1 now.*)
 let faster_remove = true
 
+
 open Printf
 open Block_mauve_mum
 
@@ -2378,7 +2379,7 @@ max_lcb_len cost_mat use_ukk =
     (*search_inside_each_lcb !outer_lcb_tbl in_seqarr !maximum_lcb_len max_int
     !outer_mum_tbl !inner_seed2pos_tbl cost_mat use_ukk ;*)
     if !any_improvement_outer = false then 
-        (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
+    (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
     * have the lcb from initial function, remove lightW ones*)
         Hashtbl.iter (fun key record ->
             if (is_light_weight_lcb record ) then begin
@@ -2397,7 +2398,13 @@ max_lcb_len cost_mat use_ukk =
             if (is_light_weight_lcb record )
                 || (is_low_score_lcb record) then  lightW := true
         ) !outer_lcb_tbl;
+        (*Say at the end of loops, we have only one lcb.
+        * if it's light weight(W), we remove it.
+        * if total coverage is lower than minimum_cover_ratio, we remove it.
+        *)
         if !lightW then Hashtbl.clear !outer_lcb_tbl;
+        if !outer_old_covR< !minimum_cover_ratio then 
+            Hashtbl.clear !outer_lcb_tbl;
     end;
     end;(*end of non trivial case -- when init mum number > 0*)
     let outer_lcb_tbl = !outer_lcb_tbl in

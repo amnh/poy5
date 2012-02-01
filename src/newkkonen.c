@@ -793,7 +793,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
     int newp = ( newT*2 - (lenY-lenX) )/2;
     assert(res_cost>=0); assert(res_gapnum>=0);
     if ((res_cost<=newT)  //we accept the cost -- threshold by ukkonen
-        || (res_cost<newT*2) //we will accept this cost in next round anyway 
+    //|| (res_cost<newT*2) //I know we will accept this cost in next round anyway,but the cost might be better in next round, we cannot stop here. 
         || (newp>res_gapnum)) //max possible gap number -- threshold by ward's ukkonen -- newkkonen
     {
         if (debug) 
@@ -1254,7 +1254,7 @@ newkkonen_CAML_backtrace_affine_bc (value *argv, int argn) {
 
 void
 newkkmat_CAML_free (value m) {
-    int debug=1;
+    int debug = 0;
     if (debug) { printf("newkkmat_CAML_free\n"); fflush(stdout); }
     newkkmat_p tmp;
     tmp = Newkkmat_struct(m);
