@@ -1528,15 +1528,23 @@ original_filename file tcmfile tcm tcm3 default_mode lk_model alphabet dyna_stat
              ....
           ]
         *)
+        let max_num_chrom = ref 0 in
         List.map (fun (taxon_chrom_loci_frag_seq,taxon) ->
+            (*make sure we have same number of chrom in each taxon*)
+            if !max_num_chrom=0 then
+                max_num_chrom := (List.length taxon_chrom_loci_frag_seq)
+            else if !max_num_chrom<(List.length taxon_chrom_loci_frag_seq) then
+                    failwith ("we have an inconsistent number of \
+                               chromosome from input file:"^original_filename)
+            else ();
             let extract_seq_and_deli (accseq,accdeli) chrom_loci_frag_seq =
                 match chrom_loci_frag_seq with 
                 | [[seq]] -> 
                         let seq = (*ignore first gap*)
                         Sequence.sub seq 1 ((Sequence.length seq)-1) in
                         (seq::accseq,(Sequence.length seq)::accdeli)
-                | _ -> failwith ("we are doing multi-chromosome for breakinv, there\
-                should not be any loci('|') or fragment('#') delimiters")
+                | _ -> failwith ("we are doing multi-chromosome for breakinv, there \
+                should not be any empty chromosome,or loci('|')/fragment('#') delimiters")
             in
             let seqlst,delilst = List.fold_left ~f:extract_seq_and_deli ~init:([],[]) taxon_chrom_loci_frag_seq in
             (Sequence.concat (List.rev seqlst),List.rev delilst,taxon)
@@ -1590,7 +1598,7 @@ original_filename file tcmfile tcm tcm3 default_mode lk_model alphabet dyna_stat
                 match chrom_loci_frag_seq with 
                 | [[seq]] -> (seq,b)
                 | _ -> failwith ("we are doing multi-chromosome here, there\
-                should not be any loci('|') or fragment('#') delimiters")
+                should not be any empty chromosome, or loci('|')/fragment('#') delimiters")
             ) taxon_chrom_loci_frag_seq
         ) file_taxon_chrom_loci_frag_seq
     in
@@ -1794,11 +1802,21 @@ original_filename file tcmfile tcm tcm3 default_mode lk_model alphabet dyna_stat
         match taxon_chrom_loci_frag_seq with 
         | [chrom_loci_frag_seq] ->
                 (* chromosome might be annotated by '|'*)
+                let loci_num = List.length chrom_loci_frag_seq in
+                let idx = ref (-1) in
+                let chrom_loci_frag_seq =
+                    List.filter (fun loci_frag_seq ->
+                    idx := !idx+1;
+                    if loci_frag_seq=[] then begin
+                        if !idx=(loci_num-1) then false
+                        else
+                            failwith "we have empty locus in input file.";
+                    end
+                    else true
+                    ) chrom_loci_frag_seq in
                 List.map (fun loci_frag_seq ->
-                    (*we are not expecting multi fragment here*)
                     match loci_frag_seq with
                     | [fragseq] -> (fragseq,b)
-                    | [] -> (Sequence.get_empty_seq (),b)
                     | _ -> failwith "we are doing annotated-chromosome here, there\
                 should not be any fragment('#') delimiters"
                 ) chrom_loci_frag_seq
