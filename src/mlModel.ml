@@ -935,6 +935,12 @@ ELSE
     let check_metricity _ _ _ _ _ = failwith likelihood_not_enabled
     let process_custom_model _ = failwith likelihood_not_enabled
 
+    (** durability functions for outside toplevel access **)
+    let compose_model _ _ = failwith likelihood_not_enabled
+    let m_file _ _ _ = failwith likelihood_not_enabled
+    let m_jc69 _ _ _ = failwith likelihood_not_enabled
+    let m_gtr  _ _ _ = failwith likelihood_not_enabled
+
 END
 
 (* create a cost matrix from a model *)
