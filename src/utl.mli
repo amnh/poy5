@@ -79,4 +79,5 @@ val get_dir : [> `Negative | `Positive ] -> string
 val factorial :int -> int
 val p_m_n : int -> int -> int
 val get_avg_of_intlst : int list -> float
+val get_min_of_lst : 'a list -> 'a
 val get_avg_of_floatlst : float list -> float

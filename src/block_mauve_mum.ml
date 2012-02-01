@@ -46,6 +46,7 @@ let max_gap_num = 0  (*the w *)
 * filtration for local multiple alignment".
 * also, there is no entry for 17.*)
 let get_proper_seedlen avg_seqlen =
+    let avg_seqlen = float_of_int avg_seqlen in
     let seedlen = int_of_float ( ceil (log (avg_seqlen))) in
     let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
     let seedlen = if (seedlen<5) then 5 else seedlen in
