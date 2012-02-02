@@ -2187,9 +2187,14 @@ max_lcb_len cost_mat use_ukk =
 * inside a huge lcb*)
     let outer_mum_tbl = ref (Hashtbl.create init_tb_size ) in 
     let inner_seed2pos_tbl = ref (Hashtbl.create init_tb_size ) in
-    (*if seed len is longer than shortest seq, no need to find seeds*)
-    let init_num_mums = 
-        if seedlen>min_seqlen then 0
+    (*if seedweight is longer than shortest seq, no need to find seeds*)
+    let init_num_mums =
+        let seedweight = get_seed_weight seedlen in
+        if seedweight>min_seqlen then begin
+            if debug_main then 
+                Printf.printf "seedweight=%d>min seqlen=%d,get out of mauve" seedweight min_seqlen;
+            0
+        end
         else begin
             (*find initial mums*)
             let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
