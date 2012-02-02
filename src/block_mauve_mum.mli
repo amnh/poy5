@@ -57,6 +57,8 @@ val get_position_by_seqNO : m_i list -> int -> m_i
 
 val print_mum : bool -> bool -> mum -> unit
 
+val get_seed_weight : int -> int
+
 val build_seed_and_position_tbl :
            int array array ->
            int ->
