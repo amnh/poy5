@@ -51,6 +51,7 @@ let report_error b e =
 %token COMCOMP
 %token CONDENSE
 %token CONSTRAIN
+%token CONTINUOUS
 %token COSTS
 %token CSCORES
 %token CSTREE
@@ -216,13 +217,16 @@ command:
 gap:
     | GAPS       { Some `Gap }
     | NOGAPS     { Some `Nogap }
-    |           { None }
+    |            { None }
 
 number_of_states:
     | STAR          { `Number 8 }
     | DNA gap       { `Dna $2 }
     | PROTEINS gap  { `Protein $2 }
     | NUMBER INT    { `Number (int_of_string $2) }
+    | CONTINUOUS    { `Continuous }
+    | INT           { `Number (int_of_string $1) }
+
 char_names_list:
     | CHARNAME char_names_list { 
         let res = 
