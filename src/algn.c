@@ -3687,7 +3687,6 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
     DIRECTION_MATRIX *beg, *end;
     int new_item_for_r1 = 0;
     int new_item_for_r2 = 0;
-    int shifter = 0;
     l1 = seq_get_len (s1);
     l2 = seq_get_len (s2);
     l = l1 * l2;
@@ -4063,7 +4062,6 @@ __inline void
 inline void
 #endif
 algn_ancestor_2 (seqt s1, seqt s2, cmt m, seqt sm ) {
-    int uselevel;  
     SEQT *begin1, *begin2;
     int interm;
     int i, gap, is_combinations, cost_model;

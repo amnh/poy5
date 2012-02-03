@@ -93,15 +93,21 @@ inline int
 #endif
 is_emptyqueue (q_t thisq)
 {//maybe we should check front==rear && rear==NULL as well
-    if ( thisq->size == 0 ) 
+    int sign1=0, sign2=0; 
+    if ( thisq->size == 0 ) sign1=1;
+    if ((thisq->front==NULL)&&(thisq->rear==NULL)) sign2=1;
+
+    if (sign1&&sign2)
+        return 1;
+    else if (sign1&&(!sign2))
     {
-        if ((thisq->front==NULL)&&(thisq->rear==NULL))
-            return 1;
-        else 
-        {
-            printf ("ERROR:front and rear !=NULL in empty queue\n");
-            exit(0);
-        }
+        printf ("ERROR:front and rear !=NULL in empty queue\n");
+        exit(0);
+    }
+    else if ((!sign1)&&sign2)
+    {
+        printf ("ERROR: size=%d <> 0 in empty queue\n",thisq->size);
+        exit(0);
     }
     else return 0;
 }
