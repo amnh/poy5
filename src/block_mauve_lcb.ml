@@ -37,6 +37,7 @@ let debug_search_outside = false
 * faster in c_side. anyway, we are not using dyn1 now.*)
 let faster_remove = true
 
+
 open Printf
 open Block_mauve_mum
 
@@ -56,6 +57,7 @@ let get_neg_rev_intlst = Utl.get_neg_rev_intlst
 let bigger_int = Utl.bigger_int
 let get_avg_of_floatlst = Utl.get_avg_of_floatlst
 let get_avg_of_intlst = Utl.get_avg_of_intlst
+let get_min_of_lst = Utl.get_min_of_lst
 (** for all lcbs. if they all together don't cover more than this of input sequence, adjust
 * parameters like minimum_cover_ratio and minimum_lcb_ratio to find more matches  
 *)
@@ -1909,16 +1911,10 @@ in_seqarr in_seq_size_lst seedNO_available_arr=
         seed2pos_tbl, (-1)
     else begin
     let new_seedlen = 
-        get_proper_seedlen (get_avg_of_intlst current_seq_size_lst) in
-        (*int_of_float ( ceil (log (float shorted_seqlen))) in
-    let new_seedlen = if (new_seedlen mod 2)=0 then new_seedlen+1 else new_seedlen in 
-    let new_seedlen = 
-        if new_seedlen=17 then 15 else new_seedlen in
-    let new_seedlen = if (new_seedlen<5) then 5 else new_seedlen in*)
+        get_proper_seedlen (get_min_of_lst current_seq_size_lst) in
     if debug_search_outside then 
         info_user_message "use seedlen:%d" new_seedlen;
     (*these hashtable are based on the sub-seq list*)
-    (*let new_seq2seedNO_tbl = Hashtbl.create init_tb_size in*)
     let new_seedNO2seq_tbl = Hashtbl.create init_tb_size in
     let new_pos2seed_tbl_left = Hashtbl.create init_tb_size in
     let new_pos2seed_tbl_right = Hashtbl.create init_tb_size in
@@ -1926,8 +1922,7 @@ in_seqarr in_seq_size_lst seedNO_available_arr=
     let new_mum_tbl = Hashtbl.create init_tb_size in
     let new_seedweight = 
         build_seed_and_position_tbl seq_outside_lcbs_arr new_seedlen 
-        (*new_seq2seedNO_tbl*) new_seedNO2seq_tbl 
-        new_pos2seed_tbl_left new_pos2seed_tbl_right 
+        new_seedNO2seq_tbl new_pos2seed_tbl_left new_pos2seed_tbl_right 
         new_seed2pos_tbl new_mum_tbl seedNO_available_arr false in
     if debug_search_outside then 
         info_user_message "build_seed_and_position_tbl done(newseed weight=%d)" new_seedweight;
@@ -2171,8 +2166,8 @@ max_lcb_len cost_mat use_ukk =
     let in_seq_size_lst = Array.fold_right 
     (fun seq acc -> (Array.length seq)::acc ) in_seqarr [] 
     in
-    let avg_seqlen = get_avg_of_intlst in_seq_size_lst in
-    let seedlen = get_proper_seedlen avg_seqlen in 
+    let min_seqlen = get_min_of_lst in_seq_size_lst in
+    let seedlen = get_proper_seedlen min_seqlen in 
     if debug_main then 
         Printf.printf "\n **********Block_mauve.create_lcb_tbl;seqlen=%d,%d;seedlen=%d \
         ****************\n%!" (List.hd in_seq_size_lst) (List.nth
@@ -2192,20 +2187,32 @@ max_lcb_len cost_mat use_ukk =
 * inside a huge lcb*)
     let outer_mum_tbl = ref (Hashtbl.create init_tb_size ) in 
     let inner_seed2pos_tbl = ref (Hashtbl.create init_tb_size ) in
-    (*find initial mums*)
-    let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
-    (*seq2seedNO_tbl*) seedNO2seq_tbl pos2seed_tbl_left
-    pos2seed_tbl_right seed2pos_tbl mum_tbl seedNO_available_arr false in
-    if debug_main then 
-        Printf.printf "base seedweight=%d, call build_local_mums2 \n%!" seedweight;
-    build_local_mums2 mum_tbl seed2pos_tbl 
-    pos2seed_tbl_left pos2seed_tbl_right false false;
-    if debug_main then
-        Printf.printf "++++++++ init seedweight=%d, end of building mum\
-        table\n%!" seedweight;
-    let init_num_mums = resolve_overlap_mum mum_tbl (seedweight-1) 
-    pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl seedNO_available_arr false false in
-    update_score_for_each_mum mum_tbl in_seqarr;
+    (*if seedweight is longer than shortest seq, no need to find seeds*)
+    let init_num_mums =
+        let seedweight = get_seed_weight seedlen in
+        if seedweight>min_seqlen then begin
+            if debug_main then 
+                Printf.printf "seedweight=%d>min seqlen=%d,get out of mauve" seedweight min_seqlen;
+            0
+        end
+        else begin
+            (*find initial mums*)
+            let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
+            (*seq2seedNO_tbl*) seedNO2seq_tbl pos2seed_tbl_left
+            pos2seed_tbl_right seed2pos_tbl mum_tbl seedNO_available_arr false in
+            if debug_main then 
+                Printf.printf "base seedweight=%d, call build_local_mums2 \n%!" seedweight;
+            build_local_mums2 mum_tbl seed2pos_tbl 
+            pos2seed_tbl_left pos2seed_tbl_right false false;
+            if debug_main then
+                Printf.printf "++++++++ init seedweight=%d, end of building mum\
+                table\n%!" seedweight;
+            let init_num_mums = resolve_overlap_mum mum_tbl (seedweight-1) 
+            pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl seedNO_available_arr false false in
+            update_score_for_each_mum mum_tbl in_seqarr;
+            init_num_mums
+        end
+    in
     (*to do : too many if else here, do something*)
     let outer_lcb_tbl = ref (Hashtbl.create 0) in
     let outer_lcbs = ref [[[]]] in
@@ -2377,7 +2384,7 @@ max_lcb_len cost_mat use_ukk =
     (*search_inside_each_lcb !outer_lcb_tbl in_seqarr !maximum_lcb_len max_int
     !outer_mum_tbl !inner_seed2pos_tbl cost_mat use_ukk ;*)
     if !any_improvement_outer = false then 
-        (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
+    (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
     * have the lcb from initial function, remove lightW ones*)
         Hashtbl.iter (fun key record ->
             if (is_light_weight_lcb record ) then begin
@@ -2396,7 +2403,13 @@ max_lcb_len cost_mat use_ukk =
             if (is_light_weight_lcb record )
                 || (is_low_score_lcb record) then  lightW := true
         ) !outer_lcb_tbl;
+        (*Say at the end of loops, we have only one lcb.
+        * if it's light weight(W), we remove it.
+        * if total coverage is lower than minimum_cover_ratio, we remove it.
+        *)
         if !lightW then Hashtbl.clear !outer_lcb_tbl;
+        if !outer_old_covR< !minimum_cover_ratio then 
+            Hashtbl.clear !outer_lcb_tbl;
     end;
     end;(*end of non trivial case -- when init mum number > 0*)
     let outer_lcb_tbl = !outer_lcb_tbl in

@@ -108,10 +108,10 @@ AC_ARG_WITH([extras], [AS_HELP_STRING([--with-extras],
             [Add the following object files to the final linking rules.])],
             [EXTRAS=$withval],[])
 
-AC_CHECK_PROGS([MERCURIAL], [hg])
 AC_ARG_WITH(version-number,
             [AS_HELP_STRING([--with-version-number], [Use the configuration provided version number (used for release purposes only).])],
-            [MERCURIAL="echo $withval"],[MERCURIAL="hg id -i"])
+            [MERCURIAL="echo $withval"],
+            [AC_CHECK_PROG([MERCURIAL],[hg],[`hg id -i`],[`cat ./VERSION | awk '{print $NF}'`])])
 
 AC_ARG_WITH([ocaml-flags], 
             [AS_HELP_STRING([--with-ocaml-flags], [Add the following flags to the ocaml compiler.])],
@@ -470,7 +470,7 @@ case ${OS_INFORMATION} in
 esac
 
 CC_VERSION="`$CC --version`"
-POY_VERSION_NUMBER="`$MERCURIAL`"
+POY_VERSION_NUMBER="$MERCURIAL"
 
 AC_CONFIG_FILES([Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml poy.mltop])
 AC_OUTPUT

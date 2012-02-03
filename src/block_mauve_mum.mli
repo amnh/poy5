@@ -1,4 +1,4 @@
-val get_proper_seedlen : float -> int
+val get_proper_seedlen : int -> int
 
 type m_i = {  (* the ith element M_i of a local mum *)
     sequence_NO : int ; (*which sequence is this m_i in *)
@@ -56,6 +56,8 @@ val get_mum_from_mumtbl : int -> (int, (int array, mum) BinaryTree.b_tree) Hasht
 val get_position_by_seqNO : m_i list -> int -> m_i
 
 val print_mum : bool -> bool -> mum -> unit
+
+val get_seed_weight : int -> int
 
 val build_seed_and_position_tbl :
            int array array ->

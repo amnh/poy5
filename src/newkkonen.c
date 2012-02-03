@@ -89,17 +89,17 @@ void print_int_arr (int * arr, int size)
 //in the speeding up version, we compare the old cost to new cost in newkkmat,
 //old cost are supposed to be 0 if we haven't fill it yet, but we reuse memory all the time, that might not be true.
 void
-reset_mat_to_0 (newkkmat_p m)
+reset_mat (newkkmat_p m)
 {
     int debug = 0;
-    DIRECTION_MATRIX v = (DIRECTION_MATRIX) (-1);
     MAT_SIZE total_len = m->total_len;
-    if (debug) printf ("reset matrix to 0, total_len=%d\n",total_len);
-    //reset cost
+    if (debug) printf ("reset matrix to 0, total_len=%li\n",total_len);
+    //reset cost,we compare old cost to new cost in update_a_cell
     memset(m->pool_cost,(-1),total_len*sizeof(int));
     //these two are not necessary.
-    memset(m->pool_dir,v,total_len*sizeof(DIRECTION_MATRIX));
-    memset(m->pool_gapnum,v,total_len*sizeof(DIRECTION_MATRIX));
+    //DIRECTION_MATRIX v = (DIRECTION_MATRIX) (-1);
+    //memset(m->pool_dir,v,total_len*sizeof(DIRECTION_MATRIX));
+    //memset(m->pool_gapnum,v,total_len*sizeof(DIRECTION_MATRIX));
     return;
 }
 
@@ -203,6 +203,10 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
             assert(diaglen>0);
             //printf ("set diag#%d(%d);",i,diaglen); fflush(stdout);
             emptydiag -> costarr = thiscost;
+            //init new cost array to (-1),we compare old cost to new cost in
+            //update_a_cell, if old cost is not initialized, there might be bus
+            //error.
+            memset(thiscost,(-1),diaglen*sizeof(int));
             emptydiag -> dirarr = thisdir;
             emptydiag -> gapnumarr = thisgap;
             if (affine) {
@@ -302,7 +306,8 @@ get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECT
     int * thisQarr = thisdiag->affQarr;
     *affP = thisParr[idx_in_my_diag];
     *affQ = thisQarr[idx_in_my_diag];}
-    if (debug) { printf("get ukkcost,diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d,affP=%d,affQ=%d,affine=%d\n",whichdiag,idx_in_my_diag,*cost,*dir,*max_gapnum,affine); fflush(stdout);}
+    if (debug) { printf("get ukkcost,diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d,affP=%d,affQ=%d,affine=%d\n",
+            whichdiag,idx_in_my_diag,*cost,*dir,*max_gapnum,*affP,*affQ,affine); fflush(stdout);}
 };
 
 void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIRECTION_MATRIX dir,DIRECTION_MATRIX  max_gapnum, int affP, int affQ, int affine)
@@ -416,7 +421,7 @@ void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt 
     get_ukkcost(whichdiagM,idx_in_my_diagM, m, &costfromM, &dirM, &gapnum_fromM, &affP, &affQ,affine); 
     get_cmcost (c,seq_get(s1,i),seq_get(s2,j),&addcost);
     costM = costfromM + addcost;
-    if (debug) printf ("costM <- costfromM<%d> + addcost = %d\n",costfromM,addcost,costM);
+    if (debug) printf ("costM <- costfromM<%d> + addcost<%d> = %d\n",costfromM,addcost,costM);
     }
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
@@ -793,7 +798,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
     int newp = ( newT*2 - (lenY-lenX) )/2;
     assert(res_cost>=0); assert(res_gapnum>=0);
     if ((res_cost<=newT)  //we accept the cost -- threshold by ukkonen
-        || (res_cost<newT*2) //we will accept this cost in next round anyway 
+    //|| (res_cost<newT*2) //I know we will accept this cost in next round anyway,but the cost might be better in next round, we cannot stop here. 
         || (newp>res_gapnum)) //max possible gap number -- threshold by ward's ukkonen -- newkkonen
     {
         if (debug) 
@@ -1012,8 +1017,8 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
     else 
     {
         //reset newkkmat to 0 if we are reusing the memory block.
-        if (m->total_len > 0) reset_mat_to_0 (m);
         init_mat (s1_len,s2_len,m,affine);
+        if (m->total_len > 0) reset_mat (m);
         int gapcode = cm_get_gap (c); 
         int delta = get_delta (c);
         int i; 
@@ -1053,10 +1058,10 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
         if (debug) {printf ("done with first row, call increaseT with iniT=%d\n",iniT); fflush(stdout);}
         int rescost = increaseT (s1,s2,m,c,iniT,s1_len,s2_len,go); 
         if (debug) {printf("end of newkk_algn,cost=%d\n\n",rescost); fflush(stdout);}
-        /*FILE * outf;
+        FILE * outf;
         outf = fopen ("poy.out","w");
         fprintf(outf,"%d",rescost);
-        fclose(outf);*/
+        fclose(outf);
         return rescost;
     }
 };
@@ -1254,7 +1259,7 @@ newkkonen_CAML_backtrace_affine_bc (value *argv, int argn) {
 
 void
 newkkmat_CAML_free (value m) {
-    int debug=1;
+    int debug = 0;
     if (debug) { printf("newkkmat_CAML_free\n"); fflush(stdout); }
     newkkmat_p tmp;
     tmp = Newkkmat_struct(m);

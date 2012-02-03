@@ -49,7 +49,7 @@ __inline int
 #else
 inline int 
 #endif
-is_empty (q_t thisq);
+is_emptyqueue (q_t thisq);
 
 
 void transfer_queue(q_t q1, q_t q2);
