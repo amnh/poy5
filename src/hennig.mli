@@ -40,7 +40,7 @@ module P : sig
     type char_name = string
     type gappy = [ `Nogap | `Gap ] option
     type command = 
-        | Nstates of [ `Dna of gappy | `Protein of gappy | `Number of int ] option
+        | Nstates of [ `Dna of gappy | `Protein of gappy | `Number of int | `Continuous ] option
         | Ccode of char_change list
         | Cost of cost_change list
         | Tread of string
