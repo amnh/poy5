@@ -151,6 +151,8 @@ let index : (string * string) list = List.rev (read_help_file helpfile)
 
 let () = close_in helpfile
 
+let quote str = 
+    Str.global_replace (Str.regexp (Str.quote "%")) "%%" str
 
 (* Output to help.ml *)
 let () = match !do_html with
@@ -164,7 +166,7 @@ let () = match !do_html with
           List.iter
               (fun (f, t) ->
                    print_endline (Printf.sprintf "    (\"%s\", \"%s\");"
-                                    (String.escaped f) (String.escaped t)))
+                                    (String.escaped f) (quote (String.escaped t))))
               index;
           print_endline "]"
 
