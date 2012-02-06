@@ -118,11 +118,9 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
     MAT_SIZE newsize = oldsize+(newk-oldk)*2;
     m->k = newk;
     m->diag_size_in_use = newsize; 
-    if (debug) 
-    { printf ("newkkonen.c, expand_mat,newk=%d(oldk=%d),newsize of diagarr=%d(old=%d),baseband=%d,affine=%d\n",
-            newk,oldk,newsize,oldsize,baseband,affine); fflush(stdout); }
+    //if (debug) { printf ("newkkonen.c, expand_mat,newk=%li(oldk=%li),newsize of diagarr=%li(old=%li),baseband=%li,affine=%d\n", newk,oldk,newsize,oldsize,baseband,affine); fflush(stdout); }
     //set expand sign
-    if (debug) { printf ("newsize=%d <=> m->diag_size=%d\n", newsize, m->diag_size); fflush(stdout);}
+    //if (debug) { printf ("newsize=%li <=> m->diag_size=%li\n", newsize, m->diag_size); fflush(stdout);}
     if (newsize <= m->diag_size) expand_diag_size = 0;
     else 
     {
@@ -155,9 +153,10 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
     if (m->total_len_in_use <= m->total_len) expand_diagonal = 0;
     else 
     {
-        if (debug) { printf ("we NEED to expand diagonal\n"); fflush(stdout);}
+        //if (debug) { printf ("we NEED to expand diagonal,total_len=%li,sizeof int=%li,sizeof MAT_SIZE=%lu,sizeof DIRECTION_MATRIX=%lu\n",m->total_len_in_use,sizeof(int),sizeof(MAT_SIZE),sizeof(DIRECTION_MATRIX)); fflush(stdout);}
         expand_diagonal = 1;
         MAT_SIZE len_we_need = m->total_len_in_use;
+        if (len_we_need < 0) { printf("Warning: size to allocation < 0 , might be a integer overflow, are you runing on 32bit machine?\n"); fflush(stdout); }
         m->pool_cost = realloc (m->pool_cost,len_we_need*sizeof(int));
         m->pool_dir = realloc (m->pool_dir,len_we_need*sizeof(DIRECTION_MATRIX));
         m->pool_gapnum = realloc (m->pool_gapnum,len_we_need*sizeof(DIRECTION_MATRIX));
@@ -750,8 +749,7 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
     MAT_SIZE old_size = m->diag_size_in_use;
     MAT_SIZE oldk;
     oldk = (old_size-bb)/2;
-    if (debug) { printf("\n ukktest,newk=%d,bb=%d,oldsize=%d,oldk=%d,go=%d\n",newk,bb,old_size,oldk,go);
-    fflush(stdout); }
+  //  if (debug) { printf("\n ukktest,newk=%d,bb=%li,oldsize=%li,oldk=%li,go=%d\n",newk,bb,old_size,oldk,go);fflush(stdout); }
     expand_mat (m,newk,oldk,affine);
     int i,j;
     int startj,endj;
@@ -864,7 +862,7 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m,int affine)
     baseband = lenY-lenX+1;
     oldlen = m->total_len;
     len = lenX * baseband;
-    if (debug) { printf ("newkkonen init_mat,oldlen = %li, lenx=%d,leny=%d,baseband=%d,oldlenaff=%d\n",oldlen,lenX,lenY,baseband,m->total_len_affine); fflush(stdout); }
+    //if (debug) { printf ("newkkonen init_mat,oldlen = %li, lenx=%li,leny=%li,baseband=%li,oldlenaff=%d\n",oldlen,lenX,lenY,baseband,m->total_len_affine); fflush(stdout); }
     assert(m != NULL);
     //k is init to 0
     m->k=0;
@@ -892,7 +890,7 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m,int affine)
         if (debug) { printf ("we NEED to add new diagonal\n"); fflush(stdout);}
     }
     if (debug) { 
-        printf ("baseband=%d <=> m->diag_size=%d\n", baseband, m->diag_size); fflush(stdout); }
+        printf ("baseband=%li <=> m->diag_size=%li\n", baseband, m->diag_size); fflush(stdout); }
     if (baseband <= m->diag_size) 
     { 
         expand_diag_size=0; 
@@ -926,6 +924,7 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m,int affine)
     //set pointer of cost/dir/gap of each diag
     if (expand_diagonal==1) 
     {
+        if (len<0) {printf("Warning: len to allocation < 0 , might be integer overflow. are you runing on 32bit machine? \n"); fflush(stdout);}
         m->pool_cost = realloc (m->pool_cost,len*sizeof(int));
         m->pool_dir = realloc (m->pool_dir,len*sizeof(DIRECTION_MATRIX));
         m->pool_gapnum = realloc (m->pool_gapnum,len*sizeof(DIRECTION_MATRIX));
@@ -1009,7 +1008,7 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
     if (go>=0) affine=1; 
     int realgo=0;
     if (go>0) realgo=go;
-    if (debug)  { printf("newkk_algn,lenx=%d,leny=%d,affine=%d\n",s1_len,s2_len,affine);fflush(stdout);}
+    //if (debug)  { printf("newkk_algn,lenx=%li,leny=%li,affine=%d\n",s1_len,s2_len,affine);fflush(stdout);}
     if (s1_len * MUCH_LONGER < s2_len) 
     {
         return trivial_algn (s1,s2,s1_len,s2_len,c);
