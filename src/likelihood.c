@@ -487,7 +487,7 @@ value likelihood_CAML_filter(value as, value ibs)
         //printf("Testing index: %d...", i);
         if( i != Int_val(Field(ibs, j)) ){
             /* copy */
-            printf("Copying: ");
+            //printf("Copying: ");
             for(r=0;r<norm->rates;r++){
                 for(k=0;k<norm->stride;k++){
                     //printf("%5f\t", norm->lv_s[ r*size + i*norm->stride + k] );
