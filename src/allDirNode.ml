@@ -941,6 +941,7 @@ type nad8 = Node.Standard.nad8 = struct
 
     let union_distance _ _ = 0.0
 
+
     let rec is_collapsable clas a b =
         let acode = taxon_code a
         and bcode = taxon_code b in
@@ -955,16 +956,20 @@ type nad8 = Node.Standard.nad8 = struct
                 and db = get_adjusted_nodedata b errmsg in
                 OneDirF.is_collapsable `Dynamic da.lazy_node db.lazy_node
         | `Any ->
-                (is_collapsable `Static a b) && (is_collapsable `Dynamic a b)
+                let s = try is_collapsable `Static a b  with | _ -> false
+                and d = try is_collapsable `Dynamic a b with | _ -> false in
+                (s && d)
+
 
     let to_xml _ _ _ = ()
+
 
     let run_any f n = match n with
         | h :: _ -> lazy_from_val (f h.lazy_node)
         | [] -> failwith "AllDirNode.run_any"
 
     let run_all f n =
-        let processor x = 
+        let processor x =
             let res = f x.lazy_node in
             { x with lazy_node = res }
         in
