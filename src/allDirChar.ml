@@ -169,8 +169,10 @@ module F : Ptree.Tree_Operations
                     | Some _ -> true
                     | None   -> false
                 end
-            | `Either   -> (using_likelihood `Static ptree ) || 
-                           (using_likelihood `Dynamic ptree)
+            | `OnlyStatic ->
+                (using_likelihood `Static ptree ) && not (using_likelihood `Dynamic ptree)
+            | `Either   ->
+                (using_likelihood `Static ptree ) || (using_likelihood `Dynamic ptree)
         in 
         data_test
 
@@ -452,7 +454,6 @@ module F : Ptree.Tree_Operations
         in
         let single_characters_cost = 
             match root_edge with
-            | _ when using_likelihood `Static new_tree -> 0.0
             | `Single _    -> 0.0
             | `Edge (a, b) ->
                 Tree.post_order_node_with_edge_visit_simple
@@ -460,10 +461,7 @@ module F : Ptree.Tree_Operations
                     new_tree.Ptree.tree (~-. (distance b a 0.0))
         in
         let pi_cost = prior_cost new_tree in
-        let root_cost = 
-            if using_likelihood `Static new_tree then 0.0
-            else AllDirNode.AllDirF.root_cost root
-        in
+        let root_cost = AllDirNode.AllDirF.root_cost root in
         if debug_cost_fn then begin
             let () = match root_edge with
                 | `Single x -> info_user_message "Cost of: %d" x
@@ -674,8 +672,9 @@ module F : Ptree.Tree_Operations
         res
 
     let assign_single ptree =
-        if using_likelihood `Static ptree then ptree
-        else assign_single ptree
+        if using_likelihood `OnlyStatic ptree
+            then ptree
+            else assign_single ptree
 
     let unadjust ptree = ptree
  
@@ -1293,7 +1292,7 @@ module F : Ptree.Tree_Operations
         List.fold_left process ptree edgesnhandles 
 
     let pick_best_root ptree =
-        if using_likelihood `Static ptree then ptree
+        if using_likelihood `OnlyStatic ptree then ptree
         else general_pick_best_root blindly_trust_downpass ptree
 
     (* ----------------- *)
@@ -1359,7 +1358,7 @@ module F : Ptree.Tree_Operations
         List.fold_left
             (fun tree xs ->
                 match Data.get_code_from_characters_restricted 
-                                `Likelihood tree.Ptree.data (`Some xs) with
+                                `StaticLikelihood tree.Ptree.data (`Some xs) with
                 | [] -> tree
                 | xs -> static_model_chars_fn xs tree)
             (tree)
@@ -1453,12 +1452,12 @@ module F : Ptree.Tree_Operations
     (** wrapper for model function to correctly call dynamic/static likelihood
         model adjustment functions **)
     let model_fn tree = 
-        if using_likelihood `Static tree then
-            static_model_fn tree
-        else if using_likelihood `Dynamic tree then
-            dynamic_model_fn tree
-        else
-            tree
+        let tree =
+            if using_likelihood `Static tree then static_model_fn tree else tree in
+(*        let tree = *)
+(*            if using_likelihood `Dynamic tree then dynamic_model_fn tree else tree in*)
+(*        Data.print tree.Ptree.data;*)
+        tree
 
 
     (* adjust the assignment of internal nodes, and models for a tree *)
@@ -1590,7 +1589,7 @@ module F : Ptree.Tree_Operations
         match edge_data_opt with
         (* Under static likelihood, because of the pully principle, we can keep
            the keep use the node data as the edge data/cost of subtree. *)
-        | Some edge when using_likelihood `Static ptree ->
+        | Some edge when using_likelihood `OnlyStatic ptree ->
             let edge =
                 let single = AllDirNode.with_both a b edge.AllDirNode.unadjusted in
                 { AllDirNode.unadjusted = [single]; adjusted = None }
@@ -2036,7 +2035,7 @@ module F : Ptree.Tree_Operations
         if debug_diagnosis then
             Printf.printf "AllDirChar.to_formatter \n%!";
         let get_single par node =
-            if using_likelihood `Static tree then
+            if using_likelihood `OnlyStatic tree then
                 get_unadjusted par node
             else match node.AllDirNode.adjusted with
                 | Some x -> AllDirNode.force_val x.AllDirNode.lazy_node

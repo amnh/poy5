@@ -969,13 +969,13 @@ type nad8 = Node.Standard.nad8 = struct
         | [] -> failwith "AllDirNode.run_any"
 
     let run_all f n =
-        let processor x =
-            let res = f x.lazy_node in
-            { x with lazy_node = res }
+        let processor x = { x with lazy_node = f x.lazy_node } in
+        let adj_data = match n.adjusted with
+            | None   -> None
+            | Some x -> Some (processor x)
         in
-        let adj_data = get_adjusted_nodedata n "allDirNode,run_all,no adj-data" in
         { unadjusted = List.map processor n.unadjusted;
-            adjusted = Some (processor adj_data) }
+            adjusted = adj_data }
 
     let num_height code n = 
         get_something OneDirF.num_height code n.unadjusted
