@@ -49,6 +49,86 @@
 int *_algn_max_matrix = NULL;
 DIRECTION_MATRIX *_algn_max_direction = NULL;
 #endif
+
+#define my_prepend(a,b) assert (a->cap > a->len); \
+    (a)->begin = (((a)->begin) - 1); \
+    ((a)->len = 1 + (a)->len); *((a)->begin) = b
+
+#define my_get(a,b) ((a)->begin)[b]
+
+
+int has_align(DIRECTION_MATRIX dir) 
+{   
+    return (dir & ALIGN); }
+
+int has_insert(DIRECTION_MATRIX dir) 
+{
+        return (dir & INSERT);
+}
+
+int has_delete(DIRECTION_MATRIX dir) {
+        return (dir & DELETE); 
+}
+
+void follow_insertion (DIRECTION_MATRIX ** endp,int l,const cmt c,seqt r1,seqt r2,seqt s2,int* algn_s2)
+{
+    int debug = 0;
+    int new_item_for_r1;
+    int new_item_for_r2;
+    if (debug) {printf("insert,");fflush(stdout);}
+    new_item_for_r1 = cm_get_gap (c);
+    my_prepend(r1,new_item_for_r1);
+    *algn_s2=*algn_s2-1;
+    new_item_for_r2 = my_get(s2,*algn_s2);
+    my_prepend(r2,new_item_for_r2);
+    *endp -= 1;
+    //printf("algn_s2--=%d,",*algn_s2);
+    return;
+}
+
+void follow_deletetion (DIRECTION_MATRIX ** endp,int l,const cmt c,seqt r1,seqt r2,seqt s1,int* algn_s1)
+{
+    int debug = 0;
+    int new_item_for_r1;
+    int new_item_for_r2;
+    if (debug) {printf("delete,");fflush(stdout);}
+    *algn_s1=*algn_s1-1;
+    new_item_for_r1 = my_get(s1,*algn_s1);
+    my_prepend(r1, new_item_for_r1);
+    new_item_for_r2 = cm_get_gap (c);
+    my_prepend(r2,new_item_for_r2);
+    *endp -= l;
+    //printf("algn_s1--=%d,",*algn_s1);
+    return;
+}
+
+void 
+follow_insertion_or_deletion (DIRECTION_MATRIX ** endp,int swaped,int l,const cmt c,seqt r1,seqt r2,seqt s1,seqt s2,int* algn_s1,int* algn_s2)
+{
+    if (swaped)
+    {
+        if (has_insert(**endp))
+            follow_insertion(endp,l,c,r1,r2,s2,algn_s2);
+        else
+            follow_deletetion(endp,l,c,r1,r2,s1,algn_s1);
+    }
+    else
+    {
+        if (has_delete(**endp))
+            follow_deletetion(endp,l,c,r1,r2,s1,algn_s1);
+        else
+            follow_insertion(endp,l,c,r1,r2,s2,algn_s2);
+    }
+    return;
+}
+
+void make_assertion (DIRECTION_MATRIX dir,int swaped) {
+    if (swaped) 
+        assert(dir & INSERT);
+    else
+        assert(dir & DELETE);
+}
+
 /******************************************************************************/
 /*                        Pairwise Standard Alignment                         */
 /******************************************************************************/
@@ -994,6 +1074,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
  */
 
 #define algn_assign_dm(dm,pos,v) dm[pos] = dm[pos] | v
+
 
 #ifdef _WIN32
 __inline void 
@@ -3668,12 +3749,6 @@ algn_string_of_2d_direction (DIRECTION_MATRIX v) {
     return;
 }
 
-#define my_prepend(a,b) assert (a->cap > a->len); \
-    (a)->begin = (((a)->begin) - 1); \
-    ((a)->len = 1 + (a)->len); *((a)->begin) = b
-
-#define my_get(a,b) ((a)->begin)[b]
-
 #ifdef _WIN32
 __inline void
 #else
@@ -3683,12 +3758,14 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
         seqt r2, const matricest m, const cmt c, int st_s1, \
         int st_s2, int algn_s1, int algn_s2, int swaped, \
         value a, value b) {
+    int debug = 0;
     int l, l1, l2;
     DIRECTION_MATRIX *beg, *end;
     int new_item_for_r1 = 0;
     int new_item_for_r2 = 0;
     l1 = seq_get_len (s1);
     l2 = seq_get_len (s2);
+    if (debug) printf ("backtrack_2d,len1=%d,len2=%d,swaped=%d,\n",l1,l2,swaped);
     l = l1 * l2;
     beg = st_s2 + mat_get_2d_direct (m);
     /* Stitching goes to hell now 
@@ -3742,20 +3819,11 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
          * I know it's different in affine alignment(algn_fill_plane_3_aff), 
          * or alignment from newkkonen ( newkkonen.c), 
          * or the floating version from likelihood (according to nic). 
-         * as a result, INSERT here is acctually DELETE in those three.
-         * Also, since seq1/seq2 are already swapped before passing, I don't
-         * think we need the do this with if(swapped)...else...
+         * as a result, INSERT here is acctually DELETE in those three. 
          */
-            while (end >= beg) { 
-                if (*end & DELETE) {
-                    algn_s1--;
-                    new_item_for_r1 = my_get(s1,algn_s1);
-                    my_prepend(r1, new_item_for_r1);
-                    new_item_for_r2 = cm_get_gap (c);
-                    my_prepend(r2,new_item_for_r2);
-                    end -= l;
-                } 
-                else if (*end & ALIGN) {
+            while (end >= beg) {
+                if (has_align(*end)) {
+                //printf("align,"); fflush(stdout);
                     algn_s1--;
                     new_item_for_r1 = my_get(s1,algn_s1);
                     my_prepend(r1,new_item_for_r1);
@@ -3764,16 +3832,12 @@ backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
                     my_prepend(r2,new_item_for_r2);
                     end -= l + 1;
                 }
-                else {
-                    assert (*end & INSERT);
-                    new_item_for_r1 = cm_get_gap (c);
-                    my_prepend(r1,new_item_for_r1);
-                    algn_s2--;
-                    new_item_for_r2 = my_get(s2,algn_s2);
-                    my_prepend(r2,new_item_for_r2);
-                    end -= 1;
+                else 
+                {
+                    follow_insertion_or_deletion(&end,swaped,l,c,r1,r2,s1,s2,&algn_s1,&algn_s2);
                 }
             }
+           if(debug) printf("end of trackback\n"); 
     }
     else {
         failwith("why are we dealing with affine inside a regular alignment function?\n");

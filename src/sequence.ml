@@ -965,11 +965,15 @@ module Align = struct
             else aux_count_paths (x - 1) (y - 1) mtx
 
     let create_edited_2 s1 s2 tm c =
+        let debug = false in
         let sz1 = length s1
         and sz2 = length s2 in
         let s1p = create (sz1 + sz2)
         and s2p = create (sz1 + sz2) in
         let size_compared = sz1 >= sz2 in
+        if debug then 
+            Printf.printf "create_edited_2,sz1=%d,sz2=%d,size_compared=%b\n%!"
+            sz1 sz2 size_compared;
         if size_compared then 
             extract_edited_2 s1 s2 s1p s2p tm c size_compared
         else 
@@ -980,6 +984,8 @@ module Align = struct
         let s1p = create (len1 + len2)
         and s2p = create (len1 + len2) in
         let size_compared = len1 >= len2 in
+        Printf.printf "create_edited_2_limit,sz1=%d,sz2=%d,size_compared=%b\n%!"
+        len1 len2 size_compared;
         if size_compared then 
             extract_edited_2_limit s1 s2 s1p s2p tm c st1 st2 len1 len2
             size_compared
