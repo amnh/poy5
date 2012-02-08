@@ -384,14 +384,14 @@ module F : Ptree.Tree_Operations
             0.0
 
     let prior_cost tree =
-(*        if using_likelihood `Dynamic tree then*)
-(*            All_sets.IntegerMap.fold*)
-(*                (fun k v min_prior -> *)
-(*                    let new_prior = AllDirNode.AllDirF.min_prior v in*)
-(*                    min new_prior min_prior)*)
-(*                (tree.Ptree.node_data)*)
-(*                (infinity)*)
-(*        else*)
+        if using_likelihood `Dynamic tree then
+            All_sets.IntegerMap.fold
+                (fun k v min_prior ->
+                    let new_prior = AllDirNode.AllDirF.min_prior v in
+                    min new_prior min_prior)
+                (tree.Ptree.node_data)
+                (infinity)
+        else
            0.0
 
 
@@ -565,6 +565,10 @@ module F : Ptree.Tree_Operations
 
     let clear_internals force t = t
 
+    let print_all_nodes ptree =
+        All_sets.IntegerMap.iter
+            (fun k v -> AllDirNode.q_print v)
+            (ptree.Ptree.node_data)
 
     (* A function to assign a unique sequence on each vertex of the ptree in the
     * [AllDirNode.adjusted] field of the node. *)
@@ -1563,7 +1567,8 @@ module F : Ptree.Tree_Operations
                 ptree --> pick_best_root
                       --> assign_single
             | `Iterative (`ApproxD _)
-            | `Iterative (`ThreeD _) -> ptree
+            | `Iterative (`ThreeD _) ->
+                ptree --> assign_single
         in
         if debug_uppass_fn then info_user_message "UPPASS ends.%!";
         tree
