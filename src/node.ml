@@ -3654,8 +3654,25 @@ let do_filter cardinal f c codes =
     else
         { c with preliminary = f c.preliminary codes; final = f c.final codes }
 
-let rec filter_character_codes (codes : All_sets.Integers.t) item = 
-    match item with
+
+let cardinal item = match item with
+    | StaticMl c ->
+        IFDEF USE_LIKELIHOOD THEN
+            MlStaticCS.cardinal c.preliminary
+        ELSE
+            failwith MlStaticCS.likelihood_error
+        END
+    | Nonadd8 c  -> NonaddCS8.cardinal c.preliminary
+    | Nonadd16 c -> NonaddCS16.cardinal c.preliminary
+    | Nonadd32 c -> NonaddCS32.cardinal c.preliminary
+    | Add c      -> AddCS.cardinal c.preliminary
+    | Sank c     -> SankCS.cardinal c.preliminary
+    | Dynamic c  -> DynamicCS.cardinal c.preliminary
+    | Kolmo c    -> KolmoCS.cardinal c.preliminary
+    | Set s      -> 0
+
+
+let rec filter_character_codes (codes : All_sets.Integers.t) item = match item with
     | StaticMl c ->
         IFDEF USE_LIKELIHOOD THEN
             StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes c codes)
@@ -3732,6 +3749,9 @@ let rec mmap fn list =
           | Some v -> v :: mmap fn is
           | None -> mmap fn is
 
+let pp_int_set chan set =
+    All_sets.Integers.iter (fun i -> Printf.fprintf chan "%d, " i) set
+
 let f_codes codes n =
     let codes = 
         List.fold_left 
@@ -3749,8 +3769,8 @@ let f_codes_comp codes n =
         All_sets.Integers.empty
         codes
     in
-    { n with characters =
-            mmap (filter_character_codes_complement codes) n.characters }
+    let chars = mmap (filter_character_codes_complement codes) n.characters in
+    { n with characters = chars }
 
 
 let f_characters n = 

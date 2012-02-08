@@ -785,12 +785,16 @@ let print (data : d) =
                 end
             | _ -> assert false
         in
+        let pp_int_list chan xs = List.iter (Printf.fprintf chan "%d, ") xs in
         List.iter
             (fun x -> 
-                let m = get_likelihood_model data x in
-                Printf.printf "%d:" (List.hd x);
-                MlModel.output_model (print_string) `Nexus m None;
-                print_newline ())
+                try 
+                    let m = get_likelihood_model data x in
+                    Printf.printf "%d:" (List.hd x);
+                    MlModel.output_model (print_string) `Nexus m None;
+                    print_newline ()
+                with _ ->
+                    Printf.printf "No consistent model: %a\n%!" pp_int_list x)
             (MlModel.categorize_by_model get_function chars)
     and print_specs (code : int) (spec : specs) = 
         let name = Hashtbl.find data.character_codes code in 

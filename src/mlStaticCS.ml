@@ -597,35 +597,32 @@ let dist_2 n a b nt at bt xt=
 
 let median_3 p x c1 c2  =  x
 let reroot_median a b at bt = median2 a b at bt 0 0
-let median_cost ta = ta.mle (*
-    let pinvar = match ta.model.invar with | Some x -> x | None -> ~-.1.0 in
-    loglikelihood ta.chars ta.model.pi_0 ta.model.prob pinvar *)
+let median_cost ta = ta.mle
 
-let f_codes t codes = 
+and process_codes comp node_codes codes =
     let loopi_ i c = match (All_sets.Integers.exists (fun x -> x = c) codes) with
-        | true -> Some i
-        | false -> None in
-    let loopOpt_ a = match a with
-        | None -> false
-        | _ -> true in
-    let loopStrip_ a = match a with | Some i -> i | _ -> 0 in
-    let opt_idx = Array.mapi (loopi_) t.codes in
-    let opt_idx = Array.of_list (List.filter loopOpt_ (Array.to_list opt_idx)) in
-    let opt_idx = Array.map loopStrip_ opt_idx in
-    { t with chars = filter t.chars opt_idx }
+        | true  when comp -> Some i
+        | false when comp -> None
+        | false -> Some i
+        | true  -> None
+    and loopOpt_ a = match a with
+        | None   -> false
+        | Some _ -> true
+    and loopStrip_ a = match a with | Some i -> i | None -> assert false in
+    node_codes 
+        --> Array.mapi (loopi_)
+        --> Array.to_list --> List.filter loopOpt_ --> Array.of_list
+        --> Array.map loopStrip_
 
-let f_codes_comp t codes = 
-    let loopi_ i c = match (All_sets.Integers.exists (fun x -> x = c) codes) with
-        | true -> None
-        | false -> Some i in
-    let loopOpt_ a = match a with
-        | None -> false
-        | _ -> true in
-    let loopStrip_ a = match a with | Some i -> i | _ -> 0 in
-    let opt_idx = Array.mapi (loopi_) t.codes in
-    let opt_idx = Array.of_list (List.filter loopOpt_ (Array.to_list opt_idx)) in
-    let opt_idx = Array.map loopStrip_ opt_idx in
-    { t with chars = filter t.chars opt_idx }
+let f_codes_comp t codes =
+    let opt_idx = process_codes true t.codes codes in
+    { t with chars = filter t.chars opt_idx;
+             codes = process_codes false t.codes codes; }
+
+let f_codes t codes =
+    let opt_idx = process_codes false t.codes codes in
+    { t with chars = filter t.chars opt_idx;
+             codes = process_codes true t.codes codes; }
 
 let compare_data a b = compare_chars a.chars b.chars
 

@@ -3353,7 +3353,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
             the cost of an indel set to \texttt{2} (\poyargument{tcm:(1,1)}).]}
             {transformtcm}
 
-              \argumentdefinition{tcm}{\obligatory{(\poystring, level:\poyint)}}
+              \argumentdefinition{tcm}{\obligatory{(\poystring, \poyint)}}
             {Defines the transformation cost matrix by importing a file (specified by
             the string value) that contains a user defined nucleotide
             transformation cost matrix. This method is applicable only to dynamic homology characters.
@@ -3810,7 +3810,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
             packages: GRAPPA, Genome Rearrangements Analysis under Parsimony and
             other Phylogenetic Algorithms \cite{baderetal2002}, and MGR, Multiple
             Genome Rearrangements \cite{bourqueandpevzner2002}, as well as from
-            the Concord TSP Solver available at \texttt{http://www.tsp.gatech.edu/concorde/}.
+            the Concord TSP Solver available at \url{http://www.tsp.gatech.edu/concorde/}.
 
 	   \argumentdefinition{annotate}{\obligatory{(\poylident,\poyfloat,\poyfloat,\poyfloat,\poyfloat)}}
                 {Specifies the annotation \\method for unannotated chromosome sequences.
@@ -4036,13 +4036,13 @@ parameters and branch lengths. Additional optimizations are performed after diag
                     \texttt{false}.}
                     {medapprox}
                         
-                \argumentdefinition{median\_solver}{\obligatory{\poyint}}
+                \argumentdefinition{median\_solver}{\obligatory{\poylident}}
                    {Specifies the median solver. User can choose from
                    default(caprara),vinh,siepel,bbtsp,coaletsp,chainedlk and simplelk. The
                    default median solver is caprara median solver. Note:
                    Concorde package is required for chainedlk and simplelk
                    median solver. Download Concorde package from \\
-                   http://www.tsp.gatech.edu//concorde/downloads/downloads.htm.  }
+                  \url{http://www.tsp.gatech.edu//concorde/downloads/downloads.htm. } }
                    {mediansolver}
                        
                        
@@ -4089,15 +4089,13 @@ parameters and branch lengths. Additional optimizations are performed after diag
 	\begin{poyexamples} 
 		\poyexample{transform(all,(tcm:(1,1)))} 
              	{Applies the transformation cost matrix (1,1) to all characters,
-             	meaning that substitutions and gaps receive the same weight.}
+             	meaning that substitutions and gaps receive the same weight. This command
+		is equivalent to \poycommand{transform((dynamic, tcm:(1,1)))}.}
 
 		\poyexample{transform(all,(tcm:"molmatrix"))} 
            	 {Applies the character transformation matrix "molmatrix" to all
             	characters.}
-            	
-		\poyexample{transform(all,(tcm:(1,1)))}{This command
-		is equivalent to \poycommand{transform((dynamic, tcm:(1,1)))}.}
-		
+            		
 		\poyexample{transform(tcm:(1,1), gap\_opening:1)}
 		{Applies the transformation cost matrix and the gap opening cost
 		to all characters. In this example the cost for substitutions is \texttt{1},
@@ -4128,12 +4126,12 @@ parameters and branch lengths. Additional optimizations are performed after diag
 		\poyexample{transform(dynamic,(weight:4))}{Applies the same
 		weight (an integer value \texttt{4}) to all dynamic homology characters.}
 
-		\poyexample{transform(names:("gen1", "gen4"), fixed\_states))}
+		\poyexample{transform(names:("gen1", "gen4", (fixed\_states)))}
            	{Transformed only specified sequence characters (\texttt{gen1} and
            	\texttt{gen4}) into fixed states characters.}
 	
-        		\poyexample{transform(all,(tcm:(1,1)), (names:("gen1",
-        		"gen2"), \\ static\_approx), (names:("gen3"), tcm:"molmatrix"))}  
+        		\poyexample{transform((all,(tcm:(1,1))), (names:("gen1",
+        		"gen2", \\ (static\_approx)), (names:("gen3", (tcm:"molmatrix")))}  
             	{Applies the substitution and indel costs \texttt{1} to all characters, then applies static approximation
             	using that tcm to characters in files \texttt{gen1} and \texttt{gen2}, and for file
             	gen3, it invokes a different transformation cost matrix, contained
@@ -4141,9 +4139,8 @@ parameters and branch lengths. Additional optimizations are performed after diag
             	as it was reported with \poycommand{report(data)}, which differs from the actual
             	file name (\poycommand{report (data)} reports files as fileX:N).}
 
-        		\poyexample{transform(all,(tcm:(1,1)), (names:("gen1:3",
-        		"gen2:10", \\"gen3:1", "gen4:5"), static\_approx), (names:("gen5", \\
-        		"gen6"), tcm:"Molmatrix1"))}
+        		\poyexample{transform((all,(tcm:(1,1))),(names:("gen1:3","gen2:10", \\
+		"gen3:1", "gen4:5"),(static\_approx)), (names:("gen5","gen6"),\\ (tcm:"Molmatrix1")))}
             	{Applies \poyargument{tcm (1,1)} to all characters, then applies
             	static approximation to the sequence data contained in files \texttt{gen1}, \texttt{gen2},
             	\texttt{gen3}, and \texttt{gen4} according to this transformation cost
@@ -4170,22 +4167,18 @@ parameters and branch lengths. Additional optimizations are performed after diag
 		{This command adds the sequences found in ``mycustom\_extra1.fas'' and ``mycustom\_extra2.fas'' 
 		to \texttt{fixed\_states} characters 
 		``mycustom\_char1.fas'' and ``mycustom\_char2.fas'' respectively.}
-		
-		\poyexample{transform(search\_based:"mycustom\_extra.fas")}
-		{Adds sequences in ``mycustom\_extra.fas'' to all \texttt{fixed\_states} 
-		characters.}
 	         	
 		\poyexample{transform(chromosome:(annotate:(mauve,35.0,0.35,0.01,0.10)))}
 		{This command specifies the use of MAUVE annotation with 35.0 for quality of lcb,
 		35\% coverage of all sequences by lcb's, 1\% min length of lcb (100 for length 10,000 
 		sequence), and 10\% max length (1000 for length 10,000 sequence).}
 		
-           	\poyexample{transform(breakinv\_custom))}
-           	{In this example all breakinv data is transformed into the custom\_alphabet data type.}
+           	%\poyexample{transform(breakinv\_custom))}
+           	%{In this example all breakinv data is transformed into the custom\_alphabet data type.}
           
-          	\poyexample{transform(custom\_to\_breakinv:(circular:true))}
-           	{In this example all custom\_alphabet data is transformed into the breakinv data type 
-		and is treated as a circular chromosome.}
+          	%\poyexample{transform(custom\_to\_breakinv:(circular:true))}
+           	%{In this example all custom\_alphabet data is transformed into the breakinv data type 
+		%and is treated as a circular chromosome.}
           
           	\poyexample{transform(seq\_to\_chrom:(locus\_indel:(50, 1.0), min\_seed\_length:15))} 
           {All applicable (\emph{i.e.} sequence) data are transformed into chromosome data 
