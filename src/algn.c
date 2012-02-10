@@ -2250,11 +2250,14 @@ backtrace_affine (DIRECTION_MATRIX *direction_matrix, const seqt si, const seqt 
             if (debug) { printf("m_align,(algn2algn:%d,algn2diag:%d,algn2vert:%d,algn2hrzn:%d),",flag_algn2algn,flag_algn2diag,flag_algn2vert,flag_algn2hrzn); fflush(stdout); }
             if (flag_algn2algn)
                 mode = m_align;
-            else if (flag_algn2diag)
+            else
+                if (flag_algn2diag)
                 mode = m_diagonal;
             else
-                //(flag_algn2hrzn || flag_algn2vert) 
+            {
+                assert(flag_algn2hrzn || flag_algn2vert); 
                 choose_vertical_or_horizontal(flag_algn2vert,flag_algn2hrzn,swaped,&mode);
+            }
             /*if (HAS_FLAG(direction_matrix,ALIGN_TO_HORIZONTAL)) mode = m_horizontal;
             else if (HAS_FLAG(direction_matrix,ALIGN_TO_DIAGONAL)) mode = m_diagonal;
             else if (HAS_FLAG(direction_matrix,ALIGN_TO_VERTICAL)) mode = m_vertical;*/
