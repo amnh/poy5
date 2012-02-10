@@ -770,6 +770,7 @@ module DOS = struct
             { mine with sequence = seqm; costs = rescost }, tmpcost
 
     let median alph code h a b use_ukk =
+        let debug = false in
         if debug then Printf.printf "seqCS.DOS.median\n%!"; 
         let gap = Cost_matrix.Two_D.gap h.c2 in
         (* above are debug functions *)

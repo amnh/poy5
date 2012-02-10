@@ -1073,8 +1073,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 --> Data.categorize 
                 --> Node.load_data 
         | `Assign_Affine_Gap_Cost (cost, chars) ->
-                (if cost < 1 then (Cost_matrix.Linnear) 
-                else (Cost_matrix.Affine cost))
+                (*if cost < 1 then (Cost_matrix.Linnear) 
+                else (Cost_matrix.Affine cost)*)
+                (Cost_matrix.Affine cost)
                 --> Data.assign_affine_gap_cost data chars
                 --> Data.categorize
                 --> Node.load_data 

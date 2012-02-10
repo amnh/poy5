@@ -336,11 +336,14 @@ let to_formater seq alph =
     done;
     Buffer.contents b
 
-
 let print chn seq alph =
     let str = to_string seq alph in
     Pervasives.output_string chn str;;
 
+(** [printDNA seq] prints the DNA sequence [seq] into stdout *)
+let printDNA seq = 
+    print stdout seq Alphabet.nucleotides; 
+    print_newline ()
 
 let printseqcode seq =
     let len = length seq in
@@ -891,12 +894,12 @@ module Align = struct
 
     external extract_edited_2 :
         s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> bool -> unit =
-            "algn_CAML_backtrack_2d_bc" "algn_CAML_backtrack_2d"
+            "algn_CAML_backtrace_2d_bc" "algn_CAML_backtrace_2d"
 
     external extract_edited_2_limit :
         s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> 
             int -> int -> int -> int -> bool -> unit =
-            "algn_CAML_backtrack_2d_limit_bc" "algn_CAML_backtrack_2d_limit"
+            "algn_CAML_backtrace_2d_limit_bc" "algn_CAML_backtrace_2d_limit"
 
     external extract_edited_3 :
         s -> s -> s -> s -> s -> s -> Matrix.m -> Cost_matrix.Three_D.m -> 
@@ -2393,10 +2396,6 @@ let is_existed_char ch seq =
     let code = Alphabet.match_base ch Alphabet.nucleotides in 
     is_existed_code code seq
 
-(** [printDNA seq] prints the DNA sequence [seq] into stdout *)
-let printDNA seq = 
-    print stdout seq Alphabet.nucleotides; 
-    print_newline ()
 
 (** [create_gap_seq gap len] create a 
 * sequence of  [len] gaps *)
