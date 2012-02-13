@@ -263,7 +263,7 @@ module NewkkAlign : sig
     external create_ukkm : unit -> ukkm = "newkkonen_CAML_create_general"
     external newkk_cost2 : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
          "newkkonen_CAML_algn"
-    external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
+    external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> int -> unit = 
         "newkkonen_CAML_backtrace_bc" "newkkonen_CAML_backtrace"
     external get_k : ukkm -> int = "newkkonen_CAML_get_k"
 

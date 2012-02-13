@@ -1331,9 +1331,10 @@ module NewkkAlign = struct
          "newkkonen_CAML_algn"
     external newkk_cost2_affine : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
          "newkkonen_CAML_algn_affine"
-    external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
+    external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> int -> unit = 
         "newkkonen_CAML_backtrace_bc" "newkkonen_CAML_backtrace"
-    external newkk_backtrace_affine : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
+    external newkk_backtrace_affine : s -> s -> s -> s -> Cost_matrix.Two_D.m ->
+        ukkm -> int -> unit = 
         "newkkonen_CAML_backtrace_affine_bc" "newkkonen_CAML_backtrace_affine"
     external get_k : ukkm -> int = "newkkonen_CAML_get_k"
     (*functions from cost_matrix.2d*)
@@ -1366,11 +1367,11 @@ module NewkkAlign = struct
 *)
 
 
-    let call_newkk_backtrace s1 s2 s1p s2p c m affine =
+    let call_newkk_backtrace s1 s2 s1p s2p c m affine swaped =
         if affine then
-            newkk_backtrace_affine s1 s2 s1p s2p c m
+            newkk_backtrace_affine s1 s2 s1p s2p c m swaped
         else
-            newkk_backtrace s1 s2 s1p s2p c m 
+            newkk_backtrace s1 s2 s1p s2p c m swaped
 
 
     let get_alignment s1 s2 c m affine =
@@ -1383,9 +1384,9 @@ module NewkkAlign = struct
         (*call traceback function*)
         let size_compared = (sz1 <= sz2) in
         if size_compared then 
-            call_newkk_backtrace s1 s2 s1p s2p c m affine
+            call_newkk_backtrace s1 s2 s1p s2p c m affine 0
         else 
-            call_newkk_backtrace s2 s1 s2p s1p c m affine;
+            call_newkk_backtrace s2 s1 s2p s1p c m affine 1;
         if debug then begin 
             Printf.printf " seq1:%!"; printseqcode s1;
             Printf.printf " seq2:%!"; printseqcode s2;

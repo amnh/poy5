@@ -112,7 +112,6 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
     ukkdiag_p thisdiag;
     MAT_SIZE i=0;
     int diaglen;
-    MAT_SIZE baseband = m->baseband;
     MAT_SIZE oldsize = m->diag_size_in_use;
     //get diagonal array size, and set diag_size_in_use
     MAT_SIZE newsize = oldsize+(newk-oldk)*2;
@@ -1141,20 +1140,65 @@ void trivial_backtrace(const seqt s1, const seqt s2, seqt alis1, seqt alis2,
     if(debug) {printf ("end of trivial backtrace\n"); fflush(stdout);}
 }
 
+void newkk_follow_deletion (const seqt s1, seqt alis1, seqt alis2, const cmt c, int * i)
+{
+    int debug = 0;
+   int add1 = 0,add2 = 0;
+    if(debug) { printf ("Delete,"); fflush(stdout);}
+        add1 = seq_get(s1,*i);
+        add2 = cm_get_gap(c);
+        my_prepend(alis1,add1);
+        my_prepend(alis2,add2);
+        *i=*i-1;
+
+}
+
+void newkk_follow_insertion (const seqt s2, seqt alis1, seqt alis2,const cmt c, int * j)
+{
+    int debug = 0;
+   int add1 = 0,add2 = 0;
+    if(debug) { printf ("Insert,"); fflush(stdout);}
+        add2 = seq_get(s2,*j);
+        add1 = cm_get_gap(c);
+        my_prepend(alis1,add1);
+        my_prepend(alis2,add2);
+        *j=*j-1;
+}
+
+void newkk_follow_deletion_or_insertion (int swaped,DIRECTION_MATRIX dir,const seqt s1, const seqt s2, seqt alis1, seqt alis2,const cmt c, int * i, int * j)
+{
+    if (swaped) {
+        if (dir==DO_DELETE)
+            newkk_follow_deletion(s1,alis1,alis2,c,i);
+        else{
+            assert(dir==DO_INSERT);
+            newkk_follow_insertion(s2,alis1,alis2,c,j);
+        }
+    }
+    else
+    {
+        if (dir==DO_INSERT)
+            newkk_follow_insertion(s2,alis1,alis2,c,j);
+        else {
+            assert(dir==DO_DELETE);
+            newkk_follow_deletion(s1,alis1,alis2,c,i);
+        }
+    }
+}
+
 void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2, 
-        int len1, int len2, const cmt c, const newkkmat_p m,int affine)
+        int len1, int len2, const cmt c, const newkkmat_p m,int affine,int swaped)
 {
    int debug = 0;
    if(debug) {
-       printf("backtrace,len1=%d,len2=%d\n",len1,len2); fflush(stdout); }
+       printf("backtrace,len1=%d,len2=%d,swaped=%d\n",len1,len2,swaped); fflush(stdout); }
    assert(len1<=len2);
    if (len2 > MUCH_LONGER * len1) 
    {
        trivial_backtrace(s1,s2,alis1,alis2,len1,len2,c);
    }
    else {
-   int add1 = 0;
-   int add2 = 0;
+   int add1 = 0,add2 = 0;
    int whichdiag, idx_in_my_diag, at_leftborder, at_rightborder;
    int cost; DIRECTION_MATRIX dir; DIRECTION_MATRIX gapnum; 
     //set affP and affQ anyway
@@ -1185,6 +1229,10 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
         my_prepend(alis2,add2);
         i--; j--;
     }
+    else
+    {
+        newkk_follow_deletion_or_insertion (swaped,dir,s1,s2,alis1,alis2,c,&i,&j);
+    }/*
     else if (dir==DO_DELETE)
     {
         if(debug) { printf ("Delete\n"); fflush(stdout);}
@@ -1202,16 +1250,16 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
         my_prepend(alis1,add1);
         my_prepend(alis2,add2);
         j--;
-    }
+    }*/
    }
    }//non-trivial case
    if(debug) { printf ("end of backtrace\n"); fflush(stdout);}
 };
 
 value
-newkkonen_CAML_backtrace (value s1, value s2, value s1p, value s2p, value c, value a) {
+newkkonen_CAML_backtrace (value s1, value s2, value s1p, value s2p, value c, value a, value swaped) {
     CAMLparam5(s1, s2, s1p, s2p, c);
-    CAMLxparam1(a);
+    CAMLxparam2(a,swaped);
     seqt ss1, ss2, ss1p, ss2p;
     newkkmat_p mp;
     cmt cc;
@@ -1221,15 +1269,17 @@ newkkonen_CAML_backtrace (value s1, value s2, value s1p, value s2p, value c, val
     Seq_custom_val(ss1p,s1p);
     Seq_custom_val(ss2p,s2p);
     cc = Cost_matrix_struct(c);
+    int len1 = seq_get_len(ss1);
+    int len2 = seq_get_len(ss2);
     int affine=0;
-    backtrace (ss1, ss2, ss1p, ss2p, seq_get_len(ss1), seq_get_len(ss2), cc, mp, affine);
+    backtrace (ss1, ss2, ss1p, ss2p, len1, len2, cc, mp, affine,swaped);
     CAMLreturn(Val_unit);
 };
 
 value
-newkkonen_CAML_backtrace_affine (value s1, value s2, value s1p, value s2p, value c, value a) {
+newkkonen_CAML_backtrace_affine (value s1, value s2, value s1p, value s2p, value c, value a, value swaped) {
     CAMLparam5(s1, s2, s1p, s2p, c);
-    CAMLxparam1(a);
+    CAMLxparam2(a,swaped);
     seqt ss1, ss2, ss1p, ss2p;
     newkkmat_p mp;
     cmt cc;
@@ -1240,19 +1290,19 @@ newkkonen_CAML_backtrace_affine (value s1, value s2, value s1p, value s2p, value
     Seq_custom_val(ss2p,s2p);
     cc = Cost_matrix_struct(c);
     int affine=1;
-    backtrace (ss1, ss2, ss1p, ss2p, seq_get_len(ss1), seq_get_len(ss2), cc, mp, affine);
+    backtrace (ss1, ss2, ss1p, ss2p, seq_get_len(ss1), seq_get_len(ss2), cc, mp, affine,swaped);
     CAMLreturn(Val_unit);
 };
 
 
 value 
 newkkonen_CAML_backtrace_bc (value *argv, int argn) {
-    return (newkkonen_CAML_backtrace (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]) );
+    return (newkkonen_CAML_backtrace (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]) );
 };
 
 value 
 newkkonen_CAML_backtrace_affine_bc (value *argv, int argn) {
-    return (newkkonen_CAML_backtrace (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]) );
+    return (newkkonen_CAML_backtrace (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]) );
 };
 
 
