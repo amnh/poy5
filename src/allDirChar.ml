@@ -455,12 +455,9 @@ module F : Ptree.Tree_Operations
         let single_characters_cost = match root_edge with
             | `Single _    -> 0.0
             | `Edge (a, b) ->
-                if not (using_likelihood `Either new_tree) then
-                    Tree.post_order_node_with_edge_visit_simple
-                        distance (Tree.Edge (a, b))
-                        new_tree.Ptree.tree (~-. (distance b a 0.0))
-                else 
-                    0.0
+                Tree.post_order_node_with_edge_visit_simple
+                    distance (Tree.Edge (a, b))
+                    new_tree.Ptree.tree (~-. (distance b a 0.0))
         in
         let pi_cost = prior_cost None new_tree in (* all chars = None *)
         let root_cost = AllDirNode.AllDirF.root_cost root in
@@ -567,6 +564,10 @@ module F : Ptree.Tree_Operations
 
     let clear_internals force t = t
 
+    let print_all_nodes ptree =
+        All_sets.IntegerMap.iter
+            (fun k v -> AllDirNode.q_print v)
+            (ptree.Ptree.node_data)
 
     (* A function to assign a unique sequence on each vertex of the ptree in the
     * [AllDirNode.adjusted] field of the node. *)
@@ -1569,7 +1570,8 @@ module F : Ptree.Tree_Operations
                 ptree --> pick_best_root
                       --> assign_single
             | `Iterative (`ApproxD _)
-            | `Iterative (`ThreeD _) -> ptree
+            | `Iterative (`ThreeD _) ->
+                ptree --> assign_single
         in
         if debug_uppass_fn then info_user_message "UPPASS ends.%!";
         tree

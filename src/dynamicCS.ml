@@ -142,7 +142,7 @@ let code (a : t) = match a with
 let print dyn = match dyn with
     | ChromCS ch -> ChromCS.print ch
     | AnnchromCS ch -> AnnchromCS.print ch 
-    | SeqCS ch -> SeqCS.check_characters_type ch
+    | SeqCS ch -> SeqCS.print ch
     | BreakinvCS ch -> BreakinvCS.print ch  
     | _ -> print_endline "Do not print non-chromosome characters"
 

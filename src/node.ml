@@ -388,7 +388,7 @@ let print nd =
                    print_endline "Preliminary state";
                    DynamicCS.print a_dyn.preliminary;
                    print_endline "Final state";
-                   DynamicCS.print a_dyn.final
+                   DynamicCS.print a_dyn.final;
              | _ -> print_endline "Do not print non-dynamic characters"
         ) nd.characters;
     Printf.printf " }\n%!"

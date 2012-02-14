@@ -679,6 +679,9 @@ module DOS = struct
         delimiters = []
     }
 
+    let print do_single_seq = 
+        Sequence.print stdout do_single_seq.sequence Alphabet.nucleotides
+
     let to_union a = Sequence.Unions.leaf a.sequence
 
     let make_cost tmpcost = 
@@ -767,6 +770,7 @@ module DOS = struct
             { mine with sequence = seqm; costs = rescost }, tmpcost
 
     let median alph code h a b use_ukk =
+        let debug = false in
         if debug then Printf.printf "seqCS.DOS.median\n%!"; 
         let gap = Cost_matrix.Two_D.gap h.c2 in
         (* above are debug functions *)
@@ -806,9 +810,13 @@ module DOS = struct
             in
             let rescost = make_cost tmpcost in
             if debug then begin 
-                let print_seqlist seq = Sequence.printseqcode seq; in
+                let print_seqlist seq = 
+                    Sequence.print stdout seq Alphabet.nucleotides;
+                print_newline();
+                in
                 Printf.printf "costs = (%f,%f), a/b= %!" rescost.min rescost.max; 
                 print_seqlist a.sequence; print_seqlist b.sequence;
+                print_seqlist tmpa; print_seqlist tmpb;
                 Printf.printf "seqm: %!"; print_seqlist seqm;
             end;
             let ba = seq_to_bitset gap tmpa (Raw a.sequence)
@@ -1600,16 +1608,19 @@ let is_fixedstates x =
     | Relaxed_Lifted _ -> true
     | _ -> false
 
-let check_characters_type in_data =
-    let sc_arr = in_data.characters in
-    Printf.printf "seqCS.check characters type : %!";
+
+let print in_data =
+    let seq_chr_arr = in_data.characters in
     Array.iter (fun item ->
-        match item with
-        | General_Prealigned _ -> Printf.printf "General_Prealigned,%!"
-        | Heuristic_Selection _ -> Printf.printf "Heuristic_Selection,%!"
-        | Relaxed_Lifted _ -> Printf.printf "Relaxed_Lifted,%!"
-        | Partitioned _ -> Printf.printf "Partitioned,%!"
-    ) sc_arr;
+     match item with
+        | General_Prealigned x -> 
+                Printf.printf "General_Prealigned,no print function yet%!"
+        | Heuristic_Selection x -> 
+                Printf.printf "Heuristic_Selection,%!";
+                DOS.print x;
+        | Relaxed_Lifted x -> Printf.printf "Relaxed_Lifted,no print function yet%!"
+        | Partitioned x -> Printf.printf "Partitioned,no print function yet%!"
+    ) seq_chr_arr;
     Printf.printf "\n%!"
 
 (* return 1 if we are dealing with this kind of SeqCS data for multi-chromosome.*)
