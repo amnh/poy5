@@ -771,7 +771,7 @@ module DOS = struct
 
     let median alph code h a b use_ukk =
         let debug = false in
-        if debug then Printf.printf "seqCS.DOS.median\n%!"; 
+        if debug then Printf.printf "seqCS.DOS.median,use_ukk=%b\n%!" use_ukk; 
         let gap = Cost_matrix.Two_D.gap h.c2 in
         (* above are debug functions *)
         if Sequence.is_empty a.sequence gap then

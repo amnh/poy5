@@ -63,7 +63,9 @@ type identifiers = [
     | `Files of (bool * string list)
 ]
 
-
+(*chromosome args is a list of dynamic pam args, not just for chromosome.
+* we used to use transform(dyn_pam:(...)), everything for dyamic pam is here, we
+* need to split them into their own characters,like genome/chrom/dna/etc *)
 type chromosome_args = [
     | `Align_Meth of Methods.align_meth
     | `Median_Solver of Methods.median_solver_chosen
@@ -1415,6 +1417,7 @@ let create_expr () =
             ];
         transform_method:
             [
+                [ LIDENT "newkkonen" -> `ChangeDynPam [`Align_Meth `NewKK] ]|
                 [ LIDENT "origin_cost"; ":"; x = integer_or_float ->
                     `OriginCost (float_of_string x) ] |
                 [ LIDENT "prioritize" -> `Prioritize ] |
@@ -1571,7 +1574,6 @@ let create_expr () =
             ];
         genome_argument:
             [
-                [ LIDENT "newkkonen" -> `Align_Meth `NewKK ]|
                 [ LIDENT "translocation"; ":"; c = INT -> 
                       `Translocation (int_of_string c) ]  |
                 [ LIDENT "chrom_indel"; ":"; left_parenthesis; o = INT; 
@@ -1585,7 +1587,6 @@ let create_expr () =
         chromosome_argument:
             [
                 [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
-                [ LIDENT "newkkonen" -> `Align_Meth `NewKK ]|
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
                     match c with
                     | `MGR -> `Median_Solver `MGR

@@ -39,6 +39,7 @@
 #define DO_ALIGN 1
 #define DO_DELETE 2
 #define DO_INSERT 4
+#define has_flag(dir,flag) (dir&flag)
 
 
 #define my_prepend(a,b) assert (a->cap > a->len); \
@@ -423,24 +424,54 @@ void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt 
     }
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
-    if ((costL<=costR) && (costL<=costM)) 
-    {
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costL, DO_INSERT, gapnum_fromL+1, thisP, thisQ, affine);
-        if (debug) printf ("cost <---- costL\n");
-    }
-    else if ((costR<=costL) && (costR<=costM)) 
-    {
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costR, DO_DELETE, gapnum_fromR+1, thisP, thisQ, affine);
-        if (debug) printf ("cost <---- costR\n");
-    }
-    else
+    if ( (costM<=costR)&&(costM<=costL) )//include alignment
     {
         int newgapnum;
         if (costM==costfromM) newgapnum=gapnum_fromM;
         else newgapnum = gapnum_fromM + 1;
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum, thisP, thisQ, affine);
-        if (debug) printf ("cost <---- costM\n");
+        if ( (costM==costR) && (costM==costL) )
+        { 
+            if (debug) printf ("cost <---- costM=costL=costR\n");
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE|DO_INSERT, newgapnum, thisP, thisQ, affine);
+        }
+        else if ( ( (costM<costR)&&(costR<=costL) ) || ( (costM<costL)&&(costL<=costR) ) )//M<R<=L,M<L<=R
+        {
+            if (debug) printf ("cost <---- costM\n");
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum, thisP, thisQ, affine);
+        }
+        else if ( (costM==costR)&&(costM<costL))
+        {
+            if (debug) printf ("cost <---- costM=costR\n");
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE, newgapnum, thisP, thisQ, affine);
+        }
+        else if ( (costM==costL)&&(costM<costR) )
+        {
+            if (debug) printf ("cost <---- costM=costL\n");
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_INSERT, newgapnum, thisP, thisQ, affine);
+        }
+        else 
+            failwith("unexpect relation between cost L,M,R when choosing ALIGN\n");
     }
+    //L<M<=R or L<R<=M
+    else if ( ((costL<costM) && (costM<=costR))||((costL<costR)&&(costR<=costM)) )
+    {
+            if (debug) printf ("cost <---- costL\n");
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costL, DO_INSERT, gapnum_fromL+1, thisP, thisQ, affine);
+    }
+    //R<M<=L or R<L<=M
+    else if ( ((costR<costM) && (costM<=costL)) || ((costR<costL)&&(costL<=costM)) )
+    {
+            if (debug) printf ("cost <---- costR\n");
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costR, DO_DELETE, gapnum_fromR+1, thisP, thisQ, affine);
+    }
+    //L=R<M
+    else if ((costL==costR)&&(costR<costM))
+    {
+         if (debug) printf ("cost <---- costR==costL\n");
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costR, DO_DELETE|DO_INSERT, gapnum_fromR+1, thisP, thisQ, affine);
+    }
+    else
+        failwith("unexpect relation between cost L,M,R\n");
 
 };
 
@@ -483,7 +514,7 @@ void update_left_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const c
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
     assert(at_leftborder);
-    if (costR<=costM) 
+    if (costR<costM) 
     {
         set_ukkcost(whichdiag,idx_in_my_diag, m, costR, DO_DELETE, gapnum_fromR+1,thisP, thisQ, affine);
     }
@@ -492,6 +523,9 @@ void update_left_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const c
         int newgapnum;
         if (costM==costfromM) newgapnum=gapnum_fromM;
         else newgapnum = gapnum_fromM + 1;
+        if (costM==costR)
+        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE, newgapnum,thisP, thisQ, affine);
+        else
         set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum,thisP, thisQ, affine);
     } 
 };
@@ -535,17 +569,20 @@ void update_right_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const 
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
     assert(at_rightborder);
-    if (costL<=costM)
+    if (costL<costM)
     {
-        if (debug) {printf("costL=%d <= costM=%d\n",costL,costM); fflush(stdout);}
+        if (debug) {printf("costL=%d < costM=%d\n",costL,costM); fflush(stdout);}
         set_ukkcost(whichdiag,idx_in_my_diag, m, costL, DO_INSERT, gapnum_fromL+1, thisP, thisQ, affine);
     }
     else
     {
-        if (debug) {printf("costL=%d > costM=%d\n",costL,costM); fflush(stdout);}
+        if (debug) {printf("costL=%d >= costM=%d\n",costL,costM); fflush(stdout);}
         int newgapnum;
         if (costM==costfromM) newgapnum=gapnum_fromM;
         else newgapnum = gapnum_fromM + 1;
+        if (costM==costL)
+        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_INSERT, newgapnum, thisP, thisQ, affine);
+        else
         set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum, thisP, thisQ, affine);
     }
 
@@ -1168,19 +1205,19 @@ void newkk_follow_insertion (const seqt s2, seqt alis1, seqt alis2,const cmt c, 
 void newkk_follow_deletion_or_insertion (int swaped,DIRECTION_MATRIX dir,const seqt s1, const seqt s2, seqt alis1, seqt alis2,const cmt c, int * i, int * j)
 {
     if (swaped) {
-        if (dir==DO_DELETE)
+        if (has_flag(dir,DO_DELETE))//(dir==DO_DELETE)
             newkk_follow_deletion(s1,alis1,alis2,c,i);
         else{
-            assert(dir==DO_INSERT);
+            assert(has_flag(dir,DO_INSERT));//(dir==DO_INSERT);
             newkk_follow_insertion(s2,alis1,alis2,c,j);
         }
     }
     else
     {
-        if (dir==DO_INSERT)
+        if (has_flag(dir,DO_INSERT))//(dir==DO_INSERT)
             newkk_follow_insertion(s2,alis1,alis2,c,j);
         else {
-            assert(dir==DO_DELETE);
+            assert(has_flag(dir,DO_DELETE));//(dir==DO_DELETE);
             newkk_follow_deletion(s1,alis1,alis2,c,i);
         }
     }
@@ -1220,7 +1257,7 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
         my_prepend(alis2,add2);
         i--; j--;
     }
-    else if (dir==DO_ALIGN)
+    else if (has_flag(dir,DO_ALIGN))//(dir==DO_ALIGN)
     {
         if(debug) { printf ("Align\n");fflush(stdout);}
         add1 = seq_get(s1,i);
