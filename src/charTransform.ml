@@ -245,9 +245,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             "Calculating Static Approximation" 
         in
         Status.report st;
-        let new_data = 
+        let new_data,_ = 
             IA.to_static_homologies true filter_characters false
-            remove_non_informative chars data tree 
+                                    remove_non_informative chars data tree 
         in
         Status.full_report ~msg:"Regenerating the nodes" st;
         let new_data, nodes = new_data --> Data.categorize --> Node.load_data in
@@ -836,8 +836,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 in
                 Status.user_message Status.Warning m
             end;
-        IA.to_static_homologies remove filter false remove_non_informative
-                                chars tree.Ptree.data tree
+        let d,_ = IA.to_static_homologies remove filter false
+                            remove_non_informative chars tree.Ptree.data tree
+        in
+        d
 
 
     let get_char_codes (chars : Methods.characters)  data =

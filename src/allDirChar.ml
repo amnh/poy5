@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -331,6 +331,18 @@ module F : Ptree.Tree_Operations
                     adjusted_component_cost = cost;
                 }
 
+    let prior_cost chars tree =
+        if using_likelihood `Dynamic tree then
+            All_sets.IntegerMap.fold
+                (fun k v min_prior -> 
+                    let new_prior = AllDirNode.AllDirF.min_prior chars v in
+                    min new_prior min_prior)
+                (tree.Ptree.node_data)
+                (infinity)
+        else
+           0.0
+
+
     let total_cost ptree adj chars =
         let total_handle_cost acc h =
             match (Ptree.get_component_root h ptree).Ptree.root_median with
@@ -342,7 +354,7 @@ module F : Ptree.Tree_Operations
         IntSet.fold
             (fun handle acc_cost -> total_handle_cost acc_cost handle)
             (Ptree.get_handles ptree)
-            0.0
+            (prior_cost chars ptree)
 
 
     (* calculate the size of a tree under likelihood; this is the sum of all the
@@ -382,18 +394,6 @@ module F : Ptree.Tree_Operations
             (fun k _ acc -> acc +. (edge_cost k))
             ptree.Ptree.edge_data
             0.0
-
-    let prior_cost tree =
-(*        if using_likelihood `Dynamic tree then*)
-(*            All_sets.IntegerMap.fold*)
-(*                (fun k v min_prior -> *)
-(*                    let new_prior = AllDirNode.AllDirF.min_prior v in*)
-(*                    min new_prior min_prior)*)
-(*                (tree.Ptree.node_data)*)
-(*                (infinity)*)
-(*        else*)
-           0.0
-
 
     (* Determine the cost of a tree from the handle. A optional root can be
      * passed if the tree requires it for applying the root. *)
@@ -452,15 +452,17 @@ module F : Ptree.Tree_Operations
                 a b dist acc;
             dist +. acc
         in
-        let single_characters_cost = 
-            match root_edge with
+        let single_characters_cost = match root_edge with
             | `Single _    -> 0.0
             | `Edge (a, b) ->
-                Tree.post_order_node_with_edge_visit_simple
-                    distance (Tree.Edge (a, b))
-                    new_tree.Ptree.tree (~-. (distance b a 0.0))
+                if not (using_likelihood `Either new_tree) then
+                    Tree.post_order_node_with_edge_visit_simple
+                        distance (Tree.Edge (a, b))
+                        new_tree.Ptree.tree (~-. (distance b a 0.0))
+                else 
+                    0.0
         in
-        let pi_cost = prior_cost new_tree in
+        let pi_cost = prior_cost None new_tree in (* all chars = None *)
         let root_cost = AllDirNode.AllDirF.root_cost root in
         if debug_cost_fn then begin
             let () = match root_edge with
@@ -473,7 +475,7 @@ module F : Ptree.Tree_Operations
             info_user_message "Size of Tree: %f" (tree_size new_tree None);
         end;
         let res =
-            single_characters_cost +. not_single_character_cost +. root_cost +.  pi_cost
+            single_characters_cost +. not_single_character_cost +. root_cost +. pi_cost
         in
         res
 
@@ -485,7 +487,7 @@ module F : Ptree.Tree_Operations
             0.0
 
     let root_costs tree =
-        let prior = prior_cost tree in
+        let prior = prior_cost None tree in
         let collect_edge_data edge node acc =
             let cost = AllDirNode.OneDirF.tree_cost None node in
             (edge, cost +. prior) :: acc
@@ -1397,10 +1399,15 @@ module F : Ptree.Tree_Operations
         let optimize_static_tree ptree =
             let old_verbosity = Status.get_verbosity () in
             Status.set_verbosity `None;
-            let data,nodes =
-                ptree --> IA.to_static_homologies true filter_characters true
-                                                false `AllDynamic ptree.Ptree.data
-                      --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
+            let data,nodes,chars =
+                let data,chars = 
+                    IA.to_static_homologies true filter_characters true false
+                                            `AllDynamic ptree.Ptree.data ptree
+                in
+                let data,nodes = 
+                    AllDirNode.AllDirF.load_data ~silent:true ~classify:false data
+                in
+                data,nodes,chars
             in
             let data = 
                 Data.convert_dynamic_to_static_branches ~src:ptree.Ptree.data ~dest:data
@@ -1415,7 +1422,7 @@ module F : Ptree.Tree_Operations
             { ptree with Ptree.data = data;
                          Ptree.node_data = node_data; }
                 --> internal_downpass true
-                --> static_model_fn
+                --> static_model_chars_fn chars
         (* define a function to apply model from static to dynamic *)
         and static_model_to_dyn_chars static_tree dyn_tree =
             let data, nodes =
@@ -1454,9 +1461,8 @@ module F : Ptree.Tree_Operations
     let model_fn tree = 
         let tree =
             if using_likelihood `Static tree then static_model_fn tree else tree in
-(*        let tree = *)
-(*            if using_likelihood `Dynamic tree then dynamic_model_fn tree else tree in*)
-(*        Data.print tree.Ptree.data;*)
+        let tree = 
+            if using_likelihood `Dynamic tree then dynamic_model_fn tree else tree in
         tree
 
 

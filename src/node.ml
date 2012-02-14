@@ -1481,8 +1481,7 @@ let final_states p n c1 c2 =
     let new_characters = 
         map4 (cs_final_states p n c1 c2) 
         p.characters n.characters c1.characters c2.characters
-    in
-    { n with characters = new_characters }
+    in { n with characters = new_characters }
 
 let median_no_cost median =
     { median with total_cost = 0.0; }
@@ -1504,19 +1503,32 @@ let update_leaf n =
     }
 
 let node_height {num_height = h} = h
+
 let node_child_edges {num_child_edges = c} = c
 
 let get_code {taxon_code=taxcode} = taxcode
 
-let prior n = 
+let prior c n = 
 IFDEF USE_LIKELIHOOD THEN
-    let priors acc = function
-        | Dynamic a -> 
-            begin match a.preliminary with
-            | DynamicCS.MlCS x -> MlDynamicCS.prior x
-            | _                -> acc
-            end
-        | _ -> acc
+    let priors = 
+(*        match c with*)
+(*        | None ->*)
+(*            (fun acc -> function*)
+(*                | Dynamic a ->*)
+(*                    begin match a.preliminary with*)
+(*                    | DynamicCS.MlCS x -> MlDynamicCS.prior x*)
+(*                    | _                -> acc*)
+(*                    end*)
+(*                | _ -> acc)*)
+(*        | Some c ->*)
+            (fun acc -> function
+                | Dynamic a when DynamicCS.mem c a.final ->
+                    begin match a.preliminary with
+                    | DynamicCS.MlCS x -> MlDynamicCS.prior x
+                    | _                -> acc
+                    end
+                | _ -> acc)
+                
     in
     List.fold_left (priors) 0.0 n.characters
 ELSE
