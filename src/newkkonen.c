@@ -620,20 +620,22 @@ void update_central_diagonal_cell (const seqt s1, const seqt s2,newkkmat_p m, co
     if (debug) printf("update_central_diagonal,cost<-costM=%d\n",costM);
 };
 
-int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i, int j, int newk, int go)
+int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i, int j, int newk, int go, int getcost)
 {
     int debug = 0;
+    int oldcost=0,newcost=0;
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
     //define affine
     int affine=0;
-    //get old cost first
-    int oldcost;
-    DIRECTION_MATRIX olddir, oldgapnum;
-    int oldaffP, oldaffQ;
-    get_ukkcost(whichdiag,idx_in_my_diag, m, &oldcost, &olddir, &oldgapnum, &oldaffP, &oldaffQ, affine);
+    if (getcost) {
+        //get old cost first
+        DIRECTION_MATRIX olddir, oldgapnum;
+        int oldaffP, oldaffQ;
+        get_ukkcost(whichdiag,idx_in_my_diag, m, &oldcost, &olddir, &oldgapnum, &oldaffP, &oldaffQ, affine);
+    }
     if ((whichdiag<0)||(whichdiag>= m->diag_size_in_use)) {debug=1;}
-    if (debug) { printf("update_a_cell,(%d,%d),diag#.%d,idx#.%d,leftB=%d,rightB=%d,oldcost=%d\n",i,j,whichdiag,idx_in_my_diag,at_leftborder,at_rightborder,oldcost); fflush(stdout);}
+    if (debug) { printf("update_a_cell,(%d,%d),diag#.%d,idx#.%d,leftB=%d,rightB=%d\n",i,j,whichdiag,idx_in_my_diag,at_leftborder,at_rightborder); fflush(stdout);}
     if ( i==0 && j==0 ) return 0;//we don't update (0,0)
     else 
     {
@@ -645,13 +647,16 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
             update_right_border_cell (s1, s2, m, c,i, j, newk, go);
         else
             update_internal_cell (s1, s2, m, c,i, j, newk, go);
-        int newcost;
-        DIRECTION_MATRIX newdir, newgapnum;
-        int newaffP, newaffQ;
-        get_ukkcost(whichdiag,idx_in_my_diag, m, &newcost, &newdir, &newgapnum, &newaffP, &newaffQ, affine);
-        if (debug) {printf("newcost=%d,oldcost=%d\n",newcost,oldcost); fflush(stdout);}
-        if (newcost==oldcost) return 0;
-        else return 1;
+        if (getcost) {
+            DIRECTION_MATRIX newdir, newgapnum;
+            int newaffP, newaffQ;
+            get_ukkcost(whichdiag,idx_in_my_diag, m, &newcost, &newdir, &newgapnum, &newaffP, &newaffQ, affine);
+            if (debug) {printf("newcost=%d,oldcost=%d\n",newcost,oldcost); fflush(stdout);}
+            if (newcost==oldcost) return 0;
+            else return 1;
+        }
+        else 
+            return 0;
     }
 };
 
@@ -678,7 +683,7 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
         if (debug) printf("update_a_row,first run,update all,i=%d\n",i);
         next_j = last_updated_j + 1;
         if (next_j<=endj) {
-             update_a_cell (s1,s2,m,c,i,next_j,newk,go);
+             update_a_cell (s1,s2,m,c,i,next_j,newk,go,0);
              update_a_row(s1,s2,m,c,i,startj,endj,next_j,prevq,thisq,newk,oldk,go);
         }
         else {}//done with this row
@@ -717,7 +722,7 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
             if (debug) {printf("next_j=endj+1,done with this row\n"); fflush(stdout);}  
         }
         else {
-            int costchange = update_a_cell (s1,s2,m,c,i,next_j,newk,go);
+            int costchange = update_a_cell (s1,s2,m,c,i,next_j,newk,go,1);
             if (debug) { printf("update this cell.(%d,%d),costchange=%d\n",i,next_j,costchange); fflush(stdout); }
             //add next_j to this queue if necessary
             if ( costchange && !(in_new_left_band(i,next_j,newk,oldk)) ) {
@@ -803,7 +808,7 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
             {
             if (in_non_change_zone(i,j,oldk,lenX,lenY) ) {}
             else
-                update_a_cell (s1,s2,m,c,i,j,newk,go);
+                update_a_cell (s1,s2,m,c,i,j,newk,go,0);
             }
         }
         else {
@@ -832,7 +837,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
     int newp = ( newT*2 - (lenY-lenX) )/2;
     assert(res_cost>=0); assert(res_gapnum>=0);
     if ((res_cost<=newT)  //we accept the cost -- threshold by ukkonen
-    //|| (res_cost<newT*2) //I know we will accept this cost in next round anyway,but the cost might be better in next round, we cannot stop here. 
+    //|| (res_cost<newT*2) //I know we will accept this cost in next round anyway,but this is not a shortcut,because the cost might be better in next round, we cannot stop here. 
         || (newp>res_gapnum)) //max possible gap number -- threshold by ward's ukkonen -- newkkonen
     {
         if (debug) 
