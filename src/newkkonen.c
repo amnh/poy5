@@ -709,7 +709,7 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
 {
     int debug = 0;
     int next_j;//which cell we should update at this run
-    int follow_prevq;//if we update this cell by previous queue
+    int follow_prevq;//if we update this cell by following previous queue
     QUEUE_DATA msb=0;
     if (newk == oldk)//first run, update all cells
     {
@@ -733,6 +733,86 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
     {
         if (debug) 
         {printf("update a row,i=%d,(startj,endj)=(%d,%d),last_updated_j=%d\n",i,startj,endj,last_updated_j); fflush(stdout);}
+        //let's do this in iteration
+        //init next_j with startj, follow_prevq set to false
+        next_j = startj; follow_prevq=0;//last_updated_j=startj-1;
+        do
+        {
+            //update cost of a cell 
+            int costchange = update_a_cell (s1,s2,m,c,i,next_j,newk,go,1);
+            if (debug) { printf("update this cell.(%d,%d),costchange=%d\n",i,next_j,costchange); fflush(stdout); }
+            //push next_j to thisq when necessary
+            if ( costchange && !(in_new_left_band(i,next_j,newk,oldk)) ) {
+                /*  we only push j to this queue when the cost changes
+                    * in current cell. also if current cell is in the new left
+                    * band of newk, including left border of old k, there is no
+                    * need to push j.
+                    * for example, oldk=0,newk=2,lenY-lenX=3
+                    * when we are working on row 2. 
+                    * N=newcost,O=oldcost,X= not in diagonal
+                    *   0  1  2  3  4  5  6  7
+                    * 0 ----------------------- row 0 is done.
+                    * 1 ----------------------- row 1 is done.  
+                    * 2 N  N  N  O  N  O  N  N  row 2 is being updated
+                    * 3 X  ?  ?  ?  ?  ?  ?  ?  row 3 is next
+                    *
+                    * for this queue in row2, we push <0,1,2,4,6,7>, then pass it
+                    * as previous queue to row3, but 0,1,2 are not necessary.
+                    * because for row 3, we have to update pos(3,1),(3,2) anyway,
+                    * for they are the new left band for newk=2.
+                    * also pos(3,3) is the old left border with oldk=0, since
+                    * it's left neighbor:pos(3,2) is always updated with a new cost,
+                    * it will be updated always. 
+                 */
+                enqueue(thisq,next_j);
+                if (debug) {printf("push %d to thisq\n",next_j); fflush(stdout); }
+            }
+            else {} //no need to add next_j to queue
+            //update last_updated_j
+            if ((costchange))
+            //if ((costchange)||(startj==0))
+            //set last_updated_j to next_j if we have better cost, 
+            //or, why ?
+            { last_updated_j = next_j; }
+            else if (follow_prevq) {
+                /*if this cell is being updated because the one
+                * right above it--from preq, even the cost does
+                * not change, we still need to theck the cell
+                * right next to this one.
+                *         j     j+1   
+                *   i     N     O
+                * i+1     O     ?--> might have better cost from (i).(j)
+                */
+                last_updated_j = next_j; }
+            else 
+                { last_updated_j = -1; }
+            //update next_j
+            if (last_updated_j == (-1) )
+            {//no change in previous cell of current row, check preq of the row above us
+                if (is_emptyqueue(prevq)) { msb=endj+1; follow_prevq=0; }
+                else
+                { dequeue(prevq,&msb); follow_prevq=1; }
+                if (debug) { printf("no change in pre cell,follow msb=%d,",msb); fflush(stdout); }
+                next_j=msb;
+            }
+            else
+            {//some change in previous cell
+                //get head of previous queue, if there is any
+                if (is_emptyqueue(prevq)) { msb = endj + 1; follow_prevq=0; }
+                else
+                { peekqueue(prevq,&msb); follow_prevq=1; }
+                if (debug) {printf ("msb = %d,last_j=%d;",msb,last_updated_j); fflush(stdout); }
+                if ( (last_updated_j+1)<msb ) {//continue with last_updated_j
+                    next_j = last_updated_j + 1; follow_prevq=0; }
+                else {//follow previous queue,
+                    if(follow_prevq) { dequeue(prevq,&msb); }
+                    else {}//just in case preq is empty
+                    next_j = msb;
+                }
+            }
+        } while ((next_j!=endj+1)&&(last_updated_j!=endj));
+        //end of iteration 
+        /*did this in recursion
         if (last_updated_j == (startj-1) )
         {//this is the first move on current row
             next_j = startj; follow_prevq=0;
@@ -767,27 +847,26 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
             if (debug) { printf("update this cell.(%d,%d),costchange=%d\n",i,next_j,costchange); fflush(stdout); }
             //add next_j to this queue if necessary
             if ( costchange && !(in_new_left_band(i,next_j,newk,oldk)) ) {
-                /*  we only push j to this queue when the cost changes
-                    * in current cell. also if current cell is in the new left
-                    * band of newk, including left border of old k, there is no
-                    * need to push j.
-                    * for example, oldk=0,newk=2,lenY-lenX=3
-                    * when we are working on row 2. 
-                    * N=newcost,O=oldcost,X= not in diagonal
-                    *   0  1  2  3  4  5  6  7
-                    * 0 ----------------------- row 0 is done.
-                    * 1 ----------------------- row 1 is done.  
-                    * 2 N  N  N  O  N  O  N  N  row 2 is being updated
-                    * 3 X  ?  ?  ?  ?  ?  ?  ?  row 3 is next
-                    *
-                    * for this queue in row2, we push <0,1,2,4,6,7>, then pass it
-                    * as previous queue to row3, but 0,1,2 are not necessary.
-                    * because for row 3, we have to update pos(3,1),(3,2) anyway,
-                    * for they are the new left band for newk=2.
-                    * also pos(3,3) is the old left border with oldk=0, since
-                    * it's left neighbor:pos(3,2) is always updated with a new cost,
-                    * it will be updated always. 
-                 */
+                //  we only push j to this queue when the cost changes
+                  //  * in current cell. also if current cell is in the new left
+                  //  * band of newk, including left border of old k, there is no
+                  //  * need to push j.
+                  //  * for example, oldk=0,newk=2,lenY-lenX=3
+                  //  * when we are working on row 2. 
+                  //  * N=newcost,O=oldcost,X= not in diagonal
+                  //  *   0  1  2  3  4  5  6  7
+                  //  * 0 ----------------------- row 0 is done.
+                  //  * 1 ----------------------- row 1 is done.  
+                  //  * 2 N  N  N  O  N  O  N  N  row 2 is being updated
+                  //  * 3 X  ?  ?  ?  ?  ?  ?  ?  row 3 is next
+                  //  *
+                  //  * for this queue in row2, we push <0,1,2,4,6,7>, then pass it
+                  //  * as previous queue to row3, but 0,1,2 are not necessary.
+                  //  * because for row 3, we have to update pos(3,1),(3,2) anyway,
+                  //  * for they are the new left band for newk=2.
+                  //  * also pos(3,3) is the old left border with oldk=0, since
+                  // * it's left neighbor:pos(3,2) is always updated with a new cost,
+                  //  * it will be updated always. 
                 enqueue(thisq,next_j);
                 if (debug) {printf("push %d to thisq\n",next_j); fflush(stdout); }
             }
@@ -795,14 +874,14 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
             //update last_updated_j
             if ((costchange)||(startj==0)) { last_updated_j = next_j; }
             else if (follow_prevq) { 
-                /*if this cell is being updated because the one
-                * right above it--from preq, even the cost does
-                * not change, we still need to theck the cell
-                * right next to this one.
-                *         j     j+1   
-                *   i     N     O
-                * i+1     O     ?--> might have better cost from (i).(j)
-                */
+                //if this cell is being updated because the one
+                // right above it--from preq, even the cost does
+                // not change, we still need to theck the cell
+                // right next to this one.
+                //         j     j+1   
+                //   i     N     O
+                // i+1     O     ?--> might have better cost from (i).(j)
+                //
                 last_updated_j = next_j; }
             else 
                 { last_updated_j = -1; }
@@ -812,7 +891,8 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
                 update_a_row(s1,s2,m,c,i,startj,endj,last_updated_j,prevq,thisq,newk,oldk,go);
             }
         }
-    }
+    end of recursion */ 
+    }//end of not working on baseband
     return;
 };
 
@@ -834,7 +914,7 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
   //  if (debug) { printf("\n ukktest,newk=%d,bb=%li,oldsize=%li,oldk=%li,go=%d\n",newk,bb,old_size,oldk,go);fflush(stdout); }
     expand_mat (m,newk,oldk,affine);
     int i,j;
-    int startj,endj;
+    int startj,endj,oldendj;
     //init two queue for speeding up function
     q_t prevq = (q_t) malloc(sizeof(struct Queue));
     init_empty_queue(prevq);
@@ -844,6 +924,7 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
     {
         startj = ( (i-newk)>0 )?(i-newk):0 ;
         endj = ( (i+lenY-lenX+newk)<(lenY-1) )?(i+lenY-lenX+newk):(lenY-1) ;
+        oldendj = ( (i+lenY-lenX+oldk)<(lenY-1) )?(i+lenY-lenX+oldk):(lenY-1) ;
         if (affine) {
             for (j= MAX(i-newk,0);j<=MIN(i+(lenY-lenX+newk),lenY-1);j++)
             {
@@ -855,6 +936,7 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
         else {
             //* call speed up function
             if ((debug)&&(is_emptyqueue(thisq)==0)) printf("Warning,thisQ is not empty before update_a_row\n");
+            if (i==0) enqueue(prevq,oldendj+1);
             update_a_row (s1,s2,m,c,i,startj,endj,startj-1,prevq,thisq,newk,oldk,go);
             transfer_queue (thisq,prevq);
             //end of calling speed up function */
@@ -1149,10 +1231,12 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
         if (debug) {printf ("done with first row, call increaseT with iniT=%d\n",iniT); fflush(stdout);}
         int rescost = increaseT (s1,s2,m,c,iniT,s1_len,s2_len,go); 
         if (debug) {printf("end of newkk_algn,cost=%d\n\n",rescost); fflush(stdout);}
+        /* this is for cost compare test with full alignment
         FILE * outf;
         outf = fopen ("poy.out","w");
         fprintf(outf,"%d",rescost);
         fclose(outf);
+        */
         return rescost;
     }
 };
@@ -1284,7 +1368,7 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
 {
    int debug = 0;
    if(debug) {
-       printf("backtrace,len1=%d,len2=%d,swaped=%d\n",len1,len2,swaped); fflush(stdout); }
+       printf("\nnewkkonen backtrace,len1=%d,len2=%d,swaped=%d\n",len1,len2,swaped); fflush(stdout); }
    assert(len1<=len2);
    if (len2 > MUCH_LONGER * len1) 
    {
@@ -1307,7 +1391,9 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
     if (dir==START) 
     {
         if(debug) { printf ("Start\n"); fflush(stdout);}
-        assert (i==0 && j==0); 
+        if ( (i!=0) ||(j!=0) ) 
+            failwith ("we are expecting i==0 && j==0");
+        //assert (i==0); assert (j==0); 
         add1 = add2 = cm_get_gap(c);
         my_prepend(alis1,add1);
         my_prepend(alis2,add2);
