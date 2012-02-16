@@ -461,11 +461,12 @@ val get_set_of_character : d -> int -> string option
 
 val categorize : d -> d
 
-val categorize_static_likelihood_by_model : bool_characters -> d -> int list list
+val categorize_likelihood_chars_by_model : bool_characters -> d -> int list list
 
 val categorize_sets : d -> int list list
 
 val categorize_characters : d -> characters -> int list list
+
 val categorize_characters_comp : d -> bool_characters -> int list list
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d

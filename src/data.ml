@@ -1169,7 +1169,6 @@ let process_trees data file =
         let ch, file = FileStream.channel_n_filename file in
         let trees = Tree.Parse.of_channel ch in
         let () = close_in ch in
-        let len = List.length trees in
         let cnt = ref 0 in
         let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
         let branches, found =
@@ -4130,21 +4129,25 @@ let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods
         data
 
 
-let categorize_static_likelihood_by_model chars data =
+let categorize_likelihood_chars_by_model chars data =
     let get_spec i = 
-        let model = 
-            match Hashtbl.find data.character_specs i with
-                | Static spec ->
-                    begin match spec.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood model -> model
-                        | _ -> assert false
-                    end
-                | _ -> assert false
+        let model = match Hashtbl.find data.character_specs i with
+            | Static spec ->
+                begin match spec.Nexus.File.st_type with
+                    | Nexus.File.STLikelihood model -> model
+                    | _ -> assert false
+                end
+            | Dynamic s when s.state = `Ml ->
+                begin match s.lk_model with
+                    | Some model -> model
+                    | None -> assert false
+                end
+            | _ -> assert false
         in
         model.MlModel.spec
     in
-    `Some (get_chars_codes_comp data chars)
-        --> get_code_from_characters_restricted `StaticLikelihood data
+    chars
+        --> get_code_from_characters_restricted_comp `Likelihood data
         --> MlModel.categorize_by_model get_spec
 
 

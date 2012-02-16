@@ -4040,32 +4040,33 @@ let rec folder (run : r) meth =
                                     fo ("@[<hov 0>Set Name: "^name^"@]@\n");
                                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                     MlModel.output_model fo `Hennig model None)
-                            (Data.categorize_characters_comp run.data chars)
+                            (Data.categorize_likelihood_chars_by_model chars run.data)
                     | trees -> 
                         List.iter
                             (fun t ->
-                                let tname  = match t.Ptree.tree.Tree.tree_name with 
-                                           | Some tname -> tname 
-                                           | None -> ""
+                                let tname =
+                                    match t.Ptree.tree.Tree.tree_name with
+                                    | Some tname -> tname
+                                    | None -> ""
                                 in
                                 List.iter
                                     (fun xs ->
-                                        let chars  = Data.get_code_from_characters_restricted
-                                                                `Likelihood run.data (`Some xs) in
-                                        let model  = Data.get_likelihood_model t.Ptree.data chars
-                                        and cost   = TreeOps.total_cost t `Adjusted (Some chars)
-                                        and length = TreeOps.tree_size t (Some chars)
-                                        and cname  = Data.get_character_set_name t.Ptree.data chars
-                                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                                        let cname  = match cname with | Some cname -> cname | None -> "" in
+                                        let model = Data.get_likelihood_model t.Ptree.data xs
+                                        and cost  = TreeOps.total_cost t `Adjusted (Some xs)
+                                        and length= TreeOps.tree_size t (Some xs)
+                                        and prior = TreeOps.prior_cost t (Some xs)
+                                        and cname = Data.get_character_set_name t.Ptree.data xs
+                                        and ntaxa = t.Ptree.data.Data.number_of_taxa in
+                                        let cname = match cname with | Some cname -> cname | None -> "" in
                                         fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
                                         fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
                                         fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                         fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                                         fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                                        fo ("@[<hov 0>Prior Contribution: "^string_of_float (~-.prior)^"@]@\n");
                                         MlModel.output_model fo `Hennig model None;
                                         fo "@\n")
-                                    (Data.categorize_characters_comp run.data chars))
+                                    (Data.categorize_likelihood_chars_by_model chars run.data))
                             (trees)
                 end;
                 run

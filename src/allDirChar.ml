@@ -331,7 +331,7 @@ module F : Ptree.Tree_Operations
                     adjusted_component_cost = cost;
                 }
 
-    let prior_cost chars tree =
+    let prior_cost tree chars =
         if using_likelihood `Dynamic tree then
             All_sets.IntegerMap.fold
                 (fun k v min_prior -> 
@@ -346,7 +346,9 @@ module F : Ptree.Tree_Operations
     let total_cost ptree adj chars =
         let total_handle_cost acc h =
             match (Ptree.get_component_root h ptree).Ptree.root_median with
-                | Some ((`Edge (a,b)),c) -> 
+                | Some ((`Edge (a,b)),c) ->
+(*                    Printf.printf "TOTAL COST: %f\n%!"*)
+(*                           (AllDirNode.AllDirF.total_cost None None  c);*)
                     acc +. (AllDirNode.AllDirF.total_cost None chars c)
                 | None
                 | Some _ -> acc
@@ -354,7 +356,7 @@ module F : Ptree.Tree_Operations
         IntSet.fold
             (fun handle acc_cost -> total_handle_cost acc_cost handle)
             (Ptree.get_handles ptree)
-            (prior_cost chars ptree)
+            (prior_cost ptree chars)
 
 
     (* calculate the size of a tree under likelihood; this is the sum of all the
@@ -455,11 +457,15 @@ module F : Ptree.Tree_Operations
         let single_characters_cost = match root_edge with
             | `Single _    -> 0.0
             | `Edge (a, b) ->
-                Tree.post_order_node_with_edge_visit_simple
-                    distance (Tree.Edge (a, b))
-                    new_tree.Ptree.tree (~-. (distance b a 0.0))
+                if using_likelihood `OnlyStatic new_tree
+                    then 0.0
+                    else begin
+                        Tree.post_order_node_with_edge_visit_simple
+                                distance (Tree.Edge (a, b)) new_tree.Ptree.tree
+                                (~-. (distance b a 0.0))
+                    end
         in
-        let pi_cost = prior_cost None new_tree in (* all chars = None *)
+        let pi_cost = prior_cost new_tree None in (* all chars = None *)
         let root_cost = AllDirNode.AllDirF.root_cost root in
         if debug_cost_fn then begin
             let () = match root_edge with
@@ -484,7 +490,7 @@ module F : Ptree.Tree_Operations
             0.0
 
     let root_costs tree =
-        let prior = prior_cost None tree in
+        let prior = prior_cost tree None in
         let collect_edge_data edge node acc =
             let cost = AllDirNode.OneDirF.tree_cost None node in
             (edge, cost +. prior) :: acc
@@ -1359,13 +1365,12 @@ module F : Ptree.Tree_Operations
     (* Group all the characters and optimize each with function above *)
     let static_model_fn tree = 
         List.fold_left
-            (fun tree xs ->
-                match Data.get_code_from_characters_restricted 
-                                `StaticLikelihood tree.Ptree.data (`Some xs) with
-                | [] -> tree
-                | xs -> static_model_chars_fn xs tree)
+            (fun tree -> function
+                | []  -> tree
+                | xs  -> static_model_chars_fn xs tree)
             (tree)
-            (Data.categorize_sets tree.Ptree.data)
+            (Data.categorize_likelihood_chars_by_model
+                                `AllStatic tree.Ptree.data)
 
 
     module IA = ImpliedAlignment.Make (AllDirNode.AllDirF) (Edge.LazyEdge)
@@ -1375,22 +1380,22 @@ module F : Ptree.Tree_Operations
             IntMap.map filter_codes tree.Ptree.node_data 
         in
         let component_root = 
-            IntMap.map (fun x ->
-                match x.Ptree.root_median with
-                | None -> x
-                | Some (x, y) -> 
-                    let y = filter_codes y in
-                    { 
-                        Ptree.component_cost = 
-                                AllDirNode.AllDirF.tree_cost None y;
-                        Ptree.adjusted_component_cost = 
-                                AllDirNode.AllDirF.tree_cost None y;
-                        Ptree.root_median = Some (x, y) })
-            tree.Ptree.component_root
+            IntMap.map
+                (fun x -> match x.Ptree.root_median with
+                    | None -> x
+                    | Some (x, y) -> 
+                        let y = filter_codes y in
+                        {Ptree.component_cost =
+                            AllDirNode.AllDirF.tree_cost None y;
+                         Ptree.adjusted_component_cost =
+                            AllDirNode.AllDirF.tree_cost None y;
+                         Ptree.root_median = Some (x, y) })
+                tree.Ptree.component_root
         in
         { tree with
               Ptree.node_data = new_node_data;
               Ptree.component_root = component_root }
+
 
     (* Optimize model of dynamic likelihood characters by converting to an
      * implied alignment. We do ONE pass; ensuring the improvement of costs
@@ -1399,31 +1404,36 @@ module F : Ptree.Tree_Operations
         (* define a function to convert and optimize static model *)
         let optimize_static_tree ptree =
             let old_verbosity = Status.get_verbosity () in
-            Status.set_verbosity `None;
-            let data,nodes,chars =
-                let data,chars = 
-                    IA.to_static_homologies true filter_characters true false
-                                            `AllDynamic ptree.Ptree.data ptree
-                in
-                let data,nodes = 
-                    AllDirNode.AllDirF.load_data ~silent:true ~classify:false data
-                in
-                data,nodes,chars
-            in
-            let data = 
-                Data.convert_dynamic_to_static_branches ~src:ptree.Ptree.data ~dest:data
-            in
-            Status.set_verbosity old_verbosity;
-            let node_data =
-                List.fold_left
-                    (fun acc x -> IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc)
-                    IntMap.empty
-                    nodes
-            in
-            { ptree with Ptree.data = data;
-                         Ptree.node_data = node_data; }
-                --> internal_downpass true
-                --> static_model_chars_fn chars
+            let dlk_categories = Data.categorize_likelihood_chars_by_model
+                                                `AllDynamic ptree.Ptree.data in
+            List.fold_left
+                (fun ptree chars -> 
+                    Status.set_verbosity `None;
+                    let data,chars =
+                        IA.to_static_homologies true filter_characters true
+                            false (`Some (true,chars)) ptree.Ptree.data ptree
+                    in
+                    let data,nodes = AllDirNode.AllDirF.load_data 
+                                            ~silent:true ~classify:false data
+                    in
+                    let nodes =
+                        List.fold_left
+                            (fun acc x ->
+                                IntMap.add (AllDirNode.AllDirF.taxon_code x)
+                                           x acc)
+                            IntMap.empty
+                            nodes
+                    in
+                    Status.set_verbosity old_verbosity;
+                    let tree = 
+                        { ptree with Ptree.data = data;
+                                     Ptree.node_data = nodes; }
+                                --> internal_downpass true
+                                --> static_model_chars_fn chars
+                    in
+                    tree)
+                ptree
+                dlk_categories
         (* define a function to apply model from static to dynamic *)
         and static_model_to_dyn_chars static_tree dyn_tree =
             let data, nodes =
@@ -1439,7 +1449,7 @@ module F : Ptree.Tree_Operations
             in
             { dyn_tree with Ptree.data      = data;
                             Ptree.node_data = node_data; }
-                --> internal_downpass true 
+                --> internal_downpass true
                 --> refresh_all_edges None true None
         in
         let old_cost = Ptree.get_cost `Adjusted old_tree in
@@ -1462,7 +1472,7 @@ module F : Ptree.Tree_Operations
     let model_fn tree = 
         let tree =
             if using_likelihood `Static tree then static_model_fn tree else tree in
-        let tree = 
+        let tree =
             if using_likelihood `Dynamic tree then dynamic_model_fn tree else tree in
         tree
 

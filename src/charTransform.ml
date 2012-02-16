@@ -1009,7 +1009,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 --> Data.categorize
                 --> Node.load_data 
         | `MultiStatic_Aprox (chars, remove_non_informative) ->
-                (try
+                begin try
                     let len = Sexpr.length trees in
                     let _, data = 
                         Sexpr.fold_left
@@ -1021,38 +1021,35 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                             trees
                     in
                     data --> Data.categorize --> Node.load_data 
-                with
-                | No_trees ->
-                        Status.user_message Status.Error
+                with | No_trees ->
+                    Status.user_message Status.Error
                         ("An@ error@ has@ occured@ while@ attempting@ to@ fix@ "
-                        ^ "an@ static@ approximation.@ You@ have@ no@ trees@ " ^
-                        "in@ memory!@ In@ order@ to@ " ^
-                        "produce@ an@ implied@ alignment@ POY@ needs@ a@ " ^
-                        "loaded@ tree,@ you@ could@ simply@ build@ one@ " ^
-                        "with@ build (1)");
-                        failwith "Illegal transform command")
+                        ^ "an@ static@ approximation.@ You@ have@ no@ trees@ "
+                        ^ "in@ memory!@ In@ order@ to@ produce@ an@ implied@ "
+                        ^ "alignment@ POY@ needs@ a@ loaded@ tree,@ you@ "
+                        ^ "could@ simply@ build@ one@ with@ build (1)");
+                    failwith "Illegal transform command"
+                end
         | `Static_Aprox (chars, remove_non_informative) ->
                 if 1 < Sexpr.length trees then
                     Status.user_message Status.Information
-                    ("I@ will@ use@ the@ shortest@ tree@ to@ fix@ the@ sequence@ "
-                    ^ "alignments.")
-                else ();
-                (try
+                        ("I@ will@ use@ the@ shortest@ tree@ to@ fix@ the@ "
+                         ^ "sequence@ alignments.");
+                begin try
                     (select_shortest trees)
-                    --> process_static_approx "ImpliedAlignment" true chars
+                        --> process_static_approx "ImpliedAlignment" true chars
                                 remove_non_informative data filter_characters 
-                    --> Data.categorize
-                    --> Node.load_data 
-                with
-                | No_trees ->
-                        Status.user_message Status.Error
+                        --> Data.categorize
+                        --> Node.load_data 
+                with | No_trees ->
+                    Status.user_message Status.Error
                         ("An@ error@ has@ occured@ while@ attempting@ to@ fix@ "
-                        ^ "an@ static@ approximation.@ You@ have@ no@ trees@ " ^
-                        "in@ memory!@ In@ order@ to@ " ^
-                        "produce@ an@ implied@ alignment@ POY@ needs@ a@ " ^
-                        "loaded@ tree,@ you@ could@ simply@ build@ one@ " ^
-                        "with@ build (1)");
-                        failwith "Illegal transform command") 
+                        ^ "an@ static@ approximation.@ You@ have@ no@ trees@ "
+                        ^ "in@ memory!@ In@ order@ to@ produce@ an@ implied@ "
+                        ^ "alignment@ POY@ needs@ a@ loaded@ tree,@ you@ "
+                        ^ "could@ simply@ build@ one@ with@ build (1)");
+                    failwith "Illegal transform command"
+                end
         | (`ReWeight _)
         | (`WeightFactor _) as m ->
                 data

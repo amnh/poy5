@@ -1439,6 +1439,8 @@ module TreeOps = struct
     let unadjust ptree = ptree
     
     let refresh_all_edges = refresh_all_edges
+    (* not implemented in this module *)
     let tree_size _ _ = 0.0
+    let prior_cost _ _ = 0.0
     let total_cost = total_cost
 end
