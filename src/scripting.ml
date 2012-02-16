@@ -2916,6 +2916,10 @@ END
 let rec process_application run item = 
     let run = reroot_at_outgroup run in
     match item with
+    | `Algn_Newkk | `Algn_Normal as meth when meth <> !Methods.algn_mode ->
+            Methods.algn_mode := meth;
+            process_application run `ReDiagnoseTrees
+    | `Algn_Newkk | `Algn_Normal
     | `Interactive -> run
     | `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ as meth -> 
         if !Methods.cost <> meth then

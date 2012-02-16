@@ -23,15 +23,11 @@ type annotate_tool_t =
 type median_solver_t =
     [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP | `ChainedLK | `SimpleLK ]
 
-type align_meth_t =
-    [ `NewKK | `Default ]
 
 type re_meth_t = 
     [ `Locus_Breakpoint of int | `Locus_Inversion of int ]
 
 type dyna_pam_t = {
-
-    align_meth : align_meth_t option; 
 
     median_solver: median_solver_t option; 
 
@@ -88,7 +84,6 @@ type dyna_pam_t = {
 (** [dyna_pam_default] assigns default values for parameters 
 * used to create the median between two chromosomes or genomes *)
 let dyna_pam_default = {
-    align_meth = Some `Default;
     median_solver = Some `Albert;
     annotate_tool = Some (`Default (100,100,9));
     re_meth = Some (`Locus_Breakpoint 10);

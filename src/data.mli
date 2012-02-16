@@ -66,10 +66,8 @@ type median_solver_t =
     | `Siepel
     | `SimpleLK
     | `Vinh ]
-type align_meth_t = [ `Default | `NewKK ]
 type re_meth_t = [ `Locus_Breakpoint of int | `Locus_Inversion of int ]
 type dyna_pam_t = {
-  align_meth : align_meth_t option;
   median_solver : median_solver_t option;
   annotate_tool : annotate_tool_t option;
   re_meth : re_meth_t option;

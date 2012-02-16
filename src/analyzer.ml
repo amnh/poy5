@@ -211,6 +211,8 @@ let dependency_relations (init : Methods.script) =
                         [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
                 | `Wipe ->
                         [([EntryPoint], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
+                | `Algn_Newkk(*not sure here*)
+                | `Algn_Normal
                 | `Exhaustive_Weak
                 | `Exhaustive_Strong
                 | `Iterative _
@@ -268,7 +270,6 @@ let dependency_relations (init : Methods.script) =
     | #Methods.transform as meth ->
             let res = 
                 match meth with
-                | `NewKK 
                 | `Median_Solver _
                 | `Seq_to_Chrom _
                 | `Custom_to_Breakinv _
@@ -1646,13 +1647,15 @@ let script_to_string (init : Methods.script) =
                         "@[output the trees in memory@]"
                 | `InspectFile _ ->
                         "@[printout the metadata of a poy file@]"
+                | `Algn_Newkk -> "@[do alignment with low memory mode@]"
+                | `Algn_Normal -> "@[do alignment with normal mode@]"
+
             in
             res
     | #Methods.input -> "@[read an input file@]"
     | #Methods.transform as meth ->
             let res = 
                 match meth with
-                | `NewKK
                 | `Median_Solver _
                 | `Seq_to_Chrom _
                 | `Custom_to_Breakinv _
@@ -1976,6 +1979,8 @@ let my_part mine n a =
 
 let is_master_only (init : Methods.script) =
     match init with
+    | `Algn_Newkk(*not sure here*)
+    | `Algn_Normal
     | `Barrier 
     | `GatherTrees _
     | `GatherJackknife 
