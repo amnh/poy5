@@ -769,10 +769,7 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
             }
             else {} //no need to add next_j to queue
             //update last_updated_j
-            if ((costchange))
-            //if ((costchange)||(startj==0))
-            //set last_updated_j to next_j if we have better cost, 
-            //or, why ?
+            if ((costchange)) //set last_updated_j to next_j if we have better cost, 
             { last_updated_j = next_j; }
             else if (follow_prevq) {
                 /*if this cell is being updated because the one
@@ -936,11 +933,29 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
         else {
             //* call speed up function
             if ((debug)&&(is_emptyqueue(thisq)==0)) printf("Warning,thisQ is not empty before update_a_row\n");
+            // special case: update the first row of matrix. 
+            // for example if we only did j=0~5 during last
+            // run(ukktest), now we work on j=0~7, 
+            // nothing new can happen to 0~5, we need to start updating from (0,6),
+            //
+            // -1             N
+            //    0 1 2 3 4 5 6 7
+            //  0 O O O O O O ? ? -- working on row#0
+            //  1   
+            // remember that we empty prevq at the end of each run with
+            // 'transfer_queue', last_updated_j is set to startj-1 to make sure
+            // the first cell of each row will get updated -- that won't
+            // help us here. hence here the solution, we imagine there is a row#-1,
+            // we push cell 6 to prevq(6 = old end j + 1),[update_a_row] will pick
+            // that up, start to update the cell right below (-1,6), which is (0,6).
+            // since this is the first time we are updating (0,6), costchange will be true,
+            // it get pushed to thisq, and last_updated_j is also set to 6.
+            // we will continue to update (0,7) after (0,6).
             if (i==0) enqueue(prevq,oldendj+1);
             update_a_row (s1,s2,m,c,i,startj,endj,startj-1,prevq,thisq,newk,oldk,go);
             transfer_queue (thisq,prevq);
-            //end of calling speed up function */
-            /* old code start
+            // end of calling speed up function */
+            /* old code start, no speeding up
             for (j= MAX(i-newk,0);j<=MIN(i+(lenY-lenX+newk),lenY-1);j++)
             {
                 if (in_non_change_zone(i,j,oldk,lenX,lenY) ) {}
