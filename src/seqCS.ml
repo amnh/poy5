@@ -1600,7 +1600,6 @@ type t = {
     code : int;                     (** The set code *)
     heuristic : heuristic;          (** The heuristic to be used *)
     priority : int list;            (** The information ordering *)
-    use_ukk : bool;
 }
 
 let is_fixedstates x =
@@ -1684,7 +1683,6 @@ module Union = struct
         u_c2 : Cost_matrix.Two_D.m;
         u_alph : Alphabet.a;
         u_codes : int array;
-        u_use_ukk : bool;
     }
 
 
@@ -1808,7 +1806,11 @@ module Union = struct
     let distance_union a b = 
         match a, b with
         | Some a, Some b ->
-                let use_ukk = a.u_use_ukk in
+                let use_ukk = 
+                    match !Methods.algn_mode with
+                    | `Algn_Newkk -> true
+                    | _ -> false
+                in
                 let sub_factor = 
                     match Cost_matrix.Two_D.affine a.u_c2 with
                     | Cost_matrix.Affine _ -> 0.8
@@ -1890,7 +1892,6 @@ let empty code c2 alph =
             code = code;
             priority = [];
             heuristic = make_default_heuristic c2;
-            use_ukk = false;
         }
     in
     set
@@ -1911,7 +1912,7 @@ let to_union a =
             u_c2 = a.heuristic.c2;
             u_alph = a.alph;
             u_codes = a.codes; 
-            u_use_ukk = a.use_ukk}
+        }
     else None
 
 let to_string a =
@@ -1939,14 +1940,6 @@ let to_string a =
     Array_ops.fold_right_2 builder "" a.codes a.characters 
 
 let of_array spec sc code taxon =
-    let align_with_ukk = 
-        let dpam = spec.Data.pam in
-        match dpam.Data.align_meth with
-        | Some `NewKK ->
-                true 
-        | _ ->  
-                false
-    in
     let c3 = spec.Data.tcm3d in
     let heur = make_default_heuristic ~c3 spec.Data.tcm2d in
     let create_item (x, _) =
@@ -1999,8 +1992,7 @@ let of_array spec sc code taxon =
     let res = 
         { characters = characters; codes = codes; total_cost = 0.0; 
         alph = spec.Data.alph; code = code; heuristic = heur;
-        priority = Array.to_list codes;
-        use_ukk = align_with_ukk;} 
+        priority = Array.to_list codes;} 
     in
     (*
     Status.user_message Status.Information (to_string res);
@@ -2019,7 +2011,11 @@ let same_codes a b =
 * parent of [ch1] and [ch2]. *)
 let readjust mode to_adjust modified ch1 ch2 parent mine =
     assert (parent.alph = Alphabet.nucleotides);
-    let use_ukk = ch1.use_ukk in
+    let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+    in
     let new_modified = ref [] 
     and total_cost = ref 0 in
     let adjusted = 
@@ -2102,7 +2098,11 @@ let median code a b =
     let total_cost = ref 0 in
     let h = a.heuristic in
     let alph = a.alph in
-    let use_ukk = a.use_ukk in
+    let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+    in
     let characters =
         Array_ops.map_2 (fun a b ->
             match a, b with
@@ -2160,14 +2160,22 @@ let median_3 p n c1 c2 =
     (* A function to calculate the uppass values if the alphabet cannot 
     * handle the union of the items inside *)
     let median_no_union () = 
-        let use_ukk = n.use_ukk in
+        let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+        in
         generic_map_4 DOS.median_3_no_union RL.median_3 GenNonAdd.median_3
         p.characters n.characters c1.characters c2.characters use_ukk
     in
     (* A function to calculate the uppass values if the alphabet does handle
     * properly the union of the items inside. *)
     let median_union () =
-        let use_ukk = n.use_ukk in
+        let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+        in
         generic_map_4 DOS.median_3_union RL.median_3 GenNonAdd.median_3
         p.characters n.characters c1.characters c2.characters use_ukk
     in
@@ -2181,7 +2189,11 @@ let distance missing_distance a b =
     let missing_distance = int_of_float missing_distance in
     let h = a.heuristic in
     let alph = a.alph in
-    let use_ukk = a.use_ukk in
+    let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+    in
     float_of_int (Array_ops.fold_right_2 (fun acc a b ->
         match a, b with
         | Partitioned a, Partitioned b ->
@@ -2202,7 +2214,11 @@ let distance missing_distance a b =
 let dist_2 delta n a b =
     let h = n.heuristic in
     let delta = int_of_float delta in
-    let use_ukk = n.use_ukk in
+    let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+    in
     let x, deltaleft =
         Array_ops.fold_right_3 (fun (acc, deltaleft) n a b ->
             if deltaleft < 0 then (max_int / 10, deltaleft)
@@ -2277,7 +2293,11 @@ let compare_data a b =
 let ( --> ) a b = b a 
 
 let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list = 
-    let use_ukk = t.use_ukk in
+    let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+    in
     let h = t.heuristic in
     let res_state = ref (-1) in
     let is_fs = ref false in

@@ -141,7 +141,6 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
     {
         diaglen = (m->diagonal_size_arr)[i];
         m->total_len_in_use += diaglen;
-        //if (affine) m->total_len_affine += diaglen;
         thisdiag = m->diagonal;
         thisdiag += i;
         thisdiag->len = diaglen;
@@ -308,6 +307,24 @@ get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECT
     if (debug) { printf("get ukkcost,diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d,affP=%d,affQ=%d,affine=%d\n",
             whichdiag,idx_in_my_diag,*cost,*dir,*max_gapnum,*affP,*affQ,affine); fflush(stdout);}
 };
+/*
+void get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECTION_MATRIX * dir, DIRECTION_MATRIX *  max_gapnum, int * affP, int * affQ, int affine )
+{
+    int i=0, count=0;
+    for (i=0;i<whichdiag;i++)
+    {
+       count +=  (m->diagonal_size_arr)[i];
+    }
+    count = count + idx_in_my_diag;
+    *cost = (m->pool_cost)[count];
+    *dir = (m->pool_dir)[count];
+    *max_gapnum = (m->pool_gapnum)[count];
+    if (affine) {
+    *affP = (m->pool_affP)[count];
+    *affQ = (m->pool_affQ)[count];}
+}
+*/
+
 
 void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIRECTION_MATRIX dir,DIRECTION_MATRIX  max_gapnum, int affP, int affQ, int affine)
 {
@@ -389,8 +406,11 @@ void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt 
     get_idx(i,j-1,m,&whichdiagL,&idx_in_my_diagL,&at_leftborderL,&at_rightborderL);
     get_ukkcost(whichdiagL,idx_in_my_diagL, m, &costfromL, &dirL, &gapnum_fromL, &affP, &affQ,affine);
     get_cmcost (c,seq_get(s2,j),gapcode,&addcost);
+    if (affine) {
     costL = MIN(costfromL + addcost + realgo, affQ + addcost);
-    thisQ = costL;
+    thisQ = costL; }
+    else
+        costL = costfromL + addcost;
     if (debug) printf ("costL <- min (costfromL<%d> + addcost<%d> + go <%d>,affQ<%d>+addcost<%d>)=%d\n",
     costfromL,addcost,realgo,affQ,addcost,costL);
     }
@@ -403,8 +423,12 @@ void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt 
     get_idx(i-1,j,m,&whichdiagR,&idx_in_my_diagR,&at_leftborderR,&at_rightborderR);
     get_ukkcost(whichdiagR,idx_in_my_diagR, m, &costfromR, &dirR, &gapnum_fromR, &affP, &affQ,affine); 
     get_cmcost (c,seq_get(s1,i),gapcode,&addcost);
+    if (affine) {
     costR = MIN(costfromR + addcost + realgo, affP + addcost);
     thisP = costR;
+    }
+    else
+        costR = costfromR + addcost;
     if (debug) printf ("costR <- min (costfromR<%d> + addcost<%d> + realgo <%d>,affP<%d>+addcost<%d>)=%d\n",
     costfromR,addcost,realgo,affP,addcost,costR);
     }
@@ -499,8 +523,12 @@ void update_left_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const c
     get_cmcost (c,seq_get(s1,i),gapcode,&addcost);
     //int gap_opening = 0;if (dirR==DO_DELETE) { gap_opening = 0; }else { gap_opening = go; }
     //costR = costfromR + addcost;// + gap_opening;
-    costR = MIN(costfromR + addcost + realgo, affP + addcost);
-    thisP = costR;
+    if (affine)
+    { costR = MIN(costfromR + addcost + realgo, affP + addcost);
+      thisP = costR;
+    }
+    else
+        costR = costfromR + addcost;
     }
     int costfromM=0; DIRECTION_MATRIX dirM; DIRECTION_MATRIX gapnum_fromM=0;
     if (j==0) { costfromM = costM = INT_MAX/2; }//leftmost column of matrix
@@ -554,8 +582,11 @@ void update_right_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const 
     get_cmcost (c,seq_get(s2,j),gapcode,&addcost);
     //int gap_opening = 0;if (dirL==DO_INSERT) { gap_opening = 0; }else { gap_opening = go; }
     //costL = costfromL + addcost;// + gap_opening;
+    if (affine) {
     costL = MIN(costfromL + addcost + realgo, affQ + addcost);
-    thisQ = costL;
+    thisQ = costL; }
+    else 
+        costL = costfromL + addcost;
     }
     int costfromM=0; DIRECTION_MATRIX dirM; DIRECTION_MATRIX gapnum_fromM=0;
     if (i==0) { costfromM = costM = INT_MAX/2; }//top line of matrix
@@ -632,7 +663,7 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
         //get old cost first
         DIRECTION_MATRIX olddir, oldgapnum;
         int oldaffP, oldaffQ;
-        get_ukkcost(whichdiag,idx_in_my_diag, m, &oldcost, &olddir, &oldgapnum, &oldaffP, &oldaffQ, affine);
+        get_ukkcost(whichdiag,idx_in_my_diag, m, &oldcost, &olddir, &oldgapnum, &oldaffP, &oldaffQ, affine); 
     }
     if ((whichdiag<0)||(whichdiag>= m->diag_size_in_use)) {debug=1;}
     if (debug) { printf("update_a_cell,(%d,%d),diag#.%d,idx#.%d,leftB=%d,rightB=%d\n",i,j,whichdiag,idx_in_my_diag,at_leftborder,at_rightborder); fflush(stdout);}
@@ -671,7 +702,9 @@ int in_new_left_band (int i, int j,int newk,int oldk)
     else return 0;
 };
 
-
+//update a row in newkkonen matrix. if this is the first run, which means we are
+//filling cells in baseband, we need to update each one of them. if not, we use
+//two queue, prevq and thisq, to decide which cell we are going to update next.
 void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,int startj,int endj,int last_updated_j,q_t prevq,q_t thisq,int newk,int oldk, int go)
 {
     int debug = 0;
@@ -681,12 +714,20 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
     if (newk == oldk)//first run, update all cells
     {
         if (debug) printf("update_a_row,first run,update all,i=%d\n",i);
+        //iteration is faster than recurtion
+        int j=0;
+        for (j=startj;j<=endj;j++)
+        {
+            update_a_cell (s1,s2,m,c,i,j,newk,go,0);
+        }
+        /*
         next_j = last_updated_j + 1;
         if (next_j<=endj) {
              update_a_cell (s1,s2,m,c,i,next_j,newk,go,0);
              update_a_row(s1,s2,m,c,i,startj,endj,next_j,prevq,thisq,newk,oldk,go);
         }
         else {}//done with this row
+        */
     }
     else
     {
@@ -812,9 +853,19 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
             }
         }
         else {
+            //* call speed up function
             if ((debug)&&(is_emptyqueue(thisq)==0)) printf("Warning,thisQ is not empty before update_a_row\n");
             update_a_row (s1,s2,m,c,i,startj,endj,startj-1,prevq,thisq,newk,oldk,go);
             transfer_queue (thisq,prevq);
+            //end of calling speed up function */
+            /* old code start
+            for (j= MAX(i-newk,0);j<=MIN(i+(lenY-lenX+newk),lenY-1);j++)
+            {
+                if (in_non_change_zone(i,j,oldk,lenX,lenY) ) {}
+                else
+                    update_a_cell (s1,s2,m,c,i,j,newk,go,0);
+            }
+            old code end */
         }
     }
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
@@ -841,7 +892,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
         || (newp>res_gapnum)) //max possible gap number -- threshold by ward's ukkonen -- newkkonen
     {
         if (debug) 
-        {printf ("cost=%d,end by K(%d>%d) or T(%d<%d)\n",res_cost,newp,res_gapnum,res_cost,newT*2);
+        {printf ("cost=%d,end by K(%d>%d) or T(%d<%d)\n",res_cost,newp,res_gapnum,res_cost,newT);
         fflush(stdout); }
         return res_cost;
     }
@@ -916,7 +967,7 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m,int affine)
 /*    if (debug) { printf ("sizeofint=%lu,sizeoflong=%lu,len=%li <=> oldlen=%li\n", sizeof(int),sizeof(long),len, oldlen); fflush(stdout);}
 */
     //init affine part of matrix if necessray
-    init_affine_mat(m);
+    if (affine) init_affine_mat(m);
     //set expand sign
     if (len<=oldlen) 
     {
@@ -1058,7 +1109,7 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
     {
         //reset newkkmat to 0 if we are reusing the memory block.
         init_mat (s1_len,s2_len,m,affine);
-        if (m->total_len > 0) reset_mat (m);
+        if (affine &&(m->total_len > 0)) reset_mat (m);
         int gapcode = cm_get_gap (c); 
         int delta = get_delta (c);
         int i; 

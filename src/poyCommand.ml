@@ -67,7 +67,6 @@ type identifiers = [
 * we used to use transform(dyn_pam:(...)), everything for dyamic pam is here, we
 * need to split them into their own characters,like genome/chrom/dna/etc *)
 type chromosome_args = [
-    | `Align_Meth of Methods.align_meth
     | `Median_Solver of Methods.median_solver_chosen
     | `Annotate_Tool of Methods.annotate_tool (*annotated tool = mauve or default*)
     | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
@@ -165,6 +164,11 @@ type cost_calculation = [
     | `Iterative of [ `ThreeD of int option | `ApproxD of int option ] 
     | `Normal_plus_Vitamines
     | `Normal
+]
+
+type alignment_mode = [
+    | `Algn_Newkk
+    | `Algn_Normal
 ]
 
 type keep_method = [
@@ -276,6 +280,7 @@ type settings = [
     | `Root of int option
     | `RootName of string
     | `Alias of string * [ `Codon of old_identifiers | `Chars of old_identifiers ]
+    | alignment_mode
 ]
 
 type output_class = [
@@ -1417,7 +1422,7 @@ let create_expr () =
             ];
         transform_method:
             [
-                [ LIDENT "newkkonen" -> `ChangeDynPam [`Align_Meth `NewKK] ]|
+                
                 [ LIDENT "origin_cost"; ":"; x = integer_or_float ->
                     `OriginCost (float_of_string x) ] |
                 [ LIDENT "prioritize" -> `Prioritize ] |
@@ -1729,7 +1734,9 @@ let create_expr () =
                         `Alias (n,`Codon x) ] |
                 [ LIDENT "partition"; ":"; 
                     left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
-                        `Alias (n,`Chars x) ]
+                        `Alias (n,`Chars x) ]|
+                [ LIDENT "space_saving_alignment" -> `Algn_Newkk ]|
+                [ LIDENT "normal_alignment" -> `Algn_Normal ]
             ];
         neg_integer:
             [

@@ -3036,7 +3036,6 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
     List.fold_left 
     ~f:(fun dyna_pam pam ->
         match pam with
-        | `Align_Meth v -> {dyna_pam with align_meth = Some v}
         | `Median_Solver c -> {dyna_pam with median_solver = Some c}
         | `Annotate_Tool c -> {dyna_pam with annotate_tool = Some c}
         | `Locus_Inversion c -> {dyna_pam with re_meth = Some (`Locus_Inversion c)}
@@ -3111,13 +3110,12 @@ let create_alpha_c2_breakinvs (data : d) chcode =
     let c2, alpha,dynpam = match spec with 
         | Dynamic dspec -> dspec.tcm2d, dspec.alph, dspec.pam
         | _ -> failwith "Transfrom_annchroms_to_breakinvs: Not Dynamic" 
-    in  
-    let use_ukk =
-        match dynpam.align_meth with
-        | Some `NewKK   -> true
-        | Some `Default -> false
-        | None          -> false
     in
+    let use_ukk = 
+                match !Methods.algn_mode with
+                        | `Algn_Newkk -> true
+                                | _ -> false
+                                    in
     let chrom_ls = get_dynas data chcode in 
         
     let max_code = List.fold_left  
@@ -5065,11 +5063,11 @@ let compute_fixed_states filename data code polymph =
         | Some _ -> true
         | None   -> false
     in
-    let align_with_newkk = match dhs.pam.align_meth with
-        | Some `NewKK   -> true
-        | None          -> false
-        | Some `Default -> false
-    in
+    let use_ukk = 
+                match !Methods.algn_mode with
+                        | `Algn_Newkk -> true
+                                | _ -> false
+                                    in
     let taxon_sequences = Hashtbl.create 1667 in
     let sequences_taxon = Hashtbl.create 1667 in
     let states = ref 0 in
@@ -5106,7 +5104,7 @@ let compute_fixed_states filename data code polymph =
                 match polymph with
                 | `Do_All -> if debug then Printf.printf "polymorphism=do all\n%!";
                 let yclose, _ = 
-                    if align_with_newkk then
+                    if use_ukk then
                         Sequence.NewkkAlign.closest initial_sequences.(x)
                         initial_sequences.(y) dhs.tcm2d Sequence.NewkkAlign.default_ukkm
                     else
@@ -5114,7 +5112,7 @@ let compute_fixed_states filename data code polymph =
                         initial_sequences.(x) initial_sequences.(y) dhs.tcm2d Matrix.default 
                 in
                 let xclose, cost =
-                    if align_with_newkk then
+                    if use_ukk then
                         Sequence.NewkkAlign.closest yclose initial_sequences.(x)
                         dhs.tcm2d Sequence.NewkkAlign.default_ukkm
                     else
@@ -5188,7 +5186,7 @@ let compute_fixed_states filename data code polymph =
                             edit_cost,indel_cost,full_code_lstlst =
                         Block_mauve.get_matcharr_and_costmatrix seqx seqy
                                 min_lcb_ratio min_cover_ratio min_lcb_len
-                                max_lcb_len l_i_c dhs.tcm2d align_with_newkk
+                                max_lcb_len l_i_c dhs.tcm2d use_ukk
                     in
                     if debug then begin 
                         Printf.printf "code1/code2 arr from block_mauve:\n%!";
@@ -5244,7 +5242,7 @@ let compute_fixed_states filename data code polymph =
                     cst
                 else
                     let cost = 
-                    if align_with_newkk then
+                    if use_ukk then
                     Sequence.NewkkAlign.cost_2 sequences.(x) sequences.(y)
                     dhs.tcm2d Sequence.NewkkAlign.default_ukkm
                     else

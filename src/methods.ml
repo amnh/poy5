@@ -37,6 +37,10 @@ type cost_modes =
 let cost : cost_modes ref = 
     ref `Normal
 
+type alignment_modes = [ `Algn_Newkk | `Algn_Normal ]
+
+let algn_mode : alignment_modes ref = ref `Algn_Normal
+
 type filename = [ `Local of string | `Remote of string ]
 
 (* When a maximum number of trees max is to be kept, and the total
@@ -151,8 +155,6 @@ type median_solver_chosen = [ `MGR | `SimpleLK | `ChainedLK | `COALESTSP | `BBTS
 
 type annotate_tool = [ `Mauve of (float*float*float*float) | `Default of (int*int*int) ]
 
-type align_meth = [ `NewKK | `Default ]
-
 (** parameters used in determining the medians between two chromosomes or genomes *)
 type chromosome_pam_t = [
     | `Locus_Inversion of int
@@ -170,7 +172,6 @@ type chromosome_pam_t = [
     | `Max_kept_wag of int
     | `Median_Solver of median_solver_chosen
     | `Annotate_Tool of annotate_tool
-    | `Align_Meth of align_meth
 ]
 
 
@@ -778,6 +779,8 @@ type application = [
     | `InspectFile of string
     | `ClearMemory of clear_item list
     | `Echo of (string * output_class)
+    | `Algn_Newkk
+    | `Algn_Normal
 ]
 
 type characters_handling = [
