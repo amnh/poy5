@@ -1163,7 +1163,6 @@ let process_trees data file =
         let ch, file = FileStream.channel_n_filename file in
         let trees = Tree.Parse.of_channel ch in
         let () = close_in ch in
-        let len = List.length trees in
         let cnt = ref 0 in
         let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
         let branches, found =
