@@ -459,11 +459,12 @@ val get_set_of_character : d -> int -> string option
 
 val categorize : d -> d
 
-val categorize_static_likelihood_by_model : bool_characters -> d -> int list list
+val categorize_likelihood_chars_by_model : bool_characters -> d -> int list list
 
 val categorize_sets : d -> int list list
 
 val categorize_characters : d -> characters -> int list list
+
 val categorize_characters_comp : d -> bool_characters -> int list list
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
@@ -480,17 +481,14 @@ val get_tcmfile : d -> int -> tcm_definition
 
 val get_sequence_alphabet : int -> d -> Alphabet.a
 
-val get_files : d -> (string * contents list) list
-
 val add_file : d -> contents list -> FileStream.f -> d
 
 val get_taxa : d -> string list
 
 val add_static_parsed_file : d -> string -> Nexus.File.nexus -> d
 
-val add_multiple_static_parsed_file : d -> (int option * (string * Nexus.File.nexus)) list -> d
-
-val get_used_observed : int -> d -> (int, int) Hashtbl.t
+val add_multiple_static_parsed_file :
+    d -> (int option * (string * Nexus.File.nexus)) list -> d * int list
 
 val characters_to_formatter :  d -> Xml.xml
 

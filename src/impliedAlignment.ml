@@ -1639,7 +1639,7 @@ module type S = sig
 
     val to_static_homologies : bool ->
         (tree -> int list -> tree) -> bool -> 
-            bool  -> Methods.characters -> Data.d -> tree -> Data.d
+            bool  -> Methods.characters -> Data.d -> tree -> Data.d * int list
 
 end
 module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = struct
@@ -2707,11 +2707,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 []
                 codes
         in
-        let d   = Data.add_multiple_static_parsed_file data all_to_add in
-        let d,_ = Data.remove_absent_present_encodings d chars in
+        let d,c = Data.add_multiple_static_parsed_file data all_to_add in
+        let d,cs= Data.remove_absent_present_encodings d chars in
         let d   = Data.convert_dynamic_to_static_branches ~src:tree.Ptree.data ~dest:d in
         let d   = Data.sync_dynamic_to_static_model ~src:tree.Ptree.data ~dest:d in
-        if ignore then Data.process_ignore_characters false d (`Names names)
-                  else d
+        let c   = List.filter (fun x -> not (List.mem x cs)) c in
+        if ignore then Data.process_ignore_characters false d (`Names names),c
+                  else d,c
 
 end 

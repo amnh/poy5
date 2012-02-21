@@ -223,6 +223,8 @@ module type Tree_Operations =
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
 
         val total_cost : (a, b) p_tree -> [`Adjusted | `Unadjusted] -> int list option -> float
+
+        val prior_cost : (a, b) p_tree -> int list option -> float
             
         val tree_size : (a, b) p_tree -> int list option -> float
 

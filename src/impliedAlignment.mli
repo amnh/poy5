@@ -118,7 +118,7 @@ module type S = sig
 
     val to_static_homologies : bool ->
         (tree -> int list -> tree) -> bool ->
-            bool  -> Methods.characters -> Data.d -> tree -> Data.d
+            bool  -> Methods.characters -> Data.d -> tree -> Data.d * int list
 
 end
 
