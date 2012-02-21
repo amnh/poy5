@@ -169,7 +169,6 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
 
         const int *alg_row, DIRECTION_MATRIX *dm, int c, int i, int end) {
 
-
     register int aa, bb, cc;
     register const int TWO = 0x200; 
     register const int ZERO = 0;
@@ -228,7 +227,6 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         aa = pm[i] + alg_row[i + 1];
         bb += gap_row[i + 1]; // bb is already assigned the minimum value of the three to be compared, so loading bb from memory would be waste.
         cc = pm[i + 1] + c;
-
 
         __asm__(
             "cmp %0, %1\n\t"

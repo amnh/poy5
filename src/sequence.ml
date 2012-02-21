@@ -1455,9 +1455,17 @@ module NewkkAlign = struct
         in
         (*assert (ls1 <> 0);  assert (ls2 <> 0);*)
         if ls1 <= ls2 then
-            newkk_cost2 s1 s2 m1 m2 
+            match Cost_matrix.Two_D.affine m1 with
+            | Cost_matrix.Affine _ ->
+                    newkk_cost2_affine s1 s2 m1 m2
+            | _ ->
+                    newkk_cost2 s1 s2 m1 m2
         else 
-            newkk_cost2 s2 s1 m1 m2 
+            match Cost_matrix.Two_D.affine m1 with
+            | Cost_matrix.Affine _ ->
+                newkk_cost2_affine s2 s1 m1 m2 
+            | _ ->
+                newkk_cost2 s2 s1 m1 m2 
 
     let full_median_2 a b cm m = 
         match Cost_matrix.Two_D.affine cm with
