@@ -457,7 +457,7 @@ module F : Ptree.Tree_Operations
         let single_characters_cost = match root_edge with
             | `Single _    -> 0.0
             | `Edge (a, b) ->
-                if using_likelihood `OnlyStatic new_tree
+                if using_likelihood `Either new_tree
                     then 0.0
                     else begin
                         Tree.post_order_node_with_edge_visit_simple
