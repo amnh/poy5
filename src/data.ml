@@ -4445,7 +4445,7 @@ let compute_priors data chars u_gap =
         end
     in
     let final_priors = 
-        Array.map (fun x -> max x Nnumerical.minimum) final_priors in
+        Array.map (fun x -> max x Numerical.minimum) final_priors in
     if debug_priors then begin
         let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in
         Printf.printf "Final Priors (%f): [" sum;
