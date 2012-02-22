@@ -2126,7 +2126,6 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
     and root_name tree = function
         | None   -> cost
         | Some c ->
-            Printf.printf "Finding Set Cost\n%!";
             (Some (Array.to_list c))
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float
