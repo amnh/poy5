@@ -678,28 +678,33 @@ let get_likelihood_model data chars =
         try match Hashtbl.find data.character_specs x with
             | Static dat ->
                 begin match dat.Nexus.File.st_type with
-                    | Nexus.File.STLikelihood model -> model
+                    | Nexus.File.STLikelihood xm -> x,xm
                     | _ -> failwith "unsupported static character"
                 end
             | Dynamic s when s.state = `Ml ->
                 begin match s.lk_model with
-                    | Some x -> x
-                    | None   -> failwith "inconsistent dynamic likelihood state"
+                    | Some xm -> x,xm
+                    | None    -> failwith "inconsistent dynamic likelihood state"
                 end
             | _ -> failwith "unsupported characters"
         with | Not_found ->
-            let print_character_codes key bind = Printf.printf "[%d,%s],%!" key bind in
-            Printf.printf "\n check character_codes: \n%!";
-            Hashtbl.iter print_character_codes data.character_codes;
             failwithf "Cannot find character: %d" x
     in
     match List.map get_model chars with
-    | h::t ->
-        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
-            h
-        else 
-            failwith "Inconsistent Model over characters"
-    | []   ->
+    | (h,hm)::t ->
+        assert( List.fold_left 
+                    ~f:(fun acc (x,xm) ->
+                            if 0 = MlModel.compare xm hm then acc
+                            else begin
+                                Printf.printf "Model Inconsistency: %d<>%d\n%!" h x;
+                                MlModel.output_model (print_string) `Nexus xm None;
+                                MlModel.output_model (print_string) `Nexus hm None;
+                                false
+                            end)
+                    ~init:true
+                    t);
+        hm
+    | []   -> 
         failwith "No Characters found"
 
 let is_fs data code =
@@ -4126,29 +4131,6 @@ let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods
     else
         data
 
-
-let categorize_likelihood_chars_by_model chars data =
-    let get_spec i = 
-        let model = match Hashtbl.find data.character_specs i with
-            | Static spec ->
-                begin match spec.Nexus.File.st_type with
-                    | Nexus.File.STLikelihood model -> model
-                    | _ -> assert false
-                end
-            | Dynamic s when s.state = `Ml ->
-                begin match s.lk_model with
-                    | Some model -> model
-                    | None -> assert false
-                end
-            | _ -> assert false
-        in
-        model.MlModel.spec
-    in
-    chars
-        --> get_code_from_characters_restricted_comp `Likelihood data
-        --> MlModel.categorize_by_model get_spec
-
-
 let categorize_sets data : int list list =
     let rec inner_find i = function
         | is::_ when List.mem i is -> true
@@ -4223,6 +4205,29 @@ let categorize_characters data chars = match chars with
                 if found xs selected then xs :: acc else acc)
             ~init:[]
             all_sets
+
+
+let categorize_likelihood_chars_by_model chars data =
+    let get_spec i = 
+        let model = match Hashtbl.find data.character_specs i with
+            | Static spec ->
+                begin match spec.Nexus.File.st_type with
+                    | Nexus.File.STLikelihood model -> model
+                    | _ -> assert false
+                end
+            | Dynamic s when s.state = `Ml ->
+                begin match s.lk_model with
+                    | Some model -> model
+                    | None -> assert false
+                end
+            | _ -> assert false
+        in
+        model.MlModel.spec
+    in
+    chars
+        --> categorize_characters_comp data
+        --> List.map ~f:(fun x -> MlModel.categorize_by_model get_spec x)
+        --> List.flatten
 
 
 let make_codon_partitions functional data name ccodes =

@@ -4040,8 +4040,9 @@ let rec folder (run : r) meth =
                                     let model  = Data.get_likelihood_model run.data chars
                                     and name   = Data.get_character_set_name run.data chars
                                     and ntaxa  = run.data.Data.number_of_taxa in
-                                    let name = match name with | Some name -> name | None -> "" in
-                                    fo ("@[<hov 0>Set Name: "^name^"@]@\n");
+                                    let cname = match name with | Some name -> name | None -> "" in
+                                    if cname <> "" then
+                                        fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
                                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                     MlModel.output_model fo `Hennig model None)
                             (Data.categorize_likelihood_chars_by_model chars run.data)
@@ -4053,6 +4054,7 @@ let rec folder (run : r) meth =
                                     | Some tname -> tname
                                     | None -> ""
                                 in
+                                let cats = Data.categorize_likelihood_chars_by_model chars run.data in
                                 List.iter
                                     (fun xs ->
                                         let model = Data.get_likelihood_model t.Ptree.data xs
@@ -4062,15 +4064,17 @@ let rec folder (run : r) meth =
                                         and cname = Data.get_character_set_name t.Ptree.data xs
                                         and ntaxa = t.Ptree.data.Data.number_of_taxa in
                                         let cname = match cname with | Some cname -> cname | None -> "" in
-                                        fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
-                                        fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
+                                        if tname <> "" then
+                                            fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
+                                        if cname <> "" then
+                                            fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
                                         fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                         fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                                         fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                                        fo ("@[<hov 0>Prior Contribution: "^string_of_float (~-.prior)^"@]@\n");
+                                        fo ("@[<hov 0>Log-Prior:"^string_of_float (~-.prior)^"@]@\n");
                                         MlModel.output_model fo `Hennig model None;
-                                        fo "@\n")
-                                    (Data.categorize_likelihood_chars_by_model chars run.data))
+                                        fo "@\n@\n")
+                                    cats)
                             (trees)
                 end;
                 run
