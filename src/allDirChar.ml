@@ -1308,6 +1308,9 @@ module F : Ptree.Tree_Operations
     (* function to adjust the likelihood model ;for static characters of a tree
      * using BFGS --quasi newtons method. Function requires three directions. *)
     let static_model_chars_fn chars tree = 
+(*        Printf.printf "OPTIMIZING STATIC CHARS: ";*)
+(*        List.iter (fun x -> Printf.printf "%d, " x) chars;*)
+(*        print_newline ();*)
         assert( using_likelihood `Static tree );
         (* replace nodes in a tree, copying relevent data structures *)
         let substitute_nodes nodes tree =
@@ -1396,7 +1399,6 @@ module F : Ptree.Tree_Operations
               Ptree.node_data = new_node_data;
               Ptree.component_root = component_root }
 
-
     (* Optimize model of dynamic likelihood characters by converting to an
      * implied alignment. We do ONE pass; ensuring the improvement of costs
      * exists after the call. *)
@@ -1407,7 +1409,11 @@ module F : Ptree.Tree_Operations
             let dlk_categories = Data.categorize_likelihood_chars_by_model
                                                 `AllDynamic ptree.Ptree.data in
             List.fold_left
-                (fun ptree chars -> 
+                (fun ptree chars ->
+(*                    Printf.printf "OPTIMIZING DYNAMIC CHARS: ";*)
+(*                    List.iter (fun x -> Printf.printf "%d, " x) chars;*)
+(*                    print_newline ();*)
+
                     Status.set_verbosity `None;
                     let data,chars =
                         IA.to_static_homologies true filter_characters true
@@ -1454,7 +1460,7 @@ module F : Ptree.Tree_Operations
         in
         let old_cost = Ptree.get_cost `Adjusted old_tree in
         let new_tree =
-            let old_tree = update_branches old_tree in
+            let old_tree = update_branches old_tree --> assign_single in
             let static_tree = optimize_static_tree old_tree in
             old_tree
                 --> static_model_to_dyn_chars static_tree
