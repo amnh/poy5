@@ -316,10 +316,10 @@ module MakeNormal
             try match List.find (function `Chars _ -> true | _ -> false) ic with
                 | `Chars x -> characters_designation x data
                 | _        -> assert false
-            with Not_found -> [None]
+            with Not_found -> characters_designation `All data
         in
         (* print all trees from sexpr *)
-        let output = 
+        let output =
             let is_first = ref true in
             (fun tree ->
                 let cost = string_of_float (Ptree.get_cost `Adjusted tree) in

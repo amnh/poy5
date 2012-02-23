@@ -223,6 +223,8 @@ module type Tree_Operations =
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
 
         val total_cost : (a, b) p_tree -> [`Adjusted | `Unadjusted] -> int list option -> float
+
+        val prior_cost : (a, b) p_tree -> int list option -> float
             
         val tree_size : (a, b) p_tree -> int list option -> float
 
@@ -2124,7 +2126,6 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
     and root_name tree = function
         | None   -> cost
         | Some c ->
-            Printf.printf "Finding Set Cost\n%!";
             (Some (Array.to_list c))
                 --> Tree_Ops.total_cost tree `Adjusted
                 --> string_of_float

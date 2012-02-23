@@ -142,32 +142,10 @@ and jc69_4 = { substitution = JC69;site_variation= None;cost_fn=`MAL;
 
 let jc69_5_gap flo = { jc69_5 with use_gap = `Coupled flo; }
 
-module OrderedML = struct
-    (* we could choose model or spec, but spec can use Pervasives.compare *)
-    type t = spec 
-    let compare a b = Pervasives.compare a b
-end
-module MlModelMap = Map.Make (OrderedML)
-
 let get_costfn_code a = match a.spec.cost_fn with 
     | `MPL -> 1 
     | `MAL -> 0 
     | `FLK -> ~-1 (* should not call C functions; yet *)
-
-let categorize_by_model get_fn codes =
-    let set_codes =
-        List.fold_left
-            (fun acc code ->
-                try let spec = get_fn code in
-                    try let old = MlModelMap.find spec acc in
-                        MlModelMap.add spec (code::old) acc
-                    with | Not_found ->
-                        MlModelMap.add spec ([code]) acc
-                with | _ -> acc)
-            MlModelMap.empty
-            codes
-    in
-    MlModelMap.fold (fun _ e a -> e :: a) set_codes []
 
 let compare_priors a b =
     let compare_array x y = 
@@ -183,8 +161,6 @@ let compare_priors a b =
         | Estimated x, Estimated y
         | Given     x, Given     y -> compare_array x y
         | (Equal | Estimated _ | Given _), _ -> false
-
-IFDEF USE_LIKELIHOOD THEN
 
 (* a gentler compare that excludes the parameters of the model itself
     Not to be used for a total ordering *)
@@ -225,6 +201,32 @@ let compare a b =
     end;
     m_compare + v_compare + g_compare + p_compare + c_compare
     
+
+module OrderedML = struct
+    (* we could choose model or spec, but spec can use Pervasives.compare *)
+    type t = spec 
+    let compare a b = Pervasives.compare a b
+end
+module MlModelMap = Map.Make (OrderedML)
+
+let categorize_by_model get_fn codes =
+    let set_codes =
+        List.fold_left
+            (fun acc code ->
+                try let spec = get_fn code in
+                    try let old = MlModelMap.find spec acc in
+                        MlModelMap.add spec (code::old) acc
+                    with | Not_found ->
+                        MlModelMap.add spec ([code]) acc
+                with | _ -> acc)
+            MlModelMap.empty
+            codes
+    in
+    MlModelMap.fold (fun _ e a -> e :: a) set_codes []
+
+
+IFDEF USE_LIKELIHOOD THEN
+
 (* ------------------------------------------------ *)
 (* EXTERNAL FUNCTIONS -- maintained in likelihood.c *)
 

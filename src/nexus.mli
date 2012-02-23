@@ -296,6 +296,8 @@ module File : sig
 
     val find_taxon : string option array -> string -> int
 
+    val process_tree : string -> P.tree
+
     val of_channel : in_channel -> string -> nexus
 
     val generate_alphabet : string list -> string -> Alphabet.a

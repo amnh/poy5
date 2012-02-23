@@ -90,7 +90,7 @@ module type S = sig
 
     (** return the minimum prior in one of directions (if more then one) held
      * by the node on the median sequence *)
-    val min_prior : n -> float
+    val min_prior : int list option -> n -> float
 
     (** [node_cost n] calculates the cost of generating [n]. If [n] was created
     * using [load_data], then [node_cost n = 0], otherwise if it was created

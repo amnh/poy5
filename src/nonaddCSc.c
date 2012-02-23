@@ -745,7 +745,6 @@ char_nonadd_CAML_make_new (value len, value code)
     CAMLlocal1 (v);
     long ilen, icode;
     nacat art;
-    nac *data;
 
     ilen = Long_val (len);
     icode = Long_val (code);
@@ -754,8 +753,6 @@ char_nonadd_CAML_make_new (value len, value code)
 
     Nonadd_Custom_val(v,art);
     art->code = icode;
-
-    data = GET_DATA (art);
 
     CAMLreturn (v);
 }

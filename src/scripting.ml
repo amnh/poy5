@@ -3897,18 +3897,14 @@ let rec folder (run : r) meth =
                     let print_table title table = 
                         let fo = Status.Output (filename, false, []) in
                         Status.user_message fo 
-                        ("@{<b>" ^ title ^ " Statistics:@}@[<v 2>@,");
+                            ("@{<b>" ^ title ^ " Statistics:@}@[<v 2>@,");
                         Status.output_table fo table;
                         Status.user_message fo "@]\n%!";
                     in
-                    let min_list = 
-                        Data.apply_on_static 
-                            AddCS.min_possible_cost
-                            NonaddCS8.min_possible_cost 
-                            SankCS.min_possible_cost 
-                            (fun _ _ -> 0.0) 
-                            realch 
-                            run.data
+                    let min_list =
+                        Data.apply_on_static AddCS.min_possible_cost
+                            NonaddCS8.min_possible_cost SankCS.min_possible_cost
+                            (fun _ _ -> 0.0) realch run.data
                     in
                     let add_list lst = 
                         List.fold_left (fun acc (_, cost) -> cost +. acc) 0. lst
@@ -3920,120 +3916,93 @@ let rec folder (run : r) meth =
                             let x = Ptree.get_cost `Adjusted x in
                             [|string_of_float x; f x|]) trees 
                     in
-                    let table, title =
-                        match meth with
+                    let table, title = match meth with
                         | `Ci (filename, ch) ->
-                                let ci ci_val x = 
-                                    string_of_float (100. *. ci_val /. x) 
-                                in
-                                (match ch with
+                            let ci ci_val x = string_of_float (100. *. ci_val /. x) in
+                            begin match ch with
                                 | None ->
-                                        (* We are dealing with all the characters, so
-                                        we print the tree statistics *)
-                                        let ci_val = add_list min_list in
-                                        let trees = 
-                                            get_tree_cost_and_apply (ci ci_val)
-                                        in
-                                        ([|"Tree Cost"; "CI"|] :: trees), "CI"
+                                    (* We are dealing with all the characters, so
+                                    we print the tree statistics *)
+                                    let ci_val = add_list min_list in
+                                    let trees = get_tree_cost_and_apply (ci ci_val) in
+                                    ([|"Tree Cost"; "CI"|] :: trees), "CI"
                                 | Some ch -> 
-                                        (* Otherwise we print each individual character
-                                        * score *)
-                                        let trees =
-                                            get_character_costs run.trees 
-                                        in
-                                        let trees = 
-                                            List.map (fun 
-                                                (tree_cost, tree_chars_costs) ->
-                                                    (List.map (fun (code, ci_val) ->
-                                                        let name =
-                                                            Data.code_character
-                                                            code run.data
-                                                        in
-                                                        try
-                                                            let tree_char_cost = 
-                                                                All_sets.IntegerMap.find code
-                                                                tree_chars_costs 
-                                                            in
-                                                            let res = 
-                                                                ci ci_val tree_char_cost
-                                                            in
+                                    (* Otherwise we print each individual character score *)
+                                    let trees = get_character_costs run.trees in
+                                    let trees = 
+                                        List.map
+                                            (fun (tree_cost, tree_chars_costs) ->
+                                                List.map
+                                                    (fun (code, ci_val) ->
+                                                        let name = Data.code_character code run.data in
+                                                        try let tree_char_cost = All_sets.IntegerMap.find code tree_chars_costs in
+                                                            let res = ci ci_val tree_char_cost in
                                                             [|name; res|]
-                                                        with 
-                                                        | Not_found ->
-                                                                if ci_val = 0.
-                                                                then [|name;
-                                                                "uninformative"|]
-                                                                else [|name;
-                                                                "100."|]) min_list,
-                                                            tree_cost)) trees
-                                        in
-                                        (List.flatten (
-                                        (List.map (fun (lst, tree_cost) ->
-                                            [|"Character of tree with cost " ^
-                                            string_of_float tree_cost; "ci"|] ::
-                                                lst) trees))), "ci")
+                                                        with | Not_found ->
+                                                            if ci_val = 0.  then
+                                                                [|name; "uninformative"|]
+                                                            else
+                                                                [|name; "100."|])
+                                                    min_list, tree_cost)
+                                            trees
+                                    in
+                                    List.flatten
+                                        (List.map
+                                            (fun (lst, tree_cost) ->
+                                                let n = [|"Character of tree with cost " ^ string_of_float tree_cost; "ci"|] in
+                                                n :: lst)
+                                            trees), "ci"
+                            end
                         | `Ri (filename, ch) ->
-                                (let max_list = 
+                            begin
+                                let max_list = 
                                     Data.apply_on_static 
-                                        (fun _ -> 0.)
-                                        NonaddCS8.max_possible_cost
-                                        SankCS.max_possible_cost
-                                        (fun _ _ -> 0.)
-                                        realch
-                                        run.data
+                                        (fun _ -> 0.) NonaddCS8.max_possible_cost
+                                        SankCS.max_possible_cost (fun _ _ -> 0.)
+                                        realch run.data
                                 in
                                 let ri max_cost min_cost x =
-                                    if max_cost = min_cost then "uninformative" 
+                                    if max_cost = min_cost then 
+                                        "uninformative" 
                                     else
-                                        string_of_float (100. *. (max_cost -.
-                                        x) /. (max_cost -. min_cost))
+                                        string_of_float (100. *. (max_cost -. x) /. (max_cost -. min_cost))
                                 in
                                 match ch with
                                 | None ->
-                                        let res1 = add_list min_list
-                                        and res2 = add_list max_list in
-                                        let trees = 
-                                            get_tree_cost_and_apply (ri res2 res1)
-                                        in
-                                        ([|"Tree Cost"; "RI"|]
-                                        :: trees), "RI"
+                                    let res1 = add_list min_list
+                                    and res2 = add_list max_list in
+                                    let trees = 
+                                        get_tree_cost_and_apply (ri res2 res1)
+                                    in
+                                    ([|"Tree Cost"; "RI"|] :: trees), "RI"
                                 | Some ch ->
-                                        let trees = 
-                                            let trees = get_character_costs
-                                            run.trees in
-                                            List.map (fun 
-                                                (tree_cost, tree_chars_costs) ->
-                                                    (List.map2 (fun (code,
-                                                    min_val) (code, max_val) ->
-                                                        let name =
-                                                            Data.code_character
-                                                            code run.data
+                                    let trees = let trees = get_character_costs run.trees in
+                                    List.map 
+                                        (fun (tree_cost, tree_chars_costs) ->
+                                            List.map2
+                                                (fun (code, min_val) (code, max_val) ->
+                                                    let name =
+                                                        Data.code_character code run.data
+                                                    in
+                                                    try let tree_char_cost =
+                                                            All_sets.IntegerMap.find code tree_chars_costs
                                                         in
-                                                        try
-                                                            let tree_char_cost = 
-                                                                All_sets.IntegerMap.find code
-                                                                tree_chars_costs 
-                                                            in
-                                                            let res = 
-                                                                ri max_val
-                                                                min_val tree_char_cost
-                                                            in
-                                                            [|name; res|]
-                                                        with 
-                                                        | Not_found ->
-                                                                if min_val = max_val
-                                                                then [|name;
-                                                                "uninformative"|]
-                                                                else [|name;
-                                                                "100."|])
-                                                    min_list max_list,
-                                                            tree_cost)) trees
-                                        in
-                                        (List.flatten (
-                                        (List.map (fun (lst, tree_cost) ->
-                                            [|"Character of tree with cost " ^
-                                            string_of_float tree_cost; "ri"|] ::
-                                                lst) trees))), "ri")
+                                                        let res = ri max_val min_val tree_char_cost in
+                                                        [|name; res|]
+                                                    with | Not_found ->
+                                                        if min_val = max_val then
+                                                            [|name; "uninformative"|]
+                                                        else [|name; "100."|])
+                                                min_list max_list, tree_cost)
+                                        trees
+                                    in
+                                    List.flatten
+                                        (List.map
+                                            (fun (lst, tree_cost) ->
+                                                let n = [|"Character of tree with cost " ^ string_of_float tree_cost; "ri"|] in
+                                                n :: lst)
+                                            trees),"ri"
+                            end
                         in
                         let table = 
                             Array.of_list 
@@ -4071,35 +4040,41 @@ let rec folder (run : r) meth =
                                     let model  = Data.get_likelihood_model run.data chars
                                     and name   = Data.get_character_set_name run.data chars
                                     and ntaxa  = run.data.Data.number_of_taxa in
-                                    let name = match name with | Some name -> name | None -> "" in
-                                    fo ("@[<hov 0>Set Name: "^name^"@]@\n");
+                                    let cname = match name with | Some name -> name | None -> "" in
+                                    if cname <> "" then
+                                        fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
                                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                     MlModel.output_model fo `Hennig model None)
-                            (Data.categorize_characters_comp run.data chars)
+                            (Data.categorize_likelihood_chars_by_model chars run.data)
                     | trees -> 
                         List.iter
                             (fun t ->
-                                let charss = Data.categorize_static_likelihood_by_model chars t.Ptree.data in
-                                let tname  = match t.Ptree.tree.Tree.tree_name with 
-                                           | Some tname -> tname 
-                                           | None -> ""
+                                let tname =
+                                    match t.Ptree.tree.Tree.tree_name with
+                                    | Some tname -> tname
+                                    | None -> ""
                                 in
+                                let cats = Data.categorize_likelihood_chars_by_model chars run.data in
                                 List.iter
-                                    (fun chars ->
-                                        let model  = Data.get_likelihood_model t.Ptree.data chars
-                                        and cost   = TreeOps.total_cost t `Adjusted (Some chars)
-                                        and length = TreeOps.tree_size t (Some chars)
-                                        and cname  = Data.get_character_set_name t.Ptree.data chars
-                                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                                        let cname  = match cname with | Some cname -> cname | None -> "" in
-                                        fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
-                                        fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
+                                    (fun xs ->
+                                        let model = Data.get_likelihood_model t.Ptree.data xs
+                                        and cost  = TreeOps.total_cost t `Adjusted (Some xs)
+                                        and length= TreeOps.tree_size t (Some xs)
+                                        and prior = TreeOps.prior_cost t (Some xs)
+                                        and cname = Data.get_character_set_name t.Ptree.data xs
+                                        and ntaxa = t.Ptree.data.Data.number_of_taxa in
+                                        let cname = match cname with | Some cname -> cname | None -> "" in
+                                        if tname <> "" then
+                                            fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
+                                        if cname <> "" then
+                                            fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
                                         fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                         fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                                         fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                                        fo ("@[<hov 0>Log-Prior:"^string_of_float (~-.prior)^"@]@\n");
                                         MlModel.output_model fo `Hennig model None;
-                                        fo "@\n")
-                                    charss)
+                                        fo "@\n@\n")
+                                    cats)
                             (trees)
                 end;
                 run

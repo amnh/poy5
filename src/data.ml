@@ -673,27 +673,38 @@ let modified_characters data_one data_two : int =
         data_one;
     !modified
 
-let get_likelihood_model data chars = 
-    let get_model x = match Hashtbl.find data.character_specs x with
-        | Static dat ->
-            begin match dat.Nexus.File.st_type with
-                | Nexus.File.STLikelihood model -> model
-                | _ -> failwith "unsupported static character"
-            end
-        | Dynamic s when s.state = `Ml ->
-            begin match s.lk_model with
-                | Some x -> x
-                | None   -> failwith "inconsistent dynamic likelihood state"
-            end
-        | _ -> failwith "unsupported characters"
+let get_likelihood_model data chars =
+    let get_model x =
+        try match Hashtbl.find data.character_specs x with
+            | Static dat ->
+                begin match dat.Nexus.File.st_type with
+                    | Nexus.File.STLikelihood xm -> x,xm
+                    | _ -> failwith "unsupported static character"
+                end
+            | Dynamic s when s.state = `Ml ->
+                begin match s.lk_model with
+                    | Some xm -> x,xm
+                    | None    -> failwith "inconsistent dynamic likelihood state"
+                end
+            | _ -> failwith "unsupported characters"
+        with | Not_found ->
+            failwithf "Cannot find character: %d" x
     in
     match List.map get_model chars with
-    | h::t ->
-        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
-            h
-        else 
-            failwith "Inconsistent Model over characters"
-    | []   ->
+    | (h,hm)::t ->
+        assert( List.fold_left 
+                    ~f:(fun acc (x,xm) ->
+                            if 0 = MlModel.compare xm hm then acc
+                            else begin
+                                Printf.printf "Model Inconsistency: %d<>%d\n%!" h x;
+                                MlModel.output_model (print_string) `Nexus xm None;
+                                MlModel.output_model (print_string) `Nexus hm None;
+                                false
+                            end)
+                    ~init:true
+                    t);
+        hm
+    | []   -> 
         failwith "No Characters found"
 
 let is_fs data code =
@@ -2195,21 +2206,22 @@ let print_parsed_data lst =
 
 
 let add_multiple_static_parsed_file data list =
-(*    print_parsed_data list;*)
     let data = duplicate data in
-    let data,map = 
+    let data,map,newcodes = 
         List.fold_left 
-            ~f:(fun (data,map) (code,(file, triple)) ->
+            ~f:(fun (data,map,codes) (code,(file, triple)) ->
                     let ncodes,data = gen_add_static_parsed_file false data file triple in
                     match code with
                     | Some code -> 
-                        (data,All_sets.IntegerMap.add code (Array.to_list ncodes) map)
-                    | None -> (data,map))
-            ~init:(data,data.dynamic_static_codes)
+                        let addcodes = Array.to_list ncodes in
+                        (data, All_sets.IntegerMap.add code addcodes map, addcodes@codes)
+                    | None -> (data,map,codes))
+            ~init:(data,data.dynamic_static_codes,[])
             list
     in
     { data with dynamic_static_codes = map;
-                static_dynamic_codes = reverse_dynamic_static_codes map; }
+                static_dynamic_codes = reverse_dynamic_static_codes map; },
+    newcodes
 
 
 let add_static_file ?(report = true) style data (file : FileStream.f) = 
@@ -2756,7 +2768,7 @@ let categorize data =
                      kolmogorov = [];
                      static_ml = [];
                } in                         
-    let data = repack_codes data in
+    (* let data = repack_codes data in*)
     let categorizer code spec data =
         match spec with
         | Static enc -> (* Process static characters *)
@@ -2769,20 +2781,20 @@ let categorize data =
                 | Nexus.File.STOrdered -> data
                 | Nexus.File.STUnordered ->
                         if between 0 1 then
-                            { data with non_additive_1 = code ::
-                                data.non_additive_1 }
+                            { data with
+                                non_additive_1 = code :: data.non_additive_1 }
                         else if between 2 8 then
-                            { data with non_additive_8 = code ::
-                                data.non_additive_8 }
+                            { data with
+                                non_additive_8 = code :: data.non_additive_8 }
                         else if between 9 16 then
-                            { data with non_additive_16 = code :: 
-                                data.non_additive_16 }
+                            { data with
+                                non_additive_16 = code :: data.non_additive_16 }
                         else if between 17 32 then
-                            { data with non_additive_32 = code :: 
-                                data.non_additive_32 }
+                            { data with 
+                                non_additive_32 = code :: data.non_additive_32 }
                         else if observed > 32 then
-                            { data with non_additive_33 = code :: 
-                                data.non_additive_33 }
+                            { data with
+                                non_additive_33 = code :: data.non_additive_33 }
                         else data
                 | Nexus.File.STLikelihood _ ->
                         { data with static_ml = code :: data.static_ml })
@@ -2815,39 +2827,25 @@ let get_sequence_tcm seqcode data =
 
 let get_sequence_alphabet seqcode data = 
     let chars = data.character_specs in
-    try
-        match Hashtbl.find chars seqcode with
-        | Dynamic dspec ->
-                dspec.alph
+    try match Hashtbl.find chars seqcode with
+        | Dynamic dspec    -> dspec.alph
         | Kolmogorov dspec -> dspec.dhs.alph
         | _ -> failwith "Data.get_sequence_alphabet: Not a dynamic character"
-    with
-    | err ->
-            let name = code_character seqcode data in
-            let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-            " with name " ^ StatusCommon.escape name in
-            Status.user_message Status.Error msg;
-            raise err
+    with | err ->
+        let name = code_character seqcode data in
+        let msg = "Could not find the code " ^ string_of_int seqcode ^ 
+                  " with name " ^ StatusCommon.escape name in
+        Status.user_message Status.Error msg;
+        raise err
 
-
-let get_files data = List.rev data.files
 
 let add_file data contents file = 
     let file = (FileStream.filename file), contents in
     { data with files = file :: data.files }
 
+
 let get_taxa data = 
     All_sets.IntegerMap.fold (fun _ name acc -> name :: acc) data.taxon_codes []
-
-let get_used_observed code d =
-    let a = 
-        match Hashtbl.find d.character_specs code with
-        | Static a -> a
-        | _ -> failwith "Data.get_used_observed expects a static character"
-    in
-    match a.Nexus.File.st_used_observed with
-    | Some x -> x
-    | None -> failwith "Data.get_used_observed"
 
 let make_value_formatter x = (PXML -[Xml.Data.value][`String x]--)
 
@@ -4133,25 +4131,6 @@ let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods
     else
         data
 
-
-let categorize_static_likelihood_by_model chars data =
-    let get_spec i = 
-        let model = 
-            match Hashtbl.find data.character_specs i with
-                | Static spec ->
-                    begin match spec.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood model -> model
-                        | _ -> assert false
-                    end
-                | _ -> assert false
-        in
-        model.MlModel.spec
-    in
-    `Some (get_chars_codes_comp data chars)
-        --> get_code_from_characters_restricted `StaticLikelihood data
-        --> MlModel.categorize_by_model get_spec
-
-
 let categorize_sets data : int list list =
     let rec inner_find i = function
         | is::_ when List.mem i is -> true
@@ -4226,6 +4205,29 @@ let categorize_characters data chars = match chars with
                 if found xs selected then xs :: acc else acc)
             ~init:[]
             all_sets
+
+
+let categorize_likelihood_chars_by_model chars data =
+    let get_spec i = 
+        let model = match Hashtbl.find data.character_specs i with
+            | Static spec ->
+                begin match spec.Nexus.File.st_type with
+                    | Nexus.File.STLikelihood model -> model
+                    | _ -> assert false
+                end
+            | Dynamic s when s.state = `Ml ->
+                begin match s.lk_model with
+                    | Some model -> model
+                    | None -> assert false
+                end
+            | _ -> assert false
+        in
+        model.MlModel.spec
+    in
+    chars
+        --> categorize_characters_comp data
+        --> List.map ~f:(fun x -> MlModel.categorize_by_model get_spec x)
+        --> List.flatten
 
 
 let make_codon_partitions functional data name ccodes =
@@ -4447,6 +4449,8 @@ let compute_priors data chars u_gap =
             Array.map (fun x ->(x -. gap_contribution) /. counter) priors
         end
     in
+    let final_priors = 
+        Array.map (fun x -> max x Numerical.minimum) final_priors in
     if debug_priors then begin
         let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in
         Printf.printf "Final Priors (%f): [" sum;
@@ -4468,7 +4472,6 @@ let apply_likelihood_model_on_char_table replace data table codes model =
         (* replace only likelihood characters in set of codes *)
         List.iter
             (fun code ->
-                Printf.printf "Converting %d\n" code;
                 match Hashtbl.find table code with
                 | Static x when (is_likelihood x.Nexus.File.st_type) -> 
                     Hashtbl.replace table code
@@ -6089,6 +6092,7 @@ let sync_dynamic_to_static_model ~src ~dest =
         spec
     in
     categorize { dest with character_specs = char_specs; }
+
 
 (* converse of above function *)
 let sync_static_to_dynamic_model ~src ~dest = 
