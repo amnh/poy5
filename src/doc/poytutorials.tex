@@ -599,12 +599,11 @@ perturb(transform(static_approx),iterations:50,ratchet:(0.2,3))
 fuse(iterations:200,swap())
 select()
 
-(* Transform the static data to likelihood characters, specifying 
-  a GTR + Gamma 4 model with empirical equilibrium frequencies 
+(* Transform the static data to likelihood characters, specifying
+  a GTR + Gamma 4 model with empirical equilibrium frequencies
   under traditional MAL *)
-transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),
-gap:(missing),mal))
-swap(spr,iteration:(model:(max_count:5),branch:join_region))
+transform(likelihood:(gtr,rates:(gamma),priors:(estimate),gap:(missing)))
+swap(spr,optimize:(model:(max_count:5),branch:join_region))
 select(best:1)
 report("9likelihood.tre",trees:(branches))
 report("9likelihood.lkm",lkmodel)
@@ -633,12 +632,12 @@ This is another strategy for further exploration of tree space. Each resulting t
 swapping under the default parameters of \poycommand{swap}.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically
  unique trees; all other trees are discarded from memory.
-\item \texttt{transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),\\gap:(missing),mal))} This command 
+\item \texttt{transform(likelihood:(gtr,rates:(gamma),priors:(estimate),\\gap:(missing)))} This command 
 transforms the characters to static likelihood characters, using a GTR + $\Gamma 4$ model, with empirical 
 equilibrium frequencies under standard MAL. In this model, indels are treated as ``missing'' data, as for the 
 preceding parsimony search. Several default values, such as \texttt{gap:(missing)}, and \texttt{gamma:(4)} are 
 listed explicitly.
-\item \texttt{swap(spr,iteration:(model:(max\_count:5),branch:join\_region))} This command swaps the tree using 
+\item \texttt{swap(spr,optimize:(model:(max\_count:5),branch:join\_region))} This command swaps the tree using 
 subtree pruning and regrafting, specifying that iteration of likelihood model parameters will occur after every 5 
 joins, and that iteration of branches will occur only in the area around the join point. These iteration 
 specifications are less strict than the defaults for the purpose of speeding up the swapping.
@@ -677,7 +676,7 @@ select()
    characters, specifying a GTR  model with empirical equilibrium
    frequencies and a shared nucleotide-indel substitution rate. *)
 transform(likelihood:(gtr,priors:(estimate),gap:(coupled),mpl))
-swap(spr,iteration:(model:(max_count:5)))
+swap(spr,optimize:(model:(max_count:5)))
 select(best:1)
 report("9likelihood.ia",ia:all)
 report("9likelihoodYtree.tre",trees:(branches))
