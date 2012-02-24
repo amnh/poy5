@@ -2578,7 +2578,12 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 above.}
                 {}
             
-                \argumentdefinition{root}{\obligatory{\poylident}}
+             \argumentdefinition{normal\_alignment}{}
+                {Resets to the core alignment algorithm following the use of 
+                the \poyargument {space\_saving\_alignment}.}
+                {normalalignment}
+                
+          \argumentdefinition{root}{\obligatory{\poylident}}
                 {Specifies the terminal to root output trees.
                  The terminal can either be indicated as a taxon name (a
                 \poystring, which must appear in quotes, such as
@@ -2589,12 +2594,23 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 terminal codes, however, are unique only within a current
                 session.}
                 {root}
-
+              
+              \argumentdefinition{space\_saving\_alignment}{\optional{\poylident}}
+                        {The optional \texttt {space\_saving\_alignment} argument can be used with 
+                        chromosomal or genomic data to minimize memory 
+                        consumption during the alignment of LCBs.  This option, 
+                        however, will slow the alignment process and is only 
+                        recommended for very large chromosomal data sets to 
+                        reduce memory consumption. To reset, see the description of the 
+                        argument \poyargument{normal\_alignment} above.}
+                        {spacesavingalignment}
+                        
             \argumentdefinition{timer}{\obligatory{\poyint}}
                 {Specifies the lapse of time in seconds that should have passed
                 between reporting the total execution time of a swap and build
                 command. If the timer is set to 0, then no time messages are
                 generated.}{}
+  
 
         \end{argumentgroup}
 
@@ -2622,18 +2638,8 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 Otherwise, if the argument value is \poyargument{approximate}, then the iterations
                 approximate the three dimensional alignment using pairwise
                 alignments. 
-                
-                \argumentdefinition{normal\_do}{}
-                {Applies a standard Direct Optimization algorithm for the tree
-                cost estimation. This is the default and fastest technique.}
-                {normaldo}
-
-	   \argumentdefinition{normal\_do\_plus}{}
-                {Applies a more exhaustive Direct Optimization algorithm for the tree cost estimation. 
-                During branch swapping, a more exhaustive calculation of the tree cost is performed.}
-                {normaldoplus}
-                
-                If the argument value is \poyargument{exact}, this method improves the tree
+                 
+                    If the argument value is \poyargument{exact}, this method improves the tree
                 cost estimation but at the expense of a tremendous execution
                 time. When approximate the execution time footprint is much
                 smaller, and far less memory consumption.
@@ -2645,6 +2651,17 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 given, then the procedure iterates until no further tree cost
                 improvement can be made.}
                 {}
+                \argumentdefinition{normal\_do}{}
+                {Applies a standard Direct Optimization algorithm for the tree
+                cost estimation. This is the default and fastest technique.}
+                {normaldo}
+
+	   \argumentdefinition{normal\_do\_plus}{}
+                {Applies a more exhaustive Direct Optimization algorithm for the tree cost estimation. 
+                During branch swapping, a more exhaustive calculation of the tree cost is performed.}
+                {normaldoplus}
+                
+            
                 
 	\begin{statement}
   	  Due to the complexity of heuristics of the iterative pass optimization, 
@@ -3352,6 +3369,13 @@ parameters and branch lengths. Additional optimizations are performed after diag
             the cost of substitutions and indels are both \texttt{1}.  [Note: previous versions of \texttt{poy}, had
             the cost of an indel set to \texttt{2} (\poyargument{tcm:(1,1)}).]}
             {transformtcm}
+            
+            	\begin{statement}
+  	  When constructing a transformation cost matrix it is important to do so in a text editor 
+	  such as Notepad (for Windows), TextEdit (for Mac), or Nano (for Linux). Generating a tcm in 
+	  a word processing application such as Microsoft Word may lead to the insertion of hidden 
+	  characters, which will result in an error.
+	\end{statement}
 
               \argumentdefinition{tcm}{\obligatory{(\poystring, \poyint)}}
             {Defines the transformation cost matrix by importing a file (specified by
@@ -4045,16 +4069,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
                   \url{http://www.tsp.gatech.edu//concorde/downloads/downloads.htm. } }
                    {mediansolver}
                        
-                       
-                    \argumentdefinition{newkkonen}{\optional{\poylident}}
-                        {The optional \texttt {newkkonen} argument can be used with 
-                        chromosomal or genomic data to minimize memory 
-                        consumption during the alignment of LCBs.  This option, 
-                        however, may slow the alignment process and is only 
-                        recommended for very large chromosomal data sets to 
-                        reduce memory consumption.}
-                        {newkkonen}
-                        
+                                           
 		   \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
           	 {Transforms nucleotide type data into \\ chromosome type data to allow
            	 rearrangements, inversions, and locus-level indel operations.  The
