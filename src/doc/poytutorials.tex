@@ -354,7 +354,8 @@ identification of independent regions.
 read(chromosome:("mit5.txt"))
 transform(chromosome:(locus_inversion:15,locus_indel:(10,0.9)))
 transform(chromosome:(annotate:(mauve,25.0,0.3,0.01,0.08)))
-transform(fixed_states:"mauveout",ignore_polymorphism))
+transform(fixed_states:("mauveout",
+_polymorphism))
 build()
 swap()
 select()
@@ -421,7 +422,7 @@ identification of independent regions delineated by pipes  \texttt{"|"}.
 (* Chromosome analysis of annotated sequences *)
 read(annotated:("aninv2"))
 transform(chromosome:(locus_inversion:20,locus_indel:(10,1.5),
-circular:false,median:1,swap_med:1)))
+circular:(false,median:1,swap_med:1)))
 build(100)
 swap()
 select()
@@ -512,7 +513,7 @@ the \poyargument{diagnosis} outputs the optimal median states and edge values to
 %\item \texttt{exit()} This commands ends the \poy session.
 %\end{itemize}
 
-\section{Genome analysis: multiple chromosomes}{\label{tutorial 9}}
+\section{Genome analysis: multiple chromosomes}{\label{tutorial 8}}
 
 This tutorial illustrates the analysis of genome-level transformations using data from multiple chromosomes. 
 
@@ -578,7 +579,7 @@ name and the \poyargument{graphconsensus} generates a pdf strict consensus file 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Traditional maximum likelihood analysis with static characters}{\label{tutorial10}}
+\section{Traditional maximum likelihood analysis with static characters}{\label{tutorial 9}}
 The following script covers the basics required for an analysis under the maximum likelihood criterion that is of 
 similar intensity to that of a search using the GTR model in PhyML. Because there are many steps in, and 
 options for, maximum likelihood in POY, each step is explained twice, once as a comment within the script itself, 
@@ -654,7 +655,7 @@ the rate variation shape parameter.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Dynamic maximum likelihood analysis}{\label{tutorial11}}
+\section{Dynamic maximum likelihood analysis}{\label{tutorial10}}
 The following script covers an analysis using dynamic MPL, and assumes you have covered the previous 
 tutorial, ``Traditional maximum likelihood analysis using static characters'' and are familiar with the intensity of 
 the search strategy employed therein. As with the previous tutorial, some familiarity with the terminology of 

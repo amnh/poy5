@@ -24,6 +24,7 @@
 
 #include "config.h" //defines if likelihood, use_.., et cetera
 #include <math.h>   //log,exp
+#include <time.h>   //for random init
 
 //caml specific headers
 #include <caml/alloc.h>     //copy_double, et cetera
@@ -133,6 +134,70 @@ double lngamma_pdf(const double r, const double alpha, const double beta)
 {
     return (pow(beta,alpha)*pow(r, alpha-1)) / (exp(beta*r + lngamma(alpha)) );
 }
+
+
+/** [rand_normal m s]
+ * generate a random number in a given gaussian/normal distribution */
+double rand_normal( const double mean, const double stdev )
+{
+    double u1,u2, r,theta;
+    assert( stdev > 0.0 );
+    srand( time(NULL) );
+
+    u1 = rand();
+    u2 = rand();
+    r = sqrt( -2.0 * log(u1) );
+    theta = 2.0 * M_PI * u2;
+
+    return (mean + stdev * r * sin(theta));
+}
+
+/* [rand_exponential mean]
+ * generate a random exponential value from a mean */
+double rand_exp( const double mean )
+{
+    assert( mean > 0.0 );
+    srand( time(NULL) );
+    return (-mean * log(rand()));
+}
+
+/** [rand_gamma a b]
+ * Implementation based on "A Simple Method for Generating Gamma Variables"
+ * by George Marsaglia and Wai Wan Tsang.  
+ * ACM Transactions on Mathematical Software
+ * Vol 26, No 3, September 2000, pages 363-372.
+ */
+double rand_gamma( const double shape, const double scale )
+{
+    double g,w,x,v,c,d,xsq,u;
+
+    assert( shape > 0.0 );
+    assert( scale > 0.0 );
+    srand( time(NULL) );
+
+    if( shape >= 1.0 ){
+        d = shape - 1.0 / 3.0;
+        c = 1.0 / (sqrt( 9.0 * d));
+        do {
+            x = rand_normal(0, 1);
+            v = 1.0 + c *x;
+            while( v <= 0.0 ){
+                x = rand_normal(0, 1);
+                v = 1.0 + c * x;
+            }
+            v = v*v*v;
+            u = rand();
+            xsq = x*x;
+        } while((u < (1.0 - 0.331 * xsq * xsq))
+            || (log(u) < (0.5*xsq + d*(1.0-v+log(v))))); 
+    } else {
+        g = rand_gamma( shape + 1.0, 1.0 );
+        w = rand();
+        return (scale*g*pow(w,1.0/shape));
+    }
+    return (scale * d * v);
+}
+
 
 /** confluent hypergeometric (for incomplete gamma ratio)
  *   ___inf
