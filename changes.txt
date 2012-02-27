@@ -2,7 +2,7 @@ CHANGES BETWEEN 5.0.0a and 5.0.1a
 
 New Features:
     - orientation set to true by default for breakinversion data-type.
-
+    - faster alignment under low-mem settings
 
 Bugs Fixed:
     - Fixed Makfile in src directory to perform the install, and removed the
@@ -28,16 +28,26 @@ Bugs Fixed:
       been reverted correctly, and also includes affine low-mem ukkonen.
     - Compiling supramap and cmxs libraries dynamic linking rule was missing
       in our myocamlbuild file. (bug report by Travis Treseder).
+    - Diagnosing Static and Dynamic Likelihood mixed models caused errors due to
+      demarcation of sets of data. Resolved so we group by the type of model
+      being applied to the characters as well as pre-defined sets and data
+      classes.
     - Diagnosis for Dynamic Likelihood characters did not work on leaf nodes.
-
-Feature Eliminated:
-
+    - Backtrace works the same in POY4 and POY5 for normal alignment; the issue
+      is in regard to the preference in inserting indels in which sequence.
+    - Affine alignment bug with aligning two sequences at a point each having 
+      gap polymorphisms. This is a very rare instance.
 
 New Commands:
-
+    - set(space_saving_alignment)
+    - set(normal_alignment)
+        - commands turn on/off low-memory alignment procedure. Default off.
 
 Changed Commands:
-
+    - transform(chromosome:(newkkonen,..)
+    - transform(genome:(newkkonen,... ))
+        - this option is specified in the low-memory/space-saving alignment
+          procedure mentioned above.
 
 
 CHANGES BETWEEN 4.1.2.1 and 5.0.0a
