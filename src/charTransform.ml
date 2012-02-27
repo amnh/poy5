@@ -732,26 +732,72 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     (* estimate a likelihood model from non-addative characters as defined in
      * chars, over branches. Classify all transitions and count base frequencies
      * of leaves for priors, then construct the model. *)
-    let estimate_likelihood_model p_tree branches alphabet (chars,cost,subst,variation,_,gap) =
+    let estimate_likelihood_model p_tree branches alph (chars,cost,subst,vari,_,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
             | Tree.Interior _ -> false
-            | Tree.Single _   -> assert( false ) (* shouldnot happen *)
+            | Tree.Single _   -> assert false
         in
-        let classify_branch ptree e acc = 
+        let classify_branch ptree e acc =
             let Tree.Edge (ac,bc) = e and data = ptree.Ptree.data in
             let a = Ptree.get_node_data ac ptree and b = Ptree.get_node_data bc ptree in
-            let dataa = Node.extract_states alphabet data (Some bc) chars a
-            and datab = Node.extract_states alphabet data (Some ac) chars b in
+            let dataa = Node.extract_states alph data (Some bc) chars a
+            and datab = Node.extract_states alph data (Some ac) chars b in
             MlModel.classify_seq_pairs (is_leaf ptree ac) (is_leaf ptree bc) dataa datab acc
         and l_traversal lst classify_func ptree acc =
             List.fold_left (fun acc e -> classify_func ptree e acc) acc lst
+        and add_const_characters ((trans,freqs) as acc) =
+            let addert = float_of_int (List.length branches)
+            and adderf = float_of_int (p_tree.Ptree.data.Data.number_of_taxa) in
+            List.fold_left
+                (fun (t,f) c ->
+                    let states =
+                        match Hashtbl.find p_tree.Ptree.data.Data.character_specs c with
+                        | Data.Static spec -> spec.Nexus.File.st_observed
+                        | _           -> assert false
+                    in
+                    let div = float_of_int (List.length states) in
+                    List.fold_left
+                        (fun (t,f) state ->
+                            let t =
+                                let olt =
+                                    if All_sets.FullTupleMap.mem (state,state) t
+                                        then All_sets.FullTupleMap.find (state,state) t
+                                        else 0.0
+                                in
+                                All_sets.FullTupleMap.add (state,state) (olt+.(addert/.div)) t
+                            and f =
+                                let olf =
+                                    if All_sets.IntegerMap.mem state f
+                                        then All_sets.IntegerMap.find state f
+                                        else 0.0
+                                in
+                                All_sets.IntegerMap.add state (olf+.(adderf/.div)) f
+                            in
+                            (t,f))
+                        (t,f)
+                        (states))
+                acc
+                p_tree.Ptree.data.Data.non_additive_1
+        and debug_print_costs ((t,f) as ret) =
+            All_sets.IntegerMap.iter
+                (fun k v ->
+                    Printf.printf "%s -- %f\n%!" (Alphabet.match_code k alph) v)
+                f;
+            All_sets.FullTupleMap.iter
+                (fun (ka,kb) v ->
+                    Printf.printf "(%s,%s) -- %f\n%!"
+                        (Alphabet.match_code kb alph) (Alphabet.match_code ka alph) v)
+                t;
+            ret
         in
         (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
             --> l_traversal branches classify_branch p_tree
-            --> MlModel.spec_from_classification alphabet gap subst variation cost
-            --> MlModel.create alphabet
+            --> add_const_characters
+(*            --> debug_print_costs*)
+            --> MlModel.spec_from_classification alph gap subst vari cost
+            --> MlModel.create alph
       ELSE
         failwith MlModel.likelihood_not_enabled
       END
@@ -906,19 +952,22 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         let chars = `Some (Data.get_chars_codes_comp t.Ptree.data chars) in
                         Data.get_code_from_characters_restricted `AllStatic t.Ptree.data chars
                     in
-                    let _,alpha = Data.verify_alphabet t.Ptree.data chars
-                    and chars_ = match chars with
-                        | [] -> None | cs -> Some (Array.of_list cs)
-                    in
-                    let bs = Tree.get_edges_tree t.Ptree.tree in
-                    let ndata, nodes =
-                        (chars_,a,b,c,d,e) 
-                            --> estimate_likelihood_model t bs alpha
-                            --> Data.apply_likelihood_model_on_chars t.Ptree.data chars
-                            --> Node.load_data
-                    in
-                    let ntree = substitute_nodes nodes {t with Ptree.data = ndata} in
-                    Sexpr.union (`Single ntree) tsexp)
+                    match chars with
+                    | [] -> failwith "No Characters Selected to Transform"
+                    | _  ->
+                        let _,alpha = Data.verify_alphabet t.Ptree.data chars
+                        and chars_ = match chars with
+                            | [] -> None | cs -> Some (Array.of_list cs)
+                        in
+                        let bs = Tree.get_edges_tree t.Ptree.tree in
+                        let ndata, nodes =
+                            (chars_,a,b,c,d,e) 
+                                --> estimate_likelihood_model t bs alpha
+                                --> Data.apply_likelihood_model_on_chars t.Ptree.data chars
+                                --> Node.load_data
+                        in
+                        let ntree = substitute_nodes nodes {t with Ptree.data = ndata} in
+                        Sexpr.union (`Single ntree) tsexp)
                 `Empty
                 trees
             (* this data/nodes are used when building/loading new trees *)
