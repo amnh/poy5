@@ -1017,7 +1017,16 @@ module Align = struct
                     s1p, s2p, tc
             | _ ->
                     let tc = cost_2 s1 s2 c m in   
-                    let s1p, s2p = create_edited_2 s1 s2 m c in   
+                    let s1p, s2p = create_edited_2 s1 s2 m c in
+                    (*cost compare test
+                    let oc1 =  open_out "normal.out" in
+                    Printf.fprintf oc1 "%d%!" tc;
+                    close_out oc1;
+                    let oc =  open_out "normal.out2" in
+                    print oc s1p Alphabet.nucleotides;
+                    print oc s2p Alphabet.nucleotides;
+                    close_out oc;
+                    cost compare test*)
                     s1p, s2p, tc   
         in 
         match first_gap with
@@ -1420,6 +1429,21 @@ module NewkkAlign = struct
                     (*Printf.printf " editing cost = %d,call traceback\n%!"
                     * tc;*)
                     let s1p, s2p = get_alignment s1 s2 c m false in
+                    (*cost&algn compare test start
+                    let oc1 =  open_out "newkkonen.out" in
+                    Printf.fprintf oc1 "%d%!" tc;
+                    close_out oc1;
+                    let oc =  open_out "newkkonen.out2" in
+                    if exchange then begin
+                        print oc s2p Alphabet.nucleotides;
+                        print oc s1p Alphabet.nucleotides;
+                    end
+                    else begin
+                        print oc s1p Alphabet.nucleotides;
+                        print oc s2p Alphabet.nucleotides;
+                    end;
+                    close_out oc;
+                    cost&algn compare test end*)
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc   
