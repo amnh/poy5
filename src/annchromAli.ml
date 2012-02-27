@@ -1362,11 +1362,20 @@ let assign_single_nonroot parent child child_ref c2 annchrom_pam =
     match (parent.ref_code1 = -1) && (parent.ref_code2 = -1) with
     | true -> Array.map (fun s -> s.seq) parent.seq_arr
     | false -> 
-          let gap = Cost_matrix.Two_D.gap c2 in 
+          let gap = Cost_matrix.Two_D.gap c2 in
+          let use_ukk = 
+         match !Methods.algn_mode with
+              | `Algn_Newkk -> true
+              | _ -> false
+        in
           let map = 
               Array_ops.map_2 
               (fun parent_seq_t child_seq_t ->
                 let alied_single_seq,_ = 
+                if use_ukk then
+                    Sequence.NewkkAlign.closest parent_seq_t.alied_med
+                    child_seq_t.seq c2 Sequence.NewkkAlign.default_ukkm 
+                else
                   Sequence.Align.closest parent_seq_t.alied_med child_seq_t.seq c2 Matrix.default
                 in
                 let alied_child_seq,order  =

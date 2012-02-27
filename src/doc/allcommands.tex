@@ -2536,8 +2536,9 @@ parameters and branch lengths. Additional optimizations are performed after diag
 
 	\begin{poydescription}
             Changes the settings of \poy. This command performs diverse auxiliary 
-            functions, from setting the seed of the random number generator to
-            selecting a terminal for rooting output trees.
+            functions, from setting the seed of the random number generator, to
+            selecting a terminal for rooting output trees, to defining character sets
+            for different partitions.
             
             There is no default setting for \poycommand{set} and the order of its
             arguments is arbitrary.
@@ -2578,7 +2579,12 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 above.}
                 {}
             
-                \argumentdefinition{root}{\obligatory{\poylident}}
+             \argumentdefinition{normal\_alignment}{}
+                {Resets to the core alignment algorithm following the use of 
+                the \poyargument {space\_saving\_alignment}.}
+                {normalalignment}
+                
+          \argumentdefinition{root}{\obligatory{\poylident}}
                 {Specifies the terminal to root output trees.
                  The terminal can either be indicated as a taxon name (a
                 \poystring, which must appear in quotes, such as
@@ -2589,12 +2595,29 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 terminal codes, however, are unique only within a current
                 session.}
                 {root}
-
+              
+              \argumentdefinition{space\_saving\_alignment}{\optional{\poylident}}
+                        {The optional \texttt {space\_saving\_alignment} argument can be used with 
+                        chromosomal or genomic data to minimize memory 
+                        consumption during the alignment of LCBs.  This option, 
+                        however, will slow the alignment process and is only 
+                        recommended for very large chromosomal data sets to 
+                        reduce memory consumption. To reset, see the description of the 
+                        argument \poyargument{normal\_alignment} above.}
+                        {spacesavingalignment}
+                        
             \argumentdefinition{timer}{\obligatory{\poyint}}
                 {Specifies the lapse of time in seconds that should have passed
                 between reporting the total execution time of a swap and build
                 command. If the timer is set to 0, then no time messages are
                 generated.}{}
+                
+%           \argumentdefinition{partition}{\obligatory{\poyint}}
+%                {Specifies the lapse of time in seconds that should have passed
+%                between reporting the total execution time of a swap and build
+%                command. If the timer is set to 0, then no time messages are
+%               generated.}{}
+  
 
         \end{argumentgroup}
 
@@ -2622,18 +2645,8 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 Otherwise, if the argument value is \poyargument{approximate}, then the iterations
                 approximate the three dimensional alignment using pairwise
                 alignments. 
-                
-                \argumentdefinition{normal\_do}{}
-                {Applies a standard Direct Optimization algorithm for the tree
-                cost estimation. This is the default and fastest technique.}
-                {normaldo}
-
-	   \argumentdefinition{normal\_do\_plus}{}
-                {Applies a more exhaustive Direct Optimization algorithm for the tree cost estimation. 
-                During branch swapping, a more exhaustive calculation of the tree cost is performed.}
-                {normaldoplus}
-                
-                If the argument value is \poyargument{exact}, this method improves the tree
+                 
+                    If the argument value is \poyargument{exact}, this method improves the tree
                 cost estimation but at the expense of a tremendous execution
                 time. When approximate the execution time footprint is much
                 smaller, and far less memory consumption.
@@ -2645,6 +2658,17 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 given, then the procedure iterates until no further tree cost
                 improvement can be made.}
                 {}
+                \argumentdefinition{normal\_do}{}
+                {Applies a standard Direct Optimization algorithm for the tree
+                cost estimation. This is the default and fastest technique.}
+                {normaldo}
+
+	   \argumentdefinition{normal\_do\_plus}{}
+                {Applies a more exhaustive Direct Optimization algorithm for the tree cost estimation. 
+                During branch swapping, a more exhaustive calculation of the tree cost is performed.}
+                {normaldoplus}
+                
+            
                 
 	\begin{statement}
   	  Due to the complexity of heuristics of the iterative pass optimization, 
@@ -2797,7 +2821,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
             {Specifies when the likelihood model and how the branches of the
             tree are optimized during the swap routine. These options are also
             available in the \poycommand{build()} and \poycommand{fuse()}
-            commands. In all cases a complete round of optimization will occur
+            commands. In all cases, a complete round of optimization will occur
             after the completion of a build.}
 
             \argumentdefinition{optimize:(model:([options]),branch:([options]))}{}
@@ -3352,6 +3376,13 @@ parameters and branch lengths. Additional optimizations are performed after diag
             the cost of substitutions and indels are both \texttt{1}.  [Note: previous versions of \texttt{poy}, had
             the cost of an indel set to \texttt{2} (\poyargument{tcm:(1,1)}).]}
             {transformtcm}
+            
+            	\begin{statement}
+  	  When constructing a transformation cost matrix it is important to do so in a text editor 
+	  such as Notepad (for Windows), TextEdit (for Mac), or Nano (for Linux). Generating a tcm in 
+	  a word processing application such as Microsoft Word may lead to the insertion of hidden 
+	  characters, which will result in an error.
+	\end{statement}
 
               \argumentdefinition{tcm}{\obligatory{(\poystring, \poyint)}}
             {Defines the transformation cost matrix by importing a file (specified by
@@ -3499,7 +3530,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
                         {f84}
 
                     \argumentdefinition{hky85}{}
-                        {The model of Hasegawa \cite{hasegawa1984}. Three rate classes:
+                        {The model of Hasegawa \emph{et al.} \cite{hasegawa1984}. Three rate classes:
                         transversions (purine / pyrimidine), and independent
                         classes for purine-purine and pyrimidine-pyrimidine
                         transitions. Rates are also proportional to equilibrium
@@ -3540,7 +3571,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
                              \end{array}
                         \end{equation*} 
 
-                        Will be normalized so that the mean-rate is 1 and so
+                        Will be normalized so that the mean rate is 1, and so
                         that the rows sum to 0.0 to become (with equal equilibrium
                         frequencies),
 
@@ -3600,7 +3631,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
                     discrete distribution, while under MPL we select the best
                     rate class for the assignment of each character. Because
                     dynamic likelihood characters' alignment matrix would select
-                    one rate class for alignment, and this is equivalent to a
+                    one rate class for alignment, and because this procedure is equivalent to a
                     constant multiplication of the branch length, dynamic MPL
                     characters do not support rate distribution. Rate distributions are
                     automatically taken out if applied during a transform and a
@@ -3669,7 +3700,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
                             number of indels required to align all the
                             sequences: 
                             
-                           
+                         
                             \begin{equation*}
                             \pi_{gap} = \frac{\sum_{i=0}^n
                             |S_{\hat{i}}| - |S_i|}{n |S_{\hat{i}}|}
@@ -3743,7 +3774,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
                     models are scarce, but see Rivas and Eddy \cite{rivas2008probabilistic}, 
                     and Redelings and Suchard \cite{redelings2005joint,redelings2007incorporating}
                     for alternative parameterizations,
-                    and Liu \emph{et al} \cite{liu2009rapid} for an iterative approximation of
+                    and Liu \emph{et al} \cite{liu2009rapid,liusateII2012} for an iterative approximation of
                     simultaneous inference under the MAL criterion.
 
                     \begin{description}
@@ -3786,7 +3817,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
 
                         \argumentdefinition{character}{}
                             {Specifies that atomistic indels are a character
-                            without adding an additional rate class --except
+                            without adding an additional rate class--except
                             under GTR where we keep the unrestricted nature of the
                             model intact, and each indel-nucleotide rate has its
                             own class.}
@@ -4045,16 +4076,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
                   \url{http://www.tsp.gatech.edu//concorde/downloads/downloads.htm. } }
                    {mediansolver}
                        
-                       
-                    \argumentdefinition{newkkonen}{\optional{\poylident}}
-                        {The optional \texttt {newkkonen} argument can be used with 
-                        chromosomal or genomic data to minimize memory 
-                        consumption during the alignment of LCBs.  This option, 
-                        however, may slow the alignment process and is only 
-                        recommended for very large chromosomal data sets to 
-                        reduce memory consumption.}
-                        {newkkonen}
-                        
+                                           
 		   \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
           	 {Transforms nucleotide type data into \\ chromosome type data to allow
            	 rearrangements, inversions, and locus-level indel operations.  The

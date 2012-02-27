@@ -754,6 +754,11 @@ module DOS = struct
     let to_single h parent mine =
         if debug then Printf.printf "seqCS.DOS.to_single\n%!";
         let gap = Cost_matrix.Two_D.gap h.c2 in
+        let use_ukk = 
+         match !Methods.algn_mode with
+              | `Algn_Newkk -> true
+              | _ -> false
+        in
         if Sequence.is_empty mine.sequence gap then
             create mine.sequence, 0
         else
@@ -763,8 +768,10 @@ module DOS = struct
                 else parent.sequence 
             in
             let seqm, tmpcost = 
-                Sequence.Align.closest parent mine.sequence h.c2 
-                Matrix.default 
+                if use_ukk then
+                    Sequence.NewkkAlign.closest parent mine.sequence h.c2 Sequence.NewkkAlign.default_ukkm
+                else
+                    Sequence.Align.closest parent mine.sequence h.c2 Matrix.default 
             in
             let rescost = make_cost tmpcost in
             { mine with sequence = seqm; costs = rescost }, tmpcost
