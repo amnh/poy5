@@ -500,7 +500,11 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
     let len1 = Array.length loci1_arr in 
     let len2 = Array.length loci2_arr in 
     Printf.printf "create_fast_general_ali loci arr size = %d,%d\n%!" len1 len2;
-    let use_ukk = ChromPam.use_ukk ali_pam in
+    let use_ukk = 
+                match !Methods.algn_mode with
+                        | `Algn_Newkk -> true
+                                | _ -> false
+                                    in
     Array.iter (fun sq1 -> sq1.Subseq.id <- sq1.Subseq.id  * 2 - 1) loci1_arr; 
     Array.iter (fun sq2 -> sq2.Subseq.id <- len1 * 2 + sq2.Subseq.id  * 2 - 1) loci2_arr;
     let gen_gap_code = (len1 + len2 + 1) * 2 - 1 in     

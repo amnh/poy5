@@ -336,11 +336,14 @@ let to_formater seq alph =
     done;
     Buffer.contents b
 
-
 let print chn seq alph =
     let str = to_string seq alph in
     Pervasives.output_string chn str;;
 
+(** [printDNA seq] prints the DNA sequence [seq] into stdout *)
+let printDNA seq = 
+    print stdout seq Alphabet.nucleotides; 
+    print_newline ()
 
 let printseqcode seq =
     let len = length seq in
@@ -891,12 +894,12 @@ module Align = struct
 
     external extract_edited_2 :
         s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> bool -> unit =
-            "algn_CAML_backtrack_2d_bc" "algn_CAML_backtrack_2d"
+            "algn_CAML_backtrace_2d_bc" "algn_CAML_backtrace_2d"
 
     external extract_edited_2_limit :
         s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> 
             int -> int -> int -> int -> bool -> unit =
-            "algn_CAML_backtrack_2d_limit_bc" "algn_CAML_backtrack_2d_limit"
+            "algn_CAML_backtrace_2d_limit_bc" "algn_CAML_backtrace_2d_limit"
 
     external extract_edited_3 :
         s -> s -> s -> s -> s -> s -> Matrix.m -> Cost_matrix.Three_D.m -> 
@@ -965,11 +968,15 @@ module Align = struct
             else aux_count_paths (x - 1) (y - 1) mtx
 
     let create_edited_2 s1 s2 tm c =
+        let debug = false in
         let sz1 = length s1
         and sz2 = length s2 in
         let s1p = create (sz1 + sz2)
         and s2p = create (sz1 + sz2) in
         let size_compared = sz1 >= sz2 in
+        if debug then 
+            Printf.printf "create_edited_2,sz1=%d,sz2=%d,size_compared=%b\n%!"
+            sz1 sz2 size_compared;
         if size_compared then 
             extract_edited_2 s1 s2 s1p s2p tm c size_compared
         else 
@@ -980,6 +987,8 @@ module Align = struct
         let s1p = create (len1 + len2)
         and s2p = create (len1 + len2) in
         let size_compared = len1 >= len2 in
+        Printf.printf "create_edited_2_limit,sz1=%d,sz2=%d,size_compared=%b\n%!"
+        len1 len2 size_compared;
         if size_compared then 
             extract_edited_2_limit s1 s2 s1p s2p tm c st1 st2 len1 len2
             size_compared
@@ -1008,7 +1017,16 @@ module Align = struct
                     s1p, s2p, tc
             | _ ->
                     let tc = cost_2 s1 s2 c m in   
-                    let s1p, s2p = create_edited_2 s1 s2 m c in   
+                    let s1p, s2p = create_edited_2 s1 s2 m c in
+                    (*cost compare test
+                    let oc1 =  open_out "normal.out" in
+                    Printf.fprintf oc1 "%d%!" tc;
+                    close_out oc1;
+                    let oc =  open_out "normal.out2" in
+                    print oc s1p Alphabet.nucleotides;
+                    print oc s2p Alphabet.nucleotides;
+                    close_out oc;
+                    cost compare test*)
                     s1p, s2p, tc   
         in 
         match first_gap with
@@ -1322,9 +1340,10 @@ module NewkkAlign = struct
          "newkkonen_CAML_algn"
     external newkk_cost2_affine : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
          "newkkonen_CAML_algn_affine"
-    external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
+    external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> int -> unit = 
         "newkkonen_CAML_backtrace_bc" "newkkonen_CAML_backtrace"
-    external newkk_backtrace_affine : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> unit = 
+    external newkk_backtrace_affine : s -> s -> s -> s -> Cost_matrix.Two_D.m ->
+        ukkm -> int -> unit = 
         "newkkonen_CAML_backtrace_affine_bc" "newkkonen_CAML_backtrace_affine"
     external get_k : ukkm -> int = "newkkonen_CAML_get_k"
     (*functions from cost_matrix.2d*)
@@ -1357,11 +1376,11 @@ module NewkkAlign = struct
 *)
 
 
-    let call_newkk_backtrace s1 s2 s1p s2p c m affine =
+    let call_newkk_backtrace s1 s2 s1p s2p c m affine swaped =
         if affine then
-            newkk_backtrace_affine s1 s2 s1p s2p c m
+            newkk_backtrace_affine s1 s2 s1p s2p c m swaped
         else
-            newkk_backtrace s1 s2 s1p s2p c m 
+            newkk_backtrace s1 s2 s1p s2p c m swaped
 
 
     let get_alignment s1 s2 c m affine =
@@ -1374,9 +1393,9 @@ module NewkkAlign = struct
         (*call traceback function*)
         let size_compared = (sz1 <= sz2) in
         if size_compared then 
-            call_newkk_backtrace s1 s2 s1p s2p c m affine
+            call_newkk_backtrace s1 s2 s1p s2p c m affine 0
         else 
-            call_newkk_backtrace s2 s1 s2p s1p c m affine;
+            call_newkk_backtrace s2 s1 s2p s1p c m affine 1;
         if debug then begin 
             Printf.printf " seq1:%!"; printseqcode s1;
             Printf.printf " seq2:%!"; printseqcode s2;
@@ -1410,6 +1429,21 @@ module NewkkAlign = struct
                     (*Printf.printf " editing cost = %d,call traceback\n%!"
                     * tc;*)
                     let s1p, s2p = get_alignment s1 s2 c m false in
+                    (*cost&algn compare test start
+                    let oc1 =  open_out "newkkonen.out" in
+                    Printf.fprintf oc1 "%d%!" tc;
+                    close_out oc1;
+                    let oc =  open_out "newkkonen.out2" in
+                    if exchange then begin
+                        print oc s2p Alphabet.nucleotides;
+                        print oc s1p Alphabet.nucleotides;
+                    end
+                    else begin
+                        print oc s1p Alphabet.nucleotides;
+                        print oc s2p Alphabet.nucleotides;
+                    end;
+                    close_out oc;
+                    cost&algn compare test end*)
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc   
@@ -1445,9 +1479,17 @@ module NewkkAlign = struct
         in
         (*assert (ls1 <> 0);  assert (ls2 <> 0);*)
         if ls1 <= ls2 then
-            newkk_cost2 s1 s2 m1 m2 
+            match Cost_matrix.Two_D.affine m1 with
+            | Cost_matrix.Affine _ ->
+                    newkk_cost2_affine s1 s2 m1 m2
+            | _ ->
+                    newkk_cost2 s1 s2 m1 m2
         else 
-            newkk_cost2 s2 s1 m1 m2 
+            match Cost_matrix.Two_D.affine m1 with
+            | Cost_matrix.Affine _ ->
+                newkk_cost2_affine s2 s1 m1 m2 
+            | _ ->
+                newkk_cost2 s2 s1 m1 m2 
 
     let full_median_2 a b cm m = 
         match Cost_matrix.Two_D.affine cm with
@@ -2387,10 +2429,6 @@ let is_existed_char ch seq =
     let code = Alphabet.match_base ch Alphabet.nucleotides in 
     is_existed_code code seq
 
-(** [printDNA seq] prints the DNA sequence [seq] into stdout *)
-let printDNA seq = 
-    print stdout seq Alphabet.nucleotides; 
-    print_newline ()
 
 (** [create_gap_seq gap len] create a 
 * sequence of  [len] gaps *)

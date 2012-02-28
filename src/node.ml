@@ -388,7 +388,7 @@ let print nd =
                    print_endline "Preliminary state";
                    DynamicCS.print a_dyn.preliminary;
                    print_endline "Final state";
-                   DynamicCS.print a_dyn.final
+                   DynamicCS.print a_dyn.final;
              | _ -> print_endline "Do not print non-dynamic characters"
         ) nd.characters;
     Printf.printf " }\n%!"
@@ -417,45 +417,40 @@ let calc_total_cost c1 c2 c_cost =
     Printf.printf "totalcost = %f <-?- %f + %f + %f; %!" res c_cost c1.total_cost c2.total_cost;
     res
 
-let total_cost _ chars a =
-    match chars with 
+let total_cost _ chars a = match chars with 
     | None    -> a.total_cost
-    | Some cs -> 
+    | Some cs ->
+        let extract =
+            (fun c ->
+                (* Printf.printf "SUM COST: %f\n    COST: %f\n%!" c.sum_cost c.cost;*)
+                match a.cost_mode with
+                | `Likelihood    -> c.cost
+                | `Parsimony     -> c.sum_cost
+                | `SumLikelihood -> c.sum_cost
+                | `Fixedstates   -> c.cost)
+        in
         let rec total_cost acc = function
             | StaticMl c ->
                 IFDEF USE_LIKELIHOOD THEN
-                    if MlStaticCS.mem chars c.final 
-                        then acc +. c.cost
-                        else acc
+                    if MlStaticCS.mem chars c.final then acc +. (extract c) else acc
                 ELSE
                     failwith MlStaticCS.likelihood_error
                 END
             | Nonadd8 c  -> 
-                    if NonaddCS8.mem chars c.final 
-                        then acc +. c.cost
-                        else acc
+                if NonaddCS8.mem chars c.final then acc +. (extract c) else acc
             | Nonadd16 c ->
-                    if NonaddCS16.mem chars c.final 
-                        then acc +. c.cost
-                        else acc
+                if NonaddCS16.mem chars c.final then acc +. (extract c) else acc
             | Nonadd32 c ->
-                    if NonaddCS32.mem chars c.final 
-                        then acc +. c.cost
-                        else acc
+                if NonaddCS32.mem chars c.final then acc +. (extract c) else acc
             | Add c      ->
-                    if AddCS.code_mem chars c.final 
-                        then acc +. c.cost
-                        else acc
+                if AddCS.code_mem chars c.final then acc +. (extract c) else acc
             | Sank c -> 
-                     if SankCS.mem chars c.final 
-                        then acc +. c.cost
-                        else acc
+                if SankCS.mem chars c.final then acc +. (extract c) else acc
             | Dynamic c ->
-                if DynamicCS.mem chars c.final
-                    then acc +. c.cost
-                    else acc
+                if DynamicCS.mem chars c.final then acc +. (extract c) else acc
             | Kolmo c -> acc
-            | Set s -> acc
+            | Set s   -> 
+                List.fold_left (fun acc c -> total_cost acc c) acc s.final.set
         in
         List.fold_left total_cost 0.0 a.characters
 
@@ -948,8 +943,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     let mine_cost = get_characters_cost mine in
     let total_cost = calc_total_cost c1 c2 mine_cost in
     { c0 with characters = mine;
-             total_cost = total_cost;
-             node_cost  = mine_cost;
+              total_cost = total_cost;
+              node_cost  = mine_cost;
     }
     ELSE
         c0
@@ -1481,8 +1476,7 @@ let final_states p n c1 c2 =
     let new_characters = 
         map4 (cs_final_states p n c1 c2) 
         p.characters n.characters c1.characters c2.characters
-    in
-    { n with characters = new_characters }
+    in { n with characters = new_characters }
 
 let median_no_cost median =
     { median with total_cost = 0.0; }
@@ -1504,19 +1498,32 @@ let update_leaf n =
     }
 
 let node_height {num_height = h} = h
+
 let node_child_edges {num_child_edges = c} = c
 
 let get_code {taxon_code=taxcode} = taxcode
 
-let prior n = 
+let prior c n = 
 IFDEF USE_LIKELIHOOD THEN
-    let priors acc = function
-        | Dynamic a -> 
-            begin match a.preliminary with
-            | DynamicCS.MlCS x -> MlDynamicCS.prior x
-            | _                -> acc
-            end
-        | _ -> acc
+    let priors = 
+(*        match c with*)
+(*        | None ->*)
+(*            (fun acc -> function*)
+(*                | Dynamic a ->*)
+(*                    begin match a.preliminary with*)
+(*                    | DynamicCS.MlCS x -> MlDynamicCS.prior x*)
+(*                    | _                -> acc*)
+(*                    end*)
+(*                | _ -> acc)*)
+(*        | Some c ->*)
+            (fun acc -> function
+                | Dynamic a when DynamicCS.mem c a.final ->
+                    begin match a.preliminary with
+                    | DynamicCS.MlCS x -> MlDynamicCS.prior x
+                    | _                -> acc
+                    end
+                | _ -> acc)
+                
     in
     List.fold_left (priors) 0.0 n.characters
 ELSE
@@ -3654,8 +3661,25 @@ let do_filter cardinal f c codes =
     else
         { c with preliminary = f c.preliminary codes; final = f c.final codes }
 
-let rec filter_character_codes (codes : All_sets.Integers.t) item = 
-    match item with
+
+let cardinal item = match item with
+    | StaticMl c ->
+        IFDEF USE_LIKELIHOOD THEN
+            MlStaticCS.cardinal c.preliminary
+        ELSE
+            failwith MlStaticCS.likelihood_error
+        END
+    | Nonadd8 c  -> NonaddCS8.cardinal c.preliminary
+    | Nonadd16 c -> NonaddCS16.cardinal c.preliminary
+    | Nonadd32 c -> NonaddCS32.cardinal c.preliminary
+    | Add c      -> AddCS.cardinal c.preliminary
+    | Sank c     -> SankCS.cardinal c.preliminary
+    | Dynamic c  -> DynamicCS.cardinal c.preliminary
+    | Kolmo c    -> KolmoCS.cardinal c.preliminary
+    | Set s      -> 0
+
+
+let rec filter_character_codes (codes : All_sets.Integers.t) item = match item with
     | StaticMl c ->
         IFDEF USE_LIKELIHOOD THEN
             StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes c codes)
@@ -3732,6 +3756,9 @@ let rec mmap fn list =
           | Some v -> v :: mmap fn is
           | None -> mmap fn is
 
+let pp_int_set chan set =
+    All_sets.Integers.iter (fun i -> Printf.fprintf chan "%d, " i) set
+
 let f_codes codes n =
     let codes = 
         List.fold_left 
@@ -3749,8 +3776,8 @@ let f_codes_comp codes n =
         All_sets.Integers.empty
         codes
     in
-    { n with characters =
-            mmap (filter_character_codes_complement codes) n.characters }
+    let chars = mmap (filter_character_codes_complement codes) n.characters in
+    { n with characters = chars }
 
 
 let f_characters n = 

@@ -25,6 +25,7 @@ type parsed =
     | Blank
     | Text of parsed list
     | Command of (string * parsed list)
+    | Comment of string
 
 let channel = ref stdout
 
@@ -37,6 +38,7 @@ let print_parsed l =
         | Text l        -> List.iter (print_parsed (d+1)) l;
         | Command (x,l) -> Printf.printf "CMD:%s\n" x;
                            List.iter (print_parsed (d+1)) l
+        | Comment x     -> Printf.printf "Comment:%s\n" x
     and print_depth x =
         if x = 0 
             then ()
@@ -125,13 +127,14 @@ let rec produce_latex channel data =
             o (arg ^ " (see help (" ^ arg ^ ")) ");
         | Command _ -> ()
         | Text lst -> 
-            List.iter produce_latex lst;
+            List.iter produce_latex lst
         | Word x -> 
-            if x <> "~" then o x;
+            if x <> "~" then o x
         | WordNoSpace x -> 
             if x <> "~" then o x
         | Blank ->
             o " "
+        | Comment _ -> ()
     in
     produce_latex data
 
@@ -224,12 +227,14 @@ let rec produce_troff channel data =
         | WordNoSpace x -> 
             if x <> "~" then o x
         | Blank -> o " "
+        | Comment _ -> ()
     in
     produce_troff data
 
 let rec collapse = function
     | Blank
     | (WordNoSpace _)
+    | (Comment _)
     | (Word _) as x -> x
     | Text [(Text _) as y] -> collapse y
     | Text [(Word _) as y] -> y
@@ -252,6 +257,7 @@ let rec collapse = function
 
 let rec flatten x =
     match x with
+    | ((Comment _) as h) :: t 
     | ((WordNoSpace _) as h) :: t 
     | ((Word _) as h) :: t -> h :: (flatten t)
     | (Text x) :: t -> (flatten x) @ (flatten t)
@@ -284,6 +290,10 @@ let rec the_parser mode fstream =
     let is_command fstream = 
         fstream#skip_ws_nl;
         fstream#match_prefix "\\"
+    in
+    let is_comment fstream = 
+        fstream#skip_ws_nl;
+        fstream#match_prefix "%"
     in
     let is_word fstream = 
         fstream#skip_ws_nl;
@@ -321,8 +331,7 @@ let rec the_parser mode fstream =
         let cmd = fstream#read_excl skip1 in
         let param = get_param [] fstream in
         Command (cmd, param)
-    in
-    let get_word fstream = 
+    and get_word fstream = 
         fstream#skip_ws_nl;
         let cmd = fstream#read_excl skip1 in
         let cmd = 
@@ -330,6 +339,10 @@ let rec the_parser mode fstream =
             else cmd
         in
         Text [Word cmd]
+    and get_comment fstream =
+        fstream#skip_ws_nl;
+        let comment = fstream#read_excl ['%';'\n';'\013';'\010'] in
+        Comment comment
     in
     let rec split_on_commands acc fstream = 
         if is_end_of_file fstream then
@@ -342,6 +355,8 @@ let rec the_parser mode fstream =
             List.rev acc
         else if is_newline fstream then
             split_on_commands ((Text [Word brstr]) :: acc) fstream
+        else if is_comment fstream then
+            split_on_commands ((get_comment fstream) :: acc) fstream
         else if is_command fstream then
             split_on_commands ((get_comm fstream) :: acc) fstream
         else if is_enclosed fstream then

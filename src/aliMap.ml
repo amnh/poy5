@@ -45,7 +45,11 @@ let print_intarr inarr =
 let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code 
         seq1 seq2 cost_mat ali_pam =
     let debug = false in
-    let use_ukk = ChromPam.use_ukk ali_pam in 
+    let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true 
+        | _ -> false 
+    in 
     let len1 = List.length subseq1_ls in 
     let len2 = List.length subseq2_ls in 
     let len = 2 * (len1 + len2 + 1) in 
@@ -127,7 +131,11 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     and min_lcb_len = ChromPam.get_min_lcb_len ali_pam
     and max_lcb_len = ChromPam.get_max_lcb_len ali_pam
     in
-    let use_ukk = ChromPam.use_ukk ali_pam in
+    let use_ukk = 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true 
+        | _ -> false 
+    in
     if debug then begin
         Printf.printf "====  create general ali with mauve, len1=%d,len2=%d\
          min lcb ratio = %f, min cover R = %f, min lcblen =%f, max lcblen=%f \n%!"

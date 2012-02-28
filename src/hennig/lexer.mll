@@ -195,6 +195,8 @@
         make_all_prefixes 2 "USMINMAX" USMINMAX;
         make_all_prefixes 2 "ZZZ" ZZZ;
         make_all_prefixes 2 "CONTINUE" CONTINUE;
+        make_all_prefixes 2 "CONTINUOUS" CONTINUOUS;
+        make_all_prefixes 2 "CONT" CONTINUOUS;
         make_all_prefixes 2 "COPYTREE" COPYTREE;
         make_all_prefixes 2 "CHKBREAK" CHKBREAK;
         (* Comment them out because of clash with Camlp4.

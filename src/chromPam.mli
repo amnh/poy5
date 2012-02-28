@@ -46,7 +46,6 @@ type re_meth_t = Data.re_meth_t
 
 type annotate_tool_t = Data.annotate_tool_t
 
-type align_meth_t = Data.align_meth_t
 
 (** Parameters used to align two chromosomes *)
 type chromPairAliPam_t = {
@@ -113,7 +112,6 @@ type chromPairAliPam_t = {
 
     annotate_tool : annotate_tool_t;
 
-    align_meth : align_meth_t
 }
 
 val chromPairAliPam_default : chromPairAliPam_t
@@ -131,6 +129,5 @@ val get_min_lcb_len : chromPairAliPam_t -> float
 val get_min_cover_ratio : chromPairAliPam_t -> float
 val get_max_lcb_len : chromPairAliPam_t -> float
 
-val use_ukk : chromPairAliPam_t -> bool
 
 val use_mauve_annotator : chromPairAliPam_t -> bool 

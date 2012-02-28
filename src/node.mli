@@ -219,11 +219,17 @@ val median_of_child_branch : int option -> node_data -> node_data -> node_data
  * --either from input tree or from the post_order downpass *)
 val get_times_between : node_data -> int option -> float option list
 
+(** [using_likelihood kind x] check if we are using likelihood characters; used
+    for assertions in the allDirNode module to reduce errors and yet still keep
+    code consistent with multi-character data **)
+val using_likelihood : [`Static | `Dynamic | `Either] -> node_data -> bool
+
 val get_active_ref_code : node_data -> All_sets.Integers.t * All_sets.Integers.t *
     All_sets.Integers.t * All_sets.Integers.t 
 
-module Standard : NodeSig.S with type e = exclude and type n = node_data and
-type other_n = node_data
+module Standard : NodeSig.S with type e = exclude
+                            and type n = node_data
+                            and type other_n = node_data
 
 val merge : node_data -> node_data -> node_data
 
@@ -236,6 +242,9 @@ val total_cost_of_type : to_single -> node_data -> float
 val get_cost_mode : node_data -> [ `Likelihood | `Parsimony | `SumLikelihood |`Fixedstates  ]
 
 val to_string : node_data -> string
+
 val print : node_data -> unit
+
 val copy_chrom_map : node_data -> node_data -> node_data
+
 val median_counter : int ref

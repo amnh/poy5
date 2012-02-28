@@ -258,13 +258,13 @@ When DNA sequence data is combined with morphological data, the cost for morphol
 nucleotide substitutions or indels.
 
 \section{Likelihood Analyses}
-The analysis of sequences data (whether prealigned or not) can be significantly more time consuming than 
+The analysis of sequence data under likelihood (whether prealigned or not) can be significantly more time consuming than 
 similar analyses under parsimony.  A basic strategy to improve execution times under likelihood
-is to perform initial, less complex analyses and build up through a series of increasingly more complex likelihood analyses
-until the desired level of model and search complexity are achieved.  
-
-One basic strategy is to begin with an initial parsimony analysis before transforming to likelihood.  In this way, 
-parsimony acts as a heuristic procedure to find likelihood results.  Once the likelihood transform is performed, model estimation can
-be performed at relatively long intervals, generating further time savings.  SPR and TBR neighborhoods also can be limited in
-early search stages.  Once solutions have been identified that are suspected to be near
-optimal, more exhaustive model estimation and search strategies can be performed.
+is to perform initially less complex analyses and build up through a series of increasingly more complex procedures
+until the desired level of search complexity is achieved.  
+\begin{description}
+\item[Parsimony initial pass] This approach begins with an initial build and search (of arbitrary complexity) under parsimony before transforming to a likelihood model and diagnosing the topology. This procedure saves time by avoiding RAS builds under likelihood. 
+\item[Rough parameter estimation] The granularity of model parameter estimation can be increased. For example, under a traditional likelihood-based swap, all branches (regardless of the distance from the join site) are re-optimized, and the model parameters are re-optimized after every swap. Time can be saved by optimizing the model only if the cost of a join is within a threshold number of the current best cost, or by optimizing branches within a specified distance of the join region. RAxML takes advantage of this heuristic method by using its GTRCAT model for topology search, and a more refined GTRGAMMA for final parameter estimation on the best topology.
+\item[Limited rearrangement neighborhoods] The size of rearrangement neighborhood (variants in complexity between NNI and TBR) can be restricted in early search stages of topology search. Once solutions have been identified that are suspected to be near optimal, more exhaustive model estimation and search strategies can be performed.
+\end{description}
+Other possibilities for heuristics exist, including alternation between optimality criteria on static characters (transformations back and forth between static likelihood and parsimony), between variants of one optimality criterion (between MPL and MAL), or between character assumptions (between four- and five-state variants of a given model). % What about the so-called ``likelihood bootstrap?'' That 2011 paper.

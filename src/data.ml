@@ -673,27 +673,38 @@ let modified_characters data_one data_two : int =
         data_one;
     !modified
 
-let get_likelihood_model data chars = 
-    let get_model x = match Hashtbl.find data.character_specs x with
-        | Static dat ->
-            begin match dat.Nexus.File.st_type with
-                | Nexus.File.STLikelihood model -> model
-                | _ -> failwith "unsupported static character"
-            end
-        | Dynamic s when s.state = `Ml ->
-            begin match s.lk_model with
-                | Some x -> x
-                | None   -> failwith "inconsistent dynamic likelihood state"
-            end
-        | _ -> failwith "unsupported characters"
+let get_likelihood_model data chars =
+    let get_model x =
+        try match Hashtbl.find data.character_specs x with
+            | Static dat ->
+                begin match dat.Nexus.File.st_type with
+                    | Nexus.File.STLikelihood xm -> x,xm
+                    | _ -> failwith "unsupported static character"
+                end
+            | Dynamic s when s.state = `Ml ->
+                begin match s.lk_model with
+                    | Some xm -> x,xm
+                    | None    -> failwith "inconsistent dynamic likelihood state"
+                end
+            | _ -> failwith "unsupported characters"
+        with | Not_found ->
+            failwithf "Cannot find character: %d" x
     in
     match List.map get_model chars with
-    | h::t ->
-        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
-            h
-        else 
-            failwith "Inconsistent Model over characters"
-    | []   ->
+    | (h,hm)::t ->
+        assert( List.fold_left 
+                    ~f:(fun acc (x,xm) ->
+                            if 0 = MlModel.compare xm hm then acc
+                            else begin
+                                Printf.printf "Model Inconsistency: %d<>%d\n%!" h x;
+                                MlModel.output_model (print_string) `Nexus xm None;
+                                MlModel.output_model (print_string) `Nexus hm None;
+                                false
+                            end)
+                    ~init:true
+                    t);
+        hm
+    | []   -> 
         failwith "No Characters found"
 
 let is_fs data code =
@@ -785,12 +796,16 @@ let print (data : d) =
                 end
             | _ -> assert false
         in
+        let pp_int_list chan xs = List.iter (Printf.fprintf chan "%d, ") xs in
         List.iter
             (fun x -> 
-                let m = get_likelihood_model data x in
-                Printf.printf "%d:" (List.hd x);
-                MlModel.output_model (print_string) `Nexus m None;
-                print_newline ())
+                try 
+                    let m = get_likelihood_model data x in
+                    Printf.printf "%d:" (List.hd x);
+                    MlModel.output_model (print_string) `Nexus m None;
+                    print_newline ()
+                with _ ->
+                    Printf.printf "No consistent model: %a\n%!" pp_int_list x)
             (MlModel.categorize_by_model get_function chars)
     and print_specs (code : int) (spec : specs) = 
         let name = Hashtbl.find data.character_codes code in 
@@ -1159,7 +1174,6 @@ let process_trees data file =
         let ch, file = FileStream.channel_n_filename file in
         let trees = Tree.Parse.of_channel ch in
         let () = close_in ch in
-        let len = List.length trees in
         let cnt = ref 0 in
         let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
         let branches, found =
@@ -1528,15 +1542,23 @@ original_filename file tcmfile tcm tcm3 default_mode lk_model alphabet dyna_stat
              ....
           ]
         *)
+        let max_num_chrom = ref 0 in
         List.map (fun (taxon_chrom_loci_frag_seq,taxon) ->
+            (*make sure we have same number of chrom in each taxon*)
+            if !max_num_chrom=0 then
+                max_num_chrom := (List.length taxon_chrom_loci_frag_seq)
+            else if !max_num_chrom<(List.length taxon_chrom_loci_frag_seq) then
+                    failwith ("we have an inconsistent number of \
+                               chromosome from input file:"^original_filename)
+            else ();
             let extract_seq_and_deli (accseq,accdeli) chrom_loci_frag_seq =
                 match chrom_loci_frag_seq with 
                 | [[seq]] -> 
                         let seq = (*ignore first gap*)
                         Sequence.sub seq 1 ((Sequence.length seq)-1) in
                         (seq::accseq,(Sequence.length seq)::accdeli)
-                | _ -> failwith ("we are doing multi-chromosome for breakinv, there\
-                should not be any loci('|') or fragment('#') delimiters")
+                | _ -> failwith ("we are doing multi-chromosome for breakinv, there \
+                should not be any empty chromosome,or loci('|')/fragment('#') delimiters")
             in
             let seqlst,delilst = List.fold_left ~f:extract_seq_and_deli ~init:([],[]) taxon_chrom_loci_frag_seq in
             (Sequence.concat (List.rev seqlst),List.rev delilst,taxon)
@@ -1590,7 +1612,7 @@ original_filename file tcmfile tcm tcm3 default_mode lk_model alphabet dyna_stat
                 match chrom_loci_frag_seq with 
                 | [[seq]] -> (seq,b)
                 | _ -> failwith ("we are doing multi-chromosome here, there\
-                should not be any loci('|') or fragment('#') delimiters")
+                should not be any empty chromosome, or loci('|')/fragment('#') delimiters")
             ) taxon_chrom_loci_frag_seq
         ) file_taxon_chrom_loci_frag_seq
     in
@@ -1794,11 +1816,21 @@ original_filename file tcmfile tcm tcm3 default_mode lk_model alphabet dyna_stat
         match taxon_chrom_loci_frag_seq with 
         | [chrom_loci_frag_seq] ->
                 (* chromosome might be annotated by '|'*)
+                let loci_num = List.length chrom_loci_frag_seq in
+                let idx = ref (-1) in
+                let chrom_loci_frag_seq =
+                    List.filter (fun loci_frag_seq ->
+                    idx := !idx+1;
+                    if loci_frag_seq=[] then begin
+                        if !idx=(loci_num-1) then false
+                        else
+                            failwith "we have empty locus in input file.";
+                    end
+                    else true
+                    ) chrom_loci_frag_seq in
                 List.map (fun loci_frag_seq ->
-                    (*we are not expecting multi fragment here*)
                     match loci_frag_seq with
                     | [fragseq] -> (fragseq,b)
-                    | [] -> (Sequence.get_empty_seq (),b)
                     | _ -> failwith "we are doing annotated-chromosome here, there\
                 should not be any fragment('#') delimiters"
                 ) chrom_loci_frag_seq
@@ -2174,21 +2206,22 @@ let print_parsed_data lst =
 
 
 let add_multiple_static_parsed_file data list =
-(*    print_parsed_data list;*)
     let data = duplicate data in
-    let data,map = 
+    let data,map,newcodes = 
         List.fold_left 
-            ~f:(fun (data,map) (code,(file, triple)) ->
+            ~f:(fun (data,map,codes) (code,(file, triple)) ->
                     let ncodes,data = gen_add_static_parsed_file false data file triple in
                     match code with
                     | Some code -> 
-                        (data,All_sets.IntegerMap.add code (Array.to_list ncodes) map)
-                    | None -> (data,map))
-            ~init:(data,data.dynamic_static_codes)
+                        let addcodes = Array.to_list ncodes in
+                        (data, All_sets.IntegerMap.add code addcodes map, addcodes@codes)
+                    | None -> (data,map,codes))
+            ~init:(data,data.dynamic_static_codes,[])
             list
     in
     { data with dynamic_static_codes = map;
-                static_dynamic_codes = reverse_dynamic_static_codes map; }
+                static_dynamic_codes = reverse_dynamic_static_codes map; },
+    newcodes
 
 
 let add_static_file ?(report = true) style data (file : FileStream.f) = 
@@ -2735,7 +2768,7 @@ let categorize data =
                      kolmogorov = [];
                      static_ml = [];
                } in                         
-    let data = repack_codes data in
+    (* let data = repack_codes data in*)
     let categorizer code spec data =
         match spec with
         | Static enc -> (* Process static characters *)
@@ -2748,20 +2781,20 @@ let categorize data =
                 | Nexus.File.STOrdered -> data
                 | Nexus.File.STUnordered ->
                         if between 0 1 then
-                            { data with non_additive_1 = code ::
-                                data.non_additive_1 }
+                            { data with
+                                non_additive_1 = code :: data.non_additive_1 }
                         else if between 2 8 then
-                            { data with non_additive_8 = code ::
-                                data.non_additive_8 }
+                            { data with
+                                non_additive_8 = code :: data.non_additive_8 }
                         else if between 9 16 then
-                            { data with non_additive_16 = code :: 
-                                data.non_additive_16 }
+                            { data with
+                                non_additive_16 = code :: data.non_additive_16 }
                         else if between 17 32 then
-                            { data with non_additive_32 = code :: 
-                                data.non_additive_32 }
+                            { data with 
+                                non_additive_32 = code :: data.non_additive_32 }
                         else if observed > 32 then
-                            { data with non_additive_33 = code :: 
-                                data.non_additive_33 }
+                            { data with
+                                non_additive_33 = code :: data.non_additive_33 }
                         else data
                 | Nexus.File.STLikelihood _ ->
                         { data with static_ml = code :: data.static_ml })
@@ -2794,39 +2827,25 @@ let get_sequence_tcm seqcode data =
 
 let get_sequence_alphabet seqcode data = 
     let chars = data.character_specs in
-    try
-        match Hashtbl.find chars seqcode with
-        | Dynamic dspec ->
-                dspec.alph
+    try match Hashtbl.find chars seqcode with
+        | Dynamic dspec    -> dspec.alph
         | Kolmogorov dspec -> dspec.dhs.alph
         | _ -> failwith "Data.get_sequence_alphabet: Not a dynamic character"
-    with
-    | err ->
-            let name = code_character seqcode data in
-            let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-            " with name " ^ StatusCommon.escape name in
-            Status.user_message Status.Error msg;
-            raise err
+    with | err ->
+        let name = code_character seqcode data in
+        let msg = "Could not find the code " ^ string_of_int seqcode ^ 
+                  " with name " ^ StatusCommon.escape name in
+        Status.user_message Status.Error msg;
+        raise err
 
-
-let get_files data = List.rev data.files
 
 let add_file data contents file = 
     let file = (FileStream.filename file), contents in
     { data with files = file :: data.files }
 
+
 let get_taxa data = 
     All_sets.IntegerMap.fold (fun _ name acc -> name :: acc) data.taxon_codes []
-
-let get_used_observed code d =
-    let a = 
-        match Hashtbl.find d.character_specs code with
-        | Static a -> a
-        | _ -> failwith "Data.get_used_observed expects a static character"
-    in
-    match a.Nexus.File.st_used_observed with
-    | Some x -> x
-    | None -> failwith "Data.get_used_observed"
 
 let make_value_formatter x = (PXML -[Xml.Data.value][`String x]--)
 
@@ -3014,7 +3033,6 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
     List.fold_left 
     ~f:(fun dyna_pam pam ->
         match pam with
-        | `Align_Meth v -> {dyna_pam with align_meth = Some v}
         | `Median_Solver c -> {dyna_pam with median_solver = Some c}
         | `Annotate_Tool c -> {dyna_pam with annotate_tool = Some c}
         | `Locus_Inversion c -> {dyna_pam with re_meth = Some (`Locus_Inversion c)}
@@ -3089,13 +3107,12 @@ let create_alpha_c2_breakinvs (data : d) chcode =
     let c2, alpha,dynpam = match spec with 
         | Dynamic dspec -> dspec.tcm2d, dspec.alph, dspec.pam
         | _ -> failwith "Transfrom_annchroms_to_breakinvs: Not Dynamic" 
-    in  
-    let use_ukk =
-        match dynpam.align_meth with
-        | Some `NewKK   -> true
-        | Some `Default -> false
-        | None          -> false
     in
+    let use_ukk = 
+                match !Methods.algn_mode with
+                        | `Algn_Newkk -> true
+                                | _ -> false
+                                    in
     let chrom_ls = get_dynas data chcode in 
         
     let max_code = List.fold_left  
@@ -4114,25 +4131,6 @@ let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods
     else
         data
 
-
-let categorize_static_likelihood_by_model chars data =
-    let get_spec i = 
-        let model = 
-            match Hashtbl.find data.character_specs i with
-                | Static spec ->
-                    begin match spec.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood model -> model
-                        | _ -> assert false
-                    end
-                | _ -> assert false
-        in
-        model.MlModel.spec
-    in
-    `Some (get_chars_codes_comp data chars)
-        --> get_code_from_characters_restricted `StaticLikelihood data
-        --> MlModel.categorize_by_model get_spec
-
-
 let categorize_sets data : int list list =
     let rec inner_find i = function
         | is::_ when List.mem i is -> true
@@ -4207,6 +4205,29 @@ let categorize_characters data chars = match chars with
                 if found xs selected then xs :: acc else acc)
             ~init:[]
             all_sets
+
+
+let categorize_likelihood_chars_by_model chars data =
+    let get_spec i = 
+        let model = match Hashtbl.find data.character_specs i with
+            | Static spec ->
+                begin match spec.Nexus.File.st_type with
+                    | Nexus.File.STLikelihood model -> model
+                    | _ -> assert false
+                end
+            | Dynamic s when s.state = `Ml ->
+                begin match s.lk_model with
+                    | Some model -> model
+                    | None -> assert false
+                end
+            | _ -> assert false
+        in
+        model.MlModel.spec
+    in
+    chars
+        --> categorize_characters_comp data
+        --> List.map ~f:(fun x -> MlModel.categorize_by_model get_spec x)
+        --> List.flatten
 
 
 let make_codon_partitions functional data name ccodes =
@@ -4428,6 +4449,8 @@ let compute_priors data chars u_gap =
             Array.map (fun x ->(x -. gap_contribution) /. counter) priors
         end
     in
+    let final_priors = 
+        Array.map (fun x -> max x Numerical.minimum) final_priors in
     if debug_priors then begin
         let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in
         Printf.printf "Final Priors (%f): [" sum;
@@ -4449,7 +4472,6 @@ let apply_likelihood_model_on_char_table replace data table codes model =
         (* replace only likelihood characters in set of codes *)
         List.iter
             (fun code ->
-                Printf.printf "Converting %d\n" code;
                 match Hashtbl.find table code with
                 | Static x when (is_likelihood x.Nexus.File.st_type) -> 
                     Hashtbl.replace table code
@@ -5043,11 +5065,11 @@ let compute_fixed_states filename data code polymph =
         | Some _ -> true
         | None   -> false
     in
-    let align_with_newkk = match dhs.pam.align_meth with
-        | Some `NewKK   -> true
-        | None          -> false
-        | Some `Default -> false
-    in
+    let use_ukk = 
+                match !Methods.algn_mode with
+                        | `Algn_Newkk -> true
+                                | _ -> false
+                                    in
     let taxon_sequences = Hashtbl.create 1667 in
     let sequences_taxon = Hashtbl.create 1667 in
     let states = ref 0 in
@@ -5084,7 +5106,7 @@ let compute_fixed_states filename data code polymph =
                 match polymph with
                 | `Do_All -> if debug then Printf.printf "polymorphism=do all\n%!";
                 let yclose, _ = 
-                    if align_with_newkk then
+                    if use_ukk then
                         Sequence.NewkkAlign.closest initial_sequences.(x)
                         initial_sequences.(y) dhs.tcm2d Sequence.NewkkAlign.default_ukkm
                     else
@@ -5092,7 +5114,7 @@ let compute_fixed_states filename data code polymph =
                         initial_sequences.(x) initial_sequences.(y) dhs.tcm2d Matrix.default 
                 in
                 let xclose, cost =
-                    if align_with_newkk then
+                    if use_ukk then
                         Sequence.NewkkAlign.closest yclose initial_sequences.(x)
                         dhs.tcm2d Sequence.NewkkAlign.default_ukkm
                     else
@@ -5166,7 +5188,7 @@ let compute_fixed_states filename data code polymph =
                             edit_cost,indel_cost,full_code_lstlst =
                         Block_mauve.get_matcharr_and_costmatrix seqx seqy
                                 min_lcb_ratio min_cover_ratio min_lcb_len
-                                max_lcb_len l_i_c dhs.tcm2d align_with_newkk
+                                max_lcb_len l_i_c dhs.tcm2d use_ukk
                     in
                     if debug then begin 
                         Printf.printf "code1/code2 arr from block_mauve:\n%!";
@@ -5222,7 +5244,7 @@ let compute_fixed_states filename data code polymph =
                     cst
                 else
                     let cost = 
-                    if align_with_newkk then
+                    if use_ukk then
                     Sequence.NewkkAlign.cost_2 sequences.(x) sequences.(y)
                     dhs.tcm2d Sequence.NewkkAlign.default_ukkm
                     else
@@ -6070,6 +6092,7 @@ let sync_dynamic_to_static_model ~src ~dest =
         spec
     in
     categorize { dest with character_specs = char_specs; }
+
 
 (* converse of above function *)
 let sync_static_to_dynamic_model ~src ~dest = 

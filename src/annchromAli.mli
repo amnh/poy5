@@ -64,7 +64,6 @@ type annchromPam_t = {
   symmetric : bool;
   locus_indel_cost : int * int;
   kept_wag : int;
-  align_meth : ChromPam.align_meth_t;
 }
 
 (** [clone_seq] returns a fresh clone of segment [s] *)

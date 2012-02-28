@@ -254,8 +254,8 @@ module OneDirF :
     let total_cost x c n =
         apply_single_f_on_lazy (Node.Standard.total_cost x c) n
 
-    let min_prior n =
-        apply_single_f_on_lazy (Node.Standard.min_prior) n
+    let min_prior c n =
+        apply_single_f_on_lazy (Node.Standard.min_prior c) n
 
     let node_cost par n = 
         apply_single_f_on_lazy (Node.Standard.node_cost par) n
@@ -436,9 +436,16 @@ let q_print n =
               adjusted_data_lst;
     print_newline ()
 
-module AllDirF : NodeSig.S with type e = exclude with type n = node_data with
-type other_n = Node.Standard.n with
-type nad8 = Node.Standard.nad8 = struct
+
+let using_static_likelihood a = match a.unadjusted with
+    | x::_ -> Node.using_likelihood `Static (force_val x.lazy_node)
+    | []   -> (* no data; impossible *) assert( false );
+
+module AllDirF : NodeSig.S with type e = exclude
+                           with type n = node_data
+                           with type other_n = Node.Standard.n
+                           with type nad8 = Node.Standard.nad8 =
+struct
 
     type n = node_data
     type other_n = Node.Standard.n
@@ -921,12 +928,9 @@ type nad8 = Node.Standard.nad8 = struct
             | [] -> failwith "The emtpy median? AllDirNode.total_cost"
             | _ -> failwith "AllDirNode.total_cost"
 
-    let min_prior n = 
-        let lst = match n.adjusted with
-                  | None -> n.unadjusted
-                  | Some x  -> [x]
-        in
-        let lst = List.map (fun x -> OneDirF.min_prior x.lazy_node) lst in
+    let min_prior chars n =
+        let lst = match n.adjusted with | None -> n.unadjusted | Some x -> [x] in
+        let lst = List.map (fun x -> OneDirF.min_prior chars x.lazy_node) lst in
         List.fold_left (fun acc x -> min acc x) infinity lst
 
     let node_cost par n = match par with
@@ -940,6 +944,7 @@ type nad8 = Node.Standard.nad8 = struct
     let update_leaf x = x
 
     let union_distance _ _ = 0.0
+
 
     let rec is_collapsable clas a b =
         let acode = taxon_code a
@@ -955,22 +960,26 @@ type nad8 = Node.Standard.nad8 = struct
                 and db = get_adjusted_nodedata b errmsg in
                 OneDirF.is_collapsable `Dynamic da.lazy_node db.lazy_node
         | `Any ->
-                (is_collapsable `Static a b) && (is_collapsable `Dynamic a b)
+                let s = try is_collapsable `Static a b  with | _ -> false
+                and d = try is_collapsable `Dynamic a b with | _ -> false in
+                (s && d)
+
 
     let to_xml _ _ _ = ()
+
 
     let run_any f n = match n with
         | h :: _ -> lazy_from_val (f h.lazy_node)
         | [] -> failwith "AllDirNode.run_any"
 
     let run_all f n =
-        let processor x = 
-            let res = f x.lazy_node in
-            { x with lazy_node = res }
+        let processor x = { x with lazy_node = f x.lazy_node } in
+        let adj_data = match n.adjusted with
+            | None   -> None
+            | Some x -> Some (processor x)
         in
-        let adj_data = get_adjusted_nodedata n "allDirNode,run_all,no adj-data" in
         { unadjusted = List.map processor n.unadjusted;
-            adjusted = Some (processor adj_data) }
+            adjusted = adj_data }
 
     let num_height code n = 
         get_something OneDirF.num_height code n.unadjusted
@@ -1133,11 +1142,9 @@ type nad8 = Node.Standard.nad8 = struct
         let res = merge b res in
         List.map (fun x -> { unadjusted = x; adjusted = None; }) res
 
-    let root_cost a = 
-        let adj_data =
-            get_adjusted_nodedata a "allDirNode,root_cost,no adj-data"
-        in
-        OneDirF.root_cost adj_data.lazy_node
+    let root_cost a = match a.adjusted with
+        | None   -> assert( using_static_likelihood a ); 0.0
+        | Some x -> OneDirF.root_cost x.lazy_node
 
     let tree_cost a b = 
         (total_cost a None b) +. (root_cost b)

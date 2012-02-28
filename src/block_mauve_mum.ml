@@ -46,6 +46,7 @@ let max_gap_num = 0  (*the w *)
 * filtration for local multiple alignment".
 * also, there is no entry for 17.*)
 let get_proper_seedlen avg_seqlen =
+    let avg_seqlen = float_of_int avg_seqlen in
     let seedlen = int_of_float ( ceil (log (avg_seqlen))) in
     let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
     let seedlen = if (seedlen<5) then 5 else seedlen in
@@ -1120,6 +1121,17 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl seedNO_availabl
     end;
     Hashtbl.length seed2position_tbl
 
+    
+let get_seed_weight seedlen =
+    let seedlst = 
+        try (Hashtbl.find palindromic_spaced_seed_tbl seedlen)
+        with | Not_found -> 
+            let _ = Printf.printf "looking for %d\n%!" seedlen in
+            failwith ("cannot find seed pattern1")
+    in
+    let seedpattern = List.hd seedlst in
+    let patternarr = Array.of_list seedpattern in
+    patternarr.((Array.length patternarr)-1)
 
 
 let build_seed_and_position_tbl inseqarr init_seedlen 
@@ -1154,7 +1166,7 @@ seed2pos_tbl mum_tbl seedNO_available_arr debug
     Printf.printf "end of build_seed_and_position_tbl,seed_len=%d\n%!" !seed_len;
     end;
     patternarr.((Array.length patternarr)-1)
-
+    
 (*************** add seed to mum/seed2pos/pos2seed  tbl function start  ***************)
 
 (******************************* positions and seqNO **************************)

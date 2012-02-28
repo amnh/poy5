@@ -1,4 +1,24 @@
-val get_proper_seedlen : float -> int
+(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
+(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
+
+
+val get_proper_seedlen : int -> int
 
 type m_i = {  (* the ith element M_i of a local mum *)
     sequence_NO : int ; (*which sequence is this m_i in *)
@@ -56,6 +76,8 @@ val get_mum_from_mumtbl : int -> (int, (int array, mum) BinaryTree.b_tree) Hasht
 val get_position_by_seqNO : m_i list -> int -> m_i
 
 val print_mum : bool -> bool -> mum -> unit
+
+val get_seed_weight : int -> int
 
 val build_seed_and_position_tbl :
            int array array ->

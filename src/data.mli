@@ -66,10 +66,8 @@ type median_solver_t =
     | `Siepel
     | `SimpleLK
     | `Vinh ]
-type align_meth_t = [ `Default | `NewKK ]
 type re_meth_t = [ `Locus_Breakpoint of int | `Locus_Inversion of int ]
 type dyna_pam_t = {
-  align_meth : align_meth_t option;
   median_solver : median_solver_t option;
   annotate_tool : annotate_tool_t option;
   re_meth : re_meth_t option;
@@ -461,11 +459,12 @@ val get_set_of_character : d -> int -> string option
 
 val categorize : d -> d
 
-val categorize_static_likelihood_by_model : bool_characters -> d -> int list list
+val categorize_likelihood_chars_by_model : bool_characters -> d -> int list list
 
 val categorize_sets : d -> int list list
 
 val categorize_characters : d -> characters -> int list list
+
 val categorize_characters_comp : d -> bool_characters -> int list list
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
@@ -482,17 +481,14 @@ val get_tcmfile : d -> int -> tcm_definition
 
 val get_sequence_alphabet : int -> d -> Alphabet.a
 
-val get_files : d -> (string * contents list) list
-
 val add_file : d -> contents list -> FileStream.f -> d
 
 val get_taxa : d -> string list
 
 val add_static_parsed_file : d -> string -> Nexus.File.nexus -> d
 
-val add_multiple_static_parsed_file : d -> (int option * (string * Nexus.File.nexus)) list -> d
-
-val get_used_observed : int -> d -> (int, int) Hashtbl.t
+val add_multiple_static_parsed_file :
+    d -> (int option * (string * Nexus.File.nexus)) list -> d * int list
 
 val characters_to_formatter :  d -> Xml.xml
 
@@ -520,9 +516,7 @@ val filter_non_static_approx_characters : ?comp:bool -> d -> int list -> int lis
 
 val can_all_chars_do_static_approx : d -> int list -> bool
 
-val transform_dynamic :
-    Methods.dynamic_char_transform ->
-  d -> d
+val transform_dynamic : Methods.dynamic_char_transform -> d -> d
 
 val transform_chrom_to_rearranged_seq :
   d -> Methods.dynamic_char_transform -> 'c -> Methods.implied_alignment list -> d
@@ -530,6 +524,7 @@ val transform_chrom_to_rearranged_seq :
 val print : d -> unit
 
 val get_chars_codes : d -> characters -> int list
+
 val get_chars_codes_comp : d -> bool_characters -> int list
 
 val process_ignore_characters : bool -> d -> characters -> d
@@ -564,20 +559,21 @@ val assign_tcm_to_characters_from_file :
 val add_search_base_from_file : 
     d -> bool_characters -> (string * string) list -> d
 
-
-
-val process_complex_terminals :
-    d -> FileStream.f -> d
+val process_complex_terminals : d -> FileStream.f -> d
 
 val get_alphabet : d -> int -> Alphabet.a
+
 val get_pam : d -> int -> dyna_pam_t
+
 val get_character_state : d -> int -> dyna_state_t
 
 val process_taxon_code :
     d -> All_sets.StringMap.key -> string -> d * int
  
 val set_dyna_data : 'a seq_t array -> 'a dyna_data
+
 val get_recost : dyna_pam_t -> int
+
 val get_locus_indel_cost : dyna_pam_t -> int * int
 
 val get_character_set_name : d -> int list -> string option
@@ -600,12 +596,13 @@ val report_taxon_file_cross_reference :
 val report_terminals_files : 
     string option -> All_sets.Strings.t All_sets.StringMap.t -> All_sets.Strings.t ->
         unit
-val dyna_pam_default : dyna_pam_t
 
+val dyna_pam_default : dyna_pam_t
 
 val get_empty_seq: Alphabet.a -> Sequence.s seq_t
 
 val find_max_seq_id : d -> int
+
 val flush : d -> unit
 
 val kolmo_round_factor : float
@@ -621,15 +618,19 @@ val make_direct_optimization : bool_characters -> d -> d
 
 val make_partitioned : [`Clip | `NoClip] -> bool_characters -> d -> d
 
-val has_dynamic : d -> bool 
-val has_likelihood: d -> bool 
+val has_dynamic : d -> bool
+
+val has_likelihood: d -> bool
+
 val type_of_dynamic_likelihood: d -> Methods.ml_costfn option
 
 (* functions on translating data from static to dynamic *)
 val convert_dynamic_to_static_branches : src:d -> dest:d -> d
+
 val convert_static_to_dynamic_branches : src:d -> dest:d -> d
 
 val sync_dynamic_to_static_model : src:d -> dest:d -> d
+
 val sync_static_to_dynamic_model : src:d -> dest:d -> d
 
 val remove_absent_present_encodings : ?ignore_data:bool -> d -> bool_characters -> d * int list
@@ -639,6 +640,7 @@ val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Ha
 module Sample : sig
     val generate : d -> [ `Bootstrap | `Jackknife of float ] -> d
 end
+
 type tcm_class =
     [ `AllOne of int
     | `AllOneGapSame of (int * int)

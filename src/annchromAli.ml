@@ -91,7 +91,6 @@ type annchromPam_t = {
     symmetric : bool;
     locus_indel_cost : (int * int);
     kept_wag : int;
-    align_meth : ChromPam.align_meth_t;
 }
 
 let annchromPam_default = {
@@ -104,7 +103,6 @@ let annchromPam_default = {
     symmetric = false;
     locus_indel_cost = (10, 100);
     kept_wag = 1;
-    align_meth = `Default;
 }
 
 (** [init_seq_t (seq, code)] returns a segment from [seq] and [code]*)
@@ -226,11 +224,6 @@ let get_annchrom_pam user_annchrom_pam =
         | None -> chrom_pam
         | Some median_solver -> {chrom_pam with median_solver = median_solver}
     in
-    let chrom_pam =
-        match user_annchrom_pam.Data.align_meth with
-        | None -> chrom_pam
-        | Some v -> {chrom_pam with align_meth = v}
-    in
     chrom_pam
 
 let print annchrom alpha = 
@@ -267,9 +260,9 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
     in 
     pure_gen_cost_mat.(gen_gap_code).(gen_gap_code) <- 0;
     let use_ukk = 
-            match ali_pam.align_meth with
-            | `NewKK -> true
-            | _ -> false 
+        match !Methods.algn_mode with
+        | `Algn_Newkk -> true 
+        | _ -> false 
     in
     let update (seq1, code1) (seq2, code2) =
         let com_seq1 = Sequence.complement_chrom Alphabet.nucleotides seq1 in 
@@ -330,10 +323,10 @@ let create_pure_gen_cost_mat_3 seq1_arr seq2_arr seq3_arr seqm_arr c2 ali_pam =
     cost2_mat.(gen_gap_code).(gen_gap_code) <- 0;
     cost3_mat.(gen_gap_code).(gen_gap_code) <- 0;
     let use_ukk = 
-            match ali_pam.align_meth with
-            | `NewKK -> true
-            | _ -> false 
-        in
+                match !Methods.algn_mode with
+                        | `Algn_Newkk -> true
+                                | _ -> false
+                                    in
     let update cost_mat (seq1, code1) (seq2, code2) =
         let com_seq1 = Sequence.complement_chrom Alphabet.nucleotides seq1 in 
         let com_seq2 = Sequence.complement_chrom Alphabet.nucleotides seq2 in 
@@ -691,10 +684,10 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
     else if chrom_len2 < 2 then 0,0, [chrom1]
     else begin    
         let use_ukk = 
-            match ali_pam.align_meth with
-            | `NewKK -> true
-            | _ -> false 
-        in
+                    match !Methods.algn_mode with
+                            | `Algn_Newkk -> true
+                                    | _ -> false
+                                        in
         let approx = ali_pam.approx in 
         let seq1_arr, _ = split chrom1 in  
         let seq2_arr, _ = split chrom2 in 
@@ -1369,11 +1362,20 @@ let assign_single_nonroot parent child child_ref c2 annchrom_pam =
     match (parent.ref_code1 = -1) && (parent.ref_code2 = -1) with
     | true -> Array.map (fun s -> s.seq) parent.seq_arr
     | false -> 
-          let gap = Cost_matrix.Two_D.gap c2 in 
+          let gap = Cost_matrix.Two_D.gap c2 in
+          let use_ukk = 
+         match !Methods.algn_mode with
+              | `Algn_Newkk -> true
+              | _ -> false
+        in
           let map = 
               Array_ops.map_2 
               (fun parent_seq_t child_seq_t ->
                 let alied_single_seq,_ = 
+                if use_ukk then
+                    Sequence.NewkkAlign.closest parent_seq_t.alied_med
+                    child_seq_t.seq c2 Sequence.NewkkAlign.default_ukkm 
+                else
                   Sequence.Align.closest parent_seq_t.alied_med child_seq_t.seq c2 Matrix.default
                 in
                 let alied_child_seq,order  =

@@ -245,9 +245,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             "Calculating Static Approximation" 
         in
         Status.report st;
-        let new_data = 
+        let new_data,_ = 
             IA.to_static_homologies true filter_characters false
-            remove_non_informative chars data tree 
+                                    remove_non_informative chars data tree 
         in
         Status.full_report ~msg:"Regenerating the nodes" st;
         let new_data, nodes = new_data --> Data.categorize --> Node.load_data in
@@ -732,26 +732,72 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     (* estimate a likelihood model from non-addative characters as defined in
      * chars, over branches. Classify all transitions and count base frequencies
      * of leaves for priors, then construct the model. *)
-    let estimate_likelihood_model p_tree branches alphabet (chars,cost,subst,variation,_,gap) =
+    let estimate_likelihood_model p_tree branches alph (chars,cost,subst,vari,_,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
             | Tree.Interior _ -> false
-            | Tree.Single _   -> assert( false ) (* shouldnot happen *)
+            | Tree.Single _   -> assert false
         in
-        let classify_branch ptree e acc = 
+        let classify_branch ptree e acc =
             let Tree.Edge (ac,bc) = e and data = ptree.Ptree.data in
             let a = Ptree.get_node_data ac ptree and b = Ptree.get_node_data bc ptree in
-            let dataa = Node.extract_states alphabet data (Some bc) chars a
-            and datab = Node.extract_states alphabet data (Some ac) chars b in
+            let dataa = Node.extract_states alph data (Some bc) chars a
+            and datab = Node.extract_states alph data (Some ac) chars b in
             MlModel.classify_seq_pairs (is_leaf ptree ac) (is_leaf ptree bc) dataa datab acc
         and l_traversal lst classify_func ptree acc =
             List.fold_left (fun acc e -> classify_func ptree e acc) acc lst
+        and add_const_characters ((trans,freqs) as acc) =
+            let addert = float_of_int (List.length branches)
+            and adderf = float_of_int (p_tree.Ptree.data.Data.number_of_taxa) in
+            List.fold_left
+                (fun (t,f) c ->
+                    let states =
+                        match Hashtbl.find p_tree.Ptree.data.Data.character_specs c with
+                        | Data.Static spec -> spec.Nexus.File.st_observed
+                        | _           -> assert false
+                    in
+                    let div = float_of_int (List.length states) in
+                    List.fold_left
+                        (fun (t,f) state ->
+                            let t =
+                                let olt =
+                                    if All_sets.FullTupleMap.mem (state,state) t
+                                        then All_sets.FullTupleMap.find (state,state) t
+                                        else 0.0
+                                in
+                                All_sets.FullTupleMap.add (state,state) (olt+.(addert/.div)) t
+                            and f =
+                                let olf =
+                                    if All_sets.IntegerMap.mem state f
+                                        then All_sets.IntegerMap.find state f
+                                        else 0.0
+                                in
+                                All_sets.IntegerMap.add state (olf+.(adderf/.div)) f
+                            in
+                            (t,f))
+                        (t,f)
+                        (states))
+                acc
+                p_tree.Ptree.data.Data.non_additive_1
+        and debug_print_costs ((t,f) as ret) =
+            All_sets.IntegerMap.iter
+                (fun k v ->
+                    Printf.printf "%s -- %f\n%!" (Alphabet.match_code k alph) v)
+                f;
+            All_sets.FullTupleMap.iter
+                (fun (ka,kb) v ->
+                    Printf.printf "(%s,%s) -- %f\n%!"
+                        (Alphabet.match_code kb alph) (Alphabet.match_code ka alph) v)
+                t;
+            ret
         in
         (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
             --> l_traversal branches classify_branch p_tree
-            --> MlModel.spec_from_classification alphabet gap subst variation cost
-            --> MlModel.create alphabet
+            --> add_const_characters
+(*            --> debug_print_costs*)
+            --> MlModel.spec_from_classification alph gap subst vari cost
+            --> MlModel.create alph
       ELSE
         failwith MlModel.likelihood_not_enabled
       END
@@ -836,8 +882,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 in
                 Status.user_message Status.Warning m
             end;
-        IA.to_static_homologies remove filter false remove_non_informative
-                                chars tree.Ptree.data tree
+        let d,_ = IA.to_static_homologies remove filter false
+                        remove_non_informative chars tree.Ptree.data tree
+        in
+        d
 
 
     let get_char_codes (chars : Methods.characters)  data =
@@ -1020,7 +1068,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 --> Data.categorize
                 --> Node.load_data 
         | `MultiStatic_Aprox (chars, remove_non_informative) ->
-                (try
+                begin try
                     let len = Sexpr.length trees in
                     let _, data = 
                         Sexpr.fold_left
@@ -1032,38 +1080,35 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                             trees
                     in
                     data --> Data.categorize --> Node.load_data 
-                with
-                | No_trees ->
-                        Status.user_message Status.Error
+                with | No_trees ->
+                    Status.user_message Status.Error
                         ("An@ error@ has@ occured@ while@ attempting@ to@ fix@ "
-                        ^ "an@ static@ approximation.@ You@ have@ no@ trees@ " ^
-                        "in@ memory!@ In@ order@ to@ " ^
-                        "produce@ an@ implied@ alignment@ POY@ needs@ a@ " ^
-                        "loaded@ tree,@ you@ could@ simply@ build@ one@ " ^
-                        "with@ build (1)");
-                        failwith "Illegal transform command")
+                        ^ "an@ static@ approximation.@ You@ have@ no@ trees@ "
+                        ^ "in@ memory!@ In@ order@ to@ produce@ an@ implied@ "
+                        ^ "alignment@ POY@ needs@ a@ loaded@ tree,@ you@ "
+                        ^ "could@ simply@ build@ one@ with@ build (1)");
+                    failwith "Illegal transform command"
+                end
         | `Static_Aprox (chars, remove_non_informative) ->
                 if 1 < Sexpr.length trees then
                     Status.user_message Status.Information
-                    ("I@ will@ use@ the@ shortest@ tree@ to@ fix@ the@ sequence@ "
-                    ^ "alignments.")
-                else ();
-                (try
+                        ("I@ will@ use@ the@ shortest@ tree@ to@ fix@ the@ "
+                        ^ "sequence@ alignments.");
+                begin try
                     (select_shortest trees)
-                    --> process_static_approx "ImpliedAlignment" true chars
+                        --> process_static_approx "ImpliedAlignment" true chars
                                 remove_non_informative data filter_characters 
-                    --> Data.categorize
-                    --> Node.load_data 
-                with
-                | No_trees ->
+                        --> Data.categorize
+                        --> Node.load_data 
+                with | No_trees ->
                         Status.user_message Status.Error
                         ("An@ error@ has@ occured@ while@ attempting@ to@ fix@ "
-                        ^ "an@ static@ approximation.@ You@ have@ no@ trees@ " ^
-                        "in@ memory!@ In@ order@ to@ " ^
-                        "produce@ an@ implied@ alignment@ POY@ needs@ a@ " ^
-                        "loaded@ tree,@ you@ could@ simply@ build@ one@ " ^
-                        "with@ build (1)");
-                        failwith "Illegal transform command") 
+                        ^ "an@ static@ approximation.@ You@ have@ no@ trees@ "
+                        ^ "in@ memory!@ In@ order@ to@ produce@ an@ implied@ "
+                        ^ "alignment@ POY@ needs@ a@ loaded@ tree,@ you@ "
+                        ^ "could@ simply@ build@ one@ with@ build (1)");
+                    failwith "Illegal transform command"
+                end
         | (`ReWeight _)
         | (`WeightFactor _) as m ->
                 data
@@ -1086,8 +1131,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 --> Data.categorize 
                 --> Node.load_data 
         | `Assign_Affine_Gap_Cost (cost, chars) ->
-                (if cost < 1 then (Cost_matrix.Linnear) 
-                else (Cost_matrix.Affine cost))
+                let c = 
+                    if cost < 1 then (Cost_matrix.Linnear) 
+                    else (Cost_matrix.Affine cost)
+                in
+                c
                 --> Data.assign_affine_gap_cost data chars
                 --> Data.categorize
                 --> Node.load_data 

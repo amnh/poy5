@@ -46,9 +46,8 @@ let hennig_for_upto is_gap_state file n pos =
         in
         default_hennig is_gap_state alph equates file pos
 
-let rec generate_default of_type file pos =
-    
-    match of_type with
+let rec generate_default of_type file pos = match of_type with
+    | Some (`Continuous) -> assert false
     | Some (`Dna x) -> 
             let gap = "-" in
             let equ =  [("0",["A"]); ("1",["C"]);

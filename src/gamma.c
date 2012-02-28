@@ -24,6 +24,7 @@
 
 #include "config.h" //defines if likelihood, use_.., et cetera
 #include <math.h>   //log,exp
+#include <time.h>   //for random init
 
 //caml specific headers
 #include <caml/alloc.h>     //copy_double, et cetera
@@ -33,7 +34,6 @@
 #include <caml/fail.h>
 
 #define EPSILON 3e-7  //error for numerical calculations
-#define ITER    100   //MAX iterations
 #define FABMIN  1e-30 //floating point absolute value min  
 
 #ifndef M_PI
@@ -47,7 +47,7 @@ void CHECK_MEAN(double*a, int n){
     double SUM;
     for( Z=0,SUM=0; Z<n; Z++){ SUM += a[Z]; }
     if( SUM/(double)n > 1.0+EPSILON ){
-        failwith("Incorrect Mean of Gamma Rates"); 
+        failwith("Incorrect Mean of Gamma Rates");
     }
 }
 
@@ -92,7 +92,6 @@ value gamma_CAML_gamma( value v_x )
  * Computes the ln gamma function of z using Lanczos Approximation.
  *
  * "Numerical Recipes in C", Section 6.1
- */ 
 double lngamma( const double xx )
 {
     double x,y,tmp,ser;
@@ -108,6 +107,26 @@ double lngamma( const double xx )
     ser=1.000000000190015;
     for(j=0;j<=5;j++) ser += cof[j]/++y;
     return -tmp+log(2.5066282746310005*ser/x);
+}
+*/
+double lngamma( const double xx )
+{
+    int j;
+    double x,tmp,y,ser;
+    static const double cof[14] = { 
+        57.1562356658629235,    -59.5979603554754912,     14.1360979747417471, 
+        -0.491913816097620199,    0.339946499848118887e-4, 0.465236289270485756e-4,
+        -0.983744753048795646e-4, 0.158088703224912494e-3,-0.210264441724104883e-3,
+         0.217439618115212643e-3,-0.164318106536763890e-3, 0.844182239838527433e-4,
+        -0.261908384015814087e-4, 0.368991826595316234e-5
+    };
+    if (xx <= 0) failwith("bad arg in gammln");
+    y=x=xx;
+    tmp = x+5.24218750000000000; /* Rational 671/128 */
+    tmp = (x+0.5)*log(tmp)-tmp;
+    ser = 0.999999999999997092;
+    for (j=0;j<14;j++) ser += cof[j]/++y;
+    return tmp+log(2.5066282746310005*ser/x);
 }
 value gamma_CAML_lngamma( value v_x ) 
 {
@@ -133,6 +152,70 @@ double lngamma_pdf(const double r, const double alpha, const double beta)
 {
     return (pow(beta,alpha)*pow(r, alpha-1)) / (exp(beta*r + lngamma(alpha)) );
 }
+
+
+/** [rand_normal m s]
+ * generate a random number in a given gaussian/normal distribution */
+double rand_normal( const double mean, const double stdev )
+{
+    double u1,u2, r,theta;
+    assert( stdev > 0.0 );
+    srand( time(NULL) );
+
+    u1 = rand();
+    u2 = rand();
+    r = sqrt( -2.0 * log(u1) );
+    theta = 2.0 * M_PI * u2;
+
+    return (mean + stdev * r * sin(theta));
+}
+
+/* [rand_exponential mean]
+ * generate a random exponential value from a mean */
+double rand_exp( const double mean )
+{
+    assert( mean > 0.0 );
+    srand( time(NULL) );
+    return (-mean * log(rand()));
+}
+
+/** [rand_gamma a b]
+ * Implementation based on "A Simple Method for Generating Gamma Variables"
+ * by George Marsaglia and Wai Wan Tsang.  
+ * ACM Transactions on Mathematical Software
+ * Vol 26, No 3, September 2000, pages 363-372.
+ */
+double rand_gamma( const double shape, const double scale )
+{
+    double g,w,x,v,c,d,xsq,u;
+
+    assert( shape > 0.0 );
+    assert( scale > 0.0 );
+    srand( time(NULL) );
+
+    if( shape >= 1.0 ){
+        d = shape - 1.0 / 3.0;
+        c = 1.0 / (sqrt( 9.0 * d));
+        do {
+            x = rand_normal(0, 1);
+            v = 1.0 + c *x;
+            while( v <= 0.0 ){
+                x = rand_normal(0, 1);
+                v = 1.0 + c * x;
+            }
+            v = v*v*v;
+            u = rand();
+            xsq = x*x;
+        } while((u < (1.0 - 0.331 * xsq * xsq))
+            || (log(u) < (0.5*xsq + d*(1.0-v+log(v))))); 
+    } else {
+        g = rand_gamma( shape + 1.0, 1.0 );
+        w = rand();
+        return (scale*g*pow(w,1.0/shape));
+    }
+    return (scale * d * v);
+}
+
 
 /** confluent hypergeometric (for incomplete gamma ratio)
  *   ___inf
@@ -178,24 +261,20 @@ double gamma_i(const double x, const double a)
  */
 void gser(double *gam,double a,double x,double *gln)
 {
-    int n;
     double sum,del,ap;
-
     *gln = lngamma ( a );
     if (x <= 0.0 ) { *gam = 0.0; return; }
-
     ap = a;
     del = sum = 1.0 / a;
-    for(n = 1;n<=ITER;++n) {
+    for(;;) {
         ++ap;
         del *= x/ap;
         sum += del;
         if (fabs(del) < fabs(sum)*EPSILON){
             *gam = sum * exp(-x+a*log(x)-(*gln));
-            return;
+            break;
         }
     }
-    failwith ("To many Iterations in gser (incomplete gamma series)");
 }
 
 /**
@@ -214,7 +293,7 @@ void gcf( double *gam,double a,double x,double *gln )
     c = 1.0 / FABMIN;
     d = 1.0 / b;
     h=d;
-    for(i=1;i<=ITER;i++){
+    for(i=1;;i++){
         an = -i*(i-a);
         b += 2.0;
         d = an*d+b;
@@ -224,9 +303,8 @@ void gcf( double *gam,double a,double x,double *gln )
         d = 1.0 / d;
         del = d*c;
         h *= del;
-        if (fabs(del-1.0) < EPSILON){ break; }
+        if (fabs(del-1.0) <= EPSILON){ break; }
     }
-    if (i > ITER) failwith ("To many Iterations in gcf (incomplete gamma continued fraction)");
     *gam = exp(-x+a*log(x)-(*gln))*h;
 }
 
@@ -234,7 +312,7 @@ void gcf( double *gam,double a,double x,double *gln )
  * Returns the incomplete gamma function P(a,x)
  *
  * "Numerical Recipes in C", Section 6.2
-*/
+ */
 double gammap( const double x, const double a )
 {
     double gam,gln;
@@ -442,22 +520,21 @@ value gamma_CAML_rates( value a, value b, value c )
     alpha = Double_val( a );
     beta =  Double_val( b );
     cats = Int_val( c );
+
+    assert( cats > 0 );
     rate_ray = (double*) malloc( sizeof(double)*cats ); 
     CHECK_MEM(rate_ray);
-    pcut_ray = (double*) malloc( sizeof(double)*cats );
-    CHECK_MEM(pcut_ray);
-
-    //printf("Alpha %f, Beta %f: ",alpha, beta);
-    for(j=1;j<cats;++j)
-        pcut_ray[j-1] = gamma_pp( (double)j/(double)cats, alpha, beta );
-    //for(j=0;j<cats-1;++j) //last category isn't used
-    //    printf (" [%f] ", pcut_ray[j]);
-    //printf("\n");
-    gamma_rates( rate_ray, alpha, beta, pcut_ray, cats );
-    //for(j=0;j<cats;++j)
-    //    printf (" [%f] ", rate_ray[j]);
-    //printf("\n");
-    free( pcut_ray );
+    
+    if( 1 == cats ){
+        rate_ray[0] = 1.0;
+    } else {
+        pcut_ray = (double*) malloc( sizeof(double)*cats );
+        CHECK_MEM(pcut_ray);
+        for(j=1;j<cats;++j)
+            pcut_ray[j-1] = gamma_pp( (double)j/(double)cats, alpha, beta );
+        gamma_rates( rate_ray, alpha, beta, pcut_ray, cats );
+        free( pcut_ray );
+    }
 
     dims[0] = cats;
     rates = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,1,rate_ray,dims);

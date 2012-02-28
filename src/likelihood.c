@@ -461,8 +461,6 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
 
 /**
  * filters an ml struct with all the indexes in the passed array --ordered
- *
- * TODO with invar/aligned SSE data
  */
 value likelihood_CAML_filter(value as, value ibs)
 {  
@@ -470,39 +468,75 @@ value likelihood_CAML_filter(value as, value ibs)
     CAMLlocal1( package );
     mll *norm, *ret;
     double* area;
-    int m,i,j,n,k,r,size;
+    int m,i,j,k,r,n,size;
+    int* invr = 0; /* will not be used it norm->invar = 0 */
 
     m = Wosize_val( ibs );
     norm = ML_val( as );
-    n = norm->c_len;
     size = norm->c_len * norm->stride;
+    
     area = (double*) malloc(sizeof(double)*(norm->c_len-m)*norm->stride*norm->rates);
     CHECK_MEM(area);
-
-    for(r=0;r<norm->rates;r++){
-        for(i=0,j=0;i<n;++i){     
-            if( i != Int_val(Field(ibs, j)) ){
-                for(k=0;k<norm->stride;k++)
-                    area[r*size + i*norm->stride + k] = norm->lv_s[ r*size + i*norm->stride + k];
-            } else if(j++ == m)
-                break;
-        }
-        for(;i<m;++i)
-            area[i] = norm->lv_s[i];
+    if(!(0 == norm->invar)){
+        invr = (int*) malloc(sizeof(int)*(norm->c_len-m));
+        CHECK_MEM(invr);
     }
+
+    //for each character, do ... 
+    for(i=0,j=0,n=0;i<norm->c_len;++i){
+        //printf("Testing index: %d...", i);
+        if( i != Int_val(Field(ibs, j)) ){
+            /* copy */
+            //printf("Copying: ");
+            for(r=0;r<norm->rates;r++){
+                for(k=0;k<norm->stride;k++){
+                    //printf("%5f\t", norm->lv_s[ r*size + i*norm->stride + k] );
+                    area[r*size + n*norm->stride + k] = norm->lv_s[ r*size + i*norm->stride + k];
+                }
+            }
+            //printf("\n");
+            if(!(0 == norm->invar))
+                invr[n] = norm->lv_invar[i];
+            ++n;
+        } else {
+            //printf("filtering\n");
+            if( j == m ){ break; } else { ++j; }
+        }
+    }
+    //fill in left-over; naivly is fine, function isn't used much
+    for(;i<norm->c_len;i++,n++){
+        //printf("Testing index: %d...Copying", i);
+        for(r=0;r<norm->rates;r++){
+            for(k=0;k<norm->stride;k++){
+                //printf("%5f\t", norm->lv_s[ r*size + i*norm->stride + k] );
+                area[r*size + n*norm->stride + k] = norm->lv_s[ r*size + i*norm->stride + k];
+            }
+        }
+        //printf("\n");
+        if(!(0 == norm->invar))
+            invr[n] = norm->lv_invar[i];
+    }
+    assert( n == norm->c_len-m );
+
     package = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),1,CAML_ALLOC);
-    ret = ML_val( package );
-    ret->stride = norm->stride;
+    ret = (mll*) malloc( sizeof(mll) );
+    CHECK_MEM(ret);
+    ML_val( package ) = ret;
+
+    ret->lv_s  = area;
+    ret->stride= norm->stride;
     ret->c_len = norm->c_len - m;
     ret->rates = norm->rates;
+    ret->invar = norm->invar;
+    if( !(0 == norm->invar) )
+        ret->lv_invar = invr;
 
     assert( ret == ML_val(package));
     CAMLreturn( package );
 }
 
-/**  [mk_diag diag mat n m] ~ makes a diagonal square matrix from a first [n]
- * elements of the matrix. Put first [n] elements of [M] along diagonal of [M]
- */
+/**  [mk_diag diag mat n m] ~ makes a diagonal square matrix from the first [n]
+ * elements of the matrix. Put first [n] elements of [M] along diagonal of [M] */
 #ifdef _WIN32
 __inline void 
 #else
@@ -564,7 +598,7 @@ mk_inverse(mat *space,double *VL, const double *VR, int n)
 
     lwork = -1;
     pivot = (int*) malloc(n * sizeof(int));
-    memcpy(VL, VR, n*n*sizeof(double) ); //TODO: is this a problem?
+    memcpy(VL, VR, n*n*sizeof(double) );
     dgetrf_(&n, &n, VL, &n, pivot, &i);
     if( 0 == i ){
         dgetri_(&n, VL, &n, pivot, &work_size, &lwork, &i); //optimal work
@@ -1071,6 +1105,8 @@ logSMPL_site( const mll* l, const double weight, const double* pi,
     int r, j, c;
     double maximum, s_max;
     maximum = logMPL_site( l, 1.0, pi, prob, i );
+
+    s_max = 0;
     for(r=0; r < l->rates;++r){
         c = (r * (l->stride * l->c_len)) + (l->stride * i);
         for(j=0; j < l->stride; ++j){
