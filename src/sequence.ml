@@ -29,7 +29,7 @@ let () = SadmanOutput.register "Sequence" "$Revision: 2871 $"
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
 
-let ndebug = true
+let ndebug = false
 
 type s
 
@@ -617,7 +617,9 @@ module Align = struct
         "algn_CAML_cost_affine_3" 
 
     let align_affine_3 si sj cm =
+        let debug = false in
         let len = length si + length sj + 2 in
+        if debug then Printf.printf "Align.align_affine_3,len_resi/j=%d\n%!" len;
         let resi = create len
         and resj = create len 
         and median = create len 
@@ -625,6 +627,11 @@ module Align = struct
         let cost = 
             c_align_affine_3 si sj cm Matrix.default resi resj median
             medianwg in
+        if debug then begin
+            Printf.printf "cost=%d,resi & resj = \n%!" cost;
+            print stdout resi Alphabet.nucleotides;print_newline();
+            print stdout resj Alphabet.nucleotides;print_newline();
+        end;
         (median, resi, resj, cost, medianwg)
     
     let max_cost_2 a b c =
@@ -843,6 +850,8 @@ module Align = struct
            count gap 0 s 
 
     let cost_2 ?deltaw s1 s2 m1 m2 =
+        let debug = false in
+        if debug then Printf.printf "Align.cost_2\n%!";
         let deltaw_calc s1len s2len = 
             let dif = s1len - s2len in
             let lower_limit = int_of_float ((float_of_int s1len) *.  0.10) in
@@ -1010,6 +1019,8 @@ module Align = struct
 
 
     let align_2 ?(first_gap=true) s1 s2 c m =
+        let debug = false in
+        if debug then Printf.printf "Sequence.Align.align_2,\n%!";
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
@@ -1018,17 +1029,9 @@ module Align = struct
             | _ ->
                     let tc = cost_2 s1 s2 c m in   
                     let s1p, s2p = create_edited_2 s1 s2 m c in
-                    (*cost compare test
-                    let oc1 =  open_out "normal.out" in
-                    Printf.fprintf oc1 "%d%!" tc;
-                    close_out oc1;
-                    let oc =  open_out "normal.out2" in
-                    print oc s1p Alphabet.nucleotides;
-                    print oc s2p Alphabet.nucleotides;
-                    close_out oc;
-                    cost compare test*)
                     s1p, s2p, tc   
         in 
+        let res_s1,res_s2,res_c = 
         match first_gap with
         | true -> cmp s1 s2 
         | false ->              
@@ -1039,6 +1042,22 @@ module Align = struct
               let s1p = del_first_char s1p in 
               let s2p = del_first_char s2p in 
               s1p, s2p, tc
+        in
+        if debug then begin
+           Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
+            print stdout res_s1 Alphabet.nucleotides;print_newline();
+            print stdout res_s2 Alphabet.nucleotides;print_newline(); 
+        end;
+        (*cost compare test
+                let oc1 =  open_out "normal.out" in
+                Printf.fprintf oc1 "%d%!" tc;
+                close_out oc1;
+                let oc =  open_out "normal.out2" in
+                print oc s1p Alphabet.nucleotides;
+                print oc s2p Alphabet.nucleotides;
+                close_out oc;
+                cost compare test*)
+        res_s1,res_s2,res_c
 
     let align_3 ?(first_gap = true) s1 s2 s3 c m =
         let align s1 s2 s3 =
@@ -1415,39 +1434,19 @@ module NewkkAlign = struct
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
-                    (*printseqcode s1; printseqcode s2;*)
                     let tc = newkk_cost2_affine s1 s2 c m in   
-                    (*Printf.printf " editing cost = %d,call traceback\n%!"
-                    * tc;*)
                     let s1p, s2p = get_alignment s1 s2 c m true in
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc
             | _ ->
-                    (*printseqcode s1; printseqcode s2;*)
                     let tc = newkk_cost2 s1 s2 c m in   
-                    (*Printf.printf " editing cost = %d,call traceback\n%!"
-                    * tc;*)
                     let s1p, s2p = get_alignment s1 s2 c m false in
-                    (*cost&algn compare test start
-                    let oc1 =  open_out "newkkonen.out" in
-                    Printf.fprintf oc1 "%d%!" tc;
-                    close_out oc1;
-                    let oc =  open_out "newkkonen.out2" in
-                    if exchange then begin
-                        print oc s2p Alphabet.nucleotides;
-                        print oc s1p Alphabet.nucleotides;
-                    end
-                    else begin
-                        print oc s1p Alphabet.nucleotides;
-                        print oc s2p Alphabet.nucleotides;
-                    end;
-                    close_out oc;
-                    cost&algn compare test end*)
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc   
         in 
+        let res_s1,res_s2,res_c =
         match first_gap with
         | true -> cmp s1 s2 
         | false ->           
@@ -1457,9 +1456,29 @@ module NewkkAlign = struct
               let s1p, s2p, tc = cmp s1 s2 in
               let s1p = del_first_char s1p in 
               let s2p = del_first_char s2p in 
-              if debug then Printf.printf "end of Newkkonen.alied len1=%d, len2=%d\n%!" (length s1p) (length
-              s2p);
               s1p, s2p, tc
+        in
+        if debug then begin
+            Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
+            print stdout res_s1 Alphabet.nucleotides;print_newline();
+            print stdout res_s2 Alphabet.nucleotides;print_newline();
+        end;
+        (*cost&algn compare test start
+                let oc1 =  open_out "newkkonen.out" in
+                Printf.fprintf oc1 "%d%!" tc;
+                close_out oc1;
+                let oc =  open_out "newkkonen.out2" in
+                if exchange then begin
+                    print oc s2p Alphabet.nucleotides;
+                    print oc s1p Alphabet.nucleotides;
+                end
+                else begin
+                    print oc s1p Alphabet.nucleotides;
+                    print oc s2p Alphabet.nucleotides;
+                end;
+                close_out oc;
+                cost&algn compare test end*)
+        res_s1,res_s2,res_c
 
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let debug = false in

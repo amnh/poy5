@@ -49,6 +49,16 @@
 #define MAX(a,b) ( ((a)>(b))? (a):(b) )
 #define MIN(a,b) ( ((a)<(b))? (a):(b) )
 
+void print_direction (DIRECTION_MATRIX dir)
+{
+    printf("[");
+    if (has_flag(dir,DO_ALIGN)) printf("align,");
+    if (has_flag(dir,DO_DELETE)) printf("delete,");
+    if (has_flag(dir,DO_INSERT)) printf("insert,");
+    printf("] ");
+}
+
+
 #ifdef _WIN32
 __inline int
 #else
@@ -687,7 +697,10 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
         if (getcost) {
             DIRECTION_MATRIX newdir, newgapnum;
             get_ukkcost(whichdiag,idx_in_my_diag, m, &newcost, &newdir, &newgapnum, &newaffP, &newaffQ, affine);
-            if (debug) {printf("newcost=%d(%d,%d),oldcost=%d(%d,%d)\n",newcost,newaffP,newaffQ,oldcost,oldaffP,oldaffQ); fflush(stdout);}
+            if (debug) {
+                print_direction(newdir);
+                printf("newcost=%d(%d,%d),oldcost=%d(%d,%d)\n",newcost,newaffP,newaffQ,oldcost,oldaffP,oldaffQ); 
+                fflush(stdout);}
             if (affine) {
 		if ( (newaffQ==oldaffQ)&&(newaffP==oldaffP)&&(newcost==oldcost)) return 0;
 		else return 1;
@@ -729,7 +742,7 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
         int j=0;
         for (j=startj;j<=endj;j++)
         {
-            update_a_cell (s1,s2,m,c,i,j,newk,go,0);
+            update_a_cell (s1,s2,m,c,i,j,newk,go,1);
         }
         /*
         next_j = last_updated_j + 1;
@@ -1292,7 +1305,7 @@ void newkk_follow_insertion (const seqt s2, seqt alis1, seqt alis2,const cmt c, 
 
 void newkk_follow_deletion_or_insertion (int swaped,DIRECTION_MATRIX dir,const seqt s1, const seqt s2, seqt alis1, seqt alis2,const cmt c, int * i, int * j)
 {
-    if (swaped) {
+    if (!swaped) {
         if (has_flag(dir,DO_DELETE))//(dir==DO_DELETE)
             newkk_follow_deletion(s1,alis1,alis2,c,i);
         else{
@@ -1331,11 +1344,11 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
    int i=len1-1, j=len2-1;
    while(i>=0&&j>=0)
    {
-    if(debug) {printf ("i=%d,j=%d :",i,j); fflush(stdout); }
     whichdiag = 0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     cost = 0; dir = 0; gapnum = 0;
     get_idx(i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
     get_ukkcost(whichdiag,idx_in_my_diag,m, &cost, &dir, &gapnum,&affP, &affQ, affine);
+    if(debug) {printf ("i=%d,j=%d :",i,j); print_direction(dir); fflush(stdout); }
     if (dir==START) 
     {
         if(debug) { printf ("Start\n"); fflush(stdout);}

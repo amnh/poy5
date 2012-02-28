@@ -805,6 +805,8 @@ module DOS = struct
                             if use_ukk then
                                 Sequence.NewkkAlign.align_2 a.sequence b.sequence
                             h.c2 Sequence.NewkkAlign.default_ukkm
+                        (*in
+                        let tmpa2, tmpb2, tmpcost2 =*)
                             else 
                                 Sequence.Align.align_2 a.sequence b.sequence h.c2
                             Matrix.default
@@ -813,6 +815,32 @@ module DOS = struct
                         let seqmwg = 
                             Sequence.median_2_with_gaps tmpa tmpb h.c2 
                         in
+                        (*
+                        let seqm2 = Sequence.Align.ancestor_2 tmpa tmpb h.c2 in
+                        let seqmwg2 = 
+                            Sequence.median_2_with_gaps tmpa2 tmpb2 h.c2 
+                        in
+                        let notthesame s1 s2 =
+                            if (Sequence.compare s1 s2)<>0 then true
+                            else false
+                        in
+                        
+                        if (notthesame seqm seqm2)||(notthesame seqmwg
+                        seqmwg2)||(notthesame tmpa tmpa2)||(notthesame tmpb
+                        tmpb2) then begin
+                            Printf.printf "diff between newkkonen and normal alignment:\n%!";
+                            Sequence.print stdout a.sequence Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout b.sequence Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout tmpa Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout tmpa2 Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout tmpb Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout tmpb2 Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout seqmwg Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout seqmwg2 Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout seqm Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout seqm2 Alphabet.nucleotides;print_newline();
+                            assert(false);
+                        end;*)
                         seqm, tmpa, tmpb, tmpcost, seqmwg
             in
             let rescost = make_cost tmpcost in
@@ -2101,6 +2129,7 @@ let to_single parent mine =
 
 
 let median code a b =
+    let debug = false in
     if debug then Printf.printf "seqCS.median -> \n%!";
     let total_cost = ref 0 in
     let h = a.heuristic in

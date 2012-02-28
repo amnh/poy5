@@ -1428,7 +1428,7 @@ let replace_parent_time node time =
  * calculation of the median between [nd1] and [nd2]. **)
 let median_w_times code prev nd_1 nd_2 times_1 times_2 times_3 =
     if debug_treebuild then
-        Printf.printf "node.ml median_w_times...%!";
+        Printf.printf "node.ml median_w_times\n%!";
     let code = match code with
         | Some code -> code
         | None      -> decr median_counter;
@@ -1448,7 +1448,7 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 times_3 =
     and exclude_info = excludes_median nd_1 nd_2 in
     let excluded = has_excluded exclude_info in
     if debug_treebuild then
-         Printf.printf "end of median_w_times, node.ml ...tottal_cost=%f\n\n%!" total_cost;
+         Printf.printf "end of median_w_times, node.ml.tottal_cost=%f\n\n%!" total_cost;
     let node = 
       { characters = new_characters;
         total_cost = if excluded then infinity else total_cost;

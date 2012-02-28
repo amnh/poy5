@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = true
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -439,6 +439,8 @@ module F : Ptree.Tree_Operations
                 let node = AllDirNode.get_adjusted_nodedata nodeB "AllDirChar.distance,no adjdata" in
                 node.AllDirNode.lazy_node
             in
+            (*AllDirNode.print_node_data nodeA true; 
+            AllDirNode.print_node_data nodeB true; *)
             let dist =
                 let p1 = fst (Ptree.create_partition new_tree (Tree.Edge (a,b))), a in
                 match hashdoublefind new_tree [p1] with

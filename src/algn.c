@@ -3997,7 +3997,7 @@ backtrace_2d (const seqt s1, const seqt s2, seqt r1, \
          * as a result, INSERT here is acctually DELETE in those three. 
          */
             while (end >= beg) {
-                if(debug) { printf("(algn:%d,insert:%d,delete:%d),",has_align(*end),has_insert(*end),has_delete(*end)); fflush(stdout);  }
+                if(debug) { printf("\n(%d,%d):(algn:%d,insert:%d,delete:%d),",algn_s1-1,algn_s2-1,has_align(*end),has_insert(*end),has_delete(*end)); fflush(stdout);  }
                 if (has_align(*end)) {
                 if(debug) { printf("align,"); fflush(stdout); }
                     algn_s1--;
