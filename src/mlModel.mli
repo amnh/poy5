@@ -246,13 +246,13 @@ val get_current_parameters_for_alpha : model -> float option
 
 (** {6 Model Testing Functions *)
 
-val aic : model -> int -> float -> float
+val aic : model -> int -> int -> float -> float
 (** [aic n k l_max] Calculate the Akaike Information Criterion *)
 
-val bic : model -> int -> float -> float
+val bic : model -> int -> int -> float -> float
 (** [bic n k l_max] Calculate the Bayesian Information Criterion *)
 
-val hqic : model -> int -> float -> float
+val hqic : model -> int -> int -> float -> float
 (** [hqic n k l_max] Calculate the Hannan-Quinn Information Criterion *)
 
 (** {6 Matrix conversions *)
