@@ -895,28 +895,41 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         codes
 
     let rec transform_tree_characters (trees,data,nodes) meth =
+        let static_transform t a b c d e chars =
+            let chars = 
+                let chars = `Some (Data.get_chars_codes_comp t.Ptree.data chars) in
+                Data.get_code_from_characters_restricted `AllStatic t.Ptree.data chars
+            in
+            match chars with
+            | [] -> t
+            | cs ->
+                let _,alpha = Data.verify_alphabet t.Ptree.data chars in
+                let chars_  = Some (Array.of_list cs) in
+                let bs = Tree.get_edges_tree t.Ptree.tree in
+                let ndata, nodes =
+                    (chars_,a,b,c,d,e)
+                        --> estimate_likelihood_model t bs alpha
+                        --> Data.apply_likelihood_model_on_chars t.Ptree.data chars
+                        --> Node.load_data
+                in
+                substitute_nodes nodes { t with Ptree.data = ndata; }
+        and dynamic_transform t a b c d e chars =
+            let chars =
+                let chars = `Some (Data.get_chars_codes_comp t.Ptree.data chars) in
+                Data.get_code_from_characters_restricted `AllDynamic t.Ptree.data chars
+            in
+            match chars with
+            | [] -> t
+            | cs -> failwith "Cannot deal with Dynamic Characters Here"
+        in
         match meth with
         | `EstLikelihood ((chars,(a:Methods.ml_costfn),b,c,d,e) as x) ->
             let () = Methods.cost := `Iterative (`ThreeD None) in
             let trees = Sexpr.fold_left
-                (fun tsexp t -> 
-                    let chars = 
-                        let chars = `Some (Data.get_chars_codes_comp t.Ptree.data chars) in
-                        Data.get_code_from_characters_restricted `AllStatic t.Ptree.data chars
-                    in
-                    let _,alpha = Data.verify_alphabet t.Ptree.data chars
-                    and chars_ = match chars with
-                        | [] -> None | cs -> Some (Array.of_list cs)
-                    in
-                    let bs = Tree.get_edges_tree t.Ptree.tree in
-                    let ndata, nodes =
-                        (chars_,a,b,c,d,e) 
-                            --> estimate_likelihood_model t bs alpha
-                            --> Data.apply_likelihood_model_on_chars t.Ptree.data chars
-                            --> Node.load_data
-                    in
-                    let ntree = substitute_nodes nodes {t with Ptree.data = ndata} in
-                    Sexpr.union (`Single ntree) tsexp)
+                (fun tsexp t ->
+                    let t = static_transform t a b c d e chars in
+                    let t = dynamic_transform t a b c d e chars in
+                    Sexpr.union (`Single t) tsexp)
                 `Empty
                 trees
             (* this data/nodes are used when building/loading new trees *)
