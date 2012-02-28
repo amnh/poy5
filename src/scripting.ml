@@ -4049,12 +4049,14 @@ let rec folder (run : r) meth =
                     | trees -> 
                         List.iter
                             (fun t ->
-                                let tname =
-                                    match t.Ptree.tree.Tree.tree_name with
+                                let tname = match t.Ptree.tree.Tree.tree_name with
                                     | Some tname -> tname
                                     | None -> ""
+                                and branches = 
+                                    Tree.EdgeSet.cardinal t.Ptree.tree.Tree.d_edges
+                                and cats = 
+                                    Data.categorize_likelihood_chars_by_model chars t.Ptree.data
                                 in
-                                let cats = Data.categorize_likelihood_chars_by_model chars run.data in
                                 List.iter
                                     (fun xs ->
                                         let model = Data.get_likelihood_model t.Ptree.data xs
@@ -4063,7 +4065,10 @@ let rec folder (run : r) meth =
                                         and prior = TreeOps.prior_cost t (Some xs)
                                         and cname = Data.get_character_set_name t.Ptree.data xs
                                         and ntaxa = t.Ptree.data.Data.number_of_taxa in
-                                        let cname = match cname with | Some cname -> cname | None -> "" in
+                                        let cname = match cname with | Some cname -> cname | None -> ""
+                                        and aic   = MlModel.aic model branches ntaxa cost
+                                        and bic   = MlModel.bic model branches ntaxa cost
+                                        and hqic  = MlModel.hqic model branches ntaxa cost in
                                         if tname <> "" then
                                             fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
                                         if cname <> "" then
@@ -4071,7 +4076,10 @@ let rec folder (run : r) meth =
                                         fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                         fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                                         fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                                        fo ("@[<hov 0>Log-Prior:"^string_of_float (~-.prior)^"@]@\n");
+(*                                        fo ("@[<hov 0>Log-Prior: "^string_of_float (~-.prior)^"@]@\n");*)
+(*                                        fo ("@[<hov 0>AIC: "^string_of_float aic^"@]@\n");*)
+(*                                        fo ("@[<hov 0>BIC: "^string_of_float bic^"@]@\n");*)
+(*                                        fo ("@[<hov 0>HQIC: "^string_of_float hqic^"@]@\n\n");*)
                                         MlModel.output_model fo `Hennig model None;
                                         fo "@\n@\n")
                                     cats)

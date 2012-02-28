@@ -17,24 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-type string_spec = string * (string * string * string * string) * float list
-                 * [ `Given of (string * float) list | `Estimate of float array option
-                   | `Consistent of float array option | `Equal ]
-                 * (string * float option) * string * string option
-(** [string_spec] primative representation of the spec used for parsing as an
-    intermediary step
-    the type follows: 
-        modelname,(variation,#sites,alpha,%invar),params,priors,gap?,file *)
-
-val empty_str_spec : string_spec
-(** an empty string spec, contains no default values for options *)
-
-val likelihood_not_enabled : string
-(** string for erroring when likelihood is not enabled. *)
-
-val default_command :
-    Methods.ml_costfn * Methods.ml_substitution * Methods.ml_site_variation option
-        * Methods.ml_priors * Methods.ml_gap
+(** {6 Types *)
 
 type site_var = 
     (** [Gamma] #categories, alpha, beta *)
@@ -53,10 +36,10 @@ type subst_model =
     | F84   of float option
     | HKY85 of float option
     | TN93  of (float * float) option
-    (** [GTR] alphabetical order describtion of the transition rates *)
     | GTR   of (float array) option
-    (** [File] matrix read from a file, diagonal is readjusted so row = 0 *)
+    (** [GTR] alphabetical order describtion of the transition rates *)
     | File  of float array array * string
+    (** [File] matrix read from a file, diagonal is readjusted so row = 0 *)
     | Custom of (int All_sets.IntegerMap.t * float array * string)
 (** [subst_model] the model defining the substitution rate matrix. **)
 
@@ -105,6 +88,52 @@ type model = {
    vector, and the loglikelihood value associated with the result. We also hold
    the specification of the model for output and possible iteration. *) 
 
+
+(** {6 Parsing / Conversion from Text **)
+
+type chars = [ `List of int list | `Packed of int ]
+(** list of set bits, or packed integer of set bits *)
+
+type string_spec = string * (string * string * string * string) * float list
+                 * [ `Given of (string * float) list | `Estimate of float array option
+                   | `Consistent of float array option | `Equal ]
+                 * (string * float option) * string * string option
+(** [string_spec] primative representation of the spec used for parsing as an
+    intermediary step. The type follows: 
+        modelname,(variation,#sites,alpha,%invar),params,priors,gap?,file *)
+
+val empty_str_spec : string_spec
+(** an empty string spec, contains no default values for options *)
+
+val likelihood_not_enabled : string
+(** string for erroring when likelihood is not enabled. *)
+
+val default_command :
+    Methods.ml_costfn * Methods.ml_substitution * Methods.ml_site_variation option
+        * Methods.ml_priors * Methods.ml_gap
+
+val compare_priors : model -> model -> bool
+(** compare two sets of priors *)
+
+val convert_string_spec : string_spec -> spec
+(** [convert_string_spec] convert a string spec from nexus and other formats to
+   the basic specification in for a likelihood model *)
+
+val convert_methods_spec : int -> (unit -> float array) -> Methods.ml_spec -> spec
+(** [convert_methods_spec] convert the specification from Methods into the
+    proper MlModel.spec; this then can be converted to MlModel.model *)
+
+val classify_seq_pairs :
+    bool -> bool -> (float * int * chars) list -> (float * int * chars) list ->
+        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->
+            (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)
+(** [classify_seq_pairs l1 l2 seq1 seq2] does initial classification of the
+    transitions from [seq1] to [seq2] Returns a map of complements, the number of
+    of exact matches, and total number of transitions. Only base frequency in the
+    leaves are added to the IntegerMap, indicated by [l1] and [l2]. *)
+
+(** {6 External Access to Key Models *)
+
 val jc69_5_gap : float -> spec
 (** sample spec for testing of 5 state JC69 with different gap rate *)
 
@@ -129,8 +158,10 @@ val m_file :
         -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 (** [m_file pi co alph] build a Q matrix from an array of parameters **)
 
-type chars = [ `List of int list | `Packed of int ]
-(** list of set bits, or packed integer of set bits *)
+(** {6 Create / Modify Models and Specifications of models *)
+
+val create : ?min_prior:float -> Alphabet.a -> spec -> model
+(** [create_lk_model s] create the model for likelihood from parser *)
 
 val get_costfn_code : model -> int
 (** code for costfn for c-side *)
@@ -151,20 +182,6 @@ val compute_priors :
     frequencies of the alphabet is calculated earlier by functions that
     understand the current representation of the data. *)
 
-val compare_priors : model -> model -> bool
-(** compare two sets of priors *)
-
-val convert_string_spec : string_spec -> spec
-(** [convert_string_spec] convert a string spec from nexus and other formats to
-   the basic specification in for a likelihood model *)
-
-val convert_methods_spec : int -> (unit -> float array) -> Methods.ml_spec -> spec
-(** [convert_methods_spec] convert the specification from Methods into the
-    proper MlModel.spec; this then can be converted to MlModel.model *)
-
-val create : ?min_prior:float -> Alphabet.a -> spec -> model
-(** [create_lk_model s] create the model for likelihood from parser *)
-
 val add_gap_to_model : (unit -> float array) -> model -> model
 (** [enable_gaps f m] a function to add gaps to the model; this is used to
    ensure that dynamic characters have gaps as a character during transforms.
@@ -178,18 +195,10 @@ val remove_gamma_from_spec : spec -> spec
 val compare : model -> model -> int
 (** compare two models; not metric *)
 
-val classify_seq_pairs :
-    bool -> bool -> (float * int * chars) list -> (float * int * chars) list ->
-        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->
-            (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)
-(** [classify_seq_pairs l1 l2 seq1 seq2] does initial classification of the
-    transitions from [seq1] to [seq2] Returns a map of complements, the number of
-    of exact matches, and total number of transitions. Only base frequency in the
-    leaves are added to the IntegerMap, indicated by [l1] and [l2]. *)
-
 val spec_from_classification :
-    Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
-        Methods.ml_costfn -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
+    Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution ->
+        Methods.ml_site_variation option -> Methods.ml_costfn ->
+    (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
 (** Create the specification from the classification of the columns; above *)
 
 val compose : model -> float -> 
@@ -206,14 +215,10 @@ val subst_matrix : model -> float option ->
 (** [subst_matrix] return the substitution rate matrix; Q matrix if t = None,
     else Qt. *)
 
+(** {6 Output functions *)
+
 val debug_model : model -> float option -> unit
-
-val check_metricity : model -> float -> float ->
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> unit
-
-val model_to_cm : model -> float -> Cost_matrix.Two_D.m
-(** return an integerized cost matrix of the model *)
+(** print composed model to stdout *)
 
 val output_model : (string -> unit) -> [`Nexus | `Phylip | `Hennig] -> model -> string list option -> unit
 (** print the model in a format similar to Phylip's output, or a formatted nexus
@@ -222,6 +227,8 @@ val output_model : (string -> unit) -> [`Nexus | `Phylip | `Hennig] -> model -> 
 
 val to_formatter : model -> Xml.xml Sexpr.t list
 (** return XML reprentation of the model *)
+
+(** {6 Higher-Order functions to modify model *)
 
 val get_update_function_for_model    : model -> (model -> float array -> model) option
 (** [get_update_function_for_model] based on the model provided return a function
@@ -236,3 +243,20 @@ val get_update_function_for_alpha    : model -> (model -> float -> model) option
 
 val get_current_parameters_for_alpha : model -> float option
 (** [get_current_parameters_for_alpha] return the alpha parameter if it exists *) 
+
+(** {6 Model Testing Functions *)
+
+val aic : model -> int -> int -> float -> float
+(** [aic n k l_max] Calculate the Akaike Information Criterion *)
+
+val bic : model -> int -> int -> float -> float
+(** [bic n k l_max] Calculate the Bayesian Information Criterion *)
+
+val hqic : model -> int -> int -> float -> float
+(** [hqic n k l_max] Calculate the Hannan-Quinn Information Criterion *)
+
+(** {6 Matrix conversions *)
+
+val model_to_cm : model -> float -> Cost_matrix.Two_D.m
+(** return an integerized cost matrix of the model *)
+

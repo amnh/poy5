@@ -19,7 +19,7 @@
 
 let () = SadmanOutput.register "MlMatrix" "$Revision"
 
-let (=.) a b = abs_float (a-.b) < Numerical.tolerance
+open Numerical.FPInfix
 let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
 
@@ -223,6 +223,48 @@ let categorize_by_model get_fn codes =
             codes
     in
     MlModelMap.fold (fun _ e a -> e :: a) set_codes []
+
+(** Count the number of parameters in the model; used for xIC functions **)
+let count_parameters model : int =
+    let num_subst = match model.spec.substitution with
+        | Custom (_,x,_)          -> Array.length x
+        | JC69  | F81 | File _    -> 0
+        | K2P _ | F84 _ | HKY85 _ -> 1
+        | TN93 _ -> 2
+        | GTR _  -> (model.alph_s*(model.alph_s-1))/2
+    and num_rates = match model.spec.site_variation with
+        | None | Some Constant -> 0
+        | Some Gamma _ -> 1
+        | Some Theta _ -> 2
+    in
+    (if model.spec.iterate_model then num_subst else 0)
+        +
+    (if model.spec.iterate_alpha then num_rates else 0)
+
+
+(** [aic] is defined as, AIC = (2*n / (n-k-1)) * k - 2 (ln L_max), where n is
+    the number of observations, k are the number of parameters, and L_max is the
+    log-likelihood of the model under the data. *)
+let aic m b n l_max =
+    let k = float_of_int (b + count_parameters m)
+    and n = float_of_int n in
+    (2.0 *. n *. k /. (n -. k -. 1.0)) -. 2.0 *. l_max
+
+(** [bic is defined as, BIC = ln(n) * k - 2 * ln(L_max), where n is the number
+    of observations, k are the number of parameters, and L_max is the
+    log-likelihood of the model under the data. *)
+and bic m b n l_max =
+    let k = float_of_int (b + count_parameters m)
+    and n = float_of_int n in
+    ((log n) *. k) -. 2.0 *. l_max
+
+(** [hqic is defined as, HQIC =2 ln(ln(n)) * k - 2 * ln(L_max), where n is the number
+    of observations, k are the number of parameters, and L_max is the
+    log-likelihood of the model under the data. *)
+and hqic m b n l_max =
+    let k = float_of_int (b + count_parameters m)
+    and n = float_of_int n in
+    (2.0 *. (log (log n)) *. k) -. 2.0 *. l_max
 
 
 IFDEF USE_LIKELIHOOD THEN
@@ -474,7 +516,7 @@ let m_gtr_independent pi_ co_ a_size =
     m_meanrate srm pi_;
     srm
 
-let m_gtr_coupled pi_ co_ a_size i_gap r_gap = 
+let m_gtr_coupled pi_ co_ a_size i_gap r_gap =
     if (((a_size-1)*(a_size-2))/2) <> Array.length co_ then begin
         failwithf "Length of GTR parameters (%d) is insufficient for alphabet with coupled gap parameter (%d)"
             (Array.length co_) (((a_size-1)*(a_size-2))/2);
@@ -872,38 +914,6 @@ let compose_model sub_mat t =
     in
     compose_gtr FMatrix.scratch_space u_ d_ ui_ t
 
-(* check the metricity of the composed matrix by issuing a passive warning *)
-let check_metricity model t1 t2 log_mat1 log_mat2 : unit =
-    let flag = ref false in
-    for i = 0 to model.alph_s-1 do
-        for j = 0 to model.alph_s-1 do
-            let a_state = ref [] and a_cost = ref infinity in
-            for n = 0 to model.alph_s-1 do
-                let n_cost = log_mat1.{i,n} +. log_mat2.{j,n} in
-                if !a_cost =. n_cost then begin
-                    a_state := n :: !a_state;
-                    a_cost  := min !a_cost n_cost;
-                end else if !a_cost > n_cost then begin
-                    a_state := [n];
-                    a_cost  := n_cost;
-                end;
-            done;
-            if not ((List.mem i !a_state) || (List.mem j !a_state)) then
-                flag := true;
-        done;
-    done;
-    let gap_ratio = match model.spec.use_gap with
-        | `Coupled f -> string_of_float f
-        | `Independent | `Missing -> ""
-    in
-    if !flag then begin
-        Status.user_message Status.Warning 
-            (Printf.sprintf "Matrix has metric issues: %f:%f/%s" t1 t2 gap_ratio);
-(*        Status.user_message Status.Warning (Printf.sprintf "Branch Length: %f/%f\n" t1 t2);*)
-(*        output_model (Status.user_message Status.Warning) `Nexus model None;*)
-    end;
-    ()
-
 (* integerized converstion and composition of a model and branch lenghth *)
 let integerized_model ?(sigma=4) model t =
     let sigma = 10.0 ** (float_of_int sigma)
@@ -926,16 +936,23 @@ let integerized_model ?(sigma=4) model t =
     done;
     imatrix
 
+(* create a cost matrix from a model *)
+let model_to_cm model t =
+    let input = let t = max Numerical.minimum t in integerized_model model t in
+    let llst = Array.to_list (Array.map Array.to_list input) in
+    let res = Cost_matrix.Two_D.of_list ~suppress:true llst model.alph_s in
+    res
+
 ELSE
 
     let output_model _ _ _ _ = failwith likelihood_not_enabled
     let compose _ _  = failwith likelihood_not_enabled
-    let spec_from_classification _ _ _ _ _ _ = failwith likelihood_not_enabled
+    let spec_from_classification _ _ _ _ _ = failwith likelihood_not_enabled
     let compare _ _ = failwith likelihood_not_enabled
     let classify_seq_pairs _ _ _ _ _ = failwith likelihood_not_enabled
     let subst_matrix _ _ = failwith likelihood_not_enabled
-    let check_metricity _ _ _ _ _ = failwith likelihood_not_enabled
     let process_custom_model _ = failwith likelihood_not_enabled
+    let model_to_cm _ _ = failwith likelihood_not_enabled
 
     (** durability functions for outside toplevel access **)
     let compose_model _ _ = failwith likelihood_not_enabled
@@ -945,19 +962,6 @@ ELSE
 
 END
 
-(* create a cost matrix from a model *)
-let model_to_cm model t =
-    let input =
-        IFDEF USE_LIKELIHOOD THEN 
-            let t = max Numerical.minimum t in
-            integerized_model model t
-        ELSE
-            failwith likelihood_not_enabled
-        END
-    in
-    let llst = Array.to_list (Array.map Array.to_list input) in
-    let res = Cost_matrix.Two_D.of_list ~suppress:true llst model.alph_s in
-    res
 
 (* ------------------------------------------------ *)
 (* CONVERSION/MODEL CREATION FUNCTIONS             *)
@@ -1549,7 +1553,7 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
                     (fun acc (r,b) -> match b with
                         | b when b = Alphabet.get_gap alph -> acc
                         | b ->
-                            let c = 
+                            let c =
                                 try (All_sets.IntegerMap.find b pis) /. sum
                                 with | Not_found -> 0.0 in
                             c :: acc)
@@ -1558,7 +1562,7 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
             (* gaps are charcters *)
             end else begin
                 List.fold_left
-                    (fun acc (r,b) -> 
+                    (fun acc (r,b) ->
                         let c = try (All_sets.IntegerMap.find b pis) /. sum
                                 with | Not_found -> 0.0 in
                         c :: acc)
@@ -1566,7 +1570,6 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
                     (Alphabet.to_list alph)
             end
         in
-        (* TODO: what to do if we don't have any of a state? *)
         List.rev l
     and is_comp a b = match Alphabet.complement a alph with
         | Some x -> x = b
@@ -1583,13 +1586,14 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
             (*        k = alpha / beta                          *)  
             (* k = [log(1-2S-V)-0.5*log(1-2V)] / log(1-2V)      *)
             let s,v,a =
-                let s,v,a = All_sets.FullTupleMap.fold
-                    (fun k v (sc,vc,all) -> match k with
+                let s,v,a =
+                    All_sets.FullTupleMap.fold
+                        (fun k v (sc,vc,all) -> match k with
                             | k1,k2 when is_comp k1 k2 -> (sc+.v,vc,all+.v)
                             | k1,k2 when k1 != k2 -> (sc,vc+.v,all+.v)
                             | _ -> (sc,vc,all+.v) )
-                    comp_map
-                    (0.0,0.0,0.0)
+                        comp_map
+                        (0.0,0.0,0.0)
                 in
                 s /. a, v /. a, a
             in
@@ -1655,8 +1659,8 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
         base_priors = Estimated (Array.of_list f_priors);
         cost_fn = costfn;
         use_gap = gap;
-        iterate_model = true;
-        iterate_alpha = true;
+        iterate_model = false;
+        iterate_alpha = false;
     }
 
 let convert_gapr m = function
