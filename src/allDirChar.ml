@@ -195,9 +195,7 @@ module F : Ptree.Tree_Operations
             List.iter
                 (fun (codes,times) -> match times with
                     | Some x -> insert_set codes table x
-                    | None   ->
-                        Printf.printf "Can't find bl: %d -- %d\n%!" node1 node2;
-                        ())
+                    | None   -> ())
                 codestimes;
             table
         in
