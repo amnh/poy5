@@ -1457,12 +1457,29 @@ let load_data (meth : Methods.input) data nodes =
                 *)
         | `AutoDetect files ->
                 let files = explode_filenames files in
-                if is_prealigned then prealigned_files := files ::
-                    !prealigned_files;
-                List.fold_left 
-                    (Data.guess_class_and_add_file annotated is_prealigned) 
-                    data
-                    files
+                if is_prealigned then
+                    prealigned_files := files :: !prealigned_files;
+                (* Avoid changing if we don't want this setting *)
+                let prev = match Data.type_of_dynamic_likelihood data with
+                    | None when Data.has_likelihood data -> true
+                    | Some _ -> true
+                    | None   -> false
+                in
+                let data =
+                    List.fold_left
+                        (Data.guess_class_and_add_file annotated is_prealigned)
+                        data
+                        files
+                in
+                begin match Data.type_of_dynamic_likelihood data with
+                    | None when Data.has_likelihood data && not prev ->
+                        Methods.cost := `Iterative (`ThreeD None)
+                    | Some _ when not prev ->
+                        Methods.cost := `Iterative (`ThreeD None)
+                    | (None | Some _) -> ()
+                end;
+                data
+
         | `PartitionedFile files 
         | `Nucleotides files  as meth ->
                 let mode = 

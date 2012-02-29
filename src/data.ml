@@ -2234,8 +2234,8 @@ let add_static_file ?(report = true) style data (file : FileStream.f) =
         in
         if report then
             report_static_input file r;
-            close_in ch;
-            add_static_parsed_file data file r
+        close_in ch;
+        add_static_parsed_file data file r
     with | Sys_error err ->
         let file = FileStream.filename file in
         let msg =
@@ -6648,7 +6648,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     let fn = FileStream.filename filename in
                     report_static_input fn fo;
                     add_static_parsed_file data fn fo
-            | Parser.Files.Is_Hennig-> 
+            | Parser.Files.Is_Hennig->
                     let data = add_file [Characters; Trees] in
                     file_type_message "hennig86/Nona";
                     add_static_file `Hennig data filename
@@ -6671,9 +6671,9 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     let data = add_file [Trees] in
                     file_type_message "Tree@ List";
                     process_trees data filename
-            | Parser.Files.Is_Nexus-> 
+            | Parser.Files.Is_Nexus->
                     file_type_message "Nexus@ File";
-                    add_static_file `Nexus data filename 
+                    add_static_file `Nexus data filename
             | Parser.Files.Is_Unknown->
                     let data = add_file [Characters; Trees; CostMatrix] in
                     file_type_message "input@ sequences@ (default)";
