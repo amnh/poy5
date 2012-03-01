@@ -88,9 +88,8 @@ let select_shortest trees =
     | None -> raise No_trees
 
 module Make (Node : NodeSig.S with type other_n = Node.Standard.n) 
-(Edge : Edge.EdgeSig with type n = Node.n) 
-    (TreeOps : 
-        Ptree.Tree_Operations with type a = Node.n with type b = Edge.e)
+            (Edge : Edge.EdgeSig with type n = Node.n) 
+            (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e)
     : S with type a = Node.n with type b = Edge.e = struct
 
     module IA = ImpliedAlignment.Make (Node) (Edge)
@@ -732,7 +731,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     (* estimate a likelihood model from non-addative characters as defined in
      * chars, over branches. Classify all transitions and count base frequencies
      * of leaves for priors, then construct the model. *)
-    let estimate_likelihood_model p_tree branches alph (chars,cost,subst,vari,_,gap) =
+    let estimate_static_lk_model tree data branches alph (chars,cost,subst,vari,_,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
@@ -740,7 +739,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             | Tree.Single _   -> assert false
         in
         let classify_branch ptree e acc =
-            let Tree.Edge (ac,bc) = e and data = ptree.Ptree.data in
+            let Tree.Edge (ac,bc) = e in
             let a = Ptree.get_node_data ac ptree and b = Ptree.get_node_data bc ptree in
             let dataa = Node.extract_states alph data (Some bc) chars a
             and datab = Node.extract_states alph data (Some ac) chars b in
@@ -749,13 +748,20 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             List.fold_left (fun acc e -> classify_func ptree e acc) acc lst
         and add_const_characters ((trans,freqs) as acc) =
             let addert = float_of_int (List.length branches)
-            and adderf = float_of_int (p_tree.Ptree.data.Data.number_of_taxa) in
+            and adderf = float_of_int data.Data.number_of_taxa in
+            let chars = match chars with
+                | Some cs ->
+                    let cs = Array.to_list cs in
+                    List.filter (fun c -> List.mem c data.Data.non_additive_1) cs
+                | None ->
+                    data.Data.non_additive_1
+            in
             List.fold_left
                 (fun (t,f) c ->
                     let states =
-                        match Hashtbl.find p_tree.Ptree.data.Data.character_specs c with
-                        | Data.Static spec -> spec.Nexus.File.st_observed
-                        | _           -> assert false
+                        match Hashtbl.find data.Data.character_specs c with
+                            | Data.Static spec -> spec.Nexus.File.st_observed
+                            | _           -> assert false
                     in
                     let div = float_of_int (List.length states) in
                     List.fold_left
@@ -779,7 +785,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         (t,f)
                         (states))
                 acc
-                p_tree.Ptree.data.Data.non_additive_1
+                chars
         and debug_print_costs ((t,f) as ret) =
             All_sets.IntegerMap.iter
                 (fun k v ->
@@ -793,9 +799,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             ret
         in
         (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
-            --> l_traversal branches classify_branch p_tree
+            --> l_traversal branches classify_branch tree
             --> add_const_characters
-(*            --> debug_print_costs*)
+            --> debug_print_costs
             --> MlModel.spec_from_classification alph gap subst vari cost
             --> MlModel.create alph
       ELSE
@@ -943,43 +949,48 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         codes
 
     let rec transform_tree_characters (trees,data,nodes) meth =
-        let static_transform t a b c d e chars =
-            let chars = 
-                let chars = `Some (Data.get_chars_codes_comp t.Ptree.data chars) in
-                Data.get_code_from_characters_restricted `AllStatic t.Ptree.data chars
-            in
-            match chars with
-            | [] -> t
-            | cs ->
-                let _,alpha = Data.verify_alphabet t.Ptree.data chars in
-                let chars_  = Some (Array.of_list cs) in
-                let bs = Tree.get_edges_tree t.Ptree.tree in
-                let ndata, nodes =
-                    (chars_,a,b,c,d,e)
-                        --> estimate_likelihood_model t bs alpha
-                        --> Data.apply_likelihood_model_on_chars t.Ptree.data chars
-                        --> Node.load_data
-                in
-                substitute_nodes nodes { t with Ptree.data = ndata; }
-        and dynamic_transform t a b c d e chars =
+        let static_transform t bs data a b c d e (chars:Methods.characters) =
             let chars =
-                let chars = `Some (Data.get_chars_codes_comp t.Ptree.data chars) in
-                Data.get_code_from_characters_restricted `AllDynamic t.Ptree.data chars
+                let chars = Data.get_code_from_characters_restricted_comp
+                                                    `AllStatic data chars in
+                Data.categorize_characters data (`Some chars)
             in
             match chars with
-            | [] -> t
-            | cs -> failwith "Cannot deal with Dynamic Characters Here"
+            | []  -> data
+            | css ->
+                List.fold_left
+                    (fun data cs ->
+                        let chars_  = Some (Array.of_list cs) in
+                        let _,alpha = Data.verify_alphabet data cs in
+                        (chars_,a,b,c,d,e)
+                            --> estimate_static_lk_model t data bs alpha
+                            --> Data.apply_likelihood_model_on_chars data cs)
+                    data
+                    css
+        and dynamic_transform tree bs data a b c d e chars =
+            let chars =
+                let chars = Data.get_code_from_characters_restricted_comp
+                                                    `AllDynamic data chars in
+                Data.categorize_characters data (`Some chars)
+            in
+            match chars with
+            | []  -> data
+            | css -> data
         in
         match meth with
-        | `EstLikelihood ((chars,(a:Methods.ml_costfn),b,c,d,e) as x) ->
+        | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e) as x) ->
             let () = Methods.cost := `Iterative (`ThreeD None) in
-            let trees = Sexpr.fold_left
-                (fun tsexp t ->
-                    let t = static_transform t a b c d e chars in
-                    let t = dynamic_transform t a b c d e chars in
-                    Sexpr.union (`Single t) tsexp)
-                `Empty
-                trees
+            let trees =
+                Sexpr.fold_left
+                    (fun tsexp t ->
+                        let bs = Tree.get_edges_tree t.Ptree.tree in
+                        let data = static_transform t bs t.Ptree.data a b c d e chars in
+                        let data = dynamic_transform t bs data a b c d e chars in
+                        let ndata, nodes = Node.load_data data in
+                        let t = substitute_nodes nodes { t with Ptree.data = ndata; } in
+                        Sexpr.union (`Single t) tsexp)
+                    `Empty
+                    trees
             (* this data/nodes are used when building/loading new trees *)
             and data, nodes = Node.load_data (Data.set_likelihood data x) in
             trees, data, nodes
