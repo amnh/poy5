@@ -34,6 +34,8 @@ type options =
     | Trees of Tree.Parse.tree_types list
     | Unkown_option of string
 
+exception IncompleteMatrix
+
 (* Set of regexes to match all the supported commands in a Hennig86 file *)
 let tree_re = Str.regexp "tread +\\((.*)\\)"
 
@@ -85,13 +87,14 @@ let rec load_all_integers str l =
 (* used for dpread files this function takes the list of integers from
 *  load_all_integers function and converts to a matrix (cost matrix) *)
 let convert_list_to_matrix size lst =
-    let matrix = Array.make_matrix size size 0 in
-    for i = 0 to size - 1 do 
-        for j = 0 to size - 1 do
-            matrix.(i).(j) <- List.nth lst (size + i*size + j);
+    try let matrix = Array.make_matrix size size 0 in
+        for i = 0 to size - 1 do 
+            for j = 0 to size - 1 do
+                matrix.(i).(j) <- List.nth lst (size + i*size + j);
+            done;
         done;
-    done;
-    matrix
+        matrix
+    with _ -> raise IncompleteMatrix
 
 let process_ccode string n_chars =
     let r = new FileStream.string_reader string in
@@ -187,17 +190,17 @@ let is_unordered_matrix matrix =
             with
             | Exit -> false
 
-let ndebug = false
+let ndebug = true
 
 let process_single_command taxa_data x characters =
     try
+        if not ndebug then Printf.printf "Processing: %s\n%!" x;
         if Str.string_match multi_cc x 0 then begin
             let res = Str.matched_group 1 x in
             let res = process_ccode res characters in
             res
         end
         else if Str.string_match costs x 0 then begin
-            Printf.printf "Processing Cost Matrix: %s\n%!" x;
             let res = Str.matched_group 1 x in
             let size = int_of_string (Str.matched_group 2 x) in
             let matrix_string = Str.matched_group 3 x in
@@ -229,9 +232,13 @@ let process_single_command taxa_data x characters =
                 List.rev_map (fun t -> Trees t) trees
             with _ -> []
         end else [Unkown_option x]
-    with | _ -> 
-            let msg = "Illegal command in Hennig86 file. " ^ x in
-            raise (E.Illegal_hennig86_format msg)
+    with 
+    | IncompleteMatrix -> 
+        let msg = "Incomplete Matrix in Hennig86 file. " ^ x in
+        raise (E.Illegal_hennig86_format msg)
+    | _ -> 
+        let msg = "Illegal command in Hennig86 file. " ^ x in
+        raise (E.Illegal_hennig86_format msg)
 
 let process_options taxa_data opts y =
     let single_option_processor x =

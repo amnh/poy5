@@ -724,6 +724,14 @@ let get_empty_seq alph =
 
 
 let print (data : d) = 
+    let print_matrix arr =
+        Printf.printf ", %d/%d:" (Array.length arr) (Array.length arr.(0));
+        for i = 0 to (Array.length arr)-1 do
+            for j = 0 to (Array.length arr.(i))-1 do
+                Printf.printf "%d, " arr.(i).(j)
+            done;
+        done
+    in
     let print_taxon (key : int) (ch_ls : (int, cs) Hashtbl.t) = 
         let len = Hashtbl.fold (fun _ _ acc -> acc + 1) ch_ls 0 in
         let  taxa_name = All_sets.IntegerMap.find key data.taxon_codes in  
@@ -825,7 +833,8 @@ let print (data : d) =
                | Nexus.File.STOrdered -> Printf.fprintf stdout "Ordered"
                | Nexus.File.STUnordered -> Printf.fprintf stdout "Unordered"
                | Nexus.File.STLikelihood m -> Printf.fprintf stdout "Static ML"
-               | Nexus.File.STSankoff m -> Printf.fprintf stdout "Sankoff")
+               | Nexus.File.STSankoff m -> Printf.fprintf stdout "Sankoff"; print_matrix m);
+
         | _ -> Printf.fprintf stdout "Not Dynamic");
         print_newline ()
     and print_csets name chars = 
