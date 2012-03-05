@@ -54,7 +54,8 @@ struct cost_dir {
     int len; //len of this diagonal,start from 1
     int * costarr; //cost 
     DIRECTION_MATRIX * dirarr;//direction
-    DIRECTION_MATRIX * gapnumarr;//max gap number we could have in alignment
+    DIRECTION_MATRIX * gapnumarr1;//max gap number we could have in alignment
+    DIRECTION_MATRIX * gapnumarr2;//max gap number we could have in alignment
     int * affParr; //affine matrix P
     int * affQarr; //affine matrix Q
 };
@@ -96,6 +97,6 @@ __inline int
 #else
 inline int 
 #endif
-newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int go, const cmt c, newkkmat_p m);
+newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int go, const cmt c, newkkmat_p m, int swaped);
 
 
