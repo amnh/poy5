@@ -102,8 +102,7 @@ let get_cost clas ptree =
               0.
     else
           let adder = fun _ v acc -> (get_cost v) +. acc +. ptree.origin_cost in
-          All_sets.IntegerMap.fold adder ptree.component_root
-              (-. ptree.origin_cost)
+          All_sets.IntegerMap.fold adder ptree.component_root (-. ptree.origin_cost)
 
 let set_origin_cost cost ptree =
     { ptree with origin_cost = cost }
@@ -2047,7 +2046,7 @@ let build_tree_with_names_n_costs collapse tree cost =
         let data = get_node_data code tree in
         match get_node code tree with
         | Tree.Interior (_, par, _, _) ->
-            string_of_float (Node.total_cost (Some par) None data)
+            string_of_float (Node.total_cost (Some par) data)
         | _ ->
             try Data.code_taxon (Node.taxon_code data) tree.data
             with _ -> ""
@@ -2120,7 +2119,7 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
         let data = get_node_data code tree in
         match get_node code tree with
         | Tree.Interior (_, par, _, _) ->
-               string_of_float (Node.total_cost (Some par) None data)
+               string_of_float (Node.total_cost (Some par) data)
         | _ -> try Data.code_taxon (Node.taxon_code data) tree.data
                with _ -> ""
     and root_name tree = function
@@ -2144,7 +2143,7 @@ let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label gen_
         let data = get_node_data code tree in
         match get_node code tree with
         | Tree.Interior (_, par, _, _) ->
-               string_of_float (Node.total_cost (Some par) None data)
+               string_of_float (Node.total_cost (Some par) data)
         | _ -> try Data.code_taxon (Node.taxon_code data) tree.data
                with _ -> ""
     and root_name tree = function

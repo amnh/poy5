@@ -153,26 +153,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             Data.transform_weight (`ReWeight ((`Some (true, x)), w)) a) 
             w data, !counter
 
-    let filter_characters tree codes = 
-        let filter_codes node = Node.f_codes codes node in
-        let new_node_data = 
-            All_sets.IntegerMap.map filter_codes tree.Ptree.node_data 
-        in
-        let component_root = 
-            All_sets.IntegerMap.map (fun x ->
-                match x.Ptree.root_median with
-                | None -> x
-                | Some (x, y) -> 
-                        let y = filter_codes y in
-                        { 
-                            Ptree.component_cost = Node.tree_cost None y;
-                            Ptree.adjusted_component_cost = Node.tree_cost None y;
-                            Ptree.root_median = Some (x, y) })
-            tree.Ptree.component_root
-        in
-        { tree with
-              Ptree.node_data = new_node_data;
-              Ptree.component_root = component_root }
+    let filter_characters tree codes = IA.filter_characters tree codes
 
     let substitute_nodes nodes tree =
         let adder acc x = 

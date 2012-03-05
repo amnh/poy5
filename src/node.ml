@@ -417,43 +417,7 @@ let calc_total_cost c1 c2 c_cost =
     Printf.printf "totalcost = %f <-?- %f + %f + %f; %!" res c_cost c1.total_cost c2.total_cost;
     res
 
-let total_cost _ chars a = match chars with 
-    | None    -> a.total_cost
-    | Some cs ->
-        let extract =
-            (fun c ->
-                (* Printf.printf "SUM COST: %f\n    COST: %f\n%!" c.sum_cost c.cost;*)
-                match a.cost_mode with
-                | `Likelihood    -> c.cost
-                | `Parsimony     -> c.sum_cost
-                | `SumLikelihood -> c.sum_cost
-                | `Fixedstates   -> c.cost)
-        in
-        let rec total_cost acc = function
-            | StaticMl c ->
-                IFDEF USE_LIKELIHOOD THEN
-                    if MlStaticCS.mem chars c.final then acc +. (extract c) else acc
-                ELSE
-                    failwith MlStaticCS.likelihood_error
-                END
-            | Nonadd8 c  -> 
-                if NonaddCS8.mem chars c.final then acc +. (extract c) else acc
-            | Nonadd16 c ->
-                if NonaddCS16.mem chars c.final then acc +. (extract c) else acc
-            | Nonadd32 c ->
-                if NonaddCS32.mem chars c.final then acc +. (extract c) else acc
-            | Add c      ->
-                if AddCS.code_mem chars c.final then acc +. (extract c) else acc
-            | Sank c -> 
-                if SankCS.mem chars c.final then acc +. (extract c) else acc
-            | Dynamic c ->
-                if DynamicCS.mem chars c.final then acc +. (extract c) else acc
-            | Kolmo c -> acc
-            | Set s   -> 
-                List.fold_left (fun acc c -> total_cost acc c) acc s.final.set
-        in
-        List.fold_left total_cost 0.0 a.characters
-
+let total_cost _ a = a.total_cost
 
 let rec prelim_to_final = function
     | StaticMl a -> 
@@ -4404,7 +4368,7 @@ module Standard :
         module Union = Union
         let for_support = for_support
         let root_cost = root_cost
-        let tree_cost a b = (root_cost b) +. (total_cost a None b)
+        let tree_cost a b = (root_cost b) +. (total_cost a b)
         let to_single root _ a _ b sets =
             let combine = match root with
                 | Some _ -> true
@@ -4523,14 +4487,14 @@ let merge a b =
     }
 
 let total_cost_of_type t n =
-    let rec total_cost_cs acc item = 
+    let rec total_cost_cs acc item =
         let single = match item, t with
             | Nonadd8 x, `Nonadd -> x.sum_cost *. x.weight
             | Nonadd16 x, `Nonadd -> x.sum_cost *. x.weight
             | Nonadd32 x, `Nonadd -> x.sum_cost *. x.weight
             | Add x, `Add -> x.sum_cost *. x.weight
             | Sank x, `Sank -> x.sum_cost *. x.weight
-            | StaticMl x, `StaticMl -> 
+            | StaticMl x, `StaticMl ->
                 IFDEF USE_LIKELIHOOD THEN
                     x.cost
                 ELSE
@@ -4538,23 +4502,24 @@ let total_cost_of_type t n =
                 END
             | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
             | Dynamic x, t -> 
-                (match x.preliminary, t with
-                | DynamicCS.MlCS _, `Ml when n.cost_mode = `Likelihood -> 
-                    x.cost *. x.weight
-                | DynamicCS.MlCS _, `Ml when n.cost_mode = `SumLikelihood ->
-                    x.sum_cost *. x.weight
-                | DynamicCS.MlCS _, `Ml -> assert false
-                | DynamicCS.SeqCS _, `Seq ->
-                    x.sum_cost *. x.weight
-                | DynamicCS.BreakinvCS _, `Breakinv -> 
-                    x.sum_cost *.  x.weight
-                | DynamicCS.ChromCS _, `Chrom -> 
-                    x.sum_cost *. x.weight
-                | DynamicCS.AnnchromCS _, `Annchrom -> 
-                    x.sum_cost *. x.weight
-                | DynamicCS.GenomeCS _, `Genome -> 
-                    x.sum_cost *. x.weight
-                | _ -> 0.0)
+                begin match x.preliminary, t with
+                    | DynamicCS.MlCS _, `Ml when n.cost_mode = `Likelihood ->
+                        x.cost *. x.weight
+                    | DynamicCS.MlCS _, `Ml when n.cost_mode = `SumLikelihood ->
+                        x.sum_cost *. x.weight
+                    | DynamicCS.MlCS _, `Ml -> assert false
+                    | DynamicCS.SeqCS _, `Seq ->
+                        x.sum_cost *. x.weight
+                    | DynamicCS.BreakinvCS _, `Breakinv ->
+                        x.sum_cost *.  x.weight
+                    | DynamicCS.ChromCS _, `Chrom ->
+                        x.sum_cost *. x.weight
+                    | DynamicCS.AnnchromCS _, `Annchrom ->
+                        x.sum_cost *. x.weight
+                    | DynamicCS.GenomeCS _, `Genome ->
+                        x.sum_cost *. x.weight
+                    | _ -> 0.0
+                end
             | Kolmo x, `Kolmo -> x.sum_cost *. x.weight
             | _,_ -> 0.0
         in

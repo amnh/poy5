@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -341,20 +341,7 @@ module F : Ptree.Tree_Operations
            0.0
 
 
-    let total_cost ptree adj chars =
-        let total_handle_cost acc h =
-            match (Ptree.get_component_root h ptree).Ptree.root_median with
-                | Some ((`Edge (a,b)),c) ->
-(*                    Printf.printf "TOTAL COST: %f\n%!"*)
-(*                           (AllDirNode.AllDirF.total_cost None None  c);*)
-                    acc +. (AllDirNode.AllDirF.total_cost None chars c)
-                | None
-                | Some _ -> acc
-        in
-        IntSet.fold
-            (fun handle acc_cost -> total_handle_cost acc_cost handle)
-            (Ptree.get_handles ptree)
-            (prior_cost ptree chars)
+    let total_cost ptree adj chars = Ptree.get_cost `Adjusted ptree
 
 
     (* calculate the size of a tree under likelihood; this is the sum of all the
@@ -431,10 +418,14 @@ module F : Ptree.Tree_Operations
             let nodeA = Ptree.get_node_data a new_tree in
             let nodeB = Ptree.get_node_data b new_tree in
             let nda =
-                let node = AllDirNode.get_adjusted_nodedata nodeA "AllDirChar.distance,no adjdata" in
+                let node = AllDirNode.get_adjusted_nodedata nodeA
+                                            "AllDirChar.distance,no adjdata"
+                in
                 node.AllDirNode.lazy_node
             and ndb =
-                let node = AllDirNode.get_adjusted_nodedata nodeB "AllDirChar.distance,no adjdata" in
+                let node = AllDirNode.get_adjusted_nodedata nodeB
+                                            "AllDirChar.distance,no adjdata"
+                in
                 node.AllDirNode.lazy_node
             in
             (*AllDirNode.print_node_data nodeA true; 
@@ -1283,7 +1274,7 @@ module F : Ptree.Tree_Operations
                 | Some (`Single _, _) 
                 | None -> 0., lazy ptree
                 | Some ((`Edge e), n) ->
-                        r.Ptree.adjusted_component_cost, lazy ptree
+                    Ptree.get_cost `Adjusted ptree, lazy ptree
             in
             let _, ptree =
                 List.fold_left 
@@ -1377,28 +1368,6 @@ module F : Ptree.Tree_Operations
 
 
     module IA = ImpliedAlignment.Make (AllDirNode.AllDirF) (Edge.LazyEdge)
-    let filter_characters tree codes = 
-        let filter_codes node = AllDirNode.AllDirF.f_codes codes node in
-        let new_node_data = 
-            IntMap.map filter_codes tree.Ptree.node_data 
-        in
-        let component_root = 
-            IntMap.map
-                (fun x -> match x.Ptree.root_median with
-                    | None -> x
-                    | Some (x, y) -> 
-                        let y = filter_codes y in
-                        {Ptree.component_cost =
-                            AllDirNode.AllDirF.tree_cost None y;
-                         Ptree.adjusted_component_cost =
-                            AllDirNode.AllDirF.tree_cost None y;
-                         Ptree.root_median = Some (x, y) })
-                tree.Ptree.component_root
-        in
-        { tree with
-              Ptree.node_data = new_node_data;
-              Ptree.component_root = component_root }
-
     (* Optimize model of dynamic likelihood characters by converting to an
      * implied alignment. We do ONE pass; ensuring the improvement of costs
      * exists after the call. *)
@@ -1413,10 +1382,9 @@ module F : Ptree.Tree_Operations
 (*                    Printf.printf "OPTIMIZING DYNAMIC CHARS: ";*)
 (*                    List.iter (fun x -> Printf.printf "%d, " x) chars;*)
 (*                    print_newline ();*)
-
                     Status.set_verbosity `None;
                     let data,chars =
-                        IA.to_static_homologies true filter_characters true
+                        IA.to_static_homologies true IA.filter_characters true
                             false (`Some (true,chars)) ptree.Ptree.data ptree
                     in
                     let data,nodes = AllDirNode.AllDirF.load_data 
@@ -1680,10 +1648,10 @@ module F : Ptree.Tree_Operations
         let new_cost =
             let tree_cost =
                 Ptree.get_node_data tree_node_id ptree
-                    --> AllDirNode.AllDirF.total_cost (Some clade_node_id) None
+                    --> AllDirNode.AllDirF.total_cost (Some clade_node_id)
             and clade_cost =
                 Ptree.get_node_data clade_node_id ptree
-                    --> AllDirNode.AllDirF.total_cost (Some tree_node_id) None
+                    --> AllDirNode.AllDirF.total_cost (Some tree_node_id)
             in
             if debug_join_fn then begin
                 info_user_message "Previous Cost: %f" prev_cost;
@@ -1740,7 +1708,7 @@ module F : Ptree.Tree_Operations
                         | None -> failwith "AllDirChar.break_fn Huh?"
                     in
                     AllDirNode.AllDirF.root_cost clade_root,
-                    AllDirNode.AllDirF.total_cost None None clade_root
+                    AllDirNode.AllDirF.total_cost None clade_root
                 in
                 let bd =
                     (prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost))) -.  tc

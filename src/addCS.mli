@@ -136,8 +136,12 @@ val find_pos : t -> int -> int
 (** [codes c] returns the list of codes stored in [c] *)
 val codes : t -> int list
 
-(** [mem cs c] returns if the code of [c] is contained in [cs] **)
+(** [code_mem cs c] returns if the code of [c] is contained in [cs]. This is the
+    overall code, and not necessarily a character code (see mem function). **)
 val code_mem : int list option -> t -> bool
+
+(** [mem cs c] returns if the code of [c] is contained in [cs] **)
+val char_mem : int list option -> t -> bool
 
 (** {2 Set.Make Interface } *)
 

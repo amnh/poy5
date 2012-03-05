@@ -251,8 +251,8 @@ module OneDirF :
 
     let apply_single_f_on_lazy f a = f (force_val a)
 
-    let total_cost x c n =
-        apply_single_f_on_lazy (Node.Standard.total_cost x c) n
+    let total_cost x n =
+        apply_single_f_on_lazy (Node.Standard.total_cost x) n
 
     let min_prior c n =
         apply_single_f_on_lazy (Node.Standard.min_prior c) n
@@ -394,7 +394,7 @@ module OneDirF :
         Node.Standard.root_cost (force_val a)
 
     let tree_cost a b =
-        (total_cost a None b) +. (root_cost b)
+        (total_cost a b) +. (root_cost b)
 
     let to_single root a b c d set =
         let root' = force_opt root
@@ -920,13 +920,13 @@ struct
         in
         String.concat "\n" res
 
-    let total_cost par chars n = match par with
+    let total_cost par n = match par with
         | Some code ->
-            OneDirF.total_cost par chars (not_with code n.unadjusted).lazy_node
+            OneDirF.total_cost par (not_with code n.unadjusted).lazy_node
         | None -> match n.unadjusted with
-            | [x] -> OneDirF.total_cost par chars x.lazy_node
-            | [] -> failwith "The emtpy median? AllDirNode.total_cost"
-            | _ -> failwith "AllDirNode.total_cost"
+            | [x] -> OneDirF.total_cost par x.lazy_node
+            | []  -> failwith "The emtpy median? AllDirNode.total_cost"
+            | _   -> failwith "AllDirNode.total_cost"
 
     let min_prior chars n =
         let lst = match n.adjusted with | None -> n.unadjusted | Some x -> [x] in
@@ -1147,7 +1147,7 @@ struct
         | Some x -> OneDirF.root_cost x.lazy_node
 
     let tree_cost a b = 
-        (total_cost a None b) +. (root_cost b)
+        (total_cost a b) +. (root_cost b)
 
 end
 

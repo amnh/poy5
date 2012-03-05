@@ -4069,8 +4069,8 @@ let rec folder (run : r) meth =
                                 let tname = match t.Ptree.tree.Tree.tree_name with
                                     | Some tname -> tname
                                     | None -> ""
-                                and branches = 
-                                    Tree.EdgeSet.cardinal t.Ptree.tree.Tree.d_edges
+(*                                and branches = *)
+(*                                    Tree.EdgeSet.cardinal t.Ptree.tree.Tree.d_edges*)
                                 and cats = 
                                     Data.categorize_likelihood_chars_by_model chars t.Ptree.data
                                 in
@@ -4079,13 +4079,13 @@ let rec folder (run : r) meth =
                                         let model = Data.get_likelihood_model t.Ptree.data xs
                                         and cost  = TreeOps.total_cost t `Adjusted (Some xs)
                                         and length= TreeOps.tree_size t (Some xs)
-                                        and prior = TreeOps.prior_cost t (Some xs)
-                                        and cname = Data.get_character_set_name t.Ptree.data xs
-                                        and ntaxa = t.Ptree.data.Data.number_of_taxa in
+(*                                        and prior = TreeOps.prior_cost t (Some xs)*)
+                                        and cname = Data.get_character_set_name t.Ptree.data xs in
                                         let cname = match cname with | Some cname -> cname | None -> ""
-                                        and aic   = MlModel.aic model branches ntaxa cost
-                                        and bic   = MlModel.bic model branches ntaxa cost
-                                        and hqic  = MlModel.hqic model branches ntaxa cost in
+(*                                        and aic   = MlModel.aic model branches ntaxa cost*)
+(*                                        and bic   = MlModel.bic model branches ntaxa cost*)
+(*                                        and hqic  = MlModel.hqic model branches ntaxa cost*)
+                                        and ntaxa = t.Ptree.data.Data.number_of_taxa in
                                         if tname <> "" then
                                             fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
                                         if cname <> "" then

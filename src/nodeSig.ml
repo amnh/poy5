@@ -84,7 +84,7 @@ module type S = sig
     * otherwise, if it was created using [median a b] (or subsequently the
     * [final_states] of such a median), then [total_cost n = (total_cost a) +.
     * (total_cost b) +. (distance a b)]. *)
-    val total_cost : int option -> int list option -> n -> float
+    val total_cost : int option -> n -> float
 
     val tree_cost : int option -> n -> float
 
