@@ -43,6 +43,7 @@ let tree_re = Str.regexp "tread +\\((.*)\\)"
    ccode ((costspec)+(charspec)+)+; *)
 let multi_cc = Str.regexp "cc[a-z]* *\\([^a-z].*\\)"
 let costs = Str.regexp "[Cc][Oo][Ss][a-zA-Z]* *\\[ *\\([0-9.]+\\) *\\$ *\\([0-9]+\\) *\\([0-9 ]+\\)"
+let proc = Str.regexp "[Pp][Rr][Oo][Cc]/ *"
 
 (** [build_list_between_intervals lower higher []] builds a list of
     integers from [lower] to [higher], inclusive *)
@@ -231,6 +232,10 @@ let process_single_command taxa_data x characters =
                 let trees = List.rev_map (List.rev_map m) trees in
                 List.rev_map (fun t -> Trees t) trees
             with _ -> []
+        end 
+        else if Str.string_match proc x 0 then begin
+            (* ignore this command *)
+            []
         end else [Unkown_option x]
     with 
     | IncompleteMatrix -> 
