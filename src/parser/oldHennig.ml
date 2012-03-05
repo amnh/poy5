@@ -22,6 +22,8 @@
 (* The default range for an ordered type *)
 let default_ordered = ( 9999, -10 )
 
+let strict = true
+
 type options = 
     | Weight of (int * int) 
     | Deactivate of int 
@@ -37,10 +39,8 @@ let tree_re = Str.regexp "tread +\\((.*)\\)"
 
 (* The general idea of ccost is:
    ccode ((costspec)+(charspec)+)+; *)
-let multi_cc = Str.regexp
-    "cc[a-z]* *\\([^a-z].*\\)"
-let costs = Str.regexp 
-    "cos[a-z]* *\\[ *\\([0-9.]+\\) *\\$ *\\([0-9]+\\) *\\([0-9 ]+\\)"
+let multi_cc = Str.regexp "cc[a-z]* *\\([^a-z].*\\)"
+let costs = Str.regexp "[Cc][Oo][Ss][a-zA-Z]* *\\[ *\\([0-9.]+\\) *\\$ *\\([0-9]+\\) *\\([0-9 ]+\\)"
 
 (** [build_list_between_intervals lower higher []] builds a list of
     integers from [lower] to [higher], inclusive *)
@@ -140,29 +140,29 @@ let process_ccode string n_chars =
             let chars = build_list_between_intervals nfrom nto [] in
             (* add all the properties *)
             let acc = match act with
-            | `None -> acc
-            | `Active -> 
-                    List.fold_left
-                  (fun acc i -> (Activate i) :: acc) acc chars
-            | `Inactive -> 
-                    List.fold_left
-                  (fun acc i -> (Deactivate i) :: acc) acc chars in
+                | `None -> acc
+                | `Active -> 
+                    List.fold_left (fun acc i -> (Activate i) :: acc) acc chars
+                | `Inactive -> 
+                    List.fold_left (fun acc i -> (Deactivate i) :: acc) acc chars
+            in
             let acc = match add with
-            | `None -> acc
-            | `Additive -> 
-                    List.fold_left
-                  (fun acc i -> (Ordered i) :: acc) acc chars
-            | `Nonadditive -> 
-                    List.fold_left
-                  (fun acc i -> (Unordered i) :: acc) acc chars in
+                | `None -> acc
+                | `Additive -> 
+                    List.fold_left (fun acc i -> (Ordered i) :: acc) acc chars
+                | `Nonadditive -> 
+                    List.fold_left (fun acc i -> (Unordered i) :: acc) acc chars
+            in
             let acc = match w with
-            | `None -> acc
-            | `Set w -> List.fold_left
-                  (fun acc i -> (Weight (w, i)) :: acc) acc chars in
+                | `None -> acc
+                | `Set w ->
+                    List.fold_left (fun acc i -> (Weight (w, i)) :: acc) acc chars
+            in
             (* skip closing paren *)
-            (try ignore (r#read_while (FileStream.is_or [FileStream.is_ws_nl;
-                                                      FileStream.is_char ')']))
-             with End_of_file -> ());
+            let () = 
+                try ignore (r#read_while (FileStream.is_or [FileStream.is_ws_nl; FileStream.is_char ')']))
+                with End_of_file -> ()
+            in
             acc
         with End_of_file -> acc in
         read_verb ~act ~add ~w ~acc
@@ -187,7 +187,7 @@ let is_unordered_matrix matrix =
             with
             | Exit -> false
 
-let ndebug = true
+let ndebug = false
 
 let process_single_command taxa_data x characters =
     try
@@ -197,6 +197,7 @@ let process_single_command taxa_data x characters =
             res
         end
         else if Str.string_match costs x 0 then begin
+            Printf.printf "Processing Cost Matrix: %s\n%!" x;
             let res = Str.matched_group 1 x in
             let size = int_of_string (Str.matched_group 2 x) in
             let matrix_string = Str.matched_group 3 x in
@@ -217,27 +218,30 @@ let process_single_command taxa_data x characters =
             try
                 let m (t:Tree.Parse.tree_types):Tree.Parse.tree_types =
                     Tree.Parse.map_tree
-                            (fun str ->
-                                let name = try
-                                    fst (List.nth taxa_data (int_of_string str))
-                                    with _ -> str in
-                                name)
-                            t
+                        (fun str ->
+                            let name =
+                                try fst (List.nth taxa_data (int_of_string str))
+                                with _ -> str in
+                            name)
+                        t
                 in
                 let trees = List.rev_map (List.rev_map m) trees in
                 List.rev_map (fun t -> Trees t) trees
             with _ -> []
         end else [Unkown_option x]
-    with
-    | _ -> 
+    with | _ -> 
             let msg = "Illegal command in Hennig86 file. " ^ x in
             raise (E.Illegal_hennig86_format msg)
 
-let process_options taxa_data opts y = 
+let process_options taxa_data opts y =
     let single_option_processor x =
         match process_single_command taxa_data x y with
+        | [Unkown_option str] as res when strict -> 
+            Status.user_message Status.Error ("@[Parser: Unknown Hennig86 \
+                command:@ @[" ^ StatusCommon.escape str ^ "@]@]");
+            assert false
         | [Unkown_option str] as res -> 
-                Status.user_message Status.Error ("@[Parser: Unknown Hennig86 \
+            Status.user_message Status.Error ("@[Parser: Unknown Hennig86 \
                 command:@ @[" ^ StatusCommon.escape str ^ "@]@ Ignoring@]");
                 res
         | res -> 
@@ -367,15 +371,9 @@ doesn't match reported number in heading of Hennig86 file")
     end
 
 let rec extract_options ?(acc=[]) r =
-    let maybe_cons s acc =
-        if s = ""
-        then acc
-        else s :: acc in
+    let maybe_cons s acc = if s = "" then acc else s :: acc in
     let rec rs str =
-        let c =
-            try Some r#getch
-            with End_of_file -> None in
-        match c with
+        match try Some r#getch with End_of_file -> None with
         | Some ';' -> str, true
         | Some '\010'
         | Some '\013' -> rs (str ^ " ")
@@ -384,11 +382,12 @@ let rec extract_options ?(acc=[]) r =
     in
     let option, more =
         try r#skip_ws_nl; rs ""
-        with End_of_file -> "", false in
+        with End_of_file -> "", false
+    in
     if not ndebug then print_endline ("Read option " ^ option);
     if more
-    then extract_options ~acc:(maybe_cons option acc) r
-    else List.rev (maybe_cons option acc)
+        then extract_options ~acc:(maybe_cons option acc) r
+        else List.rev (maybe_cons option acc)
 
 (* Parses the dataset from a Hennig86 file. This is the basic parsing
 * procedure of the data contents of the file *)
