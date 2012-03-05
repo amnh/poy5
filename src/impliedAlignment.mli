@@ -120,6 +120,8 @@ module type S = sig
         (tree -> int list -> tree) -> bool ->
             bool  -> Methods.characters -> Data.d -> tree -> Data.d * int list
 
+    val filter_characters : tree -> int list -> tree
+
 end
 
 module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : 

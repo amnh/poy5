@@ -108,7 +108,7 @@ val not_to_single : to_single list
 
 val print_times : node_data -> unit
 
-val total_cost : int option -> int list option -> node_data -> float
+val total_cost : int option -> node_data -> float
 
 (* Like [distance] but calculates it only for the characters that match the
 * listed types. *)

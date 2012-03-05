@@ -55,6 +55,16 @@ external create : int array -> int array -> ct = "add_CAML_create"
 let set_code s = s.scode
 let code = set_code
 
+let char_mem cs t = match cs with
+    | None    -> true
+    | Some [] -> false
+    | Some xs ->
+        let x = ref false in
+        for i = 0 to (Bigarray.Array1.dim t.codes)-1 do
+            x := List.mem t.codes.{i} xs;
+        done;
+        !x
+
 let code_mem cs t = match cs with
     | None    -> true
     | Some [] -> false

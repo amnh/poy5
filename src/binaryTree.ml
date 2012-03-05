@@ -112,28 +112,25 @@ let search_in_btree key bt printkey_f printnode_f =
 (*splay tree function starts*)
 
 (*rotate child node of parent_bt. leftchild=true when the child is a left child.*)
-let rotate_child parent_bt leftchild printkey_f =
-    let debug = false in
-    match parent_bt with
+let rotate_child parent_bt leftchild printkey_f = match parent_bt with
+    | Node (middle_key, left_bt, right_bt) when leftchild ->
+        begin match left_bt with
+            | Node (key, l_bt, r_bt) ->
+                let new_right_bt = Node (middle_key,r_bt,right_bt) in
+                Node(key,l_bt,new_right_bt)
+            | Leaf _ ->
+                Node (middle_key, left_bt, right_bt)
+            | Empty -> assert false
+        end
     | Node (middle_key, left_bt, right_bt) ->
-            (
-                if debug then Printf.printf "rotate child,is_left_child=%b,parent_key=%!" leftchild;
-                if debug then printkey_f middle_key;
-            if leftchild then
-                match left_bt with
-                | Node (key, l_bt, r_bt) ->
-                    let new_right_bt = Node (middle_key,r_bt,right_bt) in
-                    Node(key,l_bt,new_right_bt)
-                | Leaf _ -> if debug then Printf.printf "leafnode, do nothing\n"; 
+        begin match right_bt with
+            | Node (key, l_bt, r_bt) ->
+                let new_left_bt = Node (middle_key,left_bt,l_bt) in
+                Node(key,new_left_bt,r_bt) 
+            | Leaf _ ->
                 Node (middle_key, left_bt, right_bt)
-            else 
-                match right_bt with
-                | Node (key, l_bt, r_bt) ->
-                    let new_left_bt = Node (middle_key,left_bt,l_bt) in
-                    Node(key,new_left_bt,r_bt) 
-                | Leaf _ -> if debug then Printf.printf "leafnode, do nothing\n"; 
-                Node (middle_key, left_bt, right_bt)
-            )
+            | Empty -> assert false
+        end
     | _ -> failwith "parent node cannot be a leaf1"
 
 (* in a splay tree, when we visit a leaf node, we rotate its parent and grand
@@ -256,6 +253,7 @@ let search_in_btree key bt printkey_f printnode_f = (*mumseq is the key inside b
                         printnode_f leafmum;
                     failwith "search reach a dead end in btree";
                 end
+        | Empty -> assert false
     in
     let res,newbt,_,_ = search_node 3 bt key in
     res,newbt

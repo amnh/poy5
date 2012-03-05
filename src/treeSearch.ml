@@ -336,20 +336,20 @@ module MakeNormal
                         chars
                 in
                 let output cnt tree =
-                    if hennig_style then 
+                    if hennig_style then
                         if not !is_first then fo " * "
                         else is_first := false
-                    else if nexus_style then 
+                    else if nexus_style then
                         fo ("TREE POY" ^ string_of_int cnt ^ " = ");
                     fo "@[";
                     fo (AsciiTree.for_formatter (not hennig_style ) (not hennig_style) leaf_only tree);
-                    if leaf_only && tree_len then fo ("[" ^ cost ^ "]");
+                    if leaf_only && tree_len then fo ("[" ^ cost ^ "]"); 
                     if not hennig_style then fo ";" else fo "@?";
                     fo "@]";
                     fo newline;
                     cnt + 1
                 in
-                ignore( List.fold_left output 0 tree ) )
+                ignore (List.fold_left output 0 tree))
         in
         fo (if hennig_style then "@[<h>" else if nexus_style then "@[<v>" else "");
         fo (if hennig_style then "tread " else if nexus_style then "@[BEGIN TREES;@]@." else "");

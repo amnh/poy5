@@ -105,7 +105,7 @@ let print_nodes tree =
                                   ^ " is " ^ node_type ^ " with"
                                   ^ " parent " ^ par_string
                                   ^ " cost " ^ string_of_float
-                                  (Node.Standard.total_cost par_id None node))) tree
+                                  (Node.Standard.total_cost par_id node))) tree
 
 let print_node_data_indent ?(indent = 3) trees =
     tree_iter_depth
@@ -1403,7 +1403,7 @@ let total_cost ptree adj chars =
     let total_handle_cost acc h =
         match (Ptree.get_component_root h ptree).Ptree.root_median with
             | Some ((`Edge (a,b)),c) -> 
-                acc +. (Node.total_cost None chars c)
+                acc +. (Node.total_cost None c)
             | None
             | Some _ -> acc
     in
