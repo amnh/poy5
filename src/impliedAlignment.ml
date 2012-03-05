@@ -1641,6 +1641,8 @@ module type S = sig
         (tree -> int list -> tree) -> bool -> 
             bool  -> Methods.characters -> Data.d -> tree -> Data.d * int list
 
+    val filter_characters : tree -> int list -> tree
+
 end
 module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = struct
     type a = Node.n
@@ -2714,5 +2716,29 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let c   = List.filter (fun x -> not (List.mem x cs)) c in
         if ignore then Data.process_ignore_characters false d (`Names names),c
                   else d,c
+
+    (* We don't care about updating the cost since this filter characters
+       function is for moving through the characters for an implied alignment
+       and the cost function is not used. *)
+    let filter_characters tree codes =
+        let filter_codes node = Node.f_codes codes node in
+        let new_node_data = 
+            All_sets.IntegerMap.map filter_codes tree.Ptree.node_data 
+        in
+        let component_root = 
+            All_sets.IntegerMap.map
+                (fun x -> match x.Ptree.root_median with
+                    | None -> x
+                    | Some (x, y) -> 
+                        let y = filter_codes y in
+                        { 
+                            Ptree.component_cost = Node.tree_cost None y;
+                            Ptree.adjusted_component_cost = Node.tree_cost None y;
+                            Ptree.root_median = Some (x, y); })
+                tree.Ptree.component_root
+        in
+        { tree with
+              Ptree.node_data = new_node_data;
+              Ptree.component_root = component_root }
 
 end 
