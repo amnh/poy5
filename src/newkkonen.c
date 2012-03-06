@@ -48,6 +48,7 @@
 
 #define MAX(a,b) ( ((a)>(b))? (a):(b) )
 #define MIN(a,b) ( ((a)<(b))? (a):(b) )
+#define MAX3(a,b,c) ( (MAX(a,b)>MAX(b,c))? (MAX(a,b)):(MAX(b,c)) )
 
 void print_direction (DIRECTION_MATRIX dir)
 {
@@ -470,39 +471,44 @@ void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt 
     }
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
-    //we used to keep all possible directions, but each dir we choose come with different gapnums, if record them all, we
-    //need 3*2=6 extra int for each cell, if we choose our dir here, we only need 2 int:newgapnum1,newgapnum2.
-    int dir_chosen;  
-    DIRECTION_MATRIX newgapnum1,newgapnum2;
     if ( (costM<=costR)&&(costM<=costL) )//include alignment
     {
         //we always favor alignment over insert/delete
-        newgapnum1=s1_gapnum_fromM; 
-        newgapnum2=s2_gapnum_fromM;
-        if (debug) printf ("cost <---- costM, gapnum <---- %d,%d\n", newgapnum1, newgapnum2);
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum1,newgapnum2, thisP, thisQ, affine);
-      /*  if ( (costM==costR) && (costM==costL) )
+      //  newgapnum1=s1_gapnum_fromM; 
+      //  newgapnum2=s2_gapnum_fromM;
+      //  if (debug) printf ("cost <---- costM, gapnum <---- %d,%d\n", newgapnum1, newgapnum2);
+      //  set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum1,newgapnum2, thisP, thisQ, affine);
+        if ( (costM==costR) && (costM==costL) )
         { 
             if (debug) printf ("cost <---- costM=costL=costR\n");
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE|DO_INSERT, newgapnum1,newgapnum2, thisP, thisQ, affine);
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE|DO_INSERT, 
+                    MAX3(s1_gapnum_fromM,s1_gapnum_fromL+1,s1_gapnum_fromR),
+                    MAX3(s2_gapnum_fromM,s2_gapnum_fromL,s2_gapnum_fromR+1),
+                    thisP, thisQ, affine);
         }
         else if ( ( (costM<costR)&&(costR<=costL) ) || ( (costM<costL)&&(costL<=costR) ) )//M<R<=L,M<L<=R
         {
             if (debug) printf ("cost <---- costM\n");
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum1,newgapnum2, thisP, thisQ, affine);
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, s1_gapnum_fromM,s2_gapnum_fromM, thisP, thisQ, affine);
         }
-        else if ( (costM==costR)&&(costM<costL))
+        else if ( (costM==costR)&&(costM<costL)) //M=R<L
         {
             if (debug) printf ("cost <---- costM=costR\n");
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE, newgapnum1,newgapnum2, thisP, thisQ, affine);
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE, 
+                    s1_gapnum_fromM,
+                    MAX(s2_gapnum_fromM,s2_gapnum_fromR+1),
+                    thisP, thisQ, affine);
         }
-        else if ( (costM==costL)&&(costM<costR) )
+        else if ( (costM==costL)&&(costM<costR) )//M=L<R
         {
             if (debug) printf ("cost <---- costM=costL\n");
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_INSERT, newgapnum1,newgapnum2, thisP, thisQ, affine);
+            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_INSERT, 
+                    MAX(s1_gapnum_fromM,s1_gapnum_fromL+1),
+                    s2_gapnum_fromM,
+                    thisP, thisQ, affine);
         }
         else 
-            failwith("unexpect relation between cost L,M,R when choosing ALIGN\n");*/
+            failwith("unexpect relation between cost L,M,R when choosing ALIGN\n");
     }
     //L<M<=R or L<R<=M
     else if ( ((costL<costM) && (costM<=costR))||((costL<costR)&&(costR<=costM)) )
@@ -520,12 +526,15 @@ void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt 
     else if ((costL==costR)&&(costR<costM))
     {
          if (debug) printf ("cost <---- costR==costL\n");
-         if (swaped) { 
+         /*if (swaped) { 
              dir_chosen = DO_INSERT; newgapnum1 = s1_gapnum_fromL+1; newgapnum2 = s2_gapnum_fromL; }
          else { 
-             dir_chosen = DO_DELETE; newgapnum1 = s1_gapnum_fromR,newgapnum2 = s2_gapnum_fromR+1;}
-         //set_ukkcost(whichdiag,idx_in_my_diag, m, costR, DO_DELETE|DO_INSERT, gapnum_fromR+1, thisP, thisQ, affine);
-         set_ukkcost(whichdiag,idx_in_my_diag, m, costR, dir_chosen, newgapnum1, newgapnum2, thisP, thisQ, affine);
+             dir_chosen = DO_DELETE; newgapnum1 = s1_gapnum_fromR,newgapnum2 = s2_gapnum_fromR+1;}*/
+         set_ukkcost(whichdiag,idx_in_my_diag, m, costR, DO_DELETE|DO_INSERT, 
+                 MAX(s1_gapnum_fromL+1,s1_gapnum_fromR),
+                 MAX(s2_gapnum_fromR+1,s2_gapnum_fromL),
+                 thisP, thisQ, affine);
+        //set_ukkcost(whichdiag,idx_in_my_diag, m, costR, dir_chosen, newgapnum1, newgapnum2, thisP, thisQ, affine);
     }
     else
         failwith("unexpect relation between cost L,M,R\n");
@@ -581,13 +590,14 @@ void update_left_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const c
     }
     else
     {
-        //we used to keep all possible directions, but each dir we choose come with different gapnums, if record them all, we
-        //need 3*2=6 extra int for each cell, if we choose our dir here, we only need 2 int
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, affine);
-        /*if (costM==costR)
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE, newgapnum,thisP, thisQ, affine);
+        //set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, affine);
+        if (costM==costR) 
+        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE,
+                gapnum1_fromM,
+                MAX(gapnum2_fromM,gapnum2_fromR+1),
+                thisP, thisQ, affine);
         else
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum,thisP, thisQ, affine);*/
+        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, gapnum1_fromM, gapnum2_fromM,thisP, thisQ, affine);
     } 
 };
 
@@ -613,8 +623,6 @@ void update_right_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const 
     get_idx(i,j-1,m,&whichdiagL,&idx_in_my_diagL,&at_leftborderL,&at_rightborderL);
     get_ukkcost(whichdiagL,idx_in_my_diagL, m, &costfromL, &dirL, &gapnum1_fromL,&gapnum2_fromL,&affP, &affQ, affine);
     get_cmcost (c,seq_get(s2,j),gapcode,&addcost);
-    //int gap_opening = 0;if (dirL==DO_INSERT) { gap_opening = 0; }else { gap_opening = go; }
-    //costL = costfromL + addcost;// + gap_opening;
     if (affine) {
     costL = MIN(costfromL + addcost + realgo, affQ + addcost);
     thisQ = costL; }
@@ -641,13 +649,14 @@ void update_right_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const 
     else
     {
         if (debug) {printf("costL=%d >= costM=%d\n",costL,costM); fflush(stdout);}
-        //we used to keep all possible directions, but each dir we choose come with different gapnums, if record them all, we
-        //need 3*2=6 extra int for each cell, if we choose our dir here, we only need 2 int
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, affine);
-        /*if (costM==costL)
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_INSERT, newgapnum, thisP, thisQ, affine);
+        //set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, affine);
+        if (costM==costL)
+        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_INSERT, 
+                MAX(gapnum1_fromM,gapnum1_fromL+1),
+                gapnum2_fromM,
+                thisP, thisQ, affine);
         else
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, newgapnum, thisP, thisQ, affine);*/
+        set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, affine);
     }
 
 };
@@ -687,6 +696,7 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
     int oldcost=0,newcost=0;
     int oldaffP=0, oldaffQ=0;
     int newaffP=0, newaffQ=0;
+    DIRECTION_MATRIX oldgapnum1=0, oldgapnum2=0;
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder);
     //define affine
@@ -694,7 +704,7 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
     if (go>=0) affine=1; else affine=0;
     if (getcost) {
         //get old cost first
-        DIRECTION_MATRIX olddir, oldgapnum1, oldgapnum2;
+        DIRECTION_MATRIX olddir;
         get_ukkcost(whichdiag,idx_in_my_diag, m, &oldcost, &olddir, &oldgapnum1,&oldgapnum2, &oldaffP, &oldaffQ, affine); 
     }
     if ((whichdiag<0)||(whichdiag>= m->diag_size_in_use)) {debug=1;}
@@ -715,16 +725,16 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
             get_ukkcost(whichdiag,idx_in_my_diag, m, &newcost, &newdir, &newgapnum1,&newgapnum2, &newaffP, &newaffQ, affine);
             if (debug) {
                 print_direction(newdir);
-                printf("newcost=%d(%d,%d),oldcost=%d(%d,%d),gapnum=%d,%d\n",newcost,newaffP,newaffQ,oldcost,oldaffP,oldaffQ,newgapnum1,newgapnum2); 
+                printf("newcost=%d(gapnum=%d/%d,aff=%d/%d),oldcost=%d(gapnum=%d/%d,aff=%d/%d)\n",newcost,newgapnum1,newgapnum2,newaffP,newaffQ,oldcost,oldgapnum1,oldgapnum2,oldaffP,oldaffQ); 
                 fflush(stdout);}
             if (affine) {
-		if ( (newaffQ==oldaffQ)&&(newaffP==oldaffP)&&(newcost==oldcost)) return 0;
-		else return 1;
+            if ( (newaffQ==oldaffQ)&&(newaffP==oldaffP)&&(newcost==oldcost)&&(newgapnum1==oldgapnum1)&&(newgapnum2==oldgapnum2) ) return 0;
+            else return 1;
+                }
+            else {
+            if ((newcost==oldcost)&&(newgapnum1==oldgapnum1)&&(newgapnum2==oldgapnum2)) return 0;
+                    else return 1;
             }
-	    else {
-		if (newcost==oldcost) return 0;
-            	else return 1;
-	    }
         }
         else 
             return 0;
@@ -940,7 +950,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
 {
     int debug = 0;
     int p = (newT - (lenY-lenX))/2;
-    if (debug) { printf ("increaseT, newT=%d,p=%d,go=%d",newT,p,go); fflush(stdout); }
+    if (debug) { printf ("increaseT, newT=%d,p=%d,go=%d,swaped=%d",newT,p,go,swaped); fflush(stdout); }
     int res_cost=-1; 
     DIRECTION_MATRIX res_gapnum=-1;
     ukktest(s1,s2,m,c,newT,p,lenX,lenY,go,&res_cost,&res_gapnum, swaped);
