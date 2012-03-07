@@ -52,6 +52,23 @@ type a = {
     threeD : bool
 }
 
+let empty =
+    {
+        comb_to_list = All_sets.IntegerMap.empty;
+        list_to_comb = All_sets.IntegerListMap.empty;
+        string_to_code = All_sets.StringMap.empty;
+        code_to_string = All_sets.IntegerMap.empty;
+        complement   = All_sets.IntegerMap.empty;
+        level = 0;
+        ori_size = 0;
+        gap = 0;
+        all = None;
+        size = 0;
+        kind =  Sequential;
+        orientation = false;
+        threeD = false;
+    }
+
 let print alpha = 
     let () = match alpha.kind with
         | Simple_Bit_Flags -> Printf.printf "alph kind:Simple_Bit_Flags\n%!"
