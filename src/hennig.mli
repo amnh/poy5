@@ -48,8 +48,6 @@ module P : sig
         | Ignore
         | Charname of char_name list
 
-
-    val is_hennig : FileStream.f -> bool
 end
 
 module Grammar : sig

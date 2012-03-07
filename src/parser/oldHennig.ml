@@ -22,7 +22,8 @@
 (* The default range for an ordered type *)
 let default_ordered = ( 9999, -10 )
 
-let strict = true
+let strict = true   (* Do not ignore errors *)
+let ndebug = false  (* no debug *)
 
 type options = 
     | Weight of (int * int) 
@@ -191,7 +192,6 @@ let is_unordered_matrix matrix =
             with
             | Exit -> false
 
-let ndebug = true
 
 let process_single_command taxa_data x characters =
     try
@@ -234,9 +234,9 @@ let process_single_command taxa_data x characters =
             with _ -> []
         end 
         else if Str.string_match proc x 0 then begin
-            (* ignore this command *)
             []
-        end else [Unkown_option x]
+        end else 
+            [Unkown_option x]
     with 
     | IncompleteMatrix -> 
         let msg = "Incomplete Matrix in Hennig86 file. " ^ x in
@@ -245,142 +245,140 @@ let process_single_command taxa_data x characters =
         let msg = "Illegal command in Hennig86 file. " ^ x in
         raise (E.Illegal_hennig86_format msg)
 
+
 let process_options taxa_data opts y =
     let single_option_processor x =
         match process_single_command taxa_data x y with
-        | [Unkown_option str] as res when strict -> 
+        | [Unkown_option str] when strict -> 
             Status.user_message Status.Error ("@[Parser: Unknown Hennig86 \
                 command:@ @[" ^ StatusCommon.escape str ^ "@]@]");
             assert false
         | [Unkown_option str] as res -> 
             Status.user_message Status.Error ("@[Parser: Unknown Hennig86 \
                 command:@ @[" ^ StatusCommon.escape str ^ "@]@ Ignoring@]");
-                res
+            res
         | res -> 
-                res
+            res
     in
     let my_filter = function | [Unkown_option _] -> false | _ -> true in
     let res = List.map (single_option_processor) opts in
     let res = List.filter (my_filter) res in
     List.flatten res
 
+
 (* returns int list list *)
 let read_data_xread r n_chars =
     let rec line acc n_reading =
-        if n_reading <= n_chars
-        then match r#getch with
-        | ' '
-        | '\n'
-        | '.' -> line acc n_reading (* ignore these *)
-        | '[' -> multi acc [] n_reading
-        | '?'
-        | '-' -> line ([-1] :: acc) (succ n_reading)
-(*             | '0' .. '9' as c -> *)
-        | c ->                      (* not only number chars *)
-              line ([(Char.code c) - (Char.code '0')] :: acc)
-                  (succ n_reading)
-(*             | c -> raise *)
-(*                   (Illegal_hennig86_format *)
-(*                        ("Illegal character in data segment of xread")) *)
+        if n_reading <= n_chars then
+            match r#getch with
+            | ' ' | '\n' | '\t' | '.' -> line acc n_reading
+            | '[' -> multi acc [] n_reading
+            | '?' | '-' -> line ([-1] :: acc) (succ n_reading)
+            | c ->
+                line ([(Char.code c) - (Char.code '0')] :: acc) (succ n_reading)
         else
             List.rev acc
     and multi std_acc multi_acc n_reading =
         match r#getch with
-        | ' '
-        | '\n'
-        | '.' -> multi std_acc multi_acc n_reading (* ignore these *)
-(*             | '0' .. '9' as c -> *)
+        | ' ' | '\t' | '\n' | '.' -> multi std_acc multi_acc n_reading
         | ']' -> line (List.rev multi_acc :: std_acc) (succ n_reading)
-(*             | c -> raise *)
-(*                   (Illegal_hennig86_format *)
-(*                        ("Illegal character in data segment of xread")) *)
-        | c ->                      (* not only number chars *)
-              multi std_acc
-                  (((Char.code c) - (Char.code '0')) :: multi_acc)
-                  n_reading
-    in line [] 1
+        | c ->
+            multi std_acc (((Char.code c) - (Char.code '0')) :: multi_acc) n_reading
+    in
+    line [] 1
+
 
 let read_data_dpread r n_chars =
-    let clear fn n_reading acc str =
-        match str with
-        | "" -> fn n_reading acc ""
+    let clear fn n_reading acc str = match str with
+        | ""  -> fn n_reading acc ""
         | str ->
-              let int =
-                  try (int_of_string str)
-                  with _ -> raise (E.Illegal_hennig86_format
-                                       ("Not an integer in dpread: "
-                                        ^ str)) in
-              fn (succ n_reading) ([int] :: acc) ""
-    in
-    let clear' fn n_reading acc str =
-        match str with
-        | "" -> fn n_reading acc ""
+            let int =
+                try (int_of_string str)
+                with _ -> raise (E.Illegal_hennig86_format
+                                        ("Not an integer in dpread: " ^ str))
+            in
+            fn (succ n_reading) ([int] :: acc) ""
+    and clear' fn n_reading acc str = match str with
+        | ""  -> fn n_reading acc ""
         | str ->
-              let int =
-                  try (int_of_string str)
-                  with _ -> raise (E.Illegal_hennig86_format
-                                       ("Not an integer in dpread: "
-                                        ^ str)) in
-              fn (succ n_reading) (int :: acc) ""
+            let int =
+                try (int_of_string str)
+                with _ -> raise (E.Illegal_hennig86_format
+                                        ("Not an integer in dpread: " ^ str))
+            in
+            fn (succ n_reading) (int :: acc) ""
     in
     let rec line n_reading acc str =
-        if n_reading <= n_chars
-        then match r#getch with
-        | ' '
-        | '\n'
-        | '.' -> clear line n_reading acc str
-        | '[' -> clear
-              (fun n_reading acc str -> multi n_reading acc 0 [] str)
-                    n_reading acc str
-        | '-'
-        | '?' -> clear
-              (fun n_reading acc str ->
-                   line (succ n_reading) ([-1] :: acc) "")
-                    n_reading acc str
-        | c -> line n_reading acc (str ^ Char.escaped c)
-        else List.rev acc
+        if n_reading <= n_chars then begin
+            match r#getch with
+                | ' ' | '\n' | '\t' | '.' ->
+                    clear line n_reading acc str
+                | '[' ->
+                    clear
+                        (fun n_reading acc str -> multi n_reading acc 0 [] str)
+                        n_reading acc str
+                | '-' | '?' ->
+                    clear
+                        (fun n_reading acc str ->
+                            line (succ n_reading) ([-1] :: acc) "")
+                        n_reading acc str
+                | c ->
+                    line n_reading acc (str ^ Char.escaped c)
+        end else begin
+            List.rev acc
+        end
     and multi r_n r_acc m_n m_acc str =
         match r#getch with
-        | ' '
-        | '\n'
-        | '.' -> clear' (multi r_n r_acc) m_n m_acc str
-        | ']' -> clear'
-              (fun m_n m_acc str ->
-                   line (succ r_n) ((List.rev m_acc) :: r_acc) str)
-                    m_n m_acc str
-        | c -> multi r_n r_acc m_n m_acc (str ^ Char.escaped c)
-    in line 1 [] ""
+        | ' ' | '\n' | '\t' | '.' ->
+            clear' (multi r_n r_acc) m_n m_acc str
+        | ']' ->
+            clear'
+                (fun m_n m_acc str ->
+                    line (succ r_n) ((List.rev m_acc) :: r_acc) str)
+                m_n m_acc str
+        | c   ->
+            multi r_n r_acc m_n m_acc (str ^ Char.escaped c)
+    in
+    line 1 [] ""
+
 
 let rec read_taxa ?(acc=[]) r is_dpread taxa chars =
     r#skip_ws_nl;
     (* if we're done, check for correctness *)
-    if r#match_prefix ";"
-    then begin
+    if r#match_prefix ";" then begin
         if taxa = List.length acc then begin
-            if not ndebug then print_endline "Read all taxa";
             List.rev acc
+        end else begin
+            raise (E.Illegal_hennig86_format "Number of taxa in data matrix\
+                    doesn't match reported number in heading of Hennig86 file")
         end
-        else raise (E.Illegal_hennig86_format "Number of taxa in data matrix\
-doesn't match reported number in heading of Hennig86 file")
-    end
-    else begin
+    end else begin
         (* read the name *)
-        let name = r#read_while (FileStream.is_or
-                                     [FileStream.is_alpha; FileStream.is_num;
-                                      FileStream.is_char '_';
-                                      FileStream.is_char '-';
-                                      FileStream.is_char '.';
-                                      FileStream.is_char '"';
-                                     ]) in
+        let name = 
+            r#read_while (FileStream.is_or 
+                            [FileStream.is_alpha;    FileStream.is_num;
+                             FileStream.is_char '_'; FileStream.is_char '-';
+                             FileStream.is_char '.'; FileStream.is_char '"'; ])
+        in
         if not ndebug then print_endline ("Name: " ^ name);
         r#skip_ws_nl;
         let data : int list list =
             if is_dpread
-            then read_data_dpread r chars
-            else read_data_xread r chars in
+                then read_data_dpread r chars
+                else read_data_xread r chars
+        in
         let acc = (name, data) :: acc in
-        read_taxa ~acc r is_dpread taxa chars
+        match List.length acc with
+        | x when x < taxa -> read_taxa ~acc r is_dpread taxa chars
+        | x when x = taxa -> acc
+        | _ ->
+            raise (E.Illegal_hennig86_format "Number of taxa in data matrix\
+                    doesn't match reported number in heading of Hennig86 file")
     end
+
+
+let process_matrix s = read_taxa (new FileStream.string_reader s)
+
 
 let rec extract_options ?(acc=[]) r =
     let maybe_cons s acc = if s = "" then acc else s :: acc in
@@ -408,9 +406,12 @@ let parse_file characters taxa line is_dpread =
     let names, data = List.split taxa_data in
     let opts = extract_options line in
     let options = process_options taxa_data opts characters in
-    let trees, options = List.partition
-        (function Trees _ -> true | _ -> false) options in
-    let trees = List.map (function Trees a -> a | _ -> assert false) trees in
+    let trees, options =
+        List.partition (function Trees _ -> true | _ -> false) options
+    in
+    let trees =
+        List.map (function Trees a -> a | _ -> assert false) trees
+    in
     names, data, options, trees
 
 type ordtype = Is_ordered | Is_unordered | Is_sankoff
@@ -680,26 +681,17 @@ let is_hennig ch =
     in
     (* read the taxon and character counts *)
     if not ndebug then begin
-        print_endline ("Reading " ^ (if is_dpread then "dpread" else
-                                         "xread")
+        print_endline ("Reading " ^ (if is_dpread then "dpread" else "xread")
                        ^ " file with comment "
-                       ^ (match comment with
-                          | None -> ""
-                          | Some c -> c))
+                       ^ (match comment with | None -> "" | Some c -> c))
     end;
     r#skip_ws_nl; let a = r#read_int in
     r#skip_ws_nl; let b = r#read_int in
     if not ndebug then begin
-        print_endline ("Reading " ^ (if is_dpread then "dpread" else
-                                         "xread")
-                       ^ " file with "
-                       ^ string_of_int a
-                       ^ " characters and "
-                       ^ string_of_int b
-                       ^ " taxa, with comment "
-                       ^ (match comment with
-                          | None -> ""
-                          | Some c -> c))
+        print_endline ("Reading " ^ (if is_dpread then "dpread" else "xread")
+                       ^ " file with " ^ string_of_int a ^ " characters and "
+                       ^ string_of_int b ^ " taxa, with comment "
+                       ^ (match comment with | None -> "" | Some c -> c))
     end;
     a, b, r, is_dpread
 
@@ -830,10 +822,9 @@ let of_channel ch =
     let parser_status = Status.create "Parser" (Some 7) 
     "Parsing input files" in
     Status.report parser_status;
-    let characters, taxa, text, is_dpread = is_hennig ch in
+    let characters,taxa,text,is_dpread = is_hennig ch in
     Status.full_report ~adv:1 parser_status;
-    let names, data, options, trees =
-        parse_file characters taxa text is_dpread in
+    let names,data,options,trees = parse_file characters taxa text is_dpread in
     let trees = List.map (fun x -> None,x) trees in
     Status.full_report ~adv:2 parser_status;
     let encoding_specs = calc_encoding_specs data options
