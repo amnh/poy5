@@ -35,6 +35,7 @@ type kind =
     | Sequential
     | Simple_Bit_Flags
     | Extended_Bit_Flags
+    | Continuous
 
 type a = {
     comb_to_list : int list All_sets.IntegerMap.t;
@@ -49,24 +50,24 @@ type a = {
     size : int;
     kind : kind;
     orientation : bool;
-    threeD : bool
+    threeD : bool;
 }
 
-let empty =
+let continuous =
     {
-        comb_to_list = All_sets.IntegerMap.empty;
-        list_to_comb = All_sets.IntegerListMap.empty;
+        comb_to_list   = All_sets.IntegerMap.empty;
+        list_to_comb   = All_sets.IntegerListMap.empty;
         string_to_code = All_sets.StringMap.empty;
         code_to_string = All_sets.IntegerMap.empty;
-        complement   = All_sets.IntegerMap.empty;
-        level = 0;
+        complement     = All_sets.IntegerMap.empty;
+        orientation    = false;
+        level    = 0;
         ori_size = 0;
-        gap = 0;
-        all = None;
-        size = 0;
-        kind =  Sequential;
-        orientation = false;
-        threeD = false;
+        gap      = -1;
+        all      = None;
+        size     = 0;
+        kind     = Continuous;
+        threeD   = false;
     }
 
 let print alpha = 
@@ -74,13 +75,15 @@ let print alpha =
         | Simple_Bit_Flags -> Printf.printf "alph kind:Simple_Bit_Flags\n%!"
         | Sequential -> Printf.printf "alph kind:Sequential\n%!"
         | Extended_Bit_Flags -> Printf.printf "alph kind:Extended_Bit_Flags\n%!"
+        | Continuous -> Printf.printf "alph kind:Continuous\n%!"
     in
     Printf.printf
-    "level=%d,ori_size=%d,gap=%d,size=%d,orientation=%b,threeD=%b,%!"
-    alpha.level alpha.ori_size alpha.gap alpha.size alpha.orientation alpha.threeD;
+        "level=%d,ori_size=%d,gap=%d,size=%d,orientation=%b,threeD=%b,%!"
+        alpha.level alpha.ori_size alpha.gap alpha.size alpha.orientation alpha.threeD;
     let () = match alpha.all with
-    | None -> Printf.printf "no all elements\n%!"
-    | Some x -> Printf.printf "all elements=%d\n%!" x in
+        | None   -> Printf.printf "no all elements\n%!"
+        | Some x -> Printf.printf "all elements=%d\n%!" x
+    in
     All_sets.IntegerMap.iter 
         (fun code char -> Printf.fprintf stdout "%i %s\n" code char)
         alpha.code_to_string;
@@ -173,11 +176,9 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
         let gap = if respect_case then String.uppercase gap else gap in
         try All_sets.StringMap.find gap s2c with
         | Not_found as err ->
-                List.iter (fun (x, _, _) -> 
-                    Status.user_message Status.Error x) lst;
-                Status.user_message Status.Error
-                ("could not find the gap " ^ gap);
-                raise err
+            List.iter (fun (x, _, _) -> Status.user_message Status.Error x) lst;
+            Status.user_message Status.Error ("could not find the gap " ^ gap);
+            raise err
     and all_code = match all with
         | Some all ->
             let all = 
@@ -204,19 +205,13 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
 
 (* used to calculate costs of gaps in static characters / implied alignments *)
 let present_absent =
-    list_to_a 
-        [   
-            ("present", 1, None); 
-            ("absent", 2, None)
-        ] "absent" None Sequential
+    list_to_a [("present", 1, None); ("absent", 2, None) ]
+              "absent" None Sequential
 
 (* used in IO for implied alignments *)
 let present_absent_io string =
-    list_to_a
-        [
-            (string, 1, None); 
-            ("-", 2, None)
-        ] "-" None Sequential
+    list_to_a [(string, 1, None); ("-", 2, None)]
+              "-" None Sequential
 
 
 (* The alphabet limited to the four bases *)
@@ -316,47 +311,37 @@ let aminoacids_use_3d =
     list_to_a ~init3D:true aminoacids_char_list gap_repr (Some "X") Sequential 
 
 (** [is_aminoacids] return true is alph is aminoacids, it might be with
-* any level value, it doesn't matter*)
-let is_aminoacids alph =
-    if ( alph.code_to_string = aminoacids.code_to_string ) then true
-    else false
+    any level value, it doesn't matter*)
+let is_aminoacids alph = alph.code_to_string = aminoacids.code_to_string
 
-let find_codelist comb alpha=
-    try
-        All_sets.IntegerMap.find comb alpha.comb_to_list 
-    with
-    | Not_found -> raise (Illegal_Code comb)
+let find_codelist comb alpha = match alpha.kind with
+    | Continuous -> assert false
+    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
+        try All_sets.IntegerMap.find comb alpha.comb_to_list 
+        with | Not_found -> raise (Illegal_Code comb)
 
 
-let find_comb codelist alpha=
-     try
-           All_sets.IntegerListMap.find codelist alpha.list_to_comb
-     with
-     | Not_found -> raise (Illegal_List codelist)
+let find_comb codelist alpha = match alpha.kind with
+    | Continuous -> assert false
+    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
+        try All_sets.IntegerListMap.find codelist alpha.list_to_comb
+        with | Not_found -> raise (Illegal_List codelist)
 
-let match_base x alph =
-    (* in cases where case matters *)
-    try All_sets.StringMap.find x alph.string_to_code 
-    with | Not_found ->
-        try All_sets.StringMap.find (String.uppercase x) alph.string_to_code 
-        with | Not_found -> 
-            raise (Illegal_Character x)
+let match_base x alph = match alph.kind with
+    | Continuous -> int_of_string x
+    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
+        try All_sets.StringMap.find x alph.string_to_code 
+        with | Not_found ->
+            try All_sets.StringMap.find (String.uppercase x) alph.string_to_code 
+            with | Not_found -> raise (Illegal_Character x)
 
 let find_base = match_base
 
-let match_code x alph =
-    (*if (x=0) then 
-        Printf.printf "c2s.(0) = %s\n%!" ( All_sets.IntegerMap.find x
-        alph.code_to_string );*)
-    try All_sets.IntegerMap.find x alph.code_to_string with
-    | Not_found -> 
-            (*Printf.printf " \n check the code to string map: " ;
-            let printmap key bind = 
-                Printf.printf "{%d,%s} " key bind
-            in
-            All_sets.IntegerMap.iter printmap alph.code_to_string;
-            print_newline();*)
-            raise (Illegal_Code x)
+let match_code x alph = match alph.kind with
+    | Continuous -> string_of_int x
+    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
+        try All_sets.IntegerMap.find x alph.code_to_string
+        with | Not_found -> raise (Illegal_Code x)
 
 let find_code = match_code
 
@@ -581,6 +566,7 @@ let kind alpha = alpha.kind
 let simplify alph =
     match alph.kind with
     | Simple_Bit_Flags
+    | Continuous
     | Sequential -> alph
     | Extended_Bit_Flags ->
             (* for full combination,We need to extract those numbers that only have one bit on 
@@ -611,24 +597,24 @@ let simplify alph =
                 end
             in
             let add_those_who_have_it v name acc =
-                if has_one_bit_or_all v then (name, v, None) :: acc
-                else acc
+                if has_one_bit_or_all v
+                    then (name, v, None) :: acc
+                    else acc
             in
-            let list = 
-                All_sets.IntegerMap.fold add_those_who_have_it 
-                alph.code_to_string []
+            let list =
+                All_sets.IntegerMap.fold add_those_who_have_it alph.code_to_string []
             in
             let allcode = match all with
-            | (-1) -> None 
-            | _ -> (Some (try find_code all alph with _ -> "*"))
+                | (-1) -> None
+                | _    -> Some (try find_code all alph with _ -> "*")
             in
-            list_to_a ~orientation:alph.orientation list (find_code gap alph) 
-            allcode  Simple_Bit_Flags 
+            list_to_a ~orientation:alph.orientation list
+                      (find_code gap alph) allcode  Simple_Bit_Flags
 
 let rec to_sequential alph =
     let uselevel = check_level alph in
     match alph.kind with
-    | Sequential -> 
+    | Continuous | Sequential -> 
             alph
     | Extended_Bit_Flags -> 
             to_sequential (simplify alph) 
@@ -701,7 +687,7 @@ let rec explote alph level ori_sz=
         else false
     in
     match alph.kind with
-    | Extended_Bit_Flags -> (* We already have what we want *) alph 
+    | Continuous | Extended_Bit_Flags -> alph 
     | Simple_Bit_Flags -> 
             (* We have each element as one bit, we have now to extend it into
             * all possible combinations *)

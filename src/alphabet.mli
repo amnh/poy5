@@ -43,16 +43,16 @@ type kind =
     | Sequential
     | Simple_Bit_Flags
     | Extended_Bit_Flags
+    | Continuous
 
 (** Alphabet type *)
 type a
 
 (** {2 Alphabets} *)
 
-(** [empty] an empty alphabet used for continuous characters where an alphabet
-    is not even used. The type is sequential, and it needs to be tested if we
-    can transform to other character types successfully *)
-val empty : a
+(** [continuous] an empty alphabet used for continuous characters where an alphabet
+    is not even used. *)
+val continuous : a
 
 (** [present_absent] contains binary data; used to calculate costs of indels *)
 val present_absent : a

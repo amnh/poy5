@@ -1533,6 +1533,8 @@ let analyze_tcm tcm model alph =
                                             else y
                                         in
                                         Cost_matrix.Two_D.cost x y tcm))
+                | Alphabet.Continuous ->
+                        assert false (* Static data only *)
                 | Alphabet.Extended_Bit_Flags -> 
                         failwith "Impliedalignment.make_tcm"
             in
@@ -1575,6 +1577,8 @@ let analyze_tcm tcm model alph =
                         match_bit x 1 1 []
                 | Alphabet.Sequential -> 
                         [x - 1]
+                | Alphabet.Continuous ->
+                        assert false (* static data only *)
                 | Alphabet.Extended_Bit_Flags -> 
                         failwith "Impliedalignment.convert_to_list"
             in

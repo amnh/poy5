@@ -380,7 +380,7 @@ let make_symbol_alphabet gap symbols more_equates form =
                 Alphabet.list_to_a alph gap None Alphabet.Sequential,
                 (get_equate form) @ more_equates
             | P.Continuous ->
-                Alphabet.empty, []
+                Alphabet.continuous, []
         in
         let () = Hashtbl.add table_of_alphabets index r in
         r
