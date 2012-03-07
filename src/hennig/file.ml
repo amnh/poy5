@@ -25,7 +25,6 @@ let default_hennig gap_handling alph equates file pos =
         | Some `Nogap -> equates @ [(Alphabet.gap_repr, [])]
         | Some `Gap -> equates 
     in
-
     { st_filesource = file;
       st_name = file ^ ":" ^ string_of_int pos;
       st_alph = alph;
@@ -40,20 +39,22 @@ let default_hennig gap_handling alph equates file pos =
       st_eliminate = false;
       st_case = true;
       st_used_observed = None;
-      st_observed_used = None}
+      st_observed_used = None; }
 
 let hennig_upto n = 
-    let all_list = ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9";
-    "A"; "B"; "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J"; "K"; "L"; "M";
-    "N"; "O"; "P"; "Q"; "R"; "S"; "T"; "U"; "V"] in
+    let all_list =
+        ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9";
+         "A"; "B"; "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J";
+         "K"; "L"; "M"; "N"; "O"; "P"; "Q"; "R"; "S"; "T";
+         "U"; "V"]
+    in
     if n < 0 then failwith "Illegal number of states requested"
     else
-        let rec get_up_to lst x =
-            match x, lst with
-            | 0, _ -> []
+        let rec get_up_to lst x = match x, lst with
+            | 0, _      -> []
             | 1, h :: _ -> [h]
             | n, h :: t -> h :: get_up_to t (n - 1)
-            | _ -> failwith "Illegal number"
+            | _         -> failwith "Illegal number"
         in
         get_up_to all_list n
 
@@ -133,14 +134,15 @@ let make_sankoff_matrix spec =
 (** process a matrix with spaces seperating the characters. Polymorphisms are
     seperated by spaces in brackets *)
 let process_matrix matrix taxa characters get_row_number assign_item to_parse =
-    let data = Parser.OldHennig.process_matrix to_parse
+    let data =
+        Parser.OldHennig.process_matrix to_parse
                         true (Array.length taxa) (Array.length characters)
-    and pp_intlist chan lst = List.iter (Printf.fprintf chan "%d, ") lst in
+    in
     List.iter
         (fun (name,data) ->
             let x = get_row_number name in
             Array.iteri
-                (fun i states -> assign_item x i (Some (`List states)))
+                (fun i states -> assign_item x i states)
                 (Array.of_list data))
         (data);
     ()
@@ -164,12 +166,20 @@ let process_command file (mode, (acc:nexus)) = function
             | _ -> 
                 failwith 
                     "We only allow one xread command per hennig file"
+        and add_observed new_states spec =
+            let new_states = 
+                List.filter (fun x -> not (List.mem x spec.st_observed)) new_states
+            in
+            { spec with st_observed = new_states @ spec.st_observed; }
         in
         begin match mode with
             | Some (`Continuous) ->
                 process_matrix matrix taxa characters
                     (fun name -> Nexus.File.find_taxon taxa name)
-                    (fun x y v -> matrix.(x).(y) <- v) to_parse;
+                    (fun x y v ->
+                        characters.(y) <- add_observed v characters.(y);
+                        matrix.(x).(y) <- (Some (`List v)))
+                    to_parse;
                 mode,{acc with
                         taxa = taxa;
                         characters = characters;
@@ -177,7 +187,10 @@ let process_command file (mode, (acc:nexus)) = function
             | Some (`Number x) when x >= 33 ->
                 process_matrix matrix taxa characters
                     (fun name -> Nexus.File.find_taxon taxa name)
-                    (fun x y v -> matrix.(x).(y) <- v) to_parse;
+                    (fun x y v ->
+                        characters.(y) <- add_observed v characters.(y);
+                        matrix.(x).(y) <- (Some (`List v)))
+                    to_parse;
                 mode,{acc with
                         taxa = taxa;
                         characters = characters;

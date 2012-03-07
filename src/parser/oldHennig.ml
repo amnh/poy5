@@ -23,7 +23,7 @@
 let default_ordered = ( 9999, -10 )
 
 let strict = true   (* Do not ignore errors *)
-let ndebug = false  (* no debug *)
+let ndebug = true   (* no debug *)
 
 type options = 
     | Weight of (int * int) 
