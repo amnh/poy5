@@ -1355,9 +1355,9 @@ module NewkkAlign = struct
     *)
     (*c side function*)
     external init : unit -> unit = "newkkonen_CAML_initialize"
-    external newkk_cost2 : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
+    external newkk_cost2 : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int -> int =
          "newkkonen_CAML_algn"
-    external newkk_cost2_affine : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int =
+    external newkk_cost2_affine : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int -> int =
          "newkkonen_CAML_algn_affine"
     external newkk_backtrace : s -> s -> s -> s -> Cost_matrix.Two_D.m -> ukkm -> int -> unit = 
         "newkkonen_CAML_backtrace_bc" "newkkonen_CAML_backtrace"
@@ -1427,20 +1427,20 @@ module NewkkAlign = struct
         let debug = false in
         let ls1 = length s1 and ls2 = length s2 in
         if debug then Printf.printf "Sequence.Newkkonen.align_2,len1=%d,len2=%d\n%!" ls1 ls2;
-        let s1,s2,ls1,ls2,exchange = 
-            if ls1<=ls2 then s1,s2,ls1,ls2,false
-            else s2,s1,ls2,ls1,true
+        let s1,s2,ls1,ls2,exchange,swaped = 
+            if ls1<=ls2 then s1,s2,ls1,ls2,false,0
+            else s2,s1,ls2,ls1,true,1
         in
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
-                    let tc = newkk_cost2_affine s1 s2 c m in   
+                    let tc = newkk_cost2_affine s1 s2 c m swaped in   
                     let s1p, s2p = get_alignment s1 s2 c m true in
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc
             | _ ->
-                    let tc = newkk_cost2 s1 s2 c m in   
+                    let tc = newkk_cost2 s1 s2 c m swaped in   
                     let s1p, s2p = get_alignment s1 s2 c m false in
                     if exchange then s2p,s1p,tc
                     else
@@ -1465,19 +1465,19 @@ module NewkkAlign = struct
         end;
         (*cost&algn compare test start
                 let oc1 =  open_out "newkkonen.out" in
-                Printf.fprintf oc1 "%d%!" tc;
+                Printf.fprintf oc1 "%d%!" res_c;
                 close_out oc1;
                 let oc =  open_out "newkkonen.out2" in
                 if exchange then begin
-                    print oc s2p Alphabet.nucleotides;
-                    print oc s1p Alphabet.nucleotides;
+                    print oc res_s2 Alphabet.nucleotides;
+                    print oc res_s1 Alphabet.nucleotides;
                 end
                 else begin
-                    print oc s1p Alphabet.nucleotides;
-                    print oc s2p Alphabet.nucleotides;
+                    print oc res_s1 Alphabet.nucleotides;
+                    print oc res_s2 Alphabet.nucleotides;
                 end;
                 close_out oc;
-                cost&algn compare test end*)
+        cost&algn compare test end*)
         res_s1,res_s2,res_c
 
     let cost_2 ?deltaw s1 s2 m1 m2 =
@@ -1500,15 +1500,15 @@ module NewkkAlign = struct
         if ls1 <= ls2 then
             match Cost_matrix.Two_D.affine m1 with
             | Cost_matrix.Affine _ ->
-                    newkk_cost2_affine s1 s2 m1 m2
+                    newkk_cost2_affine s1 s2 m1 m2 0
             | _ ->
-                    newkk_cost2 s1 s2 m1 m2
+                    newkk_cost2 s1 s2 m1 m2 0
         else 
             match Cost_matrix.Two_D.affine m1 with
             | Cost_matrix.Affine _ ->
-                newkk_cost2_affine s2 s1 m1 m2 
+                newkk_cost2_affine s2 s1 m1 m2 1 
             | _ ->
-                newkk_cost2 s2 s1 m1 m2 
+                newkk_cost2 s2 s1 m1 m2 1
 
     let full_median_2 a b cm m = 
         match Cost_matrix.Two_D.affine cm with
