@@ -1,4 +1,22 @@
-CHANGES BETWEEN 5.0.0a and 5.0.1a
+CHANGES BETWEEN 5.0.rc2 and 5.0.rc3
+
+New Features:
+
+
+Bugx Fixed:
+    - Continuous characters are fully supported from Hennig86/Nona files.
+      Characters with more then 10 states were not handled (single alphanumeric
+      character per taxon character only). (Thanks to Edmundo Gonzalez)
+    - Costs displayed on trees is incorrect for partitions/sets of characters.
+
+New Commands:
+
+
+Changed Commands:
+
+
+
+CHANGES BETWEEN 5.0.rc1 and 5.0.rc2
 
 New Features:
     - orientation set to true by default for breakinversion data-type.
@@ -50,7 +68,7 @@ Changed Commands:
           procedure mentioned above.
 
 
-CHANGES BETWEEN 4.1.2.1 and 5.0.0a
+CHANGES BETWEEN 4.1.2.1 and 5.0.rc1
 
 New Features
     - Added likelihood criterion for diagnosing trees.
