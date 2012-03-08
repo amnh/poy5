@@ -153,7 +153,6 @@ let process_command file (mode, (acc:nexus)) = function
     |P.Xread data ->
         let lex = Lexing.from_string data in
         let (nch, ntaxa, to_parse) = Grammar.xread Lexer.xread lex in
-        Printf.printf "Parsing %d characters and %d taxa\n%!" nch ntaxa;
         let taxa, characters, matrix =
             (* In hennig files we only allow one xread per file, that's
             * common for this kind of files *)
@@ -168,9 +167,23 @@ let process_command file (mode, (acc:nexus)) = function
                     "We only allow one xread command per hennig file"
         and add_observed new_states spec =
             let new_states = 
-                List.filter (fun x -> not (List.mem x spec.st_observed)) new_states
+                if List.mem (Alphabet.get_gap spec.st_alph) new_states then begin
+                    [0;max_int]
+                end else begin
+                    new_states
+                end
+            in
+            let new_states = 
+                List.filter
+                    (fun x -> not (List.mem x spec.st_observed)) new_states
             in
             { spec with st_observed = new_states @ spec.st_observed; }
+        and add_taxastate new_states spec =
+            if List.mem (Alphabet.get_gap spec.st_alph) new_states then begin
+                Some (`List [0;max_int])
+            end else begin
+                Some (`List new_states)
+            end
         in
         begin match mode with
             | Some (`Continuous) ->
@@ -178,7 +191,7 @@ let process_command file (mode, (acc:nexus)) = function
                     (fun name -> Nexus.File.find_taxon taxa name)
                     (fun x y v ->
                         characters.(y) <- add_observed v characters.(y);
-                        matrix.(x).(y) <- (Some (`List v)))
+                        matrix.(x).(y) <- add_taxastate v characters.(y))
                     to_parse;
                 mode,{acc with
                         taxa = taxa;
@@ -189,7 +202,7 @@ let process_command file (mode, (acc:nexus)) = function
                     (fun name -> Nexus.File.find_taxon taxa name)
                     (fun x y v ->
                         characters.(y) <- add_observed v characters.(y);
-                        matrix.(x).(y) <- (Some (`List v)))
+                        matrix.(x).(y) <- add_taxastate v characters.(y))
                     to_parse;
                 mode,{acc with
                         taxa = taxa;

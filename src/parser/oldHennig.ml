@@ -416,8 +416,7 @@ let parse_file characters taxa line is_dpread =
 
 type ordtype = Is_ordered | Is_unordered | Is_sankoff
 
-let print_ordtype x =
-    match x with
+let print_ordtype x = match x with
     | Is_ordered -> print_string "Ordered"
     | Is_unordered -> print_string "Unordered"
     | Is_sankoff -> print_string "Sankoff"
