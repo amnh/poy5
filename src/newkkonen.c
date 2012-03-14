@@ -495,7 +495,7 @@ void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt 
         {
             if (debug) printf ("cost <---- costM=costR\n");
             set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE, 
-                    s1_gapnum_fromM,
+                    MAX(s1_gapnum_fromM,s1_gapnum_fromR),
                     MAX(s2_gapnum_fromM,s2_gapnum_fromR+1),
                     thisP, thisQ, affine);
         }
@@ -504,7 +504,7 @@ void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt 
             if (debug) printf ("cost <---- costM=costL\n");
             set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_INSERT, 
                     MAX(s1_gapnum_fromM,s1_gapnum_fromL+1),
-                    s2_gapnum_fromM,
+                    MAX(s2_gapnum_fromM,s2_gapnum_fromL),
                     thisP, thisQ, affine);
         }
         else 
@@ -593,7 +593,7 @@ void update_left_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const c
         //set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, affine);
         if (costM==costR) 
         set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_DELETE,
-                gapnum1_fromM,
+                MAX(gapnum1_fromM,gapnum1_fromR),
                 MAX(gapnum2_fromM,gapnum2_fromR+1),
                 thisP, thisQ, affine);
         else
@@ -653,7 +653,7 @@ void update_right_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const 
         if (costM==costL)
         set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN|DO_INSERT, 
                 MAX(gapnum1_fromM,gapnum1_fromL+1),
-                gapnum2_fromM,
+                MAX(gapnum2_fromM,gapnum2_fromL),
                 thisP, thisQ, affine);
         else
         set_ukkcost(whichdiag,idx_in_my_diag, m, costM, DO_ALIGN, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, affine);
@@ -950,7 +950,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
 {
     int debug = 0;
     int p = (newT - (lenY-lenX))/2;
-    if (debug) { printf ("increaseT, newT=%d,p=%d,go=%d,swaped=%d",newT,p,go,swaped); fflush(stdout); }
+    if (debug) { printf ("increaseT, lenX=%d, lenY=%d, newT=%d,p=%d,go=%d,swaped=%d",lenX, lenY, newT,p,go,swaped); fflush(stdout); }
     int res_cost=-1; 
     DIRECTION_MATRIX res_gapnum=-1;
     ukktest(s1,s2,m,c,newT,p,lenX,lenY,go,&res_cost,&res_gapnum, swaped);

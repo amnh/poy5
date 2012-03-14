@@ -50,6 +50,9 @@ int *_algn_max_matrix = NULL;
 DIRECTION_MATRIX *_algn_max_direction = NULL;
 #endif
 
+#define MAX(a,b) ( ((a)>(b))? (a):(b) )
+#define MAX3(a,b,c) ( (MAX(a,b)>MAX(b,c))? (MAX(a,b)):(MAX(b,c)) )
+
 #define my_prepend(a,b) assert (a->cap > a->len); \
     (a)->begin = (((a)->begin) - 1); \
     ((a)->len = 1 + (a)->len); *((a)->begin) = b
@@ -123,6 +126,50 @@ follow_insertion_or_deletion (DIRECTION_MATRIX ** endp,int swaped,int l,const cm
     return;
 }
 
+void
+algn_fill_gapnum (int pos, int hasalgn, int hasinsert, int hasdelete,  DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2)
+{
+    int debug = 0;
+    int i = pos ;
+    if (hasalgn) {
+        if(hasdelete&&hasinsert)//insert|delete|align
+        {//MAX3(s1_gapnum_fromM,s1_gapnum_fromL+1,s1_gapnum_fromR),MAX3(s2_gapnum_fromM,s2_gapnum_fromL,s2_gapnum_fromR+1)
+            gm1[i] = MAX3(pgm1[i-1],gm1[i-1]+1,pgm1[i]);
+            gm2[i] = MAX3(pgm2[i-1],gm2[i-1],pgm2[i]+1);
+        }
+        else if (hasdelete)//delete|align
+        {
+            gm1[i] = MAX(pgm1[i],pgm1[i-1]);
+            gm2[i] = MAX(pgm2[i-1],pgm2[i]+1);
+        }
+        else if (hasinsert) //insert|align 
+        {
+            gm1[i] = MAX(gm1[i-1]+1,pgm1[i-1]);
+            gm2[i] = MAX(pgm2[i-1],gm2[i-1]);
+        }
+        else//just align
+        {
+            gm1[i] = pgm1[i-1]; 
+            gm2[i] = pgm2[i-1];
+        }
+    }
+    else if (hasinsert) {
+        if (hasdelete) {//delete|insert
+            //MAX(s1_gapnum_fromL+1,s1_gapnum_fromR), MAX(s2_gapnum_fromR+1,s2_gapnum_fromL)
+            gm1[i] = MAX(gm1[i-1]+1,pgm1[i]);
+            gm2[i] = MAX(pgm2[i]+1,gm2[i-1]);
+        }
+        else {//just insert
+            gm1[i] = gm1[i-1]+1;
+            gm2[i] = gm2[i-1];
+        }
+    }
+    else {//just delete
+        gm1[i] = pgm1[i]; 
+        gm2[i] = pgm2[i]+1; 
+    }
+}
+
 
 /******************************************************************************/
 /*                        Pairwise Standard Alignment                         */
@@ -166,12 +213,13 @@ __inline void
 inline void 
 #endif
 algn_fill_row (int *mm, const int *pm, const int *gap_row, \
-
-        const int *alg_row, DIRECTION_MATRIX *dm, int c, int i, int end) {
+        const int *alg_row, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int i, int end, int return_gapnum) {
 
     register int aa, bb, cc;
     register const int TWO = 0x200; 
     register const int ZERO = 0;
+    
+    int hasalgn, hasdelete, hasinsert;
 
     bb = mm[i - 1];
 
@@ -223,11 +271,19 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         mm[i] = bb; // bb is min(aa, bb, cc)
         dm[i] = cc; // cc is the bitpattern
 
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
 
         aa = pm[i] + alg_row[i + 1];
         bb += gap_row[i + 1]; // bb is already assigned the minimum value of the three to be compared, so loading bb from memory would be waste.
         cc = pm[i + 1] + c;
 
+        
         __asm__(
             "cmp %0, %1\n\t"
             "cmovg %0, %1\n\t"
@@ -247,6 +303,14 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
 
         mm[i + 1] = bb;
         dm[i + 1] = cc;
+
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i+1,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
 
         aa = pm[i + 1] + alg_row[i + 2];
         bb += gap_row[i + 2];
@@ -273,6 +337,14 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         mm[i + 2] = bb;
         dm[i + 2] = cc;
 
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i+2,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
+
         aa = pm[i + 2] + alg_row[i + 3];
         bb += gap_row[i + 3];
         cc = pm[i + 3] + c;
@@ -298,7 +370,13 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         mm[i + 3] = bb;
         dm[i + 3] = cc;
 
-
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i+3,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
 
         aa = pm[i + 3] + alg_row[i + 4];
         bb += gap_row[i + 4];
@@ -325,11 +403,17 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         mm[i + 4] = bb;
         dm[i + 4] = cc;
 
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i+4,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
 
         aa = pm[i + 4] + alg_row[i + 5];
         bb += gap_row[i + 5];
         cc = pm[i + 5] + c;
-
 
         __asm__(
             "cmp %0, %1\n\t"
@@ -351,10 +435,17 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         mm[i + 5] = bb;
         dm[i + 5] = cc;
 
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i+5,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
+
         aa = pm[i + 5] + alg_row[i + 6];
         bb += gap_row[i + 6];
         cc = pm[i + 6] + c;
-
 
         __asm__(
             "cmp %0, %1\n\t"
@@ -375,6 +466,15 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
 
         mm[i + 6] = bb;
         dm[i + 6] = cc;
+
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i+6,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
+
 
         aa = pm[i + 6] + alg_row[i + 7];
         bb += gap_row[i + 7];
@@ -401,6 +501,13 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         mm[i + 7] = bb;
         dm[i + 7] = cc;
 
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i+7,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
 
     }
 
@@ -433,6 +540,13 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         mm[i] = bb;
         dm[i] = cc;
 
+        //update gapnum matrix if doing newkkonen
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
 
     }
     return;
@@ -446,7 +560,7 @@ __inline void
 inline void 
 #endif
 algn_fill_row (int *mm, const int *pm, const int *gap_row, \
-        const int *alg_row, DIRECTION_MATRIX *dm, int c, int st, int end) {
+        const int *alg_row, DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int st, int end) {
     int i, tmp1, tmp2, tmp3;
 
     for (i = st; i <= end; i++) {
@@ -532,7 +646,7 @@ __inline void
 inline void 
 #endif
 algn_fill_ukk_right_cell (int *mm, const int *pm, const int *gap_row, \
-        const int *alg_row, DIRECTION_MATRIX *dm, int c, int pos) {
+        const int *alg_row, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int pos) {
     int tmp2, tmp3;
     /* try align with substitution */
     tmp2 = mm[pos - 1] + gap_row[pos];
@@ -541,14 +655,20 @@ algn_fill_ukk_right_cell (int *mm, const int *pm, const int *gap_row, \
     if (tmp2 < tmp3) {
         mm[pos] = tmp2;
         dm[pos] = INSERT;
+        gm1[pos] = gm1[pos-1]+1;
+        gm2[pos] = gm2[pos-1];
     }
     else if (tmp3 < tmp2) {
         mm[pos] = tmp3;
         dm[pos] = ALIGN;
+        gm1[pos] = pgm1[pos-1]; 
+        gm2[pos] = pgm2[pos-1];
     }
     else {
         mm[pos] = tmp3;
         dm[pos] = INSERT | ALIGN;
+        gm1[pos] = MAX(gm1[pos-1]+1,pgm1[pos-1]);
+        gm2[pos] = MAX(pgm2[pos-1],gm2[pos-1]);
     }
     if (!NDEBUG && !NPRINT_DM) {
         /* Print the alignment matrix */
@@ -577,23 +697,58 @@ __inline void
 #else
 inline void 
 #endif
+algn_fill_ukk_left_right_cell (int *mm, const int *pm, const int *alg_row, DIRECTION_MATRIX *dm, DIRECTION_MATRIX *pgm1, DIRECTION_MATRIX * gm1,  DIRECTION_MATRIX *pgm2, DIRECTION_MATRIX * gm2, int c, int pos) {
+    int tmp3;
+    /* try align with substitution */
+    tmp3 = pm[pos - 1] + alg_row[pos];
+//printf("fill_ukk_left&right,pm[%d](%d)+%d=%d\n",pos-1,pm[pos-1],alg_row[pos],tmp3);
+            mm[pos] = tmp3;
+            dm[pos] = ALIGN;
+            gm1[pos] = pgm1[pos-1]; 
+            gm2[pos] = pgm2[pos-1]; 
+    if (!NDEBUG && !NPRINT_DM) {
+        /* Print the alignment matrix */
+            printf ("A");
+        printf ("\t");
+    }
+    if (!NDEBUG &&!NPRINT_CM) {
+        /* Print the cost matrix */
+        printf ("%d\t", mm[pos]);
+        fflush (stdout);
+    }
+    return;
+}
+
+
+#ifdef _WIN32
+__inline void 
+#else
+inline void 
+#endif
 algn_fill_ukk_left_cell (int *mm, const int *pm, const int *gap_row, \
-        const int *alg_row, DIRECTION_MATRIX *dm, int c, int pos) {
+        const int *alg_row, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int pos) {
     int tmp1, tmp3;
     /* try align with substitution */
     tmp1 = pm[pos] + c;
     tmp3 = pm[pos - 1] + alg_row[pos];
-        if (tmp1 < tmp3) {
+    //printf("tmp1=pm[%d](%d)+%d=%d,tmp3=pm[%d](%d)+%d=%d\n",pos,pm[pos],c,tmp1,pos-1,pm[pos-1],alg_row[pos],tmp3);
+    if (tmp1 < tmp3) {
             mm[pos] = tmp1;
             dm[pos] = DELETE;
+            gm1[pos] = pgm1[pos]; 
+            gm2[pos] = pgm2[pos]+1; 
         } 
         else if (tmp3 < tmp1) {
             mm[pos] = tmp3;
             dm[pos] = ALIGN;
+            gm1[pos] = pgm1[pos-1]; 
+            gm2[pos] = pgm2[pos-1];
         } 
         else {
             mm[pos] = tmp1;
             dm[pos] = ALIGN | DELETE;
+            gm1[pos] = MAX(pgm1[pos],pgm1[pos-1]);
+            gm2[pos] = MAX(pgm2[pos-1],pgm2[pos]+1);
         }
     if (!NDEBUG && !NPRINT_DM) {
         /* Print the alignment matrix */
@@ -618,7 +773,7 @@ __inline void
 #else
 inline void
 #endif
-algn_fill_last_column (int *mm, const int *pm, int tlc, int l, DIRECTION_MATRIX *dm) {
+algn_fill_last_column (int *mm, const int *pm, int tlc, int l, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX *gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX *gm2, int update_gapnum) {
     int cst;
     if (l > 0) {
         cst = tlc + pm[l];
@@ -626,8 +781,13 @@ algn_fill_last_column (int *mm, const int *pm, int tlc, int l, DIRECTION_MATRIX 
             mm[l] = cst;
             dm[l] = DELETE;
         } 
-        else if (cst == mm[l])
+        else if (cst == mm[l]) {
             dm[l] = dm[l] | DELETE;
+        }
+        if (update_gapnum) {
+            int cc = dm[l];
+            algn_fill_gapnum (l,has_flag(cc,ALIGN),has_flag(cc,INSERT),has_flag(cc,DELETE),pgm1,gm1,pgm2,gm2);
+        }
     }
     return;
 }
@@ -637,6 +797,7 @@ __inline void
 #else
 inline void
 #endif
+//no barriers are set for this function
 algn_fill_full_row (int *mm, const int *pm, const int *gap_row, \
         const int *alg_row, DIRECTION_MATRIX *dm, int c, int tlc, int l) {
     /* first entry is delete */
@@ -648,17 +809,20 @@ algn_fill_full_row (int *mm, const int *pm, const int *gap_row, \
     }
     if ((!NDEBUG) && (!NPRINT_DM))
         printf ("D\t");
-    algn_fill_row (mm, pm, gap_row, alg_row, dm, c, 1, l - 1);
-    algn_fill_last_column (mm, pm, tlc, l - 1, dm);
+    algn_fill_row (mm, pm, gap_row, alg_row, dm, NULL, NULL, NULL, NULL, c, 1, l - 1,0);
+    algn_fill_last_column (mm, pm, tlc, l - 1, dm, NULL, NULL, NULL, NULL, 0);
     return;
 }
 
 void
-algn_fill_first_row (int *mm, DIRECTION_MATRIX *dm, int len, int const *gap_row) {
+algn_fill_first_row (int *mm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX *gm1, DIRECTION_MATRIX *gm2, int len, int const *gap_row) {
     int i;
+    int debug = 0;
     /* We fill the first cell to start with */
     mm[0] = 0;
     dm[0] = ALIGN;
+    gm1[0] = 0;
+    gm2[0] = 0;
     /* Now the rest of the row */
     if ((!NDEBUG) && (!NPRINT_DM))
         printf ("A\t");
@@ -669,6 +833,8 @@ algn_fill_first_row (int *mm, DIRECTION_MATRIX *dm, int len, int const *gap_row)
     for (i = 1; i < len; i++) {
         mm[i] = mm[i - 1] + gap_row[i];
         dm[i] = INSERT;
+        gm1[i] = i;
+        gm2[i] = 0;
         if ((!NDEBUG) && (!NPRINT_DM))
             printf ("I\t");
         if ((!NDEBUG) && (!NPRINT_CM)) {
@@ -676,13 +842,25 @@ algn_fill_first_row (int *mm, DIRECTION_MATRIX *dm, int len, int const *gap_row)
             fflush (stdout);
         }
     }
+    if (debug) {
+        printf("end of fill first row:");
+        for (i=0;i<len;i++)
+        {
+            printf("%d(%d,%d),",mm[i],gm1[i],gm2[i]);
+        }
+        printf("\n");
+    }
     return;
 }
 
 void
-algn_fill_first_cell (int *mm, int pm, DIRECTION_MATRIX *dm, int gap) {
+algn_fill_first_cell (int *mm, int pm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX *gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX *gm2, int gap) {
+    int debug = 0; 
     *mm = pm + gap;
     *dm = DELETE;
+    *gm1 = pgm1[0];
+    *gm2 = pgm2[0]+1;
+    if (debug) printf("algn_fill_first_cell,gap=%d,pm=%d\n",gap,pm);
     if ((!NDEBUG) && (!NPRINT_DM))
         printf ("D\t");
     if ((!NDEBUG) && (!NPRINT_CM)) {
@@ -708,7 +886,8 @@ algn_fill_first_cell (int *mm, int pm, DIRECTION_MATRIX *dm, int gap) {
 
 int *
 algn_fill_extending_right (const seqt s1, int *prec, int s1_len, int s2_len,  \
-        int *mm, int *pm, DIRECTION_MATRIX *dm, const cmt c, int start_row, int end_row, int len) {
+        int *mm, int *pm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int start_row, int end_row, int len) {
+    int debug = 0;
     int i;
     int *tmp, cur_s1, const_val;
     const int *gap_row, *alg_row;
@@ -731,10 +910,11 @@ algn_fill_extending_right (const seqt s1, int *prec, int s1_len, int s2_len,  \
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
         */
         alg_row = prec + (cur_s1 * s2_len);
+        if (debug) printf("algn_fill_extending_right,start_row=%d,end_row=%d,len=%d,cur_s1=%d\n", start_row,end_row,len,cur_s1);
         /* Align! */
-        algn_fill_first_cell (mm, pm[0], dm, alg_row[0]);
-        algn_fill_row (mm, pm, gap_row, alg_row, dm, const_val, 1, len - 2);
-        algn_fill_ukk_right_cell (mm, pm, gap_row, alg_row, dm, const_val, \
+        algn_fill_first_cell (mm, pm[0], dm, pgm1, gm1, pgm2, gm2, alg_row[0]);
+        algn_fill_row (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, 1, len - 2, 1);
+        algn_fill_ukk_right_cell (mm, pm, gap_row, alg_row, dm,  pgm1, gm1, pgm2, gm2, const_val, \
                 len - 1);
         /** Invariants block */
         tmp = mm;
@@ -749,8 +929,9 @@ algn_fill_extending_right (const seqt s1, int *prec, int s1_len, int s2_len,  \
 
 int *
 algn_fill_extending_left_right (const seqt s1, int *prec, int s1_len, \
-        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, const cmt c, int start_row, \
+        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int start_row, \
         int end_row, int start_column, int len) {
+    int debug = 0;
     int i;
     int *tmp, cur_s1, const_val;
     const int *gap_row, *alg_row;
@@ -762,7 +943,7 @@ algn_fill_extending_left_right (const seqt s1, int *prec, int s1_len, \
     gap_row = cm_get_precal_row (prec, cm_get_gap (c), s2_len);
     */
     gap_row = prec + (c->gap * s2_len);
-    len--;
+    //len--;
     while (i < end_row) {
         /** Invariants block */
         cur_s1 = s1->begin[i];
@@ -774,13 +955,20 @@ algn_fill_extending_left_right (const seqt s1, int *prec, int s1_len, \
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
         */
         alg_row = prec + (cur_s1 * s2_len);
+        if (debug) { printf("algn_fill_extending_left_right,start_row=%d,end_row=%d,start_column=%d,len=%d,cur_s1=%d\n",
+            start_row,end_row,start_column,len,cur_s1); fflush(stdout); } 
         /* Align! */
-        algn_fill_ukk_left_cell (mm, pm, gap_row, alg_row, dm, const_val, \
+        if (len==1) {
+            algn_fill_ukk_left_right_cell(mm,pm,alg_row,dm,pgm1,gm1,pgm2,gm2,const_val,start_column);
+        }
+        else {
+        algn_fill_ukk_left_cell (mm, pm, gap_row, alg_row, dm, pgm1,gm1,pgm2,gm2, const_val, \
                 start_column);
-        algn_fill_row (mm, pm, gap_row, alg_row, dm, const_val, \
-                start_column + 1, start_column + (len - 2));
-        algn_fill_ukk_right_cell (mm, pm, gap_row, alg_row, dm, const_val, \
+        algn_fill_row (mm, pm, gap_row, alg_row, dm, pgm1,gm1,pgm2,gm2, const_val, \
+                start_column + 1, start_column + (len - 2), 1);
+        algn_fill_ukk_right_cell (mm, pm, gap_row, alg_row, dm, pgm1,gm1,pgm2,gm2, const_val, \
                 start_column + len - 1);
+        }
         /** Invariants block */
         tmp = mm;
         mm = pm;
@@ -789,13 +977,16 @@ algn_fill_extending_left_right (const seqt s1, int *prec, int s1_len, \
         dm += s2_len;
         start_column++;
     }
+    //here we return mm=previous line,so later in [choose_other c a b] will give
+    //us current line, why don't we just return the current line?
     return (mm);
 }
 
 int *
 algn_fill_extending_left (const seqt s1, int *prec, int s1_len, \
-        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, const cmt c, int start_row, \
+        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm,DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int start_row, \
         int end_row, int start_column, int len) {
+    int debug = 0;
     int i;
     int *tmp, cur_s1, const_val, const_val_tail;
     const int *gap_row, *alg_row;
@@ -819,12 +1010,13 @@ algn_fill_extending_left (const seqt s1, int *prec, int s1_len, \
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
         */
         alg_row = prec + (cur_s1 * s2_len);
+        if (debug) printf("algn_fill_extending_left,start_row=%d,end_row=%d,start_column=%d,len=%d,const_val_tail=%d\n",start_row,end_row,start_column,len,const_val_tail);
         /* Align! */
-        algn_fill_ukk_left_cell (mm, pm, gap_row, alg_row, dm, const_val, \
+        algn_fill_ukk_left_cell (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, \
                 start_column);
-        algn_fill_row (mm, pm, gap_row, alg_row, dm, const_val, \
-                start_column + 1, start_column + len - 1);
-        algn_fill_last_column (mm, pm, const_val_tail, start_column + len - 1, dm);
+        algn_fill_row (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, \
+                start_column + 1, start_column + len - 1,1);
+        algn_fill_last_column (mm, pm, const_val_tail, start_column + len - 1, dm, pgm1, gm1, pgm2, gm2, 1);
         /** Invariants block */
         tmp = mm;
         mm = pm;
@@ -851,8 +1043,9 @@ algn_fill_extending_left (const seqt s1, int *prec, int s1_len, \
 
 int *
 algn_fill_no_extending (const seqt s1, int *prec, int s1_len, \
-        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, const cmt c, int start_row, \
+        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int start_row, \
         int end_row) {
+    int debug = 0;
     int i;
     int *tmp, cur_s1, const_val, const_val_tail;
     const int *gap_row, *alg_row;
@@ -862,6 +1055,7 @@ algn_fill_no_extending (const seqt s1, int *prec, int s1_len, \
     gap_row = cm_get_precal_row (prec, cm_get_gap (c), s2_len);
     */
     gap_row = prec + (c->gap * s2_len);
+    if (debug) printf("algn_fill_no_extending,,start_row=%d,end_row=%d\n",start_row,end_row);
     while (i < end_row) {
         /** Invariants block */
         cur_s1 = s1->begin[i];
@@ -875,9 +1069,9 @@ algn_fill_no_extending (const seqt s1, int *prec, int s1_len, \
         */
         alg_row = prec + (cur_s1 * s2_len);
         /* Align! */
-        algn_fill_first_cell (mm, pm[0], dm, alg_row[0]);
-        algn_fill_row (mm, pm, gap_row, alg_row, dm, const_val, 1, s2_len - 1);
-        algn_fill_last_column (mm, pm, const_val_tail, s2_len - 1, dm);
+        algn_fill_first_cell (mm, pm[0], dm, pgm1, gm1, pgm2, gm2, alg_row[0]);
+        algn_fill_row (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, 1, s2_len - 1, 1);
+        algn_fill_last_column (mm, pm, const_val_tail, s2_len - 1, dm, pgm1, gm1, pgm2, gm2, 1);
         /** Invariants block */
         tmp = mm;
         mm = pm;
@@ -953,48 +1147,218 @@ choose_other (int *compare, int *a, int *b) {
 }
 
 #ifdef _WIN32
+__inline int*
+#else
+inline int*
+#endif
+algn_newkk_fill_a_row (const seqt s1, int *prec, int *a, int * b, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int s1_len, int s2_len, int i, int startj, int endj, int has_right_border, int has_left_border)
+{
+    /* keep what we were doing, a row in newkkonen matrix , if not a full
+     * row, might have a right border, or a left border, or both
+     * */
+    int debug = 0;
+    int start_column = startj;
+    int length = endj-startj+1;
+    int *next_row;
+    int *next_pm;
+    DIRECTION_MATRIX *to_go_dm;
+    to_go_dm = dm + (i * s2_len);
+    if (debug) printf("\n-- algn_newkk_fill_a_row,i=%d,startj=%d,endj=%d,length=%d,right/left border=%d/%d --\n",
+            i,startj,endj,length,has_right_border,has_left_border);
+    if (has_right_border&&has_left_border)//we have both right and left border for this row
+    {
+        next_row = algn_fill_extending_left_right (s1, prec, s1_len, \
+                s2_len, b, a, to_go_dm, pgm1, gm1, pgm2, gm2, c, i, i+1, start_column, length);
+    //why are we doing this 'choose_other' thing? we can just pass pointer b -- the one pointing to
+    //current row -- back to [algn_newkk_test].
+        next_pm = choose_other (next_row, a, b);
+    }
+    else if (has_right_border)//take care right border cell
+    {
+        next_row = algn_fill_extending_right (s1, prec, s1_len, s2_len, b, a, \
+                    to_go_dm, pgm1, gm1, pgm2, gm2, c, i, i+1, length);
+        next_pm = choose_other (next_row, a, b);
+    }
+    else if (has_left_border)//take care left border cell
+    {
+        next_row = algn_fill_extending_left (s1, prec, s1_len, s2_len, \
+                b, a, to_go_dm, pgm1, gm1, pgm2, gm2, c, i, i+1, start_column, length);
+        next_pm = choose_other (next_row, a, b);
+    }
+    else //fill in the full row
+    {
+        next_row = algn_fill_no_extending (s1, prec, s1_len, s2_len, \
+                    b, a, to_go_dm, pgm1, gm1, pgm2, gm2, c, i, i+1);
+        next_pm = choose_other (next_row, a, b);
+    }
+    if (debug) {
+        int j;
+        printf("check current line j=[%d,%d]: ",startj,endj); fflush(stdout);
+        for (j=startj;j<=endj;j++)
+        {printf ("%d(%d,%d)\t", b[j],gm1[j],gm2[j]);
+        fflush(stdout);}
+    }
+    return next_pm;
+}
+
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+algn_newkk_test (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
+        DIRECTION_MATRIX *dm, DIRECTION_MATRIX * gm1,  DIRECTION_MATRIX * gm2, const cmt c, int const *gap_row, int p, int * cost)
+{ 
+   int debug = 0;
+   int *a, *b;
+   int startj,endj;
+   int has_left_border, has_right_border;
+   int i;
+   int newk=p;
+   if (p>=lenX) newk=lenX-1;
+   if (debug) printf ("algn_newkk_test,seq len=%d,%d,p=%d\n",lenX,lenY,p);
+   int len_first_row = lenY-lenX+1+p;
+   if (len_first_row>lenY) len_first_row = lenY;
+   //update first row of matrix
+   algn_fill_first_row (mm, dm, gm1, gm2, len_first_row, gap_row);
+   //point b to the row we want to update, a to the previous one that we just updated
+   a = mm;
+   b = mm + lenY;
+   DIRECTION_MATRIX * next_gm1 = gm1 + lenY;
+   DIRECTION_MATRIX * next_gm2 = gm2 + lenY;
+   DIRECTION_MATRIX * tmp1,  * tmp2;
+   for (i=1;i<lenX;i++)
+   {
+       //startj = ( (i-newk)>0 )?(i-newk):0 ;
+       //endj = ( (i+lenY-lenX+newk)<(lenY-1) )?(i+lenY-lenX+newk):(lenY-1) ;
+       //if ( startj==0) has_left_border=0; else has_left_border = 1;
+       //if ( endj == (lenY-1) ) has_right_border=0; else has_right_border=1;
+       if ( (i-newk)>0 )
+       {
+           startj = i-newk; has_left_border=1;
+       }
+       else
+       {
+           startj = 0; has_left_border=0;
+       }
+       if ( (i+lenY-lenX+newk)<=(lenY-1) ) 
+       {
+           endj = i+lenY-lenX+newk; has_right_border = 1; 
+       }
+       else 
+       {
+           endj = lenY-1; has_right_border = 0;
+       }
+       //fill a row, a points to the previous updated row, b points to the row we are going to update, gm1&gm2 point to the gap num array for the previous updated row, next_gm1 and next_gm2 point to the row we are going to update 
+       a = algn_newkk_fill_a_row(s1,prec,a,b,dm,gm1,next_gm1,gm2,next_gm2,c,lenX,lenY,i,startj,endj,has_right_border,has_left_border);
+       //a points to the line we just updated, set b to the next line
+       if (i<lenX-1) 
+       {
+           //move pointer to cost matrix to the next line
+           b = a + lenY;
+           //switch pointers to gap matrix, previous gapnum line is useless now, use that to fill
+           //in gap numbers for the next line
+           tmp1 = gm1;
+           gm1 = next_gm1;
+           next_gm1 = tmp1;
+           tmp2 = gm2;
+           gm2 = next_gm2;
+           next_gm2 = tmp2;
+       }
+   }
+   
+   *cost = a[lenY-1];
+   //return a[lenY - 1];
+   return (MAX(next_gm1[lenY-1],next_gm2[lenY-1]));
+}
+
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+algn_newkk_increaseT (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
+        DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * gm2, const cmt c, int const *gap_row, int T)
+{
+    int debug = 0;
+    int p = (T - (lenY-lenX))/2;
+    if (debug) printf("algn_newkk_increaseT,T=%d,p=%d\n",T,p);
+    int gap_num, cost;
+    gap_num = algn_newkk_test(s1,prec,lenX,lenY,mm,dm,gm1,gm2,c,gap_row,p,&cost);
+    //if ( cost <= T )
+    int newp = (2*T - (lenY-lenX))/2;
+    if ((gap_num<p)||(newp-lenY+1>=0))
+    {
+        if (debug) printf("cost=%d, T=%d, end by gap_num=%d<p=%d or newp=%d>=lenY(%d)-1 \n",cost, T, gap_num, p, newp, lenY);
+        return cost;
+    }
+    else
+    {
+        if (debug) printf("cost=%d, T=%d, gap_num=%d, p=%d, continue\n",cost, T, gap_num, p);
+        return algn_newkk_increaseT(s1,prec,lenX,lenY,mm,dm,gm1,gm2,c,gap_row,T*2);
+    }
+}
+
+
+#ifdef _WIN32
 __inline int
 #else
 inline int
 #endif
 algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
-        DIRECTION_MATRIX *dm, const cmt c, int width, int height, int dwidth_height) {
-    int *next_row;
-    int *next_pm;
-    int *a, *b;
-    int const *gap_row;
-    int start_row, final_row, start_column, length;
-    DIRECTION_MATRIX *to_go_dm;
+        DIRECTION_MATRIX *dm, DIRECTION_MATRIX *gm1, DIRECTION_MATRIX *gm2, const cmt c, int width, int height, int dwidth_height) {
+    assert(s1_len<=s2_len);
+    //we still need width,heigh for special case1 and case3.1
     width = width + dwidth_height;
     if (width > s2_len) width = s2_len;
     height = height + dwidth_height;
     if (height > s1_len) height = s1_len;
+    int const *gap_row;
+    gap_row = cm_get_precal_row (prec, 0, s2_len); // We want the horizontal row 
+    /* old parameters no longer useful
+    int *next_row;
+    int *next_pm;
+    int *a, *b;
+    int start_row, final_row, start_column, length;
     a = mm;
     b = mm + s2_len;
-    gap_row = cm_get_precal_row (prec, 0, s2_len); /* We want the horizontal row */
+    */
+    DIRECTION_MATRIX *to_go_dm;
+    // threshold for ukkonen, let's switch to newkkonen later.
+    int delta = cm_get_min_non0_cost(c);
+    int iniT = (s2_len-s1_len+1) * delta;
     /* We have to consider three cases in this new alignment procedure (much
      * cleaner than the previous): 
      * 
      * Case 1:
      * If s1 is much longer than s2, then there is no point on using the
      * barriers, we rather fill the full matrix in one shot */
+    //disable Case 1 and Case3.1 if want to test newkkonen part of this code
+     
     if (((float) s1_len) >= (((float) ((float) 3 / (float) 2) * (float) s2_len)))
+    {
         return (algn_fill_plane (s1, prec, s1_len, s2_len, mm, dm, c));
-    /* Case 2:
-     * There are no full rows to be filled, therefore we have to break the
-     * procedure in three different subsets */
-    else if ((2 * height) < s1_len) {
+    }
+    // Case 2:
+     // There are no full rows to be filled, therefore we have to break the
+     // procedure in three different subsets 
+    else 
+    if ((2 * height) < s1_len) {
+       // printf("case 2\n"); fflush(stdout);
+       /* old code start
         algn_fill_first_row (a, dm, width, gap_row);
         start_row = 1;
         final_row = height;
         start_column = 0; 
         length = width + 1;
         to_go_dm = dm + (start_row * s2_len);
-        /* Now we fill that space */
+        // Now we fill that space 
         next_row = algn_fill_extending_right (s1, prec, s1_len, s2_len, b, a, \
                 to_go_dm, c, start_row, final_row, length);
         next_pm = choose_other (next_row, a, b);
-        /* Next group */
+        // Next group 
         start_row = final_row;
         final_row = s1_len - (height - 1);
         start_column = 1;
@@ -1004,7 +1368,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
                 s2_len, next_row, next_pm, to_go_dm, c, start_row, \
                 final_row, start_column, length);
         next_pm = choose_other (next_row, a, b);
-        /* The final group */
+        // The final group 
         start_row = final_row;
         final_row = s1_len;
         length = length - 2;
@@ -1014,6 +1378,9 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
                 next_row, next_pm, to_go_dm, c, start_row, final_row, \
                 start_column, length);
         next_pm = choose_other (next_row, a, b);
+        old code end */
+        to_go_dm = dm + (1 * s2_len);
+        return algn_newkk_increaseT(s1,prec,s1_len,s2_len,mm,dm,gm1,gm2,c,gap_row,iniT);
     }
     /* Case 3: (final case)
      * There is a block in the middle of with full rows that have to be filled
@@ -1022,9 +1389,13 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
         /* We will simplify this case even further, if the size of the leftover
          * is too small, don't use the barriers at all, just fill it up all */
         if (8 >= (s1_len - height))
+        {
             return (algn_fill_plane (s1, prec, s1_len, s2_len, mm, dm, c));
-        else {
-            algn_fill_first_row (mm, dm, width, gap_row);
+        }
+        else { 
+            //printf("case 3.2\n"); fflush(stdout);
+            /* old code start
+             algn_fill_first_row (mm, dm, width, gap_row);
             start_row = 1;
             final_row = (s2_len - width) + 1;
             start_column = 0;
@@ -1050,9 +1421,12 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
                     next_row, next_pm, to_go_dm, \
                     c, start_row, final_row, start_column, length);
             next_pm = choose_other (next_row, a, b);
+            old code end*/
+           to_go_dm = dm + (1 * s2_len);
+            return algn_newkk_increaseT(s1,prec,s1_len,s2_len,mm,dm,gm1,gm2,c,gap_row,iniT);
         }
     }
-    return (next_pm[s2_len - 1]);
+    
 }
 /******************************************************************************/
 
@@ -3583,21 +3957,25 @@ algn_nw_limit (const seqt s1, const seqt s2, const cmt c, \
     const SEQT *ss1, *ss2;
     int *mm, *prec, s1_len, s2_len;
     DIRECTION_MATRIX *dm;
+    DIRECTION_MATRIX *gm1;
+    DIRECTION_MATRIX *gm2;
     ss1 = seq_get_begin (s1);
     ss2 = seq_get_begin (s2);
     mm = mat_get_2d_matrix (m);
     dm = mat_get_2d_direct (m);
+    gm1 = mat_get_2d_gapnum1 (m);
+    gm2 = mat_get_2d_gapnum2 (m);
     s1_len = seq_get_len (s1);
     s2_len = seq_get_len (s2);
-    prec = mat_get_2d_prec (m);
     cm_precalc_4algn (c, m, s2);
+    prec = mat_get_2d_prec (m);
     if (cm_get_affine_flag (c))
         return 
             (algn_fill_plane_2_aff (s1, prec, s1_len, s2_len, mm, dm, c, 50, \
                 (len_s1 - len_s2) + 50, deltawh, mm + (2 * s2_len), \
                 mm + (4 * s2_len)));
     else
-    return (algn_fill_plane_2 (s1, prec, s1_len, s2_len, mm, dm, c, 50, 
+    return (algn_fill_plane_2 (s1, prec, s1_len, s2_len, mm, dm, gm1, gm2, c, 50, 
                 (len_s1 - len_s2) + 50, deltawh));
 }
 

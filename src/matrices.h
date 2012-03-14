@@ -55,6 +55,8 @@ struct matrices {
     int len_pre;        /* Length of the precalculated matrix */
     int *matrix;        /* Matrix for regular alignment */
     DIRECTION_MATRIX *matrix_d;     /* Matrix for directions in a 2d alignment */
+    DIRECTION_MATRIX *gap_num1; //gap number for sequence1
+    DIRECTION_MATRIX *gap_num2; //gap number for sequence2
     int **pointers_3d;  /* Matrix of pointers to each rwo in a 3d align */
     int *cube;          /* Matrix for 3d alignment */
     DIRECTION_MATRIX *cube_d;       /* Matrix for directions in a 3d alignment */

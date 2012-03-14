@@ -1356,6 +1356,7 @@ cm_set_value_nonbit (int a, int b, int v, int *p, int sz) {
 
 void
 cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
+    int debug = 0;
     int i, j, l, m, *tmp_cost, *tcm, *tmp_to, *prepend, *tail, *to;
     int alphabet_size, uselevel;
     SEQT *begin;
@@ -1375,7 +1376,6 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     if (uselevel==1) alphabet_size = c->map_sz;
     else alphabet_size = c->a_sz;
     for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
-
         tmp_to[0] = tail[j];
         if(uselevel == 1) {
             for (i = 1; i < l; i++) {
@@ -1386,6 +1386,16 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
             for (i = 1; i < l; i++) {
                  tmp_to[i] = tmp_cost[begin[i]];
             }
+        }
+    }
+    if (debug) { 
+        printf("check precal matrix (alphabet_size=%d,l=%d):\n",alphabet_size,l);
+        tmp_to = to;
+        for (j = 0; j <= alphabet_size; j++, tmp_to += l)
+        {
+            for (i = 0; i < l; i++)
+                printf("%d,",tmp_to[i]);
+            printf("\n");
         }
     }
     return;
