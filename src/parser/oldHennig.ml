@@ -271,7 +271,7 @@ let read_data_xread r n_chars =
     let rec line acc n_reading =
         if n_reading <= n_chars then
             match r#getch with
-            | ' ' | '\n' | '\t' | '.' -> line acc n_reading
+            | ' ' | '\n' | '\t' | '.' | '\r' -> line acc n_reading
             | '[' -> multi acc [] n_reading
             | '?' | '-' -> line ([-1] :: acc) (succ n_reading)
             | c ->
@@ -311,7 +311,7 @@ let read_data_dpread r n_chars =
     let rec line n_reading acc str =
         if n_reading <= n_chars then begin
             match r#getch with
-                | ' ' | '\n' | '\t' | '.' ->
+                | ' ' | '\n' | '\t' | '.' | '\r' ->
                     clear line n_reading acc str
                 | '[' ->
                     clear
@@ -329,7 +329,7 @@ let read_data_dpread r n_chars =
         end
     and multi r_n r_acc m_n m_acc str =
         match r#getch with
-        | ' ' | '\n' | '\t' | '.' ->
+        | ' ' | '\n' | '\t' | '.' | '\r' ->
             clear' (multi r_n r_acc) m_n m_acc str
         | ']' ->
             clear'
