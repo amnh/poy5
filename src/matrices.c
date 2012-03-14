@@ -51,15 +51,6 @@ mat_size_of_3d_matrix (int w, int d, int h, int k) {
     return (w * d * h);
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-mat_size_of_2d_matrix (int w, int h) {
-    if (w > h) return (w * 12);
-    else return (h * 12);
-}
 
 void
 mat_clean_direction_matrix (matricest m) {
@@ -76,24 +67,29 @@ __inline int
 inline int
 #endif
 mat_setup_size (matricest m, int w, int d, int h, int k, int sz, int uselevel) {
-    //printf ("mat setup size: w=%d,d=%d,h=%d,k=%d,sz=%d\n",w,d,h,k,sz); 
-    //fflush(stdout);
-    int len, len_2d, len_precalc;
+    int debug = 0;
+    if (debug) printf ("mat setup size: w=%d,d=%d,h=%d,k=%d,sz=%d,uselevel=%d\n",w,d,h,k,sz,uselevel); 
+    long int len, len_2d, len_precalc;
     long int len_dir;
+    //we used to pass longer seq as seq1 for normal alignment(w>=d), now we shorter
+    //one is seq1(w<=d), len_precalc should be set with the longer length. 
+    //w = (w>d)?w:d;
+    //d = (w>d)?d:w;
     if (h == 0) {           /* If the size setup is only for 2d */
-        len = mat_size_of_2d_matrix (w, d);
+        //len = mat_size_of_2d_matrix (w, d);//if (w > h) return (w * 12); else return (h * 12); what is 12 doing here?
+        len = (long int)(w + 1) * (long int)(d + 1);
         if(uselevel==1)
-            len_precalc = (sz+1) * w; // I'm not sure whether we should "+1" here.
+            len_precalc = (sz+1) * d; 
         else
-            len_precalc = (1 << sz) * w;
+            len_precalc = ((1<<sz)+1) * d;
         len_dir = (long int)(w + 1) * (long int)(d + 1);
         len_2d = 0;
     } else {                /* If the size setup is for 3d */
         len = mat_size_of_3d_matrix (w, d, h, k);
         if(uselevel==1)
-            len_precalc = sz * sz * d;
+            len_precalc = (sz+1) * (sz+1) * d;
         else
-            len_precalc = (1 << sz) * (1 << sz) * d;
+            len_precalc = ((1<<sz)+ 1) * ((1<<sz) + 1) * d;
         len_2d = w * d;
         len_dir = len_2d * h;
     }
@@ -104,15 +100,17 @@ These `-m' switches are supported in addition to the above on AMD x86-64 process
 -m64
     Generate code for a 32-bit or 64-bit environment. The 32-bit environment sets int, long and pointer to 32 bits and generates code that runs on any i386 system. The 64-bit environment sets int to 32 bits and long and pointer to 64 bits and generates code for AMD's x86-64 architecture. For darwin only the -m64 option turns off the -fno-pic and -mdynamic-no-pic options. 
 */      
+    if (debug) printf("len = %d, len_eff = %d, len_dir = %d, len_2d = %d,len_precalc=%d\n",len,m->len_eff,len_dir,len_2d,len_precalc);
     if (m->len_eff < len) { /* If the 3d or 2d matrix is not enough */
         m->cube = m->matrix = 
             (int *) realloc (m->matrix, (len * sizeof(int)));
         m->len_eff = len;
     }
     if (m->len < len_dir) { /* If the other matrices are not enough */
-        m->cube_d = m->matrix_d = 
-            (DIRECTION_MATRIX *) 
+        m->cube_d = m->matrix_d = (DIRECTION_MATRIX *) 
             realloc (m->matrix_d, (len_dir * sizeof(DIRECTION_MATRIX)));
+        m->gap_num1 = (DIRECTION_MATRIX *) realloc (m->gap_num1, (2*(d+1) * sizeof(DIRECTION_MATRIX)));
+        m->gap_num2 = (DIRECTION_MATRIX *) realloc (m->gap_num2, (2*(d+1) * sizeof(DIRECTION_MATRIX)));
         if (0 != len_2d) {
             m->pointers_3d = 
                 (int **) realloc (m->pointers_3d, len_2d * sizeof(int));
@@ -153,6 +151,16 @@ mat_get_2d_matrix (matricest m) {
 DIRECTION_MATRIX *
 mat_get_2d_direct (const matricest m) {
     return (m->matrix_d);
+}
+
+DIRECTION_MATRIX *
+mat_get_2d_gapnum1 (const matricest m) {
+    return (m->gap_num1);
+}
+
+DIRECTION_MATRIX *
+mat_get_2d_gapnum2 (const matricest m) {
+    return (m->gap_num2);
 }
 
 int **
@@ -197,6 +205,8 @@ mat_CAML_deserialize (void *v) {
     m->matrix = m->cube = m->precalc = NULL;
     m->matrix_d = m->cube_d = NULL;
     m->pointers_3d = NULL;
+    m->gap_num1 = NULL;
+    m->gap_num2 = NULL;
     return (sizeof (struct matrices));
 }
 
@@ -221,6 +231,8 @@ mat_CAML_create_general (value a) {
     m->matrix = m->cube = m->precalc = NULL;
     m->matrix_d = m->cube_d = NULL;
     m->pointers_3d = NULL;
+    m->gap_num1 = NULL;
+    m->gap_num2 = NULL;
     CAMLreturn(res);
 }
 
@@ -326,6 +338,8 @@ mat_CAML_flush_memory (value vm) {
     free (m->matrix);
     free (m->matrix_d);
     free (m->precalc);
+    free (m->gap_num1);
+    free (m->gap_num2);
     m->len_pre = m->len_eff = m->len = 0;
     m->matrix = m->cube = m->precalc = NULL;
     m->matrix_d = m->cube_d = NULL;

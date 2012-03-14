@@ -878,7 +878,7 @@ module Align = struct
         let gaps = max g1 g2 in
         (*note that we pass longer seq as seq1 to the cside, this is different
         * in newkkonen/affine alignement/likelihood*)
-        if ls1 >= ls2 then
+        if ls1 <= ls2 then
             let deltaw = gaps + deltaw_calc ls1 ls2 in
             c_cost_2 s1 s2 m1 m2 deltaw
         else 
@@ -941,7 +941,7 @@ module Align = struct
     let make_backtrack a b m =
         let la = length a 
         and lb = length b in
-        let comparison = la >= lb in
+        let comparison = la <= lb in
         let matrix = 
             if comparison then Array.make_matrix la lb 0 
             else Array.make_matrix lb la 0 
@@ -982,7 +982,7 @@ module Align = struct
         and sz2 = length s2 in
         let s1p = create (sz1 + sz2)
         and s2p = create (sz1 + sz2) in
-        let size_compared = sz1 >= sz2 in
+        let size_compared = sz1 <= sz2 in
         if debug then 
             Printf.printf "create_edited_2,sz1=%d,sz2=%d,size_compared=%b\n%!"
             sz1 sz2 size_compared;
@@ -995,7 +995,7 @@ module Align = struct
     let create_edited_2_limit s1 s2 tm c st1 st2 len1 len2 =
         let s1p = create (len1 + len2)
         and s2p = create (len1 + len2) in
-        let size_compared = len1 >= len2 in
+        let size_compared = len1 <= len2 in
         Printf.printf "create_edited_2_limit,sz1=%d,sz2=%d,size_compared=%b\n%!"
         len1 len2 size_compared;
         if size_compared then 
@@ -1020,7 +1020,11 @@ module Align = struct
 
     let align_2 ?(first_gap=true) s1 s2 c m =
         let debug = false in
-        if debug then Printf.printf "Sequence.Align.align_2,\n%!";
+        if debug then begin
+            Printf.printf "Sequence.Align.align_2,\n%!";
+            print stdout s1 Alphabet.nucleotides;print_newline();
+            print stdout s2 Alphabet.nucleotides;print_newline();
+        end;
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
@@ -1050,13 +1054,13 @@ module Align = struct
         end;
         (*cost compare test
                 let oc1 =  open_out "normal.out" in
-                Printf.fprintf oc1 "%d%!" tc;
+                Printf.fprintf oc1 "%d%!" res_c;
                 close_out oc1;
                 let oc =  open_out "normal.out2" in
-                print oc s1p Alphabet.nucleotides;
-                print oc s2p Alphabet.nucleotides;
+                print oc res_s1 Alphabet.nucleotides;
+                print oc res_s2 Alphabet.nucleotides;
                 close_out oc;
-                cost compare test*)
+        cost compare test*)
         res_s1,res_s2,res_c
 
     let align_3 ?(first_gap = true) s1 s2 s3 c m =
