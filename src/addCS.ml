@@ -46,13 +46,12 @@ external register : unit -> unit = "add_CAML_register"
 
 external register_globals : unit -> unit = "add_CAML_register_mem"
 
-let _ = 
-    register ();
-    register_globals ()
+let () = register (); register_globals ()
 
 external create : int array -> int array -> ct = "add_CAML_create"
 
 let set_code s = s.scode
+
 let code = set_code
 
 let char_mem cs t = match cs with
@@ -546,34 +545,31 @@ end
 
 (* For now we can only handle characters that have differences of less than 16
 * units. *)
-let of_parser data (it, taxon) code = 
-    let first lst =
-        match lst with
-        | h :: _ -> h
-        | _ -> assert false
+let of_parser data (it, taxon) code =
+    let first lst = match lst with
+        | h::_ -> h
+        | _    -> assert false
     in
-    let rec last lst = 
-        match lst with
-        | [h] -> h
-        | _ :: tl -> last tl
-        | [] -> assert false
+    let rec last lst = match lst with
+        | [h]   -> h
+        | _::tl -> last tl
+        | []    -> assert false
     in
-    let check_type_and_val acc = function 
-        | Some v, code -> 
-                let v = 
-                    match v with
-                    | `List x -> x
-                    | `Bits x -> BitSet.to_list x
-                in
-                let v = List.sort compare v in
-                (first v, last v, code) :: acc
+    let check_type_and_val acc = function
+        | Some v, code ->
+            let v = match v with
+                | `List x -> x
+                | `Bits x -> BitSet.to_list x
+            in
+            let v = List.sort compare v in
+            (first v, last v, code) :: acc
         | None, code ->
-                match Hashtbl.find data.Data.character_specs code with
-                | Data.Static enc -> 
-                        (first enc.Nexus.File.st_observed, 
-                        last enc.Nexus.File.st_observed,
-                        code) :: acc
+            begin match Hashtbl.find data.Data.character_specs code with
+                | Data.Static enc ->
+                    (first enc.Nexus.File.st_observed,
+                        last enc.Nexus.File.st_observed,code) :: acc
                 | _ -> assert false
+            end
     in
     let arr = 
         Array.of_list (List.rev (Array.fold_left check_type_and_val [] it))
