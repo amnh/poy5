@@ -236,6 +236,9 @@ module OldHennig : sig
 
     val code_character : int -> Encoding.s
 
+    val process_matrix : 
+        string -> bool -> int -> int -> (string * int list list) list
+
     val character_code : Encoding.s -> int * int
 
     val code_character_hom : int -> Encoding.s
@@ -250,8 +253,7 @@ module OldHennig : sig
      * - nonadditive characters with <= 8 states
      * - nonadditive chars with 9 <= states <= 16
      * - nonadditive chars with 17 <= states <= 32
-     * - nonadditive chars with >=33 states
-     *)
+     * - nonadditive chars with >=33 states *)
     val categorize_chars : ((FileContents.t * int) array * int) ->
         (((FileContents.t * int) array * int) * ((FileContents.t * int) array * int) *
              ((FileContents.t * int) array * int) * ((FileContents.t * int) array * int) *

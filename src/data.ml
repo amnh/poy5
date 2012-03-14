@@ -748,31 +748,39 @@ let print (data : d) =
                                        Printf.fprintf stdout " | ")
                                   dyna_data.seq_arr;
                  | Stat (code, None), _ ->
-                       let a = match Hashtbl.find data.character_specs code with
+                        let a = match Hashtbl.find data.character_specs code with
                             | Static x -> x.Nexus.File.st_alph
                             | _ -> failwith "Nope"
-                       in
-                       Printf.fprintf stdout "[%d]%s |" code
-                            (Alphabet.match_code (Alphabet.get_gap a) a)
+                        in
+                        begin try Printf.fprintf stdout "[%d]%s |" code
+                                    (Alphabet.match_code (Alphabet.get_gap a) a)
+                        with | _ -> Printf.fprintf stdout "[%d]%d |"
+                                    code (Alphabet.get_gap a)
+                        end
                  | Stat (code, (Some stuff)), _ ->
                        let a =
-                           try match Hashtbl.find data.character_specs code with
-                                | Static x -> x.Nexus.File.st_alph
-                                | _ -> failwith "Nope"
+                            try match Hashtbl.find data.character_specs code with
+                                 | Static x -> x.Nexus.File.st_alph
+                                 | _ -> failwith "Nope"
                             with | _ -> failwithf "Couldn't find %d in specs" code
                        in
                        begin match Nexus.File.static_state_to_list stuff with 
                             | []  -> 
-                                Printf.fprintf stdout "[%d]%s |" code
+                                begin try Printf.fprintf stdout "[%d]%s |" code
                                         (Alphabet.match_code (Alphabet.get_gap a) a)
+                                with _ -> Printf.fprintf stdout "[%d]%d |"
+                                        code (Alphabet.get_gap a)
+                                end
                             | [x] -> 
-                                Printf.fprintf stdout "[%d]%s |" code
-                                        (Alphabet.match_code x a)
+                                begin try Printf.fprintf stdout "[%d]%s |" code
+                                                    (Alphabet.match_code x a)
+                                with _ -> Printf.fprintf stdout "[%d]%d |" code x end
                             | xs  ->
                                 Printf.fprintf stdout "[%d](" code;
                                 List.iter 
-                                    ~f:(fun x -> Printf.fprintf stdout "%s" 
-                                                (Alphabet.match_code x a))
+                                    ~f:(fun x ->
+                                         try Printf.fprintf stdout "%s" (Alphabet.match_code x a)
+                                         with _ -> Printf.fprintf stdout "%d" x)
                                     xs;
                                 Printf.fprintf stdout ")"
                        end)
@@ -2759,24 +2767,26 @@ let classify code data =
     in
     { data with sankoff = builder data.sankoff }
 
-let categorize data =
-    (* We must return 7 lists of integers containing the codes for each class of
-     * character *)
 
-    (* We recategorize the data, so we must clear any already-loaded
-       data *)
-    let data = { data with
-                     non_additive_1 = [];
-                     non_additive_8 = [];
-                     non_additive_16 = [];
-                     non_additive_32 = [];
-                     non_additive_33 = [];
-                     additive = [];
-                     sankoff = [];
-                     dynamics = [];
-                     kolmogorov = [];
-                     static_ml = [];
-               } in                         
+(** We must return 7 lists of integers containing the codes for each class of
+    characters. Clear all the sections, and rebuild. Associations of types to
+    classes is,
+        non_additive_X  - Static where st_type = Nexus.File.STUnordered
+        additive        - Static where st_type = Nexus.File.STOrdered
+        sankoff         - Static where st_type = Nexus.File.STSankoff
+        dynamics        - Dynamic
+        kolmogorov      - Kolmogorov
+        static_ml       - Static where st_type = Nexus.File.STLikelihood *)
+let categorize data =
+    let data =
+        { data with
+            non_additive_1 = [];    non_additive_8 = [];
+            non_additive_16 = [];   non_additive_32 = [];
+            non_additive_33 = [];   additive = [];
+            sankoff = [];           dynamics = [];
+            kolmogorov = [];        static_ml = [];
+        }
+    in                         
     (* let data = repack_codes data in*)
     let categorizer code spec data =
         match spec with

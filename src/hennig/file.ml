@@ -1,3 +1,22 @@
+(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
+(* Copyright (C) 2011  Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler*)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
+
 open Nexus.File 
 
 let default_hennig gap_handling alph equates file pos = 
@@ -6,7 +25,6 @@ let default_hennig gap_handling alph equates file pos =
         | Some `Nogap -> equates @ [(Alphabet.gap_repr, [])]
         | Some `Gap -> equates 
     in
-
     { st_filesource = file;
       st_name = file ^ ":" ^ string_of_int pos;
       st_alph = alph;
@@ -21,20 +39,22 @@ let default_hennig gap_handling alph equates file pos =
       st_eliminate = false;
       st_case = true;
       st_used_observed = None;
-      st_observed_used = None}
+      st_observed_used = None; }
 
 let hennig_upto n = 
-    let all_list = ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9";
-    "A"; "B"; "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J"; "K"; "L"; "M";
-    "N"; "O"; "P"; "Q"; "R"; "S"; "T"; "U"; "V"] in
+    let all_list =
+        ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9";
+         "A"; "B"; "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J";
+         "K"; "L"; "M"; "N"; "O"; "P"; "Q"; "R"; "S"; "T";
+         "U"; "V"]
+    in
     if n < 0 then failwith "Illegal number of states requested"
     else
-        let rec get_up_to lst x =
-            match x, lst with
-            | 0, _ -> []
+        let rec get_up_to lst x = match x, lst with
+            | 0, _      -> []
             | 1, h :: _ -> [h]
             | n, h :: t -> h :: get_up_to t (n - 1)
-            | _ -> failwith "Illegal number"
+            | _         -> failwith "Illegal number"
         in
         get_up_to all_list n
 
@@ -47,41 +67,44 @@ let hennig_for_upto is_gap_state file n pos =
         default_hennig is_gap_state alph equates file pos
 
 let rec generate_default of_type file pos = match of_type with
-    | Some (`Continuous) -> assert false
-    | Some (`Dna x) -> 
-            let gap = "-" in
-            let equ =  [("0",["A"]); ("1",["C"]);
-                        ("2",["G"]); ("3",["T"]); ("4",[gap])] in
+    | Some (`Continuous) ->
+            let gap = Alphabet.gap_repr in
             let alph, equates = 
-                Nexus.File.make_symbol_alphabet gap [] equ [Nexus.P.Datatype
-                Nexus.P.Dna]
+                Nexus.File.make_symbol_alphabet gap [] []
+                                [Nexus.P.Datatype Nexus.P.Continuous]
+            in
+            default_hennig None alph equates file pos
+    | Some (`Dna x) -> 
+            let gap = Alphabet.gap_repr in
+            let equ = [("0",["A"]); ("1",["C"]); ("2",["G"]);
+                       ("3",["T"]); ("4",[gap])] in
+            let alph, equates = 
+                Nexus.File.make_symbol_alphabet gap [] equ
+                                [Nexus.P.Datatype Nexus.P.Dna]
             in
             default_hennig x alph equates file pos
-
     | Some (`Rna x) ->
-            let gap = "-" in
-            let equ =  [("0",["A"]); ("1",["C"]);
-                        ("2",["G"]); ("3",["U"]); ("4",[gap])]  in
+            let gap = Alphabet.gap_repr in
+            let equ = [("0",["A"]); ("1",["C"]); ("2",["G"]);
+                       ("3",["U"]); ("4",[gap])] in
             let alph, equates = 
-                Nexus.File.make_symbol_alphabet "-" [] equ [Nexus.P.Datatype
-                Nexus.P.Rna]
+                Nexus.File.make_symbol_alphabet gap [] equ
+                                [Nexus.P.Datatype Nexus.P.Rna]
             in
             default_hennig x alph equates file pos
     | Some (`Protein x) ->
-            let alph, equates = 
-                Nexus.File.make_symbol_alphabet "-" [] [] [Nexus.P.Datatype
-                Nexus.P.Protein]
+            let gap = Alphabet.gap_repr in
+            let alph, equates =
+                Nexus.File.make_symbol_alphabet gap [] []
+                                [Nexus.P.Datatype Nexus.P.Protein]
             in
             default_hennig x alph equates file pos
-    | Some (`Number x) ->
-            if x < 9 then
-                hennig_for_upto None file 8 pos
-            else if x < 17 then
-                hennig_for_upto None file 16 pos
-            else if x < 33 then
-                hennig_for_upto None file 32 pos
-            else failwith "We can't hold it, can you?"
-    | None -> generate_default (Some (`Number 32)) file pos
+    | Some (`Number x) when x <  9 -> hennig_for_upto None file  8 pos
+    | Some (`Number x) when x < 17 -> hennig_for_upto None file 16 pos
+    | Some (`Number x) when x < 33 -> hennig_for_upto None file 32 pos
+    | Some (`Number _) -> generate_default (Some `Continuous) file pos
+    | None             -> generate_default (Some (`Number 32)) file pos
+
 
 let assign_names characters name =
     match name with
@@ -103,46 +126,88 @@ let get_chars max chars =
         |P.Range (a, b) -> sequence a b []
         |P.Single x -> [x]) chars)
 
+(** make a default 1,1 matrix; used for sankoff characters *)
 let make_sankoff_matrix spec =
     let len = List.length spec.st_observed in
-    Array.init len (fun x ->
-        Array.init len (fun y ->
-            if x = y then 0
-            else 1))
+    Array.init len (fun x -> Array.init len (fun y -> if x = y then 0 else 1))
+
+(** process a matrix with spaces seperating the characters. Polymorphisms are
+    seperated by spaces in brackets *)
+let process_matrix matrix taxa characters get_row_number assign_item to_parse =
+    let data =
+        Parser.OldHennig.process_matrix to_parse
+                        true (Array.length taxa) (Array.length characters)
+    in
+    List.iter
+        (fun (name,data) ->
+            let x = get_row_number name in
+            Array.iteri
+                (fun i states -> assign_item x i states)
+                (Array.of_list data))
+        (data);
+    ()
+
 
 let process_command file (mode, (acc:nexus)) = function
-    |P.Nstates x -> (x, acc)
+    |P.Nstates x  -> (x, acc)
     |P.Xread data ->
-            let lex = Lexing.from_string data in
-            let (nch, ntaxa, to_parse) = 
-                Grammar.xread Lexer.xread lex
+        let lex = Lexing.from_string data in
+        let (nch, ntaxa, to_parse) = Grammar.xread Lexer.xread lex in
+        Printf.printf "Parsing %d characters and %d taxa\n%!" nch ntaxa;
+        let taxa, characters, matrix =
+            (* In hennig files we only allow one xread per file, that's
+            * common for this kind of files *)
+            match acc.taxa, acc.characters, acc.matrix with
+            | [||], [||], [||] ->
+                    (* We are OK to continue *)
+                Array.make ntaxa None,
+                Array.init nch (generate_default mode file), 
+                Array.init ntaxa (fun _ -> Array.make nch None)
+            | _ -> 
+                failwith 
+                    "We only allow one xread command per hennig file"
+        and add_observed new_states spec =
+            let new_states = 
+                List.filter (fun x -> not (List.mem x spec.st_observed)) new_states
             in
-            let taxa, characters, matrix =
-                (* In hennig files we only allow one xread per file, that's
-                * common for this kind of files *)
-                match acc.taxa, acc.characters, acc.matrix with
-                | [||], [||], [||] ->
-                        (* We are OK to continue *)
-                        Array.make ntaxa None, Array.init nch
-                        (generate_default mode file), 
-                        Array.init ntaxa (fun _ -> Array.make nch None)
-                | _ -> 
-                        failwith 
-                        "We only allow one xread command per hennig file"
-            in
-            (* Now we can parse the contents using the default parser *)
-            Nexus.File.process_matrix true `Hennig matrix taxa characters 
-            (fun name -> Nexus.File.find_taxon taxa name)
-            (fun x y v -> matrix.(x).(y) <- v) to_parse;
-            mode, {acc with
+            { spec with st_observed = new_states @ spec.st_observed; }
+        in
+        begin match mode with
+            | Some (`Continuous) ->
+                process_matrix matrix taxa characters
+                    (fun name -> Nexus.File.find_taxon taxa name)
+                    (fun x y v ->
+                        characters.(y) <- add_observed v characters.(y);
+                        matrix.(x).(y) <- (Some (`List v)))
+                    to_parse;
+                mode,{acc with
                         taxa = taxa;
                         characters = characters;
-                        matrix = matrix}
+                        matrix = matrix; }
+            | Some (`Number x) when x >= 33 ->
+                process_matrix matrix taxa characters
+                    (fun name -> Nexus.File.find_taxon taxa name)
+                    (fun x y v ->
+                        characters.(y) <- add_observed v characters.(y);
+                        matrix.(x).(y) <- (Some (`List v)))
+                    to_parse;
+                mode,{acc with
+                        taxa = taxa;
+                        characters = characters;
+                        matrix = matrix; }
+            | Some (`Dna _) | Some (`Protein _) | Some (`Number _) | None ->
+                Nexus.File.process_matrix true `Hennig matrix taxa characters 
+                    (fun name -> Nexus.File.find_taxon taxa name)
+                    (fun x y v -> matrix.(x).(y) <- v) to_parse;
+                mode,{acc with
+                        taxa = taxa;
+                        characters = characters;
+                        matrix = matrix; }
+        end
     |P.Charname name_list ->
             (* We need to parse each of the charname entries *)
             let name_list = 
-                List.map (Str.split (Str.regexp "[ \t\n]+"))
-                name_list
+                List.map (Str.split (Str.regexp "[ \t\n]+")) name_list
             in
             List.iter (assign_names acc.characters) name_list;
             mode, acc

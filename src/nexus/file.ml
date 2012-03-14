@@ -380,7 +380,7 @@ let make_symbol_alphabet gap symbols more_equates form =
                 Alphabet.list_to_a alph gap None Alphabet.Sequential,
                 (get_equate form) @ more_equates
             | P.Continuous ->
-                failwith "We don't support continuous characters ..."
+                Alphabet.continuous, []
         in
         let () = Hashtbl.add table_of_alphabets index r in
         r
@@ -691,52 +691,44 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
         match Stream.peek stream with
         | None -> failwith "Short NEXUS matrix?"
         | Some x ->
-                match x with
+            begin match x with
                 | ' ' | '\001' .. '\032' -> Stream.junk stream;
-                        process_position alph_parser alph_spec stream position stack
+                    process_position alph_parser alph_spec stream position stack
                 | '[' when style = `Hennig -> Stream.junk stream;
-                        process_position alph_parser alph_spec stream position (Some [])
+                    process_position alph_parser alph_spec stream position (Some [])
                 | '{' when style = `Nexus -> Stream.junk stream;
-                        process_position alph_parser alph_spec stream position (Some [])
+                    process_position alph_parser alph_spec stream position (Some [])
                 | ']' when style = `Hennig -> Stream.junk stream; 
-                        compress_ss stack
+                    compress_ss stack
                 | '}' when style = `Nexus -> Stream.junk stream;
-                        compress_ss stack
+                    compress_ss stack
                 | x -> 
-                    let x = 
-                        if not alph_spec.st_case then Char.uppercase x 
-                        else x
-                    in
+                    let x = if not alph_spec.st_case then Char.uppercase x else x in
                     let next =
                         if x = alph_spec.st_missing.[0] then begin
                             Stream.junk stream;
                             None
-                        end else if has_equate x alph_spec.st_equivalents
-                        then
-                            let _, eqts  = 
-                                find_equate x alph_spec.st_equivalents 
-                            in
-                            let _ = Stream.junk stream in
+                        end else if has_equate x alph_spec.st_equivalents then begin
+                            let _,eqts = find_equate x alph_spec.st_equivalents in
+                            Stream.junk stream;
                             match eqts with
-                                | [] -> None
-                                | _ ->  Some (alph_parser (Stream.of_string (concat eqts)))
-                        else 
-                            try
-                                match alph_spec.st_matchstate with
-                                | None -> Some (alph_parser stream)
-                                | Some first ->
-                                        if x = first.[0] then begin
-                                            Stream.junk stream;
-                                            matrix.(!first_taxon).(position)
-                        end else Some (alph_parser stream)
-                                with
-                                | err ->
-                                        raise err
+                            | [] -> None
+                            | _ ->  Some (alph_parser (Stream.of_string (concat eqts)))
+                        end else begin
+                            match alph_spec.st_matchstate with
+                            | None -> Some (alph_parser stream)
+                            | Some first when x = first.[0] ->
+                                Stream.junk stream;
+                                matrix.(!first_taxon).(position)
+                            | Some _ -> 
+                                Some (alph_parser stream)
+                        end
                     in
                     match stack with 
                     | None -> next
                     | Some lst -> process_position alph_parser alph_spec 
                                         stream position (Some (next::lst))
+            end
     in
     let is_space stream =
         match Stream.peek stream with
@@ -805,8 +797,8 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
             if position = n_chars then taxon_processor None 0
             else begin
                 let state = 
-                    process_position parsers.(position) 
-                    characters.(position) stream position None
+                    process_position parsers.(position) characters.(position)
+                                     stream position None
                 in
                 assign_item x' position state;
                 taxon_processor x (position + 1)
