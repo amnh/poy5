@@ -129,7 +129,6 @@ follow_insertion_or_deletion (DIRECTION_MATRIX ** endp,int swaped,int l,const cm
 void
 algn_fill_gapnum (int pos, int hasalgn, int hasinsert, int hasdelete,  DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2)
 {
-    int debug = 0;
     int i = pos ;
     if (hasalgn) {
         if(hasdelete&&hasinsert)//insert|delete|align
@@ -560,9 +559,10 @@ __inline void
 inline void 
 #endif
 algn_fill_row (int *mm, const int *pm, const int *gap_row, \
-        const int *alg_row, DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int st, int end) {
+        const int *alg_row, DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int st, int end, int return_gapnum) {
     int i, tmp1, tmp2, tmp3;
-
+    int cc;
+    int hasalgn, hasdelete, hasinsert;
     for (i = st; i <= end; i++) {
         /* try align with substitution */
         tmp1 = pm[i] + c;
@@ -615,6 +615,14 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, \
                 mm[i] = tmp2;
                 dm[i] = (DELETE | INSERT | ALIGN);
             }
+        }
+        //update gapnum matrix if doing newkkonen
+        cc = dm[i];
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
         }
         if (!NDEBUG && !NPRINT_DM) {
             /* Print the alignment matrix */
@@ -1284,7 +1292,7 @@ algn_newkk_increaseT (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
 {
     int debug = 0;
     int p = (T - (lenY-lenX))/2;
-    if (debug) printf("algn_newkk_increaseT,T=%d,p=%d\n",T,p);
+    if (debug) printf("algn_newkk_increaseT, lenX=%d, lenY=%d, T=%d, p=%d\n",lenX,lenY,T,p);
     int gap_num, cost;
     gap_num = algn_newkk_test(s1,prec,lenX,lenY,mm,dm,gm1,gm2,c,gap_row,p,&cost);
     //if ( cost <= T )
@@ -1339,6 +1347,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
      
     if (((float) s1_len) >= (((float) ((float) 3 / (float) 2) * (float) s2_len)))
     {
+        printf("Case 1\n");
         return (algn_fill_plane (s1, prec, s1_len, s2_len, mm, dm, c));
     }
     // Case 2:
@@ -1346,7 +1355,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
      // procedure in three different subsets 
     else 
     if ((2 * height) < s1_len) {
-       // printf("case 2\n"); fflush(stdout);
+       printf("Case 2\n"); fflush(stdout);
        /* old code start
         algn_fill_first_row (a, dm, width, gap_row);
         start_row = 1;
@@ -1380,7 +1389,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
         next_pm = choose_other (next_row, a, b);
         old code end */
         to_go_dm = dm + (1 * s2_len);
-        return algn_newkk_increaseT(s1,prec,s1_len,s2_len,mm,dm,gm1,gm2,c,gap_row,iniT);
+        return algn_newkk_increaseT (s1,prec,s1_len,s2_len,mm,dm,gm1,gm2,c,gap_row,iniT);
     }
     /* Case 3: (final case)
      * There is a block in the middle of with full rows that have to be filled
@@ -1390,10 +1399,11 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
          * is too small, don't use the barriers at all, just fill it up all */
         if (8 >= (s1_len - height))
         {
+            printf("Case 3.1");
             return (algn_fill_plane (s1, prec, s1_len, s2_len, mm, dm, c));
         }
         else { 
-            //printf("case 3.2\n"); fflush(stdout);
+            printf("Case 3.2\n"); fflush(stdout);
             /* old code start
              algn_fill_first_row (mm, dm, width, gap_row);
             start_row = 1;
@@ -1449,9 +1459,10 @@ __inline void
 inline void 
 #endif
 algn_fill_row_aff (int *mm, const int *pm, const int *gap_row, \
-        const int *alg_row, DIRECTION_MATRIX *dm, int c, int cprev, int st, \
-        int end, int *dnmm, const int *pdnmm, int *htmm, int open_gap) {
+        const int *alg_row, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int cprev, int st, int end, int *dnmm, const int *pdnmm, int *htmm, int open_gap,int return_gapnum) {
     int i, tmp1, tmp2, tmp3, tmp4, tmp5;
+    int cc;
+    int hasalgn, hasdelete, hasinsert;
 int debug = 0;
 if (debug) printf("algn_fill_row_aff,st=%d,end=%d\n",st,end);
     for (i = st; i <= end; i++) {
@@ -1564,6 +1575,14 @@ if (debug) printf("algn_fill_row_aff,st=%d,end=%d\n",st,end);
                 algn_assign_dm(dm,i,((DELETE | INSERT | ALIGN)));
             }
         }
+        //update gap number is we are doing newkkonen
+        cc = dm[i];
+        if (return_gapnum) {
+            hasalgn = has_flag(cc,ALIGN);
+            hasinsert = has_flag(cc,INSERT);
+            hasdelete = has_flag(cc,DELETE);
+            algn_fill_gapnum(i,hasalgn,hasinsert,hasdelete,pgm1,gm1,pgm2,gm2);
+        }
         if (!NDEBUG && !NPRINT_DM) {
             /* Print the alignment matrix */
             if (INSERT & dm[i]) 
@@ -1593,8 +1612,7 @@ __inline void
 inline void 
 #endif
 algn_fill_ukk_right_cell_aff (int *mm, const int *pm, const int *gap_row, \
-        const int *alg_row, DIRECTION_MATRIX *dm, int c, int cprev, int pos, int *dnmm, int *htmm, \
-        int open_gap) {
+        const int *alg_row, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int cprev, int pos, int *dnmm, int *htmm, int open_gap) {
     int tmp2, tmp3, tmp4;
     /* try align with substitution */
 #ifdef DEBUG_ALL_ASSERTIONS 
@@ -1635,14 +1653,20 @@ algn_fill_ukk_right_cell_aff (int *mm, const int *pm, const int *gap_row, \
     if (tmp2 < tmp3) {
         mm[pos] = tmp2;
         algn_assign_dm(dm,pos,(INSERT));
+        gm1[pos] = gm1[pos-1]+1;
+        gm2[pos] = gm2[pos-1];
     }
     else if (tmp3 < tmp2) {
         mm[pos] = tmp3;
         algn_assign_dm(dm,pos,(ALIGN));
+        gm1[pos] = pgm1[pos-1]; 
+        gm2[pos] = pgm2[pos-1];
     }
     else {
         mm[pos] = tmp3;
         algn_assign_dm(dm,pos,(INSERT | ALIGN));
+        gm1[pos] = MAX(gm1[pos-1]+1,pgm1[pos-1]);
+        gm2[pos] = MAX(pgm2[pos-1],gm2[pos-1]);
     }
     if (!NDEBUG && !NPRINT_DM) {
         /* Print the alignment matrix */
@@ -1663,14 +1687,15 @@ algn_fill_ukk_right_cell_aff (int *mm, const int *pm, const int *gap_row, \
     return;
 }
 
+
+
 #ifdef _WIN32
 __inline void 
 #else
 inline void 
 #endif
 algn_fill_ukk_left_cell_aff (int *mm, const int *pm, const int *gap_row, \
-        const int *alg_row, DIRECTION_MATRIX *dm, int c, int cprev, int pos, int *dnmm, \
-        int *pdnmm, int *htmm, int open_gap) {
+        const int *alg_row, DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int cprev, int pos, int *dnmm, int *pdnmm, int *htmm, int open_gap) {
     int tmp1, tmp3, tmp5;
     /* try align with substitution */
 #ifdef DEBUG_ALL_ASSERTIONS 
@@ -1711,14 +1736,20 @@ algn_fill_ukk_left_cell_aff (int *mm, const int *pm, const int *gap_row, \
         if (tmp1 < tmp3) {
             mm[pos] = tmp1;
             algn_assign_dm(dm,pos,(DELETE));
+            gm1[pos] = pgm1[pos]; 
+            gm2[pos] = pgm2[pos]+1;
         } 
         else if (tmp3 < tmp1) {
             mm[pos] = tmp3;
             algn_assign_dm(dm,pos,(ALIGN));
+            gm1[pos] = pgm1[pos-1]; 
+            gm2[pos] = pgm2[pos-1];
         } 
         else {
             mm[pos] = tmp1;
             algn_assign_dm(dm,pos,(ALIGN | DELETE));
+            gm1[pos] = MAX(pgm1[pos],pgm1[pos-1]);
+            gm2[pos] = MAX(pgm2[pos-1],pgm2[pos]+1);
         }
     if (!NDEBUG && !NPRINT_DM) {
         /* Print the alignment matrix */
@@ -1743,7 +1774,7 @@ __inline void
 inline void
 #endif
 algn_fill_last_column_aff (int *mm, const int *pm, int tlc, int tlcprev, \
-        int l, DIRECTION_MATRIX *dm, int *dnmm, const int *pdnmm, int open_gap) {
+        int l, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX *gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX *gm2, int *dnmm, const int *pdnmm, int open_gap, int update_gapnum) {
     int cst, tmp2;
 #ifdef DEBUG_ALL_ASSERTIONS 
         assert ((mm + l) < _algn_max_matrix);
@@ -1773,6 +1804,10 @@ algn_fill_last_column_aff (int *mm, const int *pm, int tlc, int tlcprev, \
     } 
     else if (cst == mm[l])
         algn_assign_dm(dm,l,DELETE);
+    if (update_gapnum) {
+            int cc = dm[l];
+            algn_fill_gapnum (l,has_flag(cc,ALIGN),has_flag(cc,INSERT),has_flag(cc,DELETE),pgm1,gm1,pgm2,gm2);
+    }
     return;
 }
 
@@ -1794,21 +1829,21 @@ algn_fill_full_row_aff (int *mm, const int *pm, const int *gap_row, \
         printf ("%d\t", mm[0]);
     if ((!NDEBUG) && (!NPRINT_DM))
         printf ("D\t");
-    algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, c, cprev, 1, l - 1, \
-            dnmm, pdnmm, htmm, open_gap);
-    algn_fill_last_column_aff (mm, pm, tlc, tlcprev, l - 1, dm, dnmm, pdnmm, \
-            open_gap);
+    algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, NULL, NULL, NULL, NULL, c, cprev, 1, l - 1, dnmm, pdnmm, htmm, open_gap, 0);
+    algn_fill_last_column_aff (mm, pm, tlc, tlcprev, l - 1, dm, NULL, NULL, NULL, NULL, dnmm, pdnmm, open_gap, 0);
     return;
 }
 
 void
-algn_fill_first_row_aff (int *mm, DIRECTION_MATRIX *dm, int len, int const *gap_row, \
-        int *dnmm, int *htmm, int open_gap) {
+algn_fill_first_row_aff (int * mm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX *gm1, DIRECTION_MATRIX *gm2, int len, int const *gap_row, int *dnmm, int *htmm, int open_gap) {
     int i;
+    int debug = 0;
     /* We fill the first cell to start with */
     mm[0] = open_gap;
     dnmm[0] = htmm[0] = HIGH_NUM;
     dm[0] = ALIGN | ALIGN_V | ALIGN_H;
+    gm1[0] = 0;
+    gm2[0] = 0;
     /* Now the rest of the row */
     if ((!NDEBUG) && (!NPRINT_DM))
         printf ("A\t");
@@ -1818,21 +1853,35 @@ algn_fill_first_row_aff (int *mm, DIRECTION_MATRIX *dm, int len, int const *gap_
         dnmm[i] = HIGH_NUM;
         mm[i] = mm[i - 1] + gap_row[i];
         dm[i] = INSERT | (INSERT_H);
+        gm1[i] = i;
+        gm2[i] = 0;
         if ((!NDEBUG) && (!NPRINT_DM))
             printf ("I\t");
         if ((!NDEBUG) && (!NPRINT_CM))
             printf ("%d\t", mm[i]);
     }
+    if (debug) {
+        printf("end of fill first row affine:");
+        for (i=0;i<len;i++)
+        {
+            printf("%d(%d,%d),",mm[i],gm1[i],gm2[i]);
+        }
+        printf("\n");
+    }
     return;
 }
 
 void
-algn_fill_first_cell_aff (int *mm, int pm, DIRECTION_MATRIX *dm, int gap, int *dnmm, \
+algn_fill_first_cell_aff (int *mm, int pm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX *gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX *gm2, int gap, int *dnmm, \
         int *pdnmm, int *htmm) {
+    int debug = 0;
     htmm[0] = HIGH_NUM;
     mm[0] += gap;
     *dm = DELETE | DELETE_V;
     dnmm[0] = gap + pdnmm[0];
+    *gm1 = pgm1[0];
+    *gm2 = pgm2[0]+1;
+    if (debug) printf("algn_fill_first_cell_aff,gap=%d,pm=%d\n",gap,pm);
     if ((!NDEBUG) && (!NPRINT_DM))
         printf ("D\t");
     if ((!NDEBUG) && (!NPRINT_CM))
@@ -1856,7 +1905,7 @@ algn_fill_first_cell_aff (int *mm, int pm, DIRECTION_MATRIX *dm, int gap, int *d
 
 int *
 algn_fill_extending_right_aff (const seqt s1, int *prec, int s1_len, \
-        int s2_len, int *mm, int *pm, DIRECTION_MATRIX *dm, const cmt c, int start_row, \
+        int s2_len, int *mm, int *pm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int start_row, \
         int end_row, int len, int *dnmm, int *pdnmm, int *htmm, int open_gap) {
     int i;
     int *tmp, *tmp1, cur_s1, const_val, prev_s1, prev_const_val;
@@ -1891,10 +1940,10 @@ algn_fill_extending_right_aff (const seqt s1, int *prec, int s1_len, \
         */
         alg_row = prec + (cur_s1 * s2_len);
         /* Align! */
-        algn_fill_first_cell_aff (mm, pm[0], dm, alg_row[0], dnmm, pdnmm, htmm);
-        algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, const_val, \
-                prev_const_val, 1, len - 2, dnmm, pdnmm, htmm, open_gap);
-        algn_fill_ukk_right_cell_aff (mm, pm, gap_row, alg_row, dm, \
+        algn_fill_first_cell_aff (mm, pm[0], dm, pgm1, gm1, pgm2, gm2, alg_row[0], dnmm, pdnmm, htmm);
+        algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, \
+                prev_const_val, 1, len - 2, dnmm, pdnmm, htmm, open_gap,1);
+        algn_fill_ukk_right_cell_aff (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, \
                 const_val, prev_const_val, len - 1, dnmm, htmm, open_gap);
         /** Invariants block */
         tmp = mm;
@@ -1913,7 +1962,7 @@ algn_fill_extending_right_aff (const seqt s1, int *prec, int s1_len, \
 
 int *
 algn_fill_extending_left_right_aff (const seqt s1, int *prec, int s1_len, \
-        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, const cmt c, int start_row, \
+        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int start_row, \
         int end_row, int start_column, int len, int *dnmm, int *pdnmm, \
         int *htmm, int open_gap) {
     int i;
@@ -1950,12 +1999,12 @@ algn_fill_extending_left_right_aff (const seqt s1, int *prec, int s1_len, \
         */
         alg_row = prec + (cur_s1 * s2_len);
         /* Align! */
-        algn_fill_ukk_left_cell_aff (mm, pm, gap_row, alg_row, dm, const_val, \
+        algn_fill_ukk_left_cell_aff (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, \
                 prev_const_val, start_column, dnmm, pdnmm, htmm, open_gap);
-        algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, const_val, \
+        algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, \
                 prev_const_val, start_column + 1, start_column + (len - 2), \
-                dnmm, pdnmm, htmm, open_gap);
-        algn_fill_ukk_right_cell_aff (mm, pm, gap_row, alg_row, dm, const_val, \
+                dnmm, pdnmm, htmm, open_gap, 1);
+        algn_fill_ukk_right_cell_aff (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, \
                 prev_const_val, start_column + len - 1, dnmm, htmm, open_gap);
         /** Invariants block */
         tmp = mm;
@@ -1973,7 +2022,7 @@ algn_fill_extending_left_right_aff (const seqt s1, int *prec, int s1_len, \
 
 int *
 algn_fill_extending_left_aff (const seqt s1, int *prec, int s1_len, \
-        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, const cmt c, int start_row, \
+        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int start_row, \
         int end_row, int start_column, int len, int *dnmm, int *pdnmm, \
         int *htmm, int open_gap) {
      int debug = 0;
@@ -2012,13 +2061,13 @@ algn_fill_extending_left_aff (const seqt s1, int *prec, int s1_len, \
         */
         alg_row = prec + (cur_s1 * s2_len);
         /* Align! */
-        algn_fill_ukk_left_cell_aff (mm, pm, gap_row, alg_row, dm, const_val, \
+        algn_fill_ukk_left_cell_aff (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, \
                 prev_const_val, start_column, dnmm, pdnmm, htmm, open_gap);
-        algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, const_val, prev_const_val, \
+        algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, prev_const_val, \
                 start_column + 1, start_column + len - 1, dnmm, pdnmm, htmm, \
-                open_gap);
+                open_gap, 1);
         algn_fill_last_column_aff (mm, pm, const_val_tail, prev_const_val_tail, \
-                start_column + len - 1, dm, dnmm, pdnmm, open_gap);
+                start_column + len - 1, dm, pgm1, gm1, pgm2, gm2, dnmm, pdnmm, open_gap, 1);
         /** Invariants block */
         tmp = mm;
         tmp1 = dnmm;
@@ -2046,7 +2095,7 @@ algn_fill_extending_left_aff (const seqt s1, int *prec, int s1_len, \
 
 int *
 algn_fill_no_extending_aff (const seqt s1, int *prec, int s1_len, \
-        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, const cmt c, int start_row, \
+        int s2_len,  int *mm, int *pm, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int start_row, \
         int end_row, int *dnmm, int *pdnmm, int *htmm, int open_gap) {
 int debug = 0;
 if (debug) printf("algn_fill_no_extending_aff,start_row=%d,end_row=%d\n",start_row,end_row); 
@@ -2082,12 +2131,12 @@ if (debug) printf("algn_fill_no_extending_aff,start_row=%d,end_row=%d\n",start_r
         */
         alg_row = prec + (cur_s1 * s2_len);
         /* Align! */
-        algn_fill_first_cell_aff (mm, pm[0], dm, open_gap, dnmm, pdnmm, htmm);
-        algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, const_val, \
-                prev_const_val, 1, s2_len - 1, dnmm, pdnmm, htmm, open_gap);
+        algn_fill_first_cell_aff (mm, pm[0], dm, pgm1, gm1, pgm2, gm2, open_gap, dnmm, pdnmm, htmm);
+        algn_fill_row_aff (mm, pm, gap_row, alg_row, dm, pgm1, gm1, pgm2, gm2, const_val, \
+                prev_const_val, 1, s2_len - 1, dnmm, pdnmm, htmm, open_gap, 1);
         algn_fill_last_column_aff (mm, pm, const_val_tail, \
-                prev_const_val_tail, s2_len - 1, dm, dnmm, \
-                pdnmm, open_gap);
+                prev_const_val_tail, s2_len - 1, dm, pgm1, gm1, pgm2, gm2, dnmm, \
+                pdnmm, open_gap, 1);
         /** Invariants block */
         tmp = mm;
         tmp1 = dnmm;
@@ -2101,7 +2150,7 @@ if (debug) printf("algn_fill_no_extending_aff,start_row=%d,end_row=%d\n",start_r
     return (mm);
 }
 
-/* Simmilar to the previous but when no barriers are set */
+/* Simmilar to the algn_fill_plane_2_aff but when no barriers are set 
 #ifdef _WIN32
 __inline int
 #else
@@ -2118,7 +2167,7 @@ algn_fill_plane_aff (const seqt s1, int *prec, int s1_len, \
         *nm, *tmp, *tmp1, *pdnmm;
     const int *gap_row, *first_gap_row;
     int gapcode;
-    /* A precalculated cost of a gap aligned with each base in the array */
+    // A precalculated cost of a gap aligned with each base in the array 
     gapcode = cm_get_gap (c);
     gap_row = cm_get_precal_row (prec, gapcode, s2_len);
     first_gap_row = cm_get_precal_row (prec, 0, s2_len);
@@ -2132,7 +2181,7 @@ algn_fill_plane_aff (const seqt s1, int *prec, int s1_len, \
         printf ("%d\t", mm[0]);
     if ((!NDEBUG) && (!NPRINT_DM))
         printf ("A\t");
-    /* We fill the first row to start with */
+    // We fill the first row to start with 
     for (i = 1; i < s2_len; i++) {
         dnmm[i] = HIGH_NUM;
         mm[i] = mm[i - 1] + first_gap_row[i];
@@ -2152,7 +2201,7 @@ algn_fill_plane_aff (const seqt s1, int *prec, int s1_len, \
         fflush (stdout);
     }
     dnmm += s2_len;
-    /* Now we fill the rest of the matrix */
+    // Now we fill the rest of the matrix 
     for (i = 1, dm += s2_len; i < s1_len; i++, dm += s2_len) {
         prev_const_val_tail = (cm_get_tail_cost (c))[seq_get(s1, i - 1)];
         if(cm_check_level(c) == 1)
@@ -2174,7 +2223,7 @@ algn_fill_plane_aff (const seqt s1, int *prec, int s1_len, \
             printf ("\n");
             fflush (stdout);
         }
-        /* We swap mm and nm for the next round */
+        // We swap mm and nm for the next round 
         tmp = mm;
         tmp1 = dnmm;
         mm = nm;
@@ -2185,7 +2234,8 @@ algn_fill_plane_aff (const seqt s1, int *prec, int s1_len, \
     }
     return (nm[s2_len - 1]);
 }
-
+*/
+/*
 #ifdef _WIN32
 __inline void
 #else
@@ -2203,6 +2253,7 @@ algn_choose_aff_other (int *next_row, int *mm, int **next_dnmm, \
     }
     return;
 }
+*/
 
 #define DEBUG_AFFINE 0
 
@@ -2245,15 +2296,16 @@ __inline int
 inline int
 #endif
 HAS_GAP_OPENING (SEQT prev, SEQT curr, int gap, int gap_open, int gapstart) {
-    if(gapstart>1) 
+    if(gapstart>1) //when level is set, gapstart number will be passed
     {
        if ((prev<gapstart)&&(curr>=gapstart)) return gap_open;
        else return 0;
     }
     else
     {
-        if ((!(gap & prev)) && (gap & curr)) return 0;  // what is the logic here?
-        else return gap_open;
+        //printf("HAS_GAP_OPENING,prev=%d,curr=%d,gap=%d,gap & prev=%d,gap & curr=%d\n",prev,curr,gap,gap & prev,gap & curr);
+        if ((!(gap & prev)) && (gap & curr)) return gap_open;  // what is the logic here?
+        else return 0;
     }
 }
 
@@ -2298,7 +2350,7 @@ FILL_EXTEND_HORIZONTAL (int sj_horizontal_extension, int sj_gap_extension, int s
     ext_cost = extend_horizontal[j - 1] + sj_horizontal_extension;
     open_cost = close_block_diagonal[j - 1] + 
                 sj_gap_opening + sj_gap_extension;
-    if (0 && DEBUG_AFFINE) 
+    if (DEBUG_AFFINE) 
         printf ("The ext cost is %d and the open_cost is %d with gap_extension %d \
             and gap opening %d, and sj_horizontal_extension %d\n", ext_cost, open_cost, sj_gap_extension, 
                 sj_gap_opening, sj_horizontal_extension);
@@ -2314,7 +2366,7 @@ FILL_EXTEND_HORIZONTAL (int sj_horizontal_extension, int sj_gap_extension, int s
         LOR_WITH_DIRECTION_MATRIX(END_HORIZONTAL,direction_matrix);
         extend_horizontal[j] = open_cost;
     }
-    if (0 && DEBUG_AFFINE) 
+    if (DEBUG_AFFINE) 
         printf ("The final cost is %d\n", extend_horizontal[j]);
     return (direction_matrix);
 }
@@ -2815,7 +2867,7 @@ initialize_matrices_affine_nobt (int go, const seqt si, const seqt sj, \
     extend_horizontal[0] = go;
     extend_vertical[0] = go;
     gap_row = cm_get_precal_row(prec,0,lenj);
-    if (DEBUG_AFFINE) {
+    if (0 && DEBUG_AFFINE) {
         printf ("The gap opening parameter is %d\n", go);
         print_array ("EH:", extend_horizontal, lenj);
         print_array ("EV:", extend_vertical, lenj);
@@ -2831,7 +2883,7 @@ initialize_matrices_affine_nobt (int go, const seqt si, const seqt sj, \
         extend_block_diagonal[j] = HIGH_NUM;
         extend_vertical[j] = HIGH_NUM;
     }
-    if (DEBUG_AFFINE) {
+    if (0 && DEBUG_AFFINE) {
         printf ("Just initialized\n");
         print_array ("EH:", extend_horizontal, lenj);
         print_array ("EV:", extend_vertical, lenj);
@@ -2960,7 +3012,7 @@ ASSIGN_MINIMUM (int *final_cost_matrix, int extend_horizontal, \
     if (debug) print_dir(&direction_matrix);
     return (direction_matrix);
 }
-
+//[algn_fill_plane_3_aff_nobt] is the affine alignment function without backtrace
 #ifdef _WIN32
 __inline int
 #else
@@ -3006,9 +3058,11 @@ algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj, \
     int debug = 0;
     if(debug) printf("algn_fill_plane_3_aff_nobt,leni=%d,lenj=%d,gap=%d,gap_startNO=%d",leni,lenj,gap,gap_startNO);
     if(debug)  printf("start pos = %d, end pos = %d\n",start_pos,end_pos);
-    for (j = 1; j <= lenj; j++) {
+    sj_horizontal_extension[0] = 0; 
+    sj_horizontal_extension[1] = gap_open; 
+    for (j = 2; j <= lenj; j++) {
         gap_open_prec[j] = HAS_GAP_OPENING(beginj[j - 1],beginj[j],gap,gap_open,gap_startNO);
-        if ((beginj[j - 1] & gap) && (!(beginj[j] & gap)))
+        if ((beginj[j] & gap) && (!(beginj[j-1] & gap)))
             sj_horizontal_extension[j] = gap_open_prec[j] + gap_row[j];
         else sj_horizontal_extension[j] = gap_row[j];
     }
@@ -3092,7 +3146,251 @@ algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj, \
     return res;
 }
 
+#ifdef _WIN32
+__inline void
+#else
+inline void
+#endif
+algn_newkk_fill_a_row_aff (int start_pos, int end_pos, SEQT* beginj, 
+        const int * gap_row, int gap_open, 
+        int ic,int ip,  int si_vertical_extension, int si_gap_extension, int si_gap_opening, int si_no_gap, const int* si_no_gap_vector,
+        int *prev_extend_horizontal,int *prev_extend_vertical,int *prev_close_block_diagonal, int *prev_extend_block_diagonal,
+        int lenj, 
+        int *final_cost_matrix, DIRECTION_MATRIX *direction_matrix, 
+        const cmt c, int *extend_horizontal, int *extend_vertical, 
+        int *close_block_diagonal, int *extend_block_diagonal, 
+        int *gap_open_prec, int *sj_horizontal_extension)
+{
+    int debug = 0;
+    if (debug) printf("algn_newkk_fill_a_row_aff,start pos = %d, end pos = %d\n",start_pos,end_pos);
+    SEQT jc, jp, sj_no_gap;
+    int sj_gap_extension,sj_gap_opening;
+    int j;
+    DIRECTION_MATRIX tmp_direction_matrix;
+    jc = beginj[start_pos - 1];
+    //update line i from pos = start_pos to end_pos
+    for (j=start_pos; j <= end_pos; j++) {
+        jp = jc;
+        jc = beginj[j];
+        tmp_direction_matrix = 0;
+        sj_no_gap = (NTMPGAP) & jc;
+        sj_gap_extension = gap_row[j];
+        sj_gap_opening = gap_open_prec[j];
+        if(debug)  printf("work on j = %d, jc=%d,sj_no_gap=%d,jp=%d : \n",j,jc,sj_no_gap,jp);
+        tmp_direction_matrix =
+            FILL_EXTEND_HORIZONTAL(sj_horizontal_extension[j], sj_gap_extension, \
+                sj_gap_opening, j, \
+                extend_horizontal,c, close_block_diagonal,tmp_direction_matrix);
+        tmp_direction_matrix =
+            FILL_EXTEND_VERTICAL(si_vertical_extension, si_gap_extension,si_gap_opening,j, \
+                extend_vertical,prev_extend_vertical,c, \
+                prev_close_block_diagonal,tmp_direction_matrix);
+        tmp_direction_matrix =
+            FILL_EXTEND_BLOCK_DIAGONAL(ic,jc,ip,jp,gap_open,j,extend_block_diagonal, 
+                prev_extend_block_diagonal, \
+                prev_close_block_diagonal, tmp_direction_matrix);
+        tmp_direction_matrix =
+            FILL_CLOSE_BLOCK_DIAGONAL(ic,jc,si_no_gap,sj_no_gap, \
+                si_gap_opening, sj_gap_opening,j,si_no_gap_vector,close_block_diagonal, 
+                prev_close_block_diagonal, \
+                prev_extend_vertical, prev_extend_horizontal, 
+                prev_extend_block_diagonal, \
+                tmp_direction_matrix);
+        tmp_direction_matrix =
+            ASSIGN_MINIMUM (final_cost_matrix + j, extend_horizontal[j], \
+                extend_vertical[j], extend_block_diagonal[j], \
+                close_block_diagonal[j], tmp_direction_matrix);
+        direction_matrix[j] = tmp_direction_matrix;
+    }
+    if (end_pos < lenj) {
+        end_pos++;
+        direction_matrix[end_pos] = DO_HORIZONTAL | END_HORIZONTAL;
+        extend_vertical[end_pos] = HIGH_NUM;
+        close_block_diagonal[end_pos] = HIGH_NUM;
+        extend_horizontal[end_pos] = HIGH_NUM;
+        extend_horizontal[end_pos] = HIGH_NUM;
+        extend_block_diagonal[end_pos] = HIGH_NUM;
+    }
+    if (DEBUG_AFFINE) {
+        print_array ("EH:", extend_horizontal, lenj);
+        print_array ("EV:", extend_vertical, lenj);
+        print_array ("EB:", extend_block_diagonal, lenj);
+        print_array ("CB:", close_block_diagonal, lenj);
+        print_array ("FC:", final_cost_matrix, lenj);
+        print_dm ("DM:", direction_matrix, lenj);
+    }
+    return;
+}
 
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+algn_newkk_test_aff  (int * res_cost, int p, const seqt si, const seqt sj, int leni, int lenj, \
+        int *final_cost_matrix, DIRECTION_MATRIX *direction_matrix, \
+        const cmt c, int *extend_horizontal, int *extend_vertical, \
+        int *close_block_diagonal, int *extend_block_diagonal, const int *prec, \
+        int *gap_open_prec, int *sj_horizontal_extension) {
+    int debug = 0;
+    int startj,endj;
+    int lenY = lenj, lenX = leni;
+    int newk=p;
+   if (p>=lenX) newk=lenX-1;
+   if (debug) printf ("algn_newkk_test_aff,seq len=%d,%d,p=%d\n",lenX,lenY,p);
+    SEQT ic, ip, si_no_gap; //jc, jp, , sj_no_gap;
+    SEQT *begini, *beginj;
+    //why 40 ?
+    int start_pos = 1, end_pos, start_v = 40, i=1, j, res;
+    int *prev_extend_horizontal, *prev_extend_vertical, *prev_close_block_diagonal, 
+        *prev_extend_block_diagonal;
+    int *init_extend_horizontal, *init_extend_vertical, *init_close_block_diagonal, 
+        *init_extend_block_diagonal;
+    const int *si_no_gap_vector;
+    int si_gap_opening, si_gap_extension;//, sj_gap_opening, sj_gap_extension;
+    int gap, gap_open; int gap_startNO;
+    const int *gap_row;
+    int si_vertical_extension;
+    gap = c->gap;
+    gap_open = c->gap_open;
+    gap_startNO = c->gap_startNO;
+    assert (lenj >= leni);
+    init_extend_horizontal = extend_horizontal;
+    init_extend_vertical = extend_vertical;
+    init_extend_block_diagonal = extend_block_diagonal;
+    init_close_block_diagonal = close_block_diagonal;
+    gap_row = cm_get_precal_row(prec,0,lenj);
+    //why +8?
+    //end_pos = (lenj - leni) + 8;
+    if (DEBUG_AFFINE) {
+        print_array ("EH:", extend_horizontal, lenj);
+        print_array ("EV:", extend_vertical, lenj);
+        print_array ("EB:", extend_block_diagonal, lenj);
+        print_array ("CB:", close_block_diagonal, lenj);
+        print_array ("FC:", final_cost_matrix, lenj);
+        print_dm ("DM:", direction_matrix, lenj);
+    }
+    //why 40?
+    //if (end_pos < 40) end_pos = 40;
+    //if (end_pos > lenj) end_pos = lenj;
+    //end_pos = lenj;
+    begini = si->begin;
+    beginj = sj->begin;
+    ic = begini[0];
+    if(debug) printf("algn_fill_plane_3_aff,leni=%d,lenj=%d,gap=%d,gap_startNO=%d",leni,lenj,gap,gap_startNO);
+    sj_horizontal_extension[0] = 0; 
+    sj_horizontal_extension[1] = gap_open;
+    for (j = 1; j <= lenj; j++) {
+        gap_open_prec[j] = HAS_GAP_OPENING(beginj[j - 1],beginj[j],gap,gap_open,0);
+        if ((beginj[j] & gap) && (!(beginj[j-1] & gap))) 
+            sj_horizontal_extension[j] = gap_open_prec[j] + gap_row[j];
+        else sj_horizontal_extension[j] = gap_row[j];
+        if(debug) printf("sj_horizontal_extension[%d] <- gap_open_prec=%d + gap_row=%d =%d \n",j,gap_open_prec[j],gap_row[j],sj_horizontal_extension[j]);
+    }
+    sj_horizontal_extension[1] = gap_row[1];
+    int r;
+    for (;i <= leni; i++) {
+        //set barrier by k 
+        if ( (i-newk)>0 )
+       {
+           startj = i-newk; //has_left_border=1;
+       }
+       else
+       {//j should start from 1?
+           startj = 1;//0; has_left_border=0;
+       }
+       if ( (i+lenY-lenX+newk)<=(lenY-1) ) 
+       {
+           endj = i+lenY-lenX+newk; //has_right_border = 1; 
+       }
+       else 
+       {
+           endj = lenY-1; //has_right_border = 0;
+       }
+        start_pos = startj; end_pos = endj;
+        if(debug)  printf("work on line i=%d, start pos = %d, end pos = %d, ",i,start_pos,end_pos);
+        prev_extend_horizontal = init_extend_horizontal +
+            (((i - 1) % 2) * (lenj + 1));
+        prev_extend_vertical = init_extend_vertical +
+            ((lenj + 1) * ((i - 1) % 2));
+        prev_extend_block_diagonal = 
+            init_extend_block_diagonal + ((lenj + 1) * ((i - 1) % 2));
+        prev_close_block_diagonal = init_close_block_diagonal +
+            ((lenj + 1) * ((i - 1) % 2));
+        extend_horizontal = init_extend_horizontal + ((i % 2) * (lenj + 1));
+        extend_vertical = init_extend_vertical + ((lenj + 1) * (i % 2));
+        extend_block_diagonal = 
+            init_extend_block_diagonal + ((lenj + 1) * (i % 2));
+        close_block_diagonal = init_close_block_diagonal + ((lenj + 1) * (i % 2));
+        direction_matrix = direction_matrix + (lenj + 1);
+        //if (i > start_v) start_pos++;
+        direction_matrix[start_pos - 1] = DO_VERTICAL | END_VERTICAL;
+        extend_horizontal[start_pos - 1] = HIGH_NUM;
+        ip = ic;
+        ic = begini[i];
+        si_gap_extension = HAS_GAP_EXTENSION(ic,c);
+        si_gap_opening = HAS_GAP_OPENING (ip,ic,gap,gap_open,0);
+        si_no_gap = (NTMPGAP) & ic;
+        if ((i > 1) && ((ip & gap) && (!(ic & gap))))
+            si_vertical_extension = si_gap_opening + si_gap_extension;
+        else si_vertical_extension = si_gap_extension;
+        r = prev_extend_vertical[start_pos - 1] + si_vertical_extension;
+        extend_horizontal[start_pos - 1] = HIGH_NUM;
+        close_block_diagonal[start_pos - 1] = r;
+        final_cost_matrix[start_pos - 1] = r;
+        extend_block_diagonal[start_pos - 1] = HIGH_NUM;
+        extend_vertical[start_pos - 1] = r;
+        direction_matrix[start_pos - 1] = DO_VERTICAL | END_VERTICAL;
+        close_block_diagonal[start_pos - 1] = HIGH_NUM;
+        si_no_gap_vector = c->cost + (si_no_gap << c->lcm); // we should not use '<<' for level, fix this later
+        if(debug)  printf("call fill_a_row, i=%d,ic=%d,si_no_gap=%d,ip=%d\n",i,ic,si_no_gap,ip);
+        algn_newkk_fill_a_row_aff (start_pos, end_pos, beginj, gap_row, gap_open, ic, ip, si_vertical_extension, si_gap_extension, si_gap_opening, si_no_gap, si_no_gap_vector, prev_extend_horizontal, prev_extend_vertical, prev_close_block_diagonal, prev_extend_block_diagonal,
+        lenj, final_cost_matrix, direction_matrix, c, extend_horizontal, extend_vertical, close_block_diagonal, extend_block_diagonal,  gap_open_prec, sj_horizontal_extension);
+    }
+    *res_cost = final_cost_matrix[lenj];
+    return final_cost_matrix[lenj];
+}
+
+
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+algn_newkk_increaseT_aff (int T, const seqt si, const seqt sj, int leni, int lenj, \
+        int *final_cost_matrix, DIRECTION_MATRIX *direction_matrix, \
+        const cmt c, int *extend_horizontal, int *extend_vertical, \
+        int *close_block_diagonal, int *extend_block_diagonal, const int *prec, \
+        int *gap_open_prec, int *sj_horizontal_extension) 
+{
+    int lenY = lenj; int lenX = leni;
+    int p = (T - (lenY-lenX))/2;
+    int debug = 0;
+    if (debug) printf("algn_newkk_increaseT_aff, lenX=%d, lenY=%d, T=%d, p=%d\n",lenX,lenY,T,p);
+    int gap_num, res_cost;
+   // gap_num = 
+   int costT;
+     costT = algn_newkk_test_aff  ( &res_cost, p, si, sj, leni, lenj, final_cost_matrix, direction_matrix, c, extend_horizontal, extend_vertical, close_block_diagonal, extend_block_diagonal, prec,  gap_open_prec, sj_horizontal_extension);
+     int newp = (2*T - (lenY-lenX))/2;
+     if (costT <= T)
+    //if ((gap_num<p)||(newp-lenY+1>=0))
+    {
+        if (debug) printf("end by cost = %d <= T = %d\n",costT,T);
+        //if (debug) printf("cost=%d, T=%d, end by gap_num=%d<p=%d or newp=%d>=lenY(%d)-1 \n",costT, T, gap_num, p, newp, lenY);
+        return costT;
+    }
+    else
+    {
+        if (debug) printf(" cost = %d, T= %d, continue \n", costT, T);
+        //if (debug) printf("cost=%d, T=%d, gap_num=%d, p=%d, continue\n",costT, T, gap_num, p);
+        return algn_newkk_increaseT_aff (2*T, si, sj, leni, lenj, final_cost_matrix, direction_matrix, c, extend_horizontal, extend_vertical, close_block_diagonal, extend_block_diagonal, prec,  gap_open_prec, sj_horizontal_extension);
+    }
+
+}
+
+
+//[algn_fill_plane_3_aff] is the affine alignment function with backtrace
 #ifdef _WIN32
 __inline int
 #else
@@ -3103,6 +3401,16 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
         const cmt c, int *extend_horizontal, int *extend_vertical, \
         int *close_block_diagonal, int *extend_block_diagonal, const int *prec, \
         int *gap_open_prec, int *sj_horizontal_extension) {
+    int debug = 0;
+    // threshold for ukkonen, let's switch to newkkonen later.
+    int delta = cm_get_min_non0_cost(c);
+    int iniT = (lenj-leni+1)*delta;
+    if (debug) printf("algn_fill_plane_3_aff,leni=%d,lenj=%d,iniT=%d\n",leni,lenj,iniT);
+    int res = 
+    algn_newkk_increaseT_aff (iniT, si, sj, leni, lenj, final_cost_matrix, direction_matrix, c, extend_horizontal, extend_vertical, close_block_diagonal, extend_block_diagonal, prec,  gap_open_prec, sj_horizontal_extension);
+    return res;
+   /* SEQT jc, jp, ic, ip, si_no_gap, sj_no_gap;
+    SEQT *begini, *beginj;
     int start_pos = 1, end_pos, start_v = 40, i=1, j, res;
     int *prev_extend_horizontal, *prev_extend_vertical, *prev_close_block_diagonal, 
         *prev_extend_block_diagonal;
@@ -3113,7 +3421,6 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
     int gap, gap_open; int gap_startNO;
     const int *gap_row;
     int si_vertical_extension;
-    DIRECTION_MATRIX tmp_direction_matrix;
     gap = c->gap;
     gap_open = c->gap_open;
     gap_startNO = c->gap_startNO;
@@ -3123,6 +3430,7 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
     init_extend_block_diagonal = extend_block_diagonal;
     init_close_block_diagonal = close_block_diagonal;
     gap_row = cm_get_precal_row(prec,0,lenj);
+    //why +8?
     end_pos = (lenj - leni) + 8;
     if (DEBUG_AFFINE) {
         print_array ("EH:", extend_horizontal, lenj);
@@ -3132,15 +3440,15 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
         print_array ("FC:", final_cost_matrix, lenj);
         print_dm ("DM:", direction_matrix, lenj);
     }
+    //why 40?
     if (end_pos < 40) end_pos = 40;
     if (end_pos > lenj) end_pos = lenj;
     //end_pos = lenj;
-    SEQT jc, jp, ic, ip, si_no_gap, sj_no_gap;
-    SEQT *begini, *beginj;
+    
     begini = si->begin;
     beginj = sj->begin;
     ic = begini[0];
-    int debug = 0;
+    int debug = 1;
     if(debug) printf("algn_fill_plane_3_aff,leni=%d,lenj=%d,gap=%d,gap_startNO=%d",leni,lenj,gap,gap_startNO);
     if(debug)  printf("start pos = %d, end pos = %d\n",start_pos,end_pos);
     for (j = 1; j <= lenj; j++) {
@@ -3184,68 +3492,23 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
         extend_block_diagonal[start_pos - 1] = HIGH_NUM;
         extend_vertical[start_pos - 1] = r;
         direction_matrix[start_pos - 1] = DO_VERTICAL | END_VERTICAL;
-        jc = beginj[start_pos - 1];
         close_block_diagonal[start_pos - 1] = HIGH_NUM;
         si_no_gap_vector = c->cost + (si_no_gap << c->lcm); // we should not use '<<' for level, fix this later
         if(debug)  printf("work on i=%d,ic=%d,si_no_gap=%d,ip=%d\n",i,ic,si_no_gap,ip);
-        for (j=start_pos; j <= end_pos; j++) {
-            jp = jc;
-            jc = beginj[j];
-            tmp_direction_matrix = 0;
-            sj_no_gap = (NTMPGAP) & jc;
-            sj_gap_extension = gap_row[j];
-            sj_gap_opening = gap_open_prec[j];
-            if(debug)  printf("work on j = %d, jc=%d,sj_no_gap=%d,jp=%d : \n",j,jc,sj_no_gap,jp);
-            tmp_direction_matrix =
-                FILL_EXTEND_HORIZONTAL(sj_horizontal_extension[j], sj_gap_extension, \
-                    sj_gap_opening, j, \
-                    extend_horizontal,c, close_block_diagonal,tmp_direction_matrix);
-            tmp_direction_matrix =
-                FILL_EXTEND_VERTICAL(si_vertical_extension, si_gap_extension,si_gap_opening,j, \
-                    extend_vertical,prev_extend_vertical,c, \
-                    prev_close_block_diagonal,tmp_direction_matrix);
-            tmp_direction_matrix =
-                FILL_EXTEND_BLOCK_DIAGONAL(ic,jc,ip,jp,gap_open,j,extend_block_diagonal, 
-                    prev_extend_block_diagonal, \
-                    prev_close_block_diagonal, tmp_direction_matrix);
-            tmp_direction_matrix =
-                FILL_CLOSE_BLOCK_DIAGONAL(ic,jc,si_no_gap,sj_no_gap, \
-                    si_gap_opening, sj_gap_opening,j,si_no_gap_vector,close_block_diagonal, 
-                    prev_close_block_diagonal, \
-                    prev_extend_vertical, prev_extend_horizontal, 
-                    prev_extend_block_diagonal, \
-                    tmp_direction_matrix);
-            tmp_direction_matrix =
-                ASSIGN_MINIMUM (final_cost_matrix + j, extend_horizontal[j], \
-                    extend_vertical[j], extend_block_diagonal[j], \
-                    close_block_diagonal[j], tmp_direction_matrix);
-            direction_matrix[j] = tmp_direction_matrix;
-        }
-        if (end_pos < lenj) {
-            end_pos++;
-            direction_matrix[end_pos] = DO_HORIZONTAL | END_HORIZONTAL;
-            extend_vertical[end_pos] = HIGH_NUM;
-            close_block_diagonal[end_pos] = HIGH_NUM;
-            extend_horizontal[end_pos] = HIGH_NUM;
-            extend_horizontal[end_pos] = HIGH_NUM;
-            extend_block_diagonal[end_pos] = HIGH_NUM;
-        }
-        if (DEBUG_AFFINE) {
-            print_array ("EH:", extend_horizontal, lenj);
-            print_array ("EV:", extend_vertical, lenj);
-            print_array ("EB:", extend_block_diagonal, lenj);
-            print_array ("CB:", close_block_diagonal, lenj);
-            print_array ("FC:", final_cost_matrix, lenj);
-            print_dm ("DM:", direction_matrix, lenj);
-        }
+        algn_newkk_fill_a_row_aff (start_pos, end_pos, beginj, gap_row, gap_open, ic, ip, si_vertical_extension, si_gap_extension, si_gap_opening, si_no_gap, si_no_gap_vector, 
+                prev_extend_horizontal, prev_extend_vertical, prev_close_block_diagonal, prev_extend_block_diagonal,
+        si, sj, leni, lenj, final_cost_matrix, direction_matrix, c, extend_horizontal, extend_vertical, close_block_diagonal, extend_block_diagonal, prec, gap_open_prec, sj_horizontal_extension);
     }
     res = final_cost_matrix[lenj];
-    return res;
+    return res;*/
 }
 
+
+//this is the affine align function we are calling from CAML side now.
 value
 algn_CAML_align_affine_3 (value si, value sj, value cm, value am, value resi, 
         value resj, value median, value medianwg) {
+    int debug = 0;
     CAMLparam4(si,sj,cm,am);
     CAMLxparam4(resi,resj,median,medianwg);
     seqt csi, csj;
@@ -3275,10 +3538,10 @@ algn_CAML_align_affine_3 (value si, value sj, value cm, value am, value resi,
     Seq_custom_val(cmedianwg,medianwg);
     leni = seq_get_len(csi);
     lenj = seq_get_len(csj);
-    if (leni > lenj)
-        largest = leni;
-    else largest = lenj;
+    largest = lenj;
+    if (lenj<leni) failwith("pass the shorter one as first");
     uselevel = cm_check_level(ccm);
+    if (debug) printf("algn_CAML_align_affine_3,leni/lenj=%d/%d,call mat_setup_size\n",leni,lenj); fflush(stdout);
     if(uselevel==1) 
         mat_setup_size (cam, largest, largest, 0, 0, cm_get_map_sz(ccm),uselevel);
     else
@@ -3352,6 +3615,7 @@ algn_CAML_cost_affine_3 (value si, value sj, value cm, value am) {
         largest = leni;
     else largest = lenj;
     uselevel = cm_check_level(ccm);
+    //printf("algn_CAML_cost_affine_3,leni/lenj=%d/%d\n",leni,lenj);
     if(uselevel==1) 
          mat_setup_size (cam, largest, largest, 0, 0, cm_get_map_sz(ccm),uselevel);
     else
@@ -3385,7 +3649,164 @@ algn_CAML_cost_affine_3 (value si, value sj, value cm, value am) {
     CAMLreturn(Val_int(res));
 }
 
+/*
+#ifdef _WIN32
+__inline int*
+#else
+inline int*
+#endif
+algn_newkk_fill_a_row_aff (const seqt s1, int *prec, int *a, int * b, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, const cmt c, int *dnmm, int *pdnmm, int *htmm, int open_gap, int s1_len, int s2_len, int i, int startj, int endj, int has_right_border, int has_left_border)
+{
+    // keep what we were doing, a row in newkkonen matrix , if not a full
+     // row, might have a right border, or a left border, or both
+     
+    int debug = 0;
+    int start_column = startj;
+    int length = endj-startj+1;
+    int *next_row;
+    int *next_pm;
+    DIRECTION_MATRIX *to_go_dm;
+    to_go_dm = dm + (i * s2_len);
+    if (debug) printf("\n-- algn_newkk_fill_a_row,i=%d,startj=%d,endj=%d,length=%d,right/left border=%d/%d --\n",
+            i,startj,endj,length,has_right_border,has_left_border);
+    if (has_right_border&&has_left_border)//we have both right and left border for this row
+    {
+        next_row = algn_fill_extending_left_right_aff (s1, prec, s1_len, \
+                s2_len, b, a, to_go_dm, pgm1, gm1, pgm2, gm2, c, i, i+1, start_column, length, dnmm, pdnmm, htmm, open_gap);
+    //why are we doing this 'choose_other' thing? we can just pass pointer b -- the one pointing to
+    //current row -- back to [algn_newkk_test].
+        next_pm = choose_other (next_row, a, b);
+    }
+    else if (has_right_border)//take care right border cell
+    {
+        next_row = algn_fill_extending_right_aff (s1, prec, s1_len, s2_len, b, a, \
+                    to_go_dm, pgm1, gm1, pgm2, gm2, c, i, i+1, length, dnmm, pdnmm, htmm, open_gap);
+        next_pm = choose_other (next_row, a, b);
+    }
+    else if (has_left_border)//take care left border cell
+    {
+        next_row = algn_fill_extending_left_aff (s1, prec, s1_len, s2_len, \
+                b, a, to_go_dm, pgm1, gm1, pgm2, gm2, c, i, i+1, start_column, length,dnmm, pdnmm, htmm, open_gap);
+        next_pm = choose_other (next_row, a, b);
+    }
+    else //fill in the full row
+    {
+        next_row = algn_fill_no_extending_aff (s1, prec, s1_len, s2_len, \
+                    b, a, to_go_dm, pgm1, gm1, pgm2, gm2, c, i, i+1,dnmm, pdnmm, htmm, open_gap);
+        next_pm = choose_other (next_row, a, b);
+    }
+    if (debug) {
+        int j;
+        printf("check current line j=[%d,%d]: ",startj,endj); fflush(stdout);
+        for (j=startj;j<=endj;j++)
+        {printf ("%d(%d,%d)\t", b[j],gm1[j],gm2[j]);
+        fflush(stdout);}
+    }
+    return next_pm;
+}
 
+*/
+/*
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+algn_newkk_test_aff (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
+        DIRECTION_MATRIX *dm, DIRECTION_MATRIX * gm1,  DIRECTION_MATRIX * gm2, const cmt c, int const *gap_row, int *dnmm, int *pdnmm, int *htmm, int open_gap, int p, int * cost)
+{ 
+   int debug = 1;
+   int *a, *b;
+   int startj,endj;
+   int has_left_border, has_right_border;
+   int i;
+   int newk=p;
+   if (p>=lenX) newk=lenX-1;
+   if (debug) printf ("algn_newkk_test,seq len=%d,%d,p=%d\n",lenX,lenY,p);
+   int len_first_row = lenY-lenX+1+p;
+   if (len_first_row>lenY) len_first_row = lenY;
+   //update first row of matrix
+   algn_fill_first_row_aff (mm, dm, gm1, gm2, len_first_row, gap_row, dnmm,htmm, open_gap);
+   //point b to the row we want to update, a to the previous one that we just updated
+   a = mm;
+   b = mm + lenY;
+   DIRECTION_MATRIX * next_gm1 = gm1 + lenY;
+   DIRECTION_MATRIX * next_gm2 = gm2 + lenY;
+   DIRECTION_MATRIX * tmp1,  * tmp2;
+   for (i=1;i<lenX;i++)
+   {
+       //startj = ( (i-newk)>0 )?(i-newk):0 ;
+       //endj = ( (i+lenY-lenX+newk)<(lenY-1) )?(i+lenY-lenX+newk):(lenY-1) ;
+       //if ( startj==0) has_left_border=0; else has_left_border = 1;
+       //if ( endj == (lenY-1) ) has_right_border=0; else has_right_border=1;
+       if ( (i-newk)>0 )
+       {
+           startj = i-newk; has_left_border=1;
+       }
+       else
+       {
+           startj = 0; has_left_border=0;
+       }
+       if ( (i+lenY-lenX+newk)<=(lenY-1) ) 
+       {
+           endj = i+lenY-lenX+newk; has_right_border = 1; 
+       }
+       else 
+       {
+           endj = lenY-1; has_right_border = 0;
+       }
+       //fill a row, a points to the previous updated row, b points to the row we are going to update, gm1&gm2 point to the gap num array for the previous updated row, next_gm1 and next_gm2 point to the row we are going to update 
+       a = algn_newkk_fill_a_row_aff (s1,prec,a,b,dm,gm1,next_gm1,gm2,next_gm2,c,dnmm,pdnmm,htmm,open_gap,lenX,lenY,i,startj,endj,has_right_border,has_left_border);
+       //a points to the line we just updated, set b to the next line
+       if (i<lenX-1) 
+       {
+           //move pointer to cost matrix to the next line
+           b = a + lenY;
+           //switch pointers to gap matrix, previous gapnum line is useless now, use that to fill
+           //in gap numbers for the next line
+           tmp1 = gm1;
+           gm1 = next_gm1;
+           next_gm1 = tmp1;
+           tmp2 = gm2;
+           gm2 = next_gm2;
+           next_gm2 = tmp2;
+       }
+   }
+   
+   *cost = a[lenY-1];
+   //return a[lenY - 1];
+   return (MAX(next_gm1[lenY-1],next_gm2[lenY-1]));
+}
+*/
+/*
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+algn_newkk_increaseT_aff (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
+        DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * gm2, const cmt c, int const *gap_row, int *dnmm, int *pdnmm, int *htmm, int open_gap, int T)
+{
+    int debug = 1;
+    int p = (T - (lenY-lenX))/2;
+    if (debug) printf("algn_newkk_increaseT, lenX=%d, lenY=%d, T=%d, p=%d\n",lenX,lenY,T,p);
+    int gap_num, cost;
+    gap_num = algn_newkk_test_aff(s1,prec,lenX,lenY,mm,dm,gm1,gm2,c,gap_row,dnmm,pdnmm,htmm,open_gap,p,&cost);
+    //if ( cost <= T )
+    int newp = (2*T - (lenY-lenX))/2;
+    if ((gap_num<p)||(newp-lenY+1>=0))
+    {
+        if (debug) printf("cost=%d, T=%d, end by gap_num=%d<p=%d or newp=%d>=lenY(%d)-1 \n",cost, T, gap_num, p, newp, lenY);
+        return cost;
+    }
+    else
+    {
+        if (debug) printf("cost=%d, T=%d, gap_num=%d, p=%d, continue\n",cost, T, gap_num, p);
+        return algn_newkk_increaseT_aff(s1,prec,lenX,lenY,mm,dm,gm1,gm2,c,gap_row,dnmm,pdnmm,htmm,open_gap,T*2);
+    }
+}
+*/
+/*
 #ifdef _WIN32
 __inline int
 #else
@@ -3410,19 +3831,21 @@ algn_fill_plane_2_aff (const seqt s1, int *prec, int s1_len, int s2_len, int *mm
     b = mm + s2_len;
     d = dnmm;
     e = dnmm + s2_len;
-    gap_row = cm_get_precal_row (prec, 0, s2_len); /* We want the horizontal row */
-    /* We have to consider three cases in this new alignment procedure (much
-     * cleaner than the previous): 
-     * 
-     * Case 1:
-     * If s1 is much longer than s2, then there is no point on using the
-     * barriers, we rather fill the full matrix in one shot */
+    gap_row = cm_get_precal_row (prec, 0, s2_len); // We want the horizontal row 
+    int delta = cm_get_min_non0_cost(c);
+    int iniT = (s2_len-s1_len+1) * delta;
+    // We have to consider three cases in this new alignment procedure (much
+     // cleaner than the previous): 
+     
+     // Case 1:
+     // If s1 is much longer than s2, then there is no point on using the
+     // barriers, we rather fill the full matrix in one shot 
     if (((float) s1_len) >= (((float) ((float) 3 / (float) 2) * (float) s2_len)))
         return (algn_fill_plane_aff (s1, prec, s1_len, s2_len, mm, dm, c, d, \
                     htmm, open_gap));
-    /* Case 2:
-     * There are no full rows to be filled, therefore we have to break the
-     * procedure in three different subsets */
+    // Case 2:
+     // There are no full rows to be filled, therefore we have to break the
+     // procedure in three different subsets 
     else if ((2 * height) < s1_len) {
         algn_fill_first_row_aff (a, dm, width, gap_row, d, htmm, open_gap);
         b[0] = a[0];
@@ -3432,12 +3855,12 @@ algn_fill_plane_2_aff (const seqt s1, int *prec, int s1_len, int s2_len, int *mm
         start_column = 0; 
         length = width + 1;
         to_go_dm = dm + (start_row * s2_len);
-        /* Now we fill that space */
+        // Now we fill that space 
         next_row = algn_fill_extending_right_aff (s1, prec, s1_len, s2_len, b, a, \
                 to_go_dm, c, start_row, final_row, length, e, d, htmm, open_gap);
         next_pm = choose_other (next_row, a, b);
         algn_choose_aff_other (next_row, mm, &next_dnmm, &next_pdnmm, d, e);
-        /* Next group */
+        // Next group 
         start_row = final_row;
         final_row = s1_len - (height - 1);
         start_column = 1;
@@ -3450,7 +3873,7 @@ algn_fill_plane_2_aff (const seqt s1, int *prec, int s1_len, int s2_len, int *mm
                     htmm, open_gap);
         next_pm = choose_other (next_row, a, b);
         algn_choose_aff_other (next_row, mm, &next_dnmm, &next_pdnmm, d, e);
-        /* The final group */
+        // The final group 
         start_row = final_row;
         final_row = s1_len;
         length = length - 2;
@@ -3461,13 +3884,14 @@ algn_fill_plane_2_aff (const seqt s1, int *prec, int s1_len, int s2_len, int *mm
                 start_column, length, next_dnmm, next_pdnmm, htmm, open_gap);
         next_pm = choose_other (next_row, a, b);
         algn_choose_aff_other (next_row, mm, &next_dnmm, &next_pdnmm, d, e);
+        
+        return algn_newkk_increaseT_aff (s1,prec,s1_len,s2_len,mm,dm,gm1,gm2,c,gap_row,dnmm,pdnmm,htmm,open_gap,iniT);
     }
-    /* Case 3: (final case)
-     * There is a block in the middle of with full rows that have to be filled
-     * */
+    // Case 3: (final case)
+     // There is a block in the middle of with full rows that have to be filled
     else {
-        /* We will simplify this case even further, if the size of the leftover
-         * is too small, don't use the barriers at all, just fill it up all */
+        // We will simplify this case even further, if the size of the leftover
+         // is too small, don't use the barriers at all, just fill it up all 
         if (8 >= (s1_len - height))
             return (algn_fill_plane_aff (s1, prec, s1_len, s2_len, mm, dm, c, \
                         d, htmm, open_gap));
@@ -3505,11 +3929,13 @@ algn_fill_plane_2_aff (const seqt s1, int *prec, int s1_len, int s2_len, int *mm
                     start_column, length, next_dnmm, next_pdnmm, htmm, \
                     open_gap);
             next_pm = choose_other (next_row, a, b);
+        return algn_newkk_increaseT_aff (s1,prec,s1_len,s2_len,mm,dm,gm1,gm2,c,gap_row,dnmm,pdnmm,htmm,open_gap,iniT);
         }
     }
     return (next_pm[s2_len - 1]);
 }
-/******************************************************************************/
+*/
+
 
 /** Fill parallel must have been called before */
 #ifdef _WIN32
@@ -3954,27 +4380,26 @@ inline int
 algn_nw_limit (const seqt s1, const seqt s2, const cmt c, \
         matricest m, int deltawh, int st_s1, int len_s1, \
         int st_s2, int len_s2) {
-    const SEQT *ss1, *ss2;
     int *mm, *prec, s1_len, s2_len;
     DIRECTION_MATRIX *dm;
     DIRECTION_MATRIX *gm1;
     DIRECTION_MATRIX *gm2;
-    ss1 = seq_get_begin (s1);
-    ss2 = seq_get_begin (s2);
     mm = mat_get_2d_matrix (m);
     dm = mat_get_2d_direct (m);
     gm1 = mat_get_2d_gapnum1 (m);
     gm2 = mat_get_2d_gapnum2 (m);
     s1_len = seq_get_len (s1);
     s2_len = seq_get_len (s2);
+    printf("algn_nw_limit,s1_len=%d,s2_len=%d\n",s1_len,s2_len);
     cm_precalc_4algn (c, m, s2);
     prec = mat_get_2d_prec (m);
-    if (cm_get_affine_flag (c))
-        return 
+    if (cm_get_affine_flag (c))//this if will never be called
+        failwith("algn.c,algn_nw_limit,we are only expecting non-affine call here");
+        /*return 
             (algn_fill_plane_2_aff (s1, prec, s1_len, s2_len, mm, dm, c, 50, \
                 (len_s1 - len_s2) + 50, deltawh, mm + (2 * s2_len), \
                 mm + (4 * s2_len)));
-    else
+    */else
     return (algn_fill_plane_2 (s1, prec, s1_len, s2_len, mm, dm, gm1, gm2, c, 50, 
                 (len_s1 - len_s2) + 50, deltawh));
 }
@@ -3990,7 +4415,8 @@ algn_nw (const seqt s1, const seqt s2, const cmt c, \
     int s1_len, s2_len;
     s1_len = seq_get_len (s1);
     s2_len = seq_get_len (s2);
-    assert (s1_len >= s2_len);
+    printf("algn_nw,s1_len=%d,s2_len=%d\n",s1_len,s2_len);
+    //assert (s1_len >= s2_len);
     return (algn_nw_limit (s1, s2, c, m, deltawh, 0, s1_len, 0, s2_len));
 }
 
@@ -4001,13 +4427,9 @@ inline int
 #endif
 algn_nw_3d (const seqt s1, const seqt s2, const seqt s3,
         const cm_3dt c, matricest m, int w) {
-    const SEQT *ss1, *ss2, *ss3;
     int *mm, *prec, s1_len, s2_len, s3_len, gap, res;
     int uselevel;
     DIRECTION_MATRIX *dm;
-    ss1 = seq_get_begin (s1);
-    ss2 = seq_get_begin (s2);
-    ss3 = seq_get_begin (s3);
      uselevel = cm_check_level_3d(c);
     if(uselevel==1) 
          mat_setup_size (m, seq_get_len (s2), seq_get_len (s3), seq_get_len (s1), \

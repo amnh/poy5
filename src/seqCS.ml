@@ -802,7 +802,7 @@ module DOS = struct
                             Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
                 | _ ->
                         let tmpa, tmpb, tmpcost =
-                            if use_ukk then
+                           if use_ukk then 
                                 Sequence.NewkkAlign.align_2 a.sequence b.sequence
                             h.c2 Sequence.NewkkAlign.default_ukkm
                         (*in
@@ -824,19 +824,23 @@ module DOS = struct
                             if (Sequence.compare s1 s2)<>0 then true
                             else false
                         in
-                        
                         if (notthesame seqm seqm2)||(notthesame seqmwg
                         seqmwg2)||(notthesame tmpa tmpa2)||(notthesame tmpb
                         tmpb2) then begin
                             Printf.printf "diff between newkkonen and normal alignment:\n%!";
+                            Printf.printf "input seq :\n%!";
                             Sequence.print stdout a.sequence Alphabet.nucleotides;print_newline();
                             Sequence.print stdout b.sequence Alphabet.nucleotides;print_newline();
+                            Printf.printf "tmpa from algn.c, tmpa2 from newkkonen.c:\n%!";
                             Sequence.print stdout tmpa Alphabet.nucleotides;print_newline();
                             Sequence.print stdout tmpa2 Alphabet.nucleotides;print_newline();
+                            Printf.printf "tmpb,tmpb2:\n%!";
                             Sequence.print stdout tmpb Alphabet.nucleotides;print_newline();
                             Sequence.print stdout tmpb2 Alphabet.nucleotides;print_newline();
+                            Printf.printf "seqm with gap :\n%!";
                             Sequence.print stdout seqmwg Alphabet.nucleotides;print_newline();
                             Sequence.print stdout seqmwg2 Alphabet.nucleotides;print_newline();
+                            Printf.printf "seqm : \n%!";
                             Sequence.print stdout seqm Alphabet.nucleotides;print_newline();
                             Sequence.print stdout seqm2 Alphabet.nucleotides;print_newline();
                             assert(false);

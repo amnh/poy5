@@ -311,7 +311,7 @@ module Align : sig
      * the sequence for the call of cost_2. No check of an appropriate call of cost_2
      * is made; therefore the behavior of the function in this case is undefined. *)
     external extract_edited_2 : 
-        s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> bool -> unit =
+        s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> int -> unit =
         "algn_CAML_backtrace_2d_bc" "algn_CAML_backtrace_2d";;
     
     (** Same as extract_edited_2 but for three sequences at a time *)

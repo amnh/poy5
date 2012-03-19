@@ -1375,6 +1375,7 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     uselevel =  cm_check_level(c);
     if (uselevel==1) alphabet_size = c->map_sz;
     else alphabet_size = c->a_sz;
+    if (debug) printf("cm_precalc_4algn,l=%d,alphabet_size = %d\n",l,alphabet_size);
     for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
         tmp_to[0] = tail[j];
         if(uselevel == 1) {

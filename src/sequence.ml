@@ -618,8 +618,15 @@ module Align = struct
 
     let align_affine_3 si sj cm =
         let debug = false in
-        let len = length si + length sj + 2 in
-        if debug then Printf.printf "Align.align_affine_3,len_resi/j=%d\n%!" len;
+        let len1 = length si
+        and len2 = length sj in
+        let si,sj,swaped = 
+            if len1<=len2 then si,sj,false 
+            else sj,si,true 
+        in
+        let len = len1 + len2 + 2 in
+        if debug then Printf.printf "Align.align_affine_3,len=len si(%d) + len sj(%d) + 2 %d\n%!" len1 len2 len;
+        assert((length si)<=(length sj));
         let resi = create len
         and resj = create len 
         and median = create len 
@@ -902,12 +909,12 @@ module Align = struct
             "algn_CAML_simple_3_bc" "algn_CAML_simple_3"
 
     external extract_edited_2 :
-        s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> bool -> unit =
+        s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> int -> unit =
             "algn_CAML_backtrace_2d_bc" "algn_CAML_backtrace_2d"
 
     external extract_edited_2_limit :
         s -> s -> s -> s -> Matrix.m -> Cost_matrix.Two_D.m -> 
-            int -> int -> int -> int -> bool -> unit =
+            int -> int -> int -> int -> int -> unit =
             "algn_CAML_backtrace_2d_limit_bc" "algn_CAML_backtrace_2d_limit"
 
     external extract_edited_3 :
@@ -987,23 +994,23 @@ module Align = struct
             Printf.printf "create_edited_2,sz1=%d,sz2=%d,size_compared=%b\n%!"
             sz1 sz2 size_compared;
         if size_compared then 
-            extract_edited_2 s1 s2 s1p s2p tm c size_compared
+            extract_edited_2 s1 s2 s1p s2p tm c 0 
         else 
-            extract_edited_2 s2 s1 s2p s1p tm c size_compared;
+            extract_edited_2 s2 s1 s2p s1p tm c 1;
         s1p, s2p
 
     let create_edited_2_limit s1 s2 tm c st1 st2 len1 len2 =
+        let debug = false in
         let s1p = create (len1 + len2)
         and s2p = create (len1 + len2) in
         let size_compared = len1 <= len2 in
+        if debug then
         Printf.printf "create_edited_2_limit,sz1=%d,sz2=%d,size_compared=%b\n%!"
         len1 len2 size_compared;
         if size_compared then 
-            extract_edited_2_limit s1 s2 s1p s2p tm c st1 st2 len1 len2
-            size_compared
+            extract_edited_2_limit s1 s2 s1p s2p tm c st1 st2 len1 len2 0
         else 
-            extract_edited_2_limit s2 s1 s2p s1p tm c st2 st1 len2 len1
-            size_compared;
+            extract_edited_2_limit s2 s1 s2p s1p tm c st2 st1 len2 len1 1;
         s1p, s2p
 
     let create_edited_3 s1 s2 s3 tm cm =
@@ -1020,10 +1027,13 @@ module Align = struct
 
     let align_2 ?(first_gap=true) s1 s2 c m =
         let debug = false in
+        let debug2 = false in
         if debug then begin
             Printf.printf "Sequence.Align.align_2,\n%!";
-            print stdout s1 Alphabet.nucleotides;print_newline();
+            if debug2 then begin
+                print stdout s1 Alphabet.nucleotides;print_newline();
             print stdout s2 Alphabet.nucleotides;print_newline();
+            end;
         end;
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
@@ -1049,16 +1059,19 @@ module Align = struct
         in
         if debug then begin
            Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
+           if debug2 then begin
             print stdout res_s1 Alphabet.nucleotides;print_newline();
             print stdout res_s2 Alphabet.nucleotides;print_newline(); 
+           end;
         end;
         (*cost compare test
-                let oc1 =  open_out "normal.out" in
+                let oc1 =  open_out "normal.cost" in
                 Printf.fprintf oc1 "%d%!" res_c;
                 close_out oc1;
-                let oc =  open_out "normal.out2" in
+                let oc =  open_out_gen [Open_append;Open_creat] 0o777 "normal.alignment" in
                 print oc res_s1 Alphabet.nucleotides;
                 print oc res_s2 Alphabet.nucleotides;
+                Printf.fprintf oc "\n";
                 close_out oc;
         cost compare test*)
         res_s1,res_s2,res_c
@@ -1119,6 +1132,7 @@ module Align = struct
             (Invalid_Argument "The size of the sequences is not the same.")
 
     let full_median_2 a b cm m = 
+        Printf.printf "Sequence.Align.full_median_2\n%!";
         match Cost_matrix.Two_D.affine cm with
         | Cost_matrix.Affine _ ->
                 let m, _, _, _, _ = align_affine_3 a b cm in
@@ -1374,30 +1388,6 @@ module NewkkAlign = struct
 
     let _ = init ()
     let default_ukkm = create_ukkm ()
-(*median_2 and median_2_with_gaps are totally the same as in module Align
-    let median_2 s1 s2 c =
-        let sz1 = length s1 
-        and sz2 = length s2 in
-        if (sz1 = sz2) then begin
-            let sp = create (sz1 + 1) in
-            c_median_2 s1 s2 c sp;
-            sp
-        end else 
-            raise 
-            (Invalid_Argument "Newkkonen.median_2: size of two seq must be the same.")
-
-    let median_2_with_gaps s1 s2 c =
-        let sz1 = length s1 
-        and sz2 = length s2 in
-        if (sz1 = sz2) then begin
-            let sp = create sz1 in
-            c_median_2_with_gaps s1 s2 c sp;
-            sp
-        end else 
-            raise 
-            (Invalid_Argument "The size of the sequences is not the same.")
-*)
-
 
     let call_newkk_backtrace s1 s2 s1p s2p c m affine swaped =
         if affine then
