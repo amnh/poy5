@@ -40,6 +40,7 @@
 #include <caml/intext.h>
 #include <caml/alloc.h>
 #define NDEBUG 1
+#define PRINT_MEDIANS 0
 #define TESTER 1
 #include <assert.h>
 #include <stdio.h>
@@ -913,6 +914,12 @@ add_CAML_median (value a, value b) {
     na = *(Add_st_struct(a));
     nb = *(Add_st_struct(b));
     nres = add_median (na, nb);
+    if( PRINT_MEDIANS ){
+        printf("Downpass median Calculation:\n");
+        printf("\t%s\n", add_to_string(na));
+        printf("\t%s\n", add_to_string(nb));
+        printf("\t%s\n", add_to_string(nres));
+    }
     tmp = caml_alloc_custom (&additive, sizeof (add_stt), 1, 1000000);
     tmp2 = Add_st_struct (tmp);
     *tmp2 = nres;
@@ -1122,6 +1129,13 @@ add_CAML_median_3 (value p, value n, value c1, value c2) {
     nres = caml_alloc_custom (&additive, sizeof(add_stt), 1, 1000000);
     res = Add_st_struct(nres);
     add_median_3 (np, nn, nc1, nc2, tmp);
+    if( PRINT_MEDIANS ){
+        printf("Uppass Median Calculation:\n");
+        printf("\t%s\n", add_to_string(np));
+        printf("\t%s\n", add_to_string(nc1));
+        printf("\t%s\n", add_to_string(nc2));
+        printf("\t%s\n", add_to_string(nn));
+    }
     *res = tmp;
     CAMLreturn(nres);
 }

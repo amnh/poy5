@@ -328,6 +328,7 @@ let find_comb codelist alpha = match alpha.kind with
         with | Not_found -> raise (Illegal_List codelist)
 
 let match_base x alph = match alph.kind with
+    | Continuous when x = "?" || x = "-" -> alph.gap
     | Continuous -> int_of_string x
     | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
         try All_sets.StringMap.find x alph.string_to_code 
@@ -338,6 +339,7 @@ let match_base x alph = match alph.kind with
 let find_base = match_base
 
 let match_code x alph = match alph.kind with
+    | Continuous when x = alph.gap -> "?"
     | Continuous -> string_of_int x
     | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
         try All_sets.IntegerMap.find x alph.code_to_string

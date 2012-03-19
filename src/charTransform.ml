@@ -233,15 +233,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         let new_data, nodes = new_data --> Data.categorize --> Node.load_data in
         Status.finished st;
         new_data, substitute_nodes nodes tree
-        
+     
 
-        module TS = TreeSearch.Make (Node) (Edge) (TreeOps)
+    module TS = TreeSearch.Make (Node) (Edge) (TreeOps)
+
 
     let unratchet_tree data tree = 
         let new_data, nodes = 
             data --> Data.duplicate --> Data.categorize --> Node.load_data 
         in
         new_data, TS.diagnose (substitute_nodes nodes tree)
+
 
     (** End user visible functionality *)
     let perturbation_features = function
@@ -973,7 +975,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     `Empty
                     trees
             (* this data/nodes are used when building/loading new trees *)
-            and data, nodes = Node.load_data (Data.set_likelihood data x) in
+            and data, nodes = Node.load_data (Data.categorize data) in
             trees, data, nodes
 
     let rec transform_node_characters trees (data,nodes) (meth : Methods.char_transform)  =

@@ -271,7 +271,7 @@ let read_data_xread r n_chars =
     let rec line acc n_reading =
         if n_reading <= n_chars then
             match r#getch with
-            | ' ' | '\n' | '\t' | '.' -> line acc n_reading
+            | ' ' | '\n' | '\t' | '.' | '\r' -> line acc n_reading
             | '[' -> multi acc [] n_reading
             | '?' | '-' -> line ([-1] :: acc) (succ n_reading)
             | c ->
@@ -288,14 +288,21 @@ let read_data_xread r n_chars =
     line [] 1
 
 
-let read_data_dpread r n_chars =
+let read_data_dpread r n_taxa n_chars =
+    let illegal_format char taxa str =
+        let message = 
+            Printf.sprintf
+                "Parsing Error - Character %d/%d in Taxa %d/%d is not an integer: %s"
+                char n_chars taxa n_taxa str
+        in
+        raise (E.Illegal_hennig86_format message)
+    in
     let clear fn n_reading acc str = match str with
         | ""  -> fn n_reading acc ""
         | str ->
             let int =
                 try (int_of_string str)
-                with _ -> raise (E.Illegal_hennig86_format
-                                        ("Not an integer in dpread: " ^ str))
+                with _ -> illegal_format ((List.length acc)+1) n_reading str
             in
             fn (succ n_reading) ([int] :: acc) ""
     and clear' fn n_reading acc str = match str with
@@ -303,15 +310,14 @@ let read_data_dpread r n_chars =
         | str ->
             let int =
                 try (int_of_string str)
-                with _ -> raise (E.Illegal_hennig86_format
-                                        ("Not an integer in dpread: " ^ str))
+                with _ -> illegal_format ((List.length acc)+1) n_reading str
             in
             fn (succ n_reading) (int :: acc) ""
     in
     let rec line n_reading acc str =
         if n_reading <= n_chars then begin
             match r#getch with
-                | ' ' | '\n' | '\t' | '.' ->
+                | ' ' | '\n' | '\t' | '.' | '\r' ->
                     clear line n_reading acc str
                 | '[' ->
                     clear
@@ -329,7 +335,7 @@ let read_data_dpread r n_chars =
         end
     and multi r_n r_acc m_n m_acc str =
         match r#getch with
-        | ' ' | '\n' | '\t' | '.' ->
+        | ' ' | '\n' | '\t' | '.' | '\r' ->
             clear' (multi r_n r_acc) m_n m_acc str
         | ']' ->
             clear'
@@ -364,7 +370,7 @@ let rec read_taxa ?(acc=[]) r is_dpread taxa chars =
         r#skip_ws_nl;
         let data : int list list =
             if is_dpread
-                then read_data_dpread r chars
+                then read_data_dpread r taxa chars
                 else read_data_xread r chars
         in
         let acc = (name, data) :: acc in
@@ -416,8 +422,7 @@ let parse_file characters taxa line is_dpread =
 
 type ordtype = Is_ordered | Is_unordered | Is_sankoff
 
-let print_ordtype x =
-    match x with
+let print_ordtype x = match x with
     | Is_ordered -> print_string "Ordered"
     | Is_unordered -> print_string "Unordered"
     | Is_sankoff -> print_string "Sankoff"
