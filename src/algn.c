@@ -130,24 +130,30 @@ void
 algn_fill_gapnum (int pos, int hasalgn, int hasinsert, int hasdelete,  DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2)
 {
     int i = pos ;
+    int debug = 0;
+    if (debug) { printf("algn_fill_gapnum,pos=%d:",pos); fflush(stdout); }
     if (hasalgn) {
         if(hasdelete&&hasinsert)//insert|delete|align
         {//MAX3(s1_gapnum_fromM,s1_gapnum_fromL+1,s1_gapnum_fromR),MAX3(s2_gapnum_fromM,s2_gapnum_fromL,s2_gapnum_fromR+1)
+        if (debug) { printf("insert|delete|align\n"); fflush(stdout); }
             gm1[i] = MAX3(pgm1[i-1],gm1[i-1]+1,pgm1[i]);
             gm2[i] = MAX3(pgm2[i-1],gm2[i-1],pgm2[i]+1);
         }
         else if (hasdelete)//delete|align
         {
+        if (debug) { printf("delete|align\n"); fflush(stdout); }
             gm1[i] = MAX(pgm1[i],pgm1[i-1]);
             gm2[i] = MAX(pgm2[i-1],pgm2[i]+1);
         }
         else if (hasinsert) //insert|align 
         {
+        if (debug) { printf("insert|align\n"); fflush(stdout); }
             gm1[i] = MAX(gm1[i-1]+1,pgm1[i-1]);
             gm2[i] = MAX(pgm2[i-1],gm2[i-1]);
         }
         else//just align
         {
+        if (debug) { printf("align\n"); fflush(stdout); }
             gm1[i] = pgm1[i-1]; 
             gm2[i] = pgm2[i-1];
         }
@@ -155,15 +161,18 @@ algn_fill_gapnum (int pos, int hasalgn, int hasinsert, int hasdelete,  DIRECTION
     else if (hasinsert) {
         if (hasdelete) {//delete|insert
             //MAX(s1_gapnum_fromL+1,s1_gapnum_fromR), MAX(s2_gapnum_fromR+1,s2_gapnum_fromL)
+        if (debug) { printf("insert|delete\n"); fflush(stdout); }
             gm1[i] = MAX(gm1[i-1]+1,pgm1[i]);
             gm2[i] = MAX(pgm2[i]+1,gm2[i-1]);
         }
         else {//just insert
+        if (debug) { printf("insert\n"); fflush(stdout); }
             gm1[i] = gm1[i-1]+1;
             gm2[i] = gm2[i-1];
         }
     }
     else {//just delete
+        if (debug) { printf("delete\n"); fflush(stdout); }
         gm1[i] = pgm1[i]; 
         gm2[i] = pgm2[i]+1; 
     }
@@ -656,6 +665,7 @@ inline void
 algn_fill_ukk_right_cell (int *mm, const int *pm, const int *gap_row, \
         const int *alg_row, DIRECTION_MATRIX *dm, DIRECTION_MATRIX * pgm1, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * pgm2, DIRECTION_MATRIX * gm2, int c, int pos) {
     int tmp2, tmp3;
+    int debug = 0;
     /* try align with substitution */
     tmp2 = mm[pos - 1] + gap_row[pos];
     tmp3 = pm[pos - 1] + alg_row[pos];
@@ -678,6 +688,7 @@ algn_fill_ukk_right_cell (int *mm, const int *pm, const int *gap_row, \
         gm1[pos] = MAX(gm1[pos-1]+1,pgm1[pos-1]);
         gm2[pos] = MAX(pgm2[pos-1],gm2[pos-1]);
     }
+    if (debug) {printf ("algn_fill_ukk_right_cell,pos=%d,gap number = %d,%d\n",pos,gm1[pos],gm2[pos]); fflush(stdout); }
     if (!NDEBUG && !NPRINT_DM) {
         /* Print the alignment matrix */
         if (INSERT & dm[pos]) 
@@ -758,6 +769,8 @@ algn_fill_ukk_left_cell (int *mm, const int *pm, const int *gap_row, \
             gm1[pos] = MAX(pgm1[pos],pgm1[pos-1]);
             gm2[pos] = MAX(pgm2[pos-1],pgm2[pos]+1);
         }
+    int debug = 0;
+    if (debug) {printf ("algn_fill_ukk_left_cell,pos=%d,gap number = %d,%d\n",pos,gm1[pos],gm2[pos]); fflush(stdout); }
     if (!NDEBUG && !NPRINT_DM) {
         /* Print the alignment matrix */
         if (INSERT & dm[pos]) 
@@ -1098,6 +1111,8 @@ inline int
 #endif
 algn_fill_plane (const seqt s1, int *prec, int s1_len, \
         int s2_len, int *mm, DIRECTION_MATRIX *dm, const cmt c) {
+    int debug = 0;
+    if (debug) printf("algn_fill_plane,s1 len= %d, s2 len = %d\n",s1_len,s2_len);
     int i;
     const int *alg_row;
     int const_val, const_val_tail, *nm, *tmp;
@@ -1209,6 +1224,11 @@ algn_newkk_fill_a_row (const seqt s1, int *prec, int *a, int * b, DIRECTION_MATR
     return next_pm;
 }
 
+void init_gm (DIRECTION_MATRIX * gm, int size) {//this function is just for debug - memory checking
+    int i;
+    for (i=0;i<size;i++)
+        gm[i]=0;
+}
 
 #ifdef _WIN32
 __inline int
@@ -1216,7 +1236,7 @@ __inline int
 inline int
 #endif
 algn_newkk_test (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
-        DIRECTION_MATRIX *dm, DIRECTION_MATRIX * gm1,  DIRECTION_MATRIX * gm2, const cmt c, int const *gap_row, int p, int * cost)
+        DIRECTION_MATRIX *dm, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * next_gm1, DIRECTION_MATRIX * gm2, DIRECTION_MATRIX * next_gm2, const cmt c, int const *gap_row, int p, int * cost)
 { 
    int debug = 0;
    int *a, *b;
@@ -1228,14 +1248,23 @@ algn_newkk_test (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
    if (debug) printf ("algn_newkk_test,seq len=%d,%d,p=%d\n",lenX,lenY,p);
    int len_first_row = lenY-lenX+1+p;
    if (len_first_row>lenY) len_first_row = lenY;
+   /*memory check
+   printf("check gm1,"); fflush(stdout);
+   init_gm(gm1,lenY);
+   printf("check gm2,"); fflush(stdout);
+   init_gm(gm2,lenY);
+   printf("check next gm1,"); fflush(stdout);
+   init_gm(next_gm1,lenY);
+   printf("check next gm2,"); fflush(stdout);
+   init_gm(next_gm2,lenY);*/
    //update first row of matrix
    algn_fill_first_row (mm, dm, gm1, gm2, len_first_row, gap_row);
    //point b to the row we want to update, a to the previous one that we just updated
    a = mm;
    b = mm + lenY;
-   DIRECTION_MATRIX * next_gm1 = gm1 + lenY;
-   DIRECTION_MATRIX * next_gm2 = gm2 + lenY;
-   DIRECTION_MATRIX * tmp1,  * tmp2;
+   //DIRECTION_MATRIX * next_gm1 = gm1 + lenY;
+   //DIRECTION_MATRIX * next_gm2 = gm2 + lenY;
+   DIRECTION_MATRIX * tmp1,  * tmp2; 
    for (i=1;i<lenX;i++)
    {
        //startj = ( (i-newk)>0 )?(i-newk):0 ;
@@ -1288,13 +1317,13 @@ __inline int
 inline int
 #endif
 algn_newkk_increaseT (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
-        DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * gm2, const cmt c, int const *gap_row, int T)
+        DIRECTION_MATRIX *dm, DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * next_gm1, DIRECTION_MATRIX * gm2, DIRECTION_MATRIX * next_gm2, const cmt c, int const *gap_row, int T)
 {
     int debug = 0;
     int p = (T - (lenY-lenX))/2;
     if (debug) printf("algn_newkk_increaseT, lenX=%d, lenY=%d, T=%d, p=%d\n",lenX,lenY,T,p);
     int gap_num, cost;
-    gap_num = algn_newkk_test(s1,prec,lenX,lenY,mm,dm,gm1,gm2,c,gap_row,p,&cost);
+    gap_num = algn_newkk_test(s1,prec,lenX,lenY,mm,dm,gm1,next_gm1,gm2,next_gm2,c,gap_row,p,&cost);
     //if ( cost <= T )
     int newp = (2*T - (lenY-lenX))/2;
     if ((gap_num<p)||(newp-lenY+1>=0))
@@ -1305,7 +1334,7 @@ algn_newkk_increaseT (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
     else
     {
         if (debug) printf("cost=%d, T=%d, gap_num=%d, p=%d, continue\n",cost, T, gap_num, p);
-        return algn_newkk_increaseT(s1,prec,lenX,lenY,mm,dm,gm1,gm2,c,gap_row,T*2);
+        return algn_newkk_increaseT(s1,prec,lenX,lenY,mm,dm,gm1,next_gm1,gm2,next_gm2,c,gap_row,T*2);
     }
 }
 
@@ -1316,7 +1345,7 @@ __inline int
 inline int
 #endif
 algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
-        DIRECTION_MATRIX *dm, DIRECTION_MATRIX *gm1, DIRECTION_MATRIX *gm2, const cmt c, int width, int height, int dwidth_height) {
+        DIRECTION_MATRIX *dm, DIRECTION_MATRIX *gm1,DIRECTION_MATRIX *next_gm1, DIRECTION_MATRIX *gm2, DIRECTION_MATRIX *next_gm2, const cmt c, int width, int height, int dwidth_height) {
     assert(s1_len<=s2_len);
     //we still need width,heigh for special case1 and case3.1
     width = width + dwidth_height;
@@ -1347,7 +1376,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
      
     if (((float) s1_len) >= (((float) ((float) 3 / (float) 2) * (float) s2_len)))
     {
-        printf("Case 1\n");
+        //printf("Case 1\n");
         return (algn_fill_plane (s1, prec, s1_len, s2_len, mm, dm, c));
     }
     // Case 2:
@@ -1355,7 +1384,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
      // procedure in three different subsets 
     else 
     if ((2 * height) < s1_len) {
-       printf("Case 2\n"); fflush(stdout);
+       //printf("Case 2\n"); fflush(stdout);
        /* old code start
         algn_fill_first_row (a, dm, width, gap_row);
         start_row = 1;
@@ -1389,7 +1418,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
         next_pm = choose_other (next_row, a, b);
         old code end */
         to_go_dm = dm + (1 * s2_len);
-        return algn_newkk_increaseT (s1,prec,s1_len,s2_len,mm,dm,gm1,gm2,c,gap_row,iniT);
+        return algn_newkk_increaseT (s1,prec,s1_len,s2_len,mm,dm,gm1,next_gm1,gm2,next_gm2,c,gap_row,iniT);
     }
     /* Case 3: (final case)
      * There is a block in the middle of with full rows that have to be filled
@@ -1399,11 +1428,11 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
          * is too small, don't use the barriers at all, just fill it up all */
         if (8 >= (s1_len - height))
         {
-            printf("Case 3.1");
+            //printf("Case 3.1");
             return (algn_fill_plane (s1, prec, s1_len, s2_len, mm, dm, c));
         }
         else { 
-            printf("Case 3.2\n"); fflush(stdout);
+            //printf("Case 3.2\n"); fflush(stdout);
             /* old code start
              algn_fill_first_row (mm, dm, width, gap_row);
             start_row = 1;
@@ -1433,7 +1462,7 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
             next_pm = choose_other (next_row, a, b);
             old code end*/
            to_go_dm = dm + (1 * s2_len);
-            return algn_newkk_increaseT(s1,prec,s1_len,s2_len,mm,dm,gm1,gm2,c,gap_row,iniT);
+            return algn_newkk_increaseT(s1,prec,s1_len,s2_len,mm,dm,gm1,next_gm1,gm2,next_gm2,c,gap_row,iniT);
         }
     }
     
@@ -3448,7 +3477,7 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
     begini = si->begin;
     beginj = sj->begin;
     ic = begini[0];
-    int debug = 1;
+    int debug = 0;
     if(debug) printf("algn_fill_plane_3_aff,leni=%d,lenj=%d,gap=%d,gap_startNO=%d",leni,lenj,gap,gap_startNO);
     if(debug)  printf("start pos = %d, end pos = %d\n",start_pos,end_pos);
     for (j = 1; j <= lenj; j++) {
@@ -3715,7 +3744,7 @@ inline int
 algn_newkk_test_aff (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
         DIRECTION_MATRIX *dm, DIRECTION_MATRIX * gm1,  DIRECTION_MATRIX * gm2, const cmt c, int const *gap_row, int *dnmm, int *pdnmm, int *htmm, int open_gap, int p, int * cost)
 { 
-   int debug = 1;
+   int debug = 0;
    int *a, *b;
    int startj,endj;
    int has_left_border, has_right_border;
@@ -3787,7 +3816,7 @@ inline int
 algn_newkk_increaseT_aff (const seqt s1, int *prec, int lenX, int lenY, int *mm, \
         DIRECTION_MATRIX *dm,  DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * gm2, const cmt c, int const *gap_row, int *dnmm, int *pdnmm, int *htmm, int open_gap, int T)
 {
-    int debug = 1;
+    int debug = 0;
     int p = (T - (lenY-lenX))/2;
     if (debug) printf("algn_newkk_increaseT, lenX=%d, lenY=%d, T=%d, p=%d\n",lenX,lenY,T,p);
     int gap_num, cost;
@@ -4384,13 +4413,17 @@ algn_nw_limit (const seqt s1, const seqt s2, const cmt c, \
     DIRECTION_MATRIX *dm;
     DIRECTION_MATRIX *gm1;
     DIRECTION_MATRIX *gm2;
+    DIRECTION_MATRIX *gm3;
+    DIRECTION_MATRIX *gm4;
     mm = mat_get_2d_matrix (m);
     dm = mat_get_2d_direct (m);
     gm1 = mat_get_2d_gapnum1 (m);
     gm2 = mat_get_2d_gapnum2 (m);
+    gm3 = mat_get_2d_gapnum3 (m);
+    gm4 = mat_get_2d_gapnum4 (m);
     s1_len = seq_get_len (s1);
     s2_len = seq_get_len (s2);
-    printf("algn_nw_limit,s1_len=%d,s2_len=%d\n",s1_len,s2_len);
+    //printf("algn_nw_limit,s1_len=%d,s2_len=%d\n",s1_len,s2_len);
     cm_precalc_4algn (c, m, s2);
     prec = mat_get_2d_prec (m);
     if (cm_get_affine_flag (c))//this if will never be called
@@ -4400,7 +4433,7 @@ algn_nw_limit (const seqt s1, const seqt s2, const cmt c, \
                 (len_s1 - len_s2) + 50, deltawh, mm + (2 * s2_len), \
                 mm + (4 * s2_len)));
     */else
-    return (algn_fill_plane_2 (s1, prec, s1_len, s2_len, mm, dm, gm1, gm2, c, 50, 
+    return (algn_fill_plane_2 (s1, prec, s1_len, s2_len, mm, dm, gm1, gm2, gm3, gm4, c, 50, 
                 (len_s1 - len_s2) + 50, deltawh));
 }
 
@@ -4415,7 +4448,7 @@ algn_nw (const seqt s1, const seqt s2, const cmt c, \
     int s1_len, s2_len;
     s1_len = seq_get_len (s1);
     s2_len = seq_get_len (s2);
-    printf("algn_nw,s1_len=%d,s2_len=%d\n",s1_len,s2_len);
+    //printf("algn_nw,s1_len=%d,s2_len=%d\n",s1_len,s2_len);
     //assert (s1_len >= s2_len);
     return (algn_nw_limit (s1, s2, c, m, deltawh, 0, s1_len, 0, s2_len));
 }
