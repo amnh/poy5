@@ -24,7 +24,7 @@ open Numerical.FPInfix
 
 let debug           = false
 (* print a msg if we perform jc distance instead of given BL *)
-let debug_bl        = false
+let debug_bl        = true
 let debug_exclude   = false
 let debug_sets      = false
 let debug_set_cost  = false
@@ -1497,6 +1497,16 @@ END
 
 let get_cost_mode a = a.cost_mode
 
+let classify_data leafa dataa leafb datab chars acc =
+    let rec classify_two acc ch1 ch2 = match ch1, ch2 with
+        | Dynamic a, Dynamic b ->
+              DynamicCS.classify_transformations leafa a.final leafb b.final chars acc
+        | (Kolmo _ | StaticMl _ | Nonadd8 _ | Nonadd16 _ | Nonadd32 _
+          | Add _ | Sank _ | Set _ | Dynamic _ ),_ ->
+            assert false
+    in
+    List.fold_left2 classify_two acc dataa.characters datab.characters
+
 let compare_data_final {characters=chs1} {characters=chs2} =
     let rec compare_two ch1 ch2 =
         match ch1, ch2 with
@@ -2065,45 +2075,48 @@ let collapse size characters all_static =
      * data  --Data.d *)
 let classify size chars data =
     let all_static = 
-        Hashtbl.fold (fun code spec acc ->
-            match spec with
-            | Data.Static spec ->
-                (* categorize likelihood and unordered characters *)
-                (match spec.Nexus.File.st_type with
-                    | Nexus.File.STUnordered    -> (code, spec) :: acc
-                    | Nexus.File.STLikelihood m -> (code, spec) :: acc
-                    | _ -> acc)
-            | _ -> acc) data.Data.character_specs []
+        Hashtbl.fold
+            (fun code spec acc -> match spec with
+                | Data.Static spec ->
+                    (* categorize likelihood and unordered characters *)
+                    begin match spec.Nexus.File.st_type with
+                        | Nexus.File.STUnordered
+                        | Nexus.File.STLikelihood _ -> (code, spec) :: acc
+                        | _ -> acc
+                    end
+                | _ -> acc)
+            data.Data.character_specs
+            []
     in
     (* transform each static column into a list with current weight. ~NL *)
     let taxa (code,spec) = 
-        let weight,observed = 
-            match spec.Nexus.File.st_type with
+        let weight,observed = match spec.Nexus.File.st_type with
             | Nexus.File.STUnordered ->
-                    spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
+                spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
             | Nexus.File.STLikelihood m ->
-                    spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
+                spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
             | _ -> assert false
         in
-        Hashtbl.fold (fun _ taxon_chars acc ->
-            let lst =
-                try
-                    match Hashtbl.find taxon_chars code with
-                    | (Data.Stat (c, (Some v)), `Specified) -> (c, weight, v)
-                    | (Data.Stat (c, v), _) -> (c, weight, `List observed)
-                    | _ -> failwith "Impossible 2?"
-                with
-                | Not_found -> (code, weight, `List observed)
-            in
-            lst :: acc) data.Data.taxon_characters []
+        Hashtbl.fold 
+            (fun _ taxon_chars acc ->
+                let lst =
+                    try match Hashtbl.find taxon_chars code with
+                        | (Data.Stat (c, (Some v)), `Specified) -> (c, weight, v)
+                        | (Data.Stat (c, v), _) -> (c, weight, `List observed)
+                        | _ -> failwith "Impossible 2?"
+                    with | Not_found -> (code, weight, `List observed)
+                in
+                lst :: acc)
+            data.Data.taxon_characters
+            []
     in
     current_snapshot "Generating characters";
-    let characters = 
+    let characters =
         let add_taxon_to_accumulator acc (_, _, v) = v :: acc in
         let reshape chars (a, b, _) = (a, b, chars) in
         let chars item =
             match taxa item with
-            | ((_, _, x) as h) :: t -> 
+            | ((_, _, x) as h) :: t ->
                     let chars = List.fold_left add_taxon_to_accumulator [x] t in
                     reshape chars h
             | [] -> failwith "Nothing?" (* must be of least length one, *)
@@ -4344,6 +4357,7 @@ module Standard :
         (* TODO This function must be removed *)
         let union_distance _ _ = 0.
         let is_collapsable = is_collapsable
+        let classify_data = classify_data
         let to_xml = to_xml
         let median_self_cost = median_self_cost
         let num_height _ x = x.num_height

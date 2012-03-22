@@ -40,13 +40,11 @@ type t =
     | GenomeCS of GenomeCS.t
 
 
-let is_fixedstates dcs = 
-    match dcs with
-    | SeqCS x ->
-            SeqCS.is_fixedstates x
-    | _ -> false
+let is_fixedstates dcs = match dcs with
+    | SeqCS x -> SeqCS.is_fixedstates x
+    | _       -> false
 
-type u = 
+type u =
     | U_SeqCS of SeqCS.Union.u
     | U_Others
 
@@ -319,9 +317,7 @@ let of_list spec genome_ls =
 
 (** [median a b] creates the median set between dynamic 
 * character sets [a] and [b] *)
-let median code a b t1 t2 =
-    if debug then Printf.printf "dynamicCs.median\n%!";
-    match a, b with
+let median code a b t1 t2 = match a, b with
     | MlCS a, MlCS b -> MlCS (MlDynamicCS.median code a b t1 t2)
     | SeqCS a, SeqCS b -> SeqCS (SeqCS.median code a b)
     | ChromCS a, ChromCS b -> ChromCS (ChromCS.median2 a b)
@@ -332,8 +328,7 @@ let median code a b t1 t2 =
 
 (** [median_3 p n c1 c2] creates the median among
 * three dynamic character sets [p], [c1] and [c2] *)
-let median_3 p n c1 c2 =
-    match p, n, c1, c2 with 
+let median_3 p n c1 c2 = match p, n, c1, c2 with 
     | MlCS p, MlCS n, MlCS c1, MlCS c2 -> 
           MlCS (MlDynamicCS.median_3 p n c1 c2)
     | SeqCS p, SeqCS n, SeqCS c1, SeqCS c2 -> 
@@ -371,8 +366,7 @@ let distance_of_type t missing_distance a b len =
 
 (** [distance_of_type a b] returns the distance between
 * two dynamic character sets [a] and [b] *)
-let distance missing_distance a b =
-    match a, b with   
+let distance missing_distance a b = match a, b with   
     | MlCS a, MlCS b -> MlDynamicCS.distance missing_distance a b None
     | SeqCS a, SeqCS b -> SeqCS.distance missing_distance a b
     | ChromCS a, ChromCS b -> ChromCS.distance a b  
@@ -385,8 +379,7 @@ let distance missing_distance a b =
 
 (** [distance_union a b] returns the union distance between
 * two dynamic character sets [a] and [b] *)
-let distance_union a b =
-    match a, b with
+let distance_union a b = match a, b with
     | U_SeqCS a, U_SeqCS b -> SeqCS.Union.distance_union a b
     | U_Others, U_Others -> 0.0
     | _, _ -> failwith "DynamicCS.distance_union"
@@ -394,8 +387,7 @@ let distance_union a b =
 
 (** [to_string a] returns dynamic character set [a] 
 * into the string format *)
-let to_string a =
-    match a with 
+let to_string a = match a with 
     | MlCS a -> MlDynamicCS.to_string a
     | SeqCS a -> SeqCS.to_string a
     | BreakinvCS a -> BreakinvCS.to_string a
@@ -539,8 +531,7 @@ let cardinal = function
     | BreakinvCS x -> BreakinvCS.cardinal x
     | AnnchromCS x -> AnnchromCS.cardinal x
 
-let get_sequence_union code x = 
-    match x with
+let get_sequence_union code x = match x with
     | U_SeqCS x -> SeqCS.Union.get_sequence_union code x
     | U_Others -> failwith "DynamicCS.get_sequence_union"
 
@@ -549,64 +540,60 @@ let encoding enc x = match x with
     | SeqCS x -> SeqCS.encoding enc x
     | _ -> failwith "Unsupported DynamicCS.encoding"
 
-(* We are turning off iterative for high order characters until the algorithms
-* are properly fixed. *)
-let no_iterative_other_than_for_seqs = false
+(** [classify_transformations] build a map/set of base frequencies and
+    transformations that exist across this branch length defined by the two nodes
+    passed to it. **)
+let classify_transformations leafa nodea leafb nodeb chars acc = match nodea,nodeb with
+    | SeqCS a, SeqCS b when mem chars nodea ->
+        SeqCS.classify_transformations leafa a leafb b acc
+    | SeqCS _, SeqCS _ ->
+        acc
+    (* We do not support other characters; yet? *)
+    | MlCS _, MlCS _             -> failwith "DynamicML cannot classify transformations"
+    | BreakinvCS _, BreakinvCS _ -> failwith "BreakInv cannot classify transformations"
+    | AnnchromCS _, AnnchromCS _ -> failwith "Annchrom cannot classify transformations"
+    | ChromCS    _, ChromCS    _ -> failwith "Chrom cannot classify transformations"
+    | GenomeCS   _, GenomeCS   _ -> failwith "Genome cannot classify transformations"
+    | (SeqCS _ | MlCS _ | BreakinvCS _ | AnnchromCS _ | ChromCS _ | GenomeCS _), _ -> assert false
 
-let flatten t_lst =
-    match List.hd t_lst with
+
+let flatten t_lst = match List.hd t_lst with
     | BreakinvCS _ ->
-          let bkCS_t_lst = List.map (fun x -> match x with
-          | BreakinvCS x_bkinvCS -> x_bkinvCS
-          | _ -> failwith "ERROR data type in flatten of dynamicCS.ml"
-          ) t_lst in
-          BreakinvCS.flatten bkCS_t_lst
-    (*| SeqCS _ -> 
-          let seqCS_t_lst = List.map (fun x -> match x with
-          | SeqCS x_seqCS -> x_seqCS
-          | _ -> failwith "ERROR data type in flatten of dynamicCS.ml"
-          ) t_lst in
-          SeqCS.flatten seqCS_t_lst*)
-    | _ -> failwith ("we don't deal with this type of dynmaic data now")
-     (*
-let generate_delimiters seqlstlst is_breakinv =
-    if is_breakinv then
-        BreakinvCS.generate_delimiters seqlstlst
-    else
-        seqCS.generate_delimiters seqlstlst
-     *)
+        let bkCS_t_lst =
+            List.map
+                (fun x -> match x with
+                    | BreakinvCS x_bkinvCS -> x_bkinvCS
+                    | _ -> failwith "ERROR data type in flatten of dynamicCS.ml")
+                t_lst
+            in
+            BreakinvCS.flatten bkCS_t_lst
+    | _ -> failwith "we don't deal with this type of dynmaic data now"
+
 
 (* return 1 if we are dealing with this kind of dynamic data for multi-chromosome.*)
-let is_available in_data =
-    let res = 
-    match in_data with
+let is_available in_data = match in_data with
     | BreakinvCS bk_t -> 1
     | SeqCS seq_t -> SeqCS.is_available seq_t
     | _ -> 0
-    in
-    res
+
 
 let update_t oldt file_median_seq file_median_chrom_seqdeli =
-    let newt = 
-    match oldt with
-    | BreakinvCS bk_t ->
-       let new_bk_t_lst = BreakinvCS.update_t bk_t file_median_seq file_median_chrom_seqdeli
-       in
-       List.map (fun x -> BreakinvCS x ) new_bk_t_lst
-    (*| SeqCS seqcs_t ->
-            SeqCS ( SeqCS.update_t seqcs_t file_median_seq file_median_chrom_seqdeli ) 
-    *)
-    |_ -> failwith ("dynaicCS.update_t,we don't update this datatype for multi-chromosome functions under MGR")
+    let newt = match oldt with
+        | BreakinvCS bk_t ->
+            let new_bk_t_lst =
+                BreakinvCS.update_t bk_t file_median_seq file_median_chrom_seqdeli
+            in
+            List.map (fun x -> BreakinvCS x ) new_bk_t_lst
+        |_ -> failwith "dynaicCS.update_t,we don't update this datatype for multi-chromosome functions under MGR"
     in
     newt
     
 let single_to_multi single_t =
-    let tlist = 
-        match single_t with
+    let tlist = match single_t with
         |BreakinvCS bk_t ->
-                List.map (fun bkinvCS_t -> BreakinvCS bkinvCS_t )
-                ( BreakinvCS.single_to_multi bk_t )
-        |_ -> failwith ("we only deal with breakinv now")
+            List.map (fun bkinvCS_t -> BreakinvCS bkinvCS_t)
+                     (BreakinvCS.single_to_multi bk_t)
+        |_ -> failwith "we only deal with breakinv now"
     in
     tlist
 
@@ -619,6 +606,7 @@ let single_to_multi single_t =
 * readjusts the current median [mine] of three medians [ch1],
 * [ch2], and [parent] using three dimentional alignments*)
 let readjust mode to_adjust modified ch1 ch2 parent mine =
+    let no_iterative_other_than_for_seqs = false in
     match ch1, ch2, parent, mine with
     | SeqCS ch1, SeqCS ch2, SeqCS parent, SeqCS mine when ch1.SeqCS.alph =
         Alphabet.nucleotides -> 

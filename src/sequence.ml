@@ -120,6 +120,15 @@ let foldi f acc s =
     in
     folder acc 0
 
+let foldi_2 f acc s1 s2 = 
+    assert( (length s1) = (length s2) );
+    let len = length s1 in
+    let rec folder acc pos =
+        if pos < len
+            then folder (f acc pos (get s1 pos) (get s2 pos)) (pos + 1)
+            else acc
+    in
+    folder acc 0
 
 let fold_right f acc s =
     let len = length s in
