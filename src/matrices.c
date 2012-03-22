@@ -100,7 +100,14 @@ These `-m' switches are supported in addition to the above on AMD x86-64 process
 -m64
     Generate code for a 32-bit or 64-bit environment. The 32-bit environment sets int, long and pointer to 32 bits and generates code that runs on any i386 system. The 64-bit environment sets int to 32 bits and long and pointer to 64 bits and generates code for AMD's x86-64 architecture. For darwin only the -m64 option turns off the -fno-pic and -mdynamic-no-pic options. 
 */      
-    if (debug) printf("len = %d, len_eff = %d, len_dir = %d, len_2d = %d,len_precalc=%d\n",len,m->len_eff,len_dir,len_2d,len_precalc);
+    if (debug) printf("len_gapnumarr = %d, len = %d, len_eff = %d, len_dir = %d, len_2d = %d,len_precalc=%d\n",m->len_gapnumarr,len,m->len_eff,len_dir,len_2d,len_precalc);
+    if (m->len_gapnumarr < d) {
+        m->gap_num1 = (DIRECTION_MATRIX *) realloc (m->gap_num1, ((d) * sizeof(DIRECTION_MATRIX)));
+        m->gap_num2 = (DIRECTION_MATRIX *) realloc (m->gap_num2, ((d) * sizeof(DIRECTION_MATRIX)));
+        m->gap_num3 = (DIRECTION_MATRIX *) realloc (m->gap_num3, ((d) * sizeof(DIRECTION_MATRIX)));
+        m->gap_num4 = (DIRECTION_MATRIX *) realloc (m->gap_num4, ((d) * sizeof(DIRECTION_MATRIX)));
+        m->len_gapnumarr = d;
+    }
     if (m->len_eff < len) { /* If the 3d or 2d matrix is not enough */
         m->cube = m->matrix = 
             (int *) realloc (m->matrix, (len * sizeof(int)));
@@ -109,8 +116,6 @@ These `-m' switches are supported in addition to the above on AMD x86-64 process
     if (m->len < len_dir) { /* If the other matrices are not enough */
         m->cube_d = m->matrix_d = (DIRECTION_MATRIX *) 
             realloc (m->matrix_d, (len_dir * sizeof(DIRECTION_MATRIX)));
-        m->gap_num1 = (DIRECTION_MATRIX *) realloc (m->gap_num1, (2*(d+1) * sizeof(DIRECTION_MATRIX)));
-        m->gap_num2 = (DIRECTION_MATRIX *) realloc (m->gap_num2, (2*(d+1) * sizeof(DIRECTION_MATRIX)));
         if (0 != len_2d) {
             m->pointers_3d = 
                 (int **) realloc (m->pointers_3d, len_2d * sizeof(int));
@@ -163,6 +168,17 @@ mat_get_2d_gapnum2 (const matricest m) {
     return (m->gap_num2);
 }
 
+DIRECTION_MATRIX *
+mat_get_2d_gapnum3 (const matricest m) {
+    return (m->gap_num3);
+}
+
+DIRECTION_MATRIX *
+mat_get_2d_gapnum4 (const matricest m) {
+    return (m->gap_num4);
+}
+
+
 int **
 mat_get_3d_pointers (matricest m) {
     return (m->pointers_3d);
@@ -201,12 +217,14 @@ unsigned long
 mat_CAML_deserialize (void *v) {
     matricest m;
     m = (matricest) v;
-    m->len_pre = m->len_eff = m->len = 0;
+    m->len_pre = m->len_eff = m->len = m->len_gapnumarr = 0;
     m->matrix = m->cube = m->precalc = NULL;
     m->matrix_d = m->cube_d = NULL;
     m->pointers_3d = NULL;
     m->gap_num1 = NULL;
     m->gap_num2 = NULL;
+    m->gap_num3 = NULL;
+    m->gap_num4 = NULL;
     return (sizeof (struct matrices));
 }
 
@@ -227,12 +245,14 @@ mat_CAML_create_general (value a) {
     res = 
         alloc_custom (&alignment_matrix, sizeof(struct matrices), 1, 1000000);
     m = Matrices_struct(res);
-    m->len_pre = m->len_eff = m->len = 0;
+    m->len_gapnumarr = m->len_pre = m->len_eff = m->len = 0;
     m->matrix = m->cube = m->precalc = NULL;
     m->matrix_d = m->cube_d = NULL;
     m->pointers_3d = NULL;
     m->gap_num1 = NULL;
     m->gap_num2 = NULL;
+    m->gap_num3 = NULL;
+    m->gap_num4 = NULL;
     CAMLreturn(res);
 }
 
@@ -340,7 +360,9 @@ mat_CAML_flush_memory (value vm) {
     free (m->precalc);
     free (m->gap_num1);
     free (m->gap_num2);
-    m->len_pre = m->len_eff = m->len = 0;
+    free (m->gap_num3);
+    free (m->gap_num4);
+    m->len_gapnumarr = m->len_pre = m->len_eff = m->len = 0;
     m->matrix = m->cube = m->precalc = NULL;
     m->matrix_d = m->cube_d = NULL;
     m->pointers_3d = NULL;

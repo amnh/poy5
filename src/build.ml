@@ -151,8 +151,6 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     let disjoin_tree data node =
         let leafs = set_of_leafs node in
         let tree = Ptree.make_disjoint_tree data leafs in
-        let tree = PtreeSearch.downpass tree in
-        let tree = PtreeSearch.uppass tree in
         tree
 
 
@@ -166,7 +164,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 Ptree.tree = Tree.random (List.map Node.taxon_code nodes);
                 Ptree.node_data = map_of_list Node.taxon_code nodes; }
         in
-        tree --> PtreeSearch.downpass --> PtreeSearch.uppass
+        tree
 
 
     let branch_and_bound keep_method max_trees threshold data nodes bound adj_mgr =

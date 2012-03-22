@@ -950,7 +950,7 @@ int increaseT (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int newT, 
 {
     int debug = 0;
     int p = (newT - (lenY-lenX))/2;
-    if (debug) { printf ("increaseT, lenX=%d, lenY=%d, newT=%d,p=%d,go=%d,swaped=%d",lenX, lenY, newT,p,go,swaped); fflush(stdout); }
+    if (debug) { printf ("increaseT, lenX=%d, lenY=%d, newT=%d,p=%d,go=%d,swaped=%d\n",lenX, lenY, newT,p,go,swaped); fflush(stdout); }
     int res_cost=-1; 
     DIRECTION_MATRIX res_gapnum=-1;
     ukktest(s1,s2,m,c,newT,p,lenX,lenY,go,&res_cost,&res_gapnum, swaped);
@@ -1189,7 +1189,7 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
         assert(bb>0);
         if (debug)
         {
-            printf("baseband=%d,gapcode=%d,delta=%d,go=%d(realgo=%d)\n",bb,gapcode,delta,go,realgo);
+            printf("newkkonen.newkk_algn, baseband=%d,gapcode=%d,delta=%d,go=%d(realgo=%d),swaped=%d\n",bb,gapcode,delta,go,realgo,swaped);
             fflush(stdout);
         }
         set_ukkcost(0,0,m,0,START,0,0,0,0,affine);
@@ -1238,6 +1238,7 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a,value swaped)
     newkkmat_p mp;
     tc = Cost_matrix_struct(c);
     mp = Newkkmat_struct(a);
+    int spd = Int_val(swaped);
     seqt s1p, s2p;
     Seq_custom_val(s1p,s1);
     Seq_custom_val(s2p,s2);
@@ -1250,7 +1251,7 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a,value swaped)
     int debug = 0;
     if (debug) {
     printf("newkkonen_CAML_algn,no gap opening\n"); fflush(stdout);}
-    res = newkk_algn (s1p, s2p, s1_len,s2_len,(-1),tc, mp,swaped);
+    res = newkk_algn (s1p, s2p, s1_len,s2_len,(-1),tc, mp,spd);
     CAMLreturn(Val_int(res));
 };
 
@@ -1262,6 +1263,7 @@ newkkonen_CAML_algn_affine (value s1, value s2, value c, value a, value swaped)
     newkkmat_p mp;
     tc = Cost_matrix_struct(c);
     mp = Newkkmat_struct(a);
+    int spd = Int_val(swaped);
     seqt s1p, s2p;
     Seq_custom_val(s1p,s1);
     Seq_custom_val(s2p,s2);
@@ -1274,7 +1276,7 @@ newkkonen_CAML_algn_affine (value s1, value s2, value c, value a, value swaped)
     int debug = 0;
     if (debug) {
     printf("newkkonen_CAML_algn_affine,gap_open=%d\n",gap_open); fflush(stdout);}
-    res = newkk_algn (s1p, s2p, s1_len,s2_len,gap_open,tc, mp, swaped);
+    res = newkk_algn (s1p, s2p, s1_len,s2_len,gap_open,tc, mp, spd);
     CAMLreturn(Val_int(res));
 };
 
