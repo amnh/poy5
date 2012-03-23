@@ -4208,14 +4208,9 @@ let categorize_characters data chars = match chars with
     | `All -> categorize_sets data
     | othr ->
         let found set1 set2 = match set1 with
-            | x::xs when List.mem x set2 ->
-                assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs);
-                true
-            | _::xs -> 
-                assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));
-                false
-            | [] -> 
-                false
+            | x::xs when List.mem x set2 -> true
+            | _::xs -> false
+            | []    -> false
         in
         let selected = get_chars_codes data chars in
         let all_sets = categorize_sets data in

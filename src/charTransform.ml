@@ -33,6 +33,8 @@ let check_assertion_two_nbrs a b c =
         let _ = Status.user_message Status.Error c in
         false
 
+let debug_lk = false
+
 module type S = sig
     type a 
     type b
@@ -733,15 +735,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         and l_traversal lst classify_func ptree acc =
             List.fold_left (fun acc e -> classify_func ptree e acc) acc lst
         and debug_print_costs ((t,f) as ret) =
-            All_sets.IntegerMap.iter
-                (fun k v ->
-                    Printf.printf "%s -- %f\n%!" (Alphabet.match_code k alph) v)
-                f;
-            All_sets.FullTupleMap.iter
-                (fun (ka,kb) v ->
-                    Printf.printf "(%s,%s) -- %f\n%!"
-                        (Alphabet.match_code kb alph) (Alphabet.match_code ka alph) v)
-                t;
+            if debug_lk then begin
+                All_sets.IntegerMap.iter
+                    (fun k v ->
+                        Printf.printf "%s[%d] -- %f\n%!" (Alphabet.match_code k alph) k v)
+                    f;
+                All_sets.FullTupleMap.iter
+                    (fun (ka,kb) v ->
+                        Printf.printf "(%s[%d],%s[%d]) -- %f\n%!"
+                            (Alphabet.match_code kb alph) kb (Alphabet.match_code ka alph) ka v)
+                    t;
+            end;
             ret
         in
         (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
@@ -812,15 +816,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 acc
                 chars
         and debug_print_costs ((t,f) as ret) =
-            All_sets.IntegerMap.iter
-                (fun k v ->
-                    Printf.printf "%s -- %f\n%!" (Alphabet.match_code k alph) v)
-                f;
-            All_sets.FullTupleMap.iter
-                (fun (ka,kb) v ->
-                    Printf.printf "(%s,%s) -- %f\n%!"
-                        (Alphabet.match_code kb alph) (Alphabet.match_code ka alph) v)
-                t;
+            if debug_lk then begin
+                All_sets.IntegerMap.iter
+                    (fun k v ->
+                        Printf.printf "%s -- %f\n%!" (Alphabet.match_code k alph) v)
+                    f;
+                All_sets.FullTupleMap.iter
+                    (fun (ka,kb) v ->
+                        Printf.printf "(%s,%s) -- %f\n%!"
+                            (Alphabet.match_code kb alph) (Alphabet.match_code ka alph) v)
+                    t;
+            end;
             ret
         in
         (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
@@ -973,60 +979,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         codes
 
-    let rec transform_tree_characters (trees,data,nodes) meth =
-        let static_transform t bs data a b c d e (chars:Methods.characters) =
-            let chars =
-                let chars = Data.get_code_from_characters_restricted_comp
-                                                    `AllStatic data chars in
-                Data.categorize_characters data (`Some chars)
-            in
-            match chars with
-            | []  -> data
-            | css ->
-                List.fold_left
-                    (fun data cs ->
-                        let chars_  = Some (Array.of_list cs) in
-                        let _,alpha = Data.verify_alphabet data cs in
-                        (chars_,a,b,c,d,e)
-                            --> estimate_static_lk_model t data bs alpha
-                            --> Data.apply_likelihood_model_on_chars data cs)
-                    data
-                    css
-        and dynamic_transform tree bs data a b c d e chars =
-            let chars =
-                let chars = Data.get_code_from_characters_restricted_comp
-                                                    `AllDynamic data chars in
-                Data.categorize_characters data (`Some chars)
-            in
-            match chars with
-            | []  -> data
-            | css ->
-                List.fold_left
-                    (fun data cs ->
-                        let _,alpha = Data.verify_alphabet data cs in
-                        (Some cs,a,b,c,d,e)
-                            --> estimate_dynamic_lk_model tree data bs alpha
-                            --> Data.apply_likelihood_model_on_chars data cs)
-                    data
-                    css
-        in
-        match meth with
-        | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e) as x) ->
-            let () = Methods.cost := `Iterative (`ThreeD None) in
-            let trees =
-                Sexpr.fold_left
-                    (fun tsexp t ->
-                        let bs = Tree.get_edges_tree t.Ptree.tree in
-                        let data = static_transform t bs t.Ptree.data a b c d e chars in
-                        let data = dynamic_transform t bs data a b c d e chars in
-                        let ndata, nodes = Node.load_data data in
-                        let t = substitute_nodes nodes { t with Ptree.data = ndata; } in
-                        Sexpr.union (`Single t) tsexp)
-                    `Empty
-                    trees
-            (* this data/nodes are used when building/loading new trees *)
-            and data, nodes = Node.load_data (Data.categorize data) in
-            trees, data, nodes
 
     let rec transform_node_characters trees (data,nodes) (meth : Methods.char_transform)  =
         let load_transformed_data new_data = 
@@ -1248,6 +1200,63 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
               Status.finished status;              
               load_transformed_data new_data 
           end 
+
+
+    let rec transform_tree_characters (trees,data,nodes) meth =
+        let static_transform t bs data a b c d e (chars:Methods.characters) =
+            let chars =
+                let chars = Data.get_code_from_characters_restricted_comp
+                                                    `AllStatic data chars in
+                Data.categorize_characters data (`Some chars)
+            in
+            match chars with
+            | []  -> data
+            | css ->
+                List.fold_left
+                    (fun data cs ->
+                        let chars_  = Some (Array.of_list cs) in
+                        let _,alpha = Data.verify_alphabet data cs in
+                        (chars_,a,b,c,d,e)
+                            --> estimate_static_lk_model t data bs alpha
+                            --> Data.apply_likelihood_model_on_chars data cs)
+                    data
+                    css
+        and dynamic_transform tree bs data a b c d e chars =
+            let chars =
+                let chars = Data.get_code_from_characters_restricted_comp
+                                                    `AllDynamic data chars in
+                Data.categorize_characters data (`Some chars)
+            in
+            match chars with
+            | []  -> data
+            | css ->
+                List.fold_left
+                    (fun data cs ->
+                        let _,alpha = Data.verify_alphabet data cs in
+                        (Some cs,a,b,c,d,e)
+                            --> estimate_dynamic_lk_model tree data bs alpha
+                            --> Data.apply_likelihood_model_on_chars data cs)
+                    data
+                    css
+        in
+        match meth with
+        | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e) as x) ->
+            let trees =
+                Sexpr.fold_left
+                    (fun tsexp t ->
+                        let bs = Tree.get_edges_tree t.Ptree.tree in
+                        let data = static_transform t bs t.Ptree.data a b c d e chars in
+                        let data = dynamic_transform t bs data a b c d e chars in
+                        let ndata, nodes = Node.load_data data in
+                        let t = substitute_nodes nodes { t with Ptree.data = ndata; } in
+                        Sexpr.union (`Single t) tsexp)
+                    `Empty
+                    trees
+            in
+            (* this data/nodes are used when building/loading new trees *)
+            let data, nodes = Node.load_data (Data.set_likelihood data x) in
+            trees, data, nodes
+
 
     let transform_nodes_trees trees data nodes (trans : Methods.tree_transform list) = 
         let len = List.length trans in 

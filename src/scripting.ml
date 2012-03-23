@@ -1418,12 +1418,13 @@ let process_transform (run : r) (meth : Methods.transform) =
           { run with
                 trees =
                   Sexpr.map (Ptree.set_origin_cost float) run.trees }
+    (* Since these transforms are tree-dependent, we do not update trees to
+       data, and continue on with the diagnosis *)
     | #Methods.tree_transform as meth ->
         let trees, data, nodes =
             CT.transform_nodes_trees run.trees run.data run.nodes [meth]
         in
-        update_trees_to_data false false
-                {run with trees = trees; nodes = nodes; data = data;}
+        {run with trees = trees; nodes = nodes; data = data;}
     | #Methods.char_transform as meth ->
         let data, nodes =
               CT.transform_nodes run.trees run.data run.nodes [meth] 

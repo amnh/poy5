@@ -1293,10 +1293,10 @@ module Two_D = struct
     let code_of_states states cm =
         if check_level cm
             then comblist_to_combcode states cm
-            else BitSet.Int.packed_of_list states
+            else BitSet.Int.packed_of_list_max states (alphabet_size cm)
 
     let get_closest cm a b =
-        if debug then begin 
+        if debug then begin
             Printf.printf "get_closest: a,b=%d,%d; %!" a b;
             if (a<=0) || (b<=0) then output stdout cm
             else ();

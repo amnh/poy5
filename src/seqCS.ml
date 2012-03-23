@@ -2583,9 +2583,9 @@ let classify_transformations leafa seqa leafb seqb acc =
     let classify_sequence_pair useq1 useq2 acc =
         let aseq1, aseq2, _ = align_2_function useq1 useq2 in
         Sequence.foldi_2
-            (fun acc _ c1 c2 -> 
-                let es1 = Cost_matrix.Two_D.states_of_code c1 cm
-                and es2 = Cost_matrix.Two_D.states_of_code c2 cm in
+            (fun acc i c1 c2 -> 
+                let es1 = BitSet.Int.list_of_packed c1
+                and es2 = BitSet.Int.list_of_packed c2 in
                 let v1 = float_of_int (List.length es1)
                 and v2 = float_of_int (List.length es2) in
                 let v  = (v1 *. v2) in
