@@ -721,7 +721,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     (** Estimate the model for dynamic data; this is slightly different since we
         process each branch with a re-alignment, and do not require to include
         constant sites as static data, below this function **)
-    let estimate_dynamic_lk_model tree data branches alph (chars,cost,subst,vari,_,gap) =
+    let estimate_dynamic_lk_model tree data branches alph (chars,_,cost,subst,vari,_,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
@@ -761,7 +761,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     (* estimate a likelihood model from non-addative characters as defined in
      * chars, over branches. Classify all transitions and count base frequencies
      * of leaves for priors, then construct the model. *)
-    let estimate_static_lk_model tree data branches alph (chars,cost,subst,vari,_,gap) =
+    let estimate_static_lk_model tree data branches alph (chars,_,cost,subst,vari,_,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
@@ -1203,7 +1203,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
 
     let rec transform_tree_characters (trees,data,nodes) meth =
-        let static_transform t bs data a b c d e (chars:Methods.characters) =
+        let static_transform t bs data a b c d e f chars =
             let chars =
                 let chars = Data.get_code_from_characters_restricted_comp
                                                     `AllStatic data chars in
@@ -1215,13 +1215,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 List.fold_left
                     (fun data cs ->
                         let chars_  = Some (Array.of_list cs) in
-                        let _,alpha = Data.verify_alphabet data cs in
-                        (chars_,a,b,c,d,e)
+                        let _,alpha = Data.verify_alphabet data cs `Max in
+                        (chars_,a,b,c,d,e,f)
                             --> estimate_static_lk_model t data bs alpha
                             --> Data.apply_likelihood_model_on_chars data cs)
                     data
                     css
-        and dynamic_transform tree bs data a b c d e chars =
+        and dynamic_transform tree bs data a b c d e f chars =
             let chars =
                 let chars = Data.get_code_from_characters_restricted_comp
                                                     `AllDynamic data chars in
@@ -1232,21 +1232,21 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             | css ->
                 List.fold_left
                     (fun data cs ->
-                        let _,alpha = Data.verify_alphabet data cs in
-                        (Some cs,a,b,c,d,e)
+                        let _,alpha = Data.verify_alphabet data cs `Max in
+                        (Some cs,a,b,c,d,e,f)
                             --> estimate_dynamic_lk_model tree data bs alpha
                             --> Data.apply_likelihood_model_on_chars data cs)
                     data
                     css
         in
         match meth with
-        | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e) as x) ->
+        | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e,f) as x) ->
             let trees =
                 Sexpr.fold_left
                     (fun tsexp t ->
                         let bs = Tree.get_edges_tree t.Ptree.tree in
-                        let data = static_transform t bs t.Ptree.data a b c d e chars in
-                        let data = dynamic_transform t bs data a b c d e chars in
+                        let data = static_transform t bs t.Ptree.data a b c d e f chars in
+                        let data = dynamic_transform t bs data a b c d e f chars in
                         let ndata, nodes = Node.load_data data in
                         let t = substitute_nodes nodes { t with Ptree.data = ndata; } in
                         Sexpr.union (`Single t) tsexp)

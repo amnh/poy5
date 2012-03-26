@@ -582,7 +582,7 @@ val modified_characters : d -> d -> int
 
 val get_likelihood_model : d -> int list -> MlModel.model
 val apply_likelihood_model_on_chars : d -> int list -> MlModel.model -> d
-val verify_alphabet : d -> int list -> int * Alphabet.a
+val verify_alphabet : d -> int list -> Methods.ml_alphabet -> int * Alphabet.a
 val update_priors : d -> int list -> bool -> d
 
 val set_parsimony  : d -> Methods.characters -> d 
