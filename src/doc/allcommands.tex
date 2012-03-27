@@ -3459,10 +3459,20 @@ parameters and branch lengths. Additional optimizations are performed after diag
             This set of arguments enables analysis using several variants of the
             maximum likelihood criterion. 
 
-            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gap,cost)}}
+            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gap,cost,alphabet)}}
                 {Transforms the specified characters to either static or dynamic
                 likelihood characters. All arguments are optional; the defaults
                 are presented in the sub-sections below.}
+                {likelihood}
+
+            \argumentdefinition{elikelihood}{\obligatory{(model,rates,priors,gap,cost,alphabet)}}
+                {Transforms the specified characters to either static or dynamic
+                likelihood characters while estimating the parameters based on a
+                parsimony tree. Here we set the initial rates (for example for
+                GTR) relative to the proportion of those transformations found
+                across branches of the tree. Like the normal likelihood command,
+                all arguments are optional; the defaults are presented in the
+                sub-sections below.}
                 {likelihood}
 
             \begin{statement}
@@ -3825,6 +3835,36 @@ parameters and branch lengths. Additional optimizations are performed after diag
 
                     \end{description}}
                 {gapmode}
+
+                \argumentdefinition{alphabet:TYPE}{}
+                    { This option is for morphology characters, and is used to
+                    define the alphabet size in the transform. Parsimony scores
+                    do not add cost on unobserved states, but under likelihood
+                    there can be an added cost. Here we allow someone to specify
+                    the size of the alphabet, or use the minimum states that
+                    would encompass all the observed states in the data.
+
+                    \begin{description}
+
+                        \argumentdefinition{min}{}
+                            { Set the alphabet size to be the minimum value that
+                            encompasses all characters observations.}
+                            {alphabet\_min}
+
+                        \argumentdefinition{max}{}
+                            { Do not modify the alphabet; use the one currently
+                            set under the character type. This may be 32 under
+                            morphology.}
+                            {alphabet\_max}
+
+                        \argumentdefinition{INT}{}
+                            {Specifies the size of the alphabet. We test that
+                            the alphabet after the transform can express all the
+                            observed states in the data-set and will report an
+                            error if this is the case.}
+                            {alphabet\_int}
+
+                    \end{description}}
 
         \end{argumentgroup}
 
