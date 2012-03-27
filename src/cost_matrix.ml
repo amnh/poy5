@@ -1347,14 +1347,16 @@ module Two_D = struct
         * alphabet.parser function "load_file_as_list" is expecting pure cost
         * matrix, just like those in dna and amino-acid, so we need to get rid
         * of the first line here.*)
-        if is_dna_or_ami then ()
-        else begin
-            let alpha = FileStream.Pervasives.input_line ch in
-            if debug then Printf.printf "get rid of first non-integer line of cost matrix file\n%!";
+        if not is_dna_or_ami then begin
+            ignore ( FileStream.Pervasives.input_line ch );
+            if debug then 
+                Printf.printf "remove first line of cost matrix file\n%!";
         end;
-        if debug then Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!"
-        use_comb level;
-        let res = of_channel ~tie_breaker:tie_breaker ~use_comb ~level:level all_elements ch in
+        if debug then
+            Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!" use_comb level;
+        let res =
+            of_channel ~tie_breaker:tie_breaker ~use_comb ~level:level all_elements ch
+        in
         ch#close_in;
         res
 

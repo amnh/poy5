@@ -109,8 +109,8 @@ val likelihood_not_enabled : string
 (** string for erroring when likelihood is not enabled. *)
 
 val default_command :
-    Methods.ml_costfn * Methods.ml_substitution * Methods.ml_site_variation option
-        * Methods.ml_priors * Methods.ml_gap
+    Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_substitution
+        * Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap
 
 val compare_priors : model -> model -> bool
 (** compare two sets of priors *)

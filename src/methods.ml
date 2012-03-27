@@ -220,9 +220,11 @@ type ml_substitution = [
 ]
 
 
-type ml_costfn = [ `MAL     (* maximum average likelihood *)
-                 | `MPL     (* most parsimonious likelihood *)
-                 | `FLK     (* dynamic alignment with a single matrix *) ] 
+type ml_alphabet = [ `Min | `Int of int | `Max ]
+
+type ml_costfn = [ `MAL (* maximum average likelihood *)
+                 | `MPL (* most parsimonious likelihood *)
+                 | `FLK (* DISABLED (POY3): dynamic alignment with a single matrix *) ]
 
 type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
@@ -232,7 +234,7 @@ type ml_priors = [ `Estimate | `Given of float list | `Equal | `Consistent ]
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
 
 type ml_spec = 
-    (characters * ml_costfn * ml_substitution * ml_site_variation option
+    (characters * ml_alphabet * ml_costfn * ml_substitution * ml_site_variation option
         * ml_priors * ml_gap)
 
 type polymorphism_arg = [ |`Do_Nothing | `Pick_One | `Do_All  ]

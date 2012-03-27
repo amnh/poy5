@@ -63,7 +63,7 @@ let hennig_for_upto is_gap_state file n pos =
         let gap = Alphabet.gap_repr in
         let alph, equates= 
             Nexus.File.make_symbol_alphabet gap lst []
-                    [Nexus.P.Datatype Nexus.P.DStandard]
+                            [Nexus.P.Datatype Nexus.P.DStandard]
         in
         default_hennig is_gap_state alph equates file pos
 
@@ -72,7 +72,7 @@ let rec generate_default of_type file pos = match of_type with
             let gap = Alphabet.gap_repr in
             let alph, equates = 
                 Nexus.File.make_symbol_alphabet gap [] []
-                        [Nexus.P.Datatype Nexus.P.Continuous]
+                                [Nexus.P.Datatype Nexus.P.Continuous]
             in
             default_hennig None alph equates file pos
     | Some (`Dna x) -> 
@@ -81,7 +81,7 @@ let rec generate_default of_type file pos = match of_type with
                        ("3",["T"]); ("4",[gap])] in
             let alph, equates = 
                 Nexus.File.make_symbol_alphabet gap [] equ
-                        [Nexus.P.Datatype Nexus.P.Dna]
+                                [Nexus.P.Datatype Nexus.P.Dna]
             in
             default_hennig x alph equates file pos
     | Some (`Rna x) ->
@@ -90,14 +90,14 @@ let rec generate_default of_type file pos = match of_type with
                        ("3",["U"]); ("4",[gap])] in
             let alph, equates = 
                 Nexus.File.make_symbol_alphabet gap [] equ
-                        [Nexus.P.Datatype Nexus.P.Rna]
+                                [Nexus.P.Datatype Nexus.P.Rna]
             in
             default_hennig x alph equates file pos
     | Some (`Protein x) ->
             let gap = Alphabet.gap_repr in
             let alph, equates =
                 Nexus.File.make_symbol_alphabet gap [] []
-                        [Nexus.P.Datatype Nexus.P.Protein]
+                                [Nexus.P.Datatype Nexus.P.Protein]
             in
             default_hennig x alph equates file pos
     | Some (`Number x) when x <  9 -> hennig_for_upto None file  8 pos

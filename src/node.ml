@@ -24,7 +24,7 @@ open Numerical.FPInfix
 
 let debug           = false
 (* print a msg if we perform jc distance instead of given BL *)
-let debug_bl        = true
+let debug_bl        = false
 let debug_exclude   = false
 let debug_sets      = false
 let debug_set_cost  = false

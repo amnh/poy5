@@ -117,11 +117,11 @@ type transform_method = [
     | `AlphabeticTerminals
     | `Prealigned_Transform
     | `EstLikelihood of 
-        ( Methods.ml_costfn * Methods.ml_substitution * 
+        ( Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_substitution * 
           Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `UseParsimony
     | `UseLikelihood of 
-        ( Methods.ml_costfn * Methods.ml_substitution * 
+        ( Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_substitution * 
           Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `Level of (int * tie_breaker )
     | `Tcm of (string * (int * tie_breaker) option)
@@ -440,11 +440,11 @@ let transform_transform acc (id, x) =
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
-            | `EstLikelihood (a, b, c, d, e) ->
-                    (`EstLikelihood (id, a, b, c, d, e)) :: acc
+            | `EstLikelihood (a, b, c, d, e, f) ->
+                    (`EstLikelihood (id, a, b, c, d, e, f)) :: acc
             | `UseParsimony -> (`UseParsimony id) :: acc
-            | `UseLikelihood (a, b, c, d, e) ->
-                    (`UseLikelihood (id, a, b, c, d, e)) :: acc
+            | `UseLikelihood (a, b, c, d, e, f) ->
+                    (`UseLikelihood (id, a, b, c, d, e, f)) :: acc
             | `Level (l,tb) -> (`Assign_Level (l,tb,id))::acc
             | `Tcm (f,l_and_tb) -> 
                     (`Assign_Transformation_Cost_Matrix ((Some ((`Local f),l_and_tb)), id)) :: acc
@@ -1185,12 +1185,13 @@ let transform_search items =
     | _ -> failwith "Forgot to update the list of options of search?"
 
 let process_likelihood_commands lst = 
-    let process (cost,model,vari,prior,gaps) = function
-        | `ML_cost   x -> (x,    model, vari, prior, gaps)
-        | `ML_subst  x -> (cost, x,     vari, prior, gaps)
-        | `ML_vars   x -> (cost, model, x,    prior, gaps)
-        | `ML_prior  x -> (cost, model, vari, x,     gaps)
-        | `ML_gaps   x -> (cost, model, vari, prior, x   )
+    let process (alph,cost,model,vari,prior,gaps) = function
+        | `ML_alph   x -> ( x,   cost, model, vari, prior, gaps)
+        | `ML_cost   x -> (alph,  x,   model, vari, prior, gaps)
+        | `ML_subst  x -> (alph, cost,  x,    vari, prior, gaps)
+        | `ML_vars   x -> (alph, cost, model,  x,   prior, gaps)
+        | `ML_prior  x -> (alph, cost, model, vari,  x,    gaps)
+        | `ML_gaps   x -> (alph, cost, model, vari, prior,  x  )
     in
     List.fold_left process MlModel.default_command lst
 
@@ -1331,6 +1332,12 @@ let create_expr () =
                 ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
                 right_parenthesis -> List.map float_of_string x
             ]];
+        ml_alphabet: 
+            [
+                [ LIDENT "max" -> `Max ] | 
+                [ LIDENT "min" -> `Min ] |
+                [ x = INT      -> `Int (int_of_string x) ]
+            ];
         ml_substitution: 
             [
                 [ LIDENT "jc69" -> `JC69 ] |
@@ -1389,14 +1396,16 @@ let create_expr () =
         ml_properties:
             [
                 [ x = ml_substitution
-                                -> `ML_subst x] |
+                                -> `ML_subst x ] |
+                [ LIDENT "alphabet"; ":"; x = ml_alphabet
+                                -> `ML_alph  x ] |
                 [ LIDENT "rates";":"; left_parenthesis; x = ml_rates; right_parenthesis
-                                -> `ML_vars  x] |
+                                -> `ML_vars  x ] |
                 [ LIDENT "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
-                                -> `ML_prior x] |
+                                -> `ML_prior x ] |
                 [ LIDENT "gap"; ":"; left_parenthesis; x = ml_gap; right_parenthesis
-                                -> `ML_gaps  x] |
-                [ x = ml_costfn -> `ML_cost  x]
+                                -> `ML_gaps  x ] |
+                [ x = ml_costfn -> `ML_cost  x ]
             ];
         optional_poly :
             [
@@ -1428,13 +1437,13 @@ let create_expr () =
                 [ LIDENT "prioritize" -> `Prioritize ] |
                 [ LIDENT "elikelihood"; ":"; left_parenthesis;
                     lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
-                        let v,w,x,y,z = process_likelihood_commands lst in
-                        `EstLikelihood (v, w, x, y, z) ] |
+                        let u,v,w,x,y,z = process_likelihood_commands lst in
+                        `EstLikelihood (u, v, w, x, y, z) ] |
                 [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
-                        let v,w,x,y,z = process_likelihood_commands lst in
-                        `UseLikelihood (v, w, x, y, z) ] |
+                        let u,v,w,x,y,z = process_likelihood_commands lst in
+                        `UseLikelihood (u, v, w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
