@@ -232,21 +232,20 @@ let compare_character data node ancestor =
                 -td (align=left) (bgcolor=[white]) 
                     { Xml.coherce cost } -- --)
         end else begin
-            assert( cost = 0.0 );
             let node_states = string_of_states node
             and ance_states = string_of_states ancestor
-            and type_of_event = "NA" in
+            and type_of_event = `String "NA" in
             (PXML
             -tr -td (align=left) (bgcolor=[white]) { Xml.coherce name } --
-                -td (align=left) (bgcolor=[gray]) -font (size="+1") 
+                -td (align=left) (bgcolor=[gray]) -font (size="+1")
                     { string ance_states } -- --
-                -td (align=left) (bgcolor=[white]) -font (size="+1") 
+                -td (align=left) (bgcolor=[white]) -font (size="+1")
                     { string node_states } -- --
-                -td (align=left) (bgcolor=[gray]) 
+                -td (align=left) (bgcolor=[gray])
                     { type_of_event } --
-                -td (align=left) (bgcolor=[white]) 
+                -td (align=left) (bgcolor=[white])
                     { Xml.coherce cost } -- --)
-        end      
+        end
     else (PXML ---)
 
 let diagnosis_html data tree node () =
