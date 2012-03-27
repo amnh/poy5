@@ -4349,19 +4349,39 @@ let verify_alphabet data chars alph =
             let counter = ref ~-1 in
             List.map 
                 (fun x -> incr counter; (x,!counter,None))
-                ((All_sets.Strings.elements ns)@[gap])
+                (ns@[gap])
         in
         Alphabet.list_to_a a_data gap None Alphabet.Sequential
+    in
+    let append_sequential ns n gap =
+        let rec get_up_to acc lst x = match x, lst with
+            | 0, _ -> List.rev acc
+            | n, h :: t when List.mem h acc -> get_up_to acc t n
+            | n, h :: t -> get_up_to (h::acc) t (n-1)
+            | _, [] -> failwith "I cannot make the alphabet that size"
+        in
+        let ns = 
+            get_up_to 
+                (List.rev (All_sets.Strings.elements ns))
+                ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"; "A"; "B";
+                 "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J"; "K"; "L"; "M"; "N";
+                 "O"; "P"; "Q"; "R"; "S"; "T"; "U"; "V"; "W"; "X"; "Y"; "Z"]
+                (n - (All_sets.Strings.cardinal ns))
+        in
+        make_sequential ns gap
     in
     match alph with
     | `Min   ->
         let states = available_states data chars in
         All_sets.Strings.cardinal states,
-        make_sequential states Alphabet.gap_repr
+        make_sequential (All_sets.Strings.elements states) Alphabet.gap_repr
+    | `Int x when x < 2 ->
+        failwith "I cannot reduce the alphabet to below 2"
     | `Int x ->
-        assert( false )
-(*        let states = available_states data in*)
-(*        x, make_sequential x Alphabet.gap_repr*)
+        let states = available_states data chars in
+        if (All_sets.Strings.cardinal states) > x then
+            failwith "I cannot reduce the alphabet size below observed states";
+        x, append_sequential states x Alphabet.gap_repr
     | `Max   ->
         begin match List.map (get_alphabet data) chars with
         | h :: t ->
