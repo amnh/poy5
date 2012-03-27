@@ -962,6 +962,29 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 string_of_float point.GIS.latitude ^ "," ^
                 string_of_float point.GIS.altitude)
 
+            let line_to_curve iterations a b =
+                let accumulator = Buffer.create 1667 in
+                let append x =
+                    Buffer.add_string accumulator " ";
+                    Buffer.add_string accumulator x
+                in
+                let rec aux iterations a b =
+                    let center = GIS.center_points a b in
+                    let coords = create_coords center in
+                    if iterations = 0 then begin
+                        append coords;
+                    end else begin
+                        let iterations = iterations - 1 in
+                        aux iterations a center;
+                        append coords;
+                        aux iterations center b
+                    end
+                in
+                Buffer.add_string accumulator (create_coords a);
+                aux iterations a b;
+                append (create_coords b);
+                Buffer.contents accumulator
+
             let create_line parent_gis gis =
                 (PXML -LineString
                     -altitudeMode relativeToGround --
@@ -970,8 +993,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                         | None -> `Empty
                         | Some x -> 
                                 `String 
-                                    (create_coords gis.TemporalGIS.coordinates ^ 
-                                    " " ^ create_coords x.TemporalGIS.coordinates)] 
+                                    (line_to_curve 5 gis.TemporalGIS.coordinates x.TemporalGIS.coordinates)]
                     --
                 --)
 
