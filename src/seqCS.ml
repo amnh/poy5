@@ -788,7 +788,8 @@ module DOS = struct
         else 
             let seqm, tmpa, tmpb, tmpcost, seqmwg =
                 match Cost_matrix.Two_D.affine h.c2 with
-                | Cost_matrix.Affine _ -> 
+                | Cost_matrix.Affine _ ->
+                        (**)
                         if use_ukk then
                             let tmpa,tmpb,tmpcost = 
                                 Sequence.NewkkAlign.align_2 a.sequence b.sequence 
@@ -800,6 +801,52 @@ module DOS = struct
                             seqm, tmpa, tmpb, tmpcost, seqmwg
                         else
                             Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
+                        (**)
+                        (* compare cost and alignment 
+                        let notthesame s1 s2 =
+                            if (Sequence.compare s1 s2)<>0 then true
+                            else false
+                        in
+                        let tmpa,tmpb,tmpcost = 
+                                Sequence.NewkkAlign.align_2 a.sequence b.sequence 
+                                h.c2 Sequence.NewkkAlign.default_ukkm in
+                        let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2 in
+                        let seqmwg = Sequence.median_2_with_gaps tmpa tmpb h.c2 
+                        in
+                        let seqm2, tmpa2, tmpb2, tmpcost2, seqmwg2 =
+                        Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
+                        in
+                        (*just compare the cost*)
+                        let oc1 =  open_out "algn.cost" in
+                        Printf.fprintf oc1 "%d%!" tmpcost;
+                        close_out oc1;
+                        let oc2 =  open_out "newkkonen.cost" in
+                        Printf.fprintf oc2 "%d%!" tmpcost2;
+                        close_out oc2;
+                        (* compare the traceback*)
+                        if (notthesame seqm seqm2)||(notthesame seqmwg
+                        seqmwg2)||(notthesame tmpa tmpa2)||(notthesame tmpb
+                        tmpb2) then begin
+                            Printf.printf "diff between newkkonen and normal affine alignment:\n%!";
+                            Printf.printf "input seq :\n%!";
+                            Sequence.print stdout a.sequence Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout b.sequence Alphabet.nucleotides;print_newline();
+                            Printf.printf "tmpa from algn.c, tmpa2 from newkkonen.c:\n%!";
+                            Sequence.print stdout tmpa Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout tmpa2 Alphabet.nucleotides;print_newline();
+                            Printf.printf "tmpb,tmpb2:\n%!";
+                            Sequence.print stdout tmpb Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout tmpb2 Alphabet.nucleotides;print_newline();
+                            Printf.printf "seqm with gap :\n%!";
+                            Sequence.print stdout seqmwg Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout seqmwg2 Alphabet.nucleotides;print_newline();
+                            Printf.printf "seqm : \n%!";
+                            Sequence.print stdout seqm Alphabet.nucleotides;print_newline();
+                            Sequence.print stdout seqm2 Alphabet.nucleotides;print_newline();
+                            assert(false);
+                        end;
+                        seqm, tmpa, tmpb, tmpcost, seqmwg
+                        compare cost and alignment *)
                 | _ ->
                         let tmpa, tmpb, tmpcost =
                            if use_ukk then 
