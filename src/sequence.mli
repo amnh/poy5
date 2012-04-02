@@ -194,11 +194,14 @@ val make_empty : Alphabet.a -> s
 
 (** [map f s] outputs a new sequence [t] such that [t](i) = [f]([s](i)). *)
 val map : (int -> int) -> s -> s
+
 val mapi : (int -> int -> int) -> s -> s
 
 val fold : ('a -> int -> 'a) -> 'a -> s -> 'a
 
 val foldi : ('a -> int -> int -> 'a) -> 'a -> s -> 'a
+
+val foldi_2 : ('a -> int -> int -> int -> 'a) -> 'a -> s -> s -> 'a
 
 val fold_right : ('a -> int -> 'a) -> 'a -> s -> 'a
 
@@ -682,21 +685,27 @@ val get_single_seq : s -> Cost_matrix.Two_D.m -> s
 val cmp_locus_indel_cost : s -> Cost_matrix.Two_D.m -> int * int -> int
 
 module Clip : sig
-    val fraction : float
+
+
     type old_s = s
-    val count_tip_gaps : int -> old_s -> old_s -> int
-    val correct_distance : int -> Cost_matrix.Two_D.m -> old_s -> old_s -> int
-    -> int
-    val corrected_distance : Cost_matrix.Two_D.m -> int -> old_s -> old_s ->
-        bool -> int
     type s = [ `DO of old_s | `First of old_s | `Last of old_s ]
+
+    val fraction : float
+    val count_tip_gaps : int -> old_s -> old_s -> int
+    val correct_distance : 
+        int -> Cost_matrix.Two_D.m -> old_s -> old_s -> int -> int
+    val corrected_distance : 
+        Cost_matrix.Two_D.m -> int -> old_s -> old_s -> bool -> int
+
     module Align : sig
-        val align_2 : ?first_gap:bool -> s -> s -> 
-            Cost_matrix.Two_D.m -> Matrix.m -> s * s * int * int * s * s
+        val align_2 :
+            ?first_gap:bool -> s -> s -> Cost_matrix.Two_D.m -> Matrix.m
+                -> s * s * int * int * s * s
     end
+
     val extract_s : s -> old_s
     val cmp_ali_cost :
-      s -> s -> [> `Positive ] -> Cost_matrix.Two_D.m -> int
+        s -> s -> [> `Positive ] -> Cost_matrix.Two_D.m -> int
     val cmp_gap_cost : int * int -> s -> int
     val complement_chrom : Alphabet.a -> s -> s
     val concat : s list -> s

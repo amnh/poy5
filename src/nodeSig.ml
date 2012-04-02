@@ -66,6 +66,13 @@ module type S = sig
     (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
     val apply_time : bool -> n -> n -> n
 
+    (** [classify_edge l1 n1 l2 n2] Align and classify the transformations. Can
+        be used for statistical inference, or information on a trees transitions
+        and indel events. *)
+    val classify_data : bool -> n -> bool -> n -> int list option ->
+        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->
+            (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)
+
     (** [extract_states a r b] extract parsimony states at node [b] toward [a],
      * exclude all characters not present in [r] if it exists, else all of them **)
     val extract_states : Alphabet.a -> Data.d -> int option -> int array option -> n ->

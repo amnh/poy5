@@ -4208,14 +4208,9 @@ let categorize_characters data chars = match chars with
     | `All -> categorize_sets data
     | othr ->
         let found set1 set2 = match set1 with
-            | x::xs when List.mem x set2 ->
-                assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs);
-                true
-            | _::xs -> 
-                assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));
-                false
-            | [] -> 
-                false
+            | x::xs when List.mem x set2 -> true
+            | _::xs -> false
+            | []    -> false
         in
         let selected = get_chars_codes data chars in
         let all_sets = categorize_sets data in
@@ -4327,21 +4322,82 @@ let get_alphabet data c =
     with  Not_found        -> failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
 
 
-let verify_alphabet data chars =
-    match List.map (get_alphabet data) chars with
-    | h :: t ->
-        ignore 
-            (List.fold_left
-                ~f:(fun acc x -> 
-                        if x = h then acc 
-                        else begin
-                            (* Alphabet.print x; Alphabet.print h; *)
-                            failwith "The alphabet of the characters is different"
-                        end)
-                ~init:true t);
-        let alph = Alphabet.to_sequential h in
-        (Alphabet.size alph), alph
-    | [] -> failwith "No alphabet to verify?"
+let available_states data chars = 
+    let observed ccode acode = match Hashtbl.find data.character_specs ccode with
+        | Static spec -> List.mem acode (spec.Nexus.File.st_observed)
+        | Set | Kolmogorov _ | Dynamic _ ->
+            failwith ("We do not support unaligned morphology characters. " ^
+                      "Please remove 'alphabet:' argument in transform command")
+    in
+    List.fold_left
+        ~f:(fun acc c ->
+            let c_alph = get_alphabet data c in
+            List.fold_left
+                ~f:(fun acc (x,y) ->
+                        if observed c y
+                            then All_sets.Strings.add x acc
+                            else acc)
+                ~init:acc
+                (Alphabet.to_list (get_alphabet data c)) )
+        ~init:All_sets.Strings.empty
+        chars
+
+
+let verify_alphabet data chars alph =
+    let make_sequential ns gap =
+        let a_data = 
+            let counter = ref ~-1 in
+            List.map 
+                (fun x -> incr counter; (x,!counter,None))
+                (ns@[gap])
+        in
+        Alphabet.list_to_a a_data gap None Alphabet.Sequential
+    in
+    let append_sequential ns n gap =
+        let rec get_up_to acc lst x = match x, lst with
+            | 0, _ -> List.rev acc
+            | n, h :: t when List.mem h acc -> get_up_to acc t n
+            | n, h :: t -> get_up_to (h::acc) t (n-1)
+            | _, [] -> failwith "I cannot make the alphabet that size"
+        in
+        let ns = 
+            get_up_to 
+                (List.rev (All_sets.Strings.elements ns))
+                ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"; "A"; "B";
+                 "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J"; "K"; "L"; "M"; "N";
+                 "O"; "P"; "Q"; "R"; "S"; "T"; "U"; "V"; "W"; "X"; "Y"; "Z"]
+                (n - (All_sets.Strings.cardinal ns))
+        in
+        make_sequential ns gap
+    in
+    match alph with
+    | `Min   ->
+        let states = available_states data chars in
+        All_sets.Strings.cardinal states,
+        make_sequential (All_sets.Strings.elements states) Alphabet.gap_repr
+    | `Int x when x < 2 ->
+        failwith "I cannot reduce the alphabet to below 2"
+    | `Int x ->
+        let states = available_states data chars in
+        if (All_sets.Strings.cardinal states) > x then
+            failwith "I cannot reduce the alphabet size below observed states";
+        x, append_sequential states x Alphabet.gap_repr
+    | `Max   ->
+        begin match List.map (get_alphabet data) chars with
+        | h :: t ->
+            ignore 
+                (List.fold_left
+                    ~f:(fun acc x -> 
+                            if x = h then acc 
+                            else begin
+                                (* Alphabet.print x; Alphabet.print h; *)
+                                failwith "The alphabet of the characters is different"
+                            end)
+                    ~init:true t);
+            let alph = Alphabet.to_sequential h in
+            (Alphabet.size alph), alph
+        | [] -> failwith "No alphabet to verify?"
+        end
 
 (* [independent c d] make each character in the characterset independent. Used
  * so each character can have a different model
@@ -4407,7 +4463,7 @@ let make_char_sets sets d =
  * elements in the alphabet shared by the characters *)
 let compute_priors data chars u_gap = 
     let debug_priors = false in
-    let size, alph = verify_alphabet data chars in
+    let size, alph = verify_alphabet data chars `Min in
     let size = if u_gap then size else size-1 in
     let priors = Array.make size 0.0 in
     (* A function that takes a list of states and add the appropriate value to
@@ -4738,7 +4794,7 @@ END
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
-let set_likelihood data (((chars,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
+let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
     let u_gap = match use_gap with
         | `Independent | `Coupled _ -> true | `Missing -> false
@@ -4753,7 +4809,8 @@ IFDEF USE_LIKELIHOOD THEN
             (* We get the characters and filter them out to have only static types *)
             let model =
                 let compute_priors () = compute_priors data chars u_gap in
-                let alph_size,alph = verify_alphabet data chars in
+                let alph_size,alph = verify_alphabet data chars alph in
+                Alphabet.print alph;
                 let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
                 let lk_spec =
                     if dynamic then MlModel.remove_gamma_from_spec lk_spec

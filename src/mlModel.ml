@@ -68,7 +68,7 @@ type string_spec = string * (string * string * string * string) * float list
 let empty_str_spec : string_spec = ("",("","","",""),[],`Consistent None,("",None),"",None)
 
 (* the default when commands are left off from the interactive console / scripts *)
-let default_command = (`MAL,`GTR None,None,`Consistent,`Missing)
+let default_command = (`Max, `MAL,`GTR None,None,`Consistent,`Missing)
 
 (* --- DEFAULTS FOR MODELS FROM PHYML --- *)
 (*  These are used for DNA sequences, and
@@ -1094,10 +1094,13 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
   END
 
 
-let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,base_priors,use_gap) =
+let convert_methods_spec alph_size compute_priors (_,alph,cst,subst,site_variation,base_priors,use_gap) =
     let u_gap = match use_gap with 
             | `Independent | `Coupled _ -> true | `Missing -> false in
-    let alph_size = if u_gap then alph_size else alph_size - 1 in
+    let alph_size = 
+        let w_gap = if u_gap then alph_size else alph_size - 1 in
+        match alph with | `Min | `Max  -> w_gap | `Int x -> x
+    in
     let i_alpha = ref true and i_model = ref true in
     let base_priors = match base_priors with
         | `Estimate  -> Estimated (compute_priors ())

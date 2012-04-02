@@ -754,10 +754,9 @@ module DOS = struct
     let to_single h parent mine =
         if debug then Printf.printf "seqCS.DOS.to_single\n%!";
         let gap = Cost_matrix.Two_D.gap h.c2 in
-        let use_ukk = 
-         match !Methods.algn_mode with
-              | `Algn_Newkk -> true
-              | _ -> false
+        let use_ukk = match !Methods.algn_mode with
+            | `Algn_Newkk  -> true
+            | `Algn_Normal -> false
         in
         if Sequence.is_empty mine.sequence gap then
             create mine.sequence, 0
@@ -1671,10 +1670,10 @@ module RL = struct
 end
 
 type sequence_characters =
-| General_Prealigned of GenNonAdd.gnonadd_sequence
-| Heuristic_Selection of DOS.do_single_sequence
-| Partitioned of PartitionedDOS.partitioned_sequence
-| Relaxed_Lifted of (RL.relaxed_lifted * RL.fs_sequences)
+    | General_Prealigned of GenNonAdd.gnonadd_sequence
+    | Heuristic_Selection of DOS.do_single_sequence
+    | Partitioned of PartitionedDOS.partitioned_sequence
+    | Relaxed_Lifted of (RL.relaxed_lifted * RL.fs_sequences)
 
 (** A sequence character type. *)
 type t = { 
@@ -1892,10 +1891,9 @@ module Union = struct
     let distance_union a b = 
         match a, b with
         | Some a, Some b ->
-                let use_ukk = 
-                    match !Methods.algn_mode with
-                    | `Algn_Newkk -> true
-                    | _ -> false
+                let use_ukk = match !Methods.algn_mode with
+                    | `Algn_Newkk  -> true
+                    | `Algn_Normal -> false
                 in
                 let sub_factor = 
                     match Cost_matrix.Two_D.affine a.u_c2 with
@@ -2097,10 +2095,9 @@ let same_codes a b =
 * parent of [ch1] and [ch2]. *)
 let readjust mode to_adjust modified ch1 ch2 parent mine =
     assert (parent.alph = Alphabet.nucleotides);
-    let use_ukk = 
-        match !Methods.algn_mode with
-        | `Algn_Newkk -> true
-        | _ -> false
+    let use_ukk = match !Methods.algn_mode with
+        | `Algn_Newkk  -> true
+        | `Algn_Normal -> false
     in
     let new_modified = ref [] 
     and total_cost = ref 0 in
@@ -2185,10 +2182,9 @@ let median code a b =
     let total_cost = ref 0 in
     let h = a.heuristic in
     let alph = a.alph in
-    let use_ukk = 
-        match !Methods.algn_mode with
-        | `Algn_Newkk -> true
-        | _ -> false
+    let use_ukk = match !Methods.algn_mode with
+        | `Algn_Newkk  -> true
+        | `Algn_Normal -> false
     in
     let characters =
         Array_ops.map_2 (fun a b ->
@@ -2247,24 +2243,22 @@ let median_3 p n c1 c2 =
     (* A function to calculate the uppass values if the alphabet cannot 
     * handle the union of the items inside *)
     let median_no_union () = 
-        let use_ukk = 
-        match !Methods.algn_mode with
-        | `Algn_Newkk -> true
-        | _ -> false
+        let use_ukk = match !Methods.algn_mode with
+            | `Algn_Newkk  -> true
+            | `Algn_Normal -> false
         in
         generic_map_4 DOS.median_3_no_union RL.median_3 GenNonAdd.median_3
-        p.characters n.characters c1.characters c2.characters use_ukk
+                p.characters n.characters c1.characters c2.characters use_ukk
     in
     (* A function to calculate the uppass values if the alphabet does handle
     * properly the union of the items inside. *)
     let median_union () =
-        let use_ukk = 
-        match !Methods.algn_mode with
-        | `Algn_Newkk -> true
-        | _ -> false
+        let use_ukk = match !Methods.algn_mode with
+            | `Algn_Newkk  -> true
+            | `Algn_Normal -> false
         in
         generic_map_4 DOS.median_3_union RL.median_3 GenNonAdd.median_3
-        p.characters n.characters c1.characters c2.characters use_ukk
+                p.characters n.characters c1.characters c2.characters use_ukk
     in
     let characters = 
         let has_combinations = 1 = Cost_matrix.Two_D.combine n.heuristic.c2 in
@@ -2276,35 +2270,33 @@ let distance missing_distance a b =
     let missing_distance = int_of_float missing_distance in
     let h = a.heuristic in
     let alph = a.alph in
-    let use_ukk = 
-        match !Methods.algn_mode with
-        | `Algn_Newkk -> true
-        | _ -> false
+    let use_ukk = match !Methods.algn_mode with
+        | `Algn_Newkk  -> true
+        | `Algn_Normal -> false
     in
-    float_of_int (Array_ops.fold_right_2 (fun acc a b ->
-        match a, b with
-        | Partitioned a, Partitioned b ->
-                acc + (PartitionedDOS.distance alph h missing_distance a b use_ukk)
-        | General_Prealigned a, General_Prealigned b ->
-                acc + (GenNonAdd.distance a b h.c2)
-        | Heuristic_Selection a, Heuristic_Selection b ->
-                acc + (DOS.distance alph h missing_distance a b use_ukk) 
-        | Relaxed_Lifted a, Relaxed_Lifted b ->
-                acc + (int_of_float (RL.distance a b))
-        | Partitioned _, _
-        | _, Partitioned _
-        | Relaxed_Lifted _, _
-        | _, Relaxed_Lifted _ 
-        | Heuristic_Selection _, _ 
-        | General_Prealigned _, _ -> assert false) 0 a.characters b.characters)
+    float_of_int
+        (Array_ops.fold_right_2
+            (fun acc a b -> match a, b with
+                | Partitioned a, Partitioned b ->
+                    acc + (PartitionedDOS.distance alph h missing_distance a b use_ukk)
+                | General_Prealigned a, General_Prealigned b ->
+                    acc + (GenNonAdd.distance a b h.c2)
+                | Heuristic_Selection a, Heuristic_Selection b ->
+                    acc + (DOS.distance alph h missing_distance a b use_ukk) 
+                | Relaxed_Lifted a, Relaxed_Lifted b ->
+                    acc + (int_of_float (RL.distance a b))
+                | Partitioned _, _
+                | Relaxed_Lifted _, _
+                | Heuristic_Selection _, _ 
+                | General_Prealigned _, _ -> assert false)
+            0 a.characters b.characters)
 
 let dist_2 delta n a b =
     let h = n.heuristic in
     let delta = int_of_float delta in
-    let use_ukk = 
-        match !Methods.algn_mode with
-        | `Algn_Newkk -> true
-        | _ -> false
+    let use_ukk = match !Methods.algn_mode with
+        | `Algn_Newkk  -> true
+        | `Algn_Normal -> false
     in
     let x, deltaleft =
         Array_ops.fold_right_3 (fun (acc, deltaleft) n a b ->
@@ -2380,10 +2372,9 @@ let compare_data a b =
 let ( --> ) a b = b a 
 
 let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list = 
-    let use_ukk = 
-        match !Methods.algn_mode with
-        | `Algn_Newkk -> true
-        | _ -> false
+    let use_ukk = match !Methods.algn_mode with
+        | `Algn_Newkk  -> true
+        | `Algn_Normal -> false
     in
     let h = t.heuristic in
     let res_state = ref (-1) in
@@ -2557,7 +2548,7 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
 let get_sequences (data:t) : Sequence.s array array =
     Array.map 
         (function
-            | General_Prealigned x -> [| x.GenNonAdd.seq|]
+            | General_Prealigned x -> [| x.GenNonAdd.seq |]
             | Heuristic_Selection x -> [| x.DOS.sequence |]
             | Relaxed_Lifted (rl,_) -> rl.RL.sequence_table
             | Partitioned y ->
@@ -2587,28 +2578,82 @@ let align_2 (one:t) (two:t) =
     end
 
 let tabu_distance a = 
-    Array.fold_left (fun sum y -> 
-        match y with
-        | Partitioned x -> sum +. (PartitionedDOS.tabu_distance x)
-        | Relaxed_Lifted _ -> sum
-        | General_Prealigned y -> (GenNonAdd.get_max_cost y.GenNonAdd.costs) +. sum
-        | Heuristic_Selection y ->
-                y.DOS.costs.max +. sum) 0.0 a.characters
+    Array.fold_left
+        (fun sum -> function
+            | Partitioned x         -> sum +. (PartitionedDOS.tabu_distance x)
+            | Relaxed_Lifted _      -> sum
+            | General_Prealigned y  -> (GenNonAdd.get_max_cost y.GenNonAdd.costs) +. sum
+            | Heuristic_Selection y -> y.DOS.costs.max +. sum)
+        0.0 a.characters
+
 
 let explode cs = 
     let h = cs.heuristic in
     Array_ops.fold_right_2
-    (fun acc code seq ->
-        match seq with
-        | Partitioned _
-        | Relaxed_Lifted _ -> failwith "TODO 12345"
-        | General_Prealigned seq ->
+        (fun acc code -> function
+            | Partitioned _
+            | Relaxed_Lifted _ -> failwith "TODO 12345"
+            | General_Prealigned seq ->
                 (code, seq.GenNonAdd.seq, h.c2, h.c3, cs.alph) :: acc
-        | Heuristic_Selection seq ->
-            (code, seq.DOS.sequence, h.c2, h.c3, cs.alph) :: acc)
-    []
-    cs.codes
-    cs.characters
+            | Heuristic_Selection seq ->
+                (code, seq.DOS.sequence, h.c2, h.c3, cs.alph) :: acc)
+        []
+        cs.codes
+        cs.characters
+
+
+let classify_transformations leafa seqa leafb seqb acc =
+    let cm = seqa.heuristic.c2 in
+    let align_2_function = match !Methods.algn_mode with
+        | `Algn_Newkk ->
+            (fun x y -> Sequence.NewkkAlign.align_2 x y cm Sequence.NewkkAlign.default_ukkm)
+        | `Algn_Normal ->
+            (fun x y -> Sequence.Align.align_2 x y cm Matrix.default)
+    and add_comb t v pair =
+        let v =
+            if All_sets.FullTupleMap.mem pair t
+                then v +. (All_sets.FullTupleMap.find pair t)
+                else v
+        in
+        All_sets.FullTupleMap.add pair v t
+    and add_freq l e v f =
+        if not l then f
+        else begin
+            let v =
+                if All_sets.IntegerMap.mem e f
+                    then (All_sets.IntegerMap.find e f) +. v
+                    else v
+            in
+            All_sets.IntegerMap.add e v f
+        end
+    in
+    let classify_sequence_pair useq1 useq2 acc =
+        let aseq1, aseq2, _ = align_2_function useq1 useq2 in
+        Sequence.foldi_2
+            (fun acc i c1 c2 -> 
+                let es1 = BitSet.Int.list_of_packed c1
+                and es2 = BitSet.Int.list_of_packed c2 in
+                let v1 = float_of_int (List.length es1)
+                and v2 = float_of_int (List.length es2) in
+                let v  = (v1 *. v2) in
+                List.fold_left2
+                    (fun (t,f) e1 e2 -> 
+                        let t = add_comb t v (e1,e2) in
+                        let f = f --> add_freq leafa e1 v1
+                                  --> add_freq leafb e2 v2 in
+                        t,f)
+                    acc es1 es2)
+            acc aseq1 aseq2
+    in
+    let a_rr = get_sequences seqb
+    and b_rr = get_sequences seqa in
+    Array_ops.fold_right_2
+        (fun acc a_r b_r ->
+            Array_ops.fold_right_2
+                (fun acc a_seq b_seq -> classify_sequence_pair a_seq b_seq acc)
+                acc a_r b_r)
+        acc a_rr b_rr
+
 
 let encoding enc x =
     Array.fold_left (fun acc x -> 

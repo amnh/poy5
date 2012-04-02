@@ -241,6 +241,10 @@ val total_cost_of_type : to_single -> node_data -> float
 
 val get_cost_mode : node_data -> [ `Likelihood | `Parsimony | `SumLikelihood |`Fixedstates  ]
 
+(*val classify_data : bool -> node_data -> bool -> node_data -> int list option ->*)
+(*        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->*)
+(*            (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)*)
+
 val to_string : node_data -> string
 
 val print : node_data -> unit

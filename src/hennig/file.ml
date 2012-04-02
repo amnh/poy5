@@ -60,9 +60,10 @@ let hennig_upto n =
 
 let hennig_for_upto is_gap_state file n pos =
         let lst = hennig_upto n in
+        let gap = Alphabet.gap_repr in
         let alph, equates= 
-            Nexus.File.make_symbol_alphabet "7" lst [] [Nexus.P.Datatype
-            Nexus.P.DStandard]
+            Nexus.File.make_symbol_alphabet gap lst []
+                            [Nexus.P.Datatype Nexus.P.DStandard]
         in
         default_hennig is_gap_state alph equates file pos
 

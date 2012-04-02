@@ -83,6 +83,15 @@ val is_fixedstates : t -> bool
 
 type u = U_SeqCS of SeqCS.Union.u | U_Others
 
+(** [classify_transformations] build a map/set of base frequencies and
+    transformations that exist across this branch length defined by the two nodes
+    passed to it. The transformations are done by first doing an alignment and
+    getting the alignment from the two sequences. **)
+val classify_transformations : 
+    bool -> t -> bool -> t -> int list option ->
+        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->
+            (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)
+
 (** [total_cost a] returns the total cost to create
 *  dynamic character set [a]*)
 val total_cost : t -> float

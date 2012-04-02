@@ -192,6 +192,13 @@ module Two_D : sig
     * according to the cost matrix cm. *)
     external median : int -> int -> m -> int = "cm_CAML_get_median"
 
+    (** [states_of_code code cm] return the list of states in an alphabet from a
+        state code from a median/leaf *)
+    val states_of_code : int -> m -> int list
+
+    (** [code_of_states states cm] return the code from a list of states. This
+        may not work if the level is not high enough. *)
+    val code_of_states : int list -> m -> int
 
     (** [get_pure_cost_mat cost_mat] return the cost matrix in an 
         int alphabet_size * alphabet_size matrix format *)  

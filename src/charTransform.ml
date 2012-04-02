@@ -33,6 +33,8 @@ let check_assertion_two_nbrs a b c =
         let _ = Status.user_message Status.Error c in
         false
 
+let debug_lk = false
+
 module type S = sig
     type a 
     type b
@@ -171,20 +173,22 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
 
     let transform_nodes nodes tree =
-        let node_data : Node.n All_sets.IntegerMap.t
-                = tree.Ptree.node_data in
-        let map = List.fold_right
-            (fun n map ->
-                 All_sets.IntegerMap.add (Node.taxon_code n) n map)
-            nodes All_sets.IntegerMap.empty in
-        let node_data = All_sets.IntegerMap.mapi
-            (fun i n ->
-                 try All_sets.IntegerMap.find i map
-                 with Not_found -> n)
-            node_data in
-        let tree =
-            { tree with
-                  Ptree.node_data = node_data } in
+        let node_data : Node.n All_sets.IntegerMap.t = tree.Ptree.node_data in
+        let map =
+            List.fold_right
+                (fun n map ->
+                    All_sets.IntegerMap.add (Node.taxon_code n) n map)
+                nodes
+                All_sets.IntegerMap.empty
+        in
+        let node_data =
+            All_sets.IntegerMap.mapi
+                (fun i n ->
+                    try All_sets.IntegerMap.find i map
+                    with Not_found -> n)
+                node_data
+        in
+        let tree = { tree with Ptree.node_data = node_data } in
         TreeOps.uppass (TreeOps.downpass tree)
 
     let resample_characters n data =
@@ -199,8 +203,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             res.(element) <- (x, y +. b);
         done;
         Array.fold_left 
-        (fun a (b, c) -> Data.transform_weight 
-            (`ReWeight ((`Some (true, [b])), c)) a) data res
+            (fun a (b, c) ->
+                Data.transform_weight (`ReWeight ((`Some (true, [b])), c)) a)
+            data
+            res
 
     let (-->) a b = b a 
 
@@ -711,18 +717,58 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             --> List.map (produce_partitions data tree)
             --> List.fold_left process_partitions data
 
-    (* estimate a likelihood model from non-addative characters as defined in
-     * chars, over branches. Classify all transitions and count base frequencies
-     * of leaves for priors, then construct the model. *)
-    let estimate_static_lk_model tree data branches alph (chars,cost,subst,vari,_,gap) =
+
+    (** Estimate the model for dynamic data; this is slightly different since we
+        process each branch with a re-alignment, and do not require to include
+        constant sites as static data, below this function **)
+    let estimate_dynamic_lk_model tree data branches alph (chars,_,cost,subst,vari,_,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
             | Tree.Interior _ -> false
             | Tree.Single _   -> assert false
         in
-        let classify_branch ptree e acc =
-            let Tree.Edge (ac,bc) = e in
+        let classify_branch ptree (Tree.Edge (ac,bc)) acc =
+            Node.classify_data
+                (is_leaf ptree ac) (Ptree.get_node_data ac ptree)
+                (is_leaf ptree bc) (Ptree.get_node_data bc ptree) chars acc
+        and l_traversal lst classify_func ptree acc =
+            List.fold_left (fun acc e -> classify_func ptree e acc) acc lst
+        and debug_print_costs ((t,f) as ret) =
+            if debug_lk then begin
+                All_sets.IntegerMap.iter
+                    (fun k v ->
+                        Printf.printf "%s[%d] -- %f\n%!" (Alphabet.match_code k alph) k v)
+                    f;
+                All_sets.FullTupleMap.iter
+                    (fun (ka,kb) v ->
+                        Printf.printf "(%s[%d],%s[%d]) -- %f\n%!"
+                            (Alphabet.match_code kb alph) kb (Alphabet.match_code ka alph) ka v)
+                    t;
+            end;
+            ret
+        in
+        (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
+            --> l_traversal branches classify_branch tree
+            --> debug_print_costs
+            --> MlModel.spec_from_classification alph gap subst vari cost
+            --> MlModel.create alph
+      ELSE
+        failwith MlModel.likelihood_not_enabled
+      END
+
+
+    (* estimate a likelihood model from non-addative characters as defined in
+     * chars, over branches. Classify all transitions and count base frequencies
+     * of leaves for priors, then construct the model. *)
+    let estimate_static_lk_model tree data branches alph (chars,_,cost,subst,vari,_,gap) =
+      IFDEF USE_LIKELIHOOD THEN
+        let is_leaf ptree code = match Ptree.get_node code ptree with
+            | Tree.Leaf _     -> true
+            | Tree.Interior _ -> false
+            | Tree.Single _   -> assert false
+        in
+        let classify_branch ptree (Tree.Edge (ac,bc)) acc =
             let a = Ptree.get_node_data ac ptree and b = Ptree.get_node_data bc ptree in
             let dataa = Node.extract_states alph data (Some bc) chars a
             and datab = Node.extract_states alph data (Some ac) chars b in
@@ -770,15 +816,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 acc
                 chars
         and debug_print_costs ((t,f) as ret) =
-            All_sets.IntegerMap.iter
-                (fun k v ->
-                    Printf.printf "%s -- %f\n%!" (Alphabet.match_code k alph) v)
-                f;
-            All_sets.FullTupleMap.iter
-                (fun (ka,kb) v ->
-                    Printf.printf "(%s,%s) -- %f\n%!"
-                        (Alphabet.match_code kb alph) (Alphabet.match_code ka alph) v)
-                t;
+            if debug_lk then begin
+                All_sets.IntegerMap.iter
+                    (fun k v ->
+                        Printf.printf "%s -- %f\n%!" (Alphabet.match_code k alph) v)
+                    f;
+                All_sets.FullTupleMap.iter
+                    (fun (ka,kb) v ->
+                        Printf.printf "(%s,%s) -- %f\n%!"
+                            (Alphabet.match_code kb alph) (Alphabet.match_code ka alph) v)
+                    t;
+            end;
             ret
         in
         (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
@@ -931,52 +979,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         codes
 
-    let rec transform_tree_characters (trees,data,nodes) meth =
-        let static_transform t bs data a b c d e (chars:Methods.characters) =
-            let chars =
-                let chars = Data.get_code_from_characters_restricted_comp
-                                                    `AllStatic data chars in
-                Data.categorize_characters data (`Some chars)
-            in
-            match chars with
-            | []  -> data
-            | css ->
-                List.fold_left
-                    (fun data cs ->
-                        let chars_  = Some (Array.of_list cs) in
-                        let _,alpha = Data.verify_alphabet data cs in
-                        (chars_,a,b,c,d,e)
-                            --> estimate_static_lk_model t data bs alpha
-                            --> Data.apply_likelihood_model_on_chars data cs)
-                    data
-                    css
-        and dynamic_transform tree bs data a b c d e chars =
-            let chars =
-                let chars = Data.get_code_from_characters_restricted_comp
-                                                    `AllDynamic data chars in
-                Data.categorize_characters data (`Some chars)
-            in
-            match chars with
-            | []  -> data
-            | css -> data
-        in
-        match meth with
-        | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e) as x) ->
-            let () = Methods.cost := `Iterative (`ThreeD None) in
-            let trees =
-                Sexpr.fold_left
-                    (fun tsexp t ->
-                        let bs = Tree.get_edges_tree t.Ptree.tree in
-                        let data = static_transform t bs t.Ptree.data a b c d e chars in
-                        let data = dynamic_transform t bs data a b c d e chars in
-                        let ndata, nodes = Node.load_data data in
-                        let t = substitute_nodes nodes { t with Ptree.data = ndata; } in
-                        Sexpr.union (`Single t) tsexp)
-                    `Empty
-                    trees
-            (* this data/nodes are used when building/loading new trees *)
-            and data, nodes = Node.load_data (Data.categorize data) in
-            trees, data, nodes
 
     let rec transform_node_characters trees (data,nodes) (meth : Methods.char_transform)  =
         let load_transformed_data new_data = 
@@ -1198,6 +1200,63 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
               Status.finished status;              
               load_transformed_data new_data 
           end 
+
+
+    let rec transform_tree_characters (trees,data,nodes) meth =
+        let static_transform t bs data a b c d e f chars =
+            let chars =
+                let chars = Data.get_code_from_characters_restricted_comp
+                                                    `AllStatic data chars in
+                Data.categorize_characters data (`Some chars)
+            in
+            match chars with
+            | []  -> data
+            | css ->
+                List.fold_left
+                    (fun data cs ->
+                        let chars_  = Some (Array.of_list cs) in
+                        let _,alpha = Data.verify_alphabet data cs `Max in
+                        (chars_,a,b,c,d,e,f)
+                            --> estimate_static_lk_model t data bs alpha
+                            --> Data.apply_likelihood_model_on_chars data cs)
+                    data
+                    css
+        and dynamic_transform tree bs data a b c d e f chars =
+            let chars =
+                let chars = Data.get_code_from_characters_restricted_comp
+                                                    `AllDynamic data chars in
+                Data.categorize_characters data (`Some chars)
+            in
+            match chars with
+            | []  -> data
+            | css ->
+                List.fold_left
+                    (fun data cs ->
+                        let _,alpha = Data.verify_alphabet data cs `Max in
+                        (Some cs,a,b,c,d,e,f)
+                            --> estimate_dynamic_lk_model tree data bs alpha
+                            --> Data.apply_likelihood_model_on_chars data cs)
+                    data
+                    css
+        in
+        match meth with
+        | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e,f) as x) ->
+            let trees =
+                Sexpr.fold_left
+                    (fun tsexp t ->
+                        let bs = Tree.get_edges_tree t.Ptree.tree in
+                        let data = static_transform t bs t.Ptree.data a b c d e f chars in
+                        let data = dynamic_transform t bs data a b c d e f chars in
+                        let ndata, nodes = Node.load_data data in
+                        let t = substitute_nodes nodes { t with Ptree.data = ndata; } in
+                        Sexpr.union (`Single t) tsexp)
+                    `Empty
+                    trees
+            in
+            (* this data/nodes are used when building/loading new trees *)
+            let data, nodes = Node.load_data (Data.set_likelihood data x) in
+            trees, data, nodes
+
 
     let transform_nodes_trees trees data nodes (trans : Methods.tree_transform list) = 
         let len = List.length trans in 
