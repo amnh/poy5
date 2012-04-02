@@ -249,7 +249,7 @@ module NewkkAlign : sig
     (** [get_alignment s s m ukkm] do traceback on ukk_matrix to get the
     * alignment of two sequences. cost_2 must be called before this. this
     * function is similar to function "create_edited_2" in module Align.*)
-    val get_alignment : s -> s -> Cost_matrix.Two_D.m -> ukkm -> bool -> s * s
+    val get_alignment : s -> s -> Cost_matrix.Two_D.m -> ukkm -> bool -> int -> s * s
     (** [cost_2 s s m ukkm] do newkkonen alignment on two input sequence. return
     * the cost, store the alignment in ukkm, we can get the alignment by
     * traceback on ukkm later.*)

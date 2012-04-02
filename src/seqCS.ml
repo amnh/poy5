@@ -827,7 +827,8 @@ module DOS = struct
                         seqmwg2)||(notthesame tmpa tmpa2)||(notthesame tmpb
                         tmpb2) then begin
                             Printf.printf "diff between newkkonen and normal affine alignment:\n%!";
-                            Printf.printf "input seq :\n%!";
+                            Printf.printf "input seq(len1=%d,len2=%d) :\n%!"
+                            (Sequence.length a.sequence) (Sequence.length b.sequence);
                             Sequence.print stdout a.sequence Alphabet.nucleotides;print_newline();
                             Sequence.print stdout b.sequence Alphabet.nucleotides;print_newline();
                             Printf.printf "tmpa from algn.c, tmpa2 from newkkonen.c:\n%!";

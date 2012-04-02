@@ -634,7 +634,8 @@ module Align = struct
             else sj,si,1 
         in
         let len = len1 + len2 + 2 in
-        if debug then Printf.printf "Align.align_affine_3,aligned seq len<-len si(%d)+len sj(%d)+2 = %d\n%!" len1 len2 len;
+        if debug then Printf.printf "Align.align_affine_3,swaped=%d,aligned seq\
+        len<-len si(%d)+len sj(%d)+2 = %d\n%!" swaped len1 len2 len;
         assert((length si)<=(length sj));
         let resi = create len
         and resj = create len 
@@ -1409,19 +1410,16 @@ module NewkkAlign = struct
             newkk_backtrace s1 s2 s1p s2p c m swaped
 
 
-    let get_alignment s1 s2 c m affine =
+    let get_alignment s1 s2 c m affine swaped =
         let debug = false in
         let sz1 = length s1
         and sz2 = length s2 in
         let s1p = create (sz1 + sz2)
         and s2p = create (sz1 + sz2) in
-        if debug then Printf.printf "Sequence.Newkkonen.get_alignment, len1=%d,len2=%d\n%!" sz1 sz2;
         (*call traceback function*)
-        let size_compared = (sz1 <= sz2) in
-        if size_compared then 
-            call_newkk_backtrace s1 s2 s1p s2p c m affine 0
-        else 
-            call_newkk_backtrace s2 s1 s2p s1p c m affine 1;
+        if debug then Printf.printf "Sequence.Newkkonen.get_alignment,\
+        len1=%d,len2=%d, swaped=%d\n%!" sz1 sz2 swaped;
+        call_newkk_backtrace s1 s2 s1p s2p c m affine swaped;
         if debug then begin 
             Printf.printf " seq1:%!"; printseqcode s1;
             Printf.printf " seq2:%!"; printseqcode s2;
@@ -1442,13 +1440,13 @@ module NewkkAlign = struct
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
                     let tc = newkk_cost2_affine s1 s2 c m swaped in   
-                    let s1p, s2p = get_alignment s1 s2 c m true in
+                    let s1p, s2p = get_alignment s1 s2 c m true swaped in
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc
             | _ ->
                     let tc = newkk_cost2 s1 s2 c m swaped in   
-                    let s1p, s2p = get_alignment s1 s2 c m false in
+                    let s1p, s2p = get_alignment s1 s2 c m false swaped in
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc   
