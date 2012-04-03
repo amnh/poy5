@@ -151,7 +151,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     let disjoin_tree data node =
         let leafs = set_of_leafs node in
         let tree = Ptree.make_disjoint_tree data leafs in
-        tree
+        tree --> PtreeSearch.downpass --> PtreeSearch.uppass
 
 
     let edges_of_tree tree =
@@ -351,7 +351,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         and nodes = List.map (fun x -> Node.taxon_code x) nodes in
         let ptrees = 
             PtreeSearch.make_wagner_tree ~sequence:nodes 
-            disjoin_tree adj_mgr wmgr tabu_mgr
+                                         disjoin_tree adj_mgr wmgr tabu_mgr
         in
         let ptrees = sort_list_of_trees ptrees in
         match ptrees with

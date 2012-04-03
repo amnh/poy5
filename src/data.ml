@@ -4810,7 +4810,6 @@ IFDEF USE_LIKELIHOOD THEN
             let model =
                 let compute_priors () = compute_priors data chars u_gap in
                 let alph_size,alph = verify_alphabet data chars alph in
-                Alphabet.print alph;
                 let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
                 let lk_spec =
                     if dynamic then MlModel.remove_gamma_from_spec lk_spec
