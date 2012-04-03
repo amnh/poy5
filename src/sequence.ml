@@ -619,7 +619,7 @@ module Align = struct
     * besides cost, [c_align_affine_3] also give
     * us alignment, which is called traceback in algn.c *)
     external c_align_affine_3 : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> 
-        s -> s -> s -> s -> int = "algn_CAML_align_affine_3_bc"
+        s -> s -> s -> s -> int -> int = "algn_CAML_align_affine_3_bc"
         "algn_CAML_align_affine_3"
 
     external cost_2_affine : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int =
@@ -630,11 +630,12 @@ module Align = struct
         let len1 = length si
         and len2 = length sj in
         let si,sj,swaped = 
-            if len1<=len2 then si,sj,false 
-            else sj,si,true 
+            if len1<=len2 then si,sj,0 
+            else sj,si,1 
         in
         let len = len1 + len2 + 2 in
-        if debug then Printf.printf "Align.align_affine_3,len=len si(%d) + len sj(%d) + 2 %d\n%!" len1 len2 len;
+        if debug then Printf.printf "Align.align_affine_3,swaped=%d,aligned seq\
+        len<-len si(%d)+len sj(%d)+2 = %d\n%!" swaped len1 len2 len;
         assert((length si)<=(length sj));
         let resi = create len
         and resj = create len 
@@ -642,13 +643,17 @@ module Align = struct
         and medianwg = create len in
         let cost = 
             c_align_affine_3 si sj cm Matrix.default resi resj median
-            medianwg in
+            medianwg swaped in
         if debug then begin
             Printf.printf "cost=%d,resi & resj = \n%!" cost;
             print stdout resi Alphabet.nucleotides;print_newline();
             print stdout resj Alphabet.nucleotides;print_newline();
         end;
-        (median, resi, resj, cost, medianwg)
+        if swaped=0 then
+        median, resi, resj, cost, medianwg
+        else
+        median, resj, resi, cost, medianwg
+
     
     let max_cost_2 a b c =
         let gap = Cost_matrix.Two_D.gap c in
@@ -1405,19 +1410,16 @@ module NewkkAlign = struct
             newkk_backtrace s1 s2 s1p s2p c m swaped
 
 
-    let get_alignment s1 s2 c m affine =
+    let get_alignment s1 s2 c m affine swaped =
         let debug = false in
         let sz1 = length s1
         and sz2 = length s2 in
         let s1p = create (sz1 + sz2)
         and s2p = create (sz1 + sz2) in
-        if debug then Printf.printf "Sequence.Newkkonen.get_alignment, len1=%d,len2=%d\n%!" sz1 sz2;
         (*call traceback function*)
-        let size_compared = (sz1 <= sz2) in
-        if size_compared then 
-            call_newkk_backtrace s1 s2 s1p s2p c m affine 0
-        else 
-            call_newkk_backtrace s2 s1 s2p s1p c m affine 1;
+        if debug then Printf.printf "Sequence.Newkkonen.get_alignment,\
+        len1=%d,len2=%d, swaped=%d\n%!" sz1 sz2 swaped;
+        call_newkk_backtrace s1 s2 s1p s2p c m affine swaped;
         if debug then begin 
             Printf.printf " seq1:%!"; printseqcode s1;
             Printf.printf " seq2:%!"; printseqcode s2;
@@ -1438,13 +1440,13 @@ module NewkkAlign = struct
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
                     let tc = newkk_cost2_affine s1 s2 c m swaped in   
-                    let s1p, s2p = get_alignment s1 s2 c m true in
+                    let s1p, s2p = get_alignment s1 s2 c m true swaped in
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc
             | _ ->
                     let tc = newkk_cost2 s1 s2 c m swaped in   
-                    let s1p, s2p = get_alignment s1 s2 c m false in
+                    let s1p, s2p = get_alignment s1 s2 c m false swaped in
                     if exchange then s2p,s1p,tc
                     else
                     s1p, s2p, tc   
