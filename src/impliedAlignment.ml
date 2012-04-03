@@ -358,8 +358,10 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                     | Model (m,(t,p)) ->
                         let aseq,bseq,_,clip_len,anoclip,bnoclip =
                             begin match FloatSequence.cost_fn m with
-                                | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
-                                | `FLK -> FloatSequence.FloatAlign.clip_align_2 a.seq b.seq m 0.0 t
+                                | `MPL | `SML ->
+                                    FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
+                                | `FLK ->
+                                    FloatSequence.FloatAlign.clip_align_2 a.seq b.seq m 0.0 t
                                 | `MAL -> assert false (* does not exist yet  *)
                             end
                         in
@@ -396,7 +398,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
             fun a b _ -> Cost_matrix.Two_D.median a b cm
         | Model (m,(t,_)) ->
             begin match FloatSequence.cost_fn m with
-                | `MPL ->
+                | `MPL | `SML -> 
                     let gc = FloatSequence.MPLAlign.get_closest m t in
                     (fun a b i -> fst (gc i a b))
                 | `FLK -> 
@@ -409,7 +411,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
             fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
         | Model (m,(t,_)) ->
             begin match FloatSequence.cost_fn m with
-                | `MPL -> 
+                | `MPL | `SML -> 
                     let gc = FloatSequence.MPLAlign.get_closest m t in
                     (fun a b i -> snd (gc i a b))
                 | `FLK -> 
@@ -1697,9 +1699,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 let model = DynamicCS.lk_model dyn in
                                 let branch = 0.1 in (* TODO *)
                                 match FloatSequence.cost_fn model with
-                                | `MPL 
-                                | `FLK 
-                                | `MAL -> Model (model,(branch,parent))
+                                | `MPL | `FLK | `SML | `MAL -> Model (model,(branch,parent))
 
                             with 
                                 | Not_found -> CM (DynamicCS.c2 dyn)

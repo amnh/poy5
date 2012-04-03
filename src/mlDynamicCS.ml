@@ -24,10 +24,10 @@ open Numerical.FPInfix
 open FloatSequence  (* the modules inside are descriptive enough where opening
                        this module is not determental to readability. *)
 
-let debug     = false   (* show debug information during median calculations *)
-let debug_est = false   (* output for optimization of data *)
-let verify    = false   (* Verify pure ocaml and C implementations of MPL *)
-let pure_ocaml= false   (* Use a pure ocaml implementation of MPL *)
+let debug      = false   (* show debug information during median calculations *)
+let debug_est  = false   (* output for optimization of data *)
+let verify     = false   (* Verify pure ocaml and C implementations of MPL *)
+let pure_ocaml = false   (* Use a pure ocaml implementation of MPL *)
 
 let (-->) a b = b a
 
@@ -825,7 +825,7 @@ let make a s m =
         | `FLK ->
             let data = Array.map FloatAlign.s_of_seq (s_of_seq s) in
             FPAlign { ss = data; }
-        | `MPL ->
+        | `SML | `MPL ->
             if verify then begin
                 let data =
                     Array.map

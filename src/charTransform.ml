@@ -1277,11 +1277,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         let n_trans = List.length trans in
         let st1 = Status.create "Transforming" (Some n_trans) " transformations applied" in
         let apply_transformation trees ((pd,_) as acc) res =
-            let n_chars = Hashtbl.length pd.Data.character_specs in
+            let n_chars = Hashtbl.length pd.Data.character_codes in
             let st2 = Status.create "Transforming" (Some n_chars) " characters transformed" in
             let (d,_) as res = transform_node_characters trees acc res in
             let () =
-                Status.full_report ~adv:((Status.get_achieved st1)+1) st1;
+                Status.full_report ~adv:((Status.get_achieved st1) + 1) st1;
                 Status.full_report ~adv:(Data.modified_characters pd d) st2
             in
             res
