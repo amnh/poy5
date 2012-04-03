@@ -657,22 +657,6 @@ let get_character_set_name data codes : string option = match codes with
         else
             None
 
-let modified_characters data_one data_two : int =
-    let data_one = data_one.character_specs
-    and data_two = data_two.character_specs in
-    let data_one,data_two =
-        if (Hashtbl.length data_one) < (Hashtbl.length data_two)
-            then data_two,data_one
-            else data_one,data_two
-    and modified = ref 0 in
-    Hashtbl.iter
-        (fun k v1 ->
-            try let v2 = Hashtbl.find data_two k in
-                if v2 <> v1 then incr modified else ()
-            with | Not_found -> let () = incr modified in ())
-        data_one;
-    !modified
-
 let get_likelihood_model data chars =
     let get_model x =
         try match Hashtbl.find data.character_specs x with
@@ -888,15 +872,35 @@ let print (data : d) =
     print_newline ()
 
 
+let modified_characters data_one data_two : int =
+    let data_one = data_one.character_specs
+    and data_two = data_two.character_specs in
+    let data_one,data_two =
+        if (Hashtbl.length data_one) < (Hashtbl.length data_two)
+            then data_two,data_one
+            else data_one,data_two
+    and modified = ref 0 in
+    Hashtbl.iter
+        (fun k v1 ->
+            try let v2 = Hashtbl.find data_two k in
+                if v2 <> v1 then incr modified else ()
+            with | Not_found -> let () = incr modified in ())
+        data_one;
+    !modified
+
+
 let get_weight c data = 
     match Hashtbl.find data.character_specs c with
     | Dynamic spec -> spec.weight
     | Static spec -> spec.Nexus.File.st_weight
     | _ -> 1.0
 
+
 let get_weights data =
-    Hashtbl.fold (fun x _ acc -> (x, get_weight x data) :: acc) 
-    data.character_specs []
+    Hashtbl.fold
+        (fun x _ acc -> (x, get_weight x data) :: acc) 
+        data.character_specs []
+
 
 (* Returns a fresh object with the added synonym from [a] to [b] to [data]. *)
 let rec aux_add_synonym stack data (a, b) =
@@ -4380,7 +4384,8 @@ let verify_alphabet data chars alph =
     | `Int x ->
         let states = available_states data chars in
         if (All_sets.Strings.cardinal states) > x then
-            failwith "I cannot reduce the alphabet size below observed states";
+            failwithf ("I cannot reduce the alphabet size below the number of"^^
+                       " observed states (%d)") (All_sets.Strings.cardinal states);
         x, append_sequential states x Alphabet.gap_repr
     | `Max   ->
         begin match List.map (get_alphabet data) chars with
@@ -4810,7 +4815,6 @@ IFDEF USE_LIKELIHOOD THEN
             let model =
                 let compute_priors () = compute_priors data chars u_gap in
                 let alph_size,alph = verify_alphabet data chars alph in
-                Alphabet.print alph;
                 let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
                 let lk_spec =
                     if dynamic then MlModel.remove_gamma_from_spec lk_spec

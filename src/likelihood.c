@@ -617,7 +617,7 @@ mk_inverse(mat *space,double *VL, const double *VR, int n)
             failwith ( "dgetri_ matrix is singular and inverse cannot be computed. 2" );
         }
     } else {
-        failwith ( "degetri_ unknown error." );
+        failwith ( "dgetrf_ unknown error." );
     }
     free (pivot);
     return i;
@@ -993,7 +993,7 @@ loglikelihood_site_invar(const mll* l,const double* pi,const int i)
     num = 1;
     ret = 0.0;
     if( 0 == l->lv_invar[i]){ return ret; }
-    while( j < 32 ){ //TODO:: max alphabet size
+    while( j < 32 ){ //TODO:: max alphabet size?
         if ( num & l->lv_invar[i] ){
             ret += pi[j]; //similar to line 846, but lv_s[..] = 1
             set++;
@@ -1218,6 +1218,7 @@ loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob
             break;
         case SMPLCOST: 
             total_cost = logSMPLlikelihood( l, ws, pi, prob );
+            printf("S|MPL: %f|%f\n", total_cost, logMPLlikelihood(l,ws,pi,prob));
             break;
         default :
             assert( FALSE );

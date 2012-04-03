@@ -224,6 +224,7 @@ type ml_alphabet = [ `Min | `Int of int | `Max ]
 
 type ml_costfn = [ `MAL (* maximum average likelihood *)
                  | `MPL (* most parsimonious likelihood *)
+                 | `SML (* Smoothed MPL transformation; see likelihood.c *)
                  | `FLK (* DISABLED (POY3): dynamic alignment with a single matrix *) ]
 
 type ml_site_variation= [   | `Gamma of int * float option
