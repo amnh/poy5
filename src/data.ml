@@ -3982,7 +3982,7 @@ and get_code_with_missing dont_complement data fraction =
         | `Some x -> x
         | _ -> failwith "Data.get_code_with_missing"
 (**Give a list of characters, return their codes*)    
-and get_code_from_characters_restricted kind (data : d) (chs : characters) = 
+and get_code_from_characters_restricted kind (data : d) (chs : characters) =
     let kind_lst = match kind with
         | `Dynamic ->
             data.dynamics
@@ -4093,6 +4093,19 @@ and complement_characters data characters =
 let get_all_codes data =
     Hashtbl.fold (fun c _ acc -> c :: acc) data.character_codes  []
 
+let complement_characters_restricted kind data ch =
+    let res = 
+        let codes = get_chars_codes data ch in
+        List.fold_left
+            ~f:(fun acc x -> 
+                if (List.exists (fun y -> x = y) codes)
+                    then acc
+                    else x :: acc)
+            ~init:[]
+            (get_code_from_characters_restricted kind data `All)
+    in
+    `Some res
+
 let get_code_from_characters_restricted_comp kind d ch =
     let dont_complement, chars = match ch with
         | `Some (dont_complement, x) -> dont_complement, `Some x
@@ -4104,10 +4117,9 @@ let get_code_from_characters_restricted_comp kind d ch =
     let chars = get_code_from_characters_restricted kind d chars in
     if dont_complement then chars
     else 
-        match complement_characters d (`Some chars) with
+        match complement_characters_restricted kind d (`Some chars) with
         | `Some x -> x
         | _ -> failwith "Impossible?"
-
 
 let get_chars_codes_comp data ch =
     let dont_complement, ch = match ch with
@@ -4123,7 +4135,6 @@ let get_chars_codes_comp data ch =
         match complement_characters data (`Some codes) with
         | `Some x -> x
         | _ -> failwith "Impossible?"
-
 
 (* non/functional creation of sets *)
 let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods.characters) = 
