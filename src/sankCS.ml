@@ -30,7 +30,8 @@
  * properly. *)
 let () = SadmanOutput.register "SankCS" "$Revision: 2871 $"
 
-
+let debug = false
+    
 let infinity = max_int / 4
 let is_infinity x = x >= infinity
 
@@ -341,6 +342,7 @@ let elt_median tcm a b =
     { a with s = c; beta = beta; e = e; m = None; }
 
 let median _ a b =
+    if debug then Printf.printf "SankCS.median\n%!";
     assert (a.code = b.code);
     assert (a.tcm = b.tcm);
     { a with elts = Array.mapi (fun i -> elt_median a.tcm a.elts.(i)) b.elts }
@@ -357,6 +359,7 @@ let elt_distance tcm a b =
     med_cost -. a_cost -. b_cost
 
 let distance a b =
+    if debug then Printf.printf "SankCS.distance\n%!";
     let tcm = a.tcm in
     let acc = ref 0. in
     for i = Array.length a.elts - 1 downto 0 do

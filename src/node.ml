@@ -512,7 +512,8 @@ let extract_states alph data in_codes node =
     List.flatten (List.map extract_states_cs node.characters)
 
 (* calculate the median between two nodes *)
-let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
+let rec cs_median code anode bnode prev t1 t2 a b = 
+    match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
