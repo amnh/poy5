@@ -4465,10 +4465,11 @@ let make_char_sets sets d =
 *)
 
 (** [compute_priors data chars] computes the observed frequencies for all the
- * elements in the alphabet shared by the characters *)
+    elements in the alphabet shared by the characters *)
 let compute_priors data chars u_gap = 
     let debug_priors = false in
-    let size, alph = verify_alphabet data chars `Min in
+    (* We only use alphabet to demarcate states; so set to max *)
+    let size, alph = verify_alphabet data chars `Max in
     let size = if u_gap then size else size-1 in
     let priors = Array.make size 0.0 in
     (* A function that takes a list of states and add the appropriate value to
