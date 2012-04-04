@@ -605,7 +605,7 @@ select()
   under traditional MAL *)
 transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),
 gap:(missing),mal))
-swap(spr,optimize:(model:(max_count:5),branch:join_region))
+swap(all,optimize:(model:(max_count:5),branch:join_region))
 select(best:1)
 report("9likelihood.tre",trees:(branches))
 report("9likelihood.lkm",lkmodel)
@@ -639,10 +639,11 @@ transforms the characters to static likelihood characters, using a GTR + $\Gamma
 equilibrium frequencies under standard MAL. In this model, indels are treated as ``missing'' data, as for the 
 preceding parsimony search. Several default values, such as \texttt{gap:(missing)}, and \texttt{gamma:(4)} are 
 listed explicitly.
-\item \texttt{swap(spr,optimize:(model:(max\_count:5),branch:join\_region))} This command swaps the tree using 
+\item \texttt{swap(all,optimize:(model:(max\_count:5),branch:join\_region))} This command swaps the tree using 
 subtree pruning and regrafting, specifying that iteration of likelihood model parameters will occur after every 5 
 joins, and that iteration of branches will occur only in the area around the join point. These iteration 
-specifications are less strict than the defaults for the purpose of speeding up the swapping.
+specifications are less strict than the defaults for the purpose of speeding up the swapping and iteration. See the
+likelihood section in heuristics for discussion. 
 \item \texttt{select(best:1)} This command saves the single most optimal topology (with branch lengths) in 
 memory. Other trees are purged.
 \item \texttt{report("9likelihood.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
@@ -678,7 +679,7 @@ select()
    characters, specifying a GTR  model with empirical equilibrium
    frequencies and a shared nucleotide-indel substitution rate. *)
 transform(likelihood:(gtr,priors:(estimate),gap:(coupled),mpl))
-swap(spr,optimize:(model:(max_count:5)))
+swap(all,optimize:(model:(max_count:5)))
 select(best:1)
 report("9likelihood.ia",ia:all)
 report("9likelihoodYtree.tre",trees:(branches))
@@ -703,7 +704,7 @@ select()
 
 (* Transform the static characters to static MPL characters and swap *)
 transform(likelihood:(gtr,gap:(coupled),mpl)))
-swap(spr,optimize:(model:(max_count:5)))
+swap(all,optimize:(model:(max_count:5)))
 report("9likelihoodYdynamicMPL_as_staticMPL.lkm",lkmodel)
 report("9likelihoodYdynamic_as_static.tre",trees:(branches))
 wipe()
@@ -735,9 +736,10 @@ This is another strategy for further exploration of tree space. Each resulting t
 \item \texttt{transform(likelihood:(gtr,priors:(estimate),gap:(coupled),\\mpl))} This command transforms the 
 characters to static likelihood characters, using a GTR model, with empirical equilibrium frequencies under 
 dynamic MPL. Note that under dynamic MPL, the rate variation distribution is not enabled.
-\item \texttt{swap(spr,optimize:(model:(max\_count:5)))} This command swaps the tree using subtree pruning and 
+\item \texttt{swap(all,optimize:(model:(max\_count:5)))} This command swaps the tree using subtree pruning and 
 regrafting, specifying that iteration of likelihood model parameters will occur after every 5 joins. These iteration 
-specifications are less strict than the defaults for the purpose of speeding up the swapping.
+specifications are less strict than the defaults for the purpose of speeding up the swapping. See the likelihood section
+of heuristics for additional discussion. 
 \item \texttt{select(best:1)} This command saves the single most optimal topology (with branch lengths) in 
 memory. Other trees are purged.
 \item \texttt{report("9likelihood.ia",ia:all)} This command saves the implied
@@ -772,7 +774,7 @@ unique trees; all other trees are discarded from memory.
 \item \texttt{transform(likelihood:(gtr,gap:(coupled),mpl)))} Transform the static parsimony characters to static 
 MPL characters with a GTR model, empirical equilibrium frequencies, and a coupled nucleotide-indel 
 parameter.
-\item \texttt{swap(spr,optimize:(model:(max\_count:5)))} This command swaps the tree using subtree pruning and 
+\item \texttt{swap(all,optimize:(model:(max\_count:5)))} This command swaps the tree using subtree pruning and 
 regrafting, specifying that iteration of likelihood model parameters will occur after every 5 joins. These iteration 
 specifications are less strict than the defaults for the purpose of speeding up the swapping.
 \item \texttt{report(""9likelihoodYdynamicMPL\_as\_staticMPL.lkm",lkmodel)} This command outputs the result of 
