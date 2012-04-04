@@ -1334,14 +1334,14 @@ let create_expr () =
             ]];
         ml_alphabet: 
             [
-                [ LIDENT "max" -> `Max ] | 
+                [ LIDENT "max" -> `Max ] |
                 [ LIDENT "min" -> `Min ] |
                 [ x = INT      -> `Int (int_of_string x) ]
             ];
         ml_substitution: 
             [
                 [ LIDENT "jc69" -> `JC69 ] |
-                [ LIDENT "f81" -> `F81 ] |
+                [ LIDENT "f81"  -> `F81  ] |
                 (* values of these types get checked later *)
                 [ LIDENT "f84";   x = OPT ml_floatlist -> `F84   x ] |
                 [ LIDENT "k80";   x = OPT ml_floatlist -> `K2P   x ] |

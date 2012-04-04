@@ -145,7 +145,17 @@ let jc69_5_gap flo = { jc69_5 with use_gap = `Coupled flo; }
 let get_costfn_code a = match a.spec.cost_fn with 
     | `MPL -> 1 
     | `MAL -> 0 
-    | `FLK -> ~-1 (* should not call C functions; yet *)
+    | `SML -> 2
+    | `FLK -> ~-1 (* should not be called *)
+
+let set_smooth_model model = match model.spec.cost_fn with
+    | `MPL -> { model with spec = {model.spec with cost_fn = `SML; }; }
+    | `MAL | `SML | `FLK -> model
+
+and reset_smooth_model model = match model.spec.cost_fn with
+    | `SML -> { model with spec = {model.spec with cost_fn = `MPL; }; }
+    | `MAL | `MPL | `FLK -> model
+    
 
 let compare_priors a b =
     let compare_array x y = 
@@ -766,6 +776,7 @@ let output_model output nexus model set =
             | `MPL -> printf "@[Cost = mpl;@]";
             | `MAL -> printf "@[Cost = mal;@]"; 
             | `FLK -> printf "@[Cost = flk;@]";
+            | `SML -> assert false (* this state is only used in optimization *)
         in
         let () = match model.spec.site_variation with
             | Some Constant | None -> ()
@@ -813,6 +824,7 @@ let output_model output nexus model set =
             | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
             | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n"; 
             | `FLK -> printf "@[<hov 0>Cost mode: flk;@]@\n"; 
+            | `SML -> assert false (* this state is only used in optimization *)
         in
         printf "@[<hov 0>Priors / Base frequencies:@\n";
         let () = match model.spec.base_priors with
@@ -1033,7 +1045,7 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | "" -> failwith "No Model Specified"
         | _  -> failwith "Incorrect Model"
     in
-    let cost_fn = match String.uppercase cost with
+    let cost_fn : Methods.ml_costfn = match String.uppercase cost with
         | "MPL" -> `MPL
         | "MAL" -> `MAL
         | "FLK" -> `FLK

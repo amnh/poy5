@@ -1449,7 +1449,7 @@ let process_transform (run : r) (meth : Methods.transform) =
         {run with trees = trees; nodes = nodes; data = data;}
     | #Methods.char_transform as meth ->
         let data, nodes =
-              CT.transform_nodes run.trees run.data run.nodes [meth] 
+            CT.transform_nodes run.trees run.data run.nodes [meth] 
         in
         update_trees_to_data false false {run with nodes = nodes; data = data}
     | #Methods.terminal_transform as meth ->
@@ -3877,12 +3877,12 @@ let rec folder (run : r) meth =
             done;
             !res
     | `ReadScript files ->
-            let file_folder run item = 
-                try folder run item with
-                | err -> 
-                        let msg = StatusCommon.escape (Printexc.to_string err) in
-                        Status.user_message Status.Error msg;
-                        raise (Error_in_Script (err, run))
+            let file_folder run item =
+                try folder run item
+                with | err ->
+                    let msg = StatusCommon.escape (Printexc.to_string err) in
+                    Status.user_message Status.Error msg;
+                    raise (Error_in_Script (err, run))
             in
             let script = PoyCommand.read_script_files true 
                 (List.map (fun x -> `Filename x) files) in
