@@ -39,7 +39,7 @@ let debug_print_on_break = false
 let debug_exclude = false
 let debug_breakfn_deltas = false
 let debug_joinfn = false
-let debug_costfn = true
+let debug_costfn = false
 let debug_uppass_which_handle = false
 let debug_no_incremental = false
 let debug_diagnosis = false
@@ -140,7 +140,6 @@ let downpass_handle handle ({Ptree.tree=tree} as ptree) =
                         assert (check_assertion_two_nbrs parent_id node "9");
                         Tree.other_two_nbrs parent_id node
                 in
-                Printf.printf "Calculating median between %d and %d\n%!" ch1id ch2id;
                 let ch1data = Ptree.get_node_data ch1id curr_tree in
                 let ch2data = Ptree.get_node_data ch2id curr_tree in
                 let selfdata =
@@ -1055,8 +1054,7 @@ let join_fn incremental jxn1 jxn2 ptree =
     ptree, tree_delta
 
 let cost_fn jxn1 jxn2 delta clade_data tree =
-    if debug_costfn
-    then begin
+    if debug_costfn then begin
         (* check clade_data against jxn2 *)
         match jxn2 with
         | Tree.Single_Jxn h ->
