@@ -38,7 +38,7 @@
 #define GAPCODE 16
 #define HAS_GAP(code) ( code&GAPCODE )
 
-//alignment
+//directions
 #define START 0
 #define ALIGN_TO_ALIGN 1
 #define ALIGN_TO_INSERT 2
@@ -46,7 +46,7 @@
 #define ALIGN_TO_DIAGONAL 8
 #define DO_DELETE 16
 #define DO_INSERT 32
-//just like stuff in algn.c
+//just like in algn.c
 //END_INSERT, END_DELETE and END_DIAG are where gap opening start
 //we need these for affine backtrace, just put a sign END_xxx to the position
 //with gap opening, where the gaps 'start'. I know the name END_xxxx is a little
@@ -55,6 +55,8 @@
 #define END_DELETE 128
 #define END_DIAG 256
 #define DO_DIAG 512
+//when gap extention cost in horizontal and vertical are the same
+#define INSERT_EQ_DELETE 1024
 
 #define has_flag(dir,flag) (dir&flag)
 
@@ -67,7 +69,15 @@ void print_mode (enum MODE mode)
     if (mode == m_insert) printf("mode = m_insert\n");
     if (mode == m_align) printf("mode = m_align\n");
 }
-//some explanation for affine
+//some explanation for directions and affine
+//
+//ALIGN_TO_ALIGN
+//like other ALIGN_TO_xxxx, this direction sign is from algn.c, we can think it as 'DO_ALIGN'.
+//
+//ALIGN_TO_INSERT and ALIGN_TO_DELETE
+//these two are from algn.c, they are not usefull in newkkonen.c
+//
+//
 //
 //END_HORIZONTAL and END_VERTICAL
 //consider the case below 
@@ -94,7 +104,12 @@ void print_mode (enum MODE mode)
 //remember we only change mode based on direction_matrix when mode=m_todo, otherwise we continue
 //what we are doing -- either insertion or deletion.
 //
-//ALIGN_TO_INSERT and ALIGN_TO_DELETE
+//
+//INSERT_EQ_DELETE
+//The logic above has a flaw, if gap extention cost in horizontal and vertical are the same for some
+//position. we do need to stop what we are doing(insertion or deletion), pick direction again. 
+//So we introduce another sign 'INSERT_EQ_DELETE'. when insert ext and delete ext cost
+//are the same, put this down for traceback.
 //
 
 
@@ -120,6 +135,7 @@ void print_direction (DIRECTION_MATRIX dir)
     if (has_flag(dir,DO_INSERT)) printf("insert,");
     if (has_flag(dir,END_INSERT)) printf("end insert,");
     if (has_flag(dir,END_DELETE)) printf("end delete,");
+    if (has_flag(dir,INSERT_EQ_DELETE)) printf("insert ext = delete ext,");
     if (has_flag(dir,ALIGN_TO_INSERT)) printf("align to insert,");
     if (has_flag(dir,ALIGN_TO_DELETE)) printf("align to delete,");
     if (has_flag(dir,ALIGN_TO_DIAGONAL)) printf("align to diagnoal,");
@@ -519,8 +535,8 @@ void assign_best_cost_and_direction
  int whichdiag,int idx_in_my_diag, newkkmat_p m, int affine)
 {
     int debug = 0;
-    if (debug) printf("\nassign_best_cost_and_direction,costDiag=%d,costM=%d,costL=%d,costR=%d\n",
-            costDiag,costM,costL,costR);
+    if (debug) printf("\nassign_best_cost_and_direction,costDiag=%d,costM=%d,costL=%d,costR=%d,ext_costR=%d,ext_costL=%d\n",
+            costDiag,costM,costL,costR,ext_costR,ext_costL);
     DIRECTION_MATRIX bestdir = DO_INSERT;
     int bestcost = costL;
     int resgapnum1 = s1_gapnum_fromL+1; 
@@ -567,6 +583,13 @@ void assign_best_cost_and_direction
     if (ext_costR>=open_costR) bestdir = bestdir|END_DELETE;
     if (ext_costL>=open_costL) bestdir = bestdir|END_INSERT;
     if (ext_costDiag>=open_costDiag) bestdir = bestdir|END_DIAG;
+    //for affine, we favor gap extention over all other directions.
+    //that's why in the old code, once we start insert/delete, 
+    //we won't stop until we reach the gap opening position. 
+    //But if ext_costL = ext_costR we do need to stop, 
+    //choose the direction again.
+    if ( (ext_costR==ext_costL)&&(ext_costR==bestcost) ) 
+        bestdir = bestdir|INSERT_EQ_DELETE;
     if (debug) {
         printf("best cost = %d, best dir = ",bestcost);
         print_direction(bestdir); 
@@ -1738,19 +1761,19 @@ void newkk_follow_deletion_or_insertion (int swaped,int has_insert, int has_dele
     }
 }
 
-void newkk_follow_deletion_or_insertion_affine (enum MODE * mode, int has_end_insert, int has_end_delete, int swaped,int has_insert, int has_delete,const seqt s1, const seqt s2, seqt alis1, seqt alis2,const cmt c, int * i, int * j)
+void newkk_follow_deletion_or_insertion_affine (enum MODE * mode, int insert_delete_are_the_same, int has_end_insert, int has_end_delete, int swaped,int has_insert, int has_delete,const seqt s1, const seqt s2, seqt alis1, seqt alis2,const cmt c, int * i, int * j)
 {
     if (!swaped) {
         if (has_delete)//(dir==DO_DELETE)
         {
             newkk_follow_deletion(s1,alis1,alis2,c,i);
-            if (has_end_delete) *mode = m_todo;
+            if (has_end_delete||insert_delete_are_the_same) *mode = m_todo;
         }
         else
         {
             assert(has_insert);//(dir==DO_INSERT);
             newkk_follow_insertion(s2,alis1,alis2,c,j);
-            if (has_end_insert) *mode = m_todo;
+            if (has_end_insert||insert_delete_are_the_same) *mode = m_todo;
         }
     }
     else
@@ -1758,13 +1781,13 @@ void newkk_follow_deletion_or_insertion_affine (enum MODE * mode, int has_end_in
         if (has_insert)//(dir==DO_INSERT) 
         {
             newkk_follow_insertion(s2,alis1,alis2,c,j);
-            if (has_end_insert) *mode = m_todo;
+            if (has_end_insert||insert_delete_are_the_same) *mode = m_todo;
         }
         else 
         {
             assert(has_delete);//(dir==DO_DELETE);
             newkk_follow_deletion(s1,alis1,alis2,c,i);
-            if (has_end_delete) *mode = m_todo;
+            if (has_end_delete||insert_delete_are_the_same) *mode = m_todo;
         }
     }
 }
@@ -1875,6 +1898,7 @@ void backtrace_affine (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
    int mode_delete=0, mode_insert=0;
    int has_diag=0, has_insert=0, has_delete=0, has_algn=0;
    int has_end_delete=0, has_end_insert=0;
+   int insert_delete_are_the_same = 0;
    while(i>=0&&j>=0)
    {
         whichdiag = 0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
@@ -1918,8 +1942,9 @@ void backtrace_affine (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
                     has_insert=0;
                 has_end_delete = has_flag(dir,END_DELETE);
                 has_end_insert = has_flag(dir,END_INSERT);
+                insert_delete_are_the_same = has_flag(dir,INSERT_EQ_DELETE);
                 if(debug) printf("mode_insert=%d,mode_delete=%d,has_end_insert=%d,has_end_delete=%d,has_insert=%d,has_delete=%d\n",mode_insert,mode_delete,has_end_insert,has_end_delete,has_insert,has_delete);
-                newkk_follow_deletion_or_insertion_affine (&mode,has_end_insert,has_end_delete,swaped,has_insert,has_delete,s1,s2,alis1,alis2,c,&i,&j);
+                newkk_follow_deletion_or_insertion_affine (&mode,insert_delete_are_the_same,has_end_insert,has_end_delete,swaped,has_insert,has_delete,s1,s2,alis1,alis2,c,&i,&j);
                  
             }
             else if (mode == m_diagonal)

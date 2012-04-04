@@ -1461,8 +1461,9 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len, int *mm, \
 #define DO_ALIGN 1024
 #define DO_VERTICAL 2048
 #define DO_HORIZONTAL 4096
-#define DO_DIAGONAL 8192 
-// DO_DIAGONAL MUST BE THE LAST ONE
+#define HORIZONTAL_EQ_VERTICAL 8192
+#define DO_DIAGONAL 16384 
+// DO_DIAGONAL MUST BE THE LAST ONE //why?
 
 #define TMPGAP 16
 #define NTMPGAP 15
@@ -1831,8 +1832,9 @@ void follow_horizontal_affine (int* j,DIRECTION_MATRIX **direction_matrix_p,enum
 {
     int debug = 0;
     if (debug) { printf("horizontal,"); fflush(stdout); }
-    //continue with insertion, until END_HORIZONTAL show up  
-    if (HAS_FLAG(*direction_matrix_p,END_HORIZONTAL)) *mode = m_todo;
+    //continue with insertion, until we reach the gap opening position. or some
+    //position where gap extension from vertical and horizontal cost the same
+    if (HAS_FLAG(*direction_matrix_p,END_HORIZONTAL)||HAS_FLAG(*direction_matrix_p,HORIZONTAL_EQ_VERTICAL)) *mode = m_todo;
     if (!(*jc_p & TMPGAP)) {
             seq_prepend (median, (*jc_p | TMPGAP));
             seq_prepend (medianwg, (*jc_p | TMPGAP));
@@ -1852,7 +1854,9 @@ follow_vertical_affine (int* i,DIRECTION_MATRIX **direction_matrix_p,enum MODE *
 {
     int debug = 0;
     if (debug) { printf("vertical,"); fflush(stdout); }
-    if (HAS_FLAG(*direction_matrix_p,END_VERTICAL)) *mode = m_todo;
+    //continue with deletion, until we reach the gap opening position. or some
+    //position where gap extension from vertical and horizontal cost the same
+    if (HAS_FLAG(*direction_matrix_p,END_VERTICAL)||HAS_FLAG(*direction_matrix_p,HORIZONTAL_EQ_VERTICAL)) *mode = m_todo;
     if (!(*ic_p & TMPGAP)) {
         seq_prepend (median, (*ic_p | TMPGAP));
         seq_prepend (medianwg, (*ic_p | TMPGAP));
@@ -2216,7 +2220,7 @@ ASSIGN_MINIMUM (int *final_cost_matrix, int extend_horizontal, \
         }
         else mask = mask | DO_VERTICAL;//insert|delete
     }
-    //final_cost_matrix = min (insert,delete)
+    //final_cost_matrix <- min (insert,delete)
     if (*final_cost_matrix >= extend_block_diagonal) {
         if (*final_cost_matrix > extend_block_diagonal) {// just diag
             *final_cost_matrix = extend_block_diagonal;
@@ -2224,7 +2228,7 @@ ASSIGN_MINIMUM (int *final_cost_matrix, int extend_horizontal, \
         }
         else mask = mask | DO_DIAGONAL;//diag | xxx
     }
-    //final_cost_matrix = min (insert,delete,diag)
+    //final_cost_matrix <- min (insert,delete,diag)
     if (*final_cost_matrix >= close_block_diagonal) {
         if (*final_cost_matrix > close_block_diagonal) { //just algn
             *final_cost_matrix = close_block_diagonal;
@@ -2232,7 +2236,12 @@ ASSIGN_MINIMUM (int *final_cost_matrix, int extend_horizontal, \
         }
         else mask = mask | DO_ALIGN; //algn | xxxx
     }
-    //final_cost_matrix = min (insert,delete,diag,align)
+    //final_cost_matrix now is min (insert,delete,diag,align)
+    //if gap extension from vertical and horizontal are the same cost, mark it
+    //with HORIZONTAL_EQ_VERTICAL -- we need to stop at position like this to
+    //choose next direction in traceback.
+    if ( (*final_cost_matrix==extend_horizontal)&&(extend_horizontal == extend_vertical) )
+        mask = mask | HORIZONTAL_EQ_VERTICAL;
     LOR_WITH_DIRECTION_MATRIX(mask,direction_matrix);
     DIRECTION_MATRIX *dir = &direction_matrix;
     int hasalgn = ( HAS_FLAG(dir,DO_ALIGN) || HAS_FLAG(dir,DO_DIAGONAL) ) ;
