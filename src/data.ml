@@ -6155,7 +6155,8 @@ let can_do_static_approx_code d x =
         | Dynamic d when (appropriate_alphabet_size d)&&((is_custom_alphabet d)=false) ->
             begin match d.state with
                 | `Seq      | `Annotated  | `Ml                      -> 
-                        Printf.printf "can_do_static_approx_code,true\n";
+                        Printf.printf "Data contains characters that support\
+                        static approx \n%!";
                         true
                 | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
             end
