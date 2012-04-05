@@ -6145,13 +6145,18 @@ let has_dynamic d =
 
 
 let can_do_static_approx_code d x =
+    let is_custom_alphabet ds =
+        Alphabet.is_combiantion_by_level ds.alph
+    in
     let appropriate_alphabet_size ds =
-        10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
+            10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
     in
     match Hashtbl.find d.character_specs x with
-        | Dynamic d when appropriate_alphabet_size d ->
+        | Dynamic d when (appropriate_alphabet_size d)&&((is_custom_alphabet d)=false) ->
             begin match d.state with
-                | `Seq      | `Annotated  | `Ml                      -> true
+                | `Seq      | `Annotated  | `Ml                      -> 
+                        Printf.printf "can_do_static_approx_code,true\n";
+                        true
                 | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
             end
         (* only dynamics with alphabet < 10 *)

@@ -1537,7 +1537,8 @@ let analyze_tcm tcm model alph =
                                         Cost_matrix.Two_D.cost x y tcm))
                 | Alphabet.Continuous ->
                         assert false (* Static data only *)
-                | Alphabet.Extended_Bit_Flags -> 
+                | Alphabet.Extended_Bit_Flags 
+                | Alphabet.Combination_By_Level -> 
                         failwith "Impliedalignment.make_tcm"
             in
             let enc = 
@@ -1581,7 +1582,8 @@ let analyze_tcm tcm model alph =
                         [x - 1]
                 | Alphabet.Continuous ->
                         assert false (* static data only *)
-                | Alphabet.Extended_Bit_Flags -> 
+                | Alphabet.Extended_Bit_Flags 
+                | Alphabet.Combination_By_Level -> 
                         failwith "Impliedalignment.convert_to_list"
             in
             let all = 
