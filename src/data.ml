@@ -450,6 +450,20 @@ type characters = [
     | `Range of (string * int * int)
 ]
 
+let string_of_characters =
+    let op = function | true -> "" | false -> "not " in
+    function
+        | `All           -> "all"
+        | `Some (y,x)    -> Printf.sprintf "%ssome:%d" (op y) (List.length x)
+        | `CharSet (y,x) -> Printf.sprintf "%ssets:%d" (op y) (List.length x)
+        | `Names (y,x)   -> Printf.sprintf "%sname:%d" (op y) (List.length x)
+        | `Random x      -> Printf.sprintf "rand:%f" x
+        | `AllStatic     -> "all-static"
+        | `AllDynamic    -> "all-dynamic"
+        | `Missing _     -> "missing"
+        | `Range _       -> "range"
+
+
 let transform_range_to_codes file x y =
     assert( x < y );
     let rec loop_ acc x y =
@@ -4046,28 +4060,29 @@ and get_chars_codes data = function
     | `Range (file,x,y) -> get_chars_codes data (transform_range_to_codes file x y)
     | `Names names ->
             let names = 
-                warn_if_repeated_and_choose_uniquely names 
-                "selected@ characters@ " ""
+                warn_if_repeated_and_choose_uniquely names "selected@ characters@ " ""
             in
             let get_code acc name =
-                try 
-                    (Hashtbl.find data.character_names name) :: acc 
-                with
-                | Not_found as err ->
-                        let nname = Str.regexp name in
+                try (Hashtbl.find data.character_names name) :: acc 
+                with | Not_found as err ->
+                    let nname = Str.regexp name in
+                    begin
                         match
-                            Hashtbl.fold (fun item code acc ->
-                                if Str.string_match nname item 0 then 
-                                    code :: acc
-                                else acc)
-                            data.character_names acc
+                            Hashtbl.fold
+                                (fun item code acc ->
+                                    if Str.string_match nname item 0 then
+                                        code :: acc
+                                    else acc)
+                                data.character_names
+                                acc
                         with
-                        | [] -> 
-                                Status.user_message Status.Error
-                                ("Could@ not@ find@ any@ character@ matching@
-                                the@ expression@ " ^ StatusCommon.escape name);
-                                raise err
-                        | r -> r 
+                        | [] ->
+                            Status.user_message Status.Error
+                                ("Could@ not@ find@ any@ character@ matching@ "^
+                                 "the@ expression@ " ^ StatusCommon.escape name);
+                            raise err
+                        | r -> r
+                    end
             in
             List.fold_left ~f:get_code ~init:[] names
     | `AllStatic | `AllDynamic as m -> 
@@ -4494,24 +4509,31 @@ let compute_priors data chars u_gap =
     let taxon_adder tax taxon_chars =
         let total = ref 0 in
         let adder char_code =
-            let (cs, _) = Hashtbl.find taxon_chars char_code in
-            match cs with
-            | Dyna (_, dyna_data ) ->
-                Array.iter
-                    (fun x ->
-                        total := (Sequence.length x.seq) - 1 + !total;
-                        counter := (Sequence.length x.seq) - 1 + !counter;
-                        for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
-                            let lst = BitSet.Int.list_of_packed (Sequence.get x.seq i) in
-                            if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
-                                assert false
-                            else
-                                let inv = 1.0 /. (float_of_int (List.length lst)) in
-                                List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
-                        done)
-                    dyna_data.seq_arr
-            | Stat (_,s) -> 
-                Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
+            try
+                let (cs, _) = Hashtbl.find taxon_chars char_code in
+                match cs with
+                | Dyna (_, dyna_data ) ->
+                    Array.iter
+                        (fun x ->
+                            total := (Sequence.length x.seq) - 1 + !total;
+                            counter := (Sequence.length x.seq) - 1 + !counter;
+                            for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
+                                let lst = BitSet.Int.list_of_packed (Sequence.get x.seq i) in
+                                if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
+                                    assert false
+                                else
+                                    let inv = 1.0 /. (float_of_int (List.length lst)) in
+                                    List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
+                            done)
+                        dyna_data.seq_arr
+                | Stat (_,s) -> 
+                    Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
+            (* this not found will happen when we are accessing the taxon
+               characters when a taxa has missing information at the node.
+                
+               TODO: Is there a way to double check this case?  *)
+            with | Not_found -> 
+                ()
         in
         List.iter adder chars;
         longest := max !total !longest;
@@ -6154,10 +6176,7 @@ let can_do_static_approx_code d x =
     match Hashtbl.find d.character_specs x with
         | Dynamic d when (appropriate_alphabet_size d)&&((is_custom_alphabet d)=false) ->
             begin match d.state with
-                | `Seq      | `Annotated  | `Ml                      -> 
-                        Printf.printf "Data contains characters that support\
-                        static approx \n%!";
-                        true
+                | `Seq      | `Annotated  | `Ml                      -> true
                 | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
             end
         (* only dynamics with alphabet < 10 *)
