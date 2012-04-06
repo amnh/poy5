@@ -39,11 +39,12 @@ exception Illegal_Code of int
 (** The type of the alphabet, either a sequence of integers, up to 32 elements,
     each represented by a bit, or each represented by a bit including all the
     combinations. *)
-type kind = 
+type kind =
     | Sequential
     | Simple_Bit_Flags
     | Extended_Bit_Flags
     | Continuous
+    | Combination_By_Level
 
 (** Alphabet type *)
 type a
@@ -170,6 +171,10 @@ val check_level : a -> bool
 
 (** [set_level newlevel] returns the alphabet with new level value*)
 val set_level : a -> int -> a
+
+(** [is_combiantion_by_level a] returns true if the alphabet kind is
+* Combination_By_Level -- which means a custom_alphabet   *)
+val is_combiantion_by_level : a -> bool
 
 (** {2 Extracting and Generating Alphabets} *)
 

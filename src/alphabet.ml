@@ -36,6 +36,7 @@ type kind =
     | Simple_Bit_Flags
     | Extended_Bit_Flags
     | Continuous
+    | Combination_By_Level
 
 type a = {
     comb_to_list : int list All_sets.IntegerMap.t;
@@ -52,6 +53,11 @@ type a = {
     orientation : bool;
     threeD : bool;
 }
+
+let is_combiantion_by_level alpha =
+    match alpha.kind with
+    | Combination_By_Level -> true 
+    | _ -> false
 
 let continuous =
     {
@@ -76,6 +82,7 @@ let print alpha =
         | Sequential -> Printf.printf "alph kind:Sequential\n%!"
         | Extended_Bit_Flags -> Printf.printf "alph kind:Extended_Bit_Flags\n%!"
         | Continuous -> Printf.printf "alph kind:Continuous\n%!"
+        | Combination_By_Level -> Printf.printf "alph kind:Combination_By_Level\n%!"
     in
     Printf.printf
         "level=%d,ori_size=%d,gap=%d,size=%d,orientation=%b,threeD=%b,%!"
@@ -148,12 +155,13 @@ let check_level alph =
     if (level>1)&&(level<=size) then true
     else false
 
+(*[list_to_a] init alphabet with input lst, note that level is set to 0, size
+* and ori_size are set to length of input list. *)
 let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst gap all kind =
     let a_size = List.length lst in
     let debug = false in
     if debug then 
-        Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b, \
-            case sensitive=%b\n%!" a_size init3D respect_case;
+        Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b, case sensitive=%b\n%!" a_size init3D respect_case;
     let add (s2c, c2s, cmp, cnt) (a, b, c) =
         if debug then Printf.printf "add %s,%d to s2c; %!" a b;
         let uppa = 
@@ -189,7 +197,6 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
             Some all
         | None -> None
     in
-
     { comb_to_list = All_sets.IntegerMap.empty;
       list_to_comb = All_sets.IntegerListMap.empty;
       level = 0; 
@@ -316,21 +323,21 @@ let is_aminoacids alph = alph.code_to_string = aminoacids.code_to_string
 
 let find_codelist comb alpha = match alpha.kind with
     | Continuous -> assert false
-    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
+    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential |Combination_By_Level) ->
         try All_sets.IntegerMap.find comb alpha.comb_to_list 
         with | Not_found -> raise (Illegal_Code comb)
 
 
 let find_comb codelist alpha = match alpha.kind with
     | Continuous -> assert false
-    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
+    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential |Combination_By_Level) ->
         try All_sets.IntegerListMap.find codelist alpha.list_to_comb
         with | Not_found -> raise (Illegal_List codelist)
 
 let match_base x alph = match alph.kind with
     | Continuous when x = "?" || x = "-" -> alph.gap
     | Continuous -> int_of_string x
-    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
+    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential |Combination_By_Level) ->
         try All_sets.StringMap.find x alph.string_to_code 
         with | Not_found ->
             try All_sets.StringMap.find (String.uppercase x) alph.string_to_code 
@@ -341,7 +348,7 @@ let find_base = match_base
 let match_code x alph = match alph.kind with
     | Continuous when x = alph.gap -> "?"
     | Continuous -> string_of_int x
-    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential) ->
+    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential | Combination_By_Level) ->
         try All_sets.IntegerMap.find x alph.code_to_string
         with | Not_found -> raise (Illegal_Code x)
 
@@ -350,8 +357,14 @@ let find_code = match_code
 let set_ori_size alph size =
     {alph with ori_size = size}
 
+
+(*[of_string x gap all] expand input string x with '~' sign if
+    * orientation is true. then call [list_to_a] for a plain alphabet*)
 let of_string ?(respect_case = false) ?(orientation = false) ?(init3D=false) x gap all =
+    let debug = false in
     let osize = (List.length x)  in
+    if debug then
+        Printf.printf "Alphabet.of_string,original size=%d\n%!" osize;
     let rec builder alph counter = function
         | h :: t -> 
               if orientation then 
@@ -363,6 +376,7 @@ let of_string ?(respect_case = false) ?(orientation = false) ?(init3D=false) x g
         | [] -> List.rev alph
     in
     let res = builder [] 1 x in
+    (*call list_to_a with the expanded list and kind = Sequential*)
     let alpha = list_to_a ~respect_case:respect_case ~orientation:orientation ~init3D:init3D res gap all Sequential in
     if debug then print alpha;
     { alpha with ori_size = osize }
@@ -396,6 +410,7 @@ let get_level a = a.level
 
 let set_level a newlevel = { a with level = newlevel }
 
+(*[to_list a] return a list of pair (string,code),like (a,1), ordered by code*)
 let to_list a =
     let res =
         All_sets.IntegerMap.fold (
@@ -570,7 +585,8 @@ let simplify alph =
     | Simple_Bit_Flags
     | Continuous
     | Sequential -> alph
-    | Extended_Bit_Flags ->
+    | Extended_Bit_Flags 
+    | Combination_By_Level ->
             (* for full combination,We need to extract those numbers that only have one bit on 
             * for level combination, we need to get codes without combination*)
             let gap = get_gap alph 
@@ -618,7 +634,7 @@ let rec to_sequential alph =
     match alph.kind with
     | Continuous | Sequential -> 
             alph
-    | Extended_Bit_Flags -> 
+    | Extended_Bit_Flags | Combination_By_Level -> 
             to_sequential (simplify alph) 
     | Simple_Bit_Flags -> 
             (* We only really need to handle this case *)
@@ -682,14 +698,16 @@ let rec to_sequential alph =
             in
             res
 
+(*[explote alph level ori_sz] take a plain alphbet, do the combination with level*)
 let rec explote alph level ori_sz=
+    let debug = false in
     (* function "check_level" is not ready to use here, for the alphbet is not set up yet*)
     let uselevel =
         if (level>1)&&(level<=ori_sz) then true
         else false
     in
     match alph.kind with
-    | Continuous | Extended_Bit_Flags -> alph 
+    | Continuous | Extended_Bit_Flags | Combination_By_Level -> alph 
     | Simple_Bit_Flags -> 
             (* We have each element as one bit, we have now to extend it into
             * all possible combinations *)
@@ -791,8 +809,11 @@ let rec explote alph level ori_sz=
                         if codet <= code then acc else item) h t
                 | [] -> assert false
             in
+            let res_kind = 
+                if uselevel then Combination_By_Level 
+                else Extended_Bit_Flags in
             let return_alpha = list_to_a ~orientation:alph.orientation new_alphabet
-            gap_repr (Some all_repr) Extended_Bit_Flags in
+            gap_repr (Some all_repr) res_kind in
             let return_alpha =
             if uselevel then
                 { return_alpha with 
@@ -806,28 +827,34 @@ let rec explote alph level ori_sz=
             return_alpha
     | Sequential ->
             if debug then Printf.printf "Sequential->Simple_Bit_Flags\n%!";
-            if uselevel then 
+            if uselevel then (*this part is not necessary for level combiantion?*)
                 begin
                 let new_alph_list =
                     let old_alph_list = to_list alph in
                     let count = ref 1 in
+                    (*for level combination, code are continues*)
                     List.map (fun (str,_) ->
                         let res = !count in
                         count := !count + 1;
                         str,res, None) old_alph_list
                 in
+                (*call list_to_a with expanded (string,code,None) list, like (a,1,None),(b,2,None),(c,3,None),..... *)
                 let res = list_to_a ~orientation:alph.orientation new_alph_list gap_repr None Simple_Bit_Flags in
                 explote res level ori_sz 
                 end
             else begin
+                (*change code from (1,2,3,4...) to (1,2,4,8,....) for full combination*)
                 let new_alphabet =
                     let list = to_list alph in
                     let bit_position = ref 1 in
+                    (*for full combination, code are set for bitwise operation
+                    * later, that is 2^n for each state in original alphabet*)
                     List.map (fun (str, _) ->
                         let res = !bit_position in
                         bit_position := !bit_position lsl 1;
                         str, res, None) list
                 in
+                (*call list_to_a with expanded (string,code,None) list, like (a,1,None),(c,2,None),(t,4,None),..... *)
                 let res = list_to_a ~orientation:alph.orientation new_alphabet gap_repr None Simple_Bit_Flags in
                 explote res level ori_sz
         end
@@ -908,21 +935,26 @@ let rev_comp_arr seqarr alph =
     Array.mapi (fun idx x -> 
         complement2 seqarr.(size-idx-1) alph         ) seqarr
 
-
+(*[of_file] is only called by scripting.ml, when reading in custom alphabet and breakinversion file*)
 let of_file fn orientation init3D level respect_case =
     let file = FileStream.Pervasives.open_in fn in
     let alph = FileStream.Pervasives.input_line file in
     let default_gap = gap_repr in
     let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
+    (*all_element is None for custom alphabet and breakinv*)
     let alph = of_string ~respect_case:respect_case ~orientation:orientation ~init3D:init3D
-    elts default_gap None in
-    let size = size alph in
+    elts default_gap None in 
+    (*at this point, alph is a plain alphabet with only orientation but no
+    * combination, size set to original size, level set to 0, two maps set to empty, *)
+    let size = size alph in(*size here is still the original size without combination*)
     let alph, do_comb = 
-        if orientation then alph, false
+        (*when orientation is true, it's breakinv, we don't do combination/level*)
+        if orientation then alph, false 
         else explote alph level size, true
     in
+    (*get cost matrix out of input cm file*)
     let tcm, matrix = 
-        let all_elements = -1 (* we don't allow ambiguities here *) in
+        let all_elements = -1 (* breakinv and customalphabet don't have all_elements *) in
         if do_comb then
             Cost_matrix.Two_D.of_channel 
                 ~orientation:orientation ~level:level all_elements file 
