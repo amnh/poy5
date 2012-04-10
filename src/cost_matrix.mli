@@ -173,9 +173,11 @@ module Two_D : sig
     val fill_prepend : int array -> m -> unit 
     (** [combine cm] gets the combinations flag in the cost matrix cm. The
     * combinations flag stablishes if the median calculation will consider all
-    * the possible combinations of elements in an original alphabet (1) or not
-    * (0). *)
+    * or some of the possible combinations of elements in an original alphabet (1) 
+    * or not (0). *)
     external combine : m -> int = "cm_CAML_get_combinations"
+    (** [get_combination] return true if combine=1, false if combine=0 *)
+    val get_combination : m -> bool 
 
     (** [affine cm] retrieves the cost model set in the cost matrix cm. *)
     val affine : m -> cost_model
@@ -242,7 +244,7 @@ module Two_D : sig
     (** [print_intlist list] prints out the int list, for debug....*)
     val print_intlist: int list -> unit
 
-    val of_file : ?tie_breaker:Methods.keep_method -> ?use_comb:bool -> ?level:int -> FileStream.f -> int -> bool -> m * int list list
+    val of_file : ?tie_breaker:Methods.keep_method -> ?orientation:bool -> ?use_comb:bool -> ?level:int -> FileStream.f -> int -> bool -> m * int list list
 
     (* [matrix_of_file fn file] Read a file into an array array, and map a
        function over the values; we ensure that the matrix is rectangular. *)

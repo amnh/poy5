@@ -1602,9 +1602,10 @@ let load_data (meth : Methods.input) data nodes =
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;
                 let dynastate,default_mode = 
-                if is_prealigned then 
-                    `SeqPrealigned,`GeneralNonAdd 
-                else `Seq,`DO in
+                    if is_prealigned then 
+                        `SeqPrealigned,`GeneralNonAdd 
+                    else `CustomAlphabet,`DO in
+                (*else `Seq,`DO in*)
                 let tcmfile = FileStream.filename alph in
                 Data.process_molecular_file
                         ~respect_case:respect_case
@@ -1615,6 +1616,7 @@ let load_data (meth : Methods.input) data nodes =
                 (** read breakinv data from files each breakinv is 
                  * presented as a sequence of general alphabets *)
                 let data = Data.add_file data [Data.Characters] seq in
+                (*orientation is set to true by default*)
                 let orientation =
                     if (List.mem (`Orientation false) read_options) then false
                     else true
