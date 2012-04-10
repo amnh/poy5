@@ -3139,121 +3139,113 @@ let transform_seqs_to_kolmogorov d codes newspec =
 * annotated chromosomes whose codes are on the code list [chcode]
 * into breakinvs characters *)    
 let create_alpha_c2_breakinvs (data : d) chcode =  
-
     let spec = Hashtbl.find data.character_specs chcode in  
     let c2, alpha,dynpam = match spec with 
         | Dynamic dspec -> dspec.tcm2d, dspec.alph, dspec.pam
         | _ -> failwith "Transfrom_annchroms_to_breakinvs: Not Dynamic" 
     in
-    let use_ukk = 
-                match !Methods.algn_mode with
-                        | `Algn_Newkk -> true
-                                | _ -> false
-                                    in
-    let chrom_ls = get_dynas data chcode in 
-        
-    let max_code = List.fold_left  
-        ~f:(fun max_code chrom -> 
-                Array.fold_left ~f:(fun max_code seq -> max max_code seq.code 
-                                   ) ~init:max_code chrom.seq_arr 
-           ) ~init:0 chrom_ls 
-    in  
-
-    let gen_alpha = ref [] in 
-    for code = 1 to max_code + 1 do 
-        let char =  
-            match code mod 2  with 
-            | 1 -> string_of_int ( (code + 1)  / 2)  
-            | 0 -> Alphabet.elt_complement ^ ( string_of_int (code / 2) ) 
-            | _ -> failwith "compiler is error" 
-        in  
-        gen_alpha := (char, code, None)::!gen_alpha;         
-    done;  
-
-    let gen_gap_code = max_code + 2 in  
-    gen_alpha := (Alphabet.gap_repr, gen_gap_code, None)::!gen_alpha;  
+    let use_ukk = match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+    in
+    let chrom_ls = get_dynas data chcode in
+    let max_code =
+        List.fold_left
+            ~f:(fun max_code chrom ->
+                Array.fold_left ~f:(fun max_code seq -> max max_code seq.code)
+                                ~init:max_code
+                                chrom.seq_arr)
+            ~init:0
+            chrom_ls
+    in
+    let gen_alpha = ref [] in
+    for code = 1 to max_code + 1 do
+        let char =  match code mod 2 with
+            | 1 -> string_of_int ( (code + 1)  / 2)
+            | 0 -> Alphabet.elt_complement ^ ( string_of_int (code / 2) )
+            | _ -> failwith "compiler is error"
+        in
+        gen_alpha := (char, code, None)::!gen_alpha;
+    done;
+    let gen_gap_code = max_code + 2 in
+    gen_alpha := (Alphabet.gap_repr, gen_gap_code, None)::!gen_alpha;
     gen_alpha := (Alphabet.elt_complement ^ Alphabet.gap_repr, (gen_gap_code + 1), None)::!gen_alpha;
-
     let gen_com_code = gen_gap_code + 2 in  
     gen_alpha := ("*", gen_com_code, None)::!gen_alpha;  
     gen_alpha := ("~*", (gen_com_code + 1), None)::!gen_alpha;  
-
     let max_code = gen_com_code + 1 in  
     let gen_alpha = 
         Alphabet.list_to_a (List.rev !gen_alpha) Alphabet.gap_repr (Some "*")
-        Alphabet.Sequential
-    in 
-    (** Finish creating alphabet*)      
-
-
-    let all_seq_arr = List.fold_left  
-        ~f:(fun all_seq_arr chrom -> Array.append all_seq_arr chrom.seq_arr 
-           ) ~init:[||] chrom_ls  
-    in  
-
-    let gen_cost_mat = Array.make_matrix max_code max_code max_int in  
-
-    let num_seq = Array.length all_seq_arr in  
-    for idx1 = 0 to num_seq - 2 do 
-        for idx2 = idx1 + 1 to num_seq - 1 do 
-
-            let seq1 = all_seq_arr.(idx1).seq in 
-            let code1 = all_seq_arr.(idx1).code in 
-            
-            let seq2 = all_seq_arr.(idx2).seq in 
-            let code2 = all_seq_arr.(idx2).code in 
-                
+                           Alphabet.Sequential
+    in
+    (** Finish creating alphabet*)
+    let all_seq_arr =
+        List.fold_left
+            ~f:(fun all_seq_arr chrom -> Array.append all_seq_arr chrom.seq_arr)
+            ~init:[||]
+            chrom_ls
+    in
+    let gen_cost_mat = Array.make_matrix max_code max_code max_int in
+    let num_seq = Array.length all_seq_arr in
+    for idx1 = 0 to num_seq - 2 do
+        for idx2 = idx1 + 1 to num_seq - 1 do
+            let seq1 = all_seq_arr.(idx1).seq in
+            let code1 = all_seq_arr.(idx1).code in
+            let seq2 = all_seq_arr.(idx2).seq in
+            let code2 = all_seq_arr.(idx2).code in
             let _, _, cost =
                 if use_ukk then
-                Sequence.NewkkAlign.align_2 ~first_gap:false 
-                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm
+                    Sequence.NewkkAlign.align_2 ~first_gap:false
+                        seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm
                 else
-                Sequence.Align.align_2 ~first_gap:false seq1 seq2 c2 Matrix.default
-            in 
+                    Sequence.Align.align_2 ~first_gap:false
+                        seq1 seq2 c2 Matrix.default
+            in
             gen_cost_mat.(code1).(code2) <- cost;
-            gen_cost_mat.(code1).(code2 + 1) <- cost; 
-            gen_cost_mat.(code1 + 1).(code2) <- cost; 
-            gen_cost_mat.(code1 + 1).(code2 + 1) <- cost; 
-            gen_cost_mat.(code2).(code1) <- cost; 
-            gen_cost_mat.(code2).(code1 + 1) <- cost; 
-            gen_cost_mat.(code2 + 1).(code1) <- cost; 
-            gen_cost_mat.(code2 + 1).(code1 + 1) <- cost;                                 
-        done; 
-    done; 
+            gen_cost_mat.(code1).(code2 + 1) <- cost;
+            gen_cost_mat.(code1 + 1).(code2) <- cost;
+            gen_cost_mat.(code1 + 1).(code2 + 1) <- cost;
+            gen_cost_mat.(code2).(code1) <- cost;
+            gen_cost_mat.(code2).(code1 + 1) <- cost;
+            gen_cost_mat.(code2 + 1).(code1) <- cost;
+            gen_cost_mat.(code2 + 1).(code1 + 1) <- cost;
+        done;
+    done;
     let gap = Alphabet.get_gap alpha in
-    Array.iter  
-        (fun chrom ->  
-             let seq = chrom.seq in   
-             let code = chrom.code in   
-             let gap_seq = Sequence.create 1 in  
+    Array.iter
+        (fun chrom ->
+             let seq = chrom.seq in
+             let code = chrom.code in
+             let gap_seq = Sequence.create 1 in
              let gap_seq = Sequence.prepend_char gap_seq gap in
-             let _, _, cost = 
-                 if use_ukk then 
-                 Sequence.NewkkAlign.align_2 ~first_gap:false seq
-                 gap_seq c2 Sequence.NewkkAlign.default_ukkm
+             let _, _,cost =
+                 if use_ukk then
+                    Sequence.NewkkAlign.align_2 ~first_gap:false seq
+                            gap_seq c2 Sequence.NewkkAlign.default_ukkm
                  else
-                 Sequence.Align.align_2 ~first_gap:false seq
-                 gap_seq c2 Matrix.default 
-             in  
-             gen_cost_mat.(code).(gen_gap_code) <- cost; 
-             gen_cost_mat.(code + 1).(gen_gap_code) <- cost; 
-             gen_cost_mat.(gen_gap_code).(code) <- cost; 
-             gen_cost_mat.(gen_gap_code).(code + 1) <- cost;                 
-        ) all_seq_arr;  
-    gen_cost_mat.(gen_gap_code).(gen_gap_code) <- 0; 
-    let gen_cost_ls = List.tl (Array.to_list gen_cost_mat) in 
-    let gen_cost_ls = List.map  
-        (fun cost_arr -> List.tl (Array.to_list cost_arr) ) gen_cost_ls 
-    in  
-
-    let gen_cost_mat = 
-        Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls 
-        (if alpha = Alphabet.nucleotides then 31 
-              else if (Alphabet.is_aminoacids alpha) 
+                    Sequence.Align.align_2 ~first_gap:false seq
+                            gap_seq c2 Matrix.default
+             in
+             gen_cost_mat.(code).(gen_gap_code) <- cost;
+             gen_cost_mat.(code + 1).(gen_gap_code) <- cost;
+             gen_cost_mat.(gen_gap_code).(code) <- cost;
+             gen_cost_mat.(gen_gap_code).(code + 1) <- cost)
+        all_seq_arr;
+    gen_cost_mat.(gen_gap_code).(gen_gap_code) <- 0;
+    let gen_cost_ls = List.tl (Array.to_list gen_cost_mat) in
+    let gen_cost_ls =
+        List.map
+            (fun cost_arr -> List.tl (Array.to_list cost_arr))
+            gen_cost_ls
+    in
+    let gen_cost_mat =
+        Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls
+        (if alpha = Alphabet.nucleotides then 31
+              else if (Alphabet.is_aminoacids alpha)
               then 21 else (-1))
-    in  
+    in
+    gen_alpha, gen_cost_mat
 
-    gen_alpha, gen_cost_mat 
 
 module Kolmogorov = struct
 
