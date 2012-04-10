@@ -1214,9 +1214,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             | css ->
                 List.fold_left
                     (fun data cs ->
-                        let chars_  = Some (Array.of_list cs) in
+                        let data, minus =
+                            Data.remove_absent_present_encodings
+                                ~ignore_data:true data (`Some (true,cs)) in
+                        let cs = List.filter (fun x -> not (List.mem x minus)) cs in
+                        let csa= Array.of_list cs in
                         let _,alpha = Data.verify_alphabet data cs `Max in
-                        (chars_,a,b,c,d,e,f)
+                        (Some csa, a, b, c, d, e, f)
                             --> estimate_static_lk_model t data bs alpha
                             --> Data.apply_likelihood_model_on_chars data cs)
                     data
