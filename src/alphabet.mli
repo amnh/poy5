@@ -172,6 +172,9 @@ val check_level : a -> bool
 (** [set_level newlevel] returns the alphabet with new level value*)
 val set_level : a -> int -> a
 
+(** [set_size newsize] returns the alphabet with new total size value*)
+val set_size : a -> int -> a
+
 (** [is_combiantion_by_level a] returns true if the alphabet kind is
 * Combination_By_Level -- which means a custom_alphabet   *)
 val is_combiantion_by_level : a -> bool

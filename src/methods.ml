@@ -47,14 +47,17 @@ type filename = [ `Local of string | `Remote of string ]
 * number of trees is higher than that max, the method used to mantain the
 * max value.
 *
-* [Fifo] will simply keep the first trees found.
-* [Lifo] will keep the last trees found.
-* [Random] will keep a random subset of the trees found. 
 * Now we also use this type as tie_breaker for cost matrix*)
 type keep_method = [
     | `First
     | `Last
     | `Keep_Random ]
+
+let print_keep_method km =
+    match km with
+    | `First -> Printf.printf "keep first\n%!"
+    | `Last -> Printf.printf "keep last\n%!"
+    | `Keep_Random -> Printf.printf "keep random\n%!"
 
 type support_tree = 
     | Leaf of int

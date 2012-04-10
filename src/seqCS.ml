@@ -801,7 +801,7 @@ module DOS = struct
                         else
                             Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
                         (**)
-                        (* compare cost and alignment 
+                        (* compare cost and alignment
                         let notthesame s1 s2 =
                             if (Sequence.compare s1 s2)<>0 then true
                             else false

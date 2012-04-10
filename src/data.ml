@@ -69,7 +69,9 @@ type dyna_state_t = [
     (** A list of shorted sequences annotated by piles, rearrangements are allowed *)
     | `Annotated
     (** A sequence of gene names, rearrangements are allowed *)
-    | `Breakinv ]
+    | `Breakinv
+    | `CustomAlphabet
+]
 
 
 let print_dyna_state x = 
@@ -82,6 +84,7 @@ let print_dyna_state x =
     | `Genome -> Printf.printf "Genome\n%!"
     | `Annotated -> Printf.printf "Annotated\n%!"
     | `Breakinv -> Printf.printf "Breakinv\n%!"
+    | `CustomAlphabet -> Printf.printf "CustomAlphabet\n%!"
 
 let print_transform_meth x =
     Printf.printf "transform meth=%!";
@@ -831,6 +834,7 @@ let print (data : d) =
                | `Seq -> Printf.fprintf stdout "Seq"
                | `Ml -> Printf.fprintf stdout "Dynamic ML"
                | `Breakinv -> Printf.fprintf stdout "Breakinv"
+               | `CustomAlphabet -> Printf.fprintf stdout "CustomAlphabet"
                | `Chromosome -> Printf.fprintf stdout "Chromosome"
                | `Genome -> Printf.fprintf stdout "Genome"
                | `Annotated -> Printf.fprintf stdout "Annotated")
@@ -1784,11 +1788,12 @@ dyna_state dyna_pam weight prealigned domerge =
             let makeone seqa = {seq=seqa; delimiter=[]; code = -1} in
             match dyna_state with
             | `Ml  when not prealigned -> Array.map makeone seqarr 
+            | `CustomAlphabet when not prealigned -> Array.map makeone seqarr
             | `Seq when not prealigned -> Array.map makeone seqarr
             | `SeqPrealigned           -> Array.map makeone seqarr
             | `Chromosome | `Genome
             | `Annotated  | `Breakinv 
-            | `Seq | `Ml (* when prealigned *) ->
+            | `CustomAlphabet | `Seq | `Ml (* when prealigned *) ->
                 Array.map (fun x -> makeone (Sequence.del_first_char x)) seqarr
         in
         let dyna_data = { seq_arr = seqa; } in 
@@ -2960,7 +2965,7 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
+    | `CustomAlphabet | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
     | others -> 
             let clas = 
                 match others with
@@ -3624,9 +3629,19 @@ let get_state default = function
     | `Seq_to_Chrom _ -> `Chromosome
     | `Custom_to_Breakinv _ 
     | `Annchrom_to_Breakinv _ -> `Breakinv
-    | `Chrom_to_Seq _ | `Breakinv_to_Custom _ -> `Seq
+    | `Chrom_to_Seq _ -> `Seq
+    | `Breakinv_to_Custom _ -> `CustomAlphabet
     | `Change_Dyn_Pam _ -> default
     | `Seq_to_Kolmogorov _ -> failwith "Illegal Data.get_state argument"
+
+
+let get_dyn_state data c =
+    try match Hashtbl.find data.character_specs c  with
+        | Dynamic dspec    -> dspec.state
+        | Set              -> failwithf "Data.get_dyn_state,not dynamic, code=%d" c
+    with  Not_found        -> failwithf "Data.get_dyn_state: Couldn't find code=%d in character specs" c
+
+
 
 
 (** [get_sequences code data] outputs a stack containing all the sequences of the
@@ -3774,7 +3789,7 @@ let convert_dyna_spec data chcode spec transform_meth =
             match dspec.state, transform_meth with 
             | _, `Change_Dyn_Pam _ 
             | `Seq, `Seq_to_Chrom _
-            | `Seq, `Custom_to_Breakinv _
+            | `CustomAlphabet, `Custom_to_Breakinv _
             | `Annotated, `Annchrom_to_Breakinv _
             | `Chromosome, `Chrom_to_Seq  _
             | `Breakinv, `Breakinv_to_Custom _
@@ -4353,7 +4368,6 @@ let available_states data chars =
     in
     List.fold_left
         ~f:(fun acc c ->
-            let c_alph = get_alphabet data c in
             List.fold_left
                 ~f:(fun acc (x,y) ->
                         if observed c y
@@ -5471,49 +5485,115 @@ let assign_tcm_to_characters data chars foname tcm newalph =
 
 
 let assign_tcm_to_characters_from_file data chars file =
-    let alphabet = 
+    let default_km = `Keep_Random in
+    let old_alphabet,old_state,old_tcm = (*get the alphabet and state by the first code, what if
+    we have mix of diffrent datatype?*) 
         match get_chars_codes_comp data chars with
-        | x::_ -> get_alphabet data x
+        | x::_ -> get_alphabet data x, get_dyn_state data x, get_tcm2d data x
         | []   -> failwith "No characters selected in transform"
     in
-    let is_nucleotides = if alphabet=Alphabet.nucleotides then true else false in
-    let is_aminoacids = Alphabet.is_aminoacids alphabet in
-    let is_dna = if alphabet = Alphabet.dna then true else false in
+    let orientation = 
+       match old_state  with
+       | `Breakinv -> true
+       | _ -> false
+    in
+    let is_nucleotides = if old_alphabet=Alphabet.nucleotides then true else false in
+    let is_aminoacids = Alphabet.is_aminoacids old_alphabet in
+    let is_dna = if old_alphabet = Alphabet.dna then true else false in
     let is_dna_or_ami_or_nucleotides = (is_dna || is_aminoacids || is_nucleotides) in
     let oldlevel,ori_sz = 
-        Alphabet.get_level alphabet,  Alphabet.get_ori_size alphabet in
-    let tcm,newalph= match file with
+        Alphabet.get_level old_alphabet,  Alphabet.get_ori_size old_alphabet in
+    let newtcm,newalph = match file with
         | None ->
             (fun x -> Cost_matrix.Two_D.default, default_tcm),
-            alphabet
+            old_alphabet
         | Some (f,level_and_tie_breaker) ->
-            let level,tie_breaker,use_comb =
+            (*get the proper level value,combination sign and tie_breaker*)
+            let ori_sz = Cost_matrix.Two_D.get_ori_a_sz old_tcm in
+            let all_elements =
+                Cost_matrix.Two_D.get_all_elements old_tcm in
+            let pure_sz = 
+                if all_elements>0 then ori_sz-1 else ori_sz 
+            in
+            let level,tie_breaker,use_comb,change_alphabet =
                 match level_and_tie_breaker with
                 | None -> 
-                        if is_dna||is_nucleotides then 0,`Keep_Random,true
-                        else if (Alphabet.check_level alphabet) then
-                            oldlevel,`Keep_Random,true
-                        else if oldlevel=1 then oldlevel,`Keep_Random,false
-                        else 0,`Keep_Random,false
+                        (*when there is no new level and tiebreaker,tie breaker is set to
+                        * default -- do we want to keep the old tie breaker?*)
+                        if debug_level then Printf.printf
+                        "no new tie_breaker value\n%!";
+                        (*we do full combination for dna and nucleotides*)
+                        if is_dna||is_nucleotides then 
+                            0,default_km,true,false
+                        (*old level is > 1 and <= size, we keep the old level,
+                        * combination is keep to true*)
+                        else if (Alphabet.check_level old_alphabet) then
+                            oldlevel,default_km,true,false
+                        (*old level = 1, there is no combination*)
+                        else if oldlevel=1 then 
+                            oldlevel,default_km,false,false
+                        (*anything else*)
+                        else 0,`Keep_Random,false,false
                 | Some (l,tb) ->
-                        if is_dna then 0,tb,true
-                        else if l<=1 then l,tb,false
-                        else if l>ori_sz then ori_sz,tb,true
-                        else l,tb,true in
-            (fun x ->
+                        (*when there is a new level value and tie breaker*)
+                        if debug_level then Printf.printf 
+                        "new level=%d,new tie_breaker=%!" l;
+                        Methods.print_keep_method tb;
+                        (*do full combination for dna and nucleotides *)
+                        if is_dna then 0,tb,true,false
+                        (*set level to 1 if input level <= 1, 
+                        * set level to original alphabet size if input level > ori_sz*)
+                        else if l<=1 then 1,tb,false,true
+                        else if l>ori_sz then ori_sz,tb,true,true
+                        (*finally if 1<level<=ori_sz, create the new cost matrix
+                        * if the combination by level won't blew off the memory*)
+                        else if (Alphabet.is_combiantion_by_level old_alphabet)||
+                        (Alphabet.is_aminoacids old_alphabet) then
+                        begin
+                            let use_comb = Cost_matrix.Two_D.get_combination old_tcm in 
+                            let tmp =
+                                Cost_matrix.Two_D.calc_number_of_combinations_by_level
+                                pure_sz l in
+                            if tmp <= 0 then begin
+                                output_info ("The alphabet size based on the new level is"^
+                                 " too large. I will apply level value from the \
+                                 old cost marix we are using for this one.\n%!");
+                                oldlevel, tb, use_comb, false 
+                            end
+                            else l,tb,true,true 
+                        end
+                        else
+                            oldlevel,tb,false,false
+            in
+            let combnum =
+              Cost_matrix.Two_D.calc_number_of_combinations_by_level pure_sz level 
+            in
+            (fun x -> 
+                (*we still need to refill costmatrix because we have a new cost
+                * matrix file*)
                 if debug_level then Printf.printf
                 "assign_tcm_to_characters_from_file,ori_sz=%d,oldlevel=%d,\
                 newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b,is_nucl?%b\n%!"
                 ori_sz oldlevel level use_comb is_dna is_aminoacids is_nucleotides;
-                if debug_level then Alphabet.print alphabet;
                 let tcm,mat = 
-                        Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker ~use_comb:use_comb 
+                        Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker
+                        ~orientation:orientation ~use_comb:use_comb 
                         ~level:level f x is_dna_or_ami_or_nucleotides 
                 in
                 tcm, Input_file ((FileStream.filename f), mat)),
-                Alphabet.set_level alphabet level
+            if change_alphabet then 
+                Alphabet.set_size (Alphabet.set_level old_alphabet level) combnum
+            else 
+                let _ = 
+                match level_and_tie_breaker with
+                | None -> ()
+                | _ -> output_info ("we don't do combination by level on this \
+                    kind of alphabet, I will NOT apply level changes to this alphabet.")
+                in
+                old_alphabet
     in
-    assign_tcm_to_characters data chars None tcm newalph 
+    if debug_level then Alphabet.print newalph;
+    assign_tcm_to_characters data chars None newtcm newalph 
 
 let add_search_base_for_one_character_from_file data chars file character_name =
     let chcode = 
@@ -5753,7 +5833,9 @@ let codes_with_same_tcm codes data =
     in
     List.fold_left ~f:assign_matching ~init:[] codes
 
-
+(**[assign_level] update cost matrix with new level value, which leads to
+* different number of combinations. but on alphabet side, we only update its 
+* level value, not the combination maps -- we might need to change that*)
 let assign_level data chars tie_breaker level =
     if debug_level then Printf.printf "Data.assign_level,level=%d\n%!" level;
     let make_level level = function
@@ -5762,16 +5844,15 @@ let assign_level data chars tie_breaker level =
     in
     let codes = get_chars_codes_comp data chars in
     let codes =
-        List.map 
-          (fun (a, b, alph, tcmfile) ->
-            if debug_level then begin
+        List.map (fun (a, b, alph, tcmfile) ->
+            (*we only apply change to level on custom alphabet and aminoacids.*)
+            if (Alphabet.is_combiantion_by_level alph)||(Alphabet.is_aminoacids alph) then begin  
+                if debug_level then begin
                 Printf.printf "before assigning:%!"; Alphabet.print alph;
-            end;
-            let name = make_level level tcmfile in
-            let b =
-                if (Alphabet.dna = alph) || (Alphabet.nucleotides = alph) then
-                    b
-                else
+                end;
+                let name = make_level level tcmfile in
+                (*get new cost matrix based on new level*)
+                let resb,resalph =
                     let all_elements = Cost_matrix.Two_D.get_all_elements b in
                     let oldlevel = Cost_matrix.Two_D.get_level b in
                     let ori_sz = Cost_matrix.Two_D.get_ori_a_sz b in
@@ -5779,25 +5860,39 @@ let assign_level data chars tie_breaker level =
                     let combnum =
                         if level > 1 then
                             Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                            pure_sz level
+                            pure_sz level 
                         else
                             ori_sz
                     in
-                    if debug_level then Printf.printf
-                    "Data.assign_level,oldlevel=%d,newlevel=%d\n%!" oldlevel level;
                     if combnum <= 0 then begin
                         output_info ("The alphabet size based on the new level is"^
-                                     " too large. I will NOT apply any changes.\n%!");
-                        b
+                                 " too large. I will NOT apply any changes to this one.\n%!");
+                        b, alph
                     end else begin
+                        if debug_level then Printf.printf "clone old cost matrix\n%!";
                         let b = Cost_matrix.Two_D.clone b in
+                        if debug_level then 
+                            Printf.printf "create new cost matrix by level\n%!";
                         let b = Cost_matrix.Two_D.create_cm_by_level b level
                         oldlevel all_elements tie_breaker in
-                        b
-                    end
-                in
-                (true, a),(fun _ -> b,name),Alphabet.set_level alph level)
-            (codes_with_same_tcm codes data)
+                        b, 
+                        Alphabet.set_size (Alphabet.set_level alph level) combnum
+                    end;
+                  in
+                  if debug_level then begin
+                    Printf.printf "End of assign_level, %!"; Alphabet.print resalph;
+                  end;
+                  (true, a),(fun _ -> resb,name),resalph
+                  (*
+                  * (bool * 'a) * ('b -> Cost_matrix.Two_D.m * tcm_definition) * Alphabet.a
+                  * *)
+            end
+            else begin
+                    output_info ("we don't do combination by level on this \
+                    kind of alphabet, I will NOT apply any changes to this one.");
+                   (true,a),(fun _ -> b,tcmfile),alph 
+            end
+        ) (codes_with_same_tcm codes data)
     in
     List.fold_left 
         ~f:(fun acc (a, tcm, newalph) -> assign_tcm_to_characters acc (`Some a) None tcm newalph)
@@ -6159,17 +6254,16 @@ let has_dynamic d =
 
 
 let can_do_static_approx_code d x =
-    let is_custom_alphabet ds =
-        Alphabet.is_combiantion_by_level ds.alph
-    in
     let appropriate_alphabet_size ds =
             10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
     in
     match Hashtbl.find d.character_specs x with
-        | Dynamic d when (appropriate_alphabet_size d)&&((is_custom_alphabet d)=false) ->
+        | Dynamic d when (appropriate_alphabet_size d) ->
             begin match d.state with
-                | `Seq      | `Annotated  | `Ml                      -> true
-                | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
+                | `Seq  | `Annotated  | `Ml -> 
+                    output_info  ("Data contains characters that support static approx");
+                    true
+                | `CustomAlphabet | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
             end
         (* only dynamics with alphabet < 10 *)
         | Dynamic d     -> false | Static _      -> false

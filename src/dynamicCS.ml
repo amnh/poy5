@@ -255,7 +255,7 @@ let poly_saturation x v =
 let of_array spec genome_arr code taxon num_taxa =
     match spec.Data.state with
     | `SeqPrealigned
-    | `Ml | `Seq as meth ->
+    | `Ml | `Seq | `CustomAlphabet as meth ->
             let seq_arr = 
                 Array.map 
                 (fun (genome_data, genome_code) ->
@@ -267,7 +267,8 @@ let of_array spec genome_arr code taxon num_taxa =
             in 
             let t = SeqCS.of_array spec seq_arr code taxon in
             begin match meth, spec.Data.lk_model with
-            | `SeqPrealigned,_  
+            | `SeqPrealigned,_ 
+            | `CustomAlphabet,_
             | `Seq,_ -> SeqCS t
             | `Ml,Some m -> MlCS (MlDynamicCS.make (spec.Data.alph) t m)
             | `Ml,None -> failwith "DynamicCS.of_array; No likelihood model found"

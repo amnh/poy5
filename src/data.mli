@@ -50,7 +50,9 @@ type dyna_state_t = [
 | `Annotated
 
 (** A sequence of gene names, rearrangements are allowed *)
-| `Breakinv ]
+| `Breakinv 
+
+| `CustomAlphabet]
 
 type polymorphism_t = Methods.polymorphism_arg
 
