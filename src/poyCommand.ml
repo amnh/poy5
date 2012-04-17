@@ -188,11 +188,10 @@ type iteration_strategy = [
     | `ThresholdModel of float
     | `MaxCountModel of int
     | `BothModel of float * int
-    | `NeighborhoodModel of float
     | `NullBranches
     | `AllBranches
     | `JoinDeltaBranches
-    | `NeighborhoodBranches
+    | `NeighborhoodBranches of int
 ]
 
 type builda = [
@@ -506,16 +505,15 @@ let transform_iterations
         Methods.tabu_modeli_strategy * Methods.tabu_branchi_strategy = 
     List.fold_left
         (fun (a,b) -> function
-            | `NullModel -> (`Null,b)
-            | `AlwaysModel -> (`Always,b)
+            | `NullModel        -> (`Null,b)
+            | `AlwaysModel      -> (`Always,b)
             | `ThresholdModel x -> (`Threshold x, b)
-            | `MaxCountModel x -> (`MaxCount x, b)
-            | `BothModel (x,y) -> (`Both (x,y), b)
-            | `NeighborhoodModel y -> (`Neighborhood y,b)
+            | `MaxCountModel x  -> (`MaxCount x, b)
+            | `BothModel (x,y)  -> (`Both (x,y), b)
             | `NullBranches     -> (a,`Null)
             | `AllBranches      -> (a,`AllBranches)
             | `JoinDeltaBranches -> (a,`JoinDelta)
-            | `NeighborhoodBranches -> (a,`Neighborhood))
+            | `NeighborhoodBranches y -> (a,`Neighborhood y))
         iter_default items
 
 let transform_build
@@ -2018,7 +2016,6 @@ let create_expr () =
             [
                 [LIDENT "threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
                 [LIDENT "max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
-                [LIDENT "neighborhood"; ":"; x = FLOAT -> `NeighborhoodModel (float_of_string x) ] |
                 [LIDENT "never" -> `NullModel] |
                 [LIDENT "always" -> `AlwaysModel]
             ];
@@ -2026,14 +2023,16 @@ let create_expr () =
             [
                 [LIDENT "never" -> `NullModel] |
                 [LIDENT "always" -> `AlwaysModel] |
-                [ left_parenthesis; x = model_iter2; right_parenthesis -> x]
+                [left_parenthesis; x = model_iter2; right_parenthesis -> x]
             ];
         branch_iter :
             [
-                [LIDENT "never" -> `NullBranches] |
-                [LIDENT "all_branches" -> `AllBranches] |
-                [LIDENT "join_delta" -> `JoinDeltaBranches] |
-                [LIDENT "join_region" -> `NeighborhoodBranches]
+                [LIDENT "never"         -> `NullBranches] |
+                [LIDENT "all_branches"  -> `AllBranches] |
+                [LIDENT "join_delta"    -> `JoinDeltaBranches] |
+                [LIDENT "join_region"   -> `NeighborhoodBranches 0] |
+                [LIDENT "join_region"; ":"; x = INT ->
+                    `NeighborhoodBranches (int_of_string x) ]
             ];
         iterate_options:
             [
