@@ -431,7 +431,7 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
     memcpy( lkvec, l_stuff, ret->rates * ret->c_len * ret->stride * sizeof(double));
     ret->lv_s = lkvec;
 
-    if( 1 == Int_val(mpl) ){
+    if( (MPLCOST == Int_val(mpl)) || (SMPLCOST == Int_val(mpl)) ){
         for( i = 0; i < (ret->rates*ret->c_len*ret->stride); ++i){
             ret->lv_s[i] = (ret->lv_s[i] >= 1.0 )?0.0:NEGINF;
         }
@@ -1075,13 +1075,6 @@ logMPL_site( const mll* l, const double weight, const double* pi,
             max_v = MAX (l->lv_s[c+j] + log(pi[j]), max_v);
         }
     }
-    if( max_v == NEGINF ){
-        printf("%d: ",i);
-        for(j=0; j < l->stride; ++j){
-            printf("[%f] ",l->lv_s[c+j] + log(pi[j]));
-        }
-        printf("\n");
-    }
     max_v= max_v * weight;
     return max_v;
 }
@@ -1106,17 +1099,14 @@ logSMPL_site( const mll* l, const double weight, const double* pi,
     double maximum, s_max, k;
     maximum = logMPL_site( l, 1.0, pi, prob, i );
     k = fabs( 100 / maximum );
-    //printf("%d -- %f -- [", i, maximum);
     s_max = 0;
     for(r=0; r < l->rates;++r){
         c = (r * (l->stride * l->c_len)) + (l->stride * i);
         for(j=0; j < l->stride; ++j){
-            //printf("%f; ", (l->lv_s[c+j] + log(pi[j])) );
             s_max += exp( k * (l->lv_s[c+j] + log(pi[j])));
         }
     }
     s_max = log(s_max) * weight / k;
-    //printf( "] --> %f\n", s_max );
     return s_max;
 }
 
@@ -1221,7 +1211,7 @@ loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob
             break;
         case SMPLCOST: 
             total_cost = logSMPLlikelihood( l, ws, pi, prob );
-            printf("S|MPL: %f|%f\n", total_cost, logMPLlikelihood(l,ws,pi,prob));
+            //printf("S|MPL: %f|%f\n", total_cost, logMPLlikelihood(l,ws,pi,prob));
             break;
         default :
             assert( FALSE );
@@ -1411,10 +1401,8 @@ median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
         case MALCOST : 
             median_MAL( PA, PB, amll, bmll, cmll, rate_idx );
             break;
-        case MPLCOST: 
-            median_MPL( PA, PB, amll, bmll, cmll, rate_idx );
-            break;
         case SMPLCOST: 
+        case MPLCOST: 
             median_MPL( PA, PB, amll, bmll, cmll, rate_idx );
             break;
         default :
@@ -1796,8 +1784,6 @@ median1( const double* PA, const mll* amll, const mll* bmll,
 {
     switch( cost ){
         case MPLCOST: 
-            median1_MPL( PA,amll,bmll,dmll,rate_idx );
-            break;
         case SMPLCOST: 
             median1_MPL( PA,amll,bmll,dmll,rate_idx );
             break;

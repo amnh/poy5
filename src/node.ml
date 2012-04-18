@@ -839,7 +839,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                sum_cost = cost +. bm.sum_cost +. am.sum_cost;
                                time = Some t1, Some t2, t3_opt; }
                 (* calculate the median1 for MPL with OCAML Brents *)
-                | `MPL ->
+                | `MPL | `SML ->
                     let calculate_single t = 
                         let m = MlStaticCS.median1 am.preliminary bm.preliminary t in
                         (m,MlStaticCS.root_cost m)
@@ -859,7 +859,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                               cost = fv;
                               sum_cost = fv +. bm.sum_cost +. am.sum_cost;
                               time = Some v, Some 0.0, None; }
-                | _ -> assert false (* all other methods are dynamic *)
+                | `FLK -> assert false (* all other methods are dynamic *)
                 end
             in
             ei_map ptl atl btl ((StaticMl mine)::pa)
