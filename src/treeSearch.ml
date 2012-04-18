@@ -561,16 +561,14 @@ module MakeNormal
             let m, b = l_opt.Methods.tabu_iterate in
             let thrsh = match m with 
                 | `Threshold f 
-                | `Both (f,_) 
-                | `Neighborhood f -> Some f
-                | `Always -> Some 0.0
+                | `Both (f,_)  -> Some f
+                | `Always      -> Some 0.0
                 | `Null 
-                | `MaxCount _ -> None
+                | `MaxCount _  -> None
             and count =  match m with
                 | `MaxCount m 
-                | `Both (_,m) -> Some m
-                | `Always 
-                | `Neighborhood _ -> Some 0
+                | `Both (_,m)  -> Some m
+                | `Always      -> Some 0
                 | `Null 
                 | `Threshold _ -> None
             in
@@ -578,7 +576,7 @@ module MakeNormal
             | `Null           -> PhyloTabus.simple_nm_none count thrsh
             | `AllBranches    -> PhyloTabus.simple_nm_all count thrsh
             | `JoinDelta      -> PhyloTabus.complex_nm_delta count thrsh
-            | `Neighborhood   -> PhyloTabus.complex_nm_neighborhood count thrsh
+            | `Neighborhood x -> PhyloTabus.complex_nm_neighborhood count thrsh
 
     let sampler meth sampler data queue lst () =
         let sampler = 

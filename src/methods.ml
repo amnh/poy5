@@ -426,11 +426,10 @@ type tabu_modeli_strategy = [
     | `MaxCount of int      (* number of search iterations before iterating model *)
     | `Always               (* always iterate the model *)
     | `Both of float * int  (* both threshold and count *)
-    | `Neighborhood of float(* same as threshold but weighted around join neighborhood *)
     | `Null ]               (* no iteration of model *)
 type tabu_branchi_strategy = [
-    | `JoinDelta           (* path along join -> break *)
-    | `Neighborhood         (* neighborhood around join point *)
+    | `JoinDelta            (* path along join -> break *)
+    | `Neighborhood of int  (* neighborhood around join point *)
     | `AllBranches          (* iterate all the branches in the tree *)
     | `Null ]               (* no iteration of branches *)
 type tabu_iteration_strategy = tabu_modeli_strategy * tabu_branchi_strategy
