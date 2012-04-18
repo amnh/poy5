@@ -537,13 +537,13 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in 
             let model = MlStaticCS.get_model ca.preliminary in
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
-                | `MPL when code > 0 -> 
+                | `MPL | `SML when code > 0 -> 
                     MlStaticCS.median2 ca.preliminary cb.preliminary
                                        t1 t2 anode.taxon_code bnode.taxon_code
                 | `MAL -> 
                     MlStaticCS.median2 ca.preliminary cb.preliminary
                                        t1 t2 anode.taxon_code bnode.taxon_code
-                | `MPL -> assert( code <= 0 );
+                | `MPL | `SML -> assert( code <= 0 );
                     MlStaticCS.median1 ca.preliminary cb.preliminary (t1+.t2)
                 | _ -> assert false; (* all others are dynamic cost fns *)
                 end
@@ -2979,15 +2979,16 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and static_ml = List.filter is_mem data.Data.static_ml
         and dynamics = List.filter is_mem data.Data.dynamics in
 
-        let has_dynamic_mpl,has_dynamic_mal,has_dynamic_aln = 
+        let has_dynamic_mpl,has_dynamic_mal,has_dynamic_aln =
             List.fold_left
-                (fun ((mpl,mal,aln) as acc) code -> 
+                (fun ((mpl,mal,aln) as acc) code ->
                     match Hashtbl.find data.Data.character_specs code with
                     | Data.Dynamic ({Data.state = state} as s) when state = `Ml  ->
                         begin match s.Data.lk_model with
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `MPL -> true,mal ,aln
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `SML -> true,mal ,aln
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `MAL -> mpl ,true,aln
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true 
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true
                             | _ -> assert false (* above pattern should be exhaustive *)
                         end
                     | _ -> acc)
@@ -3009,33 +3010,35 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
             | _                       -> `Parsimony
         in
         current_snapshot "end nonadd set2";
-        let r = 
-            generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
-            static_ml data cost_mode
+        let r =
+            generate_taxon classify add n8 n16 n32 n33 sank dynamics
+                                    kolmogorov static_ml data cost_mode
         in
         current_snapshot "end generate taxon";
         r
     in
-    let nodes = 
-        let ntaxa = 
+    let nodes =
+        let ntaxa =
             All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1)
-            data.Data.taxon_codes 0 
+                                     data.Data.taxon_codes 0
         in
-        let st, finalize = 
+        let st, finalize =
             if not silent then
-                let status = 
-                    Status.create "Loading terminals" (Some ntaxa) "terminals loaded" 
+                let status =
+                    Status.create "Loading terminals" (Some ntaxa) "terminals loaded"
                 in
                 let cnt = ref 0 in
-                (fun () -> 
-                    incr cnt; 
+                (fun () ->
+                    incr cnt;
                     Status.achieved status !cnt;
                     Status.full_report status),
                 (fun () -> Status.finished status)
-            else (fun () -> ()), (fun () -> ())
+            else 
+                (fun () -> ()),
+                (fun () -> ())
         in
-        let res = 
-            All_sets.IntegerMap.fold 
+        let res =
+            All_sets.IntegerMap.fold
                 (fun x _ acc ->
                     let res = generate_taxon x acc in st (); res)
                 data.Data.taxon_codes []
@@ -3043,19 +3046,14 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         finalize ();
         res
     in
-    let nodes = 
+    let nodes =
         let sorted x = List.stable_sort node_contents_compare x in
         List.map (fun x -> { x with characters = sorted x.characters }) nodes
     in
     let nodes, data = structure_into_sets data nodes in
     current_snapshot "Node.load_data end";
-    (* do this inside data.ml
-    * let nodes =
-        match sign_dyna with
-        | h::t -> transform_multi_chromosome nodes data
-        | _ -> nodes
-    in*)
     data, nodes
+
 
 (* OUTPUT TO XML *)
 let generate_print_endline ch =

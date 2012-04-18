@@ -1381,13 +1381,16 @@ let create_expr () =
                     right_parenthesis -> `Given x ]
             ];
         ml_gap :
-            [ [ LIDENT "missing" -> `Missing ] |
+            [ [ LIDENT "missing"   -> `Missing ] |
               [ LIDENT "character" -> `Independent] |
-              [ LIDENT "coupled" -> `Coupled 1.0 ] |
-              [ LIDENT "coupled"; ":"; x = integer_or_float -> `Coupled (float_of_string x) ] ];
+              [ LIDENT "coupled"   -> `Coupled 1.0 ] |
+              [ LIDENT "coupled"; ":"; x = integer_or_float -> `Coupled (float_of_string x) ]
+            ];
         ml_costfn:
             [
-                [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL] | [LIDENT "flk" -> `FLK]
+                [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL] |
+                (** Undefined in the context of the user; used for testing **)
+                [LIDENT "flk" -> `FLK] | [LIDENT "sml" -> `SML]
             ];
         partitioned_mode:
             [   

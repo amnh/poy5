@@ -1494,13 +1494,13 @@ let load_data (meth : Methods.input) data nodes =
                         data
                         files
                 in
-                begin match Data.type_of_dynamic_likelihood data with
-                    | None when Data.has_likelihood data && not prev ->
-                        Methods.cost := `Iterative (`ThreeD None)
-                    | Some _ when not prev ->
-                        Methods.cost := `Iterative (`ThreeD None)
-                    | (None | Some _) -> ()
-                end;
+(*                begin match Data.type_of_dynamic_likelihood data with*)
+(*                    | None when Data.has_likelihood data && not prev ->*)
+(*                        Methods.cost := `Iterative (`ThreeD None)*)
+(*                    | Some _ when not prev ->*)
+(*                        Methods.cost := `Iterative (`ThreeD None)*)
+(*                    | (None | Some _) -> ()*)
+(*                end;*)
                 data
 
         | `PartitionedFile files 

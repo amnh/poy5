@@ -1440,7 +1440,6 @@ module F : Ptree.Tree_Operations
             info_user_message "Updated Dynamic Likelihood Score: %f --> %f" old_cost new_cost;
         if new_cost < old_cost then new_tree else old_tree
 
-
     (** wrapper for model function to correctly call dynamic/static likelihood
         model adjustment functions **)
     let model_fn tree = 
@@ -1457,25 +1456,27 @@ module F : Ptree.Tree_Operations
         let adjust_ do_model do_branches branches iterations first_tree = 
             let rec loop_ smooth iter icost itree =
                 let mcost,mtree,iter =
-                    if do_model then
+                    if do_model then begin
                         let mtree = model_fn itree in
                         let mcost = Ptree.get_cost `Adjusted mtree in
+                        if debug_model_fn then
+                            info_user_message "Step %d; Optimized Model %f --> %f" iter icost mcost;
                         mcost,mtree,iter+1
-                    else
+                    end else begin
                         icost,itree,iter
+                    end
                 in
-                if debug_model_fn then
-                    info_user_message "Step %d; Optimized Model %f --> %f" iter icost mcost;
                 let bcost,btree,iter =
-                    if do_branches then
+                    if do_branches then begin
                         let btree = adjust_tree iterations branches None mtree in
                         let bcost = Ptree.get_cost `Adjusted btree in
+                        if debug_model_fn then
+                            info_user_message "Step %d; Optimized Branches %f --> %f" iter mcost bcost;
                         bcost,btree,iter+1
-                    else
+                    end else begin
                         mcost,mtree,iter
+                    end
                 in
-                if debug_model_fn then
-                    info_user_message "Step %d; Optimized Branches %f --> %f" iter mcost bcost;
                 if icost =. bcost || iter > max_iter
                     then begin 
                         if smooth then btree else loop_ true iter bcost btree 
@@ -1484,9 +1485,33 @@ module F : Ptree.Tree_Operations
             in
             let first_cost = Ptree.get_cost `Adjusted first_tree in
             loop_ false 0 first_cost first_tree
+        (** Here we apply a heuristic cost function to MPL in likelihood and
+            return a transform to turn the data back. *)
+        and apply_heuristic_cost_model tree =
+            let diagnose_tree tree data =
+                let data,nodes = AllDirNode.AllDirF.load_data data in
+                let adder acc x = IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
+                let node_data = List.fold_left adder IntMap.empty nodes in
+                {tree with Ptree.node_data = node_data;
+                                      data = data; }
+                    --> internal_downpass true
+                    --> assign_single
+
+            in
+            match Data.apply_heuristic_cost_model tree.Ptree.data with
+            | None      -> tree, (fun x -> x)
+            | Some data ->
+                (diagnose_tree tree data),
+                (fun tree ->
+                    match Data.apply_heuristic_cost_model 
+                                ~cost_model:`MPL tree.Ptree.data
+                    with
+                    | None      -> assert false
+                    | Some data -> diagnose_tree tree data)
         in
         let tree =
             if (using_likelihood `Either tree) then begin
+                let tree, unapply_heuristic_cost_model = apply_heuristic_cost_model tree in
                 let do_branches,branches,do_model = match node_man with
                     | Some node_man ->
                         let do_branches =
@@ -1495,8 +1520,6 @@ module F : Ptree.Tree_Operations
                         in
                         do_branches,node_man#branches,node_man#model
                     | None ->
-                        if debug_model_fn then
-                            warning_user_message "No Iteration Manager; using current default";
                         begin match !Methods.cost with
                             | `Iterative (`ApproxD iterations)
                             | `Iterative (`ThreeD  iterations) -> true,None,true
@@ -1507,7 +1530,7 @@ module F : Ptree.Tree_Operations
                 if debug_model_fn then
                     info_user_message "Optimized Likelihood Params: %f to %f"
                         (Ptree.get_cost `Adjusted tree) (Ptree.get_cost `Adjusted n_tree);
-                n_tree
+                unapply_heuristic_cost_model n_tree
             end else begin
                 match !Methods.cost with
                 | `Iterative (`ApproxD iterations)

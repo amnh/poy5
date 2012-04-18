@@ -3921,8 +3921,7 @@ type classes =
     [ `Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
     | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
 
-let has_likelihood d = 
-    match d.static_ml with
+let has_likelihood d = match d.static_ml with
     | [] -> false
     | _  -> true
 
@@ -4805,6 +4804,32 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
     end
 
 
+    let apply_heuristic_cost_model ?(cost_model=`SML) data =
+        match categorize_likelihood_chars_by_model `All data with
+        | [] -> None
+        | xs ->
+            let found = ref false in
+            let data =
+                List.fold_left
+                    ~f:(fun data chars ->
+                            let model = get_likelihood_model data chars in
+                            match model.MlModel.spec.MlModel.cost_fn with
+                            | `MPL | `SML ->
+                                found := true;
+                                let model =
+                                    { model with
+                                        MlModel.spec =
+                                            { model.MlModel.spec with
+                                                MlModel.cost_fn = cost_model }; }
+                                in
+                                apply_likelihood_model_on_chars data chars model
+                            | `MAL | `FLK ->
+                                data)
+                    ~init:data
+                    xs
+            in
+            if !found then Some data else None
+
 
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
  * the likelihood model specified in [lk] *)
@@ -4922,12 +4947,13 @@ let transform_dynamic (meth: Methods.dynamic_char_transform) data =
     let tran_code_ls, meth = get_tran_code_meth data meth in 
     let data = ref (duplicate data) in
     Hashtbl.iter
-    (fun code spec ->
-         if List.mem code tran_code_ls then begin
-             let dyn, d = convert_dyna_spec !data code spec meth in
-             Hashtbl.replace !data.character_specs code dyn;
-             data := d;
-        end else ()) !data.character_specs;
+        (fun code spec ->
+            if List.mem code tran_code_ls then begin
+                let dyn, d = convert_dyna_spec !data code spec meth in
+                Hashtbl.replace !data.character_specs code dyn;
+                data := d
+            end)
+        !data.character_specs;
     let new_taxon_chs = 
         let new_tbl = create_ht () in
         Hashtbl.iter 
@@ -4937,17 +4963,22 @@ let transform_dynamic (meth: Methods.dynamic_char_transform) data =
             !data.taxon_characters;
         new_tbl
     in 
-    {!data with taxon_characters = new_taxon_chs}
+    { !data with taxon_characters = new_taxon_chs }
 
 let intmap_filter f y =
-    All_sets.IntegerMap.fold (fun a b acc ->
-        if f a b then All_sets.IntegerMap.add a b acc
-        else acc) y All_sets.IntegerMap.empty
+    All_sets.IntegerMap.fold
+        (fun a b acc ->
+            if f a b then All_sets.IntegerMap.add a b acc
+            else acc)
+        y
+        All_sets.IntegerMap.empty
 
 let hashtbl_filter f y =
-    Hashtbl.iter (fun a b ->
-        if not (f a b) then Hashtbl.remove y a
-        else ()) y;
+    Hashtbl.iter
+        (fun a b ->
+            if not (f a b) then Hashtbl.remove y a
+            else ())
+        y;
     y
 
 let process_ignore_character report data code_set =
@@ -5010,13 +5041,13 @@ let process_ignore_characters report data characters =
     process_ignore_character report data codes
 
 let process_analyze_only_characters_file report dont_complement data files =
-    let codes = 
-        List.fold_left 
+    let codes =
+        List.fold_left
             ~f:(fun acc x ->
                 let ch, x = FileStream.channel_n_filename x in
                 let items = Parser.IgnoreList.of_channel ch in
                 close_in ch;
-                let items = 
+                let items =
                     warn_if_repeated_and_choose_uniquely items "characters@ file@ " x
                 in
                 let codes = get_chars_codes data (`Names items) in
