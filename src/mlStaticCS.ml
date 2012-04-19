@@ -399,8 +399,7 @@ let of_parser spec weights characters =
         | _ -> failwith "Not a likelihood model" in
     let () = (* ensure cost mode is acceptable: MAL/MPL *)
         match computed_model.MlModel.spec.MlModel.cost_fn with
-        | `MPL | `MAL -> ()
-        | `SML -> assert false
+        | `MPL | `MAL | `SML -> ()
         | `FLK -> failwith "Cannot apply cost mode to static characters"
     in
     let (a_size,a_gap,u_gap) = 

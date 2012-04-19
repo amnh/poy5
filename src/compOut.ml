@@ -321,7 +321,7 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
                 use_assump := true;
                 add_tcm_assumption (Buffer.add_string assump) code "";
                 Dyn_pam.to_nexus fo (convert_dyn (Data.get_pam data code)) posstr
-            | `SeqPrealigned | `Seq | `Ml | `Annotated | `Breakinv -> ()
+            | `SeqPrealigned | `CustomAlphabet | `Seq | `Ml | `Annotated | `Breakinv -> ()
         in
         let add_data pos code = 
             let posstr = string_of_int (pos + 1) in

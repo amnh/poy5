@@ -2417,7 +2417,7 @@ algn_newkk_fill_a_row_aff (int k, int baseband, int i, int start_pos, int end_po
 {
     int debug = 0;
     int debug2 = 0;
-    int debug3 = 0;
+    int debug3 = 0; //debug sign for assign_minimum
     if (debug) printf("algn_newkk_fill_a_row_aff,line#.%d, start pos = %d, end pos = %d\n",i, start_pos,end_pos);
     SEQT jc, jp, sj_no_gap;
     int sj_gap_extension,sj_gap_opening;

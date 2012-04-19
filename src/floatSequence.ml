@@ -20,7 +20,7 @@
 (* Debug variables/ combinators *)
 let (-->) a b = b a
 
-let debug_mem = true
+let debug_mem = false
 let debug_aln = false
 let debug_cst = false
 

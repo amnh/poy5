@@ -47,14 +47,17 @@ type filename = [ `Local of string | `Remote of string ]
 * number of trees is higher than that max, the method used to mantain the
 * max value.
 *
-* [Fifo] will simply keep the first trees found.
-* [Lifo] will keep the last trees found.
-* [Random] will keep a random subset of the trees found. 
 * Now we also use this type as tie_breaker for cost matrix*)
 type keep_method = [
     | `First
     | `Last
     | `Keep_Random ]
+
+let print_keep_method km =
+    match km with
+    | `First -> Printf.printf "keep first\n%!"
+    | `Last -> Printf.printf "keep last\n%!"
+    | `Keep_Random -> Printf.printf "keep random\n%!"
 
 type support_tree = 
     | Leaf of int
@@ -423,11 +426,10 @@ type tabu_modeli_strategy = [
     | `MaxCount of int      (* number of search iterations before iterating model *)
     | `Always               (* always iterate the model *)
     | `Both of float * int  (* both threshold and count *)
-    | `Neighborhood of float(* same as threshold but weighted around join neighborhood *)
     | `Null ]               (* no iteration of model *)
 type tabu_branchi_strategy = [
-    | `JoinDelta           (* path along join -> break *)
-    | `Neighborhood         (* neighborhood around join point *)
+    | `JoinDelta            (* path along join -> break *)
+    | `Neighborhood of int  (* neighborhood around join point *)
     | `AllBranches          (* iterate all the branches in the tree *)
     | `Null ]               (* no iteration of branches *)
 type tabu_iteration_strategy = tabu_modeli_strategy * tabu_branchi_strategy

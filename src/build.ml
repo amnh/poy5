@@ -397,16 +397,14 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     let create_adjust_manager (m,b) = 
         let thrsh = match m with 
             | `Threshold f 
-            | `Both (f,_) 
-            | `Neighborhood f -> Some f
-            | `Always -> Some 0.0
+            | `Both (f,_) -> Some f
+            | `Always     -> Some 0.0
             | `Null 
             | `MaxCount _ -> None
         and count =  match m with
             | `MaxCount m 
             | `Both (_,m) -> Some m
-            | `Always 
-            | `Neighborhood _ -> Some 0
+            | `Always     -> Some 0
             | `Null 
             | `Threshold _ -> None
         in
@@ -414,7 +412,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | `Null           -> BuildTabus.simple_nm_none count thrsh
             | `AllBranches    -> BuildTabus.simple_nm_all count thrsh
             | `JoinDelta      -> BuildTabus.complex_nm_delta count thrsh
-            | `Neighborhood   -> BuildTabus.complex_nm_neighborhood count thrsh
+            | `Neighborhood x -> BuildTabus.complex_nm_neighborhood count thrsh
         in
         Some mgr
 

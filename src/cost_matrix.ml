@@ -94,6 +94,13 @@ module Two_D = struct
     int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
     external clone : m -> m = "cm_CAML_clone"
 
+    let get_combination m =
+        let comb_code = combine m in
+        if comb_code=1 then true
+        else if comb_code=0 then false
+        else 
+            failwith ("combine code must be 0 or 1 in cost matrix")
+
     let use_combinations = true
     and use_cost_model = Linnear
     and use_gap_opening  = 0
@@ -1052,12 +1059,14 @@ module Two_D = struct
 
     let fill_cost_matrix ?(tie_breaker=`Keep_Random) ?(use_comb=true) ?(level = 0) ?(suppress=false) 
                             l a_sz all_elements =
+        let debug = false in
         let pure_a_sz = 
             if all_elements=(a_sz-1) && level>1 && level<a_sz then
                 a_sz-1
             else a_sz 
         in
         let num_comb = calc_number_of_combinations_by_level pure_a_sz level in
+        assert(num_comb>0);
         let num_withgap = calc_num_of_comb_with_gap pure_a_sz level in
         let num_comb,num_withgap = 
             if pure_a_sz<>a_sz then num_comb+1,num_withgap+1
@@ -1102,6 +1111,7 @@ module Two_D = struct
         m
 
     let of_channel ?(tie_breaker = `Keep_Random) ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
+        let debug = false in
         let use_comb = if level = 1 then false else use_comb in
         if debug then 
         Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," 
@@ -1142,7 +1152,7 @@ module Two_D = struct
                         w + 1, newl
                     else w, l
                 in
-                if debug then Printf.printf "after adding all_element, list len=%d %!" (List.length l);
+                if debug then Printf.printf "after adding all_element, list len=%d, \n%!" (List.length l);
                 let m = 
                     match orientation with 
                     | false ->
@@ -1187,15 +1197,17 @@ module Two_D = struct
 
     let create_cm_by_level m level oldlevel all_elements tie_breaker =
         let ori_sz = get_ori_a_sz m in
+        let debug = false in
         if debug then Printf.printf "create cm by level=%d, oldlevel=%d,ori_sz=%d,all_elements=%d\n%!"
         level oldlevel ori_sz all_elements;
         let ori_list = ori_cm_to_list m in
         let newm =
             if (level <= 1) then
+                (*pass level=0 to cm.c when level<=1, we will set level back to 1 there.*)
                 fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:0 ori_list ori_sz
-                all_elements (*~-1*) 
+                all_elements  
             else if (level>ori_sz) then
-                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements (*~-1*)
+                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
             else
                 fill_cost_matrix ~use_comb:true ~level:level ori_list ori_sz
                 all_elements
@@ -1341,7 +1353,8 @@ module Two_D = struct
                     in
                     best
 
-    let of_file ?(tie_breaker = `Keep_Random) ?(use_comb = true) ?(level = 0) file all_elements is_dna_or_ami =
+    let of_file ?(tie_breaker = `Keep_Random) ?(orientation=false) ?(use_comb = true) ?(level = 0) file all_elements is_dna_or_ami =
+        let debug = false in
         let ch = FileStream.Pervasives.open_in file in
         (*for custom_alphabet & break_inversion, first line of cost_matrix is
         * alphabet.parser function "load_file_as_list" is expecting pure cost
@@ -1355,7 +1368,7 @@ module Two_D = struct
         if debug then
             Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!" use_comb level;
         let res =
-            of_channel ~tie_breaker:tie_breaker ~use_comb ~level:level all_elements ch
+            of_channel ~tie_breaker:tie_breaker ~orientation:orientation ~use_comb:use_comb ~level:level all_elements ch
         in
         ch#close_in;
         res
