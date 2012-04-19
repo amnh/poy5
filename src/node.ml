@@ -512,7 +512,7 @@ let extract_states alph data in_codes node =
     List.flatten (List.map extract_states_cs node.characters)
 
 (* calculate the median between two nodes *)
-let rec cs_median code anode bnode prev t1 t2 a b = 
+let rec cs_median code anode bnode prev t1 t2 a b =
     match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
@@ -634,14 +634,16 @@ let rec cs_median code anode bnode prev t1 t2 a b =
           Add res
     | Sank ca, Sank cb ->
             assert (ca.weight = cb.weight);
-            let prev = 
+            (*let prev = 
                 match prev with
                 | None -> None
                 | Some (Sank prev) -> Some (prev.preliminary)
                 | _ -> raise (Illegal_argument "cs_median") 
             in
             let median = SankCS.median prev ca.preliminary cb.preliminary in
-            let cost = SankCS.distance ca.preliminary cb.preliminary in
+            let cost = SankCS.distance ca.preliminary cb.preliminary in*)
+            let cost,median = SankCS.distance_and_median ca.preliminary
+            cb.preliminary in
             let res = 
                 { 
                     ca with preliminary = median;

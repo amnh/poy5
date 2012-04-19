@@ -1080,7 +1080,6 @@ let cost_fn jxn1 jxn2 delta clade_data tree =
               then h, n
               else n, h in
           let ndata = Ptree.get_node_data n tree in
-
          (* We must check whether our parent is the handle, and, if we are
             the handle's "parent," then our real parent is the virtual
             root, which we calculate by taking a median. *)
@@ -1088,7 +1087,6 @@ let cost_fn jxn1 jxn2 delta clade_data tree =
             [n]. *)
           let hdata =
               Ptree.get_parent_or_root_data n tree in
-
           Ptree.Cost (Node.dist_2 delta clade_data hdata ndata)
 
 let within_threshold b a = b < (a +. (a *. 0.05))

@@ -71,6 +71,7 @@ let ( <$ ) a b = cost_less a b
 
 type cm = int array array               (* never have infinity *)
 
+
 type gen = int * int * cm
 
 type elt = {
@@ -118,7 +119,6 @@ type t = {
 (* A default string representation as a list with the minimal states (those with
 * minimal cost in the state array). *)
 let elt_to_string a = 
-(*     let min = Array.fold_left cost_min Infinity a.s in *)
     let sep = ref "" in
     let res, _ = Array.fold_left 
             begin fun (b, pos) a -> 
@@ -134,13 +134,6 @@ let elt_to_string a =
                         sep := ";";
                         next
                 in
-(*                     if a = min then begin *)
-(*                         let res = b ^ !sep ^ string_of_int pos in *)
-(*                         sep := ";"; *)
-(*                         res *)
-(*                     end *)
-(*                     else b *)
-(*                 in *)
                 next, pos + 1
             end ("{",0) a.s in
     res ^ "}"
@@ -304,18 +297,23 @@ let get_minstates {e=a} =
 * associated. If they are homologous, it must also be the case that they hold
 * the same number of valid states. *)
 let elt_median tcm a b = 
+    let debug = false in
     assert ((Array.length a.s) = (Array.length b.s));
     assert (a.ecode = b.ecode);
     let states = Array.length a.s in
-
     let min_cost = ref infinity in
     (* calculate the preliminary costs, and store our minimum value *)
     let states_init i = 
+        if debug then Printf.printf "if median state = %d\n%!" i;
         let best = ref infinity in
         for j = states - 1 downto 0 do
             for k = states - 1 downto 0 do
                 let combination_cost = median_cost tcm i j k in
+                if debug then Printf.printf "if a.state=%d,b.state=%d, then cost = %d,%!" j k combination_cost;
                 let combination_cost = combination_cost +$ a.s.(j) +$ b.s.(k) in
+                if debug then Printf.printf 
+                "total cost = cost + cost from a[%d] + cost from b[%d] = %d,%!"
+                a.s.(j) b.s.(k) combination_cost;
                 store_min combination_cost best
             done;
         done;
@@ -323,12 +321,10 @@ let elt_median tcm a b =
         assert_ninf !best a b
     in
     let c = Array.init states states_init in
-
     (* preliminary added cost *)
     let e = Array.init states
         (fun s ->
              c.(s) -$ !min_cost) in
-
     (* beta value: see Goloboff 1998 *)
     let beta_init s =
         let best = ref infinity in
@@ -338,14 +334,17 @@ let elt_median tcm a b =
         !best
     in
     let beta = Array.init states beta_init in
-    
     { a with s = c; beta = beta; e = e; m = None; }
 
 let median _ a b =
     if debug then Printf.printf "SankCS.median\n%!";
     assert (a.code = b.code);
     assert (a.tcm = b.tcm);
-    { a with elts = Array.mapi (fun i -> elt_median a.tcm a.elts.(i)) b.elts }
+    if debug then Printf.printf "median\n a = %s\n b = %s\n%!" (to_string a) (to_string b);
+    let res = { a with elts = Array.mapi (fun i -> elt_median a.tcm a.elts.(i)) b.elts }
+    in
+    if debug then Printf.printf "median <- %s\n%!" (to_string res);
+    res
 
 (* Calculates the distance between two characters a and b *)
 (* Note that we only calculate the _added_ distance *)
@@ -358,6 +357,20 @@ let elt_distance tcm a b =
     let b_cost = get_cost b in
     med_cost -. a_cost -. b_cost
 
+let elt_distance_and_median tcm a b = 
+    let median = elt_median tcm a b in
+    let get_cost m =
+        float_of_cost (assert_ninf (Array.fold_left cost_min infinity m.s) a b) in
+    let med_cost = get_cost median in
+    let a_cost = get_cost a in
+    let b_cost = get_cost b in
+    med_cost -. a_cost -. b_cost, 
+    median
+
+
+(** [distance a b] return the sankoff distance. Note that it calls
+* [elt_distance], which will call [elt_median]. if you need median and distance,
+* don't call two functions seperately, use [distance_and_median] instead*)
 let distance a b =
     if debug then Printf.printf "SankCS.distance\n%!";
     let tcm = a.tcm in
@@ -365,7 +378,30 @@ let distance a b =
     for i = Array.length a.elts - 1 downto 0 do
         acc := !acc +. elt_distance tcm a.elts.(i) b.elts.(i)
     done;
+    if debug then Printf.printf "distance = %f\n%!" !acc;
     !acc
+
+let distance_and_median a b =
+    if debug then Printf.printf 
+    "SankCS.distance_and_median,median\n a = %s\n b = %s\n%!"
+    (to_string a) (to_string b);
+    assert (a.code = b.code);
+    assert (a.tcm = b.tcm);
+    let tcm = a.tcm in
+    let acc = ref 0. in
+    let med = 
+        { a with elts = 
+          Array_ops.map_2 (fun aelt belt -> 
+            let disi,medi = elt_distance_and_median tcm aelt belt in
+            acc := !acc +. disi;
+            medi 
+            ) a.elts b.elts
+        }
+    in
+    if debug then Printf.printf "distance = %f,median = %s\n%!" 
+    !acc (to_string med);
+    !acc, med
+
 
 (* Compares two characters a and b. Note that this comparison is used basically
  * in the sets, and therefore, comparing the codes is enough (all the characters in
@@ -449,6 +485,34 @@ let median_3 a n l r =
              elt_median_3 tcm a.elts.(i) n.elts.(i) l.elts.(i) r.elts.(i))
     in { n with elts = elts }
 
+
+let get_min_cost_between_same_states same_states cm = 
+    let best = ref infinity in
+    List.iter (fun state ->
+        store_min cm.(state).(state) best;
+    ) same_states;
+    if debug then begin
+       Printf.printf "get_min_cost_between_same_states:%!";
+       Utl.printIntList same_states; 
+       Printf.printf "min_cost = %d\n%!" !best;
+    end;
+    !best
+
+let elt_return_shared_states r a =
+    let states = Array.length r.s in
+    let acc = ref [] in
+    (* a state is optimal if e.(i) = 0 *)
+    let rec exists n =
+        if n = states then !acc
+        else if r.e.(n) = 0 && a.e.(n) = 0
+        then begin
+            acc := n :: (!acc);
+            exists (n + 1)
+        end
+        else exists (n + 1)
+    in exists 0
+
+
 let elt_exists_shared_state r a =
     let states = Array.length r.s in
     (* a state is optimal if e.(i) = 0 *)
@@ -461,36 +525,61 @@ let elt_exists_shared_state r a =
     in exists 0
 
 let elt_dist_2 tcm r a d =
+    let debug = false in
+    if debug then Printf.printf "elt_dist_2, r.elts=%s\n a.elts=%s \n d.elts=%s \n%!"
+    (elt_to_string r) (elt_to_string a) (elt_to_string d);
     let states = Array.length r.s in
-
     (* We first check whether there are shared states between r and a, or
        between r and d.  If so, we return a delta of 0. *)
-    if elt_exists_shared_state r a || elt_exists_shared_state r d
-    then 0.
+    let shared_states_ra = elt_return_shared_states r a 
+    and shared_states_rd = elt_return_shared_states r d in
+    (*if elt_exists_shared_state r a || elt_exists_shared_state r d
+    then 0. this won't be true if cost between same state is non-zero*)
+    if (List.length shared_states_rd)>0 || (List.length shared_states_ra)>0 then
+        float_of_cost (2*(min (get_min_cost_between_same_states shared_states_ra tcm)
+        (get_min_cost_between_same_states shared_states_rd tcm)))
     else begin
-        
         (* We need the array M to find the delta.  We calculate this the first
-           time, then cache it.  This is safe because we create a new record each time we
-           do a downpass or uppass. *)
+           time, then cache it.  This is safe because we create a new record each time we do a downpass or uppass. *)
         let m =
             match d.m with
             | Some m -> m
             | None -> begin
                   let init_d'' i =
                       let best = ref infinity in
+                      let bests = ref (-1) in
                       for x = states - 1 downto 0 do
-                          store_min ((tcm.(i).(x)) +$ d.beta.(x)) best
+                          let oldbest = !best in
+                          store_min ((tcm.(i).(x)) +$ d.beta.(x)) best;
+                          if !best<oldbest then
+                              bests := x;
                       done;
+if debug then 
+Printf.printf "when nodeA take statei.%d, min(tcm.i.x + nodeD.beta.x) = %d with \
+nodeM take states=%d\n%!" i !best !bests;
                       let e = a.e.(i) in
-                      fun s -> e +$ (tcm.(i).(s)) +$ d.beta.(s) -$ !best
+                      fun s -> 
+if debug then
+Printf.printf "when nodeA take statei.%d,nodeM take states.%d,\
+E(i,A(d))=%d + tcm.i.s=%d + nodeD.beta.s=%d - best(%d)\n%!" 
+      i s e tcm.(i).(s) d.beta.(s) !best;
+                          e +$ (tcm.(i).(s)) +$ d.beta.(s) -$ !best
                   in
                   let d'' = init2 states states init_d'' in
-
                   let init_m s =
                       let best = ref infinity in
+                      let besti = ref [] in
                       for x = states - 1 downto 0 do
-                          store_min d''.(x).(s) best
+                          let oldbest = !best in
+                          store_min d''.(x).(s) best;
+                          if !best<=oldbest then
+                              besti := x::(!besti);
                       done;
+                      if (List.mem s !besti) then
+                          best := !best + tcm.(s).(s);
+                      if debug then Printf.printf 
+"when nodeM take state %d,M <- %d, best statei for nodeA is %!" s !best;
+if debug then Utl.printIntList (!besti);
                       !best
                   in
                   let m = Array.init states init_m in
@@ -498,7 +587,6 @@ let elt_dist_2 tcm r a d =
                   m
               end
         in
-
         (* Find the best value *)
         let best = ref infinity in
         for x = states - 1 downto 0 do
@@ -506,6 +594,8 @@ let elt_dist_2 tcm r a d =
             let tcm = tcm.(x) in
             let e = r.e in
             for y = states - 1 downto 0 do
+if debug then Printf.printf "when nodeM take state.%d, nodeR take state.y=%d,\
+M(%d) + tcm(%d) + E(%d)\n%!" x y m tcm.(y) e.(y);
                 store_min (m +$ (tcm.(y)) +$ e.(y)) best
             done
         done;
@@ -513,9 +603,14 @@ let elt_dist_2 tcm r a d =
     end
 
 let dist_2 r a d =
+    let debug = false in
+    if debug then Printf.printf "dist_2 on r = %s\n a = %s\n d = %s\n%!"
+    (to_string r) (to_string a) (to_string d);
     let acc = ref 0. in
     for i = (Array.length r.elts) - 1 downto 0 do
-        acc := !acc +. elt_dist_2 r.tcm r.elts.(i) a.elts.(i) d.elts.(i)
+        let disti = elt_dist_2 r.tcm r.elts.(i) a.elts.(i) d.elts.(i) in
+        if debug then Printf.printf "i=%d, acc += %f\n%!" i disti;
+        acc := !acc +. disti;
     done;
     !acc
 
