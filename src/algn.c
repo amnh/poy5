@@ -2436,7 +2436,7 @@ algn_newkk_fill_a_row_aff (int k, int baseband, int i, int start_pos, int end_po
     //update line i from pos = start_pos to end_pos*/
     int at_left_border, at_right_border;
     for (j=start_pos; j <= end_pos; j++) {
-        int k_ij = i - j, k_ji = j - i;
+        int k_ji = j - i;
         //if (k_ij == k) at_left_border=1; else at_left_border=0;
         if (k_ji - baseband + 1 == k) at_right_border=1; else at_right_border=0;
         if (j==start_pos) at_left_border=1; else at_left_border=0;
