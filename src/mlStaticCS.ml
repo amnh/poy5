@@ -128,8 +128,13 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*bran
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
+
 external minimum_bl: unit -> float = "likelihood_CAML_minimum_bl"
+
+external set_smpl_smoothness: float -> unit = "likelihood_CAML_set_smoothness"
+
 external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
+
 external copy : s -> s = "likelihood_CAML_copy"
 
 external loglikelihood: (* vector, weight, priors, probabilities, and %invar -> loglk *)
@@ -140,6 +145,7 @@ external loglikelihood: (* vector, weight, priors, probabilities, and %invar -> 
           "likelihood_CAML_loglikelihood" "likelihood_CAML_loglikelihood_wrapped"
 
 external filter: s -> int array -> s = "likelihood_CAML_filter"
+
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 
 (* ------------------------------------------------------------------------- *)
@@ -560,7 +566,7 @@ let extract_states a_node =
     done;
     !result
 
-let resolve ?(single=false) t = 
+let resolve ?(single=false) t =
     let comp,init = match t.model.MlModel.spec.MlModel.cost_fn with
         | `MPL -> max,(log 0.0)
         | `MAL -> max,(log 0.0)
@@ -571,8 +577,9 @@ let resolve ?(single=false) t =
     let nchars = Bigarray.Array3.dim2 ray
     and nrates = Bigarray.Array3.dim1 ray
     and nalpha = Bigarray.Array3.dim3 ray
-    and priors = t.model.MlModel.pi_0 in
-    let result = ref [] in
+    and priors = t.model.MlModel.pi_0
+    and result = ref []
+    and applyf = if single then List.hd else BitSet.Int.packed_of_list in
     for i = 0 to nchars - 1 do
         let best = ref init and state_ids = ref [] in
         for j = 0 to nrates - 1 do
@@ -587,7 +594,7 @@ let resolve ?(single=false) t =
                 end
             done;
         done;
-        result := (BitSet.Int.packed_of_list !state_ids)::(!result);
+        result := (applyf !state_ids)::(!result);
     done;
     Sequence.of_array (Array.of_list (List.rev !result))
 

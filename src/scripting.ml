@@ -1483,11 +1483,11 @@ let load_data (meth : Methods.input) data nodes =
                 if is_prealigned then
                     prealigned_files := files :: !prealigned_files;
                 (* Avoid changing if we don't want this setting *)
-                let prev = match Data.type_of_dynamic_likelihood data with
-                    | None when Data.has_likelihood data -> true
-                    | Some _ -> true
-                    | None   -> false
-                in
+(*                let prev = match Data.type_of_dynamic_likelihood data with*)
+(*                    | None when Data.has_likelihood data -> true*)
+(*                    | Some _ -> true*)
+(*                    | None   -> false*)
+(*                in*)
                 let data =
                     List.fold_left
                         (Data.guess_class_and_add_file annotated is_prealigned)

@@ -238,8 +238,8 @@ type ml_priors = [ `Estimate | `Given of float list | `Equal | `Consistent ]
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
 
 type ml_spec = 
-    (characters * ml_alphabet * ml_costfn * ml_substitution * ml_site_variation option
-        * ml_priors * ml_gap)
+    (characters * ml_alphabet * ml_costfn * ml_substitution
+        * ml_site_variation option * ml_priors * ml_gap)
 
 type polymorphism_arg = [ |`Do_Nothing | `Pick_One | `Do_All  ]
 

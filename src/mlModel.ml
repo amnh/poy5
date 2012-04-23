@@ -38,8 +38,8 @@ let debug_printf msg format =
 let ba_of_array1 x = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout x
 and ba_of_array2 x = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout x
 
-let create_ba1 x     = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout x
-and create_ba2 x y   = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout x y
+let create_ba1 x   = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout x
+and create_ba2 x y = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout x y
 
 let barray_to_array2 bray =
     let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in

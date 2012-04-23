@@ -2197,7 +2197,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 | _ -> assert false
             in
             MlModel.categorize_by_model get_function lst
-
         and group_by_sets lst = 
             let curr = Hashtbl.create 1667 in
             let sets = List.fold_left (* list of all the set names *)
@@ -2265,7 +2264,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 --> List.map (fun x -> lk_group_weights (lk_classify_weights x) x)
 
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
-
         let add_codes ((_, x) as y) = 
             y, Array.map snd (Array.of_list (List.rev x)) in
         let laddcode = List.map add_codes laddcode 
@@ -2282,7 +2280,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             | Data.Kolmogorov _
             | Data.Set -> failwith "get_static_encoding"
         in
-          
         let module Enc = Parser.OldHennig.Encoding in
         let gen_add code =
             let enc = get_static_encoding code in
