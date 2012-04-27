@@ -2030,12 +2030,13 @@ let create_expr () =
             ];
         branch_iter :
             [
-                [LIDENT "never"         -> `NullBranches] |
-                [LIDENT "all_branches"  -> `AllBranches] |
-                [LIDENT "join_delta"    -> `JoinDeltaBranches] |
-                [LIDENT "join_region"   -> `NeighborhoodBranches 0] |
-                [LIDENT "join_region"; ":"; x = INT ->
-                    `NeighborhoodBranches (int_of_string x) ]
+                [LIDENT "never"        -> `NullBranches] |
+                [LIDENT "all_branches" -> `AllBranches] |
+                [LIDENT "all"          -> `AllBranches] |
+                [LIDENT "join_delta"   -> `JoinDeltaBranches] |
+                [LIDENT "join_region"  -> `NeighborhoodBranches 0] |
+                [LIDENT "join_region";
+                          ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ]
             ];
         iterate_options:
             [
