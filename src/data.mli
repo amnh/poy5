@@ -50,7 +50,9 @@ type dyna_state_t = [
 | `Annotated
 
 (** A sequence of gene names, rearrangements are allowed *)
-| `Breakinv ]
+| `Breakinv 
+
+| `CustomAlphabet]
 
 type polymorphism_t = Methods.polymorphism_arg
 
@@ -567,8 +569,7 @@ val get_pam : d -> int -> dyna_pam_t
 
 val get_character_state : d -> int -> dyna_state_t
 
-val process_taxon_code :
-    d -> All_sets.StringMap.key -> string -> d * int
+val process_taxon_code : d -> All_sets.StringMap.key -> string -> d * int
  
 val set_dyna_data : 'a seq_t array -> 'a dyna_data
 
@@ -581,11 +582,17 @@ val get_character_set_name : d -> int list -> string option
 val modified_characters : d -> d -> int
 
 val get_likelihood_model : d -> int list -> MlModel.model
+
 val apply_likelihood_model_on_chars : d -> int list -> MlModel.model -> d
-val verify_alphabet : d -> int list -> int * Alphabet.a
+
+val verify_alphabet : d -> int list -> Methods.ml_alphabet -> int * Alphabet.a
+
 val update_priors : d -> int list -> bool -> d
 
+val apply_heuristic_cost_model : ?cost_model:Methods.ml_costfn -> d -> d option
+
 val set_parsimony  : d -> Methods.characters -> d 
+
 val set_likelihood : d -> Methods.ml_spec    -> d 
 
 val get_likelihood_model : d -> int list -> MlModel.model 

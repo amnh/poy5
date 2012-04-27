@@ -204,25 +204,22 @@ let compare_character data node ancestor =
     assert (tag = (Xml.tag ancestor));
     let is_static_homology = 
         (* We should use the final states if dealing with one of the following
-        * classes of characters, otherwise we should print the contents of the
-        * Single states *)
-        tag = Xml.Characters.nonadditive || 
-        tag = Xml.Characters.additive || 
+           classes of characters, otherwise we should print the contents of the
+           Single states *)
+        tag = Xml.Characters.nonadditive || tag = Xml.Characters.additive || 
         tag = Xml.Characters.sankoff
     in
-    let cost = Xml.attribute Xml.Characters.cost node in
-    let definite = Xml.attribute Xml.Characters.definite node in
-    if (`Bool true) = definite then
-        (* We are only interested in the final and single clases *)
-        let name = Xml.attribute Xml.Characters.name node in
-        let clas = Xml.attribute Xml.Characters.cclass node in
-        assert (clas = Xml.attribute Xml.Characters.cclass ancestor);
-        if is_static_homology && ((`String Xml.Nodes.final) = clas) then
+    (* We are only interested in the final and single clases *)
+    let name = Xml.attribute Xml.Characters.name node in
+    let clas = Xml.attribute Xml.Characters.cclass node in
+    assert (clas = Xml.attribute Xml.Characters.cclass ancestor);
+    if is_static_homology && ((`String Xml.Nodes.final) = clas) then
+        let cost = Xml.attribute Xml.Characters.cost node in
+        let definite = Xml.attribute Xml.Characters.definite node in
+        if (`Bool true) = definite then begin
             let node_states = string_of_states node
             and ance_states = string_of_states ancestor in
-            let type_of_event = 
-                type_of_event data name node_states ance_states 
-            in
+            let type_of_event = type_of_event data name node_states ance_states in
             (* Time to produce the HTML row *)
             (PXML
             -tr -td (align=left) (bgcolor=[white]) { Xml.coherce name } --
@@ -234,7 +231,21 @@ let compare_character data node ancestor =
                     { type_of_event } --
                 -td (align=left) (bgcolor=[white]) 
                     { Xml.coherce cost } -- --)
-        else (PXML ---)
+        end else begin
+            let node_states = string_of_states node
+            and ance_states = string_of_states ancestor
+            and type_of_event = `String "NA" in
+            (PXML
+            -tr -td (align=left) (bgcolor=[white]) { Xml.coherce name } --
+                -td (align=left) (bgcolor=[gray]) -font (size="+1")
+                    { string ance_states } -- --
+                -td (align=left) (bgcolor=[white]) -font (size="+1")
+                    { string node_states } -- --
+                -td (align=left) (bgcolor=[gray])
+                    { type_of_event } --
+                -td (align=left) (bgcolor=[white])
+                    { Xml.coherce cost } -- --)
+        end
     else (PXML ---)
 
 let diagnosis_html data tree node () =

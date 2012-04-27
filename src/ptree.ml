@@ -1211,7 +1211,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         let status:t_status =
                             srch_mgr#process Tree_Ops.cost_fn i_mgr infinity
                                  nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr
-                        in
+                        in 
                         status, srch_mgr
                     in
                     (* Sequentially add rest of the nodes keeping the best tree/s *)
@@ -1234,7 +1234,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     | []       -> srch_mgr
                     | nd::rest ->
                         let n_srch_mgr = (srch_mgr#clone) in
-                        assert(n_srch_mgr#any_trees = false) ;
+                        assert(n_srch_mgr#any_trees = false);
                         while srch_mgr#any_trees do 
                             let (_, cst, _) as it = srch_mgr#next_tree in
                             Status.full_report ~msg:("Wagner tree with cost "^string_of_float cst)
@@ -2270,7 +2270,9 @@ let select_default adjusted cost = match adjusted with
     | None -> cost
 
 let assign_root_to_connected_component handle item cost adjusted ptree =
+    let debug = false in
     let adjusted = select_default adjusted cost in
+    if debug then Printf.printf "assign_root_to_connected_component,component_cost = %f,%f\n%!" cost adjusted;
     let root = { 
         root_median = item;
         component_cost = cost;

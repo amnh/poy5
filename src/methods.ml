@@ -47,14 +47,17 @@ type filename = [ `Local of string | `Remote of string ]
 * number of trees is higher than that max, the method used to mantain the
 * max value.
 *
-* [Fifo] will simply keep the first trees found.
-* [Lifo] will keep the last trees found.
-* [Random] will keep a random subset of the trees found. 
 * Now we also use this type as tie_breaker for cost matrix*)
 type keep_method = [
     | `First
     | `Last
     | `Keep_Random ]
+
+let print_keep_method km =
+    match km with
+    | `First -> Printf.printf "keep first\n%!"
+    | `Last -> Printf.printf "keep last\n%!"
+    | `Keep_Random -> Printf.printf "keep random\n%!"
 
 type support_tree = 
     | Leaf of int
@@ -220,9 +223,12 @@ type ml_substitution = [
 ]
 
 
-type ml_costfn = [ `MAL     (* maximum average likelihood *)
-                 | `MPL     (* most parsimonious likelihood *)
-                 | `FLK     (* dynamic alignment with a single matrix *) ] 
+type ml_alphabet = [ `Min | `Int of int | `Max ]
+
+type ml_costfn = [ `MAL (* maximum average likelihood *)
+                 | `MPL (* most parsimonious likelihood *)
+                 | `SML (* Smoothed MPL transformation; see likelihood.c *)
+                 | `FLK (* DISABLED (POY3): dynamic alignment with a single matrix *) ]
 
 type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
@@ -232,8 +238,8 @@ type ml_priors = [ `Estimate | `Given of float list | `Equal | `Consistent ]
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
 
 type ml_spec = 
-    (characters * ml_costfn * ml_substitution * ml_site_variation option
-        * ml_priors * ml_gap)
+    (characters * ml_alphabet * ml_costfn * ml_substitution
+        * ml_site_variation option * ml_priors * ml_gap)
 
 type polymorphism_arg = [ |`Do_Nothing | `Pick_One | `Do_All  ]
 
@@ -420,11 +426,10 @@ type tabu_modeli_strategy = [
     | `MaxCount of int      (* number of search iterations before iterating model *)
     | `Always               (* always iterate the model *)
     | `Both of float * int  (* both threshold and count *)
-    | `Neighborhood of float(* same as threshold but weighted around join neighborhood *)
     | `Null ]               (* no iteration of model *)
 type tabu_branchi_strategy = [
-    | `JoinDelta           (* path along join -> break *)
-    | `Neighborhood         (* neighborhood around join point *)
+    | `JoinDelta            (* path along join -> break *)
+    | `Neighborhood of int  (* neighborhood around join point *)
     | `AllBranches          (* iterate all the branches in the tree *)
     | `Null ]               (* no iteration of branches *)
 type tabu_iteration_strategy = tabu_modeli_strategy * tabu_branchi_strategy

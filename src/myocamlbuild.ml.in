@@ -519,6 +519,13 @@ dispatch begin function
     flag ["ocaml"; "compile"]
         (S ccompileflags);
 
+    if @PROFILE_OCAML@ then begin
+        flag["ocaml"; "native"; "link"] (S [A"-p"]);
+        flag["ocaml"; "native"; "compile"] (S [A"-p"]);
+        flag["c";"link"] (S [A"-ccopt";A"-pg"]);
+        flag["c";"compile"] (S [A"-cclib";A"-pg"]);
+    end;
+
     flag ["ocaml"; "link"]
         (S clinkflags);
 

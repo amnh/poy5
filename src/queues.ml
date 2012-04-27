@@ -302,14 +302,22 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | x -> x
                     *)
         method evaluate =
+            let debug = false in
+            if debug then Printf.printf "wagner_srch_mgr.evaluate,srch_trees len = %d\n%!" (List.length srch_trees);
             let checker ((m_max, cur_best, results) as r) (v, estimate, _) =
+                if debug then Printf.printf "checker,if estimate=%f > cur_best(%f) +\
+                m_thr(%f) then skip, verify_cost = %b\n%!" estimate cur_best m_thr verify_cost;
                 if estimate > cur_best +. m_thr then  r
                 else begin
-                    let a, b, c, tabu_mgr, cost_for_comparisons = 
+                    let a, b, c, tabu_mgr, cost_for_comparisons =
                         let a, b, c, tabu_mgr = Lazy.force v in
                         if verify_cost then a, b, c, tabu_mgr, b
                         else a, b, c, tabu_mgr, estimate
                     in
+                    let cost_diff = cost_for_comparisons -. estimate in
+                    if debug then Printf.printf "cost_for_comparisons(%f) ? cur_best(%f),m_max=%d, cost_diff = %f, cost_diff/2868=%f\n%!" 
+                    cost_for_comparisons cur_best m_max cost_diff (cost_diff/.2868.);
+                    let res = 
                     if ( cost_for_comparisons <= cur_best ) then begin
                         (* We are ok, we must add this one *)
                         let is_there_room, counter, results = 
@@ -342,11 +350,14 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         end
                     end else 
                         m_max, cur_best, results
+                    in
+                    res
                 end
             in
             let new_max, _, res = 
                 List.fold_left checker (true_max, infinity, []) srch_trees
             in
+            if debug then Printf.printf "true_max(%d) - new_max(%d) = number of trees in srch_trees\n%!" true_max new_max;
             assert (true_max - new_max = List.length res);
             m_max <- new_max;
             srch_trees <- res
@@ -395,6 +406,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         let is_there_room, counter, new_search_trees = 
                             self#filterout m_max srch_trees real_cost cc cld_cst 
                         in
+                        let debug = false in
+                        if debug then Printf.printf 
+                        "cc(%f) <= cld_cst(%f) + m_thr(%f), estimate<-%f, add to srch_trees if is_there_room(%b) \n%!" 
+                        cc cld_cst m_thr real_cost is_there_room;
                         if is_there_room then begin
                             tabu_mgr#new_delta cc;
                             c_delta <- Ptree.Cost cc;

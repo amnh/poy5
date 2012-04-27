@@ -108,7 +108,11 @@ module type B =
     sig
         val list_of_packed_max : int -> int -> int list
         (** [list_of_packed_max a m] Convert a packed integer [a] with alphabet
-            size [m]. Ignore any set bits past [m].*)
+            size [m]. Return the list of set bits, thus 7->4,2,1. We ignore any 
+            set bits past [m].*)
+
+        val packed_of_list_max : int list -> int -> int
+        (** [packed_of_list_max l m] opposite as above **)
 
         val list_of_packed : int -> int list
         (** Convert a packed integer to a list of the indexes in the integer

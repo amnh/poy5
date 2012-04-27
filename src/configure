@@ -608,6 +608,7 @@ EGREP
 GREP
 CPP
 HAVE_XSLTCONFIG
+PROFILE_OCAML
 CC_NOASNEEDED
 CONFIG_DATE
 OCAMLVERSION
@@ -728,6 +729,7 @@ enable_mpi
 enable_large_messages
 enable_shared_hd
 enable_long_sequences
+enable_profiler
 enable_xslt
 enable_likelihood
 enable_large_alphabets
@@ -1380,6 +1382,8 @@ Optional Features:
                           default search strategies. If you are analyzing
                           fragments shorted than, say 12.000 bp, you are
                           unlikely to need this option.
+  --enable-profiler       Due to a bug in ocamlbuild, we must pass the -p
+                          option ourselves to allow profiling with gprof
   --enable-xslt           Enable the postprocessing of XML output using XSLT
                           templates. This option requires libxml2 and libxslt.
   --enable-likelihood     Enable/Disable the use of static and dynamic
@@ -2936,6 +2940,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
@@ -3050,6 +3055,18 @@ if test "${enable_long_sequences+set}" = set; then :
   enableval=$enable_long_sequences; USE_LONG_SEQUENCES="true"; DUSE_LONG_SEQUENCES="-DUSE_LONG_SEQUENCES"; OUSE_LONG_SEQUENCES=",use_long_sequences"
 else
   USE_LONG_SEQUENCES="false"
+fi
+
+
+# Check whether --enable-profiler was given.
+if test "${enable_profiler+set}" = set; then :
+  enableval=$enable_profiler; if test x"$enableval" = x"no"; then
+                    PROFILE_OCAML="false"
+                else
+                    PROFILE_OCAML="true"
+                fi
+else
+  PROFILE_OCAML="false"
 fi
 
 

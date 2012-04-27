@@ -431,7 +431,7 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
     memcpy( lkvec, l_stuff, ret->rates * ret->c_len * ret->stride * sizeof(double));
     ret->lv_s = lkvec;
 
-    if( 1 == Int_val(mpl) ){
+    if( (MPLCOST == Int_val(mpl)) || (SMPLCOST == Int_val(mpl)) ){
         for( i = 0; i < (ret->rates*ret->c_len*ret->stride); ++i){
             ret->lv_s[i] = (ret->lv_s[i] >= 1.0 )?0.0:NEGINF;
         }
@@ -617,7 +617,7 @@ mk_inverse(mat *space,double *VL, const double *VR, int n)
             failwith ( "dgetri_ matrix is singular and inverse cannot be computed. 2" );
         }
     } else {
-        failwith ( "degetri_ unknown error." );
+        failwith ( "dgetrf_ unknown error." );
     }
     free (pivot);
     return i;
@@ -718,6 +718,16 @@ value likelihood_CAML_minimum_bl( value unit )
     CAMLlocal1(minimum);
     minimum = caml_copy_double( BL_MIN );
     CAMLreturn( minimum );
+}
+
+/** set the smoothness for SMPL; this may or may not be used, and could possibly
+ * be boot-strapped so that MAX(a,b) + Epsilon < SMAX(a,b); thus, smoothness has
+ * occured, and is great enough to be effective **/
+double SMPL_K = 100.0;
+value likelihood_CAML_set_smoothness( value a ){
+    CAMLparam1( a );
+    SMPL_K = Double_val( a );
+    CAMLreturn( Val_unit );
 }
 
 
@@ -993,7 +1003,7 @@ loglikelihood_site_invar(const mll* l,const double* pi,const int i)
     num = 1;
     ret = 0.0;
     if( 0 == l->lv_invar[i]){ return ret; }
-    while( j < 32 ){ //TODO:: max alphabet size
+    while( j < 32 ){ //TODO:: max alphabet size?
         if ( num & l->lv_invar[i] ){
             ret += pi[j]; //similar to line 846, but lv_s[..] = 1
             set++;
@@ -1075,13 +1085,6 @@ logMPL_site( const mll* l, const double weight, const double* pi,
             max_v = MAX (l->lv_s[c+j] + log(pi[j]), max_v);
         }
     }
-    if( max_v == NEGINF ){
-        printf("%d: ",i);
-        for(j=0; j < l->stride; ++j){
-            printf("[%f] ",l->lv_s[c+j] + log(pi[j]));
-        }
-        printf("\n");
-    }
     max_v= max_v * weight;
     return max_v;
 }
@@ -1104,16 +1107,16 @@ logSMPL_site( const mll* l, const double weight, const double* pi,
 {
     int r, j, c;
     double maximum, s_max;
-    maximum = logMPL_site( l, 1.0, pi, prob, i );
-
+    //maximum = logMPL_site( l, 1.0, pi, prob, i );
+    maximum = 0.0;
     s_max = 0;
     for(r=0; r < l->rates;++r){
         c = (r * (l->stride * l->c_len)) + (l->stride * i);
         for(j=0; j < l->stride; ++j){
-            s_max += exp( (l->lv_s[c+j] + log(pi[j])) - maximum );
+            s_max += exp( ((l->lv_s[c+j] + log(pi[j])) - maximum) * SMPL_K );
         }
     }
-    s_max = (maximum + log(s_max)) * weight;
+    s_max = (maximum + (log(s_max)/SMPL_K)) * weight;
     return s_max;
 }
 
@@ -1218,6 +1221,7 @@ loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob
             break;
         case SMPLCOST: 
             total_cost = logSMPLlikelihood( l, ws, pi, prob );
+            //printf("S|MPL: %f|%f\n", total_cost, logMPLlikelihood(l,ws,pi,prob));
             break;
         default :
             assert( FALSE );
@@ -1401,14 +1405,18 @@ inline
 #endif
 void
 median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
-        mll* cmll, const int mpl,const int rate_idx)
+        mll* cmll, const int cost,const int rate_idx)
 {
-    if(MALCOST == mpl){
-        median_MAL( PA, PB, amll, bmll, cmll, rate_idx );
-    } else if( MPLCOST == mpl ){
-        median_MPL( PA, PB, amll, bmll, cmll, rate_idx );
-    } else {
-        assert( FALSE );
+    switch( cost ){
+        case MALCOST : 
+            median_MAL( PA, PB, amll, bmll, cmll, rate_idx );
+            break;
+        case SMPLCOST: 
+        case MPLCOST: 
+            median_MPL( PA, PB, amll, bmll, cmll, rate_idx );
+            break;
+        default :
+            assert( FALSE );
     }
 }
 
@@ -1782,14 +1790,15 @@ inline
 #endif
 void
 median1( const double* PA, const mll* amll, const mll* bmll, 
-             mll* dmll, int mpl, int rate_idx )
+             mll* dmll, int cost, int rate_idx )
 {
-    if( MPLCOST == mpl ){
-        median1_MPL( PA,amll,bmll,dmll,rate_idx );
-    } else if( MALCOST == mpl ){
-        assert( FALSE );
-    } else {
-        assert( FALSE );
+    switch( cost ){
+        case MPLCOST: 
+        case SMPLCOST: 
+            median1_MPL( PA,amll,bmll,dmll,rate_idx );
+            break;
+        default :
+            assert( FALSE );
     }
 }
 

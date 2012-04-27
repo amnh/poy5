@@ -94,6 +94,13 @@ module Two_D = struct
     int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
     external clone : m -> m = "cm_CAML_clone"
 
+    let get_combination m =
+        let comb_code = combine m in
+        if comb_code=1 then true
+        else if comb_code=0 then false
+        else 
+            failwith ("combine code must be 0 or 1 in cost matrix")
+
     let use_combinations = true
     and use_cost_model = Linnear
     and use_gap_opening  = 0
@@ -192,14 +199,12 @@ module Two_D = struct
         end
         else a_sz;;
 
-    let affine m = 
-        match c_affine m with
+    let affine m = match c_affine m with
         | 0 -> Linnear
         | 1 -> Affine (gap_opening m)
         | _ -> No_Alignment
 
-    let cost_mode_to_int m =
-        match m with
+    let cost_mode_to_int m = match m with
         | Linnear -> 0;
         | Affine _ -> 1;
         | No_Alignment -> 2;;
@@ -467,8 +472,7 @@ module Two_D = struct
 * [8,1] stored in the matrix. Also, we use fold_right to deal with the list. 
 * Thus, we need to work on the combination list by reverse order of the list, 
 * which is [3,2,1] instead of [1,2,3]. That's why we
-* have newlist = List.rev(....) below.
-* *)
+* have newlist = List.rev(....) below. *)
     let rec comblist_to_combcode lst m =
         assert( (List.length lst)>0 );
         let all_elements = get_all_elements m in
@@ -1055,12 +1059,14 @@ module Two_D = struct
 
     let fill_cost_matrix ?(tie_breaker=`Keep_Random) ?(use_comb=true) ?(level = 0) ?(suppress=false) 
                             l a_sz all_elements =
+        let debug = false in
         let pure_a_sz = 
             if all_elements=(a_sz-1) && level>1 && level<a_sz then
                 a_sz-1
             else a_sz 
         in
         let num_comb = calc_number_of_combinations_by_level pure_a_sz level in
+        assert(num_comb>0);
         let num_withgap = calc_num_of_comb_with_gap pure_a_sz level in
         let num_comb,num_withgap = 
             if pure_a_sz<>a_sz then num_comb+1,num_withgap+1
@@ -1105,6 +1111,7 @@ module Two_D = struct
         m
 
     let of_channel ?(tie_breaker = `Keep_Random) ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
+        let debug = false in
         let use_comb = if level = 1 then false else use_comb in
         if debug then 
         Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," 
@@ -1145,7 +1152,7 @@ module Two_D = struct
                         w + 1, newl
                     else w, l
                 in
-                if debug then Printf.printf "after adding all_element, list len=%d %!" (List.length l);
+                if debug then Printf.printf "after adding all_element, list len=%d, \n%!" (List.length l);
                 let m = 
                     match orientation with 
                     | false ->
@@ -1190,15 +1197,17 @@ module Two_D = struct
 
     let create_cm_by_level m level oldlevel all_elements tie_breaker =
         let ori_sz = get_ori_a_sz m in
+        let debug = false in
         if debug then Printf.printf "create cm by level=%d, oldlevel=%d,ori_sz=%d,all_elements=%d\n%!"
         level oldlevel ori_sz all_elements;
         let ori_list = ori_cm_to_list m in
         let newm =
             if (level <= 1) then
+                (*pass level=0 to cm.c when level<=1, we will set level back to 1 there.*)
                 fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:0 ori_list ori_sz
-                all_elements (*~-1*) 
+                all_elements  
             else if (level>ori_sz) then
-                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements (*~-1*)
+                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
             else
                 fill_cost_matrix ~use_comb:true ~level:level ori_list ori_sz
                 all_elements
@@ -1288,28 +1297,38 @@ module Two_D = struct
             done;
         done;;*)
 
+    let states_of_code code cm = 
+        if check_level cm 
+            then combcode_to_comblist code cm 
+            else BitSet.Int.list_of_packed_max code (alphabet_size cm)
+
+    let code_of_states states cm =
+        if check_level cm
+            then comblist_to_combcode states cm
+            else BitSet.Int.packed_of_list_max states (alphabet_size cm)
+
     let get_closest cm a b =
-        if debug then begin 
+        if debug then begin
             Printf.printf "get_closest: a,b=%d,%d; %!" a b;
             if (a<=0) || (b<=0) then output stdout cm
             else ();
         end else ();
         assert(a>0); assert(b>0);
-        let uselevel = check_level cm in
         let gap = gap cm  and total_num = get_map_sz cm in
         if 0 = combine cm then b (* We only have one element in b *)
         else (* get rid of "gap" in b if b is 'x or z or...gap' *)
             let b =
-                if uselevel then
+                if check_level cm then
                     let level = get_level cm in
                     let ori_a_sz = get_ori_a_sz cm in 
                     if ( a=gap || b=gap ) 
                     then b
                     else if 
-                        ( combcode_includes_gap a ori_a_sz level total_num) 
+                        (combcode_includes_gap a ori_a_sz level total_num) 
                         && 
-                        ( combcode_includes_gap b ori_a_sz level total_num) 
-                    then gap
+                        (combcode_includes_gap b ori_a_sz level total_num) 
+                    then
+                        gap
                     else 
                         gap_filter_for_combcode b cm
                 else
@@ -1317,51 +1336,40 @@ module Two_D = struct
                     else if (0 <> a land gap) && (0 <> b land gap) then gap
                     else b land (lnot gap)
             in
-            let listofcode =
-                if uselevel then 
-                     (*
-                        let level = get_level cm in
-                        let ori_a_sz = get_ori_a_sz cm in 
-                        let (comb_to_list,_) =  
-                            build_maps_comb_and_codelist cm ori_a_sz level in 
-                        try
-                        All_sets.IntegerMap.find b comb_to_list with
-                        | Not_found -> raise (Map_Not_Found)
-                    (*Printf.printf "check list= %!"; print_intlist checklist;*)
-                    *)
-                    combcode_to_comblist b cm 
-                else
-                    BitSet.Int.list_of_packed_max b (alphabet_size cm)
-            in
-            match listofcode(*list_of_bits b (alphabet_size cm)*) with
+            match states_of_code b cm with
             | [] -> failwith "~ No bits on?"
             | bits ->
-                    let bits = List.rev bits in
-                    let best, _ = 
-                        List.fold_left (fun ((_, cur_cost) as acc) x ->
-                        let nc = cost a x cm in
-                        if nc < cur_cost then (x, nc)
-                        else acc) (a, max_int) bits
+                let bits = List.rev bits in
+                let best, _ = 
+                    List.fold_left
+                        (fun ((_, cur_cost) as acc) x ->
+                            let nc = cost a x cm in
+                            if nc < cur_cost then (x, nc)
+                            else acc) (a, max_int) bits
                     in
-                    let _ =
+                    let () =
                         if debug then 
-                        Printf.printf "best=%d; %!" best in
+                        Printf.printf "best=%d; %!" best
+                    in
                     best
 
-    let of_file ?(tie_breaker = `Keep_Random) ?(use_comb = true) ?(level = 0) file all_elements is_dna_or_ami =
+    let of_file ?(tie_breaker = `Keep_Random) ?(orientation=false) ?(use_comb = true) ?(level = 0) file all_elements is_dna_or_ami =
+        let debug = false in
         let ch = FileStream.Pervasives.open_in file in
         (*for custom_alphabet & break_inversion, first line of cost_matrix is
         * alphabet.parser function "load_file_as_list" is expecting pure cost
         * matrix, just like those in dna and amino-acid, so we need to get rid
         * of the first line here.*)
-        if is_dna_or_ami then ()
-        else begin
-            let alpha = FileStream.Pervasives.input_line ch in
-            if debug then Printf.printf "get rid of first non-integer line of cost matrix file\n%!";
+        if not is_dna_or_ami then begin
+            ignore ( FileStream.Pervasives.input_line ch );
+            if debug then 
+                Printf.printf "remove first line of cost matrix file\n%!";
         end;
-        if debug then Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!"
-        use_comb level;
-        let res = of_channel ~tie_breaker:tie_breaker ~use_comb ~level:level all_elements ch in
+        if debug then
+            Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!" use_comb level;
+        let res =
+            of_channel ~tie_breaker:tie_breaker ~orientation:orientation ~use_comb:use_comb ~level:level all_elements ch
+        in
         ch#close_in;
         res
 

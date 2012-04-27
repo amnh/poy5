@@ -33,8 +33,8 @@ let (=.) a b = abs_float (a-.b) < Numerical.epsilon
 type s
 
 type t = {
-    mle: float;
-    model: MlModel.model;
+    mle     : float;
+    model   : MlModel.model;
     weights : (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
     codes   : int array;
     chars   : s;
@@ -60,15 +60,15 @@ external median1_gtr: (* median_gtr U D Ui t a b r p -> output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> s -> s -> 
+     float -> s -> s ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
-         "likelihood_CAML_median1_gtr" "likelihood_CAML_median1_wrapped_gtr" 
+         "likelihood_CAML_median1_gtr" "likelihood_CAML_median1_wrapped_gtr"
 external median1_sym: (* median_sym U D t a b r p -> output_c *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> s-> s ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
           "likelihood_CAML_median1_sym" "likelihood_CAML_median1_wrapped_sym"
 
 external median2_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
@@ -128,16 +128,24 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*bran
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
+
 external minimum_bl: unit -> float = "likelihood_CAML_minimum_bl"
+
+external set_smpl_smoothness: float -> unit = "likelihood_CAML_set_smoothness"
+
 external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
+
 external copy : s -> s = "likelihood_CAML_copy"
+
 external loglikelihood: (* vector, weight, priors, probabilities, and %invar -> loglk *)
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> float -> int -> float =
           "likelihood_CAML_loglikelihood" "likelihood_CAML_loglikelihood_wrapped"
+
 external filter: s -> int array -> s = "likelihood_CAML_filter"
+
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 
 (* ------------------------------------------------------------------------- *)
@@ -212,21 +220,26 @@ external bigarray_s:
 (* ------------------------------------------------------------------------- *)
 (* basic functions for interfacing with mlStatic module *)
 let root_cost t = t.mle
+
 let to_string _ = "MLStaticCS"
+
 let print a = print_barray3 (fst (s_bigarray a.chars));
               MlModel.output_model print_string `Nexus a.model None;
               Printf.printf "\nLikelihood: %f\n%!" (a.mle)
 
 let cardinal ta = Array.length ta.codes
+
 let union prev ch1 ch2 = prev
+
 let get_codes a = a.codes
+
 let get_model a = a.model
+
+
 let set_model m a = {a with model = m; }
 
 (* ------------------------------------------------------------------------- *)
 (* initial estimation functions --jc69 *)
-let minimum_bl () = minimum_bl ()
-
 let min_bl = minimum_bl ()
 let estimate_time a b = 
     let p = match (1.0 -. (proportion a.chars b.chars)) with
@@ -392,7 +405,7 @@ let of_parser spec weights characters =
         | _ -> failwith "Not a likelihood model" in
     let () = (* ensure cost mode is acceptable: MAL/MPL *)
         match computed_model.MlModel.spec.MlModel.cost_fn with
-        | `MPL | `MAL -> ()
+        | `MPL | `MAL | `SML -> ()
         | `FLK -> failwith "Cannot apply cost mode to static characters"
     in
     let (a_size,a_gap,u_gap) = 
@@ -553,18 +566,20 @@ let extract_states a_node =
     done;
     !result
 
-let resolve ?(single=false) t = 
+let resolve ?(single=false) t =
     let comp,init = match t.model.MlModel.spec.MlModel.cost_fn with
         | `MPL -> max,(log 0.0)
         | `MAL -> max,(log 0.0)
+        | `SML -> assert false
         | `FLK -> failwith "unsupported"
     in
     let ray, _ = s_bigarray t.chars in (* ignore invar *)
     let nchars = Bigarray.Array3.dim2 ray
     and nrates = Bigarray.Array3.dim1 ray
     and nalpha = Bigarray.Array3.dim3 ray
-    and priors = t.model.MlModel.pi_0 in
-    let result = ref [] in
+    and priors = t.model.MlModel.pi_0
+    and result = ref []
+    and applyf = if single then List.hd else BitSet.Int.packed_of_list in
     for i = 0 to nchars - 1 do
         let best = ref init and state_ids = ref [] in
         for j = 0 to nrates - 1 do
@@ -579,7 +594,7 @@ let resolve ?(single=false) t =
                 end
             done;
         done;
-        result := (BitSet.Int.packed_of_list !state_ids)::(!result);
+        result := (applyf !state_ids)::(!result);
     done;
     Sequence.of_array (Array.of_list (List.rev !result))
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-open Nexus.File 
+open Nexus.File     (* only used for Nexus.File.nexus *)
 
 let default_hennig gap_handling alph equates file pos = 
     let gaps =  match gap_handling with
@@ -60,9 +60,10 @@ let hennig_upto n =
 
 let hennig_for_upto is_gap_state file n pos =
         let lst = hennig_upto n in
+        let gap = Alphabet.gap_repr in
         let alph, equates= 
-            Nexus.File.make_symbol_alphabet "7" lst [] [Nexus.P.Datatype
-            Nexus.P.DStandard]
+            Nexus.File.make_symbol_alphabet gap lst []
+                            [Nexus.P.Datatype Nexus.P.DStandard]
         in
         default_hennig is_gap_state alph equates file pos
 
@@ -116,20 +117,83 @@ let assign_names characters name =
     | _ -> failwith "illegal character name specification"
 
 let get_chars max chars = 
-    List.flatten (List.map (fun char ->
-        let rec sequence a b acc =
-            if a > b || a >= max then acc
-            else sequence (a + 1) b (a :: acc)
-        in
-        match char with
-        |P.All -> sequence 0 (max - 1) []
-        |P.Range (a, b) -> sequence a b []
-        |P.Single x -> [x]) chars)
+    List.flatten
+        (List.map 
+            (fun char ->
+                let rec sequence a b acc =
+                    if a > b || a >= max then acc
+                    else sequence (a + 1) b (a :: acc)
+                in
+                match char with
+                |P.All -> sequence 0 (max - 1) []
+                |P.Range (a, b) -> sequence a b []
+                |P.Single x -> [x])
+            chars)
+
 
 (** make a default 1,1 matrix; used for sankoff characters *)
 let make_sankoff_matrix spec =
     let len = List.length spec.st_observed in
     Array.init len (fun x -> Array.init len (fun y -> if x = y then 0 else 1))
+
+
+(** normalize columns in a continuous character set so we can fit in a
+    constrained character size for vectorization *)
+let normalize_continuous_characters 
+        (taxa  : Nexus.File.taxon option array)
+        (matrix: Nexus.File.static_state array array)
+        (chars : Nexus.File.static_spec array) =
+    let state_max = 255 in
+    let lookup_taxon i = match taxa.(i) with
+        | None   -> string_of_int i
+        | Some x -> x
+    and failwithf format = Printf.ksprintf failwith format in
+    (* find minimum character value for character c; ignore missing *)
+    let find_minimum_character c =
+        let ret_min = ref max_int in
+        for t = 0 to ((Array.length matrix)-1) do
+            let taxa_min = match matrix.(t).(c) with
+                | Some `List [x;y] when y < x -> assert false
+                | Some `List [-1]  -> !ret_min
+                | Some `List [x;_] -> x
+                | Some `List [x]   -> x
+                | None             -> !ret_min
+                | _ -> assert false
+            in
+            ret_min := min !ret_min taxa_min
+        done;
+        !ret_min
+    (* normalize character states by minimum of column; also insert missing *)
+    and normalize_by_minimum state_min c : unit =
+        for t = 0 to ((Array.length matrix)-1) do
+            begin match matrix.(t).(c) with
+            | Some `List [-1]  -> matrix.(t).(c) <- Some (`List [0;state_max])
+            | None             -> () (* no change *)
+            | Some `List [x]   ->
+                assert( x >= state_min );
+                if x - state_min > state_max then
+                    failwithf ("Continuous character %d cannot be normalized "^^
+                               "to our maximum range of %d. Found in taxa %s.")
+                              c state_max (lookup_taxon t);
+                matrix.(t).(c) <- Some (`List [x-state_min])
+            | Some `List [x;y] ->
+                assert( (x >= state_min) && (y>= state_min) );
+                if (y - state_min > state_max) ||
+                   (x - state_min > state_max) then
+                    failwithf ("Continuous character %d cannot be normalized "^^
+                               "to our maximum range of %d. Found in taxa %s.")
+                              c state_max (lookup_taxon t);
+                matrix.(t).(c) <- Some (`List [x-state_min;y-state_min])
+            | _     -> assert false
+            end
+        done;
+    in
+    for c = 0 to ((Array.length chars)-1) do
+        let smin = find_minimum_character c in
+        Printf.printf "Normalizing character %d by %d:\n%!" c smin;
+        normalize_by_minimum smin c
+    done;
+    ()
 
 (** process a matrix with spaces seperating the characters. Polymorphisms are
     seperated by spaces in brackets *)
@@ -169,7 +233,7 @@ let process_command file (mode, (acc:nexus)) = function
         and add_observed _ new_states spec =
             let new_states = 
                 if List.mem (Alphabet.get_gap spec.st_alph) new_states then begin
-                    [0;max_int]
+                    []
                 end else begin
                     new_states @ spec.st_observed
                 end
@@ -185,7 +249,7 @@ let process_command file (mode, (acc:nexus)) = function
            although we only save the high and low elements in the list *)
         and add_taxastate x y new_states spec =
             if List.mem (Alphabet.get_gap spec.st_alph) new_states then begin
-                Some (`List [0;max_int])
+                Some (`List [~-1])
             end else begin
                 let states = List.sort Pervasives.compare new_states in 
                 Some (`List states)
@@ -199,6 +263,7 @@ let process_command file (mode, (acc:nexus)) = function
                         characters.(y) <- add_observed y v characters.(y);
                         matrix.(x).(y) <- add_taxastate x y v characters.(y))
                     to_parse;
+                normalize_continuous_characters taxa matrix characters;
                 mode,{acc with
                         taxa = taxa;
                         characters = characters;

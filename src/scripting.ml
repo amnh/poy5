@@ -962,6 +962,29 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 string_of_float point.GIS.latitude ^ "," ^
                 string_of_float point.GIS.altitude)
 
+            let line_to_curve iterations a b =
+                let accumulator = Buffer.create 1667 in
+                let append x =
+                    Buffer.add_string accumulator " ";
+                    Buffer.add_string accumulator x
+                in
+                let rec aux iterations a b =
+                    let center = GIS.center_points a b in
+                    let coords = create_coords center in
+                    if iterations = 0 then begin
+                        append coords;
+                    end else begin
+                        let iterations = iterations - 1 in
+                        aux iterations a center;
+                        append coords;
+                        aux iterations center b
+                    end
+                in
+                Buffer.add_string accumulator (create_coords a);
+                aux iterations a b;
+                append (create_coords b);
+                Buffer.contents accumulator
+
             let create_line parent_gis gis =
                 (PXML -LineString
                     -altitudeMode relativeToGround --
@@ -970,8 +993,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                         | None -> `Empty
                         | Some x -> 
                                 `String 
-                                    (create_coords gis.TemporalGIS.coordinates ^ 
-                                    " " ^ create_coords x.TemporalGIS.coordinates)] 
+                                    (line_to_curve 5 gis.TemporalGIS.coordinates x.TemporalGIS.coordinates)]
                     --
                 --)
 
@@ -1418,15 +1440,16 @@ let process_transform (run : r) (meth : Methods.transform) =
           { run with
                 trees =
                   Sexpr.map (Ptree.set_origin_cost float) run.trees }
+    (* Since these transforms are tree-dependent, we do not update trees to
+       data, and continue on with the diagnosis *)
     | #Methods.tree_transform as meth ->
         let trees, data, nodes =
             CT.transform_nodes_trees run.trees run.data run.nodes [meth]
         in
-        update_trees_to_data false false
-                {run with trees = trees; nodes = nodes; data = data;}
+        {run with trees = trees; nodes = nodes; data = data;}
     | #Methods.char_transform as meth ->
         let data, nodes =
-              CT.transform_nodes run.trees run.data run.nodes [meth] 
+            CT.transform_nodes run.trees run.data run.nodes [meth] 
         in
         update_trees_to_data false false {run with nodes = nodes; data = data}
     | #Methods.terminal_transform as meth ->
@@ -1460,24 +1483,24 @@ let load_data (meth : Methods.input) data nodes =
                 if is_prealigned then
                     prealigned_files := files :: !prealigned_files;
                 (* Avoid changing if we don't want this setting *)
-                let prev = match Data.type_of_dynamic_likelihood data with
-                    | None when Data.has_likelihood data -> true
-                    | Some _ -> true
-                    | None   -> false
-                in
+(*                let prev = match Data.type_of_dynamic_likelihood data with*)
+(*                    | None when Data.has_likelihood data -> true*)
+(*                    | Some _ -> true*)
+(*                    | None   -> false*)
+(*                in*)
                 let data =
                     List.fold_left
                         (Data.guess_class_and_add_file annotated is_prealigned)
                         data
                         files
                 in
-                begin match Data.type_of_dynamic_likelihood data with
-                    | None when Data.has_likelihood data && not prev ->
-                        Methods.cost := `Iterative (`ThreeD None)
-                    | Some _ when not prev ->
-                        Methods.cost := `Iterative (`ThreeD None)
-                    | (None | Some _) -> ()
-                end;
+(*                begin match Data.type_of_dynamic_likelihood data with*)
+(*                    | None when Data.has_likelihood data && not prev ->*)
+(*                        Methods.cost := `Iterative (`ThreeD None)*)
+(*                    | Some _ when not prev ->*)
+(*                        Methods.cost := `Iterative (`ThreeD None)*)
+(*                    | (None | Some _) -> ()*)
+(*                end;*)
                 data
 
         | `PartitionedFile files 
@@ -1579,9 +1602,10 @@ let load_data (meth : Methods.input) data nodes =
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;
                 let dynastate,default_mode = 
-                if is_prealigned then 
-                    `SeqPrealigned,`GeneralNonAdd 
-                else `Seq,`DO in
+                    if is_prealigned then 
+                        `SeqPrealigned,`GeneralNonAdd 
+                    else `CustomAlphabet,`DO in
+                (*else `Seq,`DO in*)
                 let tcmfile = FileStream.filename alph in
                 Data.process_molecular_file
                         ~respect_case:respect_case
@@ -1592,6 +1616,7 @@ let load_data (meth : Methods.input) data nodes =
                 (** read breakinv data from files each breakinv is 
                  * presented as a sequence of general alphabets *)
                 let data = Data.add_file data [Data.Characters] seq in
+                (*orientation is set to true by default*)
                 let orientation =
                     if (List.mem (`Orientation false) read_options) then false
                     else true
@@ -3854,12 +3879,12 @@ let rec folder (run : r) meth =
             done;
             !res
     | `ReadScript files ->
-            let file_folder run item = 
-                try folder run item with
-                | err -> 
-                        let msg = StatusCommon.escape (Printexc.to_string err) in
-                        Status.user_message Status.Error msg;
-                        raise (Error_in_Script (err, run))
+            let file_folder run item =
+                try folder run item
+                with | err ->
+                    let msg = StatusCommon.escape (Printexc.to_string err) in
+                    Status.user_message Status.Error msg;
+                    raise (Error_in_Script (err, run))
             in
             let script = PoyCommand.read_script_files true 
                 (List.map (fun x -> `Filename x) files) in

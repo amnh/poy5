@@ -512,7 +512,8 @@ let extract_states alph data in_codes node =
     List.flatten (List.map extract_states_cs node.characters)
 
 (* calculate the median between two nodes *)
-let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
+let rec cs_median code anode bnode prev t1 t2 a b =
+    match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
@@ -536,13 +537,13 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
             in 
             let model = MlStaticCS.get_model ca.preliminary in
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
-                | `MPL when code > 0 -> 
+                | `MPL | `SML when code > 0 -> 
                     MlStaticCS.median2 ca.preliminary cb.preliminary
                                        t1 t2 anode.taxon_code bnode.taxon_code
                 | `MAL -> 
                     MlStaticCS.median2 ca.preliminary cb.preliminary
                                        t1 t2 anode.taxon_code bnode.taxon_code
-                | `MPL -> assert( code <= 0 );
+                | `MPL | `SML -> assert( code <= 0 );
                     MlStaticCS.median1 ca.preliminary cb.preliminary (t1+.t2)
                 | _ -> assert false; (* all others are dynamic cost fns *)
                 end
@@ -633,14 +634,16 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
           Add res
     | Sank ca, Sank cb ->
             assert (ca.weight = cb.weight);
-            let prev = 
+            (*let prev = 
                 match prev with
                 | None -> None
                 | Some (Sank prev) -> Some (prev.preliminary)
                 | _ -> raise (Illegal_argument "cs_median") 
             in
             let median = SankCS.median prev ca.preliminary cb.preliminary in
-            let cost = SankCS.distance ca.preliminary cb.preliminary in
+            let cost = SankCS.distance ca.preliminary cb.preliminary in*)
+            let cost,median = SankCS.distance_and_median ca.preliminary
+            cb.preliminary in
             let res = 
                 { 
                     ca with preliminary = median;
@@ -838,7 +841,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                sum_cost = cost +. bm.sum_cost +. am.sum_cost;
                                time = Some t1, Some t2, t3_opt; }
                 (* calculate the median1 for MPL with OCAML Brents *)
-                | `MPL ->
+                | `MPL | `SML ->
                     let calculate_single t = 
                         let m = MlStaticCS.median1 am.preliminary bm.preliminary t in
                         (m,MlStaticCS.root_cost m)
@@ -858,7 +861,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                               cost = fv;
                               sum_cost = fv +. bm.sum_cost +. am.sum_cost;
                               time = Some v, Some 0.0, None; }
-                | _ -> assert false (* all other methods are dynamic *)
+                | `FLK -> assert false (* all other methods are dynamic *)
                 end
             in
             ei_map ptl atl btl ((StaticMl mine)::pa)
@@ -1497,6 +1500,16 @@ END
 
 let get_cost_mode a = a.cost_mode
 
+let classify_data leafa dataa leafb datab chars acc =
+    let rec classify_two acc ch1 ch2 = match ch1, ch2 with
+        | Dynamic a, Dynamic b ->
+              DynamicCS.classify_transformations leafa a.final leafb b.final chars acc
+        | (Kolmo _ | StaticMl _ | Nonadd8 _ | Nonadd16 _ | Nonadd32 _
+          | Add _ | Sank _ | Set _ | Dynamic _ ),_ ->
+            assert false
+    in
+    List.fold_left2 classify_two acc dataa.characters datab.characters
+
 let compare_data_final {characters=chs1} {characters=chs2} =
     let rec compare_two ch1 ch2 =
         match ch1, ch2 with
@@ -2065,45 +2078,48 @@ let collapse size characters all_static =
      * data  --Data.d *)
 let classify size chars data =
     let all_static = 
-        Hashtbl.fold (fun code spec acc ->
-            match spec with
-            | Data.Static spec ->
-                (* categorize likelihood and unordered characters *)
-                (match spec.Nexus.File.st_type with
-                    | Nexus.File.STUnordered    -> (code, spec) :: acc
-                    | Nexus.File.STLikelihood m -> (code, spec) :: acc
-                    | _ -> acc)
-            | _ -> acc) data.Data.character_specs []
+        Hashtbl.fold
+            (fun code spec acc -> match spec with
+                | Data.Static spec ->
+                    (* categorize likelihood and unordered characters *)
+                    begin match spec.Nexus.File.st_type with
+                        | Nexus.File.STUnordered
+                        | Nexus.File.STLikelihood _ -> (code, spec) :: acc
+                        | _ -> acc
+                    end
+                | _ -> acc)
+            data.Data.character_specs
+            []
     in
     (* transform each static column into a list with current weight. ~NL *)
     let taxa (code,spec) = 
-        let weight,observed = 
-            match spec.Nexus.File.st_type with
+        let weight,observed = match spec.Nexus.File.st_type with
             | Nexus.File.STUnordered ->
-                    spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
+                spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
             | Nexus.File.STLikelihood m ->
-                    spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
+                spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
             | _ -> assert false
         in
-        Hashtbl.fold (fun _ taxon_chars acc ->
-            let lst =
-                try
-                    match Hashtbl.find taxon_chars code with
-                    | (Data.Stat (c, (Some v)), `Specified) -> (c, weight, v)
-                    | (Data.Stat (c, v), _) -> (c, weight, `List observed)
-                    | _ -> failwith "Impossible 2?"
-                with
-                | Not_found -> (code, weight, `List observed)
-            in
-            lst :: acc) data.Data.taxon_characters []
+        Hashtbl.fold 
+            (fun _ taxon_chars acc ->
+                let lst =
+                    try match Hashtbl.find taxon_chars code with
+                        | (Data.Stat (c, (Some v)), `Specified) -> (c, weight, v)
+                        | (Data.Stat (c, v), _) -> (c, weight, `List observed)
+                        | _ -> failwith "Impossible 2?"
+                    with | Not_found -> (code, weight, `List observed)
+                in
+                lst :: acc)
+            data.Data.taxon_characters
+            []
     in
     current_snapshot "Generating characters";
-    let characters = 
+    let characters =
         let add_taxon_to_accumulator acc (_, _, v) = v :: acc in
         let reshape chars (a, b, _) = (a, b, chars) in
         let chars item =
             match taxa item with
-            | ((_, _, x) as h) :: t -> 
+            | ((_, _, x) as h) :: t ->
                     let chars = List.fold_left add_taxon_to_accumulator [x] t in
                     reshape chars h
             | [] -> failwith "Nothing?" (* must be of least length one, *)
@@ -2183,7 +2199,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 | _ -> assert false
             in
             MlModel.categorize_by_model get_function lst
-
         and group_by_sets lst = 
             let curr = Hashtbl.create 1667 in
             let sets = List.fold_left (* list of all the set names *)
@@ -2251,7 +2266,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 --> List.map (fun x -> lk_group_weights (lk_classify_weights x) x)
 
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
-
         let add_codes ((_, x) as y) = 
             y, Array.map snd (Array.of_list (List.rev x)) in
         let laddcode = List.map add_codes laddcode 
@@ -2268,7 +2282,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             | Data.Kolmogorov _
             | Data.Set -> failwith "get_static_encoding"
         in
-          
         let module Enc = Parser.OldHennig.Encoding in
         let gen_add code =
             let enc = get_static_encoding code in
@@ -2965,15 +2978,16 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and static_ml = List.filter is_mem data.Data.static_ml
         and dynamics = List.filter is_mem data.Data.dynamics in
 
-        let has_dynamic_mpl,has_dynamic_mal,has_dynamic_aln = 
+        let has_dynamic_mpl,has_dynamic_mal,has_dynamic_aln =
             List.fold_left
-                (fun ((mpl,mal,aln) as acc) code -> 
+                (fun ((mpl,mal,aln) as acc) code ->
                     match Hashtbl.find data.Data.character_specs code with
                     | Data.Dynamic ({Data.state = state} as s) when state = `Ml  ->
                         begin match s.Data.lk_model with
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `MPL -> true,mal ,aln
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `SML -> true,mal ,aln
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `MAL -> mpl ,true,aln
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true 
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true
                             | _ -> assert false (* above pattern should be exhaustive *)
                         end
                     | _ -> acc)
@@ -2995,33 +3009,35 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
             | _                       -> `Parsimony
         in
         current_snapshot "end nonadd set2";
-        let r = 
-            generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
-            static_ml data cost_mode
+        let r =
+            generate_taxon classify add n8 n16 n32 n33 sank dynamics
+                                    kolmogorov static_ml data cost_mode
         in
         current_snapshot "end generate taxon";
         r
     in
-    let nodes = 
-        let ntaxa = 
+    let nodes =
+        let ntaxa =
             All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1)
-            data.Data.taxon_codes 0 
+                                     data.Data.taxon_codes 0
         in
-        let st, finalize = 
+        let st, finalize =
             if not silent then
-                let status = 
-                    Status.create "Loading terminals" (Some ntaxa) "terminals loaded" 
+                let status =
+                    Status.create "Loading terminals" (Some ntaxa) "terminals loaded"
                 in
                 let cnt = ref 0 in
-                (fun () -> 
-                    incr cnt; 
+                (fun () ->
+                    incr cnt;
                     Status.achieved status !cnt;
                     Status.full_report status),
                 (fun () -> Status.finished status)
-            else (fun () -> ()), (fun () -> ())
+            else 
+                (fun () -> ()),
+                (fun () -> ())
         in
-        let res = 
-            All_sets.IntegerMap.fold 
+        let res =
+            All_sets.IntegerMap.fold
                 (fun x _ acc ->
                     let res = generate_taxon x acc in st (); res)
                 data.Data.taxon_codes []
@@ -3029,19 +3045,14 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         finalize ();
         res
     in
-    let nodes = 
+    let nodes =
         let sorted x = List.stable_sort node_contents_compare x in
         List.map (fun x -> { x with characters = sorted x.characters }) nodes
     in
     let nodes, data = structure_into_sets data nodes in
     current_snapshot "Node.load_data end";
-    (* do this inside data.ml
-    * let nodes =
-        match sign_dyna with
-        | h::t -> transform_multi_chromosome nodes data
-        | _ -> nodes
-    in*)
     data, nodes
+
 
 (* OUTPUT TO XML *)
 let generate_print_endline ch =
@@ -4344,6 +4355,7 @@ module Standard :
         (* TODO This function must be removed *)
         let union_distance _ _ = 0.
         let is_collapsable = is_collapsable
+        let classify_data = classify_data
         let to_xml = to_xml
         let median_self_cost = median_self_cost
         let num_height _ x = x.num_height

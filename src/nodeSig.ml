@@ -66,6 +66,13 @@ module type S = sig
     (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
     val apply_time : bool -> n -> n -> n
 
+    (** [classify_edge l1 n1 l2 n2] Align and classify the transformations. Can
+        be used for statistical inference, or information on a trees transitions
+        and indel events. *)
+    val classify_data : bool -> n -> bool -> n -> int list option ->
+        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->
+            (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)
+
     (** [extract_states a r b] extract parsimony states at node [b] toward [a],
      * exclude all characters not present in [r] if it exists, else all of them **)
     val extract_states : Alphabet.a -> Data.d -> int option -> int array option -> n ->
@@ -136,10 +143,8 @@ module type S = sig
     * the unions right now). This function is used in the auto sequence partition 
     * functions. Watch out! *)
     val get_sequences : 
-	int option ->
-        n -> 
-            (int * Sequence.s * 
-            Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a) list
+	    int option -> n -> 
+            (int * Sequence.s * Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a) list
 
     (** [get_dynamic_preliminary par n] returns a list with all the dynamic homology
     * characters contained in the node [n] in the preliminary field, in the

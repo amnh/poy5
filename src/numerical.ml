@@ -339,14 +339,22 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     in
     (* initialize and run... *)
     let direction, slope, minstep, step = setup_function point direction gradient in
-    debug_printf "\tInitial LineSearch: %f, slope: %f\n" origfpoint slope;
     (* this could happen if the delta for gradient is huge (ie, errors in rediagnose) 
      * or some major instability in the tree/algorithm. The function will continue, 
-     * but this warning message should report that the results are * questionable   *)
-    if (abs_float slope) > 100000.0 then 
-        warning_message "Numerical.linesearch; Very large slope in optimization function.";
+     * but this warning message should report that the results are questionable. *)
+    let slope = 
+        if (abs_float slope) > 100_000.0 then begin
+            warning_message "Numerical.linesearch; Very large slope in optimization function.";
+            10.0
+        end else begin
+            slope
+        end
+    in
+    debug_printf "\tInitial LineSearch: %f, slope: %f, direction: %s\n"
+                 origfpoint slope (pp_farray direction);
+    let results = main_ origfpoint slope direction step step minstep in
     FPInfix.reset ();
-    main_ origfpoint slope direction step step minstep 
+    results
 
 
 (** BFGS Algorithm                   **)

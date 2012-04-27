@@ -331,6 +331,7 @@ let to_list bs =
 module type B = 
     sig
         val list_of_packed_max : int -> int -> int list
+        val packed_of_list_max : int list -> int -> int
         val list_of_packed : int -> int list
         val packed_of_list : int list -> int
         val count_bits : int -> int
@@ -339,17 +340,20 @@ module type B =
 module Int : B = 
     struct
 
-    let list_of_packed_max n max =
-        let rec split_integer_in_list_of_bits v bit a_sz l =
-            if bit == a_sz then l
-            else begin
-                if ((1 lsl bit) land v) != 0 then
-                    split_integer_in_list_of_bits v (bit + 1) a_sz ((1 lsl bit) :: l)
-                else
-                    split_integer_in_list_of_bits v (bit + 1) a_sz l
-            end
-        in
-        split_integer_in_list_of_bits n 0 max []
+        let list_of_packed_max n max =
+            let rec split_integer_in_list_of_bits v bit l =
+                if bit == max then l
+                else begin
+                    if ((1 lsl bit) land v) != 0 then
+                        split_integer_in_list_of_bits v (bit + 1) ((1 lsl bit) :: l)
+                    else
+                        split_integer_in_list_of_bits v (bit + 1) l
+                end
+            in
+            split_integer_in_list_of_bits n 0 []
+
+        let packed_of_list_max lst max =
+            List.fold_left (fun acc x -> if x > max then acc else x + acc) 0 lst
 
         let list_of_packed d =
             let rec loop_ c i d = match d land 1 with

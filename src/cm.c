@@ -535,7 +535,7 @@ cmt
 cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         int is_metric, int all_elements, cmt res, int level, int comb_num, int gap_startNO,\
         int tie_breaker) {
-    int debug=0;
+    int debug = 0;
     size_t size; 
     size_t combmatrix_size; 
     size_t comb2list_size;
@@ -543,13 +543,15 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     if (comb_num > 255) 
         failwith ("Apparently you are analyzing large alphabets. This version of POY was configured without the --enable-large-alphabets option. To run this analysis you need to enable that option at compile time. Either reconfigured and compile yourself the program,   or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
 #endif
-    if (debug) { printf ("cm_set_val,a_sz=%d,combinationa=%d,all_elements=%d,level=%d,comb_num=%d,gap_startNO=%d\n",
+    if (debug) { printf ("cm_set_val,a_sz=%d,combination=%d,all_elements=%d,level=%d,comb_num=%d,gap_startNO=%d\n",
             a_sz,combinations,all_elements,level,comb_num,gap_startNO); fflush(stdout); }
     cm_set_ori_a_sz(res, a_sz);
     cm_set_all_elements (res, all_elements);
     cm_set_affine (res, do_aff, gap_open);
     res->is_metric = is_metric;
     cm_set_tie_breaker(res,tie_breaker);
+    //safe guard
+    if ((level<=1)&&(combinations!=0)) level=0;
     if (combinations != 0) {
         cm_set_level(res,level);
         cm_set_map_sz(res, comb_num);
@@ -557,17 +559,19 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         if( (level >1)&&(level<=a_sz) )
         {
             if (debug) { 
-                printf ("use combinations,1<level<=a_sz,a_sz <- comb_num, gap <- a_sz\n"); fflush(stdout);
+                printf ("use combinations,use level(1<%d<=a_sz=%d),gap <- a_sz, a_sz <- comb_num(%d) \n",level,a_sz,comb_num); 
+                fflush(stdout);
             }
             cm_set_gap(res, a_sz);
             cm_set_gap_startNO(res,gap_startNO);
             cm_set_a_sz (res, comb_num);
         }
-        else
-        {
+        else 
+        { 
             int combsz = cm_combinations_of_alphabet (a_sz) ;
            if (debug) { 
-               printf ("use combinations, level <= 1 or > a_sz, set a_sz <- %d,gap <- %d\n",combsz, 1 << (a_sz-1)); 
+               printf ("use combinations, not using level (%d<= 1 or > a_sz=%d), set a_sz <- combsz(%d),gap <- 1<<(a_sz-1) = %d\n",
+                       level,a_sz, combsz, 1 << (a_sz-1)); 
            fflush(stdout);}
             cm_set_gap (res, 1 << (a_sz - 1));
             cm_set_gap_startNO(res,0);
@@ -577,7 +581,9 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     } 
     else {
         int lcmvalue = ceil_log_2 (a_sz + 1);
-        if (debug) {printf ("combination = false,lcm <- %d\n",lcmvalue); fflush(stdout);}
+        if (debug) {
+            printf ("no combinations,lcm <- %d, level <- 1, gap <- a_sz(%d)\n",lcmvalue,a_sz); 
+            fflush(stdout);}
         cm_set_map_sz(res, a_sz);
         cm_set_level(res,1);
         cm_set_gap (res, a_sz);
@@ -1375,6 +1381,7 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     uselevel =  cm_check_level(c);
     if (uselevel==1) alphabet_size = c->map_sz;
     else alphabet_size = c->a_sz;
+    if (debug) printf("cm_precalc_4algn,l=%d,alphabet_size = %d\n",l,alphabet_size);
     for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
         tmp_to[0] = tail[j];
         if(uselevel == 1) {

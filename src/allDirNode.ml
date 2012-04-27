@@ -270,6 +270,9 @@ module OneDirF :
     let is_collapsable clas a b = 
         apply_f_on_lazy (Node.Standard.is_collapsable clas) a b
 
+    let classify_data l1 n1 l2 n2 chars acc =
+        Node.Standard.classify_data l1 (force_val n1) l2 (force_val n2) chars acc
+
     let to_xml _ _ _ = ()
 
     let num_height c n = 
@@ -945,7 +948,6 @@ struct
 
     let union_distance _ _ = 0.0
 
-
     let rec is_collapsable clas a b =
         let acode = taxon_code a
         and bcode = taxon_code b in
@@ -964,6 +966,12 @@ struct
                 and d = try is_collapsable `Dynamic a b with | _ -> false in
                 (s && d)
 
+    let classify_data l1 n1 l2 n2 chars acc =
+        match n1.adjusted, n2.adjusted with
+        | Some x, Some y ->
+            OneDirF.classify_data l1 x.lazy_node l2 y.lazy_node chars acc
+        | (Some _ | None), _ ->
+            failwith "Cannot process non-final data in classification"
 
     let to_xml _ _ _ = ()
 

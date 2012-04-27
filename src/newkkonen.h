@@ -56,8 +56,9 @@ struct cost_dir {
     DIRECTION_MATRIX * dirarr;//direction
     DIRECTION_MATRIX * gapnumarr1;//max gap number we could have in alignment
     DIRECTION_MATRIX * gapnumarr2;//max gap number we could have in alignment
-    int * affParr; //affine matrix P
-    int * affQarr; //affine matrix Q
+    int * affParr; //affine matrix P, vertical
+    int * affQarr; //affine matrix Q, horizontal
+    int * affDarr; //affine matrix Diagonal
 };
 
 typedef struct cost_dir * ukkdiag_p;
@@ -88,6 +89,7 @@ struct newkkmat {
     int total_len_affine;
     int * pool_affP;
     int * pool_affQ;
+    int * pool_affD;
 };
 
 typedef struct newkkmat * newkkmat_p;

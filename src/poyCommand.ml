@@ -117,11 +117,11 @@ type transform_method = [
     | `AlphabeticTerminals
     | `Prealigned_Transform
     | `EstLikelihood of 
-        ( Methods.ml_costfn * Methods.ml_substitution * 
+        ( Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_substitution * 
           Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `UseParsimony
     | `UseLikelihood of 
-        ( Methods.ml_costfn * Methods.ml_substitution * 
+        ( Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_substitution * 
           Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `Level of (int * tie_breaker )
     | `Tcm of (string * (int * tie_breaker) option)
@@ -188,11 +188,10 @@ type iteration_strategy = [
     | `ThresholdModel of float
     | `MaxCountModel of int
     | `BothModel of float * int
-    | `NeighborhoodModel of float
     | `NullBranches
     | `AllBranches
     | `JoinDeltaBranches
-    | `NeighborhoodBranches
+    | `NeighborhoodBranches of int
 ]
 
 type builda = [
@@ -440,11 +439,11 @@ let transform_transform acc (id, x) =
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
-            | `EstLikelihood (a, b, c, d, e) ->
-                    (`EstLikelihood (id, a, b, c, d, e)) :: acc
+            | `EstLikelihood (a, b, c, d, e, f) ->
+                    (`EstLikelihood (id, a, b, c, d, e, f)) :: acc
             | `UseParsimony -> (`UseParsimony id) :: acc
-            | `UseLikelihood (a, b, c, d, e) ->
-                    (`UseLikelihood (id, a, b, c, d, e)) :: acc
+            | `UseLikelihood (a, b, c, d, e, f) ->
+                    (`UseLikelihood (id, a, b, c, d, e, f)) :: acc
             | `Level (l,tb) -> (`Assign_Level (l,tb,id))::acc
             | `Tcm (f,l_and_tb) -> 
                     (`Assign_Transformation_Cost_Matrix ((Some ((`Local f),l_and_tb)), id)) :: acc
@@ -506,16 +505,15 @@ let transform_iterations
         Methods.tabu_modeli_strategy * Methods.tabu_branchi_strategy = 
     List.fold_left
         (fun (a,b) -> function
-            | `NullModel -> (`Null,b)
-            | `AlwaysModel -> (`Always,b)
+            | `NullModel        -> (`Null,b)
+            | `AlwaysModel      -> (`Always,b)
             | `ThresholdModel x -> (`Threshold x, b)
-            | `MaxCountModel x -> (`MaxCount x, b)
-            | `BothModel (x,y) -> (`Both (x,y), b)
-            | `NeighborhoodModel y -> (`Neighborhood y,b)
+            | `MaxCountModel x  -> (`MaxCount x, b)
+            | `BothModel (x,y)  -> (`Both (x,y), b)
             | `NullBranches     -> (a,`Null)
             | `AllBranches      -> (a,`AllBranches)
             | `JoinDeltaBranches -> (a,`JoinDelta)
-            | `NeighborhoodBranches -> (a,`Neighborhood))
+            | `NeighborhoodBranches y -> (a,`Neighborhood y))
         iter_default items
 
 let transform_build
@@ -1185,12 +1183,13 @@ let transform_search items =
     | _ -> failwith "Forgot to update the list of options of search?"
 
 let process_likelihood_commands lst = 
-    let process (cost,model,vari,prior,gaps) = function
-        | `ML_cost   x -> (x,    model, vari, prior, gaps)
-        | `ML_subst  x -> (cost, x,     vari, prior, gaps)
-        | `ML_vars   x -> (cost, model, x,    prior, gaps)
-        | `ML_prior  x -> (cost, model, vari, x,     gaps)
-        | `ML_gaps   x -> (cost, model, vari, prior, x   )
+    let process (alph,cost,model,vari,prior,gaps) = function
+        | `ML_alph   x -> ( x,   cost, model, vari, prior, gaps)
+        | `ML_cost   x -> (alph,  x,   model, vari, prior, gaps)
+        | `ML_subst  x -> (alph, cost,  x,    vari, prior, gaps)
+        | `ML_vars   x -> (alph, cost, model,  x,   prior, gaps)
+        | `ML_prior  x -> (alph, cost, model, vari,  x,    gaps)
+        | `ML_gaps   x -> (alph, cost, model, vari, prior,  x  )
     in
     List.fold_left process MlModel.default_command lst
 
@@ -1331,10 +1330,16 @@ let create_expr () =
                 ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
                 right_parenthesis -> List.map float_of_string x
             ]];
+        ml_alphabet: 
+            [
+                [ LIDENT "max" -> `Max ] |
+                [ LIDENT "min" -> `Min ] |
+                [ x = INT      -> `Int (int_of_string x) ]
+            ];
         ml_substitution: 
             [
                 [ LIDENT "jc69" -> `JC69 ] |
-                [ LIDENT "f81" -> `F81 ] |
+                [ LIDENT "f81"  -> `F81  ] |
                 (* values of these types get checked later *)
                 [ LIDENT "f84";   x = OPT ml_floatlist -> `F84   x ] |
                 [ LIDENT "k80";   x = OPT ml_floatlist -> `K2P   x ] |
@@ -1374,13 +1379,16 @@ let create_expr () =
                     right_parenthesis -> `Given x ]
             ];
         ml_gap :
-            [ [ LIDENT "missing" -> `Missing ] |
+            [ [ LIDENT "missing"   -> `Missing ] |
               [ LIDENT "character" -> `Independent] |
-              [ LIDENT "coupled" -> `Coupled 1.0 ] |
-              [ LIDENT "coupled"; ":"; x = integer_or_float -> `Coupled (float_of_string x) ] ];
+              [ LIDENT "coupled"   -> `Coupled 1.0 ] |
+              [ LIDENT "coupled"; ":"; x = integer_or_float -> `Coupled (float_of_string x) ]
+            ];
         ml_costfn:
             [
-                [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL] | [LIDENT "flk" -> `FLK]
+                [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL] |
+                (** Undefined in the context of the user; used for testing **)
+                [LIDENT "flk" -> `FLK] | [LIDENT "sml" -> `SML]
             ];
         partitioned_mode:
             [   
@@ -1389,14 +1397,16 @@ let create_expr () =
         ml_properties:
             [
                 [ x = ml_substitution
-                                -> `ML_subst x] |
+                                -> `ML_subst x ] |
+                [ LIDENT "alphabet"; ":"; x = ml_alphabet
+                                -> `ML_alph  x ] |
                 [ LIDENT "rates";":"; left_parenthesis; x = ml_rates; right_parenthesis
-                                -> `ML_vars  x] |
+                                -> `ML_vars  x ] |
                 [ LIDENT "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
-                                -> `ML_prior x] |
+                                -> `ML_prior x ] |
                 [ LIDENT "gap"; ":"; left_parenthesis; x = ml_gap; right_parenthesis
-                                -> `ML_gaps  x] |
-                [ x = ml_costfn -> `ML_cost  x]
+                                -> `ML_gaps  x ] |
+                [ x = ml_costfn -> `ML_cost  x ]
             ];
         optional_poly :
             [
@@ -1428,13 +1438,13 @@ let create_expr () =
                 [ LIDENT "prioritize" -> `Prioritize ] |
                 [ LIDENT "elikelihood"; ":"; left_parenthesis;
                     lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
-                        let v,w,x,y,z = process_likelihood_commands lst in
-                        `EstLikelihood (v, w, x, y, z) ] |
+                        let u,v,w,x,y,z = process_likelihood_commands lst in
+                        `EstLikelihood (u, v, w, x, y, z) ] |
                 [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
-                        let v,w,x,y,z = process_likelihood_commands lst in
-                        `UseLikelihood (v, w, x, y, z) ] |
+                        let u,v,w,x,y,z = process_likelihood_commands lst in
+                        `UseLikelihood (u, v, w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
@@ -2009,7 +2019,6 @@ let create_expr () =
             [
                 [LIDENT "threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
                 [LIDENT "max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
-                [LIDENT "neighborhood"; ":"; x = FLOAT -> `NeighborhoodModel (float_of_string x) ] |
                 [LIDENT "never" -> `NullModel] |
                 [LIDENT "always" -> `AlwaysModel]
             ];
@@ -2017,14 +2026,16 @@ let create_expr () =
             [
                 [LIDENT "never" -> `NullModel] |
                 [LIDENT "always" -> `AlwaysModel] |
-                [ left_parenthesis; x = model_iter2; right_parenthesis -> x]
+                [left_parenthesis; x = model_iter2; right_parenthesis -> x]
             ];
         branch_iter :
             [
-                [LIDENT "never" -> `NullBranches] |
-                [LIDENT "all_branches" -> `AllBranches] |
-                [LIDENT "join_delta" -> `JoinDeltaBranches] |
-                [LIDENT "join_region" -> `NeighborhoodBranches]
+                [LIDENT "never"         -> `NullBranches] |
+                [LIDENT "all_branches"  -> `AllBranches] |
+                [LIDENT "join_delta"    -> `JoinDeltaBranches] |
+                [LIDENT "join_region"   -> `NeighborhoodBranches 0] |
+                [LIDENT "join_region"; ":"; x = INT ->
+                    `NeighborhoodBranches (int_of_string x) ]
             ];
         iterate_options:
             [

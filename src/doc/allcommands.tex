@@ -3459,10 +3459,20 @@ parameters and branch lengths. Additional optimizations are performed after diag
             This set of arguments enables analysis using several variants of the
             maximum likelihood criterion. 
 
-            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gap,cost)}}
+            \argumentdefinition{likelihood}{\obligatory{(model,rates,priors,gap,cost,alphabet)}}
                 {Transforms the specified characters to either static or dynamic
                 likelihood characters. All arguments are optional; the defaults
                 are presented in the sub-sections below.}
+                {likelihood}
+
+            \argumentdefinition{elikelihood}{\obligatory{(model,rates,priors,gap,cost,alphabet)}}
+                {Transforms the specified characters to either static or dynamic
+                likelihood characters while estimating the parameters based on a
+                parsimony tree. Here we set the initial rates (for example for
+                GTR) relative to the proportion of those transformations found
+                across branches of the tree. Like the normal likelihood command,
+                all arguments are optional; the defaults are presented in the
+                sub-sections below.}
                 {likelihood}
 
             \begin{statement}
@@ -3817,8 +3827,8 @@ parameters and branch lengths. Additional optimizations are performed after diag
 
                         \argumentdefinition{character}{}
                             {Specifies that atomistic indels are a character
-                            without adding an additional rate class--except
-                            under GTR where we keep the unrestricted nature of the
+                            without adding an additional rate class, except
+                            under GTR, where we keep the unrestricted nature of the
                             model intact, and each indel-nucleotide rate has its
                             own class.}
                             {character}
@@ -3826,8 +3836,38 @@ parameters and branch lengths. Additional optimizations are performed after diag
                     \end{description}}
                 {gapmode}
 
-        \end{argumentgroup}
+                \argumentdefinition{alphabet:(TYPE)}{}
+                    {This option is for morphology characters, and is used to
+                    define the alphabet size for the transform. Unobserved 
+                    states do not add cost under parsimony, but can under likelihood. 
+                    This argument enables the user to specify the size of the alphabet, 
+                    and enables the use of the minimum number of states that would 
+                    encompass all the observed states in the data.
 
+                    \begin{description}
+
+                        \argumentdefinition{min}{}
+                            {Set the alphabet size to be the minimum value that
+                            encompasses all characters observations.}
+                            {min}
+
+                        \argumentdefinition{max}{}
+                            {Do not modify the alphabet; use the one currently
+                            set under the character type. This may be 32 under
+                            morphology.}
+                            {max}
+
+                        \argumentdefinition{INT}{}
+                            {Specifies the size of the alphabet. We test that
+                            the alphabet after the transform can express all the
+                            observed states in the data-set and will report an
+                            error if this is the case.}
+                            {INT}
+                            
+                    \end{description}}
+                {alphabet}
+
+        \end{argumentgroup}
 
         \begin{argumentgroup}{Chromosome and Genome transformation methods}
             For chromosome and genome character types, \poy optimizes nucleotide-, 

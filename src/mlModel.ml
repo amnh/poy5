@@ -38,8 +38,8 @@ let debug_printf msg format =
 let ba_of_array1 x = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout x
 and ba_of_array2 x = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout x
 
-let create_ba1 x     = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout x
-and create_ba2 x y   = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout x y
+let create_ba1 x   = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout x
+and create_ba2 x y = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout x y
 
 let barray_to_array2 bray =
     let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
@@ -68,7 +68,7 @@ type string_spec = string * (string * string * string * string) * float list
 let empty_str_spec : string_spec = ("",("","","",""),[],`Consistent None,("",None),"",None)
 
 (* the default when commands are left off from the interactive console / scripts *)
-let default_command = (`MAL,`GTR None,None,`Consistent,`Missing)
+let default_command = (`Max, `MAL,`GTR None,None,`Consistent,`Missing)
 
 (* --- DEFAULTS FOR MODELS FROM PHYML --- *)
 (*  These are used for DNA sequences, and
@@ -145,7 +145,17 @@ let jc69_5_gap flo = { jc69_5 with use_gap = `Coupled flo; }
 let get_costfn_code a = match a.spec.cost_fn with 
     | `MPL -> 1 
     | `MAL -> 0 
-    | `FLK -> ~-1 (* should not call C functions; yet *)
+    | `SML -> 2
+    | `FLK -> ~-1 (* should not be called *)
+
+let set_smooth_model model = match model.spec.cost_fn with
+    | `MPL -> { model with spec = {model.spec with cost_fn = `SML; }; }
+    | `MAL | `SML | `FLK -> model
+
+and reset_smooth_model model = match model.spec.cost_fn with
+    | `SML -> { model with spec = {model.spec with cost_fn = `MPL; }; }
+    | `MAL | `MPL | `FLK -> model
+    
 
 let compare_priors a b =
     let compare_array x y = 
@@ -766,6 +776,7 @@ let output_model output nexus model set =
             | `MPL -> printf "@[Cost = mpl;@]";
             | `MAL -> printf "@[Cost = mal;@]"; 
             | `FLK -> printf "@[Cost = flk;@]";
+            | `SML -> assert false (* this state is only used in optimization *)
         in
         let () = match model.spec.site_variation with
             | Some Constant | None -> ()
@@ -813,6 +824,7 @@ let output_model output nexus model set =
             | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
             | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n"; 
             | `FLK -> printf "@[<hov 0>Cost mode: flk;@]@\n"; 
+            | `SML -> assert false (* this state is only used in optimization *)
         in
         printf "@[<hov 0>Priors / Base frequencies:@\n";
         let () = match model.spec.base_priors with
@@ -1033,7 +1045,7 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | "" -> failwith "No Model Specified"
         | _  -> failwith "Incorrect Model"
     in
-    let cost_fn = match String.uppercase cost with
+    let cost_fn : Methods.ml_costfn = match String.uppercase cost with
         | "MPL" -> `MPL
         | "MAL" -> `MAL
         | "FLK" -> `FLK
@@ -1094,10 +1106,13 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
   END
 
 
-let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,base_priors,use_gap) =
+let convert_methods_spec alph_size compute_priors (_,alph,cst,subst,site_variation,base_priors,use_gap) =
     let u_gap = match use_gap with 
             | `Independent | `Coupled _ -> true | `Missing -> false in
-    let alph_size = if u_gap then alph_size else alph_size - 1 in
+    let alph_size = 
+        let w_gap = if u_gap then alph_size else alph_size - 1 in
+        match alph with | `Min | `Max  -> w_gap | `Int x -> x
+    in
     let i_alpha = ref true and i_model = ref true in
     let base_priors = match base_priors with
         | `Estimate  -> Estimated (compute_priors ())

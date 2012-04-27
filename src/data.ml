@@ -69,7 +69,9 @@ type dyna_state_t = [
     (** A list of shorted sequences annotated by piles, rearrangements are allowed *)
     | `Annotated
     (** A sequence of gene names, rearrangements are allowed *)
-    | `Breakinv ]
+    | `Breakinv
+    | `CustomAlphabet
+]
 
 
 let print_dyna_state x = 
@@ -82,6 +84,7 @@ let print_dyna_state x =
     | `Genome -> Printf.printf "Genome\n%!"
     | `Annotated -> Printf.printf "Annotated\n%!"
     | `Breakinv -> Printf.printf "Breakinv\n%!"
+    | `CustomAlphabet -> Printf.printf "CustomAlphabet\n%!"
 
 let print_transform_meth x =
     Printf.printf "transform meth=%!";
@@ -450,6 +453,20 @@ type characters = [
     | `Range of (string * int * int)
 ]
 
+let string_of_characters =
+    let op = function | true -> "" | false -> "not " in
+    function
+        | `All           -> "all"
+        | `Some (y,x)    -> Printf.sprintf "%ssome:%d" (op y) (List.length x)
+        | `CharSet (y,x) -> Printf.sprintf "%ssets:%d" (op y) (List.length x)
+        | `Names (y,x)   -> Printf.sprintf "%sname:%d" (op y) (List.length x)
+        | `Random x      -> Printf.sprintf "rand:%f" x
+        | `AllStatic     -> "all-static"
+        | `AllDynamic    -> "all-dynamic"
+        | `Missing _     -> "missing"
+        | `Range _       -> "range"
+
+
 let transform_range_to_codes file x y =
     assert( x < y );
     let rec loop_ acc x y =
@@ -657,22 +674,6 @@ let get_character_set_name data codes : string option = match codes with
         else
             None
 
-let modified_characters data_one data_two : int =
-    let data_one = data_one.character_specs
-    and data_two = data_two.character_specs in
-    let data_one,data_two =
-        if (Hashtbl.length data_one) < (Hashtbl.length data_two)
-            then data_two,data_one
-            else data_one,data_two
-    and modified = ref 0 in
-    Hashtbl.iter
-        (fun k v1 ->
-            try let v2 = Hashtbl.find data_two k in
-                if v2 <> v1 then incr modified else ()
-            with | Not_found -> let () = incr modified in ())
-        data_one;
-    !modified
-
 let get_likelihood_model data chars =
     let get_model x =
         try match Hashtbl.find data.character_specs x with
@@ -833,6 +834,7 @@ let print (data : d) =
                | `Seq -> Printf.fprintf stdout "Seq"
                | `Ml -> Printf.fprintf stdout "Dynamic ML"
                | `Breakinv -> Printf.fprintf stdout "Breakinv"
+               | `CustomAlphabet -> Printf.fprintf stdout "CustomAlphabet"
                | `Chromosome -> Printf.fprintf stdout "Chromosome"
                | `Genome -> Printf.fprintf stdout "Genome"
                | `Annotated -> Printf.fprintf stdout "Annotated")
@@ -888,15 +890,35 @@ let print (data : d) =
     print_newline ()
 
 
+let modified_characters data_one data_two : int =
+    let data_one = data_one.character_specs
+    and data_two = data_two.character_specs in
+    let data_one,data_two =
+        if (Hashtbl.length data_one) < (Hashtbl.length data_two)
+            then data_two,data_one
+            else data_one,data_two
+    and modified = ref 0 in
+    Hashtbl.iter
+        (fun k v1 ->
+            try let v2 = Hashtbl.find data_two k in
+                if v2 <> v1 then incr modified else ()
+            with | Not_found -> let () = incr modified in ())
+        data_one;
+    !modified
+
+
 let get_weight c data = 
     match Hashtbl.find data.character_specs c with
     | Dynamic spec -> spec.weight
     | Static spec -> spec.Nexus.File.st_weight
     | _ -> 1.0
 
+
 let get_weights data =
-    Hashtbl.fold (fun x _ acc -> (x, get_weight x data) :: acc) 
-    data.character_specs []
+    Hashtbl.fold
+        (fun x _ acc -> (x, get_weight x data) :: acc) 
+        data.character_specs []
+
 
 (* Returns a fresh object with the added synonym from [a] to [b] to [data]. *)
 let rec aux_add_synonym stack data (a, b) =
@@ -1766,11 +1788,12 @@ dyna_state dyna_pam weight prealigned domerge =
             let makeone seqa = {seq=seqa; delimiter=[]; code = -1} in
             match dyna_state with
             | `Ml  when not prealigned -> Array.map makeone seqarr 
+            | `CustomAlphabet when not prealigned -> Array.map makeone seqarr
             | `Seq when not prealigned -> Array.map makeone seqarr
             | `SeqPrealigned           -> Array.map makeone seqarr
             | `Chromosome | `Genome
             | `Annotated  | `Breakinv 
-            | `Seq | `Ml (* when prealigned *) ->
+            | `CustomAlphabet | `Seq | `Ml (* when prealigned *) ->
                 Array.map (fun x -> makeone (Sequence.del_first_char x)) seqarr
         in
         let dyna_data = { seq_arr = seqa; } in 
@@ -2942,7 +2965,7 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
+    | `CustomAlphabet | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
     | others -> 
             let clas = 
                 match others with
@@ -3121,121 +3144,113 @@ let transform_seqs_to_kolmogorov d codes newspec =
 * annotated chromosomes whose codes are on the code list [chcode]
 * into breakinvs characters *)    
 let create_alpha_c2_breakinvs (data : d) chcode =  
-
     let spec = Hashtbl.find data.character_specs chcode in  
     let c2, alpha,dynpam = match spec with 
         | Dynamic dspec -> dspec.tcm2d, dspec.alph, dspec.pam
         | _ -> failwith "Transfrom_annchroms_to_breakinvs: Not Dynamic" 
     in
-    let use_ukk = 
-                match !Methods.algn_mode with
-                        | `Algn_Newkk -> true
-                                | _ -> false
-                                    in
-    let chrom_ls = get_dynas data chcode in 
-        
-    let max_code = List.fold_left  
-        ~f:(fun max_code chrom -> 
-                Array.fold_left ~f:(fun max_code seq -> max max_code seq.code 
-                                   ) ~init:max_code chrom.seq_arr 
-           ) ~init:0 chrom_ls 
-    in  
-
-    let gen_alpha = ref [] in 
-    for code = 1 to max_code + 1 do 
-        let char =  
-            match code mod 2  with 
-            | 1 -> string_of_int ( (code + 1)  / 2)  
-            | 0 -> Alphabet.elt_complement ^ ( string_of_int (code / 2) ) 
-            | _ -> failwith "compiler is error" 
-        in  
-        gen_alpha := (char, code, None)::!gen_alpha;         
-    done;  
-
-    let gen_gap_code = max_code + 2 in  
-    gen_alpha := (Alphabet.gap_repr, gen_gap_code, None)::!gen_alpha;  
+    let use_ukk = match !Methods.algn_mode with
+        | `Algn_Newkk -> true
+        | _ -> false
+    in
+    let chrom_ls = get_dynas data chcode in
+    let max_code =
+        List.fold_left
+            ~f:(fun max_code chrom ->
+                Array.fold_left ~f:(fun max_code seq -> max max_code seq.code)
+                                ~init:max_code
+                                chrom.seq_arr)
+            ~init:0
+            chrom_ls
+    in
+    let gen_alpha = ref [] in
+    for code = 1 to max_code + 1 do
+        let char =  match code mod 2 with
+            | 1 -> string_of_int ( (code + 1)  / 2)
+            | 0 -> Alphabet.elt_complement ^ ( string_of_int (code / 2) )
+            | _ -> failwith "compiler is error"
+        in
+        gen_alpha := (char, code, None)::!gen_alpha;
+    done;
+    let gen_gap_code = max_code + 2 in
+    gen_alpha := (Alphabet.gap_repr, gen_gap_code, None)::!gen_alpha;
     gen_alpha := (Alphabet.elt_complement ^ Alphabet.gap_repr, (gen_gap_code + 1), None)::!gen_alpha;
-
     let gen_com_code = gen_gap_code + 2 in  
     gen_alpha := ("*", gen_com_code, None)::!gen_alpha;  
     gen_alpha := ("~*", (gen_com_code + 1), None)::!gen_alpha;  
-
     let max_code = gen_com_code + 1 in  
     let gen_alpha = 
         Alphabet.list_to_a (List.rev !gen_alpha) Alphabet.gap_repr (Some "*")
-        Alphabet.Sequential
-    in 
-    (** Finish creating alphabet*)      
-
-
-    let all_seq_arr = List.fold_left  
-        ~f:(fun all_seq_arr chrom -> Array.append all_seq_arr chrom.seq_arr 
-           ) ~init:[||] chrom_ls  
-    in  
-
-    let gen_cost_mat = Array.make_matrix max_code max_code max_int in  
-
-    let num_seq = Array.length all_seq_arr in  
-    for idx1 = 0 to num_seq - 2 do 
-        for idx2 = idx1 + 1 to num_seq - 1 do 
-
-            let seq1 = all_seq_arr.(idx1).seq in 
-            let code1 = all_seq_arr.(idx1).code in 
-            
-            let seq2 = all_seq_arr.(idx2).seq in 
-            let code2 = all_seq_arr.(idx2).code in 
-                
+                           Alphabet.Sequential
+    in
+    (** Finish creating alphabet*)
+    let all_seq_arr =
+        List.fold_left
+            ~f:(fun all_seq_arr chrom -> Array.append all_seq_arr chrom.seq_arr)
+            ~init:[||]
+            chrom_ls
+    in
+    let gen_cost_mat = Array.make_matrix max_code max_code max_int in
+    let num_seq = Array.length all_seq_arr in
+    for idx1 = 0 to num_seq - 2 do
+        for idx2 = idx1 + 1 to num_seq - 1 do
+            let seq1 = all_seq_arr.(idx1).seq in
+            let code1 = all_seq_arr.(idx1).code in
+            let seq2 = all_seq_arr.(idx2).seq in
+            let code2 = all_seq_arr.(idx2).code in
             let _, _, cost =
                 if use_ukk then
-                Sequence.NewkkAlign.align_2 ~first_gap:false 
-                seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm
+                    Sequence.NewkkAlign.align_2 ~first_gap:false
+                        seq1 seq2 c2 Sequence.NewkkAlign.default_ukkm
                 else
-                Sequence.Align.align_2 ~first_gap:false seq1 seq2 c2 Matrix.default
-            in 
+                    Sequence.Align.align_2 ~first_gap:false
+                        seq1 seq2 c2 Matrix.default
+            in
             gen_cost_mat.(code1).(code2) <- cost;
-            gen_cost_mat.(code1).(code2 + 1) <- cost; 
-            gen_cost_mat.(code1 + 1).(code2) <- cost; 
-            gen_cost_mat.(code1 + 1).(code2 + 1) <- cost; 
-            gen_cost_mat.(code2).(code1) <- cost; 
-            gen_cost_mat.(code2).(code1 + 1) <- cost; 
-            gen_cost_mat.(code2 + 1).(code1) <- cost; 
-            gen_cost_mat.(code2 + 1).(code1 + 1) <- cost;                                 
-        done; 
-    done; 
+            gen_cost_mat.(code1).(code2 + 1) <- cost;
+            gen_cost_mat.(code1 + 1).(code2) <- cost;
+            gen_cost_mat.(code1 + 1).(code2 + 1) <- cost;
+            gen_cost_mat.(code2).(code1) <- cost;
+            gen_cost_mat.(code2).(code1 + 1) <- cost;
+            gen_cost_mat.(code2 + 1).(code1) <- cost;
+            gen_cost_mat.(code2 + 1).(code1 + 1) <- cost;
+        done;
+    done;
     let gap = Alphabet.get_gap alpha in
-    Array.iter  
-        (fun chrom ->  
-             let seq = chrom.seq in   
-             let code = chrom.code in   
-             let gap_seq = Sequence.create 1 in  
+    Array.iter
+        (fun chrom ->
+             let seq = chrom.seq in
+             let code = chrom.code in
+             let gap_seq = Sequence.create 1 in
              let gap_seq = Sequence.prepend_char gap_seq gap in
-             let _, _, cost = 
-                 if use_ukk then 
-                 Sequence.NewkkAlign.align_2 ~first_gap:false seq
-                 gap_seq c2 Sequence.NewkkAlign.default_ukkm
+             let _, _,cost =
+                 if use_ukk then
+                    Sequence.NewkkAlign.align_2 ~first_gap:false seq
+                            gap_seq c2 Sequence.NewkkAlign.default_ukkm
                  else
-                 Sequence.Align.align_2 ~first_gap:false seq
-                 gap_seq c2 Matrix.default 
-             in  
-             gen_cost_mat.(code).(gen_gap_code) <- cost; 
-             gen_cost_mat.(code + 1).(gen_gap_code) <- cost; 
-             gen_cost_mat.(gen_gap_code).(code) <- cost; 
-             gen_cost_mat.(gen_gap_code).(code + 1) <- cost;                 
-        ) all_seq_arr;  
-    gen_cost_mat.(gen_gap_code).(gen_gap_code) <- 0; 
-    let gen_cost_ls = List.tl (Array.to_list gen_cost_mat) in 
-    let gen_cost_ls = List.map  
-        (fun cost_arr -> List.tl (Array.to_list cost_arr) ) gen_cost_ls 
-    in  
-
-    let gen_cost_mat = 
-        Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls 
-        (if alpha = Alphabet.nucleotides then 31 
-              else if (Alphabet.is_aminoacids alpha) 
+                    Sequence.Align.align_2 ~first_gap:false seq
+                            gap_seq c2 Matrix.default
+             in
+             gen_cost_mat.(code).(gen_gap_code) <- cost;
+             gen_cost_mat.(code + 1).(gen_gap_code) <- cost;
+             gen_cost_mat.(gen_gap_code).(code) <- cost;
+             gen_cost_mat.(gen_gap_code).(code + 1) <- cost)
+        all_seq_arr;
+    gen_cost_mat.(gen_gap_code).(gen_gap_code) <- 0;
+    let gen_cost_ls = List.tl (Array.to_list gen_cost_mat) in
+    let gen_cost_ls =
+        List.map
+            (fun cost_arr -> List.tl (Array.to_list cost_arr))
+            gen_cost_ls
+    in
+    let gen_cost_mat =
+        Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls
+        (if alpha = Alphabet.nucleotides then 31
+              else if (Alphabet.is_aminoacids alpha)
               then 21 else (-1))
-    in  
+    in
+    gen_alpha, gen_cost_mat
 
-    gen_alpha, gen_cost_mat 
 
 module Kolmogorov = struct
 
@@ -3614,9 +3629,19 @@ let get_state default = function
     | `Seq_to_Chrom _ -> `Chromosome
     | `Custom_to_Breakinv _ 
     | `Annchrom_to_Breakinv _ -> `Breakinv
-    | `Chrom_to_Seq _ | `Breakinv_to_Custom _ -> `Seq
+    | `Chrom_to_Seq _ -> `Seq
+    | `Breakinv_to_Custom _ -> `CustomAlphabet
     | `Change_Dyn_Pam _ -> default
     | `Seq_to_Kolmogorov _ -> failwith "Illegal Data.get_state argument"
+
+
+let get_dyn_state data c =
+    try match Hashtbl.find data.character_specs c  with
+        | Dynamic dspec    -> dspec.state
+        | Set              -> failwithf "Data.get_dyn_state,not dynamic, code=%d" c
+    with  Not_found        -> failwithf "Data.get_dyn_state: Couldn't find code=%d in character specs" c
+
+
 
 
 (** [get_sequences code data] outputs a stack containing all the sequences of the
@@ -3764,7 +3789,7 @@ let convert_dyna_spec data chcode spec transform_meth =
             match dspec.state, transform_meth with 
             | _, `Change_Dyn_Pam _ 
             | `Seq, `Seq_to_Chrom _
-            | `Seq, `Custom_to_Breakinv _
+            | `CustomAlphabet, `Custom_to_Breakinv _
             | `Annotated, `Annchrom_to_Breakinv _
             | `Chromosome, `Chrom_to_Seq  _
             | `Breakinv, `Breakinv_to_Custom _
@@ -3896,8 +3921,7 @@ type classes =
     [ `Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
     | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
 
-let has_likelihood d = 
-    match d.static_ml with
+let has_likelihood d = match d.static_ml with
     | [] -> false
     | _  -> true
 
@@ -3978,7 +4002,7 @@ and get_code_with_missing dont_complement data fraction =
         | `Some x -> x
         | _ -> failwith "Data.get_code_with_missing"
 (**Give a list of characters, return their codes*)    
-and get_code_from_characters_restricted kind (data : d) (chs : characters) = 
+and get_code_from_characters_restricted kind (data : d) (chs : characters) =
     let kind_lst = match kind with
         | `Dynamic ->
             data.dynamics
@@ -4042,28 +4066,29 @@ and get_chars_codes data = function
     | `Range (file,x,y) -> get_chars_codes data (transform_range_to_codes file x y)
     | `Names names ->
             let names = 
-                warn_if_repeated_and_choose_uniquely names 
-                "selected@ characters@ " ""
+                warn_if_repeated_and_choose_uniquely names "selected@ characters@ " ""
             in
             let get_code acc name =
-                try 
-                    (Hashtbl.find data.character_names name) :: acc 
-                with
-                | Not_found as err ->
-                        let nname = Str.regexp name in
+                try (Hashtbl.find data.character_names name) :: acc 
+                with | Not_found as err ->
+                    let nname = Str.regexp name in
+                    begin
                         match
-                            Hashtbl.fold (fun item code acc ->
-                                if Str.string_match nname item 0 then 
-                                    code :: acc
-                                else acc)
-                            data.character_names acc
+                            Hashtbl.fold
+                                (fun item code acc ->
+                                    if Str.string_match nname item 0 then
+                                        code :: acc
+                                    else acc)
+                                data.character_names
+                                acc
                         with
-                        | [] -> 
-                                Status.user_message Status.Error
-                                ("Could@ not@ find@ any@ character@ matching@
-                                the@ expression@ " ^ StatusCommon.escape name);
-                                raise err
-                        | r -> r 
+                        | [] ->
+                            Status.user_message Status.Error
+                                ("Could@ not@ find@ any@ character@ matching@ "^
+                                 "the@ expression@ " ^ StatusCommon.escape name);
+                            raise err
+                        | r -> r
+                    end
             in
             List.fold_left ~f:get_code ~init:[] names
     | `AllStatic | `AllDynamic as m -> 
@@ -4089,6 +4114,19 @@ and complement_characters data characters =
 let get_all_codes data =
     Hashtbl.fold (fun c _ acc -> c :: acc) data.character_codes  []
 
+let complement_characters_restricted kind data ch =
+    let res = 
+        let codes = get_chars_codes data ch in
+        List.fold_left
+            ~f:(fun acc x -> 
+                if (List.exists (fun y -> x = y) codes)
+                    then acc
+                    else x :: acc)
+            ~init:[]
+            (get_code_from_characters_restricted kind data `All)
+    in
+    `Some res
+
 let get_code_from_characters_restricted_comp kind d ch =
     let dont_complement, chars = match ch with
         | `Some (dont_complement, x) -> dont_complement, `Some x
@@ -4100,10 +4138,9 @@ let get_code_from_characters_restricted_comp kind d ch =
     let chars = get_code_from_characters_restricted kind d chars in
     if dont_complement then chars
     else 
-        match complement_characters d (`Some chars) with
+        match complement_characters_restricted kind d (`Some chars) with
         | `Some x -> x
         | _ -> failwith "Impossible?"
-
 
 let get_chars_codes_comp data ch =
     let dont_complement, ch = match ch with
@@ -4119,7 +4156,6 @@ let get_chars_codes_comp data ch =
         match complement_characters data (`Some codes) with
         | `Some x -> x
         | _ -> failwith "Impossible?"
-
 
 (* non/functional creation of sets *)
 let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods.characters) = 
@@ -4208,14 +4244,9 @@ let categorize_characters data chars = match chars with
     | `All -> categorize_sets data
     | othr ->
         let found set1 set2 = match set1 with
-            | x::xs when List.mem x set2 ->
-                assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs);
-                true
-            | _::xs -> 
-                assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));
-                false
-            | [] -> 
-                false
+            | x::xs when List.mem x set2 -> true
+            | _::xs -> false
+            | []    -> false
         in
         let selected = get_chars_codes data chars in
         let all_sets = categorize_sets data in
@@ -4327,21 +4358,82 @@ let get_alphabet data c =
     with  Not_found        -> failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
 
 
-let verify_alphabet data chars =
-    match List.map (get_alphabet data) chars with
-    | h :: t ->
-        ignore 
-            (List.fold_left
-                ~f:(fun acc x -> 
-                        if x = h then acc 
-                        else begin
-                            (* Alphabet.print x; Alphabet.print h; *)
-                            failwith "The alphabet of the characters is different"
-                        end)
-                ~init:true t);
-        let alph = Alphabet.to_sequential h in
-        (Alphabet.size alph), alph
-    | [] -> failwith "No alphabet to verify?"
+let available_states data chars = 
+    let observed ccode acode = match Hashtbl.find data.character_specs ccode with
+        | Static spec -> List.mem acode (spec.Nexus.File.st_observed)
+        | Set | Kolmogorov _ | Dynamic _ ->
+            failwith ("We do not support unaligned morphology characters. " ^
+                      "Please remove 'alphabet:' argument in transform command")
+    in
+    List.fold_left
+        ~f:(fun acc c ->
+            List.fold_left
+                ~f:(fun acc (x,y) ->
+                        if observed c y
+                            then All_sets.Strings.add x acc
+                            else acc)
+                ~init:acc
+                (Alphabet.to_list (get_alphabet data c)) )
+        ~init:All_sets.Strings.empty
+        chars
+
+
+let verify_alphabet data chars alph =
+    let make_sequential ns gap =
+        let a_data = 
+            let counter = ref ~-1 in
+            List.map 
+                (fun x -> incr counter; (x,!counter,None))
+                (ns@[gap])
+        in
+        Alphabet.list_to_a a_data gap None Alphabet.Sequential
+    in
+    let append_sequential ns n gap =
+        let rec get_up_to acc lst x = match x, lst with
+            | 0, _ -> List.rev acc
+            | n, h :: t when List.mem h acc -> get_up_to acc t n
+            | n, h :: t -> get_up_to (h::acc) t (n-1)
+            | _, [] -> failwith "I cannot make the alphabet that size"
+        in
+        let ns = 
+            get_up_to 
+                (List.rev (All_sets.Strings.elements ns))
+                ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"; "A"; "B";
+                 "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J"; "K"; "L"; "M"; "N";
+                 "O"; "P"; "Q"; "R"; "S"; "T"; "U"; "V"; "W"; "X"; "Y"; "Z"]
+                (n - (All_sets.Strings.cardinal ns))
+        in
+        make_sequential ns gap
+    in
+    match alph with
+    | `Min   ->
+        let states = available_states data chars in
+        All_sets.Strings.cardinal states,
+        make_sequential (All_sets.Strings.elements states) Alphabet.gap_repr
+    | `Int x when x < 2 ->
+        failwith "I cannot reduce the alphabet to below 2"
+    | `Int x ->
+        let states = available_states data chars in
+        if (All_sets.Strings.cardinal states) > x then
+            failwithf ("I cannot reduce the alphabet size below the number of"^^
+                       " observed states (%d)") (All_sets.Strings.cardinal states);
+        x, append_sequential states x Alphabet.gap_repr
+    | `Max   ->
+        begin match List.map (get_alphabet data) chars with
+        | h :: t ->
+            ignore 
+                (List.fold_left
+                    ~f:(fun acc x -> 
+                            if x = h then acc 
+                            else begin
+                                (* Alphabet.print x; Alphabet.print h; *)
+                                failwith "The alphabet of the characters is different"
+                            end)
+                    ~init:true t);
+            let alph = Alphabet.to_sequential h in
+            (Alphabet.size alph), alph
+        | [] -> failwith "No alphabet to verify?"
+        end
 
 (* [independent c d] make each character in the characterset independent. Used
  * so each character can have a different model
@@ -4404,10 +4496,11 @@ let make_char_sets sets d =
 *)
 
 (** [compute_priors data chars] computes the observed frequencies for all the
- * elements in the alphabet shared by the characters *)
+    elements in the alphabet shared by the characters *)
 let compute_priors data chars u_gap = 
     let debug_priors = false in
-    let size, alph = verify_alphabet data chars in
+    (* We only use alphabet to demarcate states; so set to max *)
+    let size, alph = verify_alphabet data chars `Max in
     let size = if u_gap then size else size-1 in
     let priors = Array.make size 0.0 in
     (* A function that takes a list of states and add the appropriate value to
@@ -4421,24 +4514,31 @@ let compute_priors data chars u_gap =
     let taxon_adder tax taxon_chars =
         let total = ref 0 in
         let adder char_code =
-            let (cs, _) = Hashtbl.find taxon_chars char_code in
-            match cs with
-            | Dyna (_, dyna_data ) ->
-                Array.iter
-                    (fun x ->
-                        total := (Sequence.length x.seq) - 1 + !total;
-                        counter := (Sequence.length x.seq) - 1 + !counter;
-                        for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
-                            let lst = BitSet.Int.list_of_packed (Sequence.get x.seq i) in
-                            if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
-                                assert false
-                            else
-                                let inv = 1.0 /. (float_of_int (List.length lst)) in
-                                List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
-                        done)
-                    dyna_data.seq_arr
-            | Stat (_,s) -> 
-                Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
+            try
+                let (cs, _) = Hashtbl.find taxon_chars char_code in
+                match cs with
+                | Dyna (_, dyna_data ) ->
+                    Array.iter
+                        (fun x ->
+                            total := (Sequence.length x.seq) - 1 + !total;
+                            counter := (Sequence.length x.seq) - 1 + !counter;
+                            for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
+                                let lst = BitSet.Int.list_of_packed (Sequence.get x.seq i) in
+                                if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
+                                    assert false
+                                else
+                                    let inv = 1.0 /. (float_of_int (List.length lst)) in
+                                    List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
+                            done)
+                        dyna_data.seq_arr
+                | Stat (_,s) -> 
+                    Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
+            (* this not found will happen when we are accessing the taxon
+               characters when a taxa has missing information at the node.
+                
+               TODO: Is there a way to double check this case?  *)
+            with | Not_found -> 
+                ()
         in
         List.iter adder chars;
         longest := max !total !longest;
@@ -4704,6 +4804,32 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
     end
 
 
+    let apply_heuristic_cost_model ?(cost_model=`SML) data =
+        match categorize_likelihood_chars_by_model `All data with
+        | [] -> None
+        | xs ->
+            let found = ref false in
+            let data =
+                List.fold_left
+                    ~f:(fun data chars ->
+                            let model = get_likelihood_model data chars in
+                            match model.MlModel.spec.MlModel.cost_fn with
+                            | `MPL | `SML ->
+                                found := true;
+                                let model =
+                                    { model with
+                                        MlModel.spec =
+                                            { model.MlModel.spec with
+                                                MlModel.cost_fn = cost_model }; }
+                                in
+                                apply_likelihood_model_on_chars data chars model
+                            | `MAL | `FLK ->
+                                data)
+                    ~init:data
+                    xs
+            in
+            if !found then Some data else None
+
 
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
  * the likelihood model specified in [lk] *)
@@ -4738,7 +4864,7 @@ END
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
-let set_likelihood data (((chars,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
+let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
     let u_gap = match use_gap with
         | `Independent | `Coupled _ -> true | `Missing -> false
@@ -4753,7 +4879,7 @@ IFDEF USE_LIKELIHOOD THEN
             (* We get the characters and filter them out to have only static types *)
             let model =
                 let compute_priors () = compute_priors data chars u_gap in
-                let alph_size,alph = verify_alphabet data chars in
+                let alph_size,alph = verify_alphabet data chars alph in
                 let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
                 let lk_spec =
                     if dynamic then MlModel.remove_gamma_from_spec lk_spec
@@ -4821,12 +4947,13 @@ let transform_dynamic (meth: Methods.dynamic_char_transform) data =
     let tran_code_ls, meth = get_tran_code_meth data meth in 
     let data = ref (duplicate data) in
     Hashtbl.iter
-    (fun code spec ->
-         if List.mem code tran_code_ls then begin
-             let dyn, d = convert_dyna_spec !data code spec meth in
-             Hashtbl.replace !data.character_specs code dyn;
-             data := d;
-        end else ()) !data.character_specs;
+        (fun code spec ->
+            if List.mem code tran_code_ls then begin
+                let dyn, d = convert_dyna_spec !data code spec meth in
+                Hashtbl.replace !data.character_specs code dyn;
+                data := d
+            end)
+        !data.character_specs;
     let new_taxon_chs = 
         let new_tbl = create_ht () in
         Hashtbl.iter 
@@ -4836,17 +4963,22 @@ let transform_dynamic (meth: Methods.dynamic_char_transform) data =
             !data.taxon_characters;
         new_tbl
     in 
-    {!data with taxon_characters = new_taxon_chs}
+    { !data with taxon_characters = new_taxon_chs }
 
 let intmap_filter f y =
-    All_sets.IntegerMap.fold (fun a b acc ->
-        if f a b then All_sets.IntegerMap.add a b acc
-        else acc) y All_sets.IntegerMap.empty
+    All_sets.IntegerMap.fold
+        (fun a b acc ->
+            if f a b then All_sets.IntegerMap.add a b acc
+            else acc)
+        y
+        All_sets.IntegerMap.empty
 
 let hashtbl_filter f y =
-    Hashtbl.iter (fun a b ->
-        if not (f a b) then Hashtbl.remove y a
-        else ()) y;
+    Hashtbl.iter
+        (fun a b ->
+            if not (f a b) then Hashtbl.remove y a
+            else ())
+        y;
     y
 
 let process_ignore_character report data code_set =
@@ -4909,13 +5041,13 @@ let process_ignore_characters report data characters =
     process_ignore_character report data codes
 
 let process_analyze_only_characters_file report dont_complement data files =
-    let codes = 
-        List.fold_left 
+    let codes =
+        List.fold_left
             ~f:(fun acc x ->
                 let ch, x = FileStream.channel_n_filename x in
                 let items = Parser.IgnoreList.of_channel ch in
                 close_in ch;
-                let items = 
+                let items =
                     warn_if_repeated_and_choose_uniquely items "characters@ file@ " x
                 in
                 let codes = get_chars_codes data (`Names items) in
@@ -5384,49 +5516,115 @@ let assign_tcm_to_characters data chars foname tcm newalph =
 
 
 let assign_tcm_to_characters_from_file data chars file =
-    let alphabet = 
+    let default_km = `Keep_Random in
+    let old_alphabet,old_state,old_tcm = (*get the alphabet and state by the first code, what if
+    we have mix of diffrent datatype?*) 
         match get_chars_codes_comp data chars with
-        | x::_ -> get_alphabet data x
+        | x::_ -> get_alphabet data x, get_dyn_state data x, get_tcm2d data x
         | []   -> failwith "No characters selected in transform"
     in
-    let is_nucleotides = if alphabet=Alphabet.nucleotides then true else false in
-    let is_aminoacids = Alphabet.is_aminoacids alphabet in
-    let is_dna = if alphabet = Alphabet.dna then true else false in
+    let orientation = 
+       match old_state  with
+       | `Breakinv -> true
+       | _ -> false
+    in
+    let is_nucleotides = if old_alphabet=Alphabet.nucleotides then true else false in
+    let is_aminoacids = Alphabet.is_aminoacids old_alphabet in
+    let is_dna = if old_alphabet = Alphabet.dna then true else false in
     let is_dna_or_ami_or_nucleotides = (is_dna || is_aminoacids || is_nucleotides) in
     let oldlevel,ori_sz = 
-        Alphabet.get_level alphabet,  Alphabet.get_ori_size alphabet in
-    let tcm,newalph= match file with
+        Alphabet.get_level old_alphabet,  Alphabet.get_ori_size old_alphabet in
+    let newtcm,newalph = match file with
         | None ->
             (fun x -> Cost_matrix.Two_D.default, default_tcm),
-            alphabet
+            old_alphabet
         | Some (f,level_and_tie_breaker) ->
-            let level,tie_breaker,use_comb =
+            (*get the proper level value,combination sign and tie_breaker*)
+            let ori_sz = Cost_matrix.Two_D.get_ori_a_sz old_tcm in
+            let all_elements =
+                Cost_matrix.Two_D.get_all_elements old_tcm in
+            let pure_sz = 
+                if all_elements>0 then ori_sz-1 else ori_sz 
+            in
+            let level,tie_breaker,use_comb,change_alphabet =
                 match level_and_tie_breaker with
                 | None -> 
-                        if is_dna||is_nucleotides then 0,`Keep_Random,true
-                        else if (Alphabet.check_level alphabet) then
-                            oldlevel,`Keep_Random,true
-                        else if oldlevel=1 then oldlevel,`Keep_Random,false
-                        else 0,`Keep_Random,false
+                        (*when there is no new level and tiebreaker,tie breaker is set to
+                        * default -- do we want to keep the old tie breaker?*)
+                        if debug_level then Printf.printf
+                        "no new tie_breaker value\n%!";
+                        (*we do full combination for dna and nucleotides*)
+                        if is_dna||is_nucleotides then 
+                            0,default_km,true,false
+                        (*old level is > 1 and <= size, we keep the old level,
+                        * combination is keep to true*)
+                        else if (Alphabet.check_level old_alphabet) then
+                            oldlevel,default_km,true,false
+                        (*old level = 1, there is no combination*)
+                        else if oldlevel=1 then 
+                            oldlevel,default_km,false,false
+                        (*anything else*)
+                        else 0,`Keep_Random,false,false
                 | Some (l,tb) ->
-                        if is_dna then 0,tb,true
-                        else if l<=1 then l,tb,false
-                        else if l>ori_sz then ori_sz,tb,true
-                        else l,tb,true in
-            (fun x ->
+                        (*when there is a new level value and tie breaker*)
+                        if debug_level then Printf.printf 
+                        "new level=%d,new tie_breaker=%!" l;
+                        Methods.print_keep_method tb;
+                        (*do full combination for dna and nucleotides *)
+                        if is_dna then 0,tb,true,false
+                        (*set level to 1 if input level <= 1, 
+                        * set level to original alphabet size if input level > ori_sz*)
+                        else if l<=1 then 1,tb,false,true
+                        else if l>ori_sz then ori_sz,tb,true,true
+                        (*finally if 1<level<=ori_sz, create the new cost matrix
+                        * if the combination by level won't blew off the memory*)
+                        else if (Alphabet.is_combiantion_by_level old_alphabet)||
+                        (Alphabet.is_aminoacids old_alphabet) then
+                        begin
+                            let use_comb = Cost_matrix.Two_D.get_combination old_tcm in 
+                            let tmp =
+                                Cost_matrix.Two_D.calc_number_of_combinations_by_level
+                                pure_sz l in
+                            if tmp <= 0 then begin
+                                output_info ("The alphabet size based on the new level is"^
+                                 " too large. I will apply level value from the \
+                                 old cost marix we are using for this one.\n%!");
+                                oldlevel, tb, use_comb, false 
+                            end
+                            else l,tb,true,true 
+                        end
+                        else
+                            oldlevel,tb,false,false
+            in
+            let combnum =
+              Cost_matrix.Two_D.calc_number_of_combinations_by_level pure_sz level 
+            in
+            (fun x -> 
+                (*we still need to refill costmatrix because we have a new cost
+                * matrix file*)
                 if debug_level then Printf.printf
                 "assign_tcm_to_characters_from_file,ori_sz=%d,oldlevel=%d,\
                 newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b,is_nucl?%b\n%!"
                 ori_sz oldlevel level use_comb is_dna is_aminoacids is_nucleotides;
-                if debug_level then Alphabet.print alphabet;
                 let tcm,mat = 
-                        Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker ~use_comb:use_comb 
+                        Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker
+                        ~orientation:orientation ~use_comb:use_comb 
                         ~level:level f x is_dna_or_ami_or_nucleotides 
                 in
                 tcm, Input_file ((FileStream.filename f), mat)),
-                Alphabet.set_level alphabet level
+            if change_alphabet then 
+                Alphabet.set_size (Alphabet.set_level old_alphabet level) combnum
+            else 
+                let _ = 
+                match level_and_tie_breaker with
+                | None -> ()
+                | _ -> output_info ("we don't do combination by level on this \
+                    kind of alphabet, I will NOT apply level changes to this alphabet.")
+                in
+                old_alphabet
     in
-    assign_tcm_to_characters data chars None tcm newalph 
+    if debug_level then Alphabet.print newalph;
+    assign_tcm_to_characters data chars None newtcm newalph 
 
 let add_search_base_for_one_character_from_file data chars file character_name =
     let chcode = 
@@ -5666,7 +5864,9 @@ let codes_with_same_tcm codes data =
     in
     List.fold_left ~f:assign_matching ~init:[] codes
 
-
+(**[assign_level] update cost matrix with new level value, which leads to
+* different number of combinations. but on alphabet side, we only update its 
+* level value, not the combination maps -- we might need to change that*)
 let assign_level data chars tie_breaker level =
     if debug_level then Printf.printf "Data.assign_level,level=%d\n%!" level;
     let make_level level = function
@@ -5675,16 +5875,15 @@ let assign_level data chars tie_breaker level =
     in
     let codes = get_chars_codes_comp data chars in
     let codes =
-        List.map 
-          (fun (a, b, alph, tcmfile) ->
-            if debug_level then begin
+        List.map (fun (a, b, alph, tcmfile) ->
+            (*we only apply change to level on custom alphabet and aminoacids.*)
+            if (Alphabet.is_combiantion_by_level alph)||(Alphabet.is_aminoacids alph) then begin  
+                if debug_level then begin
                 Printf.printf "before assigning:%!"; Alphabet.print alph;
-            end;
-            let name = make_level level tcmfile in
-            let b =
-                if (Alphabet.dna = alph) || (Alphabet.nucleotides = alph) then
-                    b
-                else
+                end;
+                let name = make_level level tcmfile in
+                (*get new cost matrix based on new level*)
+                let resb,resalph =
                     let all_elements = Cost_matrix.Two_D.get_all_elements b in
                     let oldlevel = Cost_matrix.Two_D.get_level b in
                     let ori_sz = Cost_matrix.Two_D.get_ori_a_sz b in
@@ -5692,25 +5891,39 @@ let assign_level data chars tie_breaker level =
                     let combnum =
                         if level > 1 then
                             Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                            pure_sz level
+                            pure_sz level 
                         else
                             ori_sz
                     in
-                    if debug_level then Printf.printf
-                    "Data.assign_level,oldlevel=%d,newlevel=%d\n%!" oldlevel level;
                     if combnum <= 0 then begin
                         output_info ("The alphabet size based on the new level is"^
-                                     " too large. I will NOT apply any changes.\n%!");
-                        b
+                                 " too large. I will NOT apply any changes to this one.\n%!");
+                        b, alph
                     end else begin
+                        if debug_level then Printf.printf "clone old cost matrix\n%!";
                         let b = Cost_matrix.Two_D.clone b in
+                        if debug_level then 
+                            Printf.printf "create new cost matrix by level\n%!";
                         let b = Cost_matrix.Two_D.create_cm_by_level b level
                         oldlevel all_elements tie_breaker in
-                        b
-                    end
-                in
-                (true, a),(fun _ -> b,name),Alphabet.set_level alph level)
-            (codes_with_same_tcm codes data)
+                        b, 
+                        Alphabet.set_size (Alphabet.set_level alph level) combnum
+                    end;
+                  in
+                  if debug_level then begin
+                    Printf.printf "End of assign_level, %!"; Alphabet.print resalph;
+                  end;
+                  (true, a),(fun _ -> resb,name),resalph
+                  (*
+                  * (bool * 'a) * ('b -> Cost_matrix.Two_D.m * tcm_definition) * Alphabet.a
+                  * *)
+            end
+            else begin
+                    output_info ("we don't do combination by level on this \
+                    kind of alphabet, I will NOT apply any changes to this one.");
+                   (true,a),(fun _ -> b,tcmfile),alph 
+            end
+        ) (codes_with_same_tcm codes data)
     in
     List.fold_left 
         ~f:(fun acc (a, tcm, newalph) -> assign_tcm_to_characters acc (`Some a) None tcm newalph)
@@ -6073,13 +6286,15 @@ let has_dynamic d =
 
 let can_do_static_approx_code d x =
     let appropriate_alphabet_size ds =
-        10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
+            10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
     in
     match Hashtbl.find d.character_specs x with
-        | Dynamic d when appropriate_alphabet_size d ->
+        | Dynamic d when (appropriate_alphabet_size d) ->
             begin match d.state with
-                | `Seq      | `Annotated  | `Ml                      -> true
-                | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
+                | `Seq  | `Annotated  | `Ml -> 
+                    output_info  ("Data contains characters that support static approx");
+                    true
+                | `CustomAlphabet | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
             end
         (* only dynamics with alphabet < 10 *)
         | Dynamic d     -> false | Static _      -> false
