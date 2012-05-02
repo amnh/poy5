@@ -19,606 +19,601 @@
 
 let () = SadmanOutput.register "AddCS" "$Revision: 2871 $"
 
-(* Internal only exceptions *)
-exception Success
-exception Failed
-
-(* Visible exception *)
-exception Exists
-exception Illegal_Arguments
-exception Duplicated
-exception Illegal_State
-exception Not_Found
-
 let debug = false
-
-type ct
-
-type t = {
-    codes : (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array1.t;
-    characters : ct;
-    scode : int;
-}
-
-type c = (int * int * int)
-
-external register : unit -> unit = "add_CAML_register"
-
-external register_globals : unit -> unit = "add_CAML_register_mem"
-
-let () = register (); register_globals ()
-
-external create : int array -> int array -> ct = "add_CAML_create"
-
-let set_code s = s.scode
-
-let code = set_code
-
-let char_mem cs t = match cs with
-    | None    -> true
-    | Some [] -> false
-    | Some xs ->
-        let x = ref false in
-        for i = 0 to (Bigarray.Array1.dim t.codes)-1 do
-            x := List.mem t.codes.{i} xs;
-        done;
-        !x
-
-let code_mem cs t = match cs with
-    | None    -> true
-    | Some [] -> false
-    | Some xs -> List.mem (code t) xs
-
-let codes {codes=codes} =
-    let len = Bigarray.Array1.dim codes in
-    let acc = ref [] in
-    for i = len - 1 downto 0 do
-        acc := (Bigarray.Array1.get codes i) :: !acc
-    done;
-    !acc
-
-let of_array arr k = 
-    (* A function to check that there are no duplications *)
-    let check_contents =
-        let codes = ref All_sets.Integers.empty in
-        fun (a, b, c) ->
-            if All_sets.Integers.mem c !codes then raise Duplicated
-            else begin
-                codes := All_sets.Integers.add c !codes;
-                if b < a then 
-                    raise Illegal_State
-                else ()
-            end
-    in
-    (* A comparison function to be able to sort the arrays *)
-    let compare (_, _, a) (_, _, b) = a - b in
-    (* The arrays to be used in the final construction *)
-    let len = Array.length arr in
-    (* Store the proper information on each array. *)
-    Array.iter check_contents arr;
-    Array.sort compare arr;
-    let minarr = Array.init len (fun x -> let (a, _, _) = arr.(x) in a)
-    and maxarr = Array.init len (fun x -> let (_, a, _) = arr.(x) in a)
-    and codes = Array.init len (fun x -> let (_, _, a) = arr.(x) in a) in
-    let codes = Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout codes in
-    { characters = create minarr maxarr; codes = codes; scode = k }
-
-let find_pos t it = 
-    let len = Bigarray.Array1.dim t.codes in
-    let rec finder it pos max =
-        if (pos < max) then begin
-            if (t.codes.{pos} = it) then pos
-            else finder it (pos + 1) max 
-        end else failwith "Not_found"
-    in
-    finder it 0 len
-
-external cmedian : ct -> ct -> ct = "add_CAML_median"
-
-let median _ a b =
-    let c = cmedian a.characters b.characters in
-    { characters = c; codes = a.codes; scode = a.scode }
-
-let reroot_median = median None
-
-external cdistance : ct -> ct -> float = "add_CAML_distance"
-
-let distance a b = 
-    cdistance a.characters b.characters
-
-external cdistance_2 : ct -> ct -> ct -> float = "add_CAML_distance_2"
-
-let distance_2 a b c =
-    cdistance_2 a.characters b.characters c.characters
-
-let dist_2 = distance_2
-
-external cdistance_median : ct -> ct -> float * ct = "add_CAML_distance_and_median"
-
-let distance_median a b =
-    assert (a.scode = b.scode);
-    let (x, y) = cdistance_median a.characters b.characters in
-    (x, { characters = y; codes = a.codes; scode = a.scode })
-
-external cmedian_cost : ct -> float = "add_CAML_total"
-
-let median_cost c = 
-    cmedian_cost c.characters
-
-let compare_codes a b =
-    let rec comparator a b it max =
-        if it < max then begin
-            match a.{it} - b.{it} with
-            | 0 -> comparator a b (it + 1) max
-            | n -> n
-        end else 0
-    in
-    let lena = Bigarray.Array1.dim a.codes in
-    let lenb = Bigarray.Array1.dim b.codes in
-    match comparator a.codes b.codes 0 (min lena lenb) with
-    | 0 -> lena - lenb
-    | n -> n
-
-external ccompare_data : ct -> ct -> int = "add_CAML_compare_data"
-
-let compare_data a b =
-    ccompare_data a.characters b.characters
-
-external c_copy : ct -> ct -> unit = "add_CAML_copy"
-
-let get_length a = Bigarray.Array1.dim a.codes 
-
-let cardinal = get_length
-let deep_cardinal = cardinal
-
-let copy a b = (* The two sets must have the same cardinality *)
-    if cardinal a = cardinal b then c_copy a.characters b.characters
-    else begin
-        print_string "AddCS.copy\n";
-        raise Illegal_Arguments
-    end
-
-external cclone : ct -> ct = "add_CAML_dup"
-
-let clone a =
-    let res = cclone a.characters 
-    and len = Bigarray.Array1.dim a.codes in
-    let codes = 
-        Bigarray.Array1.create Bigarray.int Bigarray.c_layout len
-    in
-    for i = 0 to len - 1 do
-        codes.{i} <- a.codes.{i};
-    done;
-    { characters = res; codes = codes; scode = a.scode }
-
-external pos_set_state : ct -> int -> int -> int -> unit = "add_CAML_set_state"
-
-let set_state a x y c = 
-    let resa = clone a in
-    let pos = find_pos resa c in
-    pos_set_state resa.characters x y pos;
-    resa
-
-external pos_get_max : ct -> int -> int = "add_CAML_get_max"
-
-let get_max a c =
-    pos_get_max a.characters (find_pos a c)
-
-external pos_get_min : ct -> int -> int = "add_CAML_get_min"
-
-let get_min a c =
-    pos_get_min a.characters (find_pos a c)
-
-external pos_get_cost : ct -> int -> float = "add_CAML_get_cost"
-
-let get_cost a c =
-    pos_get_cost a.characters (find_pos a c)
-
-let get_code a p = a.codes.{p}
-
-let get_triple t pos = get_min t pos, get_max t pos, get_code t pos
-
-let get_state = get_triple
-
-let to_list_with_cost t = 
-    let len = get_length t in
-    let chars = t.characters in
-    let rec build it acc = 
-        if it < 0 then acc
-        else begin 
-            try
-                let res = 
-                    pos_get_min chars it, pos_get_max chars it, 
-                    get_code t it, pos_get_cost chars it
-                in
-                build (it - 1) (res :: acc)
-            with
-            | Failure "Not_found" -> build (it - 1) acc
-        end
-    in
-    build (len - 1) []
-
-let to_list t = 
-    let len = get_length t in
-    let chars = t.characters in
-    let rec build it acc = 
-        if it < 0 then acc
-        else begin 
-            try
-                let res = pos_get_min chars it, 
-                pos_get_max chars it, get_code t it in
-                build (it - 1) (res :: acc)
-            with
-           | Failure "Not_found" -> build (it - 1) acc
-
-        end
-    in
-    build (len - 1) []
-
-let of_list l k = 
-    let len = List.length l in
-    let min = Array.make len 0
-    and max = Array.make len 0
-    and code = Array.make len 0 in
-    let _ = List.fold_left begin fun x (a, b, c) -> 
-            min.(x) <- a;
-            max.(x) <- b;
-            code.(x) <- c;
-            x + 1
-        end 0 l 
-    in
-    { characters = create min max; 
-    codes = Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout code;
-    scode = k }
-
-let map f t =
-    let lst = to_list t in
-    let res = List.map f lst in
-    of_list res (set_code t)
-
-let fold f i t = 
-    let lst = to_list t in
-    List.fold_left f i lst
-
-
-let empty c = 
-    { characters = create [||] [||]; 
-    codes = Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout [||];
-    scode = c; }
-
-let is_empty t = 0 = cardinal t
-
-let mem (min, max, code) t = 
-    (* This function could be log n time but I will do the simplest
-    * implementation here *)
-    try
-        let len = get_length t in
-        for i = len - 1 downto 0 do
-            if code = get_code t i && min = get_min t i && max = get_max t i then 
-                raise Success
-            else ();
-        done;
-        false
-    with
-    | Success -> true
-
-let code_exists code t = 
-    try 
-        let len = get_length t in
-        for i = len - 1 downto 0 do
-            if code = get_code t i then raise Success
-            else ()
-        done;
-        false
-    with 
-    | Success -> true
-
-let add ((_, _, code) as it) t = 
-    if code_exists code t then raise Exists
-    else of_list (it :: to_list t) (set_code t)
-
-let singleton it k = 
-    of_list [it] k
-
-let remove (a, b, c) t = 
-    let lst = to_list t in
-    let lst = List.filter begin fun (x, y, z) -> 
-        not (z == c && a = x && y == b) end lst in
-    of_list lst (set_code t)
-
-let union a b = 
-    (* This will be truly slow! *)
-    let lst = to_list a in
-    List.fold_left (fun x y -> add y (remove y x)) b lst
-
-let inter a b k =
-    let lst = to_list b in
-    List.fold_left begin fun x y -> 
-        if mem y a then add y x
-        else x
-    end (empty k) lst
-
-let diff a b k =
-    let lst = to_list a in
-    let lst = List.fold_left begin fun x y ->
-        if not (mem y b) then y :: x
-        else x
-    end [] lst in
-    of_list (List.rev lst) k
-
-let equal a b = 0 = compare a b
-
-let subset a b =
-    let lena = cardinal a 
-    and lenb = cardinal b in
-    if lena <= lenb then begin
-        try
-            for i = lena - 1 downto 0 do
-                if not (mem (get_triple a i) b) then raise Failed
-                else ()
-            done;
-            true
-        with
-        | Failed -> false
-    end else false
-
-let iter f t = 
-    let lst = to_list t in
-    List.iter f lst
-
-let fold f t init = 
-    let lst = to_list t in
-    List.fold_left f init lst
-
-let for_all f t =
-    let lst = to_list t in
-    List.fold_left (fun x y -> x && f y) true lst
-
-let exists f t =
-    List.exists f (to_list t)
-
-let filter f t =
-    of_list (List.filter f (to_list t)) (set_code t)
-
-let f_codes t codes =
-    let check (_, _, c) = All_sets.Integers.mem c codes in
-    filter check t
-
-let f_codes_comp t codes =
-    let check (_, _, c) = not (All_sets.Integers.mem c codes) in
-    filter check t
-
-let partition f a =
-    let lst = to_list a in
-    let t, f = List.fold_left 
-        (fun (tr, fl) x -> if f x then (x :: tr, fl) else (tr, x :: fl)) ([], []) lst
-    in
-    of_list t (set_code a), of_list f (set_code a)
-
-let elements = to_list
-
-let min_elt x = 
-    if 0 = cardinal x then raise Not_Found
-    else get_triple x 0
-
-let max_elt x =
-    let len = cardinal x in
-    if len != 0 then get_triple x (len - 1) 
-    else raise Not_Found
-
-let choose t =
-    min_elt t
-
-let split it t =
-    let comparer (less, is, greater) a =
-        let c = Pervasives.compare a it in
-        if c = 0 then (less, true, greater)
-        else if c < 0 then (a :: less, is, greater)
-        else (less, is, a :: greater)
-    in
-    let less, b, greater = 
-        List.fold_left comparer ([], false, []) (to_list t) 
-    in
-    of_list less (set_code t), b , of_list greater (set_code t)
-
-let elt_code (_, _, c) = c
-
-external internal_median_3 : ct -> ct -> ct -> ct -> ct = "add_CAML_median_3"
-
-let median_3 p n c1 c2 = 
-    let res = 
-        internal_median_3 p.characters n.characters c1.characters c2.characters 
-    in
-    { n with characters = res }
-
-external cfull_union : ct -> ct -> ct -> unit = "add_CAML_full_union"
-
-let full_union a b c =
-    cfull_union a.characters b.characters c.characters
-
-let state_to_xml ch c (_ : Data.d) =
-    let print_character (min, max, code, cost) =
-        let beg = "<characterAdditive code=\"" ^ string_of_int code ^ 
-        "\" cost=\"" ^ string_of_float cost ^ "\">\n" in
-        output_string ch beg;
-        output_string ch ("<min>" ^ string_of_int min ^ "</min>\n");
-        output_string ch ("<max>" ^ string_of_int max ^ "</max>\n");
-        output_string ch "</characterAdditive>\n"
-    in
-    let c = to_list_with_cost c in
-    List.iter print_character c
-
-let to_formatter attr c parent d : Xml.xml Sexpr.t list =
-    let module T = Xml.Characters in
-    let c_ls = to_list c in   
-    let c_parent_ls = match parent with 
-    | Some parent -> to_list parent  
-    | None -> c_ls
-    in 
-    let idx = ref 0 in 
-    let output_character (min, max, code, cost) =
-        let cost = distance (singleton (List.nth c_ls !idx) 0) 
-            (singleton (List.nth c_parent_ls !idx) 0) 
-        in 
-        incr idx; 
-        (PXML 
-            -[T.additive]
-                (* Attributes *)
-                ([T.name] = [`String (Data.code_character code d)])
-                ([T.cost] = [`Float cost])
-                ([T.definite] = [`Bool (cost > 0.0)])
-                ([attr])
-
-                (*Contents *)
-                -[T.min] { `String (Data.to_human_readable d code min) } --
-                -[T.max] { `String (Data.to_human_readable d code max) } --
-            --)
-    in
-    let c = to_list_with_cost c in
-    List.map output_character c
-
-
-
-(** Now a purely imperative version of this library *)
-module Imperative = struct
-    type it = t
-    type ic = { mutable min : int; mutable max : int; mutable code : int } 
-
-    let of_array arr k =
-        let len = Array.length arr in
-        let min = Array.init len (fun i -> arr.(i).min)
-        and max = Array.init len (fun i -> arr.(i).max)
-        and code = Array.init len (fun i -> arr.(i).code) in
-        { characters = create min max; 
-        codes = Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout code;
-        scode = k }
-        
-    let create a = clone a
-
-    let of_list lst k =
-        of_array (Array.of_list lst) k
-
-    let to_list r = 
-        let create (a, b, c) =
-            { 
-                min = a;
-                max = b;
-                code = c;
-            }
-        in
-        List.map create (to_list r)
-
-    let copy = copy
-
-    let clone = clone
-
-    external cmedian : ct -> ct -> ct -> unit = "add_CAML_median_imp"
-
-    let median a b c =
-        cmedian a.characters b.characters c.characters
-
-    let distance = distance
-
-    let median_cost = median_cost
-
-    let compare = compare
-
-    let set_state a k =
-        let pos = find_pos a k.code in
-        pos_set_state a.characters k.min k.max pos
-
-    let get_max = get_max
-    let get_min = get_min
-    let get_cost = get_cost
-    let cardinal = cardinal
-    let get_state a b =
-        let (a, b ,c) = get_state a b in
-        { min = a; max = b; code = c }
-
-    let elt_code x = x.code
-
-    let get_set_code = set_code
-
-    let median_3 p n c1 c2 = internal_median_3 p n c1 c2
-
-end
-
-(* For now we can only handle characters that have differences of less than 16
-* units. *)
-let of_parser data (it, taxon) code =
-    let first lst = match lst with
-        | h::_ -> h
-        | _    -> assert false
-    in
-    let rec last lst = match lst with
-        | [h]   -> h
-        | _::tl -> last tl
-        | []    -> assert false
-    in
-    let check_type_and_val acc = function
-        | Some v, code ->
-            let v = match v with
-                | `List x -> x
-                | `Bits x -> BitSet.to_list x
-            in
-            let v = List.sort compare v in
-            (first v, last v, code) :: acc
-        | None, code ->
-            begin match Hashtbl.find data.Data.character_specs code with
-                | Data.Static enc ->
-                    (first enc.Nexus.File.st_observed,
-                        last enc.Nexus.File.st_observed,code) :: acc
-                | _ -> assert false
-            end
-    in
-    let arr = 
-        Array.of_list (List.rev (Array.fold_left check_type_and_val [] it))
-    in
-    of_array arr code, taxon
 
 let ( --> ) a b = b a
 
-let min_possible_cost (elts : Nexus.File.static_state list ) =
-    let get_last lst = 
-        assert (lst <> []);
-        List.hd (List.rev lst) 
-    in
-    let elts = NonaddCS8.extract_elements_present elts in
-    let elts = List.map (List.sort ( - )) elts in
-    let codes = List.fold_left (fun acc lst ->
+module type AdditiveInterface = 
+  sig
+    type ct
+
+    val create : int array -> int array -> ct
+    val copy : ct -> ct -> unit
+    val clone : ct -> ct
+    val compare_data : ct -> ct -> int
+
+    val median : ct -> ct -> ct
+    val distance : ct -> ct -> float
+    val distance_2 : ct -> ct -> ct -> float
+    val distance_median : ct -> ct -> float * ct
+    val median_cost : ct -> float
+    val median_3 : ct -> ct -> ct -> ct -> ct
+    val full_union : ct -> ct -> ct -> unit
+    val mediani : ct -> ct -> ct -> unit
+
+    val pos_set_state : ct -> int -> int -> int -> unit
+    val pos_get_max : ct -> int -> int
+    val pos_get_min : ct -> int -> int
+    val pos_get_cost : ct -> int -> float
+    val to_string : ct -> string
+  end
+
+module Make (Add : AdditiveInterface) =
+  struct
+    type ct = Add.ct
+
+    (* Internal only exceptions *)
+    exception Success
+    exception Failed
+
+    (* Visible exception *)
+    exception Exists
+    exception Illegal_Arguments
+    exception Duplicated
+    exception Illegal_State
+    exception Not_Found
+
+    type t = {
+        codes : (int, Bigarray.int_elt, Bigarray.c_layout) Bigarray.Array1.t;
+        characters : ct;
+        scode : int;
+    }
+
+    type c = (int * int * int)
+
+    let set_code s = s.scode
+
+    let code = set_code
+
+    let char_mem cs t = match cs with
+        | None    -> true
+        | Some [] -> false
+        | Some xs ->
+            let x = ref false in
+            for i = 0 to (Bigarray.Array1.dim t.codes)-1 do
+                x := List.mem t.codes.{i} xs;
+            done;
+            !x
+
+    let code_mem cs t = match cs with
+        | None    -> true
+        | Some [] -> false
+        | Some xs -> List.mem (code t) xs
+
+    let codes {codes=codes} =
+        let len = Bigarray.Array1.dim codes in
+        let acc = ref [] in
+        for i = len - 1 downto 0 do
+            acc := (Bigarray.Array1.get codes i) :: !acc
+        done;
+        !acc
+
+    let of_array arr k = 
+        (* A function to check that there are no duplications *)
+        let check_contents =
+            let codes = ref All_sets.Integers.empty in
+            fun (a, b, c) ->
+                if All_sets.Integers.mem c !codes then raise Duplicated
+                else begin
+                    codes := All_sets.Integers.add c !codes;
+                    if b < a then 
+                        raise Illegal_State
+                    else ()
+                end
+        in
+        (* A comparison function to be able to sort the arrays *)
+        let compare (_, _, a) (_, _, b) = a - b in
+        (* The arrays to be used in the final construction *)
+        let len = Array.length arr in
+        (* Store the proper information on each array. *)
+        Array.iter check_contents arr;
+        Array.sort compare arr;
+        let minarr = Array.init len (fun x -> let (a, _, _) = arr.(x) in a)
+        and maxarr = Array.init len (fun x -> let (_, a, _) = arr.(x) in a)
+        and codes = Array.init len (fun x -> let (_, _, a) = arr.(x) in a) in
+        let codes = Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout codes in
+        { characters = Add.create minarr maxarr; codes = codes; scode = k }
+
+    let find_pos t it = 
+        let len = Bigarray.Array1.dim t.codes in
+        let rec finder it pos max =
+            if (pos < max) then begin
+                if (t.codes.{pos} = it) then pos
+                else finder it (pos + 1) max 
+            end else failwith "Not_found"
+        in
+        finder it 0 len
+
+    let median _ a b =
+        let c = Add.median a.characters b.characters in
+        { characters = c; codes = a.codes; scode = a.scode }
+
+    let reroot_median = median None
+
+    let distance a b = 
+        Add.distance a.characters b.characters
+
+    let distance_2 a b c =
+        Add.distance_2 a.characters b.characters c.characters
+
+    let dist_2 = distance_2
+
+    let distance_median a b =
+        assert (a.scode = b.scode);
+        let (x, y) = Add.distance_median a.characters b.characters in
+        (x, { characters = y; codes = a.codes; scode = a.scode })
+
+    let median_cost c = 
+        Add.median_cost c.characters
+
+    let compare_codes a b =
+        let rec comparator a b it max =
+            if it < max then begin
+                match a.{it} - b.{it} with
+                | 0 -> comparator a b (it + 1) max
+                | n -> n
+            end else 0
+        in
+        let lena = Bigarray.Array1.dim a.codes in
+        let lenb = Bigarray.Array1.dim b.codes in
+        match comparator a.codes b.codes 0 (min lena lenb) with
+        | 0 -> lena - lenb
+        | n -> n
+
+    let compare_data a b =
+        Add.compare_data a.characters b.characters
+
+    let get_length a =
+        Bigarray.Array1.dim a.codes 
+
+    let cardinal = get_length
+
+    let deep_cardinal = cardinal
+
+    let copy a b = (* The two sets must have the same cardinality *)
+        if cardinal a = cardinal b then 
+            Add.copy a.characters b.characters
+        else begin
+            print_string "AddCS.copy\n";
+            raise Illegal_Arguments
+        end
+
+    let clone a =
+        let res = Add.clone a.characters 
+        and len = Bigarray.Array1.dim a.codes in
+        let codes = 
+            Bigarray.Array1.create Bigarray.int Bigarray.c_layout len
+        in
+        for i = 0 to len - 1 do
+            codes.{i} <- a.codes.{i};
+        done;
+        { characters = res; codes = codes; scode = a.scode }
+
+    let set_state a x y c = 
+        let resa = clone a in
+        let pos = find_pos resa c in
+        Add.pos_set_state resa.characters x y pos;
+        resa
+
+    let get_max a c =
+        Add.pos_get_max a.characters (find_pos a c)
+
+    let get_min a c =
+        Add.pos_get_min a.characters (find_pos a c)
+
+    let get_cost a c =
+        Add.pos_get_cost a.characters (find_pos a c)
+
+    let get_code a p = a.codes.{p}
+
+    let get_triple t pos = get_min t pos, get_max t pos, get_code t pos
+
+    let get_state = get_triple
+
+    let to_list_with_cost t = 
+        let len = get_length t in
+        let rec build it acc = 
+            if it < 0 then acc
+            else begin 
+                try let res = get_min t it, get_max t it, get_code t it, get_cost t it in
+                    build (it - 1) (res :: acc)
+                with | Failure "Not_found" -> build (it - 1) acc
+            end
+        in
+        build (len - 1) []
+
+    let to_list t = 
+        let len = get_length t in
+        let rec build it acc = 
+            if it < 0 then acc
+            else begin 
+                try let res = get_min t it, get_max t it, get_code t it in
+                    build (it - 1) (res :: acc)
+                with | Failure "Not_found" -> build (it - 1) acc
+
+            end
+        in
+        build (len - 1) []
+
+    let of_list l k = 
+        let len = List.length l in
+        let min = Array.make len 0
+        and max = Array.make len 0
+        and code = Array.make len 0 in
+        let () =
+            ignore
+                (List.fold_left
+                    (fun x (a, b, c) ->
+                        min.(x) <- a;
+                        max.(x) <- b;
+                        code.(x) <- c;
+                        x + 1)
+                    0 l)
+        in
+        {
+            characters = Add.create min max;
+            codes = Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout code;
+            scode = k;
+        }
+
+    let map f t =
+        let lst = to_list t in
+        let res = List.map f lst in
+        of_list res (set_code t)
+
+    let fold f i t = 
+        let lst = to_list t in
+        List.fold_left f i lst
+
+
+    let empty c = 
+        { 
+            characters = Add.create [||] [||]; 
+            codes = Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout [||];
+            scode = c;
+        }
+
+    let is_empty t = 0 = cardinal t
+
+    let mem (min, max, code) t = 
+        (* This function could be log n time but I will do the simplest
+        * implementation here *)
         try
-            let fst, lst =
-                match lst with
-                | [h] -> h, h
-                | h :: t -> h, get_last t
-                | [] -> raise Exit
-            in
-            acc --> All_sets.Integers.add fst --> All_sets.Integers.add lst
+            let len = get_length t in
+            for i = len - 1 downto 0 do
+                if code = get_code t i && min = get_min t i && max = get_max t i then 
+                    raise Success
+                else ();
+            done;
+            false
         with
-        | Exit -> acc) All_sets.Integers.empty elts
-    in
-    let elts = 
-        List.map (function [x] -> All_sets.Integers.singleton x
-        | [] -> All_sets.Integers.empty
-        | h :: t ->
-            let t = get_last t in
-            All_sets.Integers.fold (fun a acc ->
-                if a <= t && a >= h then 
-                    All_sets.Integers.add a acc
-                else acc) codes All_sets.Integers.empty) elts
-    in
-    let codes = List.sort ( - ) (All_sets.Integers.elements codes) in
-    let filter c left = 
-        (List.filter (fun x ->not (All_sets.Integers.mem c x)) left)
-    in
-    let rec optimal_cost codes left =
-        match codes, left with
-        | _, [] -> None, 0
-        | [], _ -> 
+        | Success -> true
+
+    let code_exists code t = 
+        try 
+            let len = get_length t in
+            for i = len - 1 downto 0 do
+                if code = get_code t i then raise Success
+                else ()
+            done;
+            false
+        with 
+        | Success -> true
+
+    let add ((_, _, code) as it) t = 
+        if code_exists code t then raise Exists
+        else of_list (it :: to_list t) (set_code t)
+
+    let singleton it k = 
+        of_list [it] k
+
+    let remove (a, b, c) t = 
+        let lst = to_list t in
+        let lst = List.filter begin fun (x, y, z) -> 
+            not (z == c && a = x && y == b) end lst in
+        of_list lst (set_code t)
+
+    let union a b = 
+        (* This will be truly slow! *)
+        let lst = to_list a in
+        List.fold_left (fun x y -> add y (remove y x)) b lst
+
+    let inter a b k =
+        let lst = to_list b in
+        List.fold_left begin fun x y -> 
+            if mem y a then add y x
+            else x
+        end (empty k) lst
+
+    let diff a b k =
+        let lst = to_list a in
+        let lst = List.fold_left begin fun x y ->
+            if not (mem y b) then y :: x
+            else x
+        end [] lst in
+        of_list (List.rev lst) k
+
+    let equal a b = 0 = compare a b
+
+    let subset a b =
+        let lena = cardinal a 
+        and lenb = cardinal b in
+        if lena <= lenb then begin
+            try
+                for i = lena - 1 downto 0 do
+                    if not (mem (get_triple a i) b) then raise Failed
+                    else ()
+                done;
+                true
+            with
+            | Failed -> false
+        end else false
+
+    let iter f t = 
+        let lst = to_list t in
+        List.iter f lst
+
+    let fold f t init = 
+        let lst = to_list t in
+        List.fold_left f init lst
+
+    let for_all f t =
+        let lst = to_list t in
+        List.fold_left (fun x y -> x && f y) true lst
+
+    let exists f t =
+        List.exists f (to_list t)
+
+    let filter f t =
+        of_list (List.filter f (to_list t)) (set_code t)
+
+    let f_codes t codes =
+        let check (_, _, c) = All_sets.Integers.mem c codes in
+        filter check t
+
+    let f_codes_comp t codes =
+        let check (_, _, c) = not (All_sets.Integers.mem c codes) in
+        filter check t
+
+    let partition f a =
+        let lst = to_list a in
+        let t, f = List.fold_left 
+            (fun (tr, fl) x -> if f x then (x :: tr, fl) else (tr, x :: fl)) ([], []) lst
+        in
+        of_list t (set_code a), of_list f (set_code a)
+
+    let elements = to_list
+
+    let min_elt x = 
+        if 0 = cardinal x then raise Not_Found
+        else get_triple x 0
+
+    let max_elt x =
+        let len = cardinal x in
+        if len != 0 then get_triple x (len - 1) 
+        else raise Not_Found
+
+    let choose t =
+        min_elt t
+
+    let split it t =
+        let comparer (less, is, greater) a =
+            let c = Pervasives.compare a it in
+            if c = 0 then (less, true, greater)
+            else if c < 0 then (a :: less, is, greater)
+            else (less, is, a :: greater)
+        in
+        let less, b, greater = 
+            List.fold_left comparer ([], false, []) (to_list t) 
+        in
+        of_list less (set_code t), b , of_list greater (set_code t)
+
+    let elt_code (_, _, c) = c
+
+    let median_3 p n c1 c2 = 
+        let res = 
+            Add.median_3 p.characters n.characters c1.characters c2.characters 
+        in
+        { n with characters = res }
+
+    let full_union a b c =
+        Add.full_union a.characters b.characters c.characters
+
+    let state_to_xml ch c (_ : Data.d) =
+        let print_character (min, max, code, cost) =
+            let beg = "<characterAdditive code=\"" ^ string_of_int code ^ 
+            "\" cost=\"" ^ string_of_float cost ^ "\">\n" in
+            output_string ch beg;
+            output_string ch ("<min>" ^ string_of_int min ^ "</min>\n");
+            output_string ch ("<max>" ^ string_of_int max ^ "</max>\n");
+            output_string ch "</characterAdditive>\n"
+        in
+        let c = to_list_with_cost c in
+        List.iter print_character c
+
+    let to_formatter attr c parent d : Xml.xml Sexpr.t list =
+        let module T = Xml.Characters in
+        let c_ls = to_list c in   
+        let c_parent_ls = match parent with 
+        | Some parent -> to_list parent  
+        | None -> c_ls
+        in 
+        let idx = ref 0 in 
+        let output_character (min, max, code, cost) =
+            let cost = distance (singleton (List.nth c_ls !idx) 0) 
+                (singleton (List.nth c_parent_ls !idx) 0) 
+            in 
+            incr idx; 
+            (PXML 
+                -[T.additive]
+                    (* Attributes *)
+                    ([T.name] = [`String (Data.code_character code d)])
+                    ([T.cost] = [`Float cost])
+                    ([T.definite] = [`Bool (cost > 0.0)])
+                    ([attr])
+
+                    (*Contents *)
+                    -[T.min] { `String (Data.to_human_readable d code min) } --
+                    -[T.max] { `String (Data.to_human_readable d code max) } --
+                --)
+        in
+        let c = to_list_with_cost c in
+        List.map output_character c
+
+
+    (** Now a purely imperative version of this library *)
+    module Imperative =
+      struct
+        type it = t
+        type ic = { mutable min : int; mutable max : int; mutable code : int }
+
+        let of_array arr k =
+            let len = Array.length arr in
+            let min = Array.init len (fun i -> arr.(i).min)
+            and max = Array.init len (fun i -> arr.(i).max)
+            and code = Array.init len (fun i -> arr.(i).code) in
+            {   characters = Add.create min max; 
+                codes = Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout code;
+                scode = k }
+        
+        let create a = clone a
+
+        let of_list lst k =
+            of_array (Array.of_list lst) k
+
+        let to_list r = 
+            let create (a, b, c) =
+                { 
+                    min = a;
+                    max = b;
+                    code = c;
+                }
+            in
+            List.map create (to_list r)
+
+        let copy = copy
+
+        let clone = clone
+
+        let median a b c =
+            Add.mediani a.characters b.characters c.characters
+
+        let distance = distance
+
+        let median_cost = median_cost
+
+        let compare = compare
+
+        let set_state a k =
+            let pos = find_pos a k.code in
+            Add.pos_set_state a.characters k.min k.max pos
+
+        let get_max = get_max
+
+        let get_min = get_min
+
+        let get_cost = get_cost
+
+        let cardinal = cardinal
+
+        let get_state a b =
+            let (a, b ,c) = get_state a b in
+            { min = a; max = b; code = c }
+
+        let elt_code x = x.code
+
+        let get_set_code = set_code
+
+        let median_3 p n c1 c2 = Add.median_3 p n c1 c2
+
+    end
+
+
+    let of_parser data (it, taxon) code =
+        let first lst = match lst with
+            | h::_ -> h
+            | _    -> assert false
+        in
+        let rec last lst = match lst with
+            | [h]   -> h
+            | _::tl -> last tl
+            | []    -> assert false
+        in
+        let check_type_and_val acc = function
+            | Some v, code ->
+                let v = match v with
+                    | `List x -> x
+                    | `Bits x -> BitSet.to_list x
+                in
+                let v = List.sort compare v in
+                (first v, last v, code) :: acc
+            | None, code ->
+                begin match Hashtbl.find data.Data.character_specs code with
+                    | Data.Static enc ->
+                        (first enc.Nexus.File.st_observed,
+                            last enc.Nexus.File.st_observed,code) :: acc
+                    | _ -> assert false
+                end
+        in
+        let arr = 
+            Array.of_list (List.rev (Array.fold_left check_type_and_val [] it))
+        in
+        of_array arr code, taxon
+
+    let min_possible_cost (elts : Nexus.File.static_state list ) =
+        let get_last lst = 
+            assert (lst <> []);
+            List.hd (List.rev lst) 
+        in
+        let elts = NonaddCS8.extract_elements_present elts in
+        let elts = List.map (List.sort ( - )) elts in
+        let codes = List.fold_left (fun acc lst ->
+            try
+                let fst, lst =
+                    match lst with
+                    | [h] -> h, h
+                    | h :: t -> h, get_last t
+                    | [] -> raise Exit
+                in
+                acc --> All_sets.Integers.add fst --> All_sets.Integers.add lst
+            with
+            | Exit -> acc) All_sets.Integers.empty elts
+        in
+        let elts = 
+            List.map 
+                (function [x] -> All_sets.Integers.singleton x
+                    | [] -> All_sets.Integers.empty
+                    | h :: t ->
+                        let t = get_last t in
+                        All_sets.Integers.fold
+                            (fun a acc ->
+                                if a <= t && a >= h then 
+                                    All_sets.Integers.add a acc
+                                else acc)
+                            codes All_sets.Integers.empty)
+                elts
+        in
+        let codes = List.sort ( - ) (All_sets.Integers.elements codes) in
+        let filter c left = 
+            (List.filter (fun x ->not (All_sets.Integers.mem c x)) left)
+        in
+        let rec optimal_cost codes left = match codes, left with
+            | _, [] -> None, 0
+            | [], _ -> 
                 (* We assign a big value that won't wrap
                 * to the negatives if we add something to it *)
                 None, (max_int / 2) 
-        | (h :: t), left ->
+            | (h :: t), left ->
                 let left' = filter h left in
                 let leftl', leftc' = optimal_cost t left'
                 and (_, leftc) as second = optimal_cost t left in
@@ -631,38 +626,42 @@ let min_possible_cost (elts : Nexus.File.static_state list ) =
                 * in case of equality, we choose leftc' *)
                 if leftc' <= leftc then first
                 else second
-    in
-    let _, cost = optimal_cost codes elts in
-    float_of_int cost
+        in
+        let _, cost = optimal_cost codes elts in
+        float_of_int cost
 
-let is_potentially_informative elts = 
-    let intersection a b =
-        match a with
-        | None -> None
-        | Some (x, y) ->
-                match b with
+    let is_potentially_informative elts = 
+        let intersection a b = match a with
+            | None -> None
+            | Some (x, y) -> match b with
                 | None  -> a
                 | Some lst ->
-                        let lst = Nexus.File.static_state_to_list lst in
-                        match lst with
-                        | [] -> a
-                        | lst ->
-                                let b = List.fold_left min max_int lst
-                                and c = List.fold_left max 0 lst in
-                                if (b <= x && x <= c) then
-                                    Some (x, (min y c))
-                                else if (x <= b && b <= y) then
-                                    Some (b, (min y c))
-                                else None
-    in
-    match List.fold_left intersection (Some (0, max_int)) elts with
-    | None -> true
-    | Some _ -> false
+                    match Nexus.File.static_state_to_list lst with
+                    | [] -> a
+                    | lst ->
+                        let b = List.fold_left min max_int lst
+                        and c = List.fold_left max 0 lst in
+                        if (b <= x && x <= c) then
+                            Some (x, (min y c))
+                        else if (x <= b && b <= y) then
+                            Some (b, (min y c))
+                        else 
+                            None
+        in
+        match List.fold_left intersection (Some (0, max_int)) elts with
+        | None -> true
+        | Some _ -> false
 
-external cto_string : ct -> string = "add_CAML_to_string"
 
-let to_string a = 
-    cto_string a.characters
+    let to_string a = 
+        Add.to_string a.characters
+
+end
+
+module AddVector = Make (AddVec)
+module AddGeneral  = Make (AddGen)
+
+include AddVector
 
 (* Battery of tests for the library *)
 module Test = struct

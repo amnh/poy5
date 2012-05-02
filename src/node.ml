@@ -533,7 +533,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 | None, None ->
                     let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                     if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                    (max min_bl t1, max min_bl t2)
+                    t1,t2
             in 
             let model = MlStaticCS.get_model ca.preliminary in
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
@@ -670,11 +670,11 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                             | _ when code <= 0 -> 
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
                                 if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                                max min_bl (t1+.t2), 0.0
+                                (t1+.t2), 0.0
                             | _ ->
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
                                 if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                                max min_bl t1, max min_bl t2
+                                t1,t2
                         in
                         let median =
                             MlDynamicCS.median code ca_pre cb_pre (Some t1) (Some t2)
@@ -827,8 +827,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         | Some x, Some y, z -> ( max min_bl x, max min_bl y, z)
                         | None, None, None -> 
                             let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
-
-                            ( max min_bl x, max min_bl y, None )
+                            (x, y, None )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
@@ -850,7 +849,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         | None, None, _ -> 
                             let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
                             if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                            ( max min_bl x, max min_bl y )
+                            (x, y)
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let fstart = pm.preliminary,MlStaticCS.root_cost pm.preliminary in
@@ -876,7 +875,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         | None, None, z -> 
                             let (x,y) = MlDynamicCS.estimate_time c1_pre c2_pre in
                             if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                            ( max min_bl x, max min_bl y,z )
+                            ( x, y, z )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     if debug then
@@ -3088,32 +3087,6 @@ let output_total_cost ch i =
 let pre = [ (Xml.Characters.cclass, `String Xml.Nodes.preliminary) ]
 let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
 let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
-
-let estimate_time a b =
-    let estimate_ ca cb = match ca,cb with
-        | StaticMl ca, StaticMl cb -> 
-            IFDEF USE_LIKELIHOOD THEN
-                let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2; 
-                Some (t1+.t2)
-            ELSE
-                None
-            END
-        | Dynamic a, Dynamic p ->
-            IFDEF USE_LIKELIHOOD THEN
-                begin match a.preliminary, p.preliminary with
-                    | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
-                        let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                        Some (t1+.t2)
-                    | _ -> None
-                end
-            ELSE
-                None
-            END
-        | _, _ -> None
-    in
-    map2 (estimate_) a.characters b.characters
 
 let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
     let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs minet : cs =

@@ -1106,17 +1106,16 @@ logSMPL_site( const mll* l, const double weight, const double* pi,
                     const double* prob, const int i )
 {
     int r, j, c;
-    double maximum, s_max;
-    //maximum = logMPL_site( l, 1.0, pi, prob, i );
-    maximum = 0.0;
-    s_max = 0;
+    double s_max = 0;
     for(r=0; r < l->rates;++r){
         c = (r * (l->stride * l->c_len)) + (l->stride * i);
         for(j=0; j < l->stride; ++j){
-            s_max += exp( ((l->lv_s[c+j] + log(pi[j])) - maximum) * SMPL_K );
+            //s_max += exp( ((l->lv_s[c+j] + log(pi[j])) - maximum) * SMPL_K );
+            s_max += exp( (l->lv_s[c+j] + log(pi[j])) * SMPL_K );
         }
     }
-    s_max = (maximum + (log(s_max)/SMPL_K)) * weight;
+    //s_max = (maximum + (log(s_max)/SMPL_K)) * weight;
+    s_max = (log(s_max)/SMPL_K) * weight;
     return s_max;
 }
 
