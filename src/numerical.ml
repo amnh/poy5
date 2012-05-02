@@ -96,8 +96,55 @@ module FPInfix : I =
         let (<.) a b = (a-.b) < ~-.(!l_eps)
     end
 
-
 open FPInfix
+
+
+(** {6 Numerical Functions for Optimization Routines *)
+
+(** find the derivative of a single variable function *)
+let derivative_at_x ?(epsilon=epsilon) f x fx =
+    let _,f_new = f (x +. epsilon) in
+    (f_new -. fx) /. epsilon
+
+(** find the magnitude of a vector x_array *)
+let magnitude x_array = 
+    sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
+
+(** find the gradient of a multi-variant function at a point x_array *)
+let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array = 
+    let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
+    Array.mapi 
+        (fun i i_val ->
+            derivative_at_x 
+                    ~epsilon 
+                    (fun x -> 
+                        let newvec = i_replace i x_array x in
+                        let newlk = f_ newvec in
+                        debug_printf "\t[%s] -- %f\n" (pp_farray newvec) (snd newlk);
+                        newlk)
+                    i_val
+                    f_array)
+        x_array
+
+(** dot product of two arrays *)
+let dot_product x_array y_array = 
+    let n = Array.length x_array and r = ref 0.0 in
+    assert (n = Array.length y_array);
+    for i = 0 to n-1 do
+        r := !r +. (x_array.(i) *. y_array.(i));
+    done;
+    !r
+
+(** map a matrix with a function *)
+let matrix_map f mat = 
+    let n1 = Array.length mat and n2 = Array.length mat.(0) in
+    let output_matrix = Array.create_matrix n1 n2 0.0 in
+    for i = 0 to n1 - 1 do for j = 0 to n2 -1 do 
+        output_matrix.(i).(j) <- f i j mat.(i).(j);
+    done; done;
+    output_matrix
+
+
 (** {6 Numerical Optimization Functions *)
 
 let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
@@ -217,57 +264,37 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
         end
     in
     let (lv,_),m,(hv,_) = create_initial_three_and_bracket orig in
+    debug_printf "Bracketed by Brents Method : (%f,%f,%f)\n%!" lv (fst m) hv;
     let (b,(_,fb)) as res = brent m m m lv hv 0.0 0.0 0 in
     debug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
                     v_orig (snd f_orig) b fb;
     FPInfix.reset ();
     res
 
-(* find the derivative of a single variable function *)
-let derivative_at_x ?(epsilon=epsilon) f x fx =
-    let _,f_new = f (x +. epsilon) in
-    (f_new -. fx) /. epsilon
 
-(* find the magnitude of a vector x_array *)
-let magnitude x_array = 
-    sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
+(** Meta function above; we sequentially modify each variable ONCE; RAxML *)
+let brents_method_multi ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
+                        ?(tol=tolerance) ?(epsilon=epsilon) orig f =
+    let rec do_single i ((array,x) as data) =
+        debug_printf "Optimizing %d in %s\n%!" i (pp_farray array);
+        if i < (Array.length array) then
+            let (v,fv) =
+                brents_method ~max_iter ~v_min ~v_max ~tol ~epsilon
+                          (array.(i),x) (update_single i array)
+            in
+            let () = Array.set array i v in
+            do_single (i+1) (array,fv)
+        else
+            data
+    and update_single i array v =
+        let array = Array.copy array in
+        let () = Array.set array i v in
+        f array
+    in
+    do_single 0 orig
 
-(* find the gradient of a multi-variant function at a point x_array *)
-let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array = 
-    let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
-    Array.mapi 
-        (fun i i_val ->
-            derivative_at_x 
-                    ~epsilon 
-                    (fun x -> 
-                        let newvec = i_replace i x_array x in
-                        let newlk = f_ newvec in
-                        debug_printf "\t[%s] -- %f\n" (pp_farray newvec) (snd newlk);
-                        newlk)
-                    i_val
-                    f_array)
-        x_array
 
-(* dot product of two arrays *)
-let dot_product x_array y_array = 
-    let n = Array.length x_array and r = ref 0.0 in
-    assert (n = Array.length y_array);
-    for i = 0 to n-1 do
-        r := !r +. (x_array.(i) *. y_array.(i));
-    done;
-    !r
-
-(* map a matrix with a function *)
-let matrix_map f mat = 
-    let n1 = Array.length mat and n2 = Array.length mat.(0) in
-    let output_matrix = Array.create_matrix n1 n2 0.0 in
-    for i = 0 to n1 - 1 do for j = 0 to n2 -1 do 
-        output_matrix.(i).(j) <- f i j mat.(i).(j);
-    done; done;
-    output_matrix
-
-(* line search along a specified direction *)
-(* Numerical Recipes in C : 9.7            *)
+(** line search along a specified direction; Numerical Recipes in C : 9.7 *)
 let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     (* as in the previous function; we over-ride the local equality function for
        better control over the estimation process *)
@@ -357,8 +384,7 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     results
 
 
-(** BFGS Algorithm                   **)
-(** Numerical Recipes in C : 10.7    **)
+(** BFGS Algorithm; Gradient Search Function; Numerical Recipes in C : 10.7 *)
 let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=tolerance) f p fp =
    let n = Array.length p and get_score x = snd x in
     (* test convergence of a point --that it equals the direction, essentially *)

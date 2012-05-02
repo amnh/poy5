@@ -257,6 +257,85 @@ dispatch begin function
                 Cmd (S [A "pdflatex"; halt; interaction; A "doc/commands.tex"])]
         end;
 
+    rule "concorde shared library"
+        ~prod:"concorde.a"
+        ~deps:[ "concorde031219/BIGGUY/Makefile.in"; "concorde031219/BIGGUY/bg_test.c";
+                "concorde031219/BIGGUY/bigguy.c"; "concorde031219/BIGGUY/bigguy.tst"; "concorde031219/BIGGUY/Makefile";
+                "concorde031219/COMBS/Makefile.in"; "concorde031219/COMBS/block.c";
+                "concorde031219/COMBS/co_main.c"; "concorde031219/COMBS/dngreedy.c"; "concorde031219/COMBS/Makefile";
+                "concorde031219/CUT/Makefile.in"; "concorde031219/CUT/connect.c";
+                "concorde031219/CUT/cut_st.c"; "concorde031219/CUT/gomoryhu.c"; "concorde031219/CUT/lin_all.c";
+                "concorde031219/CUT/mc_main.c"; "concorde031219/CUT/mincut.c"; "concorde031219/CUT/segments.c";
+                "concorde031219/CUT/shrink.c"; "concorde031219/CUT/Makefile"; "concorde031219/EDGEGEN/Makefile.in";
+                "concorde031219/EDGEGEN/delaunay.c"; "concorde031219/EDGEGEN/edgegen.c"; "concorde031219/EDGEGEN/eg_main.c";
+                "concorde031219/EDGEGEN/mlinkern.c"; "concorde031219/EDGEGEN/xnear.c"; "concorde031219/EDGEGEN/Makefile";
+                "concorde031219/FMATCH/Makefile.in"; "concorde031219/FMATCH/fm_main.c"; "concorde031219/FMATCH/fmatch.c";
+                "concorde031219/FMATCH/Makefile"; "concorde031219/HELDKARP/Makefile.in";
+                "concorde031219/HELDKARP/heldkarp.c"; "concorde031219/HELDKARP/hk_main.c"; "concorde031219/HELDKARP/Makefile";
+                "concorde031219/INCLUDE/Makefile.common"; "concorde031219/INCLUDE/Makefile.common.in"; "concorde031219/INCLUDE/bigguy.h";
+                "concorde031219/INCLUDE/combs.h"; "concorde031219/INCLUDE/config.h.in"; "concorde031219/INCLUDE/consec1.h";
+                "concorde031219/INCLUDE/cut.h"; "concorde031219/INCLUDE/cuttree.h"; "concorde031219/INCLUDE/delaunay.h";
+                "concorde031219/INCLUDE/edgegen.h"; "concorde031219/INCLUDE/fmatch.h"; "concorde031219/INCLUDE/heldkarp.h";
+                "concorde031219/INCLUDE/kdtree.h"; "concorde031219/INCLUDE/linkern.h"; "concorde031219/INCLUDE/localcut.h";
+                "concorde031219/INCLUDE/lp.h"; "concorde031219/INCLUDE/machdefs.h"; "concorde031219/INCLUDE/macrorus.h";
+                "concorde031219/INCLUDE/mlinkern.h"; "concorde031219/INCLUDE/necklace.h"; "concorde031219/INCLUDE/pq.h";
+                "concorde031219/INCLUDE/pqsets.h"; "concorde031219/INCLUDE/tinytsp.h"; "concorde031219/INCLUDE/tsp.h";
+                "concorde031219/INCLUDE/util.h"; "concorde031219/INCLUDE/verify.h"; "concorde031219/INCLUDE/config.h";
+                "concorde031219/KDTREE/Makefile.in"; "concorde031219/KDTREE/kd_main.c"; "concorde031219/KDTREE/kdbuild.c";
+                "concorde031219/KDTREE/kdnear.c"; "concorde031219/KDTREE/kdspan.c"; "concorde031219/KDTREE/kdtwoopt.c";
+                "concorde031219/KDTREE/Makefile"; "concorde031219/LINKERN/Makefile.in"; "concorde031219/LINKERN/flip_two.c";
+                "concorde031219/LINKERN/linkern.c"; "concorde031219/LINKERN/linkern_fixed.c"; "concorde031219/LINKERN/linkern_path.c";
+                "concorde031219/LINKERN/lk_main.c"; "concorde031219/LINKERN/testpath.c"; "concorde031219/LINKERN/Makefile";
+                "concorde031219/LOCALCUT/Makefile.in"; "concorde031219/LOCALCUT/checker.c"; "concorde031219/LOCALCUT/chunks.c";
+                "concorde031219/LOCALCUT/first.c"; "concorde031219/LOCALCUT/first_main.c"; "concorde031219/LOCALCUT/intmat.c";
+                "concorde031219/LOCALCUT/lift.c"; "concorde031219/LOCALCUT/loc_main.c"; "concorde031219/LOCALCUT/localcut.c";
+                "concorde031219/LOCALCUT/peeler.c"; "concorde031219/LOCALCUT/peeler2.c"; "concorde031219/LOCALCUT/separate.c";
+                "concorde031219/LOCALCUT/tsporacl.c"; "concorde031219/LOCALCUT/Makefile";
+                "concorde031219/LP/Makefile.in"; "concorde031219/LP/lpcplex4.c"; "concorde031219/LP/lpcplex5.c";
+                "concorde031219/LP/lpcplex6.c"; "concorde031219/LP/lpcplex8.c"; "concorde031219/LP/lpnone.c";
+                "concorde031219/LP/lpqsopt.c"; "concorde031219/LP/Makefile"; "concorde031219/Makefile";
+                "concorde031219/Makefile.in"; "concorde031219/PQ/Makefile.in"; "concorde031219/PQ/consec1.c";
+                "concorde031219/PQ/cuttree.c"; "concorde031219/PQ/necklace.c"; "concorde031219/PQ/pq.c";
+                "concorde031219/PQ/pqtest.c"; "concorde031219/PQ/Makefile"; "concorde031219/TINY/Makefile.in";
+                "concorde031219/TINY/bnbmsp.c"; "concorde031219/TINY/randtsp.awk"; "concorde031219/TINY/tinytsp.c";
+                "concorde031219/TINY/tt_main.c"; "concorde031219/TINY/Makefile"; "concorde031219/TOOLS/Makefile.in";
+                "concorde031219/TOOLS/edg2len.c"; "concorde031219/TOOLS/edgunion.c"; "concorde031219/TOOLS/fconvert.c";
+                "concorde031219/TOOLS/junk.c"; "concorde031219/TOOLS/killgrun.c"; "concorde031219/TOOLS/lkhalone.c";
+                "concorde031219/TOOLS/lkhboss.c"; "concorde031219/TOOLS/lkhgrunt.c"; "concorde031219/TOOLS/prob2tsp.c";
+                "concorde031219/TOOLS/showres.c"; "concorde031219/TOOLS/subby.c"; "concorde031219/TOOLS/tdivide.c";
+                "concorde031219/TOOLS/tour2edg.c"; "concorde031219/TOOLS/tourchk.c"; "concorde031219/TOOLS/tourlen.c";
+                "concorde031219/TOOLS/ttour.c"; "concorde031219/TOOLS/Makefile"; "concorde031219/TSP/Makefile.in";
+                "concorde031219/TSP/bcontrol.c"; "concorde031219/TSP/blkcomb.c"; "concorde031219/TSP/blossom.c";
+                "concorde031219/TSP/bosstell.c"; "concorde031219/TSP/branch.c"; "concorde031219/TSP/cliqhash.c";
+                "concorde031219/TSP/combcliq.c"; "concorde031219/TSP/concorde.c"; "concorde031219/TSP/control.c";
+                "concorde031219/TSP/cliqwork.c"; "concorde031219/TSP/cutcall.c"; "concorde031219/TSP/cutpool.c";
+                "concorde031219/TSP/cutserv.c"; "concorde031219/TSP/ddecker.c"; "concorde031219/TSP/domboss.c";
+                "concorde031219/TSP/domgrunt.c"; "concorde031219/TSP/domtest.c"; "concorde031219/TSP/ex_price.c";
+                "concorde031219/TSP/generate.c"; "concorde031219/TSP/growcomb.c"; "concorde031219/TSP/poolcat.c";
+                "concorde031219/TSP/prclique.c"; "concorde031219/TSP/prob_io.c"; "concorde031219/TSP/probserv.c";
+                "concorde031219/TSP/qsparse.c"; "concorde031219/TSP/skeleton.c"; "concorde031219/TSP/subboss.c";
+                "concorde031219/TSP/subgate.c"; "concorde031219/TSP/subgrunt.c"; "concorde031219/TSP/teething.c";
+                "concorde031219/TSP/test_tsp.c"; "concorde031219/TSP/tighten.c"; "concorde031219/TSP/tsp_call.c";
+                "concorde031219/TSP/tsp_lp.c"; "concorde031219/TSP/xtour.c"; "concorde031219/TSP/Makefile";
+                "concorde031219/UTIL/Makefile.in"; "concorde031219/UTIL/allocrus.c"; "concorde031219/UTIL/bgetopt.c";
+                "concorde031219/UTIL/dheaps_i.c"; "concorde031219/UTIL/edgelen.c"; "concorde031219/UTIL/edgemap.c";
+                "concorde031219/UTIL/edgeutil.c"; "concorde031219/UTIL/eunion.c"; "concorde031219/UTIL/fastread.c";
+                "concorde031219/UTIL/genhash.c"; "concorde031219/UTIL/getdata.c"; "concorde031219/UTIL/priority.c";
+                "concorde031219/UTIL/safe_io.c"; "concorde031219/UTIL/signal.c"; "concorde031219/UTIL/sortrus.c";
+                "concorde031219/UTIL/subdiv.c"; "concorde031219/UTIL/urandom.c"; "concorde031219/UTIL/util.c";
+                "concorde031219/UTIL/zeit.c"; "concorde031219/UTIL/Makefile"; "concorde031219/VERIFY/Makefile.in";
+                "concorde031219/VERIFY/ver_main.c"; "concorde031219/VERIFY/verify.c"; "concorde031219/VERIFY/verlist.tst";
+                "concorde031219/VERIFY/Makefile"; "concorde031219/WhatIDisabled.txt"; "concorde031219/aclocal.m4";
+                "concorde031219/config.cache"; "concorde031219/config.guess"; "concorde031219/config.log";
+                "concorde031219/config.status"; "concorde031219/config.sub"; "concorde031219/configure";
+                "concorde031219/configure.in"; "concorde031219/install-sh"; "concorde031219/output_config_gcc";
+                "concorde031219/concorde.lst" ]
+        begin fun _ _ ->
+            Seq [ Cmd (S [A "chmod"; A "+x"; A "concorde031219/configure"]);
+                  Cmd (S [A "./concorde031219/configure"]);
+                  Cmd (S [A "make"]); ]
+        end;
+
     rule "help.txt file generation"
         ~prod:"help.txt"
         ~deps:["latex.native"; "doc/allcommands.tex"]
@@ -443,8 +522,8 @@ dispatch begin function
     if @PROFILE_OCAML@ then begin
         flag["ocaml"; "native"; "link"] (S [A"-p"]);
         flag["ocaml"; "native"; "compile"] (S [A"-p"]);
-        flag["c";"link"] (S [A"-ccopt";A"-pg"]);
-        flag["c";"compile"] (S [A"-cclib";A"-pg"]);
+        flag["c";"compile"] (S [A"-ccopt";A"-pg"]);
+        flag["c";"link"] (S [A"-cclib";A"-pg"]);
     end;
 
     flag ["ocaml"; "link"]
