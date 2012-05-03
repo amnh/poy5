@@ -121,7 +121,8 @@ type cs =
     | Nonadd8 of NonaddCS8.t r 
     | Nonadd16 of NonaddCS16.t r 
     | Nonadd32 of NonaddCS32.t r 
-    | Add of AddCS.t r
+    | AddVec of AddCS.Vector.t r
+    | AddGen of AddCS.General.t r
     | Sank of SankCS.t r
     | Dynamic of DynamicCS.t r
     | Kolmo of KolmoCS.t r
@@ -132,7 +133,8 @@ let cs_string = function
     | Nonadd8 _ -> "nonadd8"
     | Nonadd16 _ -> "nonadd16"
     | Nonadd32 _ -> "nonadd32"
-    | Add _ -> "add"
+    | AddVec _ -> "add"
+    | AddGen _ -> "add"
     | Sank _ -> "sank"
     | Dynamic x -> DynamicCS.name_string x.preliminary
     | Set _ -> "set"
@@ -146,8 +148,10 @@ let rec to_string_ch ch1 = match ch1 with
             ("na16: " ^ NonaddCS16.to_string a.final)
     | Nonadd32 a ->
             ("na32: " ^ NonaddCS32.to_string a.final)
-    | Add a ->
-            AddCS.to_string a.final
+    | AddVec a ->
+            AddCS.Vector.to_string a.final
+    | AddGen a ->
+            AddCS.General.to_string a.final
     | Sank a ->
             ("sank: " ^ SankCS.to_string a.final)
     | Dynamic a ->
@@ -172,7 +176,8 @@ let extract_cost = function
     | Nonadd8 v -> v.cost
     | Nonadd16 v -> v.cost
     | Nonadd32 v -> v.cost
-    | Add v -> v.cost
+    | AddVec v -> v.cost
+    | AddGen v -> v.cost
     | Sank v -> v.cost
     | Dynamic v ->
         begin match DynamicCS.is_fixedstates v.preliminary with
@@ -200,17 +205,17 @@ let setrec a fn = { a with set = List.map fn a.set }
     [`Strictly_Same] sets. *)
 let set_update_cost = function
     | Set a ->
-          (match a.preliminary.smethod with
+        begin match a.preliminary.smethod with
            | `Strictly_Same ->
-                 let cost =
-                     List.fold_left
-                         (fun acc m -> acc +. extract_cost m)
-                         0. a.preliminary.set in
-                 if debug_set_cost
-                 then odebug ("`Strictly_Same cost: " ^ string_of_float cost);
-                 Set { a with cost = cost }
-           | `Any_Of _ -> assert false
-          )
+                let cost =
+                    List.fold_left
+                        (fun acc m -> acc +. extract_cost m)
+                        0. a.preliminary.set in
+                if debug_set_cost
+                    then odebug ("`Strictly_Same cost: " ^ string_of_float cost);
+                Set { a with cost = cost }
+            | `Any_Of _ -> assert false
+        end
     | _ -> assert false
 
 type exclude = ([`Excluded | `NotExcluded | `Either] * int * int * int) list
@@ -252,7 +257,8 @@ let print_times n =
         | Nonadd8 x  -> x.time
         | Nonadd16 x -> x.time
         | Nonadd32 x -> x.time
-        | Add x      -> x.time
+        | AddVec x   -> x.time
+        | AddGen x   -> x.time
         | Sank x     -> x.time
         | Dynamic x  -> x.time
         | Set x      -> x.time
@@ -317,12 +323,14 @@ let map5 f a b c d e=
 
 let mapN f in_lstlst =
     let len = 
-         List.fold_left (fun last_lst_len this_lst -> 
-            let this_lst_len = List.length this_lst in
-            (* make sure each list of input listlist has the same length*)
-            assert(this_lst_len = last_lst_len); 
-            this_lst_len
-        ) (List.length (List.hd in_lstlst)) (List.tl in_lstlst)
+         List.fold_left
+            (fun last_lst_len this_lst -> 
+                let this_lst_len = List.length this_lst in
+                (* make sure each list of input listlist has the same length*)
+                assert(this_lst_len = last_lst_len); 
+                this_lst_len)
+            (List.length (List.hd in_lstlst))
+            (List.tl in_lstlst)
     in
     let res_lst = ref [] in
     for i = len-1 downto 0 do
@@ -341,25 +349,28 @@ let character_costs node =
     let rec get_individual_cost acc lst = 
         match lst with
         | h :: t -> 
-                let process_nonadd f x = 
-                    List.map (fun (a, _, b) -> (`NonAdd, a, b)) (f x.preliminary) in
-                let new_costs = 
-                    match h with
-                    | Nonadd8 x -> 
-                            process_nonadd NonaddCS8.to_list x
-                    | Nonadd16 x -> process_nonadd NonaddCS16.to_list x
-                    | Nonadd32 x -> process_nonadd NonaddCS32.to_list x
-                    | Add x -> 
-                            let lst = AddCS.to_list_with_cost x.preliminary in
-                            List.map (fun (_, _, code, cost) -> `Add, code, cost) lst
-                    | Sank x -> 
-                            let lst = SankCS.to_list x.preliminary in
-                            List.map (fun (a, b) ->
-                                `Sank, a, float_of_int (Array.fold_left min max_int b))
-                            lst
-                    | _ -> []
-                in
-                get_individual_cost (new_costs @ acc) t
+            let process_nonadd f x =
+                List.map (fun (a, _, b) -> (`NonAdd, a, b)) (f x.preliminary) in
+            let new_costs =
+                match h with
+                | Nonadd8 x  -> process_nonadd NonaddCS8.to_list x
+                | Nonadd16 x -> process_nonadd NonaddCS16.to_list x
+                | Nonadd32 x -> process_nonadd NonaddCS32.to_list x
+                | AddVec x ->
+                    let lst = AddCS.Vector.to_list_with_cost x.preliminary in
+                    List.map (fun (_, _, code, cost) -> `Add, code, cost) lst
+                | AddGen x ->
+                    let lst = AddCS.General.to_list_with_cost x.preliminary in
+                    List.map (fun (_, _, code, cost) -> `Add, code, cost) lst
+                | Sank x ->
+                    let lst = SankCS.to_list x.preliminary in
+                    List.map
+                        (fun (a, b) ->
+                            `Sank, a, float_of_int (Array.fold_left min max_int b))
+                        lst
+                | _ -> []
+            in
+            get_individual_cost (new_costs @ acc) t
         | [] -> acc
     in
     (get_individual_cost [] node.characters)
@@ -383,14 +394,14 @@ let print nd =
     nd.taxon_code nd.total_cost nd.node_cost;
     List.iter 
         (fun a_cs ->
-             match a_cs with
-             | Dynamic a_dyn ->
-                   print_endline "Preliminary state";
-                   DynamicCS.print a_dyn.preliminary;
-                   print_endline "Final state";
-                   DynamicCS.print a_dyn.final;
-             | _ -> print_endline "Do not print non-dynamic characters"
-        ) nd.characters;
+            match a_cs with
+            | Dynamic a_dyn ->
+                print_endline "Preliminary state";
+                DynamicCS.print a_dyn.preliminary;
+                print_endline "Final state";
+                DynamicCS.print a_dyn.final;
+            | _ -> print_endline "Do not print non-dynamic characters")
+        nd.characters;
     Printf.printf " }\n%!"
     
 let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
@@ -429,7 +440,8 @@ let rec prelim_to_final = function
     | Nonadd8 a -> Nonadd8 (cs_prelim_to_final a)
     | Nonadd16 a -> Nonadd16 (cs_prelim_to_final a)
     | Nonadd32 a -> Nonadd32 (cs_prelim_to_final a)
-    | Add a -> Add (cs_prelim_to_final a)
+    | AddVec a -> AddVec (cs_prelim_to_final a)
+    | AddGen a -> AddGen (cs_prelim_to_final a)
     | Sank a -> Sank (cs_prelim_to_final a)
     | Dynamic a -> Dynamic (cs_prelim_to_final a)
     | Kolmo a -> Kolmo (cs_prelim_to_final a)
@@ -617,21 +629,37 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                       sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
                       cost = ca.weight *. cost } in
           Nonadd32 res
-    | Add ca, Add cb -> 
+    | AddVec ca, AddVec cb -> 
           assert (ca.weight = cb.weight);
           let old = match prev with
-          | Some Add old -> Some old.preliminary
+          | Some AddVec old -> Some old.preliminary
           | None -> None
           | _ -> assert false in
-          let median = AddCS.median old ca.preliminary cb.preliminary in
-          let cost = AddCS.median_cost median in
+          let median = AddCS.Vector.median old ca.preliminary cb.preliminary in
+          let cost = AddCS.Vector.median_cost median in
           let res = { ca with
               preliminary = median; 
               final = median; 
               sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
               cost = ca.weight *. cost; } 
           in
-          Add res
+          AddVec res
+    | AddGen ca, AddGen cb -> 
+          assert (ca.weight = cb.weight);
+          let old = match prev with
+          | Some AddGen old -> Some old.preliminary
+          | None -> None
+          | _ -> assert false in
+          let median = AddCS.General.median old ca.preliminary cb.preliminary in
+          let cost = AddCS.General.median_cost median in
+          let res =
+              { ca with
+                    preliminary = median; 
+                    final = median; 
+                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    cost = ca.weight *. cost; } 
+          in
+          AddGen res
     | Sank ca, Sank cb ->
             assert (ca.weight = cb.weight);
             (*let prev = 
@@ -798,8 +826,8 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     in
                     res
           end
-    | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | Add _, _ | Sank _, _ 
-    | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ -> 
+    | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | AddVec _, _ | Sank _, _ 
+    | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ | AddGen _,_ -> 
             raise (Illegal_argument "cs_median")
 
 (** [edge iterator gp rent c1 c2]
@@ -898,7 +926,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     ei_map ptl atl btl (pml::pa)
             end
         (* ignore non-likelihood characters *)
-        (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
+        (* | Nonadd8 | Nonadd16 | Nonadd32 | AddVec | AddGen | Sank | Dynamic | Kolmo | Set *)
         | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl (pml::pa)
         | [],[],[] -> pa
         | _ -> failwith "Number of characters is inconsistent"
@@ -1005,9 +1033,12 @@ let rec cs_final_states pn nn c1n c2n p n c1 c2 =
     | Nonadd32 cp, Nonadd32 cn, Nonadd32 cc1, Nonadd32 cc2 -> 
         let m = NonaddCS32.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
         Nonadd32 { cn with final = m }
-    | Add cp, Add cn, Add cc1, Add cc2 -> 
-        let m = AddCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
-        Add { cn with final = m }
+    | AddVec cp, AddVec cn, AddVec cc1, AddVec cc2 -> 
+        let m = AddCS.Vector.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        AddVec { cn with final = m }
+    | AddGen cp, AddGen cn, AddGen cc1, AddGen cc2 -> 
+        let m = AddCS.General.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        AddGen { cn with final = m }
     | Sank cp, Sank cn, Sank cc1, Sank cc2 ->
         let m = SankCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
         Sank { cn with final = m }
@@ -1100,8 +1131,9 @@ let rec cs_final_states pn nn c1n c2n p n c1 c2 =
                 Set { cn with final = res }
         end
     | Nonadd8 _, _, _, _ | Nonadd16 _, _, _, _ | Nonadd32 _, _, _, _ 
-    | Add _, _, _, _ | Sank _, _, _, _ | Dynamic _, _, _, _  
-    | Set _, _, _, _ | Kolmo _, _, _, _ | StaticMl _, _, _ ,_ ->
+    | AddGen _, _, _, _  | Sank _, _, _, _     | Dynamic _, _, _, _  
+    | AddVec _, _, _, _  | Set _, _, _, _      | Kolmo _, _, _, _ 
+    | StaticMl _, _, _ ,_ ->
         raise (Illegal_argument "cs_final_states")
 
 let new_node_stats a b =
@@ -1157,7 +1189,8 @@ let get_characters_of_type map t node =
         | Nonadd8 _ when t = `NonAdd8 -> true
         | Nonadd16 _ when t = `NonAdd8 -> true
         | Nonadd32 _ when t = `NonAdd8 -> true
-        | Add _ when t = `Add -> true
+        | AddGen _ when t = `Add -> true
+        | AddVec _ when t = `Add -> true
         | Sank _ when t = `Sank -> true
         | StaticMl _ when t = `StaticML -> true
         | Dynamic _ when t = `Dynamic -> true
@@ -1177,10 +1210,14 @@ let get_nonadd_32 =
     get_characters_of_type 
     (function Nonadd32 x -> x.preliminary, x.final | _ -> assert false)
     `NonAdd32 
-let get_add = 
+let get_addgen = 
     get_characters_of_type 
-    (function Add x -> x.preliminary, x.final | _ -> assert false)
-    `Add
+    (function AddGen x -> x.preliminary, x.final | _ -> assert false)
+    `AddGen
+let get_addvec = 
+    get_characters_of_type 
+    (function AddVec x -> x.preliminary, x.final | _ -> assert false)
+    `AddVec
 let get_sank = 
     get_characters_of_type 
     (function Sank x -> x.preliminary, x.final | _ -> assert false)
@@ -1504,7 +1541,7 @@ let classify_data leafa dataa leafb datab chars acc =
         | Dynamic a, Dynamic b ->
               DynamicCS.classify_transformations leafa a.final leafb b.final chars acc
         | (Kolmo _ | StaticMl _ | Nonadd8 _ | Nonadd16 _ | Nonadd32 _
-          | Add _ | Sank _ | Set _ | Dynamic _ ),_ ->
+          | AddGen _ | AddVec _ | Sank _ | Set _ | Dynamic _ ),_ ->
             assert false
     in
     List.fold_left2 classify_two acc dataa.characters datab.characters
@@ -1512,20 +1549,14 @@ let classify_data leafa dataa leafb datab chars acc =
 let compare_data_final {characters=chs1} {characters=chs2} =
     let rec compare_two ch1 ch2 =
         match ch1, ch2 with
-        | Nonadd8 a, Nonadd8 b ->
-              NonaddCS8.compare_data a.final b.final
-        | Nonadd16 a, Nonadd16 b ->
-              NonaddCS16.compare_data a.final b.final
-        | Nonadd32 a, Nonadd32 b ->
-              NonaddCS32.compare_data a.final b.final
-        | Add a, Add b ->
-              AddCS.compare_data a.final b.final
-        | Sank a, Sank b ->
-              SankCS.compare_data a.final b.final
-        | Dynamic a, Dynamic b ->
-              DynamicCS.compare_data a.final b.final
-        | Kolmo a, Kolmo b ->
-              KolmoCS.compare_data a.final b.final
+        | Nonadd8 a, Nonadd8 b   -> NonaddCS8.compare_data a.final b.final
+        | Nonadd16 a, Nonadd16 b -> NonaddCS16.compare_data a.final b.final
+        | Nonadd32 a, Nonadd32 b -> NonaddCS32.compare_data a.final b.final
+        | AddVec a, AddVec b     -> AddCS.Vector.compare_data a.final b.final
+        | AddGen a, AddGen b     -> AddCS.General.compare_data a.final b.final
+        | Sank a, Sank b         -> SankCS.compare_data a.final b.final
+        | Dynamic a, Dynamic b   -> DynamicCS.compare_data a.final b.final
+        | Kolmo a, Kolmo b       -> KolmoCS.compare_data a.final b.final
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.compare_data a.final b.final
@@ -1558,20 +1589,14 @@ let compare_data_final {characters=chs1} {characters=chs2} =
 let compare_data_preliminary {characters=chs1} {characters=chs2} =
     let rec compare_two ?(fail=true) ch1 ch2 =
         match ch1, ch2 with
-        | Nonadd8 a, Nonadd8 b ->
-              NonaddCS8.compare_data a.preliminary b.preliminary
-        | Nonadd16 a, Nonadd16 b ->
-              NonaddCS16.compare_data a.preliminary b.preliminary
-        | Nonadd32 a, Nonadd32 b ->
-              NonaddCS32.compare_data a.preliminary b.preliminary
-        | Add a, Add b ->
-              AddCS.compare_data a.preliminary b.preliminary
-        | Sank a, Sank b ->
-              SankCS.compare_data a.preliminary b.preliminary
-        | Dynamic a, Dynamic b ->
-              DynamicCS.compare_data a.preliminary b.preliminary
-        | Kolmo a, Kolmo b ->
-              KolmoCS.compare_data a.preliminary b.preliminary
+        | Nonadd8 a, Nonadd8 b   -> NonaddCS8.compare_data a.preliminary b.preliminary
+        | Nonadd16 a, Nonadd16 b -> NonaddCS16.compare_data a.preliminary b.preliminary
+        | Nonadd32 a, Nonadd32 b -> NonaddCS32.compare_data a.preliminary b.preliminary
+        | AddGen a, AddGen b     -> AddCS.General.compare_data a.preliminary b.preliminary
+        | AddVec a, AddVec b     -> AddCS.Vector.compare_data a.preliminary b.preliminary
+        | Sank a, Sank b         -> SankCS.compare_data a.preliminary b.preliminary
+        | Dynamic a, Dynamic b   -> DynamicCS.compare_data a.preliminary b.preliminary
+        | Kolmo a, Kolmo b       -> KolmoCS.compare_data a.preliminary b.preliminary
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.compare_data a.preliminary b.preliminary
@@ -1621,10 +1646,15 @@ let edge_distance clas nodea nodeb =
                 | `Static | `Any -> 
                         a.weight *. NonaddCS32.distance a.final b.final
                 | `Dynamic -> 0.)
-        | Add a, Add b ->
+        | AddGen a, AddGen b ->
                 (match clas with
                 | `Static | `Any -> 
-                        a.weight *. AddCS.distance a.final b.final
+                        a.weight *. AddCS.General.distance a.final b.final
+                | `Dynamic -> 0.)
+        | AddVec a, AddVec b ->
+                (match clas with
+                | `Static | `Any -> 
+                        a.weight *. AddCS.Vector.distance a.final b.final
                 | `Dynamic -> 0.)
         | Sank a, Sank b ->
                 (match clas with
@@ -1727,8 +1757,10 @@ let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
             a.weight *. NonaddCS16.distance a.final b.final
         | Nonadd32 a, Nonadd32 b when has_nonadd ->
             a.weight *. NonaddCS32.distance a.final b.final
-        | Add a, Add b when has_add ->
-            a.weight *. AddCS.distance a.final b.final
+        | AddVec a, AddVec b when has_add ->
+            a.weight *. AddCS.Vector.distance a.final b.final
+        | AddGen a, AddGen b when has_add ->
+            a.weight *. AddCS.General.distance a.final b.final
         | Sank a, Sank b when has_sank ->
             a.weight *. SankCS.distance a.final b.final
         | Dynamic a, Dynamic b ->
@@ -1777,8 +1809,10 @@ let distance ?(para=None) ?(parb=None)  missing_distance
               a.weight *. NonaddCS16.distance a.final b.final
         | Nonadd32 a, Nonadd32 b ->
               a.weight *. NonaddCS32.distance a.final b.final
-        | Add a, Add b ->
-              a.weight *. AddCS.distance a.final b.final
+        | AddVec a, AddVec b ->
+              a.weight *. AddCS.Vector.distance a.final b.final
+        | AddGen a, AddGen b ->
+              a.weight *. AddCS.General.distance a.final b.final
         | Sank a, Sank b ->
               a.weight *. SankCS.distance a.final b.final
         | Dynamic a, Dynamic b ->
@@ -1842,8 +1876,10 @@ let dist_2 minimum_delta n a b =
               n.weight *. NonaddCS16.dist_2 n.final a.final b.final
         | Nonadd32 n, Nonadd32 a, Nonadd32 b ->
               n.weight *. NonaddCS32.dist_2 n.final a.final b.final
-        | Add n, Add a, Add b ->
-              n.weight *. AddCS.distance_2 n.final a.final b.final
+        | AddVec n, AddVec a, AddVec b ->
+              n.weight *. AddCS.Vector.distance_2 n.final a.final b.final
+        | AddGen n, AddGen a, AddGen b ->
+              n.weight *. AddCS.General.distance_2 n.final a.final b.final
         | Sank n, Sank a, Sank b ->
               n.weight *. SankCS.dist_2 n.final a.final b.final
         | Dynamic nc, Dynamic ac, Dynamic bc ->
@@ -1911,7 +1947,7 @@ let dist_2 minimum_delta n a b =
                          sn.final.set;
                      !cmin)
         | Nonadd8 _, _, _ | Nonadd16 _, _, _ | Nonadd32 _, _, _
-        | Add _, _, _ | Sank _, _, _ | Dynamic _, _, _ 
+        | AddGen _, _, _ | Sank _, _, _ | Dynamic _, _, _ | AddVec _, _, _
         | Set _, _, _ | Kolmo _, _, _ | StaticMl _, _, _ ->
                 (* These are explicitly left so that modifying code is easier,
                  * the compiler guides the changes *)
@@ -2411,8 +2447,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             let result =  (* ADDITIVE *)
                 List.fold_left 
-                (fun acc (a, b, _) -> add_characters (AddCS.of_parser !data)
-                (fun c w -> Add (make_with_w c w)) acc (a, b))
+                (fun acc (a, b, _) -> add_characters (AddCS.General.of_parser !data)
+                (fun c w -> AddGen (make_with_w c w)) acc (a, b))
                 result ladd_chars
             in
             let result = (* DYNAMIC *)
@@ -2518,7 +2554,8 @@ let node_contents_compare a b = match a, b with
     | Nonadd8 _ , Nonadd8 _
     | Nonadd16 _, Nonadd16 _
     | Nonadd32 _, Nonadd32 _
-    | Add _     , Add _
+    | AddGen _  , AddGen _
+    | AddVec _  , AddVec _
     | Sank _    , Sank _
     | Dynamic _ , Dynamic _
     | Kolmo _   , Kolmo _
@@ -2530,8 +2567,10 @@ let node_contents_compare a b = match a, b with
     | _         , Nonadd16 _ ->  1
     | Nonadd32 _, _          -> -1
     | _         , Nonadd32 _ ->  1
-    | Add _     , _          -> -1
-    | _         , Add _      ->  1
+    | AddGen _  , _          -> -1
+    | _         , AddGen _   ->  1
+    | AddVec _  , _          -> -1
+    | _         , AddVec _   ->  1
     | Sank _    , _          -> -1
     | _         , Sank _     ->  1
     | Dynamic _ , _          -> -1
@@ -3330,14 +3369,25 @@ let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs
                 pre cs.preliminary (Some parent_cs.preliminary) d
         | _ -> assert false
         end
-    | Add cs, Add _ ->
+    | AddGen cs, AddGen _ ->
         begin match parent_cs with
             | None ->
-                AddCS.to_formatter pre cs.preliminary None d
-                @ AddCS.to_formatter fin cs.final None  d
-            | Some ((Add parent_cs), _) ->
-                AddCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
-                @ AddCS.to_formatter fin cs.final (Some parent_cs.final) d
+                AddCS.General.to_formatter pre cs.preliminary None d
+                @ AddCS.General.to_formatter fin cs.final None  d
+            | Some ((AddGen parent_cs), _) ->
+                AddCS.General.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
+                @ AddCS.General.to_formatter fin cs.final (Some parent_cs.final) d
+            | _ -> assert false
+        end
+
+    | AddVec cs, AddVec _ ->
+        begin match parent_cs with
+            | None ->
+                AddCS.Vector.to_formatter pre cs.preliminary None d
+                @ AddCS.Vector.to_formatter fin cs.final None  d
+            | Some ((AddVec parent_cs), _) ->
+                AddCS.Vector.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
+                @ AddCS.Vector.to_formatter fin cs.final (Some parent_cs.final) d
             | _ -> assert false
         end
     | Sank cs, Sank _ ->
@@ -3389,7 +3439,7 @@ let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs
         ELSE
             failwith MlStaticCS.likelihood_error
         END
-    | (StaticMl _ |Kolmo _ |Dynamic _ |Sank _ |Add _
+    | (StaticMl _ |Kolmo _ |Dynamic _ |Sank _ |AddGen _ | AddVec _
         |Nonadd32 _ |Nonadd16 _ |Nonadd8 _ |Set _), _ -> assert false
 
 (* Compute total recost of the NODE, NOT THE SUBTREE*)
@@ -3560,7 +3610,8 @@ let listify a acc = a :: acc
 let lnon8 cs acc = listify (Nonadd8 cs) acc
 let lnon16 cs acc = listify (Nonadd16 cs) acc
 let lnon32 cs acc = listify (Nonadd32 cs) acc
-let ladd cs acc = listify (Add cs) acc
+let laddvec cs acc = listify (AddVec cs) acc
+let laddgen cs acc = listify (AddGen cs) acc
 let lsank cs acc = listify (Sank cs) acc
 let ldynamic cs acc = listify (Dynamic cs) acc
 let lkolmo cs acc = listify (Kolmo cs) acc
@@ -3570,7 +3621,8 @@ let rec convert_data
         ?(tnon8=lnon8)
         ?(tnon16=lnon16)
         ?(tnon32=lnon32)
-        ?(tadd=ladd)
+        ?(taddvec=laddvec)
+        ?(taddgen=laddgen)
         ?(tsank=lsank)
         ?(tdynamic=ldynamic)
         ?(tkolmo=lkolmo)
@@ -3580,7 +3632,8 @@ let rec convert_data
              | Nonadd8 cs -> tnon8 cs acc
              | Nonadd16 cs -> tnon16 cs acc
              | Nonadd32 cs -> tnon32 cs acc
-             | Add cs -> tadd cs acc
+             | AddGen cs -> taddgen cs acc
+             | AddVec cs -> taddvec cs acc
              | Sank cs -> tsank cs acc
              | Dynamic cs -> tdynamic cs acc
              | Kolmo cs -> tkolmo cs acc
@@ -3620,7 +3673,8 @@ let cardinal item = match item with
     | Nonadd8 c  -> NonaddCS8.cardinal c.preliminary
     | Nonadd16 c -> NonaddCS16.cardinal c.preliminary
     | Nonadd32 c -> NonaddCS32.cardinal c.preliminary
-    | Add c      -> AddCS.cardinal c.preliminary
+    | AddVec c   -> AddCS.Vector.cardinal c.preliminary
+    | AddGen c   -> AddCS.General.cardinal c.preliminary
     | Sank c     -> SankCS.cardinal c.preliminary
     | Dynamic c  -> DynamicCS.cardinal c.preliminary
     | Kolmo c    -> KolmoCS.cardinal c.preliminary
@@ -3640,8 +3694,10 @@ let rec filter_character_codes (codes : All_sets.Integers.t) item = match item w
           Nonadd16 (do_filter NonaddCS16.cardinal NonaddCS16.f_codes c codes)
     | Nonadd32 c ->
           Nonadd32 (do_filter NonaddCS32.cardinal NonaddCS32.f_codes c codes)
-    | Add c ->
-          Add (do_filter AddCS.cardinal AddCS.f_codes c codes)
+    | AddGen c ->
+          AddGen (do_filter AddCS.General.cardinal AddCS.General.f_codes c codes)
+    | AddVec c ->
+          AddVec (do_filter AddCS.Vector.cardinal AddCS.Vector.f_codes c codes)
     | Sank c -> 
           Sank (do_filter SankCS.cardinal SankCS.f_codes c codes)
     | Dynamic c ->
@@ -3671,8 +3727,10 @@ let rec filter_character_codes_complement codes = function
           Some (Nonadd16 (do_filter NonaddCS16.cardinal NonaddCS16.f_codes_comp c codes))
     | Nonadd32 c ->
           Some (Nonadd32 (do_filter NonaddCS32.cardinal NonaddCS32.f_codes_comp c codes))
-    | Add c ->
-          Some (Add (do_filter AddCS.cardinal AddCS.f_codes_comp c codes))
+    | AddGen c ->
+          Some (AddGen (do_filter AddCS.General.cardinal AddCS.General.f_codes_comp c codes))
+    | AddVec c ->
+          Some (AddVec (do_filter AddCS.Vector.cardinal AddCS.Vector.f_codes_comp c codes))
     | Sank c -> 
           Some (Sank (do_filter SankCS.cardinal SankCS.f_codes_comp c codes))
     | Dynamic c ->
@@ -3792,14 +3850,15 @@ let rec internal_n_chars acc (chars : cs list) =
                     ELSE
                         failwith MlStaticCS.likelihood_error
                     END
-                | Nonadd8 r -> NonaddCS8.cardinal r.preliminary
+                | Nonadd8 r  -> NonaddCS8.cardinal r.preliminary
                 | Nonadd16 r -> NonaddCS16.cardinal r.preliminary
                 | Nonadd32 r -> NonaddCS32.cardinal r.preliminary
-                | Add r -> AddCS.cardinal r.preliminary
-                | Sank r -> SankCS.cardinal r.preliminary
-                | Dynamic r -> DynamicCS.cardinal r.preliminary
-                | Kolmo r -> KolmoCS.cardinal r.preliminary
-                | Set s -> internal_n_chars acc s.preliminary.set
+                | AddGen r   -> AddCS.General.cardinal r.preliminary
+                | AddVec r   -> AddCS.Vector.cardinal r.preliminary
+                | Sank r     -> SankCS.cardinal r.preliminary
+                | Dynamic r  -> DynamicCS.cardinal r.preliminary
+                | Kolmo r    -> KolmoCS.cardinal r.preliminary
+                | Set s      -> internal_n_chars acc s.preliminary.set
             in
             internal_n_chars (acc + count) cs
 (** [n_chars chars] returns the total number of characters in the list of
@@ -3830,7 +3889,8 @@ END
         | Nonadd8U of NonaddCS8.u ru
         | Nonadd16U of NonaddCS16.u ru
         | Nonadd32U of NonaddCS32.u ru
-        | AddU of AddCS.t ru
+        | AddGenU of AddCS.General.t ru
+        | AddVecU of AddCS.Vector.t ru
         | SankU of SankCS.t ru
         | DynamicU of DynamicCS.u ru
         | KolmoU of KolmoCS.u ru
@@ -3857,7 +3917,8 @@ END
                         | Nonadd8U _
                         | Nonadd16U _
                         | Nonadd32U _
-                        | AddU _ 
+                        | AddVecU _ 
+                        | AddGenU _ 
                         | StaticMlU _
                         | KolmoU _
                         | SankU _ -> None
@@ -3886,7 +3947,9 @@ END
                     (NonaddCS32.poly_saturation x.ch 1) *. card, card +. lenacc
             | StaticMlU x ->
                     failwith "TODO Node.Union.poly_saturation"
-            | AddU x -> 
+            | AddVecU x -> 
+                    failwith "TODO Node.Union.poly_saturation"
+            | AddGenU x -> 
                     failwith "TODO Node.Union.poly_saturation"
                     (*
                     let card = float_of_int (AddCS.cardinal x) in
@@ -3939,8 +4002,10 @@ END
                     }
                     in
                     Nonadd32U r
-            | Add cs, AddU u1, AddU u2 -> 
-                    AddU { ch = cs.preliminary; u_weight = u1.u_weight }
+            | AddVec cs, AddVecU u1, AddVecU u2 -> 
+                    AddVecU { ch = cs.preliminary; u_weight = u1.u_weight }
+            | AddGen cs, AddGenU u1, AddGenU u2 -> 
+                    AddGenU { ch = cs.preliminary; u_weight = u1.u_weight }
             | Sank cs, SankU u1, SankU u2 ->
                     SankU { ch = cs.preliminary; u_weight = u1.u_weight }
             | Dynamic cs, DynamicU u1, DynamicU u2 ->
@@ -4036,8 +4101,10 @@ END
                     (Nonadd32U (create_union NonaddCS32.to_union c)) :: acc
             | Dynamic c ->
                     (DynamicU (create_union DynamicCS.to_union c)) :: acc 
-            | Add c ->
-                    (AddU { ch = c.preliminary; u_weight = c.weight }) :: acc
+            | AddVec c ->
+                    (AddVecU { ch = c.preliminary; u_weight = c.weight }) :: acc
+            | AddGen c ->
+                    (AddGenU { ch = c.preliminary; u_weight = c.weight }) :: acc
                     (* TODO
                     Add (AddCS.to_union c.Node.preliminary)
                     *)
@@ -4080,19 +4147,15 @@ END
                     a.ch b.ch))) at bt
             | (StaticMlU a) :: at, (StaticMlU b) :: bt ->
                     distance acc at bt
-                    (* TODO
-                    MlStaticCS.distance_union a b, at, bt
-                    *)
-            | (AddU a) :: at, (AddU b) :: bt ->
+                    (* TODO MlStaticCS.distance_union a b, at, bt *)
+            | (AddGenU a) :: at, (AddGenU b) :: bt ->
                     distance acc at bt
-                    (* TODO
-                    AddCS.distance a b, at, bt
-                    *)
+            | (AddVecU a) :: at, (AddVecU b) :: bt ->
+                    distance acc at bt
+                    (* TODO AddCS.distance a b, at, bt *)
             | (SankU a) :: at, (SankU b) :: bt ->
                     distance acc at bt
-                    (* TODO
-                    SankCS.distance a b, at, ct
-                    *)
+                    (* TODO SankCS.distance a b, at, ct *)
             | (KolmoU a) :: at, (KolmoU b) :: bt ->
                     distance (acc +. (a.u_weight *. (KolmoCS.distance_union a.ch
                     b.ch))) at bt
@@ -4103,7 +4166,8 @@ END
             | (Nonadd8U _) :: _, _
             | (Nonadd16U _) :: _, _
             | (Nonadd32U _) :: _, _
-            | (AddU _) :: _, _
+            | (AddGenU _) :: _, _
+            | (AddVecU _) :: _, _
             | (SankU _) :: _, _
             | (DynamicU _) :: _, _
             | (KolmoU _) :: _, _ 
@@ -4131,31 +4195,27 @@ END
             ELSE
                 failwith MlStaticCS.likelihood_error
             END
-        | (AddU a), (AddU b) ->
-                AddCS.compare_data a.ch b.ch
-                (* TODO
-                AddCS.distance a b, at, bt
-                        *)
+        | (AddGenU a), (AddGenU b) ->
+                AddCS.General.compare_data a.ch b.ch
+        | (AddVecU a), (AddVecU b) ->
+                AddCS.Vector.compare_data a.ch b.ch
         | (SankU a), (SankU b) ->
                 SankCS.compare_data a.ch b.ch
-                (* TODO
-                0.0, at, bt
-                SankCS.distance a b, at, ct
-                *)
-        | (KolmoU a), (KolmoU b) -> 0
+        | (KolmoU a), (KolmoU b) ->
+                0
         | (DynamicU a), (DynamicU b) ->
                 DynamicCS.compare_union a.ch b.ch
         | _ -> failwith "Node.Union.distance TODO"
 
-    let rec compare a b =
-        match a, b with
+    let rec compare a b = match a, b with
         | [], [] -> 0
-        | [], _ -> -1
-        | _, [] -> 1
-        | ha :: ta, hb :: tb ->
-                match single_compare ha hb with
+        | [], _  -> -1
+        | _, []  -> 1
+        | ha::ta,hb::tb ->
+            begin match single_compare ha hb with
                 | 0 -> compare ta tb
                 | x -> x
+            end
 
     let compare a b = compare a.charactersu b.charactersu
 end 
@@ -4363,7 +4423,8 @@ module Standard :
         let get_nonadd_8 _ = get_nonadd_8 
         let get_nonadd_16 _ = get_nonadd_16 
         let get_nonadd_32 _ = get_nonadd_32 
-        let get_add _ = get_add
+        let get_addgen _ = get_addgen
+        let get_addvec _ = get_addvec
         let get_sank _ = get_sank
         let get_dynamic _ = get_dynamic
         let get_mlstatic _ = get_mlstatic
@@ -4397,7 +4458,7 @@ module Standard :
                             else cmp
                         else x
                 | (Nonadd32 ha) :: ta, _ -> -1
-                | (Add ha) :: ta, (Add hb) :: tb ->
+                | (AddGen ha) :: ta, (AddGen hb) :: tb ->
                         let x = compare ha.weight hb.weight in
                         if x = 0 then
                             let cmp = compare ha.preliminary hb.preliminary in
@@ -4405,7 +4466,16 @@ module Standard :
                                 aux_cmt ta tb
                             else cmp
                         else x
-                | (Add ha) :: ta, _ -> -1
+                | (AddGen ha) :: ta, _ -> -1
+                | (AddVec ha) :: ta, (AddVec hb) :: tb ->
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
+                | (AddVec ha) :: ta, _ -> -1
                 | (Sank ha) :: ta, (Sank hb) :: tb ->
                         let x = compare ha.weight hb.weight in
                         if x = 0 then
@@ -4477,7 +4547,8 @@ let total_cost_of_type t n =
             | Nonadd8 x, `Nonadd -> x.sum_cost *. x.weight
             | Nonadd16 x, `Nonadd -> x.sum_cost *. x.weight
             | Nonadd32 x, `Nonadd -> x.sum_cost *. x.weight
-            | Add x, `Add -> x.sum_cost *. x.weight
+            | AddGen x, `Add -> x.sum_cost *. x.weight
+            | AddVec x, `Add -> x.sum_cost *. x.weight
             | Sank x, `Sank -> x.sum_cost *. x.weight
             | StaticMl x, `StaticMl ->
                 IFDEF USE_LIKELIHOOD THEN
