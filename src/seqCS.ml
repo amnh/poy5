@@ -1497,7 +1497,8 @@ let max_float = float_of_int (max_int / 20)
 module RL = struct
     type relaxed_lifted = {
         distance_table : float array array;
-        sequence_table: Sequence.s array;
+        sequence_table: Sequence.s array; (*we carry original sequence before
+        transform(fixed_state) with us*)
     }
 
     type fs_sequences = {
@@ -1519,14 +1520,14 @@ module RL = struct
         Printf.printf "\n%!"
 
     let print_fs_sequences in_fs_seqs =
-        Printf.printf "fs_sequences, states:%!";
+        Printf.printf "states:%!";
         Array.iter (fun x -> 
             if x=max_float then Printf.printf "max_f,%!"
-            else Printf.printf "%f,%!" x) in_fs_seqs.states;
+            else Printf.printf "%f,%!" x) in_fs_seqs.states(*;
         Printf.printf "left:%!";
         Utl.printIntArr in_fs_seqs.left;
         Printf.printf "right:%!";
-        Utl.printIntArr in_fs_seqs.right
+        Utl.printIntArr in_fs_seqs.right*)
 
     let find_smallest a =
         let min_cost = ref max_float in
@@ -1583,7 +1584,8 @@ module RL = struct
     let median (at, ast) (bt, bst) =
         if debug then begin
             Printf.printf "RL.median on nodeA and nodeB:\n%!";
-            print_rl at;
+            (*print_rl at;
+            *)
             print_fs_sequences ast;
             print_fs_sequences bst;
         end;
@@ -1623,7 +1625,7 @@ module RL = struct
         in
         let min_a = left_state and min_b = right_state in
         if debug then begin
-            Printf.printf "min_res=%d,min_a=%d,min_b=%d,return (at,res) = %!"min_res min_a min_b;
+            Printf.printf "\n min_res=%d,min_a=%d,min_b=%d,return (at,res) = %!"min_res min_a min_b;
             print_fs_sequences res;
             Printf.printf "cost = res.state.%d(%f) - (a.state.%d(%f) + b.state.%d(%f))\n%!" 
             min_res res.states.(min_res) 

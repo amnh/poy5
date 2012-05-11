@@ -90,7 +90,7 @@ type node_data = {
     num_otus : int;         (** How many OTUs are a child of this node *)
     exclude_sets : All_sets.Integers.t list;
     exclude_info : exclude;
-    cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates ];
+    cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates | `Sankoff ];
 }
 
 (** Compares the final states information between two nodes. Follows the
@@ -233,13 +233,16 @@ module Standard : NodeSig.S with type e = exclude
 
 val merge : node_data -> node_data -> node_data
 
-val empty : [`Parsimony | `Likelihood | `SumLikelihood | `Fixedstates ] -> node_data
+val empty : [`Parsimony | `Likelihood | `SumLikelihood | `Fixedstates | `Sankoff ] -> node_data
 
 (** [total_cost_of_type t n] extracts the sum of the total cost of the node [n]
  * for all the characters of the type [t], as listed below *)
 val total_cost_of_type : to_single -> node_data -> float
 
-val get_cost_mode : node_data -> [ `Likelihood | `Parsimony | `SumLikelihood |`Fixedstates  ]
+val extra_cost_from_root : node_data -> float
+
+val get_cost_mode : node_data -> [ `Likelihood | `Parsimony | `SumLikelihood
+|`Fixedstates | `Sankoff ]
 
 (*val classify_data : bool -> node_data -> bool -> node_data -> int list option ->*)
 (*        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->*)

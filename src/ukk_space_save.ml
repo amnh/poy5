@@ -11,7 +11,7 @@ let print_intlst inlst oc =
     fprintf oc "]\n%!"
 
 let ukkonen_align seqarr1 seqarr2 cost_matrix =
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     let oc = 
         if debug_to_file then open_out "ukkss.out" 
         else stdout in
@@ -365,7 +365,7 @@ let ukkonen_align seqarr1 seqarr2 cost_matrix =
         new_ukkArr
     in
     let rec increaseT newT diagonal_sizelst ukkArr =
-        let debug = true in
+        let debug = false in
         let p = ( newT - (lenY-lenX))/2 in
         if debug then fprintf oc "increaseT, newT=%d,p=%d,%!" newT p;
         let testres,new_cost,new_max_gapnum,new_diagonal_sizelst,new_ukkArr= 

@@ -228,7 +228,7 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
-        cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates ];
+        cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates | `Sankoff ];
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
@@ -404,6 +404,15 @@ let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
 let cs_prelim_to_final a =
     {a with final = a.preliminary}
 
+let print_cost_mode cm = 
+    Printf.printf "cost mode = %!";
+    match cm with 
+    | `Likelihood -> Printf.printf "Likelihood\n%!"
+    | `Parsimony -> Printf.printf "Parsimony\n%!"
+    | `SumLikelihood -> Printf.printf "SumLikelihood\n%!"
+    | `Fixedstates -> Printf.printf "Fixedstates\n%!"
+    | `Sankoff -> Printf.printf "Sankoff\n%!"
+
 let calc_total_cost c1 c2 c_cost =
     let res = 
         assert (c1.cost_mode = c2.cost_mode);
@@ -412,9 +421,12 @@ let calc_total_cost c1 c2 c_cost =
         | `Parsimony     -> c_cost +. c1.total_cost +. c2.total_cost
         | `SumLikelihood -> c_cost +. c1.total_cost +. c2.total_cost
         | `Fixedstates   -> c_cost
+        | `Sankoff       -> c_cost
     in
-    if debug_set_cost then
-    Printf.printf "totalcost = %f <-?- %f + %f + %f; %!" res c_cost c1.total_cost c2.total_cost;
+    if debug_set_cost then begin
+        print_cost_mode c1.cost_mode;
+        Printf.printf "totalcost = %f <-?- %f + %f + %f;\n %!" res c_cost c1.total_cost c2.total_cost;
+    end;
     res
 
 let total_cost _ a = a.total_cost
@@ -634,21 +646,18 @@ let rec cs_median code anode bnode prev t1 t2 a b =
           Add res
     | Sank ca, Sank cb ->
             assert (ca.weight = cb.weight);
-            (*let prev = 
+            let prev = 
                 match prev with
                 | None -> None
                 | Some (Sank prev) -> Some (prev.preliminary)
                 | _ -> raise (Illegal_argument "cs_median") 
             in
-            let median = SankCS.median prev ca.preliminary cb.preliminary in
-            let cost = SankCS.distance ca.preliminary cb.preliminary in*)
-            let cost,median = SankCS.distance_and_median ca.preliminary
-            cb.preliminary in
+            let median,cost = SankCS.median code ca.preliminary cb.preliminary in
             let res = 
                 { 
                     ca with preliminary = median;
                     final = median;
-                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    sum_cost = cost; 
                     cost = ca.weight *. cost }
             in
             Sank res
@@ -1439,7 +1448,7 @@ let median_of_child_branch code child parent =
     let otime = List.map (fun _ -> None) times in
     median_w_times code None child parent times otime None
 
-let final_states p n c1 c2 = 
+let final_states p n c1 c2 =
     let new_characters = 
         map4 (cs_final_states p n c1 c2) 
         p.characters n.characters c1.characters c2.characters
@@ -2143,6 +2152,10 @@ type ms = All_sets.Integers.t
 let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
     (lnadd16code : ms) (lnadd32code : ms) (lnadd33code : ms) lsankcode dynamics 
     kolmogorov static_ml data cost_mode =
+        let calc_total treesnum directions nodenum = 
+            treesnum * ( directions *(nodenum-1) + nodenum )
+            (*treesnum * ((d * t) - 5) *) 
+        in
         let add_character =  Data.add_character_spec 
         and set = Data.Set 
         and data = ref data in
@@ -2199,7 +2212,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 | _ -> assert false
             in
             MlModel.categorize_by_model get_function lst
-
         and group_by_sets lst = 
             let curr = Hashtbl.create 1667 in
             let sets = List.fold_left (* list of all the set names *)
@@ -2228,9 +2240,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let () = 
                 IFDEF USE_LIKELIHOOD THEN
                     (* set garbage collector frequency; multiplier = 4 *)
-                    let calc_total m t = m * ((8 * t) - 5) in
                     MlStaticCS.gc_alloc_max 
-                        (calc_total 4 (!data).Data.number_of_taxa)
+                        (calc_total 4 3 (!data).Data.number_of_taxa)
                 ELSE
                     ()
                 END
@@ -2266,8 +2277,12 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 --> List.flatten
                 --> List.map (fun x -> lk_group_weights (lk_classify_weights x) x)
 
-        and lsankcode = List.map (fun x -> cg (), x) lsankcode in
-
+        and lsankcode = 
+            let () = 
+                 SankCS.set_gc_alloc_max 
+                        (calc_total 2 1 (!data).Data.number_of_taxa)
+            in
+            List.map (fun x -> cg (), x) lsankcode in
         let add_codes ((_, x) as y) = 
             y, Array.map snd (Array.of_list (List.rev x)) in
         let laddcode = List.map add_codes laddcode 
@@ -2980,7 +2995,7 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and kolmogorov = List.filter is_mem data.Data.kolmogorov
         and static_ml = List.filter is_mem data.Data.static_ml
         and dynamics = List.filter is_mem data.Data.dynamics in
-
+        let has_sank = if (List.length sank)>0 then true else false in
         let has_dynamic_mpl,has_dynamic_mal,has_dynamic_aln =
             List.fold_left
                 (fun ((mpl,mal,aln) as acc) code ->
@@ -3009,6 +3024,7 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
             | [] when has_dynamic_mpl -> `SumLikelihood
             | [] when has_dynamic_mal -> `Likelihood
             | [] when has_dynamic_aln -> `SumLikelihood
+            | _ when has_sank         -> `Sankoff
             | _                       -> `Parsimony
         in
         current_snapshot "end nonadd set2";
@@ -4500,6 +4516,18 @@ let merge a b =
         total_cost = a.total_cost +. b.total_cost;
         node_cost = a.node_cost +. b.node_cost;
     }
+
+
+let extra_cost_from_root n =
+    let extra_cost_cs acc item =
+         match item with 
+        | Sank x -> 
+                let ec = SankCS.get_extra_cost_for_root x.preliminary in
+                float_of_int ec
+        | _ -> 0.0
+    in
+    List.fold_left extra_cost_cs 0.0 n.characters
+
 
 let total_cost_of_type t n =
     let rec total_cost_cs acc item =

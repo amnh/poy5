@@ -941,7 +941,9 @@ module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n) (EdgeH : Edg
         let from_h_to_s = replace_contents TOS.downpass TOS.uppass NodeS.taxon_code
 
         let build_initial_trees trees data n b =
-            if Data.has_dynamic data || Data.has_likelihood data then
+            let has_dyn = Data.has_dynamic data in
+            let has_lik = Data.has_likelihood data in
+            if has_dyn || has_lik then
                 DH.build_initial_trees trees data n b
             else
                 let s_nodes = List.map NodeH.to_other n in
