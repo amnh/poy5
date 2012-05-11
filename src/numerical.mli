@@ -68,6 +68,15 @@ val brents_method :
     respectively. [o] is a pair of floating point numbers, with additional data,
     representing a point.  (See, Numerical Recipes in C; 10.2) *)
 
+val brents_method_multi :
+    ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float 
+        -> float array * ('a * float) -> (float array -> 'a * float) -> float array * ('a * float)
+(** brents_method_multi ...] Generalization of the above function for brents
+    method. We optimize each value in the array one by one and only ONCE. This
+    was seen in RAxML 7.04; and possibility has some utility since we do not
+    need to calculate the derivative of a vector which can be costly and may not
+    work on routines with a number of discontinuities. *)
+
 val line_search : 
     ?epsilon:float -> (float array -> 'a * float) -> float array -> 
         'a * float -> float array -> float -> float array -> float array * ('a * float) * bool

@@ -81,6 +81,7 @@ AC_SUBST(OCAMLVERSION)
 AC_SUBST(CONFIG_DATE)
 
 AC_SUBST(CC_NOASNEEDED)
+AC_SUBST(PROFILE_OCAML)
 
 CONFIG_DATE=`date`
 USEWIN32="false"
@@ -134,6 +135,15 @@ AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences],
               [Enable the analysis of sequences longer than 16383 elements (The limit would be  2^31 or 2^63 for 32 bit and 64 bit architectures respectively). When using this option, more memory will be needed for the default search strategies. If you are analyzing fragments shorted than, say 12.000 bp, you are unlikely to need this option.])], 
               [USE_LONG_SEQUENCES="true"; DUSE_LONG_SEQUENCES="-DUSE_LONG_SEQUENCES"; OUSE_LONG_SEQUENCES=",use_long_sequences"], 
               [USE_LONG_SEQUENCES="false"])
+
+AC_ARG_ENABLE([profiler], [AS_HELP_STRING([--enable-profiler],
+              [Due to a bug in ocamlbuild, we must pass the -p option ourselves to allow profiling with gprof])],
+              [if test x"$enableval" = x"no"; then
+                    PROFILE_OCAML="false"
+                else
+                    PROFILE_OCAML="true"
+                fi],
+              [PROFILE_OCAML="false"])
 
 AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
               [Enable the postprocessing of XML output using XSLT templates.  This option requires libxml2 and libxslt.])],

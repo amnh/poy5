@@ -64,18 +64,16 @@ type ml_rep = unit
 END
 
 type cs =
-    | Nonadd8 of NonaddCS8.t r  (** A set of non additive characters 
-    with at most 8 states *)
-    | Nonadd16 of NonaddCS16.t r  (** A set of non additive characters 
-    with at most 16 states *)
-    | Nonadd32 of NonaddCS32.t r  (** A set of non additive characters 
-    with at most 32 states *)
-    | Add of AddCS.t r                  (** A set of additive characters *)
-    | Sank of SankCS.t r                (** A set of sankoff characters *)
-    | Dynamic of DynamicCS.t r                  (** A set of dynamics *)
-    | Kolmo of KolmoCS.t r              (** A set of kolmogorov characters *)
-    | Set of cs css r                   (** A set of other characters *)
-    | StaticMl of ml_rep        (** A set of static ML characters *)
+    | Nonadd8 of NonaddCS8.t r      (** non additive chars w/ <=8 states  *)
+    | Nonadd16 of NonaddCS16.t r    (** non additive chars w/ <=16 states *)
+    | Nonadd32 of NonaddCS32.t r    (** non additive chars w/ <=32 states *)
+    | AddVec of AddCS.Vector.t r    (** additive characters   *)
+    | AddGen of AddCS.General.t r   (** additive characters   *)
+    | Sank of SankCS.t r            (** sankoff characters    *)
+    | Dynamic of DynamicCS.t r      (** dynamics              *)
+    | Kolmo of KolmoCS.t r          (** kolmogorov characters *)
+    | Set of cs css r               (** other characters      *)
+    | StaticMl of ml_rep            (** static ML characters  *)
 
 type exclude = ([`Excluded | `NotExcluded | `Either] * int * int * int) list
 

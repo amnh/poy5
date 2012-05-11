@@ -720,6 +720,16 @@ value likelihood_CAML_minimum_bl( value unit )
     CAMLreturn( minimum );
 }
 
+/** set the smoothness for SMPL; this may or may not be used, and could possibly
+ * be boot-strapped so that MAX(a,b) + Epsilon < SMAX(a,b); thus, smoothness has
+ * occured, and is great enough to be effective **/
+double SMPL_K = 100.0;
+value likelihood_CAML_set_smoothness( value a ){
+    CAMLparam1( a );
+    SMPL_K = Double_val( a );
+    CAMLreturn( Val_unit );
+}
+
 
 /**  [diagonalize_sym A D N]
  * Diagonalizes [A] that is [N]x[N] and upper symmetric and places
@@ -1096,17 +1106,16 @@ logSMPL_site( const mll* l, const double weight, const double* pi,
                     const double* prob, const int i )
 {
     int r, j, c;
-    double maximum, s_max, k;
-    maximum = logMPL_site( l, 1.0, pi, prob, i );
-    k = fabs( 100 / maximum );
-    s_max = 0;
+    double s_max = 0;
     for(r=0; r < l->rates;++r){
         c = (r * (l->stride * l->c_len)) + (l->stride * i);
         for(j=0; j < l->stride; ++j){
-            s_max += exp( k * (l->lv_s[c+j] + log(pi[j])));
+            //s_max += exp( ((l->lv_s[c+j] + log(pi[j])) - maximum) * SMPL_K );
+            s_max += exp( (l->lv_s[c+j] + log(pi[j])) * SMPL_K );
         }
     }
-    s_max = log(s_max) * weight / k;
+    //s_max = (maximum + (log(s_max)/SMPL_K)) * weight;
+    s_max = (log(s_max)/SMPL_K) * weight;
     return s_max;
 }
 

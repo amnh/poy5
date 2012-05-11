@@ -4,10 +4,13 @@ New Features:
 
 
 Bugx Fixed:
-    - Continuous characters are fully supported from Hennig86/Nona files.
-      Characters with more then 10 states were not handled (single alphanumeric
-      character per taxon character only). (Thanks to Edmundo Gonzalez)
+    - Continuous characters are fully supported from Hennig86/Nona files. The
+      previous format that POY reads is the same (integers separated by spaces,
+      missing data represented as '?', and ranges defined in square brackets
+      separated by spaces. The data limit for the continuous characters requires
+      a maximum range of 255. (Thanks to Edmundo Gonzalez)
     - Costs displayed on trees is incorrect for partitions/sets of characters.
+      This is fixed to represent the overall tree cost.
 
 New Commands:
 
