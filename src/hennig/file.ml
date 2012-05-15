@@ -18,6 +18,8 @@
 (* USA                                                                        *)
 
 open Nexus.File     (* only used for Nexus.File.nexus *)
+    
+let failwithf format = Printf.ksprintf failwith format
 
 let default_hennig gap_handling alph equates file pos = 
     let gaps =  match gap_handling with
@@ -29,6 +31,7 @@ let default_hennig gap_handling alph equates file pos =
       st_name = file ^ ":" ^ string_of_int pos;
       st_alph = alph;
       st_observed = [];
+      st_normal = None;
       st_labels = [];
       st_weight = 1.0;
       st_type = STOrdered;
@@ -144,63 +147,60 @@ let normalize_continuous_characters
         (matrix: Nexus.File.static_state array array)
         (chars : Nexus.File.static_spec array) =
     let state_max = 255 in
-    let lookup_taxon i = match taxa.(i) with
-        | None   -> string_of_int i
-        | Some x -> x
-    and failwithf format = Printf.ksprintf failwith format in
     (* find minimum character value for character c; ignore missing *)
-    let find_minimum_character c =
-        let ret_min = ref max_int in
+    let find_by_f_character f i c =
+        let ret = ref i in
         for t = 0 to ((Array.length matrix)-1) do
-            let taxa_min = match matrix.(t).(c) with
-                | Some `List [x;y] when y < x -> assert false
-                | Some `List [-1]  -> !ret_min
-                | Some `List [x;_] -> x
-                | Some `List [x]   -> x
-                | None             -> !ret_min
-                | _ -> assert false
-            in
-            ret_min := min !ret_min taxa_min
+            begin match matrix.(t).(c) with
+                | Some `List [x;y] -> ret := f !ret (f x y)
+                | Some `List [-1]  -> ()
+                | Some `List [x]   -> ret := f !ret x
+                | None             -> ()
+                | _                -> assert false
+            end
         done;
-        !ret_min
+        !ret
     (* normalize character states by minimum of column; also insert missing *)
     and normalize_by_minimum state_min c : unit =
         for t = 0 to ((Array.length matrix)-1) do
             begin match matrix.(t).(c) with
-            | Some `List [-1]  -> matrix.(t).(c) <- Some (`List [0;state_max])
-            | None             -> () (* no change *)
-            | Some `List [x]   ->
-                assert( x >= state_min );
-                if x - state_min > state_max then
-                    failwithf ("Continuous character %d cannot be normalized "^^
-                               "to our maximum range of %d. Found in taxa %s.")
-                              c state_max (lookup_taxon t);
-                matrix.(t).(c) <- Some (`List [x-state_min])
-            | Some `List [x;y] ->
-                assert( (x >= state_min) && (y>= state_min) );
-                if (y - state_min > state_max) ||
-                   (x - state_min > state_max) then
-                    failwithf ("Continuous character %d cannot be normalized "^^
-                               "to our maximum range of %d. Found in taxa %s.")
-                              c state_max (lookup_taxon t);
-                matrix.(t).(c) <- Some (`List [x-state_min;y-state_min])
-            | _     -> assert false
+                | Some `List [-1]  ->
+                    matrix.(t).(c) <- Some (`List [0;state_max])
+                | Some `List [x]   ->
+                    assert( x >= state_min );
+                    assert( (x-state_min) <= state_max );
+                    matrix.(t).(c) <- Some (`List [x-state_min])
+                | Some `List [x;y] ->
+                    assert( (x >= state_min) && ( y>= state_min) );
+                    assert( ((max x y) - (min x y)) <= state_max );
+                    matrix.(t).(c) <- Some (`List [x-state_min;y-state_min])
+                | None -> assert false
+                | _    -> assert false
             end
         done;
+        chars.(c) <- { chars.(c) with st_normal = Some state_min; }
     in
+    let can_normalize = ref true in
     for c = 0 to ((Array.length chars)-1) do
-        let smin = find_minimum_character c in
-        Printf.printf "Normalizing character %d by %d:\n%!" c smin;
-        normalize_by_minimum smin c
+        let smin = find_by_f_character min max_int c in
+        let smax = find_by_f_character max 0 c in
+        if smax - smin > state_max then
+            can_normalize := false
     done;
-    ()
+    let () = 
+        if !can_normalize then
+            for c = 0 to ((Array.length chars)-1) do
+                let smin = find_by_f_character min max_int c in
+                normalize_by_minimum smin c
+            done;
+    in
+    !can_normalize
 
 (** process a matrix with spaces seperating the characters. Polymorphisms are
     seperated by spaces in brackets *)
 let process_matrix matrix taxa characters get_row_number assign_item to_parse =
-    let data =
-        Parser.OldHennig.process_matrix to_parse
-                        true (Array.length taxa) (Array.length characters)
+    let data = Parser.OldHennig.process_matrix to_parse
+                            true (Array.length taxa) (Array.length characters)
     in
     List.iter
         (fun (name,data) ->
@@ -263,7 +263,9 @@ let process_command file (mode, (acc:nexus)) = function
                         characters.(y) <- add_observed y v characters.(y);
                         matrix.(x).(y) <- add_taxastate x y v characters.(y))
                     to_parse;
-                normalize_continuous_characters taxa matrix characters;
+                (* We determine the normalization from st_normal; can ignore
+                   results returned from this function. *)
+                ignore (normalize_continuous_characters taxa matrix characters);
                 mode,{acc with
                         taxa = taxa;
                         characters = characters;

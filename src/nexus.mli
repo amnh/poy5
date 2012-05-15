@@ -215,11 +215,11 @@ module File : sig
         | STLikelihood of MlModel.model  (* The ML model to use *)
 
     type static_spec = {
-        st_filesource : string; (* The file that contained the character
-        originally *)
+        st_filesource : string; (* The file that contained the character originally *)
         st_name : string;       (* The name assigned to the character *)
         st_alph : Alphabet.a;   (* The set of potential character symbols *)
         st_observed : int list; (* The set of observed states *)
+        st_normal : int option; (* factor to normalize continuous characters *)
         st_labels : string list;(* The labels assigned to the states *)
         st_weight : float;      (* The character weight *)
         st_type : st_type;      (* The type of character *)

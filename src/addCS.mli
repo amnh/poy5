@@ -382,6 +382,8 @@ module General : Make
 
 module Vector  : Make
 
+val split_vectorized_characters : Data.d -> int list -> int list * int list
+
 val is_potentially_informative : Nexus.File.static_state list -> bool
 
 val min_possible_cost : Nexus.File.static_state list -> float
