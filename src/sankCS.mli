@@ -68,6 +68,9 @@ val make_sank : int -> cm -> (int * int list) list -> t
 (** {2 Output and other functions} *)
 val of_parser : cm -> ((Nexus.File.static_state * int) array * int) -> int -> t * int
 
+val create_eltarr : int -> int -> int -> int32 array -> int32 array array -> int
+array array -> t
+
 val print_tcm : cm -> unit              (** prints to standard output *)
 
 (*val get_minstates : elt -> int list*)

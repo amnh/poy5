@@ -881,19 +881,30 @@ let canonize tcm a =
 *)
 
 
-external create_eltarr : int -> int -> int ->
+external create_eltarr_cside : int -> int -> int ->
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t -> 
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
         t = "sankoff_CAML_create_eltarr_bytecode" "sankoff_CAML_create_eltarr"
 
+let create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm =
+    let tcm_int32 = Utl.int_to_int32_mat tcm in
+    let tcm_bigarr 
+    = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in
+    let state_bigarr = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout
+    state_arrarr in
+    let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
+    ecode_arr in
+    create_eltarr_cside taxcode mycode nstates ecode_bigarr state_bigarr tcm_bigarr
+
 (*create sankoff chr from input file*)
 let of_parser tcm (arr, taxcode) mycode =
     let debug = false in
     if debug then Printf.printf "SankCS.of_parser,taxcode=%d,mycode=%d\n%!" taxcode mycode;
+    (*let tcm_int32 = Utl.int_to_int32_mat tcm in
     let tcm_int32 = Utl.int_to_int32_mat tcm in
     let tcm_bigarr 
-    = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in
+    = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in*)
     let nstates = Array.length tcm in
     let all_states = Array.to_list (Array.init nstates (fun x -> x)) in
     let make_elt (elt, ecode) =
@@ -910,34 +921,22 @@ let of_parser tcm (arr, taxcode) mycode =
             else Int32.of_int (-1) (*infinity*)
         ) in
         Int32.of_int ecode, state_arr
-        (*
-        canonize tcm
-            { empty_elt with
-                  ecode = ecode;
-                  s = Array.init nstates
-                    (fun i ->
-                         if List.mem i states
-                         then 0
-                         else infinity);}
-            *)
     in
     let elts = Array.map make_elt arr in
     let eltlst = Array.to_list elts in 
     let ecode_lst,state_arrlst = List.split eltlst in
     let ecode_arr,state_arrarr = Array.of_list ecode_lst, Array.of_list
     state_arrlst in
+    create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm,
+    (*
     let states_bigarr = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout
     state_arrarr in
     let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
     ecode_arr in
-    create_eltarr taxcode mycode nstates ecode_bigarr states_bigarr tcm_bigarr,
+    create_eltarr taxcode mycode nstates ecode_bigarr states_bigarr
+    tcm_bigarr,*)
     taxcode
-    (*
-    ({ elts = elts;
-           tcm = tcm;
-           code = mycode;
-     }, taxcode)
-    *)
+    
 
 (* no one calls this
 let reroot_elt tcm old p q =
