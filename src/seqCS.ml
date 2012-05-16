@@ -1495,6 +1495,16 @@ end
 let max_float = float_of_int (max_int / 20) 
 
 module RL = struct
+(*
+    type elt (*cside*)
+    type t (*cside*)
+
+    type elt_w_seqtbl = {
+        states_and_distbl : elt;
+        sequence_table: Sequence.s array; (*we carry original sequence before
+        transform(fixed_state) with us*)
+    }
+*)
     type relaxed_lifted = {
         distance_table : float array array;
         sequence_table: Sequence.s array; (*we carry original sequence before
@@ -1508,6 +1518,28 @@ module RL = struct
         left : int array;
         right : int array;
     }
+(*
+    let off_array fs taxon = 
+        let distbl = fs.Data.costs in
+        let seqtbl = fs.Data.seqs in
+        let len = Array.length fs.Data.seqs in
+        let states =
+            let seqs = 
+                try Hashtbl.find_all fs.Data.codes taxon with
+                | Not_found -> [] 
+            in
+            let is_empty = seqs = [] in
+            (*infinity here is not infinity on the c side, we pass (-1) instead*)
+            Array.init len
+                (fun x ->
+                    if is_empty || List.exists (fun y -> y = x) seqs then
+                        Int32.of_int 0
+                    else Int32.of_int (-1))
+        in
+        let mycode = 1 in
+        let ecode_arr = [|1|] in(*we have only one elt in each t*)
+        SankCS.create_eltarr taxon mycode len ecode_arr [|states|] distbl 
+*)
 
 
     let print_rl in_rl = 
@@ -1518,7 +1550,6 @@ module RL = struct
             ) farr
         ) in_rl.distance_table;
         Printf.printf "\n%!"
-
     let print_fs_sequences in_fs_seqs =
         Printf.printf "states:%!";
         Array.iter (fun x -> 
@@ -1527,7 +1558,7 @@ module RL = struct
         Printf.printf "left:%!";
         Utl.printIntArr in_fs_seqs.left;
         Printf.printf "right:%!";
-        Utl.printIntArr in_fs_seqs.right*)
+        Utl.printIntArr in_fs_seqs.right*) 
 
     let find_smallest a =
         let min_cost = ref max_float in
@@ -1569,19 +1600,27 @@ module RL = struct
         if debug then Printf.printf "RL.to_single, parentmin=%d,child.single_state_pos<-%d\n%!"
         parentmin pos;
         (childtb,{childs with single_state = pos}), 0
-
+(*
+    let to_dos parent child = 
+        let seqtbl_child = child.sequence_table in
+*)
     let to_dos (parentb, parents) ((childtb, childs) as ch) =
         let parentmin = find_smallest parents in
         let pos = find_single_position parentmin ch in
         { DOS.create (childtb.sequence_table.(pos)) with
         DOS.position = pos}, 0
 
-    let to_single_parent_done parent ((childtbl, childs) as ch) =
+    (*no one calls this
+    * let to_single_parent_done parent ((childtbl, childs) as ch) =
         let pos = find_single_position parent.DOS.position ch in
         { DOS.create (childtbl.sequence_table.(pos)) with DOS.position = pos }, 
-        (int_of_float childtbl.distance_table.(parent.DOS.position).(pos))
-
-    let median (at, ast) (bt, bst) =
+        (int_of_float childtbl.distance_table.(parent.DOS.position).(pos))*)
+(*
+    let median code a b = 
+        let med,cost = SankCS.median code a b  in
+        med,cost
+        
+    *)let median (at, ast) (bt, bst) =
         if debug then begin
             Printf.printf "RL.median on nodeA and nodeB:\n%!";
             (*print_rl at;
@@ -1634,10 +1673,21 @@ module RL = struct
         (at, res), 
         (res.states.(min_res) -. (ast.states.(min_a) +.
         bst.states.(min_b))),
-        res.states.(min_res)
-
+        res.states.(min_res) 
 
     let median_3 h p n c1 c2 = n
+
+(*
+    let median_3 h p n c1 c2 = 
+        let debug = true in
+        if debug then Printf.printf "seqCS.RL.median_3\n%!"
+        SankCS.median_3 p n c1 c2
+
+
+    let distance a b =
+        if debug then Printf.printf "seqCS.RL.distance\n%!";
+        SankCS.distance a b  
+*)
 
     let distance ((at, ast) as a) ((bt, bst) as b) =
         let debug = false in
@@ -1662,10 +1712,13 @@ module RL = struct
         else 
             let _, v,_ = median a b in
             if debug then Printf.printf "no single assignment yet, dis=%f\n%!" v;
-            v
-
+            v 
 
     let dist_2 n a b =
+    (*
+        let cost = SankCS.dist_2 n a b in
+        int_of_float cost
+    *)
         let tmp, t,_ = median a b in
         let _, v ,_= median tmp n in
         (int_of_float v) + (int_of_float t)
@@ -2047,6 +2100,8 @@ let of_array spec sc code taxon =
         | `GeneralNonAdd, [|x|] -> General_Prealigned (GenNonAdd.init_gnonadd_t x)
         | `DO, [|x|] -> Heuristic_Selection (DOS.create x)
         | `FS fs, [|x|] ->
+                (*let res = RL.off_array fs taxon in
+                Relaxed_Lifted res*)
                 let tbl = { RL.distance_table = fs.Data.costs;
                                sequence_table = fs.Data.seqs } 
                 in
@@ -2206,6 +2261,7 @@ let median code a b =
                     Heuristic_Selection res
             | Relaxed_Lifted a, Relaxed_Lifted b ->
                     let res, c, tc = RL.median a b in
+                    (*let res,tc = RL.median code a b in*)
                     total_cost := (int_of_float tc) + !total_cost;
                     Relaxed_Lifted res
             | Partitioned _, _
