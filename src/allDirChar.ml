@@ -405,10 +405,18 @@ module F : Ptree.Tree_Operations
                     let root = AllDirNode.force_val root.AllDirNode.lazy_node in
                     let cost =
                         List.fold_left
-                            (fun acc y -> acc +. (Node.total_cost_of_type y root))
+                            (fun acc y -> 
+                                let add = Node.total_cost_of_type y root in
+                                acc +. add 
+                            )
                             (0.0)
                             (Node.not_to_single)
                     in
+                    let extra_cost =  Node.extra_cost_from_root root in
+                    let cost = cost -. extra_cost in
+                    if debug_cost_fn then 
+                        Printf.printf "cost -= extra(%f) = %f\n%!"
+                        extra_cost cost;
                     cost, tree_root, root_edge
             | _ -> failwith "What?"
         in
