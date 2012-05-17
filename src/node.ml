@@ -4489,7 +4489,7 @@ module Standard :
                 | (Sank ha) :: ta, (Sank hb) :: tb ->
                         let x = compare ha.weight hb.weight in
                         if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
+                            let cmp = SankCS.compare_data ha.preliminary hb.preliminary in
                             if cmp = 0 then 
                                 aux_cmt ta tb
                             else cmp
