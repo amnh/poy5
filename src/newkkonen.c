@@ -19,7 +19,6 @@
 
 #include <stdio.h>
 #include <malloc.h>
-#include <stdio.h>
 #include <limits.h>
 #include <string.h>
 #include <assert.h>
@@ -819,8 +818,8 @@ void update_left_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const c
     int ext_costR=0, open_costR=0;
     int ext_costDiag=0, open_costDiag=0;
     //flag & flag2 are for gap sign.
-    int prev_base1 = seq_get(s1,i-1); int prev_base2 = seq_get(s2,j-1);
-    int base1 = seq_get(s1,i); int base2 = seq_get(s2,j);
+    int prev_base1 = seq_get(s1,i-1); 
+    int base1 = seq_get(s1,i); 
     int flag, flag2;
     int gocost; //gocost = gap opening cost depends on flag, flag2 and realgo.
     int costfromR=0; DIRECTION_MATRIX dirR; DIRECTION_MATRIX gapnum1_fromR=0,gapnum2_fromR=0;
@@ -938,8 +937,10 @@ void update_right_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const 
     int ext_costL=0, open_costL=0;
     int ext_costDiag=0, open_costDiag=0;
     //flag & flag2 are for gap sign.
-    int prev_base1 = seq_get(s1,i-1); int prev_base2 = seq_get(s2,j-1);
-    int base1 = seq_get(s1,i); int base2 = seq_get(s2,j);
+    //int prev_base1 = seq_get(s1,i-1); 
+    int prev_base2 = seq_get(s2,j-1);
+    //int base1 = seq_get(s1,i); 
+    int base2 = seq_get(s2,j);
     int flag, flag2;
     int gocost; //gocost = gap opening cost depends on flag, flag2 and realgo.
     int costfromL=0; DIRECTION_MATRIX dirL; DIRECTION_MATRIX gapnum1_fromL=0, gapnum2_fromL=0;

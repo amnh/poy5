@@ -219,6 +219,11 @@ let insert arr pos new_item =
     new_arr.(pos2) <- arr.(pos1);
     new_arr
 
+let int_to_int32_arr (arr :int array) = 
+    Array.map (fun x -> Int32.of_int x) arr
+
+let int_to_int32_mat (mat : int array array) = 
+    Array.map (fun arr -> int_to_int32_arr arr) mat
 
 let printIntArr (arr : int array) = 
     Array.iter (fun x -> if x=large_int then fprintf stdout "  L" else

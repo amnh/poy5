@@ -16,6 +16,7 @@ nonaddCSc16.o
 nonaddCSc32.o
 queue_with_linkedlist.o
 readlineml.o
+sankoff.o
 sleep.o
 ukk.checkp.o
 ukkCommon.o

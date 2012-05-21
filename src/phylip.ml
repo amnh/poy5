@@ -166,6 +166,7 @@ let of_file (file : FileStream.f) =
                         st_name = file ^ ":" ^ (string_of_int i);
                         st_alph = alphabet;
                         st_observed = get_observed final_seq_matrix i;
+                        st_normal = None;
                         st_labels = [];
                         st_weight = 1.0;
                         st_type = Nexus.File.STUnordered;

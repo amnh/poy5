@@ -154,6 +154,7 @@ let headers =
         "newkkonen.h";
         "nonaddCSc.h";
         "queue_with_linkedlist.h";
+        "sankoff.h";
         "seq.h";
         "ukkCommon.h";
         "union.h";

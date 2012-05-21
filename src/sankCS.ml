@@ -31,6 +31,8 @@
 let () = SadmanOutput.register "SankCS" "$Revision: 2871 $"
 
 let debug = false
+
+let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
     
 let infinity = max_int / 4
 let is_infinity x = x >= infinity
@@ -73,7 +75,10 @@ type cm = int array array               (* never have infinity *)
 
 
 type gen = int * int * cm
-
+(*
+type elt in sankoff.c*)
+type elt
+(*
 type elt = {
     ecode : int;
     
@@ -103,6 +108,9 @@ type elt = {
     best_states : int list;
 
 }
+*)
+type t
+(*
 (* The Sankoff character type *)
 type t = { 
     (* The code the character belongs to. Every pair of characters with the same
@@ -115,10 +123,29 @@ type t = {
     (* A bunch of individual characters *)
     elts : elt array;
 }
+*)
 
 (* A default string representation as a list with the minimal states (those with
 * minimal cost in the state array). *)
-let elt_to_string a = 
+
+external set_gc_alloc_max : int -> unit = "sankoff_GC_custom_max"
+
+external get_ecode : elt -> int = "sankoff_CAML_get_ecode"
+
+external get_taxon_code : t -> int = "sankoff_CAML_get_taxon_code"
+
+external get_num_elts : t -> int = "sankoff_CAML_get_num_elts" 
+
+external get_elt : t -> int -> elt = "sankoff_CAML_get_elt"
+
+external get_tcm : t ->
+    (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t =
+        "sankoff_CAML_get_tcm"
+
+external get_extra_cost_for_root : t -> int = "sankoff_CAML_get_extra_cost_for_root"
+
+
+(*let elt_to_string a = 
     let sep = ref "" in
     let res, _ = Array.fold_left 
             begin fun (b, pos) a -> 
@@ -142,9 +169,28 @@ let to_string s =
     let list = Array.to_list s.elts in
     let strings = List.map elt_to_string list in
     "[" ^ String.concat "; " strings ^ "]"
+*)
 
-let to_list s = 
-    let remove_inf x = if is_infinity x then max_int else x in
+let to_string s = " to do "
+
+external get_states : elt -> 
+    (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t
+    = "sankoff_CAML_get_states"
+    
+let to_list s =
+    let num_elts = get_num_elts s in
+    let res = Array.init num_elts (fun eltNO ->
+        let thiselt = get_elt s eltNO in
+        let states_bigarr = get_states thiselt in
+        let states = Array.init (Bigarray.Array1.dim states_bigarr) 
+        (fun x -> 
+            Int32.to_int (Bigarray.Array1.get states_bigarr x)
+        )  in
+        get_ecode thiselt,
+        states
+    ) in
+    Array.to_list res
+    (*let remove_inf x = if is_infinity x then max_int else x in
     let array =
         Array.map
             (fun x ->
@@ -152,9 +198,9 @@ let to_list s =
                 x.ecode,states)
             s.elts
     in
-    Array.to_list array
+    Array.to_list array*)
 
-let elt_to_full_string a =
+(*let elt_to_full_string a =
     let string_of_costarray a =
         let ar =
             Array.mapi (fun i c -> (string_of_int i ^ "=" ^ string_of_cost c)) a
@@ -163,26 +209,27 @@ let elt_to_full_string a =
     let beta = string_of_costarray a.beta in
     let e = string_of_costarray a.e in
     "states=[" ^ states ^ "]; beta=[" ^ beta ^ "]; e=[" ^ e ^ "]"
+
 let to_full_string s =
     let list = Array.to_list s.elts in
     let strings = List.map elt_to_full_string list in
     "[" ^ String.concat "; " strings ^ "]"
 
 let to_string = to_full_string
-    
+*)  
 
 let assert_ninf a x y=
     assert (
         if is_infinity a then begin
-         print_string (elt_to_full_string x);
-            print_string (elt_to_full_string y);
+         (*print_string (elt_to_full_string x);
+            print_string (elt_to_full_string y);*)
             false
         end else true);
     a
 
 
 
-(* An empty character. This is used only for the parsing process. *)
+(* An empty character. This is used only for the parsing process. 
 let empty =
     { elts = [||];
       code = (-1);
@@ -197,7 +244,9 @@ let empty_elt =
       ecode = (-1);
       best_states = [];
     }
+*)
 
+(* nobody calls this
 let codes {elts=elts} =
     let len = Array.length elts in
     let acc = ref [] in
@@ -205,6 +254,7 @@ let codes {elts=elts} =
         acc := (elts.(i).ecode) :: !acc
     done;
     !acc
+*)
 
 (* The cost of a transformation occurring in the following order i -> j + i -> k
  * as defined in the transformation cost matrix par. *)
@@ -214,21 +264,25 @@ let median_cost par i j k =
 let get_min a = Array.fold_left cost_min infinity a
 
 
-(* The code of the character a *)
-let code a = a.code
+external get_code : t -> int = "sankoff_CAML_get_code"
+(* The code of the character a 
+let code a = a.code *)
 
+(*nobody calls this
 let mem cs t = match cs with
     | None    -> true
     | Some [] -> false
     | Some xs -> List.mem (code t) xs
+*)
 
-(* Code of the element *)
-let ecode e = e.ecode
+(* Code of the element 
+let ecode e = e.ecode*)
 
-(* The transformation cost matrix associated with character a *)
-let tcm a = a.tcm
+(* The transformation cost matrix associated with character a --nobody calls
+* this 
+let tcm a = a.tcm*)
 
-let set_tcm cm t  = {t with tcm = cm;}
+(*let set_tcm cm t  = {t with tcm = cm;} nobody calls this*)
 
 let print_tcm tcm =
     Array.iter (fun row ->
@@ -237,8 +291,8 @@ let print_tcm tcm =
                     print_newline ())
         tcm
 
-(* How many states there are *)
-let nstates a = Array.length a.tcm
+(* How many states there are-- nobody calls this
+let nstates a = Array.length a.tcm*)
 
 (* We'll be using this a lot ...
  * (make it monomorphic; more efficient?) *)
@@ -247,25 +301,9 @@ let store_min (a : cost) b = if a <$ !b then b := a
 let is_inf x = is_infinity x
 
 
+
+
 (* Even OTUs must have [beta] values, so we may as well store [e], also. *)
-let canonize tcm a =
-    let states = Array.length a.s in
-    let minval = Array.fold_left cost_min infinity a.s in
-    let e = Array.init states
-        (fun i ->
-            if is_infinity a.s.(i) then infinity
-            else a.s.(i) -$ minval) in
-    let beta = Array.init states
-        (fun s ->
-             let best = ref infinity in
-             for x = states - 1 downto 0 do
-                 store_min
-                     (if is_inf e.(x) then e.(x)
-                      else e.(x) +$ (tcm.(s).(x)))
-                     best
-             done;
-             !best) in
-    { a with e = e; beta = beta; }
 
 (* A random character generator specification *)
 let rand_gen () = 
@@ -283,19 +321,19 @@ let rand_gen () =
 (*     canonize *)
 (*         { empty with s = states; code = code; tcm = tcm } *)
 
-let get_minstates {e=a} =
+(*let get_minstates {e=a} =
     let (_, list) = 
         Array.fold_right (fun v (num, lst) ->
                               if v = 0
                               then (num - 1, num :: lst)
                               else (num - 1, lst)) a (Array.length a - 1, [])
     in list
-
+no one calls this *)
 
 (* Calculates the median between to characters a and b. a and b have to be
 * homologous (same code), and must also have the same transformation cost matrix
 * associated. If they are homologous, it must also be the case that they hold
-* the same number of valid states. *)
+* the same number of valid states. 
 let elt_median tcm a b = 
     let debug = false in
     assert ((Array.length a.s) = (Array.length b.s));
@@ -334,20 +372,38 @@ let elt_median tcm a b =
         !best
     in
     let beta = Array.init states beta_init in
-    { a with s = c; beta = beta; e = e; m = None; }
+    { a with s = c; beta = beta; e = e; m = None; } 
+    *)
 
-let median _ a b =
-    if debug then Printf.printf "SankCS.median\n%!";
+external median_cside : int -> t -> t -> t = "sankoff_CAML_median"
+
+external get_sumcost : t -> int = "sankoff_CAML_get_sumcost"
+
+
+let median median_node_code a b =
+    let debug = false in
+    if debug then Printf.printf "SankCS.median,median_node_code=%d\n%!" median_node_code;
+    let med = median_cside median_node_code a b in
+    let sumcost = get_sumcost med in
+    if (sumcost<0) then 
+    error_user_message "subtree cost exceed max_int of current system.";
+    let cost = float_of_int sumcost in
+    if debug then Printf.printf "max_int = %d, return median with cost = %f\n%!" max_int cost;
+    med,cost
+    (*
     assert (a.code = b.code);
     assert (a.tcm = b.tcm);
     if debug then Printf.printf "median\n a = %s\n b = %s\n%!" (to_string a) (to_string b);
     let res = { a with elts = Array.mapi (fun i -> elt_median a.tcm a.elts.(i)) b.elts }
     in
     if debug then Printf.printf "median <- %s\n%!" (to_string res);
-    res
+    res*)
 
-(* Calculates the distance between two characters a and b *)
-(* Note that we only calculate the _added_ distance *)
+
+
+(* move to cside 
+* Calculates the distance between two characters a and b *)
+(* Note that we only calculate the _added_ distance 
 let elt_distance tcm a b =
     let median = elt_median tcm a b in
     let get_cost m =
@@ -355,8 +411,10 @@ let elt_distance tcm a b =
     let med_cost = get_cost median in
     let a_cost = get_cost a in
     let b_cost = get_cost b in
+    (*this is wrong*)
     med_cost -. a_cost -. b_cost
-
+*)
+(* to do
 let elt_distance_and_median tcm a b = 
     let median = elt_median tcm a b in
     let get_cost m =
@@ -366,25 +424,33 @@ let elt_distance_and_median tcm a b =
     let b_cost = get_cost b in
     med_cost -. a_cost -. b_cost, 
     median
+*)
 
-
+external distance_cside : t -> t -> int = "sankoff_CAML_distance"
 (** [distance a b] return the sankoff distance. Note that it calls
 * [elt_distance], which will call [elt_median]. if you need median and distance,
 * don't call two functions seperately, use [distance_and_median] instead*)
 let distance a b =
     if debug then Printf.printf "SankCS.distance\n%!";
-    let tcm = a.tcm in
+    let dis = distance_cside a b in
+    float_of_cost dis
+    (*let tcm = a.tcm in
     let acc = ref 0. in
     for i = Array.length a.elts - 1 downto 0 do
         acc := !acc +. elt_distance tcm a.elts.(i) b.elts.(i)
     done;
     if debug then Printf.printf "distance = %f\n%!" !acc;
     !acc
+*)
+
+(* to do : get the distance function right, then back to this
+external distance_and_median_cside : t -> t -> int * t = ""   
 
 let distance_and_median a b =
-    if debug then Printf.printf 
-    "SankCS.distance_and_median,median\n a = %s\n b = %s\n%!"
-    (to_string a) (to_string b);
+    let dis,med = distance_and_median_cside a b in
+    float_of_cost dis, med
+*)
+(*    if debug then Printf.printf "SankCS.distance_and_median\n%!";
     assert (a.code = b.code);
     assert (a.tcm = b.tcm);
     let tcm = a.tcm in
@@ -400,23 +466,29 @@ let distance_and_median a b =
     in
     if debug then Printf.printf "distance = %f,median = %s\n%!" 
     !acc (to_string med);
-    !acc, med
+    !acc, med*)
 
 
 (* Compares two characters a and b. Note that this comparison is used basically
  * in the sets, and therefore, comparing the codes is enough (all the characters in
- * a set have different codes). *)
+ * a set have different codes). 
 let compare_codes a b = 
     compare a.code b.code
+no one calls this*)
 
 (* Compares the data in the two characters a and b.  This is used to find cases
  * where a graph update does not change values far away in the graph, so that
  * propagation can be stopped. *)
-let compare_data a b =
-    compare a b
+external compare_cside : t -> t -> int = "sankoff_CAML_compare_eltarr"
 
-(* A dummy function to be improved later using the official parser *)
+let compare_data a b =
+    compare_cside a b
+    (*compare a b*)
+
+(* A dummy function to be improved later using the official parser 
 let parse a = [("", empty) ]
+*)
+
 let init2 len1 len2 fn =
     Array.init len1
         (fun i ->
@@ -424,8 +496,9 @@ let init2 len1 len2 fn =
              Array.init len2 (fun j -> fn j))
 
 
-(* This algorithm is taken from Goloboff 1998.  Calculate D', then the final E
- * value from that. *)
+(* move to cside
+* This algorithm is taken from Goloboff 1998.  Calculate D', then the final E
+ * value from that.
 let elt_median_3 tcm a n l r =          (* ancestor, node, left, right *)
     let states = Array.length n.s in
     (* NOTE that this is REVERSED: d'[i][s], not d'[s][i] *)
@@ -477,13 +550,20 @@ let elt_median_3 tcm a n l r =          (* ancestor, node, left, right *)
     in
     let e = Array.init states init_e in
     { n with e = e; m = None; best_states = mybest }
+move this to c side*)
+
+
+external median_3_cside : t -> t -> t -> t -> t = "sankoff_CAML_median_3"
 
 let median_3 a n l r =
-    let tcm = n.tcm in
-    let elts = Array.init (Array.length n.elts)
-        (fun i ->
-             elt_median_3 tcm a.elts.(i) n.elts.(i) l.elts.(i) r.elts.(i))
-    in { n with elts = elts }
+    let debug = false in
+    let tcn = get_taxon_code n in
+    let tcr = get_taxon_code l in
+    if debug then Printf.printf "median 3, taxon code, nodeN=%d =?= nodeR=%d\n%!" tcn tcr;
+    if tcn=tcr then(*leafnode*)
+        n
+    else
+        median_3_cside a n l r
 
 
 let get_min_cost_between_same_states same_states cm = 
@@ -498,6 +578,7 @@ let get_min_cost_between_same_states same_states cm =
     end;
     !best
 
+(*
 let elt_return_shared_states r a =
     let states = Array.length r.s in
     let acc = ref [] in
@@ -511,8 +592,9 @@ let elt_return_shared_states r a =
         end
         else exists (n + 1)
     in exists 0
+*)
 
-
+(* not in use any more
 let elt_exists_shared_state r a =
     let states = Array.length r.s in
     (* a state is optimal if e.(i) = 0 *)
@@ -522,8 +604,10 @@ let elt_exists_shared_state r a =
         else if r.e.(n) = 0 && a.e.(n) = 0
         then true
         else exists (n + 1)
-    in exists 0
+    in exists 0 *)
 
+
+(* move to cside
 let elt_dist_2 tcm r a d =
     let debug = false in
     if debug then Printf.printf "elt_dist_2, r.elts=%s\n a.elts=%s \n d.elts=%s \n%!"
@@ -575,6 +659,8 @@ E(i,A(d))=%d + tcm.i.s=%d + nodeD.beta.s=%d - best(%d)\n%!"
                           if !best<=oldbest then
                               besti := x::(!besti);
                       done;
+                      (*when the best assignment to nodeM(s) is included in
+                  * nodeA, an extra cost between same states must be added *)
                       if (List.mem s !besti) then
                           best := !best + tcm.(s).(s);
                       if debug then Printf.printf 
@@ -601,9 +687,14 @@ M(%d) + tcm(%d) + E(%d)\n%!" x y m tcm.(y) e.(y);
         done;
         float_of_cost !best
     end
+*)
+
+external dist_2_cside : t -> t -> t -> int = "sankoff_CAML_dist_2"
 
 let dist_2 r a d =
-    let debug = false in
+    let dis = dist_2_cside d a r in
+    float_of_cost dis
+    (*let debug = false in
     if debug then Printf.printf "dist_2 on r = %s\n a = %s\n d = %s\n%!"
     (to_string r) (to_string a) (to_string d);
     let acc = ref 0. in
@@ -613,12 +704,15 @@ let dist_2 r a d =
         acc := !acc +. disti;
     done;
     !acc
+*)
+
 
 let elt_to_formatter attr d tcm elt elt_parent : Xml.xml Sexpr.t =
     let module T = Xml.Characters in
     match attr with
     | [_, `String x] -> 
             let cost, lst =
+                (* to do : write a cside function for this
                 if x = Xml.Nodes.preliminary then
                     (* In this case we just pick the smallest of all mine *)
                     let lst = ref []
@@ -657,15 +751,18 @@ let elt_to_formatter attr d tcm elt elt_parent : Xml.xml Sexpr.t =
                     in
                     cost, lst
                 else assert false
+                *)
+                0,[]
             in
+            let ecode = get_ecode elt in
             let create x = 
                 (PXML -[T.value] 
-                    [ `String (Data.to_human_readable d elt.ecode x) ] -- ) 
+                    [ `String (Data.to_human_readable d ecode x) ] -- ) 
             in
             (PXML 
                 -[T.sankoff] 
                     (* Attributes *)
-                    ([T.name] = [`String (Data.code_character elt.ecode d)])
+                    ([T.name] = [`String (Data.code_character ecode d)])
                     ([T.cost] = [`Int cost])
                     ([T.definite] = [`Bool (cost > 0)])
                     ([attr])
@@ -676,15 +773,23 @@ let elt_to_formatter attr d tcm elt elt_parent : Xml.xml Sexpr.t =
     | _ -> assert false
 
 
+
+let get_elts_from_t thist =
+    let num_elts = get_num_elts thist in
+    Array.init num_elts (fun i -> get_elt thist i)
+    
+
 let to_formatter attr a (parent : t option) d : Xml.xml Sexpr.t list =
-    let items = Array.to_list a.elts in
+    let items = Array.to_list (get_elts_from_t a) in (*Array.to_list a.elts in*)
     let items_parent = match parent with 
-    | Some parent -> Array.to_list parent.elts 
+    | Some parent -> Array.to_list (get_elts_from_t parent) (*parent.elts*) 
     | None -> items   
     in 
-    let tcm = a.tcm  in
+    let tcm = get_tcm a in (*a.tcm  in*)
     List.map2 (elt_to_formatter attr d tcm) items  items_parent
 
+
+(* no one calls these 
 let make_onestate code tcm state =
     { code = code;
         tcm = tcm;
@@ -699,6 +804,7 @@ let make_onestate code tcm state =
 
 let make_randstate code tcm =
     make_onestate code tcm (Random.int (Array.length tcm))
+
 
 let make_n_randstate scode codefn n tcm =
     let states = Array.length tcm in
@@ -751,8 +857,54 @@ let make_random_tcm ?(max=7) len =
         done
     done;
     res
+*)
 
+(* move to cside
+let canonize tcm a =
+    let states = Array.length a.s in
+    let minval = Array.fold_left cost_min infinity a.s in
+    let e = Array.init states
+        (fun i ->
+            if is_infinity a.s.(i) then infinity
+            else a.s.(i) -$ minval) in
+    let beta = Array.init states
+        (fun s ->
+             let best = ref infinity in
+             for x = states - 1 downto 0 do
+                 store_min
+                     (if is_inf e.(x) then e.(x)
+                      else e.(x) +$ (tcm.(s).(x)))
+                     best
+             done;
+             !best) in
+    { a with e = e; beta = beta; }
+*)
+
+
+external create_eltarr_cside : int -> int -> int ->
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t -> 
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+        t = "sankoff_CAML_create_eltarr_bytecode" "sankoff_CAML_create_eltarr"
+
+let create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm =
+    let tcm_int32 = Utl.int_to_int32_mat tcm in
+    let tcm_bigarr 
+    = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in
+    let state_bigarr = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout
+    state_arrarr in
+    let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
+    ecode_arr in
+    create_eltarr_cside taxcode mycode nstates ecode_bigarr state_bigarr tcm_bigarr
+
+(*create sankoff chr from input file*)
 let of_parser tcm (arr, taxcode) mycode =
+    let debug = false in
+    if debug then Printf.printf "SankCS.of_parser,taxcode=%d,mycode=%d\n%!" taxcode mycode;
+    (*let tcm_int32 = Utl.int_to_int32_mat tcm in
+    let tcm_int32 = Utl.int_to_int32_mat tcm in
+    let tcm_bigarr 
+    = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in*)
     let nstates = Array.length tcm in
     let all_states = Array.to_list (Array.init nstates (fun x -> x)) in
     let make_elt (elt, ecode) =
@@ -763,22 +915,30 @@ let of_parser tcm (arr, taxcode) mycode =
             | None -> all_states
         in
         assert (List.fold_left (fun acc x -> acc && x < nstates) true states);
-        canonize tcm
-            { empty_elt with
-                  ecode = ecode;
-                  s = Array.init nstates
-                    (fun i ->
-                         if List.mem i states
-                         then 0
-                         else infinity);}
+        (*infinity here is not infinity on the c side, we pass (-1) instead*)
+        let state_arr =  Array.init nstates (fun i -> 
+            if List.mem i states then Int32.of_int 0 
+            else Int32.of_int (-1) (*infinity*)
+        ) in
+        Int32.of_int ecode, state_arr
     in
-
     let elts = Array.map make_elt arr in
-    ({ elts = elts;
-           tcm = tcm;
-           code = mycode;
-     }, taxcode)
+    let eltlst = Array.to_list elts in 
+    let ecode_lst,state_arrlst = List.split eltlst in
+    let ecode_arr,state_arrarr = Array.of_list ecode_lst, Array.of_list
+    state_arrlst in
+    create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm,
+    (*
+    let states_bigarr = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout
+    state_arrarr in
+    let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
+    ecode_arr in
+    create_eltarr taxcode mycode nstates ecode_bigarr states_bigarr
+    tcm_bigarr,*)
+    taxcode
+    
 
+(* no one calls this
 let reroot_elt tcm old p q =
     (* See Goloboff 1998, p234 (p6) *)
     let states = Array.length p.s in
@@ -812,30 +972,56 @@ let reroot_elt tcm old p q =
              !best) in
     { old with e = newe }
 
+
 let reroot old p q =
     let tcm = old.tcm in
     let newelts = Array.init (Array.length old.elts)
         (fun i ->
              reroot_elt tcm old.elts.(i) p.elts.(i) q.elts.(i)) in
     { old with elts = newelts }
+no one calls this *)
 
-let get_elt_array {elts=e} = e
+(*
+let get_elt_array {elts=e} = e*)
 
+(*  no longer in use
 let elt_filter f elt = 
     Array_ops.filter f elt
 
 let filter f t =
     { t with elts = elt_filter f t.elts }
+no longer in use*)
 
-let f_codes t codes = 
+external filter_character : t -> 
+    (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t -> int -> t = 
+        "sankoff_CAML_filter_character"
+
+let f_codes t codes =
+    let ecodelst = All_sets.Integers.elements codes in
+    let ecodearr = Array.of_list ecodelst in
+    let ecodearr = Array.map (fun x -> Int32.of_int x ) ecodearr in
+    let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
+    ecodearr
+    in
+    filter_character t ecode_bigarr 0
+    (*
     let check x = All_sets.Integers.mem x.ecode codes in
-    filter check t
+    filter check t*)
 
 let f_codes_comp t codes = 
+    let ecodelst = All_sets.Integers.elements codes in
+    let ecodearr = Array.of_list ecodelst in
+    let ecodearr = Array.map (fun x -> Int32.of_int x ) ecodearr in
+    let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
+    ecodearr
+    in
+    filter_character t ecode_bigarr 1
+    (*
     let check x = not (All_sets.Integers.mem x.ecode codes) in
     filter check t
+    *)
 
-let cardinal t = Array.length t.elts
+let cardinal t = get_num_elts t (*Array.length t.elts*)
 
 
 (* We will program branch and bound only for sankoff characters *)
@@ -922,7 +1108,7 @@ let bb mtx characters =
 * all possible sets of assignments, and that way we will be able to search for
 * the best cost _found_ during a search. The function assumes that the cost
 * matrix is metric, otherwise the method that this function is used for will be
-* ... ehm ... broken. *)
+* ... ehm ... broken. 
 let get_all_possible_assignments (elts : int list option list) = 
     let rec aux_all_possiblities left sets = 
         match left with
@@ -955,6 +1141,7 @@ let get_all_possible_assignments (elts : int list option list) =
         remove_supersets x []
     in
     List.map All_sets.Integers.elements x
+no one calls this *)
 
 let min_possible_cost mtx (elts : Nexus.File.static_state list) = 
     let all_possible = 

@@ -255,7 +255,7 @@ case ${OS_INFORMATION} in
         ;;
 esac
 
-AC_MSG_CHECKING([for concorde.a])
+AC_MSG_CHECKING([whether to enable Concorde])
 if test -f "$concorde_dir/concorde.a"; then
    AC_MSG_RESULT([yes])
    AC_MSG_RESULT([Using Concorde])
@@ -272,7 +272,6 @@ else
    CONCORDE_LIB=""
    CONCORDE_CFLAGS=""
    OUSE_CONCORDE=""
-   AC_MSG_RESULT( [Not Using Concorde ] )
 fi
 
 #AS_IF([test $USE_CONCORDE = "true"],
