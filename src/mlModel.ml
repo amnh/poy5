@@ -678,7 +678,6 @@ let diagonalize sym mat =
     | true  -> apply_sym mat
     | false -> apply_gtr mat
 
-(* for pure ocaml median functions *)
 let compose model t = match model.ui with
     | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
     | None    -> compose_sym FMatrix.scratch_space model.u model.d t

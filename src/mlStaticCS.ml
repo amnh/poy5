@@ -148,6 +148,8 @@ external filter: s -> int array -> s = "likelihood_CAML_filter"
 
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 
+external debug: s -> unit = "likelihood_CAML_debug"
+
 (* ------------------------------------------------------------------------- *)
 (* printing functions *)
 let print_barray1 a = 
@@ -225,7 +227,8 @@ let to_string _ = "MLStaticCS"
 
 let print a = print_barray3 (fst (s_bigarray a.chars));
               MlModel.output_model print_string `Nexus a.model None;
-              Printf.printf "\nLikelihood: %f\n%!" (a.mle)
+              Printf.printf "\nLikelihood: %f\n%!" (a.mle);
+              ()
 
 let cardinal ta = Array.length ta.codes
 
@@ -648,8 +651,10 @@ ELSE
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
 
+let set_smpl_smoothness _ = failwith likelihood_error
 
 let minimum_bl () = failwith likelihood_error
 
 type t = unit
+
 END
