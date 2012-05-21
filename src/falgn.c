@@ -165,7 +165,7 @@ full_backtrace (const seqt x, const seqt y, seqt e1, seqt e2, seqt m, fcmt *FA)
     x_loc = x->len - 1;
     y_loc = y->len - 1;
 
-    seq_clear( m  );
+    seq_clear( m );
     seq_clear( e1 );
     seq_clear( e2 );
 
@@ -332,32 +332,35 @@ void update_all( fcmt *FA, const seqt x, const seqt y, const int i, const int j 
 /*           FA->costs[j*x->len + i-1], FA->costs[(j-1)*x->len + i]);*/
 
     place = j * x->len + i;
-    cost_aln = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i),      GET(y,j)      );
-    cost_ins = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i),      FA->fmat->gap );
-    cost_del = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j)      );
+    //cost_aln = FA->costs[(j-1)*x->len + i-1] + fcost( FA->fmat, GET(x,i),      GET(y,j)      );
+    //cost_ins = FA->costs[ j   *x->len + i-1] + fcost( FA->fmat, GET(x,i),      FA->fmat->gap );
+    //cost_del = FA->costs[(j-1)*x->len + i  ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j)      );
+    cost_aln = FA->costs[ place - x->len - 1 ] + fcost( FA->fmat, GET(x,i),      GET(y,j)      );
+    cost_ins = FA->costs[ place - 1          ] + fcost( FA->fmat, GET(x,i),      FA->fmat->gap );
+    cost_del = FA->costs[ place - x->len     ] + fcost( FA->fmat, FA->fmat->gap, GET(y,j)      );
 
     if( FEQUALS(cost_aln,cost_ins) ){
         temp_dir = ALIGN | INSERT;
         temp_min = MIN(cost_aln,cost_ins);
-        temp_gap =  MIN( 1 + FA->nukk[j*x->len + (i-1)],
-                         ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[(j-1)*x->len+(i-1)]);
+        temp_gap =  MIN( 1 + FA->nukk[ place-1 ],
+                         ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[ place - x->len-1 ]);
     } else if ( cost_aln < cost_ins ){
         temp_dir = ALIGN;
         temp_min = cost_aln;
-        temp_gap = ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[(j-1)*x->len+(i-1)];
+        temp_gap = ((GET(x,i)&GET(y,j))>0?0:1) + FA->nukk[ place - x->len-1 ];
     } else {
         temp_dir = INSERT;
         temp_min = cost_ins;
-        temp_gap =  1 + FA->nukk[j*x->len + (i-1)];
+        temp_gap =  1 + FA->nukk[ place - 1 ];
     }
     if( FEQUALS( temp_min, cost_del ) ){
         temp_dir |=  DELETE;
         temp_min  = MIN(temp_min,cost_del);
-        temp_gap  = MIN( 1 + FA->nukk[(j-1)*x->len+i], temp_gap );
+        temp_gap  = MIN( 1 + FA->nukk[ place - x->len ], temp_gap );
     } else if ( cost_del < temp_min ){
         temp_dir = DELETE;
         temp_min = cost_del;
-        temp_gap = 1 + FA->nukk[(j-1)*x->len+i];
+        temp_gap = 1 + FA->nukk[ place - x->len ];
     }
 /*    printf("\tC:(%d,%d): A:%f\tI:%f\tD:%f --> %f[%d]\n",*/
 /*            i,j, cost_aln, cost_ins, cost_del, temp_min, temp_dir);*/
