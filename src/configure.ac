@@ -285,11 +285,9 @@ fi
 #               ],
 #                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
-# Check if the user wants SSE3 instructions, copy cflags to temporary variable
-
 USED_SSE="false"
 AS_IF([test $USE_SSE = "true"],
-    [AC_MSG_CHECKING([SSE4 support]); CFLAGS_TMP=$CFLAGS; CFLAGS="-msse4";
+    [AC_MSG_CHECKING([SSE4 support]); CFLAGS_TMP="$CFLAGS"; CFLAGS="-msse4";
      AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                 [[
                     #include <smmintrin.h>
@@ -298,12 +296,12 @@ AS_IF([test $USE_SSE = "true"],
                     __m128d res = _mm_pd_dp( _mm_set_pd(1.0,2.0), _mm_set_pd(2.0,1.0), 0x31);
                 ]])],
             [CFLAGS="-msse4 $CFLAGS_TMP";USED_SSE="true";OUSE_SSE=",use_sse4";AC_MSG_RESULT([yes])],
-            [AC_MSG_RESULT([no])])],
+            [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([no])])],
     [AC_MSG_CHECKING([SSE4 support]);AC_MSG_RESULT([disabled])])
 
 if test x"$USED_SSE" = x"false"; then
     AS_IF([test $USE_SSE = "true"],
-        [AC_MSG_CHECKING([SSE3 support]); CFLAGS_TMP=$CFLAGS; CFLAGS="-msse3";
+        [AC_MSG_CHECKING([SSE3 support]); CFLAGS_TMP="$CFLAGS"; CFLAGS="-msse3";
          AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                     [[
                         #include <pmmintrin.h>
@@ -312,7 +310,7 @@ if test x"$USED_SSE" = x"false"; then
                         __m128d res = _mm_hadd_pd( _mm_set_pd(1.0,2.0), _mm_set_pd(1.0,2.0));
                     ]])],
                 [CFLAGS="-msse3 $CFLAGS_TMP";OUSE_SSE=",use_sse3";AC_MSG_RESULT([yes])],
-                [AC_MSG_RESULT([no])])],
+                [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([no])])],
         [AC_MSG_CHECKING([SSE3 support]);AC_MSG_RESULT([disabled])])
 fi
 
