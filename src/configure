@@ -5194,23 +5194,27 @@ fi
 done
 
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking to enable likelihood" >&5
+$as_echo_n "checking to enable likelihood... " >&6; }
 # Time to handle the lapack checks
 case ${OS_INFORMATION} in
     *-apple-*)
         if test $USE_LIKELIHOOD = "true"; then :
   LIBS="-framework veclib $LIBS";USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
-                 OUSE_LIKELIHOOD=",use_likelihood";{ $as_echo "$as_me:${as_lineno-$LINENO}: result: Found lapack and enabling Likelihood" >&5
-$as_echo "Found lapack and enabling Likelihood" >&6; };
+                 OUSE_LIKELIHOOD=",use_likelihood";{ $as_echo "$as_me:${as_lineno-$LINENO}: result: enabled" >&5
+$as_echo "enabled" >&6; };
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not enabling Likelihood" >&5
-$as_echo "Not enabling Likelihood" >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled" >&5
+$as_echo "disabled" >&6; }
 fi
         ;;
     *)
         if test $USE_LIKELIHOOD = "false"; then :
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lgfortran" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: attempting" >&5
+$as_echo "attempting" >&6; }
+             { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lgfortran" >&5
 $as_echo_n "checking for main in -lgfortran... " >&6; }
 if ${ac_cv_lib_gfortran_main+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -5309,9 +5313,8 @@ $as_echo "$ac_cv_lib_f2c_main" >&6; }
 if test "x$ac_cv_lib_f2c_main" = xyes; then :
   LFORTRAN="-lf2c"
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Cannot find appropriate fortran library" >&5
-$as_echo "Cannot find appropriate fortran library" >&6; };
-                     USE_LIKELIHOOD="false"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }; USE_LIKELIHOOD="false"
 fi
 
 fi
@@ -5321,8 +5324,8 @@ fi
 fi
 
         if test $USE_LIKELIHOOD = "false"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Not enabling Likelihood" >&5
-$as_echo "Not enabling Likelihood" >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled" >&5
+$as_echo "disabled" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -llapack" >&5
 $as_echo_n "checking for main in -llapack... " >&6; }
@@ -5356,21 +5359,27 @@ fi
 $as_echo "$ac_cv_lib_lapack_main" >&6; }
 if test "x$ac_cv_lib_lapack_main" = xyes; then :
   USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood";
-                 { $as_echo "$as_me:${as_lineno-$LINENO}: result: Found lapack and enabling Likelihood" >&5
-$as_echo "Found lapack and enabling Likelihood" >&6; }; LIBS="-llapack -lblas $LFORTRAN $LIBS"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: lapack not found; continuing without Likelihood" >&5
-$as_echo "lapack not found; continuing without Likelihood" >&6; }
+                 LIBS="-llapack -lblas $LFORTRAN $LIBS"
 fi
 
 fi
 
         #if we cannot enable likelihood; check if this was forced!
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking if we enabled likelihood analysis" >&5
+$as_echo_n "checking if we enabled likelihood analysis... " >&6; }
         if (test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false"); then
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: no " >&5
+$as_echo "no " >&6; }
             { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Cannot find LAPACK/FORTRAN routines to enable likelihood analysis
+as_fn_error $? "I cannot find LAPACK or FORTRAN routines to enable likelihood a analysis.
 See \`config.log' for more details" "$LINENO" 5; }
+        elif test $USE_LIKELIHOOD = "true"; then
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes " >&5
+$as_echo "yes " >&6; }
+        else
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: no " >&5
+$as_echo "no " >&6; }
         fi
         ;;
 esac
