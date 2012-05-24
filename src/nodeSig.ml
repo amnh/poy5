@@ -299,7 +299,8 @@ module type S = sig
     val get_nonadd_8 : int option -> n -> (NonaddCS8.t * NonaddCS8.t) list
     val get_nonadd_16 : int option -> n -> (NonaddCS16.t * NonaddCS16.t) list
     val get_nonadd_32 : int option -> n -> (NonaddCS32.t * NonaddCS32.t) list
-    val get_add : int option -> n -> (AddCS.t * AddCS.t) list
+    val get_addgen : int option -> n -> (AddCS.General.t * AddCS.General.t) list
+    val get_addvec : int option -> n -> (AddCS.Vector.t * AddCS.Vector.t) list
     val get_sank : int option -> n -> (SankCS.t * SankCS.t) list
     val get_dynamic : int option -> n -> (DynamicCS.t * DynamicCS.t) list
     val get_mlstatic : int option -> n -> (MlStaticCS.t * MlStaticCS.t) list

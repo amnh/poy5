@@ -154,6 +154,7 @@ let headers =
         "newkkonen.h";
         "nonaddCSc.h";
         "queue_with_linkedlist.h";
+        "sankoff.h";
         "seq.h";
         "ukkCommon.h";
         "union.h";
@@ -522,8 +523,8 @@ dispatch begin function
     if @PROFILE_OCAML@ then begin
         flag["ocaml"; "native"; "link"] (S [A"-p"]);
         flag["ocaml"; "native"; "compile"] (S [A"-p"]);
-        flag["c";"link"] (S [A"-ccopt";A"-pg"]);
-        flag["c";"compile"] (S [A"-cclib";A"-pg"]);
+        flag["c";"compile"] (S [A"-ccopt";A"-pg"]);
+        flag["c";"link"] (S [A"-cclib";A"-pg"]);
     end;
 
     flag ["ocaml"; "link"]

@@ -41,7 +41,7 @@ AC_SUBST(OUSE_LARGE_ALPHABETS)
 AC_SUBST(OUSE_VERIFY_COSTS)
 AC_SUBST(OUSEGRAPHICS)
 AC_SUBST(OUSEWIN32)
-AC_SUBST(OUSE_SSE3)
+AC_SUBST(OUSE_SSE)
 AC_SUBST(OUSE_CONCORDE)
 
 AC_SUBST(INTERFACETOP)
@@ -57,7 +57,7 @@ AC_SUBST(USE_LARGE_ALPHABETS)
 AC_SUBST(USE_XSLT)
 AC_SUBST(USE_LIKELIHOOD)
 AC_SUBST(USE_CONCORDE)
-AC_SUBST(USE_SSE3)
+AC_SUBST(USE_SSE)
 AC_SUBST(USE_VERIFY_COSTS)
 
 AC_SUBST(POY_VERSION_NUMBER)
@@ -86,9 +86,6 @@ AC_SUBST(PROFILE_OCAML)
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
-
-USE_LIKELIHOOD="true"
-FORCE_LIKELIHOOD="no"
 
 # Set the default; OSX adds usr later to avoid conflict with sysroot/isysroot
 case ${OS_INFORMATION} in
@@ -154,6 +151,8 @@ AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
                 fi],
               [USE_XSLT="false"])
 
+USE_LIKELIHOOD="true"
+FORCE_LIKELIHOOD="no"
 AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
               [Enable/Disable the use of static and dynamic likelihood functions. We will automatically detect and enable likelihood if we can --we require lapack routines to be installed.])],
               [if test x"$enableval" = x"no"; then
@@ -168,9 +167,15 @@ AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
 #                [USE_CONCORDE="true"; DUSE_CONCORDE="-DUSE_CONCORDE";
 #                 OUSE_CONCORDE=",use_concorde"], [USE_CONCORDE="false"])
 
-#AC_ARG_ENABLE([sse3], [AS_HELP_STRING([--enable-sse3],
-#              [Enable the Streaming SIMD Extensions for likelihood characters.])],
-#               [USE_SSE3="true"],[USE_SSE3="false"])
+USE_SSE="false"
+AC_ARG_ENABLE([sse], [AS_HELP_STRING([--enable-sse],
+              [Enable/Disable the Streaming SIMD Extensions for likelihood characters.
+               On by default and auto-selects SSE3 or SSE4.])],
+               [ if test x"$enableval" = x"no"; then
+                    USE_SSE="false"
+                 else
+                    USE_SSE="true"
+                 fi],[])
 
 AC_ARG_ENABLE([large-alphabets], [AS_HELP_STRING([--enable-large-alphabets],
               [Enable the analysis of alphabets larger than 255 elements. When using this option, more memory will be needed to store each tree (4 or 8 times more for 32 and 64 bit computers respectively). This option is only needed for large alphabets if you use custom alphabets. Normal nucleotide, aminoacid, or morphological analyses are nor affected by this option.])],
@@ -243,17 +248,14 @@ case ${OS_INFORMATION} in
         oCFLAGS="$CFLAGS"
         CFLAGS="$FLAGS -Wl,--no-as-needed"
         AC_MSG_CHECKING([whether we need to add --no-as-needed linking option])
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], 
-                                             [[ 
-                                                int main(){ return 0; } 
-                                            ]])], 
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[]])], 
                           [AC_MSG_RESULT([yes]); CC_NOASNEEDED="true"],
                           [AC_MSG_RESULT([no]); CC_NOASNEEDED="false"]) 
         CFLAGS=$oCFLAGS
         ;;
 esac
 
-AC_MSG_CHECKING([for concorde.a])
+AC_MSG_CHECKING([whether to enable Concorde])
 if test -f "$concorde_dir/concorde.a"; then
    AC_MSG_RESULT([yes])
    AC_MSG_RESULT([Using Concorde])
@@ -270,9 +272,7 @@ else
    CONCORDE_LIB=""
    CONCORDE_CFLAGS=""
    OUSE_CONCORDE=""
-   AC_MSG_RESULT( [Not Using Concorde ] )
 fi
-
 
 #AS_IF([test $USE_CONCORDE = "true"],
 #				[
@@ -285,49 +285,34 @@ fi
 #               ],
 #                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
-# check all the individual functions for the lapack routines
-#       AS_IF([test $USE_LIKELIHOOD = "true"],
-#           [AC_CHECK_LIB([lapack],[dsyev], [AC_CHECK_LIB([lapack],[dgeev], [AC_CHECK_LIB([lapack],[dgemm],
-#           [AC_CHECK_LIB([lapack],[dgetri], [AC_CHECK_LIB([lapack],[dgetrf],
-#                   [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
-#                   [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
-#                   [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],
-#                   [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])],
-#           [AC_MSG_RESULT([Not including LAPACK])])
+USED_SSE="false"
+AS_IF([test $USE_SSE = "true"],
+    [AC_MSG_CHECKING([SSE4 support]); CFLAGS_TMP="$CFLAGS"; CFLAGS="-msse4";
+     AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+                [[
+                    #include <smmintrin.h>
+                ]],
+                [[ 
+                    __m128d res = _mm_pd_dp( _mm_set_pd(1.0,2.0), _mm_set_pd(2.0,1.0), 0x31);
+                ]])],
+            [CFLAGS="-msse4 $CFLAGS_TMP";USED_SSE="true";OUSE_SSE=",use_sse4";AC_MSG_RESULT([yes])],
+            [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([no])])],
+    [AC_MSG_CHECKING([SSE4 support]);AC_MSG_RESULT([disabled])])
 
-#case ${OS_INFORMATION} in
-#    *-apple-*)
-#        AS_IF([test $USE_SSE3 = "true"],
-#            [AC_CHECK_HEADER([pmmintrin.h],
-#                [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
-#                [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
-#            AC_MSG_RESULT([not using SSE3]))
-#        ;;
-#    *)
-#        AS_IF([test $USE_SSE3 = "true"],
-#            [AC_CHECK_HEADER([pmmintrin.h],
-#                   [AC_CHECK_FUNC([posix_memalign],
-#                       [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
-#                     [AC_MSG_FAILURE([posix_memalign not found])])],
-#                 [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
-#            AC_MSG_RESULT([Not using SSE3]))
-#        ;;
-#esac
-
-# Check if the user wants SSE3 instructions, copy cflags to temporary variable
-# to compile test SSE3
-#CFLAGS_TMP=$CFLAGS
-#CFLAGS="-msse3"
-#AS_IF([test $USE_SSE3 = "true"],
-#    [AC_MSG_CHECKING([SSE3 support...]);
-#     AC_COMPILE_IFELSE([
-#        #include <pmmintrin.h>
-#        __m128d _add(__m128d v) { return _mm_hadd_pd( v, v ); }], 
-#        [AC_CHECK_FUNC(posix_memalign, [CFLAGS="-msse3 $CFLAGS_TMP";OUSE_SSE3=",use_sse3";AC_MSG_RESULT([yes]) ], 
-#                                       [AC_MSG_FAILURE([posix_memalign memory alloctaion not found])])],
-#        [AC_MSG_FAILURE([Cannot compile SSE3 instructions])]
-#        )]
-#    )
+if test x"$USED_SSE" = x"false"; then
+    AS_IF([test $USE_SSE = "true"],
+        [AC_MSG_CHECKING([SSE3 support]); CFLAGS_TMP="$CFLAGS"; CFLAGS="-msse3";
+         AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+                    [[
+                        #include <pmmintrin.h>
+                    ]], 
+                    [[ 
+                        __m128d res = _mm_hadd_pd( _mm_set_pd(1.0,2.0), _mm_set_pd(1.0,2.0));
+                    ]])],
+                [CFLAGS="-msse3 $CFLAGS_TMP";OUSE_SSE=",use_sse3";AC_MSG_RESULT([yes])],
+                [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([no])])],
+        [AC_MSG_CHECKING([SSE3 support]);AC_MSG_RESULT([disabled])])
+fi
 
 # Time to verify if we can compile with xslt
 # Use XSLT-Config if it exists; Otherwise, assume it's in the path
@@ -444,8 +429,6 @@ AC_FUNC_STAT
 AC_SEARCH_LIBS([zlibVersion],[z])
 
 #this will only pass if m is already included; we include from OS switch above,
-# or uncomment the line below for more complex cases.
-#AC_SEARCH_LIBS([exp],[m])
 AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 
 # Time to handle the lapack checks

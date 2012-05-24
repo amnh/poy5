@@ -197,8 +197,11 @@ module OneDirF :
     let get_nonadd_32 x n =
         Node.Standard.get_nonadd_32 x (force_val n)
 
-    let get_add x n =
-        Node.Standard.get_add x (force_val n)
+    let get_addgen x n =
+        Node.Standard.get_addgen x (force_val n)
+
+    let get_addvec x n =
+        Node.Standard.get_addvec x (force_val n)
 
     let get_sank x n =
         Node.Standard.get_sank x (force_val n)
@@ -621,13 +624,14 @@ struct
 
     let character_costs = apply_on_one_direction OneDirF.character_costs 
 
-    let get_nonadd_8 = apply_on_one_direction OneDirF.get_nonadd_8
+    let get_nonadd_8  = apply_on_one_direction OneDirF.get_nonadd_8
     let get_nonadd_16 = apply_on_one_direction OneDirF.get_nonadd_16
     let get_nonadd_32 = apply_on_one_direction OneDirF.get_nonadd_32
-    let get_add = apply_on_one_direction OneDirF.get_add
-    let get_sank = apply_on_one_direction OneDirF.get_sank
-    let get_dynamic = apply_on_one_direction OneDirF.get_dynamic
-    let get_mlstatic = apply_on_one_direction OneDirF.get_mlstatic
+    let get_addgen    = apply_on_one_direction OneDirF.get_addgen
+    let get_addvec    = apply_on_one_direction OneDirF.get_addvec
+    let get_sank      = apply_on_one_direction OneDirF.get_sank
+    let get_dynamic   = apply_on_one_direction OneDirF.get_dynamic
+    let get_mlstatic  = apply_on_one_direction OneDirF.get_mlstatic
 
     (* likelihood only function to optimize the branch length *)
     let edge_iterator par mine ch1 ch2 =

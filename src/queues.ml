@@ -408,8 +408,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         in
                         let debug = false in
                         if debug then Printf.printf 
-                        "cc(%f) <= cld_cst(%f) + m_thr(%f), estimate<-%f, add to srch_trees if is_there_room(%b) \n%!" 
-                        cc cld_cst m_thr real_cost is_there_room;
+                        "cc=%f , estimate<-%f, add to srch_trees if is_there_room(%b) \n%!" 
+                        cc  real_cost is_there_room;
                         if is_there_room then begin
                             tabu_mgr#new_delta cc;
                             c_delta <- Ptree.Cost cc;

@@ -178,7 +178,7 @@
 
 		\poyexample{build(15, as\_is)}
             {Builds the first Wagner tree using the order of terminals in the first
-            imported datafile and generates the remaining
+            imported data file and generates the remaining
             14 trees using random addition sequences.}
             
             	\poyexample{build(branch\_and\_bound, trees:5)}
@@ -1143,7 +1143,7 @@
             \argumentdefinition{custom\_alphabet}{\obligatory{(STRING, STRING, 
         [orientation:\poybool])}}
             {Reads the data in the user-defined alphabet format. The first string argument is
-            the name of a datafile that contains custom-alphabet sequences in FASTA format. 
+            the name of a data file that contains custom-alphabet sequences in FASTA format. 
             The characters can be (but are not required to be) separated by spaces.
             
             The second string argument is the name of a custom-alphabet input file that contains two parts:
@@ -1556,7 +1556,7 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 
                 The argument \poyargument{cross\_references:all} generates
                 a table that shows presence and absence of fragments contained
-                within each file. If each datafile contains a
+                within each file. If each data file contains a
                 single fragment,  executing \poyargument{cross\_references:all}
                 is equivalent to executing \poyargument{cross\_references}.
                 
@@ -3839,10 +3839,10 @@ parameters and branch lengths. Additional optimizations are performed after diag
                 \argumentdefinition{alphabet:(TYPE)}{}
                     {This option is for morphology characters, and is used to
                     define the alphabet size for the transform. Unobserved 
-                    states do not add cost under parsimony, but can under likelihood. 
+                    states do not affect cost under parsimony, but can under likelihood. 
                     This argument enables the user to specify the size of the alphabet, 
                     and enables the use of the minimum number of states that would 
-                    encompass all the observed states in the data.
+                    encompass all of the observed states in the data.
 
                     \begin{description}
 

@@ -3944,9 +3944,13 @@ let rec folder (run : r) meth =
                         Status.user_message fo "@]\n%!";
                     in
                     let min_list =
-                        Data.apply_on_static AddCS.min_possible_cost
-                            NonaddCS8.min_possible_cost SankCS.min_possible_cost
-                            (fun _ _ -> 0.0) realch run.data
+                        Data.apply_on_static 
+                            AddCS.min_possible_cost
+                            NonaddCS8.min_possible_cost 
+                            SankCS.min_possible_cost
+                            (fun _ _ -> 0.0)
+                            realch
+                            run.data
                     in
                     let add_list lst = 
                         List.fold_left (fun acc (_, cost) -> cost +. acc) 0. lst

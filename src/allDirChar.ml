@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -405,10 +405,18 @@ module F : Ptree.Tree_Operations
                     let root = AllDirNode.force_val root.AllDirNode.lazy_node in
                     let cost =
                         List.fold_left
-                            (fun acc y -> acc +. (Node.total_cost_of_type y root))
+                            (fun acc y -> 
+                                let add = Node.total_cost_of_type y root in
+                                acc +. add 
+                            )
                             (0.0)
                             (Node.not_to_single)
                     in
+                    let extra_cost =  Node.extra_cost_from_root root in
+                    let cost = cost -. extra_cost in
+                    if debug_cost_fn then 
+                        Printf.printf "cost -= extra(%f) = %f\n%!"
+                        extra_cost cost;
                     cost, tree_root, root_edge
             | _ -> failwith "What?"
         in
@@ -1486,7 +1494,7 @@ module F : Ptree.Tree_Operations
             let first_cost = Ptree.get_cost `Adjusted first_tree in
             loop_ false 0 first_cost first_tree
         (** Here we apply a heuristic cost function to MPL in likelihood and
-            return a transform to turn the data back. *)
+            return a transform to turn the data back.
         and apply_heuristic_cost_model tree =
             let diagnose_tree tree data =
                 let data,nodes = AllDirNode.AllDirF.load_data data in
@@ -1507,11 +1515,10 @@ module F : Ptree.Tree_Operations
                                 ~cost_model:`MPL tree.Ptree.data
                     with
                     | None      -> assert false
-                    | Some data -> diagnose_tree tree data)
+                    | Some data -> diagnose_tree tree data) *)
         in
         let tree =
             if (using_likelihood `Either tree) then begin
-                let tree, unapply_heuristic_cost_model = apply_heuristic_cost_model tree in
                 let do_branches,branches,do_model = match node_man with
                     | Some node_man ->
                         let do_branches =
@@ -1530,7 +1537,7 @@ module F : Ptree.Tree_Operations
                 if debug_model_fn then
                     info_user_message "Optimized Likelihood Params: %f to %f"
                         (Ptree.get_cost `Adjusted tree) (Ptree.get_cost `Adjusted n_tree);
-                unapply_heuristic_cost_model n_tree
+                n_tree
             end else begin
                 match !Methods.cost with
                 | `Iterative (`ApproxD iterations)

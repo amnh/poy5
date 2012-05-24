@@ -3,11 +3,11 @@ multiple steps and a combination of different commands. Each tutorial contains a
 by detailed commentaries explaining the rationale behind each step of the analysis. Although these analyses 
 can be conducted interactively using the \emph{Interactive Console} or running separate sequential analyses
  using the \emph{Graphical User Interface}, the most practical way to do this is to use \poy scripts (see 
- \emph{ POY5 Quick Start} for more information on \poy scripts).
+ \emph{ POY5 Quick Start} for more information on \poy scripts).\\
 
-It is important to remember that the numerical values for most command arguments will differ substantially 
+{\bf It is important to remember that the numerical values for most command arguments will differ substantially 
 depending on type, complexity, and size of the data. Therefore, the values used here should not be taken as 
-optimal parameters.
+optimal parameters.}\\
 
 The tutorials use sample datasets that are provided with \poy installation but can also be downloaded from 
 the \poy site at
@@ -36,7 +36,7 @@ report(timer:"search start")
 transform(tcm:(1,2),gap_opening:1)
 build(250)
 swap(threshold:5.0)
-select()
+select(unique)
 perturb(transform(static_approx),iterations:15,ratchet:(0.2,3))
 select()
 fuse(iterations:200,swap())
@@ -53,7 +53,7 @@ exit()
 and do not affect the analyses, they are useful for housekeeping purposes.
 \item \texttt{read("9.fas","31.ss", aminoacids:("41.aa"))}
 This command imports all the nucleotide sequence data files (all files with the extension \texttt{.seq}), a 
-morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
+morphological data file \texttt{morph.ss} in Hennig86 format, and an aminoacid data file \texttt{myosin.aa}.
 \item \texttt{set(seed:1,log:"all\_data\_search.log",root:"t1")} The \poycommand{set} command specifies 
 conditions prior to tree searching. The \poyargument{seed} is used to ensure that the subsequent 
 randomization procedures (such as tree building and selecting) are reproducible. Specifying the log 
@@ -70,15 +70,16 @@ replicates.
 \item \texttt{transform(tcm:(1,2),gap\_opening:1)} This command sets the \\transformation cost matrix for 
 molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and 
 indel costs, the \poycommand{transform} specifies the cost for gap opening.
-\item \texttt{build(250)} This commands begins tree-building step of the search that generates 250 r
-andom-addition trees. A large number of independent starting points insures that a large portion of tree 
+\item \texttt{build(250)} This commands begins tree-building step of the search that generates 250 
+random-addition trees. A large number of independent starting points insures that a large portion of tree 
 space will be examined.
 \item \texttt{swap(threshold:5.0)} \poycommand{swap} specifies that each of the 250 trees is subjected to 
 alternating SPR and TBR branch swapping routine (the default of \poy). In addition to the most optimal trees, 
 all the suboptimal trees found within 5\% of the best cost are thoroughly evaluated. This step ensures that 
 the local searches settled on the local optima.
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and 
-topologically unique trees; all other trees are discarded from memory. 
+\item \texttt{select(unique)} Upon completion of branch swapping, this command retains topologically unique trees.
+Contra \texttt{select()}, which selects topologically \emph{unique} and \emph{optimal} trees,  \texttt{select(unique)} 
+selects \emph{all} unique trees, regardless of cost, thus ensuring that a larger tree space is explored.
 \item \texttt{perturb(transform(static\_approx),iterations:15,ratchet:\\(0.2,3))} This command subjects the 
 resulting trees to 15 rounds of ratchet, re-weighting 20\% of characters by a factor of 2. During ratcheting, 
 the dynamic homology characters are transformed into static homology characters, so that the fraction of 
@@ -90,7 +91,7 @@ step. This is another strategy for further exploration of tree space. Each resul
 local branch swapping under the default parameters of \poycommand{swap}.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and 
 topologically unique trees; all other trees are discarded from memory.
-\item \texttt{report("all\_trees",trees:(total),"constree",\\graphconsensus,"diagnosis",diagnosis)} This command 
+\item \texttt{report("all\_trees",trees:(total),"constree",graphconsensus,\\"diagnosis",diagnosis)} This command 
 produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical 
 notation and their costs (\texttt{all\_trees}), a graphical representation (in PDF format) of the strict consensus 
 (\texttt{constree}), and the diagnoses for all best trees (\texttt{diagnosis}).
@@ -126,8 +127,8 @@ exit()
 \item \texttt{(* search using all data under ip *)} This first line of the script is a comment. While comments are 
 optional and do not affect the analyses, they are useful for housekeeping purposes.
 \item \texttt{read("9.fas","31.ss",aminoacids:("41.aa"))} This command imports all the nucleotide sequence 
-datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, 
-and an aminoacid datafile \texttt{myosin.aa}.
+data files (all files with the extension \texttt{.seq}), a morphological data file \texttt{morph.ss} in Hennig86 format, 
+and an aminoacid data file \texttt{myosin.aa}.
 \item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most 
 optimal tree from prior analyses. 
 \item \texttt{transform(tcm:(1,2),gap\_opening:1)} This command sets the transformation cost matrix for molecular 
@@ -178,7 +179,7 @@ exit()
 \item \texttt{set(root:"Americhernus")} The \poycommand{set} command specifies conditions prior to tree 
 searching. The outgroup (\texttt{Americhernus}) is designated by the \poyargument{root}, so that all the reported 
 trees have the desired polarity.     
-\item \texttt{build(200)} This commands initializes tree-building and generates 200 random-addition trees.      
+\item \texttt{build(200)} This command initializes tree-building and generates 200 random-addition trees.      
 \item \texttt{swap(all,visited:"tmp.trees", timeout:3600)} The \poycommand{swap} command specifies that each of 
 the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).  The 
 \poyargument{all} argument turns off all swap heuristics. The \poyargument{visited:"tmp.trees"} argument stores 
@@ -239,7 +240,7 @@ file \texttt{28s.aln}, and treats the characters as static with the prescribed t
 \item \texttt{set(root:"Americhernus")} The \poycommand{set} command specifies conditions prior to tree 
 searching. The outgroup (\texttt{Americhernus}) is designated by the \poyargument{root}, so that all the reported 
 trees have the desired polarity.     
-\item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 
+\item \texttt{build()} This command begins the tree-building step of the search that generates by default 10 
 random-addition trees. It is essential that trees are either specified from a file or that trees are built and loaded in 
 memory before attempting to calculate support values.
 \item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an 
@@ -551,7 +552,7 @@ sequence length. In this case the lcb quality parameter which represents the cos
  require  a the total length of all lcbs to be at least 30. The default value of .01 or 1\% is sets the minimum length of a 
  given lcb  relative to the length of the entire sequence (e.g. 100 for a 10,000 nucleotide sequence). The maximum 
  length  allowed for an lcb in this example is set at 8\% of the length of the total sequence.
-\item \texttt{transform(chromosome:(locus\_breakpoint:20,locus\_indel:\\(10,1.5),median:1,swap\_med:1)))}  The 
+\item \texttt{transform(chromosome:(locus\_breakpoint:20,locus\_indel:\\(10,1.5),median:1,swap\_med:1)))}  The command 
 \poycommand{transform} followed by the argument \poyargument{chromosome} specifies the conditions to be 
 applied when calculating genome-level HTUs (medians). The argument \poyargument{chrom\_breakpoint:80} 
 applies a breakpoint distance between chromosomes with the integer value determining the rearrangement cost. The 
@@ -579,20 +580,21 @@ name and the \poyargument{graphconsensus} generates a pdf strict consensus file 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Traditional maximum likelihood analysis with static characters}{\label{tutorial 9}}
-The following script covers the basics required for an analysis under the maximum likelihood criterion that is of 
-similar intensity to that of a search using the GTR model in PhyML. Because there are many steps in, and 
-options for, maximum likelihood in POY, each step is explained twice, once as a comment within the script itself, 
-and once in the itemized tutorial body, below. Because searches conducted using maximum likelihood require a 
-significant computational burden, parsimony alternatives to RAS builds under likelihood are provided. Additionally, 
-throughout the tutorial, some familiarity with the terminology of likelihood analyses is assumed.
+%LIKELIHOOD TUTORIALS
+
+%TUTORIAL STATIC
+\section{Maximum likelihood analysis: Static}{\label{tutorial 9}}
+This tutorial illustrates the analysis of static characters under the maximum likelihood criterion.  This analysis is of similar 
+intensity to that of a search using the \emph{GTR} model in PhyML.  Maximum likelihood analyses can be 
+computationally intensive, therefore parsimony alternatives to RAS under likelihood are provided.  
+%Additionally, %throughout the tutorial, some familiarity with the terminology of likelihood analyses is assumed. 
+%--removed by LC as this is assumed for all analyses, not just LK
 
 \begin{verbatim}
-(* Read in the data and specify static characters *)
+(* Read in the data, specifying static characters and conduct a 
+  parsimony search under direct optimization to generate a pool 
+  of trees to be transformed to likelihood *)
 read(prealigned:("9.fas",tcm:(1,0)))
-
-(* Conduct a parsimony search to generate a pool of trees to 
-   transform to likelihood *)
 build(100)
 swap()
 select()
@@ -600,30 +602,32 @@ perturb(transform(static_approx),iterations:50,ratchet:(0.2,3))
 fuse(iterations:200,swap())
 select()
 
-(* Transform the static data to likelihood characters, specifying 
-  a GTR + Gamma 4 model with empirical equilibrium frequencies 
+(* Transform static data to likelihood characters, specifying 
+  GTR + Gamma 4 model with empirical equilibrium frequencies   
   under traditional MAL *)
 transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),
 gap:(missing),mal))
 swap(all,optimize:(model:(max_count:5),branch:join_region))
 select(best:1)
-report("9likelihood.tre",trees:(branches))
-report("9likelihood.lkm",lkmodel)
-wipe()
-quit()
+report("9_LK.tre",trees:(branches))
+report("9_LK.lkm",lkmodel)
+exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* Read in the data and specify static characters *)} This first line of the script is a comment. While 
-comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(prealigned:("9.fas",tcm:(1,0)))}
-This command imports the nucleotide sequence datafile \texttt{9.fas} as prealigned characters. Note that the 
-\poycommand{tcm} specified for this import is non-metric, but consistent with the assumption of indels as 
-``missing'' data. This tcm is included for consistency, as later likelihood swaps make equivalent assumptions.
+
+\item \texttt{(* Read in the data, specifying static characters and conduct a parsimony search under direct 
+optimization to generate a pool of trees to be transformed to likelihood *)} This first line of the 
+script is a comment. While comments are optional and do not affect the analyses, they are useful for 
+housekeeping purposes.
+\item \texttt{read(prealigned:("9.fas",tcm:(1,0)))} This command imports the nucleotide sequence data file 
+\texttt{9.fas} as prealigned characters. Note that the \poycommand{tcm} specified for this import is non-metric, 
+but consistent with the assumption of indels as ``missing'' data. This tcm is included for consistency, as later 
+likelihood swaps make equivalent assumptions.
 \item \texttt{build(100)} This command generates 100 random-addition Wagner trees. A large number of 
 independent starting points ensures that a large portion of tree space have been examined.
 \item \texttt{swap()} \poycommand{swap} specifies that each of the 100 trees is subjected to alternating SPR and 
-TBR branch swapping routines (the default of \poy). All trees with the optimal score found are stored in memory.
+TBR branch swapping routines (the default of \poy). All trees found with the optimal score are stored in memory.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
 unique trees; all other trees are discarded from memory. 
 \item \texttt{perturb(transform(static\_approx),iterations:50,ratchet:\\(0.2,3))} This command subjects the resulting 
@@ -634,8 +638,12 @@ This is another strategy for further exploration of tree space. Each resulting t
 swapping under the default parameters of \poycommand{swap}.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically
  unique trees; all other trees are discarded from memory.
+ 
+\item \texttt{(* Transform the static data to likelihood characters, specify-\\ing GTR + Gamma 4 model with empirical 
+equilibrium frequencies\\ under traditional MAL *)} A comment indicating the intent of the commands 
+which follow.
 \item \texttt{transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),\\gap:(missing),mal))} This command 
-transforms the characters to static likelihood characters, using a GTR + $\Gamma 4$ model, with empirical 
+transforms the characters to static likelihood characters, using a \emph{GTR} + $\Gamma 4$ model, with empirical 
 equilibrium frequencies under standard MAL. In this model, indels are treated as ``missing'' data, as for the 
 preceding parsimony search. Several default values, such as \texttt{gap:(missing)}, and \texttt{gamma:(4)} are 
 listed explicitly.
@@ -644,30 +652,30 @@ subtree pruning and regrafting, specifying that iteration of likelihood model pa
 joins, and that iteration of branches will occur only in the area around the join point. These iteration 
 specifications are less strict than the defaults for the purpose of speeding up the swapping and iteration. See the
 likelihood section in heuristics for discussion. 
-\item \texttt{select(best:1)} This command saves the single most optimal topology (with branch lengths) in 
-memory. Other trees are purged.
-\item \texttt{report("9likelihood.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+\item \texttt{select(best:1)} This command saves a single most optimal topology (with branch lengths) in 
+memory. All other trees are purged.
+\item \texttt{report("9\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
 \texttt{.tre} format.
-\item \texttt{report("9likelihood.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+\item \texttt{report("9\_LK.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
 consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
 of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
 the rate variation shape parameter.
-\item \texttt{wipe()} This commands clears the memory.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Dynamic maximum likelihood analysis}{\label{tutorial10}}
-The following script covers an analysis using dynamic MPL, and assumes you have covered the previous 
-tutorial, ``Traditional maximum likelihood analysis using static characters'' and are familiar with the intensity of 
-the search strategy employed therein. As with the previous tutorial, some familiarity with the terminology of 
-likelihood analyses is assumed.
+%TUTORIAL DYNAMIC
 
+\section{Maximum likelihood analysis: Dynamic}{\label{tutorial10}}
+The following script covers an analysis using dynamic Maximum Parsimonious Likelihood (MPL), and assumes 
+that the reader has covered the previous tutorial, ``Maximum likelihood analysis: Static'' and is 
+familiar with the intensity of the search strategy employed therein. 
+%Additionally, throughout the tutorial, some familiarity with the terminology of likelihood 
+%analyses is assumed. --removed by LC as this is assumed for all analyses, not just LK
 \begin{verbatim}
-(* Read in the data. Do NOT specify static characters *)
+(* Read in the data and conduct a parsimony search under direct 
+   optimization (DO) to generate a pool of trees to be transformed 
+   to likelihood *)
 read("9.fas")
-
-(* Conduct a parsimony direct optimization search to generate a
-   pool of trees to transform to likelihood *)
 build(100)
 swap()
 select()
@@ -677,48 +685,48 @@ select()
 
 (* Transform the parsimony DO characters to dynamic MPL
    characters, specifying a GTR  model with empirical equilibrium
-   frequencies and a shared nucleotide-indel substitution rate. *)
+   frequencies and a shared nucleotide-indel substitution rate *)
 transform(likelihood:(gtr,priors:(estimate),gap:(coupled),mpl))
 swap(all,optimize:(model:(max_count:5)))
 select(best:1)
-report("9likelihood.ia",ia:all)
-report("9likelihoodYtree.tre",trees:(branches))
-report("9likelihoodYmodel.lkm",lkmodel)
+report("9_LK.ia",ia:all)
+report("9_LK_Ytree.tre",trees:(branches))
+report("9_LK_Ymodel.lkm",lkmodel)
 wipe()
 
 (* Re-load the alignment/tree pair generated by dynamic MPL and
    re-diagnose as static MAL characters *)
-read(prealigned:("9likelihood.ia",tcm:(1,0)),"9likelihoodYtree.tre")
+read(prealigned:("9_LK.ia",tcm:(1,0)),"9_LK_Ytree.tre")
 transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate)))
-report("9likelihoodYdynamic_as_static.lkm",lkmodel)
+report("9_LK_Ydyn_as_static.lkm",lkmodel)
 wipe()
 
-(* Re-load the implied alignment as a heuristic MSA and conduct
-   a quick search under parsimony *)
-read(prealigned:("9likelihood.ia",tcm:(1,0)))
+(* Re-load the implied alignment as a heuristic multiple sequence
+    alignment and conduct a quick search under parsimony *)
+read(prealigned:("9_LK.ia",tcm:(1,0)))
 build(20)
 swap()
 select()
 perturb(transform(static_approx),iterations:50,ratchet:(0.2,3))
 select()
 
-(* Transform the static characters to static MPL characters and swap *)
-transform(likelihood:(gtr,gap:(coupled),mpl)))
+(* Transform the static characters to static MPL characters and 
+  swap *)
+transform(likelihood:(gtr,gap:(coupled),mpl))
 swap(all,optimize:(model:(max_count:5)))
-report("9likelihoodYdynamicMPL_as_staticMPL.lkm",lkmodel)
-report("9likelihoodYdynamic_as_static.tre",trees:(branches))
-wipe()
-
-quit()
+report("9_LK_YdynMPL_as_staticMPL.lkm",lkmodel)
+report("9_LK_Ydyn_as_static.tre",trees:(branches))
+exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(* Read in the data. Do NOT specify static characters. *)} This first line of the script is a comment. 
-While comments are optional and do not affect the analyses, they are useful for separating different components 
-of an analysis, especially if the script is long.
+\item \texttt{(* Read in the data and conduct a parsimony search under \\ direct optimization (DO) to generate a 
+pool of trees to be \\ transformed to likelihood *)} This first line of the script is a comment. While comments are 
+optional and do not affect the analyses, they are useful for separating different components of an analysis, 
+especially if the script is long.  
 \item \texttt{read("9.fas")}
-This command imports the nucleotide sequence datafile \texttt{9.fas} under the default behavior of treatment as 
-dynamic characters.
+This command imports the nucleotide sequence data file \texttt{9.fas} under the default behavior of treatment as 
+dynamic characters. Note: unlike the previous tutorial, the characters are not imported as prealigned.
 \item \texttt{build(100)} This command generates 100 random-addition Wagner trees. A large number of 
 independent starting points ensures that a large portion of tree space have been examined.
 \item \texttt{swap()} \poycommand{swap} specifies that each of the 100 trees is subjected to alternating SPR and 
@@ -733,34 +741,46 @@ This is another strategy for further exploration of tree space. Each resulting t
  swapping under the default parameters of \poycommand{swap}.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically
  unique trees; all other trees are discarded from memory.
+
+\item \texttt {(* Transform the parsimony DO characters to dynamic MPL \\characters, specifying a GTR model 
+with empirical equili- \\ brium frequencies and a shared nucleotide-indel substitution rate *)} A comment indicating 
+the intent of the commands which follow.
 \item \texttt{transform(likelihood:(gtr,priors:(estimate),gap:(coupled),\\mpl))} This command transforms the 
-characters to static likelihood characters, using a GTR model, with empirical equilibrium frequencies under 
-dynamic MPL. Note that under dynamic MPL, the rate variation distribution is not enabled.
+characters to static likelihood characters, using a \emph{GTR} model, with empirical equilibrium frequencies under 
+dynamic MPL. Note: Under dynamic MPL rate variation distribution is not enabled.
 \item \texttt{swap(all,optimize:(model:(max\_count:5)))} This command swaps the tree using subtree pruning and 
 regrafting, specifying that iteration of likelihood model parameters will occur after every 5 joins. These iteration 
 specifications are less strict than the defaults for the purpose of speeding up the swapping. See the likelihood section
 of heuristics for additional discussion. 
 \item \texttt{select(best:1)} This command saves the single most optimal topology (with branch lengths) in 
-memory. Other trees are purged.
-\item \texttt{report("9likelihood.ia",ia:all)} This command saves the implied
-    alignment generated by dynamic MPL as a file named \texttt{9likelihood.ia}.
-\item \texttt{report("9likelihoodYtree.tre",trees:(branches))} This command saves the topology in memory with 
-branch lengths as a \texttt{.tre} file named \texttt{9likelihoodYtree}.
-\item \texttt{report("9likelihoodYmodel.lkm",lkmodel)} This command saves the parameter estimates generated 
-by dynamic MPL as a file named \texttt{9likelihoodYmodel.lkm}.
+memory. All other trees are purged.
+\item \texttt{report("9\_LK.ia",ia:all)} This command saves the implied
+    alignment generated by dynamic MPL as a file named \texttt{9\_LK.ia}.
+\item \texttt{report("9\_LK\_Ytree.tre",trees:(branches))} This command saves the topology in memory with 
+branch lengths as a \texttt{.tre} file named \texttt{9\_LK\_Ytree}.
+\item \texttt{report("9\_LK\_Ymodel.lkm",lkmodel)} This command saves the parameter estimates generated 
+by dynamic MPL as a file named \texttt{9\_LK\_Ymodel.lkm}.
 \item \texttt{wipe()} This commands clears the memory.
-\item \texttt{read(prealigned:("9likelihood.ia",tcm:(1,0)),"9likelihoodYtree.tre")} Read in the tree/alignment 
+
+\item \texttt{(* Re-load the alignment/tree pair generated by dynamic MPL and
+   re-diagnose as static MAL characters *)} A comment indicating the intent of the commands 
+which follow.
+\item \texttt{read(prealigned:("9\_LK.ia",tcm:(1,0)),"9\_LK\_Ytree.tre")} Read in the tree/alignment 
 combination produced by the preceding search under dynamic MPL as static characters.
 \item \texttt{transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate)))} Transform the static characters to MAL, 
-using a GTR + $\Gamma 4$ model and empirical equilibrium frequencies. POY will re-diagnose the topology 
+using a \emph{GTR} + $\Gamma 4$ model and empirical equilibrium frequencies. POY will re-diagnose the topology 
 using this model and optimize the values.
-\item \texttt{report("9likelihoodYdynamic\_as\_static.lkm",lkmodel)} Report the output of the likelihood analysis to
- the file \texttt{9likelihoodYdynamic\_as\_static.lkm}.
+\item \texttt{report("9\_LK\_Ydyn\_as\_static.lkm",lkmodel)} Report the output of the likelihood analysis to
+ the file \texttt{9\_LK\_Ydyn\_as\_static.lkm}.
 \item \texttt{wipe()} This commands clears the memory.
-\item \texttt{read(prealigned:("9likelihood.ia",tcm:(1,0)))} This command
-    imports the nucleotide implied alignment \texttt{9likelihood.ia} as prealigned characters. Note that the 
-    \poycommand{tcm} specified for this import is non-metric, but consistent with the assumption of indels as 
-    ``missing'' data. This tcm is included for consistency, as later likelihood swaps make equivalent assumptions.
+
+\item \texttt{(* Re-load the implied alignment as a heuristic multiple \\
+   sequence alignment and conduct a quick search under parsimony *)} A comment indicating the intent of the commands 
+which follow.
+\item \texttt{read(prealigned:("9\_LK.ia",tcm:(1,0)))} This command imports the nucleotide implied 
+alignment \texttt{9\_LK.ia} as prealigned characters. Note that the \poycommand{tcm} specified for this import 
+is non-metric, but consistent with the assumption of indels as ``missing'' data. This tcm is included for consistency, 
+as later likelihood swaps make equivalent assumptions.
 \item \texttt{build(20)} This command generates 20 random-addition Wagner trees. A large number of 
 independent starting points ensures that a large portion of tree space have been examined.
 \item \texttt{swap()} \poycommand{swap} specifies that each of the 20 trees is subjected to alternating SPR and 
@@ -771,16 +791,424 @@ unique trees; all other trees are discarded from memory.
 trees to 50 rounds of parsimony ratchet, re-weighting 20\% of characters by a factor of 3.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
 unique trees; all other trees are discarded from memory. 
+
+\item \texttt{(* Transform the static characters to static MPL characters and swap *)} A comment indicating the 
+intent of the commands which follow.
 \item \texttt{transform(likelihood:(gtr,gap:(coupled),mpl)))} Transform the static parsimony characters to static 
-MPL characters with a GTR model, empirical equilibrium frequencies, and a coupled nucleotide-indel 
+MPL characters with a \emph{GTR} model, empirical equilibrium frequencies, and a coupled nucleotide-indel 
 parameter.
 \item \texttt{swap(all,optimize:(model:(max\_count:5)))} This command swaps the tree using subtree pruning and 
 regrafting, specifying that iteration of likelihood model parameters will occur after every 5 joins. These iteration 
 specifications are less strict than the defaults for the purpose of speeding up the swapping.
-\item \texttt{report(""9likelihoodYdynamicMPL\_as\_staticMPL.lkm",lkmodel)} This command outputs the result of 
-the likelihood analysis to the file \texttt{"9likelihoodYdynamicMPL\_as\_staticMPL.lkm}.
-\item \texttt{report("9likelihoodYdynamic\_as\_static.tre",trees:(branches))} This command outputs the topology, 
+\item \texttt{report("9\_LK\_YdynMPL\_as\_staticMPL.lkm",lkmodel)} This command outputs the result of 
+the likelihood analysis to the file \texttt{"9\_LK\_YdynMPL\_as\_staticMPL.lkm}.
+\item \texttt{report("9\_LK\_Ydynamic\_as\_static.tre",trees:(branches))} This command outputs the topology, 
 with branch lengths, in \texttt{.tre} format.
-\item \texttt{wipe()} This commands clears the memory.
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+%TUTORIAL HEURISTICS
+
+\section{Maximum likelihood analyses: Heuristics}{\label{tutorial11}}
+The following scripts cover analyses under the maximum likelihood criterion that employ heuristics of various intensities
+and are of varying speed. The first section of this tutorial covers the analysis of static or prealigned data, the second, 
+dynamic data. %Additionally, throughout the tutorial, some familiarity with the terminology of likelihood analyses is assumed.
+%/ High Granularity / Thorough
+\begin{verbatim}
+(* TUTORIAL 11a: STATIC DATA; FAST ANALYSIS *) 
+
+(* Read in the data, specifying static characters and conduct a 
+  parsimony search under direct optimization to generate a pool 
+  of trees to be transformed to likelihood *)
+read(prealigned:("9.fas",tcm:(1,1)))
+search(max_time:00:01:00)
+transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),
+gap:(missing),mal))
+select(best:1)
+swap(spr,all:5,optimize:(model:(threshold:0.33),branch:join_delta)
+swap(spr,all:1)
+report("faststat_LK.tre",trees:(branches))
+report("faststat_LK.lkm",lkmodel)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(* Read in the data, specifying static characters and conduct a parsimony search under direct optimization 
+to generate a pool of trees to be transformed to likelihood *)} This first line of the script is a comment. While 
+comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read(prealigned:("9.fas",tcm:(1,1)))} This command imports the nucleotide sequence data file \texttt{9.fas} 
+as prealigned characters.
+\item \texttt{search(max\_time:00:01:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
+and tree fusings as possible within the specified time of one hour. All trees with the optimal score found are stored 
+in memory. Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
+therefore the time chosen here should not be taken as optimal for all data sets.
+\item \texttt{transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),\\ gap:(missing),mal))} This command 
+transforms the characters to likelihood characters, using a GTR + $\Gamma 4$ model, with empirical 
+equilibrium frequencies under standard MAL. In this model, indels are treated as ``missing'' data, as for the 
+preceding parsimony search. Several default values, such as \texttt{gap:(missing)}, and \texttt{gamma:(4)} are 
+listed explicitly.
+\item \texttt{swap(spr,all:5,optimize:(model:(threshold:0.33),branch:join\_region))} This command swaps the tree using 
+subtree pruning and regrafting, with joins occurring within five branches of the break site. The model parameters are
+optimized if the cost of the join under the current model is within 1.33 times the current best cost (proportion 0.33 worse). 
+Only the branches along the path from the break to the new join location are optimized. 
+\item \texttt{swap(spr,all:1)} This command swaps the tree using nearest-neighbor interchange (NNI), this time
+optimizing all the model parameters and the branches after every join.
+\item \texttt{report("faststat\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+\texttt{.tre} format.
+\item \texttt{report("faststat\_LK.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
+of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
+the rate variation shape parameter.
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+\begin{verbatim}
+(* TUTORIAL 11b: STATIC DATA; THOROUGH ANALYSIS *)
+
+(* Read in the data, specifying static characters and conduct a 
+  parsimony search under direct optimization to generate a pool 
+  of trees to be transformed to likelihood  *)
+read(prealigned:("9.fas",tcm:(1,1)))
+search(max_time:00:02:00)
+transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),
+gap:(missing),mal))
+swap(tbr,bfs,all)
+report("thoroughstat_LK.tre",trees:(branches))
+report("thoroughstat_LK.lkm",lkmodel)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(* Read in the data and specify static characters *)} This first line of the script is a comment. While 
+comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read(prealigned:("9.fas",tcm:(1,1)))}
+This command imports the nucleotide sequence data file \texttt{9.fas} as prealigned characters. 
+\item \texttt{search(max\_time:00:02:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
+and tree fusings as possible within the specified time of two hours. All trees with the optimal score found are stored 
+in memory. Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
+therefore the time chosen here should not be taken as optimal for all data sets.
+\item \texttt{transform(likelihood:(gtr,rates:(gamma:(4)),priors:(estimate),\\ gap:(missing),mal))} This command 
+transforms the characters to likelihood characters, using a GTR + $\Gamma 4$ model, with empirical 
+equilibrium frequencies under standard MAL. In this model, indels are treated as ``missing'' data, as for the 
+preceding parsimony search. Several default values, such as \texttt{gap:(missing)}, and \texttt{gamma:(4)} are 
+listed explicitly.
+\item \texttt{swap(tbr,bfs,all))} This command swaps the tree using tree bisection and reconnection, using a breadth-first
+search with no restrictions on the maximum distance for joins, and optimizing the model and branches after every join. 
+\item \texttt{report("thoroughstat\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+\texttt{.tre} format.
+\item \texttt{report("thoroughstat\_LK.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
+of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
+the rate variation shape parameter.
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+\begin{verbatim}
+(* TUTORIAL 11c: DYNAMIC DATA: FAST ANALYSIS *)
+
+(* Read in the data and conduct a parsimony search under direct 
+  optimization to generate a pool of trees to be transformed to 
+  likelihood.  Do not specify static characters *)
+read("9.fas")
+search(max_time:00:01:00)
+transform(elikelihood:(gtr,mpl))
+swap(spr,all:5,optimize:(model:(threshold:0.2)))
+set(iterative:exact)
+swap(spr,all:1)
+report("fastdyn_LK.tre",trees:(branches))
+report("fastdyn_LK.lkm",lkmodel)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(* Read in the data and conduct a parsimony search under direct optimization to generate a pool of trees 
+to be transformed to likelihood.  Do not specify static characters *)} This first line of the script is a comment. While 
+comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read("9.fas")} This command imports the nucleotide sequence data file \texttt{9.fas}. These data are 
+not prealigned.
+\item \texttt{search(max\_time:00:01:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
+and tree fusings as possible within the specified time of one hour. All trees with the optimal score found are stored 
+in memory.  Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
+therefore the time chosen here should not be taken as optimal for all data sets.
+\item \texttt{transform(\hl{elikelihood}:(gtr,mpl)} This command transforms the characters to dynamic elikelihood (estimated 
+likelihood) characters, using a GTR model, with empirical equilibrium frequencies under dynamic MPL.
+\item \texttt{swap(spr,all:5,optimize:(model:(threshold:0.2)))} This command swaps the tree using subtree pruning and
+regrafting, within a join distance of 5 from the break point and swaps the tree using subtree pruning and regrafting, 
+with joins occurring within five branches of the break site. The model parameters are optimized if the cost of the join 
+under the current model is within 1.2 times the current best cost (proportion 0.2 worse).
+\item \texttt{set(iterative:exact)} Transform the data to regular dynamic MPL and optimize both the model and branches
+on the given topologies in memory.
+\item \texttt{swap(spr,all:1)} \hl{Conduct an NNI search on the topologies in memory, optimizing the model and branches after
+each join.}
+\item \texttt{report("fastdyn\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+\texttt{.tre} format.
+\item \texttt{report("fastdyn\_LK.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
+of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
+the rate variation shape parameter.
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+\begin{verbatim}
+(* TUTORIAL 11d: DYNAMIC DATA; THOROUGH ANALYSIS *)
+
+(* Read in the data and conduct a parsimony search under direct 
+  optimization to generate a pool of trees to be transformed to 
+  likelihood.  Do not specify static characters *)
+read("9.fas")
+search(max_time:00:02:00)
+transform(likelihood:(gtr,mpl))
+swap(tbr,bfs,all)
+report("thoroughdyn_LK.tre",trees:(branches))
+report("thoroughdyn_LK.lkm",lkmodel)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(* Read in the data and conduct a parsimony search under \\direct optimization to generate a pool of trees 
+to be trans- \\formed to likelihood.  Do not specify static character *)} \\This first line of the script is a comment. While 
+comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read("9.fas")} This command imports the nucleotide sequence data file \texttt{9.fas}. These data are 
+not prealigned. 
+\item \texttt{search(max\_time:00:02:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
+and tree fusings as possible within the specified time of two hours. All trees with the optimal score found are stored 
+in memory.  Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
+therefore the time chosen here should not be taken as optimal for all data sets.
+\item \texttt{transform(likelihood:(gtr,mpl)} This command transforms the characters to dynamic likelihood (MPL) 
+characters, using a GTR model, with empirical equilibrium frequencies.
+\item \texttt{swap(tbr,\hl{bfs},all)} This command swaps the tree using tree bisection and reconnection, under a breadth-first 
+search. The model parameters and branch lengths are optimized after every join.
+\item \texttt{report("thoroughdyn\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+\texttt{.tre} format.
+\item \texttt{report("thoroughdyn\_LK.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
+of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
+the rate variation shape parameter.
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+\section{Maximum likelihood analysis: Morphology}{\label{tutorial 12}}
+The following scripts cover analysis of morphological data under the maximum likelihood criterion. %Additionally, 
+%throughout the tutorial, some familiarity with the terminology of likelihood analyses is assumed.
+
+\begin{verbatim}
+(* Read in data and report *)
+read("31.ss")
+report(data)
+
+(* Conduct RAS and parsimony initial pass *)
+build(30)
+swap()
+perturb(transform(static_approx),iterations:5,ratchet:(0.1,2))
+perturb(transform(static_approx),iterations:5,ratchet:(0.3,3))
+perturb(transform(static_approx),iterations:5,ratchet:(0.5,4))
+
+(* Transform to likelihood characters *)
+transform(likelihood:(jc69,alphabet:(4)))
+swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:
+join_delta))
+report("morphology_r=4.tre",trees:(branches))
+report("morphology_r=4.lkm",lkmodel)
+
+transform(likelihood:(jc69,alphabet:(min)))
+swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:
+join_delta))
+report("morphology_r=min.tre",trees:(branches))
+report("morphology_r=min.lkm",lkmodel)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(* Read in the data and report *)} This first line of the script is a comment. While comments are optional and do 
+not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read("31.ss")}
+This command imports the Hennig86 morphological data file \texttt{31.ss} as prealigned characters. 
+\item \texttt{report(data)} This command generates a summary of the data properties. In reporting the data, it is possible to 
+examine the data for the number of character states, i.e. the ``Range" column in the \poy Output window of the Interactive
+Console. 
+\item \texttt{build(30)} Build 30 random addition Wagner trees.
+\item \texttt{swap()} Conduct alternating rounds of SPR and TBR until the scores stabilize.
+
+\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.1,2))} Conduct 5 iterations of parsimony ratchet,
+reweighting 10 percent of the characters by a factor of 2.
+\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.3,3))} Conduct 5 iterations of parsimony ratchet,
+reweighting 30 percent of the characters by a factor of 3.
+\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.5,4))} Conduct 5 iterations of parsimony ratchet,
+reweighting 50 percent of the characters by a factor of 4.
+\item \texttt{transform(likelihood:(jc69,alphabet:(4)))} Transform to likelihood characters under JC69/Neyman model, 
+specifying the alphabet size (constant across all characters) to be $r=4$. The alphabet size equates to the number of 
+character states identified in \texttt{report(data)}.
+\item \texttt{swap(tbr,\hl{bfs}:5,all:5,optimize:(model:(threshold:0.4),branch:\\join\_delta))} Swap using TBR and a 
+breadth-first search joining a maximum of five branches from the break site, optimizing the model parameters if the 
+cost of the join under the current model is within 1.4 times the current best cost (proportion 0.4 worse), and optimizing 
+only the branches along the path from the break to the new join location. 
+\item \texttt{report("morphology\_r=4.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+\texttt{.tre} format.
+\item \texttt{report("morphology\_r=4.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), and the values 
+of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices.
+
+\item \texttt{transform(likelihood:(jc69,alphabet:(min)))} Transform to likelihood characters under JC69/Neyman model, specifying 
+the alphabet size (constant across all characters) to be the minimum value that encompasses all character observations.
+\item \texttt{swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:\\join\_delta))} Swap using TBR and a breadth-first search
+joining a maximum of five branches from the break site, optimizing the model parameters if the cost of the join under the 
+current model is within 1.4 times the current best cost (proportion 0.4 worse), and optimizing only the branches along 
+the path from the break to the new join location. 
+\item \texttt{report("morphology\_r=min.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+\texttt{.tre} format.
+\item \texttt{report("morphology\_r=min.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), and the values 
+of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices.
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+\section{Maximum likelihood analysis: Partitions}{\label{tutorial 13}}
+The following scripts cover analyses partitioned datasets under the maximum likelihood criterion. The first section of this 
+tutorial covers the analysis of partitioned codons of protein coding sequences.  The second section covers the combined
+analysis of both morphological and molecular data.
+%The search intensity under likelihood presented below is moderate (see Tutorial \hl{X}: Likelihood Heuristics. --removed 
+%by LC as there is no moderate tutorial
+%Additionally, %throughout the tutorial, some familiarity with the terminology of likelihood analyses is assumed. 
+%--removed by LC as this is assumed for all analyses, not just ML
+
+\begin{verbatim}
+
+(* TUTORIAL 13a: MAXIMUM LIKELIHOOD ANALYSIS; PARTITIONED CODONS *) 
+
+(* Read in the data, specifying static characters. Conduct RAS 
+   and swapping under parsimony *)
+read(prealigned:("coleoptera_ND2.fasta",tcm:(1,1)))
+search(max_time:00:01:00)
+
+(* Partition the data *)
+set(codon_partition:("coleoptera_codon",names:("coleoptera_
+ND2.fasta")))
+
+(* Transform to likelihood and complete analysis *)
+transform(sets:("coleoptera_codon"),(likelihood:(gtr,rates:(gamma
+(4)),priors:(estimate), gap:(missing),mal)))
+swap(spr,all:5,optimize:(model:(threshold:0.33),branch:join_delta)
+swap(spr,all:1)
+report("coleoptera_codon_LK.tre",trees:(branches))
+report("coleoptera_codon_LK.lkm",lkmodel)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(* Read in the data, specifying static characters.  Conduct RAS and swapping under parsimony *)} 
+This first line of the script is a comment. While comments are optional and do not affect the analyses, they are 
+useful for housekeeping purposes.
+\item \texttt{read(prealigned:("coleoptera\_ND2.fasta",tcm:(1,1)))} This command imports the nucleotide sequence 
+data file \texttt{coleoptera\_ND2.fasta} as prealigned characters. 
+\item \texttt{search(max\_time:00:01:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
+and tree fusings as possible within the specified time of one hour. All trees with the optimal score found are stored 
+in memory.
+\item \texttt{(* Partition the data *)} This is a comment.
+\item \texttt{set(codon\_partition:("coleoptera\_codon",names:("coleoptera\_ND2.fasta")))} Specifies that the data be 
+partitioned as ``coleoptera\_codon'' data, in which a partition is defined to include every third nucleotide position. 
+This command is equivalent to the NEXUS partitioning commands
+\\
+\\
+Begin SETS;\\
+pos1 = 1-N /3;\\
+pos2 = 2-N /3;\\
+pos3 = 3-N /3;\\
+END;\\
+
+where $N$ is the aligned length of the static data. The data must begin at the first codon position and must be a multiple
+of three.
+\item \texttt{transform(sets:("coleoptera\_codon"),((likelihood:(gtr,rates:\\(gamma:(4)),priors:(estimate), gap:(missing),mal))} 
+This command transforms each partition to a separate set of likelihood characters, using a GTR + $\Gamma 4$ model, with empirical 
+equilibrium frequencies under standard MAL. In this model, indels are treated as ``missing'' data, as for the 
+preceding parsimony search. Several default values, such as \texttt{gap:(missing)}, and \texttt{gamma:(4)} are 
+listed explicitly. 
+%The default summation method for POY partition contributions to the overall likelihood score is a simple summation 
+%over partitions. But see the partitioning strategies of TREEFINDER, etc. 
+% In the future, partitioning parameter optimization file used?
+\item \texttt{swap(spr,all:5,optimize:(model:(threshold:1.33),branch:join\_region))} This command swaps the tree using 
+subtree pruning and regrafting, with joins occurring within five branches of the break site. The model parameters are
+optimized if the cost of the join under the current model is within 1.33 times the current best cost (proportion 0.33 worse). 
+Only the branches along the path from the break to the new join location are optimized. 
+\item \texttt{swap(spr,all:1)} This command swaps the tree using \hl{nearest-neighbor interchange (NNI)}, this time
+optimizing all the model parameters and the branches after every join.
+\item \texttt{report("coleoptera\_codon\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths in 
+\texttt{.tre} format.
+\item \texttt{report("coleoptera\_codon\_LK.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
+of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
+the rate variation shape parameter.
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+\begin{verbatim}
+
+(* TUTORIAL 13b: MAXIMUM LIKELIHOOD ANALYSIS; COMBINED ANALYSIS 
+  OF MORPHOLOGICAL AND MOLECULAR DATA *)
+
+(* Read in morphology data and specify partition *)
+read("9ia.ss")
+set(partition:("morph",names:("9.fas")))
+\end{verbatim}
+%JD: Note--there is a bug here, as POY appears to rename the Hennig86 format as a fasta file. 
+%Check report(data) in subsequent changesets.
+%LC: I don't get this error when I read in 33.ss and set the partition
+\begin{verbatim}
+(* Read in prealigned molecular data; specify partition and 
+  conduct RAS and swapping under parsimony *)
+read(prealigned:("1_ia.fas",tcm:(1,0)))
+set(partition:("molec",names:("1_ia.fas")))
+search(max_time:00:01:00)
+
+(* Transform sets to likelihood and complete analysis *)
+transform(sets:("morph"),(likelihood:(jc69,alphabet:(min)))) 
+transform(sets:("molec"),(likelihood:(gtr,rates:(gamma:(4)),
+priors:(estimate), gap:(missing),mal)))
+swap(tbr,bfs:10,all:10,optimize:(model:(threshold:1.6),branch:
+join_region))
+swap(spr,all:5)
+report("combined_LK.tre",trees:(branches))
+report("conbined_LK.lkm",lkmodel)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(* Read in the morphology data and specify partition *)} This first line of the script is a comment. While 
+comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read(\hl{"9ia.ss"})} %There is no such file.  There is a 9.fas file, so a different file name for this new file should be 
+%used to reduce confusion. --LC
+This command imports the morphological data file \texttt{9ia.ss} in Hennig86 format. 
+\item \texttt{set(partition:("morph",names:("9.fas")))}
+This command defines a character partition called ``morph'' for all characters in the morphological dataset.
+
+\item \texttt{(* Read in prealigned molecular data; specify partition and conduct RAS and swapping under parsimony *)}
+This is a comment indicating the intent of the commands which follow.
+\item \texttt{read(prealigned:("1\_ia.fas",tcm:(1,0)))} %There is no such file--LC
+This command reads in the molecular dataset \texttt{1\_ia.fas} as prealigned data.
+\item \texttt{set(partition:("molec",names:("1\_ia.fas")))}
+This command defines a character partition called ``molec'' for all characters in the molecular dataset.
+\item \texttt{search(max\_time:00:01:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
+and tree fusings as possible within the specified time of one hour. All trees with the optimal score found are stored 
+in memory. Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
+therefore the time chosen here should not be taken as optimal for all data sets.
+
+\item \texttt{transform(sets:("morph"),(likelihood:(jc69,alphabet:(min))))} %This command produces a NOT FOUND error.
+This command specifies a partition-specific JC69 model with minimal Neyman alphabet size be applied to the 
+partition ``morph.''
+\item \texttt{transform(sets:("molec"),(likelihood:(gtr,rates:(gamma:(4)),\\priors:(estimate), gap:(missing),mal)))} 
+This command specifies a partition-specific GTR + $\Gamma 4$ model, with empirical equilibrium frequencies 
+under standard MAL be applied to the partition ``molec.'' 
+\item \texttt{swap(tbr,bfs:10,all:10,optimize:(model:(threshold:1.6),\\branch:join\_region))}
+This command swaps all trees in memory using tree bisection and reconnection, specifying a breadth-first search with join
+points up to 10 branches from the break site. The model parameters are optimized if the cost of the join under the 
+current model is within 1.6 times the current best cost (proportion 0.6 worse). Only the branches along the path from the 
+break to the new join location are optimized.  
+\item \texttt{swap(spr,all:5))} This command swaps the tree using subtree pruning and regrafting, using a depth-first
+search with joins up to five branches from the break site, and optimizing the model and branches after every join. 
+\item \texttt{report("combined\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+\texttt{.tre} format.
+\item \texttt{report("combined\_LK.lkm",lkmodel)} This command outputs the result of the likelihood analysis, which 
+consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
+of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
+the rate variation shape parameter.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
