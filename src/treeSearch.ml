@@ -576,7 +576,7 @@ module MakeNormal
             | `Null           -> PhyloTabus.simple_nm_none count thrsh
             | `AllBranches    -> PhyloTabus.simple_nm_all count thrsh
             | `JoinDelta      -> PhyloTabus.complex_nm_delta count thrsh
-            | `Neighborhood x -> PhyloTabus.complex_nm_neighborhood count thrsh
+            | `Neighborhood x -> PhyloTabus.complex_nm_neighborhood x count thrsh
 
     let sampler meth sampler data queue lst () =
         let sampler = 
