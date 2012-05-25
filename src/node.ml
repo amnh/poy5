@@ -3040,7 +3040,10 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
                 (dynamics)
         in
         current_snapshot "start nonadd set2";
-        let addvec,addgen = AddCS.split_vectorized_characters data add in
+        let addvec,addgen = match add with
+            | [] -> [],[]
+            |  _ -> AddCS.split_vectorized_characters data add
+        in
         let n8 = make_set_of_list n8
         and n16 = make_set_of_list n16
         and n32 = make_set_of_list n32

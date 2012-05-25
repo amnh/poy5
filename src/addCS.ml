@@ -19,7 +19,7 @@
 
 let () = SadmanOutput.register "AddCS" "$Revision: 2871 $"
 
-let debug = false
+let debug = true
 let tests = false (* run additive self tests *)
 
 let ( --> ) a b = b a
@@ -1037,9 +1037,10 @@ module Make (Add : AdditiveInterface) : Make =
 
 end
 
-module Vector = Make (AddVec)
 
-module General  = Make (AddGen)
+(*module Vector  = Make (AddVec)*)
+module Vector  = Make (AddVec)
+module General = Make (AddGen)
 
 (* we assume the characters are all static continuous/additive characters. We
    want to find the subset that is vectorizable; range is < sizeof(char). *)
@@ -1054,9 +1055,9 @@ let split_vectorized_characters data codes =
         | None   -> false
     in
     let vectorized,general = List.partition is_character_vectorizable codes in
-    if debug then
-        Printf.printf "Vectorized: %d of %d characters\n%!"
-                        (List.length vectorized) (List.length codes);
+    Printf.ksprintf (Status.user_message Status.Information)
+                    "Vectorized: %d of %d characters.\n%!"
+                    (List.length vectorized) (List.length codes);
     vectorized,general
 
 let is_potentially_informative elts = 
