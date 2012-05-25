@@ -288,21 +288,22 @@ fi
 USED_SSE="false"
 AS_IF([test $USE_SSE = "true"],
     [AC_MSG_CHECKING([SSE4 support]); CFLAGS_TMP="$CFLAGS"; CFLAGS="-msse4";
-     AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+     AC_RUN_IFELSE([AC_LANG_PROGRAM(
                 [[
                     #include <smmintrin.h>
                 ]],
                 [[ 
-                    __m128d res = _mm_pd_dp( _mm_set_pd(1.0,2.0), _mm_set_pd(2.0,1.0), 0x31);
+                    __m128d res = _mm_dp_pd( _mm_set_pd(1.0,2.0), _mm_set_pd(2.0,1.0), 0x31);
                 ]])],
             [CFLAGS="-msse4 $CFLAGS_TMP";USED_SSE="true";OUSE_SSE=",use_sse4";AC_MSG_RESULT([yes])],
-            [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([no])])],
+            [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([no])],
+            [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([disabled, cross-compiling])])],
     [AC_MSG_CHECKING([SSE4 support]);AC_MSG_RESULT([disabled])])
 
 if test x"$USED_SSE" = x"false"; then
     AS_IF([test $USE_SSE = "true"],
         [AC_MSG_CHECKING([SSE3 support]); CFLAGS_TMP="$CFLAGS"; CFLAGS="-msse3";
-         AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+         AC_RUN_IFELSE([AC_LANG_PROGRAM(
                     [[
                         #include <pmmintrin.h>
                     ]], 
@@ -310,7 +311,8 @@ if test x"$USED_SSE" = x"false"; then
                         __m128d res = _mm_hadd_pd( _mm_set_pd(1.0,2.0), _mm_set_pd(1.0,2.0));
                     ]])],
                 [CFLAGS="-msse3 $CFLAGS_TMP";OUSE_SSE=",use_sse3";AC_MSG_RESULT([yes])],
-                [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([no])])],
+                [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([no])],
+                [CFLAGS="$CFLAGS_TMP";AC_MSG_RESULT([disabled, cross-compiling])])],
         [AC_MSG_CHECKING([SSE3 support]);AC_MSG_RESULT([disabled])])
 fi
 
@@ -431,33 +433,39 @@ AC_SEARCH_LIBS([zlibVersion],[z])
 #this will only pass if m is already included; we include from OS switch above,
 AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 
+AC_MSG_CHECKING([to enable likelihood])
 # Time to handle the lapack checks
 case ${OS_INFORMATION} in
     *-apple-*)
-        AS_IF(  [test $USE_LIKELIHOOD = "true"],
+        AS_IF([test $USE_LIKELIHOOD = "true"],
                 [LIBS="-framework veclib $LIBS";USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
-                 OUSE_LIKELIHOOD=",use_likelihood";AC_MSG_RESULT([Found lapack and enabling Likelihood]);],
-                [AC_MSG_RESULT([Not enabling Likelihood])])
+                 OUSE_LIKELIHOOD=",use_likelihood";AC_MSG_RESULT([enabled]);],
+                [AC_MSG_RESULT([disabled])])
         ;;
     *)
         AS_IF([test $USE_LIKELIHOOD = "false"],
             [],
-            [AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
+            [AC_MSG_RESULT([attempting])
+             AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
                 AC_CHECK_LIB(g2c,main,LFORTRAN="-lg2c",
                   AC_CHECK_LIB(f2c,main,LFORTRAN="-lf2c",
-                    [AC_MSG_RESULT(Cannot find appropriate fortran library, disabling likelihood);
-                     USE_LIKELIHOOD="false"])))])
+                    [AC_MSG_RESULT([no]); USE_LIKELIHOOD="false"])))])
 
         AS_IF([test $USE_LIKELIHOOD = "false"],
-            [AC_MSG_RESULT([Not enabling Likelihood])],
+            [AC_MSG_RESULT([disabled])],
             [AC_CHECK_LIB([lapack],[main],
                 [USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood"; 
-                 AC_MSG_RESULT([Found lapack and enabling Likelihood]); LIBS="-llapack -lblas $LFORTRAN $LIBS"],
-                [AC_MSG_RESULT( [lapack not found; continuing without Likelihood])])])
+                 LIBS="-llapack -lblas $LFORTRAN $LIBS"], [])])
 
         #if we cannot enable likelihood; check if this was forced!
+        AC_MSG_CHECKING([if we enabled likelihood analysis])
         if [(test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false")]; then
-            AC_MSG_FAILURE( [Cannot find LAPACK/FORTRAN routines to enable likelihood analysis] )
+            AC_MSG_RESULT( [no] )
+            AC_MSG_FAILURE( [I cannot find LAPACK or FORTRAN routines to enable likelihood a analysis.] )
+        elif [test $USE_LIKELIHOOD = "true"]; then
+            AC_MSG_RESULT( [yes] )
+        else
+            AC_MSG_RESULT( [no] )
         fi
         ;;
 esac

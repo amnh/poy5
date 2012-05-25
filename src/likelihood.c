@@ -23,14 +23,14 @@
 #include <assert.h>         
 #include <time.h>
 
-#undef DEBUG                //will print_loading/unloading SSE information
+#define DEBUG                //will print_loading/unloading SSE information
 
 #if defined( __SSE4__ )
     #define LK_DATA_ALIGNMENT
-    #include <smmintrin.h>      //header for core2 duo SSE4.1 intrinsics
+    #include <smmintrin.h>  //header for core2 duo SSE4.1 intrinsics
 #elif defined( __SSE3__ )
     #define LK_DATA_ALIGNMENT
-    #include <pmmintrin.h>      //SSE3 instrinsics (Pentium 4)
+    #include <pmmintrin.h>  //SSE3 instrinsics (Pentium 4)
 #endif
 
 #include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
@@ -73,7 +73,7 @@
 #define MIN(a,b) (a <= b)?a:b
 #define SHIFT(a,b,c,d) (a)=(b);(b)=(c);(c)=(d)
 #define SIGN(a,b) (b>0)?fabs(a):-fabs(a)
-#define EQUALS(a,b) fabs(a-b)<1e-6
+#define EQUALS(a,b) fabs(a-b)<EPSILON
 
 /* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
 /*                     used to ensure no imaginary roots when diagonalizing */
@@ -1629,7 +1629,7 @@ value likelihood_CAML_median2_wrapped_gtr( value tmp, value U, value D, value Ui
     assert(a->invar == b->invar);
     /* expand scratch space for all function purposes */
     space = FM_val (tmp);
-    expand_matrix(space, 3 * (a->stride * a->stride) );
+    expand_matrix(space, 3 * (a->alph * a->alph) );
     /* create new character set */
     ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),1,CAML_ALLOC);
     c = (mll*) malloc( sizeof(mll) );
@@ -1642,14 +1642,14 @@ value likelihood_CAML_median2_wrapped_gtr( value tmp, value U, value D, value Ui
     c->invar  = a->invar;
     lk_malloc( c->lv_s, c->c_len * c->stride * c->rates * sizeof(double));
     /* register temp variables */
-    PA = register_section( space, b->stride * b->stride, 1 );
-    PB = register_section( space, b->stride * b->stride, 1 );
-    tmp1 = register_section( space, b->stride * b->stride, 1 );
+    PA = register_section( space, b->alph * b->alph, 1 );
+    PB = register_section( space, b->alph * b->alph, 1 );
+    tmp1 = register_section( space, b->alph * b->alph, 1 );
     /* main loop, see symmetric for description */
     //printf("R C S:%d\t%d\t%d\n[",a->rates,a->c_len,a->stride);
     for(i=0;i<num_rates;++i){
-        compose_gtr( PA, c_U, c_D, c_Ui, cta*g_rs[i], a->stride, tmp1);
-        compose_gtr( PB, c_U, c_D, c_Ui, ctb*g_rs[i], b->stride, tmp1);
+        compose_gtr( PA, c_U, c_D, c_Ui, cta*g_rs[i], a->alph, tmp1);
+        compose_gtr( PB, c_U, c_D, c_Ui, ctb*g_rs[i], b->alph, tmp1);
         median( PA, PB, a,b,c, Int_val(mpl), i);
     }
     if(a->invar == 1){
@@ -1741,17 +1741,17 @@ median_3_sym(mat* space,const double* U,const double* D, const mll* amll,
     lk_malloc( dmll->lv_s, dmll->c_len * dmll->stride * dmll->rates * sizeof(double));
 
     /* determine space requirements */
-    expand_matrix(space, 4 * (amll->stride * amll->stride) );
-    PA = register_section( space, bmll->stride * bmll->stride, 1);
-    PB = register_section( space, bmll->stride * bmll->stride, 1);
-    PC = register_section( space, bmll->stride * bmll->stride, 1);
-    TMP= register_section( space, bmll->stride * bmll->stride, 1);
+    expand_matrix(space, 4 * (amll->alph * amll->alph) );
+    PA = register_section( space, bmll->alph * bmll->alph, 1);
+    PB = register_section( space, bmll->alph * bmll->alph, 1);
+    PC = register_section( space, bmll->alph * bmll->alph, 1);
+    TMP= register_section( space, bmll->alph * bmll->alph, 1);
     
     /* center of median three */
     for(i=0;i<num_rates;++i){
-        compose_sym( PA, U, D, bl_a * rates[i], amll->stride, TMP);
-        compose_sym( PB, U, D, bl_b * rates[i], amll->stride, TMP);
-        compose_sym( PC, U, D, bl_c * rates[i], amll->stride, TMP);
+        compose_sym( PA, U, D, bl_a * rates[i], amll->alph, TMP);
+        compose_sym( PB, U, D, bl_b * rates[i], amll->alph, TMP);
+        compose_sym( PC, U, D, bl_c * rates[i], amll->alph, TMP);
         median3( PA, PB, PC, amll,bmll,cmll,dmll, mpl, i );
     }
     if( amll->invar == 1 ){
@@ -1780,16 +1780,16 @@ median_3_gtr(mat* space,const double* U,const double* D, const double *Ui,
 
     /* determine space requirements */
     expand_matrix(space, 4 * (amll->stride * amll->stride) );
-    PA = register_section( space, bmll->stride * bmll->stride, 1);
-    PB = register_section( space, bmll->stride * bmll->stride, 1);
-    PC = register_section( space, bmll->stride * bmll->stride, 1);
-    TMP= register_section( space, bmll->stride * bmll->stride, 1);
+    PA = register_section( space, bmll->alph * bmll->alph, 1);
+    PB = register_section( space, bmll->alph * bmll->alph, 1);
+    PC = register_section( space, bmll->alph * bmll->alph, 1);
+    TMP= register_section( space, bmll->alph * bmll->alph, 1);
     
     /* center of median three */
     for(i=0;i<num_rates;++i){
-        compose_gtr( PA, U, D, Ui, bl_a * rates[i], amll->stride, TMP);
-        compose_gtr( PB, U, D, Ui, bl_b * rates[i], amll->stride, TMP);
-        compose_gtr( PC, U, D, Ui, bl_c * rates[i], amll->stride, TMP);
+        compose_gtr( PA, U, D, Ui, bl_a * rates[i], amll->alph, TMP);
+        compose_gtr( PB, U, D, Ui, bl_b * rates[i], amll->alph, TMP);
+        compose_gtr( PC, U, D, Ui, bl_c * rates[i], amll->alph, TMP);
         median3( PA, PB, PC, amll,bmll,cmll,dmll, mpl, i );
     }
     if( amll->invar == 1 ){
@@ -1929,13 +1929,13 @@ median_1_sym(mat* space, const double* U, const double* D, const mll* amll,
     lk_malloc( dmll->lv_s, dmll->c_len * dmll->stride * dmll->rates * sizeof(double));
 
     /* determine space requirements */
-    expand_matrix(space, 4 * (amll->stride * amll->stride) );
-    PA = register_section( space, bmll->stride * bmll->stride, 1);
-    TMP= register_section( space, bmll->stride * bmll->stride, 1);
+    expand_matrix(space, 4 * (amll->alph * amll->alph) );
+    PA = register_section( space, bmll->alph * bmll->alph, 1);
+    TMP= register_section( space, bmll->alph * bmll->alph, 1);
     
     /* center of median three */
     for(i=0;i<num_rates;++i){
-        compose_sym( PA, U, D, bl_a * rates[i], amll->stride, TMP);
+        compose_sym( PA, U, D, bl_a * rates[i], amll->alph, TMP);
         median1( PA, amll, bmll, dmll, mpl, i );
     }
     if( amll->invar == 1 ){
@@ -1962,13 +1962,13 @@ median_1_gtr(mat* space, const double* U, const double* D, const double* Ui,
     lk_malloc( dmll->lv_s, dmll->c_len * dmll->stride * dmll->rates * sizeof(double));
 
     /* determine space requirements */
-    expand_matrix(space, 4 * (amll->stride * amll->stride) );
-    PA = register_section( space, bmll->stride * bmll->stride, 1);
-    TMP= register_section( space, bmll->stride * bmll->stride, 1);
+    expand_matrix(space, 4 * (amll->alph * amll->alph) );
+    PA = register_section( space, bmll->alph * bmll->alph, 1);
+    TMP= register_section( space, bmll->alph * bmll->alph, 1);
     
     /* center of median three */
     for(i=0;i<num_rates;++i){
-        compose_gtr( PA, U, D, Ui, bl_a * rates[i], amll->stride, TMP);
+        compose_gtr( PA, U, D, Ui, bl_a * rates[i], amll->alph, TMP);
         median1( PA, amll,bmll,dmll, mpl, i );
     }
     if( amll->invar == 1 ){
@@ -2052,8 +2052,8 @@ void single_sym(ptr *simp, double *PA, double *PB, const double *U, const double
     int i;
     simp->time = time_a;
     for(i=0;i<g_n;++i){
-        compose_sym( PA, U, D, time_a*gam[i], a->stride, tmp );
-        compose_sym( PB, U, D, time_b*gam[i], b->stride, tmp );
+        compose_sym( PA, U, D, time_a*gam[i], a->alph, tmp );
+        compose_sym( PB, U, D, time_b*gam[i], b->alph, tmp );
         median( PA, PB, a, b, simp->vs, mpl, i );
     }
     /* invar isn't iterated
@@ -2068,8 +2068,8 @@ void single_gtr(ptr *simp, double *PA, double *PB, const double *U, const double
     int i;
     simp->time = time_a;
     for(i=0;i<g_n;++i){
-        compose_gtr( PA, U, D, Ui, time_a*gam[i], a->stride, tmp );
-        compose_gtr( PB, U, D, Ui, time_b*gam[i], b->stride, tmp );
+        compose_gtr( PA, U, D, Ui, time_a*gam[i], a->alph, tmp );
+        compose_gtr( PB, U, D, Ui, time_b*gam[i], b->alph, tmp );
         median( PA, PB, a, b, simp->vs, mpl, i );
     }
     /* invar isn't iterated
