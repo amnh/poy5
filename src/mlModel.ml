@@ -1584,10 +1584,33 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
                     (Alphabet.to_list alph)
             end
         in
-        List.rev l
-    and is_comp a b = match Alphabet.complement a alph with
-        | Some x -> x = b
-        | None   -> false
+        Array.of_list (List.rev l)
+    and is_comp a b =
+        (* these models assume nucleotides only; T<->C=1, A<->G=2  *)
+             if (Alphabet.match_base "T" alph) = a then
+                 if (Alphabet.match_base "C" alph) = b then 1 else 0
+        else if (Alphabet.match_base "C" alph) = a then
+                 if (Alphabet.match_base "T" alph) = b then 1 else 0
+
+        else if (Alphabet.match_base "A" alph) = a then
+                 if (Alphabet.match_base "G" alph) = b then 2 else 0
+        else if (Alphabet.match_base "G" alph) = a then
+                 if (Alphabet.match_base "A" alph) = b then 2 else 0
+        else
+            0
+    in
+    let get_sva comp_map =
+        let s1,s2,v,a =
+            All_sets.FullTupleMap.fold
+                (fun k v (sc1,sc2,vc,all) -> match k with
+                    | k1,k2 when 1 == is_comp k1 k2 -> (sc1+.v,sc2,vc,all+.v)
+                    | k1,k2 when 2 == is_comp k1 k2 -> (sc1,sc2+.v,vc,all+.v)
+                    | k1,k2 when k1 != k2           -> (sc1,sc2,vc+.v,all+.v)
+                    | _                             -> (sc1,sc2,vc,all+.v) )
+                comp_map
+                (0.0,0.0,0.0,0.0)
+        in
+        s1 /. a, s2 /. a, v /. a, a
     in
     (* build the model *)
     let m = try match kind with
@@ -1599,21 +1622,11 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
             (* 2*beta*t = -0.5 * log(1-2V)                      *)   
             (*        k = alpha / beta                          *)  
             (* k = [log(1-2S-V)-0.5*log(1-2V)] / log(1-2V)      *)
-            let s,v,a =
-                let s,v,a =
-                    All_sets.FullTupleMap.fold
-                        (fun k v (sc,vc,all) -> match k with
-                            | k1,k2 when is_comp k1 k2 -> (sc+.v,vc,all+.v)
-                            | k1,k2 when k1 != k2 -> (sc,vc+.v,all+.v)
-                            | _ -> (sc,vc,all+.v) )
-                        comp_map
-                        (0.0,0.0,0.0)
-                in
-                s /. a, v /. a, a
-            in
-            let kappa = (log (1.0-.(2.0*.s)-.v))-.(log (1.0-.(2.0*.v)))
+            let s1,s2,v,a = get_sva comp_map in
+            let s = s1 +. s2 in
+            let numer = 2.0 *. (log (1.0-.(2.0*.s)-.v))
             and denom = log (1.0-.(2.0*.v)) in
-            K2P (Some (kappa /. denom) )
+            K2P (Some ((numer /. denom)-.1.0))
         | `GTR _ ->
             let tuple_sum a1 a2 map =
                 let one = try All_sets.FullTupleMap.find (a1,a2) map 
@@ -1646,11 +1659,48 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
             let sum = List.fold_left (fun a x -> x +. a) 0.0 lst in
             let lst = List.map (fun x -> x /. sum) lst in
             GTR (Some (Array.of_list lst))
-        | `F84 _
+        | `F84 _ ->
+            let pi_a = f_priors.(Alphabet.match_base "A" alph)
+            and pi_c = f_priors.(Alphabet.match_base "C" alph)
+            and pi_g = f_priors.(Alphabet.match_base "G" alph)
+            and pi_t = f_priors.(Alphabet.match_base "T" alph) in
+            let pi_y = pi_c +. pi_t and pi_r = pi_a +. pi_g in
+            let s1,s2,v,a = get_sva comp_map in let s = s1 +. s2 in
+            let a = ~-. (log (1.0 -. (s /. (2.0 *. (pi_t*.pi_c/.pi_y +. pi_a*.pi_g/.pi_r)))
+                                 -. (v *.(pi_t*.pi_c *.pi_r/.pi_y +.
+                                         (pi_a*.pi_g*.pi_y/.pi_r))) /.
+                                    (2.0 *. (pi_t*.pi_c *. pi_r +. pi_a *. pi_g *. pi_y))))
+            and b = ~-. (log (1.0 -. (v/.(2.0 *. pi_y*.pi_r)))) in
+            F84 (Some (a/.b -. 1.0))
+        | `HKY85 _ ->
+            let pi_a = f_priors.(Alphabet.match_base "A" alph)
+            and pi_c = f_priors.(Alphabet.match_base "C" alph)
+            and pi_g = f_priors.(Alphabet.match_base "G" alph)
+            and pi_t = f_priors.(Alphabet.match_base "T" alph) in
+            let pi_y = pi_c +. pi_t and pi_r = pi_a +. pi_g in
+            let s1,s2,v,a = get_sva comp_map in let s = s1 +. s2 in
+            let a = ~-. (log (1.0 -. (s /. (2.0 *. (pi_t*.pi_c/.pi_y +. pi_a*.pi_g/.pi_r)))
+                                 -. (v *.(pi_t*.pi_c *.pi_r/.pi_y +.
+                                         (pi_a*.pi_g*.pi_y/.pi_r))) /.
+                                    (2.0 *. (pi_t*.pi_c *. pi_r +. pi_a *. pi_g *. pi_y))))
+            and b = ~-. (log (1.0 -. (v/.(2.0 *. pi_y*.pi_r)))) in
+            HKY85 (Some (a/.b -. 1.0))
+        | `TN93 _ ->
+            let pi_a = f_priors.(Alphabet.match_base "A" alph)
+            and pi_c = f_priors.(Alphabet.match_base "C" alph)
+            and pi_g = f_priors.(Alphabet.match_base "G" alph)
+            and pi_t = f_priors.(Alphabet.match_base "T" alph) in
+            let pi_y = pi_c +. pi_t and pi_r = pi_a +. pi_g
+            and s1,s2,v,a = get_sva comp_map in
+            let a1 = ~-. (log (1.0 -. (pi_y*.s1/.(2.0*.pi_t*.pi_c)) -.  (v/.(2.0*.pi_y))))
+            and a2 = ~-. (log (1.0 -. (pi_r*.s2/.(2.0*.pi_a*.pi_g)) -.  (v/.(2.0*.pi_r))))
+            and b  = ~-. (log (1.0 -. (v /. (2.0 *. pi_y *. pi_r)))) in
+            (* finally compute the ratios *)
+            let k1 = (a1 -. (pi_r *. b)) /. (pi_y *. b)
+            and k2 = (a2 -. (pi_y *. b)) /. (pi_r *. b) in 
+            TN93 (Some (k1,k2))
         | `Custom _
-        | `HKY85 _ 
-        | `TN93 _ 
-        | `File _ -> failwith "I need you to specify a model first"
+        | `File _ -> failwith "I cannot estimate this type of model"
         with | Not_found -> failwith "Cannot find something for model"
     and calc_invar all comp_map =
         let same = 
@@ -1670,7 +1720,7 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
     {
         substitution = m;
         site_variation = v;
-        base_priors = Estimated (Array.of_list f_priors);
+        base_priors = Estimated f_priors;
         cost_fn = costfn;
         use_gap = gap;
         iterate_model = false;
