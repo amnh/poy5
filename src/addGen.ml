@@ -276,9 +276,8 @@ let set_minimum d s =
 let distance a b = 
     (median a b).total
 
-let distance_2 a b c = 
-    let x = median a b in
-    (set_minimum x (median x c)).total
+let distance_2 n a b = 
+    (set_minimum (median n a) (median n b)).total
 
 let distance_median a b = 
     let m = median a b in m.total, m
