@@ -1,7 +1,7 @@
 (* Hennig lexer *)
 {
     open Grammar
-    exception Eof
+(*    exception Eof*)
 
     let ( --> ) a b = b a
 
@@ -264,8 +264,8 @@ rule token = parse
                 if is_prefix uword "TREAD" then rawtree lexbuf
                 else if is_prefix uword "XREAD" then raw lexbuf
                 else WORD word }
-    | [ ^ '\000' ] as ch { CHAR ch } 
-    | eof       { raise Eof }
+    | [ ^ '\000' ] as ch { CHAR ch }
+    | eof       { EOF }
 and characters_names = parse
      [^ ';']+[';'] as r { CHARNAME r }
 and raw = parse

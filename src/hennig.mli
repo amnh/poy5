@@ -46,6 +46,7 @@ module P : sig
         | Tread of string
         | Xread of string
         | Ignore
+        | EOF
         | Charname of char_name list
 
 end
@@ -57,7 +58,6 @@ module Grammar : sig
 end
 
 module Lexer : sig
-    exception Eof
     val token : Lexing.lexbuf -> Grammar.token
     val xread : Lexing.lexbuf -> Grammar.token
 end

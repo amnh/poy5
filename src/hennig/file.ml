@@ -291,77 +291,75 @@ let process_command file (mode, (acc:nexus)) = function
                         matrix = matrix; }
         end
     |P.Charname name_list ->
-            (* We need to parse each of the charname entries *)
-            let name_list = 
-                List.map (Str.split (Str.regexp "[ \t\n]+")) name_list
-            in
-            List.iter (assign_names acc.characters) name_list;
-            mode, acc
-    |P.Ignore -> mode, acc
+        let name_list = List.map (Str.split (Str.regexp "[ \t\n]+")) name_list in
+        List.iter (assign_names acc.characters) name_list;
+        mode, acc
     |P.Ccode char_changes ->
-            List.iter (fun char_change ->
-                let modifier, chars = 
-                    match char_change with
-                    |P.Additive chars -> 
-                            (fun x -> { x with st_type = STOrdered}), chars
-                    |P.NonAdditive chars -> 
-                            (fun x -> 
-                                { x with st_type = STUnordered}), chars
+        List.iter
+            (fun char_change ->
+                let modifier, chars = match char_change with
+                    |P.Additive chars ->
+                        (fun x -> { x with st_type = STOrdered}), chars
+                    |P.NonAdditive chars ->
+                        (fun x -> 
+                            { x with st_type = STUnordered}),
+                        chars
                     |P.Active chars ->
-                            (fun x -> { x with st_eliminate = false }), chars
+                        (fun x -> { x with st_eliminate = false }), chars
                     |P.Inactive chars ->
-                            (fun x -> { x with st_eliminate = true }), chars
+                        (fun x -> { x with st_eliminate = true }), chars
                     |P.Sankoff chars ->
-                            (fun x -> { x with st_type = STSankoff
-                            (make_sankoff_matrix x) }), chars
+                        (fun x ->
+                            { x with st_type = STSankoff (make_sankoff_matrix x) }),
+                        chars
                     |P.Weight (v, chars) ->
-                            (fun x -> { x with st_weight = float_of_int v } ), 
-                            chars
-                in
-                List.iter (fun x -> 
-                    acc.characters.(x) <- modifier acc.characters.(x))
-                (get_chars (Array.length acc.characters) chars)) char_changes;
-            mode, acc
-    |P.Tread new_trees ->
-            let new_trees = 
-                let trees = Tree.Parse.of_string new_trees in
-                (* convert them to taxa *)
-                try
-                    let m t = Tree.Parse.map_tree
-                        (fun str ->
-                            try 
-                                match acc.taxa.(int_of_string str) with
-                                | Some x -> x
-                                | None -> str 
-                            with _ -> str)
-                        t
-                    in
-                    List.rev_map (fun x -> None,List.rev_map m x) trees
-                with _ -> []
+                        (fun x -> { x with st_weight = float_of_int v } ), 
+                        chars
             in
-            mode, {acc with trees= acc.trees @ new_trees}
-    | _ -> mode, acc
+            List.iter (fun x -> 
+                acc.characters.(x) <- modifier acc.characters.(x))
+            (get_chars (Array.length acc.characters) chars)) char_changes;
+        mode, acc
+    |P.Tread new_trees ->
+        let new_trees = 
+            let trees = Tree.Parse.of_string new_trees in
+            try let m t =
+                Tree.Parse.map_tree
+                    (fun str ->
+                        try match acc.taxa.(int_of_string str) with
+                            | Some x -> x
+                            | None -> str 
+                        with _ -> str)
+                    t
+                in
+                List.rev_map (fun x -> None,List.rev_map m x) trees
+            with _ -> []
+        in
+        mode, {acc with trees= acc.trees @ new_trees}
+    |P.Cost _ -> mode, acc
+    |P.EOF    -> mode, acc
+    |P.Ignore -> mode, acc
+
+let last_command_is_not_eof = function
+    | P.EOF::tl -> false
+    | _         -> true
 
 let of_channel ch (file : string) =
-    let parsed = 
+    let parsed =
         let res = ref [] in
         let lex = Lexing.from_channel ch in
-        try 
-            while true do
+        while last_command_is_not_eof !res do
                 let command = Grammar.command Lexer.token lex in
                 res := command :: !res;
-            done;
-            []
-        with
-        | Lexer.Eof -> List.rev !res
+        done;
+        List.rev !res
     in
     let res =
-        let _, data = List.fold_left (process_command file)
-                                     (None,(empty_parsed ()))
-                                     parsed
+        let _, data =
+            List.fold_left (process_command file) (None,(empty_parsed ())) parsed
         in
         (* Now it is time to correct the order of the terminals to 
-        * guarantee the default rooting of the tree. *)
+           guarantee the default rooting of the tree. *)
         let tlen = Array.length data.taxa
         and mlen = Array.length data.matrix in
         assert (tlen >= mlen);

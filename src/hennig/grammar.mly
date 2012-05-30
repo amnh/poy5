@@ -59,6 +59,7 @@ let report_error b e =
 %token DRIFT
 %token EDIT
 %token ECHO
+%token EOF
 %token EXPORT
 %token FIT
 %token FILLSANK
@@ -202,6 +203,7 @@ let report_error b e =
 
 command:
     | DATA SEMICOLON {P.Xread $1 }
+    | DATA           {P.Xread $1 }
     | CCODE character_change_list SEMICOLON {P.Ccode $2 }
     | TREES SEMICOLON {P.Tread $1 }
     | COSTS cost_change_list SEMICOLON {P.Cost $2 }
@@ -209,10 +211,14 @@ command:
     | OPTCODE INT DOT INT SEMICOLON {P.Ignore }
     | CNAMES char_names_list SEMICOLON {P.Charname $2 }
     | NSTATES number_of_states SEMICOLON {P.Nstates (Some $2) }
-    | error SEMICOLON { 
-        report_error (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
-       P.Ignore 
-    }
+    | EOF            { P.EOF    }
+    | error SEMICOLON
+                    { report_error (Parsing.symbol_start_pos ())
+                                   (Parsing.symbol_end_pos ());
+                    P.Ignore }
+    | error { report_error (Parsing.symbol_start_pos ())
+                           (Parsing.symbol_end_pos ());
+              P.Ignore }
 
 gap:
     | GAPS       { Some `Gap }

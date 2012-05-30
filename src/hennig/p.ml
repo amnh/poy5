@@ -41,6 +41,7 @@ type command =
     | Tread of string
     | Xread of string
     | Ignore
+    | EOF
     | Charname of char_name list
 
 
