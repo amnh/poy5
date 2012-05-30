@@ -1854,10 +1854,10 @@ let dist_2 minimum_delta n a b =
         | StaticMl nn, StaticMl aa, StaticMl bb ->
                (**   a
                 * c_/|    ~I am using the cs_median function to calculate
-                *   \|     exactly. This shouldn't be done, and especially
-                *    x     since the first two arguements are inconsistent
-                *   / \    to what is happening in the function for a median
-                *  n   b   though they aren't being used at all.
+                *   \|     exactly. This shouldn't be done, but this function
+                *    x     does not get called at all under likelihood, at
+                *   / \    least to the best of my knowledge, since a grep only
+                *  n   b   shows results in chartree.ml --one direction tree.
                **)
             IFDEF USE_LIKELIHOOD THEN
                 let x' = cs_median 0 n b None None None n' b' in
