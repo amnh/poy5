@@ -635,6 +635,13 @@ let remove_node_data id ptree =
     let new_node_data = (All_sets.IntegerMap.remove id ptree.node_data) in
         { ptree with node_data = new_node_data }
 
+let print_node_data_keys ptree =
+    Printf.printf "these node data are in ptree: [";
+    All_sets.IntegerMap.iter (fun key item -> Printf.printf "%d," key)
+    ptree.node_data;
+    Printf.printf "]\n%!"
+
+
 (** [remove_edge_data edge ptree]
     @return a new ptree with data associated with edge removed. *)
 let remove_edge_data edge ptree = 
@@ -644,7 +651,7 @@ let remove_edge_data edge ptree =
 
 (** [get_node_data id ptree]
     @return data associated with the node. *)
-let get_node_data id ptree = 
+let get_node_data id ptree =
     (All_sets.IntegerMap.find id ptree.node_data)
 
 (** [get_parent_or_root_data id ptree] returns the data of the node's "literal"
