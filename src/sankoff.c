@@ -546,6 +546,12 @@ sankoff_CAML_compare_eltarr(value eltarr1, value eltarr2) {
     CAMLreturn(Val_int(res));
 }
 
+//please note that we use alloc_custom_max here like we did for get_eltarr. I
+//know that each eltarr might have more than 1 elt, so this number should be
+//bigger. But
+//we only get elt directly when dealing with fixed_state, or diagnosis output to
+//screen. for fixed_state, each eltarr only has one elt. for diagnosis, we only
+//print result best tree(s). either way, we don't need that many. 
 value
 sankoff_CAML_get_elt (value this_eltarr,value idx)
 {
