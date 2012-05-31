@@ -175,8 +175,8 @@ let leaf_sequences (a : t) = match a with
                                         `First x.SeqCS.DOS.sequence) x
                     | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
                     | SeqCS.General_Prealigned x -> [|`DO x.GenNonAdd.seq|] 
-                    | SeqCS.Relaxed_Lifted (t, x) -> 
-                            let p = SeqCS.RL.find_smallest x in
+                    | SeqCS.Relaxed_Lifted t ->
+                            let _,p = SeqCS.RL.get_min_states t in
                             [|`DO t.SeqCS.RL.sequence_table.(p)|]) !map
             done;
             !map

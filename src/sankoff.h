@@ -32,7 +32,8 @@ struct elt {
     /* Scratch area for the diagnosis, it is safe to do funcky things with it
     * because we only use it during the diagnosis */
     //int * best_states;
-    //we need to remember which state of left child give us best cost
+    //we need to remember when we pick state i(i might be different from best state for current node), 
+    //which state of left child give us best cost
     int * leftstates;
     //we need to remember which state of right child give us best cost
     int * rightstates;

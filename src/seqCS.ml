@@ -1495,16 +1495,16 @@ end
 let max_float = float_of_int (max_int / 20) 
 
 module RL = struct
-(*
-    type elt (*cside*)
-    type t (*cside*)
 
-    type elt_w_seqtbl = {
-        states_and_distbl : elt;
+    type elt = SankCS.elt (*cside*)
+    type t = SankCS.t (*cside*)
+
+    type t_w_seqtbl = {
+        states_and_distbl : t;
         sequence_table: Sequence.s array; (*we carry original sequence before
         transform(fixed_state) with us*)
     }
-*)
+(*
     type relaxed_lifted = {
         distance_table : float array array;
         sequence_table: Sequence.s array; (*we carry original sequence before
@@ -1518,9 +1518,28 @@ module RL = struct
         left : int array;
         right : int array;
     }
-(*
+*)
+
+    (*1:states,2:left,3:right*)
+    let get_states x t = 
+        SankCS.get_states x.states_and_distbl t
+
+    let get_min_states x =
+        let states = get_states x 1 in
+        let idx = ref (-1) in
+        Array.fold_left (fun (min,pos) s ->
+            idx := !idx + 1;
+            if s<min then
+                s,!idx
+            else
+                min,pos
+        ) (Utl.large_int,0) states
+
     let off_array fs taxon = 
-        let distbl = fs.Data.costs in
+        let debug = false in
+        if debug then
+            Printf.printf "seqCS.RL.off_array,taxon=%d\n%!" taxon;
+        let distbl = Utl.float_to_int_mat fs.Data.costs in
         let seqtbl = fs.Data.seqs in
         let len = Array.length fs.Data.seqs in
         let states =
@@ -1537,11 +1556,15 @@ module RL = struct
                     else Int32.of_int (-1))
         in
         let mycode = 1 in
-        let ecode_arr = [|1|] in(*we have only one elt in each t*)
-        SankCS.create_eltarr taxon mycode len ecode_arr [|states|] distbl 
-*)
+        let ecode_arr = [|Int32.of_int 1|] in(*we have only one elt in each t*)
+        let new_eltarr = SankCS.create_eltarr taxon mycode len ecode_arr [|states|] distbl 
+        in
+        {
+            states_and_distbl = new_eltarr;
+            sequence_table = seqtbl; 
+        }
 
-
+(*
     let print_rl in_rl = 
         Printf.printf "print RL.distance table=%!";
         Array.iteri (fun i farr ->
@@ -1559,8 +1582,9 @@ module RL = struct
         Utl.printIntArr in_fs_seqs.left;
         Printf.printf "right:%!";
         Utl.printIntArr in_fs_seqs.right*) 
+*)
 
-    let find_smallest a =
+   (* let find_smallest a =
         let min_cost = ref max_float in
         let min_pos = ref (-1) in
         for i = (Array.length a.states) - 1 downto 0 do
@@ -1584,9 +1608,12 @@ module RL = struct
                 cost := (childs.states.(i) +. dst);
             end;
         done;
-        !pos
+        !pos *)
 
-     let to_single (parentb, parents) ((childtb, childs) as ch) =
+     let to_single parent child = 
+         child, 0
+         
+(*     let to_single (parentb, parents) ((childtb, childs) as ch) =
          if debug then begin
              print_fs_sequences parents;
              print_fs_sequences childs;
@@ -1599,28 +1626,36 @@ module RL = struct
         let pos = find_single_position parentmin ch in
         if debug then Printf.printf "RL.to_single, parentmin=%d,child.single_state_pos<-%d\n%!"
         parentmin pos;
-        (childtb,{childs with single_state = pos}), 0
-(*
-    let to_dos parent child = 
-        let seqtbl_child = child.sequence_table in
+        (childtb,{childs with single_state = pos}), 0 
 *)
+
+    let to_dos parent child = 
+        let child_taxon_code = SankCS.get_taxon_code child.states_and_distbl in
+        let pos = SankCS.get_best_child_state parent.states_and_distbl child_taxon_code in
+        Printf.printf "to_dos, best child state = %d\n%!" pos;
+        { DOS.create (child.sequence_table.(pos)) with
+        DOS.position = pos}, 0
+(*
     let to_dos (parentb, parents) ((childtb, childs) as ch) =
         let parentmin = find_smallest parents in
         let pos = find_single_position parentmin ch in
         { DOS.create (childtb.sequence_table.(pos)) with
         DOS.position = pos}, 0
-
+*)
     (*no one calls this
     * let to_single_parent_done parent ((childtbl, childs) as ch) =
         let pos = find_single_position parent.DOS.position ch in
         { DOS.create (childtbl.sequence_table.(pos)) with DOS.position = pos }, 
         (int_of_float childtbl.distance_table.(parent.DOS.position).(pos))*)
-(*
+
     let median code a b = 
-        let med,cost = SankCS.median code a b  in
-        med,cost
+        let med,cost = SankCS.median code a.states_and_distbl
+        b.states_and_distbl  in
+        {states_and_distbl = med; sequence_table = a.sequence_table },
+        cost
         
-    *)let median (at, ast) (bt, bst) =
+(*
+    let median (at, ast) (bt, bst) =
         if debug then begin
             Printf.printf "RL.median on nodeA and nodeB:\n%!";
             (*print_rl at;
@@ -1676,19 +1711,21 @@ module RL = struct
         res.states.(min_res) 
 
     let median_3 h p n c1 c2 = n
+*)
 
-(*
     let median_3 h p n c1 c2 = 
-        let debug = true in
-        if debug then Printf.printf "seqCS.RL.median_3\n%!"
-        SankCS.median_3 p n c1 c2
+        let debug = false in
+        if debug then Printf.printf "seqCS.RL.median_3\n%!";
+        let med3_eltarr = SankCS.median_3 p.states_and_distbl n.states_and_distbl
+        c1.states_and_distbl c2.states_and_distbl in
+        {n with states_and_distbl = med3_eltarr}
 
 
     let distance a b =
         if debug then Printf.printf "seqCS.RL.distance\n%!";
-        SankCS.distance a b  
-*)
+        SankCS.distance a.states_and_distbl b.states_and_distbl  
 
+(*
     let distance ((at, ast) as a) ((bt, bst) as b) =
         let debug = false in
         let in_rl = at in
@@ -1713,23 +1750,23 @@ module RL = struct
             let _, v,_ = median a b in
             if debug then Printf.printf "no single assignment yet, dis=%f\n%!" v;
             v 
-
+*)
     let dist_2 n a b =
-    (*
-        let cost = SankCS.dist_2 n a b in
+    (*call dist_2 in sankoff*)
+        let cost = SankCS.dist_2 n.states_and_distbl a.states_and_distbl b.states_and_distbl in
         int_of_float cost
-    *)
+    (*
         let tmp, t,_ = median a b in
         let _, v ,_= median tmp n in
         (int_of_float v) + (int_of_float t)
-
+    *)
 end
 
 type sequence_characters =
     | General_Prealigned of GenNonAdd.gnonadd_sequence
     | Heuristic_Selection of DOS.do_single_sequence
     | Partitioned of PartitionedDOS.partitioned_sequence
-    | Relaxed_Lifted of (RL.relaxed_lifted * RL.fs_sequences)
+    | Relaxed_Lifted of RL.t_w_seqtbl
 
 (** A sequence character type. *)
 type t = { 
@@ -2067,11 +2104,14 @@ let to_string a =
                     Sequence.to_formater seq.DOS.sequence a.alph
             | Heuristic_Selection seq ->
                     Sequence.to_formater seq.DOS.sequence a.alph
-            | Relaxed_Lifted (_, b) -> 
+            | Relaxed_Lifted x ->
+                    let b_states = RL.get_states x 1 in
+                    let b_leftchild = RL.get_states x 2 in
+                    let b_rightchild = RL.get_states x 3 in
                     let res = 
                         Array_ops.map_3 (fun a b c ->
-                            Printf.sprintf "Cost: %f - left: %d - right: %d" a b
-                            c) b.RL.states b.RL.left b.RL.right
+                            Printf.sprintf "Cost: %d - left: %d - right: %d" a b
+                            c) b_states b_leftchild b_rightchild 
                     in
                     String.concat "--" (Array.to_list res)
         in
@@ -2100,8 +2140,9 @@ let of_array spec sc code taxon =
         | `GeneralNonAdd, [|x|] -> General_Prealigned (GenNonAdd.init_gnonadd_t x)
         | `DO, [|x|] -> Heuristic_Selection (DOS.create x)
         | `FS fs, [|x|] ->
-                (*let res = RL.off_array fs taxon in
-                Relaxed_Lifted res*)
+                let res = RL.off_array fs taxon in
+                Relaxed_Lifted res
+              (*
                 let tbl = { RL.distance_table = fs.Data.costs;
                                sequence_table = fs.Data.seqs } 
                 in
@@ -2123,6 +2164,7 @@ let of_array spec sc code taxon =
                              single_state = (-1);
                                      left = left;
                                     right = left } )
+              *)
         | `AutoPartitioned _, _ 
         | `GeneralNonAdd, _ 
         | `DO, _
@@ -2218,9 +2260,6 @@ let to_single parent mine =
                     total_cost := c + !total_cost;
                     Relaxed_Lifted res
             | Heuristic_Selection a, Relaxed_Lifted b ->
-                    (*let res, c = RL.to_single_parent_done a b in
-                    total_cost := c + !total_cost;
-                    Heuristic_Selection res*)
                     assert false
             | Partitioned _, _
             | _, Partitioned _
@@ -2260,8 +2299,7 @@ let median code a b =
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
             | Relaxed_Lifted a, Relaxed_Lifted b ->
-                    let res, c, tc = RL.median a b in
-                    (*let res,tc = RL.median code a b in*)
+                    let res,tc = RL.median code a b in
                     total_cost := (int_of_float tc) + !total_cost;
                     Relaxed_Lifted res
             | Partitioned _, _
@@ -2523,10 +2561,11 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                         | Some (Relaxed_Lifted _) -> assert false
                     in
                     cost, costb, max, [seq.DOS.sequence]
-            | Relaxed_Lifted (spec, seq) ->
+            | Relaxed_Lifted x  ->
                     is_fs := true;
                     if debug then  Printf.printf "seqCS.RL.to_formatter\n%!";
-                    let best = ref max_float in
+                    let spec = x.RL.sequence_table in
+                    (*let best = ref max_float in
                     let my_pos = ref (-1) in
                     let () =
                         let process par_pos = 
@@ -2561,9 +2600,13 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                     in
                     let bests = !best in
                     res_state := !my_pos;
+                    *)
+                    let best = ref 0. in 
+                    let bests = 0. in
+                    let my_pos = ref 0 in
                     DOS.make_cost (int_of_float !best), 
                     `FloatFloatTuple (bests, bests), !best,
-                    [spec.RL.sequence_table.(!my_pos)]
+                    [x.RL.sequence_table.(!my_pos)]
         in
         let statename = (string_of_int !res_state) in
         let seq () = 
@@ -2609,7 +2652,7 @@ let get_sequences (data:t) : Sequence.s array array =
         (function
             | General_Prealigned x -> [| x.GenNonAdd.seq |]
             | Heuristic_Selection x -> [| x.DOS.sequence |]
-            | Relaxed_Lifted (rl,_) -> rl.RL.sequence_table
+            | Relaxed_Lifted rl -> rl.RL.sequence_table
             | Partitioned y ->
                 Array.map 
                     (function | PartitionedDOS.DO x | PartitionedDOS.First x 

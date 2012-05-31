@@ -1300,16 +1300,16 @@ let convert_2_lst chars tbl : float option list =
 
 
 let median ?branches code old a b =
-    if  debug_treebuild then Printf.printf "\nnode.ml median,nodea:%d,nodeb:%d %!"
-    a.taxon_code b.taxon_code;
     (* the code is negative if we are calculating on an edge *)
     let code = match code with
         | Some code -> code
         | None -> decr median_counter; !median_counter
     in
+    if  debug_treebuild then Printf.printf "\nnode.ml median,nodea:%d,nodeb:%d,nodeab:%d\n%!"
+    a.taxon_code b.taxon_code code;
+    (* if code>0 then assert(false); *)
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
-
     let new_characters =
         match old with
         | None -> 
@@ -1439,13 +1439,14 @@ let replace_parent_time node time =
  * uses time data from two correct nodes, [time_1] and [time_2] for the
  * calculation of the median between [nd1] and [nd2]. **)
 let median_w_times code prev nd_1 nd_2 times_1 times_2 times_3 =
-    if debug_treebuild then
-        Printf.printf "node.ml median_w_times\n%!";
     let code = match code with
         | Some code -> code
         | None      -> decr median_counter;
                        !median_counter
     in
+    if debug_treebuild then
+        Printf.printf "node.ml median_w_times, nd1 = %d,nd2 = %d,nd12=%d\n%!"
+        nd_1.taxon_code nd_2.taxon_code code;
     let new_characters = match prev with
         | Some prev ->
             map5 (fun x -> cs_median code nd_1 nd_2 (Some x))
@@ -2188,8 +2189,9 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
     (lnadd16code : ms) (lnadd32code : ms) (lnadd33code : ms) lsankcode dynamics 
     kolmogorov static_ml data cost_mode =
         let calc_total treesnum directions nodenum = 
-            treesnum * ( directions *(nodenum-1) + nodenum )
-            (*treesnum * ((d * t) - 5) *) 
+            let res = treesnum * ( directions *(nodenum-1) + nodenum )
+            in
+            res
         in
         let add_character =  Data.add_character_spec 
         and set = Data.Set 
@@ -2314,7 +2316,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lsankcode = 
             let () = 
                  SankCS.set_gc_alloc_max 
-                        (calc_total 2 1 (!data).Data.number_of_taxa)
+                        (calc_total 4 1 (!data).Data.number_of_taxa)
             in
             List.map (fun x -> cg (), x) lsankcode in
         let add_codes ((_, x) as y) = 
@@ -3410,11 +3412,11 @@ let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs
     | Sank cs, Sank _ ->
         begin match parent_cs with
             | None ->
-                SankCS.to_formatter pre cs.preliminary None d
-                @ SankCS.to_formatter fin cs.final None  d
+                (*SankCS.to_formatter pre cs.preliminary None d 
+                @ *) SankCS.to_formatter fin cs.final None  d
             | Some ((Sank parent_cs), _) ->
-                SankCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
-                @ SankCS.to_formatter fin cs.final (Some parent_cs.final) d
+                (*SankCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
+                @ *) SankCS.to_formatter fin cs.final (Some parent_cs.final) d
             | _ -> assert false
         end
     | Dynamic cs, Dynamic cs_single ->
@@ -4496,7 +4498,7 @@ module Standard :
                 | (Sank ha) :: ta, (Sank hb) :: tb ->
                         let x = compare ha.weight hb.weight in
                         if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
+                            let cmp = SankCS.compare_data ha.preliminary hb.preliminary in
                             if cmp = 0 then 
                                 aux_cmt ta tb
                             else cmp
