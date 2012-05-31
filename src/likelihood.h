@@ -44,7 +44,8 @@
  * C struct for a character set and likelihood vectors
  */ 
 struct ml {
-    int stride;     //stride of matrix (ie: size of alphabet)
+    int stride;     //stride of matrix (used for buffer spaces)
+    int alph;       //size of the alphabet
     int c_len;      //length of character set
     int rates;      //number of rates being processed
     double* lv_s;   //likelihood vector for characters/rates, length = stride*c_len*rates

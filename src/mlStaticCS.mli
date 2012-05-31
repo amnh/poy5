@@ -42,6 +42,18 @@ external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
  * register the likelihood operations for the garbage collection deserialization *)
 external register : unit -> unit = "likelihood_CAML_register"
 
+external s_bigarray: 
+    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t *
+    ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option =
+    "likelihood_CAML_StoBigarray"
+external bigarray_s: 
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t ->
+    ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option ->
+        int -> s = "likelihood_CAML_BigarraytoS"
+external debug: s -> unit = "likelihood_CAML_debug"
+external filter: s -> int array -> s = "likelihood_CAML_filter"
+
+
 (** A string representation of the character set, used only for debugging purposes *)
 val to_string : t -> string
 
@@ -157,7 +169,7 @@ val set_model : MlModel.model -> t -> t
 ELSE
 
 val likelihood_error : string
-
+val set_smpl_smoothness: float -> unit
 val minimum_bl : unit -> float
 
 END

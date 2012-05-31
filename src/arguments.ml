@@ -21,7 +21,8 @@ let () = SadmanOutput.register "Arguments" "$Revision: 1959 $"
 
 let just_exit = ref false
 let only_run_argument_script = ref false
-let dump_file = ref "ft_output.poy"
+let default_dump_file = "ft_output.poy"
+let dump_file = ref default_dump_file
 let input : [`Inlined of string | `Filename of string] list ref = ref []
 
 let change_working_directory str =
@@ -60,7 +61,7 @@ let anon_fun kind str = match kind with
 let parse_list = [
     ("-w", Arg.String change_working_directory, "Run poy in the specified working directory"); 
     ("-e", Arg.Unit (fun () -> just_exit := true), "Exit upon error");
-    ("-d", Arg.String (fun str -> dump_file := str), "Dump filename in case of error");
+    ("-d", Arg.String (fun str -> dump_file := str), "Filename to dump program state in case of an error");
     ("-q", Arg.Unit (fun () -> only_run_argument_script := true), "Don't wait for input other than the program argument script.");
     ("-no-output-xml", Arg.Unit (fun () -> SadmanOutput.do_sadman := false), "Do not generate the output.xml file.");
     ("-plugin", Arg.String process_poy_plugin, "Load the selected plugins.");

@@ -383,8 +383,8 @@ let rec read_taxa ?(acc=[]) r is_dpread taxa chars =
     end
 
 
-let process_matrix s = read_taxa (new FileStream.string_reader s)
-
+let process_matrix s =
+    read_taxa (new FileStream.string_reader s)
 
 let rec extract_options ?(acc=[]) r =
     let maybe_cons s acc = if s = "" then acc else s :: acc in

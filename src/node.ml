@@ -415,15 +415,6 @@ let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
 let cs_prelim_to_final a =
     {a with final = a.preliminary}
 
-let print_cost_mode cm = 
-    Printf.printf "cost mode = %!";
-    match cm with 
-    | `Likelihood -> Printf.printf "Likelihood\n%!"
-    | `Parsimony -> Printf.printf "Parsimony\n%!"
-    | `SumLikelihood -> Printf.printf "SumLikelihood\n%!"
-    | `Fixedstates -> Printf.printf "Fixedstates\n%!"
-    | `Sankoff -> Printf.printf "Sankoff\n%!"
-
 let calc_total_cost c1 c2 c_cost =
     let res = 
         assert (c1.cost_mode = c2.cost_mode);
@@ -434,10 +425,8 @@ let calc_total_cost c1 c2 c_cost =
         | `Fixedstates   -> c_cost
         | `Sankoff       -> c_cost
     in
-    if debug_set_cost then begin
-        print_cost_mode c1.cost_mode;
-        Printf.printf "totalcost = %f <-?- %f + %f + %f;\n %!" res c_cost c1.total_cost c2.total_cost;
-    end;
+    if debug_set_cost then
+        Printf.printf "totalcost = %f <-?- %f + %f + %f; %!" res c_cost c1.total_cost c2.total_cost;
     res
 
 let total_cost _ a = a.total_cost
@@ -685,7 +674,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 { 
                     ca with preliminary = median;
                     final = median;
-                    sum_cost = cost; 
+                    sum_cost = cost;
                     cost = ca.weight *. cost }
             in
             Sank res
@@ -1486,8 +1475,8 @@ let median_of_child_branch code child parent =
     median_w_times code None child parent times otime None
 
 let final_states p n c1 c2 =
-    let new_characters = 
-        map4 (cs_final_states p n c1 c2) 
+    let new_characters =
+        map4 (cs_final_states p n c1 c2)
         p.characters n.characters c1.characters c2.characters
     in { n with characters = new_characters }
 
@@ -1866,10 +1855,10 @@ let dist_2 minimum_delta n a b =
         | StaticMl nn, StaticMl aa, StaticMl bb ->
                (**   a
                 * c_/|    ~I am using the cs_median function to calculate
-                *   \|     exactly. This shouldn't be done, and especially
-                *    x     since the first two arguements are inconsistent
-                *   / \    to what is happening in the function for a median
-                *  n   b   though they aren't being used at all.
+                *   \|     exactly. This shouldn't be done, but this function
+                *    x     does not get called at all under likelihood, at
+                *   / \    least to the best of my knowledge, since a grep only
+                *  n   b   shows results in chartree.ml --one direction tree.
                **)
             IFDEF USE_LIKELIHOOD THEN
                 let x' = cs_median 0 n b None None None n' b' in
@@ -2183,78 +2172,74 @@ let classify size doit chars data =
     if doit then Some (classify size chars data)
     else None
 
-type ms = All_sets.Integers.t
-
-let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
-    (lnadd16code : ms) (lnadd32code : ms) (lnadd33code : ms) lsankcode dynamics 
-    kolmogorov static_ml data cost_mode =
+let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
+                   lnadd32code lnadd33code lsankcode dynamics kolmogorov
+                   static_ml data cost_mode =
         let calc_total treesnum directions nodenum = 
             let res = treesnum * ( directions *(nodenum-1) + nodenum )
             in
             res
         in
-        let add_character =  Data.add_character_spec 
-        and set = Data.Set 
+        let add_character =  Data.add_character_spec
+        and set = Data.Set
         and data = ref data in
         let character_code_gen () =
             incr (!data).Data.character_code_gen;
             !((!data).Data.character_code_gen)
         in
-        let cg () = 
+        let cg () =
             let code = character_code_gen () in
             data := add_character set code !data;
             code
         in
-        let group_in_weights weights codes = 
+        let group_in_weights weights codes =
             (* get weight of character; map has Data.weight included *)
             let get_weight c = match weights with
                 | None   -> Data.get_weight c !data
                 | Some v -> All_sets.IntegerMap.find c v
             in
             let table = Hashtbl.create 1667 in
-            let weights = 
-                All_sets.Integers.fold 
-                    (fun x acc -> 
-                        try 
-                            let w = get_weight x in
+            let weights =
+                All_sets.Integers.fold
+                    (fun x acc ->
+                        try let w = get_weight x in
                             if Hashtbl.mem table w then
                                 let lst = Hashtbl.find table w in
                                 Hashtbl.replace table w (x :: lst)
-                            else Hashtbl.add table w [x]; 
+                            else
+                                Hashtbl.add table w [x];
                             All_sets.Floats.add w acc
-                        with
-                        | Not_found -> acc) 
-                    codes All_sets.Floats.empty 
+                        with | Not_found -> acc)
+                    codes All_sets.Floats.empty
             in
-            let res = All_sets.Floats.fold 
-                (fun x acc -> 
-                    let lst = Hashtbl.find table x in 
-                    (x, lst) :: acc) 
+            let res = All_sets.Floats.fold
+                (fun x acc ->
+                    let lst = Hashtbl.find table x in
+                    (x, lst) :: acc)
                 weights []
             in
             List.fold_left
-                (fun acc (w, lst) -> 
-                    (character_code_gen (), 
+                (fun acc (w, lst) ->
+                    (character_code_gen (),
                     (List.map (fun x -> w, x) lst)) :: acc)
                 [] res
         in
         let group_ml_by_model lst =
-            let get_function code = 
+            let get_function code =
                 match Hashtbl.find (!data).Data.character_specs code with
                 | Data.Static spec ->
                     begin match spec.Nexus.File.st_type with
-                    | Nexus.File.STLikelihood x -> x.MlModel.spec
-                    | _ -> assert false
+                        | Nexus.File.STLikelihood x -> x.MlModel.spec
+                        | _ -> assert false
                     end
                 | _ -> assert false
             in
             MlModel.categorize_by_model get_function lst
-        and group_by_sets lst = 
+        and group_by_sets lst =
             let curr = Hashtbl.create 1667 in
             let sets = List.fold_left (* list of all the set names *)
                 (fun acc code ->
-                    try
-                        let name = Hashtbl.find (!data).Data.character_codes code in
+                    try let name = Hashtbl.find (!data).Data.character_codes code in
                         let set = Hashtbl.find (!data).Data.character_nsets name in
                         Hashtbl.add curr set code;
                         if List.mem set acc then
@@ -2262,14 +2247,16 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                         else
                             set::acc
                     with | Not_found ->
-                        Hashtbl.add curr "" code; acc )
-                [""] lst in
+                        Hashtbl.add curr "" code; acc)
+                [""] lst
+            in
             List.map (Hashtbl.find_all curr) sets
         in
         let nadd8weights = classify 8 do_classify lnadd8code !data
         and nadd16weights = classify 16 do_classify lnadd16code !data
         and nadd32weights = classify 32 do_classify lnadd32code !data in
-        let laddcode = group_in_weights None laddcode
+        let laddveccode = group_in_weights None laddveccode
+        and laddgencode = group_in_weights None laddgencode
         and lnadd8code = group_in_weights nadd8weights lnadd8code
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
@@ -2313,7 +2300,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 --> List.map group_ml_by_model
                 --> List.flatten
                 --> List.map (fun x -> lk_group_weights (lk_classify_weights x) x)
-        and lsankcode = 
+        and lsankcode =
             let () = 
                  SankCS.set_gc_alloc_max 
                         (calc_total 4 1 (!data).Data.number_of_taxa)
@@ -2321,7 +2308,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             List.map (fun x -> cg (), x) lsankcode in
         let add_codes ((_, x) as y) = 
             y, Array.map snd (Array.of_list (List.rev x)) in
-        let laddcode = List.map add_codes laddcode 
+        let laddveccode = List.map add_codes laddveccode 
+        and laddgencode = List.map add_codes laddgencode 
         and lnadd8code = List.map add_codes lnadd8code
         and lnadd16code = List.map add_codes lnadd16code
         and lnadd32code = List.map add_codes lnadd32code in
@@ -2338,8 +2326,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         let module Enc = Parser.OldHennig.Encoding in
         let gen_add code =
             let enc = get_static_encoding code in
-            (Data.Stat (code, Some (`List enc.Nexus.File.st_observed)), 
-            `Unknown) 
+            (Data.Stat (code, Some (`List enc.Nexus.File.st_observed)), `Unknown) 
         in
         let gen_nadd code =
             let enc = get_static_encoding code in
@@ -2397,13 +2384,11 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 in
                 x, (a, b), arr
             in
-            let ladd_chars    = List.map (addmapper gen_add)  laddcode    
-            and lnadd8_chars  = 
-                List.map (addmapper gen_nadd) lnadd8code
-            and lnadd16_chars = 
-                List.map (addmapper gen_nadd) lnadd16code
-            and lnadd32_chars = 
-                List.map (addmapper gen_nadd) lnadd32code
+            let ladd_gen_chars= List.map (addmapper gen_add)  laddgencode
+            and ladd_vec_chars= List.map (addmapper gen_add)  laddveccode
+            and lnadd8_chars  = List.map (addmapper gen_nadd) lnadd8code
+            and lnadd16_chars = List.map (addmapper gen_nadd) lnadd16code
+            and lnadd32_chars = List.map (addmapper gen_nadd) lnadd32code
             and lnadd33_chars = []
             and ldynamic_chars = 
                 List.fold_left (get_character_with_code gen_dynamic) [] dynamics
@@ -2463,11 +2448,17 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 match lnadd33_chars with
                 | _ -> result
             in
-            let result =  (* ADDITIVE *)
+            let result =  (* ADDITIVE General *)
                 List.fold_left 
                 (fun acc (a, b, _) -> add_characters (AddCS.General.of_parser !data)
                 (fun c w -> AddGen (make_with_w c w)) acc (a, b))
-                result ladd_chars
+                result ladd_gen_chars
+            in
+            let result =  (* ADDITIVE Vectorized *)
+                List.fold_left 
+                (fun acc (a, b, _) -> add_characters (AddCS.Vector.of_parser !data)
+                (fun c w -> AddVec (make_with_w c w)) acc (a, b))
+                result ladd_vec_chars
             in
             let result = (* DYNAMIC *)
                 match ldynamic_chars with
@@ -3051,11 +3042,16 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
                 (dynamics)
         in
         current_snapshot "start nonadd set2";
+        let addvec,addgen = match add with
+            | [] -> [],[]
+            |  _ -> AddCS.split_vectorized_characters data add
+        in
         let n8 = make_set_of_list n8
         and n16 = make_set_of_list n16
         and n32 = make_set_of_list n32
         and n33 = make_set_of_list n33
-        and add = make_set_of_list add in
+        and addvec = make_set_of_list addvec
+        and addgen = make_set_of_list addgen in
         let cost_mode = match static_ml with
             | _  when is_fixedstates  -> `Fixedstates
             | _::_                    -> `Likelihood
@@ -3067,7 +3063,7 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         in
         current_snapshot "end nonadd set2";
         let r =
-            generate_taxon classify add n8 n16 n32 n33 sank dynamics
+            generate_taxon classify addgen addvec n8 n16 n32 n33 sank dynamics
                                     kolmogorov static_ml data cost_mode
         in
         current_snapshot "end generate taxon";

@@ -33,6 +33,8 @@ type static_spec = {
     st_name : string;       (* The name assigned to the character *)
     st_alph : Alphabet.a;   (* The set of potential character symbols *)
     st_observed : int list; (* The set of observed states *)
+    st_normal : int option; (* if the characters are normalized, and by how
+                               much; this is used for continuous characters *)
     st_labels : string list;(* The labels assigned to the states *)
     st_weight : float;      (* The character weight *)
     st_type : st_type;      (* The type of character *)
@@ -40,7 +42,7 @@ type static_spec = {
                             (* Things that are the same in the input *)
     st_missing : string;    (* The character that represents missing data *)
     st_matchstate : string option; 
-        (* The chaaracter that marks the same state as teh first taxon *)
+                            (* The character that marks the same state as teh first taxon *)
     st_gap : string;        (* The gap representation *)
     st_eliminate : bool;    (* Whether or not the user wants to get rid of it *)
     st_case : bool;         (* Whether or not the user wants be case sensistive *)
@@ -70,6 +72,7 @@ let spec_of_alph alphabet filename name =
         st_filesource = filename;
         st_name = name;
         st_alph = alphabet;
+        st_normal = None;
         st_observed = [];
         st_labels = [];
         st_weight = 1.0;
@@ -392,21 +395,24 @@ let default_static char_cntr file form pos =
     and respect_case = get_respect_case form 
     and _ = incr char_cntr in
     let alph, equate = make_symbol_alphabet gap symbols [] form in
-    { st_filesource = file;
-      st_name = file ^ ":" ^ string_of_int !char_cntr;
-    st_alph = alph;
-    st_observed = [];
-    st_labels = [];
-    st_weight = 1.0;
-    st_type = STUnordered;
-    st_equivalents = equate;
-    st_missing = missing; 
-    st_matchstate = get_matchchar form;
-    st_gap = gap;
-    st_eliminate = false;
-    st_case = respect_case;
-    st_used_observed = None;
-    st_observed_used = None;}
+    { 
+        st_filesource = file;
+        st_name = file ^ ":" ^ string_of_int !char_cntr;
+        st_alph = alph;
+        st_observed = [];
+        st_normal = None;
+        st_labels = [];
+        st_weight = 1.0;
+        st_type = STUnordered;
+        st_equivalents = equate;
+        st_missing = missing; 
+        st_matchstate = get_matchchar form;
+        st_gap = gap;
+        st_eliminate = false;
+        st_case = respect_case;
+        st_used_observed = None;
+        st_observed_used = None;
+    }
 
 let find_position error comparator vector =
     let pos = ref 0 in

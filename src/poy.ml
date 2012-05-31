@@ -205,9 +205,8 @@ let () =
                 END
             in
             let res = 
-                Phylo.run 
-                    ~output_file:(!(Arguments.dump_file)) 
-                    ~start:!script command 
+                Phylo.run
+                    ~output_file:(!(Arguments.dump_file)) ~start:!script command 
             in
             script := res;
             if !Arguments.only_run_argument_script then exit 1
@@ -218,13 +217,11 @@ let () =
             let beg = Camlp4.PreCast.Loc.start_off a
             and en = Camlp4.PreCast.Loc.stop_off a in
             let is_unknown = "illegal begin of expr" = err in
-            let msg = "@[<v 4>Command error between characters @{<b>" ^ 
-                string_of_int beg ^ "@} and @{<b>" ^
-                string_of_int en ^ "@}:@,@["^
-                (if is_unknown then "Unknown command" else
-                    err) ^ "@]@]\n"
-            in
-            Status.user_message Status.Error msg;
+            Printf.ksprintf
+                (Status.user_message Status.Error)
+                ("@[<v 4>Command error between characters @{<b>%d@}"^^
+                 " and @{<b>%d@}:@,@[%s@]@]\n")
+                beg en (if is_unknown then "Unknown command" else err);
             Status.error_location beg en;
             let elements =
                 if is_unknown

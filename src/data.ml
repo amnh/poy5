@@ -3638,7 +3638,8 @@ let get_state default = function
 let get_dyn_state data c =
     try match Hashtbl.find data.character_specs c  with
         | Dynamic dspec    -> dspec.state
-        | Set              -> failwithf "Data.get_dyn_state,not dynamic, code=%d" c
+        | Kolmogorov kspec -> kspec.dhs.state
+        | Set | Static _   -> failwithf "Data.get_dyn_state,not dynamic, code=%d" c
     with  Not_found        -> failwithf "Data.get_dyn_state: Couldn't find code=%d in character specs" c
 
 
@@ -4846,6 +4847,11 @@ IFDEF USE_LIKELIHOOD THEN
                 | Dynamic x ->
                     Hashtbl.replace new_specs code
                         (Dynamic {x with lk_model = None; state = `Seq;})
+                | Kolmogorov x ->
+                    Hashtbl.replace new_specs code
+                        (Kolmogorov {x with dhs =
+                                        {x.dhs with lk_model = None;
+                                                    state = `Seq;}})
                 | Set ->
                     failwith "Cannot transform Set characters to parsimony")
             chars;

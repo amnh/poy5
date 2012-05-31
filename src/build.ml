@@ -412,7 +412,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | `Null           -> BuildTabus.simple_nm_none count thrsh
             | `AllBranches    -> BuildTabus.simple_nm_all count thrsh
             | `JoinDelta      -> BuildTabus.complex_nm_delta count thrsh
-            | `Neighborhood x -> BuildTabus.complex_nm_neighborhood count thrsh
+            | `Neighborhood x -> BuildTabus.complex_nm_neighborhood x count thrsh
         in
         Some mgr
 

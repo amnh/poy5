@@ -22,7 +22,6 @@
        functorization of the entire Additive module *)
 
 
-
 (** {6 Types *)
 
 type ct =
@@ -31,8 +30,6 @@ type ct =
         cost       : int array;
         total      : float;
     }
-
-
 
 (** {6 General Usability Functions *)
 
@@ -83,6 +80,23 @@ let to_string ct =
             ct.min_state)
 
 
+let print ct =
+    Printf.printf "Min:\t";
+    for i = 0 to (Array.length ct.min_state)-1 do
+        Printf.printf "%d\t" ct.min_state.(i);
+    done;
+    Printf.printf "\nMax:\t";
+    for i = 0 to (Array.length ct.min_state)-1 do
+        Printf.printf "%d\t" ct.max_state.(i);
+    done;
+    Printf.printf "\nCst:\t";
+    for i = 0 to (Array.length ct.min_state)-1 do
+        Printf.printf "%d\t" ct.cost.(i);
+    done;
+    Printf.printf "\n%!";
+    ()
+
+
 
 (** {6 Accessor/Setter functions **)
 
@@ -112,7 +126,6 @@ let pos_get_cost x i = float_of_int x.cost.(i)
 
 (** return the total cost of the node **)
 let median_cost x = x.total
-
 
 
 (** {6 Median functions. *)
@@ -158,7 +171,8 @@ let mediani a b r =
     functional useage *)
 let median a b = 
     let r = clone a in
-    { r with total = mediani a b r; }
+    let m = mediani a b r in
+    { r with total = m }
 
 (** To make the interface consistant; although it should be noted that the total
     cost of the node will be incorrect. *)
@@ -249,7 +263,6 @@ let full_union a b r =
     ()
 
 
-
 (** {6 Distance functions. *)
 
 let set_minimum d s =
@@ -263,9 +276,8 @@ let set_minimum d s =
 let distance a b = 
     (median a b).total
 
-let distance_2 a b c = 
-    let x = median a b in
-    (set_minimum x (median x c)).total
+let distance_2 n a b = 
+    (set_minimum (median n a) (median n b)).total
 
 let distance_median a b = 
     let m = median a b in m.total, m

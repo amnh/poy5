@@ -1269,7 +1269,7 @@ type minimum_spanning_family = minimum_spanning_tree list
 type build_optimum = tree list
 
 let ndebug = true
-let ndebug_no_catch = true
+let ndebug_no_catch = false
 
 (** [reroot_at_outgroup data ptree] reroots [ptree] at the root specified in
     [data].  If the root is not present, the tree will not be rerooted. *)
@@ -4421,45 +4421,42 @@ let deal_with_error output_file run tmp err =
     Status.user_message Status.Error msg;
     raise err
 
-let run ?(folder=folder) ?(output_file="ft_poy.out") ?(start=(empty ())) lst =
-    (* print_endline "We are at the run in Scripting module";
-    Methods.print_script_ls lst; *)
+let run ?(folder=folder) ?(output_file=Arguments.default_dump_file) ?(start=(empty ())) lst =
     let rec continue run tmp =
         let my_folder printit run h =
-            if ndebug_no_catch
-            then begin
+            if ndebug_no_catch then begin
                 let run = folder run h in
                 if printit then
-                    Status.user_message (Status.SearchReport)
-                    (SearchInformation.show_information
-                    (Some run.trees) (Some run.data) None None);
+                    Status.user_message
+                        (Status.SearchReport)
+                        (SearchInformation.show_information
+                            (Some run.trees) (Some run.data) None None);
                 run
-            end
-            else try 
+            end else try 
                 let run = folder run h in
-                Status.user_message (Status.SearchReport)
-                (SearchInformation.show_information
-                (Some run.trees) (Some run.data) None None);
+                Status.user_message
+                    (Status.SearchReport)
+                    (SearchInformation.show_information
+                        (Some run.trees) (Some run.data) None None);
                 run
-            with 
-            | Error_in_Script (err, run) ->
-                    deal_with_error output_file run tmp err
-            | err -> 
-                    deal_with_error output_file run tmp err
+                with
+                    | Error_in_Script (err, run) ->
+                        deal_with_error output_file run tmp err
+                    | err ->
+                        deal_with_error output_file run tmp err
         in
         match tmp with
-        | h :: t -> 
-              continue (my_folder (t = []) run h) t
-        | [] -> run
+        | h::t -> continue (my_folder (t = []) run h) t
+        | []   -> run
     in
     continue start lst 
 
-let get_dump ?(file="ft_poy.out") () = 
+let get_dump ?(file=Arguments.default_dump_file) () =
     let ch = open_in_bin file in
     let (r, lst) = Marshal.from_channel ch in
     ((r : r), (lst : script list))
 
-let restart ?(file="ft_poy.out") () = 
+let restart ?(file=Arguments.default_dump_file) () =
     let ch = open_in_bin file in
     let (r, lst) = Marshal.from_channel ch in
     run ~start:r lst

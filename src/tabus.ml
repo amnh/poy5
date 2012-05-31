@@ -104,7 +104,7 @@ module type S = sig
     val simple_nm_none : int option -> float option -> nm
     val simple_nm_all : int option -> float option -> nm
     val complex_nm_delta : int option -> float option -> nm
-    val complex_nm_neighborhood : int option -> float option -> nm
+    val complex_nm_neighborhood : int -> int option -> float option -> nm
 
     (** {2 Tabu Managers} *)
 
@@ -792,7 +792,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     (opt_ string_of_float score) "Join Delta"
     end
 
-    class nm_complex_neighborhood mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)
+    class nm_complex_neighborhood dist mcount mthreshold : [Node.n,Edge.e] nodes_manager =
+        object (self)
             inherit nm_simple_base mcount mthreshold as super
     
             val mutable b_list = []
@@ -2331,7 +2332,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     let simple_nm_none c t = new nm_simple_none c t
     let simple_nm_all c t = new nm_simple_all c t
     let complex_nm_delta c t = new nm_complex_delta c t
-    let complex_nm_neighborhood c t = new nm_complex_neighborhood c t
+    let complex_nm_neighborhood x c t = new nm_complex_neighborhood x c t
 
     let add_to_banned_list neigh1 neigh2 b1 b2 map_of_banned tree =
         let add_to_map_banned a neigh1 b1 b2 map_of_banned =
