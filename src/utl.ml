@@ -225,6 +225,12 @@ let int_to_int32_arr (arr :int array) =
 let int_to_int32_mat (mat : int array array) = 
     Array.map (fun arr -> int_to_int32_arr arr) mat
 
+let float_to_int_arr (arr: float array) =
+    Array.map (fun x -> int_of_float x) arr
+
+let float_to_int_mat (mat : float array array) =
+    Array.map (fun arr-> float_to_int_arr arr) mat
+
 let printIntArr (arr : int array) = 
     Array.iter (fun x -> if x=large_int then fprintf stdout "  L" else
         fprintf stdout "%d," x) arr;

@@ -30,6 +30,10 @@ external set_gc_alloc_max : int -> unit = "sankoff_GC_custom_max"
 
 external get_extra_cost_for_root : t -> int = "sankoff_CAML_get_extra_cost_for_root"
 
+external get_best_child_state : t -> int ->  int = "sankoff_CAML_get_best_child_state"
+
+external get_taxon_code : t -> int = "sankoff_CAML_get_taxon_code"
+
 (** {2 Standard functions} *)
 (*val code : t -> int                     * The code of a set *)
 (*val mem : int list option -> t -> bool  * determine if the code of this set is present in the list *)
@@ -92,3 +96,5 @@ val get_all_possible_assignments : int list option list -> int list list *)
 val min_possible_cost : int array array -> Nexus.File.static_state list -> float
 
 val max_possible_cost : int array array -> Nexus.File.static_state list -> float
+
+val get_states : t -> int -> int array

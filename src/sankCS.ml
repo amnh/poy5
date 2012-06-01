@@ -128,6 +128,9 @@ type t = {
 (* A default string representation as a list with the minimal states (those with
 * minimal cost in the state array). *)
 
+(*function for fixed states*)
+external get_best_child_state : t -> int -> int = "sankoff_CAML_get_best_child_state"
+
 external set_gc_alloc_max : int -> unit = "sankoff_GC_custom_max"
 
 external get_ecode : elt -> int = "sankoff_CAML_get_ecode"
@@ -142,38 +145,14 @@ external get_tcm : t ->
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t =
         "sankoff_CAML_get_tcm"
 
+external get_e_array : elt -> 
+    (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t = "sankoff_CAML_get_e_array"
+
 external get_extra_cost_for_root : t -> int = "sankoff_CAML_get_extra_cost_for_root"
-
-
-(*let elt_to_string a = 
-    let sep = ref "" in
-    let res, _ = Array.fold_left 
-            begin fun (b, pos) a -> 
-                let next =
-                    if a = infinity
-                    then b
-                    else
-                        let next =
-                    b ^ !sep
-                    ^ string_of_int pos ^ "="
-                    ^ string_of_cost a
-                        in
-                        sep := ";";
-                        next
-                in
-                next, pos + 1
-            end ("{",0) a.s in
-    res ^ "}"
-
-let to_string s =
-    let list = Array.to_list s.elts in
-    let strings = List.map elt_to_string list in
-    "[" ^ String.concat "; " strings ^ "]"
-*)
 
 let to_string s = " to do "
 
-external get_states : elt -> 
+external get_states_cside : elt -> int ->
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t
     = "sankoff_CAML_get_states"
     
@@ -181,24 +160,29 @@ let to_list s =
     let num_elts = get_num_elts s in
     let res = Array.init num_elts (fun eltNO ->
         let thiselt = get_elt s eltNO in
-        let states_bigarr = get_states thiselt in
+        let states_bigarr = get_states_cside thiselt 1 in
         let states = Array.init (Bigarray.Array1.dim states_bigarr) 
         (fun x -> 
             Int32.to_int (Bigarray.Array1.get states_bigarr x)
-        )  in
+        ) in
         get_ecode thiselt,
         states
     ) in
     Array.to_list res
-    (*let remove_inf x = if is_infinity x then max_int else x in
-    let array =
-        Array.map
-            (fun x ->
-                let states = Array.map remove_inf x.s in
-                x.ecode,states)
-            s.elts
-    in
-    Array.to_list array*)
+
+(*function for fixed states, where we have only one elt for each t*)
+(*1=states,2=leftstates,3=rightstates*)
+let get_states s this_or_left_or_right =
+    let num_elts = get_num_elts s in
+    assert(num_elts==1);
+    let thiselt = get_elt s 0 in
+    let states_bigarr = get_states_cside thiselt this_or_left_or_right in
+    let states = Array.init (Bigarray.Array1.dim states_bigarr) 
+    (fun x -> 
+        Int32.to_int (Bigarray.Array1.get states_bigarr x)
+    )  in
+    states
+
 
 (*let elt_to_full_string a =
     let string_of_costarray a =
@@ -330,50 +314,7 @@ let rand_gen () =
     in list
 no one calls this *)
 
-(* Calculates the median between to characters a and b. a and b have to be
-* homologous (same code), and must also have the same transformation cost matrix
-* associated. If they are homologous, it must also be the case that they hold
-* the same number of valid states. 
-let elt_median tcm a b = 
-    let debug = false in
-    assert ((Array.length a.s) = (Array.length b.s));
-    assert (a.ecode = b.ecode);
-    let states = Array.length a.s in
-    let min_cost = ref infinity in
-    (* calculate the preliminary costs, and store our minimum value *)
-    let states_init i = 
-        if debug then Printf.printf "if median state = %d\n%!" i;
-        let best = ref infinity in
-        for j = states - 1 downto 0 do
-            for k = states - 1 downto 0 do
-                let combination_cost = median_cost tcm i j k in
-                if debug then Printf.printf "if a.state=%d,b.state=%d, then cost = %d,%!" j k combination_cost;
-                let combination_cost = combination_cost +$ a.s.(j) +$ b.s.(k) in
-                if debug then Printf.printf 
-                "total cost = cost + cost from a[%d] + cost from b[%d] = %d,%!"
-                a.s.(j) b.s.(k) combination_cost;
-                store_min combination_cost best
-            done;
-        done;
-        store_min !best min_cost;
-        assert_ninf !best a b
-    in
-    let c = Array.init states states_init in
-    (* preliminary added cost *)
-    let e = Array.init states
-        (fun s ->
-             c.(s) -$ !min_cost) in
-    (* beta value: see Goloboff 1998 *)
-    let beta_init s =
-        let best = ref infinity in
-        for x = states - 1 downto 0 do
-            store_min ((tcm.(s).(x)) +$ e.(x)) best
-        done;
-        !best
-    in
-    let beta = Array.init states beta_init in
-    { a with s = c; beta = beta; e = e; m = None; } 
-    *)
+
 
 external median_cside : int -> t -> t -> t = "sankoff_CAML_median"
 
@@ -382,13 +323,28 @@ external get_sumcost : t -> int = "sankoff_CAML_get_sumcost"
 
 let median median_node_code a b =
     let debug = false in
-    if debug then Printf.printf "SankCS.median,median_node_code=%d\n%!" median_node_code;
+    if debug then begin
+        let tca = get_taxon_code a in
+        let tcb = get_taxon_code b in
+        Printf.printf "SankCS.median,median_node_code=%d,taxon code a/b = %d,%d\n%!" median_node_code
+        tca tcb;
+        (*let alst = to_list a in
+        let blst = to_list b in
+        List.iter (fun (ec, states_arr) -> 
+            Printf.printf "nodeA=%d, ecode=%d, " tca ec; 
+            Utl.printIntArr states_arr;
+        ) alst;
+        List.iter (fun (ec, states_arr) -> 
+            Printf.printf "nodeB=%d, ecode=%d, " tcb ec; 
+            Utl.printIntArr states_arr;
+        ) blst;*)
+    end;
     let med = median_cside median_node_code a b in
     let sumcost = get_sumcost med in
     if (sumcost<0) then 
     error_user_message "subtree cost exceed max_int of current system.";
     let cost = float_of_int sumcost in
-    if debug then Printf.printf "max_int = %d, return median with cost = %f\n%!" max_int cost;
+    if debug then Printf.printf "return median with cost = %f\n%!" cost;
     med,cost
     (*
     assert (a.code = b.code);
@@ -431,6 +387,7 @@ external distance_cside : t -> t -> int = "sankoff_CAML_distance"
 * [elt_distance], which will call [elt_median]. if you need median and distance,
 * don't call two functions seperately, use [distance_and_median] instead*)
 let distance a b =
+    let debug = false in
     if debug then Printf.printf "SankCS.distance\n%!";
     let dis = distance_cside a b in
     float_of_cost dis
@@ -558,8 +515,23 @@ external median_3_cside : t -> t -> t -> t -> t = "sankoff_CAML_median_3"
 let median_3 a n l r =
     let debug = false in
     let tcn = get_taxon_code n in
-    let tcr = get_taxon_code l in
-    if debug then Printf.printf "median 3, taxon code, nodeN=%d =?= nodeR=%d\n%!" tcn tcr;
+    let tcr = get_taxon_code r in
+    if debug then begin
+        let tcl = get_taxon_code l in
+        let tca = get_taxon_code a in
+        Printf.printf "median 3, taxon code, nodeN=%d =?= nodeR=%d, nodeL=%d, \
+        nodeA=%d\n%!" tcn tcr tcl tca;
+        (*let alst = to_list a in
+        let blst = to_list n in
+        List.iter (fun (ec, states_arr) -> 
+            Printf.printf "nodeA=%d, ecode=%d, " tca ec; 
+            Utl.printIntArr states_arr;
+        ) alst;
+        List.iter (fun (ec, states_arr) -> 
+            Printf.printf "nodeN=%d, ecode=%d, " tcn ec; 
+            Utl.printIntArr states_arr;
+        ) blst; *)
+    end;
     if tcn=tcr then(*leafnode*)
         n
     else
@@ -707,52 +679,24 @@ let dist_2 r a d =
 *)
 
 
-let elt_to_formatter attr d tcm elt elt_parent : Xml.xml Sexpr.t =
+let elt_to_formatter attr d tcm idx elt elt_parent : Xml.xml Sexpr.t =
     let module T = Xml.Characters in
     match attr with
     | [_, `String x] -> 
             let cost, lst =
-                (* to do : write a cside function for this
-                if x = Xml.Nodes.preliminary then
-                    (* In this case we just pick the smallest of all mine *)
-                    let lst = ref []
-                    and cost = ref infinity in
-                    let () =
-                        Array.iteri (fun pos mycost ->
-                            if mycost < !cost then begin
-                                cost := mycost;
-                                lst := [pos];
-                            end else if mycost = !cost then lst := pos :: !lst
-                            else ()) elt.s
-                    in
-                    !cost, !lst
-                else if x = Xml.Nodes.final then 
-                    let of_parent = elt_parent.best_states in
-                    let (_, cost, lst) = Array.fold_left (fun ((pos, min, minlist)  as acc) x ->
-                        let of_parent =
-                            match of_parent with
-                            | [] -> [pos]
-                            | _ -> of_parent
-                        in
-                        if is_inf x then (pos + 1, min, minlist)
-                        else
-                            let dists = List.map (fun y -> 
-                                tcm.(pos).(y) + x) of_parent in
-                            let didit = ref false in
-                            let newpos = pos + 1 in
-                            List.fold_left (fun (_, min, minlist) x ->
-                            if x < min then begin
-                                didit := true;
-                                (newpos, x, [pos])
-                            end else if x = min && not !didit then begin 
-                                didit := true;
-                                (newpos, x, (pos :: minlist))
-                            end else (newpos, min, minlist)) acc dists)  (0, max_int, []) elt.s
-                    in
-                    cost, lst
-                else assert false
-                *)
-                0,[]
+                let states_bigarr = get_states_cside elt 1 in
+                let states = Array.init (Bigarray.Array1.dim states_bigarr) 
+                (fun x -> 
+                Int32.to_int (Bigarray.Array1.get states_bigarr x)
+                ) in
+                let idx = ref (-1) in
+                let best_states_idxlst,bestcost = Array.fold_left (fun (acc,best) x ->
+                    idx := !idx + 1;
+                    if best>x then ([!idx],x)
+                    else if best=x then ((!idx)::acc, best)
+                    else (acc,best)
+                ) ([],states.(0))  states in
+                bestcost, best_states_idxlst
             in
             let ecode = get_ecode elt in
             let create x = 
@@ -786,8 +730,11 @@ let to_formatter attr a (parent : t option) d : Xml.xml Sexpr.t list =
     | None -> items   
     in 
     let tcm = get_tcm a in (*a.tcm  in*)
-    List.map2 (elt_to_formatter attr d tcm) items  items_parent
-
+    let idx = ref 0 in
+    List.map2 (fun this_elt parent_elt -> 
+        let res = elt_to_formatter attr d tcm !idx this_elt parent_elt in
+        idx := !idx + 1;
+        res) items  items_parent
 
 (* no one calls these 
 let make_onestate code tcm state =

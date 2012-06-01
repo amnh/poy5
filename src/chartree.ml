@@ -977,7 +977,7 @@ let break_fn (tree_node, clade_node_id) ptree =
 let prepare_tree_for_downpass ptree tree_delta =
     match tree_delta with
     | (`Edge (v, _, _, _)), (`Single (h, true)), _ ->
-            if debug_joinfn then Printf.printf "Removing the vertex %d\n%!" v;
+            if debug_joinfn then Printf.printf "Removing the vertex (Edge,Single) %d\n%!" v;
             let ptree = Ptree.remove_node_data v ptree in
             v, Ptree.remove_root_of_component h ptree
     | (`Single (v, _)), (`Single (h, true)), _ ->
@@ -990,7 +990,7 @@ let prepare_tree_for_downpass ptree tree_delta =
             let ptree = Ptree.remove_node_data v ptree in
             r, ptree)
     | (`Single (v, _)), (`Edge (r, a, b, Some h)), _ ->
-            if debug_joinfn then Printf.printf "Removing the vertex %d\n%!" r;
+            if debug_joinfn then Printf.printf "Removing the vertex Single,Edge %d\n%!" r;
             let ptree = Ptree.remove_root_of_component h ptree in
             let ptree = Ptree.remove_node_data r ptree in
             r, ptree
@@ -1019,8 +1019,10 @@ let join_topologies_and_data jxn1 jxn2 ptree =
     let ptree = { ptree with Ptree.tree = ret } in
     let v, ptree = prepare_tree_for_downpass ptree tree_delta in
     let ptree, updt = 
-        if debug_joinfn then 
+        if debug_joinfn then begin
             Printf.printf "I will do the downpass\n%!";
+            Ptree.print_node_data_keys ptree;
+        end;
         incremental_downpass v ptree
     in
     ptree, v, tree_delta, updt

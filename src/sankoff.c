@@ -101,6 +101,8 @@ sankoff_CAML_free_eltarr (value v) {
     eltarr_p eap;
     eap = Sankoff_eltarr_pointer(v);
     assert(eap!=NULL);
+    int debug = 0;
+    if(debug) printf("sankoff_CAML_free_eltarr,taxon code = %d\n",eap->taxon_code);
     if (eap->tcm!=NULL) free(eap->tcm);
     int i;
     for (i=0;i<eap->num_elts;i++)
@@ -239,6 +241,9 @@ __inline int
 inline int
 #endif
 sankoff_is_left_or_right_child (eltarr_p eapN, eltarr_p eapA) {
+    int debug = 0;
+    if(debug) printf("sankoff_is_left_or_right_child, A's child left/right = %d/%d, N's taxoncode=%d\n",
+            eapA->left_taxon_code,eapA->right_taxon_code,eapN->taxon_code);
     if (eapN->taxon_code == eapA->left_taxon_code)
         return 1;
     else if(eapN->taxon_code == eapA->right_taxon_code) 
@@ -311,11 +316,17 @@ sankoff_print_eltarr (eltarr_p eap, int printe, int printbeta, int print_costdif
 {
     printf("taxon code = %d, code=%d,num_elts=%d,sum cost = %li, left child = %d, right child = %d\n",
             eap->taxon_code,eap->code,eap->num_elts,eap->sum_cost,eap->left_taxon_code,eap->right_taxon_code);
-    int i;
+    /*int i;
     int num_elts = eap->num_elts;
+    int printtcm = 1;
+    if(printtcm) {
+        int num_states = eap->num_states;
+        sankoff_print_int_array("tcm = ", eap->tcm, num_states*num_states);
+    }
     for (i=0;i<num_elts;i++)
         sankoff_print_elt(&((eap->elts)[i]),printe,printbeta,print_costdiff,print_best_child_states);
     fflush(stdout);
+    */
     return;
 }
 
@@ -357,6 +368,9 @@ __inline void
 inline void
 #endif
 sankoff_init_eltarr (eltarr_p neweltarr, int num_states, int num_elts, int code, int taxon_code, int left_taxon_code, int right_taxon_code, int * tcm) {
+    int debug = 0;
+    if(debug) printf("sankoff_init_eltarr, left tcode=%d,right tcode=%d, tcode=%d, code = %d\n",
+            left_taxon_code, right_taxon_code,taxon_code,code);
     neweltarr->code = code;
     neweltarr->taxon_code = taxon_code;
     neweltarr->left_taxon_code = left_taxon_code;
@@ -412,17 +426,29 @@ sankoff_CAML_get_ecode(value this_elt) {
 }
 
 value
-sankoff_CAML_get_states(value this_elt) {
-    CAMLparam1(this_elt);
+sankoff_CAML_get_states(value this_elt, value this_or_left_or_right) {
+    CAMLparam2(this_elt,this_or_left_or_right);
     CAMLlocal1(res);
     elt_p ep;
     Sankoff_elt_custom_val(ep,this_elt);
+    int whatstate = Int_val(this_or_left_or_right);
     int num_states = ep->num_states;
     long dims[1];
     dims[0] = num_states;
+    if (whatstate==1) 
     CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
             1, ep->states, dims));
+    else if (whatstate==2) 
+    CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
+            1, ep->leftstates, dims));
+    else if (whatstate==3) 
+    CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
+            1, ep->rightstates, dims));
+    else
+        failwith ("sankoff_CAML_get_states,must pick which state array you need (1=states,2=leftstates,3=rightstates)");
 }
+
+
 
 
 //copy ep1 to ep2, ep2 must be init with enough memory already for what its
@@ -507,6 +533,9 @@ sankoff_CAML_compare_eltarr(value eltarr1, value eltarr2) {
     if (eap1->code != eap2->code ) res=1;
     else if (eap1->num_states != eap2->num_states) res=1;
     else if (eap1->num_elts != eap2->num_elts) res=1;
+    else if (eap1->taxon_code != eap2->taxon_code) res=1;
+    else if (eap1->left_taxon_code != eap2->left_taxon_code) res=1;
+    else if (eap1->right_taxon_code != eap2->right_taxon_code) res=1;
     else {//if any of the elt is different, set res to 1
         int i, tmp;
         for (i=0;i<eap1->num_elts;i++) {
@@ -517,6 +546,12 @@ sankoff_CAML_compare_eltarr(value eltarr1, value eltarr2) {
     CAMLreturn(Val_int(res));
 }
 
+//please note that we use alloc_custom_max here like we did for get_eltarr. I
+//know that each eltarr might have more than 1 elt, so this number should be
+//bigger. But
+//we only get elt directly when dealing with fixed_state, or diagnosis output to
+//screen. for fixed_state, each eltarr only has one elt. for diagnosis, we only
+//print result best tree(s). either way, we don't need that many. 
 value
 sankoff_CAML_get_elt (value this_eltarr,value idx)
 {
@@ -817,6 +852,21 @@ cost_less (int a, int b)
     else return (a<b);
 }
 
+//return 1 if a<b or b is infinity but a is not,
+//return 0 if a>=b or if a is infinity 
+#ifdef _win32
+__inline int
+#else
+inline int
+#endif
+cost_less_or_equal (int a, int b)
+{
+    if (is_infinity(a)) return 0;
+    else if (is_infinity(b)) return 1;
+    else return (a<=b);
+}
+
+
 //return min(a,b)
 #ifdef _win32
 __inline int
@@ -893,6 +943,20 @@ sankoff_get_min_state (elt_p ep, int * cost, int * idx)
         else {};
     }
     return;
+}
+
+
+
+value
+sankoff_CAML_get_e_array (value a) {
+    CAMLparam1(a);
+    elt_p ep;
+    ep = Sankoff_elt_pointer(a);
+    int num_states = ep->num_states;
+    long dims[1];
+    dims[0] = num_states;
+    CAMLreturn(alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
+            2, ep->e, dims));
 }
 
 
@@ -991,15 +1055,15 @@ sankoff_CAML_create_eltarr (value taxon_code, value code, value number_of_states
     if ((dimcm1!=dimcm2)||(dimcm1!=dims2)) 
         failwith ("sankoff.c, wrong size of costmat between states");
     if (debug) 
-    {printf("sankoff_CAML_create_eltarr,sizof(elt_arr)=%d, code=%d,number of charactors(num_elts)=%d,states number is %d\n",sizeof(struct elt_arr),mycode,dims1,num_states); }
+    {printf("sankoff_CAML_create_eltarr,sizof(elt_arr)=%d, taxon_code=%d,mycode=%d,number of charactors(num_elts)=%d,states number is %d\n",sizeof(struct elt_arr),tcode,mycode,dims1,num_states); }
     eltarr_p neweltarr;
     res = 
     caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (struct elt_arr), 1,alloc_custom_max);
     neweltarr = Sankoff_eltarr_pointer(res);
     neweltarr->code = mycode;
     neweltarr->taxon_code = tcode;
-    neweltarr->left_taxon_code = 0;
-    neweltarr->right_taxon_code = 0;
+    neweltarr->left_taxon_code = tcode;
+    neweltarr->right_taxon_code = tcode;
     neweltarr->sum_cost = 0;
     neweltarr->num_states = dimcm1;
     neweltarr->num_elts = dim;
@@ -1039,7 +1103,7 @@ sankoff_CAML_create_eltarr (value taxon_code, value code, value number_of_states
     }
     if (debug) {
         printf("return this elt_arr to Ocaml side.\n"); fflush(stdout);
-        sankoff_print_eltarr(neweltarr,1,1,0,0);
+        sankoff_print_eltarr(neweltarr,0,0,0,0);
     }
     CAMLreturn(res);
 }
@@ -1415,7 +1479,7 @@ sankoff_median_3(eltarr_p eapA,eltarr_p eapN, eltarr_p eapL, eltarr_p eapR, elta
             sankoff_print_eltarr(eapR,1,1,0,0);
         } 
         int is_left_child = sankoff_is_left_or_right_child(eapN,eapA);
-        sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapN->left_taxon_code,eapN->right_taxon_code, eapN->tcm);
+        sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapL->taxon_code,eapR->taxon_code, eapN->tcm);
         for (i=0;i<num_elts;i++)
         {
             sankoff_create_empty_elt(&((neweapN->elts)[i]),num_states,-1);
@@ -1568,13 +1632,15 @@ inline void
 #endif
 sankoff_median(int median_node_tcode,eltarr_p eap1,eltarr_p eap2, eltarr_p neweltarr) {
     int debug = 0;
-    assert(eap1->code == eap2->code);
-    assert(eap1->num_elts == eap2->num_elts);
     if (debug) { printf("===== sankoff_median =====\n on eap1:\n");
         sankoff_print_eltarr(eap1,1,0,0,0);
         printf(" and eap2:\n");
         sankoff_print_eltarr(eap2,1,0,0,0);
     }
+    if(debug && eap1->code != eap2->code) printf("code of eap1 = %d/%d, of eap2 = %d/%d\n",
+            eap1->code,eap1->taxon_code,eap2->code,eap2->taxon_code);
+    assert(eap1->code == eap2->code);
+    assert(eap1->num_elts == eap2->num_elts);
     long int sum_cost=0, elt_cost;
     int i; int num_states, num_elts;
     num_states = eap1->num_states;
@@ -1593,6 +1659,41 @@ sankoff_median(int median_node_tcode,eltarr_p eap1,eltarr_p eap2, eltarr_p newel
     }
     return;
 }
+
+#ifdef _win32
+__inline int
+#else
+inline int
+#endif
+sankoff_get_best_child_state (eltarr_p eap, int getleftchild) {
+    assert(eap->num_elts == 1);//this function is for fixed states only
+    elt_p ep = &(eap->elts)[0];
+    int cost=0, idx=0;
+    sankoff_get_min_state(ep,&cost,&idx);
+    if (getleftchild) 
+        return (ep->leftstates)[idx];
+    else
+        return (ep->rightstates)[idx];
+}
+
+
+//this function is for fixed states only
+value
+sankoff_CAML_get_best_child_state (value a, value ch_tcode) {
+    CAMLparam2(a,ch_tcode);
+    eltarr_p eap;
+    eap = Sankoff_eltarr_pointer(a);
+    //int position = Int_val(p);
+    int child_taxon_code = Int_val(ch_tcode);
+    int leftORright=0;
+    if (eap->left_taxon_code == child_taxon_code) leftORright=1;
+    else if(eap->right_taxon_code == child_taxon_code) leftORright = 0;
+    else failwith("sankoff,get_best_child_state, neither left nor right");
+    int beststate = sankoff_get_best_child_state(eap,leftORright);
+    CAMLreturn(Val_int(beststate));
+}
+
+
 
 
 #ifdef _win32

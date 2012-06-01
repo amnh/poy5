@@ -474,6 +474,7 @@ val add_edge_data :
   Tree.EdgeMap.key -> 'a -> ('b, 'a) p_tree -> ('b, 'a) p_tree
 val remove_node_data :
   int -> ('a, 'b) p_tree -> ('a, 'b) p_tree
+val print_node_data_keys : ('a, 'b) p_tree -> unit
 val remove_edge_data : Tree.EdgeMap.key -> ('a, 'b) p_tree -> ('a, 'b) p_tree
 val get_node_data : int -> ('a, 'b) p_tree -> 'a
 val get_edge_data : Tree.EdgeMap.key -> ('a, 'b) p_tree -> 'b

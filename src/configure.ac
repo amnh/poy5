@@ -248,7 +248,7 @@ case ${OS_INFORMATION} in
         oCFLAGS="$CFLAGS"
         CFLAGS="$FLAGS -Wl,--no-as-needed"
         AC_MSG_CHECKING([whether we need to add --no-as-needed linking option])
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[]])], 
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[]])], 
                           [AC_MSG_RESULT([yes]); CC_NOASNEEDED="true"],
                           [AC_MSG_RESULT([no]); CC_NOASNEEDED="false"]) 
         CFLAGS=$oCFLAGS

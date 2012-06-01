@@ -51,6 +51,7 @@ val get_common3 :
 val insert : 'a array -> int -> 'a -> 'a array
 val swap_item : int -> int -> 'a array -> 'a array
 val bigger_int : int -> int -> int
+val float_to_int_mat : float array array -> int array array
 val int_to_int32_arr : int array -> int32 array
 val int_to_int32_mat : int array array -> int32 array array
 val printIntArr : int array -> unit
