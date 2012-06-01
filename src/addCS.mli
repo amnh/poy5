@@ -25,31 +25,61 @@
 * Set.Make specification so that it can be used as a functor parameter for set
 * in scalable character sets. *)
 
+(** {6 Abstract Module} *)
+
+(** Interface to define the basic operations that will be composed for the
+    general module. This is to allow, vectorization, an ocaml implemenation, and
+    anything else one can imagine. *)
 module type AdditiveInterface = 
   sig
+
+    (** {2 Types} *)
+    (** Abstract type for the interface *)
     type ct
-
+    (** {2 Functions} *)
+    (** Function to create the above abstract type **)
     val create : int array -> int array -> ct
+    (** Copy the abstract type contents to another created type **)
     val copy : ct -> ct -> unit
+    (** functional version of above **)
     val clone : ct -> ct
+    (** compare function; for sets and maps, et cetera *)
     val compare_data : ct -> ct -> int
-
+    (** basic median function **)
     val median : ct -> ct -> ct
+    (** basic distance function; on a basic level, returns cost of median *)
     val distance : ct -> ct -> float
+    (** basic distance_2 function; min (median n a) (median n b) *)
     val distance_2 : ct -> ct -> ct -> float
+    (* returns cost and median *)
     val distance_median : ct -> ct -> float * ct
+    (** returns cost of a median *)
     val median_cost : ct -> float
+    (** calculate the median of three nodes, old center node included *)
     val median_3 : ct -> ct -> ct -> ct -> ct
-    val full_union : ct -> ct -> ct -> unit
+    (** full union as a median, instead of min-distance *)
+    val full_unioni : ct -> ct -> ct -> unit
+    (** full union as a median, instead of min-distance *)
+    val full_union : ct -> ct -> ct
+    (** imperative version of median *)
     val mediani : ct -> ct -> ct -> unit
-
+    (** set state at a position in the vector (min and max); do not update cost *)
     val pos_set_state : ct -> int -> int -> int -> unit
+    (** get max state at a position *)
     val pos_get_max : ct -> int -> int
+    (** get min state at a position *)
     val pos_get_min : ct -> int -> int
+    (** get cost state at a position *)
     val pos_get_cost : ct -> int -> float
+    (** convert the abstract type to a string *)
     val to_string : ct -> string
+    (** return the number of characters *)
+    val cardinal : ct -> int
+    (** print a vector to the screen *)
+    val print : ct -> unit
   end
 
+(** Module functorized around the above module interface **)
 module type Make = sig
     (** {2 Exceptions} *)
 
@@ -323,7 +353,7 @@ module type Make = sig
     val to_formatter :
         Xml.attributes -> t -> t option -> Data.d -> Xml.xml Sexpr.t list
 
-    (** {2 Convenient Modules} *)
+    (** {2 Imperative Module for better performance (?) } *)
 
     module Imperative : sig
         (** An imperative implementation of the Additive Character Set 
@@ -356,13 +386,18 @@ module type Make = sig
 
 end
 
+(** Module that compares AddVec and AddGen. The characters should be
+    vectorizable for this to work, and replacing Vector in this module
+    functorized with Test would be the recommended usage for the module *)
+module Test : AdditiveInterface
+
 (** General implementation of the additive characters that use pure ocaml, no
     vectoriztion or size limits in characters. This is used when the range is
     too large, and for verification **)
 module General : Make
 
 (** A vectorized version of the characters. The max-range for each character is
-    the size of a character (255). **)
+    the size of a char (255). **)
 module Vector  : Make
 
 (** Split a list of characters to be vectorized or generally implemented **)
