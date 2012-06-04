@@ -285,6 +285,7 @@ fi
 #               ],
 #                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
+USE_SSE="false"     #DISABLE ALL SSE until it's faster than normal.
 USED_SSE="false"
 AS_IF([test $USE_SSE = "true"],
     [AC_MSG_CHECKING([SSE4 support]); CFLAGS_TMP="$CFLAGS"; CFLAGS="-msse4";

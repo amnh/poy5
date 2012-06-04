@@ -23,7 +23,7 @@
 #include <assert.h>         
 #include <time.h>
 
-#define DEBUG                //will print_loading/unloading SSE information
+#undef DEBUG                //will print_loading/unloading SSE information
 
 #if defined( __SSE4__ )
     #define LK_DATA_ALIGNMENT

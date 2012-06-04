@@ -228,21 +228,20 @@ add_CAML_deserialize (void *v) {
 int
 add_compare_data (add_stt a, add_stt b) {
     /* Compare min and max later, the first difference not zero is returned */
-    int i, len;
+    int i, len, tmp;
     unsigned char *mina, *minb, *maxa, *maxb;
-    unsigned char tmp;
     len = a->len;
     mina = (unsigned char *) a->min;
     minb = (unsigned char *) b->min;
     maxa = (unsigned char *) a->max;
-    maxb = (unsigned char *) b->min;
+    maxb = (unsigned char *) b->max;
     for (i = 0; i < len; i++) {
         tmp = mina[i] - minb[i];
-        if ('\0' != tmp) return ((int) tmp);
+        if (0 != tmp) return tmp;
     }
     for (i = 0; i < len; i++) {
         tmp = maxa[i] - maxb[i];
-        if ('\0' != tmp) return ((int) tmp);
+        if (0 != tmp) return tmp;
     }
     return 0;
 }
@@ -1094,6 +1093,15 @@ add_CAML_get_length (value s) {
     ns = *(Add_st_struct(s));
     CAMLreturn(Val_long(ns->true_len));
 }
+
+value
+add_CAML_cardinal (value s) {
+    CAMLparam1(s);
+    add_stt ns;
+    ns = *(Add_st_struct(s));
+    CAMLreturn(Val_long(ns->len));
+}
+
 
 value
 add_CAML_register (value a) {

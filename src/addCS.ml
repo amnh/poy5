@@ -39,7 +39,8 @@ module type AdditiveInterface =
     val distance_median : ct -> ct -> float * ct
     val median_cost : ct -> float
     val median_3 : ct -> ct -> ct -> ct -> ct
-    val full_union : ct -> ct -> ct -> unit
+    val full_unioni : ct -> ct -> ct -> unit
+    val full_union : ct -> ct -> ct
     val mediani : ct -> ct -> ct -> unit
 
     val pos_set_state : ct -> int -> int -> int -> unit
@@ -47,6 +48,9 @@ module type AdditiveInterface =
     val pos_get_min : ct -> int -> int
     val pos_get_cost : ct -> int -> float
     val to_string : ct -> string
+    val cardinal : ct -> int
+
+    val print : ct -> unit
   end
 
 module type Make = sig
@@ -151,6 +155,7 @@ end
 
 module Make (Add : AdditiveInterface) : Make =
   struct
+
     type ct = Add.ct
 
     (* Internal only exceptions *)
@@ -528,7 +533,7 @@ module Make (Add : AdditiveInterface) : Make =
         { n with characters = res }
 
     let full_union a b c =
-        Add.full_union a.characters b.characters c.characters
+        Add.full_unioni a.characters b.characters c.characters
 
     let state_to_xml ch c (_ : Data.d) =
         let print_character (min, max, code, cost) =
@@ -676,363 +681,156 @@ module Make (Add : AdditiveInterface) : Make =
 
 end
 
+(* Battery of tests for the library *)
+module Test = struct
+ 
+    type ct = AddVec.ct * AddGen.ct
+
+    let failwithf format = Printf.ksprintf (failwith) format
+
+    let compare_vector_general vt gt =
+        if (AddGen.cardinal gt) = (AddVec.cardinal vt) then begin
+            let same = ref true in
+            for i = 0 to (AddGen.cardinal gt)-1 do
+                let this_char =
+                    let max_match = 
+                        if (AddVec.pos_get_max vt i) = 255 then
+                            let max_gen = AddGen.pos_get_max gt i in
+                            (max_gen = 255) || (max_gen = max_int)
+                        else
+                            (AddVec.pos_get_max vt i) = (AddGen.pos_get_max gt i)
+                    in
+                    let min_match = (AddGen.pos_get_min gt i) = (AddVec.pos_get_min vt i)
+                    and cst_match = (AddGen.pos_get_cost gt i) = (AddVec.pos_get_cost vt i) in
+                    max_match && min_match && cst_match
+                in
+                same := !same && this_char;
+            done;
+            !same
+        end else begin
+            false
+        end
+
+    let create x y : ct =
+        let can_fit = ref true in
+        assert(Array.fold_left (fun acc x -> acc && (x <= 255) && (x >= 0)) true x);
+        assert(Array.fold_left (fun acc y -> acc && (y <= 255) && (y >= 0)) true y);
+        let v = AddVec.create x y
+        and g = AddGen.create x y in
+        assert( compare_vector_general v g );
+        (v,g)
+
+    let copy ((x1,x2):ct) ((y1,y2):ct) : unit =
+        AddGen.copy x2 y2;
+        AddVec.copy x1 y1;
+        assert( compare_vector_general y1 y2 );
+        ()
+
+    let clone (xv,xg) =
+        let g = AddGen.clone xg in
+        let v = AddVec.clone xv in
+        assert( compare_vector_general v g );
+        (v,g)
+
+    let compare_data (xv,xg) (yv,yg) =
+        let g_comp = AddGen.compare_data xg yg in
+        let v_comp = AddVec.compare_data xv yv in
+        assert( compare_vector_general xv xg );
+        assert( compare_vector_general yv yg );
+        assert( g_comp = v_comp );
+        g_comp
+
+    let median (xv,xg) (yv,yg) =
+        let v = AddVec.median xv yv
+        and g = AddGen.median xg yg in
+        assert( compare_vector_general v g );
+        (v,g)
+
+    let distance (xv,xg) (yv,yg) =
+        let dg = AddGen.distance xg yg 
+        and dv = AddVec.distance xv yv in
+        assert( dg = dv );
+        dg
+
+    let distance_2 (xv,xg) (yv,yg) (zv,zg) =
+        let dv = AddVec.distance_2 xv yv zv
+        and dg = AddGen.distance_2 xg yg zg in
+        assert( dg = dv );
+        dg
+
+    let distance_median (xv,xg) (yv,yg) =
+        let vd,vm = AddVec.distance_median xv yv
+        and gd,gm = AddGen.distance_median xg yg in
+        assert( compare_vector_general vm gm );
+        assert( vd = gd );
+        gd,(vm,gm)
+
+    let median_cost (xv,xg) =
+        let v = AddVec.median_cost xv
+        and g = AddGen.median_cost xg in
+        assert( v = g );
+        v
+
+    let median_3 (wv,wg) (xv,xg) (yv,yg) (zv,zg) =
+        let dg = AddGen.median_3 wg xg yg zg
+        and dv = AddVec.median_3 wv xv yv zv in
+        assert (compare_vector_general dv dg);
+        assert( compare_vector_general dv dg );
+        (dv,dg)
+
+    let full_unioni (xv,xg) (yv,yg) (zv,zg) =
+        let () = AddVec.full_unioni xv yv zv
+        and () = AddGen.full_unioni xg yg zg in
+        assert( compare_vector_general zv zg);
+        ()
+
+    let full_union (xv,xg) (yv,yg) =
+        let uv = AddVec.full_union xv yv
+        and ug = AddGen.full_union xg yg in
+        assert( compare_vector_general uv ug);
+        (uv,ug)
+   
+    let mediani (xv,xg) (yv,yg) (zv,zg) =
+        let () = AddVec.mediani xv yv zv
+        and () = AddGen.mediani xg yg zg in
+        assert( compare_vector_general zv zg);
+        ()
+
+    let pos_get_max (v,g) i =
+        let m = AddVec.pos_get_max v i in
+        assert(m = (AddGen.pos_get_max g i));
+        m
+
+    let pos_get_min (v,g) i =
+        let m = AddVec.pos_get_min v i in
+        assert(m = (AddGen.pos_get_min g i));
+        m
+
+    let pos_get_cost (v,g) i =
+        let m = AddVec.pos_get_cost v i in
+        assert(m = (AddGen.pos_get_cost g i));
+        m
+
+    let cardinal (v,g) =
+        let x = AddVec.cardinal v in
+        assert (x = AddGen.cardinal g);
+        x
+
+    let pos_set_state ((v,g) as t) i smin smax =
+        let () = AddVec.pos_set_state v i smin smax in
+        let () = AddGen.pos_set_state g i smin smax in
+        ignore (pos_get_min t i);
+        ignore (pos_get_max t i);
+        ()
+
+    let print _ = ()
+        let to_string _ = ""
+
+end 
+
 module Vector  = Make (AddVec)
 module General = Make (AddGen)
 
-(* Battery of tests for the library *)
-module Test = struct
-
-    open Vector
-
-    exception Test_failure of string
-
-    let assigned_codes = ref [||]
-
-    let test_initialize len =
-        let generator p = p in
-        assigned_codes := Array.init len generator
-
-    let random_array len min max = 
-        let dif = max - min in
-        let generator p =
-            let x = Random.int dif in
-            let dify = dif - x in
-            let y = Random.int dify in
-            (x + min, y + x + min, !assigned_codes.(p))
-        in
-        Array.init len generator
-
-    let random len min max code = 
-        of_array (random_array len min max) code
-
-    (* Runs a test over a total of len characters using the function f. f takes
-    * 5 sets with the same codes and the same length. After finshing the run of
-    * f over them, the check function is applied over the output of f . *)
-    let run (generate, check) =
-        check (generate ())
-
-    let prerr_item (a, b, c) =
-        print_string ("(" ^ string_of_int a ^ ", " ^ string_of_int b ^ ", " ^
-        string_of_int c ^ ")")
-
-    let test_full_union len min max =
-        let generate () =
-            let a = random len min max 100
-            and b = random len min max 100
-            and c = random len min max 100 in
-            full_union a b c;
-            a, b, c
-        in
-        let simple_check (a, b, c) (d, e, f) (g, h, i) =
-            if (a < g) || (d < g) || (b > h) || (e > h) || (c <> i) || (f <> i)
-            then begin
-                print_string "FAILURE: The full union test failed.\n a:";
-                prerr_item (a, b, c);
-                print_string "\n b:";
-                prerr_item (d, e, f);
-                print_string "\n c:";
-                prerr_item (g, h, i);
-                raise (Test_failure "Full union.")
-            end else ()
-        in
-        let check ((a, b, c) as res) = 
-            let a = to_list a
-            and b = to_list b 
-            and c = to_list c in
-            let rec iterator a b c = 
-                match a, b, c with
-                | ha :: ta, hb :: tb, hc :: tc ->
-                        simple_check ha hb hc;
-                        iterator ta tb tc;
-                | [], [], [] -> res
-                | _, _, _ -> 
-                        raise (Test_failure "Full union. Lists of \
-                        different length.")
-            in
-            iterator a b c
-        in
-        generate, check
-
-    let test_get_functions len min max = 
-        let generate () =
-            let res = random_array len min max in
-            let tmp = of_array res 1000 in
-            res, tmp
-        in
-        let check (res, tmp) =
-            let rec checker pos =
-                if pos = (-1) then (res, tmp)
-                else begin
-                    let (a, b, c) = res.(pos) in
-                    let ta = get_min tmp pos
-                    and tb = get_max tmp pos 
-                    and tc = get_code tmp pos
-                    and td = get_cost tmp pos in
-                    if (a = ta) && (b = tb) && (c = tc) && (0. = td) then
-                        checker (pos - 1)
-                    else begin
-                        print_string "FAILURE: get_functions. The following \
-                        values are different.\n";
-                        prerr_item (a, b, c);
-                        print_string " and ";
-                        prerr_item (ta, tb, tc);
-                        print_string (" with cost " ^ string_of_float td ^ 
-                        "\n");
-                        raise (Test_failure "get_functions");
-                    end 
-                end
-            in
-            let rlen = get_length tmp in
-            if len = rlen then checker (len - 1)
-            else begin
-                print_string "FAILURE: get_functions. The initial length \
-                is different from the get_length result.\n";
-                raise (Test_failure "get_functions");
-            end
-        in
-        generate, check
-
-    let test_of_array len min max = 
-        let generate () =
-            try
-                let res = random_array len min max in
-                let tmp = of_array res 1000 in
-                res, tmp
-            with
-            | err ->
-                    print_string "AddCS.Test.test_of_array.\n";
-                    raise err
-        in
-        let check (res, tmp) =
-            let lst1 = to_list tmp in
-            let checker pos (a, b, c) =
-                let (ta, tb, tc) = res.(pos) in
-                if (ta <> a) || (tb <> b) || (tc <> c) then begin
-                    print_string "FAILURE: In to_array test\n";
-                    prerr_item (ta, tb, tc);
-                    print_string " vs. ";
-                    prerr_item (a, b, c);
-                    raise (Test_failure "to_array.");
-                end else pos + 1
-            in
-            let _ = List.fold_left checker 0 lst1 in
-            (res, tmp)
-        in
-        generate, check
-
-    let sort ((a, b, _) as d) ((e, f, _) as h) = 
-        if a <= e then d, h
-        else h, d
-
-    let test_distance len min max =
-        let generate () =
-            let a = random len min max 1000
-            and b = random len min max 1000 in
-            (a, b, distance a b)
-        in
-        let check ((a, b, dist) as res) =
-            let pairwise_distance d h =
-                let (a, b, c), (e, f, g) = sort d h in
-                if g = c then begin
-                    if e < b then 0
-                    else e - b
-                end else begin
-                    print_string "FAILURE: distance, the codes doesn't match\n";
-                    print_string ("The codes are : " ^ string_of_int c ^ 
-                    " and " ^ string_of_int g);
-                    print_newline ();
-                    raise (Test_failure "FAILURE: AddCS.Test.distance")
-                end
-            in
-            let rec calculate acc a b =
-                match a, b with
-                | ha :: ta, hb :: tb -> 
-                        calculate (acc + (pairwise_distance ha hb)) ta tb
-                | [], [] -> a, b, float_of_int acc
-                | _, _ -> raise (Test_failure "FAILURE: AddCS.Test.distance")
-            in
-            let (_, _, newcal) = calculate 0 (to_list a) (to_list b) in
-            if newcal = dist then res
-            else begin
-                print_string "FAILURE: distance, the total doesn't match.\n";
-                raise (Test_failure "FAILURE: AddCS.Test.distance")
-            end
-        in
-        generate, check
-
-    let test_distance_median len min max = 
-        let generate () =
-            let a = random len min max 1000
-            and b = random len min max 1000 in
-            a, b, distance_median a b
-        in
-        let check ((a, b, (r, d)) as res) =
-            let rec checker_pairs x y =
-                let intersect u v =
-                    let (a, b, c), (e, f, g) = sort u v in
-                    if b >= e then true
-                    else false
-                in
-                match x, y with
-                | ha :: ta, hb :: tb ->
-                        if intersect ha hb then 
-                            checker_pairs ta tb
-                        else begin
-                            print_string "FAILURE: There is a median that \
-                            doesn't intersect with its parent.\n";
-                            prerr_item ha;
-                            print_string " vs. ";
-                            prerr_item hb;
-                            print_newline ();
-                            raise (Test_failure "FAILURE: \
-                            AddCS.Test.test_distance_median")
-                        end
-                | [], [] -> res
-                | _, _ -> raise (Test_failure "FAILURE: \
-                    AddCS.Test.test_distance_median")
-            in
-            let check_valid (a, b, c) =
-                if (a <= b) && (a >= 0) then ()
-                else begin
-                    print_string "FAILURE: There is an illegal character.";
-                    raise (Test_failure "AddCS.Test.distance_median")
-                end
-            in
-            let la = to_list a
-            and ld = to_list d 
-            and lb = to_list b in
-            begin try List.iter check_valid la
-            with err ->
-                print_string "FAILURE: la\n";
-                raise err
-            end;
-            begin try List.iter check_valid lb
-            with err ->
-                print_string "FAILURE: lb\n";
-                raise err
-            end;
-            begin try List.iter check_valid ld
-            with err ->
-                print_string "FAILURE: ld\n";
-                raise err
-            end;
-            let _ = checker_pairs la ld in
-            checker_pairs lb ld
-        in
-        generate, check
-
-    let test_distance_2_final_join len min max = 
-        let generate () =
-            (* Create 5 taxa and build a tree *)
-                let a = random len min max 1000 
-                and b = random len min max 1000
-                and c = random len min max 1000 
-                and d = random len min max 1000
-                and e = random len min max 1000 in
-                let ab = median None a b
-                and cd = median None c d in
-                let abcd = median None ab cd in
-                let fabcd = abcd in
-                let fab = median_3 fabcd ab a b
-                and fcd = median_3 fabcd cd c d in
-                let total = 
-                    (median_cost ab) +. (median_cost cd) +. (median_cost abcd)
-                in
-                (e, (a, fab), (b, fab), (c, fcd), (d, fcd), (fcd, fabcd), 
-                (fab, fabcd), (a, b, c, d), total) 
-        in
-        let one_check (e, (_, fab), _, (_, fcd), _, (_, fabcd), _, (a, b, c, d),
-        total) =
-            (* We have to test one at a time *)
-            (* Check joining e between a and fab *)
-            let fa = median_3 fab a a a in
-            let stdist = distance_2 e fab fa in
-            let ae = median None a e
-            and cd = median None c d in
-            let aeb = median None ae b in
-            let aebcd = median None aeb cd in
-            let real_total = (median_cost ae) +. (median_cost cd) +.
-            (median_cost aeb) +. (median_cost aebcd) in
-            if stdist = real_total -. total then ()
-            else begin
-                print_endline "The failure occurred when comparing the \
-                following:";
-                print_endline "Parental:";
-                print_endline (to_string fab);
-                print_endline "Child:";
-                print_endline (to_string a);
-                print_endline "Clade:";
-                print_endline (to_string e);
-                print_endline ("The estimated cost of the tree was " ^
-                string_of_float (total +. stdist) ^ " but the real cost \
-                was " ^ string_of_float real_total ^ " with stdist " ^
-                string_of_float stdist);
-                print_endline ("This is the list of leafs in the test:");
-                print_endline (to_string a);
-                print_endline (to_string b);
-                print_endline (to_string c);
-                print_endline (to_string d);
-                print_endline (to_string e);
-                raise (Test_failure "distance_2")
-            end
-        in
-        generate, one_check 
-
-    let () =
-        if tests then begin
-            let status = Status.create "Additive Library Self test" 
-            (Some 6) "Initializing" in
-            Status.report status;
-            let len = 10000
-            and min = 3 
-            and max = 10 in
-            let _ = test_initialize len in
-            Status.message status "Initialization@ finished";
-            Status.achieved status 1;
-            Status.report status;
-            let _ = 
-                try run (test_of_array len min max)
-                with err -> prerr_string "test_of_array"; raise err 
-            in
-            Status.message status "Of array finished";
-            Status.achieved status 2;
-            Status.report status;
-            let _ =
-                try run (test_distance_2_final_join len min max) 
-                with err -> prerr_string "test_distance_2_final_join\n"; raise err
-            in
-            Status.message status "Distance 2 finished";
-            Status.achieved status 3;
-            Status.report status;
-            let _ = 
-                try run (test_full_union len min max)
-                with err -> prerr_string "test_full_union"; raise err 
-            in
-            Status.message status "Full union finished";
-            Status.achieved status 4;
-            Status.report status;
-            let _ = 
-                try run (test_get_functions len min max) 
-                with err -> prerr_string "test_get_functions"; raise err 
-            in
-            Status.message status "Get functions finished";
-            Status.achieved status 5;
-            Status.report status;
-            let _ = 
-                try run (test_distance len min max) 
-                with err -> prerr_string "test_distance"; raise err 
-            in
-            Status.message status "Distance finished.";
-            Status.achieved status 6;
-            Status.report status;
-            let _ = 
-                try run (test_distance_median len min max) 
-                with err -> prerr_string "test_distance_median"; raise err 
-            in
-            Status.finished status;
-        end else 
-            ()
-end
 
 (* We assume the characters are all static continuous/additive characters. We
    want to find the subset that is vectorizable; range is < sizeof(char). This

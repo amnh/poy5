@@ -52,9 +52,17 @@ external pos_get_cost : ct -> int -> float = "add_CAML_get_cost"
 
 external median_3 : ct -> ct -> ct -> ct -> ct = "add_CAML_median_3"
 
-external full_union : ct -> ct -> ct -> unit = "add_CAML_full_union"
+external full_unioni : ct -> ct -> ct -> unit = "add_CAML_full_union"
     
+let full_union a b = 
+    let r = clone a in
+    full_unioni a b r;
+    r
+
 external mediani : ct -> ct -> ct -> unit = "add_CAML_median_imp"
 
 external to_string : ct -> string = "add_CAML_to_string"
 
+external cardinal : ct -> int = "add_CAML_cardinal"
+
+let print ct = Printf.printf "%s" (to_string ct)

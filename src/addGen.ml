@@ -35,21 +35,18 @@ type ct =
 
 (** Comparison function; return first hit of difference **)
 let compare_data x y =
-    if (Array.length x.min_state) = (Array.length y.min_state) then begin
-        let ret = ref 0 and i = ref 0 in
-        while (!ret <> 0) && (!i < Array.length x.min_state) do begin
-            ret := x.min_state.(!i) - y.min_state.(!i);
-            incr i;
-        end done;
-        i := 0;
-        while !ret <> 0 && !i < Array.length x.max_state do begin
-            ret := x.max_state.(!i) - y.max_state.(!i);
-            incr i;
-        end done;
-        !ret
-    end else begin
-        (Array.length x.min_state) - (Array.length y.min_state)
-    end
+    assert( (Array.length x.min_state) = (Array.length y.min_state) );
+    let ret = ref 0 and i = ref 0 in
+    while (!ret = 0) && (!i < Array.length x.min_state) do begin
+        ret := x.min_state.(!i) - y.min_state.(!i);
+        incr i;
+    end done;
+    i := 0;
+    while (!ret = 0) && (!i < Array.length x.max_state) do begin
+        ret := x.max_state.(!i) - y.max_state.(!i);
+        incr i;
+    end done;
+    !ret
 
 
 (** Copy the contents of [x] into [y] **)
@@ -75,11 +72,11 @@ let to_string ct =
         ""
         (Array.mapi
             (fun i _ ->
-                Printf.sprintf "(%d, %d, %d)"
+                Printf.sprintf "(%d, %d, %d);"
                     ct.min_state.(i) ct.max_state.(i) ct.cost.(i))
             ct.min_state)
 
-
+(** Print the contents of the data in a nice way *)
 let print ct =
     Printf.printf "Min:\t";
     for i = 0 to (Array.length ct.min_state)-1 do
@@ -126,6 +123,9 @@ let pos_get_cost x i = float_of_int x.cost.(i)
 
 (** return the total cost of the node **)
 let median_cost x = x.total
+
+(** Return the length of characters *)
+let cardinal ct = Array.length ct.min_state
 
 
 (** {6 Median functions. *)
@@ -195,8 +195,8 @@ let median_3i p n c1 c2 r =
             if xmax <= ymax then (ymin,ymax) else (ymin,xmax)
     (* Check if we are dealing with an intersection *)
     and is_intersection xmin xmax ymin ymax =
-        if xmin <= ymin then
-            not (xmax >= ymin)
+        if xmin <= ymin
+            then (xmax >= ymin)
             else is_intersection ymin ymax xmin xmax
     (* apply the intersection to the result *)
     and add_intersection xmin xmax ymin ymax i =
@@ -223,18 +223,21 @@ let median_3i p n c1 c2 r =
     in
     for i = 0 to (Array.length c1.max_state)-1 do
         if not (is_contained p.min_state.(i) p.max_state.(i)
-                             n.min_state.(i) n.max_state.(i)) then
+                             n.min_state.(i) n.max_state.(i)) then begin
             let xmin,xmax = full_union c1.min_state.(i) c2.min_state.(i)
                                        c1.max_state.(i) c2.max_state.(i) in
-            if not (is_intersection xmin xmax p.min_state.(i) p.max_state.(i)) then
-                if p.min_state.(i) < xmin then
+            if not (is_intersection xmin xmax p.min_state.(i) p.max_state.(i)) then begin
+                if p.min_state.(i) < xmin then begin
                     add_union p.min_state.(i) p.max_state.(i) xmin xmax i
-                else
+                end else begin
                     add_union xmin xmax p.min_state.(i) p.max_state.(i) i
-            else
+                end
+            end else begin
                 add_intersection xmin xmax p.min_state.(i) p.max_state.(i) i
-        else
+            end
+        end else begin
             add_contained p.min_state.(i) p.max_state.(i) i
+        end;
     done;
     ()
 
@@ -245,7 +248,7 @@ let median_3 p n c1 c2 =
     r
 
 (* Basic union function for calculating a median; full union medians *)
-let full_union a b r =
+let full_unioni a b r =
     for i = 0 to (Array.length a.min_state)-1 do
         let rmin,rmax =
             if a.min_state.(i) <= b.min_state.(i) then
@@ -261,6 +264,12 @@ let full_union a b r =
         r.max_state.(i) <- rmax
     done;
     ()
+
+(* functional full union function *)
+let full_union a b = 
+    let r = clone a in
+    full_unioni a b r;
+    r
 
 
 (** {6 Distance functions. *)
