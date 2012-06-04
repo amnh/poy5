@@ -4584,14 +4584,16 @@ let total_cost_of_type t n =
                     0.0
                 END
             | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
-            | Dynamic x, t -> 
-                begin match x.preliminary, t with
+            | Dynamic x, t ->
+                    begin match x.preliminary, t with
                     | DynamicCS.MlCS _, `Ml when n.cost_mode = `Likelihood ->
                         x.cost *. x.weight
                     | DynamicCS.MlCS _, `Ml when n.cost_mode = `SumLikelihood ->
                         x.sum_cost *. x.weight
                     | DynamicCS.MlCS _, `Ml -> assert false
                     | DynamicCS.SeqCS _, `Seq ->
+                        x.sum_cost *. x.weight
+                    | DynamicCS.SeqCS _, `Sank ->
                         x.sum_cost *. x.weight
                     | DynamicCS.BreakinvCS _, `Breakinv ->
                         x.sum_cost *.  x.weight

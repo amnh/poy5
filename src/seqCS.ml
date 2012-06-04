@@ -729,10 +729,12 @@ module DOS = struct
             | false, false, false ->
                     let tmpcost, seqm, changed =
                         match mode with
-                        | `ThreeD _ ->
+                        | `ThreeD _ -> 
+                                Printf.printf "iter = 3d, call readjust_3d\n%!";
                                 Sequence.Align.readjust_3d ch1.sequence ch2.sequence
                                 mine.sequence h.c2 h.c3 parent.sequence
                         | `ApproxD _ ->
+                                Printf.printf "iter=approx, call readjust\n%!";
                                 Sequence.readjust ch1.sequence ch2.sequence
                                 mine.sequence h.c2 parent.sequence use_ukk
                     in
@@ -1524,16 +1526,30 @@ module RL = struct
     let get_states x t = 
         SankCS.get_states x.states_and_distbl t
 
+    let get_earray x = 
+        SankCS.get_earray x.states_and_distbl
+
     let get_min_states x =
+        let debug = false in
         let states = get_states x 1 in
+        let earray = get_earray x in
+        if debug then begin 
+            Printf.printf "get min states, state arr = %!";
+            Utl.printIntArr states;
+            Printf.printf " e array = %!";
+            Utl.printIntArr earray;
+        end;
         let idx = ref (-1) in
-        Array.fold_left (fun (min,pos) s ->
+        let _ , bestidx = 
+        Array.fold_left (fun (min_extra_cost,pos) extra_cost ->
             idx := !idx + 1;
-            if s<min then
-                s,!idx
+            if extra_cost<min_extra_cost then
+                extra_cost,!idx
             else
-                min,pos
-        ) (Utl.large_int,0) states
+                min_extra_cost,pos
+        ) (Utl.large_int,0) earray
+        in
+        states.(bestidx),bestidx
 
     let off_array fs taxon = 
         let debug = false in
@@ -2380,8 +2396,8 @@ let distance missing_distance a b =
                     acc + (GenNonAdd.distance a b h.c2)
                 | Heuristic_Selection a, Heuristic_Selection b ->
                     acc + (DOS.distance alph h missing_distance a b use_ukk) 
-                | Relaxed_Lifted a, Relaxed_Lifted b ->
-                    acc + (int_of_float (RL.distance a b))
+                | Relaxed_Lifted a, Relaxed_Lifted b ->(*fixed state use sankoff*)
+                    0 (*acc + (int_of_float (RL.distance a b))*)
                 | Partitioned _, _
                 | Relaxed_Lifted _, _
                 | Heuristic_Selection _, _ 
@@ -2565,48 +2581,11 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                     is_fs := true;
                     if debug then  Printf.printf "seqCS.RL.to_formatter\n%!";
                     let spec = x.RL.sequence_table in
-                    (*let best = ref max_float in
-                    let my_pos = ref (-1) in
-                    let () =
-                        let process par_pos = 
-                            Array.iteri (fun pos v ->
-                                let cost = spec.RL.distance_table.(par_pos).(pos) in
-                                let t = cost 
-                                    (*spec.RL.distance_table.(par_pos).(pos)*)
-                                    +. v
-                                in
-                                if t < !best then begin
-                                    best := min t !best;
-                                    my_pos := pos;
-                                end else ()) seq.RL.states
-                        in
-                        match do_to_single with
-                        | None -> 
-                                Array.iteri (fun pos v ->
-                                    if v < !best then begin
-                                        best := v;
-                                        my_pos := pos; 
-                                end else ()) 
-                                seq.RL.states;
-                        | Some (Partitioned par) ->
-                                assert false; (* TODO *)
-                        | Some (General_Prealigned _ ) ->
-                                failwith "seqCS, fixstate and prealigned"
-                        | Some (Heuristic_Selection par) ->
-                                process par.DOS.position
-                        | Some (Relaxed_Lifted x) -> 
-                                let x, _ = RL.to_dos x x in
-                                process x.DOS.position
-                    in
-                    let bests = !best in
-                    res_state := !my_pos;
-                    *)
-                    let best = ref 0. in 
-                    let bests = 0. in
-                    let my_pos = ref 0 in
-                    DOS.make_cost (int_of_float !best), 
-                    `FloatFloatTuple (bests, bests), !best,
-                    [x.RL.sequence_table.(!my_pos)]
+                    let bestc,best_state = RL.get_min_states x in
+                    res_state := best_state;
+                    DOS.make_cost bestc, 
+                    `IntTuple (bestc, bestc),float_of_int bestc,
+                    [x.RL.sequence_table.(best_state)]
         in
         let statename = (string_of_int !res_state) in
         let seq () = 

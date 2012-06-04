@@ -145,7 +145,7 @@ external get_tcm : t ->
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t =
         "sankoff_CAML_get_tcm"
 
-external get_e_array : elt -> 
+external get_earray_cside : elt -> 
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t = "sankoff_CAML_get_e_array"
 
 external get_extra_cost_for_root : t -> int = "sankoff_CAML_get_extra_cost_for_root"
@@ -183,6 +183,17 @@ let get_states s this_or_left_or_right =
     )  in
     states
 
+(*function for fixed states, where we have only one elt for each t*)
+let get_earray s = 
+    let num_elts = get_num_elts s in
+    assert(num_elts==1);
+    let thiselt = get_elt s 0 in
+    let e_bigarr = get_earray_cside thiselt in
+    let earr = Array.init (Bigarray.Array1.dim e_bigarr) 
+    (fun x -> 
+        Int32.to_int (Bigarray.Array1.get e_bigarr x)
+    )  in
+    earr
 
 (*let elt_to_full_string a =
     let string_of_costarray a =
@@ -710,7 +721,6 @@ let elt_to_formatter attr d tcm idx elt elt_parent : Xml.xml Sexpr.t =
                     ([T.cost] = [`Int cost])
                     ([T.definite] = [`Bool (cost > 0)])
                     ([attr])
-
                     (* Contents *)
                     { `Set (List.map create lst) } 
                 --)

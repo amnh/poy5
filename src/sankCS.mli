@@ -98,3 +98,5 @@ val min_possible_cost : int array array -> Nexus.File.static_state list -> float
 val max_possible_cost : int array array -> Nexus.File.static_state list -> float
 
 val get_states : t -> int -> int array
+
+val get_earray : t -> int array

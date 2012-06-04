@@ -5315,7 +5315,7 @@ let compute_fixed_states filename data code polymph =
     for x = 0 to states - 1 do
         for y = x + 1 to states - 1 do
             if debug then begin
-                        Printf.printf "work on seqx,seqy=\n%!";
+                        Printf.printf "work on seq#.%d,seq#.%d=\n%!" x y;
                         if debug2 then begin
                             Sequence.printseqcode sequences.(x);
                             Sequence.printseqcode  sequences.(y);

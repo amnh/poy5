@@ -316,7 +316,7 @@ sankoff_print_eltarr (eltarr_p eap, int printe, int printbeta, int print_costdif
 {
     printf("taxon code = %d, code=%d,num_elts=%d,sum cost = %li, left child = %d, right child = %d\n",
             eap->taxon_code,eap->code,eap->num_elts,eap->sum_cost,eap->left_taxon_code,eap->right_taxon_code);
-    /*int i;
+    int i;
     int num_elts = eap->num_elts;
     int printtcm = 1;
     if(printtcm) {
@@ -326,7 +326,6 @@ sankoff_print_eltarr (eltarr_p eap, int printe, int printbeta, int print_costdif
     for (i=0;i<num_elts;i++)
         sankoff_print_elt(&((eap->elts)[i]),printe,printbeta,print_costdiff,print_best_child_states);
     fflush(stdout);
-    */
     return;
 }
 
@@ -551,13 +550,14 @@ sankoff_CAML_compare_eltarr(value eltarr1, value eltarr2) {
 //bigger. But
 //we only get elt directly when dealing with fixed_state, or diagnosis output to
 //screen. for fixed_state, each eltarr only has one elt. for diagnosis, we only
-//print result best tree(s). either way, we don't need that many. 
+//print result best tree(s) with Preliminary&Final&Single states. 
+//either way, we don't need that many. 
 value
 sankoff_CAML_get_elt (value this_eltarr,value idx)
 {
     CAMLparam2(this_eltarr,idx);
     CAMLlocal1(res);
-    res = caml_alloc_custom(&sankoff_custom_operations_elt,sizeof(struct elt),1,alloc_custom_max);
+    res = caml_alloc_custom(&sankoff_custom_operations_elt,sizeof(struct elt),1,3*alloc_custom_max);
     elt_p ep;
     ep = Sankoff_elt_pointer(res);
     eltarr_p eap; 

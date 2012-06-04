@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = true
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -412,6 +412,16 @@ module F : Ptree.Tree_Operations
                             (0.0)
                             (Node.not_to_single)
                     in
+                    (*when there is cost between same states, we might have
+                    * extra cost on the root because we 'create' the root node
+                    * left child is state.1    right child is state.1
+                    *                 |            |
+                    *               root node take state1
+                    * if the cost between same states is c, above tree give us
+                    * cost = 2c. but in fact there was no root node, we create
+                    * that to make things clear, the tree is just like this:
+                    * left node is state.1 ---- right node is state.1  
+                    * this give us cost = c only.*)
                     let extra_cost =  Node.extra_cost_from_root root in
                     let cost = cost -. extra_cost in
                     if debug_cost_fn then 
@@ -458,11 +468,11 @@ module F : Ptree.Tree_Operations
             | `Edge (a, b) ->
                 if using_likelihood `Either new_tree
                     then 0.0
-                    else begin
-                        Tree.post_order_node_with_edge_visit_simple
-                                distance (Tree.Edge (a, b)) new_tree.Ptree.tree
-                                (~-. (distance b a 0.0))
-                    end
+                else begin
+                    Tree.post_order_node_with_edge_visit_simple
+                            distance (Tree.Edge (a, b)) new_tree.Ptree.tree
+                            (~-. (distance b a 0.0))
+                end
         in
         let pi_cost = prior_cost new_tree None in (* all chars = None *)
         let root_cost = AllDirNode.AllDirF.root_cost root in
