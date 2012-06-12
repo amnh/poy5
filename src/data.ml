@@ -1,4 +1,3 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
 (* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -5584,8 +5583,8 @@ let assign_tcm_to_characters_from_file data chars file =
                         else if l>ori_sz then ori_sz,tb,true,true
                         (*finally if 1<level<=ori_sz, create the new cost matrix
                         * if the combination by level won't blew off the memory*)
-                        else if (Alphabet.is_combiantion_by_level old_alphabet)||
-                        (Alphabet.is_aminoacids old_alphabet) then
+                        else if (Alphabet.is_combination_by_level old_alphabet)||
+                                (Alphabet.is_aminoacids old_alphabet) then
                         begin
                             let use_comb = Cost_matrix.Two_D.get_combination old_tcm in 
                             let tmp =
@@ -5883,7 +5882,7 @@ let assign_level data chars tie_breaker level =
     let codes =
         List.map (fun (a, b, alph, tcmfile) ->
             (*we only apply change to level on custom alphabet and aminoacids.*)
-            if (Alphabet.is_combiantion_by_level alph)||(Alphabet.is_aminoacids alph) then begin  
+            if (Alphabet.is_combination_by_level alph)||(Alphabet.is_aminoacids alph) then begin  
                 if debug_level then begin
                 Printf.printf "before assigning:%!"; Alphabet.print alph;
                 end;

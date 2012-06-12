@@ -54,7 +54,7 @@ type a = {
     threeD : bool;
 }
 
-let is_combiantion_by_level alpha =
+let is_combination_by_level alpha =
     match alpha.kind with
     | Combination_By_Level -> true 
     | _ -> false
