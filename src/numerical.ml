@@ -29,6 +29,10 @@ let debug_printf msg format =
 and pp_farray xs =
     (Array.fold_left (fun acc x -> acc^"| "^(string_of_float x)^" ") "[" xs)^" |]"
 
+and pp_iarray xs =
+    (Array.fold_left (fun acc x -> acc^"| "^(string_of_int x)^" ") "[" xs)^" |]"
+
+
 (** {6 Constants} *)
 
 let tolerance = 1e-6
@@ -98,6 +102,63 @@ module FPInfix : I =
 
 open FPInfix
 
+(** {6 Types} *)
+
+(** Simplex strategy defines how to expand, contract, and reflect a simplex *)
+type simplex_strategy = 
+    {   alpha : float;  (** The Reflection factor *)
+         beta : float;  (** The Contraction factor *)
+        gamma : float;  (** The Expansion factor *)
+        delta : float;  (** The Shrinkage (Massive Contraction) factor *)
+    } 
+
+(** The Subplex strategy contains a simplex strategy and added features *)
+type subplex_strategy = 
+    { simplex : simplex_strategy;   (** How to perform the simplex *)
+          psi : float;              (** The Simplex Reduction coefficient *)
+        omega : float;              (** The Step Reduction coefficient *)
+        nsmin : int;                (** Minimum subspace dimension; or 2 *)
+        nsmax : int;                (** Maximum subspace dimension; or 5 *)
+    }
+
+
+(** Define an optimization strategy. This will call the appropriate optimization
+    routine with the specified parameters. A wrapper around the four methods we
+    have to optimize multi-dimensional functions. *)
+type optimization_strategy = 
+    {   routine : [ `Simplex of simplex_strategy
+                  | `Subplex of subplex_strategy
+                  | `Brent_Multi
+                  | `BFGS];
+        (* Below are optional to use the algorithm default *)
+        max_iter : int option;
+        tol      : float option; 
+    }
+
+(** Here we define a simplex as a collection of points with attached data -the
+    tree or some added information carried through the computation. The array
+    should be the size of the dimension plus one. *)
+type 'a simplex = (float array * ('a * float)) array
+
+(** Default Simplex Strategy defined by NMS *)
+let default_simplex =
+    { alpha = 1.0; beta = 0.5; gamma = 2.0; delta = 0.5; }
+
+(** Default Simplex Strategy defined by FSAoNA paper *)
+let default_subplex =
+    { simplex = default_simplex;
+      omega = 0.1; psi = 0.25; nsmin = 2; nsmax = 5; }
+
+(** Define the default strategy from a specific routine *)
+let default_strategy routine =
+    let routine = match routine with
+        | `Simplex      -> `Simplex default_simplex
+        | `Subplex      -> `Subplex default_subplex
+        | `Brent_Multi  -> `Brent_Multi
+        | `BFGS         -> `BFGS
+    in
+    { routine = routine; max_iter = None; tol = None; }
+
 
 (** {6 Numerical Functions for Optimization Routines *)
 
@@ -144,10 +205,36 @@ let matrix_map f mat =
     done; done;
     output_matrix
 
+(** Calculates the infinity-norm in L^p space. The Maximum Norm. *)
+let inf_norm_vec x =
+    Array.fold_left (max) (~-.max_float) x
+
+(** Calculates the 2-norm in L^p space. The Euclidean Norm. *)
+let two_norm_vec x =
+    sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.0 x)
+
+(** Calculates the 1-norm in L^p space. The Taxicab Norm. *)
+let one_norm_vec x =
+    Array.fold_left (fun acc x -> acc +. (abs_float x)) 0.0 x
+
+(** subtract one vector from another *)
+let sub_vec x y = 
+    Array.mapi (fun i _ -> x.(i) -. y.(i)) x
+
+(** Add two vectors together; imperative style *)
+let add_veci x y = 
+    for i = 0 to (Array.length x)-1 do
+        x.(i) <- x.(i) +. y.(i);
+    done;
+    ()
+
+
 
 (** {6 Numerical Optimization Functions *)
 
-let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
+(** Uses a combination of golden section searches and parabolic fits to find the
+    optimal value of a function of one variable. **)
+let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
                   ?(tol=tolerance) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) f =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
   (*-- ensure value falls between range; if using one *)
@@ -273,7 +360,7 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
 
 
 (** Meta function above; we sequentially modify each variable ONCE; RAxML *)
-let brents_method_multi ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
+let brents_method_multi ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
                         ?(tol=tolerance) ?(epsilon=epsilon) orig f =
     let rec do_single i ((array,x) as data) =
         debug_printf "Optimizing %d in %s\n%!" i (pp_farray array);
@@ -494,5 +581,426 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
     debug_printf "Performed BFGS:\n\t(%s,%f)\n\t\t--[%d]-->\n\t(%s,%f)\n%!" (pp_farray p)
                     (get_score fp) !iter (pp_farray pf) (get_score fpf);
     (pf,fpf)
+
+(** {6 Simplex / Subplex specific functions **)
+
+(** Takes a function [f] for an array [ray] ,and a subpsace [sub], like (0,2),
+    that replaces the elements of the new array into [ray] according to the
+    subspace association. We keep this function functional by copying the array
+    each time, although it may not be necessary. *)
+let function_of_subspace that_shit ray sub_assoc =
+    (fun sub ->
+        let cray = Array.copy ray in
+        let () = Array.iteri (fun i x -> cray.(x) <- sub.(i) ) sub_assoc in
+        that_shit cray)
+
+
+(** Return the vector that represents the subspace *)
+let make_subspace_vector subs x =
+    Array.init (Array.length subs) (fun i -> x.( subs.(i) ))
+
+
+(** Replace elements of a subspace vector into the main vector *)
+let replace_subspace_vector sub nx x =
+    Array.iteri (fun i _ -> x.( sub.(i) ) <- nx.(i)) sub
+
+
+(** A subplex routine to find the optimal step-size for the next iteration of
+    the algorithm. The process is outlined in 5.3.2. Each step, the vector is
+    re-scaled in proportion to how much progress was made previously. If little
+    progress is made then step is reduced and if onsiderable progress is made
+    then it is increased. Lower and Upper Bounds in the strategy ensure we do
+    not do anything rash. *)
+let find_stepsize strat nsubs x dx steps =
+    let n = Array.length x
+    and sign x = if x >= 0.0 then 1.0 else -1.0
+    and minmax x lo hi = 
+        let lo = min lo hi and hi = max lo hi in
+        max lo (min x hi)
+    in
+    (* find the scale factor for new step *)
+    let stepscale =
+        if nsubs > 1 then begin
+            let stepscale = (one_norm_vec dx) /. (one_norm_vec steps) in
+            minmax stepscale (1.0/.strat.omega) strat.omega
+        end else begin
+            strat.psi
+        end
+    in
+    (* scale step vector by stepscale *)
+    let nstep = Array.map (fun x -> x *. stepscale) steps in
+    (* orient step in the proper direction *)
+    for i = 0 to n-1 do
+        if dx.(i) = 0.0
+            then nstep.(i) <- ~-. (nstep.(i))
+            else nstep.(i) <- (sign dx.(i)) *. (nstep.(i))
+    done;
+    nstep
+
+
+(** get the worst, second worst, and best element of the simplex. return the
+    index so we know to replace the proper point. *)
+let get_simplex_hsl (simplex: 'a simplex) : int * int * int =
+    let get_cost (_,(_,x)) = x in
+    Array.sort (fun x y -> compare (get_cost y) (get_cost x)) simplex;
+    (0, 1, ((Array.length simplex)-1))
+
+
+(** Determine the subspaces by a randomization of the vector, and randomizing
+    the size of the subspaces; conditions will match the strategy *)
+let rand_subspace strat vec : int array list =
+    let randomize ar = 
+        let l = Array.length ar - 1 in
+        for i = 0 to l do
+            let rnd = i + Random.int (l - i + 1) in
+            let tmp = ar.(i) in
+            ar.(i) <- ar.(rnd);
+            ar.(rnd) <- tmp;
+        done;
+        ar
+    in
+    let n = Array.length vec in
+    let rec take acc n lst = match lst with
+        | _ when n = 0 -> List.rev acc,lst
+        | []           -> assert false
+        | x::lst       -> take (x::acc) (n-1) lst
+    in
+    let rec continually_take taken acc lst =
+        if taken = n then
+            List.rev acc
+        else if (n - taken) < 2 * strat.nsmin then
+            continually_take (n) (lst::acc) []
+        else begin
+            let lo = min strat.nsmax (n-taken) in
+            let r = strat.nsmin + (Random.int  (lo - strat.nsmin)) in
+            if n-(r+taken) < strat.nsmin
+                then continually_take taken acc lst
+                else begin
+                    let f,l = take [] r lst in
+                    continually_take (taken+r) (f::acc) l
+                end
+        end
+    in
+    vec --> Array.mapi (fun i _ -> i)
+        --> randomize
+        --> Array.to_list
+        --> continually_take 0 []
+        --> List.map (Array.of_list)
+
+
+(** A subplex routine that splits up an delta array into subspaces that match
+    the criteria found in the subplex paper section 5.3.3 *)
+let find_subspace strat vec =
+    let n = Array.length vec in
+    (* resolve a specific value of k *)
+    let rec resolve_k k lvec : float =
+        let rec left (acc:float) (i:int) lvec : float  = match lvec with
+            | []            -> acc /. (float_of_int k)
+            | xs when i = k -> right (acc /. (float_of_int k)) 0.0 xs
+            | (_,x)::tl     -> left (acc +. (abs_float x)) (i+1) tl
+        and right leftval acc = function
+            | []       -> leftval -. (acc /. (float_of_int (n - k)))
+            | (_,x)::t -> right leftval (acc +. (abs_float x)) t
+        in
+        left 0.0 0 lvec
+    and apply_ks nleft k lvec : (int * float) list =
+        if nleft < k then []
+                 else (k,resolve_k k lvec)::(apply_ks nleft (k+1) lvec)
+    and take acc n lst = match lst with
+        | _ when n = 0 -> List.rev acc,lst
+        | []           -> assert false
+        | x::lst       -> take (x::acc) (n-1) lst
+    in
+    (* return a list of lengths for subspaces *)
+    let rec partition acc nsubs nused nleft lvec : int list =
+        let sorted_ks = 
+            List.sort (fun (_,kv1) (_,kv2) -> compare kv2 kv1) (apply_ks nleft 1 lvec)
+        in
+        List.iter (fun (k,f) -> debug_printf "%d - %f\n%!" k f) sorted_ks;
+        let constraint_1 k = (* fall in appropriate range *)
+            (strat.nsmin <= k) && (k <= strat.nsmax)
+        and constraint_2 k = (* can be partitioned further *)
+            let r =
+                strat.nsmin * (int_of_float
+                    (ceil ((float_of_int (n-nused-k)) /. (float_of_int strat.nsmax)))) 
+            in
+            r <= (n-nused-k)
+        in
+        let rec get_next_k = function
+            | (k,_)::_ when (constraint_1 k) && (constraint_2 k) ->
+                if (nused+k) = n then 
+                    List.rev (k::acc)
+                else begin
+                    debug_printf "Found K %d\n%!" k;
+                    partition (k::acc) (nsubs+1) (nused+k) 
+                              (nleft-k) (snd (take [] k lvec))
+                end
+            | _::tl -> get_next_k tl
+            | []    -> assert false
+        in
+        get_next_k sorted_ks
+    (* take a list of size of subspaces and  build association vectors for
+        subspaces *)
+    and build_association_arrays lvec = function
+        | []    -> []
+        | h::tl ->
+            let this,oth = take [] h lvec in
+            this::(build_association_arrays oth tl)
+    in
+    let lvec = 
+        vec --> Array.mapi (fun i x -> (i,x))
+            --> Array.to_list
+            --> List.sort (fun (_,x) (_,y) -> compare (abs_float y) (abs_float x))
+    in
+    lvec --> partition [] 0 0 n
+         --> build_association_arrays lvec
+         --> List.map (List.map fst)
+         --> List.map (Array.of_list)
+ 
+
+(** Define how termination of the algorithm should be done. This is outlined in
+    the paper, section 5.3.4, This test, because of a noisy function, uses the
+    distance between the vertices of the simplex to see if the function has
+    converged. *)
+let subplex_termination strat tol dx x stp =
+    let numr = max (inf_norm_vec dx) ((inf_norm_vec stp) *. strat.psi)
+    and denm = max (inf_norm_vec x) 1.0 in
+    debug_printf "\tTermination: (%f/%f) = %f <= %f?\n%!"
+                    numr denm (numr /. denm) tol;
+    (numr /. denm) <= tol
+
+
+(** General Simplex termination; this is done through the standard deviation of
+    the simplex. *)
+let simplex_termination_stddev tol simplex = 
+    let n_plus_one = float_of_int (Array.length simplex) in
+    let mean = 
+        let s = Array.fold_left (fun acc (_,(_,x)) -> acc +. x) 0.0 simplex in
+        s /. n_plus_one
+    in
+    let std_dev =
+        Array.fold_left
+            (fun acc (_,(_,x)) -> let y = x -. mean in acc +. (y *. y)) 0.0 simplex
+    in
+    let std_dev = (sqrt (std_dev /. (n_plus_one))) in
+    std_dev < tol
+
+
+(** Simplex termination test defined by Gill, Murray and Wright. This method
+    looks to see that the points are in a stationary position. This is more
+    appropriate for optimizing smooth functions. It can also be used for noisy
+    functions, but would be equivlent to convergance of the simplex. *)
+let simplex_termination_stationary tol simplex = 
+    let high,low = 
+        Array.fold_left
+            (fun (hi,lo) (_,(_,x)) -> (max hi x),(min lo x))
+            (~-.max_float, max_float)
+            (simplex)
+    in
+    ((high-.low) /. (1.0 +. (abs_float low))) < tol
+
+
+(** Calculate the centroid of a simplex. Defined by the mean of the value,
+    excluding the highest (worst) point. *)
+let centroid (simplex:'a simplex) h_i =
+    let n = Array.length (fst simplex.(0)) in
+    let c_array = Array.make n 0.0 in
+    Array.iteri
+        (fun s_i (r,_) ->
+            if s_i = h_i then () else add_veci c_array r)
+        simplex;
+    for i = 0 to n-1 do
+        c_array.(i) <- c_array.(i) /. (float_of_int n);
+    done;
+    c_array
+
+
+(** Create a simplex point. All of the operations on a simplex are linear
+    equations, and can be generalized to this function with different
+    coefficients passed to it.
+        n = x + coef (x - y)
+    in each particular situation, the following
+        reflection  - x = centroid, y = high point, coef =  alpha
+        contraction - x = centroid, y = high point, coef = -beta
+        expansion   - x = centroid, y = reflection, coef = -gamma
+        shrink      - x = high point, y = all,      coef = -delta
+    *)
+let create_new_point f t strategy xvec yvec : float array * ('a * float) =
+    let coef = match t with
+        | `Reflection   -> strategy.alpha
+        | `Contraction  -> ~-. (strategy.beta)
+        | `Expansion    -> ~-. (strategy.gamma)
+        | `Shrink       -> ~-. (strategy.delta)
+    in
+    let ret = Array.copy xvec in
+    for i = 0 to (Array.length xvec) - 1 do
+        ret.(i) <- xvec.(i) +. (coef *. (xvec.(i) -. yvec.(i)))
+    done;
+    let fret = f ret in
+    let () = match t with
+        | `Shrink       ->
+            debug_printf "Shrinking %s -> %s -> %s:%f\n%!"
+                (pp_farray xvec) (pp_farray yvec) (pp_farray ret) (snd fret);
+        | `Reflection   ->
+            debug_printf "Reflection %s -> %s -> %s:%f\n%!"
+                (pp_farray xvec) (pp_farray yvec) (pp_farray ret) (snd fret);
+        | `Contraction  ->
+            debug_printf "Contraction %s -> %s -> %s:%f\n%!"
+                (pp_farray xvec) (pp_farray yvec) (pp_farray ret) (snd fret);
+        | `Expansion    ->
+            debug_printf "Expansion %s -> %s -> %s:%f\n%!"
+                (pp_farray xvec) (pp_farray yvec) (pp_farray ret) (snd fret);
+    in
+    ret,fret
+
+
+
+(** Set up the initial simplex by randomly selecting points *)
+let random_simplex f (p,fp) step =
+    Array.init ((Array.length p)+1)
+        (fun i -> 
+            let p = Array.init (Array.length p) (fun _ -> Random.float 1.0) in
+            p,f p)
+
+(** Set up the initial simplex from a point and a step size *)
+let initial_simplex f (p,fp) step =
+    let simplex =
+        Array.init
+            ((Array.length p)+1)
+            (fun i ->
+                if i = 0 then (p,fp)
+                         else let x = Array.copy p in
+                              x.(i-1) <- x.(i-1) +. step.(i-1);
+                              x, f x)
+    in
+    let get_cost (_,(_,x)) = x in
+    Array.sort (fun x y -> compare (get_cost y) (get_cost x)) simplex;
+    simplex
+
+
+(* shrink involves modifying each point except the best *)
+let shrink_simplex simplex f strategy i_l =
+    let replace_simplex = Array.set in
+    for i = 0 to (Array.length simplex)-1 do
+        if i_l = i then ()
+        else
+            let s_i = create_new_point f `Shrink strategy
+                                (fst simplex.(i_l)) (fst simplex.(i)) in
+            replace_simplex simplex i s_i
+    done;
+    ()
+
+(** Verify that the strategy elements are consistent with their intended
+    transformation. Thus, avoids negative and fractional values in some. *)
+let verify_strategy strat =
+    (strat.alpha > 0.0) &&
+    (strat.beta > 0.0 && strat.beta < 1.0) &&
+    (strat.gamma > 0.0 && strat.gamma > strat.alpha) &&
+    (strat.delta > 0.0 && strat.delta < 1.0)
+
+
+(** {6 Main Simplex Algorithm} *)
+
+(** The simplex uses an n+1 dimensional figure to move, like an amoeba, around
+    the surface. The extermities of the object are evaluated, where the maximal
+    values are modified, while the others are progressed with improvements. The
+    four moves that can be done on the simplex are, reflection, expansion,
+    contraction, and shrinkage. The degree to which these are done is modified
+    by the strategy used. *)
+let simplex_method ?(termination_test=simplex_termination_stddev) ?(tol=tolerance)
+                   ?(subplex_strategy=default_subplex) ?(max_eval=100)
+                    (step:float array) (f: float array -> 'a * float)
+                    (p: float array) (fp: 'a * float) =
+    (* wrap function to keep track of the number of evaluations *)
+    let i = ref 0 in
+    let f = (fun x -> incr i; f x) in
+    let strategy = subplex_strategy.simplex in
+    assert( verify_strategy strategy );
+    (* set up some alias functions to make the algorithm more readable. *)
+    let get_cost (_,(_,x)) = x in
+    let replace_simplex = Array.set in
+    (* setup the initial simplex *)
+    let simplex = initial_simplex f (p,fp) step in
+    while (not (termination_test tol simplex)) && (!i < max_eval) do begin
+        let i_h,_,i_l = get_simplex_hsl simplex in
+        let s_c = centroid simplex i_h in
+        (* first do a reflection *)
+        let r = create_new_point f `Reflection strategy s_c (fst simplex.(i_h)) in
+        (* since it's so good, do an expansion *)
+        if (get_cost r) < (get_cost simplex.(i_l)) then begin
+            let e = create_new_point f `Expansion strategy s_c (fst r) in
+            if (get_cost e) < (get_cost simplex.(i_l))
+                then replace_simplex simplex i_h e
+                else replace_simplex simplex i_h r
+        end else begin
+        (* do a contraction of the simplex instead *)
+            let c =
+                (* contract from the worst point *)
+                if (get_cost simplex.(i_h)) < (get_cost r)
+                    then create_new_point f `Contraction strategy s_c (fst simplex.(i_h))
+                    else create_new_point f `Contraction strategy s_c (fst r)
+            in
+            if (get_cost c) < (min (get_cost r) (get_cost simplex.(i_h)))
+                (* successful contraction *)
+                then replace_simplex simplex i_h c
+                (* contraction failed; shrink --massive contraction *)
+                else shrink_simplex simplex f strategy i_l
+        end;
+    end done;
+    let _,_,best = get_simplex_hsl simplex in
+    debug_printf "\tSimplex Found : %s -- %f\n%!"
+                (pp_farray (fst simplex.(best))) (snd (snd simplex.(best)));
+    simplex.( best )
+
+
+(** {6 Main Subplex Algorithm} *)
+
+(** The Subplex method is a generalization to a number of algorithms, paramount
+    the Nelder-Mead simplex method, with alternating variables, and Nelder-Mead
+    Simplex with restart. The advantages are outlined in the previously
+    mentioned paper, in section 5.3.6. *)
+let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_iter=50) f p fp =
+    let i = ref 0 in
+    let rec subplex_loop step subs ((x,fx) as xfx) dx =
+        incr i;
+        let step = find_stepsize subplex_strategy (List.length subs) x dx step in
+(*        let subs = rand_subspace strategy dx in*)
+        let subs = find_subspace subplex_strategy dx in
+        debug_printf "Iteration %d\n%!" !i;
+        debug_printf "\tStep : %s\n%!" (pp_farray step);
+        debug_printf "\tBest : %s\n%!" (pp_farray x);
+        debug_printf "\tSubs : %d\n%!" (List.length subs);
+        List.iter (fun x -> debug_printf "\t\t%s\n%!" (pp_iarray x)) subs;
+        let (nx,nfx) as nxnfx =
+            List.fold_left
+                (fun (x,fx) sub ->
+                    debug_printf "\tModifying %s\n%!" (pp_iarray sub);
+                    let sub_vec = make_subspace_vector sub x in
+                    let (nx,nfx) =
+                        simplex_method ~subplex_strategy step (function_of_subspace f x sub) sub_vec fx
+                    in
+                    replace_subspace_vector sub nx x;
+                    debug_printf "\t\tAV : %s -- %f\n%!" (pp_farray x) (snd nfx);
+                    (x,nfx))
+                xfx
+                subs
+        in
+        debug_printf "\tSimplexAV found %s -- %f\n%!" (pp_farray nx) (snd nfx);
+        let dx = sub_vec x nx in
+        debug_printf "\tdx : %s\n%!" (pp_farray dx);
+        if (subplex_termination subplex_strategy tol dx nx step) || (!i > max_iter)
+            then nxnfx
+            else subplex_loop step subs nxnfx dx
+    in
+    let dx = Array.make (Array.length p) 0.0 in
+    let ((p,(_,fp)) as pdfp) =
+        subplex_loop
+            (find_stepsize subplex_strategy 1 p dx (Array.make (Array.length p) 1.0))
+            [ (Array.init (Array.length p) (fun x -> x)) ]
+            (p,fp)
+            (dx)
+    in
+    debug_printf "Subplex Found %s -- %f\n%!" (pp_farray p) fp;
+    pdfp
 
 

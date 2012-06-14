@@ -30,6 +30,43 @@ val epsilon   : float
 val minimum   : float
 (** [Minimum] Minimum for numerical calculations (2.0 * tolerance). *)
 
+
+(** {6 Types} *)
+
+type 'a simplex
+(** How we internally, keeping it abstract, of course *)
+
+type simplex_strategy = 
+    {   alpha : float;  (** The Reflection factor *)
+         beta : float;  (** The Contraction factor *)
+        gamma : float;  (** The Expansion factor *)
+        delta : float;  (** The Shrinkage (Massive Contraction) factor *)
+    } 
+(** Simplex strategy defines how to expand, contract, and reflect a simplex *)
+
+type subplex_strategy = 
+    { simplex : simplex_strategy;   (** How to perform the simplex *)
+          psi : float;              (** The Simplex Reduction coefficient *)
+        omega : float;              (** The Step Reduction coefficient *)
+        nsmin : int;                (** Minimum subspace dimension; or 2 *)
+        nsmax : int;                (** Maximum subspace dimension; or 5 *)
+    }
+(** The Subplex strategy contains a simplex strategy and added features *)
+
+type optimization_strategy = 
+    {   routine : [ `Simplex of simplex_strategy
+                  | `Subplex of subplex_strategy
+                  | `Brent_Multi
+                  | `BFGS];
+        (* Below are optional to use the algorithm default *)
+        max_iter : int option;
+        tol      : float option; 
+    }
+(** Define an optimization strategy. This will call the appropriate optimization
+    routine with the specified parameters. A wrapper around the four methods we
+    have to optimize multi-dimensional functions. *)
+
+
 (** {6 Floating Point Functions} *)
 
 val is_nan : float -> bool
@@ -40,6 +77,7 @@ val is_inf : float -> bool
 
 val is_zero : float -> bool
 (** is the floating point number zero or sub-normal (effectively zero). *)
+
 
 (** {6 Special Functions} *)
 
@@ -55,6 +93,7 @@ external gamma_rates: float -> float -> int ->
 (** [gamma_rates alpha beta cats] -> rates takes alpha, beta gamma parameters
     and number of categories to cut the gamma function into, and returns the mean
     rates in those cuts of 1/cats parts. *)
+
 
 (** {6 Numerical Optimization Functions} *)
 
@@ -89,6 +128,28 @@ val bfgs_method :
         (float array -> 'a * float) -> float array -> 'a * float -> float array * ('a * float)
 (** [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian
     matrix of a function f with starting point init. *)
+
+val simplex_method : 
+    ?termination_test : (float -> 'a simplex -> bool) -> ?tol : float ->
+    ?simplex_strategy : simplex_strategy -> ?max_eval:int ->
+        float array -> (float array -> 'a * float) -> float array -> 
+            ('a * float) -> (float array * ('a * float))
+(** The simplex uses an n+1 dimensional figure to move, like an amoeba, around
+    the surface. The extermities of the object are evaluated, where the maximal
+    values are modified, while the others are progressed with improvements. The
+    four moves that can be done on the simplex are, reflection, expansion,
+    contraction, and shrinkage. The degree to which these are done is modified
+    by the strategy used. *)
+
+val subplex_method : 
+    ?subplex_strategy : subplex_strategy -> ?tol:float -> ?max_iter:int ->
+        (float array -> 'a * float) -> float array -> ('a * float) -> 
+            (float array * ('a * float))
+(** The Subplex method is a generalization to a number of algorithms, paramount
+    the Nelder-Mead simplex method, with alternating variables, and Nelder-Mead
+    Simplex with restart. The advantages are outlined in the previously
+    mentioned paper, in section 5.3.6. *)
+
 
 (** {6 Infix Module} *)
 
