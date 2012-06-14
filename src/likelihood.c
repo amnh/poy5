@@ -439,19 +439,22 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
 {
     CAMLparam2( A,B );
     CAMLlocal1( lk ); //the abstract type
-    double *lkvec,*l_stuff;
-    int *i_stuff,*invar,len, r,c,a;
+    double *lkvec, *l_stuff;
+    int *i_stuff, *invar, len, r;
     mll* ret;
 
-    //basic data
-    l_stuff = (double*) Data_bigarray_val( A );
-    ret = (mll*) malloc( sizeof(mll) );
-    CHECK_MEM(ret);
-    ret->rates = Bigarray_val(A)->dim[0];
-    ret->c_len = Bigarray_val(A)->dim[1];
-    ret->alph  = Bigarray_val(A)->dim[2];
-
     #ifdef LK_DATA_ALIGNMENT
+
+        int c,a;
+
+        //basic data
+        l_stuff = (double*) Data_bigarray_val( A );
+        ret = (mll*) malloc( sizeof(mll) );
+        CHECK_MEM(ret);
+        ret->rates = Bigarray_val(A)->dim[0];
+        ret->c_len = Bigarray_val(A)->dim[1];
+        ret->alph  = Bigarray_val(A)->dim[2];
+
         ret->stride = ret->alph + (4 - (ret->alph % 4)); //4 doubles = 16 bytes
         //allocate new and copy
         lk_malloc(lkvec, ret->rates * ret->c_len * ret->stride * sizeof(double));
@@ -476,6 +479,15 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
             }
         }
     #else
+
+        //basic data
+        l_stuff = (double*) Data_bigarray_val( A );
+        ret = (mll*) malloc( sizeof(mll) );
+        CHECK_MEM(ret);
+        ret->rates = Bigarray_val(A)->dim[0];
+        ret->c_len = Bigarray_val(A)->dim[1];
+        ret->alph  = Bigarray_val(A)->dim[2];
+
         ret->stride = ret->alph;
         //allocate new and copy
         lk_malloc(lkvec, ret->rates * ret->c_len * ret->stride * sizeof(double));

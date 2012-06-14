@@ -712,7 +712,6 @@ module Test = struct
         end
 
     let create x y : ct =
-        let can_fit = ref true in
         assert(Array.fold_left (fun acc x -> acc && (x <= 255) && (x >= 0)) true x);
         assert(Array.fold_left (fun acc y -> acc && (y <= 255) && (y >= 0)) true y);
         let v = AddVec.create x y

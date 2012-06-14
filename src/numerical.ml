@@ -908,13 +908,13 @@ let verify_strategy strat =
     contraction, and shrinkage. The degree to which these are done is modified
     by the strategy used. *)
 let simplex_method ?(termination_test=simplex_termination_stddev) ?(tol=tolerance)
-                   ?(subplex_strategy=default_subplex) ?(max_eval=100)
+                   ?(simplex_strategy=default_simplex) ?(max_eval=100)
                     (step:float array) (f: float array -> 'a * float)
                     (p: float array) (fp: 'a * float) =
     (* wrap function to keep track of the number of evaluations *)
     let i = ref 0 in
     let f = (fun x -> incr i; f x) in
-    let strategy = subplex_strategy.simplex in
+    let strategy = simplex_strategy in
     assert( verify_strategy strategy );
     (* set up some alias functions to make the algorithm more readable. *)
     let get_cost (_,(_,x)) = x in
@@ -972,12 +972,13 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
         debug_printf "\tSubs : %d\n%!" (List.length subs);
         List.iter (fun x -> debug_printf "\t\t%s\n%!" (pp_iarray x)) subs;
         let (nx,nfx) as nxnfx =
+            let simplex_strategy = subplex_strategy.simplex in
             List.fold_left
                 (fun (x,fx) sub ->
                     debug_printf "\tModifying %s\n%!" (pp_iarray sub);
                     let sub_vec = make_subspace_vector sub x in
                     let (nx,nfx) =
-                        simplex_method ~subplex_strategy step (function_of_subspace f x sub) sub_vec fx
+                        simplex_method ~simplex_strategy step (function_of_subspace f x sub) sub_vec fx
                     in
                     replace_subspace_vector sub nx x;
                     debug_printf "\t\tAV : %s -- %f\n%!" (pp_farray x) (snd nfx);
