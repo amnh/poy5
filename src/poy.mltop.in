@@ -1,4 +1,6 @@
 AddCS
+AddGen
+AddVec
 AliMap
 AllDirChar
 AllDirNode
@@ -9,6 +11,7 @@ Analyzer
 Annchrom
 AnnchromAli
 AnnchromCS
+Arguments
 Array_ops
 AsciiTree
 BinaryTree

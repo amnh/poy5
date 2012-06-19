@@ -604,71 +604,76 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             Nonadd8 res
     | Nonadd16 ca, Nonadd16 cb -> 
             assert (ca.weight = cb.weight);
-          let prev =
-              match prev with
-              | None -> None
-              | Some (Nonadd16 prev) -> Some (prev.preliminary)
-              | _ -> raise (Illegal_argument "cs_median");
-          in
-          let median = NonaddCS16.median prev ca.preliminary cb.preliminary in
-          let cost = NonaddCS16.median_cost median in
-          let res = { ca with preliminary = median; 
-                      final = median; 
-                      sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
-                      cost = ca.weight *. cost } in
-          Nonadd16 res
+            let prev = match prev with
+                | None -> None
+                | Some (Nonadd16 prev) -> Some (prev.preliminary)
+                | _ -> raise (Illegal_argument "cs_median");
+            in
+            let median = NonaddCS16.median prev ca.preliminary cb.preliminary in
+            let cost = NonaddCS16.median_cost median in
+            let res =
+                { ca with
+                    preliminary = median; 
+                    final = median; 
+                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    cost = ca.weight *. cost; }
+            in
+            Nonadd16 res
     | Nonadd32 ca, Nonadd32 cb -> 
-          assert (ca.weight = cb.weight);
-          let prev = 
-              match prev with
-              | None -> None
-              | Some (Nonadd32 prev) -> Some (prev.preliminary)
-              | _ -> raise (Illegal_argument "cs_median")
-          in
-          let median = NonaddCS32.median prev ca.preliminary cb.preliminary in
-          let cost = NonaddCS32.median_cost median in
-          let res = { ca with preliminary = median; 
-                      final = median; 
-                      sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
-                      cost = ca.weight *. cost } in
-          Nonadd32 res
+            assert (ca.weight = cb.weight);
+            let prev = match prev with
+                | None -> None
+                | Some (Nonadd32 prev) -> Some (prev.preliminary)
+                | _ -> raise (Illegal_argument "cs_median")
+            in
+            let median = NonaddCS32.median prev ca.preliminary cb.preliminary in
+            let cost = NonaddCS32.median_cost median in
+            let res =
+                { ca with
+                    preliminary = median; 
+                    final = median; 
+                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    cost = ca.weight *. cost }
+            in
+            Nonadd32 res
     | AddVec ca, AddVec cb -> 
-          assert (ca.weight = cb.weight);
-          let old = match prev with
-          | Some AddVec old -> Some old.preliminary
-          | None -> None
-          | _ -> assert false in
-          let median = AddCS.Vector.median old ca.preliminary cb.preliminary in
-          let cost = AddCS.Vector.median_cost median in
-          let res = { ca with
-              preliminary = median; 
-              final = median; 
-              sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
-              cost = ca.weight *. cost; } 
-          in
-          AddVec res
-    | AddGen ca, AddGen cb -> 
-          assert (ca.weight = cb.weight);
-          let old = match prev with
-          | Some AddGen old -> Some old.preliminary
-          | None -> None
-          | _ -> assert false in
-          let median = AddCS.General.median old ca.preliminary cb.preliminary in
-          let cost = AddCS.General.median_cost median in
-          let res =
-              { ca with
+            assert (ca.weight = cb.weight);
+            let old = match prev with
+                | Some AddVec old -> Some old.preliminary
+                | None -> None
+                | _ -> assert false in
+            let median = AddCS.Vector.median old ca.preliminary cb.preliminary in
+            let cost = AddCS.Vector.median_cost median in
+            let res =
+                { ca with
                     preliminary = median; 
                     final = median; 
                     sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
                     cost = ca.weight *. cost; } 
-          in
-          AddGen res
+            in
+            AddVec res
+    | AddGen ca, AddGen cb -> 
+            assert (ca.weight = cb.weight);
+            let old = match prev with
+                | Some AddGen old -> Some old.preliminary
+                | None -> None
+                | _ -> assert false in
+            let median = AddCS.General.median old ca.preliminary cb.preliminary in
+            let cost = AddCS.General.median_cost median in
+            let res =
+                { ca with
+                    preliminary = median; 
+                    final = median; 
+                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    cost = ca.weight *. cost; } 
+            in
+            AddGen res
     | Sank ca, Sank cb ->
             assert (ca.weight = cb.weight);
             let median,cost = SankCS.median code ca.preliminary cb.preliminary in
             let res = 
-                { 
-                    ca with preliminary = median;
+                { ca with
+                    preliminary = median;
                     final = median;
                     sum_cost = cost;
                     cost = ca.weight *. cost }

@@ -2271,7 +2271,6 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
             (*| Relaxed_Lifted x  ->
                     is_fs := true;
                     if debug then  Printf.printf "seqCS.RL.to_formatter\n%!";
-                    let spec = x.RL.sequence_table in
                     let bestc,best_state = RL.get_min_states x in
                     res_state := best_state;
                     DOS.make_cost bestc, 
