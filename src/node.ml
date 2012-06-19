@@ -53,7 +53,7 @@ exception Illegal_argument of string
 
 type to_single = 
     [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd
-    | `Sank | `Seq | `StaticMl | `Ml ]
+    | `FixedStates | `Sank | `Seq | `StaticMl | `Ml ]
 
 type 'a r = {
     preliminary : 'a;
@@ -124,6 +124,7 @@ type cs =
     | AddVec of AddCS.Vector.t r
     | AddGen of AddCS.General.t r
     | Sank of SankCS.t r
+    | FixedStates of Fixed_states.t_w_seqtbl r
     | Dynamic of DynamicCS.t r
     | Kolmo of KolmoCS.t r
     | Set of cs css r
@@ -136,6 +137,7 @@ let cs_string = function
     | AddVec _ -> "add"
     | AddGen _ -> "add"
     | Sank _ -> "sank"
+    | FixedStates _ -> "fixed_states"
     | Dynamic x -> DynamicCS.name_string x.preliminary
     | Set _ -> "set"
     | Kolmo _ -> "kolmo"
@@ -156,6 +158,7 @@ let rec to_string_ch ch1 = match ch1 with
             ("sank: " ^ SankCS.to_string a.final)
     | Dynamic a ->
             "dynamic: " ^ DynamicCS.to_string a.final
+    | FixedStates a -> ("fixed states: " ^ Fixed_states.to_string a.final)
     | Set a ->
             let sub = List.map to_string_ch a.final.set in
             let stype = match a.final.smethod with
@@ -179,11 +182,8 @@ let extract_cost = function
     | AddVec v -> v.cost
     | AddGen v -> v.cost
     | Sank v -> v.cost
-    | Dynamic v ->
-        begin match DynamicCS.is_fixedstates v.preliminary with
-            | true -> v.sum_cost
-            | false -> v.cost
-        end
+    | FixedStates v -> v.cost
+    | Dynamic v -> v.cost
     | Set v -> v.cost
     | Kolmo v -> v.cost
     | StaticMl v -> 
@@ -261,6 +261,7 @@ let print_times n =
         | AddGen x   -> x.time
         | Sank x     -> x.time
         | Dynamic x  -> x.time
+        | FixedStates x -> x.time
         | Set x      -> x.time
         | Kolmo x    -> x.time
         | StaticMl x ->
@@ -445,6 +446,7 @@ let rec prelim_to_final = function
     | AddGen a -> AddGen (cs_prelim_to_final a)
     | Sank a -> Sank (cs_prelim_to_final a)
     | Dynamic a -> Dynamic (cs_prelim_to_final a)
+    | FixedStates a -> FixedStates (cs_prelim_to_final a)
     | Kolmo a -> Kolmo (cs_prelim_to_final a)
     | Set a ->
           let r = setrec a.preliminary prelim_to_final in
@@ -663,12 +665,6 @@ let rec cs_median code anode bnode prev t1 t2 a b =
           AddGen res
     | Sank ca, Sank cb ->
             assert (ca.weight = cb.weight);
-            let prev = 
-                match prev with
-                | None -> None
-                | Some (Sank prev) -> Some (prev.preliminary)
-                | _ -> raise (Illegal_argument "cs_median") 
-            in
             let median,cost = SankCS.median code ca.preliminary cb.preliminary in
             let res = 
                 { 
@@ -678,6 +674,15 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     cost = ca.weight *. cost }
             in
             Sank res
+    | FixedStates ca, FixedStates cb ->
+            let median,cost = Fixed_states.median code ca.preliminary cb.preliminary in
+            let res = { 
+                    ca with preliminary = median;
+                    final = median;
+                    sum_cost = cost;
+                    cost = ca.weight *. cost }
+            in
+            FixedStates res
     | Dynamic ca, Dynamic cb ->
             assert (ca.weight = cb.weight);
             let ca, cb =
@@ -723,10 +728,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     DynamicCS.median code ca.preliminary cb.preliminary None None,ca.time
             in
             let total_cost = ca.weight *. (DynamicCS.total_cost median) in
-            let sum_cost =
-                match DynamicCS.is_fixedstates median with
-                | true -> total_cost
-                | false -> ca.sum_cost +. cb.sum_cost +. total_cost in
+            let sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost in
             if debug then
                 info_user_message "Calculated Median with costs: T:%f,\
                 S:%f(ca=%f,cb=%f)" total_cost sum_cost ca.sum_cost cb.sum_cost;
@@ -824,8 +826,8 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     in
                     res
           end
-    | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | AddVec _, _ | Sank _, _ 
-    | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ | AddGen _,_ -> 
+    | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | AddVec _, _ | Sank _, _  
+    | FixedStates _, _ | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ | AddGen _,_ -> 
             raise (Illegal_argument "cs_median")
 
 (** [edge iterator gp rent c1 c2]
@@ -924,7 +926,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     ei_map ptl atl btl (pml::pa)
             end
         (* ignore non-likelihood characters *)
-        (* | Nonadd8 | Nonadd16 | Nonadd32 | AddVec | AddGen | Sank | Dynamic | Kolmo | Set *)
+        (* | Nonadd8 | Nonadd16 | Nonadd32 | AddVec | AddGen | Sank | FixedStates |Dynamic | Kolmo | Set *)
         | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl (pml::pa)
         | [],[],[] -> pa
         | _ -> failwith "Number of characters is inconsistent"
@@ -1040,6 +1042,9 @@ let rec cs_final_states pn nn c1n c2n p n c1 c2 =
     | Sank cp, Sank cn, Sank cc1, Sank cc2 ->
         let m = SankCS.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
         Sank { cn with final = m }
+    | FixedStates cp, FixedStates cn, FixedStates cc1, FixedStates cc2 ->
+        let m = Fixed_states.median_3 cp.final cn.preliminary cc1.preliminary cc2.preliminary in
+        FixedStates { cn with final = m }
     | Dynamic cp, Dynamic cn, Dynamic cc1, Dynamic cc2 ->
         IFDEF USE_LIKELIHOOD THEN
             begin match cp.final with
@@ -1129,7 +1134,7 @@ let rec cs_final_states pn nn c1n c2n p n c1 c2 =
                 Set { cn with final = res }
         end
     | Nonadd8 _, _, _, _ | Nonadd16 _, _, _, _ | Nonadd32 _, _, _, _ 
-    | AddGen _, _, _, _  | Sank _, _, _, _     | Dynamic _, _, _, _  
+    | AddGen _, _, _, _  | Sank _, _, _, _     | FixedStates _, _, _, _ | Dynamic _, _, _, _  
     | AddVec _, _, _, _  | Set _, _, _, _      | Kolmo _, _, _, _ 
     | StaticMl _, _, _ ,_ ->
         raise (Illegal_argument "cs_final_states")
@@ -1167,16 +1172,6 @@ let root_cost root =
         | Kolmo v -> 
                 acc +. KolmoCS.root_cost v.preliminary root.num_otus
                 root.num_child_edges
-    (** Now calculated as an additional cost later
-        | Dynamic z -> 
-          IFDEF USE_LIKELIHOOD THEN
-            begin match z.preliminary with
-                | DynamicCS.MlCS zdat -> MlDynamicCS.prior zdat
-                | _ -> acc
-            end
-          ELSE
-            acc
-          END **)
         | _ -> acc
     in
     List.fold_left adder 0. root.characters
@@ -1189,7 +1184,8 @@ let get_characters_of_type map t node =
         | Nonadd32 _ when t = `NonAdd8 -> true
         | AddGen _ when t = `Add -> true
         | AddVec _ when t = `Add -> true
-        | Sank _ when t = `Sank -> true
+        | Sank _ when t = `Sank -> Printf.printf "get_characters_of_type,is Sank\n%!"; true
+        | FixedStates _ when t = `FixedState -> Printf.printf "get_characters_of_type,is FixedState\n%!"; true
         | StaticMl _ when t = `StaticML -> true
         | Dynamic _ when t = `Dynamic -> true
         | Set _ when t = `Set -> true
@@ -1220,6 +1216,10 @@ let get_sank =
     get_characters_of_type 
     (function Sank x -> x.preliminary, x.final | _ -> assert false)
     `Sank
+let get_fixedstates = 
+    get_characters_of_type 
+    (function FixedStates x -> x.preliminary, x.final | _ -> assert false)
+    `FixedStates
 let get_dynamic = 
     get_characters_of_type 
     (function Dynamic x -> x.preliminary, x.final | _ -> assert false)
@@ -1540,7 +1540,7 @@ let classify_data leafa dataa leafb datab chars acc =
         | Dynamic a, Dynamic b ->
               DynamicCS.classify_transformations leafa a.final leafb b.final chars acc
         | (Kolmo _ | StaticMl _ | Nonadd8 _ | Nonadd16 _ | Nonadd32 _
-          | AddGen _ | AddVec _ | Sank _ | Set _ | Dynamic _ ),_ ->
+          | AddGen _ | AddVec _ | FixedStates _ | Sank _ | Set _ | Dynamic _ ),_ ->
             assert false
     in
     List.fold_left2 classify_two acc dataa.characters datab.characters
@@ -1554,6 +1554,7 @@ let compare_data_final {characters=chs1} {characters=chs2} =
         | AddVec a, AddVec b     -> AddCS.Vector.compare_data a.final b.final
         | AddGen a, AddGen b     -> AddCS.General.compare_data a.final b.final
         | Sank a, Sank b         -> SankCS.compare_data a.final b.final
+        | FixedStates a, FixedStates b -> Fixed_states.compare_data a.final b.final
         | Dynamic a, Dynamic b   -> DynamicCS.compare_data a.final b.final
         | Kolmo a, Kolmo b       -> KolmoCS.compare_data a.final b.final
         | StaticMl a, StaticMl b ->
@@ -1594,6 +1595,7 @@ let compare_data_preliminary {characters=chs1} {characters=chs2} =
         | AddGen a, AddGen b     -> AddCS.General.compare_data a.preliminary b.preliminary
         | AddVec a, AddVec b     -> AddCS.Vector.compare_data a.preliminary b.preliminary
         | Sank a, Sank b         -> SankCS.compare_data a.preliminary b.preliminary
+        | FixedStates a, FixedStates b -> Fixed_states.compare_data a.preliminary b.preliminary
         | Dynamic a, Dynamic b   -> DynamicCS.compare_data a.preliminary b.preliminary
         | Kolmo a, Kolmo b       -> KolmoCS.compare_data a.preliminary b.preliminary
         | StaticMl a, StaticMl b ->
@@ -1660,6 +1662,11 @@ let edge_distance clas nodea nodeb =
                 | `Static | `Any -> 
                         a.weight *. SankCS.distance a.final b.final
                 | `Dynamic -> 0.)
+        | FixedStates a, FixedStates b ->
+                (match clas with
+                | `Static | `Any -> 
+                        a.weight *. Fixed_states.distance a.final b.final
+                | `Dynamic -> 0.)
         | Dynamic a, Dynamic b ->
                 (match clas with
                 | `Dynamic | `Any -> 
@@ -1700,7 +1707,7 @@ let edge_distance clas nodea nodeb =
 
 let all_types = 
     [ `Add ; `Annchrom ; `Breakinv ; `Chrom ; `Genome ; `Kolmo ; `Nonadd ;
-      `Sank; `Seq ; `StaticMl; `Ml ]
+      `Sank; `Seq ; `StaticMl; `Ml; `FixedStates ]
 
 let type_string = function
     | `Add -> "additive"
@@ -1711,6 +1718,7 @@ let type_string = function
     | `Kolmo -> "kolmo"
     | `Nonadd -> "nonadditive"
     | `Sank -> "sankoff"
+    | `FixedStates -> "fixed states"
     | `Seq -> "sequence"
     | `StaticMl -> "static likelihood"
     | `Ml -> "dynamic likelihood"
@@ -1745,9 +1753,9 @@ let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     let has_nonadd = has_t `Nonadd
     and has_add = has_t `Add
     and has_sank = has_t `Sank
+    and has_fixedstate = has_t `FixedStates 
     and dy_t = List.fold_left filter_dynamic [] t 
     and has_kolmo = has_t `Kolmo in
-
     let rec distance_two ch1 ch2 (bl: float option) : float =
         match ch1, ch2 with
         | Nonadd8 a, Nonadd8 b when has_nonadd ->
@@ -1762,6 +1770,8 @@ let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
             a.weight *. AddCS.General.distance a.final b.final
         | Sank a, Sank b when has_sank ->
             a.weight *. SankCS.distance a.final b.final
+        | FixedStates a, FixedStates b when has_fixedstate ->
+            a.weight *. Fixed_states.distance a.final b.final
         | Dynamic a, Dynamic b ->
             a.weight *. DynamicCS.distance_of_type dy_t missing_distance a.final b.final bl
         | Kolmo a, Kolmo b when has_kolmo ->
@@ -1814,6 +1824,8 @@ let distance ?(para=None) ?(parb=None)  missing_distance
               a.weight *. AddCS.General.distance a.final b.final
         | Sank a, Sank b ->
               a.weight *. SankCS.distance a.final b.final
+        | FixedStates a, FixedStates b ->
+              a.weight *. Fixed_states.distance a.final b.final
         | Dynamic a, Dynamic b ->
               a.weight *. DynamicCS.distance missing_distance a.final b.final
         | Kolmo a, Kolmo b ->
@@ -1881,6 +1893,8 @@ let dist_2 minimum_delta n a b =
               n.weight *. AddCS.General.distance_2 n.final a.final b.final
         | Sank n, Sank a, Sank b ->
               n.weight *. SankCS.dist_2 n.final a.final b.final
+        | FixedStates n, FixedStates a, FixedStates b ->
+              n.weight *. Fixed_states.dist_2 n.final a.final b.final
         | Dynamic nc, Dynamic ac, Dynamic bc ->
                 let ac, bc = 
                     if a.min_child_code < b.min_child_code then ac, bc
@@ -1946,7 +1960,7 @@ let dist_2 minimum_delta n a b =
                          sn.final.set;
                      !cmin)
         | Nonadd8 _, _, _ | Nonadd16 _, _, _ | Nonadd32 _, _, _
-        | AddGen _, _, _ | Sank _, _, _ | Dynamic _, _, _ | AddVec _, _, _
+        | AddGen _, _, _ | Sank _, _, _ | FixedStates _, _, _ | Dynamic _, _, _ | AddVec _, _, _
         | Set _, _, _ | Kolmo _, _, _ | StaticMl _, _, _ ->
                 (* These are explicitly left so that modifying code is easier,
                  * the compiler guides the changes *)
@@ -1971,6 +1985,34 @@ let extract_stat = function
     | (Data.Stat (a, b), _) -> (b, a)
     | _ -> raise (Illegal_argument "extract_stat")
 
+(*
+    let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
+            let chfilenames = !data.Data.character_codes in
+    Hashtbl.find tcharacters code,Hashtbl.find chfilenames code
+*)
+let extract_fixedstates data fs tcode = (*tcode = taxon code*) 
+    match fs with
+    | Data.FS code, _  -> (*code is charactor code belong to the taxon*)
+            let specs = Hashtbl.find data.Data.character_specs code in  
+            let specs, weight =
+                match specs with 
+                | Data.Static (Data.FixedStates fs_spec) ->  fs_spec, Data.get_weight_from_fs_spec fs_spec
+                | _ -> failwith "extract fiexed states"
+            in 
+            (* val off_array : Data.fixed_state_spec -> int -> t_w_seqtbl *)
+            let tws =  Fixed_states.off_array specs tcode in 
+            {
+                preliminary = tws;
+                final = tws; 
+                cost = 0.; 
+                weight = weight;
+                sum_cost = 0.;
+                time = None,None,None;
+            }
+    | Data.Dyna code, _ -> 
+                        failwith("we have cs=dyna instead of fs")
+    | _ -> raise (Illegal_argument "extract fixedstates")
+
 let extract_dynamic data dyna tcode = 
     match dyna with 
     | (Data.Dyna (dyna_code, chrom_data), _) -> 
@@ -1994,6 +2036,8 @@ let extract_dynamic data dyna tcode =
           } 
     | Data.Stat (code, _), _ ->
           raise (Illegal_argument ("Stat" ^ (string_of_int code))) 
+    | Data.FS code, _  ->
+          raise (Illegal_argument ("FS " ^ (string_of_int code))) 
 
 let extract_kolmo data kolmo tcode = 
     match kolmo with
@@ -2019,6 +2063,8 @@ let extract_kolmo data kolmo tcode =
           } 
     | Data.Stat (code, _), _ ->
           raise (Illegal_argument ("Stat" ^ (string_of_int code))) 
+    | Data.FS code, _  ->
+          raise (Illegal_argument ("FS " ^ (string_of_int code)))
               
 
 module OrderedLists = struct
@@ -2114,13 +2160,14 @@ let classify size chars data =
     let all_static = 
         Hashtbl.fold
             (fun code spec acc -> match spec with
-                | Data.Static spec ->
+                | Data.Static (Data.NexusFile nf) ->
                     (* categorize likelihood and unordered characters *)
-                    begin match spec.Nexus.File.st_type with
+                    begin match nf.Nexus.File.st_type with
                         | Nexus.File.STUnordered
-                        | Nexus.File.STLikelihood _ -> (code, spec) :: acc
+                        | Nexus.File.STLikelihood _ -> (code, nf) :: acc
                         | _ -> acc
                     end
+                | Data.Static (Data.FixedStates fs) -> acc (*(code, spec) :: acc*)
                 | _ -> acc)
             data.Data.character_specs
             []
@@ -2173,7 +2220,7 @@ let classify size doit chars data =
     else None
 
 let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
-                   lnadd32code lnadd33code lsankcode dynamics kolmogorov
+                   lnadd32code lnadd33code lsankcode dynamics fixedstates kolmogorov
                    static_ml data cost_mode =
         let calc_total treesnum directions nodenum = 
             let res = treesnum * ( directions *(nodenum-1) + nodenum )
@@ -2227,7 +2274,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
         let group_ml_by_model lst =
             let get_function code =
                 match Hashtbl.find (!data).Data.character_specs code with
-                | Data.Static spec ->
+                | Data.Static (Data.NexusFile spec) ->
                     begin match spec.Nexus.File.st_type with
                         | Nexus.File.STLikelihood x -> x.MlModel.spec
                         | _ -> assert false
@@ -2281,7 +2328,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                     (* already characterized by group and model, so = alph *)
                     let alph_len =
                          let x = match Hashtbl.find (!data).Data.character_specs x with
-                            | Data.Static x -> x 
+                            | Data.Static (Data.NexusFile x) -> x 
                             | _ -> assert false
                         in
                         match x.Nexus.File.st_type with
@@ -2318,7 +2365,8 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
         let get_static_encoding code =
             let specs = Hashtbl.find !data.Data.character_specs code in
             match specs with
-            | Data.Static encoding -> encoding
+            | Data.Static (Data.NexusFile encoding) -> encoding
+            | Data.Static _ 
             | Data.Dynamic _
             | Data.Kolmogorov _
             | Data.Set -> failwith "get_static_encoding"
@@ -2339,13 +2387,35 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             let chrom_data = Data.set_dyna_data [|empty_seq|] in 
             (Data.Dyna (code, chrom_data), `Unknown)
         in
+        let gen_fixedstates code = 
+            (*looks like we just need the code, then later we can get
+            * fixedstates's spec from data.Data.character_specs with that code.
+            * everything -- including the original sequence is in there.*)
+            (*to do : what do we need here?*)
+            (*let alph = Data.get_alphabet !data code in
+            let empty_seq = Data.get_empty_seq alph in
+            let specs = Hashtbl.find !data.Data.character_specs code in
+            let states = 
+                match specs with
+                | Data.Static x -> 
+                        (match x with  (*to do: what should we put here?*)
+                        | Data.FixedStates enc -> []
+                        | _ -> failwith "gen_sank is not for fixedstates" )
+                | _ -> assert false 
+            in
+            let fs_data = Data.set_fs_data [|empty_seq|] [] in*)
+            (Data.FS code, `Unknown)
+        in
         let gen_sank code =
             (* print_endline ("adding sankoff with code " ^ string_of_int code);
             * *)
             let specs = Hashtbl.find !data.Data.character_specs code in
             let states = 
                 match specs with
-                | Data.Static enc -> `List enc.Nexus.File.st_observed
+                | Data.Static x -> 
+                        (match x with 
+                        | Data.NexusFile enc -> `List enc.Nexus.File.st_observed
+                        | _ -> failwith "gen_sank is not for fixedstates" )
                 | _ -> assert false 
             in
             (Data.Stat (code, Some states), `Unknown)
@@ -2392,6 +2462,8 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             and lnadd33_chars = []
             and ldynamic_chars = 
                 List.fold_left (get_character_with_code gen_dynamic) [] dynamics
+            and lfixedstates_chars =
+                List.fold_left (get_character_with_code gen_fixedstates) [] fixedstates
             and lkolmo_chars = 
                 List.fold_left (get_character_with_code gen_dynamic) [] kolmogorov
             and lsank_chars =
@@ -2472,23 +2544,17 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                       let c : cs list = List.map (fun c -> Dynamic c) c in
                       { result with characters = c @ result.characters } 
             in
-            let result = (* KOLMO *)
-                match lkolmo_chars with
-                | [] -> result
+            let result = (* FIXED STATES *)
+                match lfixedstates_chars with 
+                | [] -> result 
                 | _ ->
-                        let c = 
-                            List.map 
-                            (fun (kolm,fname) -> extract_kolmo !data kolm tcode)
-                            lkolmo_chars
-                        in
-                        let total_cost = 
-                            List.fold_left (fun acc c -> acc +.  c.sum_cost)
-                            0. c 
-                        in
-                        let c = List.map (fun c -> Kolmo c) c in
-                        { result with characters = c @ result.characters; 
-                        total_cost = total_cost +. result.total_cost;
-                        node_cost = total_cost +. result.node_cost;}
+                      let c = 
+                          List.map 
+                          (fun (fs,fname) -> extract_fixedstates !data fs tcode) 
+                          lfixedstates_chars 
+                      in
+                      let c : cs list = List.map (fun c -> FixedStates c) c in
+                      { result with characters = c @ result.characters }
             in
             let result = (* SANK *)
                 let single_lsank_chars_process result (code, lst) =
@@ -2511,6 +2577,24 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                 in
                 List.fold_left single_lsank_chars_process result lsank_chars
             in
+            let result = (* KOLMO *)
+                match lkolmo_chars with
+                | [] -> result
+                | _ ->
+                        let c = 
+                            List.map 
+                            (fun (kolm,fname) -> extract_kolmo !data kolm tcode)
+                            lkolmo_chars
+                        in
+                        let total_cost = 
+                            List.fold_left (fun acc c -> acc +.  c.sum_cost)
+                            0. c 
+                        in
+                        let c = List.map (fun c -> Kolmo c) c in
+                        { result with characters = c @ result.characters; 
+                        total_cost = total_cost +. result.total_cost;
+                        node_cost = total_cost +. result.node_cost;}
+            in
             let result = (* ML *)
                 let single_ml_group =
                   IFDEF USE_LIKELIHOOD THEN
@@ -2526,7 +2610,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                             let spec = 
                                 match Hashtbl.find (!data).Data.character_specs
                                                     (List.hd cs) with
-                                | Data.Static x -> x 
+                                | Data.Static (Data.NexusFile x) -> x 
                                 | _ -> assert false
                             in
                             let c = 
@@ -2566,6 +2650,7 @@ let node_contents_compare a b = match a, b with
     | AddGen _  , AddGen _
     | AddVec _  , AddVec _
     | Sank _    , Sank _
+    | FixedStates _ , FixedStates _ 
     | Dynamic _ , Dynamic _
     | Kolmo _   , Kolmo _
     | StaticMl _, StaticMl _
@@ -2582,6 +2667,8 @@ let node_contents_compare a b = match a, b with
     | _         , AddVec _   ->  1
     | Sank _    , _          -> -1
     | _         , Sank _     ->  1
+    | FixedStates _ , _      -> -1
+    | _         , FixedStates _ -> 1
     | Dynamic _ , _          -> -1
     | _         , Dynamic _  ->  1
     | Kolmo _   , _          -> -1
@@ -3023,6 +3110,7 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and sank = List.map (List.filter is_mem) data.Data.sankoff
         and kolmogorov = List.filter is_mem data.Data.kolmogorov
         and static_ml = List.filter is_mem data.Data.static_ml
+        and fixedstates = List.filter is_mem data.Data.fixed_states 
         and dynamics = List.filter is_mem data.Data.dynamics in
         let has_sank = if (List.length sank)>0 then true else false in
         let has_dynamic_mpl,has_dynamic_mal,has_dynamic_aln =
@@ -3064,7 +3152,7 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         current_snapshot "end nonadd set2";
         let r =
             generate_taxon classify addgen addvec n8 n16 n32 n33 sank dynamics
-                                    kolmogorov static_ml data cost_mode
+            fixedstates kolmogorov static_ml data cost_mode
         in
         current_snapshot "end generate taxon";
         r
@@ -3408,13 +3496,13 @@ let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs
     | Sank cs, Sank _ ->
         begin match parent_cs with
             | None ->
-                (*SankCS.to_formatter pre cs.preliminary None d 
-                @ *) SankCS.to_formatter fin cs.final None  d
+                SankCS.to_formatter fin cs.final None d
             | Some ((Sank parent_cs), _) ->
-                (*SankCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
-                @ *) SankCS.to_formatter fin cs.final (Some parent_cs.final) d
+                SankCS.to_formatter fin cs.final (Some parent_cs.final) d
             | _ -> assert false
         end
+    | FixedStates cs, FixedStates _ ->
+            Fixed_states.to_formatter report_type fin cs.final d
     | Dynamic cs, Dynamic cs_single ->
         let time = match cs.time with | (a,b,_) -> (a,b) in
         begin match parent_cs with
@@ -3454,7 +3542,7 @@ let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs
         ELSE
             failwith MlStaticCS.likelihood_error
         END
-    | (StaticMl _ |Kolmo _ |Dynamic _ |Sank _ |AddGen _ | AddVec _
+    | (FixedStates _ |StaticMl _ |Kolmo _ |Dynamic _ |Sank _ |AddGen _ | AddVec _
         |Nonadd32 _ |Nonadd16 _ |Nonadd8 _ |Set _), _ -> assert false
 
 (* Compute total recost of the NODE, NOT THE SUBTREE*)
@@ -3628,6 +3716,7 @@ let lnon32 cs acc = listify (Nonadd32 cs) acc
 let laddvec cs acc = listify (AddVec cs) acc
 let laddgen cs acc = listify (AddGen cs) acc
 let lsank cs acc = listify (Sank cs) acc
+let lfixedstates cs acc = listify (FixedStates cs) acc
 let ldynamic cs acc = listify (Dynamic cs) acc
 let lkolmo cs acc = listify (Kolmo cs) acc
 let lstaticml cs acc = listify (StaticMl cs) acc
@@ -3639,6 +3728,7 @@ let rec convert_data
         ?(taddvec=laddvec)
         ?(taddgen=laddgen)
         ?(tsank=lsank)
+        ?(tfixedstates=lfixedstates)
         ?(tdynamic=ldynamic)
         ?(tkolmo=lkolmo)
         ?(tstaticml=lstaticml)
@@ -3651,6 +3741,7 @@ let rec convert_data
              | AddVec cs -> taddvec cs acc
              | Sank cs -> tsank cs acc
              | Dynamic cs -> tdynamic cs acc
+             | FixedStates cs -> tfixedstates cs acc
              | Kolmo cs -> tkolmo cs acc
              | StaticMl cs -> tstaticml cs acc
              | Set set ->
@@ -3690,6 +3781,7 @@ let cardinal item = match item with
     | Nonadd32 c -> NonaddCS32.cardinal c.preliminary
     | AddVec c   -> AddCS.Vector.cardinal c.preliminary
     | AddGen c   -> AddCS.General.cardinal c.preliminary
+    | FixedStates c -> Fixed_states.cardinal c.preliminary   
     | Sank c     -> SankCS.cardinal c.preliminary
     | Dynamic c  -> DynamicCS.cardinal c.preliminary
     | Kolmo c    -> KolmoCS.cardinal c.preliminary
@@ -3715,6 +3807,8 @@ let rec filter_character_codes (codes : All_sets.Integers.t) item = match item w
           AddVec (do_filter AddCS.Vector.cardinal AddCS.Vector.f_codes c codes)
     | Sank c -> 
           Sank (do_filter SankCS.cardinal SankCS.f_codes c codes)
+    | FixedStates c ->  
+          FixedStates (do_filter Fixed_states.cardinal Fixed_states.f_codes c codes)
     | Dynamic c ->
           Dynamic (do_filter DynamicCS.cardinal DynamicCS.f_codes c codes)
     | Kolmo c ->
@@ -3748,6 +3842,8 @@ let rec filter_character_codes_complement codes = function
           Some (AddVec (do_filter AddCS.Vector.cardinal AddCS.Vector.f_codes_comp c codes))
     | Sank c -> 
           Some (Sank (do_filter SankCS.cardinal SankCS.f_codes_comp c codes))
+    | FixedStates c ->
+        Some (FixedStates (do_filter Fixed_states.cardinal Fixed_states.f_codes_comp c codes))
     | Dynamic c ->
           Some (Dynamic (do_filter DynamicCS.cardinal DynamicCS.f_codes_comp c codes))
     | Kolmo c ->
@@ -3872,6 +3968,7 @@ let rec internal_n_chars acc (chars : cs list) =
                 | AddVec r   -> AddCS.Vector.cardinal r.preliminary
                 | Sank r     -> SankCS.cardinal r.preliminary
                 | Dynamic r  -> DynamicCS.cardinal r.preliminary
+                | FixedStates r -> Fixed_states.cardinal r.preliminary
                 | Kolmo r    -> KolmoCS.cardinal r.preliminary
                 | Set s      -> internal_n_chars acc s.preliminary.set
             in
@@ -3908,6 +4005,7 @@ END
         | AddVecU of AddCS.Vector.t ru
         | SankU of SankCS.t ru
         | DynamicU of DynamicCS.u ru
+        | FixedStatesU of Fixed_states.t_w_seqtbl ru
         | KolmoU of KolmoCS.u ru
         | StaticMlU of ml_repu
 
@@ -3936,6 +4034,7 @@ END
                         | AddGenU _ 
                         | StaticMlU _
                         | KolmoU _
+                        | FixedStatesU _ 
                         | SankU _ -> None
                         | DynamicU x -> DynamicCS.get_sequence_union code x.ch)
             None
@@ -3971,6 +4070,7 @@ END
                     AddCS.poly_saturation x *. card, card +. lenacc
                     *)
             | KolmoU _ 
+            | FixedStatesU _ 
             | SankU _ -> 
                     failwith "TODO Node.Union.poly_saturation"
                     (*
@@ -4023,6 +4123,8 @@ END
                     AddGenU { ch = cs.preliminary; u_weight = u1.u_weight }
             | Sank cs, SankU u1, SankU u2 ->
                     SankU { ch = cs.preliminary; u_weight = u1.u_weight }
+            | FixedStates cs, FixedStatesU u1, FixedStatesU u2 ->
+                    FixedStatesU { ch = cs.preliminary; u_weight = u1.u_weight }
             | Dynamic cs, DynamicU u1, DynamicU u2 ->
                     let r = {
                         ch = (DynamicCS.union cs.preliminary u1.ch u2.ch);
@@ -4116,6 +4218,8 @@ END
                     (Nonadd32U (create_union NonaddCS32.to_union c)) :: acc
             | Dynamic c ->
                     (DynamicU (create_union DynamicCS.to_union c)) :: acc 
+            | FixedStates c ->(* TODO *)
+                    (FixedStatesU { ch = c.preliminary; u_weight = c.weight}) :: acc
             | AddVec c ->
                     (AddVecU { ch = c.preliminary; u_weight = c.weight }) :: acc
             | AddGen c ->
@@ -4168,6 +4272,9 @@ END
             | (AddVecU a) :: at, (AddVecU b) :: bt ->
                     distance acc at bt
                     (* TODO AddCS.distance a b, at, bt *)
+            | (FixedStatesU a) :: at, (FixedStatesU b) :: bt ->
+                    distance acc at bt
+                    (* TODO Fixed_states.distance a b, at, ct *)
             | (SankU a) :: at, (SankU b) :: bt ->
                     distance acc at bt
                     (* TODO SankCS.distance a b, at, ct *)
@@ -4184,6 +4291,7 @@ END
             | (AddGenU _) :: _, _
             | (AddVecU _) :: _, _
             | (SankU _) :: _, _
+            | (FixedStatesU _) :: _, _
             | (DynamicU _) :: _, _
             | (KolmoU _) :: _, _ 
             | (StaticMlU _) :: _, _ 
@@ -4442,6 +4550,7 @@ module Standard :
         let get_addvec _ = get_addvec
         let get_sank _ = get_sank
         let get_dynamic _ = get_dynamic
+        let get_fixedstates _ = get_fixedstates
         let get_mlstatic _ = get_mlstatic
         let compare a b = 
             let rec aux_cmt a b =
@@ -4500,6 +4609,12 @@ module Standard :
                             else cmp
                         else x
                 | (Sank ha) :: ta, _ -> -1
+                | (FixedStates ha) :: ta, (FixedStates hb) :: tb ->
+                            let cmp = Fixed_states.compare_data ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                | (FixedStates ha) :: ta, _ -> -1
                 | (Dynamic ha) :: ta, (Dynamic hb) :: tb ->
                         let x = compare ha.weight hb.weight in
                         if x = 0 then
@@ -4584,6 +4699,8 @@ let total_cost_of_type t n =
                     0.0
                 END
             | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
+            | FixedStates x, `FixedStates ->
+                    x.sum_cost *. x.weight
             | Dynamic x, t ->
                     begin match x.preliminary, t with
                     | DynamicCS.MlCS _, `Ml when n.cost_mode = `Likelihood ->
@@ -4593,8 +4710,10 @@ let total_cost_of_type t n =
                     | DynamicCS.MlCS _, `Ml -> assert false
                     | DynamicCS.SeqCS _, `Seq ->
                         x.sum_cost *. x.weight
-                    | DynamicCS.SeqCS _, `Sank ->
-                        x.sum_cost *. x.weight
+                    (*| DynamicCS.SeqCS _, `Sank -> we move fixedstates out of
+                    * dynamic, this no longer exist
+                            Printf.printf "DynamicCS.SeqCS _, `Sank \n%!";
+                        x.sum_cost *. x.weight*)
                     | DynamicCS.BreakinvCS _, `Breakinv ->
                         x.sum_cost *.  x.weight
                     | DynamicCS.ChromCS _, `Chrom ->
@@ -4606,7 +4725,7 @@ let total_cost_of_type t n =
                     | _ -> 0.0
                 end
             | Kolmo x, `Kolmo -> x.sum_cost *. x.weight
-            | _,_ -> 0.0
+            | _,_ ->  0.0
         in
         if debug then
             info_user_message "%s contributed %f cost for %s" 

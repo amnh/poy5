@@ -34,6 +34,8 @@ external get_best_child_state : t -> int ->  int = "sankoff_CAML_get_best_child_
 
 external get_taxon_code : t -> int = "sankoff_CAML_get_taxon_code"
 
+external get_code : t -> int = "sankoff_CAML_get_code"
+
 (** {2 Standard functions} *)
 (*val code : t -> int                     * The code of a set *)
 (*val mem : int list option -> t -> bool  * determine if the code of this set is present in the list *)
@@ -90,8 +92,12 @@ val f_codes_comp : t -> All_sets.Integers.t -> t
     node c where parent is optional parent of c if available *)
 val to_formatter : Xml.attributes -> t -> t option -> Data.d -> Xml.xml
 Sexpr.t list
-(*
-val get_all_possible_assignments : int list option list -> int list list *)
+
+(** [to_formatter_with_seq print_seq seq_arr alphabet attrs c parent d : Xml.xml list] returns the formatter for
+    node c where parent is optional parent of c if available .*)
+val to_formatter_with_seq : bool -> Sequence.s array -> Alphabet.a -> Xml.attributes -> t -> t option -> Data.d -> Xml.xml
+Sexpr.t list
+
 
 val min_possible_cost : int array array -> Nexus.File.static_state list -> float
 

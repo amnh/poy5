@@ -956,7 +956,7 @@ sankoff_CAML_get_e_array (value a) {
     long dims[1];
     dims[0] = num_states;
     CAMLreturn(alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
-            2, ep->e, dims));
+            1, ep->e, dims));
 }
 
 

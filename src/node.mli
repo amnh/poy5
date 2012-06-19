@@ -20,8 +20,8 @@
 exception Illegal_argument of string
 
 type to_single = 
-    [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
-    `Sank | `Seq | `StaticMl | `Ml ]
+    [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd 
+    | `FixedStates | `Sank | `Seq | `StaticMl | `Ml ]
 (** A character set with all the information it needs for fast calculations *)
 type 'a r = { 
     preliminary : 'a;    (** Characters of the downpass *)
@@ -70,6 +70,7 @@ type cs =
     | AddVec of AddCS.Vector.t r    (** additive characters   *)
     | AddGen of AddCS.General.t r   (** additive characters   *)
     | Sank of SankCS.t r            (** sankoff characters    *)
+    | FixedStates of Fixed_states.t_w_seqtbl r (** fixed states characters *)
     | Dynamic of DynamicCS.t r      (** dynamics              *)
     | Kolmo of KolmoCS.t r          (** kolmogorov characters *)
     | Set of cs css r               (** other characters      *)
@@ -253,3 +254,4 @@ val print : node_data -> unit
 val copy_chrom_map : node_data -> node_data -> node_data
 
 val median_counter : int ref
+

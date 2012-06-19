@@ -1269,7 +1269,7 @@ type minimum_spanning_family = minimum_spanning_tree list
 type build_optimum = tree list
 
 let ndebug = true
-let ndebug_no_catch = false
+let ndebug_no_catch = true
 
 (** [reroot_at_outgroup data ptree] reroots [ptree] at the root specified in
     [data].  If the root is not present, the tree will not be rerooted. *)

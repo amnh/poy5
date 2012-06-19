@@ -789,8 +789,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 (fun (t,f) c ->
                     let states =
                         match Hashtbl.find data.Data.character_specs c with
-                            | Data.Static spec -> spec.Nexus.File.st_observed
-                            | _           -> assert false
+                            | Data.Static x -> 
+                                    (match x with 
+                                    | Data.NexusFile spec -> spec.Nexus.File.st_observed
+                                    | _ -> failwith "charTransform.estimate_static_lk_model is not for fixedstates" )
+                            | _  -> assert false
                     in
                     let div = float_of_int (List.length states) in
                     List.fold_left

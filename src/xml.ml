@@ -59,6 +59,7 @@ module Characters = struct
     let nonadditive = "Non Additive" ^ suffix
     let molecular = "Molecular" ^ suffix
     let sankoff = "Sankoff" ^ suffix
+    let fixedstates = "Fixed States" ^ suffix
     let likelihood = "Likelihood" ^ suffix
     let dlikelihood = "Dynamic Likelihood" ^ suffix
     let set = "Set" ^ suffix

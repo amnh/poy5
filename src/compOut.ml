@@ -93,8 +93,9 @@ let static_character_to_string sep ambig_open ambig_close fo resolve alph charse
             | (_, `Unknown) -> fo ("?@?")
             | (spec, _) ->
                 match spec with
-                | Data.Stat (_, t) -> 
-                    fo (state_to_string ambig_open ambig_close sep alph resolve code t)
+                | Data.Stat (_,t) ->
+                            fo (state_to_string ambig_open ambig_close sep alph resolve code t)
+                | Data.FS code -> failwith ("compOut.static_character_to_string do we need to print fixedstates here?")
                 | Data.Dyna _ -> assert false
         with
         | Not_found -> fo ("?@?")
@@ -109,13 +110,16 @@ let create_set_data_pairs (fo : string -> unit) data code_char_pairs =
         | hd::_ ->
             let setname = Data.get_set_of_character data hd in
             begin match Hashtbl.find data.Data.character_specs hd with
-                | Data.Static spec ->
-                    begin match spec.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood m -> (setname,charset,Some m)
-                        | Nexus.File.STOrdered
-                        | Nexus.File.STUnordered
-                        | Nexus.File.STSankoff _ -> (setname,charset,None)
-                    end
+                | Data.Static x ->
+                        (match x with 
+                            | Data.NexusFile spec ->
+                                begin match spec.Nexus.File.st_type with
+                                    | Nexus.File.STLikelihood m -> (setname,charset,Some m)
+                                    | Nexus.File.STOrdered
+                                    | Nexus.File.STUnordered
+                                    | Nexus.File.STSankoff _ -> (setname,charset,None)
+                                end
+                            | _ -> failwith "CompOut.create_set_data_pairs is not for fixedstates" )
                 | Data.Dynamic x -> (setname,charset,x.Data.lk_model)
                 | Data.Kolmogorov _
                 | Data.Set -> (setname,charset,None)
@@ -476,7 +480,11 @@ let output_character_types fo output_format resolve_a data all_of_static =
             (fun (acc, previous, cnt) code ->
                 let spec = 
                     match Hashtbl.find data.Data.character_specs code with
-                    | Data.Static x -> x.Nexus.File.st_type
+                    | Data.Static x -> 
+                            (match x with 
+                            | Data.NexusFile enc -> enc.Nexus.File.st_type
+                            | _ -> failwith "compOut.output_character_types is not for
+                            fixedstates" )
                     | _ -> assert false
                 in
                 match previous with
@@ -511,14 +519,17 @@ let output_character_types fo output_format resolve_a data all_of_static =
     let output_weights code = 
         incr pos;
         match Hashtbl.find data.Data.character_specs code with
-        | Data.Static enc ->
-                let weight = enc.Nexus.File.st_weight in 
-                if weight = 1. then ""
-                else 
-                    ("@[<v 0>" ^ reweight_command ^
-                    string_of_int (truncate weight) ^
-                    weight_separator ^ 
-                    string_of_int (fixit !pos) ^ "@]")
+        | Data.Static x ->
+                (match x with 
+                | Data.NexusFile enc ->
+                    let weight = enc.Nexus.File.st_weight in 
+                    if weight = 1. then ""
+                    else 
+                        ("@[<v 0>" ^ reweight_command ^
+                        string_of_int (truncate weight) ^
+                        weight_separator ^ 
+                        string_of_int (fixit !pos) ^ "@]")
+                | _ -> failwith "compOut.output_character_types is not for fixedstates" )
         | _ -> failwith "Sequence characters are not supported in fastwinclad"
     in
     let weights = List.map output_weights all_of_static in
@@ -548,21 +559,25 @@ let output_character_names fo output_format resolve_a data all_of_static =
             let string_labels, number_labels = 
                 match Hashtbl.find data.Data.character_specs code with
                 | Data.Kolmogorov _ | Data.Dynamic _ | Data.Set -> assert false
-                | Data.Static spec ->
-                    match spec.Nexus.File.st_labels with
-                    | [] -> 
-                        let f = 
-                            if resolve_a then fst
-                            else (fun x -> string_of_int (snd x))
-                        in
-                        (Data.get_alphabet data code)
-                            --> Alphabet.to_list
-                            --> List.sort (fun (_,a) (_,b) -> a - b)
-                            --> List.map f
-                            --> List.partition 
-                                    (fun x -> try ignore (int_of_string x); false
-                                              with _ -> true)
-                    | lst -> lst, []
+                | Data.Static x ->
+                    (match x with 
+                    | Data.NexusFile spec ->
+                        (match spec.Nexus.File.st_labels with
+                        | [] -> 
+                            let f = 
+                                if resolve_a then fst
+                                else (fun x -> string_of_int (snd x))
+                            in
+                            (Data.get_alphabet data code)
+                                --> Alphabet.to_list
+                                --> List.sort (fun (_,a) (_,b) -> a - b)
+                                --> List.map f
+                                --> List.partition 
+                                        (fun x -> try ignore (int_of_string x); false
+                                                  with _ -> true)
+                        | lst -> lst, [] )
+                        | _ -> failwith "compOut.output_character_names is not for fixedstates"
+                    )
             in
             string_labels @ number_labels
         in
@@ -595,7 +610,7 @@ let all_of_static data =
         ( - )
         (Hashtbl.fold 
             (fun c s acc -> match s with
-                | Data.Static _ -> c :: acc
+                | Data.Static _ -> c :: acc(*do we need to filter fixed states out?*)
                 | _ -> acc)
             data.Data.character_specs 
             [])
@@ -643,6 +658,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                     if Hashtbl.mem characters character_code then
                         match Hashtbl.find characters character_code with
                         | Data.Stat _, _        -> assert false
+                        | Data.FS _, _ -> assert false
                         | Data.Dyna _, `Unknown -> ()
                         | Data.Dyna (code, data), `Specified ->
                             assert (code = character_code);
@@ -692,13 +708,16 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
             let alph,inc_gap = 
                 let rep,_ = List.hd (List.tl codes) in
                 try match Hashtbl.find data.Data.character_specs rep with
-                    | Data.Static x -> 
-                        let inc_gap = match x.Nexus.File.st_type with
-                            | Nexus.File.STLikelihood m ->
-                                m.MlModel.spec.MlModel.use_gap
-                            | _ -> failwith "Impossible"
-                        in
-                        x.Nexus.File.st_alph,inc_gap
+                    | Data.Static y ->
+                            (match y with 
+                            | Data.NexusFile x ->
+                                let inc_gap = match x.Nexus.File.st_type with
+                                    | Nexus.File.STLikelihood m ->
+                                        m.MlModel.spec.MlModel.use_gap
+                                    | _ -> failwith "Impossible"
+                                in
+                                x.Nexus.File.st_alph,inc_gap 
+                            | _ -> failwith "compOut.output_likelihood_symbols is not for fixedstates" )
                     | _ -> failwith "Impossible"
                 with | _ ->
                     Printf.printf "Codes: ";

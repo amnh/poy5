@@ -102,19 +102,13 @@ type tcm_definition =
 
 val default_tcm : tcm_definition
 
-type fixed_state =
-    {   costs   : float array array;
-        seqs    : Sequence.s array;
-        codes   : (int, int) Hashtbl.t;
-        opt_bls : float array array option;
-    }
+
 
 type dyna_initial_assgn = [ 
     | `Partitioned of clip
     | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
     | `GeneralNonAdd
-    | `DO 
-    | `FS of fixed_state ]
+    | `DO ]
 
 type dynamic_hom_spec = {
     filename : string;
@@ -135,6 +129,16 @@ type dynamic_hom_spec = {
         * 3. Do_Nothing: do nothing, leave the input sequence as it is.*)
     polymorphism : polymorphism_t;
 }
+
+type fixed_state_spec =
+    {   costs   : float array array;
+        seqs    : Sequence.s array;
+        codes   : (int, int) Hashtbl.t;
+        opt_bls : float array array option;
+        original_dynspec : dynamic_hom_spec;
+    }
+
+val get_weight_from_fs_spec : fixed_state_spec -> float
 
 type distr =
     | MaxLength of int
@@ -187,12 +191,16 @@ type kolmo_spec = {
     ks : aux_kolmo_spec;
 }
 
+type static_hom_spec =  
+    | NexusFile of Nexus.File.static_spec 
+    | FixedStates of fixed_state_spec 
+
 (** A character specification. Contains the information regarding the
  * characteristics of a particular character *)
 type specs = 
     (** Static homology characters, includes the encoding specs from the
     * parser *)
-    | Static of Nexus.File.static_spec
+    | Static of static_hom_spec (* Nexus.File.static_spec or fixed states*)
     (** A dynamic homology based character type, with three parameters, the
     * file name containing the set of sequences, the filename of the valid 
     * fixed states that can be used for that set of sequences, and the file
@@ -247,6 +255,10 @@ type 'a dyna_data = {
     seq_arr : ('a seq_t) array;
 }
 
+type 'a fixedstates_data = {
+        states : int list;
+            dynamic_data : 'a dyna_data;
+}
 
 (* A valid loaded character from a file *)
 type cs_d = 
@@ -254,7 +266,8 @@ type cs_d =
     * transformation cost matrix and its three dimensional transformation
     * cost matrix *)
     |  Dyna of (int * Sequence.s dyna_data)
-
+    (* fixed states , is static, but still carry everything from dynamic side*)
+    | FS of int 
     (* A static homology character, containing its code, and the character
     * itself. If None, means missing data. *)
     | Stat of (int * Nexus.File.static_state)
@@ -376,6 +389,7 @@ type d = {
     non_additive_33 : int list;
     additive : int list;
     sankoff : int list list;
+    fixed_states : int list;
     dynamics : int list;
     kolmogorov : int list;
     static_ml : int list;
@@ -507,7 +521,7 @@ val synonyms_to_formatter : d -> Xml.xml
 val to_formatter : Xml.attributes -> d -> Xml.xml 
 
 type classes = 
-    [ `Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
+    [ `Fixedstates |`Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
     | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
 
 val get_code_from_characters_restricted : classes -> d -> characters -> int list
@@ -572,6 +586,8 @@ val get_character_state : d -> int -> dyna_state_t
 val process_taxon_code : d -> All_sets.StringMap.key -> string -> d * int
  
 val set_dyna_data : 'a seq_t array -> 'a dyna_data
+
+val set_fs_data : 'a seq_t array -> int list -> 'a fixedstates_data
 
 val get_recost : dyna_pam_t -> int
 
@@ -728,5 +744,5 @@ val verify_trees : d -> parsed_trees -> unit
 val guess_class_and_add_file : bool -> bool -> d -> FileStream.f -> d
 
 val report_kolmogorov_machine : string option -> d -> d
-
-val is_fs : d -> int -> bool
+(*
+val is_fs : d -> int -> bool *)

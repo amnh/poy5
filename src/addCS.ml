@@ -665,9 +665,9 @@ module Make (Add : AdditiveInterface) : Make =
                 (first v, last v, code) :: acc
             | None, code ->
                 begin match Hashtbl.find data.Data.character_specs code with
-                    | Data.Static enc ->
-                        (first enc.Nexus.File.st_observed,
-                            last enc.Nexus.File.st_observed,code) :: acc
+                    | Data.Static (Data.NexusFile enc) ->
+                            (first enc.Nexus.File.st_observed,
+                                    last enc.Nexus.File.st_observed,code) :: acc
                     | _ -> assert false
                 end
         in
@@ -712,7 +712,6 @@ module Test = struct
         end
 
     let create x y : ct =
-        let can_fit = ref true in
         assert(Array.fold_left (fun acc x -> acc && (x <= 255) && (x >= 0)) true x);
         assert(Array.fold_left (fun acc y -> acc && (y <= 255) && (y >= 0)) true y);
         let v = AddVec.create x y
@@ -839,8 +838,8 @@ module General = Make (AddGen)
 let split_vectorized_characters data codes =
     let is_character_vectorizable code = 
         let spec = match Hashtbl.find data.Data.character_specs code with
-            | Data.Static spec -> spec
-            | Data.Dynamic _ | Data.Set | Data.Kolmogorov _ -> assert false
+            | Data.Static (Data.NexusFile spec) -> spec
+            | Data.Static _ | Data.Dynamic _ | Data.Set | Data.Kolmogorov _ -> assert false
         in
         match spec.Nexus.File.st_normal with
         | Some _ -> true
