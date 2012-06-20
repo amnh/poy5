@@ -100,7 +100,10 @@ let handle_character_information data acc = function
                 | lst ->
                         let find = fun x ->
                             match Hashtbl.find data.Data.character_specs x with
-                            | Data.Static enc -> enc.Nexus.File.st_name
+                            | Data.Static x -> 
+                                    (match x with |Data.NexusFile enc -> enc.Nexus.File.st_name
+                                    |Data.FixedStates enc -> enc.Data.original_dynspec.Data.filename
+                                    )
                             | Data.Kolmogorov d -> d.Data.dhs.Data.filename
                             | Data.Dynamic d -> d.Data.filename
                             | Data.Set -> ""

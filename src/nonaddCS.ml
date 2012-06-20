@@ -430,7 +430,10 @@ let of_parser data codes (elts, code) n =
                 let (elt, eltcode) = elts.(item) in
                 let observed = 
                     match Hashtbl.find data.Data.character_specs eltcode with
-                    | Data.Static enc -> enc.Nexus.File.st_observed 
+                    | Data.Static x -> 
+                            (match x with 
+                            | Data.NexusFile enc -> enc.Nexus.File.st_observed 
+                            | _ -> failwith "nonaddCS.of_parser is not for fixedstates" )
                     | _ -> assert false
                 in
                 let observed_arr = Array.of_list observed in

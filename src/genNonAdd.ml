@@ -107,6 +107,7 @@ let median_3 cost_mat parent mine child1 child2 =
     if debug then Printf.printf "res cost = %d\n%!" newdis;
     { seq = newmedseq; costs = make_cost newdis }
 
+
 (*get closest code for code2 based on code1*)
 let get_closest_code alph cost_mat code1 code2 =
     let comblst2 = Alphabet.find_codelist code2 alph in

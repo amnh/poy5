@@ -79,7 +79,6 @@ type t =
     | AnnchromCS of AnnchromCS.t
     | GenomeCS of GenomeCS.t
 
-val is_fixedstates : t -> bool
 
 type u = U_SeqCS of SeqCS.Union.u | U_Others
 

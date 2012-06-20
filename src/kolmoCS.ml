@@ -85,11 +85,8 @@ let seqCS_median matrix a b =
                     SeqCS.Heuristic_Selection res
             | SeqCS.General_Prealigned _, _
             | SeqCS.Heuristic_Selection _, _ 
-            | SeqCS.Relaxed_Lifted _, SeqCS.Relaxed_Lifted _ 
             | SeqCS.Partitioned _, SeqCS.Partitioned _
             | SeqCS.Partitioned _, _
-            | _, SeqCS.Partitioned _
-            | SeqCS.Relaxed_Lifted _, _
             -> assert false) 
         a.SeqCS.characters b.SeqCS.characters
     in
@@ -225,8 +222,7 @@ let seqcs_to_single gap matrix parent mine =
             | SeqCS.Heuristic_Selection _, _
             | _, SeqCS.Heuristic_Selection _
             | SeqCS.Partitioned _, _
-            | _, SeqCS.Partitioned _
-            | SeqCS.Relaxed_Lifted _, _ -> assert false) parent.SeqCS.characters
+             -> assert false) parent.SeqCS.characters
                     mine.SeqCS.characters
     in
     let total_cost = !total_cost /. Data.kolmo_round_factor in

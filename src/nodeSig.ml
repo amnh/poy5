@@ -302,6 +302,8 @@ module type S = sig
     val get_addgen : int option -> n -> (AddCS.General.t * AddCS.General.t) list
     val get_addvec : int option -> n -> (AddCS.Vector.t * AddCS.Vector.t) list
     val get_sank : int option -> n -> (SankCS.t * SankCS.t) list
+    val get_fixedstates : int option -> n -> (Fixed_states.t_w_seqtbl *
+    Fixed_states.t_w_seqtbl) list
     val get_dynamic : int option -> n -> (DynamicCS.t * DynamicCS.t) list
     val get_mlstatic : int option -> n -> (MlStaticCS.t * MlStaticCS.t) list
 

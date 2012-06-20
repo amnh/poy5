@@ -206,6 +206,9 @@ module OneDirF :
     let get_sank x n =
         Node.Standard.get_sank x (force_val n)
 
+    let get_fixedstates x n =
+        Node.Standard.get_fixedstates x (force_val n)
+
     let get_dynamic x n =
         Node.Standard.get_dynamic x (force_val n)
 
@@ -630,6 +633,7 @@ struct
     let get_addgen    = apply_on_one_direction OneDirF.get_addgen
     let get_addvec    = apply_on_one_direction OneDirF.get_addvec
     let get_sank      = apply_on_one_direction OneDirF.get_sank
+    let get_fixedstates = apply_on_one_direction OneDirF.get_fixedstates
     let get_dynamic   = apply_on_one_direction OneDirF.get_dynamic
     let get_mlstatic  = apply_on_one_direction OneDirF.get_mlstatic
 

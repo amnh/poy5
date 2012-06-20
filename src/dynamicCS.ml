@@ -39,10 +39,11 @@ type t =
     | AnnchromCS of AnnchromCS.t
     | GenomeCS of GenomeCS.t
 
-
+(*
 let is_fixedstates dcs = match dcs with
     | SeqCS x -> SeqCS.is_fixedstates x
     | _       -> false
+*)
 
 type u =
     | U_SeqCS of SeqCS.Union.u
@@ -175,9 +176,9 @@ let leaf_sequences (a : t) = match a with
                                         `First x.SeqCS.DOS.sequence) x
                     | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
                     | SeqCS.General_Prealigned x -> [|`DO x.GenNonAdd.seq|] 
-                    | SeqCS.Relaxed_Lifted t ->
+                    (*| SeqCS.Relaxed_Lifted t ->
                             let _,p = SeqCS.RL.get_min_states t in
-                            [|`DO t.SeqCS.RL.sequence_table.(p)|]) !map
+                            [|`DO t.SeqCS.RL.sequence_table.(p)|]*)) !map
             done;
             !map
     | BreakinvCS a ->          

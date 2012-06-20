@@ -195,23 +195,17 @@ let get_earray s =
     )  in
     earr
 
-(*let elt_to_full_string a =
-    let string_of_costarray a =
-        let ar =
-            Array.mapi (fun i c -> (string_of_int i ^ "=" ^ string_of_cost c)) a
-        in String.concat ";" (Array.to_list ar) in
-    let states = string_of_costarray a.s in
-    let beta = string_of_costarray a.beta in
-    let e = string_of_costarray a.e in
-    "states=[" ^ states ^ "]; beta=[" ^ beta ^ "]; e=[" ^ e ^ "]"
 
-let to_full_string s =
-    let list = Array.to_list s.elts in
-    let strings = List.map elt_to_full_string list in
-    "[" ^ String.concat "; " strings ^ "]"
+(*function for fixed states, where we have only one elt for each t*)
+let get_earray_camlside thiselt = 
+    let e_bigarr = get_earray_cside thiselt in
+    let earr = Array.init (Bigarray.Array1.dim e_bigarr) 
+    (fun x -> 
+        Int32.to_int (Bigarray.Array1.get e_bigarr x)
+    )  in
+    earr
 
-let to_string = to_full_string
-*)  
+
 
 let assert_ninf a x y=
     assert (
@@ -223,34 +217,6 @@ let assert_ninf a x y=
     a
 
 
-
-(* An empty character. This is used only for the parsing process. 
-let empty =
-    { elts = [||];
-      code = (-1);
-      tcm = [|[||]|];
-    }
-
-let empty_elt =
-    { s = [||];
-      beta = [||];
-      e = [||];
-      m = None;
-      ecode = (-1);
-      best_states = [];
-    }
-*)
-
-(* nobody calls this
-let codes {elts=elts} =
-    let len = Array.length elts in
-    let acc = ref [] in
-    for i = len - 1 downto 0 do
-        acc := (elts.(i).ecode) :: !acc
-    done;
-    !acc
-*)
-
 (* The cost of a transformation occurring in the following order i -> j + i -> k
  * as defined in the transformation cost matrix par. *)
 let median_cost par i j k = 
@@ -260,24 +226,7 @@ let get_min a = Array.fold_left cost_min infinity a
 
 
 external get_code : t -> int = "sankoff_CAML_get_code"
-(* The code of the character a 
-let code a = a.code *)
 
-(*nobody calls this
-let mem cs t = match cs with
-    | None    -> true
-    | Some [] -> false
-    | Some xs -> List.mem (code t) xs
-*)
-
-(* Code of the element 
-let ecode e = e.ecode*)
-
-(* The transformation cost matrix associated with character a --nobody calls
-* this 
-let tcm a = a.tcm*)
-
-(*let set_tcm cm t  = {t with tcm = cm;} nobody calls this*)
 
 let print_tcm tcm =
     Array.iter (fun row ->
@@ -286,8 +235,7 @@ let print_tcm tcm =
                     print_newline ())
         tcm
 
-(* How many states there are-- nobody calls this
-let nstates a = Array.length a.tcm*)
+
 
 (* We'll be using this a lot ...
  * (make it monomorphic; more efficient?) *)
@@ -309,21 +257,6 @@ let rand_gen () =
     let num = Random.int 15 in 
     num, code, states, tcm
 
-(* The random state generator, using the random character generator created by
- * rand_gen () *)
-(* let make_rand (num, code, states, tcm) = *)
-(*     let states = Array.init states (fun _ -> Cost (1 + (Random.int states))) in *)
-(*     canonize *)
-(*         { empty with s = states; code = code; tcm = tcm } *)
-
-(*let get_minstates {e=a} =
-    let (_, list) = 
-        Array.fold_right (fun v (num, lst) ->
-                              if v = 0
-                              then (num - 1, num :: lst)
-                              else (num - 1, lst)) a (Array.length a - 1, [])
-    in list
-no one calls this *)
 
 
 
@@ -339,16 +272,6 @@ let median median_node_code a b =
         let tcb = get_taxon_code b in
         Printf.printf "SankCS.median,median_node_code=%d,taxon code a/b = %d,%d\n%!" median_node_code
         tca tcb;
-        (*let alst = to_list a in
-        let blst = to_list b in
-        List.iter (fun (ec, states_arr) -> 
-            Printf.printf "nodeA=%d, ecode=%d, " tca ec; 
-            Utl.printIntArr states_arr;
-        ) alst;
-        List.iter (fun (ec, states_arr) -> 
-            Printf.printf "nodeB=%d, ecode=%d, " tcb ec; 
-            Utl.printIntArr states_arr;
-        ) blst;*)
     end;
     let med = median_cside median_node_code a b in
     let sumcost = get_sumcost med in
@@ -357,41 +280,10 @@ let median median_node_code a b =
     let cost = float_of_int sumcost in
     if debug then Printf.printf "return median with cost = %f\n%!" cost;
     med,cost
-    (*
-    assert (a.code = b.code);
-    assert (a.tcm = b.tcm);
-    if debug then Printf.printf "median\n a = %s\n b = %s\n%!" (to_string a) (to_string b);
-    let res = { a with elts = Array.mapi (fun i -> elt_median a.tcm a.elts.(i)) b.elts }
-    in
-    if debug then Printf.printf "median <- %s\n%!" (to_string res);
-    res*)
+    
 
 
 
-(* move to cside 
-* Calculates the distance between two characters a and b *)
-(* Note that we only calculate the _added_ distance 
-let elt_distance tcm a b =
-    let median = elt_median tcm a b in
-    let get_cost m =
-        float_of_cost (assert_ninf (Array.fold_left cost_min infinity m.s) a b) in
-    let med_cost = get_cost median in
-    let a_cost = get_cost a in
-    let b_cost = get_cost b in
-    (*this is wrong*)
-    med_cost -. a_cost -. b_cost
-*)
-(* to do
-let elt_distance_and_median tcm a b = 
-    let median = elt_median tcm a b in
-    let get_cost m =
-        float_of_cost (assert_ninf (Array.fold_left cost_min infinity m.s) a b) in
-    let med_cost = get_cost median in
-    let a_cost = get_cost a in
-    let b_cost = get_cost b in
-    med_cost -. a_cost -. b_cost, 
-    median
-*)
 
 external distance_cside : t -> t -> int = "sankoff_CAML_distance"
 (** [distance a b] return the sankoff distance. Note that it calls
@@ -402,47 +294,9 @@ let distance a b =
     if debug then Printf.printf "SankCS.distance\n%!";
     let dis = distance_cside a b in
     float_of_cost dis
-    (*let tcm = a.tcm in
-    let acc = ref 0. in
-    for i = Array.length a.elts - 1 downto 0 do
-        acc := !acc +. elt_distance tcm a.elts.(i) b.elts.(i)
-    done;
-    if debug then Printf.printf "distance = %f\n%!" !acc;
-    !acc
-*)
-
-(* to do : get the distance function right, then back to this
-external distance_and_median_cside : t -> t -> int * t = ""   
-
-let distance_and_median a b =
-    let dis,med = distance_and_median_cside a b in
-    float_of_cost dis, med
-*)
-(*    if debug then Printf.printf "SankCS.distance_and_median\n%!";
-    assert (a.code = b.code);
-    assert (a.tcm = b.tcm);
-    let tcm = a.tcm in
-    let acc = ref 0. in
-    let med = 
-        { a with elts = 
-          Array_ops.map_2 (fun aelt belt -> 
-            let disi,medi = elt_distance_and_median tcm aelt belt in
-            acc := !acc +. disi;
-            medi 
-            ) a.elts b.elts
-        }
-    in
-    if debug then Printf.printf "distance = %f,median = %s\n%!" 
-    !acc (to_string med);
-    !acc, med*)
+    
 
 
-(* Compares two characters a and b. Note that this comparison is used basically
- * in the sets, and therefore, comparing the codes is enough (all the characters in
- * a set have different codes). 
-let compare_codes a b = 
-    compare a.code b.code
-no one calls this*)
 
 (* Compares the data in the two characters a and b.  This is used to find cases
  * where a graph update does not change values far away in the graph, so that
@@ -453,9 +307,7 @@ let compare_data a b =
     compare_cside a b
     (*compare a b*)
 
-(* A dummy function to be improved later using the official parser 
-let parse a = [("", empty) ]
-*)
+
 
 let init2 len1 len2 fn =
     Array.init len1
@@ -463,62 +315,6 @@ let init2 len1 len2 fn =
              let fn = fn i in
              Array.init len2 (fun j -> fn j))
 
-
-(* move to cside
-* This algorithm is taken from Goloboff 1998.  Calculate D', then the final E
- * value from that.
-let elt_median_3 tcm a n l r =          (* ancestor, node, left, right *)
-    let states = Array.length n.s in
-    (* NOTE that this is REVERSED: d'[i][s], not d'[s][i] *)
-    let init_d' i =
-        let best = ref infinity in
-        for x = states - 1 downto 0 do
-            store_min ((tcm.(i).(x)) +$ l.beta.(x) +$ r.beta.(x)) best
-        done;
-        fun s ->
-            a.e.(i) +$ (tcm.(i).(s)) +$ l.beta.(s) +$ r.beta.(s) -$ !best
-    in
-    let d' = init2 states states init_d' in
-    let init_e s =
-        let best = ref infinity in
-        for x = states - 1 downto 0 do
-            store_min (d'.(x).(s)) best
-        done;
-        !best
-    in
-    let mybest =
-        let abest = 
-            match a.best_states with
-            | [] -> 
-                    (* We pick the smallest of the parent *)
-                    let cost = ref infinity in
-                    let res = ref [] in
-                    Array.iteri (fun pos poscost ->
-                        if !cost = poscost then res := pos :: !res
-                        else if !cost < poscost then begin 
-                            cost := poscost;
-                            res := [pos];
-                        end;) a.s;
-                    !res
-            | x -> x
-        in
-        let lst = ref [] in
-        let best_cost = ref infinity in
-        Array.iteri (fun pos cost -> 
-            let mycost = List.fold_left (fun best parentpos ->
-                min best (cost + tcm.(pos).(parentpos))) infinity abest
-            in
-            if mycost = !best_cost then 
-                lst := pos :: !lst
-            else if mycost < !best_cost then begin
-                best_cost := mycost;
-                lst := [pos]
-            end else ()) n.s;
-        !lst
-    in
-    let e = Array.init states init_e in
-    { n with e = e; m = None; best_states = mybest }
-move this to c side*)
 
 
 external median_3_cside : t -> t -> t -> t -> t = "sankoff_CAML_median_3"
@@ -532,16 +328,6 @@ let median_3 a n l r =
         let tca = get_taxon_code a in
         Printf.printf "median 3, taxon code, nodeN=%d =?= nodeR=%d, nodeL=%d, \
         nodeA=%d\n%!" tcn tcr tcl tca;
-        (*let alst = to_list a in
-        let blst = to_list n in
-        List.iter (fun (ec, states_arr) -> 
-            Printf.printf "nodeA=%d, ecode=%d, " tca ec; 
-            Utl.printIntArr states_arr;
-        ) alst;
-        List.iter (fun (ec, states_arr) -> 
-            Printf.printf "nodeN=%d, ecode=%d, " tcn ec; 
-            Utl.printIntArr states_arr;
-        ) blst; *)
     end;
     if tcn=tcr then(*leafnode*)
         n
@@ -561,134 +347,14 @@ let get_min_cost_between_same_states same_states cm =
     end;
     !best
 
-(*
-let elt_return_shared_states r a =
-    let states = Array.length r.s in
-    let acc = ref [] in
-    (* a state is optimal if e.(i) = 0 *)
-    let rec exists n =
-        if n = states then !acc
-        else if r.e.(n) = 0 && a.e.(n) = 0
-        then begin
-            acc := n :: (!acc);
-            exists (n + 1)
-        end
-        else exists (n + 1)
-    in exists 0
-*)
 
-(* not in use any more
-let elt_exists_shared_state r a =
-    let states = Array.length r.s in
-    (* a state is optimal if e.(i) = 0 *)
-    let rec exists n =
-        if n = states
-        then false
-        else if r.e.(n) = 0 && a.e.(n) = 0
-        then true
-        else exists (n + 1)
-    in exists 0 *)
-
-
-(* move to cside
-let elt_dist_2 tcm r a d =
-    let debug = false in
-    if debug then Printf.printf "elt_dist_2, r.elts=%s\n a.elts=%s \n d.elts=%s \n%!"
-    (elt_to_string r) (elt_to_string a) (elt_to_string d);
-    let states = Array.length r.s in
-    (* We first check whether there are shared states between r and a, or
-       between r and d.  If so, we return a delta of 0. *)
-    let shared_states_ra = elt_return_shared_states r a 
-    and shared_states_rd = elt_return_shared_states r d in
-    (*if elt_exists_shared_state r a || elt_exists_shared_state r d
-    then 0. this won't be true if cost between same state is non-zero*)
-    if (List.length shared_states_rd)>0 || (List.length shared_states_ra)>0 then
-        float_of_cost (2*(min (get_min_cost_between_same_states shared_states_ra tcm)
-        (get_min_cost_between_same_states shared_states_rd tcm)))
-    else begin
-        (* We need the array M to find the delta.  We calculate this the first
-           time, then cache it.  This is safe because we create a new record each time we do a downpass or uppass. *)
-        let m =
-            match d.m with
-            | Some m -> m
-            | None -> begin
-                  let init_d'' i =
-                      let best = ref infinity in
-                      let bests = ref (-1) in
-                      for x = states - 1 downto 0 do
-                          let oldbest = !best in
-                          store_min ((tcm.(i).(x)) +$ d.beta.(x)) best;
-                          if !best<oldbest then
-                              bests := x;
-                      done;
-if debug then 
-Printf.printf "when nodeA take statei.%d, min(tcm.i.x + nodeD.beta.x) = %d with \
-nodeM take states=%d\n%!" i !best !bests;
-                      let e = a.e.(i) in
-                      fun s -> 
-if debug then
-Printf.printf "when nodeA take statei.%d,nodeM take states.%d,\
-E(i,A(d))=%d + tcm.i.s=%d + nodeD.beta.s=%d - best(%d)\n%!" 
-      i s e tcm.(i).(s) d.beta.(s) !best;
-                          e +$ (tcm.(i).(s)) +$ d.beta.(s) -$ !best
-                  in
-                  let d'' = init2 states states init_d'' in
-                  let init_m s =
-                      let best = ref infinity in
-                      let besti = ref [] in
-                      for x = states - 1 downto 0 do
-                          let oldbest = !best in
-                          store_min d''.(x).(s) best;
-                          if !best<=oldbest then
-                              besti := x::(!besti);
-                      done;
-                      (*when the best assignment to nodeM(s) is included in
-                  * nodeA, an extra cost between same states must be added *)
-                      if (List.mem s !besti) then
-                          best := !best + tcm.(s).(s);
-                      if debug then Printf.printf 
-"when nodeM take state %d,M <- %d, best statei for nodeA is %!" s !best;
-if debug then Utl.printIntList (!besti);
-                      !best
-                  in
-                  let m = Array.init states init_m in
-                  d.m <- Some m;
-                  m
-              end
-        in
-        (* Find the best value *)
-        let best = ref infinity in
-        for x = states - 1 downto 0 do
-            let m = m.(x) in
-            let tcm = tcm.(x) in
-            let e = r.e in
-            for y = states - 1 downto 0 do
-if debug then Printf.printf "when nodeM take state.%d, nodeR take state.y=%d,\
-M(%d) + tcm(%d) + E(%d)\n%!" x y m tcm.(y) e.(y);
-                store_min (m +$ (tcm.(y)) +$ e.(y)) best
-            done
-        done;
-        float_of_cost !best
-    end
-*)
 
 external dist_2_cside : t -> t -> t -> int = "sankoff_CAML_dist_2"
 
 let dist_2 r a d =
     let dis = dist_2_cside d a r in
     float_of_cost dis
-    (*let debug = false in
-    if debug then Printf.printf "dist_2 on r = %s\n a = %s\n d = %s\n%!"
-    (to_string r) (to_string a) (to_string d);
-    let acc = ref 0. in
-    for i = (Array.length r.elts) - 1 downto 0 do
-        let disti = elt_dist_2 r.tcm r.elts.(i) a.elts.(i) d.elts.(i) in
-        if debug then Printf.printf "i=%d, acc += %f\n%!" i disti;
-        acc := !acc +. disti;
-    done;
-    !acc
-*)
-
+   
 
 let elt_to_formatter attr d tcm idx elt elt_parent : Xml.xml Sexpr.t =
     let module T = Xml.Characters in
@@ -726,7 +392,47 @@ let elt_to_formatter attr d tcm idx elt elt_parent : Xml.xml Sexpr.t =
                 --)
     | _ -> assert false
 
-
+let elt_to_formatter_with_seq print_seq seq_array seq_alph attr d elt elt_parent : Xml.xml Sexpr.t =
+    let module T = Xml.Characters in
+    match attr with
+    | [_, `String x] -> 
+            let cost, lst, seqlst =
+                let earray = get_earray_camlside elt in
+                let idx = ref (-1) in
+                let best_states_idxlst,best_seq_lst,bestcost = 
+                    Array.fold_left (fun (idxacc,seqacc,best) x ->
+                    idx := !idx + 1;
+                    if best>x then ([!idx],[seq_array.(!idx)],x)
+                    else if best=x then ((!idx)::idxacc,(seq_array.(!idx))::seqacc, best)
+                    else (idxacc,seqacc,best)
+                ) ([],[],earray.(0)) earray in
+                bestcost, best_states_idxlst, best_seq_lst
+            in
+            let ecode = get_ecode elt in
+            let seq_string_lst = 
+                List.map (fun x -> 
+                    let x = Sequence.del_first_char x in
+                    Sequence.to_formater x seq_alph) seqlst
+            in
+            let create x y = 
+                if print_seq then
+                (PXML -[T.value] 
+                    [ `String ("state:"^string_of_int(x)^",seq="^y) ] -- ) 
+                else
+                    (PXML -[T.value] 
+                    [ `String ("state:"^string_of_int(x)) ] -- )
+            in
+            (PXML 
+                -[T.sankoff] 
+                    (* Attributes *)
+                    ([T.name] = [`String (Data.code_character ecode d)])
+                    ([T.cost] = [`Int cost])
+                    ([T.definite] = [`Bool (cost > 0)])
+                    ([attr])
+                    (* Contents *)
+                    { `Set (List.map2 create lst seq_string_lst) } 
+                --)
+    | _ -> assert false
 
 let get_elts_from_t thist =
     let num_elts = get_num_elts thist in
@@ -734,108 +440,33 @@ let get_elts_from_t thist =
     
 
 let to_formatter attr a (parent : t option) d : Xml.xml Sexpr.t list =
-    let items = Array.to_list (get_elts_from_t a) in (*Array.to_list a.elts in*)
+    let items = Array.to_list (get_elts_from_t a) in 
     let items_parent = match parent with 
-    | Some parent -> Array.to_list (get_elts_from_t parent) (*parent.elts*) 
+    | Some parent -> Array.to_list (get_elts_from_t parent)  
     | None -> items   
     in 
-    let tcm = get_tcm a in (*a.tcm  in*)
+    let tcm = get_tcm a in 
     let idx = ref 0 in
     List.map2 (fun this_elt parent_elt -> 
         let res = elt_to_formatter attr d tcm !idx this_elt parent_elt in
         idx := !idx + 1;
         res) items  items_parent
 
-(* no one calls these 
-let make_onestate code tcm state =
-    { code = code;
-        tcm = tcm;
-        elts = [|canonize tcm { empty_elt with
-                     ecode = code;
-                     s = Array.init (Array.length tcm)
-                         (fun x ->
-                              if x = state
-                              then 0
-                              else infinity)}|];
-    }
+(*to_formatter function for fixed states, pass the original sequence and
+* alphabet in case we want to print them out*)
+let to_formatter_with_seq print_seq seq_arr seq_alph attr a (parent : t option) d : Xml.xml Sexpr.t list =
+    let items = Array.to_list (get_elts_from_t a) in 
+    assert((List.length items)=1);(*we have only one elt per t for fixed_states*)
+    let items_parent = match parent with 
+    | Some parent -> Array.to_list (get_elts_from_t parent)  
+    | None -> items   
+    in 
+    let idx = ref 0 in
+    List.map2 (fun this_elt parent_elt -> 
+        let res = elt_to_formatter_with_seq print_seq seq_arr seq_alph attr d this_elt parent_elt in
+        idx := !idx + 1;
+        res) items  items_parent
 
-let make_randstate code tcm =
-    make_onestate code tcm (Random.int (Array.length tcm))
-
-
-let make_n_randstate scode codefn n tcm =
-    let states = Array.length tcm in
-    { code = scode;
-          tcm = tcm;
-          elts =
-            Array.init n
-                (fun _ ->
-                     let state = Random.int states in
-                     canonize tcm
-                         { empty_elt with
-                               ecode = codefn ();
-                               s = Array.init states
-                                 (fun x ->
-                                      if x = state
-                                      then 0
-                                      else infinity) }
-                )
-    }
-
-let make_sank code tcm eltlist =
-    let nstates = Array.length tcm in
-    { code = code;
-          tcm = tcm;
-          elts =
-            let list = List.map
-                (fun (ecode, states) ->
-                     canonize tcm
-                         { empty_elt with
-                               ecode = ecode;
-                               s = Array.init nstates
-                                 (fun x ->
-                                      if List.mem x states
-                                      then 0
-                                      else infinity) } )
-                eltlist
-            in
-            Array.of_list list
-    }
-                                          
-                               
-
-let make_random_tcm ?(max=7) len =
-    let res = init2 len len (fun _ _ -> 0) in
-    for i = 0 to len - 1 do
-        for j = i + 1 to len - 1 do
-            let n = 1 + Random.int (max - 1) in
-            res.(i).(j) <- n;
-            res.(j).(i) <- n
-        done
-    done;
-    res
-*)
-
-(* move to cside
-let canonize tcm a =
-    let states = Array.length a.s in
-    let minval = Array.fold_left cost_min infinity a.s in
-    let e = Array.init states
-        (fun i ->
-            if is_infinity a.s.(i) then infinity
-            else a.s.(i) -$ minval) in
-    let beta = Array.init states
-        (fun s ->
-             let best = ref infinity in
-             for x = states - 1 downto 0 do
-                 store_min
-                     (if is_inf e.(x) then e.(x)
-                      else e.(x) +$ (tcm.(s).(x)))
-                     best
-             done;
-             !best) in
-    { a with e = e; beta = beta; }
-*)
 
 
 external create_eltarr_cside : int -> int -> int ->
@@ -858,10 +489,6 @@ let create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm =
 let of_parser tcm (arr, taxcode) mycode =
     let debug = false in
     if debug then Printf.printf "SankCS.of_parser,taxcode=%d,mycode=%d\n%!" taxcode mycode;
-    (*let tcm_int32 = Utl.int_to_int32_mat tcm in
-    let tcm_int32 = Utl.int_to_int32_mat tcm in
-    let tcm_bigarr 
-    = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in*)
     let nstates = Array.length tcm in
     let all_states = Array.to_list (Array.init nstates (fun x -> x)) in
     let make_elt (elt, ecode) =
@@ -885,69 +512,8 @@ let of_parser tcm (arr, taxcode) mycode =
     let ecode_arr,state_arrarr = Array.of_list ecode_lst, Array.of_list
     state_arrlst in
     create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm,
-    (*
-    let states_bigarr = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout
-    state_arrarr in
-    let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
-    ecode_arr in
-    create_eltarr taxcode mycode nstates ecode_bigarr states_bigarr
-    tcm_bigarr,*)
     taxcode
     
-
-(* no one calls this
-let reroot_elt tcm old p q =
-    (* See Goloboff 1998, p234 (p6) *)
-    let states = Array.length p.s in
-    let tempjk = Array.init states
-        (fun j ->
-             Array.init states
-                 (fun k ->
-                      let min = ref max_int in
-                      for x = 0 to states - 1 do
-                          let c = tcm.(x).(j) + tcm.(x).(k) in
-                          if c < !min
-                          then min := c
-                      done;
-                      p.e.(j) +$ q.e.(k) -$ (!min))) in
-    let alpha5 = Array.init states
-        (fun i ->
-             Array.init states
-                 (fun j ->
-                      Array.init states
-                          (fun k ->
-                               (tcm.(i).(j) + tcm.(i).(k))
-                               +$ tempjk.(j).(k)))) in
-    let newe = Array.init states
-        (fun i ->
-             let best = ref infinity in
-             for x = 0 to states - 1 do
-                 for y = 0 to states - 1 do
-                     store_min alpha5.(i).(x).(y) best
-                 done
-             done;
-             !best) in
-    { old with e = newe }
-
-
-let reroot old p q =
-    let tcm = old.tcm in
-    let newelts = Array.init (Array.length old.elts)
-        (fun i ->
-             reroot_elt tcm old.elts.(i) p.elts.(i) q.elts.(i)) in
-    { old with elts = newelts }
-no one calls this *)
-
-(*
-let get_elt_array {elts=e} = e*)
-
-(*  no longer in use
-let elt_filter f elt = 
-    Array_ops.filter f elt
-
-let filter f t =
-    { t with elts = elt_filter f t.elts }
-no longer in use*)
 
 external filter_character : t -> 
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t -> int -> t = 
@@ -961,9 +527,7 @@ let f_codes t codes =
     ecodearr
     in
     filter_character t ecode_bigarr 0
-    (*
-    let check x = All_sets.Integers.mem x.ecode codes in
-    filter check t*)
+    
 
 let f_codes_comp t codes = 
     let ecodelst = All_sets.Integers.elements codes in
@@ -973,10 +537,7 @@ let f_codes_comp t codes =
     ecodearr
     in
     filter_character t ecode_bigarr 1
-    (*
-    let check x = not (All_sets.Integers.mem x.ecode codes) in
-    filter check t
-    *)
+    
 
 let cardinal t = get_num_elts t (*Array.length t.elts*)
 
@@ -1060,45 +621,6 @@ let bb mtx characters =
     | [] -> 0
 
 
-(* Sankoff characters can't have an exact minimum possible cost (the problem is
-* NP-Hard by itself), therefore, we will simply define a function that returns
-* all possible sets of assignments, and that way we will be able to search for
-* the best cost _found_ during a search. The function assumes that the cost
-* matrix is metric, otherwise the method that this function is used for will be
-* ... ehm ... broken. 
-let get_all_possible_assignments (elts : int list option list) = 
-    let rec aux_all_possiblities left sets = 
-        match left with
-        | [] -> sets
-        | (Some []) :: t 
-        | None :: t -> aux_all_possiblities t sets
-        | (Some lst) :: t ->
-                let sets = 
-                    List.flatten 
-                    (List.map (fun x -> List.map (fun y -> 
-                        if All_sets.Integers.mem x y then y 
-                        else All_sets.Integers.add x y) sets) lst)
-                in
-                aux_all_possiblities t sets
-    in
-    let rec remove_supersets lst acc =
-        match lst with
-        | h :: t -> 
-                let res = List.filter (fun x ->
-                    not (All_sets.Integers.subset h x)) t in
-                remove_supersets res (h :: acc) 
-        | [] -> acc
-    in
-    let x = 
-        let x = aux_all_possiblities elts [All_sets.Integers.empty] in
-        let x = List.sort (fun x y -> 
-            (All_sets.Integers.cardinal x) - (All_sets.Integers.cardinal y)) 
-            x 
-        in
-        remove_supersets x []
-    in
-    List.map All_sets.Integers.elements x
-no one calls this *)
 
 let min_possible_cost mtx (elts : Nexus.File.static_state list) = 
     let all_possible = 
