@@ -39,28 +39,38 @@ let tolerance = 1e-6
 let epsilon   = 1e-10
 let minimum   = tolerance *. 2.0
 
+
 (** {6 Floating Point Functions} *)
 
+(** Check if a value is zero (takes into account negative; and subnormal *)
 let is_zero x = match classify_float x with
         | FP_zero | FP_subnormal -> true
         | FP_infinite | FP_nan | FP_normal -> false
+
+(** Check if a value is Not A Number *)
 and is_nan x = match classify_float x with
         | FP_zero | FP_subnormal
         | FP_infinite | FP_normal -> false
         | FP_nan -> true
+
+(** Check if a value is +/- infinity *)
 and is_inf x = match classify_float x with
         | FP_infinite -> true
         | FP_nan | FP_zero | FP_subnormal | FP_normal -> false
 
+
 (** {6 Special functions} *)
 
+(** Calculate the Gamma(a) *)
 external gamma : float -> float = "gamma_CAML_gamma"
 
+(** Calculate the lnGamma(a) *)
 external lngamma : float -> float = "gamma_CAML_lngamma"
 
 external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t = 
         "gamma_CAML_rates"
+
 
 (** {6 Infix Module} *)
 module type I =
@@ -102,6 +112,7 @@ module FPInfix : I =
 
 open FPInfix
 
+
 (** {6 Types} *)
 
 (** Simplex strategy defines how to expand, contract, and reflect a simplex *)
@@ -120,7 +131,6 @@ type subplex_strategy =
         nsmin : int;                (** Minimum subspace dimension; or 2 *)
         nsmax : int;                (** Maximum subspace dimension; or 5 *)
     }
-
 
 (** Define an optimization strategy. This will call the appropriate optimization
     routine with the specified parameters. A wrapper around the four methods we
@@ -221,7 +231,7 @@ let one_norm_vec x =
 let sub_vec x y = 
     Array.mapi (fun i _ -> x.(i) -. y.(i)) x
 
-(** Add two vectors together; imperative style *)
+(** Add two vectors together; Imperative style *)
 let add_veci x y = 
     for i = 0 to (Array.length x)-1 do
         x.(i) <- x.(i) +. y.(i);
@@ -229,13 +239,12 @@ let add_veci x y =
     ()
 
 
-
 (** {6 Numerical Optimization Functions *)
 
 (** Uses a combination of golden section searches and parabolic fits to find the
     optimal value of a function of one variable. **)
 let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
-                  ?(tol=tolerance) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) f =
+                  ?(tol=tolerance) ?(epsilon=epsilon) f ((v_orig,f_orig) as orig) =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
   (*-- ensure value falls between range; if using one *)
     let minmax value = max (min v_max value) v_min in
@@ -361,13 +370,13 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
 
 (** Meta function above; we sequentially modify each variable ONCE; RAxML *)
 let brents_method_multi ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
-                        ?(tol=tolerance) ?(epsilon=epsilon) orig f =
+                        ?(tol=tolerance) ?(epsilon=epsilon) f orig =
     let rec do_single i ((array,x) as data) =
         debug_printf "Optimizing %d in %s\n%!" i (pp_farray array);
         if i < (Array.length array) then
             let (v,fv) =
                 brents_method ~max_iter ~v_min ~v_max ~tol ~epsilon
-                          (array.(i),x) (update_single i array)
+                          (update_single i array) (array.(i),x)
             in
             let () = Array.set array i v in
             do_single (i+1) (array,fv)
@@ -472,7 +481,7 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
 
 
 (** BFGS Algorithm; Gradient Search Function; Numerical Recipes in C : 10.7 *)
-let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=tolerance) f p fp =
+let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=tolerance) f (p,fp) =
    let n = Array.length p and get_score x = snd x in
     (* test convergence of a point --that it equals the direction, essentially *)
     let converged_l direction test_array =
@@ -581,6 +590,7 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
     debug_printf "Performed BFGS:\n\t(%s,%f)\n\t\t--[%d]-->\n\t(%s,%f)\n%!" (pp_farray p)
                     (get_score fp) !iter (pp_farray pf) (get_score fpf);
     (pf,fpf)
+
 
 (** {6 Simplex / Subplex specific functions **)
 
@@ -823,8 +833,7 @@ let centroid (simplex:'a simplex) h_i =
         reflection  - x = centroid, y = high point, coef =  alpha
         contraction - x = centroid, y = high point, coef = -beta
         expansion   - x = centroid, y = reflection, coef = -gamma
-        shrink      - x = high point, y = all,      coef = -delta
-    *)
+        shrink      - x = high point, y = all,      coef = -delta *)
 let create_new_point f t strategy xvec yvec : float array * ('a * float) =
     let coef = match t with
         | `Reflection   -> strategy.alpha
@@ -863,7 +872,11 @@ let random_simplex f (p,fp) step =
             p,f p)
 
 (** Set up the initial simplex from a point and a step size *)
-let initial_simplex f (p,fp) step =
+let initial_simplex f (p,fp) (step : float array option) =
+    let step : float array = match step with
+        | Some step -> step
+        | None -> Array.init (Array.length p) (fun _ -> Random.float 5.0)
+    in
     let simplex =
         Array.init
             ((Array.length p)+1)
@@ -908,9 +921,8 @@ let verify_strategy strat =
     contraction, and shrinkage. The degree to which these are done is modified
     by the strategy used. *)
 let simplex_method ?(termination_test=simplex_termination_stddev) ?(tol=tolerance)
-                   ?(simplex_strategy=default_simplex) ?(max_eval=100)
-                    (step:float array) (f: float array -> 'a * float)
-                    (p: float array) (fp: 'a * float) =
+                   ?(simplex_strategy=default_simplex) ?(max_eval=100) ?(step=None)
+                    f (p,fp) = 
     (* wrap function to keep track of the number of evaluations *)
     let i = ref 0 in
     let f = (fun x -> incr i; f x) in
@@ -959,7 +971,7 @@ let simplex_method ?(termination_test=simplex_termination_stddev) ?(tol=toleranc
     the Nelder-Mead simplex method, with alternating variables, and Nelder-Mead
     Simplex with restart. The advantages are outlined in the previously
     mentioned paper, in section 5.3.6. *)
-let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_iter=50) f p fp =
+let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_iter=50) f (p,fp) =
     let i = ref 0 in
     let rec subplex_loop step subs ((x,fx) as xfx) dx =
         incr i;
@@ -977,8 +989,10 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
                 (fun (x,fx) sub ->
                     debug_printf "\tModifying %s\n%!" (pp_iarray sub);
                     let sub_vec = make_subspace_vector sub x in
+                    let step    = Some (make_subspace_vector sub step) in
                     let (nx,nfx) =
-                        simplex_method ~simplex_strategy step (function_of_subspace f x sub) sub_vec fx
+                        simplex_method ~simplex_strategy ~step
+                                    (function_of_subspace f x sub) (sub_vec,fx)
                     in
                     replace_subspace_vector sub nx x;
                     debug_printf "\t\tAV : %s -- %f\n%!" (pp_farray x) (snd nfx);
@@ -1005,3 +1019,15 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
     pdfp
 
 
+
+(** Run an optimization strategy; call the proper algorithm w/ convergence
+    properties; a list of the appropriate ones are included here *)
+let run_method opts f pfp =
+    List.fold_left
+        (fun pfp opt ->match opt.routine with
+            | `Simplex s    -> assert false
+            | `Subplex s    -> assert false
+            | `Brent_Multi  -> assert false
+            | `BFGS         -> assert false)
+        pfp
+        opts

@@ -628,7 +628,7 @@ let readjust c1 c2 mine t1 t2 =
         (d,total_cost d)
     in
     let nt,(nmine,ncost) = 
-        Numerical.brents_method (t1,(mine,total_cost mine)) internal_loop
+        Numerical.brents_method internal_loop (t1,(mine,total_cost mine))
     in
     if debug_est then
         Printf.printf "Optimized Branch: %f -(%f->%f)-> %f\n%!" 
@@ -721,7 +721,7 @@ let readjust3_opt mine c1 c2 par t1 t2 t3 =
         let init_vec = [| t1;t2;t3 |] in
         let (_,pscore) as init_res = single_result init_vec in
         Numerical.bfgs_method
-            ~epsilon:1e-5 single_result init_vec init_res, pscore
+            ~epsilon:1e-5 single_result (init_vec,init_res), pscore
     in
     true, pscore, score, (times.(0),times.(1),times.(2)), {mine with data = node;}
 

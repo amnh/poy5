@@ -405,7 +405,7 @@ module CMPLAlign : A = struct
 
     let optimize s1 s2 model t mem =
         let update t = (),cost_2 s1 s2 model t 0.0 mem in
-        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        let (t,((),c)) = Numerical.brents_method update (t,update t) in
         (t,c)
 
     let full_median_2 x y m tx ty mem =
@@ -1079,7 +1079,7 @@ module FloatAlign : A = struct
 
     let optimize s1 s2 model t mem =
         let update t = (),cost_2 s1 s2 model t 0.0 mem in
-        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        let (t,((),c)) = Numerical.brents_method update (t,update t) in
         (t,c)
 
 end
@@ -1784,7 +1784,7 @@ module MPLAlign : A = struct
 
     let optimize s1 s2 model t mem =
         let update t = (),cost_2 s1 s2 model t 0.0 mem in
-        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        let (t,((),c)) = Numerical.brents_method update (t,update t) in
         (t,c)
 end
 
@@ -1936,7 +1936,7 @@ module MALAlign : A = struct
 
     let optimize s1 s2 model t mem =
         let update t = (),cost_2 s1 s2 model t 0.0 mem in (* don't worry; pully holds! *)
-        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        let (t,((),c)) = Numerical.brents_method update (t,update t) in
         (t,c)
 
     (* functions not implemented *)

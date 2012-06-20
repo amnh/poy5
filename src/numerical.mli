@@ -99,7 +99,7 @@ external gamma_rates: float -> float -> int ->
 
 val brents_method :
     ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float 
-        -> float * ('a * float) -> (float -> 'a * float) -> float * ('a * float)
+        -> (float -> 'a * float) -> float * ('a * float) -> float * ('a * float)
 (** [brents_method ?i ?min ?max ?tol ?e o f] -> n Uses brents method, a
     combination of parabolic interpolation and golden section search, to find
     the local minimum near [o] of the function [f], bounded by [min] and [max].
@@ -109,31 +109,35 @@ val brents_method :
 
 val brents_method_multi :
     ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float 
-        -> float array * ('a * float) -> (float array -> 'a * float) -> float array * ('a * float)
+        -> (float array -> 'a * float) -> (float array * ('a * float))
+            -> (float array * ('a * float))
 (** brents_method_multi ...] Generalization of the above function for brents
     method. We optimize each value in the array one by one and only ONCE. This
     was seen in RAxML 7.04; and possibility has some utility since we do not
     need to calculate the derivative of a vector which can be costly and may not
     work on routines with a number of discontinuities. *)
 
-val line_search : 
+(* Not necessary to be exposed; here in case a situation requires it.
+val line_search :
     ?epsilon:float -> (float array -> 'a * float) -> float array -> 
         'a * float -> float array -> float -> float array -> float array * ('a * float) * bool
 (** [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
     gradient [g] and direction [d] of function [f] by point [p], attempting the
-    longest step, of maximum distance [s] *)
+    longest step, of maximum distance [s] *) 
+*)
 
 val bfgs_method :
-    ?max_iter:int -> ?epsilon:float -> ?mx_step:float -> ?g_tol:float ->
-        (float array -> 'a * float) -> float array -> 'a * float -> float array * ('a * float)
+    ?max_iter:int -> ?epsilon:float -> ?mx_step:float -> ?g_tol:float
+        -> (float array -> 'a * float) -> (float array * ('a * float))
+            -> (float array * ('a * float))
 (** [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian
     matrix of a function f with starting point init. *)
 
 val simplex_method : 
     ?termination_test : (float -> 'a simplex -> bool) -> ?tol : float ->
-    ?simplex_strategy : simplex_strategy -> ?max_eval:int ->
-        float array -> (float array -> 'a * float) -> float array -> 
-            ('a * float) -> (float array * ('a * float))
+    ?simplex_strategy : simplex_strategy -> ?max_eval:int -> ?step:float array option
+        -> (float array -> 'a * float) -> (float array * ('a * float))
+            -> (float array * ('a * float))
 (** The simplex uses an n+1 dimensional figure to move, like an amoeba, around
     the surface. The extermities of the object are evaluated, where the maximal
     values are modified, while the others are progressed with improvements. The
@@ -142,14 +146,19 @@ val simplex_method :
     by the strategy used. *)
 
 val subplex_method : 
-    ?subplex_strategy : subplex_strategy -> ?tol:float -> ?max_iter:int ->
-        (float array -> 'a * float) -> float array -> ('a * float) -> 
-            (float array * ('a * float))
+    ?subplex_strategy : subplex_strategy -> ?tol:float -> ?max_iter:int
+        -> (float array -> 'a * float) -> (float array * ('a * float))
+            -> (float array * ('a * float))
 (** The Subplex method is a generalization to a number of algorithms, paramount
     the Nelder-Mead simplex method, with alternating variables, and Nelder-Mead
     Simplex with restart. The advantages are outlined in the previously
     mentioned paper, in section 5.3.6. *)
 
+val run_method :
+    optimization_strategy list -> (float array -> 'a * float)  
+        -> (float array * ('a * float)) -> (float array * ('a * float))
+(** Run an optimization strategy based on the optimization_strategy. We accept a
+    list, thus multiple tests can be run to obtain a robust strategy. *)
 
 (** {6 Infix Module} *)
 
