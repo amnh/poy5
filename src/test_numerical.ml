@@ -1,43 +1,25 @@
 
 let () = Random.self_init ()
 
+module IntMap = All_sets.IntegerMap
+
+let (-->) a b = b a
+
 module Test = struct
 
-    (** The Hummelblau function is a multi-modal function with four optimal points.
-        often used in testing numerical functions,
-        f( 3.000, 2.000) = 0.0     f(-2.805, 3.131) = 0.0
-        f(-3.779,-3.283) = 0.0     f( 3.584,-1.848) = 0.0 *)
-    let hummelblau_function p = 
-        assert( (Array.length p) = 2 );
-        ((p.(0)**2.0) +. p.(1) -. 11.0)**2.0 +.  ((p.(1)**2.0) +. p.(0) -. 7.0)**2.0
+    (** Quadratic function; simple test to ensure algorithms are working
+        properly. The minimum is x= (0,0...0) *)
+    let quadratic_function p =
+        Array.fold_left (fun acc x -> acc +. (x *. x)) 0.0 p
 
-    (** The Booth function has several local minima, but a global minima at 1,3.  *)
-    let booth_function p = 
-        assert( (Array.length p) = 2 );
-        ((p.(0) +. p.(1) +. p.(1) -. 7.0)**2.0) +.  ((p.(0) +. p.(0) +. p.(1) -. 5.0)**2.0)
-
-    (** Dixon & Price Function; global minima at f( x* ) = 0. *)
-    let ackley_function p =
-        let n = Array.length p and pi = acos (-1.0) in
-        let left_sum = ref 0.0 and right_sum = ref 0.0 in
-        for i = 0 to n-1 do
-            left_sum := !left_sum +. (p.(i) ** 2.0);
-            right_sum := !right_sum +. (cos (2.0 *. pi *. p.(i)));
-        done;
-        let left = ~-. 0.2 *. (sqrt (!left_sum /. (float_of_int n)))
-        and right = !right_sum /. (float_of_int n) in
-        ~-. 20.0 *. (exp left) -. (exp right) +. 20.0 +. (exp 1.0)
-
-
-    (** The rosenbrock function is a non-convex function used to test numerical
-        functions. The optimial point is at (1,1) *)
-    let rosenbrock_function p =
-        assert( (Array.length p) = 2 );
-        (1.0 -. p.(0))**2.0 +. (100.0 *. (p.(1) -. p.(0)**2.0)**2.0)
+    (** Quadratic function with stochasitc coefficients; same solution as above,
+        the randomness ensures undiffernentiaable, is x= (0,0...0) *)
+    let quadratic_function_stoc ?(dist=(fun () -> Random.float 1.0)) p =
+        Array.fold_left (fun acc x -> acc +. (dist ()) *. (x *. x)) 0.0 p
 
     (** Mutli-dimensional generalisation of the rosenbrock function; may have
         multiple minimums based on the number of dimensions (N=3 has one, N=4 has 2) *)
-    let rosenbrock_function_multi p =
+    let rosenbrock_function p =
         let total = ref 0.0 in
         for i = 0 to (Array.length p) - 2 do
             let two_d = (1.0 -. p.(i))**2.0 +.
@@ -60,16 +42,6 @@ module Test = struct
         done;
         !total
 
-    (** Quadratic function; simple test to ensure algorithms are working
-        properly. The minimum is x= (0,0...0) *)
-    let quadratic_function p =
-        Array.fold_left (fun acc x -> acc +. (x *. x)) 0.0 p
-
-    (** Quadratic function with stochasitc coefficients; same solution as above,
-        the randomness ensures undiffernentiaable, is x= (0,0...0) *)
-    let quadratic_function_stoc ?(dist=(fun () -> Random.float 1.0)) p =
-        Array.fold_left (fun acc x -> acc +. (dist ()) *. (x *. x)) 0.0 p
-
     (** The rastrigein function is a non-convext function for performance
         testings. global minimum at  {0,0...}, and range between +/- 5.12. *)
     let rastigin_function p =
@@ -79,6 +51,109 @@ module Test = struct
             total := !total +. (p_i *. p_i) -. a *. (cos (2.0 *. pi *. p_i))
         done;
         !total +. (a *. (float_of_int (Array.length p)))
+
+    (** Schwefel's function had a globabal minium that is geometrically distant
+        from the other nearest local minimum. Tests convergance in the wrong
+        direction of the optimization routine *)
+    let schwefel_function p =
+        Array.fold_left
+            (fun acc x -> acc +. (~-. x *. (sin (sqrt (abs_float x))))) 0.0 p
+
+    (** Sum of different powers is uni-modal function *)
+    let sum_powers p =
+        let summ = ref 0.0 in
+        for i = 0 to (Array.length p)-1 do
+            summ := !summ +. (abs_float p.(i))**(float_of_int (i+1));
+        done;
+        !summ
+
+    (** Ackley function; global minima at f( x* ) = 0. *)
+    let ackley_function p =
+        let n = Array.length p and pi = acos (-1.0) in
+        let left_sum = ref 0.0 and right_sum = ref 0.0 in
+        for i = 0 to n-1 do
+            left_sum := !left_sum +. (p.(i) ** 2.0);
+            right_sum := !right_sum +. (cos (2.0 *. pi *. p.(i)));
+        done;
+        let left = ~-. 0.2 *. (sqrt (!left_sum /. (float_of_int n)))
+        and right = !right_sum /. (float_of_int n) in
+        ~-. 20.0 *. (exp left) -. (exp right) +. 20.0 +. (exp 1.0)
+    
+    (** Michalewiczs function is a multi-modal test function with n! local
+        optima, m, defines the steepness (set to 10.0), points outside an area
+        give no information, while a few steep cliffs direct to minima. *)
+    let michalewicz_function p =
+        let sum = ref 0.0 and pi = acos (-1.0) in
+        for i = 0 to (Array.length p) - 1 do
+            let part = (sin ((float_of_int i)*.p.(i)*.p.(i) /. pi))**(20.0) in
+            sum := !sum +. (sin p.(i)) *. part;
+        done;
+        !sum
+
+    (** The Hummelblau function is a multi-modal function with four optimal points.
+        often used in testing numerical functions,
+        f( 3.000, 2.000) = 0.0     f(-2.805, 3.131) = 0.0
+        f(-3.779,-3.283) = 0.0     f( 3.584,-1.848) = 0.0 *)
+    let hummelblau_function p = 
+        assert( (Array.length p) = 2 );
+        ((p.(0)**2.0) +. p.(1) -. 11.0)**2.0 +.  ((p.(1)**2.0) +. p.(0) -. 7.0)**2.0
+
+    (** The Booth function has several local minima, but a global minima at 1,3.  *)
+    let booth_function p = 
+        assert( (Array.length p) = 2 );
+        ((p.(0) +. p.(1) +. p.(1) -. 7.0)**2.0) +.  ((p.(0) +. p.(0) +. p.(1) -. 5.0)**2.0)
+
+    (** Diagnose a tree based on an array of rate parameters that get normalized
+        before the tree is diagnosed. *)
+    let poy_diagnose_likelihood files =
+        let print_model model = 
+            MlModel.output_model (output_string stdout) `Nexus model None in
+        let update_model_to_vector tree chars =
+            let model = Data.get_likelihood_model tree.Ptree.data chars in
+            let model = { model with 
+                            MlModel.spec = { model.MlModel.spec with
+                                                MlModel.iterate_model = true;};
+                        }
+            in
+            let func = match MlModel.get_update_function_for_model model with
+                | Some f -> f | None   -> assert false
+            in
+            (fun vec ->
+                let model = func model vec in
+                let data,nodes =
+                    model
+                        --> Data.apply_likelihood_model_on_chars tree.Ptree.data chars
+                        --> AllDirNode.AllDirF.load_data
+                in
+                let nodes =
+                    List.fold_left
+                        (fun acc x -> IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc)
+                        IntMap.empty
+                        nodes
+                in
+                let tree = 
+                    { tree with Ptree.data = data; Ptree.node_data = nodes; }
+                in
+                model,(tree --> Phylo.PhyloTree.downpass
+                            --> Phylo.PhyloTree.uppass
+                            --> Phylo.PhyloTree.get_cost))
+        and get_model_dimension tree chars =
+            let model = Data.get_likelihood_model tree.Ptree.data chars in
+            match MlModel.get_current_parameters_for_model model with
+            | None   -> assert false
+            | Some c -> Array.length c
+        in
+        Status.set_verbosity `None;
+        let () = (POY run ([files])) in
+        let t = List.hd (Phylo.Runtime.trees ()) in
+        let chars = 
+            t.Ptree.data
+                --> Data.categorize_likelihood_chars_by_model `All
+                --> List.hd
+        in
+        let f = update_model_to_vector t chars in
+        f, print_model, get_model_dimension t chars
+
 end
 
 (** An object that keeps track of running variance, mean, and standard deviation
@@ -92,7 +167,7 @@ class running_stats = object(self)
     val mutable max_x = 0.0
     val mutable min_x = max_float
 
-    method push x_k (*t_k*) =
+    method push x_k =
         k <- k+1;
         max_x <- max max_x x_k;
         min_x <- min min_x x_k;
@@ -115,62 +190,94 @@ class running_stats = object(self)
 
 end
 
-let test_battery channel f n r () =
+let test_battery channel f n p r () =
     Status.set_verbosity `None; (* suppress warning messages *)
-    let f = (fun p -> let fp = f p in ((), fp)) in
-    let sim_obj = new running_stats and bfgs_obj  = new running_stats
-    and sub_obj = new running_stats and brent_obj = new running_stats in
-    Printf.fprintf channel "Simplex         Subplex         Brents          BFGS    \n%!";
-    Printf.fprintf channel "--------------------------------------------------------\n%!";
+    (* for calculating the mean, standard deviation of algorithm results *)
+    let sim_obj = new running_stats and bfg_obj = new running_stats
+    and sub_obj = new running_stats and bnt_obj = new running_stats in
+    (* for calculating avg, and worst/best timings for algorithm *)
+    let sim_tme = new running_stats and bfg_tme = new running_stats
+    and sub_tme = new running_stats and bnt_tme = new running_stats in
+    let f t = let t = ref t in
+              (fun p -> incr t; let _,fp = f p in float_of_int !t,fp)
+    in
+    Printf.fprintf channel "I       Simplex         Subplex         Brents          BFGS       \n%!";
+    Printf.fprintf channel "-------------------------------------------------------------------\n%!";
     for i = 0 to r do
         (* Randomly selection an initial vector *)
-        let init = Array.init n (fun _ -> Random.float 1.0) in
+        let   init = Array.init n (fun _ -> Random.float 1.0) in
+        let f_init = f 0 init in
         (* Run algorithms, send each cost to the running_statistics module *)
-        let _,(_,  sim_cost) = Numerical.simplex_method init f init (f init) in
-        let _,(_,  sub_cost) = Numerical.subplex_method f init (f init) in
-        let _,(_,brent_cost) = Numerical.brents_method_multi (init,(f init)) f in
-        let _,(_, bfgs_cost) = Numerical.bfgs_method f init (f init) in
-        Printf.fprintf channel "%f\t%f\t%f\t%f\n%!"
-                       sim_cost sub_cost brent_cost bfgs_cost;
-        sim_obj#push sim_cost; bfgs_obj#push bfgs_cost;
-        sub_obj#push sub_cost; brent_obj#push brent_cost;
+        let _,(sim_time, sim_cost) = Numerical.simplex_method      (f 1) (init,(f_init)) in
+        let _,(sub_time, sub_cost) = Numerical.subplex_method      (f 1) (init,(f_init)) in
+        let _,(bnt_time, bnt_cost) = Numerical.brents_method_multi (f 1) (init,(f_init)) in
+        let _,(bfg_time, bfg_cost) = Numerical.bfgs_method         (f 1) (init,(f_init)) in
+        Printf.fprintf channel "%d\t%f\t%f\t%f\t%f\n%!" i sim_cost sub_cost bnt_cost bfg_cost;
+        sim_obj#push sim_cost; bfg_obj#push bfg_cost; sub_obj#push sub_cost; bnt_obj#push bnt_cost;
+        sim_tme#push sim_time; bfg_tme#push bfg_time; sub_tme#push sub_time; bnt_tme#push bnt_time;
     done;
-    Printf.fprintf channel "--------------------------------------------------------\n%!";
-    Printf.fprintf channel "Simplex         Subplex         Brents          BFGS    \n%!";
-    Printf.fprintf channel "--------------------------------------------------------\n%!";
-    Printf.fprintf channel "%f\t%f\t%f\t%f\n%!"
-        (sim_obj#mean ()) (sub_obj#mean ()) (brent_obj#mean ()) (bfgs_obj#mean ());
-    Printf.fprintf channel "%f\t%f\t%f\t%f\n%!"
-        (sim_obj#std_dev ()) (sub_obj#std_dev ()) (brent_obj#std_dev ()) (bfgs_obj#std_dev ());
-    Printf.fprintf channel "%f\t%f\t%f\t%f\n%!"
-        (sim_obj#min ()) (sub_obj#min ()) (brent_obj#min ()) (bfgs_obj#min ());
-    Printf.fprintf channel "%f\t%f\t%f\t%f\n%!"
-        (sim_obj#max ()) (sub_obj#max ()) (brent_obj#max ()) (bfgs_obj#max ());
-    Printf.fprintf channel "--------------------------------------------------------\n%!";
+    Printf.fprintf channel "-------------------------------------------------------------------\n%!";
+    Printf.fprintf channel "Cost    Simplex         Subplex         Brents          BFGS       \n%!";
+    Printf.fprintf channel "-------------------------------------------------------------------\n%!";
+    Printf.fprintf channel "Mean\t%f\t%f\t%f\t%f\t\n%!"
+        (sim_obj#mean ()) (sub_obj#mean ()) (bnt_obj#mean ()) (bfg_obj#mean ());
+    Printf.fprintf channel "StdDev\t%f\t%f\t%f\t%f\n%!"
+        (sim_obj#std_dev ()) (sub_obj#std_dev ()) (bnt_obj#std_dev ()) (bfg_obj#std_dev ());
+    Printf.fprintf channel "Min\t%f\t%f\t%f\t%f\n%!"
+        (sim_obj#min ()) (sub_obj#min ()) (bnt_obj#min ()) (bfg_obj#min ());
+    Printf.fprintf channel "Max\t%f\t%f\t%f\t%f\n%!"
+        (sim_obj#max ()) (sub_obj#max ()) (bnt_obj#max ()) (bfg_obj#max ());
+    Printf.fprintf channel "-------------------------------------------------------------------\n%!";
+    Printf.fprintf channel "Time    Simplex         Subplex         Brents          BFGS       \n%!";
+    Printf.fprintf channel "-------------------------------------------------------------------\n%!";
+    Printf.fprintf channel "Mean\t%f\t%f\t%f\t%f\t\n%!"
+        (sim_tme#mean ()) (sub_tme#mean ()) (bnt_tme#mean ()) (bfg_tme#mean ());
+    Printf.fprintf channel "StdDev\t%f\t%f\t%f\t%f\n%!"
+        (sim_tme#std_dev ()) (sub_tme#std_dev ()) (bnt_tme#std_dev ()) (bfg_tme#std_dev ());
+    Printf.fprintf channel "Min\t%f\t%f\t%f\t%f\n%!"
+        (sim_tme#min ()) (sub_tme#min ()) (bnt_tme#min ()) (bfg_tme#min ());
+    Printf.fprintf channel "Max\t%f\t%f\t%f\t%f\n%!"
+        (sim_tme#max ()) (sub_tme#max ()) (bnt_tme#max ()) (bfg_tme#max ());
+    Printf.fprintf channel "-------------------------------------------------------------------\n%!";
     ()
 
-let main f_num d_num i_num channel =
+let main_num f d i channel =
     let dist () = Random.float 1.0 in
-    let f = match f_num with
-        | 0 when d_num = 2 -> Test.hummelblau_function
-        | 1 when d_num = 2 -> Test.booth_function
-        | 2                -> Test.ackley_function
-        | 3 when d_num = 2 -> Test.rosenbrock_function
-        | 3                -> Test.rosenbrock_function_multi
-        | 4                -> Test.rosenbrock_function_stoc ~dist
-        | 5                -> Test.quadratic_function
-        | 6                -> Test.quadratic_function_stoc ~dist
-        | 7                -> Test.rastigin_function
-        | _                -> failwith "Usage: ./test_numerical [0-7] D I [F]"
+    let unit_wrapper f = (fun x -> ((), f x)) and unit_printer () = () in
+    let f = match f with
+        | 0 when d = 2 -> unit_wrapper Test.hummelblau_function
+        | 1 when d = 2 -> unit_wrapper Test.booth_function
+        | 2            -> unit_wrapper Test.ackley_function
+        | 3            -> unit_wrapper Test.rosenbrock_function
+        | 4            -> unit_wrapper (Test.rosenbrock_function_stoc ~dist)
+        | 5            -> unit_wrapper Test.quadratic_function
+        | 6            -> unit_wrapper (Test.quadratic_function_stoc ~dist)
+        | 7            -> unit_wrapper Test.rastigin_function
+        | 8            -> unit_wrapper Test.schwefel_function
+        | 9            -> unit_wrapper Test.sum_powers
+        | 10           -> unit_wrapper Test.michalewicz_function
+        | _            -> assert false
     in
-    test_battery channel f d_num i_num ()
+    test_battery channel f d unit_printer i ()
 
 let () =
-    let channel = 
-        try match Sys.argv.(4) with
-            | "stdout" -> stdout
-            | "stderr" -> stderr
-            | filename -> open_out filename
-        with | _       -> stdout
-    in
-    main (int_of_string Sys.argv.(1)) (int_of_string Sys.argv.(2)) (int_of_string Sys.argv.(3)) channel
+    try let f_num = int_of_string Sys.argv.(1) in
+        let i = int_of_string Sys.argv.(3) in
+        let channel =
+            try match Sys.argv.(4) with
+                | "stdout" -> stdout
+                | "stderr" -> stderr
+                | filename -> open_out filename
+            with | _       -> stdout
+        in
+        main_num f_num (int_of_string Sys.argv.(2)) i channel
+    with | Failure "int_of_string" ->
+        let f,p,d = Test.poy_diagnose_likelihood Sys.argv.(1) in
+        let channel =
+            try match Sys.argv.(3) with
+                | "stdout" -> stdout
+                | "stderr" -> stderr
+                | filename -> open_out filename
+            with | _       -> stdout
+        in
+        test_battery channel f d p (int_of_string Sys.argv.(2)) ()

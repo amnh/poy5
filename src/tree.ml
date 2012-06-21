@@ -1481,6 +1481,7 @@ let create_partition tree edge =
         tree
         All_sets.Integers.empty
 
+
 (** determine the Robinson-Foulds distance between two trees. **)
 let robinson_foulds tree1 tree2 : int =
     (* compare two sets; or complement for partition equality. *)
@@ -2199,20 +2200,16 @@ module Parse = struct
         in
         let rec assign_codes parent = function
             | Leafp (name,nname) ->
-                    let tc = 
+                    let tc =
                         try taxon_code name with
-                        | Not_found as err ->
+                        | Not_found -> 
+                            try int_of_string name with
+                            | Not_found as err ->
                                 Status.user_message Status.Error
                                 ("Could@ not@ find@ data@ loaded@ for@ taxon@ " ^
                                 StatusCommon.escape name ^ "@ in@ a@ loaded@ tree.");
                                 raise err
                     in
-                    (* let () = match nname with
-                        | Some x ->
-                                let x = String.uppercase x in
-                                Hashtbl.replace add_to.names tc x
-                        | None -> ()
-                    in *)
                     Leafp (Leaf (tc, parent)), tc
             | Nodep (child_nodes, (txt,nname)) ->
                     let rec resolve_more_children (chil:(string * string option) t list) = match chil with
