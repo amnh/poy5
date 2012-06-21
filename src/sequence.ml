@@ -1374,6 +1374,280 @@ module Align = struct
                       let res = del_first_char res in 
                       x, res, 0 <> compare m res
 
+    (*readjust 3d functions for custom alphabet start*)
+    type direction_3D = Start |AAA | AAG | AGA | AGG | GAA | GAG | GGA
+
+    let has_aaa lst = List.mem AAA lst 
+    let has_aag lst = List.mem AAG lst 
+    let has_aga lst = List.mem AGA lst 
+    let has_agg lst = List.mem AGG lst 
+    let has_gaa lst = List.mem GAA lst 
+    let has_gag lst = List.mem GAG lst 
+    let has_gga lst = List.mem GGA lst 
+
+    let print_dir dir = 
+        match dir with
+        | Start -> Printf.printf "Start,"
+        | AAA -> Printf.printf "AAA,"
+        | AAG -> Printf.printf "AAG,"
+        | AGA -> Printf.printf "AGA,"
+        | AGG -> Printf.printf "AGG,"
+        | GAA -> Printf.printf "GAA,"
+        | GAG -> Printf.printf "GAG,"
+        | GGA -> Printf.printf "GGA,"
+    
+
+    let print_dirlst lst = 
+        Printf.printf "[%!";
+        List.iter (fun dir -> print_dir dir) lst;
+        Printf.printf "]\n%!"
+
+(*to do: add hashtbl*)
+    let get_cost3d_w_htbl getcost i j k cm2d  =
+        let debug = false in
+        let tie_breaker = Cost_matrix.Two_D.get_tie_breaker cm2d in
+        let get_cost2d = Cost_matrix.Two_D.cost in
+        let size = Cost_matrix.Two_D.get_ori_a_sz cm2d in
+        let bestcost = ref Utl.large_int in
+        let bestmed = ref [] in
+        if debug then 
+        Printf.printf "get_cost3d_w_htbl,%d,%d,%d,ori alphabet size=%d,tie breaker=%d\n%!" 
+        i j k size tie_breaker;
+        for x = 1 to size do
+            let cix = get_cost2d i x cm2d in
+            let cjx = get_cost2d j x cm2d in
+            let ckx = get_cost2d k x cm2d in
+            let cx = cix + cjx + ckx in
+            if cx = !bestcost then
+                bestmed := !bestmed @ [x]
+            else if cx < !bestcost then begin
+                bestmed := [x];
+                bestcost := cx;
+            end;
+        done;
+        if debug then begin 
+            Printf.printf "bestcost = %d, bestmed = %!" !bestcost;
+            Utl.printIntList !bestmed;
+        end;
+        if getcost then !bestcost
+        else 
+            let len = (List.length !bestmed) in
+            if tie_breaker=0 then
+                List.nth !bestmed (Random.int len) 
+            else if tie_breaker=1 then
+                List.nth !bestmed 0
+            else if tie_breaker=2 then
+                List.nth !bestmed (len-1)
+            else
+                failwith "unkown tie_breaker code in sequence.get_cost3d_2_htbl"
+        
+
+
+    let get_cost3d i j k cm2d cm3d no_3dcm =
+        let res = 
+            if no_3dcm then
+                get_cost3d_w_htbl true i j k cm2d
+            else
+                Cost_matrix.Three_D.cost i j k cm3d
+        in
+        res
+    
+    let get_median3d i j k cm2d cm3d no_3dcm =
+        let res = 
+        if no_3dcm then
+            get_cost3d_w_htbl false i j k cm2d
+        else
+            Cost_matrix.Three_D.median i j k cm3d
+        in
+        res
+     
+
+    (*NOTE: input sequence must start with gap*)
+    let readjust_3d_custom_alphabet ch1 ch2 mine cm2d cm3d parent =
+        (*debug2 print out input and output sequence, debug3 print out steps in
+        * updating alignment matrix and backtrace*)
+        let debug = false and debug2 = false and debug3 = false in
+        let size1 = length ch1 in 
+        let size2 = length ch2 in
+        let size3 = length parent in
+        (*to do: cm3d should be None if we don't have it, fix this in
+    * scripting.ml*)
+        let gapcode3d = Cost_matrix.Three_D.gap cm3d in
+        let gapcode2d = Cost_matrix.Two_D.gap cm2d in
+        let gapcode,no_3dcm = 
+            if (gapcode3d <> gapcode2d) then gapcode2d,true
+            else gapcode2d, false
+        in
+        if debug then begin
+            let tb = Cost_matrix.Two_D.get_tie_breaker cm2d in
+            Printf.printf
+            "sequence.readjust_3d_custom_alphabet,gapcode=%d,\
+            we don't have 3dcm = %b, tie breaker = %d\n%!" 
+            gapcode no_3dcm tb;
+            if debug then begin
+                Printf.printf " on ch1:%!";
+            printseqcode ch1;
+            Printf.printf " and ch2:%!";
+            printseqcode ch2;
+            Printf.printf " and parent : %!";
+            printseqcode parent;
+            Printf.printf " old mine is: %!";
+            printseqcode mine;
+            end;
+        end;
+        (*result median seq*)
+        let med3seq = create (size1+size2+size3) in (*use prepend later*)
+        (*3d alignment matrix*)
+        let algn_mat_3d = 
+           Array.init size1 (fun i -> 
+               Array.init size2 (fun j -> 
+                   Array.init size3 (fun k -> (0,[]) ) ) )
+        in
+        let get_v_from_mat i j k =
+            if i<0 || j<0 || k<0 then
+               Utl.large_int,[]  
+            else  
+                algn_mat_3d.(i).(j).(k) 
+        in
+        let set_v_to_mat i j k newcost newdirlst = 
+            algn_mat_3d.(i).(j).(k) <- (newcost,newdirlst); 
+        in 
+        let calc_newv_from_dir i j k a b c dir bestcost bestdir =
+            if debug3 then 
+            Printf.printf 
+            "calc cost from prev pos.%d.%d.%d, with current seqcode = %d,%d,%d; %!" i j k a b c;
+            let cost_from_prev,_ = get_v_from_mat i j k in
+            let addcost = 
+                if cost_from_prev=Utl.large_int then
+                    Utl.large_int
+                else
+                    get_cost3d a b c cm2d cm3d no_3dcm
+            in
+            if debug3 then Printf.printf "cost <- %d + %d\n%!" addcost cost_from_prev;
+            let cost = addcost + cost_from_prev in
+            (*let med =  get_median3d a b c cm3d in*)
+            if !bestdir=[] then begin
+                bestcost := cost;
+                bestdir := [dir];
+            end
+            else
+                if cost = !bestcost then bestdir := !bestdir@[dir]
+                else if cost < !bestcost then begin
+                    bestcost := cost;
+                    bestdir := [dir];
+                end
+        in
+        (* A = alignment , G = gap. let's consider A as 0, G as 1
+        *   i j k  
+        *   A A A  0
+        *   A A G  1
+        *   A G A  2
+        *   A G G  3
+        *   G A A  4
+        *   G A G  5
+        *   G G A  6
+        *   G G G  7 we don't do this one
+        * *)
+        for i = 0 to size1-1 do
+            for j = 0 to size2-1 do 
+                for k = 0 to size3-1 do
+                    if (i=0 && j=0 && k=0) then 
+                        set_v_to_mat 0 0 0 0 [Start]
+                    else begin
+                        let thisch1 = 
+                            if i>0 then get ch1 i
+                            else gapcode(*we won't need thisch1 in this case*)
+                        and thisch2 = 
+                            if j>0 then get ch2 j
+                            else gapcode(*we won't need thisch2 in this case*)
+                        and thisp = 
+                            if k>0 then get parent k
+                            else gapcode(*we won't need thisp in this case*)
+                        in
+                        if debug3 then Printf.printf "pos(%d,%d,%d),seqcode = %d,%d,%d; \n%!" 
+                        i j k thisch1 thisch2 thisp;
+                        let bestcost = ref Utl.large_int in
+                        let bestdir = ref [] in
+                        (*A A A*)
+                        calc_newv_from_dir (i-1) (j-1) (k-1) 
+                        thisch1 thisch2 thisp AAA bestcost bestdir;
+                        (*A A G*)
+                        calc_newv_from_dir (i-1) (j-1) k 
+                        thisch1 thisch2 gapcode AAG bestcost bestdir;
+                        (*A G A*)
+                        calc_newv_from_dir (i-1) j (k-1) 
+                        thisch1 gapcode thisp AGA bestcost bestdir;
+                        (*A G G*)
+                        calc_newv_from_dir (i-1) j k 
+                        thisch1 gapcode gapcode AGG bestcost bestdir;
+                        (*G A A*)
+                        calc_newv_from_dir i (j-1) (k-1) 
+                        gapcode thisch2 thisp GAA bestcost bestdir;
+                        (*G A G*)
+                        calc_newv_from_dir i (j-1) k 
+                        gapcode thisch2 gapcode GAG bestcost bestdir;
+                        (*G G A*)
+                        calc_newv_from_dir i j (k-1) 
+                        gapcode gapcode thisp GGA bestcost bestdir;
+                        set_v_to_mat i j k !bestcost !bestdir;
+                        if debug3 then 
+                            begin
+                            Printf.printf "pos(%d,%d,%d), cost=%d, bestdir = %!" i j k !bestcost;
+                            print_dirlst !bestdir;
+                        end;
+                    end;(*end of not i,j,k all eq to 0*)
+                done;
+            done;
+        done;
+        let rescost,_ = algn_mat_3d.(size1-1).(size2-1).(size3-1) in
+        if debug3 then Printf.printf "rescost = %d, go for backtrace\n%!" rescost;
+        let pick_dir dirlst x y z = 
+            if (has_aaa dirlst) then 
+                x-1, y-1, z-1,  get ch1 x, get ch2 y, get parent z
+            else if (has_aag dirlst) then 
+                x-1,y-1,z, get ch1 x, get ch2 y, gapcode
+            else if (has_aga dirlst) then 
+                x-1,y,z-1, get ch1 x, gapcode, get parent z 
+            else if (has_agg dirlst) then 
+                x-1,y,z, get ch1 x, gapcode, gapcode
+            else if (has_gaa dirlst) then 
+                x,y-1,z-1, gapcode, get ch2 y, get parent z 
+            else if (has_gag dirlst) then 
+                x,y-1,z, gapcode, get ch2 y, gapcode
+            else if (has_gga dirlst) then 
+                x,y,z-1, gapcode, gapcode, get parent z
+            else 
+                failwith "pick dir, no valid direction";
+        in
+        let x = ref (size1-1) and y = ref (size2-1) and z = ref (size3-1) in 
+        while ( not (!x = 0 && !y = 0 && !z = 0) ) do
+            if debug3 then Printf.printf "%d,%d,%d -> %!" !x !y !z;
+            let cost, dirlst = get_v_from_mat !x !y !z in
+            if debug3 then print_dirlst dirlst;
+            let nextx, nexty, nextz, seqcode1, seqcode2, seqcodepar = 
+                pick_dir dirlst !x !y !z in
+            if debug3 then Printf.printf " -> %d,%d,%d \n%!" nextx nexty nextz;
+            assert(nextx>=0); 
+            assert(nexty>=0); 
+            assert(nextz>=0);
+            prepend med3seq (get_median3d seqcode1 seqcode2 seqcodepar cm2d cm3d
+            no_3dcm);
+            x := nextx; y := nexty; z := nextz;
+        done;
+        (*remember to append a gap for new median3 seq*)
+        let resseq = remove_gaps med3seq ~gapcode:gapcode true in
+        (*prepend med3seq gapcode;*)
+        let anything_changed = 0 <> compare resseq mine in
+        if debug then begin 
+        Printf.printf "end of readjust 3d function for custom alphabet,\
+        cost = %d, anything changed = %b, new mine is\n%!" rescost anything_changed;
+        if debug2 then 
+            printseqcode resseq;
+        end;
+        rescost,resseq, anything_changed
+        (*readjust 3d functions for custom alphabet end*)
+
+
 end
 
 module NewkkAlign = struct 
@@ -1615,6 +1889,11 @@ let select_one_randomized s cm =
     in
     select_one_generic get_one_item s cm
 
+let readjust_custom_alphabet a b m cm parent = 
+    0, m, false
+    
+
+(**[readjust] is just for dna sequence*)
 let readjust a b m cm parent use_ukk =
     let matr = Matrix.default in
     let algn s1 s2 =

@@ -49,8 +49,8 @@ type heuristic = {
 let make_default_heuristic ?c3 c2 =
     let c3 =
         match c3 with
-        | None -> Cost_matrix.Three_D.of_two_dim c2 
-        | Some x -> x
+        | None ->  Cost_matrix.Three_D.of_two_dim c2 
+        | Some x ->  x
     in
     { seqs = 1; c2 = c2; c3 = c3 }
 
@@ -688,7 +688,37 @@ module DOS = struct
         let tmpcost = float_of_int tmpcost in
         {min = tmpcost; max= tmpcost}
 
+    (*readjust function for custom alphabet under module DOS *)
+    let readjust_custom_alphabet mode h ch1 ch2 parent mine =
+        let debug = false in
+        if debug then Printf.printf "DOS.readjust_custom_alphabet\n%!";
+        let changed, res, cost =    
+            let newcost, newseqm, anything_changed =  
+            match mode with
+            | `ThreeD _ -> 
+                    if debug then Printf.printf "iter = 3d, call readjust_3d\n%!";
+                    Sequence.Align.readjust_3d_custom_alphabet ch1.sequence ch2.sequence
+                    mine.sequence h.c2 h.c3 parent.sequence
+            | `ApproxD _ ->
+                    if debug then Printf.printf "iter=approx, do nothing\n%!";
+                    int_of_float mine.costs.min, mine.sequence, false
+                    (*Sequence.readjust_custom_alphabet ch1.sequence ch2.sequence
+                    mine.sequence h.c2 parent.sequence *)
+            in
+            if debug then 
+            Printf.printf "DOS.readjust_custom_alphabet, anything_changed=%b,newcost=%d,oldcost=%f\n%!"
+            anything_changed newcost mine.costs.min;   
+            let rescost = make_cost newcost in
+            anything_changed, 
+            { mine with sequence = newseqm; costs = rescost },
+            newcost
+        in
+        changed, res, cost
+
+
     let readjust mode h ch1 ch2 parent mine use_ukk =
+        let debug = false in
+        if debug then Printf.printf "seqCS.DOS.readjust,use_ukk=%b\n%!" use_ukk;
         let c2 = h.c2 in
         let gap = Cost_matrix.Two_D.gap c2 in
         let res, cost = 
@@ -730,11 +760,13 @@ module DOS = struct
                     let tmpcost, seqm, changed =
                         match mode with
                         | `ThreeD _ -> 
-                                Printf.printf "iter = 3d, call readjust_3d\n%!";
+                                if debug then 
+                                    Printf.printf "iter = 3d, call readjust_3d\n%!";
                                 Sequence.Align.readjust_3d ch1.sequence ch2.sequence
                                 mine.sequence h.c2 h.c3 parent.sequence
                         | `ApproxD _ ->
-                                Printf.printf "iter=approx, call readjust\n%!";
+                                if debug then 
+                                    Printf.printf "iter=approx, call readjust\n%!";
                                 Sequence.readjust ch1.sequence ch2.sequence
                                 mine.sequence h.c2 parent.sequence use_ukk
                     in
@@ -1900,13 +1932,48 @@ let of_list spec lst code = of_array spec (Array.of_list lst) code
 let same_codes a b =
     Array_ops.fold_right_2 (fun acc a b -> acc && (a = b)) true a.codes b.codes
 
+(** median 3 function for custom alphabet *)
+let readjust_custom_alphabet mode modified ch1 ch2 parent mine =
+    let debug = false in
+    if debug then Printf.printf "seqCS.readjust_custom_alphabet\n%!";
+    let new_modified = ref [] 
+    and total_cost = ref 0 in
+    let adjusted = 
+        Array_ops.map_5 (fun code a b c d ->
+        match a, b, c, d with
+                | Heuristic_Selection a, Heuristic_Selection b, 
+                    Heuristic_Selection c, Heuristic_Selection d ->
+                        let changed, res, cost =
+                            DOS.readjust_custom_alphabet mode mine.heuristic a b c d
+                        in
+                        if debug then Printf.printf
+                        "seqCS.readjust_custom_alphabet,changed=%b,cost=%d(total_cost=%d)\n%!" changed cost
+                        !total_cost;
+                        if changed then begin
+                            if debug then Printf.printf "add code = %d to modified set\n%!" code;
+                            new_modified := code :: !new_modified;
+                            total_cost := cost + !total_cost;
+                        end;
+                        Heuristic_Selection res
+                | _ -> assert false)
+        mine.codes ch1.characters ch2.characters parent.characters
+        mine.characters
+    in
+    let modified = 
+        List.fold_left (fun acc x -> All_sets.Integers.add x acc)
+        modified !new_modified
+    in
+    let total_cost = float_of_int !total_cost in
+    modified, total_cost,
+    { mine with characters = adjusted; total_cost = total_cost }
+
 (** [readjust ch1 ch2 par mine] returns a tuple [(a, b)], where [b] is the 
 * set of sequences generated from (heuristically) readjusting [mine] to 
 * somewhere in between [ch1], [ch2], and [par] (the two children and 
 * parent of [mine] respectively, and [a] is the new cost of [b] as 
 * parent of [ch1] and [ch2]. *)
 let readjust mode to_adjust modified ch1 ch2 parent mine =
-    assert (parent.alph = Alphabet.nucleotides);
+    assert (parent.alph = Alphabet.nucleotides);(*this function is only for dna sequence*)
     let use_ukk = match !Methods.algn_mode with
         | `Algn_Newkk  -> true
         | `Algn_Normal -> false
@@ -2040,10 +2107,7 @@ let median_3 p n c1 c2 =
                 Heuristic_Selection (f1 h a b c d use_ukk)
             | General_Prealigned a, General_Prealigned b,
             General_Prealigned c, General_Prealigned d ->
-                General_Prealigned (f3 h.c2 a b c d) 
-            (*| Relaxed_Lifted a, Relaxed_Lifted b, 
-                Relaxed_Lifted c, Relaxed_Lifted d ->
-                    Relaxed_Lifted (f2 h a b c d) *)
+                General_Prealigned (f3 h.c3 a b c d) 
             | Partitioned _, Partitioned _, Partitioned _, Partitioned _ ->
                     b
             | _ -> assert false)

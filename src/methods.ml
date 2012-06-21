@@ -78,6 +78,7 @@ type read_option_t = [
     | `Init3D of bool
     | `Orientation of bool
     | `Prealigned
+    | `TieBreaker of keep_method
 ]
 
 type prealigned_costs = [

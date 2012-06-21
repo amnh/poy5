@@ -543,8 +543,8 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     if (comb_num > 255) 
         failwith ("Apparently you are analyzing large alphabets. This version of POY was configured without the --enable-large-alphabets option. To run this analysis you need to enable that option at compile time. Either reconfigured and compile yourself the program,   or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
 #endif
-    if (debug) { printf ("cm_set_val,a_sz=%d,combination=%d,all_elements=%d,level=%d,comb_num=%d,gap_startNO=%d\n",
-            a_sz,combinations,all_elements,level,comb_num,gap_startNO); fflush(stdout); }
+    if (debug) { printf ("cm_set_val,a_sz=%d,combination=%d,all_elements=%d,level=%d,comb_num=%d,gap_startNO=%d,tie_breaker=%d\n",
+            a_sz,combinations,all_elements,level,comb_num,gap_startNO,tie_breaker); fflush(stdout); }
     cm_set_ori_a_sz(res, a_sz);
     cm_set_all_elements (res, all_elements);
     cm_set_affine (res, do_aff, gap_open);

@@ -341,7 +341,6 @@ let median_3 p n c1 c2 = match p, n, c1, c2 with
           AnnchromCS (AnnchromCS.median3 p n c1 c2)
     | ChromCS p, ChromCS n, ChromCS c1, ChromCS c2 -> 
           ChromCS (ChromCS.median3 p n c1 c2)
-
     | GenomeCS p, GenomeCS n, GenomeCS c1, GenomeCS c2 -> 
           GenomeCS (GenomeCS.median3 p n c1 c2)
     | _, _, _, _ -> failwith_todo "median_3"
@@ -610,12 +609,15 @@ let single_to_multi single_t =
 let readjust mode to_adjust modified ch1 ch2 parent mine =
     let no_iterative_other_than_for_seqs = false in
     match ch1, ch2, parent, mine with
-    | SeqCS ch1, SeqCS ch2, SeqCS parent, SeqCS mine when ch1.SeqCS.alph =
-        Alphabet.nucleotides -> 
-            let modified, new_cost, nc = 
-                SeqCS.readjust mode to_adjust modified ch1 ch2 parent mine in
-            let prev_cost = SeqCS.distance 0. ch1 mine +. SeqCS.distance 0. ch2 mine in
-            modified, prev_cost, new_cost, (SeqCS nc)
+    | SeqCS ch1, SeqCS ch2, SeqCS parent, SeqCS mine ->
+        let modified, new_cost, nc = 
+            if ch1.SeqCS.alph = Alphabet.nucleotides then  
+                SeqCS.readjust mode to_adjust modified ch1 ch2 parent mine 
+            else 
+                SeqCS.readjust_custom_alphabet mode modified ch1 ch2 parent mine 
+        in
+        let prev_cost = SeqCS.distance 0. ch1 mine +. SeqCS.distance 0. ch2 mine in
+        modified, prev_cost, new_cost, (SeqCS nc)    
     | _, _, _, mine when no_iterative_other_than_for_seqs ->  
             let prev_cost = total_cost mine in
             modified, prev_cost, prev_cost, mine

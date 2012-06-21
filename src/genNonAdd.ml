@@ -18,7 +18,12 @@
 (* USA                                                                        *)
 
 
-let debug = false 
+(*this module is for prealigned custom alphabet datatype.
+* call it like this
+* read(custom_alphabet:("data file","cost matrix file",prealigned))
+* *)
+
+let debug = true
 
 let fprintf = Printf.fprintf
 
@@ -49,6 +54,51 @@ let make_cost tmpcost =
 (*[get_cost] and [get_median] are two functions from cost_matrx*)
 let get_cost = Cost_matrix.Two_D.cost
 let get_median = Cost_matrix.Two_D.median
+
+let get_cost3d = Cost_matrix.Three_D.cost
+let get_median3d = Cost_matrix.Three_D.median
+
+
+
+(**[get_distance gnoadd1 gnoadd2 cost_mat] return distance between two sequence.
+* also return a median sequence.
+* remember that these sequence are prealigned. just add cost from each column.*)
+let get_distance_3d gnoadd1 gnoadd2 gnoadd3 cost_mat = 
+    let size = Cost_matrix.Three_D.alphabet_size cost_mat in
+    let seq1,seq2,seq3 = gnoadd1.seq,gnoadd2.seq,gnoadd3.seq in
+    if ( (Sequence.length seq1)<>(Sequence.length seq2) )||( (Sequence.length
+    seq3)<>(Sequence.length seq2) ) then begin
+        Status.user_message Status.Error
+        (
+            "The@ prealigned@ sequences@ do@ not@ have@ the@ same@ length." ^
+            string_of_int(Sequence.length seq1) ^ " !=@ " ^ string_of_int(Sequence.length seq2)
+            ^ " or " ^ string_of_int(Sequence.length seq3) ^ " !=@ " ^ string_of_int(Sequence.length seq2)
+        );
+        failwith "Illegal prealigned molecular sequences."
+    end;
+    let arr1,arr2,arr3 = Sequence.to_array seq1, Sequence.to_array seq2,
+    Sequence.to_array seq3 in
+    if debug then begin
+       Printf.printf "genNonAdd.distance, alphabet size = %d,arr1/arr2/arr3=%!" size;
+       Utl.printIntArr arr1;
+       Utl.printIntArr arr2;
+       Utl.printIntArr arr3;
+    end;
+    let rescost = ref 0 in
+    let medarr = 
+    Array_ops.map_3 (fun code1 code2 code3 ->
+        let c = get_cost3d code1 code2 code3 cost_mat in
+        rescost := !rescost + c;
+        get_median3d code1 code2 code3 cost_mat
+    ) arr1 arr2 arr3
+    in
+    if debug then begin
+        Printf.printf "distance = %d, med arr = %!" !rescost;
+        Utl.printIntArr medarr;
+    end;
+    !rescost, Sequence.of_array medarr
+
+
 
 (**[get_distance gnoadd1 gnoadd2 cost_mat] return distance between two sequence.
 * also return a median sequence.
@@ -87,15 +137,21 @@ let get_distance gnoadd1 gnoadd2 cost_mat =
 (** [distance gnoadd1 gnoadd2 cost_mat] just return the distance between two
 * general nonaddictive sequence. ignore the median seq.*)
 let distance gnoadd1 gnoadd2 cost_mat =
+    if debug then Printf.printf "genNonAdd.distance, call get_distance\n%!";
     let dis,_ = get_distance gnoadd1 gnoadd2 cost_mat in
     dis
 
 (** [median cost_mat a b] return median of two general nonaddictive sequence*)
-let median cost_mat a b = 
+let median cost_mat a b =
+    if debug then Printf.printf "genNonAdd.median, call get_distance\n%!";
     let dis, medseq = get_distance a b cost_mat in
     {seq = medseq; costs = make_cost dis },dis
 
-let median_3 cost_mat parent mine child1 child2 = 
+let median_3 cost_mat parent mine child1 child2 =
+    let dis, medseq = get_distance_3d parent child1 child2 cost_mat in
+    if debug then Printf.printf "genNonAdd.median_3, res cost = %d\n%!" dis;
+    { seq = medseq; costs = make_cost dis }
+    (* fake median3
     let medpc1,dis1 = median cost_mat parent child1 
     and medpc2,dis2 = median cost_mat parent child2 in
     if debug then Printf.printf "median_3, cost_p_c1 = %d, cost_p_c2 = %d,%!"
@@ -105,7 +161,8 @@ let median_3 cost_mat parent mine child1 child2 =
     else medpc2.seq,dis2
     in
     if debug then Printf.printf "res cost = %d\n%!" newdis;
-    { seq = newmedseq; costs = make_cost newdis }
+    { seq = newmedseq; costs = make_cost newdis } 
+    *)
 
 
 (*get closest code for code2 based on code1*)

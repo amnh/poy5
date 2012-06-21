@@ -236,6 +236,6 @@ end
 
 (** [of_file stream o 3d] parse an alphabet using orientation [o],
     and optionally initialize it to 3d dimensions [3d]. *)
-val of_file : FileStream.f -> bool -> bool -> int -> bool ->
+val of_file : FileStream.f -> bool -> bool -> int -> bool -> Methods.keep_method ->
                 a * (Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
 

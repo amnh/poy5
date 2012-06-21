@@ -23,10 +23,13 @@ let () = SadmanOutput.register "PoyCommand" "$Revision: 810 $"
 
 let debug = false 
 
+type tie_breaker = Methods.keep_method
+
 type read_option_t = [
 | `Init3D of bool
 | `Orientation of bool
-| `Prealigned 
+| `Prealigned
+| `TieBreaker of tie_breaker
 ]
 
 type otherfiles = [
@@ -110,7 +113,6 @@ type chromosome_args = [
 
 type polymorphism_arg = Methods.polymorphism_arg
 
-type tie_breaker = Methods.keep_method
 
 type transform_method = [
     | `RandomizedTerminals
@@ -2182,6 +2184,7 @@ let create_expr () =
 
         read_optiona:
             [
+                [LIDENT "tie_breaker"; ":"; tb = keep_method -> `TieBreaker tb ] |
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
                 [LIDENT "prealigned" -> `Prealigned]

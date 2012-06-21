@@ -168,6 +168,8 @@ module Two_D : sig
     * matrix cm. *)
     external lcm : m -> int = "cm_CAML_get_lcm"
 
+    external get_tie_breaker : m -> int = "cm_CAML_get_tie_breaker"
+    
     val load_file_as_list : FileStream.greader -> int list
     val fill_tail : int array -> m -> unit 
     val fill_prepend : int array -> m -> unit 
