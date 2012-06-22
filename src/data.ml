@@ -4648,9 +4648,10 @@ let compute_priors data chars u_gap =
                             counter := (Sequence.length x.seq) - 1 + !counter;
                             for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
                                 let lst = BitSet.Int.list_of_packed (Sequence.get x.seq i) in
-                                if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
-                                    assert false
-                                else
+                                if lst = [] then begin
+                                    assert( false );
+                                end else
+                                    let lst = List.filter (fun x -> not (x = gap_char)) lst in
                                     let inv = 1.0 /. (float_of_int (List.length lst)) in
                                     List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
                             done)
@@ -4659,9 +4660,7 @@ let compute_priors data chars u_gap =
                     Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
                 | FS code -> failwith "Data.compute_priors , fixed_states"
             (* this not found will happen when we are accessing the taxon
-               characters when a taxa has missing information at the node.
-                
-               TODO: Is there a way to double check this case?  *)
+               characters when a taxa has missing information at the node. *)
             with | Not_found -> 
                 ()
         in
@@ -6466,9 +6465,7 @@ let can_do_static_approx_code d x =
     match Hashtbl.find d.character_specs x with
         | Dynamic d when (appropriate_alphabet_size d) ->
             begin match d.state with
-                | `Seq  | `Annotated  | `Ml -> 
-                    output_info  ("Data contains characters that support static approx");
-                    true
+                | `Seq  | `Annotated  | `Ml -> true
                 | `CustomAlphabet | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
             end
         (* only dynamics with alphabet < 10 *)
