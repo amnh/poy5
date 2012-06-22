@@ -48,6 +48,7 @@ val randomize : 'a array -> unit
  * in [x]. *)
 val filter : ('a -> bool) -> 'a array -> 'a array
 
+val mem : 'a array -> 'a -> bool
 
 val map_2 : ('a -> 'b -> 'c) -> 'a array -> 'b array -> 'c array
 

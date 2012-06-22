@@ -1669,40 +1669,46 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 else Node.get_dynamic_adjusted 
         in
         let vertices = 
-            try
-                let root = Ptree.get_component_root handle ptree in
+            try let root = Ptree.get_component_root handle ptree in
                 match root.Ptree.root_median with
                 | Some (_, v) ->Some (((Node.num_otus None v) * 2) - 1);
                 | None -> None
-            with
-            | Not_found -> Printf.printf"Get vertices: Not_found \n %!"; None
+            with | Not_found -> None
         in
-        let st = 
-            Status.create "test: Implied Alignments" vertices "vertices calculated"
-        in
-        let convert_data tree parent self taxon_id data =
-            let data = 
-                List.map 
+        let st = Status.create "Implied Alignments" vertices "vertices calculated" in
+        let convert_data tree parent self taxon_id data time =
+            let find_branch_length dyn time =
+                let code = DynamicCS.code dyn in
+                match time with
+                | Some t ->
+                    let topt = List.find (fun (a,data) -> Array_ops.mem a code) t in
+                    begin match topt with
+                        | _,Some t -> t
+                        | _,None   -> assert false
+                    end
+                | None   -> assert false (* should only be called under LK *)
+            in
+            let data =
+                List.map
                     (fun dyn ->
                         let sequences = DynamicCS.leaf_sequences dyn in
-                        let state = DynamicCS.state dyn in 
-                        let new_sequences = 
-                            Codes.fold 
+                        let state = DynamicCS.state dyn in
+                        let new_sequences =
+                            Codes.fold
                                 (fun code seq_arr acc ->
-                                    let ias_arr = 
-                                        Array.map 
+                                    let ias_arr =
+                                        Array.map
                                             (fun seq -> create_ias state seq taxon_id cg)
                                             seq_arr
-                                    in 
-                                    Codes.add code ias_arr acc) 
-                                sequences Codes.empty  
+                                    in
+                                    Codes.add code ias_arr acc)
+                                sequences Codes.empty
                         and cost_matrix =
-                            try 
-                                let model = DynamicCS.lk_model dyn in
-                                let branch = 0.1 in (* TODO *)
+                            try let model = DynamicCS.lk_model dyn in
                                 match FloatSequence.cost_fn model with
-                                | `MPL | `FLK | `SML | `MAL -> Model (model,(branch,parent))
-
+                                | `MPL | `FLK | `SML | `MAL ->
+                                    let bl = find_branch_length dyn time in
+                                    Model (model,(bl,parent))
                             with 
                                 | Not_found -> CM (DynamicCS.c2 dyn)
                         in
@@ -1721,13 +1727,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let convert_node parent ptree _ id _ : AssocList.t * t list =
             let data = Ptree.get_node_data id ptree in
             let taxon_id = Node.taxon_code data in
+            let par,pdata = match parent with
+                | Some p -> parent, Some (Ptree.get_node_data p ptree)
+                | None ->
+                    try let p = Ptree.get_parent taxon_id ptree in
+                        Some p, Some (Ptree.get_node_data p ptree)
+                    with | _ -> None,None
+            in
+            let time = Some (Node.get_times_between data pdata) in
             let data =
-                let par = match parent with
-                    | Some _ -> parent
-                    | None ->
-                        try Some (Ptree.get_parent taxon_id ptree)
-                        with | _ -> None
-                in
                 if Tree.is_leaf id ptree.Ptree.tree then
                     (* In a leaf we have to do something more complex, if we are
                      * dealing with simplified alphabets, not bitsets, we must
@@ -1739,11 +1747,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             try if 0 = Cost_matrix.Two_D.combine (DynamicCS.c2 pre)
                                 then adj
                                 else pre
-                            with | _ -> pre (* likelihood *) )
+                            with | _ -> adj (* likelihood *) )
                         pre adj
                 else get_dynamic_data par data
             in
-            let data = convert_data ptree parent id taxon_id data in
+            let data = convert_data ptree parent id taxon_id data time in
             let did = Status.get_achieved st in
             Status.full_report ~adv:(did + 1) st;
             data
@@ -1848,24 +1856,32 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         | Tree.Interior (_, a, b, c) ->
                                 let myd = Ptree.get_node_data self ptree in
                                 let selfopt = Some self and otheropt = Some other in
+                                let time =
+                                    Node.get_times_between myd
+                                        (Some (Ptree.get_node_data other ptree))
+                                in
                                 let my_ia = 
                                     convert_data ptree otheropt self self 
-                                        (get_dynamic_data otheropt myd)
+                                        (get_dynamic_data otheropt myd) (Some time)
                                 in
                                 let my_ia = tree_traverser my_ia selfopt a in
                                 let my_ia = tree_traverser my_ia selfopt b in
                                 tree_traverser my_ia selfopt c
                         | Tree.Leaf (_, b) ->
                                 let myd = Ptree.get_node_data self ptree in
+                                let time =
+                                    Node.get_times_between myd
+                                        (Some (Ptree.get_node_data b ptree))
+                                in
                                 let my_ia = 
                                     convert_data ptree (Some b) self self 
-                                        (get_dynamic_data (Some b) myd)
+                                        (get_dynamic_data (Some b) myd) (Some time)
                                 in
                                 tree_traverser my_ia (Some self) b
                         | Tree.Single _ ->
                                 let data = Ptree.get_node_data self ptree in
                                 convert_data ptree None self self
-                                        (get_dynamic_data None data)
+                                        (get_dynamic_data None data) None
                      end 
               in
               let _ = Status.finished st in
