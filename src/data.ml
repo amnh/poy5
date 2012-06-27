@@ -4638,8 +4638,7 @@ let compute_priors data chars u_gap =
     let taxon_adder tax taxon_chars =
         let total = ref 0 in
         let adder char_code =
-            try
-                let (cs, _) = Hashtbl.find taxon_chars char_code in
+            try let (cs, _) = Hashtbl.find taxon_chars char_code in
                 match cs with
                 | Dyna (_, dyna_data ) ->
                     Array.iter
@@ -4649,9 +4648,12 @@ let compute_priors data chars u_gap =
                             for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
                                 let lst = BitSet.Int.list_of_packed (Sequence.get x.seq i) in
                                 if lst = [] then begin
-                                    assert( false );
+                                    ()
                                 end else
-                                    let lst = List.filter (fun x -> not (x = gap_char)) lst in
+                                    let lst = if u_gap 
+                                        then lst 
+                                        else List.filter (fun x -> not (x = gap_char)) lst
+                                    in
                                     let inv = 1.0 /. (float_of_int (List.length lst)) in
                                     List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
                             done)
@@ -4669,11 +4671,10 @@ let compute_priors data chars u_gap =
         lengths := !total :: !lengths
     in
     Hashtbl.iter taxon_adder data.taxon_characters;
-    let counter = float_of_int !counter
-    and gcounter = float_of_int !gap_counter
-    and gap_contribution = (float_of_int !gap_counter) /. (float_of_int size) in
+    let counter = float_of_int !counter and gcounter = float_of_int !gap_counter in
+    let gap_contribution = gcounter /. (float_of_int size) in
     if debug_priors then begin
-        Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;
+        Printf.printf "Computed Priors of %.1f char + %.1f gaps: [" counter gcounter;
         Array.iter (Printf.printf "|%f") priors;
         Printf.printf "|]\n%!";
     end;
