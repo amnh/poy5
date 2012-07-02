@@ -17,6 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+
 (** {6 Types *)
 
 type site_var = 
@@ -132,6 +133,7 @@ val classify_seq_pairs :
     of exact matches, and total number of transitions. Only base frequency in the
     leaves are added to the IntegerMap, indicated by [l1] and [l2]. *)
 
+
 (** {6 External Access to Key Models *)
 
 val jc69_5_gap : float -> spec
@@ -157,6 +159,7 @@ val m_file :
     (float, 'a, 'b) Bigarray.Array1.t -> float array array -> int
         -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 (** [m_file pi co alph] build a Q matrix from an array of parameters **)
+
 
 (** {6 Create / Modify Models and Specifications of models *)
 
@@ -215,6 +218,7 @@ val subst_matrix : model -> float option ->
 (** [subst_matrix] return the substitution rate matrix; Q matrix if t = None,
     else Qt. *)
 
+
 (** {6 Output functions *)
 
 val debug_model : model -> float option -> unit
@@ -227,6 +231,7 @@ val output_model : (string -> unit) -> [`Nexus | `Phylip | `Hennig] -> model -> 
 
 val to_formatter : model -> Xml.xml Sexpr.t list
 (** return XML reprentation of the model *)
+
 
 (** {6 Higher-Order functions to modify model *)
 
@@ -244,19 +249,13 @@ val get_update_function_for_alpha    : model -> (model -> float -> model) option
 val get_current_parameters_for_alpha : model -> float option
 (** [get_current_parameters_for_alpha] return the alpha parameter if it exists *) 
 
-(** {6 Model Testing Functions *)
-
-val aic : model -> int -> int -> float -> float
-(** [aic n k l_max] Calculate the Akaike Information Criterion *)
-
-val bic : model -> int -> int -> float -> float
-(** [bic n k l_max] Calculate the Bayesian Information Criterion *)
-
-val hqic : model -> int -> int -> float -> float
-(** [hqic n k l_max] Calculate the Hannan-Quinn Information Criterion *)
 
 (** {6 Matrix conversions *)
 
 val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 (** return an integerized cost matrix of the model *)
 
+
+(** {6 Model Properties and Information *)
+
+val count_parameters : model -> int
