@@ -1639,7 +1639,7 @@ let add_character data file tcmfile tcm tcm3 default_mode lk_model alphabet dyna
             polymorphism = `Do_All; }
         in
         if debug_parsed_seq then
-        Printf.printf "add character with character code=%d,file=%s\n%!" chcode file;
+            Printf.printf "add character with character code=%d,file=%s\n%!" chcode file;
         Hashtbl.replace data.character_specs chcode (Dynamic dspec);
         Hashtbl.replace data.character_names file chcode;
         Hashtbl.replace data.character_codes chcode file;
@@ -1781,9 +1781,9 @@ original_filename file tcmfile tcm tcm3 default_mode lk_model alphabet dyna_stat
         genome_arr
         
 (* normal sequence, sequence could be divided by fragment "#" *)
-let process_parsed_normal_sequence data res 
-original_filename tcmfile tcm tcm3 default_mode lk_model alphabet 
-dyna_state dyna_pam weight prealigned domerge =
+let process_parsed_normal_sequence data res original_filename tcmfile tcm tcm3
+                        default_mode lk_model alphabet dyna_state dyna_pam
+                        weight prealigned domerge =
     if debug_parsed_seq then Printf.printf "process normal sequence\n%!";
     let get_multi_segment_seq file_taxon_chrom_loci_frag_seq =
         (* input seq list list list list become a matrix looks like this:
@@ -4047,33 +4047,8 @@ let type_of_dynamic_likelihood d = match d.dynamics with
             end
         | _ -> None
 
-let rec get_code_from_name data name_ls = 
-    let code_ls =
-        List.fold_right
-            ~f:(fun name acc -> 
-                try let code = Hashtbl.find_all data.character_names name in
-                    code @ acc
-                with | Not_found -> 
-                    let nname = Str.regexp name in
-                    match 
-                        Hashtbl.fold
-                            (fun stored_name code acc ->
-                                if Str.string_match nname stored_name 0
-                                    then code :: acc
-                                    else acc)
-                            data.character_names []
-                    with
-                        | [] ->
-                            failwithf
-                                ("The@ character@ %s,@ target@ of@ the@ "^^
-                                 "transformation@ does@ not@ exist.") name;
-                        | r -> r @ acc)
-            ~init:[]
-            name_ls
-  in
-  code_ls
 
-and get_code_with_missing dont_complement data fraction = 
+let rec get_code_with_missing dont_complement data fraction = 
     let taxa = 
         let tmp = 
             All_sets.StringMap.fold (fun _ _ acc -> acc + 1)
@@ -4113,11 +4088,13 @@ and get_code_with_missing dont_complement data fraction =
         match complement_characters data (`Some codes ) with
         | `Some x -> x
         | _ -> failwith "Data.get_code_with_missing"
+
+
 (**Give a list of characters, return their codes*)    
 and get_code_from_characters_restricted kind (data : d) (chs : characters) =
     let kind_lst = match kind with
         | `Fixedstates -> 
-                data.fixed_states 
+            data.fixed_states 
         | `Dynamic ->
             data.dynamics
         | `DynamicLikelihood ->
@@ -4147,7 +4124,9 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
     let rec items chs = match chs with
         | `Some code_ls -> code_ls 
         | `Range (file, x,y) -> items (transform_range_to_codes file x y)
-        | `Names name_ls -> get_code_from_name data name_ls
+        | `Names name_ls ->
+                get_chars_codes data chs
+                (* get_code_from_name data name_ls*)
         | `Random fraction ->
                 check_fraction fraction;
                 select_random_sublist fraction kind_lst
@@ -4166,7 +4145,8 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
             in
             items (`Names names)
     in
-    List.filter (fun x -> List.exists (fun y -> y = x) kind_lst) (items chs)
+    let initial = items chs in
+    List.filter (fun x -> List.exists (fun y -> y = x) kind_lst) initial
 
 and get_all_codes data =
     Hashtbl.fold (fun c _ acc -> c :: acc) data.character_codes  []

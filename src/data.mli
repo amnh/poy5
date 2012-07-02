@@ -228,6 +228,7 @@ type bool_characters = Methods.characters (*[
     | `Range of ( bool * string * int * int)
 ]*)
 
+val string_of_characters : bool_characters -> string
 
 
 type characters = [
