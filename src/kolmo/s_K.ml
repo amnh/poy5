@@ -131,7 +131,7 @@ let s_encode tree =
                 | [x; y] ->
                         let y = to_bit_list y in
                         let x = to_bit_list x in
-                        Encodings.One :: (x @ y)
+                        Encodings.One :: (List.rev_append (List.rev x) y)
                 | lst ->
                         let rec to_binary_list lst = 
                             match lst with

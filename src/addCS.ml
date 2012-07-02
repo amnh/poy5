@@ -851,6 +851,7 @@ let split_vectorized_characters data codes =
                     (List.length vectorized) (List.length codes);
     vectorized,general
 
+
 let is_potentially_informative elts = 
     let intersection a b = match a with
         | None -> None

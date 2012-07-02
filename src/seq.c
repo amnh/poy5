@@ -429,12 +429,7 @@ seq_CAML_create (value cap) {
     len = Int_val(cap);
 #ifndef USE_LONG_SEQUENCES
     if (len > SHORT_SEQUENCES) 
-        failwith ("You are analyzing long sequences. This version \
-                of POY was compiled without the --enable-long-sequences option, \
-                setting a hard-coded limit of SHORT_SEQUENCES in their length. \
-                To run this analysis you need to enable that option at compile time. \
-                Either compile yourself the program, or request a version suited \
-                for your needs in the POY mailing list (poy4@googlegroups.com).");
+        failwith ("You are analyzing long sequences. This version of POY was compiled without the --enable-long-sequences option, setting a hard-coded limit of SHORT_SEQUENCES in their length. To run this analysis you need to enable that option at compile time. Either compile yourself the program, or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
 #endif
     s = sizeof (SEQT) * len;
     res = caml_alloc_custom 

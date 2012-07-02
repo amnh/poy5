@@ -429,7 +429,7 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STAT
 
-AC_SEARCH_LIBS([zlibVersion],[z])
+AC_SEARCH_LIBS([zlibVersion],[z],,[AC_MSG_FAILURE( [I cannot find libz] )])
 
 #this will only pass if m is already included; we include from OS switch above,
 AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
