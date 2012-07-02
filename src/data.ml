@@ -5349,12 +5349,14 @@ let auto_partition mode data code =
 
 (*tranform dynamic charactors to fixed_states(static) charactors *)
 let compute_fixed_states filename data code polymph =
-    let debug = false and debug2 = false in
+    let debug = false and debug2 = true in
     if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
     in
+    if debug2 then
+        Cost_matrix.Two_D.output stdout dhs.tcm2d;
     let annotate_with_mauve = match dhs.pam.annotate_tool with
         | Some (`Mauve _) -> true
         | Some (`Default _) -> false
@@ -5454,7 +5456,7 @@ let compute_fixed_states filename data code polymph =
     Hashtbl.iter (fun seq pos -> sequences.(pos) <- seq) sequences_taxon;
     (* Fill the costs for all pairs of the single assignment sequences *)
     for x = 0 to states - 1 do
-        for y = x + 1 to states - 1 do
+        for y = x to states - 1 do
             if debug then begin
                         Printf.printf "work on seq#.%d,seq#.%d=\n%!" x y;
                         if debug2 then begin
@@ -6031,8 +6033,7 @@ let codes_with_same_tcm codes data =
     List.fold_left ~f:assign_matching ~init:[] codes
 
 (**[assign_level] update cost matrix with new level value, which leads to
-* different number of combinations. but on alphabet side, we only update its 
-* level value, not the combination maps -- we might need to change that*)
+* different number of combinations. *)
 let assign_level data chars tie_breaker level =
     if debug_level then Printf.printf "Data.assign_level,level=%d\n%!" level;
     let make_level level = function
@@ -6072,8 +6073,8 @@ let assign_level data chars tie_breaker level =
                             Printf.printf "create new cost matrix by level\n%!";
                         let b = Cost_matrix.Two_D.create_cm_by_level b level
                         oldlevel all_elements tie_breaker in
-                        b, 
-                        Alphabet.set_size (Alphabet.set_level alph level) combnum
+                        b,
+                        Alphabet.create_alph_by_level alph level oldlevel
                     end;
                   in
                   if debug_level then begin
