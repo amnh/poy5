@@ -89,11 +89,15 @@ let rec first = function
                     end
             | [] -> failwith "Sexpr.first"
 
+let rec is_empty = function
+    | `Empty    -> true
+    | `Single _ -> false
+    | `Set lst  -> List.fold_left (fun acc n -> acc && is_empty n) true lst
+
 let rec length = function
-    | `Empty -> 0
+    | `Empty    -> 0
     | `Single _ -> 1
-    | `Set lst ->
-            List.fold_left (fun acc n -> acc + length n) 0 lst
+    | `Set lst  -> List.fold_left (fun acc n -> acc + length n) 0 lst
 
 let rec all_to_all status f a b =
     match a, b with
