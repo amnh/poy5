@@ -123,6 +123,9 @@ val to_array : 'a t -> 'a array t
 (** Equivalent to [cardinal]. *)
 val length : 'a t -> int
 
+(** Check if a Sexpr is empty *)
+val is_empty : 'a t -> bool
+
 (** [nth it s] retrieves the [it]'th leaf that would be visited using
 * [fold_left] in [s], starting with [0]. If [s] has less elements than [it],
 * then the function raises [Failure "Sexpr.nth"]. *)
