@@ -53,19 +53,6 @@ type subplex_strategy =
     }
 (** The Subplex strategy contains a simplex strategy and added features *)
 
-type optimization_strategy = 
-    {   routine : [ `Simplex of simplex_strategy option
-                  | `Subplex of subplex_strategy option
-                  | `BFGS    of float option
-                  | `Brent_Multi ];
-        (* Below are optional to use the algorithm default *)
-        max_iter : int option;
-        tol      : float option; 
-    }
-(** Define an optimization strategy. This will call the appropriate optimization
-    routine with the specified parameters. A wrapper around the four methods we
-    have to optimize multi-dimensional functions. *)
-
 
 (** {6 Floating Point Functions} *)
 
@@ -154,11 +141,30 @@ val subplex_method :
     Simplex with restart. The advantages are outlined in the previously
     mentioned paper, in section 5.3.6. *)
 
+(** {6 Unification of Optimization Strategies *)
+
+type optimization_strategy = 
+    {   routine : [ `Simplex of simplex_strategy option
+                  | `Subplex of subplex_strategy option
+                  | `BFGS    of float option
+                  | `Brent_Multi ];
+        (* Below are optional to use the algorithm default *)
+        max_iter : int option;
+        tol      : float option; 
+    }
+(** Define an optimization strategy. This will call the appropriate optimization
+    routine with the specified parameters. A wrapper around the four methods we
+    have to optimize multi-dimensional functions. *)
+
+val default_numerical_optimization_strategy : unit -> optimization_strategy list
+(** Take the cost model of the Methods module and determine an opt strategy *)
+
 val run_method :
     optimization_strategy list -> (float array -> 'a * float)  
         -> (float array * ('a * float)) -> (float array * ('a * float))
 (** Run an optimization strategy based on the optimization_strategy. We accept a
     list, thus multiple tests can be run to obtain a robust strategy. *)
+
 
 (** {6 Infix Module} *)
 

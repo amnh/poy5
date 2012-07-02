@@ -1028,10 +1028,16 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
     debug_printf "Subplex Found %s -- %f\n%!" (pp_farray p) fp;
     pdfp
 
-
-(** Default Optimization Strategy **)
-let default_optimization_strategy =
-    [ (default_strategy `BFGS); ]
+(** Determine the numerical optimization strategy from the methods cost mode *)
+let default_numerical_optimization_strategy () = match !Methods.cost with
+    | `Exhaustive_Strong
+    | `Exhaustive_Weak
+    | `Normal_plus_Vitamines
+    | `Normal                          ->
+        (default_strategy `BFGS) :: [] 
+    | `Iterative (`ThreeD  iterations)
+    | `Iterative (`ApproxD iterations) ->
+        { (default_strategy `BFGS) with max_iter = iterations; } :: []
 
 
 (** Run an optimization strategy; call the proper algorithm w/ convergence

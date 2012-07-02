@@ -721,8 +721,10 @@ let readjust3_opt mine c1 c2 par t1 t2 t3 =
     let (times,(node,score)),pscore =
         let init_vec = [| t1;t2;t3 |] in
         let (_,pscore) as init_res = single_result init_vec in
-        Numerical.bfgs_method
-            ~epsilon:1e-5 single_result (init_vec,init_res), pscore
+        Numerical.run_method
+            (Numerical.default_numerical_optimization_strategy ())
+            single_result (init_vec,init_res),
+        pscore
     in
     true, pscore, score, (times.(0),times.(1),times.(2)), {mine with data = node;}
 
