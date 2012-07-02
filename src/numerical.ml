@@ -1044,6 +1044,6 @@ let run_method opts f pfp =
             | `Simplex simplex_strategy -> simplex_method ?tol ?max_iter ?simplex_strategy f pfp
             | `Subplex subplex_strategy -> subplex_method ?tol ?max_iter ?subplex_strategy f pfp
             | `BFGS max_step            -> bfgs_method ?max_iter ?tol ?max_step f pfp
-            | `Brent_Multi              -> brents_method_multi ?max_iter ?tol f pfp
+            | `Brent_Multi              -> brents_method_multi ?max_iter ?tol f pfp)
         pfp
         opts
