@@ -1888,15 +1888,15 @@ let to_formatter (model: model) : Xml.xml Sexpr.t list =
                     | Some x -> x
                 in
                 let r,_ =
-                    Array.fold_right
-                        (fun x (acc,i) ->
+                    Array.fold_left
+                        (fun (acc,i) x ->
                             (PXML -[Xml.Data.param i]
                                 ([Xml.Alphabet.value] = [`Float x])
                                 { `String "" } --) :: acc,i+1)
-                        ray
                         ([],1)
+                        ray
                 in
-                r
+                List.rev r
         | Custom (_,_,str) ->
                 [(PXML -[Xml.Data.param 1]
                     ([Xml.Alphabet.value] = [`String str])
