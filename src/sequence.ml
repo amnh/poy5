@@ -1197,9 +1197,16 @@ module Align = struct
         ;
         res
         
-
+(*Sequence.Align.closest parent mine.sequence h.c2 Matrix.default*)
     let closest s1 s2 cm m =
         let uselevel = check_level cm in
+        let debug = false in
+        if debug then begin
+        Printf.printf "closest, uselevel = %b,use_comb=%d, s1 and s2 = \n%!" uselevel
+        (Cost_matrix.Two_D.combine cm) ;
+        printseqcode s1;
+        printseqcode s2;
+        end;
         if is_empty s2 (Cost_matrix.Two_D.gap cm) then
             s2, 0
         else
@@ -1215,8 +1222,8 @@ module Align = struct
                     else v'
                 else v
             in
-            (*Printf.printf "; s1' and s2' = %!"; printseqcode s1'; printseqcode s2';
-            Printf.printf "end of sequence.ml \n%!";*)
+            Printf.printf "; s1' and s2' = %!"; printseqcode s1'; printseqcode s2';
+            Printf.printf "end of sequence.ml \n%!";
             remove_gaps2 (mapi get_closest s2') cm, cst
         else
             let s1', s2', comp =
@@ -1230,7 +1237,7 @@ module Align = struct
                                 gap_filter_for_combcode x cm
                             in
                             let news1 = map gap_filter s1 and
-                            news2 = map gap_filter s2 in
+                            news2 = map gap_filter s2 in 
                             news1, news2, true
                         else
                             let mask = lnot (Cost_matrix.Two_D.gap cm) in
@@ -1241,6 +1248,11 @@ module Align = struct
                             true
                 else
                     let s1', s2', _ = align_2 s1 s2 cm m in
+                    if debug then begin
+                        Printf.printf "s1' and s2' from align s1 and s2 :\n%!";
+                        printseqcode s1';
+                        printseqcode s2';
+                    end;
                     s1', s2', false
             in
             let s2' =
@@ -1251,9 +1263,6 @@ module Align = struct
                     in
                     mapi get_closest s2' 
                 in
-                (*let _ =
-                Printf.printf ", s2' = %!"; printseqcode s2'
-                in*)
                 remove_gaps2 s2' cm
             in
             (*Printf.printf ", s2' = %!"; printseqcode s2';

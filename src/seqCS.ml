@@ -754,7 +754,8 @@ module DOS = struct
         0 <> compare res.sequence mine.sequence, res, cost
 
     let to_single h parent mine =
-        if debug then Printf.printf "seqCS.DOS.to_single\n%!";
+        let debug = false in
+        if debug then Printf.printf "seqCS.DOS.to_single,%!";
         let gap = Cost_matrix.Two_D.gap h.c2 in
         let use_ukk = match !Methods.algn_mode with
             | `Algn_Newkk  -> true
@@ -775,6 +776,12 @@ module DOS = struct
                     Sequence.Align.closest parent mine.sequence h.c2 Matrix.default 
             in
             let rescost = make_cost tmpcost in
+            if debug then begin
+                Printf.printf " seq with ambiguity = %!";
+                Sequence.printseqcode mine.sequence;
+                Printf.printf " ==> %!";
+                Sequence.printseqcode seqm;
+            end;
             { mine with sequence = seqm; costs = rescost }, tmpcost
 
     let median alph code h a b use_ukk =
@@ -1962,20 +1969,8 @@ let to_single parent mine =
                     let res, c = DOS.to_single mine.heuristic a b in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
-            (*| Relaxed_Lifted a, Relaxed_Lifted b ->
-                    (* we don't turn fixed_state back to sequences in to_single
-                    * any more.
-                    * let res, c = RL.to_single a b in
-                    total_cost := c + !total_cost;
-                    Heuristic_Selection res*)
-                    let res, c = RL.to_single a b in
-                    total_cost := c + !total_cost;
-                    Relaxed_Lifted res *)
-            (*| Heuristic_Selection a, Relaxed_Lifted b ->
-                    assert false *)
             | Partitioned _, _
             | _, Partitioned _
-            (*| Relaxed_Lifted _, _*) 
             | General_Prealigned _, _ 
             | Heuristic_Selection _, General_Prealigned _ -> assert false) parent.characters
                     mine.characters

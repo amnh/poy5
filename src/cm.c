@@ -1055,12 +1055,12 @@ cm_get_cost (int *tcm, int a, int b, int mapsize) {
     assert(a>=0);
     assert(b>=0);
     int * res;
-    if (a==b) return 0;
-    else
-    {
+    //if (a==b) return 0;
+    //else
+    //{
         res = tcm + ((a)*mapsize+(b));
         return (*res);
-    }
+    //}
 }
 
 #ifdef _WIN32
