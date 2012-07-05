@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -1910,7 +1910,7 @@ module F : Ptree.Tree_Operations
     let join_fn n_mgr a b c d =
         let d = clear_internals true d in
         let (ptree, tdel) as ret = match !Methods.cost with
-            | `Normal -> 
+            | `Normal ->
                 let tree,delta =join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree = update_branches tree in
@@ -1919,7 +1919,7 @@ module F : Ptree.Tree_Operations
             | `Iterative (`ApproxD iterations) ->
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
-                let tree = 
+                let tree =
                    tree --> pick_best_root
                         --> assign_single
                         --> adjust_fn n_mgr
@@ -1932,11 +1932,11 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Strong ->
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
-                let tree = 
+                let tree =
                     tree --> uppass
                          --> update_branches
                 in
-                tree, delta 
+                tree, delta
         in
         if debug_join_fn then
             info_user_message "Joined with cost: %f (%f)" 

@@ -1,3 +1,4 @@
+(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
 (* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -53,7 +54,8 @@ type dynhom_opts =
 type contents = Characters | CostMatrix | Trees 
 
 (* (name * tree ) * file * num *)
-type parsed_trees = ((string option * Tree.Parse.tree_types list) * string * int)
+type parsed_trees =
+    ((string option * Tree.Parse.tree_types list) * string * int)
 
 type dyna_state_t = [
     | `SeqPrealigned
@@ -4289,12 +4291,13 @@ let categorize_sets data : int list list =
     let named_sets = 
         List.map
             ~f:(fun xs ->
-                    List.map 
-                        ~f:(fun x -> 
-                            Hashtbl.find data.character_names x)
+                    List.fold_left
+                        ~f:(fun acc x ->
+                            try (Hashtbl.find data.character_names x)::acc
+                            with | Not_found -> acc)
+                        ~init:[]
                         xs)
-            (Hashtbl.fold (fun k v acc -> 
-                v::acc) data.character_sets [])
+            (Hashtbl.fold (fun k v acc -> v::acc) data.character_sets [])
     in
     (* add un-named sets from characters; seperate static and dynamic *)
     let fcodes_static = 
@@ -5330,7 +5333,7 @@ let auto_partition mode data code =
 
 (*tranform dynamic charactors to fixed_states(static) charactors *)
 let compute_fixed_states filename data code polymph =
-    let debug = false and debug2 = true in
+    let debug = false and debug2 = false in
     if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
