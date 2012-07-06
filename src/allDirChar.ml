@@ -1344,12 +1344,13 @@ module F : Ptree.Tree_Operations
         and current_cost = Ptree.get_cost `Adjusted tree in
         (* optimize Transition Model parameters *)
         let best_tree, best_cost =
+            let opt = Numerical.default_numerical_optimization_strategy () in
             match MlModel.get_update_function_for_model current_model with
             | Some func ->
                 let params = MlModel.get_current_parameters_for_model current_model in
-                let _,results = (* fst is vector of results *)
-                    Numerical.bfgs_method (f_likelihood func tree chars current_model)
-                                          ((get_some params),(tree,current_cost))
+                let _,results =
+                    Numerical.run_method opt (f_likelihood func tree chars current_model)
+                                             ((get_some params),(tree,current_cost))
                 in
                 results
             | None -> (tree,current_cost)
