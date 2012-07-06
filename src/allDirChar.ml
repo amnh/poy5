@@ -1996,13 +1996,15 @@ module F : Ptree.Tree_Operations
             | `Iterative `ThreeD _
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> cost_fn a b c d e 
+            | `Normal -> if debug_cost_fn then Printf.printf "Normal,"; cost_fn a b c d e 
             | `Exhaustive_Strong ->
+                    if debug_cost_fn then Printf.printf "Exhaustive_Strong,";
                 let pc = Ptree.get_cost `Adjusted e in
                 let (nt, _) = join_fn n_mgr [] a b e in
                 Ptree.Cost ((Ptree.get_cost `Adjusted nt) -. pc)
         in
-        if debug_cost_fn then Printf.printf "update node manager with new cost\n%!";
+        if debug_cost_fn then 
+            Printf.printf "update node manager with new cost\n%!";
         update_node_manager e (`Cost) n_mgr;
         cost
 

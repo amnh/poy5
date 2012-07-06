@@ -4078,6 +4078,7 @@ __inline void
 inline void
 #endif
 algn_ancestor_2 (seqt s1, seqt s2, cmt m, seqt sm ) {
+    int debug = 0 ;
     SEQT *begin1, *begin2;
     int interm;
     int i, gap, is_combinations, cost_model;
@@ -4086,15 +4087,20 @@ algn_ancestor_2 (seqt s1, seqt s2, cmt m, seqt sm ) {
     gap = cm_get_gap (m);
     is_combinations = m->combinations;
     cost_model = m->cost_model_type;
+    if (debug) {
+        printf("algn_ancestor_2,cost_model=%d,is_combinations=%d,gap=%d\n",cost_model,is_combinations,gap);
+    fflush(stdout); }
     for (i = seq_get_len (s1) - 1; i >= 0; i--) {
         interm = cm_get_median (m, begin1[i], begin2[i]);
         if(interm==0)
             failwith("median should not be 0\n");
         if ((!is_combinations) || (1 != cost_model)) {
+            if (debug) { printf("i=%d,interm=%d;",i,interm); }
             if (interm != gap) seq_prepend (sm, interm);
         }
         else seq_prepend (sm, interm);
     }
+    if (debug) { printf("\n"); fflush(stdout); }
     if ((!is_combinations) || ((1 != cost_model) && (gap != seq_get (sm, 0))))
         seq_prepend (sm, gap);
     else if (is_combinations)

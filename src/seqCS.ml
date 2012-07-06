@@ -777,9 +777,11 @@ module DOS = struct
             in
             let rescost = make_cost tmpcost in
             if debug then begin
+                Printf.printf "parent seq = %!";
+                Sequence.printseqcode parent;
                 Printf.printf " seq with ambiguity = %!";
                 Sequence.printseqcode mine.sequence;
-                Printf.printf " ==> %!";
+                Printf.printf " ==> seq without ambiguity = %!";
                 Sequence.printseqcode seqm;
             end;
             { mine with sequence = seqm; costs = rescost }, tmpcost
@@ -906,8 +908,9 @@ module DOS = struct
             let rescost = make_cost tmpcost in
             if debug then begin 
                 let print_seqlist seq = 
-                    Sequence.print stdout seq Alphabet.nucleotides;
-                print_newline();
+                    (*Sequence.print stdout seq Alphabet.nucleotides;*)
+                    Sequence.printseqcode seq;
+                    print_newline();
                 in
                 Printf.printf "costs = (%f,%f), a/b= %!" rescost.min rescost.max; 
                 print_seqlist a.sequence; print_seqlist b.sequence;

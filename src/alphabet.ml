@@ -740,7 +740,7 @@ let rec to_sequential alph =
 let rec explote alph level ori_sz=
     (* function "check_level" is not ready to use here, for the alphbet is not set up yet*)
     let uselevel =
-        if (level>1)&&(level<=ori_sz) then true
+        if (level>=1)&&(level<=ori_sz) then true
         else false
     in
     match alph.kind with
@@ -915,7 +915,7 @@ let create_alph_by_level alph level oldlevel =
     let debug = false in
     let ori_a_size = get_ori_size alph in
     if debug then 
-        Printf.printf "create new alph: ori_size=%d,old_level/newlevel=%d/%d\n%!" ori_a_size
+        Printf.printf "Alphabet.create new alph: ori_size=%d,old_level/newlevel=%d/%d\n%!" ori_a_size
     oldlevel level; 
     let orientation= get_orientation alph in
     let get_ori_alst  = 
@@ -937,13 +937,13 @@ let create_alph_by_level alph level oldlevel =
     let newalph = 
         if (level > ori_a_size) then 
             explote orialph ori_a_size ori_a_size 
-        else if (level <=1 ) then
+        else if (level <1 ) then
             orialph
-        else 
+        else (*we need to do this even level=1*)
             explote orialph level ori_a_size
     in
     if debug then begin
-        Printf.printf "end of create_alph_by_level, print newalph\n%!";
+        Printf.printf "end of Alphabet.create_alph_by_level, print newalph\n%!";
         print newalph;
     end;
     newalph

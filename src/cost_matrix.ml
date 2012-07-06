@@ -121,8 +121,7 @@ module Two_D = struct
     let check_level cm =
         let level = get_level cm in
         let size = get_ori_a_sz cm in
-        (*for level=1 , unlike alphabet, cm don't consider it using level*)
-        (level>1) && (level<=size)
+        (level>=1) && (level<=size)
     ;;
     
     let clear_duplication_in_list oldlist =
@@ -554,11 +553,6 @@ module Two_D = struct
             | [] :: ((_ :: _) as r) -> r
             | _ -> assert false
         in
-        (*
-        let all_comb_list = 
-            if all_elements>0 then [all_elements]::all_comb_list
-            else all_comb_list 
-        in*)
         (*List.iter (fun x -> Printf.printf "[%!";
         List.iter (fun y -> Printf.printf "%d," y) x;
         Printf.printf "]%!"; ) all_comb_list;
@@ -618,7 +612,19 @@ module Two_D = struct
         List.map create_maps comb_list_by_level;
     ;;
 
-    
+    (*return the worst median for gapcode and combination code with gap, we need
+    * this function because we don't call [test_combinations_by_level] for
+    * gap&combWgap
+    let get_worst_median_gap_and_combWgap m a_sz gapcode combWgap worst =
+        for i = 1 to a_sz do
+            let cost1 = cost gapcode i m in
+            let cost2 = cost combWgap i m in
+            let cost = cost1 + cost2 in
+            if !worst < cost then
+                worst := i;
+        done
+    *)
+
     let rec browse_combinations a l a_sz m best c w comb_withgap comb_num level all_elements =
         let debug = false in
         if debug then Printf.printf "a_sz=%d,browse_combinations on a=%d\n%! " a_sz a;
@@ -725,6 +731,10 @@ module Two_D = struct
         ((a || b) && (not (a && b)));;
 
     let fill_best_cost_and_median_for_all_combinations_bitwise m a_sz =
+        let debug = false in
+        if debug then 
+            Printf.printf
+            "fill_best_cost_and_median_for_all_combinations_bitwise\n%!";
                let find_best_combination get_cost l1 l2 =
             let aux_find_best_combination m i (best, med, worst) j =
                 let mb1 = get_cost i j in
@@ -775,9 +785,10 @@ module Two_D = struct
                 end
             done;
         done
-   
+
     let fill_best_cost_and_median_for_some_combinations m a_sz level all_elements =
-        let debug = false in
+        let debug = false and debug2 = false in
+        let gapcode = gap m in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
         let numerator = Utl.p_m_n (a_sz-1) (level-1) in
@@ -785,10 +796,14 @@ module Two_D = struct
         let comb_withgap = (numerator / denominator) in
         let comb_withgap = 
             if all_elements>0 then comb_withgap +1 else comb_withgap in
+        (*let contain_gap x = (*return true if code x contains gap*) 
+            if (a_sz-x)<comb_withgap then true 
+            else false 
+        in*)
         let cleanup = cleanup m in
         if debug then
-            Printf.printf "fill cm for some combinations: num_of_comb =%d,\
-        combwithgap = %d,all_elements=%d a_sz=%d\n%!" num_of_comb comb_withgap
+            Printf.printf "fill cm for some combinations: gapcode=%d,num_of_comb =%d,\
+        combwithgap = %d,all_elements=%d a_sz=%d\n%!" gapcode num_of_comb comb_withgap
         all_elements a_sz;
         let _  = build_maps_comb_and_codelist m a_sz level all_elements in
         for i = 1 to num_of_comb do
@@ -796,33 +811,49 @@ module Two_D = struct
             let li = combcode_to_comblist i m in
             for j = 1 to num_of_comb do 
                 if i<>all_elements && j<>all_elements then begin
-                let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
-                let lj = combcode_to_comblist j m in
-                let best = ref 0
-                and cost = ref max_int 
-                and worst = ref 0 in
-                test_combinations_by_level li lj a_sz m best cost worst
-                comb_withgap num_of_comb level all_elements;
-                let _ = 
-                    match li, lj with
-                    | [_], [_] ->
-                            let comb_i_j = comblist_to_combcode keylist m in
-                            if debug then Printf.printf "median.%d.%d <- \
-                                %d(cost=%d);\n%!" 
-                            i j (comb_i_j) !cost;
-                            set_cost i j m !cost;
-                            set_median i j m ( comb_i_j );
-                    | _, _ ->
-                            if debug then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
-                            i j !cost !best;
-                            set_cost (i) (j) m !cost;
-                            set_median (i) (j) m (cleanup !best);
-                in
-                set_worst (i) (j) m !worst;
-                end;
+                    let best = ref 0
+                    and cost = ref max_int 
+                    and worst = ref 0 in
+                    (*median between gap and a code contains gap should be the code itself, cost is 0 
+                    if (i=gapcode)&&(contain_gap j) then begin
+                        set_cost i j m 0;
+                        set_median i j m j;
+                        get_worst_median_gap_and_combWgap m a_sz gapcode j
+                        worst;
+                        set_worst i j m !worst;
+                    end
+                    else if (j=gapcode)&&(contain_gap i) then begin
+                        set_cost i j m 0;
+                        set_median i j m i;
+                        get_worst_median_gap_and_combWgap m a_sz gapcode i
+                        worst;
+                        set_worst i j m !worst;
+                    end
+                    normal case, we just call test_combinations_by_level to get the best median and cost
+                    else begin*)
+                        let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
+                        let lj = combcode_to_comblist j m in
+                        test_combinations_by_level li lj a_sz m best cost worst
+                        comb_withgap num_of_comb level all_elements;
+                        let _ = 
+                            match li, lj with
+                            | [_], [_] ->
+                                    let comb_i_j = comblist_to_combcode keylist m in
+                                    if debug2 then Printf.printf "median.%d.%d <- %d(cost=%d);\n%!" i j (comb_i_j) !cost;
+                                    set_cost i j m !cost;
+                                    set_median i j m ( comb_i_j );
+                            | _, _ ->
+                                    if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
+                                    i j !cost !best;
+                                    set_cost (i) (j) m !cost;
+                                    set_median (i) (j) m (cleanup !best);
+                        in
+                        set_worst (i) (j) m !worst;
+                    (*end; end of normal case*)
+                end;(*end of if i<>all_elements && j<>all_elements*)
             done;
         done;
-        if debug then 
+        if debug2 then 
             Printf.printf "set median and cost bwteen all_elements and other codes\n%!";
         if all_elements>0 then begin
             (*when all_elements=-1, we don't have code for "all_elements",
@@ -849,6 +880,7 @@ module Two_D = struct
     ;;
 
     let fill_best_cost_and_median_for_all_combinations m a_sz =
+        let debug = false in
         let get_cost = cost in
         let cleanup = cleanup m in
         let number_of_combinations = calc_number_of_combinations a_sz in
@@ -868,14 +900,15 @@ module Two_D = struct
                             set_median i j m (i lor j);
                             if debug then
                                 Status.user_message Status.Information
-                                ("Setting the cost beteen " ^ string_of_int i ^ " and " ^
-                                string_of_int j ^ " to " ^ string_of_int (get_cost i
-                                j m));
+                                ("cost." ^ string_of_int i ^ "." ^
+                                string_of_int j ^ " <-- " ^ string_of_int (get_cost i
+                                j m)^",median <-- "^string_of_int (i lor j));
                     | _, _ -> 
                             if debug then
                                 Status.user_message Status.Information
-                                ("Setting the cost beteen " ^ string_of_int i ^ " and " ^
-                                string_of_int j ^ " to " ^ string_of_int !cost);
+                                ("cost." ^ string_of_int i ^ "." ^
+                                string_of_int j ^ " <-- " ^ string_of_int !cost
+                                ^ ",median <-- "^string_of_int (cleanup !best));
                             set_cost i j m !cost;
                             set_median i j m (cleanup !best);
                 in
@@ -1120,16 +1153,13 @@ module Two_D = struct
         in
         if debug then Printf.printf 
         "fill cost matrix :\
-        a_sz = %d(pure a_sz=%d), use_comb=%b,level=%d,num_comb=%d(%d),all_elements=%d (list len=%d)\n%!"
+        a_sz = %d(pure a_sz=%d), use_comb=%b,level=%d,num_comb=%d(num_withgap=%d),all_elements=%d (list len=%d)\n%!"
         a_sz pure_a_sz use_comb level num_comb num_withgap all_elements (List.length l);
         let m =  (*Note: use_comb is 'int' in cm.c*)
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
             use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
         in
-        let (uselevel:bool) = check_level m in
-        (*let all_elements =
-           if uselevel then num_comb else all_elements
-        in*) 
+        let (uselevel:bool) = if level>1 then true  else false  in 
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
         if debug then Printf.printf "uselevel=%b,call fill_best_cost_and_median_XXX \n%!" uselevel;
         if use_comb then
@@ -1252,10 +1282,13 @@ module Two_D = struct
             Printf.printf "\n%!";
         end;
         let newm =
-            if (level <= 1) then
-                (*pass level=0 to cm.c when level<=1, we will set level back to 1 there.*)
+            if level=1 then
+                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:1 ori_list ori_sz
+                all_elements
+            else if (level < 1) then
                 fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:0 ori_list ori_sz
                 all_elements  
+            (*we don't have tie_breaker for level=2~a_sz-1 yet*)
             else if (level>ori_sz) then
                 fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
             else
@@ -1357,6 +1390,7 @@ module Two_D = struct
             then comblist_to_combcode states cm
             else BitSet.Int.packed_of_list_max states (alphabet_size cm)
 
+    (*to do : apply tie breaker to to_single finctions*)
     let get_closest cm a b =
         let debug = false in
         if debug then begin
@@ -1372,22 +1406,27 @@ module Two_D = struct
                 if check_level cm then
                     let level = get_level cm in
                     let ori_a_sz = get_ori_a_sz cm in 
-                    if ( a=gap || b=gap ) (*[gap] and [b] , we keep b*)
-                    then gap_filter_for_combcode b cm(*b*)
-                    else if (*[a or gap] and [b or gap], we pick gap*)
+                    if ( a=gap || b=gap ) then
+                        (*Case 1. [gap] and [b] , we keep b as it is, then later break b
+                        * into list of codes, then pick the closest one to
+                        * a(which is gap here);
+                        *Case 2. [a] and [gap], we keep gap, which will be the best*)
+                        b
+                    else if (*[a or gap] and [b or gap], we pick gap as best*)
                         (combcode_includes_gap a ori_a_sz level total_num) 
                         && 
                         (combcode_includes_gap b ori_a_sz level total_num) 
                     then
                         gap
-                    else (*filter out gap code in combcode of b*)
+                    else 
+                        (*neither a or b contains gap, just filter out gap code from b*)
                         gap_filter_for_combcode b cm
                 else
                     if a = gap || b = gap then b
                     else if (0 <> a land gap) && (0 <> b land gap) then gap
                     else b land (lnot gap)
             in
-            match states_of_code b cm with
+            match states_of_code b cm with(*get a list of code based on codeb*)
             | [] -> failwith "~ No bits on?"
             | bits ->
                 let bits = List.rev bits in

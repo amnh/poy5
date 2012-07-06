@@ -1122,11 +1122,23 @@ module Align = struct
         s -> s -> Cost_matrix.Two_D.m -> s -> unit = "algn_CAML_ancestor_2" 
 
     let ancestor_2 s1 s2 c =
+        let debug = false in
         let sz1 = length s1 
         and sz2 = length s2 in
         if (sz1 = sz2) then begin
+            if debug then begin
+                Printf.printf "sequence.ancestor_2 on s1 & s2 (len=%d)\n%!" sz1;
+                printseqcode s1;
+                printseqcode s2;
+                Printf.printf "call algn_ancestor_2 on cside\n%!";
+            end;
             let sp = create (sz2 + 1) in
             c_ancestor_2 s1 s2 c sp;
+            if debug then begin
+                Printf.printf "return ancestor(len=%d) = %!"
+                (length sp);
+                printseqcode sp;
+            end;
             sp
         end else 
             raise 
@@ -1202,7 +1214,7 @@ module Align = struct
         let uselevel = check_level cm in
         let debug = false in
         if debug then begin
-        Printf.printf "closest, uselevel = %b,use_comb=%d, s1 and s2 = \n%!" uselevel
+        Printf.printf "closest, uselevel = %b,use_comb=%d, parent and mine = \n%!" uselevel
         (Cost_matrix.Two_D.combine cm) ;
         printseqcode s1;
         printseqcode s2;
@@ -1222,8 +1234,6 @@ module Align = struct
                     else v'
                 else v
             in
-            Printf.printf "; s1' and s2' = %!"; printseqcode s1'; printseqcode s2';
-            Printf.printf "end of sequence.ml \n%!";
             remove_gaps2 (mapi get_closest s2') cm, cst
         else
             let s1', s2', comp =
@@ -1249,7 +1259,7 @@ module Align = struct
                 else
                     let s1', s2', _ = align_2 s1 s2 cm m in
                     if debug then begin
-                        Printf.printf "s1' and s2' from align s1 and s2 :\n%!";
+                        Printf.printf "s1' and s2' from align parent and mine :\n%!";
                         printseqcode s1';
                         printseqcode s2';
                     end;
@@ -1265,8 +1275,9 @@ module Align = struct
                 in
                 remove_gaps2 s2' cm
             in
-            (*Printf.printf ", s2' = %!"; printseqcode s2';
-            Printf.printf "end of sequence.ml \n%!";*)
+            if debug then begin
+                Printf.printf ", s2' from get_closest on s1' = %!"; printseqcode s2';
+            end;
             (* We must recalculate the distance between sequences because the
             * set ditance calculation is an upper bound in the affine gap cost
             * model *)
