@@ -3236,6 +3236,11 @@ let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
 let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
 
 let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
+    if debug_treebuild then begin
+        Printf.printf "node.to_single,\n%!";
+    print_node_data parent;
+    print_node_data mine;
+    end;
     let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs minet : cs =
         if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
         match parent_cs, minet with

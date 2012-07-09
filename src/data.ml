@@ -5623,7 +5623,7 @@ let assign_tcm_to_characters data chars foname tcm newalph =
                         let tcm, tcmfile = tcm all_elements in
                         ref_tcmfile := Some tcmfile;
                         if debug_level then 
-                            Printf.printf "assign_tcm_to_characters,calc tcm3d if init3D=true\n%!";
+                            Printf.printf "Data.assign_tcm_to_characters,calc tcm3d if init3D=true\n%!";
                         let tcm3d =
                             if (Alphabet.use_3d dspec.alph) then
                                 Cost_matrix.Three_D.of_two_dim tcm
@@ -6062,7 +6062,7 @@ let assign_level data chars tie_breaker level =
                     end;
                   in
                   if debug_level then begin
-                    Printf.printf "End of assign_level, %!"; Alphabet.print resalph;
+                    Printf.printf "End of Data.assign_level,check new alph %!"; Alphabet.print resalph;
                   end;
                   (true, a),(fun _ -> resb,name),resalph
                   (*
