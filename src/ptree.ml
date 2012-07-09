@@ -64,28 +64,6 @@ type ('a, 'b) p_tree = {
 
 
 type phylogeny = (Node.node_data, unit) p_tree
-(*
-let cannonize a =
-    let rec cannonize fn a = 
-        match a with
-        | Parser.Trees.Leaf x -> x, a
-        | Parser.Trees.Node (lst, _) ->
-                let res = List.rev_map cannonize lst in
-                match List.sort (fun ((x : string), _) ((y : string), _) ->
-                    Pervasives.compare x y ) res  with
-                    | ((h, _) :: _) as lst ->
-                            let _, res = List.split lst in
-                            h, (Parser.Trees.Node (res, h))
-                    | [] -> failwith "Ptree.cannonize"
-    in
-    match a with
-    | Parser.Trees.Annotated (t,str) ->
-        let a,b = cannonize (fun x -> x) t in a,(Parser.Trees.Annotated (b,str))
-    | Parser.Trees.Flat t -> 
-        let a,b = cannonize t in a,(Parser.Trees.Flat b)
-    | Parser.Trees.Branches t ->
-        let a,b = cannonize t in a,(Parser.Trees.Branches b)
-*)
 
 type cost_type = [ `Adjusted | `Unadjusted ]
 
