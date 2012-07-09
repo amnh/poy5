@@ -234,6 +234,7 @@ let categorize_by_model get_fn codes =
     in
     MlModelMap.fold (fun _ e a -> e :: a) set_codes []
 
+
 (** Count the number of parameters in the model; used for xIC functions **)
 let count_parameters model : int =
     let num_subst = match model.spec.substitution with
@@ -246,9 +247,13 @@ let count_parameters model : int =
         | None | Some Constant -> 0
         | Some Gamma _ -> 1
         | Some Theta _ -> 2
+    and num_priors = match model.spec.base_priors with
+        | Estimated f -> Array.length f
+        | Given     _ -> 0
+        | Equal       -> 0
     in
     (if model.spec.iterate_model then num_subst else 0)
-        +
+     + num_priors +
     (if model.spec.iterate_alpha then num_rates else 0)
 
 

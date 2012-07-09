@@ -47,6 +47,7 @@ Enum
 Fasta
 FileStream
 FingerPrint
+Fixed_states
 FMatrix
 FloatSequence
 GenAli
@@ -75,6 +76,7 @@ Methods
 MlModel
 MlDynamicCS
 MlStaticCS
+ModelSelection
 Mst
 @INTERFACETOP@
 @MPITOP@
