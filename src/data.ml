@@ -6272,98 +6272,85 @@ let report_taxon_file_cross_reference chars data filename =
     Status.user_message fo "@]@]@."
 
 
-
-let find_max_seq_id data = 
-    let max_seq_id = Hashtbl.fold  
-        (fun key cs_ls max_seq_id ->
-            Hashtbl.fold
-            (fun _ cs max_seq_id -> 
-                let csd, _ = cs in 
-                match csd with
-                | Dyna (_, dyna_data) ->
-                        Array.fold_left 
-                        ~f:(fun max_seq_id seq -> max max_seq_id seq.code
-                ) ~init:max_seq_id dyna_data.seq_arr 
-                | _ -> max_seq_id) 
-            cs_ls 
-            max_seq_id) 
-        data.taxon_characters 
-        0  
-    in 
-    max_seq_id + 2
-
-
-
-let flush d = 
-    Hashtbl.iter (fun _ item ->
-        match  item with
-        | Dynamic dspec -> ()
-        | _ -> ()) d.character_specs 
-
-let set_weight weight spec =
-    match spec with
+let set_weight weight spec = match spec with
     | Static x ->
-            (match x with
-            | NexusFile enc -> Static (NexusFile { enc with Nexus.File.st_weight = weight})
-            | FixedStates enc -> Static (FixedStates 
-            { enc with original_dynspec = { enc.original_dynspec with weight = weight }}) )
+        begin match x with
+            | NexusFile enc ->
+                Static (NexusFile { enc with Nexus.File.st_weight = weight})
+            | FixedStates enc ->
+                let data = { enc.original_dynspec with weight = weight; } in
+                Static (FixedStates {enc with original_dynspec = data; })
+        end
     | Dynamic enc ->
-            Dynamic ({ enc with weight = weight })
+        Dynamic ({ enc with weight = weight })
     | Kolmogorov enc ->
-            let res = { enc.dhs with weight = weight } in
-            Kolmogorov { enc with dhs = res }
+        let res = { enc.dhs with weight = weight } in
+        Kolmogorov { enc with dhs = res }
     | _ -> spec
 
-let set_weight_factor weight spec =
-    match spec with
+
+let set_weight_factor weight spec = match spec with
     | Static x ->
-            (match x with
-            | NexusFile enc -> Static (NexusFile { enc with Nexus.File.st_weight
-            = enc.Nexus.File.st_weight *. weight } )
-            | FixedStates enc -> Static (FixedStates 
-            { enc with original_dynspec = { enc.original_dynspec with weight = enc.original_dynspec.weight *. weight } } ))
+        begin match x with
+            | NexusFile enc ->
+                let w = enc.Nexus.File.st_weight *. weight in
+                Static (NexusFile { enc with Nexus.File.st_weight = w })
+            | FixedStates enc ->
+                let w =
+                    { enc.original_dynspec with
+                            weight = enc.original_dynspec.weight *. weight }
+                in
+                Static (FixedStates { enc with original_dynspec = w })
+        end
     | Dynamic enc ->
-            Dynamic ({ enc with weight = enc.weight *. weight })
+        Dynamic ({ enc with weight = enc.weight *. weight })
     | Kolmogorov enc ->
-            let res = { enc.dhs with weight = enc.dhs.weight *. weight } in
-            Kolmogorov { enc with dhs = res }
+        let res = { enc.dhs with weight = enc.dhs.weight *. weight } in
+        Kolmogorov { enc with dhs = res }
     | _ -> spec
 
 let aux_transform_weight meth data =
-    let f = 
-        match meth with
+    let f = match meth with
         | `ReWeight (chars, weight) ->
-                let chars = 
-                    let codes = get_chars_codes_comp data chars in
-                    List.fold_left ~f:(fun acc x -> All_sets.Integers.add x acc)
-                    ~init:All_sets.Integers.empty codes
-                in
-                (fun code spec ->
-                    if All_sets.Integers.mem code chars then
-                        set_weight weight spec
+            let chars = 
+                let codes = get_chars_codes_comp data chars in
+                List.fold_left
+                    ~f:(fun acc x -> All_sets.Integers.add x acc)
+                    ~init:All_sets.Integers.empty
+                    codes
+            in
+            (fun code spec ->
+                if All_sets.Integers.mem code chars
+                    then set_weight weight spec
                     else spec)
         | `WeightFactor (chars, weight) ->
-                let chars = 
-                    let codes = get_chars_codes_comp data chars in
-                    List.fold_left ~f:(fun acc x -> All_sets.Integers.add x acc)
-                    ~init:All_sets.Integers.empty codes
-                in
-                (fun code spec ->
-                    if All_sets.Integers.mem code chars then
-                        set_weight_factor weight spec
+            let chars =
+                let codes = get_chars_codes_comp data chars in
+                List.fold_left
+                    ~f:(fun acc x -> All_sets.Integers.add x acc)
+                    ~init:All_sets.Integers.empty
+                    codes
+            in
+            (fun code spec ->
+                if All_sets.Integers.mem code chars
+                    then set_weight_factor weight spec
                     else spec)
     in
-    Hashtbl.iter (fun code char ->
-        Hashtbl.replace data.character_specs code (f code char)) 
-    data.character_specs
+    Hashtbl.iter
+        (fun code char ->
+            Hashtbl.replace data.character_specs code (f code char)) 
+        data.character_specs
+
 
 let transform_weight meth data = 
     let data = duplicate data in
     aux_transform_weight meth data;
     data
 
+
 let file_exists data filename =
     List.exists (fun (x, _) -> x = FileStream.filename filename) data.files
+
 
 let complement_taxa data taxa = 
     let taxa = 
@@ -6374,25 +6361,18 @@ let complement_taxa data taxa =
         if All_sets.Integers.mem c taxa then acc
         else c :: acc) data.taxon_codes []
 
+
 let make_fixed_states filename chars polymph data =
     let data = duplicate data in
-    let polymph =
-        match polymph with 
+    let polymph = match polymph with 
         | None -> `Do_All 
         | Some x -> x 
     in
     let convert_and_process code =
         match Hashtbl.find data.character_specs code with
         | Dynamic dhs ->  compute_fixed_states filename data code polymph
-                (*match dhs.initial_assignment with
-                | `FS _ -> ()
-                | `Partitioned _
-                | `AutoPartitioned _
-                | `DO
-                | `GeneralNonAdd -> 
-                        compute_fixed_states filename data code polymph*)
-        | _ -> failwith "Data.make_fixed_states, we only make fixed states out
-        of dynamic data-type."
+        | _ -> failwith ("Data.make_fixed_states, we only make fixed states "^
+                         "out of dynamic data-type.")
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
     List.iter ~f:convert_and_process codes;
@@ -6403,31 +6383,27 @@ let make_direct_optimization chars data =
     let convert_and_process code =
         match Hashtbl.find data.character_specs code with
         | Dynamic dhs ->
-                (match dhs.initial_assignment with
+            begin match dhs.initial_assignment with
                 | `AutoPartitioned _
                 | `Partitioned _ ->
                     Hashtbl.replace data.character_specs code 
                         (Dynamic { dhs with initial_assignment = `DO })
-                | `DO | `GeneralNonAdd -> ())
+                | `DO | `GeneralNonAdd -> ()
+            end
         | _ -> ()
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
     List.iter ~f:convert_and_process codes;
     data
 
+
 let make_partitioned mode chars data =
     let data = duplicate data in
     let convert_and_process code =
         match Hashtbl.find data.character_specs code with
-        | Dynamic dhs -> 
-                auto_partition mode data code
-                (*match dhs.initial_assignment with
-                | `FS _ -> ()
-                | `AutoPartitioned _
-                | `Partitioned _
-                | `DO | `GeneralNonAdd -> auto_partition mode data code*)
-        | _ -> failwith "Data.make_partitioned, we only make fixed states out
-        of dynamic data-type." 
+        | Dynamic dhs -> auto_partition mode data code
+        | _ -> failwith ("Data.make_partitioned, we only make fixed states "
+                        ^"out of dynamic data-type.")
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
     List.iter ~f:convert_and_process codes;
@@ -6437,8 +6413,8 @@ let make_partitioned mode chars data =
 let number_of_taxa d = 
     Hashtbl.fold  (fun _ _ num_taxa -> num_taxa + 1) d.taxon_characters 0  
 
-let has_dynamic d = 
-    match d.dynamics, d.kolmogorov with
+
+let has_dynamic d = match d.dynamics, d.kolmogorov with
     | [], [] -> false
     | _      -> true
 
@@ -6457,8 +6433,10 @@ let can_do_static_approx_code d x =
         | Dynamic d     -> false | Static _      -> false
         | Set           -> false | Kolmogorov _  -> false
 
+
 let can_all_chars_do_static_approx d xs =
     List.fold_left ~f:(fun acc x -> acc && (can_do_static_approx_code d x)) ~init:true xs
+
 
 let filter_non_static_approx_characters ?(comp=true) d xs =
     if comp then List.filter (can_do_static_approx_code d) xs
@@ -6559,6 +6537,7 @@ let change_taxon_codes reorder_function data =
                 root_at = root },
     htbl
 
+
 let randomize_taxon_codes meth data = 
     let f = match meth with
         | `RandomizedTerminals -> Array_ops.randomize 
@@ -6569,6 +6548,7 @@ let randomize_taxon_codes meth data =
     in
     change_taxon_codes f data
 
+
 let lexicographic_taxon_codes data = 
     let lexicographic_sort (a : int) b =
         let namea = code_taxon a data
@@ -6576,6 +6556,7 @@ let lexicographic_taxon_codes data =
         String.compare namea nameb
     in
     change_taxon_codes (Array.stable_sort ~cmp:lexicographic_sort) data
+
 
 (* A function to produce the alignment of prealigned data *)
 let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
