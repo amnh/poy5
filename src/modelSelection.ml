@@ -21,62 +21,43 @@ let () = SadmanOutput.register "ModelSelection" "$Revision"
 
 let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
+let fst_trp (a,_,_) = a and snd_trp (_,a,_) = a and trd_trp (_,_,a) = a
+
 
 module type S = sig
 
-    (** abstract type for node in functorization *)
     type a 
-
-    (** abstract type for edge in functorization *)
     type b
-
-    (** tree composed of a and b *)
     type tree = (a,b) Ptree.p_tree
 
-    (** Define a list/subset of models to use in the particular IC *)
     type models = MlModel.subst_model list
 
-    (** Types of Information Criterias used in the tree-stats *)
     type ic = | AIC | AICC | BIC
 
-    (** Define stats for a tree; likelihood, aic, and bic *)
     type tree_stats =
-        {   tree : tree;
-              lk : float;
-                 (* IC, delta_IC, IC_weight *)
-              ic : float * float * float; }
+        { tree : tree; lk : float; ic : float * float * float; }
 
-    (** Define a collection of models for information testing *)
     type stats =
-        { tree_stats : tree_stats array;
-              min_ic : int * float; }
+        { tree_stats : tree_stats array; type_ic : ic; min_ic : int * float; }
 
     val aic  : int -> int -> float -> float
-    (** [aic n k l_max] Calculate the Akaike Information Criterion *)
-
     val aicc : int -> int -> float -> float
-    (** [aic n k l_max] Calculate the AICc; as n->inf this is equal to aic, but has
-        a higher parameter penalty for smaller n *)
-
     val bic  : int -> int -> float -> float
-    (** [bic n k l_max] Calculate the Bayesian Information Criterion *)
 
-    (** [best_model] return the optimial tree from stats *)
     val best_model : stats -> tree 
-
-    (** [stats_of_models] fills and calculates the *IC stats for a set of
-        models, used as a basis for all *IC methods. *)
     val stats_of_models : models -> ic -> Data.bool_characters -> tree -> stats
-
+    val merge_stats : stats list -> stats
 end
 
 module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             (Edge : Edge.EdgeSig with type n = Node.n) 
             (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) : S =
 struct
+
     type a = Node.n
     type b = Edge.e
     type tree = (a, b) Ptree.p_tree 
+
 
     (** {6 Types for collection of data and defining what type of IC to use *)
 
@@ -96,7 +77,9 @@ struct
     (** Define a collection of models for information testing *)
     type stats =
         { tree_stats : tree_stats array;
+             type_ic : ic;
               min_ic : int * float; }
+
 
     (** {6 Helper functions for determining model properties *)
 
@@ -105,13 +88,14 @@ struct
         [ MlModel.JC69; MlModel.F81; MlModel.K2P None; MlModel.F84 None;
           MlModel.HKY85 None; MlModel.TN93 None; MlModel.GTR None; ]
 
+
     (** [parameter_cardinality] Helper function to determine the total number of
         parameters in the model; this includes branches, model rates, gamma, and
         for each character set if there are more than one. *)
     let parameter_cardinality tree chars : int =
         let sets =
             Data.categorize_likelihood_chars_by_model chars tree.Ptree.data in
-        let model_params = 
+        let model_params =
             List.fold_left
                 (fun acc xs ->
                     let model = Data.get_likelihood_model tree.Ptree.data xs in
@@ -127,11 +111,41 @@ struct
     let sample_size tree chars : int = assert false
 
     (** [negative_loglikelihood] return the negative log-likelihood of a tree *)
-    let negative_loglikelihood tree chars : float = assert false
+    let negative_loglikelihood tree chars : float =
+        Ptree.get_cost `Adjusted tree
+
+    (** [update_model] updates a model with a new model *)
+    let update_model old_model new_model = assert false
+
+    (** [apply_model_to_data] apply the model specification to a set of chars *)
+    let apply_model_to_data new_model chars data : Data.d = 
+        let sets = Data.categorize_likelihood_chars_by_model chars data in
+        List.fold_left
+            (fun d xs ->
+                let model = Data.get_likelihood_model d xs in
+                let model = update_model model new_model in
+                Data.apply_likelihood_model_on_chars d xs model)
+            data
+            sets
 
     (** [diagnose_tree_with_model] determine the maximum likelihood value for
         the tree and model. Return the ML parameters and negative log-likelihood *)
-    let diagnose_tree_with_model tree chars model : tree = assert false
+    let diagnose_tree_with_model tree chars model : tree =
+        let data, nodes =
+            tree.Ptree.data
+                --> apply_model_to_data model chars
+                --> Data.categorize
+                --> Node.load_data
+        in
+        let node_data =
+            List.fold_left
+                (fun acc x -> All_sets.IntegerMap.add (Node.taxon_code x) x acc)
+                All_sets.IntegerMap.empty
+                nodes
+        in
+        { tree with Ptree.node_data = node_data; Ptree.data = data; }
+            --> TreeOps.downpass
+            --> TreeOps.uppass
 
 
     (** {6 General Information Metrics for Model Selection *)
@@ -181,6 +195,13 @@ struct
     (** [stats_of_models] fills and calculates the *IC stats for a set of
         models, used as a basis for all *IC methods. *)
     let stats_of_models models ic chars tree =
+        let () = match chars with
+            | `All -> ()
+            | char ->
+                failwithf ("Currently using %s as a subset of characters is "^^
+                           "not supported. Only all is allowed")
+                          (Data.string_of_characters char)
+        in
         let tree_stats = 
             models --> Array.of_list
                    --> Array.map (diagnose_tree_with_model tree chars)
@@ -197,21 +218,66 @@ struct
         let tree_stats, sum_ic =
             Array.fold_left
                 (fun (data,sum_ic) (t,ic) ->
-                    let w_ic  = exp (~-. (ic -. (snd min_ic)) /. 2.0) in
-                    ((t,ic,w_ic)::data), sum_ic +. w_ic )
+                    let d_ic = ic -. (snd min_ic) in
+                    let w_ic  = exp (~-. d_ic /. 2.0) in
+                    ((t,ic,d_ic,w_ic)::data), sum_ic +. w_ic)
                 ([],0.0)
                 (tree_stats)
         in
-        let tree_stats : tree_stats list =
+        let tree_stats =
             List.map
-                (fun (t,ic,w_ic) ->
-                    let d_ic = ic  -. (snd min_ic) in
+                (fun (t,ic,d_ic,w_ic) ->
                     let w_ic = w_ic /. sum_ic in
                     { tree = t;
                         lk = negative_loglikelihood t chars;
                         ic = (ic, d_ic, w_ic); })
                 tree_stats
+            --> Array.of_list
         in
-        { tree_stats = Array.of_list tree_stats; min_ic = min_ic; }
+        assert( (fst_trp tree_stats.(fst min_ic).ic) = (snd min_ic) );
+        { tree_stats = tree_stats; min_ic = min_ic; type_ic = ic; }
+
+
+    (** [merge_stats] merges stats together; this is to allow multiple trees to
+        be analyzed under a single criteria; allowing additional models to be
+        added to the criteria; et cetera *)
+    let merge_stats stats_list = match stats_list with
+        | []  -> assert false
+        | [x] -> x
+        | (x::_) as xs  ->
+            assert( List.fold_left (fun b c -> b && (c.type_ic = x.type_ic)) true xs );
+            let stats  = Array.concat (List.map (fun x -> x.tree_stats) xs) in
+            let _,min_ic =
+                Array.fold_left
+                    (fun (i,minic) curr ->
+                        if (snd minic) < (fst_trp curr.ic)
+                            then (i+1,minic)
+                            else (i+1,(i,fst_trp curr.ic)))
+                    (0,x.min_ic)
+                    stats
+            in
+            let tree_stats,sum_ic =
+                Array.fold_left
+                    (fun (data,sum_ic) curr ->
+                        let d_ic = (fst_trp curr.ic) -. (snd min_ic) in
+                        let w_ic  = exp (~-. d_ic /. 2.0) in
+                        let ndata =
+                            { curr with 
+                                ic = (fst_trp curr.ic,d_ic,w_ic); }
+                        in
+                        ndata :: data, sum_ic +. w_ic)
+                    ([],0.0)
+                    (stats)
+            in
+            let tree_stats =
+                List.map
+                    (fun c -> 
+                        {c with
+                            ic = (fst_trp c.ic, snd_trp c.ic, (trd_trp c.ic) /. sum_ic); })
+                    tree_stats
+                --> Array.of_list
+            in
+            assert( (fst_trp tree_stats.(fst min_ic).ic) = (snd min_ic) );
+            { tree_stats = tree_stats; min_ic = min_ic; type_ic = x.type_ic; }
 
 end
