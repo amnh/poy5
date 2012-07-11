@@ -3325,6 +3325,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         { mine with characters = chars; }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
+    let debug = false in
     let ch1, ch2 =
         if ch1.min_child_code < ch2.min_child_code then
             ch1, ch2
@@ -3388,12 +3389,25 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     failwith MlStaticCS.likelihood_error
                   END
                 | _ -> 
+                        if debug then begin
+                            Printf.printf "node.readjust, call dynamicCS.readjust\
+                        with c1,c2 and preant, mine:\n%!";
+                        DynamicCS.print c1.preliminary;
+                        DynamicCS.print c2.preliminary;
+                        DynamicCS.print parent.preliminary;
+                        DynamicCS.print mine.preliminary;
+                        end;
                     let m, prev_cost, cost, res = 
                         DynamicCS.readjust mode to_adjust !modified c1.preliminary
                                 c2.preliminary parent.preliminary mine.preliminary
                     in
+                    if debug then begin
+                        Printf.printf "end of DynamicCS.readjust,check new med:\n%!";
+                    DynamicCS.print res;
+                    end;
                     modified := m;
                     let cost = mine.weight *. cost in
+                    let res = 
                     Dynamic
                         { mine with
                             preliminary = res; final = res; 
@@ -3401,6 +3415,8 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                             sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
                             time=None,None,None;
                         }
+                    in
+                    res
             end
         | _ -> mine
     in

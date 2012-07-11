@@ -680,7 +680,8 @@ module DOS = struct
     }
 
     let print do_single_seq = 
-        Sequence.print stdout do_single_seq.sequence Alphabet.nucleotides
+        (*Sequence.print stdout do_single_seq.sequence Alphabet.nucleotides*)
+        Sequence.printseqcode do_single_seq.sequence
 
     let to_union a = Sequence.Unions.leaf a.sequence
 
@@ -786,6 +787,7 @@ module DOS = struct
         0 <> compare res.sequence mine.sequence, res, cost
 
     let to_single h parent mine =
+        let debug = false in
         if debug then Printf.printf "seqCS.DOS.to_single\n%!";
         let gap = Cost_matrix.Two_D.gap h.c2 in
         let use_ukk = match !Methods.algn_mode with
@@ -834,7 +836,8 @@ module DOS = struct
                             seqm, tmpa, tmpb, tmpcost, seqmwg
                         else
                             Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
-                        (**)
+                        (*this is debug code for comparing newkkonen alignment
+                        * and normal alignment*)
                         (* compare cost and alignment
                         let notthesame s1 s2 =
                             if (Sequence.compare s1 s2)<>0 then true

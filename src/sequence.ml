@@ -602,6 +602,10 @@ module Align = struct
     let clear_duplication_in_list = Cost_matrix.Two_D.clear_duplication_in_list
     let calc_comb_with_gap = Cost_matrix.Two_D.calc_num_of_comb_with_gap
 
+    (*custom alphabet, filter out gap from sequence s1 ,when s1 = a/-bcd/- return abcd*)
+    let gap_filter_for_seq s1 cm =
+        map (fun x -> gap_filter_for_combcode x cm) s1
+
     external c_max_cost_2 : s -> s -> Cost_matrix.Two_D.m -> int = "algn_CAML_worst_2"
 
     (*[c_cost_2] and [c_cost_2_limit] return the alignment cost, the result of
@@ -1407,7 +1411,8 @@ module Align = struct
         let debug = false in
         let tie_breaker = Cost_matrix.Two_D.get_tie_breaker cm2d in
         let get_cost2d = Cost_matrix.Two_D.cost in
-        let size = Cost_matrix.Two_D.get_ori_a_sz cm2d in
+        (*let size = Cost_matrix.Two_D.get_ori_a_sz cm2d in*)
+        let size = Cost_matrix.Two_D.get_map_sz cm2d in
         let bestcost = ref Utl.large_int in
         let bestmed = ref [] in
         if debug then 
@@ -1443,12 +1448,25 @@ module Align = struct
         
 
 
-    let get_cost3d i j k cm2d cm3d no_3dcm =
+    let get_cost3d i j k gapcode cm2d cm3d no_3dcm =
+        let get_cost2d = Cost_matrix.Two_D.cost in
         let res = 
-            if no_3dcm then
-                get_cost3d_w_htbl true i j k cm2d
-            else
-                Cost_matrix.Three_D.cost i j k cm3d
+            (*return gap insert/delete cost*)
+            if i=gapcode then
+                (get_cost2d j gapcode cm2d) +
+                (get_cost2d k gapcode cm2d)
+            else if j=gapcode then
+                (get_cost2d i gapcode cm2d) +
+                (get_cost2d k gapcode cm2d)
+            else if k=gapcode then
+                (get_cost2d i gapcode cm2d) +
+                (get_cost2d j gapcode cm2d)
+            else 
+                (*return alignment cost*)
+                if no_3dcm then
+                    get_cost3d_w_htbl true i j k cm2d
+                else
+                   Cost_matrix.Three_D.cost  i j k cm3d
         in
         res
     
@@ -1467,6 +1485,9 @@ module Align = struct
         (*debug2 print out input and output sequence, debug3 print out steps in
         * updating alignment matrix and backtrace*)
         let debug = false and debug2 = false and debug3 = false in
+        let ch1 = gap_filter_for_seq ch1 cm2d in
+        let ch2 = gap_filter_for_seq ch2 cm2d in
+        let parent = gap_filter_for_seq parent cm2d in
         let size1 = length ch1 in 
         let size2 = length ch2 in
         let size3 = length parent in
@@ -1512,16 +1533,16 @@ module Align = struct
         let set_v_to_mat i j k newcost newdirlst = 
             algn_mat_3d.(i).(j).(k) <- (newcost,newdirlst); 
         in 
-        let calc_newv_from_dir i j k a b c dir bestcost bestdir =
+        let calc_newv_from_dir i j k a b c dir  bestcost bestdir =
             if debug3 then 
             Printf.printf 
             "calc cost from prev pos.%d.%d.%d, with current seqcode = %d,%d,%d; %!" i j k a b c;
             let cost_from_prev,_ = get_v_from_mat i j k in
             let addcost = 
-                if cost_from_prev=Utl.large_int then
+                if cost_from_prev=Utl.large_int then(*boundry cell*)
                     Utl.large_int
-                else
-                    get_cost3d a b c cm2d cm3d no_3dcm
+                else 
+                    get_cost3d a b c gapcode cm2d cm3d no_3dcm
             in
             if debug3 then Printf.printf "cost <- %d + %d\n%!" addcost cost_from_prev;
             let cost = addcost + cost_from_prev in
