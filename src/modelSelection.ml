@@ -377,7 +377,7 @@ module IC = Make (AllDirNode.AllDirF) (Edge.LazyEdge) (AllDirChar.F)
 (** Test against the scripting module Phylo; we use magic to transform the
     types, they are the same so this is okay, if not a terrible thing to do *)
 let test file =
-    let phylo_to_ic : (Phylo.a, Phylo.b) Ptree.p_tree -> (IC.a, IC.b) Ptree.p_tree = Obj.magic
+    let phylo_to_ic : (Phylo.a, Phylo.b) Ptree.p_tree -> (IC.a, IC.b) Ptree.p_tree = Obj.magic in
     Status.set_verbosity `None;
     let ()    = (POY run ([file])) in
     Methods.cost := `Iterative (`ThreeD None);
@@ -397,3 +397,4 @@ let test file =
         IC.report_stats stat `All
     else
         ()
+
