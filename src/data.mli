@@ -602,6 +602,8 @@ val apply_likelihood_model_on_chars : d -> int list -> MlModel.model -> d
 
 val verify_alphabet : d -> int list -> Methods.ml_alphabet -> int * Alphabet.a
 
+val compute_priors : d -> int list -> bool -> float array
+
 val update_priors : d -> int list -> bool -> d
 
 val apply_heuristic_cost_model : ?cost_model:Methods.ml_costfn -> d -> d option

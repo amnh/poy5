@@ -238,23 +238,21 @@ let categorize_by_model get_fn codes =
 (** Count the number of parameters in the model; used for xIC functions **)
 let count_parameters model : int =
     let num_subst = match model.spec.substitution with
-        | Custom (_,x,_)          -> Array.length x
+        | Custom (_,x,_)          -> (Array.length x) - 1
         | JC69  | F81 | File _    -> 0
         | K2P _ | F84 _ | HKY85 _ -> 1
-        | TN93 _ -> 2
-        | GTR _  -> (model.alph_s*(model.alph_s-1))/2
+        | TN93 _                  -> 2
+        | GTR _  -> ((model.alph_s*(model.alph_s-1))/2) - 1
     and num_rates = match model.spec.site_variation with
         | None | Some Constant -> 0
-        | Some Gamma _ -> 1
-        | Some Theta _ -> 2
+        | Some Gamma _         -> 1
+        | Some Theta _         -> 2
     and num_priors = match model.spec.base_priors with
-        | Estimated f -> Array.length f
+        | Estimated f -> (Array.length f) - 1
         | Given     _ -> 0
         | Equal       -> 0
     in
-    (if model.spec.iterate_model then num_subst else 0)
-     + num_priors +
-    (if model.spec.iterate_alpha then num_rates else 0)
+    num_subst + num_priors + num_rates
 
 
 IFDEF USE_LIKELIHOOD THEN
@@ -1897,6 +1895,22 @@ let to_formatter (model: model) : Xml.xml Sexpr.t list =
         { `Set (priors :: (parameters model)) }
     --) :: []
 (* -> Xml.xml Sexpr.t list *)
+
+(** produce a short readable name for the model: like JC69+G+I. We ignore data
+    dependent and optimality paramters (gap as missing/independent) and mpl/mal *)
+let short_name model =
+    let model_name = match model.spec.substitution with
+        | JC69    -> "JC69" | F81     -> "F81"
+        | K2P _   -> "K81"  | F84 _   -> "F84"
+        | HKY85 _ -> "HKY"  | TN93 _  -> "TN93"
+        | GTR _   -> "GTR"  | File _  -> "FILE"
+        | Custom _-> "CUSTOM"
+    and variation_name = match model.spec.site_variation with
+        | Some (Gamma _ ) -> "+G"
+        | Some (Theta _ ) -> "+G+I"
+        | Some (Constant) | None -> ""
+    in
+    model_name ^ variation_name
 
 
 (* this assumes that the spec is consistent with the model itself, the returned

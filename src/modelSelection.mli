@@ -33,8 +33,14 @@ module type S = sig
     (** tree composed of a and b *)
     type tree = (a,b) Ptree.p_tree
 
+    (** Defines the properties of a model to update **)
+    type model_diff =
+        { subst : MlModel.subst_model;
+          rates : MlModel.site_var;
+          prior : MlModel.priors;}
+
     (** Define a list/subset of models to use in the particular IC *)
-    type models = MlModel.subst_model list
+    type models = model_diff list
 
     (** Types of information criteria used in the tree-stats *)
     type ic = | AIC | AICC | BIC
@@ -52,6 +58,9 @@ module type S = sig
              type_ic : ic;
               min_ic : int * float; }
 
+    (** Helper to create a list of all combinations of subsitutions and rate
+        variations from a candidate spec --used to set optimiality and gap. *)
+    val all_specs : tree -> Data.bool_characters -> bool -> models
 
     (** {6 Information metrics for Model selection *)
 
@@ -74,7 +83,7 @@ module type S = sig
     (** {6 Return stats of trees for information criteria *)
 
     (** [best_model] return the optimial tree from stats *)
-    val best_model : stats -> tree 
+    val best_model : stats -> tree
 
     (** [stats_of_models] fills and calculates the *IC stats for a set of
         models, used as a basis for all *IC methods. *)
@@ -82,5 +91,20 @@ module type S = sig
 
     (** [merge_stats] merges a list of tree_stats into and updates the info *)
     val merge_stats : stats list -> stats
+   
+    (** [report_stats] report the stats in a chart; ic, weight, lk, ... *)
+    val report_stats : stats -> Data.bool_characters -> unit
 
+    (** [model_average_parameter] return the model average parameter for a
+        function that access the given parameter.  The function should return
+        "None" if the model should be excluded from the model averaging. *)
+    val model_averaged_parameter :
+        (MlModel.model -> float option) -> stats -> Data.bool_characters
+            -> float * float
 end
+
+module IC : S
+
+(** Load a run script that should load data, build trees and transform to
+    likelihood. run method does not need to be iterative, adjusted in method. *)
+val test : string -> unit

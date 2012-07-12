@@ -232,6 +232,10 @@ val output_model : (string -> unit) -> [`Nexus | `Phylip | `Hennig] -> model -> 
 val to_formatter : model -> Xml.xml Sexpr.t list
 (** return XML reprentation of the model *)
 
+val short_name : model -> string
+(** produce a short readable name for the model: like JC69+G+I. We ignore data
+    dependent and optimality paramters (gap as missing/independent) and mpl/mal *)
+
 
 (** {6 Higher-Order functions to modify model *)
 
