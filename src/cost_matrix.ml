@@ -757,8 +757,6 @@ module Two_D = struct
             w
         in
         let number_of_combinations = calc_number_of_combinations a_sz in
-        Printf.printf "print matrix to file\n%!";
-        let oc = open_out "cm_dna.txt" in
         for i = 1 to number_of_combinations do
             let li = BitSet.Int.list_of_packed_max i a_sz in
             for j = 1 to number_of_combinations do 
@@ -780,15 +778,14 @@ module Two_D = struct
                         find_best_combination cost_f li lj 
                     in
                     if debug then
-                        Printf.fprintf oc "cost[%d][%d]=%d,median=%d\n%!" i j
+                        Printf.printf "cost[%d][%d]=%d,median=%d\n%!" i j
                         best median;
                     set_median i j m median;
                     set_cost i j m best;
                     set_worst i j m worst;
                 end
             done;
-        done;
-        close_out oc
+        done
 
     let fill_best_cost_and_median_for_some_combinations m a_sz level all_elements =
         let debug = false and debug2 = false in
