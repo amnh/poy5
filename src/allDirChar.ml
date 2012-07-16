@@ -1596,8 +1596,7 @@ module F : Ptree.Tree_Operations
                 ptree --> pick_best_root
                       --> assign_single
             | `Iterative (`ApproxD _)
-            | `Iterative (`ThreeD _) ->
-                ptree --> assign_single
+            | `Iterative (`ThreeD _) -> ptree
         in
         if debug_uppass_fn then info_user_message "UPPASS ends.%!";
         tree
@@ -1923,7 +1922,6 @@ module F : Ptree.Tree_Operations
                    tree --> pick_best_root
                         --> assign_single
                         --> adjust_fn n_mgr
-                        --> pick_best_root
                         --> update_branches
                 in
                 tree, delta
