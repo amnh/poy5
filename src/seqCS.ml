@@ -788,7 +788,7 @@ module DOS = struct
 
     let to_single h parent mine =
         let debug = false in
-        if debug then Printf.printf "seqCS.DOS.to_single\n%!";
+        if debug then Printf.printf "seqCS.DOS.to_single,%!";
         let gap = Cost_matrix.Two_D.gap h.c2 in
         let use_ukk = match !Methods.algn_mode with
             | `Algn_Newkk  -> true
@@ -809,6 +809,14 @@ module DOS = struct
                     Sequence.Align.closest parent mine.sequence h.c2 Matrix.default 
             in
             let rescost = make_cost tmpcost in
+            if debug then begin
+                Printf.printf "parent seq = %!";
+                Sequence.printseqcode parent;
+                Printf.printf " seq with ambiguity = %!";
+                Sequence.printseqcode mine.sequence;
+                Printf.printf " ==> seq without ambiguity = %!";
+                Sequence.printseqcode seqm;
+            end;
             { mine with sequence = seqm; costs = rescost }, tmpcost
 
     let median alph code h a b use_ukk =
@@ -934,8 +942,9 @@ module DOS = struct
             let rescost = make_cost tmpcost in
             if debug then begin 
                 let print_seqlist seq = 
-                    Sequence.print stdout seq Alphabet.nucleotides;
-                print_newline();
+                    (*Sequence.print stdout seq Alphabet.nucleotides;*)
+                    Sequence.printseqcode seq;
+                    print_newline();
                 in
                 Printf.printf "costs = (%f,%f), a/b= %!" rescost.min rescost.max; 
                 print_seqlist a.sequence; print_seqlist b.sequence;
@@ -2032,20 +2041,8 @@ let to_single parent mine =
                     let res, c = DOS.to_single mine.heuristic a b in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
-            (*| Relaxed_Lifted a, Relaxed_Lifted b ->
-                    (* we don't turn fixed_state back to sequences in to_single
-                    * any more.
-                    * let res, c = RL.to_single a b in
-                    total_cost := c + !total_cost;
-                    Heuristic_Selection res*)
-                    let res, c = RL.to_single a b in
-                    total_cost := c + !total_cost;
-                    Relaxed_Lifted res *)
-            (*| Heuristic_Selection a, Relaxed_Lifted b ->
-                    assert false *)
             | Partitioned _, _
             | _, Partitioned _
-            (*| Relaxed_Lifted _, _*) 
             | General_Prealigned _, _ 
             | Heuristic_Selection _, General_Prealigned _ -> assert false) parent.characters
                     mine.characters

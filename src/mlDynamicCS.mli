@@ -30,6 +30,7 @@ type t = { model  : FloatSequence.dyn_model;
             data  : r;
             codes : int array;
             code  : int;
+            times : float * float; (* branch lengths of composition *)
             cost  : float; }
 (** The type for dynamic likelihood characters; encompasses integerized
     likelihood, floating point alignment, maximum parsimonious likelihood and

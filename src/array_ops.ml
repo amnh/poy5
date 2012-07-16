@@ -122,6 +122,16 @@ let randomize ar = (* Fisher-Yates *)
         ar.(rnd) <- tmp;
     done;;
 
+let mem ar a =
+    let rec short_circuit i =
+        if i = (Array.length ar) 
+            then false 
+        else if ar.(i) = a 
+            then true 
+            else short_circuit (i+1)
+    in
+    short_circuit 0
+
 let filter f arr =
     let res = Array.fold_right (fun x acc -> 
         if (f x) then x :: acc else acc) arr [] in

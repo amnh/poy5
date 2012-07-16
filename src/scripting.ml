@@ -3006,12 +3006,8 @@ let rec process_application run item =
     | `ClearRecovered -> Queue.clear run.queue.Sampler.queue; run
     | `ClearMemory items -> 
             let has_item item = List.exists (fun x -> x = item) items in
+            if has_item `Matrices then Matrix.flush ();
             Gc.full_major (); 
-            let _ = 
-                if has_item `Matrices then Matrix.flush ();
-                if has_item `SequencePool then Data.flush run.data;
-                ()
-            in
             run
     | `TimerInterval x -> Tabus.timer_interval := x; run
     | `HistorySize len -> Status.resize_history len; run
@@ -3025,14 +3021,13 @@ let rec process_application run item =
     | `Wipe -> empty ()
     | `Echo (s, c) ->
             let s = StatusCommon.escape s in
-            let c = 
-                match c with
+            let c = match c with
                 | `Information -> Status.Information
                 | `Error -> Status.Error
-                | `Output str ->
-                        match str with
-                        | None -> Status.Output (None, false, [])
-                        | Some str -> Status.Output (Some str, false, [])
+                | `Output str -> begin match str with
+                    | None -> Status.Output (None, false, [])
+                    | Some str -> Status.Output (Some str, false, [])
+                end
             in
             Status.user_message c (s ^ "@\n%!");
             run
@@ -3042,91 +3037,75 @@ let rec process_application run item =
              let trees = Array.of_list trees in
              if 0 = Array.length trees then run
              else begin
-                 let trees = Array.map (fun x ->
-                     let cost = (Ptree.get_cost `Adjusted x) in
-                     cost, 
-                     (TS.build_forest_as_tree collapse x "")) trees
-                 in
-                 match filename with 
-                 | Some filename ->
-                         GraphicsPs.display "" filename trees;
-                         run
-                 | None ->
-
-                         (*
-#if (USEGRAPHICS==1)
-                GraphicsScreen.display trees;
-                run
-#elif (USEGRAPHICS==2)
-                GraphicTK.display trees;
-                run
-#else
-                         *)
-             Status.user_message Status.Information 
-             ("@[Interactive@ graphics@ are@ not@ supported@ in@ this@ " ^
-             "compiled@ version@ of@ POY.@ Here@ is@ the@ ascii@ art@ though:@]");
-             process_application run (`Ascii (None, collapse))
-             (*
-#endif
-             *)
-end
-
+                let trees =
+                    Array.map
+                        (fun x ->
+                            let cost = (Ptree.get_cost `Adjusted x) in
+                            cost, (TS.build_forest_as_tree collapse x ""))
+                        trees
+                in
+                match filename with 
+                    | Some filename ->
+                        GraphicsPs.display "" filename trees; run
+                    | None ->
+                        Status.user_message Status.Information 
+                            ("@[Interactive@ graphics@ are@ not@ supported@ "
+                            ^"in@ this@ compiled@ version@ of@ POY.@ Here@ is@ "
+                            ^"the@ ascii@ art@ though:@]");
+                        process_application run (`Ascii (None, collapse))
+            end
      | `Ascii (filename, collapse) ->
-             let trees = Sexpr.map (fun x ->
-                     let cost = int_of_float (Ptree.get_cost `Adjusted x) in
-                     let str = string_of_int cost in
-                     cost, TS.build_forest_as_tree collapse x str) 
+            let trees =
+                Sexpr.map
+                    (fun x ->
+                        let cost = int_of_float (Ptree.get_cost `Adjusted x) in
+                        let str = string_of_int cost in
+                        cost, TS.build_forest_as_tree collapse x str)
                     run.trees
-             in
-             Sexpr.leaf_iter (fun (cost, x) -> 
-                 let r = AsciiTree.to_string ~sep:2 ~bd:2 false x in
-                 Status.user_message (Status.Output (filename,false, [])) 
-                 ("@[@[<v>@[Tree@ with@ cost@ " ^ string_of_int cost ^ "@]@,@[");
-                 Status.user_message (Status.Output (filename,false, [])) r;
-              Status.user_message (Status.Output (filename, false, [])) "@]@]@]%!";) trees;
-             run
-
+            in
+            Sexpr.leaf_iter
+                (fun (cost, x) ->
+                    let r = AsciiTree.to_string ~sep:2 ~bd:2 false x in
+                    Status.user_message (Status.Output (filename,false, [])) 
+                        ("@[@[<v>@[Tree@ with@ cost@ " ^ string_of_int cost ^ "@]@,@[");
+                    Status.user_message (Status.Output (filename,false, [])) r;
+                    Status.user_message (Status.Output (filename, false, [])) "@]@]@]%!";)
+                trees;
+            run
      | `Memory filename ->
              let memory_usage = report_memory () in
              Status.user_message (Status.Output (filename, false,[])) memory_usage;
              run
      | `KML (plugin, csv, output_file) ->
-            let trees =                          
-                (* let classify = false in
-                let run = update_trees_to_data ~classify false true run in*)
-                run.trees  
-            in 
-            let plugin = 
-                match plugin with 
+            let plugin = match plugin with
                 | None -> "default"
                 | Some x -> x
             in
-            let csv = 
-                match csv with
+            let csv = match csv with
                 | `Local f -> f
                 | `Remote f -> failwith "The csv must be available locally"
             in
-            Kml.KFile.kml ~plugin "POY analysis" output_file run.data csv trees;
+            Kml.KFile.kml ~plugin "POY analysis" output_file run.data csv run.trees;
             run
      | `InspectFile str ->
-             try 
-                 let (desc, _, _, _, _, _, _) = PoyFile.read_file str in
-                let desc = 
-                     match desc with
+            try let (desc, _, _, _, _, _, _) = PoyFile.read_file str in
+                let desc = match desc with
                      | None -> "No@ description@ available."
                      | Some d -> d
-                 in
-                 Status.user_message Status.Information ("@[<v 2>" ^
-                 (StatusCommon.escape str) ^ " is a POY file: @,@[" ^ desc ^ "@]@]");
-                 run
-             with
-             | _ -> 
-                     let msg = "The@ file@ " ^ StatusCommon.escape str ^ "@ is@ not@ a@ valid"
-                     ^ "@ POY@ fileformat." in
-                     Status.user_message Status.Information msg;
-                     run
+                in
+                Status.user_message Status.Information
+                    ("@[<v 2>" ^ (StatusCommon.escape str) ^ 
+                     " is a POY file: @,@[" ^ desc ^ "@]@]");
+                run
+             with | _ -> 
+                Status.user_message Status.Information
+                    ("The@ file@ " ^ StatusCommon.escape str ^
+                     "@ is@ not@ a@ valid" ^ "@ POY@ fileformat.");
+                run
+
 
 let range_timer = ref (Timer.start ())
+
 
 let get_character_costs trees = 
     (* We will first define a function to compute the median between a pair of

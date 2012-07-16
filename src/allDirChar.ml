@@ -1344,12 +1344,13 @@ module F : Ptree.Tree_Operations
         and current_cost = Ptree.get_cost `Adjusted tree in
         (* optimize Transition Model parameters *)
         let best_tree, best_cost =
+            let opt = Numerical.default_numerical_optimization_strategy () in
             match MlModel.get_update_function_for_model current_model with
             | Some func ->
                 let params = MlModel.get_current_parameters_for_model current_model in
-                let _,results = (* fst is vector of results *)
-                    Numerical.bfgs_method (f_likelihood func tree chars current_model)
-                                          ((get_some params),(tree,current_cost))
+                let _,results =
+                    Numerical.run_method opt (f_likelihood func tree chars current_model)
+                                             ((get_some params),(tree,current_cost))
                 in
                 results
             | None -> (tree,current_cost)
@@ -1909,7 +1910,7 @@ module F : Ptree.Tree_Operations
     let join_fn n_mgr a b c d =
         let d = clear_internals true d in
         let (ptree, tdel) as ret = match !Methods.cost with
-            | `Normal -> 
+            | `Normal ->
                 let tree,delta =join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree = update_branches tree in
@@ -1918,7 +1919,7 @@ module F : Ptree.Tree_Operations
             | `Iterative (`ApproxD iterations) ->
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
-                let tree = 
+                let tree =
                    tree --> pick_best_root
                         --> assign_single
                         --> adjust_fn n_mgr
@@ -1931,11 +1932,11 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Strong ->
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
-                let tree = 
+                let tree =
                     tree --> uppass
                          --> update_branches
                 in
-                tree, delta 
+                tree, delta
         in
         if debug_join_fn then
             info_user_message "Joined with cost: %f (%f)" 
@@ -1996,13 +1997,15 @@ module F : Ptree.Tree_Operations
             | `Iterative `ThreeD _
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> cost_fn a b c d e 
+            | `Normal -> if debug_cost_fn then Printf.printf "Normal,"; cost_fn a b c d e 
             | `Exhaustive_Strong ->
+                    if debug_cost_fn then Printf.printf "Exhaustive_Strong,";
                 let pc = Ptree.get_cost `Adjusted e in
                 let (nt, _) = join_fn n_mgr [] a b e in
                 Ptree.Cost ((Ptree.get_cost `Adjusted nt) -. pc)
         in
-        if debug_cost_fn then Printf.printf "update node manager with new cost\n%!";
+        if debug_cost_fn then 
+            Printf.printf "update node manager with new cost\n%!";
         update_node_manager e (`Cost) n_mgr;
         cost
 

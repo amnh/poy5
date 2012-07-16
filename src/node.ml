@@ -3236,6 +3236,11 @@ let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
 let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
 
 let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
+    if debug_treebuild then begin
+        Printf.printf "node.to_single,\n%!";
+    print_node_data parent;
+    print_node_data mine;
+    end;
     let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs minet : cs =
         if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
         match parent_cs, minet with
@@ -3325,7 +3330,10 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         { mine with characters = chars; }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
-    let debug = false in
+    let debug = false and debug2 = false in
+    if debug then 
+        Printf.printf "readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
+        mine.taxon_code parent.taxon_code ch1.taxon_code ch2.taxon_code;
     let ch1, ch2 =
         if ch1.min_child_code < ch2.min_child_code then
             ch1, ch2
@@ -3389,7 +3397,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     failwith MlStaticCS.likelihood_error
                   END
                 | _ -> 
-                        if debug then begin
+                        if debug2 then begin
                             Printf.printf "node.readjust, call dynamicCS.readjust\
                         with c1,c2 and preant, mine:\n%!";
                         DynamicCS.print c1.preliminary;
@@ -3401,7 +3409,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                         DynamicCS.readjust mode to_adjust !modified c1.preliminary
                                 c2.preliminary parent.preliminary mine.preliminary
                     in
-                    if debug then begin
+                    if debug2 then begin
                         Printf.printf "end of DynamicCS.readjust,check new med:\n%!";
                     DynamicCS.print res;
                     end;
@@ -3410,7 +3418,8 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     let res = 
                     Dynamic
                         { mine with
-                            preliminary = res; final = res; 
+                            preliminary = res; 
+                            final = res; 
                             cost = cost;
                             sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
                             time=None,None,None;

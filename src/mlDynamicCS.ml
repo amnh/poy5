@@ -73,6 +73,7 @@ type t = { model  : dyn_model;
             data  : r;
             codes : int array;
             code  : int;
+            times : float * float; (* branch lengths of composition *)
             cost  : float; }
 
 (*---- basic function set for gathering data of the module *)
@@ -511,7 +512,7 @@ let median code a b t1 t2 =
                 (ar.ss)
                 (br.ss)
         in
-        { a with cost = !cost; data = CMPLAlign { ss = meds } }
+        { a with cost = !cost; data = CMPLAlign { ss = meds }; times = bla,blb; }
 
     | Verify ar, Verify br -> 
         let bla,blb = match t1,t2 with
@@ -581,7 +582,7 @@ let median code a b t1 t2 =
                 (ar.ss)
                 (br.ss)
         in
-        { a with cost = !cost; data = Verify { ss = meds } }
+        { a with cost = !cost; data = Verify { ss = meds }; times = bla,blb; }
 
     | MPLAlign ar, MPLAlign br -> 
         let bla,blb = match t1,t2 with
@@ -600,7 +601,7 @@ let median code a b t1 t2 =
                 (ar.ss)
                 (br.ss)
         in
-        { a with cost = !cost; data = MPLAlign { ss = meds } }
+        { a with cost = !cost; data = MPLAlign { ss = meds }; times = bla,blb; }
     | FPAlign ar, FPAlign br -> 
         let bla,blb = match t1,t2 with
             | Some t1, Some t2 -> t1, t2
@@ -618,7 +619,7 @@ let median code a b t1 t2 =
                 (ar.ss)
                 (br.ss)
         in
-        { a with cost = !cost; data = FPAlign { ss = meds; } } 
+        { a with cost = !cost; data = FPAlign { ss = meds; }; times = bla,blb; } 
     | (FPAlign _ | MPLAlign _ | Verify _ | CMPLAlign _), _ -> assert false
 
 
@@ -720,8 +721,10 @@ let readjust3_opt mine c1 c2 par t1 t2 t3 =
     let (times,(node,score)),pscore =
         let init_vec = [| t1;t2;t3 |] in
         let (_,pscore) as init_res = single_result init_vec in
-        Numerical.bfgs_method
-            ~epsilon:1e-5 single_result (init_vec,init_res), pscore
+        Numerical.run_method
+            (Numerical.default_numerical_optimization_strategy ())
+            single_result (init_vec,init_res),
+        pscore
     in
     true, pscore, score, (times.(0),times.(1),times.(2)), {mine with data = node;}
 
@@ -848,6 +851,7 @@ let make a s m =
             model = { static = m; alph = a; };
              cost = 0.0; (* fill this in with call to prior *)
              code = s.SeqCS.code;
+            times = (0.0,0.0);
             codes = s.SeqCS.codes; }
     in
     { data with cost = prior data; }

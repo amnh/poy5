@@ -1055,12 +1055,12 @@ cm_get_cost (int *tcm, int a, int b, int mapsize) {
     assert(a>=0);
     assert(b>=0);
     int * res;
-    if (a==b) return 0;
-    else
-    {
+    //if (a==b) return 0;
+    //else
+    //{
         res = tcm + ((a)*mapsize+(b));
         return (*res);
-    }
+    //}
 }
 
 #ifdef _WIN32
@@ -1363,6 +1363,7 @@ cm_set_value_nonbit (int a, int b, int v, int *p, int sz) {
 void
 cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     int debug = 0;
+    int debug2 = 0;
     int i, j, l, m, *tmp_cost, *tcm, *tmp_to, *prepend, *tail, *to;
     int alphabet_size, uselevel;
     SEQT *begin;
@@ -1395,7 +1396,7 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
             }
         }
     }
-    if (debug) { 
+    if (debug2) { 
         printf("check precal matrix (alphabet_size=%d,l=%d):\n",alphabet_size,l);
         tmp_to = to;
         for (j = 0; j <= alphabet_size; j++, tmp_to += l)

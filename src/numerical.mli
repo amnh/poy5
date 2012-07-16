@@ -53,19 +53,6 @@ type subplex_strategy =
     }
 (** The Subplex strategy contains a simplex strategy and added features *)
 
-type optimization_strategy = 
-    {   routine : [ `Simplex of simplex_strategy
-                  | `Subplex of subplex_strategy
-                  | `Brent_Multi
-                  | `BFGS];
-        (* Below are optional to use the algorithm default *)
-        max_iter : int option;
-        tol      : float option; 
-    }
-(** Define an optimization strategy. This will call the appropriate optimization
-    routine with the specified parameters. A wrapper around the four methods we
-    have to optimize multi-dimensional functions. *)
-
 
 (** {6 Floating Point Functions} *)
 
@@ -127,7 +114,7 @@ val line_search :
 *)
 
 val bfgs_method :
-    ?max_iter:int -> ?epsilon:float -> ?mx_step:float -> ?g_tol:float
+    ?max_iter:int -> ?epsilon:float -> ?max_step:float -> ?tol:float
         -> (float array -> 'a * float) -> (float array * ('a * float))
             -> (float array * ('a * float))
 (** [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian
@@ -135,7 +122,7 @@ val bfgs_method :
 
 val simplex_method : 
     ?termination_test : (float -> 'a simplex -> bool) -> ?tol : float ->
-    ?simplex_strategy : simplex_strategy -> ?max_eval:int -> ?step:float array option
+    ?simplex_strategy : simplex_strategy -> ?max_iter:int -> ?step:float array option
         -> (float array -> 'a * float) -> (float array * ('a * float))
             -> (float array * ('a * float))
 (** The simplex uses an n+1 dimensional figure to move, like an amoeba, around
@@ -154,11 +141,30 @@ val subplex_method :
     Simplex with restart. The advantages are outlined in the previously
     mentioned paper, in section 5.3.6. *)
 
+(** {6 Unification of Optimization Strategies *)
+
+type optimization_strategy = 
+    {   routine : [ `Simplex of simplex_strategy option
+                  | `Subplex of subplex_strategy option
+                  | `BFGS    of float option
+                  | `Brent_Multi ];
+        (* Below are optional to use the algorithm default *)
+        max_iter : int option;
+        tol      : float option; 
+    }
+(** Define an optimization strategy. This will call the appropriate optimization
+    routine with the specified parameters. A wrapper around the four methods we
+    have to optimize multi-dimensional functions. *)
+
+val default_numerical_optimization_strategy : unit -> optimization_strategy list
+(** Take the cost model of the Methods module and determine an opt strategy *)
+
 val run_method :
     optimization_strategy list -> (float array -> 'a * float)  
         -> (float array * ('a * float)) -> (float array * ('a * float))
 (** Run an optimization strategy based on the optimization_strategy. We accept a
     list, thus multiple tests can be run to obtain a robust strategy. *)
+
 
 (** {6 Infix Module} *)
 

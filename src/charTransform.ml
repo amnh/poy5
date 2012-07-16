@@ -1248,6 +1248,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         match meth with
         | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e,f) as x) ->
+            if Sexpr.is_empty trees then begin
+                let m = "The Estimated Likelihood transformation bases the \
+                    initial model parameters on a tree. I will transform the \
+                    characters to the model specified with default parameters."
+                in
+                Status.user_message Status.Warning m
+            end;
             let trees =
                 Sexpr.fold_left
                     (fun tsexp t ->

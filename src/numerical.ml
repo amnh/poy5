@@ -136,10 +136,10 @@ type subplex_strategy =
     routine with the specified parameters. A wrapper around the four methods we
     have to optimize multi-dimensional functions. *)
 type optimization_strategy = 
-    {   routine : [ `Simplex of simplex_strategy
-                  | `Subplex of subplex_strategy
-                  | `Brent_Multi
-                  | `BFGS];
+    {   routine : [ `Simplex of simplex_strategy option
+                  | `Subplex of subplex_strategy option
+                  | `BFGS    of float option
+                  | `Brent_Multi ];
         (* Below are optional to use the algorithm default *)
         max_iter : int option;
         tol      : float option; 
@@ -162,10 +162,10 @@ let default_subplex =
 (** Define the default strategy from a specific routine *)
 let default_strategy routine =
     let routine = match routine with
-        | `Simplex      -> `Simplex default_simplex
-        | `Subplex      -> `Subplex default_subplex
+        | `Simplex      -> `Simplex None
+        | `Subplex      -> `Subplex None
         | `Brent_Multi  -> `Brent_Multi
-        | `BFGS         -> `BFGS
+        | `BFGS         -> `BFGS None
     in
     { routine = routine; max_iter = None; tol = None; }
 
@@ -481,7 +481,7 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
 
 
 (** BFGS Algorithm; Gradient Search Function; Numerical Recipes in C : 10.7 *)
-let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=tolerance) f (p,fp) =
+let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(max_step=10.0) ?(tol=tolerance) f (p,fp) =
    let n = Array.length p and get_score x = snd x in
     (* test convergence of a point --that it equals the direction, essentially *)
     let converged_l direction test_array =
@@ -502,7 +502,7 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
                 let temp = temp *. (abs_float gradient.(i)) in
                 if temp > !test then test := temp)
             test_array;
-        (!test < g_tol)
+        (!test < tol)
     (* Setup initial hessian (identity), initial gradiant vector, maximum step and direction *)
     and setup_function f_array x_array fx_array =
         let hessian =
@@ -511,7 +511,7 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
             h
         and x_grad = gradient_at_x ~epsilon f_array x_array fx_array in
         let dir = Array.init n (fun i -> ~-. (x_grad.(i)) )
-        and mxstep = mx_step *. (max (magnitude x_array) (float_of_int n)) in
+        and mxstep = max_step *. (max (magnitude x_array) (float_of_int n)) in
         hessian, x_grad, mxstep, dir in
     (* Do a line search step --return new p, new fp, new dir, if converged *)
     let line_searcher f p fp gradient step dir =
@@ -773,11 +773,18 @@ let find_subspace strat vec =
     distance between the vertices of the simplex to see if the function has
     converged. *)
 let subplex_termination strat tol dx x stp =
-    let numr = max (inf_norm_vec dx) ((inf_norm_vec stp) *. strat.psi)
-    and denm = max (inf_norm_vec x) 1.0 in
-    debug_printf "\tTermination: (%f/%f) = %f <= %f?\n%!"
-                    numr denm (numr /. denm) tol;
-    (numr /. denm) <= tol
+(*    let numr = max (inf_norm_vec dx) ((inf_norm_vec stp) *. strat.psi)*)
+(*    and denm = max (inf_norm_vec x) 1.0 in*)
+    let ret = ref false in
+    Array.iteri
+        (fun i _ ->
+            let numr = max dx.(i) (abs_float (stp.(i) *. strat.psi))
+            and denm = max (abs_float x.(i)) 1.0 in
+            ret := !ret || ((numr /. denm) > tol);
+            debug_printf "\tTermination: (%f/%f) = %f <= %f?\n%!"
+                            numr denm (numr /. denm) tol)
+        x;
+    not (!ret)
 
 
 (** General Simplex termination; this is done through the standard deviation of
@@ -921,7 +928,7 @@ let verify_strategy strat =
     contraction, and shrinkage. The degree to which these are done is modified
     by the strategy used. *)
 let simplex_method ?(termination_test=simplex_termination_stddev) ?(tol=tolerance)
-                   ?(simplex_strategy=default_simplex) ?(max_eval=100) ?(step=None)
+                   ?(simplex_strategy=default_simplex) ?(max_iter=100) ?(step=None)
                     f (p,fp) = 
     (* wrap function to keep track of the number of evaluations *)
     let i = ref 0 in
@@ -931,15 +938,13 @@ let simplex_method ?(termination_test=simplex_termination_stddev) ?(tol=toleranc
     (* set up some alias functions to make the algorithm more readable. *)
     let get_cost (_,(_,x)) = x in
     let replace_simplex = Array.set in
-    (* setup the initial simplex *)
-    let simplex = initial_simplex f (p,fp) step in
-    while (not (termination_test tol simplex)) && (!i < max_eval) do begin
+    let rec simplex_loop step simplex =
         let i_h,_,i_l = get_simplex_hsl simplex in
         let s_c = centroid simplex i_h in
         (* first do a reflection *)
         let r = create_new_point f `Reflection strategy s_c (fst simplex.(i_h)) in
-        (* since it's so good, do an expansion *)
         if (get_cost r) < (get_cost simplex.(i_l)) then begin
+            (* since it's so good, do an expansion *)
             let e = create_new_point f `Expansion strategy s_c (fst r) in
             if (get_cost e) < (get_cost simplex.(i_l))
                 then replace_simplex simplex i_h e
@@ -958,7 +963,12 @@ let simplex_method ?(termination_test=simplex_termination_stddev) ?(tol=toleranc
                 (* contraction failed; shrink --massive contraction *)
                 else shrink_simplex simplex f strategy i_l
         end;
-    end done;
+        if ((not (termination_test tol simplex)) || !i < max_iter)
+            then simplex
+            else simplex_loop (step+1) simplex
+    in
+    (* setup the initial simplex *)
+    let simplex = simplex_loop 0 (initial_simplex f (p,fp) step) in
     let _,_,best = get_simplex_hsl simplex in
     debug_printf "\tSimplex Found : %s -- %f\n%!"
                 (pp_farray (fst simplex.(best))) (snd (snd simplex.(best)));
@@ -1018,16 +1028,28 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
     debug_printf "Subplex Found %s -- %f\n%!" (pp_farray p) fp;
     pdfp
 
+(** Determine the numerical optimization strategy from the methods cost mode *)
+let default_numerical_optimization_strategy () = match !Methods.cost with
+    | `Exhaustive_Strong
+    | `Exhaustive_Weak
+    | `Normal_plus_Vitamines
+    | `Normal                          ->
+        (default_strategy `BFGS) :: [] 
+    | `Iterative (`ThreeD  iterations)
+    | `Iterative (`ApproxD iterations) ->
+        { (default_strategy `BFGS) with max_iter = iterations; } :: []
 
 
 (** Run an optimization strategy; call the proper algorithm w/ convergence
     properties; a list of the appropriate ones are included here *)
 let run_method opts f pfp =
     List.fold_left
-        (fun pfp opt ->match opt.routine with
-            | `Simplex s    -> assert false
-            | `Subplex s    -> assert false
-            | `Brent_Multi  -> assert false
-            | `BFGS         -> assert false)
+        (fun pfp opt ->
+            let max_iter = opt.max_iter and tol = opt.tol in
+            match opt.routine with
+            | `Simplex simplex_strategy -> simplex_method ?tol ?max_iter ?simplex_strategy f pfp
+            | `Subplex subplex_strategy -> subplex_method ?tol ?max_iter ?subplex_strategy f pfp
+            | `BFGS max_step            -> bfgs_method ?max_iter ?tol ?max_step f pfp
+            | `Brent_Multi              -> brents_method_multi ?max_iter ?tol f pfp)
         pfp
         opts
