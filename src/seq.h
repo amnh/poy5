@@ -35,14 +35,17 @@
     to_asgn->begin = to_asgn->end - to_asgn->len + 1; \
     assert (to_asgn->magic_number == POY_SEQ_MAGIC_NUMBER)
 
+
 #ifdef USE_LARGE_ALPHABETS 
 #define SEQT unsigned int
 #define DESERIALIZE_SEQT(a,b) caml_deserialize_block_4((a),(b))
 #define SERIALIZE_SEQT(a,b) caml_serialize_block_4((a),(b))
+#define INDEXSIZE long int
 #else 
 #define SEQT unsigned char
 #define DESERIALIZE_SEQT(a,b) caml_deserialize_block_1((a),(b))
 #define SERIALIZE_SEQT(a,b) caml_serialize_block_1((a),(b))
+#define INDEXSIZE int
 #endif
 
 /* Sequence structure to be used inside ocaml custom types. */

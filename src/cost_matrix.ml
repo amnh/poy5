@@ -1128,6 +1128,9 @@ module Two_D = struct
             else a_sz 
         in
         let num_comb = calc_number_of_combinations_by_level pure_a_sz level in
+        Status.user_message Status.Warning 
+        ( "Filling@ cost@ matrix@ with@ number@ of@ combinations@ =@ "^(string_of_int
+        num_comb)^",@ this@ might@ take@ some@ time,@ if@ matrix@ is@ big,@ it@ coutld@ use@ all@ your@ memory");
         assert(num_comb>0);
         let num_withgap = calc_num_of_comb_with_gap pure_a_sz level in
         let num_comb,num_withgap = 
