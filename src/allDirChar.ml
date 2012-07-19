@@ -1820,23 +1820,17 @@ module F : Ptree.Tree_Operations
 
     let break_fn n_mgr ((s1, s2) as a) b =
         let res = match !Methods.cost with
-        | `Normal -> break_fn a b
         | `Iterative (`ApproxD _)
         | `Iterative (`ThreeD _)
         | `Exhaustive_Weak
-        | `Normal_plus_Vitamines ->
-                let breakage = break_fn a b in
-                let nt = refresh_all_edges None true None breakage.Ptree.ptree in
-                { breakage with Ptree.ptree = nt; }
+        | `Normal_plus_Vitamines
+        | `Normal -> break_fn a b
         | `Exhaustive_Strong ->
                 let breakage = break_fn a b in
-                let nt = refresh_all_edges None true None breakage.Ptree.ptree in
                 { breakage with 
-                    Ptree.ptree = nt;
-                    incremental = []; 
-                    break_delta = (Ptree.get_cost `Adjusted b) -. 
-                                  (Ptree.get_cost `Adjusted nt);
-                }
+                    Ptree.break_delta = (Ptree.get_cost `Adjusted b) -. 
+                                        (Ptree.get_cost `Adjusted breakage.Ptree.ptree);
+                    Ptree.incremental = []; }
         in
         update_node_manager (res.Ptree.ptree) (`Break res) n_mgr;
         {res with
@@ -1923,7 +1917,6 @@ module F : Ptree.Tree_Operations
                    tree --> pick_best_root
                         --> assign_single
                         --> adjust_fn n_mgr
-                        --> pick_best_root
                         --> update_branches
                 in
                 tree, delta
