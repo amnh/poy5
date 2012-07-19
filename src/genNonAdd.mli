@@ -46,7 +46,7 @@ val median : Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence ->
 
 (** [median_3 cost_mat parent mine child1 child2] return a new median for mine
 * with info from parent,child1 and child2 *)
-val median_3 : Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence ->
+val median_3 : Cost_matrix.Three_D.m -> gnonadd_sequence -> gnonadd_sequence ->
     gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence
 
 (** [compare gnoadd1 gnoadd2] compare the sequence of two input.*)

@@ -390,6 +390,9 @@ module Align : sig
     val readjust_3d : ?first_gap:bool -> s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> s
     -> int * s * bool
 
+    val readjust_3d_custom_alphabet : s -> s -> s -> Cost_matrix.Two_D.m ->
+        Cost_matrix.Three_D.m -> s -> int * s * bool
+
 end
 
 (** [select_one s m] 
@@ -408,6 +411,9 @@ val select_one_randomized : s -> Cost_matrix.Two_D.m -> s
 * [b] is the new readjusted median, and [a] is the cost of that median as the
 * parent of [ch1] and [ch2]. *)
 val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> bool -> int * s * bool
+
+
+val readjust_custom_alphabet : s -> s -> s -> Cost_matrix.Two_D.m -> s -> int * s * bool
 
 (* A module to perform alignments in pure Ocaml for debugging and easy
 * experimentation *)

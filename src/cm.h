@@ -37,7 +37,8 @@ struct cm {
     int map_sz; // size of combmap matrix
     int gap_startNO; // first combination code with gap 
     // add above for level
-    int a_sz;
+    long int total_size; //number of elements in each matrix(cost,median,worst,etc),size of int/char not included
+    int a_sz;//alphabet size
     int lcm;
     int gap;
     int cost_model_type;
@@ -289,6 +290,7 @@ cm_get_precal_row (const int *p, SEQT item, int len);
  * on a particular alphabet.
  */
 struct cm_3d {
+    long int total_size; ///number of elements in each matrix(cost,median,worst,etc),size of int/char not included
     int a_sz;               /** The number of elements in the alphabet */
     int lcm;                /** The logarithm base 2 of a_sz */
     int gap;                /** The integer representing a gap in the alphabet */

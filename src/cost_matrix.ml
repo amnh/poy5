@@ -778,7 +778,8 @@ module Two_D = struct
                         find_best_combination cost_f li lj 
                     in
                     if debug then
-                        Printf.printf "The cost between %d and %d is %d\n" i j best;
+                        Printf.printf "cost[%d][%d]=%d,median=%d\n%!" i j
+                        best median;
                     set_median i j m median;
                     set_cost i j m best;
                     set_worst i j m worst;
@@ -805,7 +806,7 @@ module Two_D = struct
             Printf.printf "fill cm for some combinations: gapcode=%d,num_of_comb =%d,\
         combwithgap = %d,all_elements=%d a_sz=%d\n%!" gapcode num_of_comb comb_withgap
         all_elements a_sz;
-        let _  = build_maps_comb_and_codelist m a_sz level all_elements in
+        let _  = build_maps_comb_and_codelist m a_sz level all_elements in 
         for i = 1 to num_of_comb do
             let keylist = [i] in
             let li = combcode_to_comblist i m in
@@ -814,42 +815,24 @@ module Two_D = struct
                     let best = ref 0
                     and cost = ref max_int 
                     and worst = ref 0 in
-                    (*median between gap and a code contains gap should be the code itself, cost is 0 
-                    if (i=gapcode)&&(contain_gap j) then begin
-                        set_cost i j m 0;
-                        set_median i j m j;
-                        get_worst_median_gap_and_combWgap m a_sz gapcode j
-                        worst;
-                        set_worst i j m !worst;
-                    end
-                    else if (j=gapcode)&&(contain_gap i) then begin
-                        set_cost i j m 0;
-                        set_median i j m i;
-                        get_worst_median_gap_and_combWgap m a_sz gapcode i
-                        worst;
-                        set_worst i j m !worst;
-                    end
-                    normal case, we just call test_combinations_by_level to get the best median and cost
-                    else begin*)
-                        let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
-                        let lj = combcode_to_comblist j m in
-                        test_combinations_by_level li lj a_sz m best cost worst
-                        comb_withgap num_of_comb level all_elements;
-                        let _ = 
-                            match li, lj with
-                            | [_], [_] ->
-                                    let comb_i_j = comblist_to_combcode keylist m in
-                                    if debug2 then Printf.printf "median.%d.%d <- %d(cost=%d);\n%!" i j (comb_i_j) !cost;
-                                    set_cost i j m !cost;
-                                    set_median i j m ( comb_i_j );
-                            | _, _ ->
-                                    if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
-                                    i j !cost !best;
-                                    set_cost (i) (j) m !cost;
-                                    set_median (i) (j) m (cleanup !best);
-                        in
-                        set_worst (i) (j) m !worst;
-                    (*end; end of normal case*)
+                    let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
+                    let lj = combcode_to_comblist j m in
+                    test_combinations_by_level li lj a_sz m best cost worst
+                    comb_withgap num_of_comb level all_elements;
+                    let _ = 
+                        match li, lj with
+                        | [_], [_] ->
+                                let comb_i_j = comblist_to_combcode keylist m in
+                                if debug2 then Printf.printf  "median.%d.%d <- %d(cost=%d);\n%!" i j (comb_i_j) !cost;
+                                set_cost i j m !cost;
+                                set_median i j m ( comb_i_j );
+                        | _, _ ->
+                                if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
+                                i j !cost !best;
+                                set_cost (i) (j) m !cost;
+                                set_median (i) (j) m (cleanup !best);
+                    in
+                    set_worst (i) (j) m !worst;
                 end;(*end of if i<>all_elements && j<>all_elements*)
             done;
         done;
@@ -858,7 +841,7 @@ module Two_D = struct
         if all_elements>0 then begin
             (*when all_elements=-1, we don't have code for "all_elements",
             * though we do have a line and column in costmatrix reserved for it,
-            * we just don't need to fill in the cost/median for that.*)
+            * we just don't need to fill in any cost/median for that line.*)
             for i = 1 to num_of_comb do
                 set_median i all_elements m i;
                 set_median all_elements i m i;
@@ -869,14 +852,19 @@ module Two_D = struct
             done;
             set_median all_elements all_elements m all_elements;
         end;
-        if debug then
-        for i=1 to num_of_comb+1 do
+        if debug then begin
+            Printf.printf "print matrix to file\n%!";
+            let oc = open_out "cm_custom_alphabet.txt" in
+            Printf.printf "check cost and median at the end:\n%!";
+            for i=1 to num_of_comb+1 do
             for j= 1 to num_of_comb+1 do
-                  Printf.printf "cost[%d][%d]=%d, median=%d; \n %!" i j (get_cost i j
+                  Printf.fprintf oc "cost[%d][%d]=%d, median=%d; \n %!" i j (get_cost i j
                 m) (get_median i j m)
             done;
-            print_newline();
-        done;
+            Printf.fprintf oc "\n%!";
+            done;
+            close_out oc;
+        end;
     ;;
 
     let fill_best_cost_and_median_for_all_combinations m a_sz =
@@ -1140,6 +1128,9 @@ module Two_D = struct
             else a_sz 
         in
         let num_comb = calc_number_of_combinations_by_level pure_a_sz level in
+        Status.user_message Status.Warning 
+        ( "Filling@ cost@ matrix@ with@ number@ of@ combinations@ =@ "^(string_of_int
+        num_comb)^",@ this@ might@ take@ some@ time,@ if@ matrix@ is@ big,@ it@ coutld@ use@ all@ your@ memory");
         assert(num_comb>0);
         let num_withgap = calc_num_of_comb_with_gap pure_a_sz level in
         let num_comb,num_withgap = 
@@ -1152,9 +1143,10 @@ module Two_D = struct
             | `Last -> 2 
         in
         if debug then Printf.printf 
-        "fill cost matrix :\
-        a_sz = %d(pure a_sz=%d), use_comb=%b,level=%d,num_comb=%d(num_withgap=%d),all_elements=%d (list len=%d)\n%!"
-        a_sz pure_a_sz use_comb level num_comb num_withgap all_elements (List.length l);
+        "cost_matrix.ml fill cost matrix :\
+        a_sz = %d(pure a_sz=%d), use_comb=%b,level=%d,num_comb=%d(%d),\
+        all_elements=%d (list len=%d), tie breaker = %d\n%!"
+        a_sz pure_a_sz use_comb level num_comb num_withgap all_elements (List.length l) tb;
         let m =  (*Note: use_comb is 'int' in cm.c*)
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
             use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
@@ -1290,9 +1282,9 @@ module Two_D = struct
                 all_elements  
             (*we don't have tie_breaker for level=2~a_sz-1 yet*)
             else if (level>ori_sz) then
-                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
+                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
             else
-                fill_cost_matrix ~use_comb:true ~level:level ori_list ori_sz
+                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:true ~level:level ori_list ori_sz
                 all_elements
         in
         newm
@@ -1581,31 +1573,55 @@ module Three_D = struct
             done;
         done;;
 
-    let of_two_dim_no_comb nm mat = 
+    let of_two_dim_no_comb nm mat =
+        let debug = false in
+        let tie_breaker = Two_D.get_tie_breaker mat in
+        if debug then Printf.printf "of_two_dim_no_comb,tie_breaker = %d\n%!" tie_breaker;
         let alph = (alphabet_size nm) - 1 in
         for i = 1 to alph do
             for j = 1 to alph do
                 for k = 1 to alph do
+                    let bestcost = ref Utl.large_int in
+                    let bestmedlst = ref [] in
                     for l = 1 to alph do
                         let cost = 
                             (Two_D.cost l i mat) + (Two_D.cost l j mat) +
                             (Two_D.cost l k mat) 
-                        and old_cost = cost i j k nm in
-                        if (cost < old_cost) then begin
-                            set_cost i j k nm cost;
-                            set_median i j k nm l;
+                        in
+                        if cost = !bestcost then
+                            bestmedlst := !bestmedlst @ [l]
+                        else if cost < !bestcost then begin
+                            bestmedlst := [l];
+                            bestcost := cost;
                         end;
-                    done;
-                done;
-            done;
-        done
+                    done; (*loop on l*)
+                    let bestmed = 
+                        let len = (List.length !bestmedlst) in
+                        if tie_breaker=0 then
+                            List.nth !bestmedlst (Random.int len) 
+                        else if tie_breaker=1 then
+                            List.nth !bestmedlst 0
+                        else if tie_breaker=2 then
+                            List.nth !bestmedlst (len-1)
+                        else
+                            failwith "unkown tie_breaker code in cost_matrix.of_two_dim_no_comb"
+                    in
+                    set_cost i j k nm !bestcost;
+                    set_median i j k nm bestmed;
+                done;(*loop on k*)
+            done;(*loop on j*)
+        done(*loop on i*)
     ;;
 
     let of_two_dim_comb nm m =
+        let debug = false in
         let alph = Two_D.alphabet_size m
         and gap = Two_D.gap m 
         and lcm = Two_D.lcm m 
         in
+        if debug then 
+        Printf.printf "of_two_dim_comb,alph size = %d, gapcode = %d, lcm = %d\n%!" 
+        alph gap lcm;
         let max = 1 lsl lcm in
         let rec pick_bit cur item =
             assert (
@@ -1645,24 +1661,28 @@ module Three_D = struct
                             let v = median i j k nm in
                             set_median i j k nm (v lor inter);
                         end;
-                    done;
-                    (* We pick only one median ammong all options *)
+                    done;(*l loop*)
+                    (*for dna sequence, we only keep one best median*)
                     set_median i j k nm (pick_bit 1 (median i j k nm));
-                done;
-            done;
-        done
+                done;(*k loop*)
+            done;(*j loop*)
+        done(*i loop*)
     ;;
-    
+   
+
     let of_two_dim_by_level nm m =
+        let debug = false in
         let map_sz = Two_D.get_map_sz m
         and ori_a_sz = Two_D.get_ori_a_sz m
         and all_elements = Two_D.get_all_elements m
         in
+        let tie_breaker = Two_D.get_tie_breaker m in
         Status.user_message Status.Warning 
         "Building@ 3D@ matrix,@  if@ this@ takes@ too@ long,@ turn@ 3D@ off"; 
         if debug then 
-            Printf.printf "of two dim by level, map_sz=%d,ori_a_sz=%d,,all_elements = %d\n%!"
-        map_sz ori_a_sz all_elements;
+            Printf.printf "of two dim by level,\
+            map_sz=%d,ori_a_sz=%d,,all_elements = %d,tie_breaker=%d\n%!"
+        map_sz ori_a_sz all_elements tie_breaker;
         let is_metric = Two_D.is_metric m in
         if is_metric then ()
         else 
@@ -1671,26 +1691,49 @@ module Three_D = struct
         for i = 1 to map_sz do
             for j = 1 to map_sz do
                 for k = 1 to map_sz do
-                    set_cost i j k nm max_int;
-                    for inter = 1 to ori_a_sz do
-                        let new_cost = (Two_D.cost inter i m) + 
+                    (*set_cost i j k nm max_int;*)
+                    let bestcost = ref Utl.large_int in
+                    let bestmedlst = ref [] in
+                    for inter = 1 to map_sz do
+                        let newcost = (Two_D.cost inter i m) + 
                                 (Two_D.cost inter j m) +
                                 (Two_D.cost inter k m) 
                         in
-                        let old_cost = cost i j k nm in
-                        (* We pick only one median ammong all options *)
-                        if (new_cost<old_cost) then begin
-                            set_cost i j k nm new_cost;
-                            set_median i j k nm inter;
-                        end
-                        else ();
-                    done;
-                 done;
-            done;
-        done
+                        let debug2 = false in
+                        if debug2 then 
+                            Printf.printf "i=%d,j=%d,k=%d,inter=%d,newcost <- %d + %d + %d \n%!"
+                            i j k inter
+                            (Two_D.cost inter i m) (Two_D.cost inter j m)
+                            (Two_D.cost inter k m);
+                        if newcost = !bestcost then
+                            bestmedlst := !bestmedlst @ [inter]
+                        else if newcost < !bestcost then begin
+                            bestmedlst := [inter];
+                            bestcost := newcost;
+                        end;
+                    done;(*loop on inter*)
+                    let bestmed = 
+                        let len = (List.length !bestmedlst) in
+                        if tie_breaker=0 then
+                            List.nth !bestmedlst (Random.int len) 
+                        else if tie_breaker=1 then
+                            List.nth !bestmedlst 0
+                        else if tie_breaker=2 then
+                            List.nth !bestmedlst (len-1)
+                        else
+                            failwith "unkown tie_breaker code in cost_matrix.of_two_dim_no_comb"
+                    in
+                    if debug then 
+                    Printf.printf "set cost %d.%d.%d <- %d, median <-%d\n%!" i j k !bestcost bestmed;
+                    set_cost i j k nm !bestcost;
+                    set_median i j k nm bestmed;
+                 done;(*k loop*)
+            done;(*j loop*)
+        done(*i loop*)
     ;;
 
     let of_two_dim m = 
+        let debug = false in
         if debug then Printf.printf "Cost_matrix.Three_D.of_two_dim,%!";
         let nm = make_three_dim m in
         match combine nm with

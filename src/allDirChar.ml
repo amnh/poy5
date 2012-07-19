@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = true
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
