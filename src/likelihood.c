@@ -185,11 +185,11 @@ void debug( const mll* a )
 }
 
 /* print out a caml value */
-void likelihood_CAML_debug( value s )
+value likelihood_CAML_debug( value s )
 {
     CAMLparam1( s );
     debug( ML_val( s ) );
-    CAMLreturn0;
+    CAMLreturn( Val_unit );
 }
 
 /** creates a random substituation rate matrix
@@ -243,6 +243,7 @@ void rand_sub_mat_sym( double* A, const int n, const int s)
         A[i*s+i] = -diag;
     }
 }
+
 
 //------------------------------------------------------------------------------
 // O'CAML interface functions for Garbage Collection + callback for a GC
@@ -844,7 +845,7 @@ int diagonalize_sym( mat *space,  double* A, double* D, int n)
     return info;
 }
 /* Diagonlize matrix interfaces: symmetric */
-void likelihood_CAML_diagonalize_sym( value tmp, value Q, value D)
+value likelihood_CAML_diagonalize_sym( value tmp, value Q, value D)
 {
     CAMLparam3( tmp, Q, D );
     diagonalize_sym(
@@ -852,8 +853,7 @@ void likelihood_CAML_diagonalize_sym( value tmp, value Q, value D)
             (double*) Data_bigarray_val( Q ),
             (double*) Data_bigarray_val( D ),
             Bigarray_val( Q )->dim[0]);
-    CAMLreturn0;
-
+    CAMLreturn( Val_unit );
 }
 
 int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
@@ -916,7 +916,8 @@ int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
     return info;
 }
 /* Diagonalize matrix interface: general */
-void likelihood_CAML_diagonalize_gtr( value tmp, value Q, value D, value Qi)
+value
+likelihood_CAML_diagonalize_gtr( value tmp, value Q, value D, value Qi)
 {
     CAMLparam4( tmp, Q, D, Qi );
     diagonalize_gtr(
@@ -925,7 +926,7 @@ void likelihood_CAML_diagonalize_gtr( value tmp, value Q, value D, value Qi)
             (double*) Data_bigarray_val( D ),
             (double*) Data_bigarray_val( Qi),
             Bigarray_val( Q )->dim[0]);
-    CAMLreturn0;
+    CAMLreturn( Val_unit );
 }
 
 /** [mk_probmat_*** P U D [Ui] t]
@@ -961,7 +962,8 @@ compose_sym(double* P,const double* U,const double* D,const float t,int n,double
         create_identity( P , n );
     }
 }
-value likelihood_CAML_compose_sym(value tmp,value U, value D, value t)
+value
+likelihood_CAML_compose_sym(value tmp,value U, value D, value t)
 {   /* only called for testing purposes */
     CAMLparam4( tmp,U,D,t );
     CAMLlocal1( res );
