@@ -27,7 +27,9 @@ let fst_trp (a,_,_) = a and snd_trp (_,a,_) = a and trd_trp (_,_,a) = a
 module type S = sig
 
     type a
+
     type b
+
     type tree = (a,b) Ptree.p_tree
 
     type model_diff =
@@ -35,33 +37,42 @@ module type S = sig
           rates : MlModel.site_var;
           prior : MlModel.priors; }
 
-    type models = model_diff list
+    type model_diffs = model_diff list
 
-    type ic = | AIC | AICC | BIC
+    type ic = [ `AIC | `AICC | `BIC ]
 
     type tree_stats =
         { tree : tree; lk : float; ic : float * float * float; }
 
     type stats =
         { tree_stats : tree_stats array; type_ic : ic; min_ic : int * float; }
-    
-    val all_specs : tree -> Data.bool_characters -> bool -> models
+
+    val select_models : tree -> Methods.ml_spec -> MlModel.model * model_diffs
 
     val aic  : int -> int -> float -> float
+
     val aicc : int -> int -> float -> float
+
     val bic  : int -> int -> float -> float
     
     val best_model : stats -> tree 
-    val stats_of_models : models -> ic -> Data.bool_characters -> tree -> stats
-    val merge_stats : stats list -> stats
-    val report_stats : stats -> Data.bool_characters -> unit
+
+    val stats_of_models :
+        model_diffs -> ic -> Data.bool_characters -> MlModel.model -> tree -> stats
+
+    val merge_stats  : stats list -> stats
+
+    val report_stats : stats -> Data.bool_characters -> string array array
+
     val model_averaged_parameter : 
         (MlModel.model -> float option) -> stats -> Data.bool_characters -> float * float
+
+    val generate_stats : tree -> Methods.ml_spec -> stats
 end
 
 module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             (Edge : Edge.EdgeSig with type n = Node.n) 
-            (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) : S =
+            (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) =
 struct
 
     type a = Node.n
@@ -77,10 +88,10 @@ struct
           prior : MlModel.priors;}
 
     (** Define a list/subset of models to use in the particular IC *)
-    type models = model_diff list
+    type model_diffs = model_diff list
 
     (** Types of Information Criterias used in the tree-stats *)
-    type ic = | AIC | AICC | BIC
+    type ic = [ `AIC | `AICC | `BIC ]
 
     (** Define stats for a tree; likelihood, aic, and bic *)
     type tree_stats =
@@ -100,24 +111,40 @@ struct
 
     (** [all_specs] A list of all the specifications of models w/ and w/out
          gamma parameter based on a candidate spec --to define gap + optimality *)
-    let all_specs tree chars gap =
-        let est_prior = 
-            let chars = Data.get_chars_codes_comp tree.Ptree.data chars in
-            MlModel.Estimated (Data.compute_priors tree.Ptree.data chars gap)
+    let select_models tree (chars,alph,cost,_,osite,prior,gap) =
+        let nchars = Data.get_chars_codes_comp (Ptree.get_data tree) chars in
+        let est_prior =
+            let u_gap = match gap with
+                | `Independent | `Coupled _ -> true | `Missing -> false
+            in
+            Data.compute_priors (Ptree.get_data tree) nchars u_gap in
+        let asize,a = Data.verify_alphabet (Ptree.get_data tree) nchars alph in
+        let base_spec = 
+            let init_spec = (chars,alph,cost,`JC69,osite,`Equal,gap) in
+            MlModel.convert_methods_spec asize (fun () -> est_prior) init_spec
         in
         let all_subst =
+            let est_prior = MlModel.Estimated est_prior in
             [(MlModel.JC69,MlModel.Equal); (MlModel.F81,est_prior);
              (MlModel.K2P None,MlModel.Equal); (MlModel.F84 None,est_prior);
              (MlModel.HKY85 None,est_prior); (MlModel.TN93 None,est_prior);
              (MlModel.GTR None,est_prior)]
-        and all_vari  = [ MlModel.Constant; MlModel.Gamma (4,0.1) ] in
-        List.fold_left
-            (fun acc (x,y) ->
-                List.fold_left
-                    (fun acc z ->
-                        ( { subst = x; rates = z; prior = y; } ) :: acc )
-                    acc all_vari)
-            [] all_subst
+        and all_vari = match osite with
+            | None                -> [MlModel.Constant ]
+            | Some (`Gamma (r,_)) -> [MlModel.Constant; MlModel.Gamma (r,0.1)]
+            | Some (`Theta (1,_)) -> [MlModel.Constant; MlModel.Theta (1,0.1,0.1) ]
+            | Some (`Theta (r,_)) -> [MlModel.Constant; MlModel.Gamma (r,0.1); MlModel.Theta (r,0.1,0.1)]
+        in
+        let delta_specs =
+            List.fold_left
+                (fun acc (x,y) ->
+                    List.fold_left
+                        (fun acc z ->
+                            ( { subst = x; rates = z; prior = y; } ) :: acc )
+                        acc all_vari)
+                [] all_subst
+        in
+        MlModel.create a base_spec, delta_specs
 
     (** [parameter_cardinality] Helper function to determine the total number of
         parameters in the model; this includes branches, model rates, gamma, and
@@ -135,7 +162,6 @@ struct
         and branch_params = (* un-rooted; for branch lengths *)
             (List.length sets) * (Tree.EdgeSet.cardinal tree.Ptree.tree.Tree.d_edges)
         in
-                        
         model_params + branch_params
 
     (** [sample_size] return the size of [n] in methods; this is to abstract the
@@ -159,22 +185,20 @@ struct
                             MlModel.site_variation = Some new_spec.rates; }
 
     (** [apply_model_to_data] apply the model specification to a set of chars *)
-    let apply_model_to_data new_spec chars data : Data.d = 
-        let sets = Data.categorize_likelihood_chars_by_model chars data in
+    let apply_model_to_data old_model diff chars data : Data.d = 
         List.fold_left
             (fun d xs ->
-                let model = Data.get_likelihood_model d xs in
-                let model = update_model model new_spec in
+                let model = update_model old_model diff in
                 Data.apply_likelihood_model_on_chars d xs model)
-            data
-            sets
+            (data)
+            (Data.categorize_likelihood_chars_by_model chars data)
 
     (** [diagnose_tree_with_model] determine the maximum likelihood value for
         the tree and model. Return the ML parameters and negative log-likelihood *)
-    let diagnose_tree_with_model tree chars spec : tree =
+    let diagnose_tree_with_model tree chars spec diff : tree =
         let data, nodes =
             tree.Ptree.data
-                --> apply_model_to_data spec chars
+                --> apply_model_to_data spec diff chars
                 --> Data.categorize
                 --> Node.load_data
         in
@@ -244,20 +268,22 @@ struct
 
     (** [stats_of_tree] fill stats, minus decision theory and hlrt, of
         information criteria tests from a ML tree *)
-    let stats_of_tree ic chars tree =
+    let stats_of_tree warn ic chars tree =
         let k = parameter_cardinality tree chars in
         let n = sample_size tree chars in
         let l = negative_loglikelihood tree chars in
         let ic = match ic with
-            | AIC  -> aic k n l
-            | AICC -> aicc k n l
-            | BIC  -> bic k n l
+            | `AICC -> aicc k n l
+            | `BIC  -> bic k n l
+            | `AIC  -> 
+                warn := !warn || ((float_of_int n) /. (float_of_int k) < 40.0);
+                aic k n l
         in
         tree, ic
 
     (** [stats_of_models] fills and calculates the *IC stats for a set of
         models, used as a basis for all *IC methods. *)
-    let stats_of_models specs ic chars tree =
+    let stats_of_models specs ic chars spec tree =
         assert ( match specs with | [] -> false | _ -> true );
         let () = match chars with
             | `All -> ()
@@ -266,18 +292,30 @@ struct
                            "not supported. Only all is allowed")
                           (Data.string_of_characters char)
         in
+        let warning = ref false in
         let tree_stats = 
             specs --> Array.of_list
-                  --> Array.map (diagnose_tree_with_model tree chars)
-                  --> Array.map (stats_of_tree ic chars)
+                  --> Array.map (diagnose_tree_with_model tree chars spec)
+                  --> Array.map (stats_of_tree warning ic chars)
         in
-        let _,min_ic =
-            Array.fold_left
-                (fun (i,((_,ma) as aa)) (_,ca) ->
-                    let acc = if ma < ca then aa else (i,ca) in
-                    (i+1,acc))
-                (0,(~-1,max_float))
-                (tree_stats)
+        let () = 
+            if !warning then
+                let m = "When the sample size of a set of data is small (say, " ^
+                        "n/k < 40), it is recommended that the second-order AIC"^
+                        ", AICc (Hurvich and Tsai, 1989, 1995; Sugiura, 1978), "^
+                        " be used instead." in
+                Status.user_message Status.Warning m
+        in
+        Array.sort (fun x y -> Pervasives.compare (snd x) (snd y)) tree_stats;
+        let min_ic = (0, snd tree_stats.(0));
+(*      Instead we sort, since sort will mutate the array, sorting in the *)
+(*        report command will break the min_ic variable. *)
+(*            Array.fold_left*)
+(*                (fun (i,((_,ma) as aa)) (_,ca) ->*)
+(*                    let acc = if ma < ca then aa else (i,ca) in*)
+(*                    (i+1,acc))*)
+(*                (0,(~-1,max_float))*)
+(*                (tree_stats)*)
         in
         let tree_stats, sum_ic =
             Array.fold_right
@@ -345,37 +383,52 @@ struct
             { tree_stats = tree_stats; min_ic = min_ic; type_ic = x.type_ic; }
 
     (** [report_stats] currently a debug function for reporting information *)
-    let report_stats stats chars : unit =
-        let () =
-            Array.sort
-                (fun x y -> Pervasives.compare (fst_trp x.ic) (fst_trp y.ic))
-                stats.tree_stats
-        and ic_to_string =
-            function | AIC -> "AIC" | AICC -> "AICC" | BIC -> "BIC"
+    let report_stats stats chars : string array array =
+        let ic_name = match stats.type_ic with 
+             | `AIC -> "AIC" | `AICC -> "AICC" | `BIC -> "BIC"
         in
-        let ic_name = ic_to_string stats.type_ic in
-        Printf.printf "Model \t lk \t\t K \t %s \t\t delta \t\t weight \t cum(w)\n%!" ic_name;
-
-        Printf.printf "-----------------------------------------------------------------------------------------\n%!";
+        let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
+        let () = 
+            ret.(0) <- [| "Model"; "-log(LK)"; "K"; ic_name; "delta"; "weight"; "cum(w)"; |]
+        in
         Array.fold_left
-            (fun w_cum s ->
+            (fun (i,w_cum) s ->
                 let charn = Data.get_chars_codes_comp s.tree.Ptree.data chars in
                 let model = Data.get_likelihood_model s.tree.Ptree.data charn in
-                let short = MlModel.short_name model in
-                let num_k = parameter_cardinality s.tree chars in
                 let (ic,d_ic,w_ic) = s.ic in
-                Printf.printf "%s \t %f \t %d \t %f \t %f \t %f \t %f\n%!"
-                              short s.lk num_k ic d_ic w_ic (w_ic +. w_cum);
-                w_cum +. w_ic)
-            0.0
+                let i_array = 
+                    [| (MlModel.short_name model);  (string_of_float s.lk);
+                       (string_of_int (parameter_cardinality s.tree chars));
+                       (string_of_float ic);  (string_of_float d_ic);
+                       (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |];
+                in
+                ret.(i) <- i_array;
+                ((i+1),(w_cum +. w_ic)) )
+            (1,0.0)
             stats.tree_stats
-        --> ignore
+            --> ignore;
+        ret
+
+    let generate_stats tree ((chars,_,_,ic,_,_,_) as spec) =
+        let ic = match ic with
+            | `AIC  _ -> `AIC
+            | `AICC _ -> `AICC
+            | `BIC  _ -> `BIC
+            | #Methods.ml_substitution -> assert false
+        in
+        let model,dmodels = select_models tree spec in
+        let stats = stats_of_models dmodels ic chars model tree in
+        stats
+
 end
 
-module IC = Make (AllDirNode.AllDirF) (Edge.LazyEdge) (AllDirChar.F)
-
 (** Test against the scripting module Phylo; we use magic to transform the
-    types, they are the same so this is okay, if not a terrible thing to do *)
+    types, they are the same so this is okay, if not a terrible thing to do.
+
+    Because of dependencies, Phylo, one must comment out calls in charTransform,
+    and uncomment out this before using. *) 
+(*module IC = Make (AllDirNode.AllDirF) (Edge.LazyEdge) (AllDirChar.F)*)
+(*
 let test file =
     let phylo_to_ic : (Phylo.a, Phylo.b) Ptree.p_tree -> (IC.a, IC.b) Ptree.p_tree = Obj.magic in
     Status.set_verbosity `None;
@@ -386,7 +439,7 @@ let test file =
             (fun acc t ->
                 let t = phylo_to_ic t in
                 let specs = IC.all_specs t `All false in
-                let stats = IC.stats_of_models specs IC.AIC `All t in
+                let stats = IC.stats_of_models specs `AIC `All t in
                 let () = IC.report_stats stats `All in
                 stats :: acc)
             []
@@ -397,4 +450,4 @@ let test file =
         IC.report_stats stat `All
     else
         ()
-
+*)

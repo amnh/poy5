@@ -34,10 +34,11 @@ type cost_modes =
     [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong 
     | `Iterative of [`ThreeD of int option | `ApproxD of int option ] ]
 
-let cost : cost_modes ref = 
-    ref `Normal
-
 type alignment_modes = [ `Algn_Newkk | `Algn_Normal ]
+
+let cost : cost_modes ref = ref `Normal
+
+let opt_mode  : Numerical.opt_modes ref = ref `Normal
 
 let algn_mode : alignment_modes ref = ref `Algn_Normal
 
@@ -209,6 +210,12 @@ type terminal_transform = [
     | `AlphabeticTerminals
 ]
 
+type ml_optimization= [
+    | `AIC of string option
+    | `BIC of string option
+    | `AICC of string option
+]
+
 type ml_substitution = [
     | `JC69
     | `F81
@@ -222,6 +229,7 @@ type ml_substitution = [
     | `Custom of string
 ]
 
+type ml_model = [ ml_optimization | ml_substitution ]
 
 type ml_alphabet = [ `Min | `Int of int | `Max ]
 
@@ -238,7 +246,7 @@ type ml_priors = [ `Estimate | `Given of float list | `Equal | `Consistent ]
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
 
 type ml_spec = 
-    (characters * ml_alphabet * ml_costfn * ml_substitution
+    (characters * ml_alphabet * ml_costfn * ml_model
         * ml_site_variation option * ml_priors * ml_gap)
 
 type polymorphism_arg = [ |`Do_Nothing | `Pick_One | `Do_All  ]

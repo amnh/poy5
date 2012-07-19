@@ -40,10 +40,10 @@ module type S = sig
           prior : MlModel.priors;}
 
     (** Define a list/subset of models to use in the particular IC *)
-    type models = model_diff list
+    type model_diffs = model_diff list
 
     (** Types of information criteria used in the tree-stats *)
-    type ic = | AIC | AICC | BIC
+    type ic = [ `AIC | `AICC | `BIC ]
 
     (** Define stats for a tree; likelihood, aic, and bic *)
     type tree_stats =
@@ -59,8 +59,8 @@ module type S = sig
               min_ic : int * float; }
 
     (** Helper to create a list of all combinations of subsitutions and rate
-        variations from a candidate spec --used to set optimiality and gap. *)
-    val all_specs : tree -> Data.bool_characters -> bool -> models
+        variations from a candidate spec. *)
+    val select_models : tree -> Methods.ml_spec -> MlModel.model * model_diffs
 
     (** {6 Information metrics for Model selection *)
 
@@ -87,13 +87,14 @@ module type S = sig
 
     (** [stats_of_models] fills and calculates the *IC stats for a set of
         models, used as a basis for all *IC methods. *)
-    val stats_of_models : models -> ic -> Data.bool_characters -> tree -> stats
+    val stats_of_models :
+        model_diffs -> ic -> Data.bool_characters -> MlModel.model -> tree -> stats
 
     (** [merge_stats] merges a list of tree_stats into and updates the info *)
     val merge_stats : stats list -> stats
    
     (** [report_stats] report the stats in a chart; ic, weight, lk, ... *)
-    val report_stats : stats -> Data.bool_characters -> unit
+    val report_stats : stats -> Data.bool_characters -> string array array
 
     (** [model_average_parameter] return the model average parameter for a
         function that access the given parameter.  The function should return
@@ -101,10 +102,19 @@ module type S = sig
     val model_averaged_parameter :
         (MlModel.model -> float option) -> stats -> Data.bool_characters
             -> float * float
+
+    (** [generate_stats] built from the natural Methods.spec from the parser to
+        create a stats object; most convenient entry point. *)
+    val generate_stats : tree -> Methods.ml_spec -> stats
+        
 end
 
-module IC : S
+module Make :
+    functor (Node : NodeSig.S with type other_n = Node.Standard.n) ->
+        functor (Edge : Edge.EdgeSig with type n = Node.n) ->
+            functor (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) ->
+                S with type a = Node.n with type b = Edge.e
 
 (** Load a run script that should load data, build trees and transform to
     likelihood. run method does not need to be iterative, adjusted in method. *)
-val test : string -> unit
+(*val test : string -> unit*)

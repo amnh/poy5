@@ -722,7 +722,7 @@ let readjust3_opt mine c1 c2 par t1 t2 t3 =
         let init_vec = [| t1;t2;t3 |] in
         let (_,pscore) as init_res = single_result init_vec in
         Numerical.run_method
-            (Numerical.default_numerical_optimization_strategy ())
+            (Numerical.default_numerical_optimization_strategy !Methods.opt_mode 3)
             single_result (init_vec,init_res),
         pscore
     in
