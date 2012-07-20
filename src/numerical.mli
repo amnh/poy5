@@ -156,7 +156,11 @@ type optimization_strategy =
     routine with the specified parameters. A wrapper around the four methods we
     have to optimize multi-dimensional functions. *)
 
-val default_numerical_optimization_strategy : unit -> optimization_strategy list
+type opt_modes =
+    [ `None | `Coarse | `Normal | `Exhaustive | `Custom of optimization_strategy ]
+
+val default_numerical_optimization_strategy :
+    opt_modes -> int -> optimization_strategy list
 (** Take the cost model of the Methods module and determine an opt strategy *)
 
 val run_method :

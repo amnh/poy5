@@ -96,6 +96,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
     module IA = ImpliedAlignment.Make (Node) (Edge)
 
+    module MS = ModelSelection.Make (Node) (Edge) (TreeOps)
+
     type a = Node.n
     type b = Edge.e
     type tree = (a, b) Ptree.p_tree
@@ -1050,6 +1052,21 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 Status.user_message Status.Information "No characters have been transformed";
                 data,nodes
             END
+        | `UseLikelihood (_,_,_,#Methods.ml_optimization,_,_,_) ->
+            IFDEF USE_LIKELIHOOD THEN
+                Status.user_message Status.Warning
+                    ("This type of character transformation, one where model"
+                    ^"selection is used, requires a tree in memory. Because of"
+                    ^"this the elikelihood command should be called, though the"
+                    ^"rest of the command was correct.");
+                    data,nodes
+            ELSE
+                Status.user_message Status.Warning
+                    ("Likelihood is not enabled. No transformation is being applied"
+                    ^". Please download a different binary with likelihood enabled"^
+                    " or contact support on the mailing list");
+                    data,nodes
+            END
         | `UseLikelihood x ->
             IFDEF USE_LIKELIHOOD THEN
                 let () = Methods.cost := `Iterative (`ThreeD None) in
@@ -1062,10 +1079,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 data,nodes
             END
         | `Prealigned_Transform chars ->
-                data 
+            data
                 --> (fun d -> Data.prealigned_characters ImpliedAlignment.analyze_tcm d chars)
                 --> Data.categorize
-                --> Node.load_data 
+                --> Node.load_data
         | `MultiStatic_Aprox (chars, remove_non_informative) ->
                 begin try
                     let len = Sexpr.length trees in
@@ -1247,22 +1264,62 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     css
         in
         match meth with
-        | `EstLikelihood (((chars:Methods.characters),a,b,c,d,e,f) as x) ->
+        | `EstLikelihood ((chars,a,b,(#Methods.ml_optimization as c),d,e,f) as x) ->
             if Sexpr.is_empty trees then begin
-                let m = "The Estimated Likelihood transformation bases the \
-                    initial model parameters on a tree. I will transform the \
-                    characters to the model specified with default parameters."
+                let m = "Model Selection under likelihood requires a tree in "^
+                        "memory. I will skip the transform entirely and leave "^
+                        "the data as is. Please build or load trees before "^
+                        "transforming to a model selection criteria." in
+                Status.user_message Status.Warning m;
+                trees, data, nodes
+            end else begin
+                let trees =
+                    let file = match c with
+                        | `AIC  file -> file
+                        | `AICC file -> file
+                        | `BIC  file -> file
+                    in
+                    let table_out = Status.output_table (Status.Output (file,false,[])) in
+                    Sexpr.fold_left
+                        (fun tsexp t ->
+                            let stats = MS.generate_stats t x in
+                            let ()    = table_out (MS.report_stats stats chars) in
+                            let t     = MS.best_model stats in
+                            Sexpr.union (`Single t) tsexp)
+                        `Empty
+                        trees
                 in
+                let data, nodes =
+                    let best_tree =
+                        Sexpr.fold_left
+                            (fun acc nex ->
+                                let old_cost = Ptree.get_cost `Adjusted acc
+                                and new_cost = Ptree.get_cost `Adjusted nex in
+                                if old_cost < new_cost then acc else nex)
+                            (Sexpr.nth 0 trees)
+                            (trees)
+                    in
+                    Node.load_data (Ptree.get_data best_tree)
+                in
+                trees, data, nodes
+            end
+        | `EstLikelihood ((chars,a,b,(#Methods.ml_substitution as c),d,e,f) as x) ->
+            if Sexpr.is_empty trees then begin
+                let m = "The Estimated Likelihood transformation uses a loaded "
+                      ^ "tree to estimate an initial rate matrix. I will "
+                      ^ "transform the characters to the model specified but "
+                      ^ "with default parameters." in
                 Status.user_message Status.Warning m
             end;
             let trees =
                 Sexpr.fold_left
                     (fun tsexp t ->
-                        let bs = Tree.get_edges_tree t.Ptree.tree in
-                        let data = static_transform t bs t.Ptree.data a b c d e f chars in
+                        let data = Ptree.get_data t in
+                        let bs   = Tree.get_edges_tree t.Ptree.tree in
+                        let data = static_transform t bs data a b c d e f chars in
                         let data = dynamic_transform t bs data a b c d e f chars in
                         let ndata, nodes = Node.load_data data in
-                        let t = substitute_nodes nodes { t with Ptree.data = ndata; } in
+                        let t = substitute_nodes nodes (Ptree.set_data t ndata) in
                         Sexpr.union (`Single t) tsexp)
                     `Empty
                     trees

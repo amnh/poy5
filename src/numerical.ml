@@ -145,6 +145,10 @@ type optimization_strategy =
         tol      : float option; 
     }
 
+(** Define levels of optimization for the chooser *)
+type opt_modes =
+    [ `None | `Coarse | `Normal | `Exhaustive | `Custom of optimization_strategy ]
+
 (** Here we define a simplex as a collection of points with attached data -the
     tree or some added information carried through the computation. The array
     should be the size of the dimension plus one. *)
@@ -1029,16 +1033,12 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
     pdfp
 
 (** Determine the numerical optimization strategy from the methods cost mode *)
-let default_numerical_optimization_strategy () = match !Methods.cost with
-    | `Exhaustive_Strong
-    | `Exhaustive_Weak
-    | `Normal_plus_Vitamines
-    | `Normal                          ->
-        (default_strategy `BFGS) :: [] 
-    | `Iterative (`ThreeD  iterations)
-    | `Iterative (`ApproxD iterations) ->
-        { (default_strategy `BFGS) with max_iter = iterations; } :: []
-
+let default_numerical_optimization_strategy o p = match o with
+    | `None  -> []
+(*    | _  when p = 1 -> (default_strategy `Brent_Multi) :: []*)
+(*    | `Normal   -> let x = (default_strategy `Brent_Multi) in [x;x]*)
+(*    | `Normal   -> (default_strategy `BFGS) :: []*)
+    | _      -> (default_strategy `BFGS) :: []
 
 (** Run an optimization strategy; call the proper algorithm w/ convergence
     properties; a list of the appropriate ones are included here *)

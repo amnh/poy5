@@ -67,6 +67,10 @@ type phylogeny = (Node.node_data, unit) p_tree
 
 type cost_type = [ `Adjusted | `Unadjusted ]
 
+let get_data ptree = ptree.data
+
+let set_data ptree data = { ptree with data = data; }
+
 let get_cost clas ptree =
     let get_cost = 
         match clas with
