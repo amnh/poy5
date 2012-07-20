@@ -3432,6 +3432,9 @@ let readjust mode to_adjust ch1 ch2 parent mine =
     if mine.total_cost = infinity then 
         mine, !modified
     else
+        let _ = if debug2 then Printf.printf "map4 on ch1,ch2,parent and mine's\
+        characters (len = %d)\n%!" (List.length ch1.characters) 
+        in
         let characters = 
             map4 cs_readjust ch1.characters ch2.characters
                              parent.characters mine.characters

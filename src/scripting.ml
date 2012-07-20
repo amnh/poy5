@@ -1594,10 +1594,12 @@ let load_data (meth : Methods.input) data nodes =
                 (*get tie breaker for cost matrix*)
                 let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
                 let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
-                let tb = 
+                let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
+                let tb = (*we use First as custom alphabet's tie breaker*)
                     if tie_breaker_first then `First
                     else if tie_breaker_last then `Last
-                    else `Keep_Random
+                    else if tie_breaker_random then `Keep_Random
+                    else `First
                 in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
