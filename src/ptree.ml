@@ -1984,23 +1984,29 @@ let rec compare_trees a b =
     | ( Tree.Parse.Branches _ | Tree.Parse.Annotated _ 
       | Tree.Parse.Characters _ | Tree.Parse.Flat _), _ -> false
 
-let get_unique trees = match trees with 
+let get_unique trees = match trees with
     | tree :: _ ->
         let a, _ = Tree.choose_leaf tree.tree in
+        let trees =
+            List.sort
+                (fun x y ->
+                    Pervasives.compare (get_cost `Adjusted x) (get_cost `Adjusted y))
+                trees
+        in
         let trees =
             List.rev_map
                 (fun x ->
                     x, { x with tree = Tree.cannonize_on_leaf a x.tree })
                 trees
         in
-        let trees = 
-            List.rev_map 
-                (fun (x, y) -> 
+        let trees =
+            List.rev_map
+                (fun (x, y) ->
                     x,Tree.Parse.cannonic_order (build_tree_with_codes y ""))
                 trees
         in
         let rec remove_duplicated acc = function
-            | (x, y) :: t -> 
+            | (x, y) :: t ->
                 let are_different (_, z) = not (compare_trees y z) in
                 remove_duplicated (x :: acc) (List.filter are_different t)
             | [] -> acc
