@@ -794,14 +794,14 @@ let output_model output nexus model set =
             | Some Constant
             | None -> printf "No@]@\n"
             | Some (Gamma (cats,param)) ->
-                printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]"^^
-                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param
+                printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]\n"^^
+                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param
             | Some (Theta (cats,param,inv)) ->
-                printf ("Yes@]@\n[@<hov 1>- Number of categories: %d@]"^^
-                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param;
-                printf ("@[<hov 1>- Proportion of invariant: %.4f@]") inv
+                printf ("Yes@]@\n[@<hov 1>- Number of categories: %d@]\n"^^
+                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param;
+                printf ("@[<hov 1>- Proportion of invariant: %.4f@]\n") inv
         in
-        printf "@]";
+        printf "@]\n";
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
             | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n"; 
@@ -1120,6 +1120,7 @@ let convert_methods_spec alph_size compute_priors (_,alph,cst,subst,site_variati
             in
             Some (Theta (w,y,p))
     and substitution = match subst with
+        | `AIC _ | `BIC _ | `AICC _ -> assert false
         | `JC69 -> i_model := false;
                    JC69
         | `F81  -> i_model := false;
@@ -1969,11 +1970,11 @@ let get_current_parameters_for_model model =
   IFDEF USE_LIKELIHOOD THEN
     match model.spec.substitution, model.spec.use_gap with
         | JC69,`Coupled gapr | F81,`Coupled gapr ->
-            Some (Array.make 1 gapr)
+            (Array.make 1 gapr)
         | F84 x,`Coupled gapr | K2P x,`Coupled gapr | HKY85 x,`Coupled gapr ->
             let x = Array.make 2 (match x with | None -> default_tstv | Some x -> x) in
             x.(1) <- gapr;
-            Some x
+            x
         | TN93 x,`Coupled gapr ->
             let x1,x2 = match x with 
                 | Some (x,y) -> x,y
@@ -1982,21 +1983,21 @@ let get_current_parameters_for_model model =
             let y = Array.make 3 x2 in
             y.(0) <- x1;
             y.(2) <- gapr;
-            Some y
+            y
         | GTR (Some y),`Coupled gapr ->
             let y = Array.init ((Array.length y)+1)
                        (fun i -> if i = Array.length y then gapr else y.(i))
             in
-            Some y
+            y
         | GTR None,`Coupled gapr ->
             let a = Array.make ((((model.alph_s-1)*model.alph_s)/2)+1) 1.0 in 
             a.((Array.length a)-1) <- gapr;
-            Some a
+            a
         (* no gap below *)
-        | JC69,_ | F81,_ | File _,_ -> None
+        | JC69,_ | F81,_ | File _,_ -> [||]
         | F84 x,_ | K2P x,_ | HKY85 x,_ ->
             let x = match x with | None -> default_tstv | Some x -> x in
-            Some (Array.make 1 x)
+            (Array.make 1 x)
         | TN93 x,_  ->
             let x1,x2 = match x with 
                 | Some (x,y) -> x,y
@@ -2004,12 +2005,12 @@ let get_current_parameters_for_model model =
             in
             let y = Array.make 2 x2 in
             y.(0) <- x1;
-            Some y
-        | GTR ((Some _) as x),_ -> x
-        | GTR None,_ -> Some (default_gtr model.alph_s)
-        | Custom (_,xs,_),_ -> Some xs
+            y
+        | GTR (Some x),_    -> x
+        | GTR None,_        -> (default_gtr model.alph_s)
+        | Custom (_,xs,_),_ -> xs
   ELSE
-    None
+    [||]
   END
 
 (* for alpha parameter *)

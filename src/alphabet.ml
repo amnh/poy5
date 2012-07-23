@@ -984,7 +984,7 @@ let rev_comp_arr seqarr alph =
         complement2 seqarr.(size-idx-1) alph         ) seqarr
 
 (*[of_file] is only called by scripting.ml, when reading in custom alphabet and breakinversion file*)
-let of_file fn orientation init3D level respect_case =
+let of_file fn orientation init3D level respect_case tie_breaker =
     let debug = false in
     if debug then Printf.printf
     "Alphabet.of_file,orientation=%b,level=%d,init3D=%b,respect_case=%b\n%!"
@@ -1009,17 +1009,18 @@ let of_file fn orientation init3D level respect_case =
         let all_elements = -1 (* breakinv and customalphabet don't have all_elements *) in
         if do_comb then
             Cost_matrix.Two_D.of_channel 
-                ~orientation:orientation ~level:level all_elements file 
+                ~tie_breaker:tie_breaker ~orientation:orientation ~level:level all_elements file 
         else
             Cost_matrix.Two_D.of_channel_nocomb
                 ~orientation all_elements file
     in
     let tcm3 = match init3D with
         | true -> Cost_matrix.Three_D.of_two_dim tcm
-        | false  ->  Cost_matrix.Three_D.default 
+        | false  ->  Cost_matrix.Three_D.default_nucleotides 
     in 
     file#close_in;
     if debug then Printf.printf "end of of_file, return alph and tcm\n%!";
+    if debug then print alph;
     alph, (tcm,matrix), tcm3
 
 (*    code_to_string : string All_sets.IntegerMap.t;    *)

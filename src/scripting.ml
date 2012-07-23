@@ -1591,12 +1591,22 @@ let load_data (meth : Methods.input) data nodes =
                 in
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let is_prealigned = List.mem (`Prealigned) read_options in
+                (*get tie breaker for cost matrix*)
+                let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
+                let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
+                let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
+                let tb = (*we use First as custom alphabet's tie breaker*)
+                    if tie_breaker_first then `First
+                    else if tie_breaker_last then `Last
+                    else if tie_breaker_random then `Keep_Random
+                    else `First
+                in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let level = 2 in (* set level = 2 by default *)
                 let respect_case = true in
                 let alphabet, (twod,matrix), threed =
-                    Alphabet.of_file alph orientation init3D level respect_case
+                    Alphabet.of_file alph orientation init3D level respect_case tb
                 in
                 (*to do : connect this to prealigned*)
                 if is_prealigned then prealigned_files := [seq] ::
@@ -1626,7 +1636,7 @@ let load_data (meth : Methods.input) data nodes =
                 (* read the alphabet and tcm *)
                 let respect_case = true in
                 let alphabet, (twod,matrix), threed =
-                    Alphabet.of_file alph orientation init3D 0 respect_case
+                    Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
                 and tcmfile = FileStream.filename alph in
                 Data.process_molecular_file 
                         (Data.Input_file (tcmfile,matrix))

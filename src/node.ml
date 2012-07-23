@@ -3330,6 +3330,10 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         { mine with characters = chars; }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
+    let debug = false and debug2 = false in
+    if debug then 
+        Printf.printf "readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
+        mine.taxon_code parent.taxon_code ch1.taxon_code ch2.taxon_code;
     let ch1, ch2 =
         if ch1.min_child_code < ch2.min_child_code then
             ch1, ch2
@@ -3393,25 +3397,44 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     failwith MlStaticCS.likelihood_error
                   END
                 | _ -> 
+                        if debug2 then begin
+                            Printf.printf "node.readjust, call dynamicCS.readjust\
+                        with c1,c2 and preant, mine:\n%!";
+                        DynamicCS.print c1.preliminary;
+                        DynamicCS.print c2.preliminary;
+                        DynamicCS.print parent.preliminary;
+                        DynamicCS.print mine.preliminary;
+                        end;
                     let m, prev_cost, cost, res = 
                         DynamicCS.readjust mode to_adjust !modified c1.preliminary
                                 c2.preliminary parent.preliminary mine.preliminary
                     in
+                    if debug2 then begin
+                        Printf.printf "end of DynamicCS.readjust,check new med:\n%!";
+                    DynamicCS.print res;
+                    end;
                     modified := m;
                     let cost = mine.weight *. cost in
+                    let res = 
                     Dynamic
                         { mine with
-                            preliminary = res; final = res; 
+                            preliminary = res; 
+                            final = res; 
                             cost = cost;
                             sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
                             time=None,None,None;
                         }
+                    in
+                    res
             end
         | _ -> mine
     in
     if mine.total_cost = infinity then 
         mine, !modified
     else
+        let _ = if debug2 then Printf.printf "map4 on ch1,ch2,parent and mine's\
+        characters (len = %d)\n%!" (List.length ch1.characters) 
+        in
         let characters = 
             map4 cs_readjust ch1.characters ch2.characters
                              parent.characters mine.characters

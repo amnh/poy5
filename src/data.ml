@@ -5719,9 +5719,10 @@ let assign_tcm_to_characters_from_file data chars file =
                         else 0,`Keep_Random,false,false
                 | Some (l,tb) ->
                         (*when there is a new level value and tie breaker*)
-                        if debug_level then Printf.printf 
-                        "new level=%d,new tie_breaker=%!" l;
-                        Methods.print_keep_method tb;
+                        if debug_level then begin 
+                            Printf.printf "new level=%d,new tie_breaker=%!" l;
+                            Methods.print_keep_method tb; 
+                        end;
                         (*do full combination for dna and nucleotides *)
                         if is_dna then 0,tb,true,false
                         (*set level to 1 if input level <= 1, 

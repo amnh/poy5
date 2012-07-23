@@ -111,6 +111,31 @@ static __inline void
 #else
 static inline void
 #endif
+cm_set_total_size (cmt c, long int v) {
+    assert(c != NULL);
+    c->total_size = v;
+    //printf("set total size = %li\n",c->total_size);
+    return;
+}
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_set_total_size_3d (cm_3dt c, long int v) {
+    assert(c != NULL);
+    c->total_size = v;
+    //printf("set total size 3d = %li\n",c->total_size);
+    return;
+}
+
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
 cm_set_a_sz (cmt c, int v) {
     assert(c != NULL);
     c->a_sz = v;
@@ -543,8 +568,8 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     if (comb_num > 255) 
         failwith ("Apparently you are analyzing large alphabets. This version of POY was configured without the --enable-large-alphabets option. To run this analysis you need to enable that option at compile time. Either reconfigured and compile yourself the program,   or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
 #endif
-    if (debug) { printf ("cm_set_val,a_sz=%d,combination=%d,all_elements=%d,level=%d,comb_num=%d,gap_startNO=%d\n",
-            a_sz,combinations,all_elements,level,comb_num,gap_startNO); fflush(stdout); }
+    if (debug) { printf ("cm_set_val,a_sz=%d,combination=%d,all_elements=%d,level=%d,comb_num=%d,gap_startNO=%d,tie_breaker=%d\n",
+            a_sz,combinations,all_elements,level,comb_num,gap_startNO,tie_breaker); fflush(stdout); }
     cm_set_ori_a_sz(res, a_sz);
     cm_set_all_elements (res, all_elements);
     cm_set_affine (res, do_aff, gap_open);
@@ -600,6 +625,8 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     } else {
         size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(int);
     }
+    //set total size 
+    cm_set_total_size (res,size/sizeof(int));
     if (0==size)
     {   printf ("alphabet size=%d,combinations=%d,comb_num=%d,lcm=%d\n", a_sz, combinations,comb_num,res->lcm);
         printf ("if combination is true(which is 1 above),level is 0 or bigger than alphabet size, full combination will be used, we will try to create a cost matrix with size 2*lcm*lcm, it might be too big for your system. in that case, try to reduce the size of cost matrix by transform(level:x), x~(0,alphabet size)");
@@ -732,6 +759,7 @@ cm_set_val_3d (int a_sz, int combinations, int do_aff, int gap_open, \
         size =  (comb_num+1) * (comb_num+1) * (comb_num+1);
     else
         size = (1 << (res->lcm + 1)) * (1 << (res->lcm + 1)) * (1 << (res->lcm + 1));
+    cm_set_total_size_3d(res,size);
     res->comblist_2_combcode = (int *) calloc(combmatrix_size,1);
     if(res->comblist_2_combcode == NULL)
         fprintf(stderr,"Cannot allocate the map of combination codelist to combination code, with size=%d\n",combmatrix_size);
@@ -949,13 +977,13 @@ cm_calc_cost_position_seqt (SEQT a, SEQT b, int a_sz) {
 }
 
 #ifdef _WIN32
-__inline int
+__inline INDEXSIZE
 #else
-inline int
+inline INDEXSIZE
 #endif
 cm_calc_cost_position_seqt_nonbit (SEQT a, SEQT b, int a_sz) {
     assert(a_sz >= 0);
-    return ((((int) a) * a_sz) + ((int) b));
+    return ((INDEXSIZE)(((INDEXSIZE) a) * (INDEXSIZE)a_sz) + ((INDEXSIZE) b));
 }
 
 #ifdef _WIN32
@@ -969,13 +997,13 @@ cm_calc_cost_position_3d_seqt (SEQT a, SEQT b, SEQT c, int a_sz) {
 }
 
 #ifdef _WIN32
-__inline int
+__inline INDEXSIZE
 #else
-inline int
+inline INDEXSIZE
 #endif
 cm_calc_cost_position_3d_seqt_nonbit (SEQT a, SEQT b, SEQT c, int a_sz) {
     assert(a_sz >= 0);
-    return ((((((int) a) * a_sz) + ((int) b)) * a_sz) + ((int) c));
+    return ((((((INDEXSIZE) a) * (INDEXSIZE)a_sz) + ((INDEXSIZE) b)) * (INDEXSIZE)a_sz) + ((INDEXSIZE) c));
 }
 
 #ifdef _WIN32
@@ -989,13 +1017,13 @@ cm_calc_cost_position_3d (int a, int b, int c, int a_sz) {
 }
 
 #ifdef _WIN32
-__inline int
+__inline INDEXSIZE
 #else
-inline int
+inline INDEXSIZE
 #endif
 cm_calc_cost_position_3d_nonbit (int a, int b, int c, int a_sz) {
     assert(a_sz >= 0);
-    return ((((a * a_sz) + b) * a_sz) + c);
+    return (((((INDEXSIZE)a * (INDEXSIZE)a_sz) + (INDEXSIZE)b) * (INDEXSIZE)a_sz) + (INDEXSIZE)c);
 }
 
 #ifdef _WIN32
@@ -1661,6 +1689,7 @@ cm_CAML_deserialize (void *v) {
     n->map_sz = deserialize_sint_4();
     n->gap_startNO = deserialize_sint_4();
     // add above for level
+    n->total_size = deserialize_sint_8();
     n->a_sz = deserialize_sint_4();
     n->lcm = deserialize_sint_4();
     n->gap = deserialize_sint_4();
@@ -1714,6 +1743,7 @@ cm_CAML_deserialize_3d (void *v) {
     n->map_sz = deserialize_sint_4();
     n->gap_startNO = deserialize_sint_4();
     //add above for level
+    n->total_size = deserialize_sint_8();
     n->a_sz = deserialize_sint_4();
     n->lcm = deserialize_sint_4();
     n->gap = deserialize_sint_4();
@@ -1758,6 +1788,7 @@ cm_CAML_serialize (value vcm, unsigned long *wsize_32, \
     level = c -> level;
     a_sz = c -> ori_a_sz;
     mapsize = c->map_sz; 
+    serialize_int_8(c->total_size);
     serialize_int_4(c->ori_a_sz);
     serialize_int_4(c->level);
     serialize_int_4(c->map_sz);
@@ -1807,6 +1838,7 @@ cm_CAML_serialize_3d (value vcm, unsigned long *wsize_32, \
     serialize_int_4(c->map_sz);
     serialize_int_4(c->gap_startNO);
     // add above for level
+    serialize_int_8(c->total_size);
     serialize_int_4(c->a_sz);
     serialize_int_4(c->lcm);
     serialize_int_4(c->gap);
@@ -1860,7 +1892,10 @@ cm_compare (cmt a, cmt b) {
     int level, a_sz;
     level = a -> level;
     a_sz = a -> ori_a_sz;
-    if (a->a_sz != b->a_sz) {
+    if (a->total_size != b->total_size) {
+        return (a->total_size - b->total_size);
+    }
+    else if (a->a_sz != b->a_sz) {
         return (a->a_sz - b->a_sz);
     }
     else if (a->combinations != b->combinations) {
@@ -2485,7 +2520,7 @@ cm_CAML_create (value a_sz, value combine, value aff, value go, value all, value
     tmp = alloc_custom (&cost_matrix, sizeof(struct cm), 1, 1000000);
     m = Cost_matrix_struct(tmp);
     //init matrix with -1/NULL
-    m->a_sz = m->lcm = m->gap = m->cost_model_type = m->gap_open = 
+    m->total_size = m->a_sz = m->lcm = m->gap = m->cost_model_type = m->gap_open = 
         m->all_elements = m->ori_a_sz = m->map_sz = m->level = m->gap_startNO = m->tie_breaker= -1;
     m->combmap = m->comb2list = m->cost = m->worst = m->prepend_cost = m->tail_cost = NULL;
     m->median = NULL;

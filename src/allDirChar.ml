@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = true
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -1344,13 +1344,14 @@ module F : Ptree.Tree_Operations
         and current_cost = Ptree.get_cost `Adjusted tree in
         (* optimize Transition Model parameters *)
         let best_tree, best_cost =
-            let opt = Numerical.default_numerical_optimization_strategy () in
+            let params = MlModel.get_current_parameters_for_model current_model in
             match MlModel.get_update_function_for_model current_model with
             | Some func ->
-                let params = MlModel.get_current_parameters_for_model current_model in
+                let opt = Numerical.default_numerical_optimization_strategy
+                                    !Methods.opt_mode (Array.length params) in
                 let _,results =
                     Numerical.run_method opt (f_likelihood func tree chars current_model)
-                                             ((get_some params),(tree,current_cost))
+                                             (params,(tree,current_cost))
                 in
                 results
             | None -> (tree,current_cost)
@@ -1596,8 +1597,7 @@ module F : Ptree.Tree_Operations
                 ptree --> pick_best_root
                       --> assign_single
             | `Iterative (`ApproxD _)
-            | `Iterative (`ThreeD _) ->
-                ptree --> assign_single
+            | `Iterative (`ThreeD _) -> ptree
         in
         if debug_uppass_fn then info_user_message "UPPASS ends.%!";
         tree

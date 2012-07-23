@@ -67,6 +67,10 @@ type cost_type = [ `Adjusted | `Unadjusted ]
 
 val get_cost : cost_type -> ('a, 'b) p_tree -> float
 
+val get_data : ('a, 'b) p_tree -> Data.d
+
+val set_data : ('a, 'b) p_tree -> Data.d -> ('a, 'b) p_tree
+
 val set_origin_cost : float -> ('a, 'b) p_tree -> ('a, 'b) p_tree
 
 type phylogeny = (Node.node_data, unit) p_tree

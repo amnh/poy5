@@ -110,7 +110,7 @@ val likelihood_not_enabled : string
 (** string for erroring when likelihood is not enabled. *)
 
 val default_command :
-    Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_substitution
+    Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_model
         * Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap
 
 val compare_priors : model -> model -> bool
@@ -243,7 +243,7 @@ val get_update_function_for_model    : model -> (model -> float array -> model) 
 (** [get_update_function_for_model] based on the model provided return a function
     that will update the model based on an input value *)
 
-val get_current_parameters_for_model : model -> float array option
+val get_current_parameters_for_model : model -> float array
 (** [get_current_parameters_for_model] will return a properly formatted array
     based on the model to use for further updates. *)
 

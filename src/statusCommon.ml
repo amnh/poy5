@@ -99,6 +99,7 @@ module CommandCompletion = struct
         "echo";
         "end";
         "error";
+        "elikelihood";
         "estimate";
         "exact";
         "exhaustive_do";
@@ -510,6 +511,7 @@ module Tables = struct
         ) v;
         Format.pp_close_tbox f ();
         if do_close then closer ();
+        Format.pp_print_newline f ()
 
 end
 
