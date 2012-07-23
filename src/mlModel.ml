@@ -335,6 +335,7 @@ let m_jc69 pi_ mu a_size gap_r =
 (* val k2p :: only 4 or 5 characters *)
 let m_k2p pi_ alpha beta a_size gap_r =
     let srm = create_ba2 a_size a_size in
+    let beta = if beta <. 0.0 then Numerical.minimum else beta in
     Bigarray.Array2.fill srm beta;
     (* modify transition elements to alpha *)
     srm.{1, 3} <- alpha; srm.{3, 1} <- alpha;
@@ -373,6 +374,7 @@ let m_k2p pi_ alpha beta a_size gap_r =
 (* val tn93 :: only 4 or 5 characters *)
 let m_tn93 pi_ alpha beta gamma a_size gap_r =
     let srm = create_ba2 a_size a_size in
+    let gamma = if gamma <. 0.0 then Numerical.minimum else gamma in
     Bigarray.Array2.fill srm gamma;
     srm.{0,2} <- alpha; srm.{1,3} <- beta; (* ACGT -- R=AG -- Y=CT *)
     srm.{2,0} <- alpha; srm.{3,1} <- beta; (* 0123 -- R=02 -- Y=13 *)
@@ -403,7 +405,7 @@ let m_tn93 pi_ alpha beta gamma a_size gap_r =
     m_meanrate srm pi_;
     srm
 
-let m_tn93_ratio pi_ kappa1 kappa2 a_size gap_r = 
+let m_tn93_ratio pi_ kappa1 kappa2 a_size gap_r =
     let beta = (pi_.{0} *. pi_.{2} *. kappa1) +. (pi_.{1} *. pi_.{3} *. kappa2) +.
                 ((pi_.{0} +. pi_.{2}) *. (pi_.{1}+.pi_.{3})) in
     let beta = 1.0 /. (2.0 *. beta) in
@@ -413,6 +415,7 @@ let m_tn93_ratio pi_ kappa1 kappa2 a_size gap_r =
 (* val f81 :: ANY ALPHABET size *)
 let m_f81 pi_ lambda a_size gap_r =
     let srm = create_ba2 a_size a_size in
+    let lambda = if lambda <. 0.0 then Numerical.minimum else lambda in
     let () = match gap_r with
         | None -> 
             for i = 0 to (a_size-1) do
@@ -451,6 +454,7 @@ let m_hky85 pi_ kappa a_size gap_r =
 
 (* val f84 :: only 4 or 5 characters *)
 let m_f84 pi_ gamma kappa a_size gap_r =
+    let gamma = if gamma <. 0.0 then Numerical.minimum else gamma in
     let y = pi_.{1} +. pi_.{3} in (* Y = C + T *)
     let r = pi_.{0} +. pi_.{2} in (* R = A + G *)
     let alpha = (1.0+.kappa/.r) *. gamma in
