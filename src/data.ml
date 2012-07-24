@@ -30,9 +30,10 @@ module FullTupleMap = All_sets.FullTupleMap
 module IntMap = All_sets.IntegerMap
     
 let ( --> ) a b = b a
-let output_error = Status.user_message Status.Error
-let output_warning = Status.user_message Status.Warning
-let output_info = Status.user_message Status.Information
+
+let output_error     = Status.user_message Status.Error
+let output_warning   = Status.user_message Status.Warning
+let output_info      = Status.user_message Status.Information
 let failwithf format = Printf.ksprintf failwith format
 
 let output_errorf format = 
@@ -726,15 +727,12 @@ let get_likelihood_model data chars =
                     | Some xm -> x,xm
                     | None    -> failwith "inconsistent dynamic likelihood state"
                 end
-            | Static y ->
-                (match y with 
-                | NexusFile dat ->    
-                    (begin match dat.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood xm -> x,xm
-                        | _ -> failwith "unsupported static character"
-                    end)
-                | _ -> failwith "data.get_likelihood_model is not for fixedstates" )
-            | _ -> failwith "unsupported characters"
+            | Static (NexusFile dat) ->
+                begin match dat.Nexus.File.st_type with
+                    | Nexus.File.STLikelihood xm -> x,xm
+                    | _ -> failwithf "Unsupported static character: %d" x
+                end
+            | _ -> failwithf "Unsupported character: %d" x
         with | Not_found ->
             failwithf "Cannot find character: %d" x
     in
@@ -4723,22 +4721,22 @@ let apply_likelihood_model_on_char_table replace data table codes model =
         (* replace all characters in the set of codes *)
         List.iter
             (fun code -> match Hashtbl.find table code with
-            | Static x ->
+                | Static x ->
                     let y = get_nf_from_sta_spec x in
-                Hashtbl.replace table code
-                    (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
-            | Dynamic x ->
-                let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
-                    | None,`Independent | None,`Coupled _ ->
-                        model_opt := Some model
-                    | None, `Missing -> 
-                        model_opt := Some (MlModel.add_gap_to_model priors_ model)
-                    | Some _,_ -> ()
-                in
-                Hashtbl.replace table code
-                    (Dynamic {x with state = `Ml;
-                                     lk_model = !model_opt;})
-            | _ -> failwith "Illegal conversion")
+                    Hashtbl.replace table code
+                        (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
+                | Dynamic x ->
+                    let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
+                        | None,`Independent | None,`Coupled _ ->
+                            model_opt := Some model
+                        | None, `Missing -> 
+                            model_opt := Some (MlModel.add_gap_to_model priors_ model)
+                        | Some _,_ -> ()
+                    in
+                    Hashtbl.replace table code
+                        (Dynamic {x with state = `Ml;
+                                         lk_model = !model_opt;})
+                | _ -> failwith "Illegal conversion")
         codes
     end
 

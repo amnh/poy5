@@ -185,7 +185,7 @@ struct
                             MlModel.site_variation = Some new_spec.rates; }
 
     (** [apply_model_to_data] apply the model specification to a set of chars *)
-    let apply_model_to_data old_model diff chars data : Data.d = 
+    let apply_model_to_data old_model diff chars data : Data.d =
         List.fold_left
             (fun d xs ->
                 let model = update_model old_model diff in
@@ -199,7 +199,6 @@ struct
         let data, nodes =
             tree.Ptree.data
                 --> apply_model_to_data spec diff chars
-                --> Data.categorize
                 --> Node.load_data
         in
         let node_data =
@@ -292,6 +291,7 @@ struct
                            "not supported. Only all is allowed")
                           (Data.string_of_characters char)
         in
+        Methods.cost := `Iterative (`ThreeD None);
         let warning = ref false in
         let tree_stats = 
             specs --> Array.of_list
@@ -307,16 +307,7 @@ struct
                 Status.user_message Status.Warning m
         in
         Array.sort (fun x y -> Pervasives.compare (snd x) (snd y)) tree_stats;
-        let min_ic = (0, snd tree_stats.(0));
-(*      Instead we sort, since sort will mutate the array, sorting in the *)
-(*        report command will break the min_ic variable. *)
-(*            Array.fold_left*)
-(*                (fun (i,((_,ma) as aa)) (_,ca) ->*)
-(*                    let acc = if ma < ca then aa else (i,ca) in*)
-(*                    (i+1,acc))*)
-(*                (0,(~-1,max_float))*)
-(*                (tree_stats)*)
-        in
+        let min_ic = (0, snd tree_stats.(0)) in
         let tree_stats, sum_ic =
             Array.fold_right
                 (fun (t,ic) (data,sum_ic) ->
@@ -388,14 +379,13 @@ struct
              | `AIC -> "AIC" | `AICC -> "AICC" | `BIC -> "BIC"
         in
         let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
-        let () = 
+        let () =
             ret.(0) <- [| "Model"; "-log(LK)"; "K"; ic_name; "delta"; "weight"; "cum(w)"; |]
         in
         Array.fold_left
-            (fun (i,w_cum) s ->
+            (fun (i,w_cum) (({ic=(ic,d_ic,w_ic)}) as s) ->
                 let charn = Data.get_chars_codes_comp s.tree.Ptree.data chars in
                 let model = Data.get_likelihood_model s.tree.Ptree.data charn in
-                let (ic,d_ic,w_ic) = s.ic in
                 let i_array = 
                     [| (MlModel.short_name model);  (string_of_float s.lk);
                        (string_of_int (parameter_cardinality s.tree chars));

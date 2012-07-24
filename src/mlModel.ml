@@ -220,19 +220,20 @@ end
 module MlModelMap = Map.Make (OrderedML)
 
 let categorize_by_model get_fn codes =
-    let set_codes =
+    let set_codes,non_lk_codes =
         List.fold_left
-            (fun acc code ->
+            (fun (acc,oth) code ->
                 try let spec = get_fn code in
                     try let old = MlModelMap.find spec acc in
-                        MlModelMap.add spec (code::old) acc
+                        (MlModelMap.add spec (code::old) acc,oth)
                     with | Not_found ->
-                        MlModelMap.add spec ([code]) acc
-                with | _ -> acc)
-            MlModelMap.empty
+                        (MlModelMap.add spec ([code]) acc,oth)
+                with | _ -> (acc,code::oth))
+            (MlModelMap.empty,[])
             codes
     in
-    MlModelMap.fold (fun _ e a -> e :: a) set_codes []
+    let init = match non_lk_codes with | [] -> [] | xs -> [xs] in
+    MlModelMap.fold (fun _ e a -> e :: a) set_codes init
 
 
 (** Count the number of parameters in the model; used for xIC functions **)
