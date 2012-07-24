@@ -939,6 +939,7 @@ type t = { model  : dyn_model;
             data  : r;
             codes : int array;
             code  : int;
+            times : float * float; (* branch lengths of composition *)
             cost  : float; }
 
 let alph _ = failwith MlStaticCS.likelihood_error
