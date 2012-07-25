@@ -5591,7 +5591,8 @@ let assign_tcm_to_characters data chars foname tcm newalph =
     (*let chars = get_chars_codes_comp data chars in
     Printf.printf "dynamics list size = %d\n%!" (List.length chars);
      why we only update tcm file for dynamic character type?
-    * *)let chars =  
+    * *)
+    let chars =  
         List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
                     (get_chars_codes_comp data chars)
     in(**)
@@ -5630,10 +5631,16 @@ let assign_tcm_to_characters data chars foname tcm newalph =
                         in
                         tcm, tcm3d, tcmfile
                 in
-                (Dynamic { dspec with tcm = tcmfile; tcm2d = tcm; tcm3d = tcm3; alph = newalph}), 
+                let newdespec =
+                    match newalph with 
+                    | None -> 
+                            (Dynamic { dspec with tcm = tcmfile; tcm2d = tcm; tcm3d = tcm3 })
+                    | Some newa ->
+                            (Dynamic { dspec with tcm = tcmfile; tcm2d = tcm; tcm3d = tcm3; alph = newa})
+                in
+                newdespec,
                 code
-                | _, code -> raise (Invalid_Character code))
-            chars_specs
+                | _, code -> raise (Invalid_Character code)) chars_specs
     in
     let files = 
         match !ref_tcmfile with
@@ -5653,21 +5660,117 @@ let assign_tcm_to_characters data chars foname tcm newalph =
                             let polymph = x.original_dynspec.polymorphism in
                             compute_fixed_states None data code polymph;
                     | _ -> ()
-                    (*if is_fs data code then begin
-                        let polymph = match spec with 
-                        | Dynamic dspec ->
-                                dspec.polymorphism
-                        | _ -> `Do_All
-                        in
-                        compute_fixed_states None data code polymph;
-                    end;*)
     )  new_charspecs;
     { data with files = files }
 
 
 let assign_tcm_to_characters_from_file data chars file =
+    if debug_level then Printf.printf "assign_tcm_to_characters_from_file begin\n%!";
     let default_km = `Keep_Random in
-    let old_alphabet,old_state,old_tcm = (*get the alphabet and state by the first code, what if
+    let lst = List.map (fun x -> 
+        get_alphabet data x, get_dyn_state data x, get_tcm2d data x 
+    ) (get_chars_codes_comp data chars) in
+    let new_data = List.fold_left ~f:(fun old_data (old_alphabet,old_state,old_tcm) ->
+        let orientation =  match old_state  with
+            | `Breakinv -> true
+            | _ -> false
+        in
+        let is_nucleotides = if old_alphabet=Alphabet.nucleotides then true else false in
+        let is_aminoacids = Alphabet.is_aminoacids old_alphabet in
+        let is_dna = if old_alphabet = Alphabet.dna then true else false in
+        let is_dna_or_ami_or_nucleotides = (is_dna || is_aminoacids || is_nucleotides) in
+        let oldlevel,ori_sz = Alphabet.get_level old_alphabet,  Alphabet.get_ori_size old_alphabet in
+        let newtcm,newalph = match file with
+            | None ->
+                (fun x -> Cost_matrix.Two_D.default, default_tcm), old_alphabet
+            | Some (f,level_and_tie_breaker) ->
+                (*get the proper level value,combination sign and tie_breaker*)
+                let ori_sz = Cost_matrix.Two_D.get_ori_a_sz old_tcm in
+                let all_elements =
+                    Cost_matrix.Two_D.get_all_elements old_tcm in
+                let pure_sz = 
+                    if all_elements>0 then ori_sz-1 else ori_sz 
+                in
+                let level,tie_breaker,use_comb,change_alphabet =
+                    match level_and_tie_breaker with
+                    | None -> 
+                            (*when there is no new level and tiebreaker,tie breaker is set to
+                            * default -- do we want to keep the old tie breaker?*)
+                            if debug_level then Printf.printf "no new tie_breaker value\n%!";
+                            (*we do full combination for dna and nucleotides*)
+                            if is_dna||is_nucleotides then   0,default_km,true,false
+                            (*old level is > 1 and <= size, we keep the old level,
+                            * combination is keep to true*)
+                            else if (Alphabet.check_level old_alphabet) then
+                                oldlevel,default_km,true,false
+                            (*old level = 1, there is no combination*)
+                            else if oldlevel=1 then  oldlevel,default_km,false,false
+                            (*anything else*)
+                            else 0,`Keep_Random,false,false
+                    | Some (l,tb) ->
+                            (*when there is a new level value and tie breaker*)
+                            if debug_level then begin 
+                                Printf.printf "new level=%d,new tie_breaker=%!" l; 
+                                Methods.print_keep_method tb; 
+                            end;
+                            (*do full combination for dna and nucleotides *)
+                            if is_dna then 0,tb,true,false
+                            (*set level to 1 if input level <= 1, 
+                            * set level to original alphabet size if input level > ori_sz*)
+                            else if l<=1 then 1,tb,false,true
+                            else if l>ori_sz then ori_sz,tb,true,true
+                            (*finally if 1<level<=ori_sz, create the new cost matrix
+                            * if the combination by level won't blew off the memory*)
+                            else if (Alphabet.is_combination_by_level old_alphabet)||
+                                    (Alphabet.is_aminoacids old_alphabet) then
+                            begin
+                                let use_comb = Cost_matrix.Two_D.get_combination old_tcm in 
+                                let tmp =
+                                    Cost_matrix.Two_D.calc_number_of_combinations_by_level
+                                    pure_sz l in
+                                if tmp <= 0 then begin
+                                    output_info ("The alphabet size based on the new level is"^
+                                     " too large. I will apply level value from the \
+                                     old cost marix we are using for this one.\n%!");
+                                    oldlevel, tb, use_comb, false 
+                                end
+                                else l,tb,true,true 
+                            end
+                            else
+                                oldlevel,tb,false,false
+                in
+                (*tcm*)
+                (fun x -> (*x is all_elements*)
+                    if debug_level then Printf.printf "assign_tcm_to_characters_from_file,ori_sz=%d,oldlevel=%d,newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b,is_nucl?%b\n%!" ori_sz oldlevel level use_comb is_dna is_aminoacids is_nucleotides;
+                    (*we still need to refill costmatrix because we have a new cost matrix file*)
+                    let tcm,mat = 
+                            Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker
+                            ~orientation:orientation ~use_comb:use_comb 
+                            ~level:level f x is_dna_or_ami_or_nucleotides 
+                    in
+                    tcm, Input_file ((FileStream.filename f), mat)),
+                (*alphabet*)
+                if change_alphabet then (*create new alphabet*)
+                    Alphabet.create_alph_by_level old_alphabet level oldlevel
+                    (*Alphabet.set_size (Alphabet.set_level old_alphabet level combnum*)
+                else (*keep the old alphabet*)
+                    let _ = match level_and_tie_breaker with
+                        | None -> ()
+                        | _ -> output_info ("we don't do combination by level on this \
+                        kind of alphabet, I will SKIP level changes to this one.")
+                    in
+                    old_alphabet
+        in
+        if debug_level then begin 
+            Printf.printf "new alphabet is :%!"; Alphabet.print newalph; 
+        end;
+        assign_tcm_to_characters old_data chars None newtcm (Some newalph)
+    ) ~init:data lst in
+    if debug_level then Printf.printf "assign_tcm_to_characters_from_file done\n%!"; 
+    new_data
+(*
+    let old_alphabet,old_state,old_tcm =
+    (*to do: get the alphabet and state by the first code, what if
     we have mix of diffrent datatype?*) 
         match get_chars_codes_comp data chars with
         | x::_ -> get_alphabet data x, get_dyn_state data x, get_tcm2d data x
@@ -5775,7 +5878,8 @@ let assign_tcm_to_characters_from_file data chars file =
                 old_alphabet
     in
     if debug_level then Alphabet.print newalph;
-    assign_tcm_to_characters data chars None newtcm newalph 
+    assign_tcm_to_characters data chars None newtcm (Some newalph) 
+*)
 
 let add_search_base_for_one_character_from_file data chars file character_name =
     let chcode = 
@@ -5976,26 +6080,17 @@ let classify_characters_by_alphabet_size data chars =
         --> classify_by_size
 
 let assign_transformation_gaps data chars transformation gaps =
-    let alphabet = match get_chars_codes_comp data chars with
-        | x::_ -> get_alphabet data x
-        | []   -> failwith "No characters selected in transform"
-    in
-    let uselevel = Alphabet.check_level alphabet in
-    if uselevel then begin
-        output_error "We are using level, input tcm file instead";
-        data
-    end else 
-        let alphabet_sizes = classify_characters_by_alphabet_size data chars in
-        List.fold_left 
-            ~f:(fun data (size, chars) ->
-                let tcm = 
-                    (fun x -> 
-                        Cost_matrix.Two_D.of_transformations_and_gaps 
-                                        (size < 7) size transformation gaps x, 
-                        (Substitution_Indel (transformation, gaps)))
-                in
-                assign_tcm_to_characters data chars None tcm alphabet)
-            ~init:data alphabet_sizes
+    let alphabet_sizes = classify_characters_by_alphabet_size data chars in
+    List.fold_left 
+        ~f:(fun data (size, chars) ->
+            let tcm = 
+                (fun x -> 
+                    Cost_matrix.Two_D.of_transformations_and_gaps 
+                                    (size < 7) size transformation gaps x, 
+                    (Substitution_Indel (transformation, gaps)))
+            in
+            assign_tcm_to_characters data chars None tcm None)
+        ~init:data alphabet_sizes
 
 let codes_with_same_tcm codes data =
     (* This function assumes that the codes have already been filtered by class *)
@@ -6076,7 +6171,8 @@ let assign_level data chars tie_breaker level =
         ) (codes_with_same_tcm codes data)
     in
     List.fold_left 
-        ~f:(fun acc (a, tcm, newalph) -> assign_tcm_to_characters acc (`Some a) None tcm newalph)
+        ~f:(fun acc (a, tcm, newalph) -> assign_tcm_to_characters acc (`Some a)
+        None tcm None)
         ~init:data codes
 
 let rec make_affine cost_model tcmfile = match tcmfile with
@@ -6131,7 +6227,7 @@ let rec assign_affine_gap_cost data chars cost =
     in
     List.fold_left 
         ~f:(fun acc (a, b, alph) ->
-            assign_tcm_to_characters acc (`Some a) (Some cost) b alph)
+            assign_tcm_to_characters acc (`Some a) (Some cost) b None)
         ~init:data codes
 
 let rec assign_prep_tail filler data chars filit =
@@ -6157,7 +6253,7 @@ let rec assign_prep_tail filler data chars filit =
             in
             List.fold_left 
                 ~f:(fun acc (a, b, alph) ->
-                    assign_tcm_to_characters acc (`Some a) None b alph) 
+                    assign_tcm_to_characters acc (`Some a) None b None) 
                 ~init:data codes
 
 let assign_prepend data chars filit =
