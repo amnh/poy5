@@ -5668,8 +5668,12 @@ let assign_tcm_to_characters_from_file data chars file =
     if debug_level then Printf.printf "assign_tcm_to_characters_from_file begin\n%!";
     let default_km = `Keep_Random in
     let lst = List.map (fun x -> 
+        if debug_level then Printf.printf "get alphabet/dynstate/tcm with code = %d\n%!" x;
         get_alphabet data x, get_dyn_state data x, get_tcm2d data x 
-    ) (get_chars_codes_comp data chars) in
+    ) 
+    (*get_chars_codes_comp data chars*) 
+    (get_code_from_characters_restricted_comp `Dynamic data chars) 
+    in
     let new_data = List.fold_left ~f:(fun old_data (old_alphabet,old_state,old_tcm) ->
         let orientation =  match old_state  with
             | `Breakinv -> true
