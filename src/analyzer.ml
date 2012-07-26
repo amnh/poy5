@@ -211,12 +211,13 @@ let dependency_relations (init : Methods.script) =
                         [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
                 | `Wipe ->
                         [([EntryPoint], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
-                | `Algn_Newkk(*not sure here*)
+                | `Algn_Newkk (*not sure here*)
                 | `Algn_Normal
                 | `Exhaustive_Weak
                 | `Exhaustive_Strong
                 | `Iterative _
                 | `Normal_plus_Vitamines
+                | `Optimization _
                 | `Normal ->
                         [([Data; Trees], [Trees], init, NonComposable)]
                 | `ReDiagnose ->
@@ -1638,6 +1639,14 @@ let script_to_string (init : Methods.script) =
                         "@[set the cost calculation to normal+ DO@]"
                 | `Normal ->
                         "@[set the cost calculation to normal DO@]"
+                | `Optimization `Coarse _ ->
+                        "@[set the optimization level to coarse@]"
+                | `Optimization `None ->
+                        "@[set the optimization level to off@]"
+                | `Optimization `Exhaustive _ ->
+                        "@[set the optimization level to exhaustive@]"
+                | `Optimization `Custom _ ->
+                        "@[set the optimization level to custom@]"
                 | `ReDiagnose ->
                         "@[rediagnose the trees@]"
                 | `ReDiagnoseTrees ->
@@ -1979,7 +1988,7 @@ let my_part mine n a =
 
 let is_master_only (init : Methods.script) =
     match init with
-    | `Algn_Newkk(*not sure here*)
+    | `Algn_Newkk
     | `Algn_Normal
     | `Barrier 
     | `GatherTrees _
@@ -1993,6 +2002,7 @@ let is_master_only (init : Methods.script) =
     | `Interactive
     | `ChangeWDir _ 
     | `Normal_plus_Vitamines
+    | `Optimization _
     | `Normal
     | `Exhaustive_Strong
     | `Exhaustive_Weak

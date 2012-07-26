@@ -38,7 +38,7 @@ type alignment_modes = [ `Algn_Newkk | `Algn_Normal ]
 
 let cost : cost_modes ref = ref `Normal
 
-let opt_mode  : Numerical.opt_modes ref = ref `Normal
+let opt_mode  : Numerical.opt_modes ref = ref (`Exhaustive None)
 
 let algn_mode : alignment_modes ref = ref `Algn_Normal
 
@@ -795,6 +795,7 @@ type application = [
     | `Echo of (string * output_class)
     | `Algn_Newkk
     | `Algn_Normal
+    | `Optimization of Numerical.opt_modes
 ]
 
 type characters_handling = [

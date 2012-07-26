@@ -168,7 +168,8 @@ type optimization_strategy =
 
 (** Define levels of optimization for the chooser *)
 type opt_modes =
-    [ `None | `Coarse | `Normal | `Exhaustive | `Custom of optimization_strategy ]
+    [ `None | `Coarse of int option
+    | `Exhaustive of int option     | `Custom of optimization_strategy ]
 
 (** Here we define a simplex as a collection of points with attached data -the
     tree or some added information carried through the computation. The array
