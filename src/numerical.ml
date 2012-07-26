@@ -21,7 +21,7 @@ let (-->) b a = a b
 
 let debug = false
 
-let coarse_debug = debug || true
+let coarse_debug = debug || false
 
 let failwithf format = Printf.ksprintf failwith format
 
