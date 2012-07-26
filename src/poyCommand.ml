@@ -282,6 +282,7 @@ type settings = [
     | `RootName of string
     | `Alias of string * [ `Codon of old_identifiers | `Chars of old_identifiers ]
     | alignment_mode
+    | `Optimization of Numerical.opt_modes
 ]
 
 type output_class = [
@@ -1747,18 +1748,25 @@ let create_expr () =
                     `Logfile (Some x) ] |
                 [ LIDENT "nolog" -> `Logfile None ] |
                 [ LIDENT "seed"; ":"; x = neg_integer -> `SetSeed (int_of_string x) ] |
+
                 [ LIDENT "root"; ":"; x = STRING -> `RootName x ] |
                 [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x)) ] |
-                [ LIDENT "exhaustive_do" -> `Exhaustive_Weak ] |
-                [ LIDENT "iterative"; ":"; x = iterative_mode -> `Iterative x ] |
-                [ LIDENT "normal_do" -> `Normal ] | 
-                [ LIDENT "normal_do_plus" -> `Normal_plus_Vitamines ] |
+
+                [ LIDENT "exhaustive_do"    -> `Exhaustive_Weak ] |
+                [ LIDENT "iterative"; ":"; x = iterative_mode
+                                            -> `Iterative x ] |
+                [ LIDENT "normal_do"        -> `Normal ] | 
+                [ LIDENT "normal_do_plus"   -> `Normal_plus_Vitamines ] |
+
+                [ LIDENT "opt"; ":"; x = opt_level   -> `Optimization x ] |
+
                 [ LIDENT "codon_partition"; ":"; 
                     left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
                         `Alias (n,`Codon x) ] |
                 [ LIDENT "partition"; ":"; 
                     left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
                         `Alias (n,`Chars x) ]|
+
                 [ LIDENT "space_saving_alignment" -> `Algn_Newkk ]|
                 [ LIDENT "normal_alignment" -> `Algn_Normal ]
             ];
@@ -1767,19 +1775,29 @@ let create_expr () =
                 [ "-"; x = INT -> "-" ^ x ] |
                 [ x = INT -> x ]
             ];
+        opt_level:
+            [
+                [ LIDENT "exhaustive";  iterations = OPT optional_integer_or_float ->
+                    let iterations = match iterations with
+                        | None -> None | Some x -> Some (int_of_string x)
+                    in
+                    `Exhaustive iterations ] |
+                [ LIDENT "coarse" ;     iterations = OPT optional_integer_or_float ->
+                    let iterations = match iterations with
+                        | None -> None | Some x -> Some (int_of_string x)
+                    in
+                    `Coarse iterations ] |
+                [ LIDENT "no_opt" -> `None ]
+            ];
         iterative_mode:
             [ 
                 [ LIDENT "exact"; iterations = OPT optional_integer_or_float  ->
-                    let iterations = 
-                        match iterations with 
-                        None -> None | Some x -> Some (int_of_string x)
-                    in
+                    let iterations = match iterations with 
+                        None -> None | Some x -> Some (int_of_string x) in
                     `ThreeD iterations ] |
                 [ LIDENT "approximate"; iterations = OPT optional_integer_or_float -> 
-                    let iterations =
-                        match iterations with
-                        | None -> None | Some x -> Some (int_of_string x)
-                    in
+                    let iterations = match iterations with
+                        | None -> None | Some x -> Some (int_of_string x) in
                     `ApproxD iterations ]
             ];
         (* Reporting *)

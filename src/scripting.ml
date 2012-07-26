@@ -2973,7 +2973,15 @@ let rec process_application run item =
             process_application run `ReDiagnoseTrees
     | `Algn_Newkk | `Algn_Normal
     | `Interactive -> run
-    | `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ as meth -> 
+    | `Optimization opt_mode ->
+        if !Methods.opt_mode <> opt_mode then begin
+            let () = Methods.opt_mode := opt_mode in
+            process_application run `ReDiagnose
+        end else begin
+            run
+        end
+    | `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak 
+    | `Exhaustive_Strong | `Iterative _ as meth -> 
         if !Methods.cost <> meth then
             match !Methods.cost with
             | `Normal_plus_Vitamines | `Normal | `Exhaustive_Strong | `Exhaustive_Weak ->
@@ -2987,7 +2995,7 @@ let rec process_application run item =
                 end
             | `Iterative _ -> 
                 let () = Methods.cost := meth in
-                process_application run `ReDiagnoseTrees
+                process_application run `ReDiagnose
         else begin
             run
         end
