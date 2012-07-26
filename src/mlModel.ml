@@ -336,7 +336,7 @@ let m_jc69 pi_ mu a_size gap_r =
 (* val k2p :: only 4 or 5 characters *)
 let m_k2p pi_ alpha beta a_size gap_r =
     let srm = create_ba2 a_size a_size in
-    let beta = if beta <. 0.0 then Numerical.minimum else beta in
+    let beta = if beta >. 0.0 then beta else Numerical.minimum in
     Bigarray.Array2.fill srm beta;
     (* modify transition elements to alpha *)
     srm.{1, 3} <- alpha; srm.{3, 1} <- alpha;
@@ -375,7 +375,7 @@ let m_k2p pi_ alpha beta a_size gap_r =
 (* val tn93 :: only 4 or 5 characters *)
 let m_tn93 pi_ alpha beta gamma a_size gap_r =
     let srm = create_ba2 a_size a_size in
-    let gamma = if gamma <. 0.0 then Numerical.minimum else gamma in
+    let gamma = if gamma >. 0.0 then gamma else Numerical.minimum in
     Bigarray.Array2.fill srm gamma;
     srm.{0,2} <- alpha; srm.{1,3} <- beta; (* ACGT -- R=AG -- Y=CT *)
     srm.{2,0} <- alpha; srm.{3,1} <- beta; (* 0123 -- R=02 -- Y=13 *)
@@ -416,7 +416,7 @@ let m_tn93_ratio pi_ kappa1 kappa2 a_size gap_r =
 (* val f81 :: ANY ALPHABET size *)
 let m_f81 pi_ lambda a_size gap_r =
     let srm = create_ba2 a_size a_size in
-    let lambda = if lambda <. 0.0 then Numerical.minimum else lambda in
+    let lambda = if lambda >. 0.0 then lambda else Numerical.minimum in
     let () = match gap_r with
         | None -> 
             for i = 0 to (a_size-1) do
@@ -455,7 +455,7 @@ let m_hky85 pi_ kappa a_size gap_r =
 
 (* val f84 :: only 4 or 5 characters *)
 let m_f84 pi_ gamma kappa a_size gap_r =
-    let gamma = if gamma <. 0.0 then Numerical.minimum else gamma in
+    let gamma = if gamma >. 0.0 then gamma else Numerical.minimum in
     let y = pi_.{1} +. pi_.{3} in (* Y = C + T *)
     let r = pi_.{0} +. pi_.{2} in (* R = A + G *)
     let alpha = (1.0+.kappa/.r) *. gamma in
@@ -640,8 +640,20 @@ let process_custom_model alph_size (f_aa: char array array) =
 (* ------------------------------------------------ *)
 (* MATRIX CALCULATION FUNCTIONS                     *)
 
+(* A function to check for nan values in matrix; catch before a diagonalization,
+   since the lapack routines reeturn DGEBAL parameter illegal value instead of a
+   backtrace *)
+let check_for_nan mat =
+    for i = 0 to (Bigarray.Array2.dim1 mat)-1 do
+        for j = 0 to (Bigarray.Array2.dim1 mat)-1 do
+            assert( not (Numerical.is_nan mat.{i,j}));
+        done;
+    done;
+    ()
+
 (* functions to diagonalize the two types of substitution matrices *)
-let diagonalize sym mat =
+let diagonalize (sym : bool) mat =
+    check_for_nan mat;
     let alph = Bigarray.Array2.dim1 mat in
     let n_u  = create_ba2 alph alph in 
     let () = Bigarray.Array2.blit mat n_u in

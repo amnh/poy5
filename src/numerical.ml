@@ -20,11 +20,18 @@
 let (-->) b a = a b
 
 let debug = false
+
+let coarse_debug = debug || true
+
 let failwithf format = Printf.ksprintf failwith format
+
 let warning_message format = Printf.ksprintf (Status.user_message Status.Warning) format
 
-let debug_printf msg format = 
-    Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
+let debug_printf format = 
+    Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) format
+
+and cdebug_printf format = 
+    Printf.ksprintf (fun x -> if coarse_debug then print_string x; flush stdout) format
 
 and pp_farray xs =
     (Array.fold_left (fun acc x -> acc^"| "^(string_of_float x)^" ") "[" xs)^" |]"
@@ -86,7 +93,9 @@ module type I =
 
 module FPInfix : I =
     struct
+
         let default = tolerance
+
         let warn =
             "Numerical.Infix; Tolerance for floating point equality is being"
             ^" increased. This could be due to the length of your sequences or"
@@ -94,7 +103,9 @@ module FPInfix : I =
             ^" build up error."
 
         let l_eps     = ref default
+
         let reset ()  = l_eps := default
+
         let set_eps n_eps =
             if n_eps > default then begin
                 Status.user_message Status.Warning warn;
@@ -102,12 +113,22 @@ module FPInfix : I =
             end else begin
                 l_eps := default
             end
+
         let set_ops i = 
             set_eps (Pervasives.epsilon_float *. (float_of_int i))
 
-        let (=.) a b = (abs_float (a-.b)) < !l_eps
-        let (>.) a b = (a-.b) > !l_eps
-        let (<.) a b = (a-.b) < ~-.(!l_eps)
+        let (=.) a b = (abs_float (a-.b)) < !l_eps 
+            (* (a = b) || (* basic case; will short-circuit *)
+            (if a *. b = 0.0
+                (* one is zero, thus relative error is misleading *)
+                then (a -. b) < (!l_eps *. !l_eps)
+                (* Here it is and use relative error *)
+                else ((a -. b) /. ((abs_float a) +. (abs_float b))) < !l_eps) *)
+            
+        let (>.) a b = (a > b)
+
+        let (<.) a b = (a < b)
+
     end
 
 open FPInfix
@@ -364,9 +385,9 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
         end
     in
     let (lv,_),m,(hv,_) = create_initial_three_and_bracket orig in
-    debug_printf "Bracketed by Brents Method : (%f,%f,%f)\n%!" lv (fst m) hv;
+    cdebug_printf "Bracketed by Brents Method : (%f,%f,%f)\n%!" lv (fst m) hv;
     let (b,(_,fb)) as res = brent m m m lv hv 0.0 0.0 0 in
-    debug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
+    cdebug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
                     v_orig (snd f_orig) b fb;
     FPInfix.reset ();
     res
@@ -421,11 +442,11 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
         direction, slope, minstep, step
     (* find a new point and *)
     and next_step step prevstep slope newfpoint prevfpoint = 
-        let newstep = 
-            if step =. 1.0 then 
+        let newstep =
+            if step =. 1.0 then
                 ~-. slope /. (2.0 *. (newfpoint -. origfpoint -.  slope))
             else begin
-                let tstep = 
+                let tstep =
                     let rhs1 = newfpoint -. origfpoint -. (step *. slope)
                     and rhs2 = prevfpoint -. origfpoint -. (prevstep *. slope) in
                     let rhs1divstepstep = rhs1 /. (step *. step)
@@ -433,7 +454,6 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
                     let a =  rhs1divstepstep -. rhs2divpsteppstep
                     and b = (step *. rhs2divpsteppstep) -. (prevstep *. rhs1divstepstep) in
                     let a = a /. (step -. prevstep) and b = b /. (step -. prevstep) in
-
                     if a =. 0.0 then ~-. slope /. (2.0 *. b)
                     else begin
                         let disc = (b *. b) -. (3.0 *. a *. slope) in
@@ -469,15 +489,9 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     (* this could happen if the delta for gradient is huge (ie, errors in rediagnose) 
      * or some major instability in the tree/algorithm. The function will continue, 
      * but this warning message should report that the results are questionable. *)
-    let slope = 
-        if (abs_float slope) > 100_000.0 then begin
-            warning_message "Numerical.linesearch; Very large slope in optimization function.";
-            10.0
-        end else begin
-            slope
-        end
-    in
-    debug_printf "\tInitial LineSearch: %f, slope: %f, direction: %s\n"
+    if (abs_float slope) > 100_000_000.0 then
+        warning_message "Numerical.linesearch; Very large slope in optimization function.";
+    cdebug_printf "\tInitial LineSearch: %f, slope: %f, direction: %s\n"
                  origfpoint slope (pp_farray direction);
     let results = main_ origfpoint slope direction step step minstep in
     FPInfix.reset ();
@@ -588,11 +602,11 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(max_step=10.0) ?(tol=tolera
         end in
     (* initiate algorithm *)
     let hessian, pgrad, mxstep, dir = setup_function f p (get_score fp) in
-    debug_printf "Initial Gradient: %s\n%!" (pp_farray pgrad);
-    debug_printf "Initial Direction: %s\n%!" (pp_farray dir);
+    cdebug_printf "Initial Gradient: %s\n%!" (pp_farray pgrad);
+    cdebug_printf "Initial Direction: %s\n%!" (pp_farray dir);
     let pf,fpf = main_loop hessian f p fp mxstep dir pgrad in
-    debug_printf "Performed BFGS:\n\t(%s,%f)\n\t\t--[%d]-->\n\t(%s,%f)\n%!" (pp_farray p)
-                    (get_score fp) !iter (pp_farray pf) (get_score fpf);
+    cdebug_printf "Performed BFGS:\n\t(%s,%f)\n\t\t--[%d]-->\n\t(%s,%f)\n%!"
+            (pp_farray p) (get_score fp) !iter (pp_farray pf) (get_score fpf);
     (pf,fpf)
 
 
@@ -608,16 +622,13 @@ let function_of_subspace that_shit ray sub_assoc =
         let () = Array.iteri (fun i x -> cray.(x) <- sub.(i) ) sub_assoc in
         that_shit cray)
 
-
 (** Return the vector that represents the subspace *)
 let make_subspace_vector subs x =
     Array.init (Array.length subs) (fun i -> x.( subs.(i) ))
 
-
 (** Replace elements of a subspace vector into the main vector *)
 let replace_subspace_vector sub nx x =
     Array.iteri (fun i _ -> x.( sub.(i) ) <- nx.(i)) sub
-
 
 (** A subplex routine to find the optimal step-size for the next iteration of
     the algorithm. The process is outlined in 5.3.2. Each step, the vector is
@@ -651,14 +662,12 @@ let find_stepsize strat nsubs x dx steps =
     done;
     nstep
 
-
 (** get the worst, second worst, and best element of the simplex. return the
     index so we know to replace the proper point. *)
 let get_simplex_hsl (simplex: 'a simplex) : int * int * int =
     let get_cost (_,(_,x)) = x in
     Array.sort (fun x y -> compare (get_cost y) (get_cost x)) simplex;
     (0, 1, ((Array.length simplex)-1))
-
 
 (** Determine the subspaces by a randomization of the vector, and randomizing
     the size of the subspaces; conditions will match the strategy *)
@@ -700,7 +709,6 @@ let rand_subspace strat vec : int array list =
         --> Array.to_list
         --> continually_take 0 []
         --> List.map (Array.of_list)
-
 
 (** A subplex routine that splits up an delta array into subspaces that match
     the criteria found in the subplex paper section 5.3.3 *)
@@ -771,7 +779,6 @@ let find_subspace strat vec =
          --> List.map (List.map fst)
          --> List.map (Array.of_list)
  
-
 (** Define how termination of the algorithm should be done. This is outlined in
     the paper, section 5.3.4, This test, because of a noisy function, uses the
     distance between the vertices of the simplex to see if the function has
@@ -790,7 +797,6 @@ let subplex_termination strat tol dx x stp =
         x;
     not (!ret)
 
-
 (** General Simplex termination; this is done through the standard deviation of
     the simplex. *)
 let simplex_termination_stddev tol simplex = 
@@ -806,7 +812,6 @@ let simplex_termination_stddev tol simplex =
     let std_dev = (sqrt (std_dev /. (n_plus_one))) in
     std_dev < tol
 
-
 (** Simplex termination test defined by Gill, Murray and Wright. This method
     looks to see that the points are in a stationary position. This is more
     appropriate for optimizing smooth functions. It can also be used for noisy
@@ -819,7 +824,6 @@ let simplex_termination_stationary tol simplex =
             (simplex)
     in
     ((high-.low) /. (1.0 +. (abs_float low))) < tol
-
 
 (** Calculate the centroid of a simplex. Defined by the mean of the value,
     excluding the highest (worst) point. *)
@@ -834,7 +838,6 @@ let centroid (simplex:'a simplex) h_i =
         c_array.(i) <- c_array.(i) /. (float_of_int n);
     done;
     c_array
-
 
 (** Create a simplex point. All of the operations on a simplex are linear
     equations, and can be generalized to this function with different
@@ -873,8 +876,6 @@ let create_new_point f t strategy xvec yvec : float array * ('a * float) =
     in
     ret,fret
 
-
-
 (** Set up the initial simplex by randomly selecting points *)
 let random_simplex f (p,fp) step =
     Array.init ((Array.length p)+1)
@@ -900,7 +901,6 @@ let initial_simplex f (p,fp) (step : float array option) =
     let get_cost (_,(_,x)) = x in
     Array.sort (fun x y -> compare (get_cost y) (get_cost x)) simplex;
     simplex
-
 
 (* shrink involves modifying each point except the best *)
 let shrink_simplex simplex f strategy i_l =
@@ -974,7 +974,7 @@ let simplex_method ?(termination_test=simplex_termination_stddev) ?(tol=toleranc
     (* setup the initial simplex *)
     let simplex = simplex_loop 0 (initial_simplex f (p,fp) step) in
     let _,_,best = get_simplex_hsl simplex in
-    debug_printf "\tSimplex Found : %s -- %f\n%!"
+    cdebug_printf "\tSimplex Found : %s -- %f\n%!"
                 (pp_farray (fst simplex.(best))) (snd (snd simplex.(best)));
     simplex.( best )
 
@@ -1029,13 +1029,13 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
             (p,fp)
             (dx)
     in
-    debug_printf "Subplex Found %s -- %f\n%!" (pp_farray p) fp;
+    cdebug_printf "Subplex Found %s -- %f\n%!" (pp_farray p) fp;
     pdfp
 
 (** Determine the numerical optimization strategy from the methods cost mode *)
 let default_numerical_optimization_strategy o p = match o with
     | `None  -> []
-(*    | _  when p = 1 -> (default_strategy `Brent_Multi) :: []*)
+    | _  when p < 3 -> (default_strategy `Brent_Multi) :: []
 (*    | `Normal   -> let x = (default_strategy `Brent_Multi) in [x;x]*)
 (*    | `Normal   -> (default_strategy `BFGS) :: []*)
     | _      -> (default_strategy `BFGS) :: []

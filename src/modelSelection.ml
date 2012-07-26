@@ -21,8 +21,10 @@ let () = SadmanOutput.register "ModelSelection" "$Revision"
 
 let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
-let fst_trp (a,_,_) = a and snd_trp (_,a,_) = a and trd_trp (_,_,a) = a
 
+let ndebug = false
+
+let fst_trp (a,_,_) = a and snd_trp (_,a,_) = a and trd_trp (_,_,a) = a
 
 module type S = sig
 
@@ -207,9 +209,19 @@ struct
                 All_sets.IntegerMap.empty
                 nodes
         in
-        { tree with Ptree.node_data = node_data; Ptree.data = data; }
-            --> TreeOps.downpass
-            --> TreeOps.uppass
+        let tree =
+            { tree with Ptree.node_data = node_data; Ptree.data = data; }
+                --> TreeOps.downpass
+                --> TreeOps.uppass
+        in
+        if not ndebug then begin
+            let charn = Data.get_chars_codes_comp tree.Ptree.data chars in
+            let model = Data.get_likelihood_model tree.Ptree.data charn in
+            Printf.printf "Optimized %s to %f\n%!"
+                (MlModel.short_name model) (negative_loglikelihood tree chars);
+        end;
+        tree
+
 
 
     (** {6 General Information Metrics for Model Selection *)
