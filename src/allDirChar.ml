@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -1581,11 +1581,12 @@ module F : Ptree.Tree_Operations
                         --> internal_downpass true
                         --> pick_best_root
                         --> assign_single
+                        --> update_branches
                         --> adjust_fn None
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then info_user_message "Downpass Ends\n%!";
-        update_branches res 
+        update_branches res
 
     let uppass ptree = 
         if debug_uppass_fn then info_user_message "UPPASS begin:%!";

@@ -312,10 +312,10 @@ struct
         in
         let () = 
             if !warning then
-                let m = "When the sample size of a set of data is small (say, " ^
-                        "n/k < 40), it is recommended that the second-order AIC"^
-                        ", AICc (Hurvich and Tsai, 1989, 1995; Sugiura, 1978), "^
-                        " be used instead." in
+                let m = "When@ the@ sample@ size@ of@ a@ set@ of@ data@ is@ "^
+                        "small@ (say, n/k < 40),@ it@ is@ recommended@ that@ "^
+                        "the@ second-order@ AIC,@ AICc@ (Hurvich@ and@ Tsai,@ "^
+                        "1989, 1995; Sugiura, 1978),@  be@ used@ instead." in
                 Status.user_message Status.Warning m
         in
         Array.sort (fun x y -> Pervasives.compare (snd x) (snd y)) tree_stats;
