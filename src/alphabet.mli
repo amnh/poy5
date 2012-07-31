@@ -29,10 +29,12 @@
 * sequences are valid though. This library provides the interface for such
 * specifications, as well as the default ones (nucleotides and aminoacids). *)
 
+
 (** {2 Exceptions} *)
 
 exception Illegal_Character of string
 exception Illegal_Code of int
+
 
 (** {2 Types} *)
 
@@ -48,6 +50,7 @@ type kind =
 
 (** Alphabet type *)
 type a
+
 
 (** {2 Alphabets} *)
 
@@ -72,6 +75,7 @@ val nucleotides : a
 (** [aminoacids] contains aminoacids alphabet according to the IUPAC.
     Combinations are not considered in this alphabet. *)
 val aminoacids : a 
+
 (** [aminoacids_use_3d] is like aminoacids, but we calculate 3d costmatrix for
 * it, which might take a long time.*)
 val aminoacids_use_3d : a
@@ -83,6 +87,7 @@ val is_aminoacids : a -> bool
 (** [of_string l] creates an encoding for the string list [l] to produce an 
     alphabet. *)
 val of_string : ?respect_case:bool -> ?orientation:bool -> ?init3D:bool -> string list -> string -> string option -> a
+
 
 (** {2 Finding} *)
 
@@ -108,6 +113,9 @@ val match_code : int -> a -> string
 (** Same as match_code *)
 val find_code : int -> a -> string
 
+(** Define if a sequential alphabet is 0 indexed or 1 indexed **)
+val zero_indexed : a -> bool
+
 (** find the code and return the expanded list of associated states **)
 val find_codelist : int -> a -> int list
 
@@ -117,16 +125,19 @@ val find_comb : int list -> a -> int
 (** Find  the specified complement of the element in the alphabet. If no
     complement is specified, return None. *)
 val complement : int -> a -> int option
+
 (** complement2 are the same as complement, just the result cannot be NONE*)
 val complement2 : int -> a -> int 
 
 (** rev_comp_lst just give us the complement seq, not reverse, use List.rev to do that *)
 val rev_comp_lst : int list -> a -> int list
+
 (** rev_comp_arr give us the reverse complement of seqarr *)
 val rev_comp_arr : int array -> a -> int array
 
 (** [rnd a] creates a function that generates random elements in the alphabet [a] *)
 val rnd : a -> (unit -> int)
+
 
 (** {2 Alphabets Properties} *)
 
@@ -191,7 +202,7 @@ val list_to_a : ?respect_case:bool -> ?orientation:bool -> ?init3D:bool ->
     If the kind of [a] is [Sequential] or [Simple_Bit_Flags], then the same 
     alphabet is returned, otherwise, only the bit flags, and the all elements are
     returned in a fresh alphabet, of type [Simple_Bit_Flags]. *)
-val simplify : a -> a 
+val simplify : a -> a
 
 (** [to_sequential a] returns an alphabet of any kind, with its elements
     represented in the simpli:e alfied Sequential kind representation. *)
@@ -200,7 +211,6 @@ val to_sequential : a -> a
 (** [create_alph_by_level alph level] creates a new alphabet based on the new
     level value *)
 val create_alph_by_level : a -> int -> int -> a
-
 
 (** [explote a level ori_sz] takes an alphabet of any [kind] and generates an
     [Extended_Bit_Flags] alphabet, where every combination is represented within
@@ -213,6 +223,7 @@ val to_list : a -> (string * int) list
 (** [to_formatter a] produce a text-only representation of the alphabet [a].
     Useful for uniform end-user reporting. *)
 val to_formatter : a -> Xml.xml
+
 
 module Lexer : sig
 
@@ -236,11 +247,8 @@ end
 
 (** [of_file stream o 3d] parse an alphabet using orientation [o],
     and optionally initialize it to 3d dimensions [3d]. *)
-val of_file : FileStream.f -> bool -> bool -> int -> bool -> Methods.keep_method ->
-                a * (Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
-                
-
+val of_file : FileStream.f -> bool -> bool -> int -> bool -> Methods.keep_method
+                -> a * (Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
+ 
+(** Create alphabet with a specific level from a current level *)
 val create_alph_by_level : a -> int -> int -> a
-
-
-

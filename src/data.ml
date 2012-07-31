@@ -4606,13 +4606,17 @@ let compute_priors data chars u_gap =
     let debug_priors = false in
     (* We only use alphabet to demarcate states; so set to max *)
     let size, alph = verify_alphabet data chars `Max in
+    let offset = if Alphabet.zero_indexed alph then 0 else ~-1 in
+    if debug_priors then
+        Printf.printf "VerifySize:%d\tAlphaSize:%d\tGap?:%b\n%!"
+                      size (Alphabet.size alph) u_gap;
     let size = if u_gap then size else size-1 in
     let priors = Array.make size 0.0 in
     (* A function that takes a list of states and add the appropriate value to
     * each of the components of the priors *)
     let inverse = 1. /. (float_of_int size) in
     let longest = ref 0 and lengths = ref [] in
-    let gap_char = Alphabet.get_gap alph in (* 4, usually *)
+    let gap_char = (Alphabet.get_gap alph) in (* 4, usually *)
     let counter = ref 0 and gap_counter = ref 0 in
     (* A function to add the frequencies in all the taxa from the characters
     * specified in the list. *)
@@ -4627,7 +4631,7 @@ let compute_priors data chars u_gap =
                             total := (Sequence.length x.seq) - 1 + !total;
                             counter := (Sequence.length x.seq) - 1 + !counter;
                             for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
-                                let lst = BitSet.Int.list_of_packed (Sequence.get x.seq i) in
+                                let lst = Alphabet.find_codelist (Sequence.get x.seq i) alph in
                                 if lst = [] then begin
                                     ()
                                 end else
@@ -4636,7 +4640,10 @@ let compute_priors data chars u_gap =
                                         else List.filter (fun x -> not (x = gap_char)) lst
                                     in
                                     let inv = 1.0 /. (float_of_int (List.length lst)) in
-                                    List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
+                                    List.iter
+                                        (fun x ->
+                                            priors.(x+offset) <- priors.(x+offset) +. inv)
+                                        lst
                             done)
                         dyna_data.seq_arr
                 | Stat (_,s) -> 
@@ -4656,7 +4663,9 @@ let compute_priors data chars u_gap =
     let gap_contribution = gcounter /. (float_of_int size) in
     if debug_priors then begin
         Printf.printf "Computed Priors of %.1f char + %.1f gaps: [" counter gcounter;
-        Array.iter (Printf.printf "|%f") priors;
+        Array.iteri (fun i x ->
+                        Printf.printf "|%f(%s)" x (Alphabet.match_code (i-offset) alph))
+                    priors;
         Printf.printf "|]\n%!";
     end;
     let final_priors = 
@@ -4665,8 +4674,10 @@ let compute_priors data chars u_gap =
                 float_of_int
                     (List.fold_left ~f:(fun acc x -> (!longest - x) + acc) ~init:0 !lengths)
             in
-            if debug_priors then Printf.printf "Total added gaps = %f\n%!" total_added_gaps;
-            priors.(gap_char) <- priors.(gap_char) +. total_added_gaps;
+            if debug_priors then
+                Printf.printf "Total added gaps (%d/%d) = %f\n%!"
+                              gap_char (Array.length priors) total_added_gaps;
+            priors.(gap_char+offset) <- priors.(gap_char+offset) +. total_added_gaps;
             let counter = counter -. gcounter +. total_added_gaps;
             and weight  = gcounter /. (float_of_int size) in
             Array.map (fun x -> (x -. weight) /. counter) priors
@@ -4679,7 +4690,10 @@ let compute_priors data chars u_gap =
     if debug_priors then begin
         let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in
         Printf.printf "Final Priors (%f): [" sum;
-        Array.iter (Printf.printf "|%f") final_priors;
+        Array.iteri
+            (fun i x ->
+                Printf.printf "|%f(%s)" x (Alphabet.match_code (i-offset) alph))
+            final_priors;
         Printf.printf "|]\n%!";
     end;
     final_priors

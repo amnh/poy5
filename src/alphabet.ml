@@ -125,29 +125,29 @@ let elt_complement = "~"
 let uracile = timine
 
 (* Amino Acids. Each is assigned a unique number *)
-let alanine = 1
-let arginine = 2
-let asparagine = 3
-let aspartic = 4
-let cysteine = 5
-let glutamine = 6
-let glutamic = 7
-let glycine = 8
-let histidine = 9
-let isoleucine = 10
-let leucine = 11
-let lysine = 12
-let methionine = 13
-let phenylalanine = 14
-let proline = 15
-let serine = 16
-let threonine = 17
-let tryptophan = 18
-let tyrosine = 19
-let valine = 20
-let unspecified = 21
+let alanine = 1        
+let arginine = 2       
+let asparagine = 3     
+let aspartic = 4       
+let cysteine = 5       
+let glutamine = 6      
+let glutamic = 7       
+let glycine = 8        
+let histidine = 9      
+let isoleucine = 10    
+let leucine = 11       
+let lysine = 12        
+let methionine = 13    
+let phenylalanine = 14 
+let proline = 15       
+let serine = 16        
+let threonine = 17     
+let tryptophan = 18    
+let tyrosine = 19      
+let valine = 20        
+let unspecified = 21   
 let all_aminoacids = 21
-let aa_gap = 22
+let aa_gap = 22        
 
 
 let check_level alph =
@@ -162,16 +162,13 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
     let a_size = List.length lst in
     let debug = false in
     if debug then 
-        Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b, case sensitive=%b\n%!" a_size init3D respect_case;
+        Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b, case sensitive=%b\n%!"
+                        a_size init3D respect_case;
     let add (s2c, c2s, cmp, cnt) (a, b, c) =
         if debug then Printf.printf "add %s,%d to s2c; %!" a b;
-        let uppa = 
-            if respect_case then (String.uppercase a)
-            else a
-        in
+        let uppa = if respect_case then (String.uppercase a) else a in
         All_sets.StringMap.add uppa b s2c,
-        (if All_sets.IntegerMap.mem b c2s then c2s
-        else All_sets.IntegerMap.add b a c2s),
+        (if All_sets.IntegerMap.mem b c2s then c2s else All_sets.IntegerMap.add b a c2s),
         (All_sets.IntegerMap.add b c cmp),
         cnt + 1
     in
@@ -198,9 +195,17 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
             Some all
         | None -> None
     in
+    let (comb_to_list,list_to_comb) =
+        All_sets.StringMap.fold
+            (fun _ (v:int) (c2l,l2c) ->
+                All_sets.IntegerMap.add v [v] c2l,
+                All_sets.IntegerListMap.add [v] v l2c)
+            (s2c)
+            (All_sets.IntegerMap.empty,All_sets.IntegerListMap.empty)
+    in
     if debug then Printf.printf "end of list_to_a\n%!";
-    { comb_to_list = All_sets.IntegerMap.empty;
-      list_to_comb = All_sets.IntegerListMap.empty;
+    { comb_to_list = comb_to_list;
+      list_to_comb = list_to_comb;
       level = 0; 
       string_to_code = s2c;
       code_to_string = c2s;
@@ -221,7 +226,6 @@ let present_absent =
 let present_absent_io string =
     list_to_a [(string, 1, None); ("-", 2, None)]
               "-" None Sequential
-
 
 (* The alphabet limited to the four bases *)
 let dna =
@@ -353,12 +357,13 @@ let match_code x alph = match alph.kind with
     | Continuous -> string_of_int x
     | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential | Combination_By_Level) ->
         try All_sets.IntegerMap.find x alph.code_to_string
-        with | Not_found ->
-            Printf.printf "could not match code %d in alphabet\n%!" x; 
-            print alph;
-            raise (Illegal_Code x)
+        with | Not_found -> raise (Illegal_Code x)
 
 let find_code = match_code
+
+let zero_indexed a =
+    try ignore (match_code 0 a); true
+    with Illegal_Code _ -> false
 
 let set_ori_size alph size =
     {alph with ori_size = size}
@@ -915,8 +920,8 @@ let create_alph_by_level alph level oldlevel =
     let debug = false in
     let ori_a_size = get_ori_size alph in
     if debug then 
-        Printf.printf "Alphabet.create new alph: ori_size=%d,old_level/newlevel=%d/%d\n%!" ori_a_size
-    oldlevel level; 
+        Printf.printf "Alphabet.create new alph: ori_size=%d,old_level/newlevel=%d/%d\n%!"
+                        ori_a_size oldlevel level; 
     let orientation= get_orientation alph in
     let get_ori_alst  = 
         let res = ref [] in
@@ -973,15 +978,12 @@ let complement2 c alph =
 
 (*NOTE: rev_comp_lst just give us the complement seq, not reverse, use List.rev to do that*)
 let rev_comp_lst seqlst alph =
-    List.map (fun x ->  
-        complement2 x alph 
-    ) seqlst
+    List.map (fun x ->  complement2 x alph) seqlst
 
 (*rev_comp_arr give us the reverse complement of seqarr*)
 let rev_comp_arr seqarr alph = 
     let size = Array.length seqarr in
-    Array.mapi (fun idx x -> 
-        complement2 seqarr.(size-idx-1) alph         ) seqarr
+    Array.mapi (fun idx x -> complement2 seqarr.(size-idx-1) alph) seqarr 
 
 (*[of_file] is only called by scripting.ml, when reading in custom alphabet and breakinversion file*)
 let of_file fn orientation init3D level respect_case tie_breaker =

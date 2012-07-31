@@ -1197,11 +1197,11 @@ let apply_weight character_set acc =
         let assign_weight weight pos =
             unaligned.(pos) <- { unaligned.(pos) with u_weight = weight; }
         in
-        List.iter 
-            (function 
+        List.iter
+            (function
                 | P.Code (weight, who) ->
                     let weight = float_of_string weight in
-                    List.iter (apply_on_unaligned_set unaligned 
+                    List.iter (apply_on_unaligned_set unaligned
                                     (assign_weight weight))
                               who
                 | P.IName (matrix, who) ->
@@ -1295,6 +1295,7 @@ let add_branch_data (trees,chars,bls) acc =
 let compute_static_priors alph u_gap (priors,count,gcount) inverse state =
     let size = Array.length priors in
     let gap_char = Alphabet.get_gap alph in
+    let offset = if Alphabet.zero_indexed alph then 0 else 1 in
     let when_no_data_is_loaded () =
         incr gcount;
         for i = 0 to size - 1 do
@@ -1313,7 +1314,7 @@ let compute_static_priors alph u_gap (priors,count,gcount) inverse state =
         else begin
             incr count;
             let inverse = 1. /. (float_of_int (List.length lst)) in
-            List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
+            List.iter (fun x -> priors.(x-offset) <- priors.(x-offset) +.  inverse) lst
         end
 
 
