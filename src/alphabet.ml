@@ -198,8 +198,16 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
     let (comb_to_list,list_to_comb) =
         All_sets.StringMap.fold
             (fun _ (v:int) (c2l,l2c) ->
-                All_sets.IntegerMap.add v [v] c2l,
-                All_sets.IntegerListMap.add [v] v l2c)
+                let add_one lst = List.map (fun x -> x + 1) lst in
+                let vec = match kind with
+                    | Sequential           -> [v]
+                    | Simple_Bit_Flags     -> add_one (BitSet.Int.list_of_packed v)
+                    | Extended_Bit_Flags   -> add_one (BitSet.Int.list_of_packed v)
+                    | Continuous           -> assert false (* singleton *)
+                    | Combination_By_Level -> assert false (* requires other function *)
+                in
+                All_sets.IntegerMap.add v vec c2l,
+                All_sets.IntegerListMap.add vec v l2c)
             (s2c)
             (All_sets.IntegerMap.empty,All_sets.IntegerListMap.empty)
     in
@@ -213,7 +221,8 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
       all = all_code;
       size = a_size;
       ori_size = a_size;
-      kind = kind; complement = cmp;
+      kind = kind;
+      complement = cmp;
       orientation = orientation;
       threeD = init3D; }
 
