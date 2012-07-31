@@ -1123,13 +1123,14 @@ module Two_D = struct
                             l a_sz all_elements =
         let debug = false in
         let pure_a_sz = 
-            if all_elements=(a_sz-1) && level>1 && level<a_sz then
-                a_sz-1
-            else a_sz 
+            if all_elements=(a_sz-1) && level>1 && level<a_sz
+                then a_sz-1
+                else a_sz 
         in
         let num_comb = calc_number_of_combinations_by_level pure_a_sz level in
-        Status.user_message Status.Warning 
-        ( "This@ operation@ may@ require@ large@ amounts@ of@ memory" );
+        if not suppress then
+            Status.user_message Status.Warning 
+                ("This@ operation@ may@ require@ large@ amounts@ of@ memory");
         assert(num_comb>0);
         let num_withgap = calc_num_of_comb_with_gap pure_a_sz level in
         let num_comb,num_withgap = 
@@ -1141,51 +1142,48 @@ module Two_D = struct
             | `First -> 1
             | `Last -> 2 
         in
-        if debug then Printf.printf 
-        "cost_matrix.ml fill cost matrix :\
-        a_sz = %d(pure a_sz=%d), use_comb=%b,level=%d,num_comb=%d(%d),\
-        all_elements=%d (list len=%d), tie breaker = %d\n%!"
-        a_sz pure_a_sz use_comb level num_comb num_withgap all_elements (List.length l) tb;
+        if debug then
+            Printf.printf ("cost_matrix.ml fill cost matrix : a_sz = %d(pure "^^
+                           "a_sz=%d), use_comb=%b,level=%d,num_comb=%d(%d), "^^
+                           "all_elements=%d (list len=%d), tie breaker = %d\n%!")
+                        a_sz pure_a_sz use_comb level num_comb num_withgap
+                        all_elements (List.length l) tb;
         let m =  (*Note: use_comb is 'int' in cm.c*)
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
-            use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
+                   use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
         in
-        let (uselevel:bool) = if level>1 then true  else false  in 
+        let (uselevel:bool) = if level>1 then true  else false  in
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
-        if debug then Printf.printf "uselevel=%b,call fill_best_cost_and_median_XXX \n%!" uselevel;
+        if debug then
+            Printf.printf "uselevel=%b,call fill_best_cost_and_median_XXX \n%!" uselevel;
         if use_comb then
             if suppress || (input_is_metric l a_sz) then
                let () = set_metric m in
                 if uselevel then
-                    fill_best_cost_and_median_for_some_combinations m a_sz level
-                    all_elements
+                    fill_best_cost_and_median_for_some_combinations m a_sz level all_elements
                 else
                     fill_best_cost_and_median_for_all_combinations m a_sz 
             else
-                let () = 
-                    Status.user_message Status.Warning "You@ are@ loading@ a@ non-metric@ TCM"
-                in
+                let () = Status.user_message Status.Warning "You@ are@ loading@ a@ non-metric@ TCM" in
                 if uselevel then
-                    fill_best_cost_and_median_for_some_combinations m a_sz level
-                    all_elements
+                    fill_best_cost_and_median_for_some_combinations m a_sz level all_elements
                 else
                     fill_best_cost_and_median_for_all_combinations_bitwise m a_sz
         else
-            fill_medians m a_sz
-        ;
+            fill_medians m a_sz;
         fill_default_prepend_tail m;
         m
+
 
     let of_channel ?(tie_breaker = `First) ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
         let debug = false in
         let use_comb = if level = 1 then false else use_comb in
         if debug then 
-        Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," 
-        use_comb level all_elements;
+            Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," use_comb level all_elements;
         match load_file_as_list ch with
         | [] -> failwith "No Alphabet"
         |  l -> let w = calculate_alphabet_size l in
-        if debug then Printf.printf "w=%d\n%!" w;
+                if debug then Printf.printf "w=%d\n%!" w;
                 let _,matrix_list = 
                     List.fold_right 
                         (fun item (cnt, acc ) -> match acc with
@@ -1200,45 +1198,41 @@ module Two_D = struct
                     || (w = all_elements && (level>1) && (level<w))
                     then
                         (* We must add a placeholder for the all elements item *)
-                        let rec add_every cnt lst =
-                            match lst with
+                        let rec add_every cnt lst = match lst with
                             | [] -> []
                             | h :: t -> 
-                                    if cnt = w * (w-1) + 1 then
-                                        let newline = 
-                                            Array.to_list (
-                                            Array.make (w-1)
-                                            Utl.large_int)@[0;Utl.large_int] in
-                                        newline @ [h] @ (add_every (cnt+1) t)
-                                    else if 0 = cnt mod w then 
-                                        Utl.large_int :: h :: (add_every (cnt + 1) t)
-                                    else h :: (add_every (cnt + 1) t)
+                                if cnt = w * (w-1) + 1 then
+                                    let newline = Array.to_list (Array.make (w-1) Utl.large_int) in
+                                    let newline = newline@[0;Utl.large_int] in
+                                    newline @ [h] @ (add_every (cnt+1) t)
+                                else if 0 = cnt mod w then 
+                                    Utl.large_int :: h :: (add_every (cnt + 1) t)
+                                else
+                                    h :: (add_every (cnt + 1) t)
                         in
                         let newl = add_every 1 l in
                         w + 1, newl
                     else w, l
                 in
                 if debug then Printf.printf "after adding all_element, list len=%d, \n%!" (List.length l);
-                let m = 
-                    match orientation with 
+                let m = match orientation with
                     | false ->
-                          fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:use_comb ~level:level l w all_elements 
+                          fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:use_comb ~level:level l w all_elements
                     | true ->
-                          let l_arr = Array.of_list l in          
-                          let w2 = w * 2 - 1 in  
-                          let l2 = ref [] in 
-                          for code1 = 1 to w2 do 
-                              for code2 = 1 to w2 do 
-                                  let index = 
-                                      ((((code1 + 1) / 2) - 1)  * w)  + 
-                                      (((code2 + 1) / 2) - 1) in 
-                                  l2 := l_arr.(index)::!l2 
-                              done;  
-                          done; 
-                          let l2 = List.rev !l2 in 
+                          let l_arr = Array.of_list l in
+                          let w2 = w * 2 - 1 in
+                          let l2 = ref [] in
+                          for code1 = 1 to w2 do
+                              for code2 = 1 to w2 do
+                                  let index = ((((code1 + 1) / 2) - 1) * w) + (((code2 + 1) / 2) - 1) in
+                                  l2 := l_arr.(index)::!l2
+                              done;
+                          done;
+                          let l2 = List.rev !l2 in
                           fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:use_comb l2 w2 all_elements
                 in
-                m, matrix_list;;
+                m, matrix_list
+
 
     let of_list ?(use_comb=true) ?(level=0) ?(suppress=false) l all_elements =
         (* This function assumes that the list is a square matrix, list of
@@ -1253,13 +1247,13 @@ module Two_D = struct
         if debug then Printf.printf "cost_matrix.ml of_channel_nocomb\n %!";
         of_channel ~orientation:orientation ~use_comb:false ch
 
-    let of_list_nocomb l all_elements =
+    let of_list_nocomb ?(suppress=false) l all_elements =
         (* This function assumes that the list is a square matrix, list of
         * lists, all of the same size *)
         if debug then Printf.printf "cost_matrix of_list_nocomb\n";
         let w = List.length l in
         let l = List.flatten l in
-        fill_cost_matrix ~use_comb:false l w all_elements
+        fill_cost_matrix ~use_comb:false ~suppress l w all_elements
 
     let create_cm_by_level m level oldlevel all_elements tie_breaker =
         let ori_sz = get_ori_a_sz m in
@@ -1288,8 +1282,9 @@ module Two_D = struct
         in
         newm
 
-    let default = 
-        of_list [
+    let default =
+        let suppress = true in
+        of_list ~suppress [
             [0;1;1;1;1];
             [1;0;1;1;1];
             [1;1;0;1;1];
@@ -1300,7 +1295,8 @@ module Two_D = struct
     let default_nucleotides = default
 
     let default_aminoacids =
-         of_list_nocomb [
+        let suppress = true in
+        of_list_nocomb ~suppress [
             [0; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1];
             [1; 0; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1];
             [1; 1; 0; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1];
