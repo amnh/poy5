@@ -198,11 +198,10 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
     let (comb_to_list,list_to_comb) =
         All_sets.StringMap.fold
             (fun _ (v:int) (c2l,l2c) ->
-                let add_one lst = List.map (fun x -> x + 1) lst in
                 let vec = match kind with
                     | Sequential           -> [v]
-                    | Simple_Bit_Flags     -> add_one (BitSet.Int.list_of_packed v)
-                    | Extended_Bit_Flags   -> add_one (BitSet.Int.list_of_packed v)
+                    | Simple_Bit_Flags     -> BitSet.Int.list_of_packed v
+                    | Extended_Bit_Flags   -> BitSet.Int.list_of_packed v
                     | Continuous           -> assert false (* singleton *)
                     | Combination_By_Level -> assert false (* requires other function *)
                 in
