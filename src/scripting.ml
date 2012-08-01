@@ -4075,11 +4075,13 @@ let rec folder (run : r) meth =
                     | [] -> 
                         List.iter
                             (fun xs ->
-                                let chars  = Data.get_code_from_characters_restricted
-                                                        `Likelihood run.data (`Some xs) in
+                                let chars =
+                                    Data.get_code_from_characters_restricted
+                                                `Likelihood run.data (`Some xs)
+                                in
                                 match chars with
                                 | []    -> ()
-                                | chars -> 
+                                | chars ->
                                     let model  = Data.get_likelihood_model run.data chars
                                     and name   = Data.get_character_set_name run.data chars
                                     and ntaxa  = run.data.Data.number_of_taxa in
@@ -4089,15 +4091,13 @@ let rec folder (run : r) meth =
                                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                     MlModel.output_model fo `Hennig model None)
                             (Data.categorize_likelihood_chars_by_model chars run.data)
-                    | trees -> 
+                    | trees ->
                         List.iter
                             (fun t ->
                                 let tname = match t.Ptree.tree.Tree.tree_name with
                                     | Some tname -> tname
                                     | None -> ""
-(*                                and branches = *)
-(*                                    Tree.EdgeSet.cardinal t.Ptree.tree.Tree.d_edges*)
-                                and cats = 
+                                and cats =
                                     Data.categorize_likelihood_chars_by_model chars t.Ptree.data
                                 in
                                 List.iter
@@ -4105,12 +4105,9 @@ let rec folder (run : r) meth =
                                         let model = Data.get_likelihood_model t.Ptree.data xs
                                         and cost  = TreeOps.total_cost t `Adjusted (Some xs)
                                         and length= TreeOps.tree_size t (Some xs)
-(*                                        and prior = TreeOps.prior_cost t (Some xs)*)
+                                        (* and prior = TreeOps.prior_cost t (Some xs) *)
                                         and cname = Data.get_character_set_name t.Ptree.data xs in
                                         let cname = match cname with | Some cname -> cname | None -> ""
-(*                                        and aic   = MlModel.aic model branches ntaxa cost*)
-(*                                        and bic   = MlModel.bic model branches ntaxa cost*)
-(*                                        and hqic  = MlModel.hqic model branches ntaxa cost*)
                                         and ntaxa = t.Ptree.data.Data.number_of_taxa in
                                         if tname <> "" then
                                             fo ("@[<hov 0>Tree Name: "^tname^"@]@\n");
@@ -4119,10 +4116,7 @@ let rec folder (run : r) meth =
                                         fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                         fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                                         fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-(*                                        fo ("@[<hov 0>Log-Prior: "^string_of_float (~-.prior)^"@]@\n");*)
-(*                                        fo ("@[<hov 0>AIC: "^string_of_float aic^"@]@\n");*)
-(*                                        fo ("@[<hov 0>BIC: "^string_of_float bic^"@]@\n");*)
-(*                                        fo ("@[<hov 0>HQIC: "^string_of_float hqic^"@]@\n\n");*)
+                                        (* fo ("@[<hov 0>Log-Prior: "^string_of_float (~-.prior)^"@]@\n");*)
                                         MlModel.output_model fo `Hennig model None;
                                         fo "@\n@\n")
                                     cats)
