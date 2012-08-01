@@ -232,7 +232,7 @@ let output_characterbranch fo in_poy labeling set_names =
 
 let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs : unit =
     let output_nexus_model (name,_,model) = match model with
-        | Some m -> MlModel.output_model fo `Nexus m (Some [name])
+        | Some m -> MlModel.output_model fo None `Nexus m (Some [name])
         | _      -> ()
     and is_empty lst = match lst with
         | [] -> true

@@ -717,7 +717,7 @@ let subst_matrix model topt =
 
 
 (* print output in our nexus format or Phyml output *)
-let output_model output nexus model set = 
+let output_model output output_table nexus model set = 
     let printf format = Printf.ksprintf output format in
     let gtr_mod = ref false in
     if nexus = `Nexus then begin
@@ -873,10 +873,10 @@ let output_model output nexus model set =
                     printf "%s ------- " (Alphabet.match_code i model.alph)
                 done;
                 printf "]@]@\n";
-                for i = 0 to model.alph_s - 1 do 
+                for i = 0 to model.alph_s - 1 do
                     for j = 0 to model.alph_s - 1 do
                         printf "%.5f\t" mat.{i,j}
-                    done; 
+                    done;
                     printf "@\n";
                 done;
             | Custom (_,xs,str) ->
@@ -892,21 +892,38 @@ let output_model output nexus model set =
         in
         printf "@]";
         printf "@[@[<hov 0>Instantaneous rate matrix:@]@\n";
-        let () = 
-            let mat = compose model ~-.1.0 in
-            printf "@[<hov 1>[";
-            for i = 0 to model.alph_s - 1 do
-                printf "%s ------- " (Alphabet.match_code i model.alph)
-            done;
-            printf "]";
-            for i = 0 to model.alph_s - 1 do 
-                printf "@]@\n@[<hov 1>";
-                for j = 0 to model.alph_s - 1 do
-                    printf "%8.5f  " mat.{i,j}
-                done; 
-            done;
-        in 
-        printf "@]@\n@]"
+        match output_table with
+        | Some output_table ->
+            let table = Array.make_matrix (model.alph_s+1) model.alph_s "" in
+            let () =
+                let mat = compose model ~-.1.0 in
+                for i = 0 to model.alph_s - 1 do
+                    table.(0).(i) <- Alphabet.match_code i model.alph;
+                done;
+                for i = 0 to model.alph_s - 1 do 
+                    for j = 0 to model.alph_s - 1 do
+                        table.(i+1).(j) <- string_of_float mat.{i,j}
+                    done;
+                done;
+            in
+            let () = output_table table in
+            printf "@\n@]"
+        | None ->
+            let () =
+                let mat = compose model ~-.1.0 in
+                printf "@[<hov 1>[";
+                for i = 0 to model.alph_s - 1 do
+                    printf "%s ------- " (Alphabet.match_code i model.alph)
+                done;
+                printf "]";
+                for i = 0 to model.alph_s - 1 do
+                    printf "@]@\n@[<hov 1>";
+                    for j = 0 to model.alph_s - 1 do
+                        printf "%8.5f  " mat.{i,j}
+                    done;
+                done;
+            in
+            printf "@]@\n@]"
     end
 
 let compose_model sub_mat t = 

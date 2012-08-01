@@ -4071,6 +4071,7 @@ let rec folder (run : r) meth =
                 failwith "NOT DONE"
             | `Model (filename,chars) ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
+                let ft = Some (Status.output_table (Status.Output (filename, false, []))) in
                 begin match (Sexpr.to_list run.trees) with
                     | [] -> 
                         List.iter
@@ -4089,7 +4090,7 @@ let rec folder (run : r) meth =
                                     if cname <> "" then
                                         fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
                                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                                    MlModel.output_model fo `Hennig model None)
+                                    MlModel.output_model fo ft `Hennig model None)
                             (Data.categorize_likelihood_chars_by_model chars run.data)
                     | trees ->
                         List.iter
@@ -4117,7 +4118,7 @@ let rec folder (run : r) meth =
                                         fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                                         fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
                                         (* fo ("@[<hov 0>Log-Prior: "^string_of_float (~-.prior)^"@]@\n");*)
-                                        MlModel.output_model fo `Hennig model None;
+                                        MlModel.output_model fo ft `Hennig model None;
                                         fo "@\n@\n")
                                     cats)
                             (trees)

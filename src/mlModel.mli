@@ -224,7 +224,9 @@ val subst_matrix : model -> float option ->
 val debug_model : model -> float option -> unit
 (** print composed model to stdout *)
 
-val output_model : (string -> unit) -> [`Nexus | `Phylip | `Hennig] -> model -> string list option -> unit
+val output_model :
+    (string -> unit) -> (string array array -> unit) option
+        -> [`Nexus | `Phylip | `Hennig] -> model -> string list option -> unit
 (** print the model in a format similar to Phylip's output, or a formatted nexus
     output. Hennig output is the same as Phylip, and used to match treeoutput
     functions. *)

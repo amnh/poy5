@@ -704,11 +704,13 @@ let get_recost user_pams =
     | Some (`Locus_Breakpoint c)
     | Some (`Locus_Inversion c) -> c
 
+
 (** [get_locus_indel_cost user_pams] returns the locus indel cost in [pams] *)
 let get_locus_indel_cost user_pams = 
     match user_pams.locus_indel_cost with
     | None -> failwith "The locus indel cost is not specified"
     | Some c -> c
+
 
 let get_character_set_name data codes : string option = match codes with
     | [] -> failwith "No characters specified"
@@ -718,6 +720,7 @@ let get_character_set_name data codes : string option = match codes with
             Some (Hashtbl.find data.character_nsets char)
         else
             None
+
 
 let get_likelihood_model data chars =
     let get_model x =
@@ -738,31 +741,13 @@ let get_likelihood_model data chars =
     in
     match List.map get_model chars with
     | (h,hm)::t ->
-        assert( List.fold_left 
-                    ~f:(fun acc (x,xm) ->
-                            if 0 = MlModel.compare xm hm then acc
-                            else begin
-                                Printf.printf "Model Inconsistency: %d<>%d\n%!" h x;
-                                MlModel.output_model (print_string) `Nexus xm None;
-                                MlModel.output_model (print_string) `Nexus hm None;
-                                false
-                            end)
+        assert( List.fold_left
+                    ~f:(fun acc (x,xm) -> acc && (0 = (MlModel.compare xm hm)))
                     ~init:true
                     t);
         hm
-    | []   -> 
-        failwith "No Characters found"
-(*
-let is_fs data code =
-    match Hashtbl.find data.character_specs code with
-    | Kolmogorov _ | Set | Static _ -> false
-    | Dynamic x -> match x.initial_assignment with
-        | `FS _ -> true
-        | `Partitioned _
-        | `AutoPartitioned _
-        | `DO 
-        | `GeneralNonAdd -> false
-*)
+    | [] -> failwith "No Characters found"
+
 
 let get_empty_seq alph = 
     let seq = Sequence.create 1 in
@@ -886,7 +871,7 @@ let print (data : d) =
                 try 
                     let m = get_likelihood_model data x in
                     Printf.printf "%d:" (List.hd x);
-                    MlModel.output_model (print_string) `Nexus m None;
+                    MlModel.output_model print_string None `Nexus m None;
                     print_newline ()
                 with _ ->
                     Printf.printf "No consistent model: %a\n%!" pp_int_list x)

@@ -226,7 +226,7 @@ let root_cost t = t.mle
 let to_string _ = "MLStaticCS"
 
 let print a = print_barray3 (fst (s_bigarray a.chars));
-              MlModel.output_model print_string `Nexus a.model None;
+              MlModel.output_model print_string None `Nexus a.model None;
               Printf.printf "\nLikelihood: %f\n%!" (a.mle);
               ()
 
