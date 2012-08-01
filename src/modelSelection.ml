@@ -81,13 +81,13 @@ struct
     type b = Edge.e
     type tree = (a, b) Ptree.p_tree 
 
-    (** {6 Types for collection of data and defining what type of IC to use *)
+    (** {2 Types for collection of data and defining what type of IC to use *)
 
     (** Defines the properties of a model to update **)
     type model_diff =
         { subst : MlModel.subst_model;
           rates : MlModel.site_var;
-          prior : MlModel.priors;}
+          prior : MlModel.priors; }
 
     (** Define a list/subset of models to use in the particular IC *)
     type model_diffs = model_diff list
@@ -109,7 +109,7 @@ struct
               min_ic : int * float; }
 
 
-    (** {6 Helper functions for determining model properties *)
+    (** {2 Helper functions for determining model properties *)
 
     (** [all_specs] A list of all the specifications of models w/ and w/out
          gamma parameter based on a candidate spec --to define gap + optimality *)
@@ -137,7 +137,7 @@ struct
             | Some (`Theta (1,_)) -> [MlModel.Constant; MlModel.Theta (1,0.1,0.1) ]
             | Some (`Theta (r,_)) -> [MlModel.Constant; MlModel.Gamma (r,0.1); MlModel.Theta (r,0.1,0.1)]
         in
-        let delta_specs =
+        let delta_specs = (** perform x-product of individual properties *)
             List.fold_left
                 (fun acc (x,y) ->
                     List.fold_left
@@ -224,7 +224,7 @@ struct
 
 
 
-    (** {6 General Information Metrics for Model Selection *)
+    (** {2 General Information Metrics for Model Selection *)
 
     (** [aic] is defined as, AIC = 2 * k - 2 (ln L_max), where n is
         the number of observations, k are the number of parameters, and L_max is the
@@ -248,7 +248,7 @@ struct
         ((log n) *. k) +. 2.0 *. nl_max
 
 
-    (** {6 Building the stats for Model Selection *)
+    (** {2 Building the stats for Model Selection *)
 
     (** [model_averaged_parameter] return the model average parameter for a
         function that access the given parameter. This uses the ic weight to
