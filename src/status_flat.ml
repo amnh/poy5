@@ -99,23 +99,18 @@ let to_do_if_parallel =
             let msg = msg ^ m ^ append in
             let msg = StatusCommon.string_to_format msg in
             let () = StatusCommon.Format.fprintf ch msg in
-            begin match t with
-                | Output _ -> ()
-                | _ -> StatusCommon.Format.pp_print_flush ch ()
-            end;
+            let () = StatusCommon.Format.pp_print_flush ch () in
             let () = match t, StatusCommon.information_redirected () with
                 | (Output (None, _, opt)), Some filename ->
                     let f = StatusCommon.Files.openf filename opt in
-                    let () = StatusCommon.Format.fprintf f msg in
-                    ()
+                    StatusCommon.Format.fprintf f msg
                 | Status, Some filename
                 | SearchReport, Some filename 
                 | Information, Some filename
                 | Warning, Some filename
                 | Error, Some filename ->
                     let f = StatusCommon.Files.openf filename [] in
-                    let () = StatusCommon.Format.fprintf f msg in
-                    ()
+                    StatusCommon.Format.fprintf f msg
                 | Output _, _
                 | _, None -> ()
             in

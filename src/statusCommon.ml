@@ -485,30 +485,35 @@ module Tables = struct
         string_to_format (tag ^ x ^ "@}")
 
     let output_row row_num f row before after =
-        Array.iteri (fun col x ->
-            before ();
-            let string = 
-                if 0 = row_num mod 2 then string_to_format "@{" 
-                else string_to_format "@{<c:black_whit>"
-            in
-            Format.fprintf f string;
-            (Format.fprintf f (generate_string row_num col x) : unit);
-            Format.fprintf f "@}";
-            after ()) row
+        Array.iteri
+            (fun col x ->
+                before ();
+                let string =
+                    if 0 = row_num mod 2 then string_to_format "@{"
+                    else string_to_format "@{<c:black_whit>"
+                in
+                let () = Format.fprintf f string in
+                let () = Format.fprintf f (generate_string row_num col x) in
+                let () =Format.fprintf f "@}" in
+                after ())
+            row
 
     (* Formatting and outputing tables *)
     let output f do_close closer v = 
         (* We need to set the tabs first *)
         let widths = Array.create (Array.length v.(0)) 0 in
-        Array.iter (Array.iteri (fun p x -> 
-            widths.(p) <- max (String.length x) widths.(p))) v;
+        Array.iter
+            (Array.iteri
+                (fun p x -> widths.(p) <- max (String.length x) widths.(p)))
+            v;
         let first_row = Array.map (fun x -> String.make (x + 1) ' ') widths in
         Format.pp_open_tbox f ();
         output_row 0 f first_row (Format.pp_set_tab f) (fun () -> ());
         Format.pp_force_newline f ();
-        Array.iteri (fun item x -> 
-            output_row item f x (Format.pp_print_tab f) (fun () -> ());
-        ) v;
+        Array.iteri
+            (fun item x -> 
+                output_row item f x (Format.pp_print_tab f) (fun () -> ()))
+            v;
         Format.pp_close_tbox f ();
         if do_close then closer ();
         Format.pp_print_newline f ()
@@ -520,8 +525,8 @@ let information_output = ref None
 let set_information_output (filename : string option) =
     information_output := filename
 
-let redirect_information () = 
-    match !information_output with 
+let redirect_information () =
+    match !information_output with
     | None -> false
     | Some _ -> true
 

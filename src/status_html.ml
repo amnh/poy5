@@ -272,9 +272,7 @@ let user_message ty t =
         let t = StatusCommon.string_to_format t in
         match ty with
         | Output ((Some filename), do_close, fo_ls) ->
-                let formatter = 
-                    StatusCommon.Files.openf filename fo_ls
-                in
+                let formatter = StatusCommon.Files.openf filename fo_ls in
                 StatusCommon.Format.fprintf formatter t;
                 if do_close then StatusCommon.Files.closef filename ();
         | Status
@@ -295,27 +293,24 @@ let user_message ty t =
         | Warning ->
                 output#print !close_output;
                 close_output := "";
-                output#print ("@[<v 4>@{<c:red>@{<b>Warning: @}@}@,@[" ^^ t ^^
-                "@]@]@.%!")
+                output#print ("@[<v 4>@{<c:red>@{<b>Warning: @}@}@,@[" ^^ t ^^ "@]@]@.%!")
         | Error -> 
                 output#print !close_output;
                 close_output := "";
-                output#print ("@[<v 4>@{<c:red>@{<b>Error: @}@}@,@[" ^^ t ^^
-                "@]@]@.%!")
+                output#print ("@[<v 4>@{<c:red>@{<b>Error: @}@}@,@[" ^^ t ^^ "@]@]@.%!")
     end else !slaves_deal_in_this_way ty t
 
 let user_message c msg = 
     match !verbosity,c with
     |    _ , Output _
-    |    _ , Error ->  user_message c msg
-    | `None, _ -> ()
-    |    _ , _ ->  user_message c msg
+    |    _ , Error  ->  user_message c msg
+    | `None, _      -> ()
+    |    _ , _      ->  user_message c msg
 
 
 let do_output_table t v =
     if 0 = !my_rank then 
-        let a, b, c =
-            match t with
+        let a, b, c = match t with
             | Output ((Some filename), do_close, fo_ls) ->
                     (StatusCommon.Files.openf filename fo_ls),
                     do_close,
@@ -330,22 +325,17 @@ let do_output_table t v =
             | Status
             | SearchReport -> failwith "Huh?"
         in
-        let _ = StatusCommon.Tables.output a b c v in
-        let _ = 
-            match StatusCommon.information_redirected () with
-            | None -> ()
-            | Some filename ->
-                    let f = StatusCommon.Files.openf filename [] in
-                    StatusCommon.Tables.output f false (fun () -> ()) v
-        in
-        ()
-    else ()
+        let () = StatusCommon.Tables.output a b c v in
+        match StatusCommon.information_redirected () with
+        | None -> ()
+        | Some filename ->
+                let f = StatusCommon.Files.openf filename [] in
+                StatusCommon.Tables.output f false (fun () -> ()) v
 
 let output_table t v =
     if (not !are_we_parallel) || (0 = !my_rank) then begin
         do_output_table t v;
-        let _ =
-            match t with
+        let () = match t with
             | Output _ -> ()
             | _ -> output#print "@." 
         in
@@ -364,8 +354,7 @@ let is_interactive () = !using_interface
 
 let send_output _ = ()
 
-let type_io msg rank t =
-    match t with
+let type_io msg rank t = match t with
     | SearchReport | Information -> `Information (msg, rank)
     | Warning -> `Warning (msg, rank)
     | Error -> `Error (msg, rank)
