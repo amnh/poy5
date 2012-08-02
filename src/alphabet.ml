@@ -338,10 +338,10 @@ let is_aminoacids alph =
 
 let find_codelist comb alpha = match alpha.kind with
     | Continuous -> assert false
-    | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential |Combination_By_Level) ->
+    | (Simple_Bit_Flags | Extended_Bit_Flags)
+    | (Sequential | Combination_By_Level) ->
         try All_sets.IntegerMap.find comb alpha.comb_to_list 
-        with | Not_found -> raise (Illegal_Code comb)
-
+        with | Not_found -> BitSet.Int.list_of_packed comb
 
 let find_comb codelist alpha = match alpha.kind with
     | Continuous -> assert false
@@ -684,8 +684,7 @@ let rec to_sequential alph =
     | Combination_By_Level -> simplify alph 
     | Simple_Bit_Flags -> 
             (* We only really need to handle this case *)
-            let all_code = 
-                match get_all alph with
+            let all_code = match get_all alph with
                 | None -> max_int
                 | Some x -> x 
             in
@@ -699,30 +698,33 @@ let rec to_sequential alph =
             let new_string_to_code =
                 if uselevel then alph.string_to_code
                 else
-                All_sets.StringMap.fold (fun a b acc ->
-                    if b = all_code then acc
-                    else All_sets.StringMap.add a (bit_to_code_position b) acc) 
-                alph.string_to_code All_sets.StringMap.empty
+                    All_sets.StringMap.fold
+                        (fun a b acc ->
+                            if b = all_code then acc
+                            else All_sets.StringMap.add a (bit_to_code_position b) acc) 
+                        alph.string_to_code All_sets.StringMap.empty
             in
             let new_code_to_string =
                 if uselevel then alph.code_to_string
                 else
-                All_sets.IntegerMap.fold (fun a b acc ->
-                    if a = all_code then acc
-                    else All_sets.IntegerMap.add (bit_to_code_position a) b acc) 
-                alph.code_to_string All_sets.IntegerMap.empty
+                    All_sets.IntegerMap.fold
+                        (fun a b acc ->
+                            if a = all_code then acc
+                            else All_sets.IntegerMap.add (bit_to_code_position a) b acc) 
+                        alph.code_to_string All_sets.IntegerMap.empty
             in
             let new_complement =
-                All_sets.IntegerMap.fold (fun a b acc ->
-                    if a = all_code then acc
+                All_sets.IntegerMap.fold
+                    (fun a b acc ->
+                        if a = all_code then acc
                         else 
-                            let to_add =
-                                match b with
+                            let to_add = match b with
                                 | None -> None
                                 | Some x -> Some (bit_to_code_position x)
                             in
                             All_sets.IntegerMap.add (bit_to_code_position a)
-                            to_add acc) alph.complement All_sets.IntegerMap.empty
+                            to_add acc)
+                    alph.complement All_sets.IntegerMap.empty
             in
             let res = 
                 { 

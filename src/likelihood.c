@@ -25,6 +25,10 @@
 
 #undef DEBUG                //will print_loading/unloading SSE information
 
+//** these do not work properly yet. 
+#undef __SSE4__
+#undef __SSE3__
+
 #if defined( __SSE4__ )
     #define LK_DATA_ALIGNMENT
     #include <smmintrin.h>  //header for core2 duo SSE4.1 intrinsics
