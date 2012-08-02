@@ -260,9 +260,8 @@ let rec draw_parenthesis do_sort my_printer (t:Tree.Parse.tree_types) =
     | Tree.Parse.Flat t -> 
             printer 
                 (fun x -> x)
-                (fun (x) -> 
-                    if x <> "" then d_str "%s" x else "")
-            t
+                (fun (x) -> if x <> "" then d_str "%s" x else "")
+                t
     | Tree.Parse.Annotated (t,str) ->
             (* tree is sorted already from this call if necessary *)
             draw_parenthesis false my_printer t;
@@ -273,12 +272,10 @@ let rec draw_parenthesis do_sort my_printer (t:Tree.Parse.tree_types) =
             end;
     | Tree.Parse.Branches t ->
             printer 
-                (fun (x,y) ->
-                    match y with
+                (fun (x,y) -> match y with
                     | Some y -> d_str "%s:%f" x y
                     | None -> d_str "%s" x)
-                (fun (x,y) ->
-                    match x,y with
+                (fun (x,y) -> match x,y with
                     | "",Some t -> d_str ":%f" t
                     | "",None -> ""
                     | s ,Some t -> d_str "[%s]:%f" s t
@@ -286,12 +283,10 @@ let rec draw_parenthesis do_sort my_printer (t:Tree.Parse.tree_types) =
                 t
     | Tree.Parse.Characters t ->
             printer 
-                (fun (x,y) ->
-                    match y with
+                (fun (x,y) -> match y with
                     | Some y -> d_str "%s[%s]" x y
                     | None -> x)
-                (fun (x,y) ->
-                    match x,y with
+                (fun (x,y) -> match x,y with
                     | "",Some t -> d_str "[%s]" t
                     | "",None -> ""
                     | s ,Some t -> d_str "[%s][%s]" s t
@@ -308,8 +303,7 @@ let rec for_formatter ?(separator = " ") split_lines newick leafsonly t =
     let splitter = if split_lines then "@," else "" in
     let rec generator fnl fni =
         let sep = ref "" in
-        fun acc t ->
-            match t with
+        fun acc t -> match t with
             | Tree.Parse.Leafp str ->
                     let str  = StatusCommon.escape (fnl str) in
                     let res = acc ^ !sep ^ str in
@@ -321,10 +315,12 @@ let rec for_formatter ?(separator = " ") split_lines newick leafsonly t =
                     let acc = acc ^ ")" in
                     sep := splitter ^ separator;
                     acc ^ (fni str) ^ splitter
-    in match t with
+    in
+    match t with
     | Tree.Parse.Annotated (t,str) ->
             let res = for_formatter ~separator split_lines newick leafsonly t in
-            Printf.sprintf "%s[%s]" res str
+            (* This is the cost; not needed Printf.sprintf "%s[%s]" res str *)
+            res
     | Tree.Parse.Flat t ->
             (generator 
                     (fun x -> x) 
