@@ -1,10 +1,10 @@
 #include <caml/custom.h>
 
-#define Sankoff_elt_pointer(a) ((struct elt *) Data_custom_val(a))
-#define Sankoff_elt_custom_val(to_asgn,a)  to_asgn = Sankoff_elt_pointer(a)
+#define Sankoff_return_elt(x) (*((elt_p*)Data_custom_val(x)))
+#define Sankoff_elt_custom_val(to_asgn,a)  to_asgn = Sankoff_return_elt(a)
 
-#define Sankoff_eltarr_pointer(a) ((struct elt_arr *) Data_custom_val(a))
-#define Sankoff_eltarr_custom_val(to_asgn,a) to_asgn = Sankoff_eltarr_pointer(a)
+#define Sankoff_return_eltarr(x) (*((eltarr_p*)Data_custom_val(x)))
+#define Sankoff_eltarr_custom_val(to_asgn,a) to_asgn = Sankoff_return_eltarr(a)
 
 #define infinity (INT_MAX/4)
 #define is_infinity(x) (x>=infinity)

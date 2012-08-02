@@ -87,7 +87,7 @@ free_eltarr(eltarr_p eap) {
     for (i=0;i<eap->num_elts;i++)
         free_elt(&((eap->elts)[i]));
     free(eap->elts);
-    //we don't free eap itself in this function
+    //we don't free eltarr itself in this function,free it outside
     //free(eap);
     return;
 }
@@ -99,7 +99,7 @@ inline void
 #endif
 sankoff_CAML_free_eltarr (value v) {
     eltarr_p eap;
-    eap = Sankoff_eltarr_pointer(v);
+    eap = Sankoff_return_eltarr(v);
     assert(eap!=NULL);
     int debug = 0;
     if(debug) printf("sankoff_CAML_free_eltarr,taxon code = %d\n",eap->taxon_code);
@@ -109,7 +109,7 @@ sankoff_CAML_free_eltarr (value v) {
         free_elt(&((eap->elts)[i]));
     free(eap->elts);
     //if (debug) {printf("free eap\n"); fflush(stdout);}
-    //free(eap);
+    free(eap);
     return;
 }
 
@@ -124,7 +124,7 @@ sankoff_CAML_free_elt (value v) {
     if(debug) {
     printf("sankoff_CAML_free_elt\n"); fflush(stdout);}
     elt_p ep;
-    ep = Sankoff_elt_pointer(v);
+    ep = Sankoff_return_elt(v);
     if(ep->states!=NULL) free(ep->states);
     if(ep->leftstates!=NULL) free(ep->leftstates);
     if(ep->rightstates!=NULL) free(ep->rightstates);
@@ -160,6 +160,25 @@ static struct custom_operations sankoff_custom_operations_eltarr = {
     custom_serialize_default, 
     custom_deserialize_default
 };
+
+
+value 
+sankoff_CAML_register_elt (value u) {
+    CAMLparam1(u);
+    register_custom_operations (&sankoff_custom_operations_elt);
+    CAMLreturn (Val_unit);
+}
+
+
+value 
+sankoff_CAML_register_eltarr (value u) {
+    CAMLparam1(u);
+    register_custom_operations (&sankoff_custom_operations_eltarr);
+    CAMLreturn (Val_unit);
+}
+
+
+
 
 //return 0 if two int array are the same, 1 otherwise
 #ifdef _win32
@@ -557,20 +576,22 @@ sankoff_CAML_get_elt (value this_eltarr,value idx)
 {
     CAMLparam2(this_eltarr,idx);
     CAMLlocal1(res);
-    res = caml_alloc_custom(&sankoff_custom_operations_elt,sizeof(struct elt),1,3*alloc_custom_max);
-    elt_p ep;
-    ep = Sankoff_elt_pointer(res);
     eltarr_p eap; 
     Sankoff_eltarr_custom_val(eap,this_eltarr);
     int debug = 0;
     int i = Int_val(idx);
     int num_states = eap->num_states;
+    elt_p ep;
+    //alloc ep before create_emtpy_elt
+    ep = (elt_p)calloc(1,sizeof(struct elt));
     sankoff_create_empty_elt (ep,num_states,-1);
     sankoff_clone_elt( ep, &((eap->elts)[i]) );
     if (debug) { 
         printf("sankoff_CAML_get_elt NO.%d from eltarr, res = ",i);
         sankoff_print_elt(ep,1,1,1,1);
     }
+    res = caml_alloc_custom(&sankoff_custom_operations_elt,sizeof(elt_p),1,3*alloc_custom_max);
+    Sankoff_return_elt(res) = ep;
     CAMLreturn(res);
 }
 
@@ -630,10 +651,9 @@ sankoff_CAML_filter_character(value this_eltarr, value ecode_bigarr, value get_c
         }
         
     }
-    res = caml_alloc_custom(&sankoff_custom_operations_eltarr,sizeof(struct elt_arr),1,alloc_custom_max);
     eltarr_p res_eap;
+    res_eap = (eltarr_p)calloc(1,sizeof(struct elt_arr));
     int num_states = eap->num_states;
-    res_eap = Sankoff_eltarr_pointer(res);
     res_eap->code = eap->code;
     res_eap->num_states = eap->num_states;
     res_eap->num_elts = res_num_elts;
@@ -651,6 +671,8 @@ sankoff_CAML_filter_character(value this_eltarr, value ecode_bigarr, value get_c
     }
     free(sign_arr);
     assert(j==res_num_elts);
+    res = caml_alloc_custom(&sankoff_custom_operations_eltarr,sizeof(eltarr_p),1,alloc_custom_max);
+    Sankoff_return_eltarr(res) = res_eap;
     CAMLreturn(res);
 }
 
@@ -951,7 +973,7 @@ value
 sankoff_CAML_get_e_array (value a) {
     CAMLparam1(a);
     elt_p ep;
-    ep = Sankoff_elt_pointer(a);
+    ep = Sankoff_return_elt(a);
     int num_states = ep->num_states;
     long dims[1];
     dims[0] = num_states;
@@ -1055,11 +1077,10 @@ sankoff_CAML_create_eltarr (value taxon_code, value code, value number_of_states
     if ((dimcm1!=dimcm2)||(dimcm1!=dims2)) 
         failwith ("sankoff.c, wrong size of costmat between states");
     if (debug) 
-    {printf("sankoff_CAML_create_eltarr,sizof(elt_arr)=%d, taxon_code=%d,mycode=%d,number of charactors(num_elts)=%d,states number is %d\n",sizeof(struct elt_arr),tcode,mycode,dims1,num_states); }
+    {printf("sankoff_CAML_create_eltarr,sizof(elt_arr)=%lu, taxon_code=%d,mycode=%d,number of charactors(num_elts)=%d,states number is %d\n",sizeof(struct elt_arr),tcode,mycode,dims1,num_states); }
     eltarr_p neweltarr;
-    res = 
-    caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (struct elt_arr), 1,alloc_custom_max);
-    neweltarr = Sankoff_eltarr_pointer(res);
+    //alloc struct elt_arr 
+    neweltarr = (eltarr_p)calloc(1,sizeof(struct elt_arr));
     neweltarr->code = mycode;
     neweltarr->taxon_code = tcode;
     neweltarr->left_taxon_code = tcode;
@@ -1067,6 +1088,7 @@ sankoff_CAML_create_eltarr (value taxon_code, value code, value number_of_states
     neweltarr->sum_cost = 0;
     neweltarr->num_states = dimcm1;
     neweltarr->num_elts = dim;
+    //alloc its pointers
     neweltarr->tcm = (int*)calloc(dimcm1*dimcm2,sizeof(int));
     memcpy(neweltarr->tcm,cost_mat,sizeof(int) * dimcm1 * dimcm2);
     neweltarr->elts = (elt_p)calloc(dim,sizeof(struct elt));
@@ -1105,6 +1127,8 @@ sankoff_CAML_create_eltarr (value taxon_code, value code, value number_of_states
         printf("return this elt_arr to Ocaml side.\n"); fflush(stdout);
         sankoff_print_eltarr(neweltarr,0,0,0,0);
     }
+    res = caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (eltarr_p), 1,alloc_custom_max);
+    Sankoff_return_eltarr(res) = neweltarr;
     CAMLreturn(res);
 }
 
@@ -1452,6 +1476,7 @@ sankoff_median_3(eltarr_p eapA,eltarr_p eapN, eltarr_p eapL, eltarr_p eapR, elta
             printf("===== sankoff_median_3 ===== on leafnode:\n");
             sankoff_print_eltarr(eapN,1,1,0,0);
         }
+        //alloc neweapN's pointers 
         sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapN->left_taxon_code,eapN->right_taxon_code, eapN->tcm);
         for (i=0;i<num_elts;i++)
         {
@@ -1682,7 +1707,7 @@ value
 sankoff_CAML_get_best_child_state (value a, value ch_tcode) {
     CAMLparam2(a,ch_tcode);
     eltarr_p eap;
-    eap = Sankoff_eltarr_pointer(a);
+    eap = Sankoff_return_eltarr(a);
     //int position = Int_val(p);
     int child_taxon_code = Int_val(ch_tcode);
     int leftORright=0;
@@ -1727,16 +1752,24 @@ sankoff_distance(eltarr_p eap1,eltarr_p eap2, eltarr_p neweltarr) {
         
 value
 sankoff_CAML_median(value code, value a, value b) {
+    int debug = 0;
    CAMLparam3(code,a,b);
    CAMLlocal1(res);
    eltarr_p eap1;
    eltarr_p eap2;
-   eap1 = Sankoff_eltarr_pointer(a);
-   eap2 = Sankoff_eltarr_pointer(b);
+   eap1 = Sankoff_return_eltarr(a);
+   eap2 = Sankoff_return_eltarr(b);
    eltarr_p neweltarr;
-   res = caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (struct elt_arr), 1,alloc_custom_max);
-   neweltarr = Sankoff_eltarr_pointer(res); 
+   neweltarr = (eltarr_p)calloc(1,sizeof(struct elt_arr));
+   if(debug) {
+       printf("sankoff_CAML_median on eap1&eap2:\n");
+       sankoff_print_eltarr(eap1,0,0,0,0);
+       sankoff_print_eltarr(eap2,0,0,0,0);
+       printf("call sankoff_median\n"); fflush(stdout);
+   }
    sankoff_median(Int_val(code),eap1,eap2,neweltarr);
+   res = caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (eltarr_p), 1,alloc_custom_max);
+   Sankoff_return_eltarr(res) = neweltarr; 
    CAMLreturn(res);
 }
 
@@ -1748,14 +1781,15 @@ sankoff_CAML_median_3(value a, value n, value l, value r) {
    eltarr_p eapN;
    eltarr_p eapL;
    eltarr_p eapR;
-   eapA = Sankoff_eltarr_pointer(a);
-   eapN = Sankoff_eltarr_pointer(n);
-   eapL = Sankoff_eltarr_pointer(l);
-   eapR = Sankoff_eltarr_pointer(r);
+   eapA = Sankoff_return_eltarr(a);
+   eapN = Sankoff_return_eltarr(n);
+   eapL = Sankoff_return_eltarr(l);
+   eapR = Sankoff_return_eltarr(r);
    eltarr_p neweltarr;
-   res = caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (struct elt_arr), 1,alloc_custom_max);
-   neweltarr = Sankoff_eltarr_pointer(res);
+   neweltarr = (eltarr_p)calloc(1,sizeof(struct elt_arr));
    sankoff_median_3(eapA,eapN,eapL,eapR,neweltarr);
+   res = caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (eltarr_p), 1,alloc_custom_max);
+   Sankoff_return_eltarr(res) = neweltarr;
    CAMLreturn(res);
 }
 
@@ -1769,8 +1803,8 @@ sankoff_CAML_distance(value a, value b) {
    CAMLparam2(a,b);
    eltarr_p eap1;
    eltarr_p eap2;
-   eap1 = Sankoff_eltarr_pointer(a);
-   eap2 = Sankoff_eltarr_pointer(b);
+   eap1 = Sankoff_return_eltarr(a);
+   eap2 = Sankoff_return_eltarr(b);
    eltarr_p neweltarr;
    neweltarr = (eltarr_p)calloc(1,sizeof(struct elt_arr)); 
    int res = sankoff_distance(eap1,eap2,neweltarr);
@@ -1786,9 +1820,9 @@ sankoff_CAML_dist_2(value a, value b,value c) {
    eltarr_p eapD;
    eltarr_p eapA;
    eltarr_p eapR;
-   eapD = Sankoff_eltarr_pointer(a);
-   eapA = Sankoff_eltarr_pointer(b);
-   eapR = Sankoff_eltarr_pointer(c);
+   eapD = Sankoff_return_eltarr(a);
+   eapA = Sankoff_return_eltarr(b);
+   eapR = Sankoff_return_eltarr(c);
    int res = sankoff_dist_2(eapD,eapA,eapR);
    CAMLreturn(Val_int(res));
 }
@@ -1797,7 +1831,7 @@ value
 sankoff_CAML_get_extra_cost_for_root(value a) {
     CAMLparam1(a);
     eltarr_p eapRoot;
-    eapRoot = Sankoff_eltarr_pointer(a);
+    eapRoot = Sankoff_return_eltarr(a);
     int res = sankoff_get_extra_cost_for_root(eapRoot);
     CAMLreturn(Val_int(res));
 }

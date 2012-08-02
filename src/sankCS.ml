@@ -32,6 +32,11 @@ let () = SadmanOutput.register "SankCS" "$Revision: 2871 $"
 
 let debug = false
 
+external register_eltarr : unit -> unit = "sankoff_CAML_register_eltarr"
+external register_elt : unit -> unit = "sankoff_CAML_register_elt"
+let () = register_eltarr ()
+let () = register_elt ()
+
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
     
 let infinity = max_int / 4
