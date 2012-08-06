@@ -162,6 +162,9 @@ val get_model : t -> MlModel.model
     should only be used on leaves of the tree to avoid reparsing data. **)
 val set_model : MlModel.model -> t -> t
 
+(** test function for an example tree in yang *)
+val yang : unit -> unit
+
 ELSE
 
 val likelihood_error : string

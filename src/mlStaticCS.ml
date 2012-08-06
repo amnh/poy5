@@ -236,7 +236,6 @@ let get_codes a = a.codes
 
 let get_model a = a.model
 
-
 let set_model m a = {a with model = m; }
 
 (* ------------------------------------------------------------------------- *)
@@ -639,6 +638,28 @@ let compare_data a b = compare_chars a.chars b.chars
 
 let compare a b = MlModel.compare a.model b.model
 
+(* Does the tree in yang for testing; for decimal approximation. *)
+let yang () =
+    let model =
+        let spec =
+            {
+                MlModel.iterate_model = true; MlModel.iterate_alpha = true;
+                MlModel.use_gap = `Missing; MlModel.site_variation = None;
+                MlModel.base_priors = MlModel.Equal; MlModel.cost_fn = `MAL;
+                MlModel.substitution = MlModel.K2P (Some 2.0);
+            }
+        in
+        MlModel.create (Alphabet.to_sequential Alphabet.nucleotides) spec
+    in
+    let a = of_parser_simple "A" model and c = of_parser_simple "C" model
+    and g = of_parser_simple "G" model and t = of_parser_simple "T" model in
+    let tc  = median2 t   c  0.2 0.2 0 0 in
+    let tca = median2 tc  a  0.1 0.2 0 0 in
+    let cc  = median2 c   c  0.2 0.2 0 0 in
+    let root= median2 tca cc 0.1 0.1 0 0 in
+    Printf.printf "YANG TREE COST: %f\n" (root_cost root)
+
+
 ELSE
 
 let likelihood_error = 
@@ -649,3 +670,4 @@ let minimum_bl () = failwith likelihood_error
 type t = unit
 
 END
+
