@@ -552,15 +552,14 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in 
             let model = MlStaticCS.get_model ca.preliminary in
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
-                | `MPL | `SML when code > 0 -> 
+                | `MPL when code > 0 -> 
                     MlStaticCS.median2 ca.preliminary cb.preliminary
                                        t1 t2 anode.taxon_code bnode.taxon_code
                 | `MAL -> 
                     MlStaticCS.median2 ca.preliminary cb.preliminary
                                        t1 t2 anode.taxon_code bnode.taxon_code
-                | `MPL | `SML -> assert( code <= 0 );
+                | `MPL ->
                     MlStaticCS.median1 ca.preliminary cb.preliminary (t1+.t2)
-                | _ -> assert false; (* all others are dynamic cost fns *)
                 end
             in
             let n_cost = MlStaticCS.root_cost median in
@@ -873,7 +872,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                sum_cost = cost +. bm.sum_cost +. am.sum_cost;
                                time = Some t1, Some t2, t3_opt; }
                 (* calculate the median1 for MPL with OCAML Brents *)
-                | `MPL | `SML ->
+                | `MPL ->
                     let calculate_single t = 
                         let m = MlStaticCS.median1 am.preliminary bm.preliminary t in
                         (m,MlStaticCS.root_cost m)
@@ -893,7 +892,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                               cost = fv;
                               sum_cost = fv +. bm.sum_cost +. am.sum_cost;
                               time = Some v, Some 0.0, None; }
-                | `FLK -> assert false (* all other methods are dynamic *)
                 end
             in
             ei_map ptl atl btl ((StaticMl mine)::pa)
@@ -3118,20 +3116,18 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and fixedstates = List.filter is_mem data.Data.fixed_states 
         and dynamics = List.filter is_mem data.Data.dynamics in
         let has_sank = if (List.length sank)>0 then true else false in
-        let has_dynamic_mpl,has_dynamic_mal,has_dynamic_aln =
+        let has_dynamic_mpl,has_dynamic_mal =
             List.fold_left
-                (fun ((mpl,mal,aln) as acc) code ->
+                (fun ((mpl,mal) as acc) code ->
                     match Hashtbl.find data.Data.character_specs code with
                     | Data.Dynamic ({Data.state = state} as s) when state = `Ml  ->
                         begin match s.Data.lk_model with
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `MPL -> true,mal ,aln
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `SML -> true,mal ,aln
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `MAL -> mpl ,true,aln
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `MPL -> true,mal
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `MAL ->  mpl,true
                             | _ -> assert false (* above pattern should be exhaustive *)
                         end
                     | _ -> acc)
-                (false,false,false)
+                (false,false)
                 (dynamics)
         in
         current_snapshot "start nonadd set2";
@@ -3150,7 +3146,6 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
             | _::_                    -> `Likelihood
             | [] when has_dynamic_mpl -> `SumLikelihood
             | [] when has_dynamic_mal -> `Likelihood
-            | [] when has_dynamic_aln -> `SumLikelihood
             | _ when has_sank         -> `Sankoff
             | _                       -> `Parsimony
         in

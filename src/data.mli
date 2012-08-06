@@ -606,8 +606,6 @@ val compute_priors : d -> int list -> bool -> float array
 
 val update_priors : d -> int list -> bool -> d
 
-val apply_heuristic_cost_model : ?cost_model:Methods.ml_costfn -> d -> d option
-
 val set_parsimony  : d -> Methods.characters -> d 
 
 val set_likelihood : d -> Methods.ml_spec    -> d 

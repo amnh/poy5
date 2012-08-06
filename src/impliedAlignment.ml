@@ -357,13 +357,9 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
                     | Model (m,(t,p)) ->
                         let aseq,bseq,_,clip_len,anoclip,bnoclip =
-                            begin match FloatSequence.cost_fn m with
-                                | `MPL | `SML ->
-                                    FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
-                                | `FLK ->
-                                    FloatSequence.FloatAlign.clip_align_2 a.seq b.seq m 0.0 t
-                                | `MAL -> assert false (* does not exist yet  *)
-                            end
+                            match FloatSequence.cost_fn m with
+                            | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
+                            | `MAL -> assert false (* does not exist yet  *)
                         in
                         let inds = calculate_indels anoclip bnoclip alph bchld in
                         aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
@@ -398,12 +394,9 @@ let ancestor calculate_median state prealigned all_minus_gap a b
             fun a b _ -> Cost_matrix.Two_D.median a b cm
         | Model (m,(t,_)) ->
             begin match FloatSequence.cost_fn m with
-                | `MPL | `SML -> 
+                | `MPL -> 
                     let gc = FloatSequence.MPLAlign.get_closest m t in
                     (fun a b i -> fst (gc i a b))
-                | `FLK -> 
-                    let gc = FloatSequence.FloatAlign.get_cm m (t/.2.0) (t/.2.0) in
-                    (fun a b _ -> snd (gc.(a).(b)))
                 | `MAL -> assert false
             end
     and cost_fn = match cm with
@@ -411,12 +404,9 @@ let ancestor calculate_median state prealigned all_minus_gap a b
             fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
         | Model (m,(t,_)) ->
             begin match FloatSequence.cost_fn m with
-                | `MPL | `SML -> 
+                | `MPL -> 
                     let gc = FloatSequence.MPLAlign.get_closest m t in
                     (fun a b i -> snd (gc i a b))
-                | `FLK -> 
-                    let gc = FloatSequence.FloatAlign.cost m (t/.2.0) (t/.2.0) in
-                    (fun a b _ -> fst (gc a b))
                 | `MAL -> assert false
             end
     in
@@ -1706,11 +1696,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         and cost_matrix =
                             try let model = DynamicCS.lk_model dyn in
                                 match FloatSequence.cost_fn model with
-                                | `MPL | `FLK | `SML | `MAL ->
+                                | `MPL | `MAL ->
                                     let bl = find_branch_length dyn time in
                                     Model (model,(bl,parent))
-                            with 
-                                | Not_found -> CM (DynamicCS.c2 dyn)
+                            with | Not_found -> CM (DynamicCS.c2 dyn)
                         in
                         {   sequences = new_sequences;   
                             c2 = cost_matrix;

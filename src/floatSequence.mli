@@ -212,13 +212,6 @@ module CMPLAlign  : A
     PROD (x,y=0 to n,m) of MAX (i in A) of ( P(t1)_xi * P(t2)_yi )
     Where A is the set of characters in the alphabet, and P(t) = e^Qt. *)
 
-module FloatAlign : A
-(** This module calculates the alignment (and the cost of the alignment), by
-    combining the branch lengths, and creating the transition matrix from that
-    over-all distance. The assignment does not deviate from the domain of the
-    children --polymorphisms happen from a substitution only-- and is assigned
-    the most likely state on that assumption. *)
-
 module MPLAlign   : A
 (** This module determines two costs matrices, and finds the median by the
     likelihood of transform either of the children over their cost matrix to an
@@ -230,8 +223,7 @@ module MPLAlign   : A
 module MALAlign   : A
 (** This is a partially implemented module to define the distance between two
     sequences by the criteria of total likelihood ->dynamic MAL. Only the cost
-    function is defined along with the memory and cost matrix functions.
-    Alignments are not defined (as the total cost is the sum; finding an
-    alignment would be equivlent to the FloatAlign module. *)
+    function is defined along with the memory and cost matrix functions. This is
+    because storing medians requires the entire matrix aligning to otheres. *)
 
 val pair_distance : dyn_model -> Sequence.s -> Sequence.s -> float * float

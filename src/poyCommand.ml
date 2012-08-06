@@ -1403,9 +1403,7 @@ let create_expr () =
             ];
         ml_costfn:
             [
-                [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL] |
-                (** Undefined in the context of the user; used for testing **)
-                [LIDENT "flk" -> `FLK] | [LIDENT "sml" -> `SML]
+                [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL]
             ];
         partitioned_mode:
             [   

@@ -69,7 +69,6 @@
 /* Cost Fn Mode Codes */
 #define MPLCOST      1
 #define MALCOST      0
-#define SMPLCOST     2
 
 #define KAHANSUMMATION       /* reduce error in sum over likelihood vector? */
  
@@ -464,7 +463,7 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
         //allocate new and copy
         lk_malloc(lkvec, ret->rates * ret->c_len * ret->stride * sizeof(double));
         ret->lv_s = lkvec;
-        if( (MPLCOST == Int_val(mpl)) || (SMPLCOST == Int_val(mpl)) ){
+        if( MPLCOST == Int_val(mpl) ){
             for( r=0; r<ret->rates; ++r ){
                 for( c=0; c<ret->c_len; ++c ){
                     for( a=0; a<ret->alph; ++a ){
@@ -497,7 +496,7 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
         //allocate new and copy
         lk_malloc(lkvec, ret->rates * ret->c_len * ret->stride * sizeof(double));
         ret->lv_s = lkvec;
-        if( (MPLCOST == Int_val(mpl)) || (SMPLCOST == Int_val(mpl)) ){
+        if( MPLCOST == Int_val(mpl) ){
             for( r = 0; r < (ret->rates*ret->c_len*ret->stride); ++r){
                 ret->lv_s[r] = (l_stuff[r] >= 1.0)?0.0:NEGINF;
             }
@@ -1292,10 +1291,6 @@ loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob
         case MPLCOST: 
             total_cost = logMPLlikelihood( l, ws, pi, prob );
             break;
-        case SMPLCOST: 
-            total_cost = logSMPLlikelihood( l, ws, pi, prob );
-            //printf("S|MPL: %f|%f\n", total_cost, logMPLlikelihood(l,ws,pi,prob));
-            break;
         default :
             assert( FALSE );
     }
@@ -1532,7 +1527,6 @@ median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
         case MALCOST : 
             median_MAL( PA, PB, amll, bmll, cmll, rate_idx );
             break;
-        case SMPLCOST: 
         case MPLCOST: 
             median_MPL( PA, PB, amll, bmll, cmll, rate_idx );
             break;
@@ -1921,7 +1915,6 @@ median1( const double* PA, const mll* amll, const mll* bmll,
 {
     switch( cost ){
         case MPLCOST: 
-        case SMPLCOST: 
             median1_MPL( PA,amll,bmll,dmll,rate_idx );
             break;
         default :

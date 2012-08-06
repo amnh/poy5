@@ -29,7 +29,7 @@ let dyno_likelihood_warning =
     "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
     "likelihood@ criteria.@ I@ am@ enabling@ this@ setting@ for@ the@ transformation."
 let dyno_gamma_warning = 
-    "Gamma@ classes@ for@ dynamic@ MPL/FLK@ are@ un-necessary,@ and@ are@ being@ removed."
+    "Gamma@ classes@ for@ dynamic@ MPL@ are@ un-necessary,@ and@ are@ being@ removed."
 
 let debug = false
 let debug_printf msg format =
@@ -145,17 +145,6 @@ let jc69_5_gap flo = { jc69_5 with use_gap = `Coupled flo; }
 let get_costfn_code a = match a.spec.cost_fn with 
     | `MPL -> 1 
     | `MAL -> 0 
-    | `SML -> 2
-    | `FLK -> ~-1 (* should not be called *)
-
-let set_smooth_model model = match model.spec.cost_fn with
-    | `MPL -> { model with spec = {model.spec with cost_fn = `SML; }; }
-    | `MAL | `SML | `FLK -> model
-
-and reset_smooth_model model = match model.spec.cost_fn with
-    | `SML -> { model with spec = {model.spec with cost_fn = `MPL; }; }
-    | `MAL | `MPL | `FLK -> model
-    
 
 let compare_priors a b =
     let compare_array x y = 
@@ -770,8 +759,6 @@ let output_model output output_table nexus model set =
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[Cost = mpl;@]";
             | `MAL -> printf "@[Cost = mal;@]"; 
-            | `FLK -> printf "@[Cost = flk;@]";
-            | `SML -> assert false (* this state is only used in optimization *)
         in
         let () = match model.spec.site_variation with
             | Some Constant | None -> ()
@@ -818,8 +805,6 @@ let output_model output output_table nexus model set =
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
             | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n"; 
-            | `FLK -> printf "@[<hov 0>Cost mode: flk;@]@\n"; 
-            | `SML -> assert false (* this state is only used in optimization *)
         in
         printf "@[<hov 0>Priors / Base frequencies:@\n";
         let () = match model.spec.base_priors with
@@ -1060,7 +1045,6 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
     let cost_fn : Methods.ml_costfn = match String.uppercase cost with
         | "MPL" -> `MPL
         | "MAL" -> `MAL
-        | "FLK" -> `FLK
         | ""    -> `MAL (* unmentioned default *)
         | x     -> 
             failwith ("I don't know "^x^" as a cost mode for likelihood.")

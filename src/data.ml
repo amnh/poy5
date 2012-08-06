@@ -4920,33 +4920,6 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
     end
 
 
-    let apply_heuristic_cost_model ?(cost_model=`SML) data =
-        match categorize_likelihood_chars_by_model `All data with
-        | [] -> None
-        | xs ->
-            let found = ref false in
-            let data =
-                List.fold_left
-                    ~f:(fun data chars ->
-                            let model = get_likelihood_model data chars in
-                            match model.MlModel.spec.MlModel.cost_fn with
-                            | `MPL | `SML ->
-                                found := true;
-                                let model =
-                                    { model with
-                                        MlModel.spec =
-                                            { model.MlModel.spec with
-                                                MlModel.cost_fn = cost_model }; }
-                                in
-                                apply_likelihood_model_on_chars data chars model
-                            | `MAL | `FLK ->
-                                data)
-                    ~init:data
-                    xs
-            in
-            if !found then Some data else None
-
-
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
  * the likelihood model specified in [lk] *)
 let set_parsimony data chars =

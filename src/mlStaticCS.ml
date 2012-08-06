@@ -131,8 +131,6 @@ external proportion: s -> s -> float = "likelihood_CAML_proportion"
 
 external minimum_bl: unit -> float = "likelihood_CAML_minimum_bl"
 
-external set_smpl_smoothness: float -> unit = "likelihood_CAML_set_smoothness"
-
 external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
 
 external copy : s -> s = "likelihood_CAML_copy"
@@ -406,11 +404,7 @@ let of_parser spec weights characters =
             (Array.fold_left (fun acc x -> acc && (x = 1.0)) true weights) );
     let computed_model = match spec.Nexus.File.st_type with
         | Nexus.File.STLikelihood x -> x
-        | _ -> failwith "Not a likelihood model" in
-    let () = (* ensure cost mode is acceptable: MAL/MPL *)
-        match computed_model.MlModel.spec.MlModel.cost_fn with
-        | `MPL | `MAL | `SML -> ()
-        | `FLK -> failwith "Cannot apply cost mode to static characters"
+        | _ -> assert false
     in
     let (a_size,a_gap,u_gap) = 
         let alph = Alphabet.to_sequential computed_model.MlModel.alph in
@@ -574,8 +568,6 @@ let resolve ?(single=false) t =
     let comp,init = match t.model.MlModel.spec.MlModel.cost_fn with
         | `MPL -> max,(log 0.0)
         | `MAL -> max,(log 0.0)
-        | `SML -> assert false
-        | `FLK -> failwith "unsupported"
     in
     let ray, _ = s_bigarray t.chars in (* ignore invar *)
     let nchars = Bigarray.Array3.dim2 ray
@@ -651,8 +643,6 @@ ELSE
 
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
-
-let set_smpl_smoothness _ = failwith likelihood_error
 
 let minimum_bl () = failwith likelihood_error
 

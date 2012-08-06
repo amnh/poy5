@@ -31,10 +31,6 @@ val estimate_time : t -> t -> float * float
 (** [minimum_bl ] return the minimum branch length allowed for edges *)
 val minimum_bl : unit -> float
 
-(** [set_smpl_smoothness] set the smoothness factor; we would like it that
- * MAX(a,b) + e < SMAX(a,b) for some epsilon e; thus smoothness happens *)
-external set_smpl_smoothness: float -> unit = "likelihood_CAML_set_smoothness"
-
 (** [gc_alloc_max] -> how many nodes to alloc before a GC is triggered *)
 external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
 
@@ -169,7 +165,6 @@ val set_model : MlModel.model -> t -> t
 ELSE
 
 val likelihood_error : string
-val set_smpl_smoothness: float -> unit
 val minimum_bl : unit -> float
 
 END
