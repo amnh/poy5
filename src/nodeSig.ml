@@ -93,6 +93,8 @@ module type S = sig
     * (total_cost b) +. (distance a b)]. *)
     val total_cost : int option -> n -> float
 
+    val extra_cost_from_root: n -> float
+
     val tree_cost : int option -> n -> float
 
     (** return the minimum prior in one of directions (if more then one) held
