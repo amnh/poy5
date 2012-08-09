@@ -720,7 +720,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     failwith "Illegal tree input")
                 [] trees
 
-    let prebuilt (trees: (string option * Tree.Parse.tree_types list) list) ((data,_) as sumdata) = 
+    let prebuilt (trees: (string option * Tree.Parse.tree_types list) list) ((data,_) as sumdata) =
         let trees = split_in_forests trees in
         let st = Status.create "Loading Trees" (Some (List.length trees)) "" in
         let constructor (cnt, lst) x =
@@ -738,8 +738,8 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             cnt + 1, (`Single t) :: lst
         in
         let res = 
-            `Set 
-            (let _, res = (List.fold_left constructor (1, []) trees) in res) 
+            let _, res = List.fold_left constructor (1, []) trees in
+            `Set res 
         in
         Status.finished st;
         res

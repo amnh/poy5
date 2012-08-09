@@ -2556,15 +2556,14 @@ let report included excluded =
     and total_excluded = List.fold_left ~f:(add 1) ~init:1 excluded in
     arr.(0).(0) <- "Included";
     arr.(0).(1) <- "Excluded";
-    Status.user_message Status.Information 
-    "@[<v>@[Selected@ Terminals:@]@,";
+    Status.user_message Status.Information "@[<v>@[Selected@ Terminals:@]@,";
     Status.output_table Status.Information arr;
+    Status.user_message Status.Information "@]@,%!";
     Status.user_message Status.Information 
-    "@]@,%!";
+        ("@[Total@ included:@ " ^ string_of_int (total_included - 1) ^ "@]@,");
     Status.user_message Status.Information 
-    ("@[Total@ included:@ " ^ string_of_int (total_included - 1) ^ "@]@,");
-    Status.user_message Status.Information 
-    ("@[Total@ excluded:@ " ^ string_of_int (total_excluded - 1) ^ "@]@,")
+        ("@[Total@ excluded:@ " ^ string_of_int (total_excluded - 1) ^ "@]@,");
+    ()
 
 let get_all_taxon_active_codes data = 
     Hashtbl.fold (fun code _ acc -> code :: acc) data.taxon_characters [] 
@@ -2638,43 +2637,32 @@ let rec process_analyze_only_taxa meth data =
 
 let process_analyze_only_file dont_complement data files =
     let data = duplicate data in
-    try
-        let appender acc file = 
-            try 
-                let ch, file = FileStream.channel_n_filename file in
-                let taxa = Parser.IgnoreList.of_channel ch in
-                let taxa = 
-                    warn_if_repeated_and_choose_uniquely taxa "terminals file" file
-                in
-                close_in ch;
-                taxa @ acc
-                with
-                | Sys_error err ->
-                        let file = FileStream.filename file in
-                        let msg = 
-                            "Couldn't open file " ^ file ^ " to load the " ^
-                            "terminals file. The system error message is " ^ 
-                            err 
-                        in
-                        failwith msg
+    try let appender acc file = 
+        try let ch, file = FileStream.channel_n_filename file in
+            let taxa = Parser.IgnoreList.of_channel ch in
+            let taxa =
+                warn_if_repeated_and_choose_uniquely taxa "terminals file" file
+            in
+            close_in ch;
+            taxa @ acc
+            with | Sys_error err ->
+                let file = FileStream.filename file in
+                failwithf ("Couldn't open file %s to load the terminals file. "
+                          ^^"The system error message is %s") file err
         in
         let taxa = List.fold_left ~f:appender ~init:[] files in
         let taxa = List.map trim taxa in
-        let ignored, taxa = 
-            if dont_complement then complement_taxa data taxa, taxa
-            else taxa, complement_taxa data taxa
+        let ignored, taxa =
+            if dont_complement
+                then complement_taxa data taxa, taxa
+                else taxa, complement_taxa data taxa
         in
         report taxa ignored;
-        let res = List.fold_left ~f:process_ignore_taxon ~init:data ignored in
-        res
-    with
-    | Failure msg ->
-            Status.user_message Status.Error msg;
-            data
-
-let process_ignore_taxon data taxon = 
-    (process_ignore_taxon data taxon)
-
+        let data = List.fold_left ~f:process_ignore_taxon ~init:data ignored in
+        data
+    with | Failure msg ->
+        Status.user_message Status.Error msg;
+        data
 
 let remove_taxa_to_ignore data = 
     let data = duplicate data in
@@ -2693,32 +2681,27 @@ let remove_taxa_to_ignore data =
     data
 
 let report_terminals_files filename taxon_files ignored_taxa =
-    let files = All_sets.StringMap.empty 
+    let files = All_sets.StringMap.empty
     and fo = Status.user_message (Status.Output (filename, false, [])) in
     let make_per_file_set taxon files acc =
         let is_ignored = All_sets.Strings.mem taxon ignored_taxa in
         let process_all_files file acc =
             if All_sets.StringMap.mem file acc then
-                let (included, excluded) = All_sets.StringMap.find file acc in
-                if is_ignored then
-                    All_sets.StringMap.add file (included, (taxon :: excluded)) 
-                    acc
-                else 
-                    All_sets.StringMap.add file ((taxon :: included), excluded)
-                    acc
-            else 
-                if is_ignored then
-                    All_sets.StringMap.add file ([], [taxon]) acc
-                else All_sets.StringMap.add file ([taxon], []) acc
+                let (inc, exc) = All_sets.StringMap.find file acc in
+                if is_ignored
+                    then All_sets.StringMap.add file (inc, (taxon :: exc)) acc
+                    else All_sets.StringMap.add file ((taxon :: inc), exc) acc
+            else
+                if is_ignored
+                    then All_sets.StringMap.add file ([], [taxon]) acc
+                    else All_sets.StringMap.add file ([taxon], []) acc
         in
         All_sets.Strings.fold process_all_files files acc
     and print_file file_name (included, excluded) =
-        fo ("@,@[<v 2>@{<u>Input File:@} " ^ StatusCommon.escape file_name 
-        ^ "@,@[<v 0>");
+        fo ("@,@[<v 2>@{<u>Input File:@} " ^ StatusCommon.escape file_name ^ "@,@[<v 0>");
         let output_list str lst = 
-            let total = string_of_int (List.length lst) in
-            fo ("@,@[Terminals " ^ StatusCommon.escape str ^ 
-            " (" ^ total ^ ")@]@[<v 2>@,@[<v 0>");
+            Printf.ksprintf fo "@,@[Terminals %s (%d)@]@[<v 2>@,@[<v 0>"
+                            (StatusCommon.escape str) (List.length lst);
             List.iter (fun x -> fo (StatusCommon.escape x); fo "@,") lst;
             fo "@]@]";
         in
@@ -2807,8 +2790,10 @@ let add_character_spec spec code data =
     data
 
 let rec taxon_code name data =
-    try All_sets.StringMap.find name data.taxon_names with
-    | Not_found -> taxon_code (All_sets.StringMap.find name data.synonyms) data
+    try All_sets.StringMap.find name data.taxon_names
+    with | Not_found ->
+        try taxon_code (All_sets.StringMap.find name data.synonyms) data
+        with | Not_found -> failwithf "Cannot find Taxa %s" name
 
 let get_tcm code data = 
     match Hashtbl.find data.character_specs code with

@@ -423,8 +423,7 @@ val to_channel : out_channel -> d -> unit
  * data [d]. *)
 val code_taxon : int -> d -> string
 
-(** [taxon_code n d] finds the code assigned to taxon [n] in the dataset 
- * [d]. *)
+(** [taxon_code n d] finds the code assigned to taxon [n] in the dataset [d]. *)
 val taxon_code : string -> d -> int
 
 val character_code : string -> d -> int

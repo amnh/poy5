@@ -1206,6 +1206,8 @@ module F : Ptree.Tree_Operations
             | Tree.Single _
             | Tree.Leaf (_, _) -> 
                     assert (IntMap.mem code ptree.Ptree.node_data);
+                    if debug_downpass_fn then
+                        info_user_message "Skipping Leaf/Single %d\n%!" code; 
                     ptree
             | (Tree.Interior (_, par, a, b)) as v ->
                     let a,b = Tree.other_two_nbrs prev v in
@@ -1229,7 +1231,7 @@ module F : Ptree.Tree_Operations
                         match (Ptree.get_component_root x ptree).Ptree.root_median with
                         | Some ((`Edge (a,b)),c) ->
                             if debug_downpass_fn then
-                                info_user_message "Downpass from (%d,%d)" a b;
+                                info_user_message "Downpass from Given (%d,%d)" a b;
                             Tree.post_order_node_with_edge_visit_simple
                                 add_vertex_post_order
                                 (Tree.Edge (a,b))
@@ -1241,17 +1243,17 @@ module F : Ptree.Tree_Operations
                         | Tree.Leaf (a,b)
                         | Tree.Interior (a,b,_,_) ->
                             if debug_downpass_fn then
-                                info_user_message "Downpass from (%d,%d)" a b;
+                                info_user_message "Downpass from Handle (%d,%d)" a b;
                             Tree.post_order_node_with_edge_visit_simple
                                 add_vertex_post_order
-                                (Tree.Edge (a,b)) 
+                                (Tree.Edge (a,b))
                                 ptree.Ptree.tree ptree
                         | Tree.Single _ -> ptree
                     end)
                 ptree.Ptree.tree.Tree.handles
                 ptree
         in
-        let ptree = 
+        let ptree =
             let ptree = refresh_all_edges None true None ptree in
             if do_roots then refresh_roots ptree else ptree
         in

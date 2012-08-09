@@ -1047,57 +1047,49 @@ let transform_select (choose, (acc : Methods.script list)) = function
     | `Characters 
     | `Taxa as x -> (x, acc)
     | (`Random _) | (`Missing _) | (`Names _) as meth ->
-            begin match choose with
-            | `Taxa -> (choose, ((`AnalyzeOnly meth) :: acc))
-            | `Characters ->  
-                    (choose, (`AnalyzeOnlyCharacters meth) :: acc)
-            end
+        begin match choose with
+            | `Taxa       -> (choose, ((`AnalyzeOnly meth) :: acc))
+            | `Characters ->  (choose, (`AnalyzeOnlyCharacters meth) :: acc)
+        end
     | `Files (do_complement, x) ->
-            let x = List.map (fun x -> `Local x) x in
-            begin match choose with
+        let x = List.map (fun x -> `Local x) x in
+        begin match choose with
             | `Taxa -> 
-                    (choose, ((`AnalyzeOnlyFiles (do_complement, x)) :: acc))
+                (choose, ((`AnalyzeOnlyFiles (do_complement, x)) :: acc))
             | `Characters -> 
-                    (choose, ((`AnalyzeOnlyCharacterFiles (do_complement, x)) :: acc))
-            end
+                (choose, ((`AnalyzeOnlyCharacterFiles (do_complement, x)) :: acc))
+        end
     | `BestN _
     | `BestWithin _
     | `Unique
     | `RandomTrees _ as x ->
             (choose, (x :: acc))
     | `AllStatic | `AllDynamic  as x -> 
-            (match choose with
+        begin match choose with
             | `Taxa ->
-                    (* TODO: I don't think any user will really use this feature, ever,
-                    * and I would have to spend a fair ammount of time getting it going,
-                    * so I will leave it off, if someone requests the feature, I add it
-                    * *)
-                    let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
-                    "@ the@ taxa@. " ^
-                    "So@ please,@ if@ it@ is@ worth@ " ^
-                    "the@ time@ and@ effort,@ place@ the@ feature@ request." in
-                    Status.user_message Status.Error msg;
-                    (choose, acc)
+                let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
+                    "@ the@ taxa@.@ So@ please,@ if@ it@ is@ worth@ " ^
+                    "the@ time@ and@ effort,@ place@ the@ feature@ request."
+                in
+                Status.user_message Status.Error msg;
+                (choose, acc)
             | `Characters -> 
-                    (choose, ((`AnalyzeOnlyCharacters x) :: acc)))
+                (choose, ((`AnalyzeOnlyCharacters x) :: acc))
+        end
     | _ -> 
-            (* TODO: I don't think any user will really use this feature, ever,
-            * and I would have to spend a fair ammount of time getting it going,
-            * so I will leave it off, if someone requests the feature, I add it
-            * *)
-            let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
-            "@ the@ taxa@. " ^
-            "So@ please,@ if@ it@ is@ worth@ " ^
-            "the@ time@ and@ effort,@ place@ the@ feature@ request." in
-            Status.user_message Status.Error msg;
-            (choose, acc)
+        let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
+            "@ the@ taxa@.@ So@ please,@ if@ it@ is@ worth@ " ^
+            "the@ time@ and@ effort,@ place@ the@ feature@ request."
+        in
+        Status.user_message Status.Error msg;
+        (choose, acc)
 
 let transform_select_arguments x =
     match x with
     | [] -> [`BestN None; `Unique]
     | x ->
-            let _, res = List.fold_left transform_select (`Taxa, []) x in
-            res
+        let _, res = List.fold_left transform_select (`Taxa, []) x in
+        res
 
 (* Renaming *)
 let transform_rename (on, (files : Methods.filename list), ren, acc) x = 
