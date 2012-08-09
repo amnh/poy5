@@ -402,6 +402,9 @@ module OneDirF :
     let root_cost a = 
         Node.Standard.root_cost (force_val a)
 
+    let extra_cost_from_root a =
+        Node.extra_cost_from_root (force_val a)
+
     let tree_cost a b =
         (total_cost a b) +. (root_cost b)
 
@@ -1162,6 +1165,10 @@ struct
         | None   -> assert( using_static_likelihood a ); 0.0
         | Some x -> OneDirF.root_cost x.lazy_node
 
+    let extra_cost_from_root a = match a.adjusted with
+        | None -> assert( using_static_likelihood a ); 0.0
+        | Some x ->  OneDirF.extra_cost_from_root x.lazy_node
+    
     let tree_cost a b = 
         (total_cost a b) +. (root_cost b)
 
