@@ -139,6 +139,13 @@ let print_break_jxn (h1, h2) =
         h2_s = (string_of_int h2) in
     print_string ("(" ^ h1_s ^ "," ^ h2_s ^ ")")
 
+(** [string_of_node node]
+    @return the node as a string. *)
+let string_of_node = function
+    | Single x           -> Printf.sprintf "S:%d" x
+    | Leaf (x,y)         -> Printf.sprintf "L:%d->%d" x y
+    | Interior (a,x,y,z) -> Printf.sprintf "I:%d->(%d,%d,%d)" a x y z
+
 (** [print_join_1_jxn jxn]
     @return prints join_1_jxn. *)
 let print_join_1_jxn jxn =
@@ -184,40 +191,38 @@ let replace_codes f tree =
             | Interior (a, b, c, d) -> Interior ((f a), (f b), (f c), (f d))
         in
         All_sets.IntegerMap.fold 
-        (fun code node acc -> 
-            All_sets.IntegerMap.add (f code) (fix_node node) acc)
-        tree.u_topo
-        All_sets.IntegerMap.empty
+            (fun code node acc -> 
+                All_sets.IntegerMap.add (f code) (fix_node node) acc)
+            tree.u_topo
+            All_sets.IntegerMap.empty
     and edges =
         let fix_edge (Edge (a, b)) = Edge ((f a), (f b)) in
         EdgeSet.fold 
-        (fun edge acc -> EdgeSet.add (fix_edge edge) acc)
-        tree.d_edges
-        EdgeSet.empty
+            (fun edge acc -> EdgeSet.add (fix_edge edge) acc)
+            tree.d_edges
+            EdgeSet.empty
     and handles = 
         All_sets.Integers.fold
-        (fun code acc -> All_sets.Integers.add (f code) acc) 
-        tree.handles
-        All_sets.Integers.empty
+            (fun code acc -> All_sets.Integers.add (f code) acc) 
+            tree.handles
+            All_sets.Integers.empty
     and avail_ids = List.map f tree.avail_ids in
-    { tree with u_topo = topo; d_edges = edges; handles = handles; avail_ids =
-        avail_ids }
+    { tree with
+        u_topo = topo; d_edges = edges;
+        handles = handles; avail_ids = avail_ids }
 
-let get_available tree =
-    match tree.avail_ids with
+
+let rec get_available tree = match tree.avail_ids with
+    | id :: ids when List.mem id ids ->
+        (** TODO: this happens; but is unknown why. Since it isn't a major error
+                  state, we ignore it and continue with analysis.*)
+        get_available {tree with avail_ids = ids; }
     | id :: ids ->
-          assert (false = All_sets.IntegerMap.mem id tree.u_topo);
-          assert (false = List.mem id ids);
-          id, { tree with avail_ids = ids }
+        assert (All_sets.IntegerMap.mem id tree.u_topo);
+        id, { tree with avail_ids = ids }
     | [] ->
-            assert (
-                if All_sets.IntegerMap.mem (succ tree.new_ids) tree.u_topo then
-                begin
-                    Status.user_message Status.Error ("I am using " ^
-                    string_of_int tree.new_ids);
-                    false
-                end else true);
-            tree.new_ids, { tree with new_ids = succ tree.new_ids }
+        assert (not (All_sets.IntegerMap.mem (succ tree.new_ids) tree.u_topo));
+        tree.new_ids, { tree with new_ids = succ tree.new_ids }
 
 type break_jxn = id * id
 
@@ -226,8 +231,7 @@ type break_jxn = id * id
 (** [get_id node]
     @param node the node whose id is desired
     @return id of the node. *)
-let get_id node =
-    match node with
+let get_id node = match node with
     | Single(id) 
     | Leaf(id, _)
     | Interior(id, _, _, _) -> id
@@ -316,11 +320,8 @@ let get_handle_id id tree =
     @return returns the node associated with the id.
     @raise Invalid_Node_Id, if the id is not a valid id. *)
 let get_node id tree =
-    try
-        (All_sets.IntegerMap.find id tree.u_topo)
-    with
-        | Not_found -> 
-                raise (Invalid_Node_Id id)
+    try (All_sets.IntegerMap.find id tree.u_topo)
+    with | Not_found -> raise (Invalid_Node_Id id)
 
 (** [get_leaves ?acc tree handle] returns a list of the leaves in [tree]
     below node [handle] *)
@@ -352,13 +353,11 @@ let get_all_leaves tree =
     @param id the id of the node.
     @param tree the tree in which the id corresponds to  the leaf or not.
     @return whether the node corresponding to the id is a leaf or not. *)
-let is_leaf id tree =
-    match get_node id tree with
+let is_leaf id tree = match get_node id tree with
     | Leaf(_, _) -> true
     | _ -> false
 
-let is_single id tree =
-    match get_node id tree with
+let is_single id tree = match get_node id tree with
     | Single _ -> true
     | _ -> false
 
@@ -369,9 +368,9 @@ let is_single id tree =
     @raise Invalid edge when the edge does not belong to the tree. *)
 let get_edge (x, y) btree =
     let edge = Edge(x, y) in
-        match (EdgeSet.mem edge btree.d_edges) with
-        | true -> edge
-        | false -> raise Invalid_Edge
+    match (EdgeSet.mem edge btree.d_edges) with
+    | true -> edge
+    | false -> raise Invalid_Edge
 
 (** [normalize_edge edge tree] returns either [edge] or the reverse-direction
     [edge'] if one of those is in the tree.  Otherwise, it fails with exception
@@ -379,14 +378,15 @@ let get_edge (x, y) btree =
 let normalize_edge e tree =
     let Edge (x,y) = e in
     if EdgeSet.mem e tree.d_edges
-    then e
-    else
-        let e' = Edge (y,x) in
-        if EdgeSet.mem e' tree.d_edges
-        then e'
-        else 
-            let () = prerr_endline (string_of_int x ^ "-" ^ string_of_int y) in
-            raise Invalid_Edge
+        then e
+        else begin
+            let e' = Edge (y,x) in
+            if EdgeSet.mem e' tree.d_edges
+                then e'
+                else 
+                    let () = prerr_endline (string_of_int x ^ "-" ^ string_of_int y) in
+                    raise Invalid_Edge
+        end
 
 (** [nbr_of node1 node2]
     @param node1 a node
@@ -533,8 +533,7 @@ let remove_node id btree =
  * tree operations in [avail_ids].
  * @param id is the node to be removed but reserved.
  * @param btree is the tree that holds the node
- * @return the tree with the node removed but the available ids unmodified.
- * *)
+ * @return the tree with the node removed but the available ids unmodified. *)
 let remove_reserved_node id btree =
     let new_topo = All_sets.IntegerMap.remove id btree.u_topo in
     { btree with u_topo = new_topo }
@@ -886,8 +885,7 @@ let break jxn tree =
     (* Handle the left side *)
     let node1 = get_node e1 tree in
     let node2 = get_node e2 tree in
-    let handle_side handle_our_side node other_vertex tree = 
-        match node with
+    let handle_side handle_our_side node other_vertex tree = match node with
         | Leaf (id, _) ->
             (* if it's a leaf: make it a single *)
             let tree = tree --> remove_node id --> add_node (Single id) in
@@ -997,8 +995,7 @@ let join jxn1 jxn2 tree =
     in
     (* changes and return tree, left new node id, and a function to make
        the actual node given its neighbor's id *)
-    let tree, lid, lnode, ldel = 
-        match jxn1 with
+    let tree, lid, lnode, ldel = match jxn1 with
         | Single_Jxn id ->
                 tree --> remove_reserved_node id, id, (fun nbr -> Leaf (id, nbr)), 
                 `Single (id, false)
@@ -1011,28 +1008,25 @@ let join jxn1 jxn2 tree =
     (* make changes and return tree, right new node id, a function to make the
        actual node given its neighbor's id, and a list of nodes that have to be
        changed in direction *)
-    let tree, rid, rnode, rdel, rpath = 
-        match jxn2 with
+    let tree, rid, rnode, rdel, rpath = match jxn2 with
         | Single_Jxn id ->
                 let tree = tree --> remove_handle id --> remove_reserved_node id in
                 tree, id, (fun nbr -> Leaf (id, nbr)), `Single (id, true), [id]
         | Edge_Jxn (e1, e2) ->
                 (* This case is the most difficult, as it puts the tree on the RHS
-                into a bad state.  We proceed as follows.   *)
-
+                   into a bad state.  We proceed as follows.   *)
                 (* make edge e1->e2 so that e1 is closer to the root *)
                 let Edge (e1, e2) = normalize_edge (Edge (e1, e2)) tree in
                 let handle = handle_of e1 tree in
                 let n, tree = get_available tree in
                 let tree = remove_handle handle tree in
-
                 (* fix nodes along the path *)
                 (* (this returns path with handle as the first element) *)
                 let path = 
                     try path_up ~acc:[n] e1 handle tree 
                     with err ->
-                        Status.user_message Status.Error (Printf.sprintf "The \
-                        error is with new node %d\n%!" n);
+                        Status.user_message Status.Error
+                            (Printf.sprintf "The error is with new node %d\n%!" n);
                         raise err
                 in
                 let Edge (e1, e2) = normalize_edge (Edge (e1, e2)) tree in
@@ -1040,7 +1034,7 @@ let join jxn1 jxn2 tree =
                 let tree = tree --> reorient_node n e1 --> reorient_node n e2 in
                 let tree = fix_path_to_handle tree path in
                 tree, n, (fun nbr -> Interior (n, nbr, e1, e2)),
-                `Edge (n, e1, e2, Some handle), path 
+                    `Edge (n, e1, e2, Some handle), path 
     in
     let n1 = lnode rid in
     let n2 = rnode lid in
@@ -1061,9 +1055,7 @@ let random (nodes : int list)  : u_tree =
         let i = Random.int (Array.length ray) in
         ray.(i)
     in
-    let rec n_list n =
-        if n = 1 then [] else n :: (n_list (n-1))
-    and add_node t n =
+    let add_node t n =
         let (Edge (a,b)) = random_edge t in
         let t,_ = join (Single_Jxn n) (Edge_Jxn (a,b)) t in
         t
@@ -1073,10 +1065,7 @@ let random (nodes : int list)  : u_tree =
     | a :: b :: t ->
         let acc,_ = join (Single_Jxn a) (Single_Jxn b) tree in
         List.fold_left (add_node) acc t
-    | a :: [] ->
-        tree
-    | [] ->
-        assert false
+    | _ :: [] | [] -> tree
 
 (** [pre_order_edge_map f id btree]
     @param id id of the node whose subtree will be mapped.
@@ -1277,32 +1266,20 @@ let pre_order_edge_visit f id bt accum =
               (break_or_continue pred nd ret process_children false)
         | _ -> raise (Invalid_argument "poev 2: Check node type")
     in
-    let assertion_test_for_debugging edge tree =
-        if is_edge edge tree then true
-        else begin
-            let Edge (a, b) = edge in
-            Printf.printf "Assertion failure:\n";
-(*             print_tree_delta tree; *)
-            Printf.printf "I expected to find the edge %d %d\n%!" a b;
-            false
-        end
-    in
     match (get_node id bt) with
     | Leaf(nd, nbr) ->
-          assert(assertion_test_for_debugging (Edge (nd, nbr)) bt);
+          assert( is_edge (Edge (nd, nbr)) bt);
           let _, accum = (traverse nd nbr accum) in
           accum
     | Interior(nd, nbr1, nbr2, nbr3) ->
           begin
               match (is_handle nd bt) with
               | true ->
-(*                     print_endline "TREE: this is a handle!!"; *)
                     let ret = (traverse nd nbr1 accum) in
                     let _, accum =
                         (break_or_continue nbr1 nd ret process_children true) in
                     accum
               | false ->
-(*                     print_endline "TREE: not a handle."; *)
                     let pred = (get_parent nd bt) in
                     let _, accum = (process_children pred nd accum) in
                     accum
@@ -1793,6 +1770,7 @@ module Parse = struct
         | (Leafp d),str -> (fn a d)
         | ((Nodep (list, d)),str) ->
             fn (List.fold_left (fold_left_data2 fn) a list) d
+
     (* fold_left on tree annotations *)
     let fold_left_annot fn a t = match t with
         | (Leafp d),str -> fn a str
@@ -2137,11 +2115,14 @@ module Parse = struct
 
     exception Illegal_argument
 
-    let rec strip_tree = function
+    let rec strip_tree : tree_types -> string t = function
         | Annotated (t,_) -> strip_tree t
         | Flat t -> t
         | Characters t -> map (fst) t
         | Branches t -> map (fst) t
+
+    let fold_left_tree_data (f: 'a -> string -> 'a) (acc:'a) (t:tree_types) : 'a =
+        fold_left_data f acc ((strip_tree t),None)
 
     let rec maximize_tree = function
         | Characters t -> t
@@ -2167,168 +2148,174 @@ module Parse = struct
                 | None -> None
                 | Some t -> Some (Annotated (t,str))
             end
-        | Branches t -> (match aux_cleanup (fun (s,d) -> f s) t with
-             | [] -> None
-             | [x] -> Some (Branches x)
-             | x -> match newroot with
-                    | None -> raise Illegal_argument
-                    | Some y -> Some (Branches (Nodep (x,(y,None)))))
-        | Characters t -> (match aux_cleanup (fun (s,d) -> f s) t with
-             | [] -> None
-             | [x] -> Some (Characters x)
-             | x -> match newroot with
-                    | None -> raise Illegal_argument
-                    | Some y -> Some (Characters (Nodep (x,(y,None)))))
-        | Flat t -> (match aux_cleanup f t with
-             | [] -> None
-             | [x] -> Some (Flat x)
-             | x -> match newroot with
-                    | None -> raise Illegal_argument
-                    | Some y -> Some (Flat (Nodep (x, y))))
+        | Branches t ->
+            begin match aux_cleanup (fun (s,d) -> f s) t with
+                | []  -> None
+                | [x] -> Some (Branches x)
+                | x   ->
+                    begin match newroot with
+                        | None -> raise Illegal_argument
+                        | Some y -> Some (Branches (Nodep (x,(y,None))))
+                    end
+            end
+        | Characters t -> 
+            begin match aux_cleanup (fun (s,d) -> f s) t with
+                | []  -> None
+                | [x] -> Some (Characters x)
+                | x   ->
+                    begin match newroot with
+                        | None -> raise Illegal_argument
+                        | Some y -> Some (Characters (Nodep (x,(y,None))))
+                    end
+            end
+        | Flat t -> 
+            begin match aux_cleanup f t with
+                | []  -> None
+                | [x] -> Some (Flat x)
+                | x   ->
+                    begin match newroot with
+                        | None -> raise Illegal_argument
+                        | Some y -> Some (Flat (Nodep (x, y)))
+                    end
+            end
 
     let add_tree_to taxon_code add_to tree =
         (* below, fill in tree names for consistent tree *)
         let tree = maximize_tree tree in
-        let avail_codes = ref add_to.avail_ids in
-        let cg = 
-            fun () -> 
-                match !avail_codes with
-                | h :: t -> 
-                        avail_codes := t;
-                        h
-                | [] -> assert false
-        in
-        let rec assign_codes parent = function
+        let rec assign_codes tree parent = function
             | Leafp (name,nname) ->
-                    let tc =
-                        try taxon_code name with
-                        | Not_found -> 
-                            try int_of_string name with
-                            | Not_found as err ->
-                                Status.user_message Status.Error
-                                ("Could@ not@ find@ data@ loaded@ for@ taxon@ " ^
-                                StatusCommon.escape name ^ "@ in@ a@ loaded@ tree.");
-                                raise err
-                    in
-                    Leafp (Leaf (tc, parent)), tc
+                let tc =
+                    try taxon_code name
+                    with | Not_found -> 
+                        try int_of_string name
+                        with | Not_found as err ->
+                            Status.user_message Status.Error
+                                ("Could@ not@ find@ data@ loaded@ for@ taxon@ "^
+                                 StatusCommon.escape name ^ "@ in@ a@ loaded@ tree.");
+                            raise err
+                in
+                tree, Leafp (Leaf (tc, parent)), tc
             | Nodep (child_nodes, (txt,nname)) ->
-                    let rec resolve_more_children (chil:(string * string option) t list) = match chil with
-                        | [a; b] as x -> x
-                        | [taxon] ->
-                                Status.user_message Status.Error
-                                ("Your@ tree@ file@ has@ a@ subtree@ or@ taxon@ " ^
-                                "occurring@ as@ the@ unique@ member@ of@ an@ " ^
-                                "internal@ node@ in@ the@ tree@ " ^
-                                "(maybe@ there@ is@ a@ space@ missing@ between@ " ^
-                                "taxa?).@ I@ am@ cancelling@ this@ read@ command");
-                                failwith "Illegal Tree file format"
-                        | [] -> 
-                                Status.user_message Status.Error
-                                ("Your@ tree@ file@ has@ a@ (),@ that@ is,@ " ^
-                                "an@ opening@ parentheses@ followed@ immediately@ "
-                                ^ "by@ a@ closing@ parentheses.@ Empty@ trees@ "
-                                ^ "are@ not@ allowed@ in@ a@ tree@ file,@ so@ I@ " ^
-                                "am@ cancelling@ this@ read@ command");
-                                failwith "Illegal Tree file format"
-                        | a :: b :: t ->
-                                resolve_more_children ((Nodep ([a; b], (txt,nname))) :: t)
-                    in
-                    let sc = cg () in 
-                    (* let () = match nname with
-                        | Some x -> 
-                            let x = String.uppercase x in
-                            Hashtbl.replace add_to.names sc x
-                        | None -> ()
-                    in *)
-                    let child_nodes = resolve_more_children child_nodes in
-                    match child_nodes with
-                    | [a; b] ->
-                            let ta, ca = assign_codes sc a in
-                            let tb, cb = assign_codes sc b in
-                            Nodep ([ta; tb], 
-                            Interior (sc, parent, ca, cb)), sc
-                    | _ -> failwith "Tree.assign_codes"
+                let rec resolve_more_children (chil:(string * string option) t list) = match chil with
+                    | [a; b] as x -> x
+                    | [taxon] ->
+                        Status.user_message Status.Error
+                            ("Your@ tree@ file@ has@ a@ subtree@ or@ taxon@ " ^
+                            "occurring@ as@ the@ unique@ member@ of@ an@ " ^
+                            "internal@ node@ in@ the@ tree@ " ^
+                            "(maybe@ there@ is@ a@ space@ missing@ between@ " ^
+                            "taxa?).@ I@ am@ cancelling@ this@ read@ command");
+                            failwith "Illegal Tree file format"
+                    | [] -> 
+                        Status.user_message Status.Error
+                            ("Your@ tree@ file@ has@ a@ (),@ that@ is,@ "
+                            ^"an@ opening@ parentheses@ followed@ immediately@ "
+                            ^ "by@ a@ closing@ parentheses.@ Empty@ trees@ "
+                            ^ "are@ not@ allowed@ in@ a@ tree@ file,@ so@ I@ "
+                            ^"am@ cancelling@ this@ read@ command");
+                        failwith "Illegal Tree file format"
+                    | a :: b :: t ->
+                        resolve_more_children ((Nodep ([a; b], (txt,nname))) :: t)
+                in
+                let child_nodes = resolve_more_children child_nodes in
+                let sc,tree = get_available tree in
+                match child_nodes with
+                | [a; b] ->
+                    let tree, ta, ca = assign_codes tree sc a in
+                    let tree, tb, cb = assign_codes tree sc b in
+                    tree, Nodep ([ta; tb], Interior (sc, parent, ca, cb)), sc
+                | _ -> failwith "Tree.assign_codes"
         in
         let add_edge a b = EdgeSet.add (Edge (a, b)) in
         let remove_edge a b = EdgeSet.remove (Edge (a, b)) in
         let replace_parent vertices v par = 
             let vertex = All_sets.IntegerMap.find v vertices in
-            let vertex = 
-                match vertex with
+            let vertex = match vertex with
                 | Interior (a, _, b, c) -> Interior (a, par, b, c)
                 | Leaf (a, _) -> Leaf (a, par)
                 | Single _ -> failwith "Unexpected Tree.replace_parent"
             in
             All_sets.IntegerMap.add v vertex vertices
         in
-        let rec add_edges_n_vertices tree (edges, vertices) =
-            match tree with
+        let rec add_edges_n_vertices tree (edges, vertices) = match tree with
             | Nodep ([x; y], ((Interior (a, b, c, d)) as v)) ->
-                    let vertices = All_sets.IntegerMap.add a v vertices 
-                    and edges =  edges --> add_edge b a --> add_edge a c -->
-                        add_edge a d
-                    in
-                    add_edges_n_vertices x 
-                    (add_edges_n_vertices y (edges, vertices))
+                let vertices = All_sets.IntegerMap.add a v vertices
+                and edges =
+                    edges --> add_edge b a
+                          --> add_edge a c
+                          --> add_edge a d
+                in
+                add_edges_n_vertices x (add_edges_n_vertices y (edges,vertices))
             | Leafp ((Leaf (a, b)) as v) ->
-                    let vertices = All_sets.IntegerMap.add a v vertices 
-                    and edges = add_edge b a edges in
-                    (edges, vertices)
-            | _ -> failwith "Unexpected Tree.add_edges_n_vertices"
+                let vertices = All_sets.IntegerMap.add a v vertices
+                and edges = add_edge b a edges in
+                (edges, vertices)
+            | _ ->
+                failwith "Unexpected Tree.add_edges_n_vertices"
         in
-        let tree =  
+        let tree =  match tree with
             (* We clean up a tree that has only one leaf, this is valid when
-            processing forest, but invalid inside a tree. *)
-            match tree with
+               processing forest, but invalid inside a tree. *)
             | (Leafp _) as x
             | Nodep ([((Leafp _) as x)], _) -> x
             | y -> y
         in
-        match assign_codes (-1) tree with
-        | Nodep ([a; b], (Interior (sc, _, ca, cb))), _ ->
-                let edges, vertices = 
+        match assign_codes add_to (-1) tree with
+        | _, Nodep ([a; b], (Interior (sc, _, ca, cb))), _ ->
+                let edges, vertices =
                     add_edges_n_vertices b
-                    (add_edges_n_vertices a 
-                    (add_to.d_edges, add_to.u_topo))
+                        (add_edges_n_vertices a (add_to.d_edges, add_to.u_topo))
                 in
                 let vertices = replace_parent vertices ca cb in
                 let vertices = replace_parent vertices cb ca in
-                let edges = edges -->
-                    remove_edge sc ca --> remove_edge sc cb -->
-                        add_edge ca cb
+                let edges =
+                    edges --> remove_edge sc ca
+                          --> remove_edge sc cb
+                          --> add_edge ca cb
                 in
                 let handles = All_sets.Integers.add ca add_to.handles in
                 { add_to with
                     u_topo = vertices;
                     d_edges = edges;
                     handles = handles;
-                    avail_ids = !avail_codes;
-                    new_ids = cg ();
                 }
-        | Leafp (Leaf (tc, _)), _ -> 
-                let vertices = 
-                    All_sets.IntegerMap.add tc (Single tc)
-                    add_to.u_topo 
-                in
+        | _, Leafp (Leaf (tc, _)), _ ->
+                let vertices =
+                    All_sets.IntegerMap.add tc (Single tc) add_to.u_topo in
                 let handles = All_sets.Integers.add tc add_to.handles in
-                { add_to with 
-                        avail_ids = !avail_codes;
+                { add_to with
                         u_topo = vertices;
-                        handles = handles
+                        handles = handles;
                 }
-        | _ ->failwith "We need trees with more than two taxa"
+        | _ -> failwith "We need trees with more than two taxa"
 
-    let convert_to ((name,trees): string option * tree_types list) taxon_code
-        maximum_number_of_taxa : u_tree = 
-        let add_available total tree =
-            let rec aux max av =
-                if max = total then av
-                else aux (max - 1) (max :: av)
+    let convert_to ((name,trees): string option * tree_types list) taxon_code =
+        let get_id_information taxon_code_fn tree : int list * int =
+            let taxon_ids =
+                List.fold_left
+                    (fun acc t ->
+                        fold_left_tree_data
+                            (fun acc d ->
+                                if d = "" then acc else (taxon_code_fn d) :: acc)
+                            acc
+                            t)
+                    []
+                    tree
             in
-            { tree with avail_ids = aux (2 * total) [] }
+            let avail_id = ref [] in
+            let maxim_id = List.fold_left (max) 0 taxon_ids in
+            for i = 1 to maxim_id do
+                if not (List.mem i taxon_ids) then
+                    avail_id := i :: !avail_id
+            done;
+            !avail_id, (maxim_id+1)
         in
-        let utree = { (empty ()) with tree_name = name } in
-        let tree = add_available maximum_number_of_taxa utree in
+        let avail,next = get_id_information taxon_code trees in
+        let tree =
+            { (empty ()) with tree_name = name;
+                              avail_ids = avail;
+                                new_ids = next; }
+        in
         List.fold_left (add_tree_to taxon_code) tree trees
 
 end
@@ -3042,20 +3029,26 @@ let destroy_component handle tree =
 let copy_component handle source target =
     let edges = get_edges source handle in
     let add_node a tree =
-        let tree = 
-            if All_sets.IntegerMap.mem a tree.u_topo then 
-                tree --> remove_node a 
-            else tree 
+        let tree =
+            if All_sets.IntegerMap.mem a tree.u_topo
+                then tree --> remove_node a
+                else tree
         in
         add_node (get_node a source) tree
     in
-    let target = List.fold_left (fun tree ((Edge (a, b)) as e) ->
-        tree --> add_node a --> add_node b --> add_edge e) target edges
+    let target =
+        List.fold_left
+            (fun tree ((Edge (a, b)) as e) ->
+                tree --> add_node a --> add_node b --> add_edge e)
+            target edges
     in
-    let avail, handles = List.fold_left (fun (lst, hdls) (Edge (a, b)) ->
-        List.filter (fun x -> x <> a && x <> b) lst,
-         (hdls --> All_sets.Integers.remove a --> All_sets.Integers.remove b))
-         (target.avail_ids, target.handles) edges
+    let avail, handles =
+        List.fold_left
+            (fun (lst, hdls) (Edge (a, b)) ->
+                List.filter (fun x -> x <> a && x <> b) lst,
+                (hdls --> All_sets.Integers.remove a --> All_sets.Integers.remove b))
+            (target.avail_ids, target.handles)
+            edges
     in
     let handles = All_sets.Integers.add handle handles in
     let res = { target with avail_ids = avail; handles = handles } in

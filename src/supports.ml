@@ -583,8 +583,7 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
               tree
 
     let generate_sets process_cost data root tree =
-        let pair tree = 
-            match Tree.get_node root tree with
+        let pair tree = match Tree.get_node root tree with
             | Tree.Leaf (a, b) 
             | Tree.Interior (a, b, _, _) -> (a, b)
             | Tree.Single _ -> failwith "Not a tree?"
@@ -592,10 +591,9 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
         let expected_cost = match tree with
             | Tree.Parse.Annotated (_,str) -> str
             | _ -> failwith "No Expected Cost" in
-        let tree = 
-            Tree.Parse.convert_to (None,[tree]) 
-            (fun taxon -> Data.taxon_code taxon data)
-            (Data.number_of_taxa data)
+        let tree =
+            Tree.Parse.convert_to (None,[tree])
+                (fun taxon -> Data.taxon_code taxon data)
         in
         let tree = Tree.reroot (pair tree) tree in
         process_cost tree expected_cost, Tree.CladeFP.sets tree
