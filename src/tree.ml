@@ -217,8 +217,9 @@ let rec get_available tree = match tree.avail_ids with
         (** TODO: this happens; but is unknown why. Since it isn't a major error
                   state, we ignore it and continue with analysis.*)
         get_available {tree with avail_ids = ids; }
+    | id :: ids when All_sets.IntegerMap.mem id tree.u_topo ->
+        get_available {tree with avail_ids = ids; }
     | id :: ids ->
-        assert (All_sets.IntegerMap.mem id tree.u_topo);
         id, { tree with avail_ids = ids }
     | [] ->
         assert (not (All_sets.IntegerMap.mem (succ tree.new_ids) tree.u_topo));
