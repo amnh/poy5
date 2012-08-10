@@ -224,8 +224,7 @@ case ${OS_INFORMATION} in
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
-        # windows does not use mpicc to include libraries
-        # assume they are in the path and let the user include additional ones
+        # WIN doesn't use mpicc to build/include libs; assume they're in the path
         AS_IF([test $USEPARALLEL = "true"],[LIBS="-lmpi $LIBS"])
         ;;
     *)
@@ -255,10 +254,9 @@ case ${OS_INFORMATION} in
         ;;
 esac
 
-AC_MSG_CHECKING([whether to enable Concorde])
+AC_MSG_CHECKING([Whether to enable Concorde])
 if test -f "$concorde_dir/concorde.a"; then
    AC_MSG_RESULT([yes])
-   AC_MSG_RESULT([Using Concorde])
    CONCORDE_LIB="$concorde_dir/concorde.a"
    CONCORDE_CFLAGS="-I$concorde_dir/INCLUDE"
    CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE"
@@ -273,17 +271,6 @@ else
    CONCORDE_CFLAGS=""
    OUSE_CONCORDE=""
 fi
-
-#AS_IF([test $USE_CONCORDE = "true"],
-#				[
-#                CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE";
-#                CFLAGS="$CFLAGS -I/$HOME/concorde/INCLUDE/ -DUSE_CONCORDE";
-#                LIBS="$HOME/concorde/concorde.a $LIBS";
-#                LIBS="$CONCORDE_LIB $LIBS";
-#                OUSE_CONCORDE=",use_concorde";
-#                DUSE_CONCORDE="-DUSE_CONCORDE";
-#               ],
-#                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
 USE_SSE="false"     #DISABLE ALL SSE until it's faster than normal.
 USED_SSE="false"
@@ -379,7 +366,6 @@ AC_CHECK_PROGS([OCAMLTOP], [ocamlmktop])
 AC_MSG_CHECKING([for OCaml version])
 OCAMLVERSION=`$OCAMLOPT -version`
 AC_MSG_RESULT([$OCAMLVERSION])
-
 case $OCAMLVERSION in 
     3.10.2*)
         case ${OS_INFORMATION} in
@@ -434,8 +420,8 @@ AC_SEARCH_LIBS([zlibVersion],[z],,[AC_MSG_FAILURE( [I cannot find libz] )])
 #this will only pass if m is already included; we include from OS switch above,
 AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 
-AC_MSG_CHECKING([to enable likelihood])
 # Time to handle the lapack checks
+AC_MSG_CHECKING([to enable likelihood])
 case ${OS_INFORMATION} in
     *-apple-*)
         AS_IF([test $USE_LIKELIHOOD = "true"],
