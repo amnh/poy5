@@ -1319,32 +1319,29 @@ let single_spr_round pb parent_side child_side
         | `Single _ -> simplify
         | `Same -> assert false
     in
-    let rec do_search () =
-        match tabu#join_edge parent_side with
+    let rec do_search () = match tabu#join_edge parent_side with
         | None -> Tree.Continue
         | Some (Tree.Edge (a, b)) ->
-                if debug then
-                    Printf.printf "Joining in %d %d\n%!" a b;
-                let ahandle = handle_of a breakage.ptree in
-                if debug then begin
-                    assert (ahandle = handle_of b breakage.ptree);
-                    assert (handle_of_child <> ahandle);
-                end;
-                let parent_jxn = (Tree.Edge_Jxn (a, b)) in
-                match simplifier npb parent_jxn with
-                | `Same -> do_search ()
-                | _ ->
-                        let what_to_do_next =
-                            search#process Tree_Ops.cost_fn
-                            breakage.break_delta 
-                            child_info.clade_node
-                            Tree_Ops.join_fn breakage.incremental parent_jxn 
-                            child_jxn tabu breakage.ptree
-                        in
-                        match what_to_do_next with
-                        | Tree.Skip
-                        | Tree.Continue -> do_search ()
-                        | x -> x
+            if debug then
+                Printf.printf "Joining in %d %d\n%!" a b;
+            let ahandle = handle_of a breakage.ptree in
+            if debug then begin
+                assert (ahandle = handle_of b breakage.ptree);
+                assert (handle_of_child <> ahandle);
+            end;
+            let parent_jxn = (Tree.Edge_Jxn (a, b)) in
+            match simplifier npb parent_jxn with
+            | `Same -> do_search ()
+            | _ ->
+                let what_to_do_next =
+                    search#process Tree_Ops.cost_fn breakage.break_delta 
+                        child_info.clade_node Tree_Ops.join_fn
+                        breakage.incremental parent_jxn child_jxn tabu breakage.ptree
+                in
+                match what_to_do_next with
+                | Tree.Skip
+                | Tree.Continue -> do_search ()
+                | x -> x
     in
     do_search ()
 
@@ -1912,17 +1909,15 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
     @return p_tree that corresponds to the Tree.Parse.t *)
 let convert_to tree (data, nd_data_lst) = 
     (* convert the Tree.Parse.t to Tree.u_tree *)
-    let ut = 
-        Tree.Parse.convert_to tree 
-            (fun taxon -> Data.taxon_code taxon data) 
-            (Data.number_of_taxa data)
+    let ut =
+        Tree.Parse.convert_to tree (fun taxon -> Data.taxon_code taxon data)
     in
     let pt = { (empty data) with tree = ut } in
     (* function to add leaf-node data to the ptree. *)
     let data_adder ptree nd = 
-        (* included is the original parser.tree with branch lengths, if avail *)
-        (add_node_data (Node.taxon_code nd) nd ptree) in
-    (List.fold_left data_adder pt nd_data_lst)
+        add_node_data (Node.taxon_code nd) nd ptree
+    in
+    List.fold_left data_adder pt nd_data_lst
 
 
 let build_trees = build_trees

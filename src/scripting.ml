@@ -1883,8 +1883,7 @@ let runtime_store rediagnose run meth =
     | `Discard (clas, name) -> 
             List.iter (remove name run) clas ; run
     | `Keep_only (num, meth) ->
-          Status.user_message Status.Information 
-          "Ignoring@ method:@ only@ keeping@ best";
+          Status.user_message Status.Information "Ignoring@ method:@ only@ keeping@ best";
           let trees =
               List.fast_sort (fun a b -> compare (Ptree.get_cost `Adjusted a)
                                   (Ptree.get_cost `Adjusted b))
@@ -1965,8 +1964,7 @@ let do_recovery run =
     { run with trees = adder trees }
                      
 let process_characters_handling (run : r) meth = 
-    let data, do_nodes = 
-        match meth with
+    let data, do_nodes = match meth with
         | `RenameCharacters syns ->
                 let process a ((_, y) as b) =
                     try Data.process_rename_characters a b with
@@ -1994,80 +1992,73 @@ let process_characters_handling (run : r) meth =
 
 let ( --> ) a b = b a 
 
-let process_taxon_filter (run : r) meth = 
+let process_taxon_filter (run : r) meth =
     if 0 < Sexpr.length run.trees then begin
-        let err_msg = 
-            "Selecting@ a@ subset@ of@ taxa@ while@ trees@ " ^
-            "are@ in@ memory@ is@ not@ permitted." 
-        in
-        Status.user_message Status.Error err_msg;
+        Status.user_message Status.Error
+            ("Selecting@ a@ subset@ of@ taxa@ while@ trees@ " ^
+             "are@ in@ memory@ is@ not@ permitted.");
         failwith "Illegal request of select"
-    end else 
-        let data = 
-            match meth with
+    end else
+        let data = match meth with
             | `IgnoreTaxaFiles files ->
-                    files --> List.fold_left Data.process_ignore_file run.data 
-                    --> Data.remove_taxa_to_ignore 
+                files --> List.fold_left Data.process_ignore_file run.data
+                      --> Data.remove_taxa_to_ignore
             | `IgnoreTaxa taxa ->
-                    taxa --> List.fold_left Data.process_ignore_taxon run.data 
-                    --> Data.remove_taxa_to_ignore
+                taxa --> List.fold_left Data.process_ignore_taxon run.data
+                     --> Data.remove_taxa_to_ignore
             | `SynonymsFile files ->
-                    List.fold_left Data.add_synonyms_file run.data files
+                List.fold_left Data.add_synonyms_file run.data files
             | `Synonyms taxa ->
-                    List.fold_left Data.add_synonym run.data taxa
+                List.fold_left Data.add_synonym run.data taxa
             | `AnalyzeOnlyFiles (dont_complement, files) ->
-                    files 
-                    --> Data.process_analyze_only_file dont_complement run.data 
-                    --> Data.remove_taxa_to_ignore
+                files --> Data.process_analyze_only_file dont_complement run.data
+                      --> Data.remove_taxa_to_ignore
             | `AnalyzeOnly c ->
-                    run.data --> Data.process_analyze_only_taxa c 
-                    --> Data.remove_taxa_to_ignore
+                run.data --> Data.process_analyze_only_taxa c
+                         --> Data.remove_taxa_to_ignore
             | `Random _ as c ->
-                    run.data --> Data.process_analyze_only_taxa c 
-                    --> Data.remove_taxa_to_ignore
+                run.data --> Data.process_analyze_only_taxa c
+                         --> Data.remove_taxa_to_ignore
         in
         let data = Data.categorize data in
         let data, nodes = Node.load_data data in
         { run with nodes = nodes; data = data }
 
-let sort_trees trees = 
+let sort_trees trees =
     let t = Sexpr.to_list trees in
-    let comparison a b = 
+    let comparison a b =
         compare (Ptree.get_cost `Adjusted a) (Ptree.get_cost `Adjusted b)
     in
     List.sort comparison t
 
 let rec process_tree_handling run meth =
-    let rec get_first_n n lst = 
+    let rec get_first_n n lst =
         if n < 1 then []
-        else 
-            match lst with
+        else match lst with
             | h :: t -> h :: (get_first_n (n - 1) t)
             | [] -> []
     in
     let get_optimal = function
         | (h :: _) as lst ->
-                let cost = Ptree.get_cost `Adjusted h in
-                List.filter (fun x -> cost = Ptree.get_cost `Adjusted x) lst
+            let cost = Ptree.get_cost `Adjusted h in
+            List.filter (fun x -> cost = Ptree.get_cost `Adjusted x) lst
         | [] -> []
     in
-    let trees = 
-        match meth with
-        | `BestN (Some n) -> 
-                let trees = sort_trees run.trees in
-                get_first_n n trees
+    let trees = match meth with
+        | `BestN (Some n) ->
+                get_first_n n (sort_trees run.trees)
         | `BestN None ->
                 let trees = sort_trees run.trees in
                 get_optimal trees
         | `BestWithin th ->
                 begin match sort_trees run.trees with
-                | h :: t ->
+                    | h :: t ->
                         let cost = th +. (Ptree.get_cost `Adjusted h) in
-                        let t = 
+                        let t =
                             List.filter (fun x -> (Ptree.get_cost `Adjusted x) < cost) t
                         in
                         (h :: t)
-                | [] -> []
+                    | [] -> []
                 end
         | `RandomTrees n ->
                 let lst = Sexpr.to_list run.trees in
@@ -2075,14 +2066,13 @@ let rec process_tree_handling run meth =
                 Array_ops.randomize arr;
                 let lst = Array.to_list arr in
                 get_first_n n lst
-        | `Unique -> 
+        | `Unique ->
                 let sexpr = Sexpr.to_list run.trees in
-(*                let sexpr = List.rev_map (fun x -> x, x.Ptree.tree) sexpr in*)
-                let res = 
+                let res =
                     try TS.get_unique sexpr with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "This is the path";
-                            raise err
+                    | Not_found as err ->
+                        Status.user_message Status.Error "This is the path";
+                        raise err
                 in
                 res
     in
@@ -4313,7 +4303,7 @@ END
                 { run with data = data }
             | `TerminalsFiles filename ->
                 Data.report_terminals_files filename
-                run.data.Data.taxon_files run.data.Data.ignore_taxa_set;
+                        run.data.Data.taxon_files run.data.Data.ignore_taxa_set;
                 run
             | `Nodes filename ->
                 let fo = Status.Output (filename, false, []) in

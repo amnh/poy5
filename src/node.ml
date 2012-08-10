@@ -4506,6 +4506,17 @@ let compare_downpass = compare_data_preliminary
 
 let set_node_cost a b = { b with node_cost = a }
 
+let extra_cost_from_root n =
+    let extra_cost_cs acc item =
+         match item with 
+        | Sank x -> 
+                let ec = SankCS.get_extra_cost_for_root x.preliminary in
+                float_of_int ec
+        | _ -> 0.0
+    in
+    List.fold_left extra_cost_cs 0.0 n.characters
+
+
 module Standard : 
     NodeSig.S with type e = exclude and type n = node_data and type other_n =
         node_data =
@@ -4564,6 +4575,7 @@ module Standard :
         module Union = Union
         let for_support = for_support
         let root_cost = root_cost
+        let extra_cost_from_root = extra_cost_from_root
         let tree_cost a b = (root_cost b) +. (total_cost a b)
         let to_single root _ a _ b sets =
             let combine = match root with
@@ -4698,17 +4710,6 @@ let merge a b =
         total_cost = a.total_cost +. b.total_cost;
         node_cost = a.node_cost +. b.node_cost;
     }
-
-
-let extra_cost_from_root n =
-    let extra_cost_cs acc item =
-         match item with 
-        | Sank x -> 
-                let ec = SankCS.get_extra_cost_for_root x.preliminary in
-                float_of_int ec
-        | _ -> 0.0
-    in
-    List.fold_left extra_cost_cs 0.0 n.characters
 
 
 let total_cost_of_type t n =
