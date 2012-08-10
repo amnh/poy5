@@ -41,7 +41,10 @@ let stdfout = StatusCommon.Format.formatter_of_out_channel stdout
 let _ = StatusCommon.Format.pp_set_margin stdfout 0
 
 let build_prefix_suffix title =
-    ("@[" ^ title ^ "@ :@ @["), "@]@]@\n%!"
+(* The commented lines below allow the wraps to be indented to the title*)
+(*    let ident = string_of_int (3 + String.length title) in*)
+(*    ("@[<hov "^ident^">@[" ^ title ^ "@ :@ @]@["), "@]@]@\n%!"*)
+    ("@[@[" ^ title ^ "@ :@ @]@["), "@]@]@\n%!"
 
 let type_string = function
     | SearchReport
