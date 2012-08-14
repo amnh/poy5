@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Id$"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 2650 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
