@@ -17,6 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+let () = SadmanOutput.register "Numerical" "$Revision: 2646 $"
+
 let (-->) b a = a b
 
 let debug = false
@@ -217,7 +219,8 @@ let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array =
                     (fun x ->
                         let newvec = i_replace i x_array x in
                         let newlk = f_ newvec in
-                        debug_printf "\t[%s] -- %f\n" (pp_farray newvec) (snd newlk);
+                        debug_printf "\t[%s] -- %f (d:%F)\n" (pp_farray newvec)
+                                     (snd newlk) ((snd newlk)-.f_array);
                         newlk)
                     i_val
                     f_array)
@@ -428,8 +431,10 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     let setup_function point direction gradient = 
         let direction = (* ||dir|| <= maxstep *)
             let magstep = magnitude direction in
-            if magstep > maxstep then Array.map (fun x -> x *. maxstep /. magstep) direction 
-            else direction in
+            if magstep > maxstep
+                then Array.map (fun x -> x *. maxstep /. magstep) direction 
+                else direction
+        in
         let slope = dot_product direction gradient
         and minstep = 
             let r = ref 0.0 in
@@ -479,7 +484,7 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
                 debug_printf "\t\t%f--Accepting %f\n" prevstep (get_score newfpoint);
                 (newpoint,newfpoint,false)
             end else begin
-                debug_printf "\t\t%f--Rejecting %f\n" prevstep (get_score newfpoint);
+                debug_printf "\t\t%f--Rejecting %f\n" step (get_score newfpoint);
                 let newstep = next_step step prevstep slope (get_score newfpoint) prevfpoint in
                 main_ (get_score newfpoint) slope direction newstep step minstep
             end
@@ -490,10 +495,10 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     (* this could happen if the delta for gradient is huge (ie, errors in rediagnose) 
      * or some major instability in the tree/algorithm. The function will continue, 
      * but this warning message should report that the results are questionable. *)
-    if (abs_float slope) > 100_000_000.0 then
+    if (abs_float slope) > 1_000_000.0 then
         warning_message "Numerical.linesearch; Very large slope in optimization function.";
-    cdebug_printf "\tInitial LineSearch: %f, slope: %f, direction: %s\n"
-                 origfpoint slope (pp_farray direction);
+    cdebug_printf "\tInitial LineSearch: %f, slope: %f, step: %f, direction: %s\n"
+                 origfpoint slope maxstep (pp_farray direction);
     let results = main_ origfpoint slope direction step step minstep in
     FPInfix.reset ();
     results
@@ -529,7 +534,7 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(max_step=10.0) ?(tol=tolera
             for i = 0 to n-1 do h.(i).(i)  <- 1.0 done;
             h
         and x_grad = gradient_at_x ~epsilon f_array x_array fx_array in
-        let dir = Array.init n (fun i -> ~-. (x_grad.(i)) )
+        let dir = Array.map (fun x -> ~-. x) x_grad
         and mxstep = max_step *. (max (magnitude x_array) (float_of_int n)) in
         hessian, x_grad, mxstep, dir in
     (* Do a line search step --return new p, new fp, new dir, if converged *)
