@@ -18,30 +18,35 @@
 (* USA                                                                        *)
 
 exception Illegal_update
-let () = SadmanOutput.register "Status_flat" "$Revision: 2669 $"
 
-let _ = StatusCommon.Format.pp_set_margin StatusCommon.Format.std_formatter 78
+let () = SadmanOutput.register "Status_flat" "$Revision: 2642 $"
 
-(* So this is my small attempt to have the status lines working for the new POY,
-* we _need_ this! *)
+let stdferr = StatusCommon.Format.formatter_of_out_channel stderr
+
+let stdfout = StatusCommon.Format.formatter_of_out_channel stdout
+
+let () = StatusCommon.Format.pp_set_margin stdfout 0
+
+let () = StatusCommon.Format.pp_set_margin StatusCommon.Format.std_formatter 78
 
 type formatter_output = StatusCommon.formatter_output
 
-type c = SearchReport | Status | Warning | Error | Information 
+type c = | SearchReport | Status | Warning | Error | Information 
          | Output of (string option * bool * formatter_output list)
+
 
 let verbosity : [ `None | `Low | `Medium | `High ] ref = ref `High
 
+
 let set_verbosity x = verbosity := x
+
 
 let get_verbosity () = !verbosity
 
-let stdferr = StatusCommon.Format.formatter_of_out_channel stderr
-let stdfout = StatusCommon.Format.formatter_of_out_channel stdout
-let _ = StatusCommon.Format.pp_set_margin stdfout 0
 
 let build_prefix_suffix title =
-(* The commented lines below allow the wraps to be indented to the title*)
+(*  The commented lines below allow the wraps to be indented to the title, as in,
+    Information, Warning, or Error. It might be nice. 3 is for " : ". *)
 (*    let ident = string_of_int (3 + String.length title) in*)
 (*    ("@[<hov "^ident^">@[" ^ title ^ "@ :@ @]@["), "@]@]@\n%!"*)
     ("@[@[" ^ title ^ "@ :@ @]@["), "@]@]@\n%!"
@@ -76,14 +81,17 @@ let using_interface = ref false
 let is_interactive () = !using_interface
 
 IFDEF USEREADLINE THEN
-external get_line : unit -> string = "rl_CAML_gets"
+
+    external get_line : unit -> string = "rl_CAML_gets"
+
 ELSE
-let get_line () =
-    print_string "poy> ";
-    flush stdout;
-    let res = input_line stdin in
-    print_newline ();
-    res
+
+    let get_line () =
+        print_string "poy> ";
+        flush stdout;
+        let res = input_line stdin in
+        print_newline ();
+        res
 END
 
 let main_loop f = 
@@ -125,9 +133,8 @@ let is_parallel x what_to_do =
     parallel := true;
     my_rank := x;
     match what_to_do with 
-    | Some what_to_do -> 
-            to_do_if_parallel := what_to_do
-    | None -> ()
+        | Some what_to_do -> to_do_if_parallel := what_to_do
+        | None -> ()
 
 let rank i = my_rank := i
 
@@ -160,8 +167,7 @@ let code =
         !counter
 
 let create name max message = 
-    let max = 
-        match max with
+    let max = match max with
         | None -> 0
         | Some v -> v 
     in
@@ -192,8 +198,7 @@ let single_channel_report st ch =
     in
     !to_do_if_parallel Status str
 
-let report st =
-    match !verbosity with
+let report st = match !verbosity with
     | `None -> ()
     |     _ -> List.iter (single_channel_report st) !channels
 
@@ -203,8 +208,7 @@ let single_channel_finished st =
     in
     !to_do_if_parallel Status s
 
-let finished st =
-    match !verbosity with
+let finished st = match !verbosity with
     | `None -> ()
     | _     -> single_channel_finished st
 

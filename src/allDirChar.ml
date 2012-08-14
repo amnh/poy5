@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 1616 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2642 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1013,8 +1013,8 @@ module F : Ptree.Tree_Operations
                 let o_nd =
                     let one = Ptree.get_edge_data (Tree.Edge (a,b)) ptree in
                     let tmp = { AllDirNode.lazy_node = one;
-                                                  dir = Some (a,b);
-                                                 code = ~-1; }
+                                                 dir = Some (a,b);
+                                                code = ~-1; }
                     in
                     { AllDirNode.adjusted= None; AllDirNode.unadjusted=[tmp] }
                 in
@@ -1112,20 +1112,15 @@ module F : Ptree.Tree_Operations
             in
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
-                Array_ops.randomize all_edges;
                 let (changed,new_affected,new_ptree : adjust_acc) = 
                     let none_affected = IntMap.empty in
                     (* perform on each tree *)
                     if using_likelihood `Static ptree then begin
+                        let () = Array_ops.randomize all_edges in
                         Array.fold_left
                             (adjust_reroot_loop affected)
                             (true,none_affected,ptree)
                             (all_edges)
-(*                    end else if using_likelihood `Dynamic ptree then begin*)
-(*                        IntSet.fold*)
-(*                            (lk_adjust_loop affected)*)
-(*                            (ptree.Ptree.tree.Tree.handles)*)
-(*                            (true,none_affected,ptree)*)
                     end else begin
                         IntSet.fold
                             (adjust_loop affected)
@@ -1152,14 +1147,14 @@ module F : Ptree.Tree_Operations
                 * related function in allDirChar and allDirNode to a new module.*)
                 let quick_2single root b d set = 
                     let b',d' = 
-                            let one = match b.AllDirNode.adjusted with
-                                | None -> failwith "allDirNode,to_single,no adjusted data"
-                                | Some x -> x 
-                            and two = match d.AllDirNode.adjusted with
-                                | None -> failwith "allDirNode,to_single,no adjusted data"
-                                | Some y -> y   
-                            in 
-                            one,two
+                        let one = match b.AllDirNode.adjusted with
+                            | None -> failwith "allDirNode,to_single,no adjusted data"
+                            | Some x -> x 
+                        and two = match d.AllDirNode.adjusted with
+                            | None -> failwith "allDirNode,to_single,no adjusted data"
+                            | Some y -> y   
+                        in 
+                        one,two
                     in
                     let root = match root with 
                         | Some r -> Some ((List.hd r.AllDirNode.unadjusted).AllDirNode.lazy_node)
@@ -1360,11 +1355,12 @@ module F : Ptree.Tree_Operations
                     Numerical.run_method opt (f_likelihood func tree chars current_model)
                                              (params,(tree,current_cost))
                 in
+                if debug_model_fn then
+                    info_user_message "\tOptimized Model to %f --> %f"
+                                      current_cost (snd results);
                 results
             | None -> (tree,current_cost)
         in
-        if debug_model_fn then
-            info_user_message "\tOptimized Model to %f --> %f" current_cost best_cost;
         (* Optimize Alpha *)
         let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
         let best_tree, best_cost = 
@@ -1373,15 +1369,16 @@ module F : Ptree.Tree_Operations
             | Some func ->
                 let best_tree = update_branches best_tree in
                 let current_a = MlModel.get_current_parameters_for_alpha current_model in
-                let results = 
+                let _,results = 
                     Numerical.brents_method (f_likelihood func best_tree chars current_model)
                                             ((get_some current_a),(best_tree,best_cost))
                                           
                 in
-                snd results
+                if debug_model_fn then
+                    info_user_message "\tOptimized Alpha to %f --> %f"
+                                      best_cost (snd results);
+                results
         in
-        if debug_model_fn then
-            info_user_message "\tOptimized Alpha to %f --> %f" current_cost best_cost;
         if best_cost < current_cost then best_tree else tree
 
     (* Group all the characters and optimize each with function above *)
