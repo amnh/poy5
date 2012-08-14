@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 exception Illegal_update
-let () = SadmanOutput.register "Status_flat" "$Revision: 2669 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 2645 $"
 
 let _ = StatusCommon.Format.pp_set_margin StatusCommon.Format.std_formatter 78
 
