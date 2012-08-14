@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision"
+let () = SadmanOutput.register "MlModel" "$Revision: 2642 $"
 
 open Numerical.FPInfix
 let (-->) b a = a b
@@ -236,6 +236,7 @@ let count_parameters model : int =
     and num_rates = match model.spec.site_variation with
         | None | Some Constant -> 0
         | Some Gamma _         -> 1
+        | Some Theta (x,_,_) when x = 1 -> 1
         | Some Theta _         -> 2
     and num_priors = match model.spec.base_priors with
         | Estimated f -> (Array.length f) - 1
