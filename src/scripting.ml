@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2871 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2645 $"
 
 module IntSet = All_sets.Integers
 

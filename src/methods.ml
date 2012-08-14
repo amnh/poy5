@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 
-let () = SadmanOutput.register "Methods" "$Revision: 2871 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2645 $"
 
 exception TimedOut
 

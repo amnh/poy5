@@ -93,19 +93,15 @@ let create_partitions all tbl tree : All_sets.Integers.t list =
         | Tree.Parse.Nodep (childs,data) ->
             let subtree_sets = List.concat (List.map (traversal f) childs) in
             (union_lst All_sets.Integers.empty subtree_sets) :: (subtree_sets)
-    and skip_root_traversal f = function
+    and skip_root_traversal (f : 'a -> string) = function
         | Tree.Parse.Nodep (childs,data) ->
             List.flatten (List.map (traversal f) childs)
         | Tree.Parse.Leafp d ->
             [(All_sets.Integers.singleton (Hashtbl.find tbl (f d)))]
     in
-    let res = match snd tree with
-        | Tree.Parse.Annotated (t,_) -> skip_root_traversal (fun x -> x)     t
-        | Tree.Parse.Flat t          -> skip_root_traversal (fun x -> x)     t
-        | Tree.Parse.Branches t      -> skip_root_traversal (fun x -> fst x) t
-        | Tree.Parse.Characters t    -> skip_root_traversal (fun x -> fst x) t
-    in
-    unique all res
+    tree --> Tree.Parse.strip_tree
+         --> skip_root_traversal (fun x -> x)
+         --> unique all
  
 let compare_partitions verbose taxon_tbl all (t1,p1) (t2,p2) =
     let remove_partition p ps = List.filter (fun x -> not (compare_set all p x)) ps in
@@ -139,7 +135,7 @@ let init v ts =
     let tbl = create_taxon_table ts in
     let set = set_of_tbl tbl in
     let num = List.length ts in
-    let tps = Array.of_list (List.map (fun t -> (t,create_partitions set tbl t)) ts) in
+    let tps = Array.of_list (List.map (fun t -> (t, create_partitions set tbl t)) ts) in
     let mat = Array.make_matrix num num 0 in
     if v then print_tbl tbl;
     for i = 0 to (num-1) do

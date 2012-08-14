@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 2871 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 2645 $"
 
 let debug = false
 

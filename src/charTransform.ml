@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2871 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2645 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true

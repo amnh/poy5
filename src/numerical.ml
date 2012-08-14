@@ -208,13 +208,13 @@ let magnitude x_array =
     sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
 
 (** find the gradient of a multi-variant function at a point x_array *)
-let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array = 
+let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array =
     let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
-    Array.mapi 
+    Array.mapi
         (fun i i_val ->
-            derivative_at_x 
-                    ~epsilon 
-                    (fun x -> 
+            derivative_at_x
+                    ~epsilon
+                    (fun x ->
                         let newvec = i_replace i x_array x in
                         let newlk = f_ newvec in
                         debug_printf "\t[%s] -- %f\n" (pp_farray newvec) (snd newlk);

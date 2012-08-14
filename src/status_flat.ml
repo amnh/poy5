@@ -19,7 +19,7 @@
 
 exception Illegal_update
 
-let () = SadmanOutput.register "Status_flat" "$Revision: 2642 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 2647 $"
 
 let stdferr = StatusCommon.Format.formatter_of_out_channel stderr
 
