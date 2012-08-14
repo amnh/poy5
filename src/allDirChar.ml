@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2647 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2649 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1367,7 +1367,6 @@ module F : Ptree.Tree_Operations
             match MlModel.get_update_function_for_alpha current_model with
             | None      -> best_tree,best_cost
             | Some func ->
-                let best_tree = update_branches best_tree in
                 let current_a = MlModel.get_current_parameters_for_alpha current_model in
                 let _,results = 
                     Numerical.brents_method (f_likelihood func best_tree chars current_model)
@@ -1479,7 +1478,7 @@ module F : Ptree.Tree_Operations
     let adjust_fn ?(max_iter=20) node_man tree = 
         (* adjust model and branches -- for likelihood *)
         let adjust_ do_model do_branches branches iterations first_tree = 
-            let rec loop_ smooth iter icost itree =
+            let rec loop_ iter icost itree =
                 let mcost,mtree,iter =
                     if do_model then begin
                         let mtree = model_fn itree in
@@ -1494,6 +1493,7 @@ module F : Ptree.Tree_Operations
                 let bcost,btree,iter =
                     if do_branches then begin
                         let btree = adjust_tree iterations branches None mtree in
+                        let btree = update_branches btree in
                         let bcost = Ptree.get_cost `Adjusted btree in
                         if debug_model_fn then
                             info_user_message "Step %d; Optimized Branches %f --> %f" iter mcost bcost;
@@ -1503,36 +1503,11 @@ module F : Ptree.Tree_Operations
                     end
                 in
                 if icost =. bcost || iter > max_iter
-                    then begin 
-                        if smooth then btree else loop_ true iter bcost btree 
-                    end else
-                        loop_ false iter bcost btree
+                    then btree
+                    else loop_ iter bcost btree
             in
             let first_cost = Ptree.get_cost `Adjusted first_tree in
-            loop_ false 0 first_cost first_tree
-        (** Here we apply a heuristic cost function to MPL in likelihood and
-            return a transform to turn the data back.
-        and apply_heuristic_cost_model tree =
-            let diagnose_tree tree data =
-                let data,nodes = AllDirNode.AllDirF.load_data data in
-                let adder acc x = IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
-                let node_data = List.fold_left adder IntMap.empty nodes in
-                {tree with Ptree.node_data = node_data;
-                                      data = data; }
-                    --> internal_downpass true
-                    --> assign_single
-
-            in
-            match Data.apply_heuristic_cost_model tree.Ptree.data with
-            | None      -> tree, (fun x -> x)
-            | Some data ->
-                (diagnose_tree tree data),
-                (fun tree ->
-                    match Data.apply_heuristic_cost_model 
-                                ~cost_model:`MPL tree.Ptree.data
-                    with
-                    | None      -> assert false
-                    | Some data -> diagnose_tree tree data) *)
+            loop_ 0 first_cost first_tree
         in
         let tree =
             if (using_likelihood `Either tree) then begin
