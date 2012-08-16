@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 1006 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2644 $"
 
 let debug = false
 
@@ -160,55 +160,56 @@ let copy_chrom_map s_ch d_ch = match s_ch, d_ch with
 (** [leaf_sequences a] turns dynamic character set [a] 
 * into a set of chromosome arrays *)
 let leaf_sequences (a : t) = match a with
-    | MlCS a -> MlDynamicCS.leaf_sequences a
-    | SeqCS a -> 
+    | MlCS a  -> MlDynamicCS.leaf_sequences a
+    | SeqCS a ->
             let map = ref IntMap.empty in
             for i = (SeqCS.cardinal a) - 1 downto 0 do
-                map := IntMap.add a.SeqCS.codes.(i)
-                    (match a.SeqCS.characters.(i) with
-                    | SeqCS.Partitioned x ->
-                            Array.map (function 
-                                | SeqCS.PartitionedDOS.Last x ->
+                map :=
+                    IntMap.add a.SeqCS.codes.(i)
+                        (match a.SeqCS.characters.(i) with
+                        | SeqCS.Partitioned x ->
+                            Array.map
+                                (function
+                                    | SeqCS.PartitionedDOS.Last x ->
                                         `Last x.SeqCS.DOS.sequence
-                                | SeqCS.PartitionedDOS.DO x  ->
+                                    | SeqCS.PartitionedDOS.DO x  ->
                                         `DO x.SeqCS.DOS.sequence
-                                | SeqCS.PartitionedDOS.First x ->
-                                        `First x.SeqCS.DOS.sequence) x
-                    | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
-                    | SeqCS.General_Prealigned x -> [|`DO x.GenNonAdd.seq|] 
-                    (*| SeqCS.Relaxed_Lifted t ->
-                            let _,p = SeqCS.RL.get_min_states t in
-                            [|`DO t.SeqCS.RL.sequence_table.(p)|]*)) !map
+                                    | SeqCS.PartitionedDOS.First x ->
+                                        `First x.SeqCS.DOS.sequence)
+                                x
+                        | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
+                        | SeqCS.General_Prealigned x  -> [|`DO x.GenNonAdd.seq|])
+                    !map
             done;
             !map
-    | BreakinvCS a ->          
-          IntMap.map 
-              (fun med  -> 
-                   [|`DO (List.hd med.Breakinv.med_ls).BreakinvAli.seq|]
-              ) a.BreakinvCS.meds
-    | ChromCS a ->          
-          IntMap.map 
-              (fun med  -> 
-                   [|`DO (List.hd med.Chrom.med_ls).ChromAli.seq|]
-              ) a.ChromCS.meds
+    | BreakinvCS a ->
+          IntMap.map
+              (fun med ->
+                   [|`DO (List.hd med.Breakinv.med_ls).BreakinvAli.seq|])
+              a.BreakinvCS.meds
+    | ChromCS a ->
+          IntMap.map
+              (fun med  ->
+                   [|`DO (List.hd med.Chrom.med_ls).ChromAli.seq|])
+              a.ChromCS.meds
     | AnnchromCS a ->
-          IntMap.map 
-              (fun med  -> 
-                   let seqt_arr = 
-                       (List.hd med.Annchrom.med_ls).AnnchromAli.seq_arr 
+          IntMap.map
+              (fun med ->
+                   let seqt_arr =
+                       (List.hd med.Annchrom.med_ls).AnnchromAli.seq_arr
                    in
-                   Array.map (fun seqt -> `DO seqt.AnnchromAli.seq) seqt_arr
-              ) a.AnnchromCS.meds
+                   Array.map (fun seqt -> `DO seqt.AnnchromAli.seq) seqt_arr)
+              a.AnnchromCS.meds
     | GenomeCS a ->
-          IntMap.map 
-              (fun med  -> 
-                   let seq_arr = Array.map 
-                       (fun chromt -> 
-                            `DO chromt.GenomeAli.seq
-                       ) (List.hd med.Genome.med_ls).GenomeAli.chrom_arr 
+          IntMap.map
+              (fun med ->
+                   let seq_arr = Array.map
+                       (fun chromt ->
+                            `DO chromt.GenomeAli.seq)
+                       (List.hd med.Genome.med_ls).GenomeAli.chrom_arr
                    in
-                   seq_arr
-              ) a.GenomeCS.meds
+                   seq_arr)
+              a.GenomeCS.meds
 
 (** [unions a] returns the union of dynamic character set [a] *)
 let unions (a : u) = match a with
@@ -221,8 +222,6 @@ let unions (a : u) = match a with
             done;
             !map
     | _ -> failwith "DynamicCS.unions"
-
-
 
 let to_union a = match a with
     | SeqCS a -> U_SeqCS (SeqCS.to_union a)
