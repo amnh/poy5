@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 1616 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2645 $"
 
 let eager        = false
 let uppass_debug = false

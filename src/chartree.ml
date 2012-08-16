@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 2871 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 2645 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format

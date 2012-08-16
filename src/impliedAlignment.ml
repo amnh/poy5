@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2641 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2652 $"
 
 exception NotASequence of int
 
