@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2871 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2654 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1265,12 +1265,15 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     css
         in
         match meth with
+            (** The ML_OPTIMIZAION Routines (AIC,AICC,BIC...) *)
         | `EstLikelihood ((chars,a,b,(#Methods.ml_optimization as c),d,e,f) as x) ->
             if Sexpr.is_empty trees then begin
-                let m = "Model Selection under likelihood requires a tree in "^
-                        "memory. I will skip the transform entirely and leave "^
-                        "the data as is. Please build or load trees before "^
-                        "transforming to a model selection criteria." in
+                let m = "Model@ Selection@ under@ likelihood@ requires@ a@ "^
+                        "tree@ in@ memory.@ I@ will@ skip@ the@ transform@ "^
+                        "entirely@ and@ leave@ the@ data@ as@ is.@ Please@ "^
+                        "build@ or@ load@ trees@ before@ transforming@ to@ a@ "^
+                        "model@ selection@ criteria."
+                in
                 Status.user_message Status.Warning m;
                 trees, data, nodes
             end else begin
@@ -1306,10 +1309,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             end
         | `EstLikelihood ((chars,a,b,(#Methods.ml_substitution as c),d,e,f) as x) ->
             if Sexpr.is_empty trees then begin
-                let m = "The Estimated Likelihood transformation uses a loaded "
-                      ^ "tree to estimate an initial rate matrix. I will "
-                      ^ "transform the characters to the model specified but "
-                      ^ "with default parameters." in
+                let m = "The@ Estimated@ Likelihood@ transformation@ uses@ a@ "^
+                        "tree@ to@ estimate@ an@ initial@ rate@ matrix.@ I@ "^
+                        "will@ transform@ the@ characters@ to@ the@ model@ "^
+                        "specified@ but@ with@ the@ default@ parameters."
+                in
                 Status.user_message Status.Warning m
             end;
             let trees =

@@ -3176,8 +3176,7 @@ case ${OS_INFORMATION} in
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
-        # windows does not use mpicc to include libraries
-        # assume they are in the path and let the user include additional ones
+        # WIN doesn't use mpicc to build/include libs; assume they're in the path
         if test $USEPARALLEL = "true"; then :
   LIBS="-lmpi $LIBS"
 fi
@@ -3230,13 +3229,11 @@ rm -f core conftest.err conftest.$ac_objext \
         ;;
 esac
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable Concorde" >&5
-$as_echo_n "checking whether to enable Concorde... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking Whether to enable Concorde" >&5
+$as_echo_n "checking Whether to enable Concorde... " >&6; }
 if test -f "$concorde_dir/concorde.a"; then
    { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: Using Concorde" >&5
-$as_echo "Using Concorde" >&6; }
    CONCORDE_LIB="$concorde_dir/concorde.a"
    CONCORDE_CFLAGS="-I$concorde_dir/INCLUDE"
    CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE"
@@ -3252,17 +3249,6 @@ $as_echo "no" >&6; }
    CONCORDE_CFLAGS=""
    OUSE_CONCORDE=""
 fi
-
-#AS_IF([test $USE_CONCORDE = "true"],
-#				[
-#                CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE";
-#                CFLAGS="$CFLAGS -I/$HOME/concorde/INCLUDE/ -DUSE_CONCORDE";
-#                LIBS="$HOME/concorde/concorde.a $LIBS";
-#                LIBS="$CONCORDE_LIB $LIBS";
-#                OUSE_CONCORDE=",use_concorde";
-#                DUSE_CONCORDE="-DUSE_CONCORDE";
-#               ],
-#                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
 USE_SSE="false"     #DISABLE ALL SSE until it's faster than normal.
 USED_SSE="false"
@@ -4384,7 +4370,6 @@ $as_echo_n "checking for OCaml version... " >&6; }
 OCAMLVERSION=`$OCAMLOPT -version`
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $OCAMLVERSION" >&5
 $as_echo "$OCAMLVERSION" >&6; }
-
 case $OCAMLVERSION in
     3.10.2*)
         case ${OS_INFORMATION} in
@@ -5215,9 +5200,9 @@ fi
 done
 
 
+# Time to handle the lapack checks
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking to enable likelihood" >&5
 $as_echo_n "checking to enable likelihood... " >&6; }
-# Time to handle the lapack checks
 case ${OS_INFORMATION} in
     *-apple-*)
         if test $USE_LIKELIHOOD = "true"; then :

@@ -17,14 +17,24 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2642 $"
+
+let ndebug = true
 
 let (-->) b a = a b
+
 let failwithf format = Printf.ksprintf failwith format
 
-let ndebug = false
-
 let fst_trp (a,_,_) = a and snd_trp (_,a,_) = a and trd_trp (_,_,a) = a
+
+let info_user_message format =
+    Printf.ksprintf (Status.user_message Status.Information) format
+
+let warn_user_message format =
+    Printf.ksprintf (Status.user_message Status.Warning) format
+
+let error_user_message format =
+    Printf.ksprintf (Status.user_message Status.Error) format
 
 module type S = sig
 
@@ -214,14 +224,11 @@ struct
                 --> TreeOps.downpass
                 --> TreeOps.uppass
         in
-        if not ndebug then begin
-            let charn = Data.get_chars_codes_comp tree.Ptree.data chars in
-            let model = Data.get_likelihood_model tree.Ptree.data charn in
-            Printf.printf "Optimized %s to %f\n%!"
-                (MlModel.short_name model) (negative_loglikelihood tree chars);
-        end;
+        let charn = Data.get_chars_codes_comp tree.Ptree.data chars in
+        let model = Data.get_likelihood_model tree.Ptree.data charn in
+        info_user_message "Optimized %s to %f"
+            (MlModel.short_name model) (negative_loglikelihood tree chars);
         tree
-
 
 
     (** {2 General Information Metrics for Model Selection *)
@@ -299,9 +306,10 @@ struct
         let () = match chars with
             | `All -> ()
             | char ->
-                failwithf ("Currently using %s as a subset of characters is "^^
-                           "not supported. Only all is allowed")
-                          (Data.string_of_characters char)
+                error_user_message
+                    ("Currently@ using@ %s@ as@ a@ subset@ of@ characters"^^
+                     "@ is@ not@ supported.@ Only@ all@ is@ allowed.")
+                    (Data.string_of_characters char)
         in
         Methods.cost := `Iterative (`ThreeD None);
         let warning = ref false in
@@ -312,11 +320,11 @@ struct
         in
         let () = 
             if !warning then
-                let m = "When@ the@ sample@ size@ of@ a@ set@ of@ data@ is@ "^
-                        "small@ (say, n/k < 40),@ it@ is@ recommended@ that@ "^
-                        "the@ second-order@ AIC,@ AICc@ (Hurvich@ and@ Tsai,@ "^
-                        "1989, 1995; Sugiura, 1978),@  be@ used@ instead." in
-                Status.user_message Status.Warning m
+                warn_user_message
+                       ("When@ the@ sample@ size@ of@ a@ set@ of@ data@ is@ "^^
+                        "small@ (say,@ n/k < 40),@ it@ is@ recommended@ that"^^
+                        "@ the@ second-order@ AIC,@ AICc,@ be@ used@ instead"^^
+                        "@ (Hurvich@ and@ Tsai,@ 1989,@ 1995;@ Sugiura,@ 1978).")
         in
         Array.sort (fun x y -> Pervasives.compare (snd x) (snd y)) tree_stats;
         let min_ic = (0, snd tree_stats.(0)) in

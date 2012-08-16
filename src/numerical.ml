@@ -17,6 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+let () = SadmanOutput.register "Numerical" "$Revision: 2651 $"
+
 let (-->) b a = a b
 
 let debug = false
@@ -168,8 +170,10 @@ type optimization_strategy =
 
 (** Define levels of optimization for the chooser *)
 type opt_modes =
-    [ `None | `Coarse of int option
-    | `Exhaustive of int option     | `Custom of optimization_strategy ]
+    [ `None
+    | `Coarse of int option
+    | `Exhaustive of int option
+    | `Custom of optimization_strategy list ]
 
 (** Here we define a simplex as a collection of points with attached data -the
     tree or some added information carried through the computation. The array
@@ -186,14 +190,14 @@ let default_subplex =
       omega = 0.1; psi = 0.25; nsmin = 2; nsmax = 5; }
 
 (** Define the default strategy from a specific routine *)
-let default_strategy routine =
+let default_strategy ?tol ?iter routine =
     let routine = match routine with
         | `Simplex      -> `Simplex None
         | `Subplex      -> `Subplex None
         | `Brent_Multi  -> `Brent_Multi
         | `BFGS         -> `BFGS None
     in
-    { routine = routine; max_iter = None; tol = None; }
+    { routine = routine; max_iter = iter; tol = tol; }
 
 
 (** {6 Numerical Functions for Optimization Routines *)
@@ -208,16 +212,17 @@ let magnitude x_array =
     sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
 
 (** find the gradient of a multi-variant function at a point x_array *)
-let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array = 
+let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array =
     let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
-    Array.mapi 
+    Array.mapi
         (fun i i_val ->
-            derivative_at_x 
-                    ~epsilon 
-                    (fun x -> 
+            derivative_at_x
+                    ~epsilon
+                    (fun x ->
                         let newvec = i_replace i x_array x in
                         let newlk = f_ newvec in
-                        debug_printf "\t[%s] -- %f\n" (pp_farray newvec) (snd newlk);
+                        debug_printf "\t[%s] -- %f (d:%F)\n" (pp_farray newvec)
+                                     (snd newlk) ((snd newlk)-.f_array);
                         newlk)
                     i_val
                     f_array)
@@ -428,8 +433,10 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     let setup_function point direction gradient = 
         let direction = (* ||dir|| <= maxstep *)
             let magstep = magnitude direction in
-            if magstep > maxstep then Array.map (fun x -> x *. maxstep /. magstep) direction 
-            else direction in
+            if magstep > maxstep
+                then Array.map (fun x -> x *. maxstep /. magstep) direction 
+                else direction
+        in
         let slope = dot_product direction gradient
         and minstep = 
             let r = ref 0.0 in
@@ -479,7 +486,7 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
                 debug_printf "\t\t%f--Accepting %f\n" prevstep (get_score newfpoint);
                 (newpoint,newfpoint,false)
             end else begin
-                debug_printf "\t\t%f--Rejecting %f\n" prevstep (get_score newfpoint);
+                debug_printf "\t\t%f--Rejecting %f\n" step (get_score newfpoint);
                 let newstep = next_step step prevstep slope (get_score newfpoint) prevfpoint in
                 main_ (get_score newfpoint) slope direction newstep step minstep
             end
@@ -490,10 +497,10 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     (* this could happen if the delta for gradient is huge (ie, errors in rediagnose) 
      * or some major instability in the tree/algorithm. The function will continue, 
      * but this warning message should report that the results are questionable. *)
-    if (abs_float slope) > 100_000_000.0 then
+    if (abs_float slope) > 1_000_000.0 then
         warning_message "Numerical.linesearch; Very large slope in optimization function.";
-    cdebug_printf "\tInitial LineSearch: %f, slope: %f, direction: %s\n"
-                 origfpoint slope (pp_farray direction);
+    cdebug_printf "\tInitial LineSearch: %f, slope: %f, step: %f, direction: %s\n"
+                 origfpoint slope maxstep (pp_farray direction);
     let results = main_ origfpoint slope direction step step minstep in
     FPInfix.reset ();
     results
@@ -529,7 +536,7 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(max_step=10.0) ?(tol=tolera
             for i = 0 to n-1 do h.(i).(i)  <- 1.0 done;
             h
         and x_grad = gradient_at_x ~epsilon f_array x_array fx_array in
-        let dir = Array.init n (fun i -> ~-. (x_grad.(i)) )
+        let dir = Array.map (fun x -> ~-. x) x_grad
         and mxstep = max_step *. (max (magnitude x_array) (float_of_int n)) in
         hessian, x_grad, mxstep, dir in
     (* Do a line search step --return new p, new fp, new dir, if converged *)
@@ -1034,12 +1041,14 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
     pdfp
 
 (** Determine the numerical optimization strategy from the methods cost mode *)
-let default_numerical_optimization_strategy o p = match o with
-    | `None  -> []
-    | _  when p < 3 -> (default_strategy `Brent_Multi) :: []
-(*    | `Normal   -> let x = (default_strategy `Brent_Multi) in [x;x]*)
-(*    | `Normal   -> (default_strategy `BFGS) :: []*)
-    | _      -> (default_strategy `BFGS) :: []
+let default_numerical_optimization_strategy o p =
+    let tol = Some (1e-3) in
+    let meth = if p < 3 then `Brent_Multi else `BFGS in
+    match o with
+    | `None            -> []
+    | `Coarse     iter -> (default_strategy ?tol ?iter meth) :: []
+    | `Exhaustive iter -> (default_strategy ?iter meth) :: []
+    | `Custom     strt -> strt
 
 (** Run an optimization strategy; call the proper algorithm w/ convergence
     properties; a list of the appropriate ones are included here *)

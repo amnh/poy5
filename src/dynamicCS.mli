@@ -131,8 +131,7 @@ val mem : int list option -> t -> bool
 (** [leaf_sequences a] turns dynamic character set [a] 
 * into a set of chromosome arrays *)
 val leaf_sequences : t -> 
-    [ `DO of Sequence.s | `First of Sequence.s | `Last of Sequence.s ] 
-    array SeqCS.Codes.t
+    [ `DO of Sequence.s | `First of Sequence.s | `Last of Sequence.s ] array SeqCS.Codes.t
 
 (** [unions a] returns the union of dynamic character set [a] *)
 val unions : u -> SeqCS.union_element option SeqCS.Codes.t

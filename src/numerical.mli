@@ -157,8 +157,10 @@ type optimization_strategy =
     have to optimize multi-dimensional functions. *)
 
 type opt_modes =
-    [ `None | `Coarse of int option | `Exhaustive of int option 
-    | `Custom of optimization_strategy ]
+    [ `None
+    | `Coarse of int option
+    | `Exhaustive of int option
+    | `Custom of optimization_strategy list ]
 
 val default_numerical_optimization_strategy :
     opt_modes -> int -> optimization_strategy list

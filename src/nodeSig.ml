@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "NodeSig" "$Revision: 1616 $"
+let () = SadmanOutput.register "NodeSig" "$Revision: 2654 $"
 
 type direction = Without of int | Median of (int * int)
 

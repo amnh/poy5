@@ -46,6 +46,9 @@ type node =
   | Leaf of int * int
   | Interior of (int * int * int * int)
 
+(** return string representation of a node *)
+val string_of_node : node -> string
+
 (** In an rooted tree, edges are implicitly directed according to parent
 _ child relationships. The edges in unrooted trees are directed based on
 a DFS from a handle. These edges are used only by unrooted trees 
@@ -397,5 +400,5 @@ module Parse : sig
 
     val strip_tree : tree_types -> string t
     val maximize_tree : tree_types -> (string * string option) t
-    val convert_to : string option * tree_types list -> (string -> int) -> int -> u_tree
+    val convert_to : string option * tree_types list -> (string -> int) -> u_tree
 end

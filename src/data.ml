@@ -757,7 +757,7 @@ let get_empty_seq alph =
     { seq = seq; delimiter = []; code = -1; }
 
 
-let print (data : d) = 
+let print (data : d) =
     let print_matrix arr =
         Printf.printf ", %d/%d:" (Array.length arr) (Array.length arr.(0));
         for i = 0 to (Array.length arr)-1 do
@@ -766,91 +766,81 @@ let print (data : d) =
             done;
         done
     in
-    let print_taxon (key : int) (ch_ls : (int, cs) Hashtbl.t) = 
+    let print_taxon (key : int) (ch_ls : (int, cs) Hashtbl.t) =
         let len = Hashtbl.fold (fun _ _ acc -> acc + 1) ch_ls 0 in
-        let  taxa_name = All_sets.IntegerMap.find key data.taxon_codes in  
+        let  taxa_name = All_sets.IntegerMap.find key data.taxon_codes in
         Printf.fprintf stdout "Taxon: %s, number chars: %i\n" taxa_name len;
         Hashtbl.iter
-            (fun _ ch ->
-                 match ch with 
-                 | Dyna (code, dyna_data), _ ->         
-                       let  char_name = Hashtbl.find data.character_codes code in 
-                       Printf.fprintf stdout "%s -> " char_name; 
-                       Array.iter (fun seq -> 
-                                       Printf.fprintf stdout "%d:" seq.code;
-                                       Sequence.print stdout seq.seq Alphabet.nucleotides;
-                                       Printf.fprintf stdout " | ")
-                                  dyna_data.seq_arr;
-                | FS code, _ ->         
-                       let char_name = Hashtbl.find data.character_codes code in 
-                       Printf.fprintf stdout "code = %d, char_name = %s -> "
-                       code char_name; 
-                       (*let a = match Hashtbl.find data.character_specs code with
-                       | Static (FixedStates fs_spec) ->
-                               
-                       | _ -> failwith "print_taxon, fixed states"
-                       in*)
-                       (*Array.iter (fun seq -> 
-                                       Printf.fprintf stdout "%d:" seq.code;
-                                       Sequence.print stdout seq.seq Alphabet.nucleotides;
-                                       Printf.fprintf stdout " | ")
-                                  fs_data.dynamic_data.seq_arr; *)
-                 | Stat (code, None), _ ->
-                        let a = match Hashtbl.find data.character_specs code with
-                            | Static x -> 
-                                    let y = get_nf_from_sta_spec x in
-                                    y.Nexus.File.st_alph
-                            | _ -> failwith "Nope"
-                        in
-                        begin try Printf.fprintf stdout "[%d]%s |" code
+            (fun _ ch -> match ch with
+                | Dyna (code, dyna_data), _ ->
+                    let  char_name = Hashtbl.find data.character_codes code in
+                    Printf.fprintf stdout "%s -> " char_name;
+                    Array.iter (fun seq ->
+                                    Printf.fprintf stdout "%d:" seq.code;
+                                    Sequence.print stdout seq.seq Alphabet.nucleotides;
+                                    Printf.fprintf stdout " | ")
+                                dyna_data.seq_arr;
+                | FS code, _ ->
+                    let char_name = Hashtbl.find data.character_codes code in
+                    Printf.fprintf stdout "code = %d, char_name = %s -> "
+                    code char_name;
+                | Stat (code, None), _ ->
+                    let a = match Hashtbl.find data.character_specs code with
+                        | Static x ->
+                            let y = get_nf_from_sta_spec x in
+                            y.Nexus.File.st_alph
+                        | _ -> failwith "Nope"
+                    in
+                    begin
+                        try Printf.fprintf stdout "[%d]%s |" code
                                     (Alphabet.match_code (Alphabet.get_gap a) a)
                         with | _ -> Printf.fprintf stdout "[%d]%d |"
                                     code (Alphabet.get_gap a)
-                        end
-                 | Stat (code, (Some stuff)), _ ->
-                       let a =
-                            try match Hashtbl.find data.character_specs code with
-                                 | Static x -> 
-                                        let y = get_nf_from_sta_spec x in
-                                        y.Nexus.File.st_alph            
-                            | _ -> failwith "Nope"
-                            with | _ -> failwithf "Couldn't find %d in specs" code
-                       in
-                       begin match Nexus.File.static_state_to_list stuff with 
-                            | []  -> 
-                                begin try Printf.fprintf stdout "[%d]%s |" code
-                                        (Alphabet.match_code (Alphabet.get_gap a) a)
-                                with _ -> Printf.fprintf stdout "[%d]%d |"
-                                        code (Alphabet.get_gap a)
-                                end
-                            | [x] -> 
-                                begin try Printf.fprintf stdout "[%d]%s |" code
-                                                    (Alphabet.match_code x a)
-                                with _ -> Printf.fprintf stdout "[%d]%d |" code x end
-                            | xs  ->
-                                Printf.fprintf stdout "[%d](" code;
-                                List.iter 
-                                    ~f:(fun x ->
-                                         try Printf.fprintf stdout "%s" (Alphabet.match_code x a)
-                                         with _ -> Printf.fprintf stdout "%d" x)
-                                    xs;
-                                Printf.fprintf stdout ")"
-                       end)
+                    end
+                | Stat (code, (Some stuff)), _ ->
+                    let a =
+                        try match Hashtbl.find data.character_specs code with
+                                | Static x ->
+                                    let y = get_nf_from_sta_spec x in
+                                    y.Nexus.File.st_alph
+                                | _ -> failwith "Nope"
+                        with | _ -> failwithf "Couldn't find %d in specs" code
+                    in
+                    begin match Nexus.File.static_state_to_list stuff with
+                        | []  ->
+                            begin try Printf.fprintf stdout "[%d]%s |" code
+                                    (Alphabet.match_code (Alphabet.get_gap a) a)
+                            with _ -> Printf.fprintf stdout "[%d]%d |"
+                                    code (Alphabet.get_gap a)
+                            end
+                        | [x] ->
+                            begin try Printf.fprintf stdout "[%d]%s |" code
+                                                (Alphabet.match_code x a)
+                            with _ -> Printf.fprintf stdout "[%d]%d |" code x end
+                        | xs  ->
+                            Printf.fprintf stdout "[%d](" code;
+                            List.iter
+                                ~f:(fun x ->
+                                     try Printf.fprintf stdout "%s" (Alphabet.match_code x a)
+                                     with _ -> Printf.fprintf stdout "%d" x)
+                                xs;
+                            Printf.fprintf stdout ")"
+                    end)
             ch_ls;
             print_newline ()
-    and print_branches tree_name set = 
+    and print_branches tree_name set =
         Printf.printf "Tree: [%s]\n" tree_name;
         All_sets.IntSetMap.iter
             (fun intset code_tbl ->
                 Printf.printf "\t[";
                 All_sets.Integers.iter (Printf.printf "%d, ") intset;
                 Printf.printf "]:";
-                Hashtbl.iter 
+                Hashtbl.iter
                     (fun n f -> Printf.printf "\t\t%s -- %f\n" n f)
                     code_tbl)
             set
-   and print_models chars = 
-        let get_function code = 
+   and print_models chars =
+        let get_function code =
             match Hashtbl.find data.character_specs code with
             | Static x ->
                 ( match x with
@@ -859,7 +849,7 @@ let print (data : d) =
                     | Nexus.File.STLikelihood x -> x.MlModel.spec
                     | _ -> assert false
                     end
-                 | _ -> assert false )   
+                 | _ -> assert false )
             | Dynamic ({state = s} as x) when s = `Ml ->
                 begin match x.lk_model with
                 | Some m -> m.MlModel.spec
@@ -869,8 +859,8 @@ let print (data : d) =
         in
         let pp_int_list chan xs = List.iter (Printf.fprintf chan "%d, ") xs in
         List.iter
-            (fun x -> 
-                try 
+            (fun x ->
+                try
                     let m = get_likelihood_model data x in
                     Printf.printf "%d:" (List.hd x);
                     MlModel.output_model print_string None `Nexus m None;
@@ -878,12 +868,12 @@ let print (data : d) =
                 with _ ->
                     Printf.printf "No consistent model: %a\n%!" pp_int_list x)
             (MlModel.categorize_by_model get_function chars)
-    and print_specs (code : int) (spec : specs) = 
-        let name = Hashtbl.find data.character_codes code in 
-        Printf.fprintf stdout "Key: %i, name: %s " code name; 
-        (match spec with 
+    and print_specs (code : int) (spec : specs) =
+        let name = Hashtbl.find data.character_codes code in
+        Printf.fprintf stdout "Key: %i, name: %s " code name;
+        (match spec with
         | Dynamic dspec ->
-              (match dspec.state with 
+              (match dspec.state with
                | `SeqPrealigned -> Printf.fprintf stdout "Seq Prealigned"
                | `Seq -> Printf.fprintf stdout "Seq"
                | `Ml -> Printf.fprintf stdout "Dynamic ML"
@@ -893,7 +883,7 @@ let print (data : d) =
                | `Genome -> Printf.fprintf stdout "Genome"
                | `Annotated -> Printf.fprintf stdout "Annotated")
         | Static x ->
-            (match x with 
+            (match x with
             | NexusFile {Nexus.File.st_type=st_type} ->
               (match st_type with
                | Nexus.File.STOrdered -> Printf.fprintf stdout "Ordered"
@@ -903,7 +893,7 @@ let print (data : d) =
             | FixedStates _ -> Printf.fprintf stdout "Fixed States"; )
         | _ -> Printf.fprintf stdout "Not Dynamic");
         print_newline ()
-    and print_csets name chars = 
+    and print_csets name chars =
         Printf.printf "%s -- (" name;
         List.iter (fun x -> Printf.printf "%s, " x) chars;
         Printf.printf ")";
@@ -963,11 +953,11 @@ let modified_characters data_one data_two : int =
     !modified
 
 
-let get_weight c data = 
+let get_weight c data =
     match Hashtbl.find data.character_specs c with
     | Dynamic spec -> spec.weight
     | Static x ->
-            (match x with  
+            (match x with
             | NexusFile spec -> spec.Nexus.File.st_weight
             | FixedStates spec -> spec.original_dynspec.weight )
     | _ -> 1.0
@@ -2104,28 +2094,28 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
         match file_out.Nexus.File.taxa.(row) with
         | None -> ()
         | Some tname ->
-                let _, tcode = process_taxon_code data tname file in
-                let tl = get_taxon_characters data tcode in
-                let add_character column it =
-                    let chcode, spec = codes.(column) in
-                    if not spec.Nexus.File.st_eliminate then begin
-                        let specified = 
-                            match it with
-                            | Some _ -> `Specified
-                            | None -> `Unknown
-                        in
-                        Hashtbl.replace tl chcode ((Stat (chcode, it)), specified);
-                    end;
-                    (column + 1)
-                in
-                if Array.length (file_out.Nexus.File.matrix) > 0 then
-                    ignore
-                        (Array.fold_left ~f:add_character 
-                                         ~init:0
-                                         file_out.Nexus.File.matrix.(row));
-                Hashtbl.replace data.taxon_characters tcode tl;
-                let did = Status.get_achieved st in
-                Status.full_report ~adv:(did + 1) st;
+            let _, tcode = process_taxon_code data tname file in
+            let tl = get_taxon_characters data tcode in
+            let add_character column it =
+                let chcode, spec = codes.(column) in
+                if not spec.Nexus.File.st_eliminate then begin
+                    let specified = 
+                        match it with
+                        | Some _ -> `Specified
+                        | None -> `Unknown
+                    in
+                    Hashtbl.replace tl chcode ((Stat (chcode, it)), specified);
+                end;
+                (column + 1)
+            in
+            if Array.length (file_out.Nexus.File.matrix) > 0 then
+                ignore
+                    (Array.fold_left ~f:add_character 
+                                     ~init:0
+                                     file_out.Nexus.File.matrix.(row));
+            Hashtbl.replace data.taxon_characters tcode tl;
+            let did = Status.get_achieved st in
+            Status.full_report ~adv:(did + 1) st;
     done;
     (* We add the trees *)
     let data = 
@@ -2136,51 +2126,6 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                 file_out.Nexus.File.trees
         in
         { data with trees = data.trees @ trees }
-    in
-    (* combine the branch lengths of the root if it's a rooted tree *)
-    let () =
-        let unroot_branch_lengths table tree node1 node2 =
-            try
-                let t_tbl = Hashtbl.find table (String.uppercase tree) in
-                let n_1 = Hashtbl.find t_tbl (String.uppercase node1)
-                and n_2 = Hashtbl.find t_tbl (String.uppercase node2) in
-                Hashtbl.iter 
-                    (fun c_name length ->
-                        let n_length = length +. (Hashtbl.find n_2 c_name) in
-                        let () = Hashtbl.replace n_2 c_name n_length
-                        and () = Hashtbl.replace n_1 c_name n_length in
-                        () )
-                    n_1
-            with | Not_found -> failwith ("Cannot find tree "^tree^
-                                            " or nodes ("^node1^","^node2^")")
-        in
-        let get_stuff = function | Tree.Parse.Nodep (_,d) | Tree.Parse.Leafp d -> snd d in
-        let combine_on_one ((name,trees),_,_) =
-            let rec deal_with_tree name t = match t with
-                | Tree.Parse.Flat t -> ()
-                | Tree.Parse.Annotated (t,_) -> deal_with_tree name t
-                | Tree.Parse.Branches t -> ()
-                | Tree.Parse.Characters t -> 
-                    begin match t with
-                        | Tree.Parse.Leafp _ -> ()
-                        | Tree.Parse.Nodep (lst,_) -> 
-                            begin match lst with
-                                | [l1;l2] ->
-                                    begin match (get_stuff l1),(get_stuff l2) with
-                                         | Some x,Some y ->
-                                            unroot_branch_lengths 
-                                                file_out.Nexus.File.branches name x y
-                                        | _ -> ()
-                                    end
-                                | _ -> ()
-                            end
-                    end
-            in
-            match name with
-            | Some name -> List.iter (deal_with_tree name) trees
-            | None      -> ()
-        in
-        List.iter (combine_on_one) data.trees
     in
     (* Now time to add the molecular sequences *)
     let data = 
@@ -2331,13 +2276,11 @@ let add_multiple_static_parsed_file data list =
 let add_static_file ?(report = true) style data (file : FileStream.f) = 
     try
         let ch, file = FileStream.channel_n_filename file in
-        let r = 
-            match style with
+        let r = match style with
             | `Hennig -> Hennig.File.of_channel ch file 
             | `Nexus  -> Nexus.File.of_channel ch file
         in
-        if report then
-            report_static_input file r;
+        if report then report_static_input file r;
         close_in ch;
         add_static_parsed_file data file r
     with | Sys_error err ->
@@ -2560,15 +2503,14 @@ let report included excluded =
     and total_excluded = List.fold_left ~f:(add 1) ~init:1 excluded in
     arr.(0).(0) <- "Included";
     arr.(0).(1) <- "Excluded";
-    Status.user_message Status.Information 
-    "@[<v>@[Selected@ Terminals:@]@,";
+    Status.user_message Status.Information "@[<v>@[Selected@ Terminals:@]@,";
     Status.output_table Status.Information arr;
+    Status.user_message Status.Information "@]@,%!";
     Status.user_message Status.Information 
-    "@]@,%!";
+        ("@[Total@ included:@ " ^ string_of_int (total_included - 1) ^ "@]@,");
     Status.user_message Status.Information 
-    ("@[Total@ included:@ " ^ string_of_int (total_included - 1) ^ "@]@,");
-    Status.user_message Status.Information 
-    ("@[Total@ excluded:@ " ^ string_of_int (total_excluded - 1) ^ "@]@,")
+        ("@[Total@ excluded:@ " ^ string_of_int (total_excluded - 1) ^ "@]@,");
+    ()
 
 let get_all_taxon_active_codes data = 
     Hashtbl.fold (fun code _ acc -> code :: acc) data.taxon_characters [] 
@@ -2642,43 +2584,32 @@ let rec process_analyze_only_taxa meth data =
 
 let process_analyze_only_file dont_complement data files =
     let data = duplicate data in
-    try
-        let appender acc file = 
-            try 
-                let ch, file = FileStream.channel_n_filename file in
-                let taxa = Parser.IgnoreList.of_channel ch in
-                let taxa = 
-                    warn_if_repeated_and_choose_uniquely taxa "terminals file" file
-                in
-                close_in ch;
-                taxa @ acc
-                with
-                | Sys_error err ->
-                        let file = FileStream.filename file in
-                        let msg = 
-                            "Couldn't open file " ^ file ^ " to load the " ^
-                            "terminals file. The system error message is " ^ 
-                            err 
-                        in
-                        failwith msg
+    try let appender acc file = 
+        try let ch, file = FileStream.channel_n_filename file in
+            let taxa = Parser.IgnoreList.of_channel ch in
+            let taxa =
+                warn_if_repeated_and_choose_uniquely taxa "terminals file" file
+            in
+            close_in ch;
+            taxa @ acc
+            with | Sys_error err ->
+                let file = FileStream.filename file in
+                failwithf ("Couldn't open file %s to load the terminals file. "
+                          ^^"The system error message is %s") file err
         in
         let taxa = List.fold_left ~f:appender ~init:[] files in
         let taxa = List.map trim taxa in
-        let ignored, taxa = 
-            if dont_complement then complement_taxa data taxa, taxa
-            else taxa, complement_taxa data taxa
+        let ignored, taxa =
+            if dont_complement
+                then complement_taxa data taxa, taxa
+                else taxa, complement_taxa data taxa
         in
         report taxa ignored;
-        let res = List.fold_left ~f:process_ignore_taxon ~init:data ignored in
-        res
-    with
-    | Failure msg ->
-            Status.user_message Status.Error msg;
-            data
-
-let process_ignore_taxon data taxon = 
-    (process_ignore_taxon data taxon)
-
+        let data = List.fold_left ~f:process_ignore_taxon ~init:data ignored in
+        data
+    with | Failure msg ->
+        Status.user_message Status.Error msg;
+        data
 
 let remove_taxa_to_ignore data = 
     let data = duplicate data in
@@ -2697,32 +2628,27 @@ let remove_taxa_to_ignore data =
     data
 
 let report_terminals_files filename taxon_files ignored_taxa =
-    let files = All_sets.StringMap.empty 
+    let files = All_sets.StringMap.empty
     and fo = Status.user_message (Status.Output (filename, false, [])) in
     let make_per_file_set taxon files acc =
         let is_ignored = All_sets.Strings.mem taxon ignored_taxa in
         let process_all_files file acc =
             if All_sets.StringMap.mem file acc then
-                let (included, excluded) = All_sets.StringMap.find file acc in
-                if is_ignored then
-                    All_sets.StringMap.add file (included, (taxon :: excluded)) 
-                    acc
-                else 
-                    All_sets.StringMap.add file ((taxon :: included), excluded)
-                    acc
-            else 
-                if is_ignored then
-                    All_sets.StringMap.add file ([], [taxon]) acc
-                else All_sets.StringMap.add file ([taxon], []) acc
+                let (inc, exc) = All_sets.StringMap.find file acc in
+                if is_ignored
+                    then All_sets.StringMap.add file (inc, (taxon :: exc)) acc
+                    else All_sets.StringMap.add file ((taxon :: inc), exc) acc
+            else
+                if is_ignored
+                    then All_sets.StringMap.add file ([], [taxon]) acc
+                    else All_sets.StringMap.add file ([taxon], []) acc
         in
         All_sets.Strings.fold process_all_files files acc
     and print_file file_name (included, excluded) =
-        fo ("@,@[<v 2>@{<u>Input File:@} " ^ StatusCommon.escape file_name 
-        ^ "@,@[<v 0>");
+        fo ("@,@[<v 2>@{<u>Input File:@} " ^ StatusCommon.escape file_name ^ "@,@[<v 0>");
         let output_list str lst = 
-            let total = string_of_int (List.length lst) in
-            fo ("@,@[Terminals " ^ StatusCommon.escape str ^ 
-            " (" ^ total ^ ")@]@[<v 2>@,@[<v 0>");
+            Printf.ksprintf fo "@,@[Terminals %s (%d)@]@[<v 2>@,@[<v 0>"
+                            (StatusCommon.escape str) (List.length lst);
             List.iter (fun x -> fo (StatusCommon.escape x); fo "@,") lst;
             fo "@]@]";
         in
@@ -2811,8 +2737,10 @@ let add_character_spec spec code data =
     data
 
 let rec taxon_code name data =
-    try All_sets.StringMap.find name data.taxon_names with
-    | Not_found -> taxon_code (All_sets.StringMap.find name data.synonyms) data
+    try All_sets.StringMap.find name data.taxon_names
+    with | Not_found ->
+        try taxon_code (All_sets.StringMap.find name data.synonyms) data
+        with | Not_found -> failwithf "Cannot find Taxa %s" name
 
 let get_tcm code data = 
     match Hashtbl.find data.character_specs code with

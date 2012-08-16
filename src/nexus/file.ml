@@ -20,7 +20,8 @@
 (** A module to handle specifications of static homology characters and their
     occurrences in a terminal *)
 
-let (-->) a b = b a 
+let (-->) a b = b a
+let (-|>) a b = let () = b a in a
 
 type st_type = 
     | STOrdered
@@ -1136,10 +1137,10 @@ let update_assumptions (acc:nexus) = function
         end
     | P.AncestralDef _ ->
         Status.user_message Status.Warning
-            "Ancestral Definitions in the assumptions block is being ignored"
+            "Ancestral@ Definitions@ in@ the@ assumptions@ block@ is@ being@ ignored."
     | P.ExcludeSet _ ->
         Status.user_message Status.Warning
-            "ExcludeSet in the assumptions block is being ignored"
+            "ExcludeSet@ in@ the@ assumptions@ block@ is@ being@ ignored."
 
 
 let process_tree (tree:string):P.tree = 
@@ -1749,7 +1750,8 @@ let process_parsed file parsed : nexus =
         -----------+-----------------+---------------------
         POY        | Characters      | calculating priors
         POY        | Unaligned       | calculating priors 
-         *         | Assumptions     | contains cost matrices and other properties
+         *         | Assumptions     | contains cost matrices and other
+                                       properties to specific characters
 
         Note: The processing is done by a fold_left, thus the ordering needs to
         be backwards (this is to keep the function tail-recursive). *)

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 1616 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2654 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1017,8 +1017,8 @@ module F : Ptree.Tree_Operations
                 let o_nd =
                     let one = Ptree.get_edge_data (Tree.Edge (a,b)) ptree in
                     let tmp = { AllDirNode.lazy_node = one;
-                                                  dir = Some (a,b);
-                                                 code = ~-1; }
+                                                 dir = Some (a,b);
+                                                code = ~-1; }
                     in
                     { AllDirNode.adjusted= None; AllDirNode.unadjusted=[tmp] }
                 in
@@ -1116,20 +1116,15 @@ module F : Ptree.Tree_Operations
             in
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
-                Array_ops.randomize all_edges;
                 let (changed,new_affected,new_ptree : adjust_acc) = 
                     let none_affected = IntMap.empty in
                     (* perform on each tree *)
                     if using_likelihood `Static ptree then begin
+                        let () = Array_ops.randomize all_edges in
                         Array.fold_left
                             (adjust_reroot_loop affected)
                             (true,none_affected,ptree)
                             (all_edges)
-(*                    end else if using_likelihood `Dynamic ptree then begin*)
-(*                        IntSet.fold*)
-(*                            (lk_adjust_loop affected)*)
-(*                            (ptree.Ptree.tree.Tree.handles)*)
-(*                            (true,none_affected,ptree)*)
                     end else begin
                         IntSet.fold
                             (adjust_loop affected)
@@ -1156,14 +1151,14 @@ module F : Ptree.Tree_Operations
                 * related function in allDirChar and allDirNode to a new module.*)
                 let quick_2single root b d set = 
                     let b',d' = 
-                            let one = match b.AllDirNode.adjusted with
-                                | None -> failwith "allDirNode,to_single,no adjusted data"
-                                | Some x -> x 
-                            and two = match d.AllDirNode.adjusted with
-                                | None -> failwith "allDirNode,to_single,no adjusted data"
-                                | Some y -> y   
-                            in 
-                            one,two
+                        let one = match b.AllDirNode.adjusted with
+                            | None -> failwith "allDirNode,to_single,no adjusted data"
+                            | Some x -> x 
+                        and two = match d.AllDirNode.adjusted with
+                            | None -> failwith "allDirNode,to_single,no adjusted data"
+                            | Some y -> y   
+                        in 
+                        one,two
                     in
                     let root = match root with 
                         | Some r -> Some ((List.hd r.AllDirNode.unadjusted).AllDirNode.lazy_node)
@@ -1214,6 +1209,8 @@ module F : Ptree.Tree_Operations
             | Tree.Single _
             | Tree.Leaf (_, _) -> 
                     assert (IntMap.mem code ptree.Ptree.node_data);
+                    if debug_downpass_fn then
+                        info_user_message "Skipping Leaf/Single %d\n%!" code; 
                     ptree
             | (Tree.Interior (_, par, a, b)) as v ->
                     let a,b = Tree.other_two_nbrs prev v in
@@ -1237,7 +1234,7 @@ module F : Ptree.Tree_Operations
                         match (Ptree.get_component_root x ptree).Ptree.root_median with
                         | Some ((`Edge (a,b)),c) ->
                             if debug_downpass_fn then
-                                info_user_message "Downpass from (%d,%d)" a b;
+                                info_user_message "Downpass from Given (%d,%d)" a b;
                             Tree.post_order_node_with_edge_visit_simple
                                 add_vertex_post_order
                                 (Tree.Edge (a,b))
@@ -1249,17 +1246,17 @@ module F : Ptree.Tree_Operations
                         | Tree.Leaf (a,b)
                         | Tree.Interior (a,b,_,_) ->
                             if debug_downpass_fn then
-                                info_user_message "Downpass from (%d,%d)" a b;
+                                info_user_message "Downpass from Handle (%d,%d)" a b;
                             Tree.post_order_node_with_edge_visit_simple
                                 add_vertex_post_order
-                                (Tree.Edge (a,b)) 
+                                (Tree.Edge (a,b))
                                 ptree.Ptree.tree ptree
                         | Tree.Single _ -> ptree
                     end)
                 ptree.Ptree.tree.Tree.handles
                 ptree
         in
-        let ptree = 
+        let ptree =
             let ptree = refresh_all_edges None true None ptree in
             if do_roots then refresh_roots ptree else ptree
         in
@@ -1362,28 +1359,29 @@ module F : Ptree.Tree_Operations
                     Numerical.run_method opt (f_likelihood func tree chars current_model)
                                              (params,(tree,current_cost))
                 in
+                if debug_model_fn then
+                    info_user_message "\tOptimized Rates to %f --> %f"
+                                      current_cost (snd results);
                 results
             | None -> (tree,current_cost)
         in
-        if debug_model_fn then
-            info_user_message "\tOptimized Model to %f --> %f" current_cost best_cost;
         (* Optimize Alpha *)
         let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_alpha current_model with
             | None      -> best_tree,best_cost
             | Some func ->
-                let best_tree = update_branches best_tree in
                 let current_a = MlModel.get_current_parameters_for_alpha current_model in
-                let results = 
+                let _,results = 
                     Numerical.brents_method (f_likelihood func best_tree chars current_model)
                                             ((get_some current_a),(best_tree,best_cost))
                                           
                 in
-                snd results
+                if debug_model_fn then
+                    info_user_message "\tOptimized Alpha to %f --> %f"
+                                      best_cost (snd results);
+                results
         in
-        if debug_model_fn then
-            info_user_message "\tOptimized Alpha to %f --> %f" current_cost best_cost;
         if best_cost < current_cost then best_tree else tree
 
     (* Group all the characters and optimize each with function above *)
@@ -1484,7 +1482,7 @@ module F : Ptree.Tree_Operations
     let adjust_fn ?(max_iter=20) node_man tree = 
         (* adjust model and branches -- for likelihood *)
         let adjust_ do_model do_branches branches iterations first_tree = 
-            let rec loop_ smooth iter icost itree =
+            let rec loop_ iter icost itree =
                 let mcost,mtree,iter =
                     if do_model then begin
                         let mtree = model_fn itree in
@@ -1499,6 +1497,7 @@ module F : Ptree.Tree_Operations
                 let bcost,btree,iter =
                     if do_branches then begin
                         let btree = adjust_tree iterations branches None mtree in
+                        let btree = update_branches btree in
                         let bcost = Ptree.get_cost `Adjusted btree in
                         if debug_model_fn then
                             info_user_message "Step %d; Optimized Branches %f --> %f" iter mcost bcost;
@@ -1508,36 +1507,11 @@ module F : Ptree.Tree_Operations
                     end
                 in
                 if icost =. bcost || iter > max_iter
-                    then begin 
-                        if smooth then btree else loop_ true iter bcost btree 
-                    end else
-                        loop_ false iter bcost btree
+                    then btree
+                    else loop_ iter bcost btree
             in
             let first_cost = Ptree.get_cost `Adjusted first_tree in
-            loop_ false 0 first_cost first_tree
-        (** Here we apply a heuristic cost function to MPL in likelihood and
-            return a transform to turn the data back.
-        and apply_heuristic_cost_model tree =
-            let diagnose_tree tree data =
-                let data,nodes = AllDirNode.AllDirF.load_data data in
-                let adder acc x = IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
-                let node_data = List.fold_left adder IntMap.empty nodes in
-                {tree with Ptree.node_data = node_data;
-                                      data = data; }
-                    --> internal_downpass true
-                    --> assign_single
-
-            in
-            match Data.apply_heuristic_cost_model tree.Ptree.data with
-            | None      -> tree, (fun x -> x)
-            | Some data ->
-                (diagnose_tree tree data),
-                (fun tree ->
-                    match Data.apply_heuristic_cost_model 
-                                ~cost_model:`MPL tree.Ptree.data
-                    with
-                    | None      -> assert false
-                    | Some data -> diagnose_tree tree data) *)
+            loop_ 0 first_cost first_tree
         in
         let tree =
             if (using_likelihood `Either tree) then begin
