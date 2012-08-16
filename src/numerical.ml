@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 2646 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 2651 $"
 
 let (-->) b a = a b
 
@@ -170,8 +170,10 @@ type optimization_strategy =
 
 (** Define levels of optimization for the chooser *)
 type opt_modes =
-    [ `None | `Coarse of int option
-    | `Exhaustive of int option     | `Custom of optimization_strategy ]
+    [ `None
+    | `Coarse of int option
+    | `Exhaustive of int option
+    | `Custom of optimization_strategy list ]
 
 (** Here we define a simplex as a collection of points with attached data -the
     tree or some added information carried through the computation. The array
@@ -188,14 +190,14 @@ let default_subplex =
       omega = 0.1; psi = 0.25; nsmin = 2; nsmax = 5; }
 
 (** Define the default strategy from a specific routine *)
-let default_strategy routine =
+let default_strategy ?tol ?iter routine =
     let routine = match routine with
         | `Simplex      -> `Simplex None
         | `Subplex      -> `Subplex None
         | `Brent_Multi  -> `Brent_Multi
         | `BFGS         -> `BFGS None
     in
-    { routine = routine; max_iter = None; tol = None; }
+    { routine = routine; max_iter = iter; tol = tol; }
 
 
 (** {6 Numerical Functions for Optimization Routines *)
@@ -1039,12 +1041,14 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
     pdfp
 
 (** Determine the numerical optimization strategy from the methods cost mode *)
-let default_numerical_optimization_strategy o p = match o with
-    | `None  -> []
-    | _  when p < 3 -> (default_strategy `Brent_Multi) :: []
-(*    | `Normal   -> let x = (default_strategy `Brent_Multi) in [x;x]*)
-(*    | `Normal   -> (default_strategy `BFGS) :: []*)
-    | _      -> (default_strategy `BFGS) :: []
+let default_numerical_optimization_strategy o p =
+    let tol = Some (1e-3) in
+    let meth = if p < 3 then `Brent_Multi else `BFGS in
+    match o with
+    | `None            -> []
+    | `Coarse     iter -> (default_strategy ?tol ?iter meth) :: []
+    | `Exhaustive iter -> (default_strategy ?iter meth) :: []
+    | `Custom     strt -> strt
 
 (** Run an optimization strategy; call the proper algorithm w/ convergence
     properties; a list of the appropriate ones are included here *)

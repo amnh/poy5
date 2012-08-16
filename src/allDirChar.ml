@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2649 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2651 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1356,7 +1356,7 @@ module F : Ptree.Tree_Operations
                                              (params,(tree,current_cost))
                 in
                 if debug_model_fn then
-                    info_user_message "\tOptimized Model to %f --> %f"
+                    info_user_message "\tOptimized Rates to %f --> %f"
                                       current_cost (snd results);
                 results
             | None -> (tree,current_cost)
