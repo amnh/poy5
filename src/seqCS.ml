@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2871 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2644 $"
 
 let debug = false
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2645 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2652 $"
 
 exception NotASequence of int
 
@@ -64,7 +64,7 @@ type ias = {
 *)
 type cost_matrix = 
     | CM of Cost_matrix.Two_D.m 
-    | Model of FloatSequence.dyn_model * (float * int option) (* model, branch length to parent code *)
+    | Model of FloatSequence.dyn_model * (float option * int option) (* model, branch length to parent code *)
 
 type t = {
     sequences : ias array Codes.t;
@@ -355,7 +355,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         in
                         let inds = calculate_indels anoclip bnoclip alph bchld in
                         aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
-                    | Model (m,(t,p)) ->
+                    | Model (m,(Some t,p)) ->
                         let aseq,bseq,_,clip_len,anoclip,bnoclip =
                             match FloatSequence.cost_fn m with
                             | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
@@ -363,6 +363,8 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         in
                         let inds = calculate_indels anoclip bnoclip alph bchld in
                         aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
+                    | Model (m,(None,p)) ->
+                        assert false (** no branch length / empty character *)
                 end
             end
         in
@@ -392,7 +394,8 @@ let ancestor calculate_median state prealigned all_minus_gap a b
     let median_fn = match cm with
         | CM cm -> 
             fun a b _ -> Cost_matrix.Two_D.median a b cm
-        | Model (m,(t,_)) ->
+        | Model (_,(None,_))   -> assert false
+        | Model (m,(Some t,_)) ->
             begin match FloatSequence.cost_fn m with
                 | `MPL -> 
                     let gc = FloatSequence.MPLAlign.get_closest m t in
@@ -402,7 +405,8 @@ let ancestor calculate_median state prealigned all_minus_gap a b
     and cost_fn = match cm with
         | CM cm -> 
             fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
-        | Model (m,(t,_)) ->
+        | Model (_,(None,_))   -> assert false
+        | Model (m,(Some t,_)) ->
             begin match FloatSequence.cost_fn m with
                 | `MPL -> 
                     let gc = FloatSequence.MPLAlign.get_closest m t in
@@ -629,7 +633,6 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
         | CM cm -> cm
         | Model _ -> assert false
     in
-
     let a, b, min_can_code = 
         if calculate_median then 
             if acode < bcode then a, b, acode
@@ -810,12 +813,10 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
 * function, but for annotated chromosome characters  *)
 let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
         achld bchld a b boxed_cm alpha annchrom_pam  =
-
     let cm = match boxed_cm with
         | CM cm -> cm
         | Model _ -> assert false
     in
-
     let a, b, min_can_code = 
         if calculate_median then 
             if acode < bcode then a, b, acode
@@ -1002,12 +1003,10 @@ let ancestor_breakinv_clade clade re_seq_clade =
 * function, but for breakinv characters  *)
 let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
                       achld bchld a b boxed_cm alpha breakinv_pam = 
-
     let cm = match boxed_cm with
         | CM cm -> cm
         | Model _ -> assert false
     in
-
     let a, b, min_can_code = 
         if calculate_median then 
             if acode < bcode then a, b, acode
@@ -1064,12 +1063,10 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
 * function, but for genome characters  *)
 let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
         bchld a b boxed_cm alpha chrom_pam = 
-
     let cm = match boxed_cm with
         | CM cm -> cm
         | Model _ -> assert false
     in
-
     let ias1_arr, ias2_arr, min_can_code =
         if calculate_median then 
             if acode < bcode then a, b, acode
@@ -1653,30 +1650,29 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         (* We turn this off because `Normal and `Exact would produce the wrong
          * implied alignment when using affine gap costs *)
         let calculate_median = false in
-        let get_dynamic_data = 
-            if calculate_median 
-                then Node.get_dynamic_preliminary 
-                else Node.get_dynamic_adjusted 
+        let get_dynamic_data =
+            if calculate_median
+                then Node.get_dynamic_preliminary
+                else Node.get_dynamic_adjusted
         in
-        let vertices = 
+        let vertices =
             try let root = Ptree.get_component_root handle ptree in
                 match root.Ptree.root_median with
-                | Some (_, v) ->Some (((Node.num_otus None v) * 2) - 1);
-                | None -> None
-            with | Not_found -> None
+                | Some (_, v) -> Some (((Node.num_otus None v) * 2) - 1);
+                | None        -> None
+            with | Not_found  -> None
         in
         let st = Status.create "Implied Alignments" vertices "vertices calculated" in
         let convert_data tree parent self taxon_id data time =
             let find_branch_length dyn time =
                 let code = DynamicCS.code dyn in
                 match time with
-                | Some t ->
-                    let topt = List.find (fun (a,data) -> Array_ops.mem a code) t in
-                    begin match topt with
-                        | _,Some t -> t
-                        | _,None   -> assert false
-                    end
                 | None   -> assert false (* should only be called under LK *)
+                | Some t ->
+                    try let topt = List.find (fun (a,data) -> Array_ops.mem a code) t in
+                        snd topt
+                    with | Not_found ->
+                        None
             in
             let data =
                 List.map
@@ -1695,10 +1691,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 sequences Codes.empty
                         and cost_matrix =
                             try let model = DynamicCS.lk_model dyn in
-                                match FloatSequence.cost_fn model with
-                                | `MPL | `MAL ->
-                                    let bl = find_branch_length dyn time in
-                                    Model (model,(bl,parent))
+                                let bl = find_branch_length dyn time in
+                                Model (model,(bl,parent))
                             with | Not_found -> CM (DynamicCS.c2 dyn)
                         in
                         {   sequences = new_sequences;   
@@ -1764,7 +1758,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         let ancestor = 
                             ancestor_f calculate_median all_minus_gap
                                        x.cannonic_code y.cannonic_code x.children
-                                       y.children v homs x.c2 x.alpha x.chrom_pam;
+                                       y.children v homs x.c2 x.alpha x.chrom_pam
                         in
                         Codes.add u ancestor acc)
                     x.sequences
@@ -2604,22 +2598,22 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
 
    (** (sequence code list), ( (taxon_id * (aligned_code arrays for each character
        set) list (of characters) ) list (of taxa) ) of list (of trees) *)
-    let aux_create_implied_alignment filter_fn codes data tree = 
+    let aux_create_implied_alignment filter_fn codes data tree =
         let operate_on_tree tree =
-            let filtered_trees = 
-                List.map 
-                    (fun x -> 
+            let filtered_trees =
+                List.map
+                    (fun x ->
                          let alph = Data.get_alphabet data x in
                          let gap = Alphabet.get_gap alph in
                          let tcm = Data.get_sequence_tcm x data in
                          let kind =
                              match Hashtbl.find data.Data.character_specs x with
-                             | Data.Dynamic x -> 
+                             | Data.Dynamic x ->
                                      x.Data.state,
                                      x.Data.initial_assignment
                              | _ -> assert false
                          in
-                         let all = 
+                         let all =
                              if 1 = Cost_matrix.Two_D.combine tcm then
                                  match Alphabet.get_all alph with
                                  | Some all -> all
@@ -2628,11 +2622,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                  * level now.*)
                                  | None -> (-1) (*assert false*)
                              else (-1) (* we won't use it anyway *)
-                         in 
+                         in
                          kind,
-                         (if 1 = Cost_matrix.Two_D.combine tcm then
-                            fun x -> x land ((lnot gap) land all)
-                         else fun x -> x), filter_fn tree [x]) 
+                         (if 1 = Cost_matrix.Two_D.combine tcm
+                            then fun x -> x land ((lnot gap) land all)
+                            else fun x -> x),
+                        filter_fn tree [x])
                     codes
             in
             List.map of_tree filtered_trees
@@ -2645,16 +2640,18 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
        set) list (of characters) ) list (of taxa) ) of list (of trees) *)
     let create filter_fn codes data tree = 
         let codes = (* Check if the codes are sequence codes or not *) 
-            List.filter (fun x -> 
-                if (List.exists (fun y -> x = y) data.Data.dynamics) then true
-                else begin
-                    Status.user_message Status.Error
-                    ("The character with code " ^ string_of_int x ^
-                    " is not a sequence character. You have requested an "
-                    ^ "implied alignment of such thing, I will ignore that "
-                    ^ "character for the implied alignment.");
-                    false
-                end) codes
+            List.filter
+                (fun x ->
+                    if (List.exists (fun y -> x = y) data.Data.dynamics) then true
+                    else begin
+                        Status.user_message Status.Error
+                        ("The character with code " ^ string_of_int x
+                        ^" is not a sequence character. You have requested an "
+                        ^"implied alignment of such thing, I will ignore that "
+                        ^"character for the implied alignment.");
+                        false
+                    end)
+                codes
         in
         let _, ia = aux_create_implied_alignment filter_fn codes data tree in
         ia
@@ -2733,19 +2730,18 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
        and the cost function is not used. *)
     let filter_characters tree codes =
         let filter_codes node = Node.f_codes codes node in
-        let new_node_data = 
-            All_sets.IntegerMap.map filter_codes tree.Ptree.node_data 
+        let new_node_data =
+            All_sets.IntegerMap.map filter_codes tree.Ptree.node_data
         in
-        let component_root = 
+        let component_root =
             All_sets.IntegerMap.map
                 (fun x -> match x.Ptree.root_median with
-                    | None -> x
-                    | Some (x, y) -> 
+                    | None        -> x
+                    | Some (x, y) ->
                         let y = filter_codes y in
-                        { 
-                            Ptree.component_cost = Node.tree_cost None y;
-                            Ptree.adjusted_component_cost = Node.tree_cost None y;
-                            Ptree.root_median = Some (x, y); })
+                        { Ptree.component_cost = Node.tree_cost None y;
+                          Ptree.adjusted_component_cost = Node.tree_cost None y;
+                          Ptree.root_median = Some (x, y); })
                 tree.Ptree.component_root
         in
         { tree with

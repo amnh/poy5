@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 2650 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 2652 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -661,12 +661,17 @@ let array_filter f a b =
     let len = Array.length a in
     assert( len = Array.length b );
     let rec array_filter_pair acc1 acc2 i =
-        if i = len then (List.rev acc1, List.rev acc2)
-        else if not (f a.(i)) then array_filter_pair acc1 acc2 (i+1)
-        else array_filter_pair (a.(i)::acc1) (b.(i)::acc2) (i+1)
+        if i = len then 
+            (Array.of_list (List.rev acc1),
+             Array.of_list (List.rev acc2))
+        else if not (f a.(i)) then 
+            array_filter_pair acc1 acc2 (i+1)
+        else 
+            array_filter_pair (a.(i)::acc1) (b.(i)::acc2) (i+1)
     in
-    let one,two = array_filter_pair [] [] 0 in
-    Array.of_list one, Array.of_list two
+    let (one,two) as results = array_filter_pair [] [] 0 in
+    assert( (Array.length one) = (Array.length two) );
+    results
 
 let f_codes s c = match s.data with
     | MPLAlign r ->
@@ -703,7 +708,8 @@ let f_codes_comp s c = match s.data with
         in
         { s with codes = codes; data = CMPLAlign { ss = seqs; } }
 
-(*---- make an initial leaf node; still requires IA. *)
+
+(*---- make an initial leaf node *)
 let make a s m = 
     let r = match m.MlModel.spec.MlModel.cost_fn with
         | `MPL ->
