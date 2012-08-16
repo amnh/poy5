@@ -248,7 +248,7 @@ end
 (** [of_file stream o 3d] parse an alphabet using orientation [o],
     and optionally initialize it to 3d dimensions [3d]. *)
 val of_file : FileStream.f -> bool -> bool -> int -> bool -> Methods.keep_method
-                -> a * (Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
+                -> a * (Cost_matrix.Two_D.m * Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
  
 (** Create alphabet with a specific level from a current level *)
 val create_alph_by_level : a -> int -> int -> a

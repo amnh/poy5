@@ -911,7 +911,7 @@ module Align = struct
             let deltaw = gaps + deltaw_calc ls2 ls1 in
             c_cost_2 s2 s1 m1 m2 deltaw
 
-
+    (*pass different cost matrix(m1) here*)
     let cost_2 ?deltaw s1 s2 m1 m2 =
         match Cost_matrix.Two_D.affine m1 with
         | Cost_matrix.Affine _ ->
@@ -1741,7 +1741,7 @@ module Align = struct
         end (*end of when three input are not the same length*)
     (*readjust 3d functions for custom alphabet end*)
 
-end (*end of module DOS*)
+end (*end of module Align*)
 
 module NewkkAlign = struct 
     

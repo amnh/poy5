@@ -1699,7 +1699,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 | `MPL | `MAL ->
                                     let bl = find_branch_length dyn time in
                                     Model (model,(bl,parent))
-                            with | Not_found -> CM (DynamicCS.c2 dyn)
+                            with | Not_found -> CM (DynamicCS.c2_full dyn)
                         in
                         {   sequences = new_sequences;   
                             c2 = cost_matrix;
@@ -1733,7 +1733,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     and adj = Node.get_dynamic_adjusted par data in
                     List.map2
                         (fun pre adj ->
-                            try if 0 = Cost_matrix.Two_D.combine (DynamicCS.c2 pre)
+                            try if 0 = Cost_matrix.Two_D.combine
+                            (DynamicCS.c2_full pre)
                                 then adj
                                 else pre
                             with | _ -> adj (* likelihood *) )

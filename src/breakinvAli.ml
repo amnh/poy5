@@ -25,6 +25,7 @@ let () = SadmanOutput.register "BreakinvAli" "$Revision: 911 $"
 * are considered *)
 
 let debug = false
+let debug_distance = false
 let fprintf = Printf.fprintf
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
@@ -61,6 +62,8 @@ let print bkt =
     Printf.printf "cost1=%d,cost2=%d,recost1=%d,recost2=%d\n%!"
     bkt.cost1 bkt.cost2 bkt.recost1 bkt.recost2;
     Printf.printf "]\n%!"
+
+
 
 
 (** Data structure to contain parameters 
@@ -178,6 +181,52 @@ let get_recost user_pams =
             | `Locus_Breakpoint c -> c
             | `Locus_Inversion c -> c
 
+let get_extra_cost_for_root x cost_mat pure_gen_cost_mat alpha breakinv_pam = 
+    let ali_pam = get_breakinv_pam breakinv_pam in 
+    let gapcode = Alphabet.get_gap alpha in
+    let seq1 = x.alied_seq1 and seq2 = x.alied_seq2 in
+    let seq1 = Sequence.remove_gaps seq1 ~gapcode:gapcode false in
+    let seq2 = Sequence.remove_gaps seq2 ~gapcode:gapcode false in
+    let len1 = Sequence.length seq1 
+    and len2 = Sequence.length seq2 in
+    let orientation = Alphabet.get_orientation alpha in
+    let newcost = 
+        if (len1 < 1) || (len2 < 1) then 0
+        else begin
+            match ali_pam.symmetric with
+            | true ->
+                   let cost12, (recost12a,recost12b), _, _ =
+                      GenAli.create_gen_ali ali_pam.kept_wag `Breakinv seq1
+                      seq2 pure_gen_cost_mat alpha ali_pam.re_meth 
+                      ali_pam.swap_med ali_pam.circular orientation
+                  in 
+                  let cost21, (recost21a,recost21b), _, _ = 
+                      GenAli.create_gen_ali ali_pam.kept_wag `Breakinv seq2
+                      seq1 pure_gen_cost_mat alpha ali_pam.re_meth 
+                      ali_pam.swap_med ali_pam.circular orientation
+                  in 
+                  if cost12 <= cost21 then cost12
+                  else cost21
+            | false ->
+                  let cost, _ , _, _ = 
+                      if Sequence.compare x.alied_seq1 x.alied_seq2 < 0 then                       
+                          GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv seq1
+                          seq2 pure_gen_cost_mat alpha ali_pam.re_meth 
+                          ali_pam.swap_med ali_pam.circular orientation 
+                      else 
+                          GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv seq2
+                          seq1 pure_gen_cost_mat alpha ali_pam.re_meth 
+                          ali_pam.swap_med ali_pam.circular orientation
+                  in      
+                  cost 
+        end 
+    in
+    (*let newcost = Sequence.Align.cost_2 seq1 seq2 cost_mat Matrix.default in
+* *)
+    let oldcost = x.cost1 + x.recost1 in 
+    if debug_distance then Printf.printf "get_extra_cost_for_root = %d - %d\n%!"  oldcost newcost;
+    oldcost - newcost 
+
 
 
 (** [cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam]
@@ -195,7 +244,6 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
     Printf.printf "breakinvAli.cmp_cost,gapcod=%d: \n%!" gapcode; 
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
     end;
-   
     let ali_pam = get_breakinv_pam breakinv_pam in     
     let len1 = Sequence.length seq1 in 
     let len2 = Sequence.length seq2 in 
@@ -211,7 +259,7 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
     else begin
         match ali_pam.symmetric with
         | true ->
-                let cost12, (recost12a,recost12b), _, _ =
+               let cost12, (recost12a,recost12b), _, _ =
                   GenAli.create_gen_ali ali_pam.kept_wag `Breakinv seq1
                   seq2 pure_gen_cost_mat alpha ali_pam.re_meth 
                   ali_pam.swap_med ali_pam.circular orientation
@@ -421,8 +469,8 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                       ref_code = newrefcode;
                       ref_code1 = med1.ref_code;
                       ref_code2 = med2.ref_code;
-                      cost1 = total_cost - recost2;
-                      cost2 = total_cost - recost1;
+                      cost1 = total_cost - recost1;
+                      cost2 = total_cost - recost2;
                       recost1 = recost1;
                       recost2 = recost2;
                       delimiter_lst = newdelimiters 

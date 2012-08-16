@@ -33,8 +33,10 @@ type meds_t = {
     total_cost : int;   (** the cost to create this breakinv list *)
     total_recost : int; (** the recost to create this breakinv list *)
     breakinv_pam : Data.dyna_pam_t; (** breakinv paramenters used to create breakinv median *)
-    gen_cost_mat : Cost_matrix.Two_D.m;
-    pure_gen_cost_mat : int array array;
+    gen_cost_mat_full : Cost_matrix.Two_D.m; 
+    gen_cost_mat_original : Cost_matrix.Two_D.m; 
+    pure_gen_cost_mat_full : int array array;
+    pure_gen_cost_mat_original : int array array; 
     alpha : Alphabet.a 
 }
 
@@ -46,7 +48,7 @@ val print : meds_t -> unit
 * created from a sequence of general character [seq]*)
 val init_med :
   Sequence.s -> int list ->
-  Cost_matrix.Two_D.m -> Alphabet.a -> Data.dyna_pam_t -> meds_t
+  Cost_matrix.Two_D.m -> Cost_matrix.Two_D.m -> Alphabet.a -> Data.dyna_pam_t -> meds_t
 
 (** [keep chrom_pam med_ls] returns a sublist of median list
 * [med_ls] to be kept to process further based on the customs's defined paramaters *)
@@ -60,6 +62,8 @@ val keep : Data.dyna_pam_t -> 'a list -> 'a list
 * Find z*_ij = minargv(z_ij )(c_ij) *)
 val find_meds2 : meds_t -> meds_t -> meds_t
 
+
+val get_extra_cost_for_root : meds_t -> int
 
 (** [cmp_min_pair_cost] returns the minimum cost
 * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]

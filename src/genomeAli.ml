@@ -30,6 +30,7 @@ let  fprintf = Printf.fprintf
 let  deref = Utl.deref
 let  debug = false
 let  debug_median = false
+let  debug_distance = false 
 let  gap = Alphabet.gap
 
 type direction_t = ChromPam.direction_t
@@ -1220,6 +1221,20 @@ let create_med_mauve_annotator med1 med2 cost_mat ali_pam =
     in
     genome_med, total_cost,(recost1,recost2) 
 
+
+let get_extra_cost_for_root x cost_mat =
+    Array.fold_left (fun acc1 chromt ->
+        let c = List.fold_left (fun acc2 segt ->
+            let seq1 = segt.alied_seq1 
+            and seq2 = segt.alied_seq2 in
+            let newcost = Sequence.Align.cost_2 seq1 seq2 cost_mat Matrix.default in
+            if debug_distance then Printf.printf "get_extra_cost_for_root, acc(%d)\
+            += %d - %d\n%!" acc2 segt.cost newcost;
+            segt.cost - newcost + acc2
+        ) 0 chromt.map
+        in
+        acc1 + c
+    ) 0 x.chrom_arr
 
 (** [create_med med1 med2 cost_mat user_chrom_pams] 
 * creates a median between two genomes [med1] and [med2] *)

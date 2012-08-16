@@ -401,7 +401,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
     let get_all_sequences_data node = 
         let sequences = Node.get_sequences None node in
-        List.map (fun (_, a, _, _, _) -> a) sequences
+        List.map (fun (_, a, _, _, _, _) -> a) sequences
 
     let get_sequence_data node = 
         match get_all_sequences_data node with

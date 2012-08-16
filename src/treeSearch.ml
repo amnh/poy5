@@ -20,6 +20,8 @@
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
 let () = SadmanOutput.register "TreeSearch" "$Revision: 2871 $"
 
+let debug_find_local_optimum = false 
+
 let has_something something (`LocalOptimum (cost_calculation)) =
     let cost_calculation = cost_calculation.Methods.cc in
     List.exists (fun x -> x = something) cost_calculation
@@ -725,14 +727,25 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                 let cost = Ptree.get_cost `Adjusted tree in
                 let tabu_manager = tabu_manager tree in
                 let queue_manager = queue_manager () in
+                let uncost = Ptree.get_cost `Unadjusted tree in
+                if debug_find_local_optimum then 
+                    Printf.printf "init tree search with cost = %f(%f)\n%!" cost uncost;
                 queue_manager#init [(tree, cost, Ptree.NoCost, tabu_manager)];
                 try
                     let res = (search_fn queue_manager)#results in
                     List.map (fun (a, _, _) ->
                         if a.Ptree.tree <> tree.Ptree.tree then
-                            let a = PtreeSearch.uppass a in 
+                            let a = PtreeSearch.uppass a in
+                            if debug_find_local_optimum then
+                                Printf.printf "new tree with cost = %f\n%!" (Ptree.get_cost `Adjusted a);
                             (a, Ptree.get_cost `Adjusted a)
-                        else (a, Ptree.get_cost `Adjusted a)) res
+                        else
+                            let _ = 
+                                if debug_find_local_optimum then
+                                Printf.printf "same old tree with cost %f\n%!" (Ptree.get_cost `Adjusted a) 
+                            in
+                            (a, Ptree.get_cost `Adjusted a)
+                    ) res
                 with
                 | Methods.TimedOut -> [(tree, Ptree.get_cost `Adjusted tree)]
             in

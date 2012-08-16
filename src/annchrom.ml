@@ -35,7 +35,8 @@ type meds_t = {
     num_med : int; (** number of annotated chromosomes *)
     total_cost : int; (** the cost to create this annotated chromosome list *)   
     total_recost : int; (** the recost to create this annotated chromosome list *)   
-    cost_mat : Cost_matrix.Two_D.m; (** the two dimentional cost matrix for this annotated chromosome *)
+    cost_mat_full : Cost_matrix.Two_D.m; (** the two dimentional cost matrix for this annotated chromosome *)
+    cost_mat_original : Cost_matrix.Two_D.m; (** the two dimentional cost matrix for this annotated chromosome *)
     alpha : Alphabet.a; (** alphabet of this annotated chromosome *)
     
 
@@ -54,7 +55,7 @@ let max_taxa_id = ref 0
 * returns an annotated chromosome list with only one element
 * created from an array of sequences *) 
 let init_med (seq_arr : (Sequence.s Data.seq_t) array) 
-        cost_mat alpha annchrom_pam tcode num_taxa = 
+        cost_mat_full cost_mat_original alpha annchrom_pam tcode num_taxa = 
 
     let med = AnnchromAli.init 
         (Array.map (fun s -> s.Data.seq, s.Data.code) seq_arr) in 
@@ -65,9 +66,9 @@ let init_med (seq_arr : (Sequence.s Data.seq_t) array)
         total_cost = 0;
         total_recost = 0;
         annchrom_pam = annchrom_pam;
-        cost_mat = cost_mat;
+        cost_mat_full = cost_mat_full;
+        cost_mat_original = cost_mat_original;
         alpha = alpha;
-
         approx_med_arr = (Array.make !max_taxa_id med);
         approx_cost_arr = (Array.make !max_taxa_id max_int);
         approx_recost_arr = (Array.make !max_taxa_id max_int);
@@ -84,7 +85,7 @@ let update_approx_mat meds1 meds2 =
     let code2 = meds2.code in
     (if meds1.approx_cost_arr.(code2) = max_int then begin 
          let cost, recost, med2_ls = AnnchromAli.find_med2_ls med1 med2
-             meds1.cost_mat meds1.alpha meds1.annchrom_pam 
+             meds1.cost_mat_full meds1.alpha meds1.annchrom_pam 
          in  
         meds1.approx_med_arr.(code2) <- List.hd med2_ls;
         meds1.approx_cost_arr.(code2) <- cost; 
@@ -104,7 +105,8 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                  List.fold_left  
                      (fun best_meds med2 -> 
                           let cost, recost, med_ls =
-                              AnnchromAli.find_med2_ls med1 med2 meds1.cost_mat
+                              AnnchromAli.find_med2_ls med1 med2
+                              meds1.cost_mat_full
                                   meds1.alpha meds1.annchrom_pam 
                           in  
                           if cost < best_meds.total_cost then 
@@ -150,8 +152,12 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     let meds2p = find_meds2 meds2 medsp in 
     if meds1p.total_cost < meds2p.total_cost then meds1p
     else meds2p
-            
-       
+
+let get_extra_cost_for_root medst cost_mat =
+    List.fold_left (fun acc medt ->
+        acc + AnnchromAli.get_extra_cost_for_root medt cost_mat
+    ) 0 medst.med_ls
+
 (** [cmp_min_pair_cost] computes the min median cost
  * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
  * where xi and yj are medians. For each pair (xi, yj) we have 
@@ -164,7 +170,7 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
                 List.fold_left 
                     (fun (min_cost2, min_recost2) med2 -> 
                          let cost, recost = AnnchromAli.cmp_cost med1 med2
-                                meds1.cost_mat 
+                                meds1.cost_mat_original 
                                 meds1.alpha meds1.annchrom_pam 
                          in  
                          if min_cost2 >cost then cost, recost
@@ -187,7 +193,7 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
                 List.fold_left 
                     (fun (max_cost2, max_recost2) med2 -> 
                          let cost, recost = AnnchromAli.cmp_cost med1 med2
-                                meds1.cost_mat 
+                                meds1.cost_mat_original 
                                 meds1.alpha meds1.annchrom_pam 
                          in  
                          if max_cost2 <cost then cost, recost
@@ -219,7 +225,7 @@ let compare (meds1 : meds_t) (meds2 : meds_t) =
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
 * the current median [mine] of three medians [ch1],
 * [ch2], and [parent] using three dimentional alignments*)
-let readjust_3d ch1 ch2 mine c2 c3 parent = 
+let readjust_3d ch1 ch2 mine c2_full c3 parent = 
     if debug then Printf.printf "annchrom.ml readjust_3d\n%!";
     let alpha = mine.alpha in 
     let annchrom_pam = mine.annchrom_pam in 
@@ -231,7 +237,7 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let cost2, _  = cmp_min_pair_cost ch2 mine in
     let costp, _ = cmp_min_pair_cost parent mine in
     let old_cost = cost1 + cost2 + costp in 
-    let cost, adjust_med = AnnchromAli.find_med3 ach1 ach2 aparent amine c2 c3 alpha
+    let cost, adjust_med = AnnchromAli.find_med3 ach1 ach2 aparent amine c2_full c3 alpha
         annchrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
     if old_cost <= cost then  old_cost, mine, false

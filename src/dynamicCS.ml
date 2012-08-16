@@ -90,15 +90,16 @@ let subtree_recost (a : t) = match a with
     | BreakinvCS a -> a.BreakinvCS.subtree_recost
     | AnnchromCS a -> a.AnnchromCS.subtree_recost
 
-(** [c2 a] returns the two dimentional cost matrix
+(** [c2_full a] returns the two dimentional cost matrix
 * of dynamic character set [a] *)
-let c2 (a : t) = match a with 
+let c2_full (a : t) = match a with 
     | MlCS a -> MlDynamicCS.get_cm a
-    | SeqCS a -> a.SeqCS.heuristic.SeqCS.c2
-    | ChromCS a -> a.ChromCS.c2
-    | GenomeCS a -> a.GenomeCS.c2
-    | BreakinvCS a -> a.BreakinvCS.c2
-    | AnnchromCS a -> a.AnnchromCS.c2
+    | SeqCS a -> a.SeqCS.heuristic.SeqCS.c2_full
+    | ChromCS a -> a.ChromCS.c2_full
+    | GenomeCS a -> a.GenomeCS.c2_full
+    | BreakinvCS a -> a.BreakinvCS.c2_full
+    | AnnchromCS a -> a.AnnchromCS.c2_full
+
 
 (** [lk_model a] returns the likelihood model for the dynamic likelihood
     character, or raise a Not_found for other characters *)
@@ -344,6 +345,15 @@ let median_3 p n c1 c2 = match p, n, c1, c2 with
     | GenomeCS p, GenomeCS n, GenomeCS c1, GenomeCS c2 -> 
           GenomeCS (GenomeCS.median3 p n c1 c2)
     | _, _, _, _ -> failwith_todo "median_3"
+
+let get_extra_cost_for_root (a : t)  = match a with
+    | MlCS x -> 0.0
+    | SeqCS x -> SeqCS.get_extra_cost_for_root x
+    | ChromCS x -> ChromCS.get_extra_cost_for_root x
+    | AnnchromCS x -> AnnchromCS.get_extra_cost_for_root x 
+    | GenomeCS x -> GenomeCS.get_extra_cost_for_root x
+    | BreakinvCS x -> BreakinvCS.get_extra_cost_for_root x
+    | _ -> 0.0
 
 
 (* Like [distance] but calculates it only 

@@ -31,7 +31,8 @@ type meds_t = {
     med_ls : med_t list; (** chromosome list *)
     total_cost : int;  (** the cost to create this chromosome list *)   
     total_recost : int; (** the recost to create this chromosome list *)   
-    c2 : Cost_matrix.Two_D.m; 
+    c2_full : Cost_matrix.Two_D.m; 
+    c2_original : Cost_matrix.Two_D.m; 
 
     approx_cost_arr : int array; (* An array of chromosome medians 
                                   * created from this median to other medians.
@@ -47,7 +48,7 @@ let max_taxa_id = ref 0
 (** [init_med seq c2 chrom_pam tcode num_taxa] 
 * returns a  chromosome list with only one element
 * created from sequence [seq] *) 
-let init_med (seq : Sequence.s) c2 chrom_pam tcode num_taxa =  
+let init_med (seq : Sequence.s) c2_full c2_original chrom_pam tcode num_taxa =  
 
     let seq = 
         if Sequence.is_empty seq (Alphabet.get_gap Alphabet.nucleotides) then
@@ -63,7 +64,8 @@ let init_med (seq : Sequence.s) c2 chrom_pam tcode num_taxa =
     
         total_cost = 0; 
         total_recost = 0;
-        c2 = c2;
+        c2_full = c2_full;
+        c2_original = c2_original;
         approx_med_arr = (Array.make (!max_taxa_id+1) med);
         approx_cost_arr = (Array.make (!max_taxa_id+1) max_int);
         approx_recost_arr = (Array.make (!max_taxa_id+1) max_int);
@@ -90,11 +92,17 @@ let update_approx_mat meds1 meds2 =
     let code2 = meds2.code in
     (if meds1.approx_cost_arr.(code2) = max_int then begin 
         let cost, recost, med2_ls = 
-            ChromAli.find_med2_ls med1 med2 meds1.c2 meds1.chrom_pam None in  
+            ChromAli.find_med2_ls med1 med2 meds1.c2_full meds1.chrom_pam None in  
         meds1.approx_med_arr.(code2) <- List.hd med2_ls;
         meds1.approx_cost_arr.(code2) <- cost; 
         meds1.approx_recost_arr.(code2) <- recost; 
      end) 
+
+let get_extra_cost_for_root medst cost_mat = 
+    List.fold_left (fun acc medt ->
+        acc + ChromAli.get_extra_cost_for_root medt cost_mat
+    ) 0 medst.med_ls
+
 
 (** [cmp_min_pair_cost] computes the min median cost
  * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
@@ -108,7 +116,7 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
                    List.fold_left 
                        (fun (min_cost2, min_recost2) med2 ->
                             let cost, recost = ChromAli.cmp_cost med1 med2
-                                meds1.c2 meds1.chrom_pam `Chromosome 
+                                meds1.c2_original meds1.chrom_pam `Chromosome 
                             in 
                             if cost < min_cost2 then cost, recost
                             else min_cost2, min_recost2
@@ -137,7 +145,7 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
                    List.fold_left 
                        (fun (max_cost2, max_recost2) med2 ->
                             let cost, recost = ChromAli.cmp_cost med1 med2
-                                meds1.c2 meds1.chrom_pam `Chromosome
+                                meds1.c2_original meds1.chrom_pam `Chromosome
                             in 
                             if cost > max_cost2 then cost, recost
                             else max_cost2, max_recost2
@@ -167,7 +175,7 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                  List.fold_left  
                      (fun best_meds med2 -> 
                           let cost, recost, med_ls =
-                              ChromAli.find_med2_ls med1 med2 meds1.c2
+                              ChromAli.find_med2_ls med1 med2 meds1.c2_full
                               meds1.chrom_pam None in  
                         if cost < best_meds.total_cost then 
                             { best_meds with med_ls = med_ls; total_cost = cost;

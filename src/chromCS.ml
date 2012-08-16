@@ -39,7 +39,8 @@ type t = {
     total_recost : float;           (** The total recost of the character set *)
     subtree_recost : float;         (** The total subtree recost of the
                                         character set *)
-    c2 : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to be used in the character set *)
+    c2_full : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to be used in the character set *)
+    c2_original : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to be used in the character set *)
     c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be used in the character set *)
     chrom_pam : Data.dyna_pam_t;
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
@@ -53,7 +54,8 @@ let cardinal x = IntMap.fold (fun _ _ x -> x + 1) x.meds 0
 * creates a  chromosome character set from an array of sequences [arr] *)
 let of_array spec arr chcode tcode num_taxa = 
     let adder (meds, costs, recosts) (seq, key) = 
-        let med = Chrom.init_med  seq spec.Data.tcm2d spec.Data.pam tcode num_taxa in 
+        let med = Chrom.init_med  seq spec.Data.tcm2d_full
+        spec.Data.tcm2d_original spec.Data.pam tcode num_taxa in 
         (IntMap.add key med meds), 
         (IntMap.add key 0.0 costs), 
         (IntMap.add key 0.0 recosts)
@@ -69,7 +71,8 @@ let of_array spec arr chcode tcode num_taxa =
         total_cost = 0.0;
         total_recost = 0.0;
         subtree_recost = 0.0;
-        c2 = spec.Data.tcm2d;
+        c2_full = spec.Data.tcm2d_full;
+        c2_original = spec.Data.tcm2d_original;
         c3 = spec.Data.tcm3d;
         alph = spec.Data.alph;
         code = chcode;
@@ -150,7 +153,7 @@ let median3 p n c1 c2 =
 * sets [ch1], [ch2] and [parent] *)
 let readjust to_adjust modified ch1 ch2 parent mine = 
     let empty = IntMap.empty and
-            c2 = parent.c2 and
+            c2 = parent.c2_full and
             c3 = parent.c3 
     in
 
@@ -191,7 +194,13 @@ let readjust to_adjust modified ch1 ch2 parent mine =
     tc,
     { mine with meds = meds; costs = costs; total_cost = tc }
 
-
+(**[get_extra_cost_for_root root] return the extra cost result from non-zero
+* diagonal in cost matrix.*)
+let get_extra_cost_for_root (a :t) =
+    let get_ec code medst acc =
+        acc + Chrom.get_extra_cost_for_root medst a.c2_original 
+    in
+    float_of_int (IntMap.fold get_ec a.meds 0) 
 
 (** [distance a b] returns total distance between 
 * two  chromosome character sets [a] and [b] *)
@@ -332,7 +341,7 @@ let to_formatter (node_name:string option) ref_codes attr t (parent_t : t option
                             in
                             let cost, recost, med_ls = 
                                 ChromAli.find_med2_ls 
-                                med parent_med t.c2 t.chrom_pam filename
+                                med parent_med t.c2_original t.chrom_pam filename
                             in 
                             let med = List.hd med_ls in                             
                             let map = ChromAli.create_single_map med in 
@@ -374,7 +383,8 @@ let to_formatter (node_name:string option) ref_codes attr t (parent_t : t option
 * the single states of  chromosome character set [mine] *) 
 let to_single ref_codes (root : t option) single_parent mine = 
     let previous_total_cost = mine.total_cost in 
-    let c2 = mine.c2 in 
+    let c2_full = mine.c2_full in 
+    let c2_original = mine.c2_original in 
 
     let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =        
 
@@ -406,23 +416,25 @@ let to_single ref_codes (root : t option) single_parent mine =
             match root with
             | None -> 
                   let single_seq = 
-                      ChromAli.to_single aparent_med amed.ChromAli.ref_code c2  med.Chrom.chrom_pam
+                      ChromAli.to_single aparent_med amed.ChromAli.ref_code
+                      c2_full  med.Chrom.chrom_pam
                   in 
 
                   let cost, recost = ChromAli.cmp_cost 
-                      ({amed with ChromAli.seq = (Sequence.delete_gap single_seq)} ) aparent_med c2
+                      ({amed with ChromAli.seq = (Sequence.delete_gap
+                      single_seq)} ) aparent_med c2_original
                       med.Chrom.chrom_pam `Chromosome
                   in 
                   cost, recost, single_seq
 
             | Some root ->              
                   let single_root = ChromAli.to_single_root amed
-                      aparent_med.ChromAli.ref_code c2 
+                      aparent_med.ChromAli.ref_code c2_full 
                   in
                   0, 0, single_root
         in 
         
-        let single_med = ChromAli.change_to_single amed single_seq c2 in                     
+        let single_med = ChromAli.change_to_single amed single_seq c2_original in                     
         let single_med = {med with Chrom.med_ls = [single_med]} in 
         let new_single = IntMap.add code single_med acc_meds in
         let new_costs = IntMap.add code (float_of_int cost) acc_costs in 

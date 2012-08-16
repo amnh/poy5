@@ -30,7 +30,8 @@ type meds_t = {
     med_ls : med_t list; (** chromosome list *)
     total_cost : int;  (** the cost to create this chromosome list *)   
     total_recost : int; (** the recost to create this chromosome list *)   
-    c2 : Cost_matrix.Two_D.m; 
+    c2_full : Cost_matrix.Two_D.m; 
+    c2_original : Cost_matrix.Two_D.m; 
 
     approx_cost_arr : int array; (* An array of chromosome medians 
                                   * created from this median to other medians.
@@ -44,7 +45,7 @@ type meds_t = {
 (** [init_med seq c2 chrom_pam tcode num_taxa] 
 * returns a  chromosome list with only one element
 * created from sequence [seq] *) 
-val init_med : Sequence.s -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int -> int -> meds_t
+val init_med : Sequence.s -> Cost_matrix.Two_D.m -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int -> int -> meds_t
 
 (** [update_approx_mat meds1 meds2] creates the median
 * between chromosomes [meds1] and [meds2]
@@ -66,6 +67,9 @@ val find_meds2 : meds_t -> meds_t -> meds_t
  * a list of medians w_ijp with the same cost c_ijp. 
  * Find w*ijp = minargv_(w_ijp) (c_ijp) *)
 val find_meds3 : meds_t -> meds_t -> meds_t -> meds_t
+
+
+val get_extra_cost_for_root : meds_t -> Cost_matrix.Two_D.m -> int
 
 (** [cmp_min_pair_cost] computes the min median cost
  * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]

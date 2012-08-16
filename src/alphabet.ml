@@ -1017,7 +1017,7 @@ let of_file fn orientation init3D level respect_case tie_breaker =
         else explote alph level size, true
     in
     (*get cost matrix out of input cm file*)
-    let tcm, matrix = 
+    let tcm_full,tcm_original, matrix = 
         let all_elements = -1 (* breakinv and customalphabet don't have all_elements *) in
         if do_comb then
             Cost_matrix.Two_D.of_channel 
@@ -1027,13 +1027,13 @@ let of_file fn orientation init3D level respect_case tie_breaker =
                 ~orientation all_elements file
     in
     let tcm3 = match init3D with
-        | true -> Cost_matrix.Three_D.of_two_dim tcm
+        | true -> Cost_matrix.Three_D.of_two_dim tcm_full
         | false  ->  Cost_matrix.Three_D.default_nucleotides 
     in 
     file#close_in;
     if debug then Printf.printf "end of of_file, return alph and tcm\n%!";
     if debug then print alph;
-    alph, (tcm,matrix), tcm3
+    alph, (tcm_full,tcm_original,matrix), tcm3
 
 (*    code_to_string : string All_sets.IntegerMap.t;    *)
 (* vim: set et sw=4 tw=80: *)

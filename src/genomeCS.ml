@@ -38,7 +38,8 @@ type t = {
     total_cost : float;         (** The total cost of the character set *)
     total_recost : float;       (** The total cost of the character set *)
     subtree_recost : float;     (** The total subtree recost of the character set*)
-    c2 : Cost_matrix.Two_D.m;   (** The two dimensional cost matrix to  be used in the character set *)
+    c2_full : Cost_matrix.Two_D.m;   (** The two dimensional cost matrix to  be used in the character set *)
+    c2_original : Cost_matrix.Two_D.m;   (** The two dimensional cost matrix to  be used in the character set *)
     c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be  used in the character set *)
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
     chrom_pam : Data.dyna_pam_t; 
@@ -52,7 +53,8 @@ let cardinal x = IntMap.fold (fun _ _ x -> x + 1) x.meds 0
 * creates a genome character set from an array of sequences [arr] *)
 let of_array spec arr code taxon num_taxa = 
     let adder (cur_meds, cur_costs, cur_recosts) (seq, key) = 
-        let med = Genome.init_med seq spec.Data.tcm2d spec.Data.pam taxon num_taxa in
+        let med = Genome.init_med seq spec.Data.tcm2d_full
+        spec.Data.tcm2d_original spec.Data.pam taxon num_taxa in
         (IntMap.add key med cur_meds),
         (IntMap.add key 0.0 cur_costs),
         (IntMap.add key 0.0 cur_recosts)
@@ -68,7 +70,8 @@ let of_array spec arr code taxon num_taxa =
         total_cost = 0.0;
         total_recost = 0.0;
         subtree_recost = 0.;
-        c2 = spec.Data.tcm2d;
+        c2_full = spec.Data.tcm2d_full;
+        c2_original = spec.Data.tcm2d_original;
         c3 = spec.Data.tcm3d;
         alph = spec.Data.alph;
         chrom_pam = spec.Data.pam;
@@ -138,6 +141,17 @@ let median3 p n c1 c2 =
     let acc = IntMap.empty in
     let medp12_map = IntMap.fold median p.meds acc in
     { n with meds = medp12_map; }
+
+    
+(**[get_extra_cost_for_root root] return the extra cost result from non-zero
+* diagonal in cost matrix.*)
+let get_extra_cost_for_root (a :t) =
+    let get_ec code medst acc =
+        acc + Genome.get_extra_cost_for_root medst a.c2_original 
+    in
+    float_of_int (IntMap.fold get_ec a.meds 0) 
+
+
 
 (** [distance a b] returns total distance between 
 * two  genome character sets [a] and [b] *)
@@ -266,7 +280,7 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
                             GenomeAli.create_map med parent_med.GenomeAli.genome_ref_code   
                       | `String "Single" -> 
                             let cost, (recost1, recost2),  med_ls = GenomeAli.find_med2_ls med
-                                parent_med t.c2 t.chrom_pam 
+                                parent_med t.c2_original t.chrom_pam 
                             in 
                             let med = List.hd med_ls in 
                             
@@ -333,7 +347,8 @@ let get_active_ref_code t =
 * the single states of  genome character set [mine] *) 
 let to_single ref_codes (root : t option) single_parent mine = 
     let previous_total_cost = mine.total_cost in 
-    let c2 = mine.c2 in 
+    let c2_full = mine.c2_full in 
+    let c2_original = mine.c2_original in 
     let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =        
         let amed = 
             try
@@ -349,19 +364,20 @@ let to_single ref_codes (root : t option) single_parent mine =
             match root with
             | None -> 
                   let single_chrom_arr = 
-                      GenomeAli.to_single aparent_med amed c2  med.Genome.chrom_pam
+                      GenomeAli.to_single aparent_med amed c2_full  med.Genome.chrom_pam
                   in 
                   let amed = {amed with GenomeAli.chrom_arr = Array.mapi 
                           (fun idx medt -> {medt with GenomeAli.seq = single_chrom_arr.(idx)} )
                              amed.GenomeAli.chrom_arr}
                   in  
-                  let cost, (recost1, recost2) = GenomeAli.cmp_cost amed aparent_med c2
+                  let cost, (recost1, recost2) = GenomeAli.cmp_cost amed
+                  aparent_med c2_original
                       med.Genome.chrom_pam in 
                   
                   cost, (recost1 + recost2), single_chrom_arr
 
             | Some root ->              
-                  let single_root = GenomeAli.to_single_root amed c2 in
+                  let single_root = GenomeAli.to_single_root amed c2_full in
                   0, 0, single_root 
         in 
         let single_med = GenomeAli.change_to_single amed single_genome in 
@@ -403,7 +419,7 @@ let copy_chrom_map s_ch d_ch =
 * sets [ch1], [ch2] and [parent] *)
 let readjust to_adjust modified ch1 ch2 parent mine = 
     let empty = IntMap.empty and
-            c2 = parent.c2 and
+            c2 = parent.c2_full and
             c3 = parent.c3 
     in
 

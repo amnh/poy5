@@ -869,7 +869,7 @@ debug msg*)
         (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
     in 
     let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in       
-    let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
+    let gen_cost_mat,_ = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
     Cost_matrix.Two_D.set_gap gen_cost_mat gen_gap_code; 
     let wag_seq2 = find_wagner_ali kept_wag state seq1 seq2 gen_cost_mat 
         gen_gap_code re_meth circular orientation use_ukk

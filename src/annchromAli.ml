@@ -20,6 +20,7 @@
 let () = SadmanOutput.register "AnnchromAli" "$Revision: 911 $"
 
 let debug = false
+let debug_distance = false
 let debug_to_single = false
 
 (** The implementation of funtions to calculate the cost, 
@@ -145,6 +146,22 @@ let printMap seq_arr =
 
 let printSeq x = Printf.printf "%s\n" (Sequence.to_string x Alphabet.nucleotides)
 
+
+let get_extra_cost_for_root x cost_mat = 
+    let cost_between_two_alied_children = 
+        Array.fold_left (fun acc seqt ->
+        let seq1 = seqt.alied_seq1 
+        and seq2 = seqt.alied_seq2 in
+        let newcost = Sequence.Align.cost_2 seq1 seq2 cost_mat Matrix.default in
+        if debug_distance then Printf.printf "get_extra_cost_for_root, acc(%d)\
+        += %d\n%!" acc newcost;
+         newcost + acc
+    ) 0 x.seq_arr
+    in
+    let oldcost = x.cost1 + x.recost1 in
+    if debug_distance then Printf.printf "return oldcost(%d) - newcost(%d)\n%!"
+    oldcost cost_between_two_alied_children;
+    oldcost - cost_between_two_alied_children 
 
     
 (** [swap_seq s] swaps the first child and second child of 

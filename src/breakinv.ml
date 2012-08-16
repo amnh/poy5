@@ -35,8 +35,10 @@ type meds_t = {
     total_cost : int;   (** the cost to create this breakinv list *)
     total_recost : int; (** the recost to create this breakinv list *)
     breakinv_pam : Data.dyna_pam_t; (** breakinv paramenters used to create breakinv median *)
-    gen_cost_mat : Cost_matrix.Two_D.m; 
-    pure_gen_cost_mat : int array array;
+    gen_cost_mat_full : Cost_matrix.Two_D.m; 
+    gen_cost_mat_original : Cost_matrix.Two_D.m; 
+    pure_gen_cost_mat_full : int array array;
+    pure_gen_cost_mat_original : int array array;
     alpha : Alphabet.a 
 }
 
@@ -50,15 +52,19 @@ let print medst =
 (** [init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
 * created from a sequence of general character [seq]*)
-let init_med (seq : Sequence.s) delimiter gen_cost_mat alpha breakinv_pam = 
+let init_med (seq : Sequence.s) delimiter gen_cost_mat_full gen_cost_mat_original alpha breakinv_pam = 
     let newmed = BreakinvAli.init seq delimiter in
     {med_ls = [newmed];
      num_med = 1;   
      total_cost = 0;  
      total_recost = 0;  
      breakinv_pam =  breakinv_pam; 
-     gen_cost_mat = gen_cost_mat;  
-     pure_gen_cost_mat = Cost_matrix.Two_D.get_pure_cost_mat gen_cost_mat;  
+     gen_cost_mat_full = gen_cost_mat_full;  
+     gen_cost_mat_original = gen_cost_mat_original;  
+     pure_gen_cost_mat_full = Cost_matrix.Two_D.get_pure_cost_mat
+     gen_cost_mat_full;  
+     pure_gen_cost_mat_original = Cost_matrix.Two_D.get_pure_cost_mat
+     gen_cost_mat_original;  
      alpha = alpha;}  
 
 
@@ -100,19 +106,19 @@ let transform_matrix (inmat : int array array) invcost =
 let find_meds2 (meds1 : meds_t) (meds2 : meds_t) = 
     let update med1 med2 (best_meds : meds_t) : meds_t =
         let bkpam = meds1.breakinv_pam in
-        let pure_gen_cost_mat =
+        let pure_gen_cost_mat_full =
             match bkpam.Data.re_meth with
             | Some re_meth ->
                 (match re_meth with
-                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat
+                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat_full
                 | `Locus_Inversion invc -> 
-                    transform_matrix meds1.pure_gen_cost_mat invc
+                    transform_matrix meds1.pure_gen_cost_mat_full invc
                 )
-            | None -> meds1.pure_gen_cost_mat
+            | None -> meds1.pure_gen_cost_mat_full
         in
         let cost, (recost1, recost2), med_ls =   
-            BreakinvAli.find_med2_ls med1 med2 meds1.gen_cost_mat  
-                pure_gen_cost_mat meds1.alpha bkpam   
+            BreakinvAli.find_med2_ls med1 med2 meds1.gen_cost_mat_full  
+                pure_gen_cost_mat_full meds1.alpha bkpam   
         in   
         if cost < best_meds.total_cost then   
             {best_meds with  
@@ -127,8 +133,10 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
          total_cost = Utl.large_int; 
          total_recost = 0;
          breakinv_pam = meds1.breakinv_pam;
-         gen_cost_mat = meds1.gen_cost_mat;
-         pure_gen_cost_mat = Cost_matrix.Two_D.get_pure_cost_mat meds1.gen_cost_mat;
+         gen_cost_mat_full = meds1.gen_cost_mat_full;
+         gen_cost_mat_original = meds1.gen_cost_mat_original;
+         pure_gen_cost_mat_full = Cost_matrix.Two_D.get_pure_cost_mat meds1.gen_cost_mat_full;
+         pure_gen_cost_mat_original = Cost_matrix.Two_D.get_pure_cost_mat meds1.gen_cost_mat_original;
          alpha = meds1.alpha} 
     in 
     let best_meds = 
@@ -144,6 +152,24 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
          num_med = List.length kept_med_ls} 
 
     
+let get_extra_cost_for_root medst  =
+    let bkpam = medst.breakinv_pam in
+    let pure_gen_cost_mat_original =
+            match bkpam.Data.re_meth with
+            | Some re_meth ->
+                (match re_meth with
+                | `Locus_Breakpoint c -> medst.pure_gen_cost_mat_original
+                | `Locus_Inversion invc -> 
+                    transform_matrix medst.pure_gen_cost_mat_original invc
+                )
+            | None -> medst.pure_gen_cost_mat_original
+    in
+    List.fold_left (fun acc bkinvt ->
+        acc + BreakinvAli.get_extra_cost_for_root bkinvt
+        medst.gen_cost_mat_original pure_gen_cost_mat_original 
+        medst.alpha bkpam 
+    ) 0 medst.med_ls
+
 (** [cmp_min_pair_cost] returns the minimum cost
 * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
  * where xi and yj are medians. For each pair (xi, yj) we have 
@@ -151,23 +177,23 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
  * Find c_ij = min (c_ij) *)
 let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     let bkpam = meds1.breakinv_pam in
-    let pure_gen_cost_mat =
+    let pure_gen_cost_mat_original =
             match bkpam.Data.re_meth with
             | Some re_meth ->
                 (match re_meth with
-                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat
+                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat_original
                 | `Locus_Inversion invc -> 
-                    transform_matrix meds1.pure_gen_cost_mat invc
+                    transform_matrix meds1.pure_gen_cost_mat_original invc
                 )
-            | None -> meds1.pure_gen_cost_mat
+            | None -> meds1.pure_gen_cost_mat_original
     in
     let min_cost, min_recost = List.fold_left 
         (fun (min_cost, min_recost) med1 -> 
                 List.fold_left 
                     (fun (min_cost2, min_recost2) med2 -> 
                          let cost, (recost1, recost2) = BreakinvAli.cmp_cost med1 med2
-                                meds1.gen_cost_mat 
-                                pure_gen_cost_mat 
+                                meds1.gen_cost_mat_original 
+                                pure_gen_cost_mat_original 
                                 meds1.alpha bkpam 
                          in  
                          if  min_cost2 > cost then cost, (recost1 + recost2)
@@ -185,22 +211,22 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
  * Find c*_ij = min (c_ij) *)
 let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     let bkpam = meds1.breakinv_pam in
-    let pure_gen_cost_mat =
+    let pure_gen_cost_mat_original =
             match bkpam.Data.re_meth with
             | Some re_meth ->
                 (match re_meth with
-                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat
+                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat_original
                 | `Locus_Inversion invc -> 
-                    transform_matrix meds1.pure_gen_cost_mat invc
+                    transform_matrix meds1.pure_gen_cost_mat_original invc
                 )
-            | None -> meds1.pure_gen_cost_mat
+            | None -> meds1.pure_gen_cost_mat_original
     in
     let max_cost, max_recost = List.fold_left 
         (fun (max_cost, max_recost) med1 -> 
                 List.fold_left 
                     (fun (max_cost2, max_recost2)  med2 -> 
                          let cost, (recost1, recost2) = BreakinvAli.cmp_cost med1 med2
-                             meds1.gen_cost_mat pure_gen_cost_mat  
+                             meds1.gen_cost_mat_original pure_gen_cost_mat_original  
                              meds1.alpha bkpam  in  
                          if max_cost2 < cost then cost, (recost1 + recost2)
                          else max_cost2, max_recost2
@@ -267,7 +293,7 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
             let adjust_seq, cost1,cost2,cost3 = 
                 GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag 
                 seq1 seq2 seq3 mine_seq 
-                ch1.pure_gen_cost_mat 
+                ch1.pure_gen_cost_mat_full 
                 ch1.alpha 
                 ali_pam.BreakinvAli.re_meth
                 ali_pam.BreakinvAli.swap_med 
@@ -300,7 +326,7 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
                 ali_pam.BreakinvAli.kept_wag
                 seq1 seq2 seq3 
                 [delimiters1;delimiters2;delimiters3]
-                ch1.gen_cost_mat
+                ch1.gen_cost_mat_full
                 ch1.alpha 
                 ali_pam.BreakinvAli.re_meth
                 ali_pam.BreakinvAli.swap_med 

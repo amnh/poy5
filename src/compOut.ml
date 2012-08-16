@@ -240,7 +240,7 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
     in
     let assoc_sets = create_set_data_pairs fo data code_char_pairs in
     let add_tcm_assumption fo code name =
-        let tcm  = Data.get_tcm2d data code in
+        let tcm,_  = Data.get_tcm2d data code in
         let list_mat = Cost_matrix.Two_D.ori_cm_to_list tcm
         and s = Cost_matrix.Two_D.get_ori_a_sz tcm
         and a = Alphabet.to_sequential (Data.get_alphabet data code) in

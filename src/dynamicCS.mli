@@ -108,7 +108,7 @@ val alpha : t -> Alphabet.a
 
 (** [c2 a] returns the two dimentional cost matrix
 * of dynamic character set [a] *)
-val c2 : t -> Cost_matrix.Two_D.m
+val c2_full : t -> Cost_matrix.Two_D.m
 
 (** [lk_model a] returns the likelihood model used in the character, or
     Not_found if using other characters *)
@@ -214,6 +214,12 @@ val final_states :
 (** [median_3 p n c1 c2] creates the median among
 * three dynamic character sets [p], [c1] and [c2] *)
 val median_3 : t -> t -> t -> t -> t
+
+
+(** [get_extra_cost_for_root root oldcost] return the extra cost due to non-zero
+* diagonal*)
+val get_extra_cost_for_root : t -> float
+
 
 (* Like [distance] but calculates it only 
 * if the type of the characters match one of those listed. *)

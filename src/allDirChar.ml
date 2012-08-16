@@ -35,6 +35,7 @@ let debug_uppass_fn         = false
 let debug_downpass_fn       = false
 let debug_single_assignment = false
 let debug_diagnosis         = false
+let debug_create_root       = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -307,6 +308,9 @@ module F : Ptree.Tree_Operations
             let node = {AllDirNode.lazy_node = node; code = 0; dir = Some (a,b)} in
             let node = { AllDirNode.unadjusted = [node]; adjusted = Some node } in
             let cost = Node.Standard.tree_cost None nnode in
+            let extracost = Node.extra_cost_from_root nnode in
+            if debug_create_root then Printf.printf "create_root with cost = %f - %f \n%!" cost extracost;
+            let cost = cost -. extracost in
             {
                 Ptree.root_median = Some ((`Edge (a, b)), node);
                 component_cost = cost;
@@ -422,11 +426,8 @@ module F : Ptree.Tree_Operations
                     * that to make things clear, the tree is just like this:
                     * left node is state.1 ---- right node is state.1  
                     * this give us cost = c only.*)
-                    let extra_cost =  Node.extra_cost_from_root root in
-                    let cost = cost -. extra_cost in
                     if debug_cost_fn then 
-                        Printf.printf "cost -= extra(%f) = %f\n%!"
-                        extra_cost cost;
+                        Printf.printf "not_single_character_cost, cost  = %f\n%!" cost;
                     cost, tree_root, root_edge
             | _ -> failwith "What?"
         in
@@ -656,6 +657,9 @@ module F : Ptree.Tree_Operations
                 let readjusted = { rootg with AllDirNode.adjusted = Some rooti} in
                 let treecost = Node.Standard.tree_cost None root in
                 let extracost = Node.extra_cost_from_root root in
+                if debug_single_assignment then 
+                    info_user_message "assign cost to root :%f - %f" treecost
+                    extracost;
                 let ptree = 
                     Ptree.assign_root_to_connected_component 
                         handle (Some (edge, readjusted)) 
@@ -1996,15 +2000,23 @@ module F : Ptree.Tree_Operations
             | `Iterative `ThreeD _
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> if debug_cost_fn then Printf.printf "Normal,"; cost_fn a b c d e 
+            | `Normal -> 
+                    if debug_cost_fn then Printf.printf "Normal,%!"; 
+                    cost_fn a b c d e 
             | `Exhaustive_Strong ->
-                    if debug_cost_fn then Printf.printf "Exhaustive_Strong,";
                 let pc = Ptree.get_cost `Adjusted e in
                 let (nt, _) = join_fn n_mgr [] a b e in
-                Ptree.Cost ((Ptree.get_cost `Adjusted nt) -. pc)
+                let res = Ptree.get_cost `Adjusted nt in
+                if debug_cost_fn then Printf.printf "Exhaustive_Strong,return\
+                cost = %f - %f,%!" res pc;
+                Ptree.Cost (res -. pc)
         in
-        if debug_cost_fn then 
-            Printf.printf "update node manager with new cost\n%!";
+        if debug_cost_fn then begin 
+            Printf.printf "update node manager with new tree ";
+            match cost with 
+            | Ptree.Cost x ->  Printf.printf "cost = %f\n%!" x
+            | Ptree.NoCost -> Printf.printf "NodeCost\n%!"
+        end;
         update_node_manager e (`Cost) n_mgr;
         cost
 

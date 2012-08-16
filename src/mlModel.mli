@@ -258,7 +258,7 @@ val get_current_parameters_for_alpha : model -> float option
 
 (** {6 Matrix conversions *)
 
-val model_to_cm : model -> float -> Cost_matrix.Two_D.m
+val model_to_cm : model -> float -> Cost_matrix.Two_D.m * Cost_matrix.Two_D.m
 (** return an integerized cost matrix of the model *)
 
 

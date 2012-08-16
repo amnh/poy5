@@ -27,6 +27,7 @@ let ndebug_traject_tbr = false || ndebug_traject
 let ndebug_traject_summary = false      (* summary of the trajectory *)
 let ndebug_jxn_of_handle = false
 let debug_wagner_traject = false
+let debug_search_fn = false
 let odebug = Status.user_message Status.Information
 
 let ( --> ) a b = b a
@@ -1448,10 +1449,12 @@ let spr_step a b c =
     c
 
 let search (passit:bool) (searcher, name) (search : ('a,'b) search_mgr) : ('a, 'b) search_mgr =
+    if debug_search_fn then Printf.printf "ptree.search,%!";
     let status = Status.create name None ("Searching") in
     try
         while search#any_trees do
             let (ptree, cost, tabu) = search#next_tree in
+            if debug_search_fn then Printf.printf "ptree.search next_tree with cost = %f\n%!" cost;
             Status.full_report ~adv:(int_of_float cost) status;
             searcher ptree tabu#clone search;
         done;
@@ -2267,7 +2270,8 @@ let select_default adjusted cost = match adjusted with
 let assign_root_to_connected_component handle item cost adjusted ptree =
     let debug = false in
     let adjusted = select_default adjusted cost in
-    if debug then Printf.printf "assign_root_to_connected_component,component_cost = %f,%f\n%!" cost adjusted;
+    if debug then Printf.printf
+    "assign_root_to_connected_component,component_cost = %f(adjusted cost = %f)\n%!" cost adjusted;
     let root = { 
         root_median = item;
         component_cost = cost;

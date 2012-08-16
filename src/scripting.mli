@@ -388,14 +388,14 @@ module DNA : sig
         (** [of_list lst] converts the 5x5 matrix [lst] to the corresponding
         * transformation cost matrix. The function assumes that rows and columns
         * are sorted as follows: A, C, G, T/U, Gap. *)
-        val of_list : int list list -> cm2
+        val of_list : int list list -> cm2 * cm2
 
         (** [of_array arr] is the same as [of_list] but for arrays. *)
-        val of_array : int array array -> cm2
+        val of_array : int array array -> cm2 * cm2
 
         (** [of_sub_indel a b] assigns the same cost [a] to all substitutions,
         * and the same cost [b] to all indels. *)
-        val of_sub_indel : int -> int -> cm2
+        val of_sub_indel : int -> int -> cm2 * cm2
 
         (** [of_sub_indel a b c] assigns the same cost [a] to all substitutions,
         * and the same cost [b] to all indels, and [c] cost to opening a block
@@ -408,7 +408,7 @@ module DNA : sig
         val of_file : string -> cm2
 
         (** [all_ones ()] is equivalent to [of_sub_indel 1 1] *)
-        val all_ones : unit -> cm2
+        val all_ones : unit -> cm2 * cm2
 
         (** [median a b cm] claculates the median between the bases [a] and [b]
          * according to the cost matrix [cm]. *)

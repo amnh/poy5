@@ -33,7 +33,8 @@ type meds_t = {
     med_ls : med_t list; (** genome list *)
     total_cost : int;   (** the total cost to create this genome list *)
     total_recost : int;  (** total recost to create this genome list *)
-    c2 : Cost_matrix.Two_D.m; 
+    c2_full : Cost_matrix.Two_D.m; 
+    c2_original : Cost_matrix.Two_D.m; 
 
     approx_cost_arr : int array; (* An array of genome medians 
                                   * created from this median to other medians.
@@ -49,7 +50,7 @@ let max_taxa_id = ref 0
 (** [init_med genome chrom_pam tcode num_taxa] 
 * returns a genome list with only one element
 * created from genome [genome] *) 
-let init_med (genome : Sequence.s Data.dyna_data) c2 chrom_pam tcode num_taxa
+let init_med (genome : Sequence.s Data.dyna_data) c2_full c2_original chrom_pam tcode num_taxa
         =  
     let med = GenomeAli.init genome in 
      max_taxa_id := max !max_taxa_id num_taxa;
@@ -59,7 +60,8 @@ let init_med (genome : Sequence.s Data.dyna_data) c2 chrom_pam tcode num_taxa
     
         total_cost = 0; 
         total_recost = 0; 
-        c2 = c2;
+        c2_full = c2_full;
+        c2_original = c2_original;
  
         approx_cost_arr = (Array.make !max_taxa_id max_int);
         approx_recost_arr = (Array.make !max_taxa_id max_int);
@@ -90,7 +92,8 @@ let update_cost_mat meds1 meds2 =
 
         let med1 = List.hd meds1.med_ls in  
         let med2 = List.hd meds2.med_ls in  
-        let cost, (recost1, recost2) = GenomeAli.cmp_cost med1 med2 meds1.c2 meds1.chrom_pam in  
+        let cost, (recost1, recost2) = GenomeAli.cmp_cost med1 med2
+        meds1.c2_full meds1.chrom_pam in  
         meds1.approx_cost_arr.(code2) <- cost; 
         meds2.approx_cost_arr.(code1) <- cost; 
 
@@ -111,7 +114,7 @@ let find_meds2 ?(keep_all_meds=false) (meds1 : meds_t) (meds2 : meds_t) =
                  List.fold_left  
                      (fun best_meds med2 -> 
                           let cost, (recost1, recost2), med_ls =
-                              GenomeAli.find_med2_ls med1 med2 meds1.c2
+                              GenomeAli.find_med2_ls med1 med2 meds1.c2_full
                                   meds1.chrom_pam 
                           in  
                           if cost < best_meds.total_cost then  
@@ -152,7 +155,14 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     let meds2p = find_meds2 meds2 medsp in  
     if meds1p.total_cost < meds2p.total_cost then meds1p
     else meds2p
-            
+      
+
+let get_extra_cost_for_root medst cost_mat = 
+    List.fold_left (fun acc medt ->
+        acc + GenomeAli.get_extra_cost_for_root medt cost_mat
+    ) 0 medst.med_ls
+
+
        
 (** [cmp_min_pair_cost] computes the min median cost
  * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
@@ -165,7 +175,8 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
               (fun (best_cost, recost) med1 ->
                    List.fold_left 
                        (fun (best_cost, recost) med2 ->
-                            let acost, (a_recost1, a_recost2) = GenomeAli.cmp_cost med1 med2 meds1.c2 meds1.chrom_pam in 
+                            let acost, (a_recost1, a_recost2) =
+                                GenomeAli.cmp_cost med1 med2 meds1.c2_original meds1.chrom_pam in 
                             if acost < best_cost then acost, a_recost1 + a_recost2
                             else best_cost, recost
                        ) (best_cost, recost) meds2.med_ls
@@ -192,7 +203,8 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
               (fun (max_cost, max_recost) med1 ->
                    List.fold_left 
                        (fun (max_cost2, max_recost2) med2 ->
-                            let cost, (recost1, recost2) = GenomeAli.cmp_cost med1 med2 meds1.c2 meds1.chrom_pam in 
+                            let cost, (recost1, recost2) = GenomeAli.cmp_cost
+                            med1 med2 meds1.c2_original meds1.chrom_pam in 
                             if cost > max_cost2 then cost, recost1 + recost2
                             else max_cost2, max_recost2
                        ) (max_cost, max_recost) meds2.med_ls

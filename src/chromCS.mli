@@ -73,7 +73,8 @@ type t = {
   total_cost : float;
   total_recost : float;
   subtree_recost : float;
-  c2 : Cost_matrix.Two_D.m;
+  c2_full : Cost_matrix.Two_D.m;
+  c2_original : Cost_matrix.Two_D.m;
   c3 : Cost_matrix.Three_D.m;
   chrom_pam : Data.dyna_pam_t;
   alph : Alphabet.a;
@@ -92,6 +93,7 @@ val to_list : t -> (meds_t * IntMap.key) list
 val same_codes : 'a IntMap.t -> 'b IntMap.t -> bool
 val median2 : t -> t -> t
 val median3 : t -> t -> t -> t -> t
+val get_extra_cost_for_root : t -> float
 val distance : t -> t -> float
 val max_distance : t -> t -> float
 val to_string : t -> string

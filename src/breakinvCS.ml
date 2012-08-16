@@ -43,7 +43,8 @@ type t = {
 
     subtree_recost : float;         (** The total subtree recost of the character set *)
 
-    c2 : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to be used in the character set *)
+    c2_full : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to be used in the character set *)
+    c2_original : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to be used in the character set *)
     c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be used in the character set *)
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
     breakinv_pam : Data.dyna_pam_t; 
@@ -63,7 +64,8 @@ let cardinal x = IntMap.fold (fun _ _ acc -> acc + 1) x.meds 0
 let of_array spec arr code = 
     let adder (meds, costs, recosts) (seq,delimiter,key) = 
         let med = 
-            Breakinv.init_med seq delimiter spec.Data.tcm2d spec.Data.alph spec.Data.pam 
+            Breakinv.init_med seq delimiter spec.Data.tcm2d_full
+            spec.Data.tcm2d_original spec.Data.alph spec.Data.pam 
         in 
         (IntMap.add key med meds), 
         (IntMap.add key 0.0 costs), 
@@ -80,7 +82,8 @@ let of_array spec arr code =
         total_cost = 0.0;        
         total_recost = 0.0;
         subtree_recost = 0.;
-        c2 = spec.Data.tcm2d;
+        c2_full = spec.Data.tcm2d_full;
+        c2_original = spec.Data.tcm2d_original;
         c3 = spec.Data.tcm3d;
         alph = spec.Data.alph;
         breakinv_pam = spec.Data.pam;
@@ -266,7 +269,7 @@ let single_to_multi single_t =
 * sets [ch1], [ch2] and [parent] *)
 let readjust to_adjust modified ch1 ch2 parent mine = 
     let empty = IntMap.empty and
-            c2 = parent.c2 and
+            c2 = parent.c2_full and
             c3 = parent.c3 
     in
     let adjusted code parent_chrom acc =
@@ -313,6 +316,15 @@ let readjust to_adjust modified ch1 ch2 parent mine =
     tc,
     { mine with meds = meds; costs = costs; total_cost = tc; 
        subtree_recost = subtree_recost; }
+
+(**[get_extra_cost_for_root root] return the extra cost result from non-zero
+* diagonal in cost matrix.*)
+let get_extra_cost_for_root (a :t) =
+    let get_ec code medst acc =
+        acc + Breakinv.get_extra_cost_for_root medst 
+    in
+    float_of_int (IntMap.fold get_ec a.meds 0) 
+
 
 (** [distance a b] returns total distance between 
 * two breakinv character sets [a] and [b] *)
@@ -426,18 +438,19 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
             | Some parent -> begin
                   let parent_med_ls = IntMap.find code parent.meds in
                   let breakinv_pam = parent_med_ls.Breakinv.breakinv_pam in
-                  let gen_cost_mat = parent_med_ls.Breakinv.gen_cost_mat in
-                  let pure_gen_cost_mat =
-                      parent_med_ls.Breakinv.pure_gen_cost_mat in    
-                  let pure_gen_cost_mat =
+                  let gen_cost_mat_original =
+                      parent_med_ls.Breakinv.gen_cost_mat_original in
+                  let pure_gen_cost_mat_original =
+                      parent_med_ls.Breakinv.pure_gen_cost_mat_original in    
+                  let pure_gen_cost_mat_original =
                       match breakinv_pam.Data.re_meth with
                       | Some re_meth ->
                       (match re_meth with
-                         | `Locus_Breakpoint c -> pure_gen_cost_mat
+                         | `Locus_Breakpoint c -> pure_gen_cost_mat_original
                          | `Locus_Inversion invc -> 
-                            Breakinv.transform_matrix pure_gen_cost_mat invc
+                            Breakinv.transform_matrix pure_gen_cost_mat_original invc
                       )
-                      | None -> pure_gen_cost_mat
+                      | None -> pure_gen_cost_mat_original
                   in
                   let alpha = parent_med_ls.Breakinv.alpha in
                   let parent_med = List.find 
@@ -450,19 +463,19 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
                       | `String "Preliminary" ->
                       let cost,(recost1,recost2) = 
                       BreakinvAli.cmp_cost parent_med med 
-                      gen_cost_mat pure_gen_cost_mat alpha breakinv_pam in
+                      gen_cost_mat_original pure_gen_cost_mat_original alpha breakinv_pam in
                       cost, recost1+recost2
                       (*  BreakinvAli.get_costs parent_med med.BreakinvAli.ref_code*)  
                       | `String "Final" ->
                       let cost,(recost1,recost2) = 
                       BreakinvAli.cmp_cost med parent_med 
-                      gen_cost_mat pure_gen_cost_mat alpha breakinv_pam in
+                      gen_cost_mat_original pure_gen_cost_mat_original alpha breakinv_pam in
                       cost,recost1+recost2
                       (*BreakinvAli.get_costs med parent_med.BreakinvAli.ref_code*)
                       | `String "Single" ->
                       let cost,(recost1,recost2) = 
                       BreakinvAli.cmp_cost med parent_med 
-                      gen_cost_mat pure_gen_cost_mat alpha breakinv_pam in
+                      gen_cost_mat_original pure_gen_cost_mat_original alpha breakinv_pam in
                       cost,recost1+recost2
 (*
                         let cost = IntMap.find code t.costs in 
@@ -508,18 +521,20 @@ let to_single ref_codes (root : t option) single_parent mine =
             | Some root -> 0,(0, 0) 
             | None ->
                  let bkpam = med.Breakinv.breakinv_pam in
-                 let pure_gen_cost_mat =
+                 let pure_gen_cost_mat_original =
                       match bkpam.Data.re_meth with
                       | Some re_meth ->
                       (match re_meth with
-                         | `Locus_Breakpoint _ -> med.Breakinv.pure_gen_cost_mat
+                         | `Locus_Breakpoint _ ->
+                                 med.Breakinv.pure_gen_cost_mat_original
                          | `Locus_Inversion invc -> 
-                            Breakinv.transform_matrix med.Breakinv.pure_gen_cost_mat invc
+                            Breakinv.transform_matrix
+                            med.Breakinv.pure_gen_cost_mat_original invc
                       )
-                      | None -> med.Breakinv.pure_gen_cost_mat
+                      | None -> med.Breakinv.pure_gen_cost_mat_original
                   in
                   BreakinvAli.cmp_cost amed aparent_med 
-                      med.Breakinv.gen_cost_mat pure_gen_cost_mat
+                      med.Breakinv.gen_cost_mat_original pure_gen_cost_mat_original
                       med.Breakinv.alpha bkpam
                       
         in 

@@ -31,7 +31,8 @@ type meds_t = {
     num_med : int; (** number of annchrom list *)
     total_cost : int; (** the cost to create this annotated chromosome *)   
     total_recost : int; (** the recost to create this annotated chromosome *)   
-    cost_mat : Cost_matrix.Two_D.m; (** the two dimentional cost matrix for this annotated chromosome *)
+    cost_mat_full : Cost_matrix.Two_D.m; (** the two dimentional cost matrix for this annotated chromosome *)
+    cost_mat_original : Cost_matrix.Two_D.m; (** the two dimentional cost matrix for this annotated chromosome *)
     alpha : Alphabet.a; (** alphabet of this annotated chromosome *)
     
 
@@ -49,6 +50,7 @@ type meds_t = {
 * created from an array of sequences *) 
 val init_med :
   Sequence.s Data.seq_t array ->
+  Cost_matrix.Two_D.m ->
   Cost_matrix.Two_D.m ->
   Alphabet.a -> Data.dyna_pam_t -> int -> int -> meds_t
 
@@ -72,6 +74,9 @@ val find_meds2 : meds_t -> meds_t -> meds_t
  * a list of medians w_ijp with the same cost c_ijp. 
  * Find w*ijp = minargv_(w_ijp) (c_ijp) *)
 val find_meds3 : meds_t -> meds_t -> meds_t -> meds_t
+
+val get_extra_cost_for_root : meds_t -> Cost_matrix.Two_D.m -> int
+
 
 (** [cmp_min_pair_cost] computes the min median cost
  * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]

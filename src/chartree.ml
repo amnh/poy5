@@ -893,7 +893,7 @@ let update_tree_data_break doup delta ptree =
             let extracost = Node.extra_cost_from_root data in
             let data = Node.Standard.fix_preliminary data in
             let item = Some ((`Single nid), data) in
-            Ptree.assign_root_to_connected_component nid item (cost-.extracost) None ptree, []
+            Ptree.assign_root_to_connected_component nid item cost None ptree, []
 
 let update_tree_data_break (tree_delta, clade_delta) ptree =
     let ptree, _ = update_tree_data_break true tree_delta ptree in

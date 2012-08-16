@@ -68,6 +68,9 @@ val get_breakinv_pam : Data.dyna_pam_t -> breakinvPam_t
 (** [get_recost pams] returns the rearrangement cost in [pams] *)
 val get_recost : Data.dyna_pam_t -> int
 
+(** [get_extra_cost_for_root] return the extra cost from non-zero diagonal *)
+val get_extra_cost_for_root: breakinv_t -> Cost_matrix.Two_D.m -> int array array -> Alphabet.a -> Data.dyna_pam_t -> int
+
 (** [cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam]
 * computes total cost between two breakinv sequences [med1] and [med2].
 * the total cost = editing cost + rearrangement cost *)

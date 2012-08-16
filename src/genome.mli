@@ -29,8 +29,8 @@ type meds_t = {
     med_ls : med_t list; (** genome list *)
     total_cost : int;   (** the total cost to create this genome list *)
     total_recost : int;  (** total recost to create this genome list *)
-    c2 : Cost_matrix.Two_D.m; 
-
+    c2_full : Cost_matrix.Two_D.m; 
+    c2_original : Cost_matrix.Two_D.m;
     approx_cost_arr : int array; (* An array of genome medians 
                                   * created from this median to other medians.
                                   * This is used for approximation *)
@@ -44,7 +44,7 @@ type meds_t = {
 * returns a genome list with only one element
 * created from genome [genome] *) 
 val init_med :
-  Sequence.s Data.dyna_data -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int -> int -> meds_t
+  Sequence.s Data.dyna_data -> Cost_matrix.Two_D.m -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int -> int -> meds_t
 
 (** [keep chrom_pam med_ls] selects randomly a subset 
 * of medians kept to process further *)
@@ -70,6 +70,9 @@ val find_meds2 : ?keep_all_meds:bool -> meds_t -> meds_t -> meds_t
  * a list of medians w_ijp with the same cost c_ijp. 
  * Find w*ijp = minargv_(w_ijp) (c_ijp) *)
 val find_meds3 : meds_t -> meds_t -> meds_t -> meds_t
+
+val get_extra_cost_for_root : meds_t -> Cost_matrix.Two_D.m -> int
+
 
 (** [cmp_min_pair_cost] computes the min median cost
  * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]

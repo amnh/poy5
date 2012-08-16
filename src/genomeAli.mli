@@ -90,6 +90,9 @@ type genome_block_t = {
     block : Block.block_t; (** block information *)
 }
 
+
+val get_extra_cost_for_root: med_t -> Cost_matrix.Two_D.m -> int
+
 (** [to_string med] converts all information in 
 * median [med] into a string *) 
 val to_string : med_t -> string

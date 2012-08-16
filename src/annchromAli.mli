@@ -66,6 +66,8 @@ type annchromPam_t = {
   kept_wag : int;
 }
 
+val get_extra_cost_for_root : annchrom_t -> Cost_matrix.Two_D.m -> int
+
 (** [clone_seq] returns a fresh clone of segment [s] *)
 val clone_seq : seq_t -> seq_t
 

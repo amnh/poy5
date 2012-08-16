@@ -533,17 +533,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         --> convert_roots ptree.Ptree.component_root
 
 
-    let insert_union parent union_node (a, b, c, d, e) =
+    let insert_union parent union_node (a, b, c, d, e, f) =
         try 
             match Node.Union.get_sequence parent a union_node with
-            | SeqCS.Single x -> Some (a, b, x, c, d, e)
+            | SeqCS.Single x -> Some (a, b, x, c, e, f)
             | SeqCS.Array _ -> failwith "transfor (direct_optimization) before"
         with
         | Failure "Node.get_sequence: could not find code" -> None
 
     let get_sequence parent code (normal_node, union_node) = 
         let tmp = Node.get_sequences parent normal_node in
-        let tmp = List.find (fun (c, _, _, _, _) -> (code = c)) tmp in
+        let tmp = List.find (fun (c, _, _, _, _, _) -> (code = c)) tmp in
         match insert_union parent union_node tmp with
         | Some x -> x
         | None -> failwith "Node.get_sequence: could not find code"
@@ -696,6 +696,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         let process_partitions data (sequences, character) =
             let name = Data.code_character character data in
             let tcm = Data.get_sequence_tcm character data in
+            let tcm_original = Data.get_sequence_tcm_original character data in
             let treed = Data.get_tcm3d data character 
             and tcmfile = Data.get_tcmfile data character in
             let alph = Data.get_alphabet data character in
@@ -705,13 +706,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 List.map (fun (seqs, taxon) ->
                     ([[seqs]], Data.code_taxon taxon data)) sequences
             in
-            Data.process_parsed_sequences false weight tcmfile tcm treed `DO
+            Data.process_parsed_sequences false weight tcmfile tcm tcm_original treed `DO
                                           false alph name `Seq data new_data
                                           None None
         in
         root 
             --> Node.get_sequences None
-            --> List.filter (fun (c, _, _, _, _) -> All_sets.Integers.mem c codes)
+            --> List.filter (fun (c, _, _, _, _, _) -> All_sets.Integers.mem c codes)
             --> List.map (insert_union None root_union)
             --> List.filter (function Some _ -> true | _ -> false)
             --> List.map (function Some x -> x | _ -> assert false)

@@ -115,7 +115,8 @@ type dynamic_hom_spec = {
     fs : string;
     tcm : tcm_definition;
     initial_assignment : dyna_initial_assgn;
-    tcm2d : Cost_matrix.Two_D.m;
+    tcm2d_full : Cost_matrix.Two_D.m;
+    tcm2d_original : Cost_matrix.Two_D.m;
     tcm3d : Cost_matrix.Three_D.m; 
     lk_model : MlModel.model option;
     alph : Alphabet.a;
@@ -433,18 +434,20 @@ val code_character : int -> d -> string
 
 val get_tcm : int -> d -> tcm
 
+
 val get_weight : int -> d -> float
 
 val get_weights : d -> (int * float) list
 
 val process_parsed_sequences :
-     bool -> float -> tcm_definition -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m ->
+     bool -> float -> tcm_definition -> Cost_matrix.Two_D.m ->
+         Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m ->
         dyna_initial_assgn -> bool -> Alphabet.a -> string -> dyna_state_t ->
             d -> (Sequence.s list list list * Parser.E.taxon) list -> MlModel.model option
                 -> dyna_pam_t option -> d
 
 val process_molecular_file : ?respect_case:bool -> tcm_definition -> Cost_matrix.Two_D.m ->
-    Cost_matrix.Three_D.m -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
+    Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
         dyna_state_t -> d -> FileStream.f -> d
 
 val add_static_file : ?report:bool -> [`Hennig | `Nexus] -> d -> FileStream.f -> d
@@ -491,8 +494,9 @@ val make_codon_partitions : bool -> d -> string -> Methods.characters -> d
 val remove_taxa_to_ignore : d -> d
 
 val get_sequence_tcm : int -> d -> Cost_matrix.Two_D.m
+val get_sequence_tcm_original : int -> d -> Cost_matrix.Two_D.m
 
-val get_tcm2d : d -> int -> Cost_matrix.Two_D.m 
+val get_tcm2d : d -> int -> Cost_matrix.Two_D.m * Cost_matrix.Two_D.m 
 val get_tcm3d : d -> int -> Cost_matrix.Three_D.m
 val get_tcmfile : d -> int -> tcm_definition
 

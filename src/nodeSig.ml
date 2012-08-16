@@ -146,7 +146,7 @@ module type S = sig
     * functions. Watch out! *)
     val get_sequences : 
 	    int option -> n -> 
-            (int * Sequence.s * Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a) list
+    (int * Sequence.s * Cost_matrix.Two_D.m * Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a) list
 
     (** [get_dynamic_preliminary par n] returns a list with all the dynamic homology
     * characters contained in the node [n] in the preliminary field, in the

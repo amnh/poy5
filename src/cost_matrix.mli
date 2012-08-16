@@ -70,13 +70,13 @@ module Two_D : sig
     (** [of_list a] creates a fresh transformation cost matrix with the values
     * contained in the squared matrix [a]. *)
     val of_list : ?use_comb:bool -> ?level:int -> ?suppress:bool -> 
-                    int list list -> int -> m
+                    int list list -> int -> m * m
 
     (** [of_transformations_and_gaps uc as t g] creates a fresh two dimensional
     * transformation cost matrix for an alphabet of size [as], with
     * transformation cost [t] and indel cost [g]. If [uc] is true, then all the
     * combinations for the sequences are calculated, otherwise they are not. *)
-    val of_transformations_and_gaps : bool -> int -> int -> int -> int -> m
+    val of_transformations_and_gaps : bool -> int -> int -> int -> int -> m * m
 
     (** [default] is the default cost matrix in POY for pairwise, nucleotide
     * sequence alignments. *)
@@ -91,13 +91,13 @@ module Two_D : sig
     the processed data. Raise an Illegal_Cm_Format if the format can't be
     parsed. *)
     val of_channel: ?tie_breaker:Methods.keep_method -> ?orientation:bool -> ?use_comb:bool -> ?level:int -> int ->
-        FileStream.greader -> m * int list list
+        FileStream.greader -> m * m * int list list
 
     (** [of_channel_nocomb file] parse the file containing a cost matrix and
         returns the processed data, but without calculating combinations. Raise an
         Illegal_Cm_Format if the format can't be parsed. *)
     val of_channel_nocomb: 
-        ?orientation:bool -> int -> FileStream.greader -> m * int list list
+        ?orientation:bool -> int -> FileStream.greader -> m * m * int list list
 
     (** [print ma] prints the matrix ma with alphabet size a in stdout. *)
     val output : out_channel -> m -> unit
@@ -246,7 +246,8 @@ module Two_D : sig
     (** [print_intlist list] prints out the int list, for debug....*)
     val print_intlist: int list -> unit
 
-    val of_file : ?tie_breaker:Methods.keep_method -> ?orientation:bool -> ?use_comb:bool -> ?level:int -> FileStream.f -> int -> bool -> m * int list list
+    val of_file : ?tie_breaker:Methods.keep_method -> ?orientation:bool ->
+        ?use_comb:bool -> ?level:int -> FileStream.f -> int -> bool -> m * m * int list list
 
     (* [matrix_of_file fn file] Read a file into an array array, and map a
        function over the values; we ensure that the matrix is rectangular. *)

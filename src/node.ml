@@ -193,7 +193,6 @@ let extract_cost = function
             failwith MlStaticCS.likelihood_error
         END
 
-
 let get_characters_cost chars =
     List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars
 
@@ -4506,15 +4505,26 @@ let compare_downpass = compare_data_preliminary
 
 let set_node_cost a b = { b with node_cost = a }
 
+
 let extra_cost_from_root n =
     let extra_cost_cs acc item =
          match item with 
         | Sank x -> 
                 let ec = SankCS.get_extra_cost_for_root x.preliminary in
-                float_of_int ec
+                acc +. (float_of_int ec)
+        | Dynamic x ->
+                let ec = DynamicCS.get_extra_cost_for_root x.preliminary  in
+                acc +. ec
+        (*| AddVec of AddCS.Vector.t r
+        | AddGen of AddCS.General.t r
+        | FixedStates of Fixed_states.t_w_seqtbl r
+        | Kolmo of KolmoCS.t r
+        | Set of cs css r
+        | StaticMl of ml_rep*)
         | _ -> 0.0
     in
     List.fold_left extra_cost_cs 0.0 n.characters
+
 
 
 module Standard : 
@@ -4711,7 +4721,8 @@ let merge a b =
         node_cost = a.node_cost +. b.node_cost;
     }
 
-
+(*this function [total_cost_of_type] is only being called by allDirChar.ml [check_cost] for static
+* charactors. so why we need to match Dynamic/etc/ here?*)
 let total_cost_of_type t n =
     let rec total_cost_cs acc item =
         let single = match item, t with
@@ -4720,7 +4731,9 @@ let total_cost_of_type t n =
             | Nonadd32 x, `Nonadd -> x.sum_cost *. x.weight
             | AddGen x, `Add -> x.sum_cost *. x.weight
             | AddVec x, `Add -> x.sum_cost *. x.weight
-            | Sank x, `Sank -> x.sum_cost *. x.weight
+            | Sank x, `Sank ->
+                    let ec = SankCS.get_extra_cost_for_root x.preliminary in
+                    (x.sum_cost -. (float_of_int ec)) *. x.weight
             | StaticMl x, `StaticMl ->
                 IFDEF USE_LIKELIHOOD THEN
                     x.cost
@@ -4739,10 +4752,6 @@ let total_cost_of_type t n =
                     | DynamicCS.MlCS _, `Ml -> assert false
                     | DynamicCS.SeqCS _, `Seq ->
                         x.sum_cost *. x.weight
-                    (*| DynamicCS.SeqCS _, `Sank -> we move fixedstates out of
-                    * dynamic, this no longer exist
-                            Printf.printf "DynamicCS.SeqCS _, `Sank \n%!";
-                        x.sum_cost *. x.weight*)
                     | DynamicCS.BreakinvCS _, `Breakinv ->
                         x.sum_cost *.  x.weight
                     | DynamicCS.ChromCS _, `Chrom ->
@@ -4762,4 +4771,6 @@ let total_cost_of_type t n =
         acc +. single
     in
     List.fold_left total_cost_cs 0.0 n.characters
+
+
 

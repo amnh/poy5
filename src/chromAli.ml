@@ -30,6 +30,7 @@ type subseq_t = Subseq.subseq_t
 let  fprintf = Printf.fprintf
 let  deref = Utl.deref
 let  debug = false
+let  debug_distance = false
 let  no_single_error = true
 
 type direction_t = ChromPam.direction_t
@@ -364,6 +365,18 @@ let check_chrom_map seq1 seq2 chrom_map =
              failwith "Create median in ChromAli"
         end
     done
+
+
+let get_extra_cost_for_root x cost_mat = 
+    List.fold_left (fun acc segt ->
+        let seq1 = segt.alied_seq1 
+        and seq2 = segt.alied_seq2 in
+        let newcost = Sequence.Align.cost_2 seq1 seq2 cost_mat Matrix.default in
+        if debug_distance then Printf.printf "get_extra_cost_for_root, acc(%d)\
+        += %d - %d\n%!" acc segt.cost newcost;
+        segt.cost - newcost + acc
+    ) 0 x.chrom_map
+
 
 let create_median_mauve (seq1, chrom1_id) (seq2, chrom2_id) full_code_lstlst
 gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,recost2) cost_mat ali_pam =

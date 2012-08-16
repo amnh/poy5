@@ -64,6 +64,8 @@ type med_t = {
     chrom_map : seg_t list;    
 }
 
+val get_extra_cost_for_root: med_t -> Cost_matrix.Two_D.m -> int
+
 (** [create_med seq] return a new median from a seq *)
 val create_med : Sequence.s -> med_t
 

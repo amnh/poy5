@@ -1523,6 +1523,7 @@ let load_data (meth : Methods.input) data nodes =
                         Data.process_molecular_file
                                 Data.default_tcm
                                 Cost_matrix.Two_D.default
+                                Cost_matrix.Two_D.default
                                 Cost_matrix.Three_D.default annotated
                                 Alphabet.nucleotides mode is_prealigned `Seq d f)
                 data files
@@ -1539,6 +1540,7 @@ let load_data (meth : Methods.input) data nodes =
                     (fun d f ->
                         Data.process_molecular_file
                                 Data.default_tcm
+                                Cost_matrix.Two_D.default 
                                 Cost_matrix.Two_D.default 
                                 Cost_matrix.Three_D.default annotated
                                 Alphabet.nucleotides `DO false `Chromosome d f)
@@ -1557,6 +1559,7 @@ let load_data (meth : Methods.input) data nodes =
                         (fun d f ->
                             Data.process_molecular_file
                                     Data.default_tcm
+                                    Cost_matrix.Two_D.default 
                                     Cost_matrix.Two_D.default 
                                     Cost_matrix.Three_D.default annotated
                                     Alphabet.nucleotides `DO false `Genome d f)
@@ -1580,6 +1583,7 @@ let load_data (meth : Methods.input) data nodes =
                     (fun d f -> 
                         Data.process_molecular_file 
                                     Data.default_tcm
+                                    Cost_matrix.Two_D.default_aminoacids
                                     Cost_matrix.Two_D.default_aminoacids
                                     (Lazy.force Cost_matrix.Three_D.default_aminoacids)
                                     annotated alpha `DO is_prealigned `Seq d f)
@@ -1605,7 +1609,7 @@ let load_data (meth : Methods.input) data nodes =
                 (* read the alphabet and tcm *)
                 let level = 2 in (* set level = 2 by default *)
                 let respect_case = true in
-                let alphabet, (twod,matrix), threed =
+                let alphabet, (twod_full,twod_original,matrix), threed =
                     Alphabet.of_file alph orientation init3D level respect_case tb
                 in
                 (*to do : connect this to prealigned*)
@@ -1620,7 +1624,7 @@ let load_data (meth : Methods.input) data nodes =
                 Data.process_molecular_file
                         ~respect_case:respect_case
                         (Data.Input_file (tcmfile,matrix))
-                        twod threed annotated alphabet default_mode
+                        twod_full twod_original threed annotated alphabet default_mode
                         is_prealigned dynastate data seq 
         | `Breakinv (seq, alph, read_options) ->
                 (** read breakinv data from files each breakinv is 
@@ -1635,12 +1639,12 @@ let load_data (meth : Methods.input) data nodes =
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let respect_case = true in
-                let alphabet, (twod,matrix), threed =
+                let alphabet, (twod,twod_ori,matrix), threed =
                     Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
                 and tcmfile = FileStream.filename alph in
                 Data.process_molecular_file 
                         (Data.Input_file (tcmfile,matrix))
-                        twod threed annotated alphabet `DO
+                        twod twod_ori threed annotated alphabet `DO
                         is_prealigned `Breakinv data seq
         | `ComplexTerminals files ->
                 List.fold_left Data.process_complex_terminals data 
@@ -4646,14 +4650,14 @@ module DNA = struct
             Cost_matrix.Two_D.of_transformations_and_gaps true 5 s i 31
 
         let of_sub_indel_affine a b c = 
-            let mt = of_sub_indel a b in
+            let mt,_ = of_sub_indel a b in
             Cost_matrix.Two_D.set_affine mt (Cost_matrix.Affine c);
             mt
 
         let of_file file = 
             let ch = new FileStream.file_reader (`Local file) in
             try 
-                let res, _  = 
+                let res, _, _  = 
                     Cost_matrix.Two_D.of_channel 
                         ~orientation:false ~use_comb:true 31 ch
                 in
