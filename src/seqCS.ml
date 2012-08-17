@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2654 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2655 $"
 
 let debug = false
 let debug_distance = false 
@@ -1015,11 +1015,11 @@ module DOS = struct
         let alied_ch1, alied_ch2, _ = root.aligned_children in
         let alied_ch1, alied_ch2 = 
             bitset_to_seq gap alied_ch1, bitset_to_seq gap alied_ch2 in
-        if debug_distance then begin
+        (*if debug_distance then begin
             Printf.printf "two alied children:\n%!";
             Sequence.printseqcode alied_ch1;
             Sequence.printseqcode alied_ch2;
-        end;
+        end;*)
         let distance = 
             if use_ukk then
                 Sequence.NewkkAlign.cost_2 alied_ch1 alied_ch2 h.c2_original Sequence.NewkkAlign.default_ukkm

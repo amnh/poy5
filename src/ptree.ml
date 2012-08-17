@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2654 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2655 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -1452,7 +1452,8 @@ let search (passit:bool) (searcher, name) (search : ('a,'b) search_mgr) : ('a, '
         while search#any_trees do
             let (ptree, cost, tabu) = search#next_tree in
             if debug_search_fn then Printf.printf "ptree.search next_tree with cost = %f\n%!" cost;
-            Status.full_report ~adv:(int_of_float cost) status;
+            Status.message status (string_of_float cost);
+            (*Status.full_report ~adv:(int_of_float cost) status;*)
             searcher ptree tabu#clone search;
         done;
         Status.finished status;
