@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "KolmoCS" "$Revision: 1616 $"
+let () = SadmanOutput.register "KolmoCS" "$Revision: 2656 $"
 
 (** The Kolmogorov complexity class of character *)
 

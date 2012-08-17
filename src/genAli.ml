@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "GenAli" "$Revision: 1616 $"
+let () = SadmanOutput.register "GenAli" "$Revision: 2656 $"
 
 (** This module implements methods to align two general
 * characters allowing rearrangements *)

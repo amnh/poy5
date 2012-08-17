@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2871 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2656 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()

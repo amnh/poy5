@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2871 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2655 $"
 
 let debug_find_local_optimum = false 
 

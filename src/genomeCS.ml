@@ -21,7 +21,7 @@
 * The genome character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "GenomeCS" "$Revision: 1266 $"
+let () = SadmanOutput.register "GenomeCS" "$Revision: 2656 $"
 
 let fprintf = Printf.fprintf
 

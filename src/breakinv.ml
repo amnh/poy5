@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "Breakinv" "$Revision: 911 $"
+let () = SadmanOutput.register "Breakinv" "$Revision: 2656 $"
 
 (** Breakinv module contains functions to create medians
 *    between two lists of breakinv chracters *)
