@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2645 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2658 $"
 
 let debug = false 
 
@@ -1246,6 +1246,8 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
     | `PrintWDir
     | `Help _ as meth -> meth :: acc
     | `Use x -> `Set x :: acc
+    | `Echo (a, []) ->
+            `Echo (a,`Information) :: acc
     | `Echo (a, y) ->
             List.fold_left (fun acc x -> `Echo (a, x) :: acc) acc y
     | `Set settings ->
