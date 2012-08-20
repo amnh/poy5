@@ -102,8 +102,10 @@ val string_of_jxn : join_jxn -> string
 
 type reroot_delta = id list
 (** Moving the root means changing the nodes in a path *)
+
 type break_delta = side_delta * side_delta
 (** A break operates on two sides of an edge *)
+
 type join_delta = side_delta * side_delta * reroot_delta
 (** A join joins two components, and removes a root on the right-hand
     component, resulting in a "rerooting" operation on that side *)
@@ -112,6 +114,7 @@ val get_side_anchor : side_delta -> id
 (** [get_side_anchor delta] in case of a join returns the node on this side
     closest to the other side.  In case of a break, it returns the node on this
     side that was in the broken edge. *)
+
 val side_to_jxn : side_delta -> join_jxn
 (** [side_to_jxn delta] takes a side_delta from a break operation and returns a
     join junction usable to rejoin where the break occurred *)
@@ -119,6 +122,7 @@ val side_to_jxn : side_delta -> join_jxn
 val break_to_edge_delta : break_delta -> edge_delta
 (** [break_to_edge_delta delta] returns the set of edges created and removed by
     a break operation *)
+
 val join_to_edge_delta : join_delta -> edge_delta
 (** [join_to_edge_delta delta] returns the set of edges created and removed by
     a join operation *)
@@ -197,31 +201,33 @@ val is_leaf : int -> u_tree -> bool
 
 (** [is_single i t] return if i is a Single(i) *)
 val is_single : int -> u_tree -> bool
+
 val get_edge : int * int -> u_tree -> edge
+
 val get_parent : int -> u_tree -> int
-val get_child_leaves : u_tree -> int -> int list
+
 val other_two_nbrs : int -> node -> int * int
+
 val get_path_to_handle : int -> u_tree -> int * edge list
+
 val break : break_jxn -> u_tree -> u_tree * break_delta
+
 val join : join_jxn -> join_jxn -> u_tree -> u_tree * join_delta
+
 val make_disjoint_tree : int list -> u_tree
+
 val random : int list -> u_tree
+
 val move_handle : int -> u_tree -> u_tree * int list
-val edge_map : (edge -> 'a) -> u_tree -> (edge * 'a) list
-val pre_order_edge_map : (edge -> 'a) -> int -> u_tree -> 
-                         (edge * 'a) list
-val pre_order_edge_iter : (edge -> unit) -> int -> u_tree -> unit
-val pre_order_edge_visit_with_depth :
-    (edge -> 'a -> t_status * 'a) -> int -> u_tree -> 'a -> int -> 'a
 
 val pre_order_edge_visit :
     (edge -> 'a -> t_status * 'a) -> int -> u_tree -> 'a -> 'a
+
 val pre_order_node_visit :
-  (int option -> int -> 'a -> t_status * 'a) ->
-  int -> u_tree -> 'a -> 'a
+  (int option -> int -> 'a -> t_status * 'a) -> int -> u_tree -> 'a -> 'a
+
 val post_order_node_with_edge_visit :
-    (int -> int -> 'a -> 'a) -> (int -> int -> 'a -> 'a -> 'a) ->
-        edge -> u_tree -> 'a -> 'a * 'a
+    (int -> int -> 'a -> 'a) -> (int -> int -> 'a -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a * 'a
 
 val post_order_node_with_edge_visit_simple :
     (int -> int -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
@@ -234,15 +240,22 @@ val pre_order_node_with_edge_visit_simple_root :
     (int -> int -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
 
 val post_order_node_visit :
-  (int option -> int -> 'a -> t_status * 'a) ->
-  int -> u_tree -> 'a -> 'a
+  (int option -> int -> 'a -> t_status * 'a) -> int -> u_tree -> 'a -> 'a
+
 val get_pre_order_edges : int -> u_tree -> edge list
+
 val get_edges_tree : u_tree -> edge list
+
 val print_edge : edge -> unit
+
 val print_break_jxn : int * int -> unit
+
 val print_join_1_jxn : join_jxn -> unit
+
 val print_join_2_jxn : join_jxn -> unit
+
 val print_tree : int -> u_tree -> unit
+
 val print_forest : u_tree -> unit
 
 val verify_edge : edge -> u_tree -> bool
@@ -332,12 +345,13 @@ val cannonize_on_edge : (int * int) -> u_tree -> u_tree
 
 val cannonize_on_leaf : int -> u_tree -> u_tree
 
-val compare_cannonical : u_tree -> u_tree -> bool
-
-val get_unique : ('a * u_tree) list -> ('a * u_tree) list
-
 val exchange_codes : int -> int -> u_tree -> u_tree
 
+(** A function to replace the codes on a tree from a given function. The
+    function is called multiple times with the same code, thus, it should not,
+    have side-effects or should take that into account. For example, although an
+    identity function will operate properly, a hidden incremental reference will
+    not, unless the input is memoized to be onto. *)
 val replace_codes : (int -> int) -> u_tree -> u_tree
 
 val destroy_component : int -> u_tree -> u_tree
