@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 2663 $"
+let () = SadmanOutput.register "Tree" "$Revision: 2664 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -79,10 +79,6 @@ type side_delta =
         | `Edge of int * int * int * int option
     ]
 
-let get_side_anchor = function
-    | `Single (i, _) -> i
-    | `Edge (i, _, _, _) -> i
-
 type join_jxn =
     | Single_Jxn of id
     | Edge_Jxn of id * id
@@ -90,10 +86,6 @@ type join_jxn =
 let string_of_jxn = function
     | Single_Jxn id -> string_of_int id
     | Edge_Jxn (a, b) -> string_of_int a ^ " -> " ^ string_of_int b
-
-let side_to_jxn = function
-    | `Single (i, _) -> Single_Jxn i
-    | `Edge (_, l1, l2, _) -> Edge_Jxn (l1, l2)
 
 let jxn_choose_node = function
     | Single_Jxn id -> id
@@ -1186,18 +1178,17 @@ let pre_order_node_with_edge_visit_simple_root f (Edge (a, b)) bt acc =
                 f prev curr acc
         | Interior (nd, nbr1, nbr2, nbr3) as node ->
                 let a, b = other_two_nbrs prev node in
-                acc 
-                    --> f prev curr
-                    --> processor curr a 
-                    --> processor curr b 
+                acc --> f prev curr
+                    --> processor curr a
+                    --> processor curr b
         | Single _ -> acc
     and processor_skip prev curr acc =
         match get_node curr bt with
         | Leaf (nd, nbr) -> acc
         | Interior (nd, nbr1, nbr2, nbr3) as node ->
                 let a, b = other_two_nbrs prev node in
-                acc --> processor curr a 
-                    --> processor curr b 
+                acc --> processor curr a
+                    --> processor curr b
         | Single _ -> acc
     in
     acc --> processor_skip b a --> processor_skip a b
@@ -1363,9 +1354,9 @@ let print_edge (Edge(e1, e2)) =
     @return () - this function prints the binary tree to the screen
             using a backward-in-order traversal. *)
 let print_tree id tree =
-    let pipe = "|" and
-        empty_string = "" and
-        suffix = " " in
+    let pipe = "|"
+    and empty_string = ""
+    and suffix = " " in
     let update_prefix prefix =
         (prefix ^ suffix ^ pipe) in
     let already_visited node_id visited =
@@ -1375,10 +1366,9 @@ let print_tree id tree =
     let visit_node node_id prefix =
         (prerr_endline (prefix ^ (string_of_int node_id))) in
     let rec visit_nbr nbr_id prefix visited =
-        if (already_visited nbr_id visited) then
-            visited
-        else
-            (print_tree_aux nbr_id prefix visited)
+        if (already_visited nbr_id visited)
+            then visited
+            else (print_tree_aux nbr_id prefix visited)
     and print_tree_aux node_id prefix visited =
         match (get_node node_id tree) with
         | Single(id) ->
@@ -1404,8 +1394,8 @@ let print_tree id tree =
     @return () - prints all the trees in the forest. *)
 let print_forest forest =
     let handles = (All_sets.Integers.elements (get_handles forest)) in
-        (ignore (List.map (fun x -> prerr_newline ();
-                                    print_tree x forest) handles))
+    (ignore (List.map (fun x -> prerr_newline ();
+                                print_tree x forest) handles))
 module Parse = struct
     (* A simple representation of a tree *)
     type 'a t = Leafp of 'a | Nodep of 'a t list * 'a
@@ -2642,11 +2632,10 @@ let reroot (a, b) tree =
 (* Find a leaf *)
 let choose_leaf tree =
     let (Edge (a, _)) = EdgeSet.choose tree.d_edges in
-    let rec find_leaf x =
-        match get_node x tree with
-        | Leaf (a, b)  ->  a, b
+    let rec find_leaf x = match get_node x tree with
+        | Leaf (a, b)           ->  a, b
         | Interior (_, _, c, _) -> find_leaf c
-        | Single _ -> failwith "Tree.choose_leaf"
+        | Single _              -> failwith "Tree.choose_leaf"
     in
     find_leaf a
 
@@ -2680,43 +2669,6 @@ let cannonize_on_leaf a tree =
         Status.user_message Status.Error
             ("Could not find " ^ string_of_int a);
         raise err
-
-(*let compare_cannonical a b = *)
-(*    let rec recursive_compare ac bc =*)
-(*        match get_node ac a, get_node bc b with*)
-(*        | Leaf _, Leaf _ -> true*)
-(*        | Interior (_, _, a1, a2), Interior (_, _, b1, b2) ->*)
-(*                (recursive_compare a1 b1) && (recursive_compare a2 b2)*)
-(*        | _, _ -> false*)
-(*    in*)
-(*    let compare handle =*)
-(*        match get_node handle a, get_node handle b with*)
-(*        | Leaf (_, a'), Leaf (_, b') ->*)
-(*                recursive_compare a' b'*)
-(*        | Single _, Single _ -> true*)
-(*        | Interior _, Interior _ -> failwith "Canonize first"*)
-(*        | _, _ -> false*)
-(*    in*)
-(*    let handles = get_handles a in*)
-(*    match All_sets.Integers.cardinal handles with*)
-(*    | 1 -> compare (All_sets.Integers.choose handles)*)
-(*    | _ -> failwith "Comparing trees can not handle forests"*)
-
-(*let get_unique trees = *)
-(*    match trees with*)
-(*    | (_, tree) :: _ ->*)
-(*        let a, _ = choose_leaf tree in*)
-(*        let trees = List.rev_map (fun (b, x) ->*)
-(*            b, x, (cannonize_on_leaf a x)) trees *)
-(*        in*)
-(*        let rec remove_duplicated acc = function*)
-(*            | ((_, _, h) as pair) :: t ->*)
-(*                    let are_different (_, _, x) = not (compare_cannonical h x) in*)
-(*                    remove_duplicated (pair :: acc) (List.filter are_different t)*)
-(*            | [] -> acc*)
-(*        in*)
-(*        List.rev_map (fun (a, b, _) -> a, b) (remove_duplicated []  trees)*)
-(*    | x -> x*)
 
 let destroy_component handle tree =
     assert (is_handle handle tree);

@@ -20,55 +20,29 @@
 (** The Tree module that provides support for local search of phylogenetic
 trees using SPR and TBR on unrooted trees. *)
 
+
+(** {2 Types that define an unrooted tree topology **)
+
+(** Type for id's in the node information *)
 type id = int
 
-exception Invalid_Node_Id of int
-exception Invalid_Handle_Id
-exception Invalid_Edge
-exception Invalid_End_Nodes
-exception Node_Is_Handle
-
-
 (** The nodes have the following form: NodeType(id, _...) where id is the 
-   node id.. The Root nodes have left and right child ids. The 
-   Interior and Leaf nodes are common to both rooted and unrooted trees.
-   In rooted trees, these nodes store ids as 
-   InteriorNode(id, parent_id, left_id, right_id), LeafNode(id, parent_id).
-   Note that there is a directionality on the edges. 
-   In unrooted trees, the locations of the tuples have no special
-   significance. The nodes are interpreted as 
-   InteriorNode(id, nbr1, nbr2, nbr3), LeafNode(id, nbr1). Here the
-   edges are not directed. We distinguish between ordinary nodes and handles.
-   This aids in the implementation of the break_edge and join_edge operations. 
-   *)
+    node id. In these unrooted trees, the locations of the tuples have no special
+    significance. The nodes are interpreted as 
+        - Interior (id, nbr1, nbr2, nbr3)
+        - Leaf (id, nbr1)
+        - Single (id) *)
 type node =
-  | Single of int
-  | Leaf of int * int
-  | Interior of (int * int * int * int)
+  | Single of id
+  | Leaf of id * id
+  | Interior of (id * id * id * id)
 
-(** return string representation of a node *)
-val string_of_node : node -> string
-
-(** In an rooted tree, edges are implicitly directed according to parent
-_ child relationships. The edges in unrooted trees are directed based on
-a DFS from a handle. These edges are used only by unrooted trees 
-to represent the directionality imposed on an undirected edge when 
-traversing from a handle. *)
-type edge = Edge of (int * int)
-
-(** A simple record to keep track of added and removed edges *)
-type edge_delta = {
-    added : edge list;
-    removed : edge list;
-}
-
-val empty_ed : edge_delta
-
-(** Status of traversal. *)
-type t_status = 
-    | Continue (** Continue the current traversal. *)
-    | Skip (** Skip the subtree rooted at this node, for pre-order only *)
-    | Break (** Stop traversal and return current val. *)
+(** In an rooted tree, edges are implicitly directed according to parent ->
+    child relationships. The edges in unrooted trees are directed based on a
+    DFS from a handle. These edges are used only by unrooted trees to represent
+    the directionality imposed on an undirected edge when traversing from a
+    handle. *)
+type edge = Edge of (id * id)
 
 (** The edge comparator, allows comparison of edges so we
 can create edge -> {% $\alpha$ %} maps. *)
@@ -83,49 +57,6 @@ module EdgeSet : Set.S with type elt = edge
 
 (** The edge -> {% $\alpha$ %} map. *)
 module EdgeMap : Map.S with type key = edge
-
-(** summarizes what a tree break or join operation did to a side of the tree
-    being created or broken *)
-type side_delta =
-        [ `Single of int * bool (** the code of the single, whether or not a
-                                    handle was created/removed here *)
-        | `Edge of int * int * int * int option ]
-          (** l (the node created/destroyed), l1, l2,
-              id of the handle created/removed, if any *)
-
-(** Joining can be done at an edge or with a single isolated node *)
-type join_jxn = 
-    | Single_Jxn of id
-    | Edge_Jxn of id * id
-
-val string_of_jxn : join_jxn -> string
-
-type reroot_delta = id list
-(** Moving the root means changing the nodes in a path *)
-
-type break_delta = side_delta * side_delta
-(** A break operates on two sides of an edge *)
-
-type join_delta = side_delta * side_delta * reroot_delta
-(** A join joins two components, and removes a root on the right-hand
-    component, resulting in a "rerooting" operation on that side *)
-
-val get_side_anchor : side_delta -> id
-(** [get_side_anchor delta] in case of a join returns the node on this side
-    closest to the other side.  In case of a break, it returns the node on this
-    side that was in the broken edge. *)
-
-val side_to_jxn : side_delta -> join_jxn
-(** [side_to_jxn delta] takes a side_delta from a break operation and returns a
-    join junction usable to rejoin where the break occurred *)
-
-val break_to_edge_delta : break_delta -> edge_delta
-(** [break_to_edge_delta delta] returns the set of edges created and removed by
-    a break operation *)
-
-val join_to_edge_delta : join_delta -> edge_delta
-(** [join_to_edge_delta delta] returns the set of edges created and removed by
-    a join operation *)
 
 (** The unrooted tree. Just as the rooted tree, the un-rooted 
     tree's topology is represented as a node_id -> node map. 
@@ -142,22 +73,82 @@ type u_tree = {
     new_ids : id;                       (** Where to start numbering new ids *)
 }
 
-val get_break_handles : break_delta -> u_tree -> id * id
-(** [get_break_handles delta tree] returns the ids of the handles of the left
-    and right components of a tree after a break *)
 
-type break_jxn = id * id
+(** {2 Exceptions for handling errors *)
+
+exception Invalid_Node_Id of id
+
+exception Invalid_Handle_Id
+
+exception Invalid_Edge
+
+exception Invalid_End_Nodes
+
+exception Node_Is_Handle
+
+
+(** {2 Functions to aid in debugging *)
+
+(** return string representation of a node *)
+val string_of_node : node -> string
+
+
+(** {2 Break and Join Type Information **)
+
+(** A simple record to keep track of added and removed edges *)
+type edge_delta = {
+    added : edge list;
+    removed : edge list;
+}
+
 (** The junctions where a tree can be broken to create two subtrees. *)
+type break_jxn = id * id
 
+(** Summarizes what a tree break or join operation did to a side of the tree
+    being created or broken *)
+type side_delta =
+        [ `Single of id * bool
+            (** the code of the single, whether or not a
+                handle was created/removed here *)
+        | `Edge of id * id * id * id option ]
+            (** l (the node created/destroyed), l1, l2,
+                id of the handle created/removed, if any *)
+
+(** Joining can be done at an edge or with a single isolated node *)
+type join_jxn = 
+    | Single_Jxn of id
+    | Edge_Jxn of id * id
+
+(** Moving the root means changing the nodes in a path *)
+type reroot_delta = id list
+
+(** A break operates on two sides of an edge *)
+type break_delta = side_delta * side_delta
+
+(** A join joins two components, and removes a root on the right-hand
+    component, resulting in a "rerooting" operation on that side *)
+type join_delta = side_delta * side_delta * reroot_delta
+
+
+(** {2 Define Basic Tree creation functions *)
 
 (** The empty u_tree. *)
 val empty : unit -> u_tree
+
+(** Define a tree from a list of id's *)
+val make_disjoint_tree : id list -> u_tree
+
+(** Create a uniformly random tree from a list of ID's *)
+val random : id list -> u_tree
+
+
+(** {2 General Accessor Functions for the tree *)
 
 (** [get_id n] get node id from node; the first int in the tuple *)
 val get_id : node -> int
 
 (** [int_of_id i] transform an id to an integer; identity function here *)
-val int_of_id : id -> int 
+val int_of_id : id -> int
 
 (** [is_handle i] checks if i is a handle in the tree *)
 val is_handle : int -> u_tree -> bool
@@ -188,83 +179,150 @@ val handle_list : u_tree -> int list
 val get_nodes : u_tree -> node list
 
 (** [get_node_ids t] get the integer keys of the nodes *)
-val get_node_ids : u_tree -> int list
+val get_node_ids : u_tree -> id list
 
 (** [get_node i t] get the node for i; neighbors information *)
-val get_node : int -> u_tree -> node
+val get_node : id -> u_tree -> node
 
 (** [get_all_leaves t] return all the leaf nodes *)
 val get_all_leaves : u_tree -> id list
 
 (** [is_leaf i t] return if i is a Leaf(i,_) *)
-val is_leaf : int -> u_tree -> bool
+val is_leaf : id -> u_tree -> bool
 
 (** [is_single i t] return if i is a Single(i) *)
-val is_single : int -> u_tree -> bool
+val is_single : id -> u_tree -> bool
 
-val get_edge : int * int -> u_tree -> edge
+(** [get_edge (a,b) t] Return an edge from a pair of ID's *)
+val get_edge : id * id -> u_tree -> edge
 
-val get_parent : int -> u_tree -> int
+(** [get_parent] get the parent of a node. In an unrooted context this may not
+    be what is expected. *)
+val get_parent : id -> u_tree -> id
 
-val other_two_nbrs : int -> node -> int * int
+(** Get a pre-order list of edges from a node *)
+val get_pre_order_edges : id -> u_tree -> edge list
 
-val get_path_to_handle : int -> u_tree -> int * edge list
+(** Return a list of edges in a tree *)
+val get_edges_tree : u_tree -> edge list
+
+(** [other_two_nbrs] get the other two neighbors of an interior node excluding
+    the id passed. *)
+val other_two_nbrs : id -> node -> id * id
+
+(** Choose a leaf and return it and it's parent. The choice is done by the Set
+    module. Although not specified in the implementation, it is not random *)
+val choose_leaf : u_tree -> (id * id)
+
+(** Verify that an edge exists in the tree *)
+val verify_edge : edge -> u_tree -> bool
+
+(** Run a tree through a battery of consistency tests *)
+val test_tree : u_tree -> unit
+
+(** Get a Map of Handle Edges to depths of a tree *)
+val depths : u_tree -> int All_sets.TupleMap.t
+
+(** Print an edge; to aid debuging *)
+val print_edge : edge -> unit
+
+(** Print tree from id as the starting point. backward-in-order traversal *)
+val print_tree : id -> u_tree -> unit
+
+(** Generalization of above, applied to each handle id *)
+val print_forest : u_tree -> unit
+
+
+(** {2 Handle Manipulation functions *)
+
+(** Return the path from a node to a handle. Return the handle id and an edge
+    list that defines the path *)
+val get_path_to_handle : id -> u_tree -> id * edge list
+
+(** Move a handle to a node; return the tree with the new handle, and a path
+    from the old handle to the new one *)
+val move_handle : id -> u_tree -> u_tree * id list
+
+(** Return a list of nodes from an id to a handle *)
+val get_vertices_to_handle :  id -> u_tree -> id list
+
+val fix_handle_neighbor : id -> id -> u_tree -> u_tree
+
+
+(** {2 Break and Join Functions *)
+
+val break_to_edge_delta : break_delta -> edge_delta
+(** [break_to_edge_delta delta] returns the set of edges created and removed by
+    a break operation *)
+
+val join_to_edge_delta : join_delta -> edge_delta
+(** [join_to_edge_delta delta] returns the set of edges created and removed by
+    a join operation *)
+
+val get_break_handles : break_delta -> u_tree -> id * id
+(** [get_break_handles delta tree] returns the ids of the handles of the left
+    and right components of a tree after a break *)
 
 val break : break_jxn -> u_tree -> u_tree * break_delta
+(** Break an edge defined by a jxn point *)
 
 val join : join_jxn -> join_jxn -> u_tree -> u_tree * join_delta
+(** Joint two join jxns as defined above. *)
 
-val make_disjoint_tree : int list -> u_tree
+val reroot : (id * id) -> u_tree -> u_tree
+(** reroot a tree on an edge defined by the pair of ID's *)
 
-val random : int list -> u_tree
+val print_break_jxn : break_jxn -> unit
+(** Debugging function for a break jxn *)
 
-val move_handle : int -> u_tree -> u_tree * int list
+val print_join_1_jxn : join_jxn -> unit
+(** Print join function labeled with a "1" *)
+
+val print_join_2_jxn : join_jxn -> unit
+(** Print join function labeled with a "2" *)
+
+
+(** {2 Traversal Functions **)
+
+(** Status of a traversal. *)
+type t_status = 
+    | Continue  (** Continue the current traversal. *)
+    | Skip      (** Skip the subtree rooted at this node, for pre-order only *)
+    | Break     (** Stop traversal and return current val. *)
 
 val pre_order_edge_visit :
-    (edge -> 'a -> t_status * 'a) -> int -> u_tree -> 'a -> 'a
+    (edge -> 'a -> t_status * 'a) -> id -> u_tree -> 'a -> 'a
 
 val pre_order_node_visit :
-  (int option -> int -> 'a -> t_status * 'a) -> int -> u_tree -> 'a -> 'a
+    (id option -> id -> 'a -> t_status * 'a) -> id -> u_tree -> 'a -> 'a
 
 val post_order_node_with_edge_visit :
-    (int -> int -> 'a -> 'a) -> (int -> int -> 'a -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a * 'a
+    (id -> id -> 'a -> 'a) -> (id -> id -> 'a -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a * 'a
 
 val post_order_node_with_edge_visit_simple :
-    (int -> int -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
+    (id -> id -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
 
 val pre_order_node_with_edge_visit_simple :
-    (int -> int -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
+    (id -> id -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
 
 (* adds a function to apply to edge a,b, and excludes a and b from the traversal *)
 val pre_order_node_with_edge_visit_simple_root :
     (int -> int -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
 
 val post_order_node_visit :
-  (int option -> int -> 'a -> t_status * 'a) -> int -> u_tree -> 'a -> 'a
+    (id option -> id -> 'a -> t_status * 'a) -> id -> u_tree -> 'a -> 'a
 
-val get_pre_order_edges : int -> u_tree -> edge list
 
-val get_edges_tree : u_tree -> edge list
-
-val print_edge : edge -> unit
-
-val print_break_jxn : int * int -> unit
-
-val print_join_1_jxn : join_jxn -> unit
-
-val print_join_2_jxn : join_jxn -> unit
-
-val print_tree : int -> u_tree -> unit
-
-val print_forest : u_tree -> unit
-
-val verify_edge : edge -> u_tree -> bool
+(** {2 Distance Functions for trees *)
 
 (* Create two sets defining the partition accross an edge *)
 val create_partition : u_tree -> edge -> All_sets.Integers.t * All_sets.Integers.t
 
 (* Calculate the Robinson Foulds distance between two trees *)
 val robinson_foulds : u_tree -> u_tree -> int
+
+
+(** {6 Finger Print Modules *)
 
 (** Module to fingerprint trees and compare them *)
 module Fingerprint : sig
@@ -278,8 +336,9 @@ end
     scheme as !Hash_tbl. *)
 module CladeFP :
 sig
-    type fp = All_sets.Integers.t
     type t
+
+    type fp = All_sets.Integers.t
 
     module Ordered : Map.OrderedType with type t = fp
 
@@ -298,48 +357,36 @@ sig
     (** [query edge fps] retrieves the fingerprint for [edge] *)
     val query : edge -> t -> fp
 
+    (** [return the number of leaves in a fingerprint *)
     val num_leaves : fp -> int
 
+    (** fold over a tree *)
     val fold : (edge -> fp -> 'a -> 'a) -> t -> 'a -> 'a
 end
 
 module CladeFPMap : (Map.S with type key = CladeFP.fp)
 
-val get_vertices_to_handle :  int -> u_tree -> int list
-val fix_handle_neighbor : int -> int -> u_tree -> u_tree
 
-(******* Tree Fusing *)
-
-val source_to_target :
-    u_tree * int ->
-    u_tree * int -> u_tree
+(** {2 Tree Fusing Functions *)
 
 type 'a fuse_locations = ('a * u_tree * edge) list Sexpr.t
+
+val source_to_target : u_tree * int -> u_tree * int -> u_tree
 
 val fuse_cladesize : min:int -> max:int -> 'a * int -> bool
 
 val fuse_locations :
-    ?filter:(CladeFP.fp * int -> bool) ->
-    ('a * u_tree) list ->
-    ('a * u_tree) ->
-    'a fuse_locations
+    ?filter:(CladeFP.fp * int -> bool) -> ('a * u_tree) list -> ('a * u_tree) -> 'a fuse_locations
 
 val fuse_all_locations :
-    ?filter:(CladeFP.fp * int -> bool) ->
-    ('a * u_tree) list ->
-    'a fuse_locations
+    ?filter:(CladeFP.fp * int -> bool) -> ('a * u_tree) list -> 'a fuse_locations
 
 val fuse :
     source:u_tree * edge -> target:u_tree * edge -> u_tree
 
-val test_tree :
-    u_tree -> unit
 
-val depths : u_tree -> int All_sets.TupleMap.t
 
-val reroot : (int * int) -> u_tree -> u_tree
-
-val choose_leaf : u_tree -> (int * int)
+(** {2 Functions for Re-Mapping Trees *)
 
 val cannonize_on_edge : (int * int) -> u_tree -> u_tree
 
@@ -358,8 +405,16 @@ val destroy_component : int -> u_tree -> u_tree
 
 val copy_component : int -> u_tree -> u_tree -> u_tree
 
+
+(** {2 Parse Module / IO *)
+
+(** Define a Parsing module for trees; we also include some intermediary
+    types of trees used when we have annotations on nodes, branch lengths on
+    nodes, et cetera *)
 module Parse : sig
-    (** Parser for tree in format (a (b c)) *)
+
+    exception Illegal_argument
+    exception Illegal_tree_format of string
 
     type 'a t = Leafp of 'a | Nodep of 'a t list * 'a
 
@@ -369,50 +424,59 @@ module Parse : sig
         | Branches of ((string * float option) t)
         | Characters of ((string * string option) t)
 
+    (** Strip the tree of an annotation; thus we have a flat, branch, or
+        character result in the tree. *)
     val remove_annotations : tree_types -> tree_types
 
     (** [print_tree t] prints a tree **)
     val print_tree : string option -> tree_types -> unit
 
     (** [of_string x] given a string x of a tree in the form (a (b c)), returns
-    * its representation as an internal t type. If an error occurs, an
-    * Illegal_tree_format error is raised. *)
+        its representation as an internal t type. If an error occurs, an
+        Illegal_tree_format error is raised. *)
     val of_string : string -> tree_types list list
 
     (** [of_channel x] creates a list of all the trees contained in the input
-    * channel x in ascii format. Each tree should be in a single line. In case
-    * of error the function raises Illegal_molecular_format. *)
+        channel x in ascii format. Each tree should be in a single line. In case
+        of error the function raises Illegal_molecular_format. *)
     val of_channel : in_channel -> tree_types list list
 
     (** [of_file] is a shortcut of [of_channel], when the channel is an opened
-    * file. *)
+        file. *)
     val of_file : FileStream.f -> tree_types list list
 
     (** [stream_of_file f] produces a function that returns on each call one of
-    * the trees in the input file [f]. If no more trees are found, an
-    * End_of_file exception is raised. The function _requires_ that the trees be
-    * separated with associated information, semicolons, or stars.*)
+        the trees in the input file [f]. If no more trees are found, an
+        End_of_file exception is raised. The function _requires_ that the trees
+        be separated with associated information, semicolons, or stars.*)
     val stream_of_file : bool -> FileStream.f -> ((unit -> tree_types) * (unit -> unit))
 
+    (** Order the nodes alphabetically *)
     val cannonic_order : tree_types -> tree_types
 
-    exception Illegal_argument
-    exception Illegal_tree_format of string
-
     (** [cleanup ~newroot f t] removes from the tree [t] the leaves that contain
-    * infromation [x] such that [f x = true]. If there is the need for a new
-    * root, then [newroot] must be provided. If the [newroot] is required and
-    * not provided, the function raises an [Illegal_argument] exception. *)
+        infromation [x] such that [f x = true]. If there is the need for a new
+        root, then [newroot] must be provided. If the [newroot] is required and
+        not provided, the function raises an [Illegal_argument] exception. *)
     val cleanup : ?newroot:string  -> (string -> bool) -> tree_types -> tree_types option
 
     (** [post_process t] takes a basic tree and converts it to Flat,Branches or
-     * Annotated based on it's properties. *)
+        Annotated based on it's properties. *)
     val post_process : (string * (float option * string option)) t * string -> tree_types
 
+    (** Map on the node data of a tree *)
     val map : ('a -> 'b) -> 'a t -> 'b t
+
+    (** Map a function on the taxa of the tree *)
     val map_tree : (string -> string) -> tree_types -> tree_types
 
+    (** Strip the tree of all node annotations and extra information to a basic
+        tree; when we only care about the topology *)
     val strip_tree : tree_types -> string t
+
     val maximize_tree : tree_types -> (string * string option) t
+
+    (** Convert a tree to the u-tree interface. Many details are stipped from
+        the conversion, and thus need to be dealt with in other ways. *)
     val convert_to : string option * tree_types list -> (string -> int) -> u_tree
 end
