@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 2651 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 2656 $"
 
 let (-->) b a = a b
 
@@ -320,7 +320,7 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
         debug_printf "Trying to bracket around %f,%f\n%!" o fo;
         bracket_region (create_scaled o' 0.2) o' (create_scaled o' 2.0)
   (*-- brents method as in Numerical Recipe in C; 10.2 *)
-    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ( v') a b d e iters =
+    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ( v') a b d e iters pu =
         let (v,(_,fv))  = v' in
         debug_printf "Iteration %d, bracketing (%f,%f) with: %f,%f,%f\n%!" 
                         iters a b x w v;
@@ -330,9 +330,9 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
         if iters > max_iter then begin 
             warning_message "Numerical.brent; hit max number of iterations.";
             x'
-        end else if (abs_float (x-.xm)) <= ((2.0 *. tol) -. (b -. a) /. 2.0) then x'
+        end else if (abs_float (x-.xm)) <= ((2.0 *. tol) -. (b -. a) *. 0.5) then x'
         else begin
-            let d,e = 
+            let d,e =
                 if (abs_float e) > tol1 then begin
                     (* calculate the abscissa *)
                     let r = (x -. w) *. (fx -. fv) 
@@ -346,7 +346,7 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
                         || p <= q *. (a -. x) || p >= q *. (b -. x) then
                         (* do a golden section instead of parabolic fit *)
                         let e = if x >= xm then a-.x else b -. x in
-                        let d,e = golden *. e, e in
+                        let d = golden *. e in
                         debug_printf "\tDoing a golden section search1: %f//%f\n" d e;
                         d,e
                     else begin
@@ -363,13 +363,13 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
                     end
                 end else begin
                     let e = if x >= xm then a -. x else b -. x in
-                    let d,e = golden *. e, e in
+                    let d = golden *. e in
                     debug_printf "\tDoing a golden section search2: %f//%f\n" d e;
                     d,e
                 end
             in
             (* the ONLY function evalution for each iteration *)
-            let u = 
+            let u =
                 if (abs_float d) >= tol1
                     then minmax (x+.d)
                     else minmax (x+.(sign tol1 d))
@@ -378,21 +378,23 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
             let u',fu = (u,fu), snd fu in
             debug_printf "\tCalculated [%f,%.11f] in Brent\n%!" u fu;
             (* what to do with results for next iteration *)
-            if fu <= fx then begin
+            if pu = u then
+                begin if fx < fu then x' else u' end
+            else if fu <= fx then begin
                 let a,b = if u >= x then x,b else a,x in
-                brent u' x' w' a b d e (iters+1)
+                brent u' x' w' a b d e (iters+1) u
             end else begin
                 let a,b = if u < x then u,b else a,u in
                 if fu <= fw || w =. x then
-                    brent x' u' w' a b d e (iters+1)
+                    brent x' u' w' a b d e (iters+1) u
                 else 
-                    brent x' w' u' a b d e (iters+1)
+                    brent x' w' u' a b d e (iters+1) u
             end
         end
     in
     let (lv,_),m,(hv,_) = create_initial_three_and_bracket orig in
     cdebug_printf "Bracketed by Brents Method : (%f,%f,%f)\n%!" lv (fst m) hv;
-    let (b,(_,fb)) as res = brent m m m lv hv 0.0 0.0 0 in
+    let (b,(_,fb)) as res = brent m m m lv hv 0.0 0.0 0 (fst m) in
     cdebug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
                     v_orig (snd f_orig) b fb;
     FPInfix.reset ();

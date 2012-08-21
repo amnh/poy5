@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Chrom" "$Revision: 975 $"
+let () = SadmanOutput.register "Chrom" "$Revision: 2656 $"
 
 (** Chrom  module implements functions to create medians
     between two lists of chromosomes *)

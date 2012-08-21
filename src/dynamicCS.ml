@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2654 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2659 $"
 
 let debug = false
 
@@ -352,7 +352,6 @@ let get_extra_cost_for_root (a : t)  = match a with
     | AnnchromCS x -> AnnchromCS.get_extra_cost_for_root x 
     | GenomeCS x -> GenomeCS.get_extra_cost_for_root x
     | BreakinvCS x -> BreakinvCS.get_extra_cost_for_root x
-    | _ -> 0.0
 
 
 (* Like [distance] but calculates it only 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2654 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 2659 $"
 
 
 (* $Id: alphabet.ml 2871 2008-05-23 17:48:34Z andres $ *)
@@ -196,14 +196,18 @@ let list_to_a ?(respect_case = false) ?(orientation=false) ?(init3D=false) lst g
         | None -> None
     in
     let (comb_to_list,list_to_comb) =
-        All_sets.StringMap.fold
+        match kind with
+        | Combination_By_Level 
+        | Continuous -> (*we fill these two maps later in function [explote]*)
+            (All_sets.IntegerMap.empty,All_sets.IntegerListMap.empty)
+        | _ ->
+            All_sets.StringMap.fold
             (fun _ (v:int) (c2l,l2c) ->
                 let vec = match kind with
                     | Sequential           -> [v]
                     | Simple_Bit_Flags     -> BitSet.Int.list_of_packed v
                     | Extended_Bit_Flags   -> BitSet.Int.list_of_packed v
-                    | Continuous           -> assert false (* singleton *)
-                    | Combination_By_Level -> assert false (* requires other function *)
+                    | _ -> failwith "we will fill in combination map later"
                 in
                 All_sets.IntegerMap.add v vec c2l,
                 All_sets.IntegerListMap.add vec v l2c)

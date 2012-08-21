@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2650 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2656 $"
 
 let compress = true
 
@@ -652,7 +652,7 @@ let yang () =
         MlModel.create (Alphabet.to_sequential Alphabet.nucleotides) spec
     in
     let a = of_parser_simple "A" model and c = of_parser_simple "C" model
-    and g = of_parser_simple "G" model and t = of_parser_simple "T" model in
+    (*and g = of_parser_simple "G" model*) and t = of_parser_simple "T" model in
     let tc  = median2 t   c  0.2 0.2 0 0 in
     let tca = median2 tc  a  0.1 0.2 0 0 in
     let cc  = median2 c   c  0.2 0.2 0 0 in

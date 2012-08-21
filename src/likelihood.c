@@ -2099,7 +2099,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
 {
     int iter,size,bracketed;
     ptr temp; mll temp_;
-    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi;
+    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi,pu;
     double *PA,*PB,*TMP;
     double r,q,p,d,e,tol,tmp;
 
@@ -2118,7 +2118,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     (temp.vs)->lv_invar = data_c1->lv_invar;
     (temp.vs)->rates    = data_c1->rates;
 
-    e = d = 0;
+    e = d = pu = 0.0;
     /* initial bracket */
     x  = *b_tc1;
     fx = fi = *b_mle;
@@ -2207,6 +2207,12 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
         single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
         fu = temp.ll;
         /** printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb); **/
+
+        /* Determine Convergence to a singularity */
+        if( pu == u ){
+            if( fx < fu ) { break; }
+                     else { fx = fu; x = u; break;}
+        }
         /* move variables around for next motion */
         if( fu <= fx ){
             if( u >= x ){ a = x; fa = fx; } else { b = x; fb = fx; }
@@ -2221,6 +2227,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
                 v=u; fv=fu;
             }
         }
+        pu = u;
         ++iter;
     }
     /* if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
@@ -2237,7 +2244,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
 {
     int iter,size,bracketed;
     ptr temp; mll temp_;
-    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi;
+    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi,pu;
     double *PA,*PB,*TMP;
     double r,q,p,d,e,tol,tmp;
 
@@ -2256,7 +2263,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
     (temp.vs)->lv_invar = data_c1->lv_invar;
     (temp.vs)->rates    = data_c1->rates;
 
-    e = d = 0.0;
+    e = d = pu = 0.0;
     /* initial bracket */
     x = *b_tc1;
     fx = fi = *b_mle;
@@ -2342,6 +2349,11 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
         single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
         fu = temp.ll;
         /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
+        /* Determine Convergence to a singularity */
+        if( pu == u ){
+            if( fx < fu ) { break; }
+                     else { fx = fu; x = u; break;}
+        }
         /* move variables around for next motion */
         if( fu <= fx ){
             if( u >= x ){ a = x; } else { b = x; }
@@ -2357,6 +2369,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
             }
         }
         ++iter;
+        pu = u;
     }
     /* if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
     memcpy( data_p->lv_s, (temp.vs)->lv_s, size * sizeof(double));

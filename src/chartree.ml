@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 2654 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 2659 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -459,20 +459,21 @@ let calculate_root ptree node_id neighbor =
     | median, None ->
           if Ptree.is_handle node_id ptree then
               (let root_median = Some (`Edge (node_id, neighbor), median) in
-               if debug_joinfn then 
-                   Printf.printf "The cost of this root is %f\n%!"
-                       median.Node.total_cost;
                let cost = Node.Standard.tree_cost None median in
                let extracost = Node.extra_cost_from_root median in
+               if debug_joinfn then 
+                   Printf.printf "The cost of this root is %f,%f-%f\n%!"
+                       median.Node.total_cost cost extracost;
                Ptree.assign_root_to_connected_component node_id root_median
                    (cost -. extracost) None ptree)
           else if Ptree.is_handle neighbor ptree then
-              (if debug_joinfn then 
-                   Printf.printf "The cost of this root is %f\n%!"
-                       median.Node.total_cost;
+              (
                let root_median = Some (`Edge (neighbor, node_id), median) in
                let cost = Node.Standard.tree_cost None median in
                let extracost = Node.extra_cost_from_root median in
+               if debug_joinfn then 
+                   Printf.printf "The cost of this root is %f,%f-%f\n%!"
+                       median.Node.total_cost cost extracost;
                Ptree.assign_root_to_connected_component neighbor root_median
                     (cost -. extracost) None ptree)
           else failwith "Chartree.calculate_root 1"
@@ -893,7 +894,7 @@ let update_tree_data_break doup delta ptree =
             let extracost = Node.extra_cost_from_root data in
             let data = Node.Standard.fix_preliminary data in
             let item = Some ((`Single nid), data) in
-            Ptree.assign_root_to_connected_component nid item cost None ptree, []
+            Ptree.assign_root_to_connected_component nid item (cost-.extracost) None ptree, []
 
 let update_tree_data_break (tree_delta, clade_delta) ptree =
     let ptree, _ = update_tree_data_break true tree_delta ptree in

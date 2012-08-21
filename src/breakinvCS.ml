@@ -20,10 +20,10 @@
 (** A Breakinv character set implementation. The breakinv
 * character set allows rearrangements *)
 
-let () = SadmanOutput.register "BreakinvCS" "$Revision: 1616 $"
+let () = SadmanOutput.register "BreakinvCS" "$Revision: 2656 $"
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "Breakinv Character" "$Revision: 803 $"
+let () = SadmanOutput.register "Breakinv Character" "$Revision: 2656 $"
 
 let debug = false
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "BreakinvAli" "$Revision: 911 $"
+let () = SadmanOutput.register "BreakinvAli" "$Revision: 2656 $"
 
 (** The implementation of funtions to calculate the cost, 
 * alignments and medians between general sequences 

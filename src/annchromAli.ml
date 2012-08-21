@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AnnchromAli" "$Revision: 911 $"
+let () = SadmanOutput.register "AnnchromAli" "$Revision: 2656 $"
 
 let debug = false
 let debug_distance = false

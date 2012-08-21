@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Annchrom" "$Revision: 911 $"
+let () = SadmanOutput.register "Annchrom" "$Revision: 2656 $"
 
 (** Annchrom  module implements functions to create medians
     between two lists of annotated chromosomes *)
