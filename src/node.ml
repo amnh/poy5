@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2659 $"
+let () = SadmanOutput.register "Node" "$Revision: 2666 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -233,7 +233,10 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
-        cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates | `Sankoff ];
+        (*cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates | `Sankoff ];
+        *)
+        (*cost_mode is only for likelihood, in function [total_cost_of_type]*)
+        cost_mode : [ `Likelihood | `NotLikelihood | `SumLikelihood  ];
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
@@ -2774,7 +2777,7 @@ let structure_into_sets data (nodes : node_data list) =
         | h :: tl ->
             List.iter (fun x -> assert(h.cost_mode = x.cost_mode)) tl;
             h.cost_mode
-        | [] -> `Parsimony
+        | [] -> `NotLikelihood
     in
     let eg_node =
         { 
@@ -3175,12 +3178,12 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and addvec = make_set_of_list addvec
         and addgen = make_set_of_list addgen in
         let cost_mode = match static_ml with
-            | _  when is_fixedstates  -> `Fixedstates
+            (*| _  when is_fixedstates  -> `Fixedstates*)
             | _::_                    -> `Likelihood
             | [] when has_dynamic_mpl -> `SumLikelihood
             | [] when has_dynamic_mal -> `Likelihood
-            | _ when has_sank         -> `Sankoff
-            | _                       -> `Parsimony
+            (*| _ when has_sank         -> `Sankoff*)
+            | _                       -> `NotLikelihood
         in
         current_snapshot "end nonadd set2";
         let r =
@@ -4502,7 +4505,7 @@ let for_support starting leaves leaves_id nodes =
                 let mode = h.cost_mode in
                 assert (List.for_all (fun (_, x) -> x.cost_mode = mode) t);
                 mode
-        | [] -> `Parsimony
+        | [] -> `NotLikelihood
     in
     let leaves = List.map (fun (x, y) -> (x, [], y)) leaves in
     let load_clade node_data node_id =
