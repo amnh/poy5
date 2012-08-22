@@ -18,7 +18,8 @@
 (* USA                                                                        *)
 
 (** The Tree module that provides support for local search of phylogenetic
-trees using SPR and TBR on unrooted trees. *)
+    trees using SPR and TBR on unrooted trees. *)
+
 
 
 (** {2 Types that define an unrooted tree topology **)
@@ -74,6 +75,7 @@ type u_tree = {
 }
 
 
+
 (** {2 Exceptions for handling errors *)
 
 exception Invalid_Node_Id of id
@@ -86,11 +88,6 @@ exception Invalid_End_Nodes
 
 exception Node_Is_Handle
 
-
-(** {2 Functions to aid in debugging *)
-
-(** return string representation of a node *)
-val string_of_node : node -> string
 
 
 (** {2 Break and Join Type Information **)
@@ -130,6 +127,7 @@ type break_delta = side_delta * side_delta
 type join_delta = side_delta * side_delta * reroot_delta
 
 
+
 (** {2 Define Basic Tree creation functions *)
 
 (** The empty u_tree. *)
@@ -140,6 +138,7 @@ val make_disjoint_tree : id list -> u_tree
 
 (** Create a uniformly random tree from a list of ID's *)
 val random : id list -> u_tree
+
 
 
 (** {2 General Accessor Functions for the tree *)
@@ -217,20 +216,10 @@ val choose_leaf : u_tree -> (id * id)
 (** Verify that an edge exists in the tree *)
 val verify_edge : edge -> u_tree -> bool
 
-(** Run a tree through a battery of consistency tests *)
-val test_tree : u_tree -> unit
 
 (** Get a Map of Handle Edges to depths of a tree *)
 val depths : u_tree -> int All_sets.TupleMap.t
 
-(** Print an edge; to aid debuging *)
-val print_edge : edge -> unit
-
-(** Print tree from id as the starting point. backward-in-order traversal *)
-val print_tree : id -> u_tree -> unit
-
-(** Generalization of above, applied to each handle id *)
-val print_forest : u_tree -> unit
 
 
 (** {2 Handle Manipulation functions *)
@@ -247,6 +236,7 @@ val move_handle : id -> u_tree -> u_tree * id list
 val get_vertices_to_handle :  id -> u_tree -> id list
 
 val fix_handle_neighbor : id -> id -> u_tree -> u_tree
+
 
 
 (** {2 Break and Join Functions *)
@@ -282,6 +272,7 @@ val print_join_2_jxn : join_jxn -> unit
 (** Print join function labeled with a "2" *)
 
 
+
 (** {2 Traversal Functions **)
 
 (** Status of a traversal. *)
@@ -290,27 +281,65 @@ type t_status =
     | Skip      (** Skip the subtree rooted at this node, for pre-order only *)
     | Break     (** Stop traversal and return current val. *)
 
+(** [pre_order_edge_visit f id ptree accum]
+    @param f function to be applied to each edge of the subtree
+           of ptree rooted at id.
+    @param id all the edges that are descendents of this node are visited
+           in pre-order manner.
+    @param ptree the ptree whose edges are being visited.
+    @param accum the accumulator, a list.
+    @return the return values of the function being applied on the edges. *)
 val pre_order_edge_visit :
     (edge -> 'a -> t_status * 'a) -> id -> u_tree -> 'a -> 'a
 
+(** [pre_order_node_visit f id bt ad acc]
+    @param f function to applied to all the nodes in pre-order.
+    @param id the node_id from where the traversal is started.
+    @param bt the tree whose nodes are visited.
+    @param acc the result of the function application on the edges.
+    @return the function applied to the subtree of id as imposed by the
+        handle in the component, the results are returned as a list. *)
 val pre_order_node_visit :
     (id option -> id -> 'a -> t_status * 'a) -> id -> u_tree -> 'a -> 'a
 
+(** [post_order_node_with_edge_visit] A function to traverse a tree from an
+    edge, applying a function on this edge in each direction, applying [f] if
+    the node is a leaf, or g if the node is interior, with two accumulators, one
+    from the left and one from the right. Single nodes are ignored. *)
 val post_order_node_with_edge_visit :
     (id -> id -> 'a -> 'a) -> (id -> id -> 'a -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a * 'a
 
+(** [post_order_node_with_edge_visit_simple f e t a] is a simplified visitor
+    function [f], which is applied on every (non single) vertex, starting in 
+    the (hypothetical) root located between the two vertices of edge [e], over
+    tree [t] with accumulator [a]. *)
 val post_order_node_with_edge_visit_simple :
     (id -> id -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
 
+(** [pre_order_node_with_edge_visit_simple f e t a] is a simplified visitor
+    function [f], which is applied on every (non single) vertex, starting in 
+    the (hypothetical) root located between the two vertices of edge [e], over
+    tree [t] with accumulator [a]. *)
 val pre_order_node_with_edge_visit_simple :
     (id -> id -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
 
-(* adds a function to apply to edge a,b, and excludes a and b from the traversal *)
+(** [pre_order_node_with_edge_visit_simple_root rf f e t a] is a simplified
+    visitor function [f], which is applied on every (non single) vertex, with a
+    special function [rf] applied to the (hypothetical) root location between
+    two vertices of edge [e], over tree [t] with accumulator [a]. *)
 val pre_order_node_with_edge_visit_simple_root :
     (int -> int -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
 
+(** [post_order_node_visit f id bt ad acc]
+    @param f function to applied to all the nodes in post-order.
+    @param id the node_id from where the traversal is started.
+    @param bt the tree whose nodes are visited.
+    @param acc the result of the function application on the edges.
+    @return the function applied to the subtree of id as imposed by the
+            handle in the component, the results are returned as a list. *)
 val post_order_node_visit :
     (id option -> id -> 'a -> t_status * 'a) -> id -> u_tree -> 'a -> 'a
+
 
 
 (** {2 Distance Functions for trees *)
@@ -322,7 +351,29 @@ val create_partition : u_tree -> edge -> All_sets.Integers.t * All_sets.Integers
 val robinson_foulds : u_tree -> u_tree -> int
 
 
-(** {6 Finger Print Modules *)
+
+(** {2 Functions for Re-Mapping Trees *)
+
+val cannonize_on_edge : (int * int) -> u_tree -> u_tree
+
+val cannonize_on_leaf : int -> u_tree -> u_tree
+
+val exchange_codes : int -> int -> u_tree -> u_tree
+
+(** A function to replace the codes on a tree from a given function. The
+    function is called multiple times with the same code, thus, it should not,
+    have side-effects or should take that into account. For example, although an
+    identity function will operate properly, a hidden incremental reference will
+    not, unless the input is memoized to be onto. *)
+val replace_codes : (int -> int) -> u_tree -> u_tree
+
+val destroy_component : int -> u_tree -> u_tree
+
+val copy_component : int -> u_tree -> u_tree -> u_tree
+
+
+
+(** {2 Finger Print Modules *)
 
 (** Module to fingerprint trees and compare them *)
 module Fingerprint : sig
@@ -332,8 +383,7 @@ module Fingerprint : sig
 end
 
 (** [CladeFP] implements fingerprinting of clades.  All clades with the same
-    set of terminal nodes will have the same fingerprint.  This is the same
-    scheme as !Hash_tbl. *)
+    set of terminal nodes will have the same fingerprint. *)
 module CladeFP :
 sig
     type t
@@ -367,6 +417,7 @@ end
 module CladeFPMap : (Map.S with type key = CladeFP.fp)
 
 
+
 (** {2 Tree Fusing Functions *)
 
 type 'a fuse_locations = ('a * u_tree * edge) list Sexpr.t
@@ -384,26 +435,6 @@ val fuse_all_locations :
 val fuse :
     source:u_tree * edge -> target:u_tree * edge -> u_tree
 
-
-
-(** {2 Functions for Re-Mapping Trees *)
-
-val cannonize_on_edge : (int * int) -> u_tree -> u_tree
-
-val cannonize_on_leaf : int -> u_tree -> u_tree
-
-val exchange_codes : int -> int -> u_tree -> u_tree
-
-(** A function to replace the codes on a tree from a given function. The
-    function is called multiple times with the same code, thus, it should not,
-    have side-effects or should take that into account. For example, although an
-    identity function will operate properly, a hidden incremental reference will
-    not, unless the input is memoized to be onto. *)
-val replace_codes : (int -> int) -> u_tree -> u_tree
-
-val destroy_component : int -> u_tree -> u_tree
-
-val copy_component : int -> u_tree -> u_tree -> u_tree
 
 
 (** {2 Parse Module / IO *)
@@ -480,3 +511,26 @@ module Parse : sig
         the conversion, and thus need to be dealt with in other ways. *)
     val convert_to : string option * tree_types list -> (string -> int) -> u_tree
 end
+
+
+
+(** {2 Functions to aid in debugging *)
+
+(** return string representation of a node *)
+val string_of_node : node -> string
+
+(** Run a tree through a battery of consistency tests *)
+val test_tree : u_tree -> unit
+
+(** Print an edge; to aid debuging *)
+val print_edge : edge -> unit
+
+(** Print tree from id as the starting point. backward-in-order traversal *)
+val print_tree : id -> u_tree -> unit
+
+(** Generalization of above, applied to each handle id *)
+val print_forest : u_tree -> unit
+
+
+
+

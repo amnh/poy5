@@ -18,12 +18,12 @@
 (* USA                                                                        *)
 (** This module implements basic functions *)
 
-let () = SadmanOutput.register "Utl" "$Revision: 2655 $"
+let () = SadmanOutput.register "Utl" "$Revision: 2667 $"
 module IntSet = All_sets.Integers
 
-let large_int = 100000000;;
-let max_seq_len = 50000000;;
-let fprintf = Printf.fprintf
+let large_int = 100000000
+
+let max_seq_len = 50000000
 
 (** Each chromosome is assigned an unique chromosome ID, 
 * whenever new chromosome is loaded from input or created during
@@ -70,11 +70,6 @@ let deref ptr = match ptr with
     | Some content -> content 
     | None -> failwith "It is a null pointer" 
             
-
-let is_null ptr = match ptr with
-    | None -> true 
-    | _ -> false     
-
 
 (*int to bit array, int = 0~15*)
 let break_code in_code =
@@ -232,8 +227,11 @@ let float_to_int_mat (mat : float array array) =
     Array.map (fun arr-> float_to_int_arr arr) mat
 
 let printIntArr (arr : int array) = 
-    Array.iter (fun x -> if x=large_int then fprintf stdout "  L" else
-        fprintf stdout "%d," x) arr;
+    Array.iter
+        (fun x ->
+            if x =large_int then Printf.fprintf stdout "  L"
+                            else Printf.fprintf stdout "%d," x)
+        arr;
     print_newline ()
 
 let printIntArrWithIdx (arr :int array) =
@@ -259,9 +257,9 @@ let printIntList inlist =
     Printf.printf "]\n%!"
 
 let printIntListToFile oc inlist =
-    fprintf oc "[%!";
-    List.iter (fun x -> fprintf oc "%d,%!" x) inlist;
-    fprintf oc "]\n%!"
+    Printf.fprintf oc "[%!";
+    List.iter (fun x -> Printf.fprintf oc "%d,%!" x) inlist;
+    Printf.fprintf oc "]\n%!"
 
 let printIntListList inlstlst =
     List.iter (fun lst ->
@@ -427,7 +425,7 @@ let min_arr arr =
     
 
 let printIntSet s = 
-    IntSet.iter (fun v -> fprintf stdout "%i " v) s;
+    IntSet.iter (fun v -> Printf.fprintf stdout "%i " v) s;
     print_newline (); flush stdout
 
 
