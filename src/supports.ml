@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Support" "$Revision: 2667 $"
+let () = SadmanOutput.register "Support" "$Revision: 2670 $"
 
 let infinity = float_of_int (max_int / 4)
 
@@ -48,6 +48,14 @@ module type S = sig
     val join_support_trees : 
         (int * Methods.support_tree) list -> Methods.support_tree
 
+    (** [bremer_of_input_file cg r ts d f t] returns an sexpr which is a map of
+        the sexpr of the phylogenetic trees [t], where the input file [f] holds
+        a list of phylogenetic trees for the loaded data [d], where each tree
+        holds some annotated information in square brackets. The root of the
+        trees is [r], and the, and the taxon name generation function (for each
+        node code) is [ts]. The resulting sexpr is a set of printable trees with
+        their associated bremer support values, as inferred from the input trees
+        in [f]. *)
     val bremer_of_input_file :
         (Tree.u_tree -> string -> int) -> int ->
             (int -> string) -> Data.d -> Methods.filename list -> 
