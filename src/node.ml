@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2666 $"
+let () = SadmanOutput.register "Node" "$Revision: 2668 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -32,7 +32,7 @@ let debug_treebuild = false
 let debug_tosingle  = false
 let debug_formatter = false
 let debug_distance  = false
-let debug_cs_median = false 
+let debug_cs_median = false
 
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
@@ -59,8 +59,8 @@ type to_single =
 type 'a r = {
     preliminary : 'a;
     final : 'a;
-    cost : float;
-    sum_cost : float;
+    cost : float; (*cost of this charactor on this node,* by weight*)
+    sum_cost : float; (*cost of subtree root on this node, weight is not included*)
     weight : float;
     time : float option * float option * float option;
 }
@@ -572,7 +572,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     weight = ca.weight;
                 }
             in
-            StaticMl res, sumcost
+            StaticMl res, sumcost *. ca.weight
         ELSE
             failwith MlStaticCS.likelihood_error
         END
@@ -586,13 +586,18 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             let median = NonaddCS8.median prev ca.preliminary cb.preliminary in
             let cost = NonaddCS8.median_cost median in
-            let sumcost = ca.sum_cost +. cb.sum_cost +. cost in
+            (*sum cost doesn't include weight?*)
+            let sumcost = ca.sum_cost +. cb.sum_cost +. cost  in
+            if debug_cs_median then 
+                Printf.printf "node.ml cs_median Nonadd8 cost<-%f(w)*%f=,\
+                sumcost<-%f(l)+%f(r)+cost=%f\n%!" ca.weight cost ca.sum_cost
+                cb.sum_cost sumcost;
             let res = { ca with preliminary = median; 
                             final = median; 
                             cost = ca.weight *. cost;
                             sum_cost = sumcost;
                       } in
-            Nonadd8 res, sumcost
+            Nonadd8 res, sumcost *. ca.weight
     | Nonadd16 ca, Nonadd16 cb -> 
             assert (ca.weight = cb.weight);
             let prev = match prev with
@@ -610,7 +615,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = sumcost;
                     cost = ca.weight *. cost; }
             in
-            Nonadd16 res, sumcost
+            Nonadd16 res, sumcost *. ca.weight
     | Nonadd32 ca, Nonadd32 cb -> 
             assert (ca.weight = cb.weight);
             let prev = match prev with
@@ -628,7 +633,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = sumcost;
                     cost = ca.weight *. cost }
             in
-            Nonadd32 res, sumcost
+            Nonadd32 res, sumcost *. ca.weight
     | AddVec ca, AddVec cb -> 
             assert (ca.weight = cb.weight);
             let old = match prev with
@@ -645,7 +650,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = sumcost;
                     cost = ca.weight *. cost; } 
             in
-            AddVec res, sumcost
+            AddVec res, sumcost *. ca.weight
     | AddGen ca, AddGen cb -> 
             assert (ca.weight = cb.weight);
             let old = match prev with
@@ -655,6 +660,9 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let median = AddCS.General.median old ca.preliminary cb.preliminary in
             let cost = AddCS.General.median_cost median in
             let sumcost = ca.sum_cost +. cb.sum_cost +. cost in
+            if debug_cs_median then Printf.printf "node.cs_median, AddGen, cost \
+            = %f, sumcost = %f+%f+cost = %f\n%!" cost ca.sum_cost cb.sum_cost
+            sumcost;
             let res =
                 { ca with
                     preliminary = median; 
@@ -662,7 +670,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = sumcost;
                     cost = ca.weight *. cost; } 
             in
-            AddGen res, sumcost
+            AddGen res, sumcost *. ca.weight
     | Sank ca, Sank cb ->
             assert (ca.weight = cb.weight);
             let median,cost = SankCS.median code ca.preliminary cb.preliminary in
@@ -675,7 +683,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             if debug_cs_median then Printf.printf "node.cs_median, sankoff, \
             cost=%f=sum cost\n %!" cost;
-            Sank res, cost
+            Sank res, cost *. ca.weight
     | FixedStates ca, FixedStates cb ->
             let median,cost = Fixed_states.median code ca.preliminary cb.preliminary in
             let res = { 
@@ -684,7 +692,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = cost;
                     cost = ca.weight *. cost }
             in
-            FixedStates res, cost
+            FixedStates res, cost *. ca.weight
     | Dynamic ca, Dynamic cb ->
             assert (ca.weight = cb.weight);
             let ca, cb =
@@ -745,7 +753,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             if debug_cs_median then Printf.printf "node.cs_median, dynamic, \
             cost=%f,sum_cost=%f\n%!" total_cost sumcost;
-            Dynamic res, sumcost
+            Dynamic res, sumcost *. ca.weight
     | Kolmo ca, Kolmo cb ->
             assert (ca.weight = cb.weight);
             let ca, cb =
@@ -763,7 +771,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = sumcost;
                 } 
             in
-            Kolmo res, sumcost
+            Kolmo res, sumcost *. ca.weight
     | Set ca, Set cb ->
 (*           assert (ca.sid = cb.sid); *)
           assert (same_ct_method ca.preliminary.smethod cb.preliminary.smethod);
@@ -830,7 +838,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                                 sum_cost = sumcost;
                             }
                     in
-                    res, sumcost
+                    res, sumcost *. ca.weight
           end
     | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | AddVec _, _ | Sank _, _  
     | FixedStates _, _ | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ | AddGen _,_ -> 
@@ -874,7 +882,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                cost = cost;
                                sum_cost = sumcost;
                                time = Some t1, Some t2, t3_opt; },
-                    sumcost
+                    sumcost *. pm.weight
                 (* calculate the median1 for MPL with OCAML Brents *)
                 | `MPL ->
                     let calculate_single t = 
@@ -897,10 +905,10 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                               cost = fv;
                               sum_cost = sumcost;
                               time = Some v, Some 0.0, None; },
-                    sumcost
+                    sumcost *. pm.weight
                 end
             in
-            ei_map ptl atl btl ((StaticMl mine, sumcost)::pa)
+            ei_map ptl atl btl ((StaticMl mine, sumcost *. pm.weight)::pa)
         (* dynamic characters *)
         | ((Dynamic pm) as pml)::ptl, (Dynamic am)::atl,(Dynamic bm)::btl ->
             begin match am.preliminary, bm.preliminary with
@@ -931,7 +939,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                    sum_cost = sumcost;
                                    time = Some t1, Some t2, t3_opt; }
                     in
-                    ei_map ptl atl btl ((Dynamic mine, sumcost)::pa)
+                    ei_map ptl atl btl ((Dynamic mine, sumcost *. pm.weight)::pa)
                 | _,_ ->
                     let old_sumcost = pm.sum_cost in
                     ei_map ptl atl btl ((pml,old_sumcost)::pa)
@@ -3113,7 +3121,7 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
     else 
         nodes
     
-let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data = 
+let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
     current_snapshot "Node.load_data start";
@@ -3151,7 +3159,6 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and static_ml = List.filter is_mem data.Data.static_ml
         and fixedstates = List.filter is_mem data.Data.fixed_states 
         and dynamics = List.filter is_mem data.Data.dynamics in
-        let has_sank = if (List.length sank)>0 then true else false in
         let has_dynamic_mpl,has_dynamic_mal =
             List.fold_left
                 (fun ((mpl,mal) as acc) code ->
@@ -3397,7 +3404,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                         sum_cost=sumcost;
                         time = Some t1, Some t2,t3_opt;
                     },
-                sumcost
+                sumcost *. mine.weight
             ELSE
                 failwith MlStaticCS.likelihood_error
             END
@@ -3427,7 +3434,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                             sum_cost = sumcost;
                             time = Some t1, Some t2, Some t3;
                         },
-                    sumcost
+                    sumcost *. mine.weight
                   ELSE
                     failwith MlStaticCS.likelihood_error
                   END
@@ -3461,7 +3468,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                             time=None,None,None;
                         }
                     in
-                    res, sumcost
+                    res, sumcost *. mine.weight
             end
         | Nonadd8 c1, Nonadd8 c2, Nonadd8 parent, Nonadd8 mine -> Nonadd8 mine, mine.sum_cost
         | Nonadd16 c1, Nonadd16 c2, Nonadd16 parent, Nonadd16 mine -> Nonadd16 mine, mine.sum_cost
@@ -4781,11 +4788,26 @@ let merge a b =
 let total_cost_of_type t n =
     let rec total_cost_cs acc item =
         let single = match item, t with
-            | Nonadd8 x, `Nonadd -> x.sum_cost *. x.weight
-            | Nonadd16 x, `Nonadd -> x.sum_cost *. x.weight
-            | Nonadd32 x, `Nonadd -> x.sum_cost *. x.weight
-            | AddGen x, `Add -> x.sum_cost *. x.weight
-            | AddVec x, `Add -> x.sum_cost *. x.weight
+            | Nonadd8 x, `Nonadd -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,Nonadd8,%f * %f\n%!" x.sum_cost x.weight; 
+            x.sum_cost *. x.weight
+            | Nonadd16 x, `Nonadd -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,Nonadd16,%f * %f\n%!" x.sum_cost x.weight;
+                    x.sum_cost *. x.weight
+            | Nonadd32 x, `Nonadd -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,Nonadd32,%f * %f\n%!" x.sum_cost x.weight;
+                    x.sum_cost *. x.weight
+            | AddGen x, `Add -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,AddGen,%f * %f\n%!" x.sum_cost x.weight;
+                    x.sum_cost *. x.weight
+            | AddVec x, `Add -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,AddVec,%f * %f\n%!" x.sum_cost x.weight;
+                    x.sum_cost *. x.weight
             | Sank x, `Sank ->
                     let ec = SankCS.get_extra_cost_for_root x.preliminary in
                     (x.sum_cost -. (float_of_int ec)) *. x.weight
@@ -4821,8 +4843,8 @@ let total_cost_of_type t n =
             | _,_ ->  0.0
         in
         if debug then
-            info_user_message "%s contributed %f cost for %s" 
-                              (cs_string item) (single) (type_string t);
+            info_user_message "%s contributed %f cost for %s, acc=%f" 
+                              (cs_string item) (single) (type_string t) acc;
         acc +. single
     in
     List.fold_left total_cost_cs 0.0 n.characters
