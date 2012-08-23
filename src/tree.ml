@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 2664 $"
+let () = SadmanOutput.register "Tree" "$Revision: 2667 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -35,8 +35,6 @@ let debug_handle_of = false
 let odebug = Status.user_message Status.Information
 
 type id = int
-
-type 'p id_t = id
 
 type node =
     | Single of id
@@ -1035,11 +1033,11 @@ let pre_order_edge_visit f id bt accum =
     | Single(_) -> accum
 
 (** [pre_order_node_visit f id bt ad acc]
-@param f function to applied to all the nodes in pre-order.
-@param id the node_id from where the traversal is started.
-@param bt the tree whose nodes are visited.
-@param acc the result of the function application on the edges.
-@return the function applied to the subtree of id as imposed by the
+    @param f function to applied to all the nodes in pre-order.
+    @param id the node_id from where the traversal is started.
+    @param bt the tree whose nodes are visited.
+    @param acc the result of the function application on the edges.
+    @return the function applied to the subtree of id as imposed by the
         handle in the component, the results are returned as a list. *)
 let pre_order_node_visit f id bt accum =
     let visit_node pred nd acc =
@@ -1113,7 +1111,10 @@ let pre_order_node_visit f id bt accum =
           end
     | Single(_) -> accum
 
-
+(** [post_order_node_with_edge_visit] A function to traverse a tree from an
+    edge, applying a function on this edge in each direction, applying [f] if
+    the node is a leaf, or g if the node is interior, with two accumulators, one
+    from the left and one from the right. Single nodes are ignored. *)
 let post_order_node_with_edge_visit f g (Edge (a, b)) bt accum =
     let rec processor prev curr accum =
         match get_node curr bt with
@@ -1131,9 +1132,9 @@ let post_order_node_with_edge_visit f g (Edge (a, b)) bt accum =
     a, b
 
 (** [post_order_node_with_edge_visit_simple f e t a] is a simplified visitor
-* function [f], which is applied on every (non single) vertex, starting in 
-* the (hypothetical) root located between the two vertices of edge [e], over
-* tree [t] with accumulator [a]. *)
+    function [f], which is applied on every (non single) vertex, starting in 
+    the (hypothetical) root located between the two vertices of edge [e], over
+    tree [t] with accumulator [a]. *)
 let post_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     let rec processor prev curr acc =
         match get_node curr bt with
@@ -1149,9 +1150,9 @@ let post_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     acc --> processor b a --> processor a b
 
 (** [pre_order_node_with_edge_visit_simple f e t a] is a simplified visitor
-* function [f], which is applied on every (non single) vertex, starting in 
-* the (hypothetical) root located between the two vertices of edge [e], over
-* tree [t] with accumulator [a]. *)
+    function [f], which is applied on every (non single) vertex, starting in 
+    the (hypothetical) root located between the two vertices of edge [e], over
+    tree [t] with accumulator [a]. *)
 let pre_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     let rec processor prev curr acc =
         match get_node curr bt with
@@ -1168,12 +1169,11 @@ let pre_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     acc --> processor b a --> processor a b
 
 (** [pre_order_node_with_edge_visit_simple_root rf f e t a] is a simplified
-* visitor function [f], which is applied on every (non single) vertex, with a
-* special function [rf] applied to the (hypothetical) root location between two
-* vertices of edge [e], over tree [t] with accumulator [a]. *)
+    visitor function [f], which is applied on every (non single) vertex, with a
+    special function [rf] applied to the (hypothetical) root location between
+    two vertices of edge [e], over tree [t] with accumulator [a]. *)
 let pre_order_node_with_edge_visit_simple_root f (Edge (a, b)) bt acc =
-    let rec processor prev curr acc =
-        match get_node curr bt with
+    let rec processor prev curr acc = match get_node curr bt with
         | Leaf (nd, nbr) ->
                 f prev curr acc
         | Interior (nd, nbr1, nbr2, nbr3) as node ->
@@ -1182,8 +1182,7 @@ let pre_order_node_with_edge_visit_simple_root f (Edge (a, b)) bt acc =
                     --> processor curr a
                     --> processor curr b
         | Single _ -> acc
-    and processor_skip prev curr acc =
-        match get_node curr bt with
+    and processor_skip prev curr acc = match get_node curr bt with
         | Leaf (nd, nbr) -> acc
         | Interior (nd, nbr1, nbr2, nbr3) as node ->
                 let a, b = other_two_nbrs prev node in
@@ -1257,7 +1256,6 @@ let robinson_foulds tree1 tree2 : int =
 @param f function to applied to all the nodes in post-order.
 @param id the node_id from where the traversal is started.
 @param bt the tree whose nodes are visited.
-@param ad auxilliary data used by the function - scratch space.
 @param acc the result of the function application on the edges.
 @return the function applied to the subtree of id as imposed by the
         handle in the component, the results are returned as a list. *)

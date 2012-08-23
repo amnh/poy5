@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block" "$Revision: 2782 $"
+let () = SadmanOutput.register "Block" "$Revision: 2667 $"
 
 (** Blocks are conserved areas between two chromosomes
 * which do not require identical nucleotide segments but 
