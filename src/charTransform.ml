@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2654 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2662 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -724,7 +724,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     (** Estimate the model for dynamic data; this is slightly different since we
         process each branch with a re-alignment, and do not require to include
         constant sites as static data, below this function **)
-    let estimate_dynamic_lk_model tree data branches alph (chars,_,cost,subst,vari,_,gap) =
+    let estimate_dynamic_lk_model tree data branches alph
+                                  (chars,_,cost,subst,vari,pi,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
@@ -754,8 +755,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
             --> l_traversal branches classify_branch tree
             --> debug_print_costs
-            --> MlModel.spec_from_classification alph gap subst vari cost
-            --> MlModel.create alph
+            --> MlModel.spec_from_classification alph gap subst vari pi cost
+            --> MlModel.create
       ELSE
         failwith MlModel.likelihood_not_enabled
       END
@@ -764,7 +765,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     (* estimate a likelihood model from non-addative characters as defined in
      * chars, over branches. Classify all transitions and count base frequencies
      * of leaves for priors, then construct the model. *)
-    let estimate_static_lk_model tree data branches alph (chars,_,cost,subst,vari,_,gap) =
+    let estimate_static_lk_model tree data branches alph
+                                 (chars,_,cost,subst,vari,pi,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
@@ -839,8 +841,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             --> l_traversal branches classify_branch tree
             --> add_const_characters
             --> debug_print_costs
-            --> MlModel.spec_from_classification alph gap subst vari cost
-            --> MlModel.create alph
+            --> MlModel.spec_from_classification alph gap subst vari pi cost
+            --> MlModel.create
       ELSE
         failwith MlModel.likelihood_not_enabled
       END

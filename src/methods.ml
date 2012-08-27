@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 
-let () = SadmanOutput.register "Methods" "$Revision: 2645 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2662 $"
 
 exception TimedOut
 
@@ -220,12 +220,12 @@ type ml_optimization= [
 type ml_substitution = [
     | `JC69
     | `F81
-    | `F84 of float list option
-    | `HKY85 of float list option
-    | `K2P of float list option
-    | `TN93 of float list option
-    | `F84 of float list option
-    | `GTR of float list option
+    | `F84 of float list
+    | `HKY85 of float list
+    | `K2P of float list
+    | `TN93 of float list
+    | `F84 of float list
+    | `GTR of float list
     | `File of string
     | `Custom of string
 ]

@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2656 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2662 $"
 
 let compress = true
 
@@ -242,7 +242,7 @@ let set_model m a = {a with model = m; }
 (* initial estimation functions --jc69 *)
 let min_bl = minimum_bl ()
 let estimate_time a b =
-    let r = float_of_int a.model.MlModel.alph_s in
+    let r = float_of_int (MlModel.get_alphabet_size a.model) in
     let p = match (1.0 -. (proportion a.chars b.chars)) with
         | x when x < ((r-.1.0)/.r) -> x
         | x                      -> 0.50
@@ -382,7 +382,7 @@ let of_parser_simple seq model =
     in
     let seq   = to_str_list seq in
     let nchar = List.length seq in
-    let chars = load_characters model.MlModel.alph seq in
+    let chars = load_characters (MlModel.get_alphabet model) seq in
     let wghts = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout 
                                          (Array.create nchar 1.0) in
     let schar = bigarray_s chars None  (MlModel.get_costfn_code model) in
@@ -406,7 +406,7 @@ let of_parser spec weights characters =
         | _ -> assert false
     in
     let (a_size,a_gap,u_gap) = 
-        let alph = Alphabet.to_sequential computed_model.MlModel.alph in
+        let alph = Alphabet.to_sequential (MlModel.get_alphabet computed_model) in
         match computed_model.MlModel.spec.MlModel.use_gap with
         | `Missing-> (Alphabet.size alph)-1,Alphabet.get_gap alph,false
         | `Independent | `Coupled _ -> Alphabet.size alph,Alphabet.get_gap alph,true
@@ -459,7 +459,7 @@ let of_parser spec weights characters =
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
     let str_time = function | Some x -> `Float x | None -> `String "None"
-    and alphabet = mine.model.MlModel.alph in
+    and alphabet = MlModel.get_alphabet mine.model in
     let rec make_single_vec char_code single_ray =
         (Array.to_list
             (Array.mapi
@@ -642,14 +642,15 @@ let compare a b = MlModel.compare a.model b.model
 let yang () =
     let model =
         let spec =
+            let a = Alphabet.to_sequential Alphabet.nucleotides in
             {
-                MlModel.iterate_model = true; MlModel.iterate_alpha = true;
-                MlModel.use_gap = `Missing; MlModel.site_variation = None;
+                MlModel.alphabet = (a,4); MlModel.use_gap = `Missing;
+                MlModel.site_variation = MlModel.Constant;
                 MlModel.base_priors = MlModel.Equal; MlModel.cost_fn = `MAL;
-                MlModel.substitution = MlModel.K2P (Some 2.0);
+                MlModel.substitution = MlModel.K2P 2.0;
             }
         in
-        MlModel.create (Alphabet.to_sequential Alphabet.nucleotides) spec
+        MlModel.create spec
     in
     let a = of_parser_simple "A" model and c = of_parser_simple "C" model
     (*and g = of_parser_simple "G" model*) and t = of_parser_simple "T" model in

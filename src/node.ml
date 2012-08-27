@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2654 $"
+let () = SadmanOutput.register "Node" "$Revision: 2662 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -2334,7 +2334,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                             | _ -> assert false
                         in
                         match x.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood s -> s.MlModel.alph_s
+                        | Nexus.File.STLikelihood s -> MlModel.get_alphabet s
                         | _ -> assert false
                     in
                     classify alph_len (MlStaticCS.compress && do_classify) all !data

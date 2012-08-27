@@ -1334,13 +1334,7 @@ let get_verify_alphabet (n:nexus) chars : Alphabet.a =
     | None   -> assert false
 
 
-let static_priors_of_nexus (n:nexus) (gap) (chars) : float array =
-    let u_gap = match String.uppercase (fst gap) with (* put in MLModel?? *)
-                | "" | "MISSING" -> false 
-                | "COUPLED" | "INDEPENDENT" -> true
-                | x -> failwith ("Invalid gap property: "^x)
-    in
-    let alph = get_verify_alphabet n chars in
+let static_priors_of_nexus (n:nexus) (alph,u_gap) (chars) : float array =
     let size = if u_gap then Alphabet.size alph else (Alphabet.size alph)-1 in
     (* set up some references for manipulation *)
     let priors = Array.make size 0.0
@@ -1568,11 +1562,17 @@ let apply_likelihood_model params acc =
     let ((a,b,c,pi,gap,f,g) as str_spec),characters_to_modify =
         List.fold_left proc_model (MlModel.empty_str_spec,[]) params
     in
+    let u_gap = match String.uppercase (fst gap) with (* put in MLModel?? *)
+                | "" | "MISSING" -> false 
+                | "COUPLED" | "INDEPENDENT" -> true
+                | x -> failwith ("Invalid gap property: "^x)
+    in
     let convert_static xs : unit =
         if (Array.length acc.characters) = 0 then
             ()
         else begin
             let m = (* estimate priors if necessary *)
+                let alph = get_verify_alphabet acc xs in
                 let str_spec = match pi with
                     | `Equal | `Given _ ->
                         (a,b,c,pi,gap,f,g)
@@ -1580,17 +1580,20 @@ let apply_likelihood_model params acc =
                         (* we calculate; and throw away if under jc69/k80 in
                          * model processing functions. *)
                         let priors =
-                            static_priors_of_nexus acc gap characters_to_modify
+                            static_priors_of_nexus acc (alph,u_gap) characters_to_modify
                         in
                         (a,b,c,`Consistent (Some priors),gap,f,g)
                     | `Estimate _ ->
                         let priors =
-                            static_priors_of_nexus acc gap characters_to_modify
+                            static_priors_of_nexus acc (alph,u_gap) characters_to_modify
                         in
                         (a,b,c,`Estimate (Some priors),gap,f,g)
                 in
-                str_spec --> MlModel.convert_string_spec
-                         --> MlModel.create (get_verify_alphabet acc xs)
+                let alpha_sz = 
+                    if u_gap then Alphabet.size alph else (Alphabet.size alph)-1
+                in
+                str_spec --> MlModel.convert_string_spec (alph,alpha_sz)
+                         --> MlModel.create 
             in
             let st_m = STLikelihood m in
             List.iter
@@ -1613,8 +1616,10 @@ let apply_likelihood_model params acc =
                         let priors = unaligned_priors_of_seq un.u_alph un.u_data in
                         (a,b,c,`Estimate (Some priors),gap,f,g)
                 in
-                let m = str_spec --> MlModel.convert_string_spec
-                                 --> MlModel.create un.u_alph
+                let m =
+                    let alphabet = un.u_alph,Alphabet.size un.u_alph in
+                    str_spec --> MlModel.convert_string_spec alphabet
+                             --> MlModel.create
                 in
                 { un with u_model = Some m; })
             lst

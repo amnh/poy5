@@ -4923,12 +4923,12 @@ IFDEF USE_LIKELIHOOD THEN
             let model =
                 let compute_priors () = compute_priors data chars u_gap in
                 let alph_size,alph = verify_alphabet data chars alph in
-                let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
+                let lk_spec = MlModel.convert_methods_spec (alph,alph_size) compute_priors m_spec in
                 let lk_spec =
                     if dynamic then MlModel.remove_gamma_from_spec lk_spec
                                else lk_spec
                 in
-                MlModel.create alph lk_spec
+                MlModel.create lk_spec
             in
             apply_likelihood_model_on_chars data chars model
     in
