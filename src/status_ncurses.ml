@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2592 $"
+let () = SadmanOutput.register "" "$Revision: 2660 $"
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 2592 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 2660 $"
 
 type tab_state = Begin | First | Continue
 
@@ -75,7 +75,7 @@ let is_parallel x f =
 let rank c = my_rank := c
 
 (* The verbosity that will be used in a particular run *)
-let verbosity : ([ `None | `Low | `Medium | `High ] ref) = ref `Low
+let verbosity : ([ `None | `All ] ref) = ref `All
 
 (* [set_verbosity v] sets the verbosity of the calling process to [v] *)
 let set_verbosity v = verbosity := v

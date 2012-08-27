@@ -28,7 +28,7 @@ let are_we_parallel = ref false
 
 let my_rank = ref 0
 
-let verbosity : ([ `None | `Low | `Medium | `High ] ref) = ref `Low
+let verbosity : ([ `None | `All ] ref) = ref `All
 
 let slaves_deal_in_this_way : (c -> string -> unit) ref = ref (fun _ _ -> ())
 

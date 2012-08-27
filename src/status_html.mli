@@ -35,9 +35,9 @@ val type_io : string -> int -> c -> [
     | `Output of (string * int)
 ]
 
-val set_verbosity : [ `None | `Low | `Medium | `High ] -> unit
+val set_verbosity : [ `None | `All ] -> unit
 
-val get_verbosity : unit -> [ `None | `Low | `Medium | `High ]
+val get_verbosity : unit -> [ `None | `All ]
 
 val send_output : Pervasives.out_channel list -> unit
 
