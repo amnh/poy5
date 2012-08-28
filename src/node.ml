@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2662 $"
+let () = SadmanOutput.register "Node" "$Revision: 2677 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -32,6 +32,7 @@ let debug_treebuild = false
 let debug_tosingle  = false
 let debug_formatter = false
 let debug_distance  = false
+let debug_cs_median = false
 
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
@@ -58,8 +59,8 @@ type to_single =
 type 'a r = {
     preliminary : 'a;
     final : 'a;
-    cost : float;
-    sum_cost : float;
+    cost : float; (*cost of this charactor on this node,* by weight*)
+    sum_cost : float; (*cost of subtree root on this node, weight is not included*)
     weight : float;
     time : float option * float option * float option;
 }
@@ -212,7 +213,7 @@ let set_update_cost = function
                         0. a.preliminary.set in
                 if debug_set_cost
                     then odebug ("`Strictly_Same cost: " ^ string_of_float cost);
-                Set { a with cost = cost }
+                Set { a with cost = cost }, cost
             | `Any_Of _ -> assert false
         end
     | _ -> assert false
@@ -232,7 +233,10 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
-        cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates | `Sankoff ];
+        (*cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates | `Sankoff ];
+        *)
+        (*cost_mode is only for likelihood, in function [total_cost_of_type]*)
+        cost_mode : [ `Likelihood | `NotLikelihood | `SumLikelihood  ];
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
@@ -415,19 +419,6 @@ let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
 let cs_prelim_to_final a =
     {a with final = a.preliminary}
 
-let calc_total_cost c1 c2 c_cost =
-    let res = 
-        assert (c1.cost_mode = c2.cost_mode);
-        match c1.cost_mode with
-        | `Likelihood    -> c_cost
-        | `Parsimony     -> c_cost +. c1.total_cost +. c2.total_cost
-        | `SumLikelihood -> c_cost +. c1.total_cost +. c2.total_cost
-        | `Fixedstates   -> c_cost
-        | `Sankoff       -> c_cost
-    in
-    if debug_set_cost then
-        Printf.printf "totalcost = %f <-?- %f + %f + %f; %!" res c_cost c1.total_cost c2.total_cost;
-    res
 
 let total_cost _ a = a.total_cost
 
@@ -570,17 +561,18 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 if anode.min_child_code < bnode.min_child_code then (t1, t2)
                 else (t2, t1)
             in
+            let sumcost = n_cost +. ca.sum_cost +. cb.sum_cost in
             let res =
                 {
                     preliminary = median;
                     final = median;
                     cost = n_cost *. ca.weight;
-                    sum_cost = n_cost +. ca.sum_cost +. cb.sum_cost;
+                    sum_cost = sumcost;
                     time = Some t1, Some t2, None;
                     weight = ca.weight;
                 }
             in
-            StaticMl res
+            StaticMl res, sumcost *. ca.weight
         ELSE
             failwith MlStaticCS.likelihood_error
         END
@@ -594,12 +586,18 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             let median = NonaddCS8.median prev ca.preliminary cb.preliminary in
             let cost = NonaddCS8.median_cost median in
+            (*sum cost doesn't include weight?*)
+            let sumcost = ca.sum_cost +. cb.sum_cost +. cost  in
+            if debug_cs_median then 
+                Printf.printf "node.ml cs_median Nonadd8 cost<-%f(w)*%f=,\
+                sumcost<-%f(l)+%f(r)+cost=%f\n%!" ca.weight cost ca.sum_cost
+                cb.sum_cost sumcost;
             let res = { ca with preliminary = median; 
                             final = median; 
                             cost = ca.weight *. cost;
-                            sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                            sum_cost = sumcost;
                       } in
-            Nonadd8 res
+            Nonadd8 res, sumcost *. ca.weight
     | Nonadd16 ca, Nonadd16 cb -> 
             assert (ca.weight = cb.weight);
             let prev = match prev with
@@ -609,14 +607,15 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             let median = NonaddCS16.median prev ca.preliminary cb.preliminary in
             let cost = NonaddCS16.median_cost median in
+            let sumcost = ca.sum_cost +. cb.sum_cost +. cost in
             let res =
                 { ca with
                     preliminary = median; 
                     final = median; 
-                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    sum_cost = sumcost;
                     cost = ca.weight *. cost; }
             in
-            Nonadd16 res
+            Nonadd16 res, sumcost *. ca.weight
     | Nonadd32 ca, Nonadd32 cb -> 
             assert (ca.weight = cb.weight);
             let prev = match prev with
@@ -626,14 +625,15 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             let median = NonaddCS32.median prev ca.preliminary cb.preliminary in
             let cost = NonaddCS32.median_cost median in
+            let sumcost = ca.sum_cost +. cb.sum_cost +. cost in
             let res =
                 { ca with
                     preliminary = median; 
                     final = median; 
-                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    sum_cost = sumcost;
                     cost = ca.weight *. cost }
             in
-            Nonadd32 res
+            Nonadd32 res, sumcost *. ca.weight
     | AddVec ca, AddVec cb -> 
             assert (ca.weight = cb.weight);
             let old = match prev with
@@ -642,14 +642,15 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 | _ -> assert false in
             let median = AddCS.Vector.median old ca.preliminary cb.preliminary in
             let cost = AddCS.Vector.median_cost median in
+            let sumcost = ca.sum_cost +. cb.sum_cost +. cost in
             let res =
                 { ca with
                     preliminary = median; 
                     final = median; 
-                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    sum_cost = sumcost;
                     cost = ca.weight *. cost; } 
             in
-            AddVec res
+            AddVec res, sumcost *. ca.weight
     | AddGen ca, AddGen cb -> 
             assert (ca.weight = cb.weight);
             let old = match prev with
@@ -658,14 +659,18 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 | _ -> assert false in
             let median = AddCS.General.median old ca.preliminary cb.preliminary in
             let cost = AddCS.General.median_cost median in
+            let sumcost = ca.sum_cost +. cb.sum_cost +. cost in
+            if debug_cs_median then Printf.printf "node.cs_median, AddGen, cost \
+            = %f, sumcost = %f+%f+cost = %f\n%!" cost ca.sum_cost cb.sum_cost
+            sumcost;
             let res =
                 { ca with
                     preliminary = median; 
                     final = median; 
-                    sum_cost = ca.sum_cost +. cb.sum_cost +. cost;
+                    sum_cost = sumcost;
                     cost = ca.weight *. cost; } 
             in
-            AddGen res
+            AddGen res, sumcost *. ca.weight
     | Sank ca, Sank cb ->
             assert (ca.weight = cb.weight);
             let median,cost = SankCS.median code ca.preliminary cb.preliminary in
@@ -676,7 +681,9 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = cost;
                     cost = ca.weight *. cost }
             in
-            Sank res
+            if debug_cs_median then Printf.printf "node.cs_median, sankoff, \
+            cost=%f=sum cost\n %!" cost;
+            Sank res, cost *. ca.weight
     | FixedStates ca, FixedStates cb ->
             let median,cost = Fixed_states.median code ca.preliminary cb.preliminary in
             let res = { 
@@ -685,7 +692,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = cost;
                     cost = ca.weight *. cost }
             in
-            FixedStates res
+            FixedStates res, cost *. ca.weight
     | Dynamic ca, Dynamic cb ->
             assert (ca.weight = cb.weight);
             let ca, cb =
@@ -731,20 +738,22 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     DynamicCS.median code ca.preliminary cb.preliminary None None,ca.time
             in
             let total_cost = ca.weight *. (DynamicCS.total_cost median) in
-            let sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost in
+            let sumcost = ca.sum_cost +. cb.sum_cost +. total_cost in
             if debug then
                 info_user_message "Calculated Median with costs: T:%f,\
-                S:%f(ca=%f,cb=%f)" total_cost sum_cost ca.sum_cost cb.sum_cost;
+                S:%f(ca=%f,cb=%f)" total_cost sumcost ca.sum_cost cb.sum_cost;
             let res = 
                 { ca with 
                     preliminary = median;
                     final = median;
                     cost = total_cost;
-                    sum_cost = sum_cost;
+                    sum_cost = sumcost;
                     time = times;
                 } 
             in
-            Dynamic res
+            if debug_cs_median then Printf.printf "node.cs_median, dynamic, \
+            cost=%f,sum_cost=%f\n%!" total_cost sumcost;
+            Dynamic res, sumcost *. ca.weight
     | Kolmo ca, Kolmo cb ->
             assert (ca.weight = cb.weight);
             let ca, cb =
@@ -753,16 +762,16 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             let median = KolmoCS.median code ca.preliminary cb.preliminary in
             let total_cost = KolmoCS.total_cost median in 
-            let sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost in
+            let sumcost = ca.sum_cost +. cb.sum_cost +. total_cost in
             let res = 
                 { ca with 
                     preliminary = median;
                     final = median;
                     cost = ca.weight *. total_cost;
-                    sum_cost = sum_cost;
+                    sum_cost = sumcost;
                 } 
             in
-            Kolmo res
+            Kolmo res, sumcost *. ca.weight
     | Set ca, Set cb ->
 (*           assert (ca.sid = cb.sid); *)
           assert (same_ct_method ca.preliminary.smethod cb.preliminary.smethod);
@@ -773,10 +782,10 @@ let rec cs_median code anode bnode prev t1 t2 a b =
               match ca.preliminary.smethod with
               | `Strictly_Same ->
                     (* just recursively apply it to our children, in order *)
-                    let res =
-                        List.map2
-                            (cs_median code anode bnode None t1 t2) l1 l2 in
-                    let result = { cb.preliminary with set = res } in
+                    let cs_lst,_ (*ignore cost_list*)= List.split (
+                        List.map2 (cs_median code anode bnode None t1 t2) l1 l2 ) 
+                    in
+                    let result = { cb.preliminary with set = cs_lst } in
                     set_update_cost
                         (Set { cb with
                                   preliminary = result;
@@ -791,8 +800,9 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                             (fun (i, list) l1i ->
                                  let _, list = List.fold_left
                                  (fun (j, list) l2i ->
-                                      let median = 
-                                          cs_median code anode bnode None t1 t2 l1i l2i
+                                      let median,_(*ignore sumcost*) =  
+                                           cs_median code anode bnode
+                                          None t1 t2 l1i l2i
                                       in
                                       let cost = extract_cost median in
                                       update_cost cost;
@@ -819,15 +829,16 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                         }
                     in
                     (* Update the cost and return *)
+                    let sumcost = ca.sum_cost +. cb.sum_cost +. !min_cost in
                     let res =
                         Set { cb with
                                 preliminary = median;
                                 final = median;
                                 cost = ca.weight *.  (if max_float = !min_cost then 0. else !min_cost);
-                                sum_cost = ca.sum_cost +. cb.sum_cost +. !min_cost;
+                                sum_cost = sumcost;
                             }
                     in
-                    res
+                    res, sumcost *. ca.weight
           end
     | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | AddVec _, _ | Sank _, _  
     | FixedStates _, _ | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ | AddGen _,_ -> 
@@ -850,7 +861,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
         | (StaticMl pm)::ptl, (StaticMl am)::atl,(StaticMl bm)::btl ->
             let model = MlStaticCS.get_model am.preliminary in
             let min_bl = MlStaticCS.minimum_bl () in
-            let mine = begin match  model.MlModel.spec.MlModel.cost_fn with
+            let mine,sumcost = begin match  model.MlModel.spec.MlModel.cost_fn with
                 (* MAL has full C functionality *)
                 | `MAL -> 
                     let modf = ref All_sets.Integers.empty in
@@ -866,10 +877,12 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         MlStaticCS.readjust None !modf am.preliminary bm.preliminary
                                             pm.preliminary t1 t2 
                     in
+                    let sumcost = cost +. bm.sum_cost +. am.sum_cost in
                     { pm with  preliminary = res; final = res;
                                cost = cost;
-                               sum_cost = cost +. bm.sum_cost +. am.sum_cost;
-                               time = Some t1, Some t2, t3_opt; }
+                               sum_cost = sumcost;
+                               time = Some t1, Some t2, t3_opt; },
+                    sumcost *. pm.weight
                 (* calculate the median1 for MPL with OCAML Brents *)
                 | `MPL ->
                     let calculate_single t = 
@@ -887,13 +900,15 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let (v,(dv,fv)) =
                         Numerical.brents_method calculate_single (t1+.t2,fstart)
                     in
+                    let sumcost = fv +. bm.sum_cost +. am.sum_cost in
                     { pm with preliminary = dv; final = dv;
                               cost = fv;
-                              sum_cost = fv +. bm.sum_cost +. am.sum_cost;
-                              time = Some v, Some 0.0, None; }
+                              sum_cost = sumcost;
+                              time = Some v, Some 0.0, None; },
+                    sumcost *. pm.weight
                 end
             in
-            ei_map ptl atl btl ((StaticMl mine)::pa)
+            ei_map ptl atl btl ((StaticMl mine, sumcost *. pm.weight)::pa)
         (* dynamic characters *)
         | ((Dynamic pm) as pml)::ptl, (Dynamic am)::atl,(Dynamic bm)::btl ->
             begin match am.preliminary, bm.preliminary with
@@ -917,27 +932,52 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     in
                     if debug then
                         info_user_message "Ending Cost: %f\t%f\t%f%!" t1 t2 cost;
-                    let mine =
+                    let sumcost = cost +. bm.sum_cost +. am.sum_cost in
+                    let mine =  
                         { pm with  preliminary = res; final = res;
                                    cost = cost;
-                                   sum_cost = cost +. bm.sum_cost +. am.sum_cost;
+                                   sum_cost = sumcost;
                                    time = Some t1, Some t2, t3_opt; }
                     in
-                    ei_map ptl atl btl ((Dynamic mine)::pa)
+                    ei_map ptl atl btl ((Dynamic mine, sumcost *. pm.weight)::pa)
                 | _,_ ->
-                    ei_map ptl atl btl (pml::pa)
+                    let old_sumcost = pm.sum_cost in
+                    ei_map ptl atl btl ((pml,old_sumcost)::pa)
             end
         (* ignore non-likelihood characters *)
         (* | Nonadd8 | Nonadd16 | Nonadd32 | AddVec | AddGen | Sank | FixedStates |Dynamic | Kolmo | Set *)
-        | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl (pml::pa)
+        | ((Nonadd8 pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((Nonadd16 pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((Nonadd32 pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((AddVec pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((AddGen pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((Sank pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((FixedStates pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((Dynamic pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((Kolmo pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        | ((Set pm) as pml)::ptl, aml::atl, bml::btl ->
+                ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
+        (*
+        | pml::ptl,aml::atl,bml::btl -> 
+                ei_map ptl atl btl (pml::pa) *)
         | [],[],[] -> pa
         | _ -> failwith "Number of characters is inconsistent"
     in
-    let mine =
-        List.rev (ei_map c0.characters c1.characters c2.characters [])
+    let mine, sumcost_list =
+        List.split ( List.rev (ei_map c0.characters c1.characters c2.characters
+        []) )
     in
     let mine_cost = get_characters_cost mine in
-    let total_cost = calc_total_cost c1 c2 mine_cost in
+    let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
     { c0 with characters = mine;
               total_cost = total_cost;
               node_cost  = mine_cost;
@@ -1296,12 +1336,13 @@ let median ?branches code old a b =
         | Some code -> code
         | None -> decr median_counter; !median_counter
     in
-    if  debug_treebuild then Printf.printf "\nnode.ml median,nodea:%d,nodeb:%d,nodeab:%d\n%!"
+    if  debug_treebuild then info_user_message "node.ml median,nodea:%d,nodeb:%d,nodeab:%d"
     a.taxon_code b.taxon_code code;
     (* if code>0 then assert(false); *)
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
-    let new_characters =
+    let new_characters,sumcost_list =
+        List.split (
         match old with
         | None -> 
             if debug_treebuild then info_user_message "node.ml median begin of map4\n";
@@ -1311,9 +1352,10 @@ let median ?branches code old a b =
             if debug_treebuild then info_user_message "node.ml median begin of map5\n";
             map5 (fun x -> cs_median code a b (Some x)) c.characters
                  brancha branchb a.characters b.characters
+        )
     in
+    let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
     let node_cost  = get_characters_cost new_characters in
-    let total_cost = calc_total_cost a b node_cost in
     if debug_treebuild then
          info_user_message "end of mapx in node.ml ...total_cost=%f\n" total_cost;
     let num_child_edges, num_height = new_node_stats a b in
@@ -1438,17 +1480,20 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 times_3 =
     if debug_treebuild then
         Printf.printf "node.ml median_w_times, nd1 = %d,nd2 = %d,nd12=%d\n%!"
         nd_1.taxon_code nd_2.taxon_code code;
-    let new_characters = match prev with
+    let new_characters, sumcost_list = 
+        List.split (
+        match prev with
         | Some prev ->
             map5 (fun x -> cs_median code nd_1 nd_2 (Some x))
                  prev.characters times_1 times_2 nd_1.characters nd_2.characters
         | None ->
             map4 (cs_median code nd_1 nd_2 None)
                  times_1 times_2 nd_1.characters nd_2.characters
+        )
     in
     let node_cost = get_characters_cost new_characters in
-    let total_cost = calc_total_cost nd_1 nd_2 node_cost
-    and num_child_edges, num_height = new_node_stats nd_1 nd_2
+    let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in
+    let num_child_edges, num_height = new_node_stats nd_1 nd_2
     and exclude_info = excludes_median nd_1 nd_2 in
     let excluded = has_excluded exclude_info in
     if debug_treebuild then
@@ -1683,7 +1728,7 @@ let edge_distance clas nodea nodeb =
               a.weight *. KolmoCS.tabu_distance a.final b.final
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
-                let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
+                let x , _(*ignore sumcost*) = cs_median 0 nodea nodeb None None None ch1 ch2 in
                 match x with | StaticMl x -> 0.0 *. x.cost | _ -> assert false
             ELSE
                 failwith MlStaticCS.likelihood_error
@@ -1696,7 +1741,7 @@ let edge_distance clas nodea nodeb =
                      (* unf. we just take the full median and check the distance
                      *)
                      decr median_counter;
-                     let m = cs_median !median_counter nodea nodeb None None None ch1 ch2 in
+                     let m,_ (*ignore sumcost*) = cs_median !median_counter nodea nodeb None None None ch1 ch2 in
                      extract_cost m)
         | _ -> failwith "Incompatible characters (5)"
     and distance_lists (chs1:cs list) chs2 acc =
@@ -1786,12 +1831,12 @@ let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
                | `Any_Of _ ->
                      (* unf. we just take the full median and check the distance *)
                      decr median_counter;
-                     let m = cs_median !median_counter nodea nodeb None None None ch1 ch2 in 
+                     let m, _ (*ignore sumcost*) = cs_median !median_counter nodea nodeb None None None ch1 ch2 in 
                      extract_cost m
             end
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
-                let x = cs_median 0 nodea nodeb None bl (Some 0.0) ch1 ch2 in
+                let x, _ (*ignore sumcost*) = cs_median 0 nodea nodeb None bl (Some 0.0) ch1 ch2 in
                 match x with | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
                              | _ -> assert false
             ELSE
@@ -1834,7 +1879,7 @@ let distance ?(para=None) ?(parb=None)  missing_distance
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
-                let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
+                let x, _ (*ignore sumcost*) = cs_median 0 nodea nodeb None None None ch1 ch2 in
                 match x with | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
                              | _ -> assert false
             ELSE
@@ -1847,7 +1892,7 @@ let distance ?(para=None) ?(parb=None)  missing_distance
                | `Any_Of _ -> (* TODO:: check this is correct *)
                      (* unf. we just take the full median and check the distance *)
                      decr median_counter;
-                     let m = cs_median !median_counter nodea nodeb None None None ch1 ch2 in
+                     let m, _ (*ignore sumcost*) = cs_median !median_counter nodea nodeb None None None ch1 ch2 in
                      extract_cost m)
         | _ -> failwith "Incompatible characters (5)"
     and distance_lists chs1 chs2 acc =
@@ -1875,10 +1920,10 @@ let dist_2 minimum_delta n a b =
                 *  n   b   shows results in chartree.ml --one direction tree.
                **)
             IFDEF USE_LIKELIHOOD THEN
-                let x' = cs_median 0 n b None None None n' b' in
+                let x', _ (*ignore sumcost*)= cs_median 0 n b None None None n' b' in
                 (* the min_code is the only thing used so this is sufficient *)
                 let x = if n.min_child_code < b.min_child_code then n else b in
-                let c = cs_median (-1) x a None None None a' x' in
+                let c,_ = cs_median (-1) x a None None None a' x' in
                 match c with | StaticMl c -> nn.weight *. c.cost | _ -> assert false
             ELSE
                 failwith MlStaticCS.likelihood_error
@@ -2740,7 +2785,7 @@ let structure_into_sets data (nodes : node_data list) =
         | h :: tl ->
             List.iter (fun x -> assert(h.cost_mode = x.cost_mode)) tl;
             h.cost_mode
-        | [] -> `Parsimony
+        | [] -> `NotLikelihood
     in
     let eg_node =
         { 
@@ -3076,7 +3121,7 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
     else 
         nodes
     
-let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data = 
+let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
     current_snapshot "Node.load_data start";
@@ -3114,7 +3159,6 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and static_ml = List.filter is_mem data.Data.static_ml
         and fixedstates = List.filter is_mem data.Data.fixed_states 
         and dynamics = List.filter is_mem data.Data.dynamics in
-        let has_sank = if (List.length sank)>0 then true else false in
         let has_dynamic_mpl,has_dynamic_mal =
             List.fold_left
                 (fun ((mpl,mal) as acc) code ->
@@ -3141,12 +3185,12 @@ let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
         and addvec = make_set_of_list addvec
         and addgen = make_set_of_list addgen in
         let cost_mode = match static_ml with
-            | _  when is_fixedstates  -> `Fixedstates
+            (*| _  when is_fixedstates  -> `Fixedstates*)
             | _::_                    -> `Likelihood
             | [] when has_dynamic_mpl -> `SumLikelihood
             | [] when has_dynamic_mal -> `Likelihood
-            | _ when has_sank         -> `Sankoff
-            | _                       -> `Parsimony
+            (*| _ when has_sank         -> `Sankoff*)
+            | _                       -> `NotLikelihood
         in
         current_snapshot "end nonadd set2";
         let r =
@@ -3352,13 +3396,15 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                 in
                 modified := m;
                 let cost = mine.weight *. cost in
+                let sumcost = cost +. c1.sum_cost +. c2.sum_cost in
                 StaticMl 
                     { mine with 
                         preliminary=res;final=res;
                         cost=cost;
-                        sum_cost=cost +. c1.sum_cost +. c2.sum_cost;
+                        sum_cost=sumcost;
                         time = Some t1, Some t2,t3_opt;
-                    }
+                    },
+                sumcost *. mine.weight
             ELSE
                 failwith MlStaticCS.likelihood_error
             END
@@ -3377,6 +3423,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     in
                     modified := m;
                     let cost = mine.weight *. n_cost in
+                    let sumcost = cost +. c1.sum_cost +. c2.sum_cost in
 (*                    Printf.printf "Optimized Cost %f(%f,%f,%f) --> %f(%f,%f,%f)\n%!"*)
 (*                                  (p_cost *. mine.weight) ot1 ot2 ot3 cost t1 t2 t3;*)
                     Dynamic
@@ -3384,9 +3431,10 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                             preliminary = res;
                             final = res;
                             cost = cost; 
-                            sum_cost = cost +. c1.sum_cost +. c2.sum_cost;
+                            sum_cost = sumcost;
                             time = Some t1, Some t2, Some t3;
-                        }
+                        },
+                    sumcost *. mine.weight
                   ELSE
                     failwith MlStaticCS.likelihood_error
                   END
@@ -3409,19 +3457,29 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     end;
                     modified := m;
                     let cost = mine.weight *. cost in
+                    let sumcost = c1.sum_cost +. c2.sum_cost +. cost in
                     let res = 
                     Dynamic
                         { mine with
                             preliminary = res; 
                             final = res; 
                             cost = cost;
-                            sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
+                            sum_cost = sumcost;
                             time=None,None,None;
                         }
                     in
-                    res
+                    res, sumcost *. mine.weight
             end
-        | _ -> mine
+        | Nonadd8 c1, Nonadd8 c2, Nonadd8 parent, Nonadd8 mine -> Nonadd8 mine, mine.sum_cost
+        | Nonadd16 c1, Nonadd16 c2, Nonadd16 parent, Nonadd16 mine -> Nonadd16 mine, mine.sum_cost
+        | Nonadd32 c1, Nonadd32 c2, Nonadd32 parent, Nonadd32 mine -> Nonadd32 mine, mine.sum_cost
+        | AddVec c1, AddVec c2, AddVec parent, AddVec mine -> AddVec mine, mine.sum_cost
+        | AddGen c1, AddGen c2, AddGen parent, AddGen mine ->  AddGen mine, mine.sum_cost
+        | Sank c1, Sank c2, Sank parent, Sank mine -> Sank mine, mine.sum_cost
+        | FixedStates c1, FixedStates c2, FixedStates parent, FixedStates mine -> FixedStates mine, mine.sum_cost
+        | Kolmo c1, Kolmo c2, Kolmo parent, Kolmo mine -> Kolmo mine, mine.sum_cost
+        | Set c1, Set c2, Set parent, Set mine -> Set mine, mine.sum_cost
+        | _ -> failwith "Wrong type in matching, node.ml readjust"
     in
     if mine.total_cost = infinity then 
         mine, !modified
@@ -3429,12 +3487,12 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         let _ = if debug2 then Printf.printf "map4 on ch1,ch2,parent and mine's\
         characters (len = %d)\n%!" (List.length ch1.characters) 
         in
-        let characters = 
-            map4 cs_readjust ch1.characters ch2.characters
-                             parent.characters mine.characters
+        let characters, sumcost_list = 
+            List.split ( map4 cs_readjust ch1.characters ch2.characters
+                             parent.characters mine.characters )
         in
         let node_cost = get_characters_cost characters in
-        let total_cost = calc_total_cost ch1 ch2 node_cost in
+        let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
         let res = 
             { mine with characters = characters; 
                         total_cost = total_cost; 
@@ -4454,7 +4512,7 @@ let for_support starting leaves leaves_id nodes =
                 let mode = h.cost_mode in
                 assert (List.for_all (fun (_, x) -> x.cost_mode = mode) t);
                 mode
-        | [] -> `Parsimony
+        | [] -> `NotLikelihood
     in
     let leaves = List.map (fun (x, y) -> (x, [], y)) leaves in
     let load_clade node_data node_id =
@@ -4507,13 +4565,17 @@ let set_node_cost a b = { b with node_cost = a }
 
 
 let extra_cost_from_root n =
+    let debug = false in
+    if debug then Printf.printf "node.ml extra cost from root,%!";
     let extra_cost_cs acc item =
          match item with 
         | Sank x -> 
                 let ec = SankCS.get_extra_cost_for_root x.preliminary in
+                if debug then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
                 acc +. (float_of_int ec)
         | Dynamic x ->
                 let ec = DynamicCS.get_extra_cost_for_root x.preliminary  in
+                if debug then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc ec;
                 acc +. ec
         (*| AddVec of AddCS.Vector.t r
         | AddGen of AddCS.General.t r
@@ -4726,11 +4788,26 @@ let merge a b =
 let total_cost_of_type t n =
     let rec total_cost_cs acc item =
         let single = match item, t with
-            | Nonadd8 x, `Nonadd -> x.sum_cost *. x.weight
-            | Nonadd16 x, `Nonadd -> x.sum_cost *. x.weight
-            | Nonadd32 x, `Nonadd -> x.sum_cost *. x.weight
-            | AddGen x, `Add -> x.sum_cost *. x.weight
-            | AddVec x, `Add -> x.sum_cost *. x.weight
+            | Nonadd8 x, `Nonadd -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,Nonadd8,%f * %f\n%!" x.sum_cost x.weight; 
+            x.sum_cost *. x.weight
+            | Nonadd16 x, `Nonadd -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,Nonadd16,%f * %f\n%!" x.sum_cost x.weight;
+                    x.sum_cost *. x.weight
+            | Nonadd32 x, `Nonadd -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,Nonadd32,%f * %f\n%!" x.sum_cost x.weight;
+                    x.sum_cost *. x.weight
+            | AddGen x, `Add -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,AddGen,%f * %f\n%!" x.sum_cost x.weight;
+                    x.sum_cost *. x.weight
+            | AddVec x, `Add -> 
+                    if debug then Printf.printf
+                    "total_cost_of_type,AddVec,%f * %f\n%!" x.sum_cost x.weight;
+                    x.sum_cost *. x.weight
             | Sank x, `Sank ->
                     let ec = SankCS.get_extra_cost_for_root x.preliminary in
                     (x.sum_cost -. (float_of_int ec)) *. x.weight
@@ -4766,8 +4843,8 @@ let total_cost_of_type t n =
             | _,_ ->  0.0
         in
         if debug then
-            info_user_message "%s contributed %f cost for %s" 
-                              (cs_string item) (single) (type_string t);
+            info_user_message "%s contributed %f cost for %s, acc=%f" 
+                              (cs_string item) (single) (type_string t) acc;
         acc +. single
     in
     List.fold_left total_cost_cs 0.0 n.characters

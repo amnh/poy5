@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2654 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2659 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -309,7 +309,7 @@ module F : Ptree.Tree_Operations
             let node = { AllDirNode.unadjusted = [node]; adjusted = Some node } in
             let cost = Node.Standard.tree_cost None nnode in
             let extracost = Node.extra_cost_from_root nnode in
-            if debug_create_root then Printf.printf "create_root with cost = %f - %f \n%!" cost extracost;
+            if debug_create_root then Printf.printf "create_root with cost %f - %f\n%!" cost extracost;
             let cost = cost -. extracost in
             {
                 Ptree.root_median = Some ((`Edge (a, b)), node);
@@ -726,6 +726,7 @@ module F : Ptree.Tree_Operations
      * function requires only downpass data, and can be used to update a tree if
      * any nodes change --based on a change in the traversal *)
     let refresh_all_edges root_opt do_roots start_edge_opt ptree =
+        if debug_uppass_fn then info_user_message "Refresh all edges, do_roots = %b" do_roots;
         (* A function to refresh the data on a edge *)
         let refresh_edge rhandle root_opt ((Tree.Edge (a,b)) as e) (acc,ptree) =
             if debug_uppass_fn then
@@ -1681,8 +1682,8 @@ module F : Ptree.Tree_Operations
             in
             if debug_join_fn then begin
                 info_user_message "Previous Cost: %f" prev_cost;
-                info_user_message "New Costs with %f and %f = %f"
-                    clade_cost tree_cost (clade_cost +. tree_cost)
+                info_user_message "New Cost = clade_cost(%f) + tree_cost(%f)"
+                    clade_cost tree_cost 
             end;
             clade_cost +. tree_cost
         in
@@ -1880,6 +1881,9 @@ module F : Ptree.Tree_Operations
                   --> refresh_all_edges None true (Some (v,h))
                   --> refresh_roots
         in
+        if debug_join_fn then
+        info_user_message "end of Joining, return ptree with cost %f(%f)"
+        (Ptree.get_cost `Adjusted ptree) (Ptree.get_cost `Unadjusted ptree);
         ptree, tree_delta
 
     let get_one side = match side with

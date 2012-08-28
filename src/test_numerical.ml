@@ -1,3 +1,21 @@
+(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
+(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
 
 let () = Random.self_init ()
 
@@ -13,7 +31,8 @@ module Test = struct
         Array.fold_left (fun acc x -> acc +. (x *. x)) 0.0 p
 
     (** Quadratic function with stochasitc coefficients; same solution as above,
-        the randomness ensures undiffernentiaable, is x= (0,0...0) *)
+        the randomness ensures undiffernentiable, is x= (0,0...0). The default
+        is a uniform distribution, others can be passed. *)
     let quadratic_function_stoc ?(dist=(fun () -> Random.float 1.0)) p =
         Array.fold_left (fun acc x -> acc +. (dist ()) *. (x *. x)) 0.0 p
 
@@ -31,7 +50,8 @@ module Test = struct
 
     (** Stochastic version of the rosenbrock function, passes into a distribution of
         a single parameter. The default is a uniform distribution. This makes it
-        impossible to find an optimal point with a gradient method. *)
+        impossible to find an optimal point with a gradient method. The default
+        is a uniform distribution, others can be passed. *)
     let rosenbrock_function_stoc ?(dist=(fun () -> Random.float 1.0)) p =
         let total = ref 0.0 in
         for i = 0 to (Array.length p) - 2 do
@@ -52,14 +72,14 @@ module Test = struct
         done;
         !total +. (a *. (float_of_int (Array.length p)))
 
-    (** Schwefel's function had a globabal minium that is geometrically distant
-        from the other nearest local minimum. Tests convergance in the wrong
+    (** Schwefel's function had a global minium that is geometrically distant
+        from the other nearest local minimum. This tests convergance of the wrong
         direction of the optimization routine *)
     let schwefel_function p =
         Array.fold_left
             (fun acc x -> acc +. (~-. x *. (sin (sqrt (abs_float x))))) 0.0 p
 
-    (** Sum of different powers is uni-modal function *)
+    (** Sum of different powers is a uni-modal function *)
     let sum_powers p =
         let summ = ref 0.0 in
         for i = 0 to (Array.length p)-1 do
@@ -98,22 +118,25 @@ module Test = struct
         assert( (Array.length p) = 2 );
         ((p.(0)**2.0) +. p.(1) -. 11.0)**2.0 +.  ((p.(1)**2.0) +. p.(0) -. 7.0)**2.0
 
-    (** The Booth function has several local minima, but a global minima at 1,3.  *)
+    (** The Booth function has several local minima, but a global minima at 1,3. *)
     let booth_function p = 
         assert( (Array.length p) = 2 );
-        ((p.(0) +. p.(1) +. p.(1) -. 7.0)**2.0) +.  ((p.(0) +. p.(0) +. p.(1) -. 5.0)**2.0)
+        let left = ((p.(0) +. p.(1) +. p.(1) -. 7.0)**2.0)
+        and rght = ((p.(0) +. p.(0) +. p.(1) -. 5.0)**2.0) in
+        left +. rght
 
     (** Diagnose a tree based on an array of rate parameters that get normalized
-        before the tree is diagnosed. *)
+        before the tree is diagnosed. files is a list of files that will load a
+        tree into memory and do an initial transform to a likelihood model that
+        this function should test against. *)
     let poy_diagnose_likelihood files =
         let print_model model = 
-            MlModel.output_model (output_string stdout) `Nexus model None in
+            MlModel.output_model (output_string stdout) None `Nexus model None in
         let update_model_to_vector tree chars =
             let model = Data.get_likelihood_model tree.Ptree.data chars in
-            let model = { model with 
-                            MlModel.spec = { model.MlModel.spec with
-                                                MlModel.iterate_model = true;};
-                        }
+            let model = {model with
+                            MlModel.spec = {model.MlModel.spec with
+                                                MlModel.iterate_model = true}}
             in
             let func = match MlModel.get_update_function_for_model model with
                 | Some f -> f | None   -> assert false
@@ -138,10 +161,9 @@ module Test = struct
                             --> Phylo.PhyloTree.uppass
                             --> Phylo.PhyloTree.get_cost))
         and get_model_dimension tree chars =
-            let model = Data.get_likelihood_model tree.Ptree.data chars in
-            match MlModel.get_current_parameters_for_model model with
-            | None   -> assert false
-            | Some c -> Array.length c
+            chars --> Data.get_likelihood_model tree.Ptree.data
+                  --> MlModel.get_current_parameters_for_model
+                  --> Array.length
         in
         Status.set_verbosity `None;
         let () = (POY run ([files])) in
@@ -260,7 +282,7 @@ let main_num f d i channel =
     in
     test_battery channel f d unit_printer i ()
 
-let () =
+let main () =
     try let f_num = int_of_string Sys.argv.(1) in
         let i = int_of_string Sys.argv.(3) in
         let channel =
@@ -281,3 +303,16 @@ let () =
             with | _       -> stdout
         in
         test_battery channel f d p (int_of_string Sys.argv.(2)) ()
+
+let usage = "./test_numerical <FILE|FUNC> <DIMS> [OUTF]"
+
+let desc = "FILE\t- A POY script that loads a tree and transforms to likelihood\n"
+         ^ "FUNC\t- A function number 0-10\n"
+         ^ "DIMS\t- Number of dimensions when using functions; dummy when using poy script\n"
+         ^ "OUTF\t- (optional, default to screen). Output location a file, or stderr or stdout\n"
+
+let () =
+    if ("--help" = Sys.argv.(1)) || ("-h" = Sys.argv.(1))
+        then Printf.printf "%s\n%s\n%!" usage desc
+        else main ()
+

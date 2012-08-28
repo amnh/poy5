@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2662 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2677 $"
 
 let debug = false 
 

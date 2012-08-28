@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 2645 $"
+let () = SadmanOutput.register "Tree" "$Revision: 2667 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -36,13 +36,10 @@ let odebug = Status.user_message Status.Information
 
 type id = int
 
-type 'p id_t = id
-
 type node =
     | Single of id
     | Leaf of id * id
     | Interior of (id * id * id * id)
-
 
 type edge =
     | Edge of (id * id)
@@ -75,14 +72,10 @@ let merge_edged a b =
     { added = b.added @ a.added; removed = b.removed @ a.removed }
 
 type side_delta =
-        [ `Single of int * bool
+    [   | `Single of int * bool
+                (** l, l1, l2, handle added/removed *)
         | `Edge of int * int * int * int option
-              (** l, l1, l2, handle added/removed? *)
-        ]
-
-let get_side_anchor = function
-    | `Single (i, _) -> i
-    | `Edge (i, _, _, _) -> i
+    ]
 
 type join_jxn =
     | Single_Jxn of id
@@ -92,32 +85,27 @@ let string_of_jxn = function
     | Single_Jxn id -> string_of_int id
     | Edge_Jxn (a, b) -> string_of_int a ^ " -> " ^ string_of_int b
 
-let side_to_jxn = function
-    | `Single (i, _) -> Single_Jxn i
-    | `Edge (_, l1, l2, _) -> Edge_Jxn (l1, l2)
-
 let jxn_choose_node = function
     | Single_Jxn id -> id
     | Edge_Jxn (a, b) -> a
 
 type reroot_delta = id list
+
 type break_delta = side_delta * side_delta
+
 type join_delta = side_delta * side_delta * reroot_delta
 
 let join_to_edge_delta (sd1, sd2, rrd) =
     let a, r, n1 = match sd1 with
-    | `Single (id, _) -> [], [], id
-    | `Edge (l, l1, l2, _) ->
-          [Edge(l, l1);
-           Edge(l, l2);],
-          [Edge(l1, l2);],
-          l in
+        | `Single (id, _) -> [], [], id
+        | `Edge (l, l1, l2, _) ->
+            [Edge(l, l1); Edge(l, l2);], [Edge(l1, l2);], l
+    in
     let a, r, n2 = match sd2 with
-    | `Single (id, _) -> a, r, id
-    | `Edge (l, l1, l2, _) ->
-          Edge(l, l1) :: Edge(l, l2) :: a,
-          Edge(l1, l2) :: r,
-          l in
+        | `Single (id, _) -> a, r, id
+        | `Edge (l, l1, l2, _) ->
+            Edge(l, l1) :: Edge(l, l2) :: a, Edge(l1, l2) :: r, l
+    in
     let a = Edge(n1, n2) :: a in
     { added = a; removed = r; }
 
@@ -127,16 +115,15 @@ let break_to_edge_delta (sd1, sd2) =
 
 (** [int_of_id id]
     @return the corresponding int of the id. *)
-let int_of_id id =
-    id
+let int_of_id id = id
 
 (** [print_break_jxn jxn]
     @return prints the break jxn. *)
 let print_break_jxn (h1, h2) =
-    let h1 = (int_of_id h1) and
-        h2 = (int_of_id h2) in
-    let h1_s = (string_of_int h1) and
-        h2_s = (string_of_int h2) in
+    let h1 = (int_of_id h1)
+    and h2 = (int_of_id h2) in
+    let h1_s = (string_of_int h1)
+    and h2_s = (string_of_int h2) in
     print_string ("(" ^ h1_s ^ "," ^ h2_s ^ ")")
 
 (** [string_of_node node]
@@ -148,30 +135,27 @@ let string_of_node = function
 
 (** [print_join_1_jxn jxn]
     @return prints join_1_jxn. *)
-let print_join_1_jxn jxn =
-    match jxn with
+let print_join_1_jxn jxn = match jxn with
     | Single_Jxn(s) ->
           print_string ("Single_1_Jxn " ^ (string_of_int s))
     | Edge_Jxn(e1, e2) ->
-          let e1 = (int_of_id e1) and
-                  e2 = (int_of_id e2) in
-          let e1_s = (string_of_int e1) and
-                  e2_s = (string_of_int e2) in
+          let e1 = (int_of_id e1)
+          and e2 = (int_of_id e2) in
+          let e1_s = (string_of_int e1)
+          and e2_s = (string_of_int e2) in
           print_string ("Edge_1_Jxn (" ^ e1_s ^ "," ^ e2_s ^ ")")
 
 (** [print_join_2_jxn jxn]
     @return prints join_2_jxn. *)
-let print_join_2_jxn jxn =
-    match jxn with
+let print_join_2_jxn jxn = match jxn with
     | Single_Jxn(s) ->
           print_string ("Single_2_Jxn " ^ (string_of_int s))
     | Edge_Jxn(e1, e2) ->
-          let e1 = (int_of_id e1) and
-                  e2 = (int_of_id e2) in
-          let e1_s = (string_of_int e1) and
-                  e2_s = (string_of_int e2) in
+          let e1 = (int_of_id e1)
+          and e2 = (int_of_id e2) in
+          let e1_s = (string_of_int e1)
+          and e2_s = (string_of_int e2) in
           print_string ("Edge_2_Jxn (" ^ e1_s ^ "," ^ e2_s ^ ")")
-
 
 type u_tree = {
     tree_name : string option;
@@ -180,7 +164,6 @@ type u_tree = {
     handles : All_sets.Integers.t;
     avail_ids : id list;
     new_ids : id;
-    (* names : (int,string) Hashtbl.t; (* names of subtrees/nodes *) *)
 }
 
 let replace_codes f tree =
@@ -211,11 +194,16 @@ let replace_codes f tree =
         u_topo = topo; d_edges = edges;
         handles = handles; avail_ids = avail_ids }
 
+(** Return the next available code to apply to a tree. Check that the code is
+    able to be a new node and continue. 
 
+    TODO: Although, originally the codes were never duplicated, an issue occured
+    where duplication, and these checks were failing. I'm unsure why this is
+    happening, it needs to be looked at. Although, it is not a major error and
+    is probably due to join/break/build routines or re-coding routines being
+    called in non-uniform ways. *)
 let rec get_available tree = match tree.avail_ids with
     | id :: ids when List.mem id ids ->
-        (** TODO: this happens; but is unknown why. Since it isn't a major error
-                  state, we ignore it and continue with analysis.*)
         get_available {tree with avail_ids = ids; }
     | id :: ids when All_sets.IntegerMap.mem id tree.u_topo ->
         get_available {tree with avail_ids = ids; }
@@ -227,8 +215,6 @@ let rec get_available tree = match tree.avail_ids with
 
 type break_jxn = id * id
 
-(*****************************************************************************)
-
 (** [get_id node]
     @param node the node whose id is desired
     @return id of the node. *)
@@ -237,11 +223,7 @@ let get_id node = match node with
     | Leaf(id, _)
     | Interior(id, _, _, _) -> id
 
-
-(*****************************************************************************)
-
 (** The empty unrooted tree. *)
-let tree_num = ref 0
 let empty () = 
     {
         tree_name = None;
@@ -250,7 +232,6 @@ let empty () =
         handles = All_sets.Integers.empty;
         avail_ids = [];
         new_ids = 0;
-        (* names = Hashtbl.create 5; *)
     }
 
 (** [is_handle id tree]
@@ -274,13 +255,13 @@ let is_edge e tree =
     @return all the node ids of the tree in a list. *)
 let get_node_ids tree =
     let first x y z = x::z in
-        (All_sets.IntegerMap.fold first tree.u_topo [])
+    (All_sets.IntegerMap.fold first tree.u_topo [])
 
 (** [get_nodes tree]
     @return all the nodes of the tree in a list. *)
 let get_nodes tree =
     let second x y z = y::z in
-        (All_sets.IntegerMap.fold second tree.u_topo [])
+    (All_sets.IntegerMap.fold second tree.u_topo [])
 
 (** [get_handles tree]
     @return the handles of the tree. *)
@@ -298,8 +279,7 @@ let handle_list tree =
     after verifying it.
     @raise Invalid_Node_Id when the id does not have a node associated
     with it. *)
-let get_node_id id tree =
-    match (All_sets.IntegerMap.mem id tree.u_topo) with
+let get_node_id id tree = match (All_sets.IntegerMap.mem id tree.u_topo) with
     | true -> id
     | false -> raise (Invalid_Node_Id id)
 
@@ -310,8 +290,7 @@ let get_node_id id tree =
     after verifying it.
     @raise Invalid_Handle_Id when the id does not have a node associated
     with it. *)
-let get_handle_id id tree =
-    match (All_sets.Integers.mem id tree.handles) with
+let get_handle_id id tree = match (All_sets.Integers.mem id tree.handles) with
     | true -> id
     | false -> raise Invalid_Handle_Id
 
@@ -362,17 +341,6 @@ let is_single id tree = match get_node id tree with
     | Single _ -> true
     | _ -> false
 
-(** [get_edge edge btree]
-    @param edge the edge as a tuple (x,y).
-    @param btree the tree.
-    @return the edge Edge(x,y) after verifying the tuple.
-    @raise Invalid edge when the edge does not belong to the tree. *)
-let get_edge (x, y) btree =
-    let edge = Edge(x, y) in
-    match (EdgeSet.mem edge btree.d_edges) with
-    | true -> edge
-    | false -> raise Invalid_Edge
-
 (** [normalize_edge edge tree] returns either [edge] or the reverse-direction
     [edge'] if one of those is in the tree.  Otherwise, it fails with exception
     [Invalid_Edge]. *)
@@ -389,40 +357,46 @@ let normalize_edge e tree =
                     raise Invalid_Edge
         end
 
+(** [get_edge edge btree]
+    @param edge the edge as a tuple (x,y).
+    @param btree the tree.
+    @return the edge Edge(x,y) after verifying the tuple.
+    @raise Invalid edge when the edge does not belong to the tree. *)
+let get_edge (x, y) btree =
+    normalize_edge (Edge (x, y)) btree
+
 (** [nbr_of node1 node2]
     @param node1 a node
     @param node2 another node
     @return true if node2 is a neighbor of node1. *)
-let nbr_of node1 node2 =
-    match node1, node2 with
+let nbr_of node1 node2 = match node1, node2 with
     | Leaf(id1, nbr1), Leaf(id2, nbr2) ->
-            if (id1 = nbr2) && (id2 = nbr1) then
-                true
-            else begin
-                Printf.printf "The neighbors of %d and %d are %d and %d"
-                id1 id2 nbr1 nbr2;
-                false
-            end;
+        if (id1 = nbr2) && (id2 = nbr1) then
+            true
+        else begin
+            Printf.printf "The neighbors of %d and %d are %d and %d"
+            id1 id2 nbr1 nbr2;
+            false
+        end;
     | Leaf(id1, nbr1), Interior(id2, nbr21, nbr22, nbr23)
-    |  Interior(id2, nbr21, nbr22, nbr23), Leaf(id1, nbr1) ->
-            if (id2 = nbr1) && (List.mem id1 [nbr21; nbr22; nbr23]) then
-                true
-            else begin
-                Printf.printf "The neighbors of %d and %d are %d %d %d and \
-                %d\n%!" id2 id1 nbr21 nbr22 nbr23 nbr1;
-                false
-            end
+    | Interior(id2, nbr21, nbr22, nbr23), Leaf(id1, nbr1) ->
+        if (id2 = nbr1) && (List.mem id1 [nbr21; nbr22; nbr23]) then
+            true
+        else begin
+            Printf.printf "The neighbors of %d and %d are %d %d %d and \
+            %d\n%!" id2 id1 nbr21 nbr22 nbr23 nbr1;
+            false
+        end
     | Interior(id1, nbr11, nbr12, nbr13),
       Interior(id2, nbr21, nbr22, nbr23) ->
-          if ((List.mem id1 [nbr21; nbr22; nbr23]) &&
-          (List.mem id2 [nbr11; nbr12; nbr13])) then
-              true
-          else begin
-              Printf.printf "The neighbors of %d and %d are \
-              %d %d %d and %d %d %d\n%!" id1 id2 nbr11 nbr12
-              nbr13 nbr21 nbr22 nbr23;
-              false
-          end
+        if ((List.mem id1 [nbr21; nbr22; nbr23]) &&
+            (List.mem id2 [nbr11; nbr12; nbr13])) then
+            true
+        else begin
+            Printf.printf "The neighbors of %d and %d are %d %d %d and %d %d %d\n%!"
+                          id1 id2 nbr11 nbr12 nbr13 nbr21 nbr22 nbr23;
+            false
+        end
     | _ -> raise Invalid_End_Nodes
 
 (** [verify_edge edge btree]
@@ -590,7 +564,7 @@ let remove_edges edges btree =
 let remove_edge_either e t = remove_edge (normalize_edge e t) t
 
 (** [remove_incident_edges id tree] returns a tree with all the edges coming
-    into or out of node [id] removed. *)
+    into or out of node [id] removed.
 let remove_incident_edges id tree =
     let rem a b t =
         if verify_edge (Edge (a, b)) t
@@ -602,14 +576,13 @@ let remove_incident_edges id tree =
           rem id n1
               (rem id n2
                    (rem id n3 tree))
-    | Single _ -> tree
+    | Single _ -> tree *)
 
 (********************** OTHER FNS *************************************)
 
 (** [replace_nbr nbr new_nbr node]
     @return replace the nbr with new_nbr and returns the new node. *)
-let replace_nbr nbr new_nbr node =
-    match node with
+let replace_nbr nbr new_nbr node = match node with
     | Leaf(id1, nbr1) when (nbr1 = nbr) -> Leaf(id1, new_nbr)
     | Interior(id1, nbr1, nbr2, nbr3) when (nbr1 = nbr) ->
         Interior(id1, new_nbr, nbr2, nbr3)
@@ -632,34 +605,10 @@ let replace_nbr_in_tree nbr new_nbr id btree =
 
 (** [get_parent id tree]
     @return the nbr, such that Edge(nbr, id) exists in tree. *)
-let get_parent id tree =
-    match get_node id tree with
+let get_parent id tree = match get_node id tree with
     | Leaf(a, nb) -> nb
     | Interior(a, p, l, r) -> p
     | _ -> raise (Invalid_argument "Single Handle passed in")
-
-(** [get_child_leaves tree id]  *)
-let get_child_leaves tree id =
-    let rec desc acc id =
-        match get_node id tree with
-        | Leaf (id, par) -> id :: acc
-        | Interior (id, par, left, right) ->
-              let acc = desc acc left in
-              let acc = desc acc right in
-              acc
-        | _ -> assert false in
-    if is_handle id tree
-    then begin
-        match get_node id tree with
-        | Leaf (id, par) -> desc [id] par
-        | Interior (id, par, left, right) ->
-              let acc = desc [] par in
-              let acc = desc acc left in
-              let acc = desc acc right in
-              acc
-        | Single id -> [id]
-    end
-    else desc [] id
 
 (** [test_component tree handle] performs consistency tests on a component of a
     tree. *)
@@ -721,10 +670,8 @@ let test_tree tree =
 
 (******************* END - UNSAFE OPS ****************************************)
 
-(** [a --> b] performs [b a], allowing for chaining of tree-modifying functions
-*)
+(** [a --> b] performs [b a], allowing for chaining of tree-modifying functions *)
 let (-->) a b = b a
-
 
 (** [make_disjoint_tree n]
     @return a disjointed tree with the given nodes and 0 edges *)
@@ -746,21 +693,11 @@ let make_disjoint_tree nodes =
     in
     (List.fold_left f tree nodes)
 
-(** [get_children id tree] returns the two children of node [id] in [tree]
-    @raise [Failure] if the node has no children *)
-let get_children id tree =
-    match get_node id tree with
-    | Interior (node, parent, c1, c2) -> c1, c2
-    | _ -> failwith "get_children"
-
 (** [handle_of n tree] returns the handle of the component in [tree] containing
     node [n] *)
 let rec handle_of n tree =
-    if debug_handle_of
-    then odebug ("handle of: " ^ string_of_int n);
-    if is_handle n tree
-    then n
-    else handle_of (get_parent n tree) tree
+    if debug_handle_of then odebug ("handle of: " ^ string_of_int n);
+    if is_handle n tree then n else handle_of (get_parent n tree) tree
 
 (** [get_path_to_handle id tree]
     @return this function returns the path from node to the handle.
@@ -774,8 +711,10 @@ let get_path_to_handle id tree =
             let edge = (Edge(nbr, id)) in
                 (aux nbr (edge :: elist))
     in
-        (aux id [])
+    aux id []
 
+(** [get_vertices_to_handle id tree]
+    @return A list of vertices from an [id] to the handle that tree contains *)
 let get_vertices_to_handle id tree =
     let rec aux id acc =
         if is_handle id tree then 
@@ -789,39 +728,34 @@ let get_vertices_to_handle id tree =
 (** [path_up ?acc nfrom nto tree] returns the path from [nfrom] towards the
     root to [nto]; the path is returned in reverse order, with [nto] first *)
 let rec path_up ?(acc=[]) nfrom nto tree =
-    try
-        if nfrom = nto then nto :: acc
+    try if nfrom = nto then nto :: acc
         else path_up ~acc:(nfrom :: acc) (get_parent nfrom tree) nto tree
-    with
-    | err ->
-            Status.user_message Status.Error ("nfrom: " ^ string_of_int nfrom ^
-            " nto: " ^ string_of_int nto);
-            raise err
+    with | err ->
+        Status.user_message Status.Error
+            ("nfrom: " ^ string_of_int nfrom ^ " nto: " ^ string_of_int nto);
+        raise err
 
 (** [reorient_node parent child tree] changes the !Interior structore of
     [child] so that [parent] is its parent (i.e., is in the first position) *)
 let reorient_node parent child tree =
     match get_node child tree with
     | Interior (node, c1, c2, c3) ->
-          if parent = c1
-          then tree
-          else if parent = c2
-          then begin
-              let tree = remove_node child tree in
-              let tree = add_node (Interior (child, parent, c1, c3)) tree in
-              tree
-          end else if parent = c3
-          then begin
-              let tree = remove_node child tree in
-              let tree = add_node (Interior (child, parent, c1, c2)) tree in
-              tree
-          end else failwith "reorient_node"
-    | Leaf (node, c) ->
-          if parent = c
-          then tree
-          else failwith "reorient_node"
+        if parent = c1 then
+            tree
+        else if parent = c2 then begin
+            let tree = remove_node child tree in
+            let tree = add_node (Interior (child, parent, c1, c3)) tree in
+            tree
+        end else if parent = c3 then begin
+            let tree = remove_node child tree in
+            let tree = add_node (Interior (child, parent, c1, c2)) tree in
+            tree
+        end else 
+            failwith "reorient_node"
+    | Leaf (node, c) when parent = c ->
+        tree
+    | Leaf _
     | Single _ -> failwith "reorient_node"
-
 
 (** [fix_path_to_handle tree list] changes nodes and reorients edges to provide
     consistency when moving a handle *)
@@ -835,7 +769,6 @@ let rec fix_path_to_handle tree list = match list with
                  --> reorient_node c p
         in
         fix_path_to_handle tree (c :: list)
-
 
 (** Function to move the node handle from one node to another.
     This will change the directions of the edges to account
@@ -944,34 +877,6 @@ let break jxn tree =
     if debug_tests then test_tree tree;
     tree, (ld, rd)
 
-
-(** [make_minimal_tree]
-    @return the minimal unrooted tree with 3 leaf nodes. *)
-let make_minimal_tree () =
-    let nd1 = Interior(1, 2, 3, 4)
-    and nd2 = Leaf(2, 1)
-    and nd3 = Leaf(3, 1)
-    and nd4 = Leaf(4, 1)
-    and e1 = Edge(1, 2)
-    and e2 = Edge(1, 3)
-    and e3 = Edge(1, 4) in
-    let bt = (add_nodes [nd1; nd2; nd3; nd4] (empty ())) in
-    let bt = (add_edges [e1; e2; e3] bt) in
-    let bt = (add_handle 1 bt) in
-    if debug_tests then test_tree bt;
-    bt
-
-(** [edge_map f tree]
-    @param f function to be applied to each edge of the tree.
-    @param tree tree whose edges to which f is applied.
-    @return the function is applied to each edge of the tree. The
-            results are in the form of an assoc-list. *)
-let edge_map f tree =
-    let edges = (EdgeSet.elements tree.d_edges) in
-    let results = (List.map f edges) in
-    (List.combine edges results)
-
-
 (** [join jxn1 jxn2 atree]
     @param jxn1 jxn in the first tree to which the second tree will
                 be grafted onto.
@@ -1046,9 +951,8 @@ let join jxn1 jxn2 tree =
     if debug_tests then test_tree tree;
     tree, (ldel, rdel, path)
 
-
-(** [random t] 
-    @param t - t to create new random tree from
+(** [random t]
+    @param t - nodes to create new random tree from
     @return  - a uniformally random tree *)
 let random (nodes : int list)  : u_tree =
     let random_edge t =
@@ -1068,158 +972,6 @@ let random (nodes : int list)  : u_tree =
         List.fold_left (add_node) acc t
     | _ :: [] | [] -> tree
 
-(** [pre_order_edge_map f id btree]
-    @param id id of the node whose subtree will be mapped.
-    @param  f function that is applied to each edge.
-    @param bt the tree whose edges will be mapped by this function.
-    @return (edge, (f edge)) list. *)
-let pre_order_edge_map f id bt =
-    let rec visit_node pred id accum =
-        match (get_node id bt) with
-        | Leaf(nd, nbr) ->
-              assert(pred = nbr);
-              let e = Edge(pred, nd) in
-              let r = (e, (f e)) in
-              r :: accum
-        | Interior(nd, nbr1, nbr2, nbr3) as node ->
-              let (x, y) = (other_two_nbrs pred node) in
-              let e = Edge(pred, nd) in
-              let r = (e, (f e)) in
-              let accum = r :: accum in
-              let accum = (visit_node nd x accum) in
-              let accum = (visit_node nd y accum) in
-              accum
-        | _ -> raise (Invalid_argument "Check node type")
-    in
-    match (get_node id bt) with
-    | Leaf(nd, nbr) ->
-          assert(is_edge (Edge (nd, nbr)) bt);
-          let accum = (visit_node nd nbr []) in
-          accum
-    | Interior(nd, nbr1, nbr2, nbr3) as node ->
-          begin
-              match (is_handle nd bt) with
-              | true ->
-                    let accum = (visit_node nd nbr1 []) in
-                    let accum = (visit_node nd nbr2 accum) in
-                    let accum = (visit_node nd nbr3 accum) in
-                    accum
-              | false ->
-                    let pred = (get_parent nd bt) in
-                    let (x, y) = (other_two_nbrs pred node) in
-                    let accum = (visit_node nd x []) in
-                    let accum = (visit_node nd y accum) in
-                    accum
-          end
-    | Single(_) -> []
-
-(** [pre_order_edge_iter f id btree]
-    @param id id of the node whose subtree will be iter'd.
-    @param  f function that is applied to each edge.
-    @param bt the tree whose edges will be iter'd by this function.
-    @return () *)
-let pre_order_edge_iter f id bt =
-    let rec visit_node pred id =
-        match (get_node id bt) with
-        | Leaf(nd, nbr) ->
-              assert(pred = nbr);
-              let e = Edge(pred, nd) in
-              (f e)
-        | Interior(nd, nbr1, nbr2, nbr3) as node ->
-              let (x, y) = (other_two_nbrs pred node) in
-              let e = Edge(pred, nd) in
-              (f e);
-              (visit_node nd x);
-              (visit_node nd y)
-        | _ -> raise (Invalid_argument "Check node type")
-    in
-    match (get_node id bt) with
-    | Leaf(nd, nbr) ->
-          assert(is_edge (Edge (nd, nbr)) bt);
-          (visit_node nd nbr)
-    | Interior(nd, nbr1, nbr2, nbr3) as node ->
-          begin
-              match (is_handle nd bt) with
-              | true ->
-                    (visit_node nd nbr1);
-                    (visit_node nd nbr2);
-                    (visit_node nd nbr3)
-              | false ->
-                    let pred = (get_parent nd bt) in
-                    let (x, y) = (other_two_nbrs pred node) in
-                    (visit_node nd x);
-                    (visit_node nd y)
-          end
-    | Single(_) -> ()
-
-(** [pre_order_edge_visit_up_to_depth f id ptree accum d]
-@param f function to be applied to each edge of the subtree
-         of ptree rooted at id.
-@param id all the edges that are descendents of this node are visited
-          in pre-order manner.
-@param ptree the ptree whose edges are being visited.
-@param accum the accumulator, a list.
-@return the return values of the function being applied on the edges. *)
-let pre_order_edge_visit_with_depth f id bt accum max_d =
-    let break_or_continue pred nd ret c_with s_flag cur_depth =
-        let status, accum = ret in
-        match status with
-        | Continue ->
-              (c_with pred nd accum cur_depth)
-        | Break -> (Break, accum)
-        | Skip ->
-              begin
-                  match s_flag with
-                  | true -> (c_with pred nd accum cur_depth)
-                  | false -> (Continue, accum)
-              end
-    in
-    let visit_node pred nd acc =
-        let e = Edge(pred, nd) in
-        (f e acc)
-    in
-    let rec process_children pred nd accum cur_depth =
-        let node = (get_node nd bt) in
-        let (x, y) = other_two_nbrs pred node in
-        let x, y =
-            match Random.int 2 with
-            | 0 -> x, y
-            | _ -> y, x
-        in
-        let ret = traverse nd x accum (cur_depth + 1) in
-        (break_or_continue nd y ret traverse true (cur_depth + 1))
-    and traverse pred id accum cur_depth =
-        match (get_node id bt) with
-        | Leaf(nd, nbr) ->
-              assert(pred = nbr);
-              (visit_node pred id accum)
-        | Interior(nd, nbr1, nbr2, nbr3) when cur_depth < max_d ->
-              let ret = (visit_node pred nd accum) in
-              (break_or_continue pred nd ret process_children false cur_depth)
-        | Interior(nd, nbr1, nbr2, nbr3) ->
-              (visit_node pred nd accum)
-        | _ -> raise (Invalid_argument "poev 2: Check node type")
-    in
-    match (get_node id bt) with
-    | Leaf(nd, nbr) ->
-          assert(is_edge (Edge (nd, nbr)) bt);
-          let _, accum = (traverse nd nbr accum 1) in
-          accum
-    | Interior(nd, nbr1, nbr2, nbr3) ->
-          begin
-              match (is_handle nd bt) with
-              | true ->
-                    let ret = (traverse nd nbr1 accum max_d) in
-                    let _, accum =
-                        (break_or_continue nbr1 nd ret process_children true
-                             1) in
-                    accum
-              | false ->
-                    let pred = (get_parent nd bt) in
-                    let _, accum = (process_children pred nd accum 1) in
-                    accum
-          end
-    | Single(_) -> accum
 
 (** [pre_order_edge_visit f id ptree accum]
 @param f function to be applied to each edge of the subtree
@@ -1233,32 +985,25 @@ let pre_order_edge_visit f id bt accum =
     let break_or_continue pred nd ret c_with s_flag =
         let status, accum = ret in
         match status with
-        | Continue ->
-              (c_with pred nd accum)
-        | Break -> (Break, accum)
-        | Skip ->
-              begin
-                  match s_flag with
+        | Continue -> (c_with pred nd accum)
+        | Break    -> (Break, accum)
+        | Skip     ->
+              begin match s_flag with
                   | true -> (c_with pred nd accum)
                   | false -> (Continue, accum)
               end
     in
-    let visit_node pred nd acc =
-        let e = Edge(pred, nd) in
-        (f e acc)
-    in
+    let visit_node pred nd acc = (f (Edge (pred,nd)) acc) in
     let rec process_children pred nd accum =
         let node = (get_node nd bt) in
         let (x, y) = other_two_nbrs pred node in
-        let x, y =
-            match Random.int 2 with
+        let x, y = match Random.int 2 with
             | 0 -> x, y
             | _ -> y, x
         in
         let ret = (traverse nd x accum) in
         (break_or_continue nd y ret traverse true)
-    and traverse pred id accum =
-        match (get_node id bt) with
+    and traverse pred id accum = match (get_node id bt) with
         | Leaf(nd, nbr) ->
               assert(pred = nbr);
               (visit_node pred id accum)
@@ -1288,11 +1033,11 @@ let pre_order_edge_visit f id bt accum =
     | Single(_) -> accum
 
 (** [pre_order_node_visit f id bt ad acc]
-@param f function to applied to all the nodes in pre-order.
-@param id the node_id from where the traversal is started.
-@param bt the tree whose nodes are visited.
-@param acc the result of the function application on the edges.
-@return the function applied to the subtree of id as imposed by the
+    @param f function to applied to all the nodes in pre-order.
+    @param id the node_id from where the traversal is started.
+    @param bt the tree whose nodes are visited.
+    @param acc the result of the function application on the edges.
+    @return the function applied to the subtree of id as imposed by the
         handle in the component, the results are returned as a list. *)
 let pre_order_node_visit f id bt accum =
     let visit_node pred nd acc =
@@ -1366,7 +1111,10 @@ let pre_order_node_visit f id bt accum =
           end
     | Single(_) -> accum
 
-
+(** [post_order_node_with_edge_visit] A function to traverse a tree from an
+    edge, applying a function on this edge in each direction, applying [f] if
+    the node is a leaf, or g if the node is interior, with two accumulators, one
+    from the left and one from the right. Single nodes are ignored. *)
 let post_order_node_with_edge_visit f g (Edge (a, b)) bt accum =
     let rec processor prev curr accum =
         match get_node curr bt with
@@ -1384,9 +1132,9 @@ let post_order_node_with_edge_visit f g (Edge (a, b)) bt accum =
     a, b
 
 (** [post_order_node_with_edge_visit_simple f e t a] is a simplified visitor
-* function [f], which is applied on every (non single) vertex, starting in 
-* the (hypothetical) root located between the two vertices of edge [e], over
-* tree [t] with accumulator [a]. *)
+    function [f], which is applied on every (non single) vertex, starting in 
+    the (hypothetical) root located between the two vertices of edge [e], over
+    tree [t] with accumulator [a]. *)
 let post_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     let rec processor prev curr acc =
         match get_node curr bt with
@@ -1394,8 +1142,7 @@ let post_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
                 f prev curr acc
         | Interior (nd, nbr1, nbr2, nbr3) as node ->
                 let a, b = other_two_nbrs prev node in
-                acc --> 
-                    processor curr a 
+                acc --> processor curr a 
                     --> processor curr b 
                     --> f prev curr
         | Single _ -> acc
@@ -1403,9 +1150,9 @@ let post_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     acc --> processor b a --> processor a b
 
 (** [pre_order_node_with_edge_visit_simple f e t a] is a simplified visitor
-* function [f], which is applied on every (non single) vertex, starting in 
-* the (hypothetical) root located between the two vertices of edge [e], over
-* tree [t] with accumulator [a]. *)
+    function [f], which is applied on every (non single) vertex, starting in 
+    the (hypothetical) root located between the two vertices of edge [e], over
+    tree [t] with accumulator [a]. *)
 let pre_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     let rec processor prev curr acc =
         match get_node curr bt with
@@ -1422,28 +1169,25 @@ let pre_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     acc --> processor b a --> processor a b
 
 (** [pre_order_node_with_edge_visit_simple_root rf f e t a] is a simplified
-* visitor function [f], which is applied on every (non single) vertex, with a
-* special function [rf] applied to the (hypothetical) root location between two
-* vertices of edge [e], over tree [t] with accumulator [a]. *)
+    visitor function [f], which is applied on every (non single) vertex, with a
+    special function [rf] applied to the (hypothetical) root location between
+    two vertices of edge [e], over tree [t] with accumulator [a]. *)
 let pre_order_node_with_edge_visit_simple_root f (Edge (a, b)) bt acc =
-    let rec processor prev curr acc =
-        match get_node curr bt with
+    let rec processor prev curr acc = match get_node curr bt with
         | Leaf (nd, nbr) ->
                 f prev curr acc
         | Interior (nd, nbr1, nbr2, nbr3) as node ->
                 let a, b = other_two_nbrs prev node in
-                acc 
-                    --> f prev curr
-                    --> processor curr a 
-                    --> processor curr b 
+                acc --> f prev curr
+                    --> processor curr a
+                    --> processor curr b
         | Single _ -> acc
-    and processor_skip prev curr acc =
-        match get_node curr bt with
+    and processor_skip prev curr acc = match get_node curr bt with
         | Leaf (nd, nbr) -> acc
         | Interior (nd, nbr1, nbr2, nbr3) as node ->
                 let a, b = other_two_nbrs prev node in
-                acc --> processor curr a 
-                    --> processor curr b 
+                acc --> processor curr a
+                    --> processor curr b
         | Single _ -> acc
     in
     acc --> processor_skip b a --> processor_skip a b
@@ -1512,24 +1256,19 @@ let robinson_foulds tree1 tree2 : int =
 @param f function to applied to all the nodes in post-order.
 @param id the node_id from where the traversal is started.
 @param bt the tree whose nodes are visited.
-@param ad auxilliary data used by the function - scratch space.
 @param acc the result of the function application on the edges.
 @return the function applied to the subtree of id as imposed by the
         handle in the component, the results are returned as a list. *)
 let post_order_node_visit f id bt accum =
-    let visit_node pred nd acc =
-        (f pred nd acc)
-    in
+    let visit_node pred nd acc = (f pred nd acc) in
     let break_or_continue pred nd ret c_with =
         let status, acc = ret in
         match status with
-        | Continue ->
-              (c_with pred nd acc)
-        | Break -> (Break, acc)
+        | Continue -> (c_with pred nd acc)
+        | Break    -> (Break, acc)
         | _ -> (failwith "Invalid status returned")
     in
-    let rec process_children pred nd acc =
-        match pred with
+    let rec process_children pred nd acc = match pred with
         | Some p ->
               let node = (get_node nd bt) in
               let (x, y) = (other_two_nbrs p node) in
@@ -1539,62 +1278,39 @@ let post_order_node_visit f id bt accum =
     and traverse pred id accum =
         match (get_node id bt) with
         | Leaf(nd, nbr) ->
-              begin
-                  match pred with
+              begin match pred with
                   | None -> assert(is_handle id bt)
                   | Some p -> assert(p = nbr);
               end;
               (visit_node pred nd accum)
         | Interior(nd, nbr1, nbr2, nbr3) ->
               let ret = (Continue, accum) in
-              let ret =
-                  (break_or_continue pred nd ret process_children)
-              in
+              let ret = (break_or_continue pred nd ret process_children) in
               (break_or_continue pred nd ret visit_node)
         | _ -> raise (Invalid_argument "ponv 1: Check node type")
     in
     match (get_node id bt) with
-    | Leaf(nd, nbr) ->
-            (* if the start node is a leaf node and the edge is pointing into
-             * the leaf, just visit the leaf. *)
-(*          if (is_edge (Edge (nd, nbr)) bt) then*)
-              let ret = (Continue, accum) in
-              let ret = (break_or_continue (Some nd) nbr ret traverse) in
-              let _, acc =
-                  (break_or_continue (Some nbr) nd ret visit_node) in
-              acc
-(*          else*)
-(*              let _, acc = visit_node None nd accum in*)
-(*              acc*)
-    | Interior(nd, nbr1, nbr2, nbr3) ->
-          begin
-              match (is_handle nd bt) with
-              | true ->
-                    let ret = (Continue, accum) in
-                    let ret =
-                        (break_or_continue (Some nd) nbr1 ret traverse)
-                    in
-                    let ret =
-                        let tmp = Some nbr1 in
-                        (break_or_continue tmp nd ret process_children)
-                    in
-                    let _, acc =
-                        (break_or_continue (Some nbr1) nd ret visit_node)
-                    in
-                    acc
-              | false ->
-                    let pred = (get_parent nd bt) in
-                    let ret = (Continue, accum) in
-                    let ret =
-                        let tmp = Some pred in
-                        (break_or_continue tmp nd ret process_children)
-                    in
-                    let _, acc =
-                        (break_or_continue (Some pred) nd ret visit_node)
-                    in
-                    acc
+    | Leaf (nd, nbr) ->
+        let ret = (Continue, accum) in
+        let ret = (break_or_continue (Some nd) nbr ret traverse) in
+        let _, acc = (break_or_continue (Some nbr) nd ret visit_node) in
+        acc
+    | Interior (nd, nbr1, nbr2, nbr3) ->
+        begin match (is_handle nd bt) with
+            | true ->
+                let ret = (Continue, accum) in
+                let ret = break_or_continue (Some nd) nbr1 ret traverse in
+                let ret = break_or_continue (Some nbr1) nd ret process_children in
+                let _, acc = break_or_continue (Some nbr1) nd ret visit_node in
+                acc
+            | false ->
+                let pred = (get_parent nd bt) in
+                let ret = (Continue, accum) in
+                let ret = break_or_continue (Some pred) nd ret process_children in
+                let _, acc = break_or_continue (Some pred) nd ret visit_node in
+                acc
           end
-    | Single(_) -> accum
+    | Single (_) -> accum
 
 (** [get_pre_order_edges hs tree]
     @param hs the start handle.
@@ -1620,16 +1336,6 @@ let get_edges_tree tree =
         []
         (handle_list tree)
 
-(** [get_post_order_edges hs tree]
-    @param hs the start handle.
-    @param tree the tree whose edges in ppost_order are desired.
-    @return the edges of the tree as visited in a post-order traversal
-            in list form.
-let get_post_order_edges hs tree =
-    let get_edge e acc =  Continue, e :: acc in
-    let rev_edges = (post_order_edge_visit get_edge hs tree []) in
-       List.rev rev_edges *)
-
 (*****************************************************************************)
 
 (** [print_edge edge]
@@ -1646,9 +1352,9 @@ let print_edge (Edge(e1, e2)) =
     @return () - this function prints the binary tree to the screen
             using a backward-in-order traversal. *)
 let print_tree id tree =
-    let pipe = "|" and
-        empty_string = "" and
-        suffix = " " in
+    let pipe = "|"
+    and empty_string = ""
+    and suffix = " " in
     let update_prefix prefix =
         (prefix ^ suffix ^ pipe) in
     let already_visited node_id visited =
@@ -1658,10 +1364,9 @@ let print_tree id tree =
     let visit_node node_id prefix =
         (prerr_endline (prefix ^ (string_of_int node_id))) in
     let rec visit_nbr nbr_id prefix visited =
-        if (already_visited nbr_id visited) then
-            visited
-        else
-            (print_tree_aux nbr_id prefix visited)
+        if (already_visited nbr_id visited)
+            then visited
+            else (print_tree_aux nbr_id prefix visited)
     and print_tree_aux node_id prefix visited =
         match (get_node node_id tree) with
         | Single(id) ->
@@ -1687,8 +1392,8 @@ let print_tree id tree =
     @return () - prints all the trees in the forest. *)
 let print_forest forest =
     let handles = (All_sets.Integers.elements (get_handles forest)) in
-        (ignore (List.map (fun x -> prerr_newline ();
-                                    print_tree x forest) handles))
+    (ignore (List.map (fun x -> prerr_newline ();
+                                print_tree x forest) handles))
 module Parse = struct
     (* A simple representation of a tree *)
     type 'a t = Leafp of 'a | Nodep of 'a t list * 'a
@@ -2442,17 +2147,16 @@ let get_break_handles (a, b) tree =
       end in
     h1, h2
 
-let fix_handle_neighbor h n tree =
-    match get_node h tree with
+let fix_handle_neighbor h n tree = match get_node h tree with
     | Interior (_, par, a, b) ->
-            if par = n then tree
-            else if n = a then 
-                let tree = remove_node h tree in
-                add_node (Interior (h, a, par, b)) tree
-            else if n = b then
-                let tree = remove_node h tree in
-                add_node (Interior (h, b, a, par)) tree
-            else failwith "Tree.fix_handle_neighbor"
+        if par = n then tree
+        else if n = a then 
+            let tree = remove_node h tree in
+            add_node (Interior (h, a, par, b)) tree
+        else if n = b then
+            let tree = remove_node h tree in
+            add_node (Interior (h, b, a, par)) tree
+        else failwith "Tree.fix_handle_neighbor"
     | Leaf _ -> tree
     | Single _ -> failwith "Tree.fix_handle_neighbor 2"
 
@@ -2461,42 +2165,43 @@ let fix_handle_neighbor h n tree =
 (** {2 Tree Fusing} *)
 
 (** [edge_summary tree] takes the edges in [tree] and returns a map from all
-    nodes to their parents and a map from all nodes to a list of their children
-*)
+    nodes to their parents and a map from all nodes to a list of their children *)
 let edge_summary tree =
-    let parents = ref All_sets.IntegerMap.empty in
+    let parents  = ref All_sets.IntegerMap.empty in
     let children = ref All_sets.IntegerMap.empty in
     EdgeSet.iter
         (fun (Edge(f, t)) ->
-             assert (false = All_sets.IntegerMap.mem t !parents);
-             parents := All_sets.IntegerMap.add t f !parents;
-             children := match All_sets.IntegerMap.mem f !children with
-             | false -> All_sets.IntegerMap.add f [t] !children
-             | true -> All_sets.IntegerMap.add f
-                   (t :: All_sets.IntegerMap.find f !children) !children
-        ) tree.d_edges;
+            assert (false = All_sets.IntegerMap.mem t !parents);
+            parents  := All_sets.IntegerMap.add t f !parents;
+            children := match All_sets.IntegerMap.mem f !children with
+                | false -> All_sets.IntegerMap.add f [t] !children
+                | true  ->
+                    All_sets.IntegerMap.add f
+                        (t :: All_sets.IntegerMap.find f !children) !children)
+        tree.d_edges;
     (!parents, !children)
 
 (** [update_clade_with_edges node tree] returns [tree] with all nodes under
-    [node] updated to respect the edges in [tree] *)
+    [node] updated to respect the edges in [tree]
 let update_clade_with_edges node tree =
     let (parents, children) = edge_summary tree in
     let rec r node tree' = match get_node node tree with
-    | Leaf _ -> tree'                   (* leaves stay leaves *)
-    | Interior (_, par, a, b) ->
-          let par' = All_sets.IntegerMap.find node parents in
-
-          let a', b' = match All_sets.IntegerMap.find node children with
-          | [ a; b ] -> a, b
-          | _ -> failwith "Tree.update_clade_with_edges too many/few children"
-          in
-          
-          let tree' = tree' --> remove_node node
-              --> add_node (Interior (node, par', a', b')) in
-          let tree' = tree' --> r a' --> r b' in
-          tree'
-    | Single _ -> tree' in
-    r node tree
+        | Leaf _ -> tree'                   (* leaves stay leaves *)
+        | Interior (_, par, a, b) ->
+            let par' = All_sets.IntegerMap.find node parents in
+            let a', b' = match All_sets.IntegerMap.find node children with
+                | [ a; b ] -> a, b
+                | _ -> failwith "Tree.update_clade_with_edges too many/few children"
+            in
+            let tree' = 
+                tree' --> remove_node node
+                      --> add_node (Interior (node, par', a', b')) in
+                      --> r a'
+                      --> r b'
+            tree'
+        | Single _ -> tree'
+    in
+    r node tree *)
 
 (** [destroy_under_node node tree] removes all the edges and nodes underneath
     [node] in [tree].  WARNING: this leaves the tree in an inconsistent state.
@@ -2867,6 +2572,8 @@ let rec update_vertex tree depth vertex acc =
         | _ -> acc
     else acc
 
+(** Return the best depth from a node to the vertex given; a general case to the
+    ones based on a handle **)
 let rec depth_of_vertex tree best_known vertex acc =
     match get_node vertex tree with
     | Interior (_, par, c1, c2) ->
@@ -2888,10 +2595,9 @@ let rec depth_of_vertex tree best_known vertex acc =
             1, All_sets.TupleMap.add (vertex, par) 1 acc
     | Single _ -> 0, acc
 
-
-let big_number = 10000000
-
+(** Find the maximum depth of a tree with the handle mentioned *)
 let depth_of_handle tree handle acc =
+    let big_number = 10000000 in
     match get_node handle tree with
     | Interior (_, par, c1, c2) ->
             let dp, acc = depth_of_vertex tree big_number par acc in
@@ -2911,10 +2617,10 @@ let depth_of_handle tree handle acc =
             All_sets.TupleMap.add (handle, par) dp acc
     | Single _ -> acc
 
-
-let depths tree = 
-    All_sets.Integers.fold (depth_of_handle tree) (get_handles tree)
-    All_sets.TupleMap.empty
+(** Return a map from edges of handles to the depth of the tree.*)
+let depths tree =
+    All_sets.Integers.fold
+        (depth_of_handle tree) (get_handles tree) All_sets.TupleMap.empty
 
 (* Functions to compare two trees weather or not they are the same *)
 let reroot (a, b) tree =
@@ -2924,11 +2630,10 @@ let reroot (a, b) tree =
 (* Find a leaf *)
 let choose_leaf tree =
     let (Edge (a, _)) = EdgeSet.choose tree.d_edges in
-    let rec find_leaf x =
-        match get_node x tree with
-        | Leaf (a, b)  ->  a, b
+    let rec find_leaf x = match get_node x tree with
+        | Leaf (a, b)           ->  a, b
         | Interior (_, _, c, _) -> find_leaf c
-        | Single _ -> failwith "Tree.choose_leaf"
+        | Single _              -> failwith "Tree.choose_leaf"
     in
     find_leaf a
 
@@ -2955,52 +2660,13 @@ let cannonize_on_edge ((a, b) as edge) tree =
     { tree with u_topo = res }
 
 let cannonize_on_leaf a tree =
-    try
-        match get_node a tree with
+    try match get_node a tree with
         | Leaf (a, b) -> cannonize_on_edge (a, b) tree
         | _ -> failwith "Tree.cannonize_on_leaf: the vertex is not a leaf"
-    with
-    | Not_found as err ->
-            Status.user_message Status.Error
+    with | Not_found as err ->
+        Status.user_message Status.Error
             ("Could not find " ^ string_of_int a);
-            raise err
-
-let compare_cannonical a b = 
-    let rec recursive_compare ac bc =
-        match get_node ac a, get_node bc b with
-        | Leaf _, Leaf _ -> true
-        | Interior (_, _, a1, a2), Interior (_, _, b1, b2) ->
-                (recursive_compare a1 b1) && (recursive_compare a2 b2)
-        | _, _ -> false
-    in
-    let compare handle =
-        match get_node handle a, get_node handle b with
-        | Leaf (_, a'), Leaf (_, b') ->
-                recursive_compare a' b'
-        | Single _, Single _ -> true
-        | Interior _, Interior _ -> failwith "Canonize first"
-        | _, _ -> false
-    in
-    let handles = get_handles a in
-    match All_sets.Integers.cardinal handles with
-    | 1 -> compare (All_sets.Integers.choose handles)
-    | _ -> failwith "Comparing trees can not handle forests"
-
-let get_unique trees = 
-    match trees with
-    | (_, tree) :: _ ->
-        let a, _ = choose_leaf tree in
-        let trees = List.rev_map (fun (b, x) ->
-            b, x, (cannonize_on_leaf a x)) trees 
-        in
-        let rec remove_duplicated acc = function
-            | ((_, _, h) as pair) :: t ->
-                    let are_different (_, _, x) = not (compare_cannonical h x) in
-                    remove_duplicated (pair :: acc) (List.filter are_different t)
-            | [] -> acc
-        in
-        List.rev_map (fun (a, b, _) -> a, b) (remove_duplicated []  trees)
-    | x -> x
+        raise err
 
 let destroy_component handle tree =
     assert (is_handle handle tree);

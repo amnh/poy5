@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2662 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2677 $"
 
 let debug = false
 
