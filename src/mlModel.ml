@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2662 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2681 $"
 
 open Numerical.FPInfix
 
@@ -58,14 +58,14 @@ let barray_to_array2 bray =
 let print_barray1 a =
     for i = 0 to (Bigarray.Array1.dim a)-1 do
         Printf.printf "%2.10f\t" a.{i};
-    done; Printf.printf "\n"; ()
+    done; Printf.printf "\n%!"; ()
 
 and print_barray2 a =
     for i = 0 to (Bigarray.Array2.dim1 a)-1 do
         for j = 0 to (Bigarray.Array2.dim2 a)-1 do
             Printf.printf "%2.10f\t" a.{i,j};
         done; Printf.printf "\n";
-    done; Printf.printf "\n"; ()
+    done; Printf.printf "\n%!"; ()
 
 (* type to help the parsing of specification data *)
 type string_spec = string * (string * string * string * string) * float list
@@ -479,15 +479,21 @@ let m_f84 pi_ gamma kappa a_size gap_r =
     m_tn93 pi_ alpha beta gamma a_size gap_r
 
 (* normalize against two characters that are not gaps; unless its the only choice *)
-let normalize ?(m=Numerical.minimum) gap_char gap_state vec = match gap_state with
+let normalize ?(m=Numerical.minimum) alph gap_state vec = match gap_state with
     | `Independent ->
+(*        let normalize_factor =*)
+(*            if (Alphabet.get_gap alph) = ((Alphabet.size alph)-1)*)
+(*                then max m vec.( (Array.length vec) - 3 )*)
+(*                else max m vec.( (Array.length vec) - 1 )*)
+(*        in*)
         let normalize_factor = max m vec.((Array.length vec) - 1) in
         let vec = Array.map (fun i -> (max m i) /. normalize_factor) vec in
         vec, `Independent
     | `Coupled n ->
         let normalize_factor = max m vec.((Array.length vec) - 1) in
         let vec = Array.map (fun i -> (max m i) /. normalize_factor) vec in
-        vec, `Coupled ( n/.normalize_factor )
+        Printf.printf "normalized Gap = %f -> %f\n%!" n (n/.normalize_factor);
+        vec, `Coupled (n/.normalize_factor)
     | `Missing ->
         let normalize_factor = max m vec.((Array.length vec) - 1) in
         let vec = Array.map (fun i -> (max m i) /. normalize_factor) vec in
@@ -1580,53 +1586,72 @@ let spec_from_classification alph gap kind rates (priors:Methods.ml_priors) cost
             and denom = log (1.0-.(2.0*.v)) in
             K2P ((numer /. denom)-.1.0),gap
         | `GTR _ ->
-            assert false
-(*            let tuple_sum a1 a2 map =*)
-(*                let one = try All_sets.FullTupleMap.find (a1,a2) map *)
-(*                          with | Not_found -> 0.0*)
-(*                and two = try All_sets.FullTupleMap.find (a2,a1) map*)
-(*                          with | Not_found -> 0.0*)
-(*                in*)
-(*                one +. two*)
-(*            in*)
+            let tuple_sum a1 a2 map =
+                let one = try All_sets.FullTupleMap.find (a1,a2) map 
+                          with | Not_found -> 0.0
+                and two = try All_sets.FullTupleMap.find (a2,a1) map
+                          with | Not_found -> 0.0
+                in
+                one +. two
+            in
             (* create list of transitions for GTR model creation *)
             (* 1 -> 2, 1 -> 3, 1 -> 4 ... 2 -> 3 ... *)
-(*            begin match gap with*)
-(*                | `Independent | `Missing ->*)
-(*                    let lst = *)
-(*                        List.fold_right*)
-(*                            (fun (s1,alph1) acc1 ->*)
-(*                                if (not ugap) && ((Alphabet.get_gap alph) = alph1) then*)
-(*                                    acc1*)
-(*                                else*)
-(*                                    List.fold_right*)
-(*                                        (fun (s2,alph2) acc2 ->*)
-(*                                            if alph2 <= alph1 then acc2*)
-(*                                            else if (not ugap) && ((Alphabet.get_gap alph) = alph2) then*)
-(*                                                acc2*)
-(*                                            else begin*)
-(*                                                let sum = tuple_sum alph1 alph2 comp_map in*)
-(*                                                sum :: acc2 *)
-(*                                            end)*)
-(*                                        (Alphabet.to_list alph) acc1)*)
-(*                            (Alphabet.to_list alph) []*)
-(*                    in*)
-(*                    let sum = List.fold_left (fun a x -> x +. a) 0.0 lst in*)
-(*                    let lst = List.map (fun x -> x /. sum) lst in*)
-(*                    let arr,gap = normalize (Alphabet.get_gap alph) gap (Array.of_list lst) in*)
-(*                    Printf.printf "\nPre-Coefficients:\n"; print_barray1 (ba_of_array1 arr);*)
-(*                    let arr = Array.init ((List.length lst)-1) (fun i -> arr.(i)) in*)
-(*                    Printf.printf "\nNon-Coefficients:\n"; print_barray1 (ba_of_array1 arr);*)
-(*                    GTR arr,gap*)
-(*                | `Coupled _ ->*)
-(*                    let sum = List.fold_left (fun a x -> x +. a) 0.0 lst in*)
-(*                    let lst = List.map (fun x -> x /. sum) lst in*)
-(*                    let arr,gap = normalize gap (Array.of_list lst) in*)
-(*                    Printf.printf "\nPre-Coefficients:\n"; print_barray1 (ba_of_array1 arr);*)
-(*                    let arr = Array.init ((List.length lst)-1) (fun i -> arr.(i)) in*)
-(*                    Printf.printf "\nNon-Coefficients:\n"; print_barray1 (ba_of_array1 arr);*)
-(*                    GTR (Some arr),gap*)
-(*            end*)
+            begin match gap with
+                | `Independent | `Missing ->
+                    let cgap = Alphabet.get_gap alph in
+                    let lst =
+                        List.fold_right
+                            (fun (s1,alph1) acc1 ->
+                                if (not ugap) && (cgap = alph1) then
+                                    acc1
+                                else
+                                    List.fold_right
+                                        (fun (s2,alph2) acc2 ->
+                                            if alph2 <= alph1 then acc2
+                                            else if (not ugap) && (cgap = alph2) then
+                                                acc2
+                                            else begin
+                                                let sum = tuple_sum alph1 alph2 comp_map in
+                                                Printf.printf "T: %d <-> %d = %f\n%!"
+                                                    alph1 alph2 sum;
+                                                sum :: acc2 
+                                            end)
+                                        (Alphabet.to_list alph) acc1)
+                            (Alphabet.to_list alph) []
+                    in
+                    let sum = List.fold_left (fun a x -> x +. a) 0.0 lst in
+                    let lst = List.map (fun x -> x /. sum) lst in
+                    let arr,gap = normalize alph gap (Array.of_list lst) in
+                    let arr = Array.init ((List.length lst)-1) (fun i -> arr.(i)) in
+                    GTR arr,gap
+                | `Coupled _ ->
+                    let cgap = Alphabet.get_gap alph in
+                    let lst,gap_trans =
+                        List.fold_right
+                            (fun (s1,alph1) acc1 ->
+                                if cgap = alph1 then acc1
+                                else
+                                    List.fold_right
+                                        (fun (s2,alph2) ((chrt,gapt) as acc2) ->
+                                            if alph2 <= alph1    then acc2
+                                            else if cgap = alph2 then
+                                                let sum = tuple_sum alph1 alph2 comp_map in
+                                                (chrt, sum +. gapt)
+                                            else begin
+                                                let sum = tuple_sum alph1 alph2 comp_map in
+                                                (sum :: chrt,gapt)
+                                            end)
+                                        (Alphabet.to_list alph) acc1)
+                            (Alphabet.to_list alph)
+                            ([],0.0)
+                    in
+                    let sum = List.fold_left (fun a x -> x +. a) gap_trans lst in
+                    let lst = List.map (fun x -> x /. sum) lst in
+                    let gap = `Coupled (gap_trans /. (sum *. (float_of_int a_size))) in
+                    let arr,gap = normalize alph gap (Array.of_list lst) in
+                    let arr = Array.init ((List.length lst)-1) (fun i -> arr.(i)) in
+                    GTR arr,gap
+            end
         | `F84 _ ->
             let pi_a = get_priors f_priors alph "A"
             and pi_c = get_priors f_priors alph "C"
@@ -1681,9 +1706,12 @@ let spec_from_classification alph gap kind rates (priors:Methods.ml_priors) cost
         same /. all
     in
     let v = match rates with
-        | None -> Constant
-        | Some (`Gamma (i,_)) -> Gamma (i,1.0)
-        | Some (`Theta (i,_)) -> Theta (i,0.2,calc_invar tuple_sum comp_map)
+        | None ->
+            Constant
+        | Some (`Gamma (i,_)) ->
+            Gamma (i,default_alpha false)
+        | Some (`Theta (i,_)) ->
+            Theta (i,default_alpha true,calc_invar tuple_sum comp_map)
     in
     {
         substitution = m;
