@@ -21,11 +21,12 @@ open Nexus.File     (* only used for Nexus.File.nexus *)
     
 let failwithf format = Printf.ksprintf failwith format
 
+(** Creates the default_hennig character spec from the nexus.file spec *)
 let default_hennig gap_handling alph equates file pos = 
     let gaps =  match gap_handling with
-        | None -> equates @ [(Alphabet.gap_repr, [])]
+        | None        -> equates @ [(Alphabet.gap_repr, [])]
         | Some `Nogap -> equates @ [(Alphabet.gap_repr, [])]
-        | Some `Gap -> equates 
+        | Some `Gap   -> equates 
     in
     { st_filesource = file;
       st_name = file ^ ":" ^ string_of_int pos;
@@ -44,6 +45,7 @@ let default_hennig gap_handling alph equates file pos =
       st_used_observed = None;
       st_observed_used = None; }
 
+(** Create a a list of length [n] of unique characters *)
 let hennig_upto n = 
     let all_list =
         ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9";
@@ -61,6 +63,7 @@ let hennig_upto n =
         in
         get_up_to all_list n
 
+(** Create an alphabet from a symbol table and length of alphabet *)
 let hennig_for_upto is_gap_state file n pos =
         let lst = hennig_upto n in
         let gap = Alphabet.gap_repr in
@@ -70,6 +73,7 @@ let hennig_for_upto is_gap_state file n pos =
         in
         default_hennig is_gap_state alph equates file pos
 
+(** Generate the default character spec from type of input *)
 let rec generate_default of_type file pos = match of_type with
     | Some (`Continuous) ->
             let gap = Alphabet.gap_repr in
@@ -110,15 +114,16 @@ let rec generate_default of_type file pos = match of_type with
     | None             -> generate_default (Some (`Number 32)) file pos
 
 
-let assign_names characters name =
-    match name with
+(** Seperate the name of a taxa and the characters specification *)
+let assign_names characters name = match name with
     | char :: char_name :: states_names ->
             let pos = int_of_string char in
             characters.(pos) <- 
-                { characters.(pos) with st_name = char_name; st_labels =
-                    states_names }
+                { characters.(pos) with st_name   = char_name;
+                                        st_labels = states_names }
     | _ -> failwith "illegal character name specification"
 
+(** Create Set of characters; range, single or polymorphic of all *)
 let get_chars max chars = 
     List.flatten
         (List.map 
@@ -128,9 +133,9 @@ let get_chars max chars =
                     else sequence (a + 1) b (a :: acc)
                 in
                 match char with
-                |P.All -> sequence 0 (max - 1) []
-                |P.Range (a, b) -> sequence a b []
-                |P.Single x -> [x])
+                | P.All -> sequence 0 (max - 1) []
+                | P.Range (a, b) -> sequence a b []
+                | P.Single x -> [x])
             chars)
 
 
@@ -211,7 +216,8 @@ let process_matrix matrix taxa characters get_row_number assign_item to_parse =
         (data);
     ()
 
-
+(** Process a command from the lexer; Order matters, so mode can be set to
+    process the character matrix properly **)
 let process_command file (mode, (acc:nexus)) = function
     |P.Nstates x  -> (x, acc)
     |P.Xread data ->
@@ -219,19 +225,17 @@ let process_command file (mode, (acc:nexus)) = function
         let (nch, ntaxa, to_parse) = Grammar.xread Lexer.xread lex in
         let taxa, characters, matrix =
             (* In hennig files we only allow one xread per file, that's
-            * common for this kind of files *)
+               common for this kind of files *)
             match acc.taxa, acc.characters, acc.matrix with
             | [||], [||], [||] ->
-                    (* We are OK to continue *)
                 Array.make ntaxa None,
-                Array.init nch (generate_default mode file), 
+                Array.init nch (generate_default mode file),
                 Array.init ntaxa (fun _ -> Array.make nch None)
             | _ -> 
-                failwith 
-                    "We only allow one xread command per hennig file"
+                failwith "We only allow one xread command per hennig file"
         (* Update the spec; only two elements, min and max are necessary *)
         and add_observed _ new_states spec =
-            let new_states = 
+            let new_states =
                 if List.mem (Alphabet.get_gap spec.st_alph) new_states then begin
                     []
                 end else begin
@@ -251,7 +255,7 @@ let process_command file (mode, (acc:nexus)) = function
             if List.mem (Alphabet.get_gap spec.st_alph) new_states then begin
                 Some (`List [~-1])
             end else begin
-                let states = List.sort Pervasives.compare new_states in 
+                let states = List.sort Pervasives.compare new_states in
                 Some (`List states)
             end
         in
@@ -281,8 +285,11 @@ let process_command file (mode, (acc:nexus)) = function
                         taxa = taxa;
                         characters = characters;
                         matrix = matrix; }
-            | Some (`Dna _) | Some (`Protein _) | Some (`Number _) | None ->
-                Nexus.File.process_matrix true `Hennig matrix taxa characters 
+            | None
+            | Some (`Dna _)
+            | Some (`Number _)
+            | Some (`Protein _) ->
+                Nexus.File.process_matrix true `Hennig matrix taxa characters
                     (fun name -> Nexus.File.find_taxon taxa name)
                     (fun x y v -> matrix.(x).(y) <- v) to_parse;
                 mode,{acc with
@@ -301,24 +308,23 @@ let process_command file (mode, (acc:nexus)) = function
                     |P.Additive chars ->
                         (fun x -> { x with st_type = STOrdered}), chars
                     |P.NonAdditive chars ->
-                        (fun x -> 
-                            { x with st_type = STUnordered}),
-                        chars
+                        (fun x -> { x with st_type = STUnordered}), chars
                     |P.Active chars ->
                         (fun x -> { x with st_eliminate = false }), chars
                     |P.Inactive chars ->
                         (fun x -> { x with st_eliminate = true }), chars
                     |P.Sankoff chars ->
                         (fun x ->
-                            { x with st_type = STSankoff (make_sankoff_matrix x) }),
-                        chars
+                            let mat = make_sankoff_matrix x in
+                            { x with st_type = STSankoff mat }), chars
                     |P.Weight (v, chars) ->
-                        (fun x -> { x with st_weight = float_of_int v } ), 
-                        chars
-            in
-            List.iter (fun x -> 
-                acc.characters.(x) <- modifier acc.characters.(x))
-            (get_chars (Array.length acc.characters) chars)) char_changes;
+                        (fun x -> { x with st_weight = float_of_int v } ), chars
+                in
+                List.iter
+                    (fun x -> 
+                        acc.characters.(x) <- modifier acc.characters.(x))
+                    (get_chars (Array.length acc.characters) chars))
+            char_changes;
         mode, acc
     |P.Tread new_trees ->
         let new_trees = 
@@ -340,10 +346,12 @@ let process_command file (mode, (acc:nexus)) = function
     |P.EOF    -> mode, acc
     |P.Ignore -> mode, acc
 
+(** Return true if the last command is not End of File *)
 let last_command_is_not_eof = function
     | P.EOF::tl -> false
     | _         -> true
 
+(** Load a Hennig file from a channel based on a file *)
 let of_channel ch (file : string) =
     let parsed =
         let res = ref [] in
