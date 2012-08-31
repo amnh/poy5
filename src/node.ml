@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2674 $"
+let () = SadmanOutput.register "Node" "$Revision: 2680 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -539,9 +539,15 @@ let cs_update_cost_only mine ch1 ch2 =
             Kolmo { m with sum_cost = sumcost; }, sumcost
     | Sank m, Sank c1, Sank c2 -> Sank m, m.sum_cost
     | FixedStates m, FixedStates c1, FixedStates c2 -> FixedStates m, m.sum_cost
-    | Nonadd8 m, Nonadd8 c1, Nonadd8 c2 ->  Nonadd8 m, m.sum_cost
-    | Nonadd16 m, Nonadd16 c1, Nonadd16 c2 ->  Nonadd16 m, m.sum_cost
-    | Nonadd32 m, Nonadd32 c1, Nonadd32 c2 ->  Nonadd32 m, m.sum_cost
+    | Nonadd8 m, Nonadd8 c1, Nonadd8 c2 ->  
+            let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
+            Nonadd8 { m with sum_cost = sumcost }, sumcost
+    | Nonadd16 m, Nonadd16 c1, Nonadd16 c2 ->  
+            let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
+            Nonadd16 { m with sum_cost = sumcost }, sumcost
+    | Nonadd32 m, Nonadd32 c1, Nonadd32 c2 ->  
+            let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
+            Nonadd32 { m with sum_cost = sumcost }, sumcost
     | _, _ , _ -> failwith "cs_update_cost_only, wrong character type mix"
 
 (* calculate the median between two nodes *)
@@ -1371,7 +1377,8 @@ let convert_2_lst chars tbl : float option list =
 
 (** [update_cost_only mine child1 child2] update mine with new sum_cost,
 * calculated by new sum_cost of child1 or/and child2*)
-let update_cost_only  mine child1 child2 = 
+let update_cost_only mine child1 child2 = 
+    let debug = false in
     let new_exclude_info = 
         excludes_median child1 child2
     in
@@ -1383,6 +1390,10 @@ let update_cost_only  mine child1 child2 =
             map3 (fun a b c -> cs_update_cost_only a b c) mine.characters child1.characters child2.characters )
         in
         let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in
+        if debug then Printf.printf "update total_cost=%f only to node#.%d \
+        (old cost = %f, ch1(%d,%f),ch2(%d,%f)\n%!"
+        total_cost mine.taxon_code mine.total_cost child1.taxon_code child1.total_cost
+        child2.taxon_code child2.total_cost;
         {mine with 
             characters = characters_with_new_cost; 
             total_cost = total_cost;
@@ -1993,7 +2004,7 @@ let dist_2 minimum_delta n a b =
         | Nonadd8 n, Nonadd8 a, Nonadd8 b ->
                 let dist = NonaddCS8.dist_2 n.final a.final b.final in
                 let res = n.weight *. dist in
-                if debug then Printf.printf "Nonadd8, res = %f * %f = %f; %!" dist n.weight res;
+                if debug then Printf.printf "Nonadd8, res=%f*%f=%f; %!" dist n.weight res;
                 res
         | Nonadd16 n, Nonadd16 a, Nonadd16 b ->
               n.weight *. NonaddCS16.dist_2 n.final a.final b.final
@@ -2004,7 +2015,7 @@ let dist_2 minimum_delta n a b =
         | AddGen n, AddGen a, AddGen b ->
                 let dist = AddCS.General.distance_2 n.final a.final b.final in
                 let res = n.weight *. dist in
-                if debug then Printf.printf "AddGen, res = %f * %f = %f; %!" dist n.weight res;
+                if debug then Printf.printf "AddGen, res=%f*%f=%f; %!" dist n.weight res;
                 res
         | Sank n, Sank a, Sank b ->
               n.weight *. SankCS.dist_2 n.final a.final b.final
@@ -2088,7 +2099,7 @@ let dist_2 minimum_delta n a b =
             | n :: ncs, a :: acs, b :: bcs ->
                 let max_delta = minimum_delta -. acc in
                 let add_dist = ch_dist max_delta n a b in
-                if debug then Printf.printf "acc(%f) += %f\n%!" acc add_dist;
+                if debug then Printf.printf "acc(%f)+=%f\n%!" acc add_dist;
                   chars (acc +. add_dist) (ncs, acs, bcs)
             | [], [], [] -> acc
             | _ -> raise (Illegal_argument "dist_2_chars")

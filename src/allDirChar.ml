@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2659 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2680 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1552,15 +1552,19 @@ module F : Ptree.Tree_Operations
 
     (* ---------- *)
     let downpass ptree =
-        if debug_downpass_fn then info_user_message "Downpass Begins\n%!";
+        let debug_downpass_fn = true in
+        if debug_downpass_fn then info_user_message "Downpass Begins,%!";
         current_snapshot "AllDirChar.downpass a";
         let res = match !Methods.cost with
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> internal_downpass true ptree
+            | `Normal ->
+                    if debug_downpass_fn then info_user_message "exhaustiveXX&NormalXX,";
+                    internal_downpass true ptree
             | `Iterative (`ThreeD  iterations)
             | `Iterative (`ApproxD iterations) ->
+                  if debug_downpass_fn then info_user_message "IterativeXX,";
                   ptree --> clear_internals false
                         --> internal_downpass true
                         --> pick_best_root
@@ -1579,10 +1583,13 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> 
+                if debug_uppass_fn then info_user_message "uppass,exhaustiveXX&NormalXX";
                 ptree --> pick_best_root
                       --> assign_single
             | `Iterative (`ApproxD _)
-            | `Iterative (`ThreeD _) -> ptree
+            | `Iterative (`ThreeD _) -> 
+                    if debug_uppass_fn then info_user_message "uppass,IterativeXX";
+                    ptree
         in
         if debug_uppass_fn then info_user_message "UPPASS ends.%!";
         tree
@@ -1893,6 +1900,7 @@ module F : Ptree.Tree_Operations
         let d = clear_internals true d in
         let (ptree, tdel) as ret = match !Methods.cost with
             | `Normal ->
+                if debug_join_fn then Printf.printf "join_fn, Normal,%!";
                 let tree,delta =join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree = update_branches tree in
@@ -1911,6 +1919,7 @@ module F : Ptree.Tree_Operations
             | `Normal_plus_Vitamines
             | `Exhaustive_Weak
             | `Exhaustive_Strong ->
+                if debug_join_fn then Printf.printf "join_fn, Exhaustive_WeakorStrong,%!";
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree =
