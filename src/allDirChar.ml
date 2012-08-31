@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2680 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2682 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1552,7 +1552,6 @@ module F : Ptree.Tree_Operations
 
     (* ---------- *)
     let downpass ptree =
-        let debug_downpass_fn = true in
         if debug_downpass_fn then info_user_message "Downpass Begins,%!";
         current_snapshot "AllDirChar.downpass a";
         let res = match !Methods.cost with
