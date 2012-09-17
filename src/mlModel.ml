@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2681 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2683 $"
 
 open Numerical.FPInfix
 
@@ -80,10 +80,11 @@ let default_command = (`Max, `MAL,`GTR [],None,`Consistent,`Missing)
 (**  [default_tstv] default ratio for models wth tstv rates; same as phyml *)
 let default_tstv  = 4.0
 
-(** [default_gtr] the default parameter rates for GTR; all 1's *)
+(** [default_gtr] the default parameter rates for GTR; all 1's. False for
+    coupled. otherwise, true *)
 let default_gtr a =
     function | false -> Array.make (((a-2)*(a+1))/2) 1.0
-             | true  -> Array.make (((a-1)*a)/2)     1.0
+             | true  -> Array.make (((a)*(a-3))/2)   1.0 (* Coupled *)
 
 (** [default_alpha] default value for alpha parameter; these are the same as
     phyml. p is if theta is being used (as in is a percentage) *)
@@ -492,7 +493,6 @@ let normalize ?(m=Numerical.minimum) alph gap_state vec = match gap_state with
     | `Coupled n ->
         let normalize_factor = max m vec.((Array.length vec) - 1) in
         let vec = Array.map (fun i -> (max m i) /. normalize_factor) vec in
-        Printf.printf "normalized Gap = %f -> %f\n%!" n (n/.normalize_factor);
         vec, `Coupled (n/.normalize_factor)
     | `Missing ->
         let normalize_factor = max m vec.((Array.length vec) - 1) in
@@ -514,7 +514,6 @@ let m_gtr_independent pi_ co_ a_size =
         Array.init (size)
                    (fun i -> if i = (size-1) then 1.0 else co_.(i))
     in
-    Printf.printf "\nRe-Coefficients:\n"; print_barray1 (ba_of_array1 co_);
     (* create matrix *)
     let n = ref 0 in (* array index *)
     let srm = create_ba2 a_size a_size in
@@ -538,14 +537,14 @@ let m_gtr_independent pi_ co_ a_size =
     srm
 
 let m_gtr_coupled pi_ co_ a_size i_gap r_gap =
-    if (((a_size-1)*(a_size-2))/2) <> Array.length co_ then begin
+    if (((a_size)*(a_size-3))/2) <> Array.length co_ then begin
         failwithf ("Length of GTR parameters (%d) is incorrect for alphabet "^^
                    "(%d). It should be %d.")
-                  (Array.length co_) a_size (((a_size-1)*(a_size-2))/2)
+                  (Array.length co_) a_size (((a_size)*(a_size-3))/2)
     end;
-     (* last element of GTR = 1.0 *)
+     (* last element of GTR = 1.0; add back *)
     let co_ =
-        let size = (((a_size-1)*a_size)/2) in
+        let size = Array.length co_ in
         Array.init (size+1)
                    (fun i -> if i = (size) then 1.0 else co_.(i))
     in
@@ -587,9 +586,6 @@ let m_gtr pi_ co_ a_size gap_r =
         | Some (i,r) -> m_gtr_coupled pi_ co_ a_size i r
         | None       -> m_gtr_independent pi_ co_ a_size
     in
-    Printf.printf "\nCoefficients:\n"; print_barray1 (ba_of_array1 co_);
-    Printf.printf "\nPriors:\n";       print_barray1 pi_;
-    Printf.printf "\nMatrix:\n";       print_barray2 srm;
     srm
 
 (* val m_file :: any alphabet size -- recomputes diagonal and divides by meanrate *)
@@ -1178,8 +1174,7 @@ let convert_methods_spec (alph,alph_size) (compute_priors)
                 Status.user_message Status.Error
                     "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters";
                 raise LikelihoodModelError
-        | `GTR [] -> assert false 
-        | `GTR xs -> assert false
+        | `GTR xs -> GTR (Array.of_list xs)
         | `File str ->
             (* this needs to be changed to allow remote files as well *)
             let matrix = Cost_matrix.Two_D.matrix_of_file float_of_string (`Local str) in
