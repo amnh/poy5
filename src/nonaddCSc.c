@@ -1357,9 +1357,10 @@ char_nonadd_CAML_dist_2 (value va, value vb, value vc)
     dist = 0;
 
     for (i = 0; i < len; i++) {
+        //printf("i=%d,a=%d,n=%d,b=%d\n",i,bdata[i],adata[i],cdata[i]); fflush(stdout);
         if (!(adata[i] & bdata[i]) && !(adata[i] & cdata[i]))
             dist++;
     }
-
+    //printf("res = %d\n",dist); fflush(stdout);
     CAMLreturn (Val_long (dist));
 }

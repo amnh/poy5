@@ -17,8 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Arguments" "$Revision: 2643 $"
+let () = SadmanOutput.register "Arguments" "$Revision: 2673 $"
 
+(** [just_exit] is used to return to the interactive console after an error; if
+    set to true we will exit and not return to an interactive console. This
+    setting is modified by the -e option on the command line. To avoid the
+    possibility that someone is leaving this out, we take care of it when
+    compiled with parallel extensions on. **)
 let just_exit =
     IFDEF USEPARALLEL THEN
         ref true
@@ -26,7 +31,16 @@ let just_exit =
         ref false
     END
 
-let only_run_argument_script = ref false
+(** [only_run_argument_script] forces the application to run the script and then
+    exit, and not wait for user input. This is different then the -e option as
+    that only is triggered from an error state, this option is useful when
+    someone forgets the exit() command in their script. *)
+let only_run_argument_script =
+    IFDEF USEPARALLEL THEN
+        ref true
+    ELSE
+        ref false
+    END
 
 let default_dump_file = "ft_output.poy"
 
@@ -67,9 +81,10 @@ let anon_fun kind str = match kind with
     | `Filename -> input := (`Filename str) :: !input
 
 
+(** Defines the command line options for poy. Descriptions are inlined below *)
 let parse_list = [
-    ("-w", Arg.String change_working_directory, "Run poy in the specified working directory"); 
-    ("-e", Arg.Unit (fun () -> just_exit := true), "Exit upon error");
+    ("-w", Arg.String change_working_directory, "Run poy in the specified working directory."); 
+    ("-e", Arg.Unit (fun () -> just_exit := true), "Exit upon error.");
     ("-d", Arg.String (fun str -> dump_file := str), "Filename to dump program state in case of an error");
     ("-q", Arg.Unit (fun () -> only_run_argument_script := true), "Don't wait for input other than the program argument script.");
     ("-no-output-xml", Arg.Unit (fun () -> SadmanOutput.do_sadman := false), "Do not generate the output.xml file.");

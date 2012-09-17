@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Support" "$Revision: 2670 $"
+let () = SadmanOutput.register "Support" "$Revision: 2673 $"
 
 let infinity = float_of_int (max_int / 4)
 
@@ -29,17 +29,22 @@ module type S = sig
 
     type b  (** Edge information **)
 
+    (** Return the supports based on a particular method (in Methods), for each
+        clade defined in the tree. *)
     val support : 
         (a, b) Ptree.p_tree Sexpr.t -> a list -> Methods.support_method
             -> Data.d -> Sampler.ft_queue ->
         int Tree.CladeFPMap.t
 
+    (** Return the supports based on a particular method (in Methods), for each
+        clade defined in the tree. *)
     val bremer_support : 
         (a, b) Ptree.p_tree Sexpr.t -> int -> int -> a list
             -> (a, b) Ptree.p_tree Sexpr.t -> Methods.local_optimum
                 -> Methods.build -> Data.d -> Sampler.ft_queue ->
             Methods.support_tree Sexpr.t
 
+    (** Annotate a tree with supports for output **)
     val support_to_string_tree : 
         Data.d -> Methods.support_tree -> Tree.Parse.tree_types
 
@@ -62,9 +67,9 @@ module type S = sig
                 (a, b) Ptree.p_tree Sexpr.t -> Tree.Parse.tree_types Sexpr.t
 
     (** Like [bremer_of_input_file] but trust whatever input cost is provided
-        with each tree .*)
-    val bremer_of_input_file_but_trust_input_cost : int ->
-        (int -> string) -> Data.d -> Methods.filename list -> 
+        with each tree. *)
+    val bremer_of_input_file_but_trust_input_cost :
+        int -> (int -> string) -> Data.d -> Methods.filename list -> 
             (a, b) Ptree.p_tree Sexpr.t -> Tree.Parse.tree_types Sexpr.t
 end
 
@@ -85,8 +90,8 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n)
     type support_tree = Methods.support_tree
 
     module CompHashes = struct
-        type t = Hash_tbl.Interface.fp
-        let compare = compare
+        type t = (int * int)
+        let compare = Pervasives.compare
     end
 
     module HashCount = Map.Make(CompHashes)

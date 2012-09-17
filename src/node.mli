@@ -124,6 +124,10 @@ val distance_of_type :
 * In that case, the actual cost of the join is unknown. *)
 val dist_2 : float -> node_data -> node_data -> node_data -> float
 
+(** [update_cost_only mine child1 child2] update mine with new sum_cost,
+* calculated by new sum_cost of child1 or/and child2*)
+val update_cost_only : node_data -> node_data -> node_data -> node_data
+
 (** [final_states par x a b] calculates a median between [par], [a], and [b].
 * This median does not need to be optimal, but should be as good as
 * possible.
