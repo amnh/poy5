@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2683 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2688 $"
 
 open Numerical.FPInfix
 
@@ -32,7 +32,7 @@ let likelihood_not_enabled =
 
 let dyno_likelihood_warning = 
     "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
-    "likelihood@ criteria.@ I@ am@ enabling@ this@ setting@ for@ the@ transformation."
+    "likelihood@ criteria.@ Please@ add@ argument@ gap:(coupled),@ or@ gap:(character)."
 
 let dyno_gamma_warning = 
     "Gamma@ classes@ for@ dynamic@ MPL@ are@ un-necessary,@ and@ are@ being@ removed."
@@ -836,7 +836,7 @@ let output_model output output_table nexus model set =
         printf "@]\n";
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
-            | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n"; 
+            | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n";
         in
         printf "@[<hov 0>Priors / Base frequencies:@\n";
         let () = match model.spec.base_priors with
@@ -861,15 +861,21 @@ let output_model output output_table nexus model set =
             | HKY85 x    ->
                 printf "HKY85@]@\n@[<hov 1>- Transition/transversion ratio:%.5f@]@\n" x
             | TN93 (a,b) -> 
-                printf "tn93@]@\n@[<hov 1>- transition/transversion ratio:%.5f/%.5f@]@\n" a b 
+                printf "tn93@]@\n@[<hov 1>- transition/transversion ratio:%.5f/%.5f@]@\n" a b
             | GTR ray -> gtr_mod := true;
                 printf "GTR@]@\n@[<hov 1>- Rate Parameters: @]@\n";
                 let get_str i = Alphabet.match_code i (fst model.spec.alphabet)
-                and convert s r c = (c + (r * (s-1)) - ((r*(r+1))/2)) - 1 in
+                and convert s r c = (c + (r*(s-1)) - ((r*(r+1))/2)) - 1 in
                 begin match model.spec.use_gap with
                     | `Coupled x ->
+                        let ray =
+                            let size = (((a-3)*a)/2) in
+                            Array.init (size+1)
+                                       (fun i -> if i = (size) then 1.0 else ray.(i))
+                        in
                         for i = 0 to a - 2 do
                             for j = i+1 to a - 2 do
+                                let x = convert (a-1) i j in
                                 printf "@[<hov 1>%s <-> %s - %.5f@]@\n"
                                     (get_str i) (get_str j) ray.(convert (a-1) i j)
                             done;
@@ -877,6 +883,11 @@ let output_model output output_table nexus model set =
                         printf "@[<hov 1>%s <-> N - %.5f@]@\n"
                             (get_str (Alphabet.get_gap (fst model.spec.alphabet))) x
                     | `Missing | `Independent ->
+                        let ray =
+                            let size = (((a-1)*a)/2) in
+                            Array.init (size)
+                                       (fun i -> if i = (size-1) then 1.0 else ray.(i))
+                        in
                         for i = 0 to a - 1 do
                             for j = i+1 to a - 1 do
                                 printf "@[<hov 1>%s <-> %s - %.5f@]@\n" (get_str i)
@@ -1375,53 +1386,8 @@ let compute_priors (alph,u_gap) freq_ (count,gcount) lengths : float array =
 
 (** Add Independent Gap to a model *)
 let add_gap_to_model compute_priors model = 
-    Status.user_message Status.Warning dyno_likelihood_warning;
-    let size = (snd model.spec.alphabet) + 1 in
-    let priors = match model.spec.base_priors with
-        | Estimated _  -> Estimated (compute_priors ())
-        | Equal        -> Equal
-        | Given    _   ->
-            failwith ("I cannot transform the specified model to add gap as a"^
-                      " character. The given priors requires a prior for the "^
-                      "gap character.")
-    and rates = match model.spec.substitution with
-        (* these models require no changes *)
-        | JC69    | F81 | K2P _   | F84 _
-        | HKY85 _ | TN93 _ -> model.spec.substitution
-        (* user defined rate matrices cannot on transfered *)
-        | Custom _
-        | File _ -> 
-            failwith ("I cannot transform the specified characters to"^
-                      " dynamic likelihood characters; the given rate"^
-                      " matrix requires gap transformation rates.")
-        | GTR xs ->
-            let convert_i_to_rc l i = 
-                let rec convert_ r v =
-                    let sub = l - r - 1 in
-                    if v < sub then (r,l+(v-sub))
-                    else convert_ (r+1) (v-sub)
-                in
-                convert_ 0 i
-            and convert_rc_to_i l (r,c) = 
-                let r,c = (min r c)+1,(max r c)+1 in
-                c + (l*r) - l - 1 - (((r+1)*r)/2)
-            in
-            let ngtr =
-                Array.init 
-                    (((size-1)*size)/2)
-                    (fun i -> 
-                        let r,c = convert_i_to_rc size i in
-                        if c = size - 1 then 0.01
-                        else xs.(convert_rc_to_i (size-1) (r,c)))
-            in
-            GTR ngtr
-    in
-    let new_spec = {model.spec with base_priors = priors;
-                                    alphabet = ((fst model.spec.alphabet),size);
-                                        use_gap = `Independent;
-                                   substitution = rates; }
-    in
-    create new_spec
+    Status.user_message Status.Error dyno_likelihood_warning;
+    raise LikelihoodModelError
 
 let add_gap_to_model compute_priors model = 
     match model.spec.use_gap with
@@ -1607,8 +1573,6 @@ let spec_from_classification alph gap kind rates (priors:Methods.ml_priors) cost
                                                 acc2
                                             else begin
                                                 let sum = tuple_sum alph1 alph2 comp_map in
-                                                Printf.printf "T: %d <-> %d = %f\n%!"
-                                                    alph1 alph2 sum;
                                                 sum :: acc2 
                                             end)
                                         (Alphabet.to_list alph) acc1)
