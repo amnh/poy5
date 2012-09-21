@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2687 $"
+let () = SadmanOutput.register "Node" "$Revision: 2690 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -523,8 +523,12 @@ let extract_states alph data in_codes node =
 let cs_update_cost_only mine ch1 ch2 = 
     match mine,ch1,ch2 with 
     | StaticMl m, StaticMl c1, StaticMl c2 ->
+        IFDEF USE_LIKELIHOOD THEN
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             StaticMl { m with sum_cost = sumcost; }, sumcost
+        ELSE
+            failwith MlStaticCS.likelihood_error
+        END
     | Dynamic m, Dynamic c1, Dynamic c2 ->
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             Dynamic { m with sum_cost = sumcost;}, sumcost
