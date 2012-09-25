@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: array_ops.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Array_ops" "$Revision: 2871 $"
+let () = SadmanOutput.register "Array_ops" "$Revision: 2684 $"
 
 
 exception Empty
