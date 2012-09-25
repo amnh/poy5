@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 2871 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 2694 $"
 
 let debug = true
 
@@ -156,7 +156,7 @@ closef data to_process =
                 begin match res with 
                     | Some (seqcode, sequence_arr) ->
                         let sequence = sequence_arr.(0) in 
-                        let alphabet = Data.get_sequence_alphabet seqcode data in
+                        let alphabet = Data.get_alphabet data seqcode in
                         let gapcode = Alphabet.get_gap alphabet in
                         let gap = Alphabet.match_code gapcode alphabet in
                         (* Check if the sequence is missing data *)
