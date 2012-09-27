@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2690 $"
+let () = SadmanOutput.register "Node" "$Revision: 2703 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -252,7 +252,6 @@ let print_node_data (data : node_data) =
     Printf.fprintf stdout "Number dynamics: %i, " (List.length dynamic_ls); 
 
     print_newline ()
-
 
 
 let print_times n =
@@ -518,13 +517,12 @@ let extract_states alph data in_codes node =
 
 
 (*[cs_update_cost_only mine ch1 ch2] when any of the children has a different
-* sum_cost, but the assignment for that children(from median function) remain the same, 
-* here we only need to update sum_cost of mine*)
-let cs_update_cost_only mine ch1 ch2 = 
-    match mine,ch1,ch2 with 
+* sum_cost, but the assignment for that children(from median function) remain
+* the same, here we only need to update sum_cost of mine*)
+let cs_update_cost_only mine ch1 ch2 = match mine,ch1,ch2 with 
     | StaticMl m, StaticMl c1, StaticMl c2 ->
         IFDEF USE_LIKELIHOOD THEN
-            let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
+            let sumcost = m.cost in
             StaticMl { m with sum_cost = sumcost; }, sumcost
         ELSE
             failwith MlStaticCS.likelihood_error
@@ -541,8 +539,10 @@ let cs_update_cost_only mine ch1 ch2 =
     | Kolmo m, Kolmo c1, Kolmo c2 ->  
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             Kolmo { m with sum_cost = sumcost; }, sumcost
-    | Sank m, Sank c1, Sank c2 -> Sank m, m.sum_cost
-    | FixedStates m, FixedStates c1, FixedStates c2 -> FixedStates m, m.sum_cost
+    | Sank m, Sank c1, Sank c2 ->
+            Sank m, m.sum_cost
+    | FixedStates m, FixedStates c1, FixedStates c2 ->
+            FixedStates m, m.sum_cost
     | Nonadd8 m, Nonadd8 c1, Nonadd8 c2 ->  
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             Nonadd8 { m with sum_cost = sumcost }, sumcost
@@ -552,11 +552,11 @@ let cs_update_cost_only mine ch1 ch2 =
     | Nonadd32 m, Nonadd32 c1, Nonadd32 c2 ->  
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             Nonadd32 { m with sum_cost = sumcost }, sumcost
-    | _, _ , _ -> failwith "cs_update_cost_only, wrong character type mix"
+    | _, _ , _ ->
+            failwith "cs_update_cost_only, wrong character type mix"
 
 (* calculate the median between two nodes *)
-let rec cs_median code anode bnode prev t1 t2 a b =
-    match a, b with
+let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
@@ -599,26 +599,24 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 if anode.min_child_code < bnode.min_child_code then (t1, t2)
                 else (t2, t1)
             in
-            let n_cost =  n_cost *. ca.weight in
-            let sumcost = n_cost +. ca.sum_cost +. cb.sum_cost in
+            let n_cost  =  n_cost *. ca.weight in
             let res =
                 {
                     preliminary = median;
                     final = median;
                     cost = n_cost;
-                    sum_cost = sumcost;
+                    sum_cost = n_cost;
                     time = Some t1, Some t2, None;
                     weight = ca.weight;
                 }
             in
-            StaticMl res, sumcost
+            StaticMl res, n_cost
         ELSE
             failwith MlStaticCS.likelihood_error
         END
     | Nonadd8 ca, Nonadd8 cb ->
             assert (ca.weight = cb.weight);
-            let prev =
-                match prev with
+            let prev = match prev with
                 | None -> None
                 | Some (Nonadd8 prev) -> Some (prev.preliminary)
                 | _ -> raise (Illegal_argument "cs_median")
@@ -926,12 +924,11 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         MlStaticCS.readjust None !modf am.preliminary bm.preliminary
                                             pm.preliminary t1 t2 
                     in
-                    let sumcost = cost +. bm.sum_cost +. am.sum_cost in
+                    let cost = cost *. pm.weight in
                     { pm with  preliminary = res; final = res;
-                               cost = cost;
-                               sum_cost = sumcost;
+                               cost = cost; sum_cost = cost;
                                time = Some t1, Some t2, t3_opt; },
-                    sumcost
+                    cost
                 (* calculate the median1 for MPL with OCAML Brents *)
                 | `MPL ->
                     let calculate_single t = 
@@ -949,12 +946,11 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let (v,(dv,fv)) =
                         Numerical.brents_method calculate_single (t1+.t2,fstart)
                     in
-                    let sumcost = fv +. bm.sum_cost +. am.sum_cost in
+                    let cost = fv *. bm.weight in
                     { pm with preliminary = dv; final = dv;
-                              cost = fv;
-                              sum_cost = sumcost;
+                              cost = cost; sum_cost = cost;
                               time = Some v, Some 0.0, None; },
-                    sumcost
+                    cost
                 end
             in
             ei_map ptl atl btl ((StaticMl mine, sumcost)::pa)
@@ -979,9 +975,10 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         DynamicCS.readjust_lk (`ThreeD None) None !modf
                             am.preliminary bm.preliminary pm.preliminary ot1 ot2
                     in
+                    let cost = cost *. am.weight in
+                    let sumcost = cost +. bm.sum_cost +. am.sum_cost in
                     if debug then
                         info_user_message "Ending Cost: %f\t%f\t%f%!" t1 t2 cost;
-                    let sumcost = cost +. bm.sum_cost +. am.sum_cost in
                     let mine =  
                         { pm with  preliminary = res; final = res;
                                    cost = cost;
@@ -1015,9 +1012,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                 ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
         | ((Set pm) as pml)::ptl, aml::atl, bml::btl ->
                 ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
-        (*
-        | pml::ptl,aml::atl,bml::btl -> 
-                ei_map ptl atl btl (pml::pa) *)
         | [],[],[] -> pa
         | _ -> failwith "Number of characters is inconsistent"
     in
@@ -3483,15 +3477,13 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                 in
                 modified := m;
                 let cost = mine.weight *. cost in
-                let sumcost = cost +. c1.sum_cost +. c2.sum_cost in
                 StaticMl 
                     { mine with 
                         preliminary=res;final=res;
-                        cost=cost;
-                        sum_cost=sumcost;
+                        cost=cost;sum_cost=cost;
                         time = Some t1, Some t2,t3_opt;
                     },
-                sumcost 
+                cost
             ELSE
                 failwith MlStaticCS.likelihood_error
             END
