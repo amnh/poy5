@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2659 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2689 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -159,7 +159,7 @@ type ('a, 'b) cost_fn =
     ('a, 'b ) nodes_manager option -> 
     Tree.join_jxn -> Tree.join_jxn ->
     float ->
-    'a ->
+    id ->
     ('a, 'b) p_tree ->
     clade_cost
     
@@ -266,24 +266,23 @@ end
 class type ['a, 'b] wagner_mgr =
     object
         method any_trees : bool
+
         method clone : ('a, 'b) wagner_mgr
-        method init : 
-            (('a, 'b) p_tree * float * clade_cost * 
+
+        method init :
+            (('a, 'b) p_tree * float * clade_cost *
                 ('a, 'b) wagner_edges_mgr) list -> unit
+
         method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
+
         method process :
-            ('a, 'b) cost_fn ->
-                ('a, 'b) nodes_manager option ->
-                    float ->
-                        'a ->
-                            ('a, 'b) join_fn ->
-                                Tree.join_jxn ->
-                                    Tree.join_jxn -> 
-                                        ('a, 'b) p_tree -> 
-                                            ('a, 'b) wagner_edges_mgr ->
-                                                t_status
-    method evaluate : unit
-    method results : (('a, 'b) p_tree * float) list
+            ('a, 'b) cost_fn -> ('a, 'b) nodes_manager option -> float ->
+                id -> ('a, 'b) join_fn -> Tree.join_jxn -> Tree.join_jxn ->
+                    ('a, 'b) p_tree -> ('a, 'b) wagner_edges_mgr -> t_status
+
+        method evaluate : unit
+
+        method results : (('a, 'b) p_tree * float) list
 end
 
 (** The search manager object that parameterizes the search. This
@@ -305,7 +304,7 @@ end
     (** [process cost_fn join_fn
      *       join_1_jxn join_2_jxn tree_delta 
      *       broken_tree -> Travesal Status *)
-      method process : ('a, 'b) cost_fn -> float -> 'a ->
+      method process : ('a, 'b) cost_fn -> float -> id ->
           ('a, 'b) join_fn -> incremental list ->
           Tree.join_jxn -> Tree.join_jxn -> 
           ('a, 'b) tabu_mgr -> ('a, 'b) p_tree -> t_status 
@@ -1200,7 +1199,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         let j1 = Tree.Edge_Jxn(h1, h2) in
                         let status:t_status =
                             srch_mgr#process Tree_Ops.cost_fn i_mgr infinity
-                                 nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr
+                                             nd Tree_Ops.join_fn j1 j2 pt tabu_mgr
                         in 
                         status, srch_mgr
                     in
@@ -1235,7 +1234,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         seq_add rest n_srch_mgr (added+1)
                 in
                 let tabu_mgr = create_tabu_mgr ptree h1 in
-                srch_mgr#init [(ptree, cst, Cost(infinity), tabu_mgr)] ;
+                srch_mgr#init [(ptree, cst, Cost(infinity), tabu_mgr)];
                 let result = (seq_add rest srch_mgr 2) in
                 Status.finished status;
                 result
@@ -1336,7 +1335,7 @@ let single_spr_round pb parent_side child_side
             | _ ->
                 let what_to_do_next =
                     search#process Tree_Ops.cost_fn breakage.break_delta 
-                        child_info.clade_node Tree_Ops.join_fn
+                        child_info.clade_id Tree_Ops.join_fn
                         breakage.incremental parent_jxn child_jxn tabu breakage.ptree
                 in
                 match what_to_do_next with

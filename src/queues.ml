@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 2272 $"
+let () = SadmanOutput.register "Queues" "$Revision: 2689 $"
 
 (** {1 Types} *)
 
@@ -362,35 +362,33 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             m_max <- new_max;
             srch_trees <- res
 
-             (** [process cost_fn b_delta cd_nd join_fn j1 j2 t_delta]
-             @param cost_fn function to return the cost of the attempted join. 
-             @param b_delta the cost of pruning the clade. 
-             @param cd_nd the node that was on the clade side of the break_jxn. 
-             @param join_fn function to perform the join operation. 
-             @param j1, j2 the join junctions. 
-             @param t_delta the change in the tree topology due to clade prune
-                        operation. 
-             @return Function to decide whether to perform a join
-             and possibly store the resulting tree for further searching.  *)
-        method process 
+        (** [process cost_fn b_delta cd_nd join_fn j1 j2 t_delta]
+            @param cost_fn function to return the cost of the attempted join.
+            @param b_delta the cost of pruning the clade.
+            @param cd_nd the node that was on the clade side of the break_jxn.
+            @param join_fn function to perform the join operation.
+            @param j1, j2 the join junctions.
+            @param t_delta the change in the tree topology due to clade prune
+                   operation.
+            @return Function to decide whether to perform a join and possibly
+                    store the resulting tree for further searching.  *)
+        method process
             (cost_fn : (a, b) Ptree.cost_fn)
             (adjust_opt)
             (b_delta : float)
-            (cd_nd : a)
+            (cd_nd : Ptree.id)
             (join_fn : (a, b) Ptree.join_fn)
             (j1 : Tree.join_jxn)
             (j2 : Tree.join_jxn) 
             (pt : (a, b) Ptree.p_tree)
-            (tabu_mgr : (a, b) Ptree.wagner_edges_mgr) = 
-                (* Ignores the b_delta as it does not make sense for 
-                 * wagner trees algo *)
-            let cld_cst = 
-                match c_delta with
+            (tabu_mgr : (a, b) Ptree.wagner_edges_mgr) =
+
+            let cld_cst = match c_delta with
                 | Ptree.NoCost -> infinity
                 | Ptree.Cost(x) -> x
             in
             match cost_fn adjust_opt j1 j2 cld_cst cd_nd pt with
-            | Ptree.Cost cc ->
+                | Ptree.Cost cc ->
                     let (_, real_cost, _) as v = 
                         let tabu_mgr = tabu_mgr#clone in
                         (Lazy.lazy_from_fun (fun () ->
@@ -418,9 +416,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         end;
                         Tree.Continue 
                     end else Tree.Continue
-            | Ptree.NoCost -> Tree.Skip
+                | Ptree.NoCost -> Tree.Skip
 
-            (** Function to return the results. *)
+
+        (** Function to return the results. *)
         method results = 
             let mapper = fun (x, _, _) ->
                 let (a, b, _, _) = Lazy.force x in
@@ -500,7 +499,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process
             (cost_fn : (Node.n, Edge.e) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : 'a)
+            (cd_nd : Ptree.id)
             (join_fn : (Node.n, Edge.e) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -513,62 +512,45 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             match clade_cost with
             | Ptree.NoCost -> Tree.Skip
             | Ptree.Cost(cc) ->
-                    tabu_mgr#break_distance cc;
-                  if debug_costfn then begin
-                      if cur_best_cost <> max_float then begin
-                          let expected_new_cost =
-                              cur_best_cost -. b_delta +. cc in
-                          let newtree, tree_delta =
-                              join_fn adjust_mgr incremental j1 j2 pt in
-                          let actual_new_cost = 
-                              Ptree.get_cost `Adjusted newtree 
-                          in
-                          if expected_new_cost <> actual_new_cost
-                          then begin
-                              Status.user_message
-                                  Status.Error
-                                  ("Cost function not exact. Claimed cost "
-                                   ^ string_of_float expected_new_cost
-                                   ^ " (delta = " ^ string_of_float cc ^ ")"
-                                   ^ ", actual cost "
-                                   ^ string_of_float actual_new_cost
-                                   ^ ", off by "
-                                   ^ string_of_float (expected_new_cost -.
-                                                          actual_new_cost)
-                                  );
-                              match debug_costfn_callback with
-                              | None -> ()
-                              | Some f ->
-                                    f
-                                        expected_new_cost
-                                        actual_new_cost
-                                        j1 j2 cd_nd pt
-                                        newtree
-                          end
-    (*                       else print_endline "Good: Cost function is exact!" *)
-                      end
-                  end;
-                  if ( cc < b_delta ) then begin
-                      c_delta <- (Ptree.Cost(cc)) ;
-                      let nt, j_delta = join_fn adjust_mgr incremental j1 j2 pt in
-                      let cst = Ptree.get_cost `Adjusted nt in
-                      if cst < cur_best_cost then begin
-                          let new_tabu = tabu_mgr#clone in
-                          sampler#process incremental j1 j2 cd_nd pt (Some nt) 
-                          b_delta cc (Some cst); 
-                          cur_best_cost <- cst;
-                          new_tabu#update_join nt j_delta;
-                          srch_trees <- [(nt, cst, new_tabu)] ;
-                          results <- [(nt, cst, new_tabu)] ;
-                          Tree.Break 
-                      end else begin
-                          sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
-                          Tree.Continue
-                      end
-                  end else begin
-                      sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
-                      Tree.Continue
-                  end
+                tabu_mgr#break_distance cc;
+                if debug_costfn then begin
+                    if cur_best_cost <> max_float then begin
+                        let expected_new_cost = cur_best_cost -. b_delta +. cc in
+                        let newtree, tree_delta = join_fn adjust_mgr incremental j1 j2 pt in
+                        let actual_new_cost = Ptree.get_cost `Adjusted newtree in
+                        if expected_new_cost <> actual_new_cost then begin
+                            let diff = expected_new_cost -. actual_new_cost in
+                            Printf.ksprintf
+                                (Status.user_message Status.Error)
+                                ("Cost function not exact. Claimed cost %f "^^
+                                 "(delta = %f), actual cost %f, off by %f")
+                                cc actual_new_cost diff;
+                            match debug_costfn_callback with
+                            | None   -> ()
+                            | Some f -> f expected_new_cost actual_new_cost j1 j2 cd_nd pt newtree
+                        end
+                    end
+                end;
+                if ( cc < b_delta ) then begin
+                    c_delta <- (Ptree.Cost(cc));
+                    let nt, j_delta = join_fn adjust_mgr incremental j1 j2 pt in
+                    let cst = Ptree.get_cost `Adjusted nt in
+                    if cst < cur_best_cost then begin
+                        let new_tabu = tabu_mgr#clone in
+                        sampler#process incremental j1 j2 cd_nd pt (Some nt) b_delta cc (Some cst); 
+                        cur_best_cost <- cst;
+                        new_tabu#update_join nt j_delta;
+                        srch_trees <- [(nt, cst, new_tabu)] ;
+                        results <- [(nt, cst, new_tabu)] ;
+                        Tree.Break 
+                    end else begin
+                        sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
+                        Tree.Continue
+                    end
+                end else begin
+                    sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
+                    Tree.Continue
+                end
 
         (** Function to return the results. *)
         method results =
@@ -637,7 +619,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process
             (cost_fn : (Node.n, Edge.e) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : 'a)
+            (cd_nd : Ptree.id)
             (join_fn : (Node.n, Edge.e) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -726,7 +708,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     (** A simple search manager that picks the first tree that is better than the
      * current one and continues search with that tree. *)
     class hold_n_fb_srch_mgr n (strategy : Methods.keep_method)
-    (sampler : (Node.n, Edge.e) Sampler.search_manager_sampler)  =
+        (sampler : (Node.n, Edge.e) Sampler.search_manager_sampler)  =
     object (self)
 
         val sampler = sampler
@@ -874,7 +856,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process
             (cost_fn : ('a, 'b) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : 'a)
+            (cd_nd : Ptree.id)
             (join_fn : ('a, 'b) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -1049,7 +1031,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process
             (cost_fn : ('a, 'b) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : 'a)
+            (cd_nd : Ptree.id)
             (join_fn : ('a, 'b) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -1200,7 +1182,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process 
             (cost_fn : (Node.n, Edge.e) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : Node.n)
+            (cd_nd : Ptree.id)
             (join_fn : (Node.n, Edge.e) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -1209,48 +1191,41 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             pt =
         incr_trees_considered ();
             let clade_cost = cost_fn (tabu_mgr#get_node_manager) j1 j2 b_delta cd_nd pt in
-            let union_cost = 
-                match file with
+            let union_cost = match file with
                 | Some _ ->
-                    let base = 
-                        match j1 with
+                    let base = match j1 with
                         | Tree.Edge_Jxn (a, _) 
                         | Tree.Single_Jxn a -> Ptree.get_node_data a pt 
                     in
-                    Node.union_distance cd_nd base
+                    Node.union_distance (Ptree.get_node_data cd_nd pt) base
                 | None -> 0.0
             in
             match clade_cost with
             | Ptree.Cost(cc) ->
                     tabu_mgr#break_distance cc;
-                    let _ =
-                        match file with
+                    let () = match file with
                         | Some file ->
-                                let msg = (print_jxn j1) ^ "-" ^ (print_jxn j2) ^ 
+                            let msg = (print_jxn j1) ^ "-" ^ (print_jxn j2) ^ 
                                 "=" ^ string_of_float b_delta ^ " - " ^ 
                                 string_of_float cc ^ " - " ^ string_of_float union_cost ^ 
-                                length j1 pt ^ "\n" in
-                                Status.user_message (Status.Output ((Some file), false, [])) msg;
+                                length j1 pt ^ "\n"
+                            in
+                            Status.user_message (Status.Output ((Some file), false, [])) msg
                         | None -> ()
                     in
                     if cc < b_delta then
-                        let _ = 
-                            sampler#process incremental j1 j2 cd_nd pt 
-                            None b_delta cc None 
+                        let () =
+                            sampler#process incremental j1 j2 cd_nd pt None b_delta cc None 
                         in
-                        let _ = 
-                            match file with
+                        let () = match file with
                             | Some file ->
-                                    let msg = 
-                                        "Joint with cost_delta " ^ string_of_float
-                                        (b_delta -. cc)
-                                    in
-                                    Status.user_message (Status.Output ((Some file), false, []))
-                                    msg
+                                let msg = "Joint with cost_delta " ^ string_of_float (b_delta -. cc) in
+                                Status.user_message (Status.Output ((Some file), false, [])) msg
                             | None -> ()
                         in
                         ()
-                    else sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
+                    else 
+                        sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                     Tree.Continue
             | Ptree.NoCost -> Tree.Skip
 
@@ -1277,15 +1252,16 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     status;
             (* for now, we restrict our attention to a single component.  this
                is insufficiently general.  TODO: fix.(?) *)
-            let root_median =
-                match j1 with
+            let root_median = match j1 with
                 | Tree.Single_Jxn h ->
-                      Node.median None None (Ptree.get_node_data h tree) cd_nd
+                    Node.median None None (Ptree.get_node_data h tree)
+                                          (Ptree.get_node_data cd_nd tree)
                 | Tree.Edge_Jxn (h, n) ->
-                      let j1median = Node.median None None 
-                                        (Ptree.get_node_data h tree)
-                                        (Ptree.get_node_data n tree) in
-                      Node.median None None j1median cd_nd
+                    let j1median =
+                        Node.median None None (Ptree.get_node_data h tree)
+                                    (Ptree.get_node_data n tree)
+                    in
+                    Node.median None None j1median (Ptree.get_node_data cd_nd tree)
             in
             (* run through each character... *)
             (* (extract those we've created) *)

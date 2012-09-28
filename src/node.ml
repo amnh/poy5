@@ -17,13 +17,12 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2687 $"
+let () = SadmanOutput.register "Node" "$Revision: 2689 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
 
 let debug           = false
-(* print a msg if we perform jc distance instead of given BL *)
 let debug_bl        = false
 let debug_exclude   = false
 let debug_sets      = false
@@ -233,12 +232,7 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
-        (*cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates | `Sankoff ];
-        *)
-        (*cost_mode is only for likelihood, in function [total_cost_of_type]*)
         cost_mode : [ `Likelihood | `NotLikelihood | `SumLikelihood  ];
-        (** This allows us to count how many taxa from a set are children of the
-            given node *)
     }
 
 
@@ -1925,7 +1919,7 @@ let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     distance_lists chs1 chs2 (convert_2_lst nodea branches) 0.
 
 
-let distance ?(para=None) ?(parb=None)  missing_distance
+let distance ?(para=None) ?(parb=None) missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
         if debug_distance then 
             Printf.printf "\n Node.distance on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
@@ -3203,9 +3197,9 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
         nodes
     
 let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
-    (* Not only we make the list a set, we filter those characters that have
-    * weight 0. *)
-let classify = false in
+    (* classify -- Not only we make the list of characters into sets of
+       characers, but we also filter those characters that have weight 0. *)
+    let classify = false in
     current_snapshot "Node.load_data start";
     let classify = (not (Data.has_dynamic data)) && classify in
     let make_set_of_list lst =
@@ -3219,13 +3213,11 @@ let classify = false in
     let is_mem =
         (* We check for informative characters among all the terminals in data *)
         if classify then 
-            (* We need to verify if the character is
-            potentially informative or not *)
-            (fun char -> 
-                Data.apply_boolean
-                NonaddCS8.is_potentially_informative 
-                AddCS.is_potentially_informative data char
-                && 0. <> Data.get_weight char data)
+            (fun char ->
+                Data.apply_boolean NonaddCS8.is_potentially_informative
+                                   AddCS.is_potentially_informative data char
+                && 
+                    0. <> Data.get_weight char data)
         else (fun _ -> true)
     in
     (*let sign_dyna = List.filter is_mem data.Data.dynamics in*)
@@ -3267,17 +3259,15 @@ let classify = false in
         and addvec = make_set_of_list addvec
         and addgen = make_set_of_list addgen in
         let cost_mode = match static_ml with
-            (*| _  when is_fixedstates  -> `Fixedstates*)
             | _::_                    -> `Likelihood
             | [] when has_dynamic_mpl -> `SumLikelihood
             | [] when has_dynamic_mal -> `Likelihood
-            (*| _ when has_sank         -> `Sankoff*)
             | _                       -> `NotLikelihood
         in
         current_snapshot "end nonadd set2";
         let r =
             generate_taxon classify addgen addvec n8 n16 n32 n33 sank dynamics
-            fixedstates kolmogorov static_ml data cost_mode
+                           fixedstates kolmogorov static_ml data cost_mode
         in
         current_snapshot "end generate taxon";
         r

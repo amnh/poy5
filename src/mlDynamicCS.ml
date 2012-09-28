@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 2652 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 2689 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -421,7 +421,16 @@ let remove_ambiguities dyn =
     dyn
 
 (*---- median functions *)
-let median code a b t1 t2 = 
+let median code a b t1 t2 =
+    let () =
+        if (0 = MlModel.compare (static_model a) (static_model b))
+            then ()
+            else begin
+                MlModel.output_model print_string None `Nexus (static_model a) None;
+                print_newline ();
+                MlModel.output_model print_string None `Nexus (static_model b) None;
+            end
+    in
     assert( 0 = MlModel.compare (static_model a) (static_model b) );
     match a.data,b.data with
     | CMPLAlign ar, CMPLAlign br -> 

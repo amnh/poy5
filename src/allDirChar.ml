@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2682 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2689 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -120,11 +120,11 @@ module F : Ptree.Tree_Operations
             let rec single_node prev curr =
                 let pair = (min curr prev, max curr prev) in
                 let dat =
-                    AllDirNode.AllDirF.get_times_between 
+                    AllDirNode.AllDirF.get_times_between
                             (Ptree.get_node_data curr ptree)
                             (Some (Ptree.get_node_data prev ptree))
                 in
-                let name_it x = match dat with 
+                let name_it x = match dat with
                     | [_] -> `Single x
                     | []  -> failwith "No character Sets"
                     | xs  -> `Name xs
@@ -134,7 +134,7 @@ module F : Ptree.Tree_Operations
                         | Some length -> Hashtbl.add trees_table pair (name_it length)
                         | None -> ())
                     dat
-            and traversal a b = 
+            and traversal a b =
                 Ptree.post_order_node_with_edge_visit
                     (fun prev curr _ -> single_node prev curr)
                     (fun prev curr _ _ -> single_node prev curr)
@@ -146,7 +146,7 @@ module F : Ptree.Tree_Operations
                 try match (Ptree.get_component_root handle ptree).Ptree.root_median with
                     | Some ((`Edge (a,b)),_) -> traversal a b
                     | None | Some _ -> raise Not_found
-                with | Not_found -> 
+                with | Not_found ->
                     begin match Ptree.get_node handle ptree with
                         | Tree.Leaf (a,b)
                         | Tree.Interior (a,b,_,_) -> traversal a b
@@ -165,7 +165,7 @@ module F : Ptree.Tree_Operations
     let rec using_likelihood types ptree =
         let data_test = match types with
             | `Static   -> Data.has_likelihood ptree.Ptree.data
-            | `Dynamic  -> 
+            | `Dynamic  ->
                 begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
                     | Some _ -> true
                     | None   -> false
@@ -174,21 +174,21 @@ module F : Ptree.Tree_Operations
                 (using_likelihood `Static ptree ) && not (using_likelihood `Dynamic ptree)
             | `Either   ->
                 (using_likelihood `Static ptree ) || (using_likelihood `Dynamic ptree)
-        in 
+        in
         data_test
 
     (* Update Data.d in ptree with branch data. Used to transfer data between
      * dynamic and static likelihood; used under Dynamic Likelihood only. *)
     let update_branches ptree =
-        let get_codestable data node1 node2 = 
-            let codestimes = 
+        let get_codestable data node1 node2 =
+            let codestimes =
                 AllDirNode.AllDirF.get_times_between
                     (Ptree.get_node_data node1 ptree)
                     (Some (Ptree.get_node_data node2 ptree))
             and table = Hashtbl.create 1227
-            and insert_set codes table time = 
+            and insert_set codes table time =
                 Array.iter
-                    (fun code -> 
+                    (fun code ->
                         let name = Hashtbl.find data.Data.character_codes code in
                         Hashtbl.add table name time)
                     codes
@@ -208,8 +208,8 @@ module F : Ptree.Tree_Operations
                 let Tree.Edge (left,right) = edge in
                 let p1,p2 = Ptree.create_partition ptree edge in
                 let codestable = get_codestable ptree.Ptree.data left right in
-                setmap --> IntSetMap.add p1 codestable 
-                       --> IntSetMap.add p2 codestable 
+                setmap --> IntSetMap.add p1 codestable
+                       --> IntSetMap.add p2 codestable
             in
             let () =
                 Ptree.get_edges_tree ptree
@@ -819,7 +819,7 @@ module F : Ptree.Tree_Operations
         in
         (* fill in roots for all edges *)
         current_snapshot "AllDirChar refresh_all_edges internal fold";
-        if do_roots then 
+        if do_roots then
             refresh_edge_data ptree
         else 
             ptree
@@ -1320,13 +1320,11 @@ module F : Ptree.Tree_Operations
         if using_likelihood `OnlyStatic ptree then ptree
         else general_pick_best_root blindly_trust_downpass ptree
 
+
     (* ----------------- *)
     (* function to adjust the likelihood model ;for static characters of a tree
      * using BFGS --quasi newtons method. Function requires three directions. *)
     let static_model_chars_fn chars tree = 
-(*        Printf.printf "OPTIMIZING STATIC CHARS: ";*)
-(*        List.iter (fun x -> Printf.printf "%d, " x) chars;*)
-(*        print_newline ();*)
         assert( using_likelihood `Static tree );
         (* replace nodes in a tree, copying relevent data structures *)
         let substitute_nodes nodes tree =
@@ -1408,9 +1406,6 @@ module F : Ptree.Tree_Operations
                                                 `AllDynamic ptree.Ptree.data in
             List.fold_left
                 (fun ptree chars ->
-(*                    Printf.printf "OPTIMIZING DYNAMIC CHARS: ";*)
-(*                    List.iter (fun x -> Printf.printf "%d, " x) chars;*)
-(*                    print_newline ();*)
                     Status.set_verbosity `None;
                     let data,chars =
                         IA.to_static_homologies true IA.filter_characters true
@@ -1452,22 +1447,26 @@ module F : Ptree.Tree_Operations
             in
             { dyn_tree with Ptree.data      = data;
                             Ptree.node_data = node_data; }
-                --> internal_downpass true
-                --> refresh_all_edges None true None
         in
         let old_cost = Ptree.get_cost `Adjusted old_tree in
         let new_tree =
-            let old_tree = update_branches old_tree --> assign_single in
             let static_tree = optimize_static_tree old_tree in
             old_tree
                 --> static_model_to_dyn_chars static_tree
+                (** Below is a downpass + uppass *)
+                --> internal_downpass true
                 --> pick_best_root
                 --> assign_single
         in
         let new_cost = Ptree.get_cost `Adjusted new_tree in
-        if debug_model_fn then
-            info_user_message "Updated Dynamic Likelihood Score: %f --> %f" old_cost new_cost;
-        if new_cost < old_cost then new_tree else old_tree
+        if new_cost < old_cost then begin
+            if debug_model_fn then
+                info_user_message "Updated Dynamic Likelihood Score: %f --> %f"
+                                  old_cost new_cost;
+            new_tree
+        end else begin
+            old_tree
+        end
 
     (** wrapper for model function to correctly call dynamic/static likelihood
         model adjustment functions **)
@@ -1888,8 +1887,8 @@ module F : Ptree.Tree_Operations
                   --> refresh_roots
         in
         if debug_join_fn then
-        info_user_message "end of Joining, return ptree with cost %f(%f)"
-        (Ptree.get_cost `Adjusted ptree) (Ptree.get_cost `Unadjusted ptree);
+            info_user_message "end of Joining, return ptree with cost %f(%f)"
+                (Ptree.get_cost `Adjusted ptree) (Ptree.get_cost `Unadjusted ptree);
         ptree, tree_delta
 
     let get_one side = match side with
@@ -1933,41 +1932,40 @@ module F : Ptree.Tree_Operations
                     (Ptree.get_cost `Unadjusted ptree);
         ret
 
-    type tmp = Edge of (int * int) | Clade of a 
-    let cost_fn jxn1 jxn2 _ (*delta*) clade_data (tree : phylogeny) =
+
+    type tmp = Edge of (int * int) | Clade of int
+    let cost_fn jxn1 jxn2 delta clade (tree : phylogeny) =
         if debug_cost_fn then Printf.printf "alldirchar.cost_fn 2 -> %!";
-        let rec forcer edge =
-            match edge with
+        let rec forcer edge = match edge with
             | Edge (a, b) ->
-                    AllDirNode.force_val (Ptree.get_edge_data (Tree.Edge (a, b)) tree)
-            | Clade x -> 
-                    (match x.AllDirNode.unadjusted with (* leaf *)
+                AllDirNode.force_val (Ptree.get_edge_data (Tree.Edge (a, b)) tree)
+            | Clade c ->
+                let x = Ptree.get_node_data c tree in
+                begin match x.AllDirNode.unadjusted with
                     | [x] -> force_node x
-                    | _ -> failwith "AllDirChar.cost_fn")
+                    | _   -> assert false
+                end
         in
-        let clade_data = 
-            match !Methods.cost with
+        let clade_data = match !Methods.cost with
             | `Iterative (`ThreeD _) ->
-                (match jxn2 with
-                    | Tree.Single_Jxn h -> forcer (Clade clade_data)
-                        (* forcer (Clade (Ptree.get_node_data (Tree.int_of_id h) tree))*)
+                begin match jxn2 with
+                    | Tree.Single_Jxn h    -> forcer (Clade clade)
                     | Tree.Edge_Jxn (h, n) ->
-                        let (Tree.Edge (h, n)) = 
-                                Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
+                        let Tree.Edge (h, n) =
+                            Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
                         in
-                        forcer (Edge (h, n)))
-            | _ -> forcer (Clade clade_data)
+                        forcer (Edge (h, n))
+                end
+            | _ -> forcer (Clade clade)
         in
-        match jxn1 with
-        | Tree.Single_Jxn h ->
+        let res = match jxn1 with
+            | Tree.Single_Jxn h ->
                 let d = 
-                    Node.Standard.distance 0.
-                        (forcer (Clade (Ptree.get_node_data (Tree.int_of_id h) tree)))
-                        clade_data
+                    Node.Standard.distance 0. (forcer (Clade h)) clade_data
                 in
                 if debug_cost_fn then Printf.printf "single jxn,cost=%f\n%!" d;
                 Ptree.Cost d
-        | Tree.Edge_Jxn (h, n) ->
+            | Tree.Edge_Jxn (h, n) ->
                 let (Tree.Edge (h, n)) = 
                     Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
                 in
@@ -1975,26 +1973,26 @@ module F : Ptree.Tree_Operations
                 let c = Node.Standard.distance 0. clade_data ndata in
                 if debug_cost_fn then Printf.printf "edge jxn, cost=%f\n%!" c;
                 Ptree.Cost c
+        in
+        res
 
-    let cost_fn n_mgr a b c d e =
+
+    let cost_fn n_mgr a b c (d:Ptree.id) e =
         if debug_cost_fn then Printf.printf "alldirchar.cost_fn 1 ->%!";
         let cost = match !Methods.cost with
             | `Iterative (`ApproxD _) ->
-                (match cost_fn a b c d e with 
+                begin match cost_fn a b c d e with 
                     | Ptree.Cost x -> Ptree.Cost (abs_float (0.85 *. x))
-                    | x -> x)
+                    | x -> x
+                end
             | `Iterative `ThreeD _
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> 
-                    if debug_cost_fn then Printf.printf "Normal,%!"; 
-                    cost_fn a b c d e 
+            | `Normal -> cost_fn a b c d e
             | `Exhaustive_Strong ->
                 let pc = Ptree.get_cost `Adjusted e in
                 let (nt, _) = join_fn n_mgr [] a b e in
                 let res = Ptree.get_cost `Adjusted nt in
-                if debug_cost_fn then Printf.printf "Exhaustive_Strong,return\
-                cost = %f - %f,%!" res pc;
                 Ptree.Cost (res -. pc)
         in
         if debug_cost_fn then begin 

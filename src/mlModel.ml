@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2688 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2689 $"
 
 open Numerical.FPInfix
 
@@ -188,17 +188,15 @@ let compare a b =
         | _,_ -> ~-1
     and c_compare = if a.spec.cost_fn = b.spec.cost_fn then 0 else ~-1
     and v_compare = match a.spec.site_variation,b.spec.site_variation with
-        | Gamma (i,a), Gamma (ix,ax) ->
-                if i = ix && a = ax then 0 else ~-1
-        | Theta (i,a,p), Theta (ix,ax,px) ->
-                if i = ix && a = ax && p = px then 0 else ~-1
-        | Constant, Constant -> 0
-        | _,_ -> ~-1
+        | Gamma (i,_), Gamma (ix,_)     -> if i = ix then 0 else ~-1
+        | Theta (i,_,_), Theta (ix,_,_) -> if i = ix then 0 else ~-1
+        | Constant, Constant            -> 0
+        | (Gamma _|Theta _|Constant), _ -> ~-1
     and g_compare = match a.spec.use_gap,b.spec.use_gap with
         | `Missing, `Missing
-        | `Independent, `Independent -> 0
-        | `Coupled x, `Coupled y when x = y -> 0
-        | _, _ -> ~-1
+        | `Independent, `Independent
+        | `Coupled _, `Coupled _ -> 0
+        | (`Missing | `Independent | `Coupled _), _ -> ~-1
     and p_compare = if compare_priors a b then 0 else ~-1 in
     (* just knowing that they are different is enough *)
     if debug then begin

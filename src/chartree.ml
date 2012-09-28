@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 2680 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 2689 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -1092,8 +1092,9 @@ let join_fn incremental jxn1 jxn2 ptree =
         end;
     ptree, tree_delta
 
-let cost_fn jxn1 jxn2 delta clade_data tree =
+let cost_fn jxn1 jxn2 delta clade tree =
     if debug_costfn2 then Printf.printf "chartree.cost_fn with %!";
+    let clade_data = Ptree.get_node_data clade tree in
     if debug_costfn2 then begin
         (* check clade_data against jxn2 *)
         match jxn2 with

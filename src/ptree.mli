@@ -147,7 +147,7 @@ type ('a, 'b) cost_fn =
     ('a, 'b ) nodes_manager option -> 
     Tree.join_jxn -> Tree.join_jxn ->
     float ->
-    'a ->
+    id ->
     ('a, 'b) p_tree ->
     clade_cost
 (** type of the function that determines the cost of a join. It takes both the
@@ -225,18 +225,11 @@ end
                 ('a, 'b) wagner_edges_mgr) list -> unit
         method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
         method process :
-            ('a, 'b) cost_fn ->
-              ('a,'b) nodes_manager option ->
-                float ->
-                    'a ->
-                        ('a, 'b) join_fn ->
-                            Tree.join_jxn ->
-                                Tree.join_jxn -> 
-                                    ('a, 'b) p_tree -> 
-                                        ('a, 'b) wagner_edges_mgr ->
-                                            t_status
-    method evaluate : unit
-    method results : (('a, 'b) p_tree * float) list
+            ('a, 'b) cost_fn -> ('a,'b) nodes_manager option -> float -> id ->
+                ('a, 'b) join_fn -> Tree.join_jxn -> Tree.join_jxn ->
+                    ('a, 'b) p_tree -> ('a, 'b) wagner_edges_mgr -> t_status
+        method evaluate : unit
+        method results : (('a, 'b) p_tree * float) list
     end
 
 
@@ -277,7 +270,7 @@ end
         (** [process cost_fn join_fn
          *       join_1_jxn join_2_jxn tree_delta 
          *       broken_tree -> Travesal Status *)
-          method process : ('a, 'b) cost_fn -> float -> 'a ->
+          method process : ('a, 'b) cost_fn -> float -> id ->
               ('a, 'b) join_fn -> incremental list ->
               Tree.join_jxn -> Tree.join_jxn -> 
               ('a, 'b) tabu_mgr -> ('a, 'b) p_tree -> t_status 
