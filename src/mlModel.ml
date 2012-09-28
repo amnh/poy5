@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2704 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2705 $"
 
 open Numerical.FPInfix
 
@@ -1127,7 +1127,8 @@ let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost
     failwith likelihood_not_enabled
   END
 
-(** Convert Methods.ml specification to that of an MlMOdel spec *)
+
+(** Convert Methods.ml specification to that of an MlModel spec *)
 let convert_methods_spec (alph,alph_size) (compute_priors) 
         ((_,talph,cst,subst,site_variation,base_priors,use_gap):Methods.ml_spec) =
     let u_gap = match use_gap with 
@@ -1475,8 +1476,13 @@ let spec_from_classification alph gap kind rates (priors:Methods.ml_priors) cost
         | `Independent  -> true
         | `Coupled _    -> true
     in
-    let f_priors,a_size = match priors with
-        | `Consistent | `Estimate ->
+    let f_priors,a_size = match priors,kind with
+        | `Equal,_ | (`Consistent | `Estimate), (`JC69 | `K2P _) ->
+            let size =
+                if ugap then (Alphabet.size alph) else (Alphabet.size alph)-1
+            in
+            Equal,size
+        | `Consistent,_ | `Estimate,_ ->
             let sum = All_sets.IntegerMap.fold (fun k v x -> v +. x) pis 0.0
             and gap_size =
                 try All_sets.IntegerMap.find (Alphabet.get_gap alph) pis
@@ -1497,12 +1503,7 @@ let spec_from_classification alph gap kind rates (priors:Methods.ml_priors) cost
             in
             let ray = Array.of_list (List.rev l) in
             Estimated ray, Array.length ray
-        | `Equal    -> 
-            let size =
-                if ugap then (Alphabet.size alph) else (Alphabet.size alph)-1
-            in
-            Equal,size
-        | `Given xs ->
+        | `Given xs, _ ->
             let ray = Array.of_list xs in
             Given ray, Array.length ray
     and is_comp a b =
