@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2704 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2707 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1934,15 +1934,14 @@ module F : Ptree.Tree_Operations
         ret
 
 
-    type tmp = Edge of (int * int) | Clade of int
+    type tmp = Edge of (int * int) | Clade of a
     let cost_fn jxn1 jxn2 delta clade (tree : phylogeny) =
         if debug_cost_fn then Printf.printf "alldirchar.cost_fn 2 -> %!";
         let rec forcer edge = match edge with
             | Edge (a, b) ->
                 AllDirNode.force_val (Ptree.get_edge_data (Tree.Edge (a, b)) tree)
-            | Clade c ->
-                let x = Ptree.get_node_data c tree in
-                begin match x.AllDirNode.unadjusted with
+            | Clade x ->
+                begin match x.AllDirNode.unadjusted with (* Leaf *)
                     | [x] -> force_node x
                     | _   -> assert false
                 end
@@ -1961,8 +1960,10 @@ module F : Ptree.Tree_Operations
         in
         let res = match jxn1 with
             | Tree.Single_Jxn h ->
-                let d = 
-                    Node.Standard.distance 0. (forcer (Clade h)) clade_data
+                let d =
+                    Node.Standard.distance 0.
+                        (forcer (Clade (Ptree.get_node_data (Tree.int_of_id h) tree)))
+                        clade_data
                 in
                 if debug_cost_fn then Printf.printf "single jxn,cost=%f\n%!" d;
                 Ptree.Cost d
@@ -1978,7 +1979,7 @@ module F : Ptree.Tree_Operations
         res
 
 
-    let cost_fn n_mgr a b c (d:Ptree.id) e =
+    let cost_fn n_mgr a b c d e =
         if debug_cost_fn then Printf.printf "alldirchar.cost_fn 1 ->%!";
         let cost = match !Methods.cost with
             | `Iterative (`ApproxD _) ->

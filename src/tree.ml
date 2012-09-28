@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 2667 $"
+let () = SadmanOutput.register "Tree" "$Revision: 2707 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -83,7 +83,7 @@ type join_jxn =
 
 let string_of_jxn = function
     | Single_Jxn id -> string_of_int id
-    | Edge_Jxn (a, b) -> string_of_int a ^ " -> " ^ string_of_int b
+    | Edge_Jxn (a, b) -> string_of_int a ^ " -- " ^ string_of_int b
 
 let jxn_choose_node = function
     | Single_Jxn id -> id

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sampler" "$Revision: 2689 $"
+let () = SadmanOutput.register "Sampler" "$Revision: 2707 $"
 
 (* The sampler module is divided in two submodules, one containing te
 * application related samplers (App), and one with research intended samplers
@@ -43,7 +43,7 @@ class type ['a, 'b] search_manager_sampler = object
     * better), f. *)
     method process : 
             Ptree.incremental list ->
-                Tree.join_jxn -> Tree.join_jxn -> Ptree.id ->
+                Tree.join_jxn -> Tree.join_jxn -> 'a ->
                 ('a, 'b) Ptree.p_tree -> ('a, 'b) Ptree.p_tree option -> 
                     float -> float -> float option -> unit
     method any_trees : bool -> unit
@@ -475,7 +475,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     let _ = union_tree <- Some res in
                     res
 
-        method process _ edge _ v tree _ delta cost real_cost = 
+        method process _ edge _ vertex tree _ delta cost real_cost = 
             let str_delta = string_of_float delta in
             let union_tree = self#update_tree tree in
             let () = match edge with
@@ -490,7 +490,6 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     in
                     let adata = Ptree.get_node_data a tree 
                     and bdata = Ptree.get_node_data b tree
-                    and vertex= Ptree.get_node_data v tree
                     and a_union = Ptree.get_node_data a union_tree
                     and b_union = Ptree.get_node_data b union_tree in
                     let vertex_to_a_self =

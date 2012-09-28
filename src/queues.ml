@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 2704 $"
+let () = SadmanOutput.register "Queues" "$Revision: 2707 $"
 
 (** {1 Types} *)
 
@@ -376,7 +376,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             (cost_fn : (a, b) Ptree.cost_fn)
             (adjust_opt)
             (b_delta : float)
-            (cd_nd : Ptree.id)
+            (cd_nd : a)
             (join_fn : (a, b) Ptree.join_fn)
             (j1 : Tree.join_jxn)
             (j2 : Tree.join_jxn) 
@@ -499,7 +499,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process
             (cost_fn : (Node.n, Edge.e) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : Ptree.id)
+            (cd_nd : a)
             (join_fn : (Node.n, Edge.e) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -524,7 +524,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                                 (Status.user_message Status.Error)
                                 ("Cost function not exact. Claimed cost %f "^^
                                  "(delta = %f), actual cost %f, off by %f")
-                                cc actual_new_cost diff;
+                                expected_new_cost cc actual_new_cost diff;
                             match debug_costfn_callback with
                             | None   -> ()
                             | Some f -> f expected_new_cost actual_new_cost j1 j2 cd_nd pt newtree
@@ -619,7 +619,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process
             (cost_fn : (Node.n, Edge.e) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : Ptree.id)
+            (cd_nd : a)
             (join_fn : (Node.n, Edge.e) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -856,7 +856,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process
             (cost_fn : ('a, 'b) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : Ptree.id)
+            (cd_nd : 'a)
             (join_fn : ('a, 'b) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -1031,7 +1031,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process
             (cost_fn : ('a, 'b) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : Ptree.id)
+            (cd_nd : 'a)
             (join_fn : ('a, 'b) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -1182,7 +1182,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process 
             (cost_fn : (Node.n, Edge.e) Ptree.cost_fn)
             (b_delta : float)
-            (cd_nd : Ptree.id)
+            (cd_nd : Node.n)
             (join_fn : (Node.n, Edge.e) Ptree.join_fn)
             incremental
             (j1 : Tree.join_jxn)
@@ -1197,7 +1197,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         | Tree.Edge_Jxn (a, _) 
                         | Tree.Single_Jxn a -> Ptree.get_node_data a pt 
                     in
-                    Node.union_distance (Ptree.get_node_data cd_nd pt) base
+                    Node.union_distance cd_nd base
                 | None -> 0.0
             in
             match clade_cost with
@@ -1237,6 +1237,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         inherit first_best_srch_mgr sampler as super
 
         val nbhood_report = 500 (* The module of the report update *)
+
         method process cost_fn b_delta cd_nd join_fn incremental j1 j2 tabu_mgr tree =
             let cost = match cost_fn (tabu_mgr#get_node_manager) j1 j2 infinity cd_nd tree with
             | Ptree.NoCost -> infinity
@@ -1254,14 +1255,13 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                is insufficiently general.  TODO: fix.(?) *)
             let root_median = match j1 with
                 | Tree.Single_Jxn h ->
-                    Node.median None None (Ptree.get_node_data h tree)
-                                          (Ptree.get_node_data cd_nd tree)
+                    Node.median None None (Ptree.get_node_data h tree) cd_nd
                 | Tree.Edge_Jxn (h, n) ->
                     let j1median =
                         Node.median None None (Ptree.get_node_data h tree)
-                                    (Ptree.get_node_data n tree)
+                                              (Ptree.get_node_data n tree)
                     in
-                    Node.median None None j1median (Ptree.get_node_data cd_nd tree)
+                    Node.median None None j1median cd_nd
             in
             (* run through each character... *)
             (* (extract those we've created) *)
