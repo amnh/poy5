@@ -17,13 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 2688 $"
+let () = SadmanOutput.register "Main" "$Revision: 2700 $"
 
 let seed = truncate (Unix.time ())
 
 let hostname = Unix.gethostname ()
 
-let debug_pass_errors = false
+let debug_pass_errors = true
 
 let master =
     IFDEF USEPARALLEL THEN
@@ -243,7 +243,7 @@ let () =
             Status.clear_status_subwindows ();
             let msg = StatusCommon.escape (Printexc.to_string err) in
             Status.user_message Status.Error msg
-        | err when !Arguments.just_exit ->
+        | err when !Arguments.just_exit && (not debug_pass_errors) ->
             let msg = StatusCommon.escape (Printexc.to_string err) in
             Status.user_message Status.Error msg;
             raise err

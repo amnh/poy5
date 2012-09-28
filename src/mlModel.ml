@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2689 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2704 $"
 
 open Numerical.FPInfix
 
@@ -1011,6 +1011,10 @@ ELSE
     let process_custom_model _ = failwith likelihood_not_enabled
     let model_to_cm _ _ = failwith likelihood_not_enabled
     let compose_model _ _ = failwith likelihood_not_enabled
+
+    let m_gtr  _ _ _ _ = failwith likelihood_not_enabled
+    let m_file _ _ _   = failwith likelihood_not_enabled
+    let m_jc69 _ _ _   = failwith likelihood_not_enabled
 
 END
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2689 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2704 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -270,15 +270,17 @@ module F : Ptree.Tree_Operations
 
     (* Creates a valid vertex that only has the downpass information *)
     let create_lazy_interior_down ?branches ptree code a b =
-        if debug_node_fn then
-            match code with
-            | Some x ->
-                info_user_message
-                    "Creating lazy interior down (%d) between %d and %d" x a b
-            | None ->
-                info_user_message
-                    "Creating lazy interior down (?) between %d and %d" a b
-        else ();
+        let () =
+            if debug_node_fn then
+                begin match code with
+                | Some x ->
+                    info_user_message
+                        "Creating lazy interior down (%d) between %d and %d" x a b
+                | None ->
+                    info_user_message
+                        "Creating lazy interior down (?) between %d and %d" a b;
+                end
+        in
         let a_nd = Ptree.get_node_data a ptree 
         and b_nd = Ptree.get_node_data b ptree in
         AllDirNode.AllDirF.median ?branches code None a_nd b_nd
@@ -479,8 +481,9 @@ module F : Ptree.Tree_Operations
         let root_cost = AllDirNode.AllDirF.root_cost root in
         if debug_cost_fn then begin
             let () = match root_edge with
-                | `Single x -> info_user_message "Cost of: %d" x
-                | `Edge (a,b) -> info_user_message "Cost from: (%d,%d)" a b in
+                | `Single x   -> info_user_message "Cost of: %d" x
+                | `Edge (a,b) -> info_user_message "Cost from: (%d,%d)" a b
+            in
             info_user_message "Single Character Cost: %f" single_characters_cost;
             info_user_message "Other Character Cost: %f" not_single_character_cost;
             info_user_message "Root Cost: %f" (root_cost);
@@ -789,7 +792,7 @@ module F : Ptree.Tree_Operations
         (* perform uppass heuristic --fill all directions *)
         current_snapshot "AllDirChar refresh_all_edges uppass heuristic";
         if debug_uppass_fn then
-            info_user_message "Performing Uppass Heurisitic";
+            info_user_message "Performing Uppass Heuristic";
         let ptree = match start_edge_opt with
             | Some (a,b) ->
                 Tree.pre_order_node_with_edge_visit_simple_root
@@ -1211,7 +1214,7 @@ module F : Ptree.Tree_Operations
             | Tree.Leaf (_, _) -> 
                     assert (IntMap.mem code ptree.Ptree.node_data);
                     if debug_downpass_fn then
-                        info_user_message "Skipping Leaf/Single %d\n%!" code; 
+                        info_user_message "Skipping Leaf/Single %d%!" code; 
                     ptree
             | (Tree.Interior (_, par, a, b)) as v ->
                     let a,b = Tree.other_two_nbrs prev v in
@@ -1557,18 +1560,16 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal ->
-                    if debug_downpass_fn then info_user_message "exhaustiveXX&NormalXX,";
-                    internal_downpass true ptree
+            | `Normal -> 
+                ptree --> internal_downpass true
             | `Iterative (`ThreeD  iterations)
             | `Iterative (`ApproxD iterations) ->
-                  if debug_downpass_fn then info_user_message "IterativeXX,";
-                  ptree --> clear_internals false
-                        --> internal_downpass true
-                        --> pick_best_root
-                        --> assign_single
-                        --> update_branches
-                        --> adjust_fn None
+                ptree --> clear_internals false
+                      --> internal_downpass true
+                      --> pick_best_root
+                      --> assign_single
+                      --> update_branches
+                      --> adjust_fn None
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then info_user_message "Downpass Ends\n%!";

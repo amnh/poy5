@@ -499,8 +499,6 @@ val get_tcm2d : d -> int -> Cost_matrix.Two_D.m * Cost_matrix.Two_D.m
 val get_tcm3d : d -> int -> Cost_matrix.Three_D.m
 val get_tcmfile : d -> int -> tcm_definition
 
-val get_sequence_alphabet : int -> d -> Alphabet.a
-
 val add_file : d -> contents list -> FileStream.f -> d
 
 val get_taxa : d -> string list

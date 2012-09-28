@@ -2895,18 +2895,16 @@ let get_sequence_tcm_original seqcode data =
         raise err
 
 
-let get_sequence_alphabet seqcode data = 
-    let chars = data.character_specs in
-    try match Hashtbl.find chars seqcode with
+let get_alphabet data c =
+    try match Hashtbl.find data.character_specs c  with
         | Dynamic dspec    -> dspec.alph
         | Kolmogorov dspec -> dspec.dhs.alph
-        | _ -> failwith "Data.get_sequence_alphabet: Not a dynamic character"
-    with | err ->
-        let name = code_character seqcode data in
-        let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-                  " with name " ^ StatusCommon.escape name in
-        Status.user_message Status.Error msg;
-        raise err
+        | Static (NexusFile sspec)   -> sspec.Nexus.File.st_alph
+        | Static (FixedStates sspec) -> sspec.original_dynspec.alph
+        | Set       ->
+            failwithf "Data.get_alphabet: Finding %d alphabet in Set" c
+    with  Not_found ->
+        failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
 
 
 let add_file data contents file = 
@@ -3692,7 +3690,7 @@ let get_dyn_state data c =
 * correspond to a sequence character, or the sequence contains more than one
 * fragment, then it outputs an empty stack. *)
 let get_sequences code data = 
-    let alpha = get_sequence_alphabet code data in
+    let alpha = get_alphabet data code in
     let gap = Alphabet.get_gap alpha in
     let seqs = Stack.create () in
     let process_taxon a b = 
@@ -4379,19 +4377,6 @@ let get_model_opt data c =
             | _ -> None
         end
     | _ -> None
-
-
-let get_alphabet data c =
-    try match Hashtbl.find data.character_specs c  with
-        | Dynamic dspec    -> dspec.alph
-        | Kolmogorov dspec -> dspec.dhs.alph
-        | Static  x   -> 
-                (match x with 
-                | NexusFile sspec -> sspec.Nexus.File.st_alph
-                | FixedStates sspec -> sspec.original_dynspec.alph
-                )
-        | Set              -> failwithf "Data.get_alphabet: Finding %d alphabet in Set" c
-    with  Not_found        -> failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
 
 
 let available_states data chars = 
@@ -5879,8 +5864,8 @@ let classify_characters_by_alphabet_size data chars =
     in
     let make_tuple_of_character_and_size acc char =
         let size = 
-            data 
-                --> get_sequence_alphabet char
+            char 
+                --> get_alphabet data
                 --> Alphabet.to_sequential 
                 --> Alphabet.distinct_size
         in
@@ -6485,7 +6470,7 @@ let lexicographic_taxon_codes data =
 
 (* A function to produce the alignment of prealigned data *)
 let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
-    let alph = get_sequence_alphabet code data in
+    let alph = get_alphabet data code in
     let model = get_model_opt data code in
     let gap = Alphabet.get_gap alph in
     let character_name = code_character code data in
@@ -6718,8 +6703,8 @@ let sequence_statistics ch data =
     List.map (sequence_code_statistics data) codes
 
 let compare_all_pairs char1 char2 complement data = 
-    let alpha1 = get_sequence_alphabet char1 data
-    and alpha2 = get_sequence_alphabet char2 data 
+    let alpha1 = get_alphabet data char1
+    and alpha2 = get_alphabet data char2
     and cm = get_sequence_tcm char1 data in
     let gap = Alphabet.get_gap alpha1 in
     if alpha1 = alpha2 then 

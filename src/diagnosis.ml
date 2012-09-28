@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 2871 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 2702 $"
 
 let debug = true
 
@@ -156,7 +156,7 @@ closef data to_process =
                 begin match res with 
                     | Some (seqcode, sequence_arr) ->
                         let sequence = sequence_arr.(0) in 
-                        let alphabet = Data.get_sequence_alphabet seqcode data in
+                        let alphabet = Data.get_alphabet data seqcode in
                         let gapcode = Alphabet.get_gap alphabet in
                         let gap = Alphabet.match_code gapcode alphabet in
                         (* Check if the sequence is missing data *)
@@ -234,25 +234,26 @@ module Make
 
     module IA = ImpliedAlignment.Make (Node) (Edge)
     module CT = CharTransform.Make (Node) (Edge) (TreeOps)
-    module TO = TreeOps 
+    module TO = TreeOps
 
+    (** Report a list of all the root costs on a tree; these are the downpass
+        costs, and are not represented by the assignment of the nodes *)
     let report_all_roots fo tree =
+        let sorted_costs = 
+            List.sort (fun (_,a) (_,b) -> compare a b) (TO.root_costs tree) in
         let report_root ((Tree.Edge (a, b)), cost) =
-            fo ("@[" ^ string_of_int a ^ "-" ^ string_of_int b ^ ": " ^
-            string_of_float cost ^ "@]@\n");
-        in
-        fo "@[<v 2>@{<u>Tree@}@,@[<v>";
-        List.iter report_root (TO.root_costs tree);
-        fo "@]";
-        fo "@]@,"
+            Printf.ksprintf (fo) "@[<hov 2>%d-%d: %f@\n@]" a b cost in
+        fo "@[<hov 2>@{<u>Tree@}@\n";
+        List.iter report_root sorted_costs;
+        fo "@]"
 
-    let rec diagnosis (data : Data.d) (tree : (a, b) Ptree.p_tree) = 
-        function
+
+    let rec diagnosis (data : Data.d) (tree : (a, b) Ptree.p_tree) = function
         | `AllRootsCost filename ->
                 let fo = 
                     Status.user_message (Status.Output (filename, false, [])) 
                 in
-                fo "@[<v>@,@,@{<b>All Roots Cost@}@,";
+                fo "@[<v>@{<b>All Roots Cost@}@,";
                 report_all_roots fo tree;
                 fo "@]@\n%!"
         | `Implied_Alignment (filename, chars, include_header) ->
