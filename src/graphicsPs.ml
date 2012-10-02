@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "GraphicsPs" "$Revision: 1616 $"
+let () = SadmanOutput.register "GraphicsPs" "$Revision: 2684 $"
 
 module Pdf : GraphTree.GRAPHICS_TYPE with type display = Graphicpdf.display = struct
     type display = Graphicpdf.display

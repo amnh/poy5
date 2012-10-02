@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Xml" "$Revision: 2554 $"
+let () = SadmanOutput.register "Xml" "$Revision: 2684 $"
 
 type tag = string
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2659 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 2684 $"
 
 
 (* $Id: alphabet.ml 2871 2008-05-23 17:48:34Z andres $ *)
@@ -27,10 +27,7 @@ exception Illegal_Code of int
 exception Illegal_List of int list
 
 let debug = false
-(*
-let uselevel = false (* Don't forget to set "uselevel" inside cost_matrix.ml and
-sequence.ml*) 
-*)
+
 type kind = 
     | Sequential
     | Simple_Bit_Flags
@@ -369,7 +366,11 @@ let match_code x alph = match alph.kind with
     | Continuous -> string_of_int x
     | (Simple_Bit_Flags | Extended_Bit_Flags | Sequential | Combination_By_Level) ->
         try All_sets.IntegerMap.find x alph.code_to_string
-        with | Not_found -> raise (Illegal_Code x)
+        with | Not_found -> 
+            (*All_sets.IntegerMap.iter (fun k v -> Printf.printf "%d->%s\n%!" k v)
+            alph.code_to_string;*)
+            (*raise (Illegal_Code x)*)
+            ("["^(string_of_int x)^"]")
 
 let find_code = match_code
 
@@ -824,7 +825,7 @@ let rec explote alph level ori_sz=
                             new_comb_to_list := 
                                 All_sets.IntegerMap.add code [code] (!new_comb_to_list);
                             new_list_to_comb :=
-                                All_sets.IntegerListMap.add [code] code (!new_list_to_comb);  
+                                All_sets.IntegerListMap.add [code] code (!new_list_to_comb); 
                         end else ();
                        (item, code, None)
                     | lst ->

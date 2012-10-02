@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 2667 $"
+let () = SadmanOutput.register "Tree" "$Revision: 2684 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -886,6 +886,8 @@ let break jxn tree =
     @return an aux tree with the two smaller trees grafted onto a larger
             tree. *)
 let join jxn1 jxn2 tree =
+    let debug = false in
+    if debug then Printf.printf "tree.join\n%!";
     test_tree tree;
     (* The junctions should come from different components *)
     assert (handle_of (jxn_choose_node jxn1) tree

@@ -21,7 +21,7 @@
 * The chromosome character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "ChromCS" "$Revision: 2656 $"
+let () = SadmanOutput.register "ChromCS" "$Revision: 2684 $"
 
 let fprintf = Printf.fprintf
 
@@ -33,9 +33,11 @@ type meds_t = Chrom.meds_t
 (** A chromosme character set *)
 type t = { 
     meds : meds_t IntMap.t; (** a set of chromosome characters *)
-    costs : float IntMap.t;
+    costs : float IntMap.t; (** cost2 from two children*)
     recosts : float IntMap.t;
-    total_cost : float;             (** The total cost of the character set *)
+    total_cost : float;             (** The total cost of the character set:
+        cost from aligning its children *)
+    subtree_cost : float;           (** The total_cost of subtree root in this node*)
     total_recost : float;           (** The total recost of the character set *)
     subtree_recost : float;         (** The total subtree recost of the
                                         character set *)
@@ -69,6 +71,7 @@ let of_array spec arr chcode tcode num_taxa =
         costs = costs;
         recosts = recosts;
         total_cost = 0.0;
+        subtree_cost = 0.0;
         total_recost = 0.0;
         subtree_recost = 0.0;
         c2_full = spec.Data.tcm2d_full;
@@ -123,8 +126,10 @@ let median2 (a : t) (b : t) =
         IntMap.fold median a.meds (empty, empty, empty, 0, 0) 
     in
     let subtree_recost = a.subtree_recost +. b.subtree_recost +. (float_of_int total_recost) in 
+    let subtree_cost = a.subtree_cost +. b.subtree_cost +. (float_of_int total_cost) in
     { a with meds = medab_map; costs = new_costs; recosts = new_recosts;
           total_cost = float_of_int total_cost; 
+          subtree_cost = subtree_cost;
           total_recost = float_of_int total_recost;
           subtree_recost = subtree_recost;
     }
@@ -156,43 +161,45 @@ let readjust to_adjust modified ch1 ch2 parent mine =
             c2 = parent.c2_full and
             c3 = parent.c3 
     in
-
     let adjusted code parent_chrom acc =
         let to_adjust =
             match to_adjust with
             | None -> All_sets.Integers.singleton code
             | Some x -> x
         in
-        let (modified, res_medians, res_costs, total) = acc in
+        let (modified, res_medians, res_costs, total,totalsum) = acc in
         let my_chrom = IntMap.find code mine.meds
         and ch1_chrom = IntMap.find code ch1.meds
         and ch2_chrom = IntMap.find code ch2.meds in
         if (not (All_sets.Integers.mem code to_adjust)) then 
             let new_costs = IntMap.add code 0. res_costs 
             and new_single = IntMap.add code my_chrom res_medians in
-            modified, new_single, new_costs, total
+            modified, new_single, new_costs, total, totalsum
         else begin
-            let rescost, seqm, changed = 
+            let rescost,ressumcost, seqm, changed = 
                 Chrom.readjust_3d ch1_chrom ch2_chrom my_chrom
                     c2 c3 parent_chrom
             in
             let new_single = IntMap.add code seqm res_medians
             and new_costs = IntMap.add code (float_of_int rescost) res_costs 
             and new_total = total + rescost in
+            let new_totalsum = ressumcost + totalsum in
             let modified = 
                 if changed then All_sets.Integers.add code modified
                 else modified
             in
-            modified, new_single, new_costs, new_total        
+            modified, new_single, new_costs, new_total, new_totalsum       
         end 
     in 
-    let modified, meds, costs, total_cost = 
-        IntMap.fold adjusted parent.meds (modified, empty, empty, 0)
+    let modified, meds, costs, total_cost, total_sum_cost = 
+        IntMap.fold adjusted parent.meds (modified, empty, empty, 0, 0)
     in
     let tc = float_of_int total_cost in
+    let tsc = float_of_int total_sum_cost in
     modified,
     tc,
-    { mine with meds = meds; costs = costs; total_cost = tc }
+    tsc,
+    { mine with meds = meds; costs = costs; total_cost = tc; subtree_cost = tsc; }
 
 (**[get_extra_cost_for_root root] return the extra cost result from non-zero
 * diagonal in cost matrix.*)

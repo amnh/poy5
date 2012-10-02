@@ -71,6 +71,7 @@ type t = {
   costs : float IntMap.t;
   recosts : float IntMap.t;
   total_cost : float;
+  subtree_cost : float;           (** The total_cost of subtree root in this node*)
   total_recost : float;
   subtree_recost : float;
   c2_full : Cost_matrix.Two_D.m;
@@ -111,4 +112,5 @@ val copy_chrom_map : t -> t -> t
 
 val readjust :
   All_sets.Integers.t option ->
-  All_sets.Integers.t -> t -> t -> t -> t -> All_sets.Integers.t * float * t
+  All_sets.Integers.t -> t -> t -> t -> t -> All_sets.Integers.t * float * float
+  * t

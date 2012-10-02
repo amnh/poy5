@@ -104,7 +104,7 @@ val readjust_3d :
   meds_t ->
   meds_t ->
   Cost_matrix.Two_D.m ->
-  Cost_matrix.Three_D.m -> meds_t -> int * meds_t * bool
+  Cost_matrix.Three_D.m -> meds_t -> int * int * meds_t * bool
 
 (** [to_string med alpha] converts information in median 
 * [med] into string format *) 

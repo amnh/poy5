@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: character.ml 1644 2007-02-14 19:05:47Z andres $ *)
-let () = SadmanOutput.register "Character" "$Revision: 1644 $"
+let () = SadmanOutput.register "Character" "$Revision: 2684 $"
 
 
 (* To later interface with Vamsi's code *)

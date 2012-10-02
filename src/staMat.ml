@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StaMat" "$Revision: 1644 $"
+let () = SadmanOutput.register "StaMat" "$Revision: 2684 $"
 (** Statically local alignment:
  * This module concerns about the statistical significance of local
  * alignments. The local alignments which are statistically significant are used

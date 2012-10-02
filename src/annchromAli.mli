@@ -50,6 +50,9 @@ type annchrom_t = {
     recost1 : int; (** recost from this chromosome to its first child *)
     cost2 : int; (** cost from this chromosome to its second child *)
     recost2 : int; (** recost from this chromosome to its second child *) 
+    (*store cost3 and sumcost in each annchrom_t*)
+    cost3 : int; (** cost(mine,ch1)+cost(mine,ch2)+cost(mine,parent) *)
+    sum_cost : int; (** cost of subtree root at this seg_t of this node*)
 }
 
 (** [annchromPam_t] is data structure to 
@@ -128,7 +131,8 @@ val find_med3 :
   annchrom_t ->
   annchrom_t ->
   Cost_matrix.Two_D.m ->
-  Cost_matrix.Three_D.m -> 'a -> Data.dyna_pam_t -> int * annchrom_t
+  Cost_matrix.Three_D.m -> 'a -> Data.dyna_pam_t -> int * int * annchrom_t *
+  bool
 
 (** [compare annchrom1 annchrom2] compares
 * annotated chromosome [annchrom1] and annotated chromosome [annchrom2] *)

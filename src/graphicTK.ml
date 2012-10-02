@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "GraphicTK" "$Revision: 1616 $"
+let () = SadmanOutput.register "GraphicTK" "$Revision: 2684 $"
 
 module Graphictktree : GraphTree.GRAPHICS_TYPE = struct 
 

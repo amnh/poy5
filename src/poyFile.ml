@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyFile" "$Revision: 2871 $"
+let () = SadmanOutput.register "PoyFile" "$Revision: 2684 $"
 
 (* A poy file format magic number *)
 

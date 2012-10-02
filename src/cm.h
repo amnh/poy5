@@ -36,6 +36,24 @@ struct cm {
     int level; //level = 1,2,3....n. n = ori_a_sz
     int map_sz; // size of combmap matrix
     int gap_startNO; // first combination code with gap 
+    /*for a alphabet with original size 5 and level 2, it looks like this
+     *  1 A
+        2 C
+        3 G
+        4 T
+        5 -
+        6 [AC]
+        7 [AG]
+        8 [CG]
+        9 [AT]
+        10 [CT]
+        11 [GT]
+        12 [A-]
+        13 [C-]
+        14 [G-]
+        15 [T-]
+        for this alphabet, ori_a_sz = 5, level=2, gap_startNO = 12.
+    */
     // add above for level
     long int total_size; //number of elements in each matrix(cost,median,worst,etc),size of int/char not included
     int a_sz;//alphabet size

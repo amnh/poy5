@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "All_sets" "$Revision: 1728 $"
+let () = SadmanOutput.register "All_sets" "$Revision: 2684 $"
 
 module OrderedString = struct
     type t = string 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block_mauve" "$Revision: 2219 $"
+let () = SadmanOutput.register "Block_mauve" "$Revision: 2684 $"
 (* A.D. = Aaron E. Darling*)
 (* W = weight, R = ratio *)
 

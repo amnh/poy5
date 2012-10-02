@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2682 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2684 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -25,9 +25,10 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = true
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
+let debug_join_fn1 	    = false 
 let debug_join_fn           = false
 let debug_branch_fn         = false
 let debug_cost_fn           = false
@@ -36,6 +37,7 @@ let debug_downpass_fn       = false
 let debug_single_assignment = false
 let debug_diagnosis         = false
 let debug_create_root       = false
+let debug_reroot 	    = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -309,7 +311,8 @@ module F : Ptree.Tree_Operations
             let node = { AllDirNode.unadjusted = [node]; adjusted = Some node } in
             let cost = Node.Standard.tree_cost None nnode in
             let extracost = Node.extra_cost_from_root nnode in
-            if debug_create_root then Printf.printf "create_root with cost %f - %f\n%!" cost extracost;
+            if debug_create_root then Printf.printf "create_root with edge(%d,%d), cost %f - %f\n%!" 
+            a b cost extracost;
             let cost = cost -. extracost in
             {
                 Ptree.root_median = Some ((`Edge (a, b)), node);
@@ -389,7 +392,7 @@ module F : Ptree.Tree_Operations
     (* Determine the cost of a tree from the handle. A optional root can be
      * passed if the tree requires it for applying the root. *)
     let check_cost new_tree handle new_root =
-        if debug_cost_fn then Printf.printf "alldirchar.check_cost ->\n%!";
+	if debug_cost_fn then Printf.printf "alldirchar.check_cost ->\n%!";
         (* Some characters are computed by the downpass, we extract that
          * portion of the cost, which is contained in the root.
          * not_single_character_cost holds the total cost of those characters *)
@@ -510,7 +513,7 @@ module F : Ptree.Tree_Operations
     let report_all_roots tree =
         List.iter
             (fun (Tree.Edge (a,b),c) ->
-                Printf.printf "(%d,%d) -- %f\n" a b c)
+                Printf.printf "root at (%d,%d) -- %f\n" a b c)
             (root_costs tree)
 
 
@@ -635,10 +638,15 @@ module F : Ptree.Tree_Operations
                     | `Single a -> a, a
                 in
                 if debug_single_assignment then
-                    info_user_message "assign single subtree on root node %d,%d" a b;
+                    info_user_message "AllDirChar.ml assign_single_handle on root node %d,%d" a b;
                 let root, rooth = get_root_direction rootg in
                 let handle_node = 
-                    (Ptree.get_node_data a ptree).AllDirNode.unadjusted 
+                    let hnode = Ptree.get_node_data a ptree in
+                    (*if debug_single_assignment then begin
+                        Printf.printf "print handle node:\n%!";
+                        AllDirNode.print_node_data hnode true;
+                    end;*)
+                    hnode.AllDirNode.unadjusted 
                         --> AllDirNode.not_with b
                         --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
                 and other_node =
@@ -658,7 +666,7 @@ module F : Ptree.Tree_Operations
                 let treecost = Node.Standard.tree_cost None root in
                 let extracost = Node.extra_cost_from_root root in
                 if debug_single_assignment then 
-                    info_user_message "assign cost to root :%f - %f" treecost
+                    info_user_message "assign cost to root :%f - extra:%f" treecost
                     extracost;
                 let ptree = 
                     Ptree.assign_root_to_connected_component 
@@ -726,7 +734,7 @@ module F : Ptree.Tree_Operations
      * function requires only downpass data, and can be used to update a tree if
      * any nodes change --based on a change in the traversal *)
     let refresh_all_edges root_opt do_roots start_edge_opt ptree =
-        if debug_uppass_fn then info_user_message "Refresh all edges, do_roots = %b" do_roots;
+        if debug_uppass_fn then info_user_message "Refresh all edges begin, do_roots = %b" do_roots;
         (* A function to refresh the data on a edge *)
         let refresh_edge rhandle root_opt ((Tree.Edge (a,b)) as e) (acc,ptree) =
             if debug_uppass_fn then
@@ -752,8 +760,11 @@ module F : Ptree.Tree_Operations
                     let leaf = AllDirNode.AllDirF.apply_time false this parn in
                     Ptree.add_node_data code leaf ptree
             | (Tree.Interior (_, par,a ,b)) as v -> 
-                    let a,b = Tree.other_two_nbrs prev v in
+                    if debug_uppass_fn then info_user_message "add vertex with node#.%d(par=%d,a=%d,b=%d,prev=%d)" code par a b prev;
+	            let a,b = Tree.other_two_nbrs prev v in
                     let interior = create_lazy_interior_up ptree code a b prev in
+                    if debug_uppass_fn then 
+			info_user_message "add internal node#.%d(a=%d,b=%d,prev=%d as par) to ptree"  code a b prev;
                     Ptree.add_node_data code interior ptree
         in
         (* Because the tree is currently disjoint; the final edge has no data;
@@ -764,8 +775,12 @@ module F : Ptree.Tree_Operations
             info_user_message "Performing Calculation on Root" else ();
         let _,ptree = match start_edge_opt with
             | Some (a,b) ->
+		if debug_uppass_fn then 
+		info_user_message "call refresh_edge with start_edge(%d,%d)" a b;
                 refresh_edge true root_opt (Tree.Edge (a,b)) (Tree.EdgeMap.empty,ptree) 
             | None ->
+		if debug_uppass_fn then 
+		info_user_message "no start edge, iter over all handles to refresh_edges";
                 IntSet.fold 
                     (fun h (edge_map,ptree) ->
                         try begin
@@ -913,7 +928,8 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Iterative `ApproxD _
-            | `Normal -> 
+            | `Normal ->
+		if debug_reroot then Printf.printf "reroot_fn, Normal,Iterative2D,etc..call create_root\n%!"; 
                 let root = 
                     let new_roots = create_root h n ptree in
                     if force || 
@@ -924,6 +940,7 @@ module F : Ptree.Tree_Operations
                 in
                 add_component_root ptree h root, []
             | `Iterative `ThreeD _ -> 
+		if debug_reroot then Printf.printf "reroot_fn, Iterative3D, just add component root\n%!";
                 add_component_root ptree h root, []
         in
         update_node_manager tree (`Reroot inc) n_mgr;
@@ -988,29 +1005,44 @@ module F : Ptree.Tree_Operations
                     []
                 --> Array.of_list
         in
-    (* We start by defining a function to adjust one node *)
+        (* We start by defining a function to adjust one node *)
         let adjust_node chars_to_check ch1_k ch2_k parent_k mine_k ptree =
+            let gnd x = Ptree.get_node_data x ptree in
             current_snapshot 
                 (Printf.sprintf "AllDirChar.adjust_node %d" mine_k);
-            if debug_adjust_fn then
-                info_user_message "AllDirChar.adjust_node, on mine=%d with c1=%d,c2=%d p=%d" 
-                                        mine_k ch1_k ch2_k parent_k;
-            let gnd x = Ptree.get_node_data x ptree in
+            if debug_adjust_fn then begin
+                info_user_message "AllDirChar.adjust_node, on mine=%d with c1=%d,c2=%d p=%d" mine_k ch1_k ch2_k parent_k;
+                info_user_message "old node_data in mine is:";
+                AllDirNode.print_node_data (gnd mine_k) false;
+               (* AllDirNode.print_node_data (gnd ch1_k) false;
+                AllDirNode.print_node_data (gnd ch2_k) false;*)
+            end;
             let mine,modified =
                 AllDirNode.AllDirF.readjust mode chars_to_check (gnd ch1_k)
                                             (gnd ch2_k) (gnd parent_k) (gnd mine_k)
             in
-            if IntSet.is_empty modified
-                then modified,[],ptree
-                else begin
+            if IntSet.is_empty modified then begin
+                if debug_adjust_fn then begin
+			        info_user_message "end of adjust_node, NOTHING changed, check mine anyway";
+                	AllDirNode.print_node_data mine true;
+		        end;
+                modified,[],ptree
+            end
+            else begin
                     let ptree = Ptree.add_node_data mine_k mine ptree in
+                    if debug_adjust_fn then begin
+                        info_user_message "AllDirChar, end of adjust_node, SOMETHING changed, update node_data to node#.%d:" mine_k;
+                        AllDirNode.print_node_data mine true;
+                        print_newline();
+                    end;
                     modified, [ch1_k;ch2_k;mine_k;parent_k], ptree
-                end
-    (* adjust root --for likelihood; after completion of iteration, we also need
-     * to iterate the final edge, the root, of the tree. *)
+            end
+        (* end of [adjust_node] *)
+        (* adjust root --for likelihood; after completion of iteration, we also need
+        * to iterate the final edge, the root, of the tree. *)
         and adjust_root (changed,affected,ptree) c2c handle a b : adjust_acc =
             if debug_adjust_fn then
-                    info_user_message "Adjusting root with %d,%d then None" a b;
+                info_user_message "Adjusting root with %d,%d" a b;
             (* find edge data and package for AllDir optimization *)
             let new_root =
                 let a_nd = Ptree.get_node_data a ptree
@@ -1033,6 +1065,7 @@ module F : Ptree.Tree_Operations
                                          code = ~-1; } in
             let n_root = { AllDirNode.adjusted= None; AllDirNode.unadjusted=[n_root] } in
             (* assign the root and cost *)
+	        if debug_adjust_fn then Printf.printf "call refresh_all_edges with newroot";
             let ptree = refresh_all_edges (Some n_root) true (Some (a,b)) ptree in
             let treecost = AllDirNode.OneDirF.tree_cost None e_root in
             let extracost = AllDirNode.OneDirF.extra_cost_from_root e_root in
@@ -1043,7 +1076,8 @@ module F : Ptree.Tree_Operations
             in
             let ptree = assign_single ptree in
             (changed,affected,ptree)
-    (* add modified vertices in node_list to the set *)
+        (* end of [adjust_root] *)
+        (* add modified vertices in node_list to the set *)
         and add_vertices_affected node_list codes affected = 
             let add_one code affected =
                 if IntMap.mem code affected then
@@ -1055,8 +1089,8 @@ module F : Ptree.Tree_Operations
                 else IntMap.add code (Some codes) affected
             in
             List.fold_right (fun x acc -> add_one x acc) node_list affected
-        in
-    (* compose the above functions to adjust and modify the affected nodes *)
+        in (* end of [add_vertices_affected] *)
+        (* compose the above functions to adjust and modify the affected nodes *)
         let adjust_vertices_affected ((modified,affected_nodes,ptree) as acc) c2c prev curr =
             if not (IntMap.mem curr c2c) then acc
             else match Ptree.get_node curr ptree with 
@@ -1074,9 +1108,11 @@ module F : Ptree.Tree_Operations
                     (modified, new_affected, n_ptree)
                 | Tree.Leaf _ 
                 | Tree.Single _ ->  acc
-        in
-    (* loop to adjust a tree and *)
+        in (* end of [adjust_vertices_affected ] *)
+        (* loop to adjust a tree and *)
         let adjust_until_nothing_changes max_count start_ptree =
+            if debug_adjust_fn then
+                Printf.printf "adjust_until_nothing_changes begins\n%!";
             let first_affected = match nodes with
                 | None -> IntMap.map (fun _ -> None) ptree.Ptree.node_data
                 | Some items -> items
@@ -1094,6 +1130,7 @@ module F : Ptree.Tree_Operations
                         adjust_acc
                 | Some ((`Single a), rootg) ->  false,prev_affected,ptree
                 | None -> false,prev_affected,ptree
+            (*end of [adjust_loop] *)
             (* loop for rerooting and applying iterative on the resultant path *)
             and adjust_reroot_loop affected (modified,aff_n,ptree) (a,b) =
                 (* a simple reroot, since the reroot_fn requires incremental as
@@ -1114,7 +1151,7 @@ module F : Ptree.Tree_Operations
                 (* main portion of reroot -- iterate steps *)
                 let ptree,incs,handle = simple_reroot (Tree.Edge (a,b)) ptree in
                 adjust_root (modified,aff_n,ptree) affected handle a b
-            in
+            in (*end of [adjust_reroot_loop] *)
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
                 let (changed,new_affected,new_ptree : adjust_acc) = 
@@ -1133,18 +1170,44 @@ module F : Ptree.Tree_Operations
                             (true,none_affected,ptree)
                     end
                 in
-                (* now ptree can be used normaliy *)
                 let new_cost = check_cost_all_handles new_ptree in
+                (*is get_cost ready to use?*)
+            	let new_cost_adj = Ptree.get_cost `Adjusted ptree in
+            	let new_cost_unadj = Ptree.get_cost `Unadjusted ptree in
                 if debug_adjust_fn then
-                    info_user_message "Iteration %d completed: %f --> %f (%b)" 
-                                      (max_count - count) prev_cost new_cost changed;
+                    info_user_message "Iteration %d completed: %f --> %f\
+                    (adj=%f,unadj=%f) (changed=%b) max_count = %d, count=%d" 
+                    (max_count-count) prev_cost new_cost new_cost_adj
+                    new_cost_unadj changed max_count count;
                 if (not changed) || (count = 1) || (prev_cost =. new_cost) || (new_cost > prev_cost)
-                    then ptree
-                    else iterator (count - 1) new_cost new_affected new_ptree
-            in
+                    then 
+                        let _ = if debug_adjust_fn then 
+                            Printf.printf "end of iterator return the OLD tree\n%!"
+                        in
+                        ptree
+                    else 
+                        let _ = if debug_adjust_fn then 
+                        Printf.printf "found a BETTER tree,\
+                        call iterator again with count=%d,init_cost=%f\n%!" (count-1) new_cost
+                        in
+                        iterator (count - 1) new_cost new_affected new_ptree
+            in (*end of [rec iterator] *)
+            (*if we don't assign single right after readjust function, we don't
+            * have adjust data in node_data, we need to do assign single before check cost*)
+            if debug_adjust_fn then
+                Printf.printf "call assign_single :\n%!";
+            let ptree = assign_single ptree in 
+            if debug_adjust_fn then
+                Printf.printf "call check_cost_all_handles:\n%!";
             let initial_cost = check_cost_all_handles ptree in
+            (* again, is this ready to use? *)
+            let cost2_adj = Ptree.get_cost `Adjusted ptree in
+            let cost2_unadj = Ptree.get_cost `Unadjusted ptree in
+            if debug_adjust_fn then
+                Printf.printf "call funciton iterator with updated cost(inicost)=%f\
+                (adj:%f,unadj:%f)\n%!" initial_cost cost2_adj cost2_unadj;
             iterator max_count initial_cost first_affected ptree
-        in
+        in (*end of [adjust_until_nothing_changes]*)
         let set_handle_n_root_n_cost handle ptree =
             if using_likelihood `Either ptree then ptree
             else begin
@@ -1191,7 +1254,7 @@ module F : Ptree.Tree_Operations
                     refresh_all_edges None true None ptree1
                 | Some _ -> ptree
             end
-        in
+        in (* end of [set_handle_n_root_n_cost ] *)
         let newtree = adjust_until_nothing_changes max_count ptree in
         let ptree = 
             IntSet.fold (set_handle_n_root_n_cost)
@@ -1199,6 +1262,8 @@ module F : Ptree.Tree_Operations
                         (newtree)
         in
         ptree
+    (*end of [adjust_tree] function*)
+
 
     (* ------------------------------------------------------------------------ *)
     (** [internal_downpass] Traverse every vertex in the tree and assign the
@@ -1542,12 +1607,14 @@ module F : Ptree.Tree_Operations
                     let first_cost = Ptree.get_cost `Adjusted tree in   
                     let tree = adjust_tree iterations None None tree in
                     if debug_model_fn then
-                        info_user_message "Step 0; Optimized Tree %f --> %f"
-                            first_cost (Ptree.get_cost `Adjusted tree);
+                        info_user_message "adjust_fn on Iterative 2D or 3D, %f \
+                        --> %f" first_cost (Ptree.get_cost `Adjusted tree);
                     tree
                 | _ -> tree
             end
         in
+        if debug_model_fn then
+        info_user_message "end of adjust_fn of allDirChar.ml";
         tree
 
     (* ---------- *)
@@ -1559,38 +1626,46 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal ->
-                    if debug_downpass_fn then info_user_message "exhaustiveXX&NormalXX,";
+                    if debug_downpass_fn then info_user_message "exhaustiveXX&NormalXX, internal_downpass";
                     internal_downpass true ptree
             | `Iterative (`ThreeD  iterations)
             | `Iterative (`ApproxD iterations) ->
-                  if debug_downpass_fn then info_user_message "IterativeXX,";
-                  ptree --> clear_internals false
-                        --> internal_downpass true
-                        --> pick_best_root
-                        --> assign_single
-                        --> update_branches
-                        --> adjust_fn None
+                  if debug_downpass_fn then info_user_message "Downpass:Iterative 2D or 3D,clear internals";
+                  let ptree = clear_internals false ptree in
+                  if debug_downpass_fn then info_user_message "Downpass:internal_downpass,";
+		  let ptree = internal_downpass true ptree in
+                  if debug_downpass_fn then info_user_message "Downpass:pick_best_root,";
+		  let ptree = pick_best_root ptree in
+                 (*assign single here?*) 
+                  if debug_downpass_fn then info_user_message "Downpass:update_branches,";
+                  let ptree = update_branches ptree in
+                  if debug_downpass_fn then info_user_message "Downpass:adjust_fn,";
+                  let ptree = adjust_fn None ptree in
+                  (*or after adjust_fn -- at the end of adjust_fn?*)
+                  if debug_downpass_fn then info_user_message "Downpass:assign_single,";
+                  let ptree = assign_single ptree in
+	          ptree
         in
         current_snapshot "AllDirChar.downpass b";
-        if debug_downpass_fn then info_user_message "Downpass Ends\n%!";
+        if debug_downpass_fn then info_user_message "Downpass Ends,return tree with cost %f\n%!" (Ptree.get_cost `Adjusted res);
         update_branches res
 
-    let uppass ptree = 
-        if debug_uppass_fn then info_user_message "UPPASS begin:%!";
+    let uppass ptree =
+	if debug_uppass_fn then info_user_message "Uppass begin:%!";
         let tree = match !Methods.cost with
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> 
-                if debug_uppass_fn then info_user_message "uppass,exhaustiveXX&NormalXX";
+                if debug_uppass_fn then info_user_message "uppass,exhaustiveXX&NormalXX, pick best root, then assign single";
                 ptree --> pick_best_root
                       --> assign_single
             | `Iterative (`ApproxD _)
             | `Iterative (`ThreeD _) -> 
-                    if debug_uppass_fn then info_user_message "uppass,IterativeXX";
-                    ptree
+                    if debug_uppass_fn then info_user_message "uppass,IterativeXX,do nothing";
+                    ptree --> assign_single
         in
-        if debug_uppass_fn then info_user_message "UPPASS ends.%!";
+        if debug_uppass_fn then info_user_message "Uppass ends.%!";
         tree
 
     let rec clear_subtree v p ptree = 
@@ -1887,9 +1962,17 @@ module F : Ptree.Tree_Operations
                   --> refresh_all_edges None true (Some (v,h))
                   --> refresh_roots
         in
-        if debug_join_fn then
-        info_user_message "end of Joining, return ptree with cost %f(%f)"
-        (Ptree.get_cost `Adjusted ptree) (Ptree.get_cost `Unadjusted ptree);
+        if debug_join_fn then begin
+            info_user_message "end of Joining, return ptree with cost %f(%f)"
+            (Ptree.get_cost `Adjusted ptree) (Ptree.get_cost `Unadjusted ptree);
+(*            Printf.printf "force downpass\n%!";
+            let ptree_cost = Ptree.get_cost `Adjusted ptree in 
+            let nptree = internal_downpass true ptree in
+            let nptree_cost = Ptree.get_cost `Adjusted ptree in
+            Printf.printf "tree cost from downpass:%f\n%!" nptree_cost;
+            assert(nptree_cost = ptree_cost);
+*)
+        end;
         ptree, tree_delta
 
     let get_one side = match side with
@@ -1899,26 +1982,37 @@ module F : Ptree.Tree_Operations
         let d = clear_internals true d in
         let (ptree, tdel) as ret = match !Methods.cost with
             | `Normal ->
-                if debug_join_fn then Printf.printf "join_fn, Normal,%!";
+                if debug_join_fn1 then Printf.printf "join_fn, Normal,%!";
                 let tree,delta =join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree = update_branches tree in
                 tree, delta
             | `Iterative (`ThreeD iterations)
             | `Iterative (`ApproxD iterations) ->
+                if debug_join_fn1 then Printf.printf "join_fn, Iterative2Dor3D\n%!";
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
-                let tree =
+                if debug_join_fn1 then 
+                    Printf.printf "join_fn, %f, pick best root\n%!" (Ptree.get_cost `Adjusted tree);
+                let tree = pick_best_root tree in
+                if debug_join_fn1 then 
+                Printf.printf "join_fn, %f, assign_single\n%!" (Ptree.get_cost `Adjusted tree);
+                let tree = assign_single tree in
+                if debug_join_fn1 then Printf.printf "join_fn, %f,adjust_fn\n%!" (Ptree.get_cost `Adjusted tree);
+                let tree = adjust_fn n_mgr tree in
+                if debug_join_fn1 then Printf.printf "join_fn, %f, update_branches\n%!" (Ptree.get_cost `Adjusted tree);
+                let tree = update_branches tree in
+                (*
                    tree --> pick_best_root
                         --> assign_single
                         --> adjust_fn n_mgr
                         --> update_branches
-                in
+                in*)
                 tree, delta
             | `Normal_plus_Vitamines
             | `Exhaustive_Weak
             | `Exhaustive_Strong ->
-                if debug_join_fn then Printf.printf "join_fn, Exhaustive_WeakorStrong,%!";
+                if debug_join_fn1 then Printf.printf "join_fn, Exhaustive_WeakorStrong,%!";
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree =
@@ -1927,8 +2021,8 @@ module F : Ptree.Tree_Operations
                 in
                 tree, delta
         in
-        if debug_join_fn then
-            info_user_message "Joined with cost: %f (%f)" 
+        if debug_join_fn1 then
+            info_user_message "end of join_fn1 with cost: %f (%f)" 
                     (Ptree.get_cost `Adjusted ptree)
                     (Ptree.get_cost `Unadjusted ptree);
         ret
@@ -1949,9 +2043,12 @@ module F : Ptree.Tree_Operations
             match !Methods.cost with
             | `Iterative (`ThreeD _) ->
                 (match jxn2 with
-                    | Tree.Single_Jxn h -> forcer (Clade clade_data)
+                    | Tree.Single_Jxn h -> 
+			if debug_cost_fn then Printf.printf "Iterative3D, Single_Jxn, call force_val\n%!";
+			forcer (Clade clade_data)
                         (* forcer (Clade (Ptree.get_node_data (Tree.int_of_id h) tree))*)
                     | Tree.Edge_Jxn (h, n) ->
+			if debug_cost_fn then Printf.printf "Iterative3D, normalized_edge, then call force_val\n%!";
                         let (Tree.Edge (h, n)) = 
                                 Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
                         in
@@ -1980,6 +2077,7 @@ module F : Ptree.Tree_Operations
         if debug_cost_fn then Printf.printf "alldirchar.cost_fn 1 ->%!";
         let cost = match !Methods.cost with
             | `Iterative (`ApproxD _) ->
+		if debug_cost_fn then Printf.printf "Iterative2D,return 0.85*cost_fn,$!";
                 (match cost_fn a b c d e with 
                     | Ptree.Cost x -> Ptree.Cost (abs_float (0.85 *. x))
                     | x -> x)
@@ -1987,7 +2085,7 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> 
-                    if debug_cost_fn then Printf.printf "Normal,%!"; 
+                    if debug_cost_fn then Printf.printf "Normal&Iterative3D&etc...,return cost_fn%!"; 
                     cost_fn a b c d e 
             | `Exhaustive_Strong ->
                 let pc = Ptree.get_cost `Adjusted e in

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "KolmoCS" "$Revision: 2656 $"
+let () = SadmanOutput.register "KolmoCS" "$Revision: 2684 $"
 
 (** The Kolmogorov complexity class of character *)
 
@@ -47,8 +47,9 @@ let to_string set =
     let rest = SeqCS.to_string set.characters in
     model ^ " - " ^ rest
 
+(*to do : add cost3*)
 let make_cost tmpcost = 
-    {SeqCS.min = tmpcost; max= tmpcost}
+    {SeqCS.cost2 = tmpcost; cost2_max= tmpcost; cost3 = 0.; sum_cost = 0.; }
 
 let seqCS_median matrix a b =
     let total_cost = ref 0. in

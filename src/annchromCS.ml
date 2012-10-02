@@ -20,7 +20,7 @@
 (** A annotated chromosome character set implementation. 
 * The annotated chromosome character set allows rearrangements *)
 
-let () = SadmanOutput.register "AnnchromCS" "$Revision: 2656 $"
+let () = SadmanOutput.register "AnnchromCS" "$Revision: 2684 $"
 
 let debug = false
 let debug_assign_single = false
@@ -40,8 +40,9 @@ type t = {
     recosts : float IntMap.t;
     total_cost : float;          (** The total cost of the character set *)
     total_recost : float;        (** The total recost of the character set *)
+    subtree_cost : float;           (** The total_cost of subtree root in this node*)
     subtree_recost : float;      (** The total subtree recost of the character set *)
-    c2_full : Cost_matrix.Two_D.m;    (** The two dimensional cost matrix to  be used in the character set *)
+    c2_full : Cost_matrix.Two_D.m;    (** The two dimensional cost matrix to be used in the character set *)
     c2_original : Cost_matrix.Two_D.m;    (** original input cost matrix *)
     c3 : Cost_matrix.Three_D.m;  (** The three dimensional cost matrix to be used in the character set *)
     alph : Alphabet.a;           (** The alphabet of the sequence set *)
@@ -86,6 +87,7 @@ let of_array spec arr chcode tcode num_taxa =
         recosts = recosts;
         total_cost = 0.0;
         total_recost = 0.0;
+        subtree_cost = 0.0;
         subtree_recost = 0.0;
         c2_full = spec.Data.tcm2d_full;
         c2_original = spec.Data.tcm2d_original;
@@ -138,10 +140,12 @@ let median2 (a : t) (b : t) =
     in
 
     let subtree_recost = a.subtree_recost +. b.subtree_recost +. (float_of_int total_recost) in 
+    let subtree_cost = a.subtree_cost +. b.subtree_cost +. (float_of_int total_recost) in 
     if debug then Printf.printf "end of annchromCS.median2 \n%!";
     { a with meds = medab_map; costs = new_costs; recosts = new_recosts;
           total_cost = float_of_int total_cost; 
           total_recost = float_of_int total_recost;
+          subtree_cost = subtree_cost;
           subtree_recost = subtree_recost;
     }
     
@@ -289,36 +293,38 @@ let readjust to_adjust modified ch1 ch2 parent mine =
             | None -> All_sets.Integers.singleton code
             | Some x -> x
         in
-        let (modified, res_medians, res_costs, total) = acc in
+        let (modified, res_medians, res_costs, total, totalsum) = acc in
         let my_chrom = IntMap.find code mine.meds
         and ch1_chrom = IntMap.find code ch1.meds
         and ch2_chrom = IntMap.find code ch2.meds in
         if (not (All_sets.Integers.mem code to_adjust)) then 
             let new_costs = IntMap.add code 0. res_costs 
             and new_single = IntMap.add code my_chrom res_medians in
-            modified, new_single, new_costs, total
+            modified, new_single, new_costs, total, totalsum
         else begin
-            let rescost, seqm, changed = 
+            let rescost, ressumcost, seqm, changed = 
                 Annchrom.readjust_3d ch1_chrom ch2_chrom my_chrom
                     c2_full c3 parent_chrom
             in
             let new_single = IntMap.add code seqm res_medians
             and new_costs = IntMap.add code (float_of_int rescost) res_costs 
             and new_total = total + rescost in
+            let new_totalsum = ressumcost + totalsum in
             let modified = 
                 if changed then All_sets.Integers.add code modified
                 else modified
             in
-            modified, new_single, new_costs, new_total        
+            modified, new_single, new_costs, new_total, new_totalsum       
         end 
     in 
-    let modified, meds, costs, total_cost = 
-        IntMap.fold adjusted parent.meds (modified, empty, empty, 0)
+    let modified, meds, costs, total_cost, total_sum_cost = 
+        IntMap.fold adjusted parent.meds (modified, empty, empty, 0, 0)
     in
     let tc = float_of_int total_cost in
+    let tsc = float_of_int total_sum_cost in
     if debug then Printf.printf "end of annchromCS.ml readjust \n%!";
-    modified, tc,
-    { mine with meds = meds; costs = costs; total_cost = tc }
+    modified, tc, tsc, 
+    { mine with meds = meds; costs = costs; total_cost = tc; subtree_cost = tsc; }
 
 
 (** [to_formatter ref_codes attr t parent_t d] returns

@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2659 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2684 $"
 
 let debug_find_local_optimum = false
 
@@ -484,13 +484,13 @@ module MakeNormal
             | Tree.Skip -> None 
             *)
         in
-        let rec try_comp component =
+        (*let rec try_comp component =
             if component = components
             then None
             else match tbr_joins component with
             | None -> try_comp (succ component)
             | Some forest -> Some forest in
-
+        *)
         let res = None in
         Status.finished status;
 

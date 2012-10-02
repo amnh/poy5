@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2680 $"
+let () = SadmanOutput.register "Node" "$Revision: 2684 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -250,7 +250,6 @@ let print_node_data (data : node_data) =
                                   | _ -> false ) data.characters 
     in 
     Printf.fprintf stdout "Number dynamics: %i, " (List.length dynamic_ls); 
-
     print_newline ()
 
 
@@ -400,6 +399,7 @@ let print nd =
         (fun a_cs ->
             match a_cs with
             | Dynamic a_dyn ->
+                Printf.printf "cost = %f, sum_cost = %f \n%!" a_dyn.cost a_dyn.sum_cost;
                 print_endline "Preliminary state";
                 DynamicCS.print a_dyn.preliminary;
                 print_endline "Final state";
@@ -527,6 +527,7 @@ let cs_update_cost_only mine ch1 ch2 =
             StaticMl { m with sum_cost = sumcost; }, sumcost
     | Dynamic m, Dynamic c1, Dynamic c2 ->
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
+            Printf.printf "update_cost_only, sum_cost <- %f\n%!" sumcost;
             Dynamic { m with sum_cost = sumcost;}, sumcost
     | AddVec m, AddVec c1, AddVec c2 -> 
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
@@ -552,6 +553,9 @@ let cs_update_cost_only mine ch1 ch2 =
 
 (* calculate the median between two nodes *)
 let rec cs_median code anode bnode prev t1 t2 a b =
+    let debug_cs_median = false in
+   if debug_cs_median then Printf.printf "node.cs_median, on node %d and %d:\n%!"
+	anode.taxon_code bnode.taxon_code;
     match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
@@ -781,8 +785,8 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             let total_cost = ca.weight *. (DynamicCS.total_cost median) in
             let sumcost = ca.sum_cost +. cb.sum_cost +. total_cost in
-            if debug then
-                info_user_message "Calculated Median with costs: T:%f,\
+            if debug_cs_median then
+                info_user_message "Return Median with costs: Cost:%f,\
                 S:%f(ca=%f,cb=%f)" total_cost sumcost ca.sum_cost cb.sum_cost;
             let res = 
                 { ca with 
@@ -978,6 +982,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     if debug then
                         info_user_message "Ending Cost: %f\t%f\t%f%!" t1 t2 cost;
                     let sumcost = cost +. bm.sum_cost +. am.sum_cost in
+                    Printf.printf "edge iter, cost<-%f,sum_cost<-%f\n%!"
+                    cost sumcost;
                     let mine =  
                         { pm with  preliminary = res; final = res;
                                    cost = cost;
@@ -1407,8 +1413,7 @@ let median ?branches code old a b =
         | Some code -> code
         | None -> decr median_counter; !median_counter
     in
-    if  debug_treebuild then info_user_message "node.ml \
-    median,nodea:%d(%f),nodeb:%d(%f),nodeab:%d"
+    if  debug_treebuild then info_user_message "node.ml median,nodea:%d(%f),nodeb:%d(%f),nodeab:%d"
     a.taxon_code a.total_cost b.taxon_code b.total_cost code;
     (* if code>0 then assert(false); *)
     let brancha = convert_2_lst a branches
@@ -1417,11 +1422,11 @@ let median ?branches code old a b =
         List.split (
         match old with
         | None -> 
-            if debug_treebuild then info_user_message "node.ml median begin of map4\n";
+            if debug_treebuild then info_user_message "node.ml median begin of map4";
             map4 (cs_median code a b None) brancha branchb 
                  a.characters b.characters
         | Some c ->
-            if debug_treebuild then info_user_message "node.ml median begin of map5\n";
+            if debug_treebuild then info_user_message "node.ml median begin of map5";
             map5 (fun x -> cs_median code a b (Some x)) c.characters
                  brancha branchb a.characters b.characters
         )
@@ -1429,7 +1434,8 @@ let median ?branches code old a b =
     let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
     let node_cost  = get_characters_cost new_characters in
     if debug_treebuild then
-         info_user_message "end of mapx in node.ml ...total_cost=%f\n" total_cost;
+         info_user_message "end of mapx in node.ml,return nodedata with node_cost=%f,total_cost=%f" 
+	node_cost total_cost;
     let num_child_edges, num_height = new_node_stats a b in
     let exclude_info = excludes_median a b in
     let excluded = has_excluded exclude_info in
@@ -1448,7 +1454,6 @@ let median ?branches code old a b =
             cost_mode = a.cost_mode;
         }
     in
-    if debug_treebuild then Printf.printf "end of node.ml median\n%!";
     results
 
 (** [get_times_between nd child_code] returns a list of times between [nd] and
@@ -1594,6 +1599,18 @@ let median_of_child_branch code child parent =
     median_w_times code None child parent times otime None
 
 let final_states p n c1 c2 =
+    let debug = false in
+    if debug then begin
+        Printf.printf "node.ml final_states, parent is:\n%!";
+        print p;
+        Printf.printf "mine is :\n%!";
+        print n;
+        Printf.printf "child 1 is :\n%!";
+        print c1;
+        Printf.printf "child 2 is :\n%!";
+        print c2;
+        Printf.printf "call median3 to assign final states\n%!";
+    end;
     let new_characters =
         map4 (cs_final_states p n c1 c2)
         p.characters n.characters c1.characters c2.characters
@@ -3356,13 +3373,12 @@ let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
 let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
 
 let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
-    if debug_treebuild then begin
-        Printf.printf "node.to_single,\n%!";
-    print_node_data parent;
-    print_node_data mine;
+    if debug_tosingle then begin
+        Printf.printf "Node.ml to_single on parent and mine:\n%!";
+        print parent;
+        print mine;
     end;
     let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs minet : cs =
-        if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
         match parent_cs, minet with
             | Dynamic parentt, Dynamic minet ->
                 let fst (a,_,_) = a and snd (_,a,_) = a in
@@ -3395,47 +3411,19 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                         root_pre parentt.preliminary minet.preliminary bl
                 in
                 let cost = minet.weight *. cost in
+                if debug_tosingle then Printf.printf "cs_to_single on mine=%d,parent=%d cost<-%f(old:%f),sum_cost <- %f(old:%f)\n%!"
+                mine.taxon_code parent.taxon_code cost minet.cost cost minet.sum_cost;
                 Dynamic {
                             preliminary = res; final = res;
-                            cost = cost;
-                            sum_cost = cost;
+                            (*we should not replace cost&sum_cost with cost to
+                            * its parent, maybe we can add cost_to_parent to the
+                            * data-structure.*)
+                            cost = minet.cost;
+                            sum_cost = minet.cost;
                             weight = minet.weight;
                             time = minet.time;
                         }
-        (* | StaticMl cb, StaticMl ca -> 
-            IFDEF USE_LIKELIHOOD THEN
-                (match root with
-                 None -> mine
-                | Some root -> 
-                    let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                    let res = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
-                    let cost = MlStaticCS.root_cost res in
-                    StaticMl
-                        { preliminary=res;final=res;
-                          cost = (ca.weight *. cost);
-                          sum_cost = cost;
-                          weight = ca.weight; time = None,None
-                        }
-                )
-            ELSE
-                failwith MlStaticCS.likelihood_error
-            END
-        | Kolmo parent, Kolmo mine ->
-                 Do we need this only for dynamic characters? I will first get it
-                * going here only 
-              let root_pre = match root with
-              | Some (Kolmo root) -> Some root.preliminary
-              | _ -> None
-              in 
-              let prev_cost, cost, res = 
-                  KolmoCS.to_single pre_ref_code 
-                        root_pre parent.preliminary mine.preliminary 
-                    in
-              Kolmo {preliminary = res; final = res; 
-                       cost = (mine.weight *.  cost);
-                       sum_cost = (mine.weight *. cost);
-                       weight = mine.weight; time = None,None} *)
-        | _ -> match root with
+                | _ -> match root with
                 | Some mine -> mine
                 | None -> minet
     in
@@ -3453,7 +3441,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
 let readjust mode to_adjust ch1 ch2 parent mine = 
     let debug = false and debug2 = false in
     if debug then 
-        Printf.printf "readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
+        Printf.printf "\n Node.ml readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
         mine.taxon_code parent.taxon_code ch1.taxon_code ch2.taxon_code;
     let ch1, ch2 =
         if ch1.min_child_code < ch2.min_child_code then
@@ -3522,25 +3510,34 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     failwith MlStaticCS.likelihood_error
                   END
                 | _ -> 
-                        if debug2 then begin
-                            Printf.printf "node.readjust, call dynamicCS.readjust\
-                        with c1,c2 and preant, mine:\n%!";
-                        DynamicCS.print c1.preliminary;
-                        DynamicCS.print c2.preliminary;
-                        DynamicCS.print parent.preliminary;
-                        DynamicCS.print mine.preliminary;
-                        end;
-                    let m, prev_cost, cost, res = 
+                    let m, cost, sumcost, res = 
                         DynamicCS.readjust mode to_adjust !modified c1.preliminary
                                 c2.preliminary parent.preliminary mine.preliminary
                     in
-                    if debug2 then begin
-                        Printf.printf "end of DynamicCS.readjust,check new med:\n%!";
-                    DynamicCS.print res;
-                    end;
                     modified := m;
                     let cost = mine.weight *. cost in
-                    let sumcost = c1.sum_cost +. c2.sum_cost +. cost in
+                    (* we do this in the lower level med3 function
+                      let sumcost = c1.sum_cost +. c2.sum_cost +. cost in*)
+                    let sumcost = mine.weight *. sumcost in
+                    if debug2 then begin
+                        Printf.printf " update mine with sum_cost\
+                        <-- c1.sum_cost(%f)+c2.sum_cost(%f)+new node cost(%f) = %f,\
+                        old sum_cost = %f, old node cost = %f;\n%!" 
+                        c1.sum_cost c2.sum_cost cost sumcost mine.sum_cost mine.cost;
+                        (*DynamicCS.print res;*)
+                    end;
+                    (*bug to fix: even when both the seq assignment and cost for 
+                    * mine remain the same, the sum_cost could change. 
+                    * in this case, modified is empty.
+                    * in allDirChar.[adjust_node], we won't udpate node_data with
+                    * the new seq & cost set if modified is empty.
+                    *)
+		            if (IntSet.is_empty !modified)&&((cost<>mine.cost)||(sumcost<>mine.sum_cost)) then 
+				    failwith "node.ml readjust function, same median,different node cost";	
+                    (* to do : only update when better subtree cost showup
+                    if sumcost<mine.sum_cost then 
+                    else
+                    *)
                     let res = 
                     Dynamic
                         { mine with
@@ -3551,6 +3548,9 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                             time=None,None,None;
                         }
                     in
+                    if debug2 then begin
+                        Printf.printf "end of node.readjust,return new med\n%!";
+                    end;
                     res, sumcost
             end
         | Nonadd8 c1, Nonadd8 c2, Nonadd8 parent, Nonadd8 mine -> Nonadd8 mine, mine.sum_cost
@@ -3567,8 +3567,9 @@ let readjust mode to_adjust ch1 ch2 parent mine =
     if mine.total_cost = infinity then 
         mine, !modified
     else
-        let _ = if debug2 then Printf.printf "map4 on ch1,ch2,parent and mine's\
-        characters (len = %d)\n%!" (List.length ch1.characters) 
+        let _ = 
+            if debug2 then Printf.printf "map4 on ch1,ch2,parent and mine's characters (len = %d)\n%!" 
+            (List.length ch1.characters) 
         in
         let characters, sumcost_list = 
             List.split ( map4 cs_readjust ch1.characters ch2.characters
@@ -3576,6 +3577,10 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         in
         let node_cost = get_characters_cost characters in
         let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
+	if debug then
+		Printf.printf "end of Node.readjust, return mine with total_cost=%f(old \
+        total_cost=%f),node_cost=%f(old node_cost=%f)\n\n%!" total_cost
+        mine.total_cost node_cost mine.node_cost;
         let res = 
             { mine with characters = characters; 
                         total_cost = total_cost; 
@@ -4660,12 +4665,6 @@ let extra_cost_from_root n =
                 let ec = DynamicCS.get_extra_cost_for_root x.preliminary  in
                 if debug then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc ec;
                 acc +. ec
-        (*| AddVec of AddCS.Vector.t r
-        | AddGen of AddCS.General.t r
-        | FixedStates of Fixed_states.t_w_seqtbl r
-        | Kolmo of KolmoCS.t r
-        | Set of cs css r
-        | StaticMl of ml_rep*)
         | _ -> 0.0
     in
     List.fold_left extra_cost_cs 0.0 n.characters

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "NcursesML" "$Revision: 1644 $"
+let () = SadmanOutput.register "NcursesML" "$Revision: 2684 $"
 
 (** OCaml interface to NCURSES library *)
 

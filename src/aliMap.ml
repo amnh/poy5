@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AliMap" "$Revision: 2845 $"
+let () = SadmanOutput.register "AliMap" "$Revision: 2684 $"
 
 
 (** AliMap module implements methods to align two general 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Annchrom" "$Revision: 2656 $"
+let () = SadmanOutput.register "Annchrom" "$Revision: 2684 $"
 
 (** Annchrom  module implements functions to create medians
     between two lists of annotated chromosomes *)
@@ -233,15 +233,20 @@ let readjust_3d ch1 ch2 mine c2_full c3 parent =
     let ach2 = List.hd ch2.med_ls in
     let amine = List.hd mine.med_ls in
     let aparent = List.hd parent.med_ls in
+    (* this part is done in annchromAli.find_med3, no need to do it again
     let cost1, _  = cmp_min_pair_cost ch1 mine in
     let cost2, _  = cmp_min_pair_cost ch2 mine in
     let costp, _ = cmp_min_pair_cost parent mine in
     let old_cost = cost1 + cost2 + costp in 
-    let cost, adjust_med = AnnchromAli.find_med3 ach1 ach2 aparent amine c2_full c3 alpha
-        annchrom_pam in 
+    *)
+    let new_cost12,new_sumcost, adjust_med, anything_changed = 
+        AnnchromAli.find_med3 ach1 ach2 aparent amine c2_full c3 alpha annchrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
+    new_cost12, new_sumcost, adjust_med, anything_changed
+    (* again, this part is done in annchromAli.find_med3, no need to do it again
     if old_cost <= cost then  old_cost, mine, false
     else cost, adjust_med, true
+    *)
 
 (** [to_string med alpha] converts information in median 
 * [med] into string format *) 

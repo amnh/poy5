@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2655 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2684 $"
 
 let debug = false
 let debug_distance = false 
@@ -32,9 +32,19 @@ type union_element =
 
 
 type cost_tuple = {
-    min : float;
-    max : float;
+    cost2 : float; (*cost2 is cost of aligning child1 and child2*)
+    cost2_max : float; (*cost2_max is max cost of aligning child1 and child2*)
+    cost3 : float; (*cost3 is cost_mine_child1 + cost_mine_child2 +
+    cost_mine_parent *)
+    sum_cost : float; (*cost of subtree rooted on this node*)
 }
+
+
+let get_cost2 costs = costs.cost2
+    
+let get_cost3 costs = costs.cost3
+
+let get_sum_cost costs = costs.sum_cost
 
 type packed_algn = 
     | Packed of (int * BitSet.t * packed_algn)
@@ -675,6 +685,15 @@ end
 module DOS = struct
 
 
+    let make_cost cost2 cost2_max cost3 sumcost = 
+    {
+        cost2 = float_of_int cost2; 
+        cost2_max = float_of_int cost2_max; 
+        cost3 = float_of_int cost3;
+        sum_cost = float_of_int sumcost;
+    }
+
+
     let rec bitset_to_seq gap set =
         match set with
         | Raw x -> x
@@ -726,53 +745,90 @@ module DOS = struct
     let create seq = {
         sequence = seq;
         aligned_children = Raw seq, Raw seq, Raw seq;
-        costs = { min = 0.0; max = 0.0 };
+        costs = { cost2 = 0.0; cost2_max = 0.0; cost3 = 0.0; sum_cost = 0.0; };
         position = 0;
         delimiters = []
     }
 
     let print do_single_seq = 
         (*Sequence.print stdout do_single_seq.sequence Alphabet.nucleotides*)
-        Sequence.printseqcode do_single_seq.sequence
+        Printf.printf "cost = (cost2:%f,cost3:%f,subtree_cost:%f),%!" (get_cost2 do_single_seq.costs)
+        (get_cost3 do_single_seq.costs) (do_single_seq.costs.sum_cost)
+        (*Sequence.printseqcode do_single_seq.sequence*)
 
     let to_union a = Sequence.Unions.leaf a.sequence
 
-    let make_cost tmpcost = 
-        let tmpcost = float_of_int tmpcost in
-        {min = tmpcost; max= tmpcost}
+
+    
 
     (*readjust function for custom alphabet under module DOS *)
     let readjust_custom_alphabet mode h ch1 ch2 parent mine =
         let debug = false in
         if debug then Printf.printf "DOS.readjust_custom_alphabet\n%!";
-        let changed, res, cost =    
-            let newcost, newseqm, anything_changed =  
-            match mode with
-            | `ThreeD _ -> 
-                    if debug then Printf.printf "iter = 3d, call readjust_3d\n%!";
-                    Sequence.Align.readjust_3d_custom_alphabet ch1.sequence ch2.sequence
-                    mine.sequence h.c2_full h.c3 parent.sequence
-            | `ApproxD _ ->
-                    if debug then Printf.printf "iter=approx, do nothing\n%!";
-                    int_of_float mine.costs.min, mine.sequence, false
-            in
-            if debug then 
-            Printf.printf "DOS.readjust_custom_alphabet, anything_changed=%b,newcost=%d,oldcost=%f\n%!"
-            anything_changed newcost mine.costs.min;   
-            let rescost = make_cost newcost in
-            anything_changed, 
-            { mine with sequence = newseqm; costs = rescost },
-            newcost
+        let sumcost_ch12 = int_of_float( ch1.costs.sum_cost +.
+        ch2.costs.sum_cost) in
+        let (oldaliedch1,oldaliedch2,oldminewgap) = mine.aligned_children in
+        let oldaliedch1,oldaliedch2,oldminewgap = 
+            match oldaliedch1,oldaliedch2,oldminewgap with
+            | Raw a, Raw b, Raw c -> a,b,c
+            | _ -> failwith "seqCS.DOS [readjust_custom_alphabet], wrong type of aliged_children"
         in
-        changed, res, cost
+        let newcost3, newcost2, newseqm, newaliedch1, newaliedch2, newseqmWgap(*, anything_changed*) =  
+                match mode with
+                | `ThreeD _ -> 
+                        if debug then Printf.printf "iter = 3d, call readjust_3d\n%!";
+                        Sequence.Align.readjust_3d_custom_alphabet ch1.sequence ch2.sequence
+                        mine.sequence h.c2_full h.c3 parent.sequence 
+                        (int_of_float mine.costs.cost2)
+                        (int_of_float mine.costs.cost3)
+                | `ApproxD _ ->
+                        if debug then Printf.printf "iter=approx, do nothing\n%!";
+                        int_of_float mine.costs.cost3, 
+                        int_of_float mine.costs.cost2, 
+                        mine.sequence, 
+                        oldaliedch1,oldaliedch2,oldminewgap
+        in
+            (*return changed = true if 
+                    * #1. if subtree cost root on this character of this node is different,
+                    * that's what we are doing here
+                    * that means cost of some grand grand child is different, or #2.
+                    * #2. if node cost(both cost2 and cost3) of this character of this node is different.
+                    * #3. if median assignment to this character of this node is different
+                    * *)
+        let oldcost3 = int_of_float mine.costs.cost3
+        and oldcost2 = int_of_float mine.costs.cost2
+        and oldsumcost = int_of_float mine.costs.sum_cost in
+        let newsumcost = newcost2 + sumcost_ch12 in
+        let anything_changed =
+            if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+            (newcost2<>oldcost2) || (0<>compare mine.sequence newseqm) 
+            then true
+            else false
+        in
+        if debug then 
+            Printf.printf "DOS.readjust_custom_alphabet,\
+            cost3=%d(old:%d), sumcost=%d(old:%d) \ 
+            anything_changed : %b\n%!" 
+            newcost3 oldcost3 newsumcost oldsumcost anything_changed;                  
+        let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+        (*return changed:bool,new mine, newcost3, newcost2 and new sum cost*)
+        anything_changed, 
+        { mine with sequence = newseqm; 
+        aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
+        costs = rescosts },
+        newcost3, 
+        newcost2, 
+        newsumcost
 
 
+    (*readjust function for dna sequence under module DOS *)
     let readjust mode h ch1 ch2 parent mine use_ukk =
         let debug = false in
         if debug then Printf.printf "seqCS.DOS.readjust,use_ukk=%b\n%!" use_ukk;
         let c2 = h.c2_full in
         let gap = Cost_matrix.Two_D.gap c2 in
-        let res, cost = 
+        let sumcost_ch12 = int_of_float (ch1.costs.sum_cost +. ch2.costs.sum_cost) in
+        let res, cost3, cost2, sumcost, changed = 
             let algn s1 s2 =
                 let cm = c2 in
                 match Cost_matrix.Two_D.affine cm with
@@ -790,7 +846,8 @@ module DOS = struct
                                 m,cost
                         in
                         let m = Sequence.select_one median cm in
-                        create m, cost
+                        (*return new mine, cost3(same as cost2), cost2, subtree cost, changed=false*)
+                        create m, cost, cost, sumcost_ch12 + cost, false 
                 | _ ->
                     let s1', s2', c =
                             if use_ukk then
@@ -801,32 +858,49 @@ module DOS = struct
                     in
                     let median = Sequence.median_2 s1' s2' cm in
                     let a = Sequence.select_one median cm in 
-                    create a, c 
+                    (*return new mine, cost3(same as cost2), cost2, subtree cost, changed=false*)
+                    create a, c , c, sumcost_ch12 + c, false
             in
             let empty1 = Sequence.is_empty ch1.sequence gap 
             and empty2 = Sequence.is_empty ch2.sequence gap 
             and emptypar = Sequence.is_empty parent.sequence gap in
             match empty1, empty2, emptypar with
             | false, false, false ->
-                    let tmpcost, seqm, changed =
+                    let cost3, cost2, seqm, changed =
+                        (*cost3 is the sum cost of alied_ch1&new_med,
+                        * alied_ch2&new_med and alied_parent&new_med,
+                        * cost2 is the cost of alied_ch1&alied_ch2*)
                         match mode with
                         | `ThreeD _ -> 
                                 if debug then 
                                     Printf.printf "iter = 3d, call readjust_3d\n%!";
                                 Sequence.Align.readjust_3d ch1.sequence ch2.sequence
-                                mine.sequence c2 h.c3 parent.sequence
+                                mine.sequence c2 h.c3 parent.sequence 
+                                (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
                         | `ApproxD _ ->
                                 if debug then 
                                     Printf.printf "iter=approx, call readjust\n%!";
                                 Sequence.readjust ch1.sequence ch2.sequence
                                 mine.sequence c2 parent.sequence use_ukk
                     in
-                    let rescost = make_cost tmpcost in
+                    let sumcost = sumcost_ch12 + cost2 in
+                    (*return modifed = true if 
+                    * #1. if subtree cost root on this character of this node is different, 
+                    * that means cost of some grand grand child is different, or #2.
+                    * #2. if node cost(both cost2 and cost3) of this character of this node is different.
+                    * #3. if median assignment to this character of this node is different*)
+                    let changed = 
+                        if (changed=false)&&(sumcost<=(int_of_float mine.costs.sum_cost)) then
+                            true
+                        else
+                            changed
+                    in
+                    let rescost = make_cost cost2 cost2 cost3 sumcost in
                     { mine with sequence = seqm; costs = rescost },
-                    tmpcost
-            | true, true, _ -> ch1, 0
-            | true, _, true -> ch1, 0
-            | _, true, true -> ch2, 0
+                    cost3, cost2, sumcost, changed
+            | true, true, _ -> ch1, 0, 0, sumcost_ch12, false
+            | true, _, true -> ch1, 0, 0, sumcost_ch12, false
+            | _, true, true -> ch2, 0, 0, sumcost_ch12, false
             | false, false, true ->
                     algn ch1.sequence ch2.sequence
             | false, true, false ->
@@ -834,7 +908,22 @@ module DOS = struct
             | _, false, false ->
                     algn ch2.sequence parent.sequence
         in
-        0 <> compare res.sequence mine.sequence, res, cost
+        if debug then Printf.printf "end of seqCS.DOS.adjust, old:cost2=%f(could be from to_single),\
+        cost3=%f,sumcost=%f; new:cost2=%d, cost3=%d, sumcost=%d, anything_changed = %b\n%!"
+        mine.costs.cost2 mine.costs.cost3 mine.costs.sum_cost cost2 cost3 sumcost changed;
+        (*return modifed = true if 
+            * #1. if subtree cost root on this character of this node is different, 
+            * that means cost of some grand grand child is different, or #2.
+            * #2. if node cost(both cost2 and cost3) of this character of this node is different.
+            * #3. if median assignment to this character of this node is different*)
+        (* pass this back from readjust function in sequence.ml
+        * (mine.costs.sum_cost <> res.costs.sum_cost)
+        || (mine.costs.cost3 <> res.costs.cost3) 
+        || (mine.costs.cost2 <> res.costs.cost2) 
+        || (0 <> compare res.sequence mine.sequence)
+        *)
+        changed, 
+        res, cost3, cost2, sumcost
 
     let to_single h parent mine =
         let debug = false in
@@ -858,7 +947,8 @@ module DOS = struct
                 else
                     Sequence.Align.closest parent mine.sequence h.c2_full Matrix.default 
             in
-            let rescost = make_cost tmpcost in
+            let rescost = make_cost tmpcost tmpcost 
+            (int_of_float (get_cost3 mine.costs)) (int_of_float mine.costs.sum_cost) in
             if debug then begin
                 Printf.printf "parent seq = %!";
                 Sequence.printseqcode parent;
@@ -867,18 +957,20 @@ module DOS = struct
                 Printf.printf " ==> seq without ambiguity = %!";
                 Sequence.printseqcode seqm;
             end;
-            { mine with sequence = seqm; costs = rescost }, tmpcost
+            { mine with sequence = seqm; (*costs = rescost*) }, tmpcost
 
     let median alph code h a b use_ukk =
         let debug = false in
         if debug then Printf.printf "seqCS.DOS.median,use_ukk=%b\n%!" use_ukk; 
         let gap = Cost_matrix.Two_D.gap h.c2_full in
+        let uselevel = Cost_matrix.Two_D.check_level h.c2_full in 
         (* above are debug functions *)
         if Sequence.is_empty a.sequence gap then
             create b.sequence, 0 
         else if Sequence.is_empty b.sequence gap then
             create a.sequence, 0
         else 
+            let sumcost_ch12 = int_of_float(a.costs.sum_cost +. b.costs.sum_cost) in
             let seqm, tmpa, tmpb, tmpcost, seqmwg =
                 match Cost_matrix.Two_D.affine h.c2_full with
                 | Cost_matrix.Affine _ ->
@@ -992,21 +1084,26 @@ module DOS = struct
                         end;*)
                         seqm, tmpa, tmpb, tmpcost, seqmwg
             in
-            let rescost = make_cost tmpcost in
+            let rescost = make_cost tmpcost tmpcost 0 (tmpcost + sumcost_ch12) in
             if debug then begin 
                 let print_seqlist seq = 
                     (*Sequence.print stdout seq Alphabet.nucleotides;*)
                     Sequence.printseqcode seq;
                     print_newline();
                 in
-                Printf.printf "costs = (%f,%f), seq a,b,alieda,aliedb= \n%!" rescost.min rescost.max; 
+                Printf.printf "costs = (%f,%f), seq a,b,alieda,aliedb= \n%!" rescost.cost2 rescost.cost3; 
                 print_seqlist a.sequence; print_seqlist b.sequence;
                 print_seqlist tmpa; print_seqlist tmpb;
                 Printf.printf "seqm: %!"; print_seqlist seqm;
+                Printf.printf "call seq_to_bitset on these if they are bitwised, then return them.\n%!";
             end;
-            let ba = seq_to_bitset gap tmpa (Raw a.sequence)
-            and bb = seq_to_bitset gap tmpb (Raw b.sequence) 
-            and bm = seq_to_bitset gap seqmwg (Raw seqm) in
+            let ba,bb,bm = 
+                if uselevel then (Raw tmpa), (Raw tmpb), (Raw seqm)
+                else
+                    seq_to_bitset gap tmpa (Raw a.sequence),
+                    seq_to_bitset gap tmpb (Raw b.sequence), 
+                    seq_to_bitset gap seqmwg (Raw seqm) 
+            in
             { sequence = seqm; aligned_children = (ba, bb, bm); costs = rescost;
             position = 0; delimiters = a.delimiters}, tmpcost
 
@@ -1015,25 +1112,32 @@ module DOS = struct
         let alied_ch1, alied_ch2, _ = root.aligned_children in
         let alied_ch1, alied_ch2 = 
             bitset_to_seq gap alied_ch1, bitset_to_seq gap alied_ch2 in
-        (*if debug_distance then begin
-            Printf.printf "two alied children:\n%!";
-            Sequence.printseqcode alied_ch1;
-            Sequence.printseqcode alied_ch2;
-        end;*)
         let distance = 
+            (*we only need to calculate cost between two alied sequence, but
+            [cost_2] in sequence.ml actually does an alignment, which is not linear.*)
             if use_ukk then
                 Sequence.NewkkAlign.cost_2 alied_ch1 alied_ch2 h.c2_original Sequence.NewkkAlign.default_ukkm
             else
-                Sequence.Align.cost_2 alied_ch1 alied_ch2 h.c2_original Matrix.default
+                Sequence.Align.recost alied_ch1 alied_ch2 h.c2_original
+                (*Sequence.Align.cost_2 alied_ch1 alied_ch2 h.c2_original Matrix.default*) 
         in
+        let debug_distance = true in
+        if debug_distance then begin
+            Printf.printf "cost_between_two_alied_children_of_root, two alied children:\n%!";
+            Sequence.printseqcode alied_ch1;
+            Sequence.printseqcode alied_ch2;
+        end;
         distance
 
     let get_extra_cost_for_root root h use_ukk =
+(* to do : 
         let dis = cost_between_two_alied_children_of_root root h use_ukk in
-        let oldcost = root.costs.min in
+        let oldcost = root.costs.cost2 in
         if debug_distance then
-            Printf.printf "DOS.get_extra_cost_for_root, %f - %d\n%!" oldcost dis;
+            Printf.printf "DOS.get_extra_cost_for_root, oldcost(%f) - newcost(%d)\n%!" oldcost dis;
         oldcost -. (float_of_int dis)
+*)
+	0.
 
     let median_3_no_union h p n c1 c2 use_ukk =
         let with_parent c =
@@ -1046,9 +1150,11 @@ module DOS = struct
             { n with 
                 sequence = Sequence.median_2 s1 s2 h.c2_full;
                 costs = 
-                    { min = float_of_int costs; 
-                    max = float_of_int (Sequence.Align.max_cost_2 s1 s2
-                    h.c2_full) }
+                    {   cost2 = float_of_int costs; 
+                        cost2_max = float_of_int (Sequence.Align.max_cost_2 s1 s2 h.c2_full);
+                        cost3 = get_cost3 n.costs;
+                        sum_cost = get_sum_cost n.costs;
+                    }
             }, costs
         in
         let (res1, cost1) = with_parent c1
@@ -1064,6 +1170,12 @@ module DOS = struct
         let a, b, _ = n.aligned_children in
         let a = bitset_to_seq gap a
         and b = bitset_to_seq gap b in
+        if (Sequence.length a)<>(Sequence.length b) then begin
+            Printf.printf "seqa(len=%d) : %!" (Sequence.length a);
+            Sequence.printseqcode a;
+            Printf.printf "seqb(len=%d) : %!" (Sequence.length b);
+            Sequence.printseqcode b;
+        end;
         assert (Sequence.length a = Sequence.length b);
         let res = Sequence.Align.union a b h.c2_full in
         let a, b, cost = 
@@ -1079,8 +1191,12 @@ module DOS = struct
             res
         in
         let rescost = 
-            { min = float_of_int cost; 
-            max = float_of_int (Sequence.Align.max_cost_2 a b h.c2_full) } in
+            { 
+                cost2 = float_of_int cost; 
+                cost2_max = float_of_int (Sequence.Align.max_cost_2 a b h.c2_full);
+                cost3 = float_of_int cost;
+                sum_cost = c1.costs.sum_cost +. c2.costs.sum_cost +. (float_of_int cost);
+            } in
         { n with sequence = res; costs = rescost }
 
     let distance alph h missing_distance a b use_ukk =
@@ -1282,11 +1398,11 @@ module PartitionedDOS = struct
                 | Last _, _, _, _  ->
                         mine.(i)
                 | DO ch1, DO ch2, DO parent, DO mine ->
-                        let x, y, z = 
+                        let x, y, z3, z2, zsum = 
                             DOS.readjust mode h ch1 ch2 parent mine use_ukk
                         in
                         is_0 := !is_0 && x;
-                        cost := !cost + z;
+                        cost := !cost + z2;
                         DO y)
         in
         !is_0, res, !cost
@@ -1380,10 +1496,10 @@ module PartitionedDOS = struct
                             in
                             seqm, tmpa, tmpb, cost, seqmwg
                 in
-                let rescost = 
-                    DOS.make_cost 
-                    (Sequence.Clip.correct_distance gap h.c2_full tmpa tmpb cost) 
-                in
+                let newcost2 = Sequence.Clip.correct_distance gap h.c2_full tmpa tmpb
+                    cost in
+                let rescost = DOS.make_cost newcost2 newcost2 0 ( newcost2 +
+                int_of_float(a.DOS.costs.sum_cost +. b.DOS.costs.sum_cost) ) in
                 let a = fixa a in
                 let b = fixb b in
                 let a = reverse a
@@ -1493,16 +1609,19 @@ module PartitionedDOS = struct
         !dist
 
     let merge arr = 
-        let total_len, min, max = 
-            Array.fold_left (fun (total_len, mincost, maxcost) x -> 
+        let total_len, min, max, cost3,sum_cost = 
+            Array.fold_left (fun (total_len, mincost, maxcost,
+            acccost3,accsumcost) x -> 
                 match x with
                 | Last x 
                 | First x
                 | DO x ->
                         total_len + Sequence.length x.DOS.sequence,
-                        mincost +. x.DOS.costs.min,
-                        maxcost +. x.DOS.costs.max)
-            (0, 0., 0.) arr
+                        mincost +. x.DOS.costs.cost2,
+                        maxcost +. x.DOS.costs.cost2_max,
+                        acccost3 +. x.DOS.costs.cost3,
+                        accsumcost +. x.DOS.costs.sum_cost)
+            (0, 0., 0., 0., 0.) arr
         in
         let res = Sequence.create total_len in
         for i = (Array.length arr) - 1 downto 0 do
@@ -1519,7 +1638,7 @@ module PartitionedDOS = struct
         done;
         { DOS.sequence = res;
         aligned_children = Raw res, Raw res, Raw res;
-        costs = {min = min; max = max};
+        costs = {cost2 = min; cost2_max = max; cost3 = cost3; sum_cost = sum_cost; };
         position = 0;
         (* fix this later *)
         delimiters = []
@@ -1606,7 +1725,7 @@ module PartitionedDOS = struct
             match y with
             | First y
             | Last y
-            | DO y -> y.DOS.costs.max +. sum) 0.0 a
+            | DO y -> y.DOS.costs.cost2_max +. sum) 0.0 a
 
     let encoding enc arr =
         Array.fold_left (fun sum x ->
@@ -1634,6 +1753,7 @@ type t = {
     characters : sequence_characters array;
     codes : int array;
     total_cost : float;             (** The total cost of the character set *)
+    subtree_cost : float;
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
     code : int;                     (** The set code *)
     heuristic : heuristic;          (** The heuristic to be used *)
@@ -1648,6 +1768,7 @@ let is_fixedstates x =
 
 let print in_data =
     let seq_chr_arr = in_data.characters in
+    Printf.printf "cost of all characters:%f(could be from to_single)\n%!" in_data.total_cost;
     Array.iter (fun item ->
      match item with
         | General_Prealigned x -> 
@@ -1925,6 +2046,7 @@ let empty code c2 alph =
             characters = [||];
             codes = [||];
             total_cost = 0.0;
+            subtree_cost = 0.0;
             alph = alph;
             code = code;
             priority = [];
@@ -1996,7 +2118,8 @@ let of_array spec sc code taxon =
     let codes = Array.map snd sc in
     let characters = Array.map create_item sc in
     let res = 
-        { characters = characters; codes = codes; total_cost = 0.0; 
+        { characters = characters; codes = codes; 
+        total_cost = 0.0; subtree_cost = 0.0;
         alph = spec.Data.alph; code = code; heuristic = heur;
         priority = Array.to_list codes;} 
     in
@@ -2011,53 +2134,73 @@ let same_codes a b =
     Array_ops.fold_right_2 (fun acc a b -> acc && (a = b)) true a.codes b.codes
 
 (** median 3 function for custom alphabet *)
+(*any change here must also go to [readjust]*)
 let readjust_custom_alphabet mode modified ch1 ch2 parent mine =
     let debug = false in
-    if debug then Printf.printf "seqCS.readjust_custom_alphabet\n%!";
-    let new_modified = ref [] 
-    and total_cost = ref 0 in
+    if debug then Printf.printf "seqCS.readjust_custom_alphabet,old total_cost=%f\n%!" mine.total_cost;
+    (*list of character code that being modified in DOS.[readjust_custom_alphabet] *)
+    let new_modified = ref [] in
+    let total_cost = ref 0 in (*sum cost of each characters: node cost*)
+    let total_sum_cost = ref 0 in (*sum sum_cost of each characters: subtree cost*)
     let adjusted = 
         Array_ops.map_5 (fun code a b c d ->
         match a, b, c, d with
                 | Heuristic_Selection a, Heuristic_Selection b, 
                     Heuristic_Selection c, Heuristic_Selection d ->
-                        let changed, res, cost =
+                        let changed, res, cost3, cost2, sumcost = 
                             DOS.readjust_custom_alphabet mode mine.heuristic a b c d
                         in
                         if debug then Printf.printf
-                        "seqCS.readjust_custom_alphabet,changed=%b,cost=%d(total_cost=%d)\n%!" changed cost
-                        !total_cost;
+                        "seqCS.readjust_custom_alphabet,changed=%b,cost3=%d,cost2=%d,total_cost=%d\n%!" changed cost3 cost2 !total_cost;
                         if changed then begin
                             if debug then Printf.printf "add code = %d to modified set\n%!" code;
                             new_modified := code :: !new_modified;
-                            total_cost := cost + !total_cost;
                         end;
+                        (*even nothing changed, we still need to add up the cost
+                        * here, for we replace total_cost with this sum of cost2
+                        * at the end of this function*)
+                        total_cost := cost2 + !total_cost;
+                        total_sum_cost := sumcost + !total_sum_cost;
                         Heuristic_Selection res
                 | _ -> assert false)
         mine.codes ch1.characters ch2.characters parent.characters
         mine.characters
     in
+(*this is a tmp fix
+    if (!new_modified = []) then begin
+	    let tc = float_of_int !total_cost in
+	    let new_sumcost = tc +. ch1_sumcost +. ch2_sumcost in
+	    if new_sumcost<>mine_sumcost then
+		    Array.iter (fun code ->
+			    new_modified := code ::!new_modified;
+		) mine.codes;
+    end;
+this is a tmp fix*)
     let modified = 
         List.fold_left (fun acc x -> All_sets.Integers.add x acc)
         modified !new_modified
     in
     let total_cost = float_of_int !total_cost in
-    modified, total_cost,
-    { mine with characters = adjusted; total_cost = total_cost }
+    let total_sum_cost = float_of_int !total_sum_cost in
+    modified, total_cost, total_sum_cost, 
+    { mine with characters = adjusted; total_cost = total_cost; subtree_cost = total_sum_cost; }
 
 (** [readjust ch1 ch2 par mine] returns a tuple [(a, b)], where [b] is the 
 * set of sequences generated from (heuristically) readjusting [mine] to 
 * somewhere in between [ch1], [ch2], and [par] (the two children and 
 * parent of [mine] respectively, and [a] is the new cost of [b] as 
 * parent of [ch1] and [ch2]. *)
+(*any change here must also go to [readjust_custom_alphabet]*)
 let readjust mode to_adjust modified ch1 ch2 parent mine =
+    let debug = false in
     assert (parent.alph = Alphabet.nucleotides);(*this function is only for dna sequence*)
     let use_ukk = match !Methods.algn_mode with
         | `Algn_Newkk  -> true
         | `Algn_Normal -> false
     in
     let new_modified = ref [] 
-    and total_cost = ref 0 in
+    and total_cost = ref 0 
+    and total_sum_cost = ref 0 in
     let adjusted = 
         Array_ops.map_5 (fun code a b c d ->
             let skip_it =
@@ -2071,12 +2214,18 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
                 match a, b, c, d with
                 | Heuristic_Selection a, Heuristic_Selection b, 
                     Heuristic_Selection c, Heuristic_Selection d ->
-                        let changed, res, cost = 
+                        let changed, res, cost3, cost2, sumcost = 
                             DOS.readjust mode mine.heuristic a b c d use_ukk in
-                        if changed then begin
+                        if changed then begin (*add character code to new_modified*)
+                            if debug then Printf.printf "add character#.%d to change set\n%!" code;
                             new_modified := code :: !new_modified;
-                            total_cost := cost + !total_cost;
                         end;
+                        (*even nothing changed, we still need to add up the cost
+                        * here, for we replace total_cost with this sum of cost2
+                        * at the end of this function*)
+                        (*we pass back the sum of cost2, not cost3 anymore*)
+                        total_cost := cost2 + !total_cost;
+                        total_sum_cost := sumcost + !total_sum_cost;
                         Heuristic_Selection res
                 | _ -> assert false)
         mine.codes ch1.characters ch2.characters parent.characters
@@ -2087,8 +2236,9 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
         modified !new_modified
     in
     let total_cost = float_of_int !total_cost in
-    modified, total_cost,
-    { mine with characters = adjusted; total_cost = total_cost }
+    let total_sum_cost = float_of_int !total_sum_cost in
+    modified, total_cost, total_sum_cost,
+    { mine with characters = adjusted; total_cost = total_cost; subtree_cost = total_sum_cost; }
 
 let to_single parent mine =
     let total_cost = ref 0 in
@@ -2115,7 +2265,7 @@ let to_single parent mine =
     in
     let total_cost = float_of_int !total_cost in
     mine.total_cost, total_cost, 
-    { mine with characters = characters; total_cost = total_cost }
+    { mine with characters = characters; (*total_cost = total_cost*) }
 
 
 let median code a b =
@@ -2157,6 +2307,7 @@ let median code a b =
     res
 
 
+(*median_3 is called throught node.ml [cs_final_states], to assign final states to each internal node*)
 let median_3 p n c1 c2 =
     let h = n.heuristic in
     let generic_map_4 f1 f3 a b c d use_ukk =
@@ -2212,14 +2363,6 @@ let get_extra_cost_for_root a  =
         | Heuristic_Selection x ->
             acc +. (DOS.get_extra_cost_for_root x h use_ukk)
         | _ -> 0.0
-        (*| Partitioned a, Partitioned b ->
-            acc + (PartitionedDOS.distance alph h missing_distance a b use_ukk)
-        | General_Prealigned a, General_Prealigned b ->
-            acc + (GenNonAdd.distance a b h.c2_original)
-        | Partitioned _, _
-        | Heuristic_Selection _, _ 
-        | General_Prealigned _, _ -> assert false
-        *)
     )
     a.characters 0.0
 
@@ -2326,12 +2469,16 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
     let res_state = ref (-1) in
     let is_fs = ref false in
     let rec output_sequence acc code seq do_to_single =
-        let one_sequence (cmin, cmax, ccost, seqs) par seq =
+        let one_sequence (cmin, cmax, c3, ccost, csumcost, seqs) par seq =
             let cost = seq.DOS.costs in
             match par with
             | None -> 
-                    (cmin +. cost.min), (cmax +. cost.max), 
-                    ccost +. cost.max, seq.DOS.sequence :: seqs
+                    (cmin +. cost.cost2), 
+                    (cmax +. cost.cost2_max), 
+                    (c3 +. cost.cost3),
+                    (ccost +. cost.cost2_max), 
+                    (csumcost +. cost.sum_cost),
+                    seq.DOS.sequence :: seqs
             | Some par -> 
                     let par = par.DOS.sequence in
                     let s1, s2, min =
@@ -2345,12 +2492,15 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                     let max = Sequence.Align.max_cost_2 s1 s2 h.c2_full in
                     (cmin +. (float_of_int min)), 
                     (cmax +. (float_of_int max)),
-                    ccost +. cost.max, seq.DOS.sequence :: seqs
+                    (c3 +. cost.cost3),
+                    (ccost +. cost.cost2_max), 
+                    (csumcost +. cost.sum_cost),
+                    seq.DOS.sequence :: seqs
         in
         let cost, costb, max, seq =
             match seq with
             | Partitioned seqs -> 
-                    let min, max, total, seqs =
+                    let min, max, cost3, total, sumcost,seqs =
                         match do_to_single with
                         | None -> Array.fold_right (fun a acc ->
                                 match a with
@@ -2358,7 +2508,7 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                                 | PartitionedDOS.First a
                                 | PartitionedDOS.DO a -> 
                                         one_sequence acc None a) 
-                                seqs (0.,0.,0.,[]) 
+                                seqs (0.,0.,0.,0.,0.,[]) 
                         | Some (Partitioned par) ->
                                 Array_ops.fold_right_2 (fun acc a b ->
                                     match a, b with
@@ -2370,10 +2520,11 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                                         PartitionedDOS.DO b -> 
                                             one_sequence acc (Some b) a
                                     | _ -> assert false)
-                                (0., 0., 0., []) seqs par
+                                (0., 0., 0., 0., 0., []) seqs par
                         | Some _ -> assert false
                     in
-                    { min = min; max = max }, (`FloatFloatTuple (min, max)),
+                    { cost2 = min; cost2_max = max; cost3 = cost3; sum_cost =
+                        sumcost;  }, (`FloatFloatTuple (min, max)),
                     max, seqs
             | General_Prealigned seq ->
                     if debug then Printf.printf "seqCS.GP.to_formatter\n%!";
@@ -2381,7 +2532,9 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                     let mincost,maxcost = 
                         cost.GenNonAdd.min,cost.GenNonAdd.max
                     in
-                    let cost = { min = mincost;  max = maxcost } in
+                    let cost = { cost2 = mincost;  cost2_max = maxcost; 
+                    cost3 = 0.; sum_cost = 0.;(*we don't really need cost3 and
+                    sum_cost here for we don't report them in diagnosis*) } in
                     let costb,max = `FloatFloatTuple (mincost,maxcost), maxcost in 
                     cost, costb, max, [seq.GenNonAdd.seq]
             | Heuristic_Selection seq ->
@@ -2390,7 +2543,8 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                     let costb, max = 
                         match do_to_single with
                         | None -> 
-                            `FloatFloatTuple (cost.min, cost.max), cost.max
+                            `FloatFloatTuple (cost.cost2, cost.cost2_max),
+                            cost.cost2_max
                         | Some (Heuristic_Selection par) ->
                                 let par = par.DOS.sequence in
                                 let s1, s2, min =
@@ -2490,7 +2644,7 @@ let tabu_distance a =
             | Partitioned x         -> sum +. (PartitionedDOS.tabu_distance x)
             (*| Relaxed_Lifted _      -> sum*)
             | General_Prealigned y  -> (GenNonAdd.get_max_cost y.GenNonAdd.costs) +. sum
-            | Heuristic_Selection y -> y.DOS.costs.max +. sum)
+            | Heuristic_Selection y -> y.DOS.costs.cost2_max +. sum)
         0.0 a.characters
 
 

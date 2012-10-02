@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "GenomeAli" "$Revision: 2656 $"
+let () = SadmanOutput.register "GenomeAli" "$Revision: 2684 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -115,6 +115,9 @@ type med_t = {
     recost1 : int; (** the recost from this genome to its first child *)
     cost2 : int; (** the cost from this genome to its second child *)
     recost2 : int; (** the recost from this genome to its second child *)
+    (*store cost3 and sumcost in each med_t*)
+    cost3 : int; (** cost(mine,ch1)+cost(mine,ch2)+cost(mine,parent) *)
+    sum_cost : int; (** cost of subtree root at this med_t of this node*) 
 }
 
 (** [genome_block_t] is data structure for a block
@@ -281,7 +284,10 @@ let ref_genome = ref {chrom_arr = [||];
                       cost1 = 0;
                       recost1 = 0;
                       cost2 = 0;
-                      recost2 = 0}
+                      recost2 = 0;
+                      cost3 = 0;
+                      sum_cost = 0;
+}
 
 (** [assign_hom_chrom med cost_mat user_chrom_pams]
 * assigns homologous Id chrom all chromosomes in
@@ -382,6 +388,8 @@ let init (genome  : Sequence.s Data.dyna_data) =
                recost1 = 0;
                cost2 = 0;
                recost2 = 0;
+                cost3 = 0;
+                sum_cost = 0;
               }
     in 
     med
@@ -411,6 +419,8 @@ let create_med_from_seq chrom_arr =
                recost1 = 0;
                cost2 = 0;
                recost2 = 0;
+               cost3 = 0;
+                sum_cost = 0;
               }
     in 
     med    
@@ -995,7 +1005,10 @@ let create_med_vinh_annotator med1 med2 cost_mat user_chrom_pams =
                       cost1 = !g_cost - !g_recost2;
                       recost1 = !g_recost1;
                       cost2 = !g_cost - !g_recost1;
-                      recost2 = !g_recost2}
+                      recost2 = !g_recost2;
+                      cost3 = 0; (* cost3 is 0 for median2, until we update it with median3 function*)
+                      sum_cost = !g_cost + med1.sum_cost + med2.sum_cost;
+                      }
     in 
     if (List.length chrom_med_ls = 0) then failwith "Created an empty genome";
     genome_med, !g_cost, (!g_recost1, !g_recost2)
@@ -1217,6 +1230,8 @@ let create_med_mauve_annotator med1 med2 cost_mat ali_pam =
             recost1 = recost1;
             cost2 = total_cost - recost1;
             recost2 = recost2;
+            cost3 = 0; (* cost3 is 0 for median2, until we update it with median3 function*)
+            sum_cost = total_cost + med1.sum_cost + med2.sum_cost;
         }
     in
     genome_med, total_cost,(recost1,recost2) 
@@ -1257,7 +1272,6 @@ let cmp_cost med1 med2 cost_mat user_chrom_pams =
                     Sequence.print genomeFile chrom.seq Alphabet.nucleotides;
                     fprintf genomeFile " @ ") med1.chrom_arr;
         fprintf genomeFile "\n";  
-
         fprintf genomeFile ">genome2\n";  
         Array.iter (fun chrom -> 
                     Sequence.print genomeFile chrom.seq Alphabet.nucleotides;
@@ -1278,7 +1292,6 @@ let cmp_cost med1 med2 cost_mat user_chrom_pams =
               | true ->  med1, med2
               | false ->  med2, med1
           in 
-
           let med, cost, recost = create_med med1 med2 cost_mat user_chrom_pams in 
           cost, recost
 
@@ -1793,8 +1806,9 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
                         (Sequence.length sub_seq3 = 0) then detect_change chrom new_med (l_p + 1)
                     else begin                        
 
-                        let _, median_seq, _ = Sequence.Align.readjust_3d
+                        let _, _, median_seq, _ = Sequence.Align.readjust_3d
                             ~first_gap:false sub_seq1 sub_seq2 sub_seqm cost_mat cost_cube sub_seq3 
+                            mine.cost2 mine.cost3
                         in
 
                         detect_change chrom ((c_id, f_p, l_p, median_seq)::new_med) (l_p + 1)
@@ -1803,7 +1817,6 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
             end 
         end 
     in 
-
     let change_chrom chrom = 
         let new_med_rev = detect_change chrom [] 0 in         
         let l_p, seq_ls = List.fold_left 
@@ -1827,20 +1840,42 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
         let new_seq = Sequence.concat (List.rev seq_ls) in
         let new_chrom = {chrom with seq = new_seq} in
         new_chrom
-    in 
-
+    in
+(* no need to calculate cost3 again for we carry it with us now
     let cost1, _ = cmp_cost ch1 mine cost_mat pam in
     let cost2, _ = cmp_cost ch2 mine cost_mat pam in
     let cost3, _ = cmp_cost ch3 mine cost_mat pam in
     let total_cost = cost1 + cost2 + cost3 in
-
+*)
+    (*get old cost12 and cost3*)
+    let old_cost3 = mine.cost3 in
+    let old_cost12 = mine.cost1 + mine.cost2 in
+    let old_sumcost = mine.sum_cost in
+    (*get new cost12 and cost3*)
     let new_chrom_arr = Array.map change_chrom mine.chrom_arr in 
     let new_mine = {mine with chrom_arr = new_chrom_arr} in 
-
-    let new_cost1, _ = cmp_cost ch1 new_mine cost_mat pam in
-    let new_cost2, _ = cmp_cost ch2 new_mine cost_mat pam in
-    let new_cost3, _ = cmp_cost ch3 new_mine cost_mat pam in
-    let total_new_cost = new_cost1 + new_cost2 + new_cost3 in
-
-    if total_new_cost < total_cost then total_new_cost, new_mine
-    else total_cost, mine
+    let new_cost_mine_ch1, (rc1,rc2) = cmp_cost ch1 new_mine cost_mat pam in
+    let new_recost_mine_ch1 = rc1 + rc2 in
+    let new_cost_mine_ch2, (rc1,rc2) = cmp_cost ch2 new_mine cost_mat pam in
+    let new_recost_mine_ch2 = rc1 + rc2 in
+    let new_cost12 = new_cost_mine_ch1 + new_cost_mine_ch2 in
+    let new_cost_mine_parent, _ = cmp_cost ch3 new_mine cost_mat pam in
+    let new_cost3 = new_cost_mine_ch1 + new_cost_mine_ch2 + new_cost_mine_parent in
+    let new_sumcost = ch1.sum_cost + ch2.sum_cost + new_cost12 in
+    (*update new_mine with cost12 and cost3*)
+    let new_mine = {new_mine with
+            cost1 = new_cost_mine_ch1;
+            recost1 = new_recost_mine_ch1;
+            cost2 = new_cost_mine_ch2;
+            recost2 = new_recost_mine_ch2;
+            cost3 = new_cost3; 
+            sum_cost = new_sumcost;
+    } in
+    (*return new median with cost12, cost3*)
+    if (new_cost12 < old_cost12)||(new_cost3 < old_cost3)||(new_sumcost <
+    old_sumcost)(*we don't compare the median sequence, for they are array of
+    sequences, and they might be huge, ||(0 <> compare new_chrom_arr chrom_arr)*) 
+    then 
+            new_cost12, new_cost3, new_mine, true
+    else 
+        old_cost12, old_cost3, mine, false
