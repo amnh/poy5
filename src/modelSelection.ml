@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2662 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2708 $"
 
 let ndebug = true
 
@@ -234,7 +234,7 @@ struct
         (2.0 *. (float_of_int k)) +. 2.0 *. nl_max
 
     (** [aicc] is defined as AICc = AIC + (2 k (k -1)) / (n-k-1); this criteria is the
-        same as AIC as n -> inf (since n is in the denominator), as is a stricter
+        same as AIC as n -> inf (since n is in the denominator); This is a stricter
         parameter penalized version AIC. *)
     let aicc k n nl_max =
         let aic = aic k n nl_max and n = float_of_int n and k = float_of_int k in
@@ -253,7 +253,7 @@ struct
 
     (** [model_averaged_parameter] return the model average parameter for a
         function that access the given parameter. This uses the ic weight to
-        weight the value of the parameter, divided by the sum of the weights.
+        weigh the value of the parameter, divided by the sum of the weights.
         The function should return "None" if the model should be excluded from
         the model averaging. *)
     let model_averaged_parameter f_get_param stats chars =
@@ -278,8 +278,9 @@ struct
     let best_model stats =
         stats.tree_stats.( fst stats.min_ic ).tree
 
-    (** [stats_of_tree] fill stats, minus decision theory and hlrt, of
-        information criteria tests from a ML tree *)
+    (** [stats_of_tree] fill stats of criteria tests from a ML tree. Warning is
+        used to tell the user when a situation occurs that the number of
+        parameters compared to the observations may result in issues.  *)
     let stats_of_tree warn ic chars tree =
         let k = parameter_cardinality tree chars in
         let n = sample_size tree chars in
@@ -287,7 +288,7 @@ struct
         let ic = match ic with
             | `AICC -> aicc k n l
             | `BIC  -> bic k n l
-            | `AIC  -> 
+            | `AIC  ->
                 warn := !warn || ((float_of_int n) /. (float_of_int k) < 40.0);
                 aic k n l
         in
@@ -307,12 +308,12 @@ struct
         in
         Methods.cost := `Iterative (`ThreeD None);
         let warning = ref false in
-        let tree_stats = 
+        let tree_stats =
             specs --> Array.of_list
                   --> Array.map (diagnose_tree_with_model tree chars spec)
                   --> Array.map (stats_of_tree warning ic chars)
         in
-        let () = 
+        let () =
             if !warning then
                 warn_user_message
                        ("When@ the@ sample@ size@ of@ a@ set@ of@ data@ is@ "^^
@@ -344,7 +345,6 @@ struct
         assert( (fst_trp tree_stats.(fst min_ic).ic) = (snd min_ic) );
         { tree_stats = tree_stats; min_ic = min_ic; type_ic = ic; }
 
-
     (** [merge_stats] merges stats together; this is to allow multiple trees to
         be analyzed under a single criteria; allowing additional models to be
         added to the criteria; et cetera *)
@@ -369,7 +369,7 @@ struct
                         let d_ic = (fst_trp curr.ic) -. (snd min_ic) in
                         let w_ic  = exp (~-. d_ic /. 2.0) in
                         let ndata =
-                            { curr with 
+                            { curr with
                                 ic = (fst_trp curr.ic,d_ic,w_ic); }
                         in
                         ndata :: data, sum_ic +. w_ic)
@@ -378,7 +378,7 @@ struct
             in
             let tree_stats =
                 List.map
-                    (fun c -> 
+                    (fun c ->
                         {c with
                             ic = (fst_trp c.ic, snd_trp c.ic, (trd_trp c.ic) /. sum_ic); })
                     tree_stats
@@ -413,6 +413,8 @@ struct
             --> ignore;
         ret
 
+    (** [generate_stats] Generates the stats of a tree based on a reporting
+        information type. *)
     let generate_stats tree ((chars,_,_,ic,_,_,_) as spec) =
         let ic = match ic with
             | `AIC  _ -> `AIC

@@ -397,8 +397,6 @@ type d = {
     (* branch lengths read from nexus file: tree -> node -> char *)
     (* node is defined by partition of leaves in the tree        *)
     branches : (string, ((string, float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t option;
-    (* determine if we should iterate the branches *)
-    iterate_branches : bool;
     (* The set of codes that belong to the class of Non additive with up to 1
     * states (useless!) *)
     non_additive_1 : int list;
@@ -464,7 +462,6 @@ let compare data1 data2 : bool =
         && (data1.character_specs = data2.character_specs)
         && (data1.ignore_taxa_set = data2.ignore_taxa_set)
         && (data1.ignore_character_set = data2.ignore_character_set)
-        && (data1.iterate_branches = data2.iterate_branches)
         && (data1.complex_schema = data2.complex_schema)
         && (data1.files = data2.files)
         && (data1.machine = data2.machine)
@@ -546,7 +543,6 @@ let empty () =
         ignore_character_set = [];
         trees = [];
         branches = None;
-        iterate_branches = true;
         non_additive_1 = [];
         non_additive_8 = [];
         non_additive_16 = [];
@@ -1264,13 +1260,13 @@ let process_trees data file =
         let () = close_in ch in
         let cnt = ref 0 in
         let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
-        let branches, found =
-            branches_to_map data None None (List.map (fun (x,_,_) -> x) trees)
+        let branches =
+            let branches,found = branches_to_map data None None
+                            (List.map (fun (x,_,_) -> x) trees) in
+            if found then Some branches else None
         in
-        let branches = if found then Some branches else None in
         { data with trees = data.trees @ trees;
-                    branches = branches;
-                    iterate_branches = (not found);}
+                    branches = branches; }
     with
     | Sys_error err ->
         let file = FileStream.filename file in
@@ -2221,17 +2217,17 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
         (character_nsets,character_sets)
     in
     (* create set for branches *)
-    let tbl,found =
-        branches_to_map data None (Some file_out.Nexus.File.branches)
-                        file_out.Nexus.File.trees
+    let tbl =
+        let tbl,found =
+            branches_to_map data None (Some file_out.Nexus.File.branches)
+                                 file_out.Nexus.File.trees in
+        if found then Some tbl else None
     in
-    let tbl = if found then Some tbl else None in
     let d = 
         {data with 
             character_sets = csets;
             character_nsets = cnsets;
-            branches = tbl;
-            iterate_branches = (not found); }
+            branches = tbl; }
     in
     Status.finished st;
     new_codes, d

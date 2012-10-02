@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2707 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2708 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -146,12 +146,14 @@ type ('a, 'b) join_fn =
             ('a, 'b) p_tree * Tree.join_delta
 
 type ('a, 'b) model_fn =
-    ('a, 'b) p_tree -> ('a, 'b) p_tree
-
-type ('a, 'b) adjust_fn = 
-    ?max_iter:(int) ->
+    ?max_iter:int ->
         ('a, 'b ) nodes_manager option ->
             ('a, 'b) p_tree -> ('a, 'b) p_tree
+
+(*type ('a, 'b) adjust_fn = *)
+(*    ?max_iter:(int) ->*)
+(*        ('a, 'b ) nodes_manager option ->*)
+(*            ('a, 'b) p_tree -> ('a, 'b) p_tree*)
 
 type ('a, 'b) cost_fn =
     ('a, 'b ) nodes_manager option -> Tree.join_jxn -> Tree.join_jxn ->
@@ -170,7 +172,7 @@ module type Tree_Operations =
         type b
 
         val break_fn : (a, b) break_fn
-        val adjust_fn : (a, b) adjust_fn
+(*        val adjust_fn : (a, b) adjust_fn*)
         val model_fn : (a, b) model_fn
         val join_fn : (a, b) join_fn 
         val cost_fn : (a, b) cost_fn

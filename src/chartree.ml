@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 2707 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 2708 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -1478,7 +1478,7 @@ module TreeOps = struct
     let clear_internals _ ptree = ptree
     let break_fn _ = break_fn
     let join_fn _ = join_fn
-    let model_fn x = x
+    let model_fn ?(max_iter) _ x = x
     let adjust_fn ?(max_iter) _ t = t
     let cost_fn _ = 
         match !Methods.cost with

@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2662 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2708 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1276,7 +1276,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         "build@ or@ load@ trees@ before@ transforming@ to@ a@ "^
                         "model@ selection@ criteria."
                 in
-                Status.user_message Status.Warning m;
+                Status.user_message Status.Error m;
                 trees, data, nodes
             end else begin
                 let trees =
@@ -1296,6 +1296,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         trees
                 in
                 let data, nodes =
+                    (** Load global data to the best tree if we are analyzing
+                        multiple trees. *)
                     let best_tree =
                         Sexpr.fold_left
                             (fun acc nex ->

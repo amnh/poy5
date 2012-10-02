@@ -130,15 +130,18 @@ type ('a, 'b) join_fn =
 * is just the tree_delta that was returned as a result of the edge break
 * operation. *)
 
-type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
+type ('a, 'b) model_fn =
+    ?max_iter:int ->
+        ('a, 'b ) nodes_manager option ->
+            ('a, 'b) p_tree -> ('a, 'b) p_tree
 (** type of function to perform iteration on the model of the tree. adjust_fn
  * does both branches and model, this function is for easy access to adjust the
  * model from the toplevel or from samplers and other functions *)
 
-type ('a, 'b) adjust_fn = 
-    ?max_iter:(int) ->
-        ('a, 'b ) nodes_manager option ->
-            ('a, 'b) p_tree -> ('a, 'b) p_tree
+(*type ('a, 'b) adjust_fn = *)
+(*    ?max_iter:(int) ->*)
+(*        ('a, 'b ) nodes_manager option ->*)
+(*            ('a, 'b) p_tree -> ('a, 'b) p_tree*)
 (** type of function that performs iterations on the model and branch lengths
  * of the tree for likelihood. This function takes if the model needs to be
  * iterated and what edges to adjust branch lengths. *)
@@ -174,7 +177,7 @@ module type Tree_Operations =
     type b
 
     val break_fn : (a, b) break_fn
-    val adjust_fn : (a,b) adjust_fn
+(*    val adjust_fn : (a,b) adjust_fn*)
     val model_fn : (a,b) model_fn
     val join_fn : (a, b) join_fn
     val cost_fn : (a, b) cost_fn
