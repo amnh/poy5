@@ -19,8 +19,13 @@
 
 (* Helper functions *)
 let truere = Str.regexp ".*true.*"
+
+let ( --> ) a b = b a
+
+let append a b = b ^ a
+
 let get_option lst str =
-    let _, str = 
+    let _, str =
         List.find (fun (a, _) -> Str.string_match (Str.regexp a) str 0) lst
     in
     str
@@ -29,28 +34,34 @@ let get_graphics str =
     get_option [(".*tk", "tk"); (".*ocaml", "ocaml"); (".*", "none")] str
 
 let get_interface str =
-    get_option [(".*gtk", "gtk2"); (".*ncurses", "ncurses"); (".*readline",
-    "readline"); (".*html", "html"); (".*flat", "flat")] str
+    get_option
+        [(".*gtk", "gtk2"); (".*ncurses", "ncurses");
+         (".*readline", "readline"); (".*html", "html"); (".*flat", "flat")]
+        str
 
 let is_true str = if Str.string_match truere str 0 then  "on" else "off"
+
 let rephrase str = Str.global_replace (Str.regexp " +") "@ " str
 
 (* The Version Values *)
 let name = "Black Sabbath"
+
 let major_version = 5
+
 let minor_version = 0
+
 let release_version = 0
+
 let patch_version = Str.global_replace (Str.regexp " +") ""  BuildNumber.build
+
 type release_options = Development | Candidate of int | Official
+
 let release_option = Development
 
-let ( --> ) a b = b a
-let append a b = b ^ a
-
-let if_run a f b c = if a then f b c else c 
+let if_run a f b c = if a then f b c else c
 
 let option_to_string b =
-    let build_string = " build " 
+    let build_string = " build "
     and rcstring = " Release Candidate " in
     match release_option with
         | Official    -> b
@@ -60,22 +71,22 @@ let option_to_string b =
                  --> append patch_version
         | Candidate x ->
             b   --> append rcstring
-                --> append (string_of_int x) 
+                --> append (string_of_int x)
 
-let small_version_string = 
+let small_version_string =
     let concatenator x acc = acc ^ string_of_int x in
     let dot = "." in
     ""  --> concatenator major_version
         --> append dot
-        --> concatenator minor_version 
+        --> concatenator minor_version
         --> if_run (0 <> release_version) append dot
-        --> if_run (0 <> release_version) concatenator release_version 
+        --> if_run (0 <> release_version) concatenator release_version
 
 let version_string = option_to_string small_version_string
 
 let version_num_string = Printf.sprintf "%d.%02d" major_version minor_version
 
-let copyright_authors = 
+let copyright_authors =
     rephrase ("@[Copyright (C) 2011, 2012 Andres Varon, Nicholas Lucaroni, Lin Hong, Ward Wheeler, and the American Museum of Natural History.@]@,")
 
 let warrenty_information =
@@ -83,11 +94,11 @@ let warrenty_information =
 
 let compile_information =
     rephrase ("@[Compiled on " ^ CompileFlags.time
-            ^ " with parallel " ^ is_true CompileFlags.str_parallel
-            ^ ", interface " ^ get_interface CompileFlags.str_interface
-            ^ ", likelihood " ^ is_true CompileFlags.str_likelihood
-            ^ ", and concorde " ^ is_true CompileFlags.str_concorde ^ ".@]@,")
+             ^ " with parallel " ^ is_true CompileFlags.str_parallel
+             ^ ", interface " ^ get_interface CompileFlags.str_interface
+             ^ ", likelihood " ^ is_true CompileFlags.str_likelihood
+             ^ ", and concorde " ^ is_true CompileFlags.str_concorde ^ ".@]@,")
 
-let string = 
+let string =
     "@[@[Welcome to @{<b>POY@} " ^ version_string ^ "@]@."
-    ^ compile_information ^ copyright_authors ^ warrenty_information ^ "@]@."
+        ^ compile_information ^ copyright_authors ^ warrenty_information ^ "@]@."

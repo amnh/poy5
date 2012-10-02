@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2684 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2710 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -141,14 +141,12 @@ type ('a, 'b) break_fn =
         Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
 
 type ('a, 'b) join_fn =   
-    ('a, 'b ) nodes_manager option -> 
-    incremental list ->
-    Tree.join_jxn ->
-    Tree.join_jxn ->
-    ('a, 'b) p_tree ->
-    ('a, 'b) p_tree * Tree.join_delta
+    ('a, 'b ) nodes_manager option -> incremental list ->
+        Tree.join_jxn -> Tree.join_jxn -> ('a, 'b) p_tree ->
+            ('a, 'b) p_tree * Tree.join_delta
 
-type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
+type ('a, 'b) model_fn =
+    ('a, 'b) p_tree -> ('a, 'b) p_tree
 
 type ('a, 'b) adjust_fn = 
     ?max_iter:(int) ->
@@ -156,24 +154,15 @@ type ('a, 'b) adjust_fn =
             ('a, 'b) p_tree -> ('a, 'b) p_tree
 
 type ('a, 'b) cost_fn =
-    ('a, 'b ) nodes_manager option -> 
-    Tree.join_jxn -> Tree.join_jxn ->
-    float ->
-    'a ->
-    ('a, 'b) p_tree ->
-    clade_cost
+    ('a, 'b ) nodes_manager option -> Tree.join_jxn -> Tree.join_jxn ->
+        float -> 'a -> ('a, 'b) p_tree -> clade_cost
     
 type ('a, 'b) reroot_fn =
-    ('a, 'b ) nodes_manager option -> 
-    bool ->
-    Tree.edge ->
-    ('a, 'b) p_tree ->
-    ('a, 'b) p_tree * incremental list
+    ('a, 'b ) nodes_manager option -> bool -> Tree.edge ->
+        ('a, 'b) p_tree -> ('a, 'b) p_tree * incremental list
 
 type ('a, 'b) print_fn =
-    string ->
-    ('a, 'b) p_tree -> 
-    unit
+    string -> ('a, 'b) p_tree -> unit
 
 module type Tree_Operations = 
     sig
@@ -266,24 +255,23 @@ end
 class type ['a, 'b] wagner_mgr =
     object
         method any_trees : bool
+
         method clone : ('a, 'b) wagner_mgr
-        method init : 
-            (('a, 'b) p_tree * float * clade_cost * 
+
+        method init :
+            (('a, 'b) p_tree * float * clade_cost *
                 ('a, 'b) wagner_edges_mgr) list -> unit
+
         method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
+
         method process :
-            ('a, 'b) cost_fn ->
-                ('a, 'b) nodes_manager option ->
-                    float ->
-                        'a ->
-                            ('a, 'b) join_fn ->
-                                Tree.join_jxn ->
-                                    Tree.join_jxn -> 
-                                        ('a, 'b) p_tree -> 
-                                            ('a, 'b) wagner_edges_mgr ->
-                                                t_status
-    method evaluate : unit
-    method results : (('a, 'b) p_tree * float) list
+            ('a, 'b) cost_fn -> ('a, 'b) nodes_manager option -> float ->
+                'a -> ('a, 'b) join_fn -> Tree.join_jxn -> Tree.join_jxn ->
+                    ('a, 'b) p_tree -> ('a, 'b) wagner_edges_mgr -> t_status
+
+        method evaluate : unit
+
+        method results : (('a, 'b) p_tree * float) list
 end
 
 (** The search manager object that parameterizes the search. This
@@ -305,10 +293,10 @@ end
     (** [process cost_fn join_fn
      *       join_1_jxn join_2_jxn tree_delta 
      *       broken_tree -> Travesal Status *)
-      method process : ('a, 'b) cost_fn -> float -> 'a ->
-          ('a, 'b) join_fn -> incremental list ->
-          Tree.join_jxn -> Tree.join_jxn -> 
-          ('a, 'b) tabu_mgr -> ('a, 'b) p_tree -> t_status 
+      method process : 
+        ('a, 'b) cost_fn -> float -> 'a -> ('a, 'b) join_fn -> incremental
+            list -> Tree.join_jxn -> Tree.join_jxn -> ('a, 'b) tabu_mgr ->
+                ('a, 'b) p_tree -> t_status
     (** This function decides whether to perform a join operation 
      * and add the tree to the queue of trees to be searched. *)
           
@@ -1204,7 +1192,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         let j1 = Tree.Edge_Jxn(h1, h2) in
                         let status:t_status =
                             srch_mgr#process Tree_Ops.cost_fn i_mgr infinity
-                                 nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr
+                                    nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr
                         in 
                         status, srch_mgr
                     in
@@ -1239,7 +1227,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         seq_add rest n_srch_mgr (added+1)
                 in
                 let tabu_mgr = create_tabu_mgr ptree h1 in
-                srch_mgr#init [(ptree, cst, Cost(infinity), tabu_mgr)] ;
+                srch_mgr#init [(ptree, cst, Cost(infinity), tabu_mgr)];
                 let result = (seq_add rest srch_mgr 2) in
                 Status.finished status;
                 result
@@ -1274,8 +1262,7 @@ type search_step =
 
 let other_side = function `Left -> `Right | `Right -> `Left
 
-let get_side_info side break = 
-    match side with
+let get_side_info side break = match side with
     | `Left -> break.left
     | `Right -> break.right
 
@@ -1287,8 +1274,7 @@ let apply_incremental breakage =
     { breakage with ptree = ptree; incremental = [] }
 
 let simplify x jxn = 
-    let compare x y =
-        match x, y with
+    let compare x y = match x, y with
         | `Single (x, _), Tree.Single_Jxn y -> x = y
         | `Edge (_, l1, l2, _), Tree.Edge_Jxn (a, b) ->
                 (a = l1 && b = l2) || (b = l1 && a = l2)
@@ -1318,8 +1304,7 @@ let single_spr_round pb parent_side child_side
                 Tree.Edge_Jxn (a, b), handle_of a breakage.ptree
     in
     let npb = simplify pb child_jxn in
-    let simplifier = 
-        match npb with
+    let simplifier = match npb with
         | `Pair _ -> fun x _ -> x
         | `Single _ -> simplify
         | `Same -> assert false

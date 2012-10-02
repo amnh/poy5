@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FloatSequence" "$Revision: 2650 $"
+let () = SadmanOutput.register "FloatSequence" "$Revision: 2662 $"
 
 (* Debug variables/ combinators *)
 let (-->) a b = b a
@@ -85,7 +85,7 @@ let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
 let make_model alph model = { static = model; alph = alph; }
 
-let spec_model alph spec = make_model alph (MlModel.create alph spec)
+let spec_model alph spec = make_model alph (MlModel.create spec)
 
 open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
@@ -264,13 +264,14 @@ module CMPLAlign : A = struct
                 then a,ta, b,tb, false
                 else b,tb, a,ta, true
         in
-        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        let alphabet =  MlModel.get_alphabet m.static in
+        let gap = Alphabet.get_gap alphabet in
         let med= create_s a b and ea= create_s a b and eb= create_s a b in
         let () = full_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
                                 m.static.MlModel.ui a b ea eb med gap in
         let ea,eb,med = 
             if filter_gap
-                then ea, eb, remove_gaps (Alphabet.get_gap m.alph) med
+                then ea, eb, remove_gaps (Alphabet.get_gap alphabet) med
                 else ea, eb, med
         in
         if switch then eb,ea,med else ea,eb,med
@@ -283,7 +284,8 @@ module CMPLAlign : A = struct
                 else b,tb, a,ta
         in
         let med= create_s a b in
-        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        let alphabet =  MlModel.get_alphabet m.static in
+        let gap = Alphabet.get_gap alphabet in
         let () = median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
                                   m.static.MlModel.ui a b med gap in
         if filter_gap
@@ -371,7 +373,8 @@ module CMPLAlign : A = struct
                model.static.MlModel.ui t x y
 
     let cost_2 ?deltaw x y m tx ty (fmat,mat) = 
-        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        let alphabet =  MlModel.get_alphabet m.static in
+        let gap = Alphabet.get_gap alphabet in
         nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
                         m.static.MlModel.ui tx ty x y gap
 
@@ -386,7 +389,8 @@ module CMPLAlign : A = struct
     let cost = get_cf
 
     let full_cost_2 _ x y m tx ty (fmat,mat) =
-        let gap = Alphabet.get_gap m.static.MlModel.alph in
+        let alphabet =  MlModel.get_alphabet m.static in
+        let gap = Alphabet.get_gap alphabet in
         nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
                         m.static.MlModel.ui tx ty x y gap
 
@@ -420,7 +424,7 @@ module CMPLAlign : A = struct
 
     let closest ~p ~m model t ((fmat,_) as mem) =
         let gap = Alphabet.get_gap model.alph in
-        let (s_new,c) as res = 
+        let (s_new,c) as res =
             if Sequence.is_empty m gap then begin
                 m, 0.0
             end else if 0 = Sequence.compare p m then begin
@@ -610,14 +614,14 @@ module MPLAlign : A = struct
             in
             let xs = BitSet.Int.list_of_packed x_i
             and ys = BitSet.Int.list_of_packed y_i in
-
             let cst,states =
+                let sz = snd m.static.MlModel.spec.MlModel.alphabet in
                 List.fold_left
                     (fun acc x ->
                         List.fold_left
                             (fun acc y ->
                                 let c_min = ref acc in
-                                for i = 0 to (m.static.MlModel.alph_s)-1 do
+                                for i = 0 to sz - 1 do
                                     let c = med_cost x y i in
                                     if (fst !c_min) =. c then
                                         c_min := (min c (fst !c_min), i::(snd !c_min))
@@ -1252,7 +1256,7 @@ module MALAlign : A = struct
     let create_align_cost_fn m tx ty =
         let cm1 = MlModel.compose m.static tx in
         let cm2 = MlModel.compose m.static ty in
-        let num = Alphabet.size m.static.MlModel.alph in
+        let num = MlModel.get_alphabet_size m.static in
         fun x_i y_i ->
             let fn (cst,n) x y =
                 let cst = ref 0.0 in

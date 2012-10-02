@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2684 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2710 $"
 
 module IntSet = All_sets.Integers
 
@@ -2030,6 +2030,12 @@ let process_taxon_filter (run : r) meth =
         in
         let data = Data.categorize data in
         let data, nodes = Node.load_data data in
+        let () =
+            Printf.ksprintf
+                (Status.user_message Status.Status)
+                ("Selected %d of %d terminals")
+                (List.length nodes)  (run.data.Data.number_of_taxa)
+        in
         { run with nodes = nodes; data = data }
 
 let sort_trees trees =

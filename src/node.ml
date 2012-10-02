@@ -17,13 +17,12 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2684 $"
+let () = SadmanOutput.register "Node" "$Revision: 2710 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
 
 let debug           = false
-(* print a msg if we perform jc distance instead of given BL *)
 let debug_bl        = false
 let debug_exclude   = false
 let debug_sets      = false
@@ -233,12 +232,7 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
-        (*cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates | `Sankoff ];
-        *)
-        (*cost_mode is only for likelihood, in function [total_cost_of_type]*)
         cost_mode : [ `Likelihood | `NotLikelihood | `SumLikelihood  ];
-        (** This allows us to count how many taxa from a set are children of the
-            given node *)
     }
 
 
@@ -251,7 +245,6 @@ let print_node_data (data : node_data) =
     in 
     Printf.fprintf stdout "Number dynamics: %i, " (List.length dynamic_ls); 
     print_newline ()
-
 
 
 let print_times n =
@@ -518,13 +511,16 @@ let extract_states alph data in_codes node =
 
 
 (*[cs_update_cost_only mine ch1 ch2] when any of the children has a different
-* sum_cost, but the assignment for that children(from median function) remain the same, 
-* here we only need to update sum_cost of mine*)
-let cs_update_cost_only mine ch1 ch2 = 
-    match mine,ch1,ch2 with 
+* sum_cost, but the assignment for that children(from median function) remain
+* the same, here we only need to update sum_cost of mine*)
+let cs_update_cost_only mine ch1 ch2 = match mine,ch1,ch2 with 
     | StaticMl m, StaticMl c1, StaticMl c2 ->
-            let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
+        IFDEF USE_LIKELIHOOD THEN
+            let sumcost = m.cost in
             StaticMl { m with sum_cost = sumcost; }, sumcost
+        ELSE
+            failwith MlStaticCS.likelihood_error
+        END
     | Dynamic m, Dynamic c1, Dynamic c2 ->
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             Printf.printf "update_cost_only, sum_cost <- %f\n%!" sumcost;
@@ -538,8 +534,10 @@ let cs_update_cost_only mine ch1 ch2 =
     | Kolmo m, Kolmo c1, Kolmo c2 ->  
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             Kolmo { m with sum_cost = sumcost; }, sumcost
-    | Sank m, Sank c1, Sank c2 -> Sank m, m.sum_cost
-    | FixedStates m, FixedStates c1, FixedStates c2 -> FixedStates m, m.sum_cost
+    | Sank m, Sank c1, Sank c2 ->
+            Sank m, m.sum_cost
+    | FixedStates m, FixedStates c1, FixedStates c2 ->
+            FixedStates m, m.sum_cost
     | Nonadd8 m, Nonadd8 c1, Nonadd8 c2 ->  
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             Nonadd8 { m with sum_cost = sumcost }, sumcost
@@ -549,7 +547,8 @@ let cs_update_cost_only mine ch1 ch2 =
     | Nonadd32 m, Nonadd32 c1, Nonadd32 c2 ->  
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
             Nonadd32 { m with sum_cost = sumcost }, sumcost
-    | _, _ , _ -> failwith "cs_update_cost_only, wrong character type mix"
+    | _, _ , _ ->
+            failwith "cs_update_cost_only, wrong character type mix"
 
 (* calculate the median between two nodes *)
 let rec cs_median code anode bnode prev t1 t2 a b =
@@ -599,26 +598,24 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 if anode.min_child_code < bnode.min_child_code then (t1, t2)
                 else (t2, t1)
             in
-            let n_cost =  n_cost *. ca.weight in
-            let sumcost = n_cost +. ca.sum_cost +. cb.sum_cost in
+            let n_cost  =  n_cost *. ca.weight in
             let res =
                 {
                     preliminary = median;
                     final = median;
                     cost = n_cost;
-                    sum_cost = sumcost;
+                    sum_cost = n_cost;
                     time = Some t1, Some t2, None;
                     weight = ca.weight;
                 }
             in
-            StaticMl res, sumcost
+            StaticMl res, n_cost
         ELSE
             failwith MlStaticCS.likelihood_error
         END
     | Nonadd8 ca, Nonadd8 cb ->
             assert (ca.weight = cb.weight);
-            let prev =
-                match prev with
+            let prev = match prev with
                 | None -> None
                 | Some (Nonadd8 prev) -> Some (prev.preliminary)
                 | _ -> raise (Illegal_argument "cs_median")
@@ -926,12 +923,11 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         MlStaticCS.readjust None !modf am.preliminary bm.preliminary
                                             pm.preliminary t1 t2 
                     in
-                    let sumcost = cost +. bm.sum_cost +. am.sum_cost in
+                    let cost = cost *. pm.weight in
                     { pm with  preliminary = res; final = res;
-                               cost = cost;
-                               sum_cost = sumcost;
+                               cost = cost; sum_cost = cost;
                                time = Some t1, Some t2, t3_opt; },
-                    sumcost
+                    cost
                 (* calculate the median1 for MPL with OCAML Brents *)
                 | `MPL ->
                     let calculate_single t = 
@@ -949,12 +945,11 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let (v,(dv,fv)) =
                         Numerical.brents_method calculate_single (t1+.t2,fstart)
                     in
-                    let sumcost = fv +. bm.sum_cost +. am.sum_cost in
+                    let cost = fv *. bm.weight in
                     { pm with preliminary = dv; final = dv;
-                              cost = fv;
-                              sum_cost = sumcost;
+                              cost = cost; sum_cost = cost;
                               time = Some v, Some 0.0, None; },
-                    sumcost
+                    cost
                 end
             in
             ei_map ptl atl btl ((StaticMl mine, sumcost)::pa)
@@ -979,6 +974,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         DynamicCS.readjust_lk (`ThreeD None) None !modf
                             am.preliminary bm.preliminary pm.preliminary ot1 ot2
                     in
+                    let cost = cost *. am.weight in
+                    let sumcost = cost +. bm.sum_cost +. am.sum_cost in
                     if debug then
                         info_user_message "Ending Cost: %f\t%f\t%f%!" t1 t2 cost;
                     let sumcost = cost +. bm.sum_cost +. am.sum_cost in
@@ -1017,9 +1014,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                 ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
         | ((Set pm) as pml)::ptl, aml::atl, bml::btl ->
                 ei_map ptl atl btl ((pml,pm.sum_cost)::pa)
-        (*
-        | pml::ptl,aml::atl,bml::btl -> 
-                ei_map ptl atl btl (pml::pa) *)
         | [],[],[] -> pa
         | _ -> failwith "Number of characters is inconsistent"
     in
@@ -1942,7 +1936,7 @@ let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     distance_lists chs1 chs2 (convert_2_lst nodea branches) 0.
 
 
-let distance ?(para=None) ?(parb=None)  missing_distance
+let distance ?(para=None) ?(parb=None) missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
         if debug_distance then 
             Printf.printf "\n Node.distance on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
@@ -2477,7 +2471,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                             | _ -> assert false
                         in
                         match x.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood s -> s.MlModel.alph_s
+                        | Nexus.File.STLikelihood s -> MlModel.get_alphabet s
                         | _ -> assert false
                     in
                     classify alph_len (MlStaticCS.compress && do_classify) all !data
@@ -3220,9 +3214,9 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
         nodes
     
 let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
-    (* Not only we make the list a set, we filter those characters that have
-    * weight 0. *)
-let classify = false in
+    (* classify -- Not only we make the list of characters into sets of
+       characers, but we also filter those characters that have weight 0. *)
+    let classify = false in
     current_snapshot "Node.load_data start";
     let classify = (not (Data.has_dynamic data)) && classify in
     let make_set_of_list lst =
@@ -3236,13 +3230,11 @@ let classify = false in
     let is_mem =
         (* We check for informative characters among all the terminals in data *)
         if classify then 
-            (* We need to verify if the character is
-            potentially informative or not *)
-            (fun char -> 
-                Data.apply_boolean
-                NonaddCS8.is_potentially_informative 
-                AddCS.is_potentially_informative data char
-                && 0. <> Data.get_weight char data)
+            (fun char ->
+                Data.apply_boolean NonaddCS8.is_potentially_informative
+                                   AddCS.is_potentially_informative data char
+                && 
+                    0. <> Data.get_weight char data)
         else (fun _ -> true)
     in
     (*let sign_dyna = List.filter is_mem data.Data.dynamics in*)
@@ -3284,17 +3276,15 @@ let classify = false in
         and addvec = make_set_of_list addvec
         and addgen = make_set_of_list addgen in
         let cost_mode = match static_ml with
-            (*| _  when is_fixedstates  -> `Fixedstates*)
             | _::_                    -> `Likelihood
             | [] when has_dynamic_mpl -> `SumLikelihood
             | [] when has_dynamic_mal -> `Likelihood
-            (*| _ when has_sank         -> `Sankoff*)
             | _                       -> `NotLikelihood
         in
         current_snapshot "end nonadd set2";
         let r =
             generate_taxon classify addgen addvec n8 n16 n32 n33 sank dynamics
-            fixedstates kolmogorov static_ml data cost_mode
+                           fixedstates kolmogorov static_ml data cost_mode
         in
         current_snapshot "end generate taxon";
         r
@@ -3467,15 +3457,13 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                 in
                 modified := m;
                 let cost = mine.weight *. cost in
-                let sumcost = cost +. c1.sum_cost +. c2.sum_cost in
                 StaticMl 
                     { mine with 
                         preliminary=res;final=res;
-                        cost=cost;
-                        sum_cost=sumcost;
+                        cost=cost;sum_cost=cost;
                         time = Some t1, Some t2,t3_opt;
                     },
-                sumcost 
+                cost
             ELSE
                 failwith MlStaticCS.likelihood_error
             END

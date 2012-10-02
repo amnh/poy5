@@ -17,9 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 2684 $"
-
-(* $Id: main.ml 2871 2008-05-23 17:48:34Z andres $ *)
+let () = SadmanOutput.register "Main" "$Revision: 2710 $"
 
 let seed = truncate (Unix.time ())
 
@@ -245,7 +243,7 @@ let () =
             Status.clear_status_subwindows ();
             let msg = StatusCommon.escape (Printexc.to_string err) in
             Status.user_message Status.Error msg
-        | err when !Arguments.just_exit ->
+        | err when !Arguments.just_exit && (not debug_pass_errors) ->
             let msg = StatusCommon.escape (Printexc.to_string err) in
             Status.user_message Status.Error msg;
             raise err

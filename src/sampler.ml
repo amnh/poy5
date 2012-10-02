@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sampler" "$Revision: 2656 $"
+let () = SadmanOutput.register "Sampler" "$Revision: 2707 $"
 
 (* The sampler module is divided in two submodules, one containing te
 * application related samplers (App), and one with research intended samplers

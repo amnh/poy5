@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2684 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2710 $"
 
 let eager        = false
 let uppass_debug = false
@@ -864,7 +864,7 @@ struct
            (force_val time_M2B) mc pc pp_opt_list (force_val time_M2P);*)
         (* call medians with times supplied *)
         let node_A = lazy_from_fun
-            (fun () -> 
+            (fun () ->
                 let data_m2p = force_val data_m2p in
                 let data_p2m = force_val data_p2m in
                 let time_M2P = force_val time_M2P in

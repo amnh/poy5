@@ -293,7 +293,7 @@ module OutputInformation = struct
         | `Minimum
         | `Maximum
         | `Summary
-]
+    ]
 
     type file_information = [
         | `Filename 
@@ -310,6 +310,7 @@ module OutputInformation = struct
 
     type t = [
         | `CostMode
+        | `OptMode
         | `TreeInformation of [ treelengths_information | `Number ] list
         | `TaxonInformation
         | `CharacterInformation of character_information list
@@ -517,6 +518,9 @@ let transform_range_to_codes file x y =
 
 let create_ht () = Hashtbl.create 1667 
 
+let likelihood_output_information = [`TreeInformation [`Summary]; `OptMode]
+and parsimony_output_information  = [`TreeInformation [`Summary]; `CostMode ]
+
 (* Empty data! *)
 let empty () = 
     {
@@ -560,7 +564,7 @@ let empty () =
         static_ml = [];
         files = [];
         machine = Kolmo.Compiler.compiler;
-        search_information = [`TreeInformation [`Summary]; `CostMode];
+        search_information = parsimony_output_information;
         root_at = None;
         complex_schema = [];
 }
@@ -1302,13 +1306,10 @@ let process_fixed_states data = function
             }
         with | Sys_error err ->
             let file = FileStream.filename file in
-            let msg =
-                Printf.sprintf
-                    ("@[Couldn't@ open@ file@ %s@ to@ load@ the@ fixed@ "^^
-                     "states.@ The@ system@ error@ message@ is@ %s.@]")
-                    file err
-            in
-            output_error msg;
+            output_errorf
+                ("@[Couldn't@ open@ file@ %s@ to@ load@ the@ fixed@ "^^
+                 "states.@ The@ system@ error@ message@ is@ %s.@]")
+                file err;
             data
         end
     | None ->
@@ -1598,7 +1599,6 @@ let repack_codes data =
 
 
 let add_character data file tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight = 
-        
         incr data.character_code_gen;
         let chcode = !(data.character_code_gen) in
         let dspec = {
@@ -1623,8 +1623,9 @@ let add_character data file tcmfile tcm_full tcm_original tcm3 default_mode lk_m
         Hashtbl.replace data.character_codes chcode file;
         chcode, data
 
-let process_parsed_breakinv data res
-original_filename file tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight =
+let process_parsed_breakinv data res original_filename file tcmfile tcm_full
+                            tcm_original tcm3 default_mode lk_model alphabet
+                            dyna_state dyna_pam weight =
     if debug_parsed_seq then Printf.printf "process parsed breakinv\n%!";
     let get_multichrom_and_delimiter file_taxon_chrom_loci_frag_seq =
         (*breakinv could be multi-chromosome. get the seq and its length out =>
@@ -1694,19 +1695,22 @@ original_filename file tcmfile tcm_full tcm_original tcm3 default_mode lk_model 
 
 
 
-let process_parsed_genome data res
-original_filename file tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight =
+let process_parsed_genome data res original_filename file tcmfile tcm_full
+                          tcm_original tcm3 default_mode lk_model alphabet
+                          dyna_state dyna_pam weight =
     let get_multichromseq file_taxon_chrom_loci_frag_seq =
         (*for genome data, each taxon is a genome. genome might be
         * multi-chromosome, or not, this function works for both.*)
-        List.map (fun (taxon_chrom_loci_frag_seq,b) ->
-            List.map (fun chrom_loci_frag_seq ->
-                match chrom_loci_frag_seq with 
-                | [[seq]] -> (seq,b)
-                | _ -> failwith ("we are doing multi-chromosome here, there\
-                should not be any empty chromosome, or loci('|')/fragment('#') delimiters")
-            ) taxon_chrom_loci_frag_seq
-        ) file_taxon_chrom_loci_frag_seq
+        List.map
+            (fun (taxon_chrom_loci_frag_seq,b) ->
+                List.map
+                    (fun chrom_loci_frag_seq -> match chrom_loci_frag_seq with 
+                        | [[seq]] -> (seq,b)
+                        | _ -> failwith ("we are doing multi-chromosome here, there"
+                                        ^"should not be any empty chromosome, "
+                                        ^"or loci('|')/fragment('#') delimiters"))
+                    taxon_chrom_loci_frag_seq)
+            file_taxon_chrom_loci_frag_seq
     in
     let parsed_genome_seq = get_multichromseq res in
     let num_genome = List.length parsed_genome_seq in
@@ -1723,7 +1727,10 @@ original_filename file tcmfile tcm_full tcm_original tcm3 default_mode lk_model 
                         max_chrom_len := max !max_chrom_len (Sequence.length chrom);
                         (chrom, name)))
     in
-    let chcode, data =  add_character data file tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight in
+    let chcode, data =  add_character data file tcmfile tcm_full tcm_original
+                                      tcm3 default_mode lk_model alphabet
+                                      dyna_state dyna_pam weight
+    in
     Array.fold_left
         ~f:(fun data chrom_arr ->
             let chrom_ls =
@@ -1760,7 +1767,9 @@ original_filename file tcmfile tcm_full tcm_original tcm3 default_mode lk_model 
         
 (* normal sequence, sequence could be divided by fragment "#" *)
 let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
-tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight prealigned domerge =
+                                   tcm_original tcm3 default_mode lk_model
+                                   alphabet dyna_state dyna_pam weight
+                                   prealigned domerge =
     if debug_parsed_seq then Printf.printf "process normal sequence\n%!";
     let get_multi_segment_seq file_taxon_chrom_loci_frag_seq =
         (* input seq list list list list become a matrix looks like this:
@@ -1771,7 +1780,8 @@ tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight prea
            ]
         *)
         let max_num_fragment = ref 0 in
-        let file_taxon_frag_seq = Array.of_list (List.map (fun (taxon_chrom_loci_frag_seq,t) ->
+        let file_taxon_frag_seq =
+            Array.of_list (List.map (fun (taxon_chrom_loci_frag_seq,t) ->
             (*we are only expecting one chromosome for each taxon*)
             (*we are only expecting one loci for each chromosome*)
             (*each loci is a list of fragment, each fragment is a sequence*)
@@ -1899,8 +1909,9 @@ tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight prea
     
     
 
-let process_annotated_chrom data res 
-original_filename file tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight =
+let process_annotated_chrom data res original_filename file tcmfile tcm_full
+                            tcm_original tcm3 default_mode lk_model alphabet
+                            dyna_state dyna_pam weight =
     let get_annotated_seq file_taxon_chrom_loci_frag_seq =
         (*each file has a list of taxons*)
         List.map (fun (taxon_chrom_loci_frag_seq,b) ->
@@ -2069,7 +2080,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
     let st = Status.create "Loading Characters" (Some len_taxa) "taxa" in
     (* [codes] contain the character speecification for the sequences in
     * this file *)
-    let codes = 
+    let codes =
         let builder x = 
             incr data.character_code_gen;
             (!(data.character_code_gen)), x
@@ -2137,18 +2148,16 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                     31
                 else if Alphabet.is_aminoacids alph then
                     21
-                else if Alphabet.is_aminoacids alph then
-                    21
                 else 
                     ~-1
             in
-            let seq = u.Nexus.File.u_data in
             match u.Nexus.File.u_model with
             | Some _ ->
-                process_parsed_sequences 
+                process_parsed_sequences
                     false u.Nexus.File.u_weight default_tcm
-                    Cost_matrix.Two_D.default Cost_matrix.Two_D.default Cost_matrix.Three_D.default
-                    `DO false u.Nexus.File.u_alph file `Ml data seq
+                    Cost_matrix.Two_D.default Cost_matrix.Two_D.default
+                    Cost_matrix.Three_D.default `DO false
+                    u.Nexus.File.u_alph file `Ml data u.Nexus.File.u_data
                     u.Nexus.File.u_model u.Nexus.File.u_pam
             | None ->
                 let tcm_full,tcm_original,name = match u.Nexus.File.u_tcm with
@@ -2190,8 +2199,8 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                 in
                 let tcm3d = Cost_matrix.Three_D.of_two_dim tcm_full in
                 process_parsed_sequences false u.Nexus.File.u_weight name
-                tcm_full tcm_original tcm3d `DO false u.Nexus.File.u_alph file
-                                        `Seq data seq None u.Nexus.File.u_pam
+                    tcm_full tcm_original tcm3d `DO false u.Nexus.File.u_alph
+                    file `Seq data u.Nexus.File.u_data None u.Nexus.File.u_pam
         in
         List.fold_left ~f:(single_sequence_adder) 
                        ~init:data
@@ -2226,11 +2235,33 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                         file_out.Nexus.File.trees
     in
     let tbl = if found then Some tbl else None in
+    (** Change the output if we are using likelihood *)
+    let using_likelihood =
+        let if_unaligned =
+            List.fold_left
+                ~f:(fun acc x -> acc || (match x.Nexus.File.u_model with
+                                         | Some _ -> true
+                                         | None -> false))
+                ~init:false
+                file_out.Nexus.File.unaligned
+        and if_aligned =
+            Array.fold_left
+                ~f:(fun acc x -> acc || (match x.Nexus.File.st_type with
+                                         | Nexus.File.STLikelihood _ -> true
+                                         | _                         -> false))
+                ~init:false
+                file_out.Nexus.File.characters
+        in
+        if_unaligned || if_aligned
+    in
     let d = 
-        {data with 
+        {data with
             character_sets = csets;
             character_nsets = cnsets;
             branches = tbl;
+            search_information =
+                if using_likelihood then likelihood_output_information
+                                    else parsimony_output_information;
             iterate_branches = (not found); }
     in
     Status.finished st;
@@ -2895,18 +2926,16 @@ let get_sequence_tcm_original seqcode data =
         raise err
 
 
-let get_sequence_alphabet seqcode data = 
-    let chars = data.character_specs in
-    try match Hashtbl.find chars seqcode with
+let get_alphabet data c =
+    try match Hashtbl.find data.character_specs c  with
         | Dynamic dspec    -> dspec.alph
         | Kolmogorov dspec -> dspec.dhs.alph
-        | _ -> failwith "Data.get_sequence_alphabet: Not a dynamic character"
-    with | err ->
-        let name = code_character seqcode data in
-        let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-                  " with name " ^ StatusCommon.escape name in
-        Status.user_message Status.Error msg;
-        raise err
+        | Static (NexusFile sspec)   -> sspec.Nexus.File.st_alph
+        | Static (FixedStates sspec) -> sspec.original_dynspec.alph
+        | Set       ->
+            failwithf "Data.get_alphabet: Finding %d alphabet in Set" c
+    with  Not_found ->
+        failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
 
 
 let add_file data contents file = 
@@ -3692,7 +3721,7 @@ let get_dyn_state data c =
 * correspond to a sequence character, or the sequence contains more than one
 * fragment, then it outputs an empty stack. *)
 let get_sequences code data = 
-    let alpha = get_sequence_alphabet code data in
+    let alpha = get_alphabet data code in
     let gap = Alphabet.get_gap alpha in
     let seqs = Stack.create () in
     let process_taxon a b = 
@@ -3964,7 +3993,7 @@ type classes =
     [ `Fixedstates | `Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
     | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
 
-let has_likelihood d = match d.static_ml with
+let has_static_likelihood d = match d.static_ml with
     | [] -> false
     | _  -> true
 
@@ -4381,19 +4410,6 @@ let get_model_opt data c =
     | _ -> None
 
 
-let get_alphabet data c =
-    try match Hashtbl.find data.character_specs c  with
-        | Dynamic dspec    -> dspec.alph
-        | Kolmogorov dspec -> dspec.dhs.alph
-        | Static  x   -> 
-                (match x with 
-                | NexusFile sspec -> sspec.Nexus.File.st_alph
-                | FixedStates sspec -> sspec.original_dynspec.alph
-                )
-        | Set              -> failwithf "Data.get_alphabet: Finding %d alphabet in Set" c
-    with  Not_found        -> failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
-
-
 let available_states data chars = 
     let observed ccode acode = match Hashtbl.find data.character_specs ccode with
         | Static x -> 
@@ -4472,66 +4488,6 @@ let verify_alphabet data chars alph =
             (Alphabet.size alph), alph
         | [] -> failwith "No alphabet to verify?"
         end
-
-(* [independent c d] make each character in the characterset independent. Used
- * so each character can have a different model
-let independent chars data = 
-    let data_loop tbl num =
-        (* chain to work through to change the code... *)
-        (* specs -> Static (static_spec) -> st_type -> STLikelihood (ml_model) -> set_code *)
-        let c_spec = Hashtbl.find tbl num in
-        let n_ = match c_spec with
-            | Static ss -> Static (Nexus.File.change_ml_code (next_likelihood_set ()) ss)
-            | _ -> failwith "I only do this for likelihood characters" in
-        Hashtbl.replace tbl num n_
-    in
-    List.iter (data_loop data.character_specs) 
-              (get_code_from_characters_restricted_comp (`Likelihood) data chars);
-    data
-*)
-(*
-let failwithf format = Printf.ksprintf failwith format
- [make_char_sets sets d] makes a character set with a name based on a list of
- * ranges or single values
-let make_char_sets sets d =
-    let rec perform_on_each fn x = 
-        let rec on_range l h = 
-            if l = h then [fn h]
-            else (fn l) :: (on_range (l+1) h) in
-        match x with
-        | (`Single x) :: tl -> (fn x) :: (perform_on_each fn tl)
-        | (`Range (x,y)) :: tl -> assert ( x < y );
-            (on_range x y) :: (perform_on_each fn tl)
-        | [] -> []
-    in
-    let make_list_of_set_and_add setname setcode stuffs =
-        perform_on_each
-            (fun x -> 
-                let c_name =  try Hashtbl.find d.character_codes x
-                    with | Not_found -> failwithf "Cannot find character %d" x
-                in
-                let tbl = Hashtbl.find data.character_specs x in
-                Hashtbl.replace tbl x setcode;
-                c_name
-            ) stuffs
-    in
-    List.iter 
-        (fun x -> match x with
-         | (name,stuffs)::tl ->
-                let scode =
-                    try Hashtbl.find d.character_codes name
-                    with | Not_found ->
-                        let c = next_likelihood_set () in
-                        Hashtbl.add d.character_codes name c;
-                        c
-                in
-                Hashtbl.add d.character_sets
-                            name
-                            (make_list_of_set_and_add name scode stuffs)
-         | [] -> ()
-        ) sets;
-    d
-*)
 
 (** [compute_priors data chars] computes the observed frequencies for all the
     elements in the alphabet shared by the characters *)
@@ -4736,7 +4692,9 @@ let update_priors data charcodes use_gap =
 let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) = 
     let new_specs = Hashtbl.copy data.character_specs in
     apply_likelihood_model_on_char_table false data new_specs char_codes model;
-    { data with character_specs = new_specs } --> categorize
+    { data with character_specs = new_specs;
+                search_information = likelihood_output_information;}
+        --> categorize
 
 
 (* remove the absent/present columns in the parsed data, and modify the previous
@@ -4899,7 +4857,8 @@ IFDEF USE_LIKELIHOOD THEN
         | [] -> data (* no characters selected; do not duplicate data *)
         | chars ->
             let new_specs = transform_chars data chars in
-            categorize { data with character_specs = new_specs }
+            categorize { data with character_specs = new_specs;
+                                   search_information = parsimony_output_information}
 ELSE
     data
 END
@@ -4923,12 +4882,12 @@ IFDEF USE_LIKELIHOOD THEN
             let model =
                 let compute_priors () = compute_priors data chars u_gap in
                 let alph_size,alph = verify_alphabet data chars alph in
-                let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
+                let lk_spec = MlModel.convert_methods_spec (alph,alph_size) compute_priors m_spec in
                 let lk_spec =
                     if dynamic then MlModel.remove_gamma_from_spec lk_spec
                                else lk_spec
                 in
-                MlModel.create alph lk_spec
+                MlModel.create lk_spec
             in
             apply_likelihood_model_on_chars data chars model
     in
@@ -4936,10 +4895,9 @@ IFDEF USE_LIKELIHOOD THEN
     let d = categorize d in
     let all_chars = categorize_characters_comp d chars in
     let data = List.fold_left ~f:(transform_char_set) ~init:d all_chars in
-    data
+    { data with search_information = likelihood_output_information; }
 ELSE
     failwith "Likelihood not enabled: download different binary or contact mailing list"
-
 END
 
 let get_tran_code_meth data meth = 
@@ -5879,8 +5837,8 @@ let classify_characters_by_alphabet_size data chars =
     in
     let make_tuple_of_character_and_size acc char =
         let size = 
-            data 
-                --> get_sequence_alphabet char
+            char 
+                --> get_alphabet data
                 --> Alphabet.to_sequential 
                 --> Alphabet.distinct_size
         in
@@ -6485,7 +6443,7 @@ let lexicographic_taxon_codes data =
 
 (* A function to produce the alignment of prealigned data *)
 let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
-    let alph = get_sequence_alphabet code data in
+    let alph = get_alphabet data code in
     let model = get_model_opt data code in
     let gap = Alphabet.get_gap alph in
     let character_name = code_character code data in
@@ -6718,8 +6676,8 @@ let sequence_statistics ch data =
     List.map (sequence_code_statistics data) codes
 
 let compare_all_pairs char1 char2 complement data = 
-    let alpha1 = get_sequence_alphabet char1 data
-    and alpha2 = get_sequence_alphabet char2 data 
+    let alpha1 = get_alphabet data char1
+    and alpha2 = get_alphabet data char2
     and cm = get_sequence_tcm char1 data in
     let gap = Alphabet.get_gap alpha1 in
     if alpha1 = alpha2 then 

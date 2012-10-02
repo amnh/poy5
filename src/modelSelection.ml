@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2642 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2662 $"
 
 let ndebug = true
 
@@ -133,14 +133,11 @@ struct
         let asize,a = Data.verify_alphabet (Ptree.get_data tree) nchars alph in
         let base_spec = 
             let init_spec = (chars,alph,cost,`JC69,osite,`Equal,gap) in
-            MlModel.convert_methods_spec asize (fun () -> est_prior) init_spec
+            MlModel.convert_methods_spec (a,asize) (fun () -> est_prior) init_spec
         in
         let all_subst =
             let est_prior = MlModel.Estimated est_prior in
-            [(MlModel.JC69,MlModel.Equal); (MlModel.F81,est_prior);
-             (MlModel.K2P None,MlModel.Equal); (MlModel.F84 None,est_prior);
-             (MlModel.HKY85 None,est_prior); (MlModel.TN93 None,est_prior);
-             (MlModel.GTR None,est_prior)]
+            MlModel.get_all_models asize gap est_prior
         and all_vari = match osite with
             | None                -> [MlModel.Constant ]
             | Some (`Gamma (r,_)) -> [MlModel.Constant; MlModel.Gamma (r,0.1)]
@@ -156,7 +153,7 @@ struct
                         acc all_vari)
                 [] all_subst
         in
-        MlModel.create a base_spec, delta_specs
+        MlModel.create base_spec, delta_specs
 
     (** [parameter_cardinality] Helper function to determine the total number of
         parameters in the model; this includes branches, model rates, gamma, and
@@ -188,13 +185,10 @@ struct
 
     (** [update_model] updates a model with a new model *)
     let update_model old_model new_spec =
-        MlModel.create old_model.MlModel.alph 
-                       { old_model.MlModel.spec with
+        MlModel.create { old_model.MlModel.spec with
                             MlModel.substitution   = new_spec.subst;
                             MlModel.base_priors    = new_spec.prior;
-                            MlModel.iterate_model  = true;
-                            MlModel.iterate_alpha  = true;
-                            MlModel.site_variation = Some new_spec.rates; }
+                            MlModel.site_variation = new_spec.rates; }
 
     (** [apply_model_to_data] apply the model specification to a set of chars *)
     let apply_model_to_data old_model diff chars data : Data.d =

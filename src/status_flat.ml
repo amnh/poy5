@@ -19,7 +19,7 @@
 
 exception Illegal_update
 
-let () = SadmanOutput.register "Status_flat" "$Revision: 2647 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 2660 $"
 
 let stdferr = StatusCommon.Format.formatter_of_out_channel stderr
 
@@ -34,9 +34,7 @@ type formatter_output = StatusCommon.formatter_output
 type c = | SearchReport | Status | Warning | Error | Information 
          | Output of (string option * bool * formatter_output list)
 
-
-let verbosity : [ `None | `Low | `Medium | `High ] ref = ref `High
-
+let verbosity : [ `None | `All ] ref = ref `All
 
 let set_verbosity x = verbosity := x
 
@@ -45,10 +43,6 @@ let get_verbosity () = !verbosity
 
 
 let build_prefix_suffix title =
-(*  The commented lines below allow the wraps to be indented to the title, as in,
-    Information, Warning, or Error. It might be nice. 3 is for " : ". *)
-(*    let ident = string_of_int (3 + String.length title) in*)
-(*    ("@[<hov "^ident^">@[" ^ title ^ "@ :@ @]@["), "@]@]@\n%!"*)
     ("@[@[" ^ title ^ "@ :@ @]@["), "@]@]@\n%!"
 
 let type_string = function

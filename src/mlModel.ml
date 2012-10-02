@@ -17,21 +17,28 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2642 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2705 $"
 
 open Numerical.FPInfix
+
 let (-->) b a = a b
+
 let failwithf format = Printf.ksprintf failwith format
+
+let debug = false
 
 let likelihood_not_enabled =
     "Likelihood@ not@ enabled:@ download@ different@ binary@ or@ contact@ mailing@ list" 
+
 let dyno_likelihood_warning = 
     "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
-    "likelihood@ criteria.@ I@ am@ enabling@ this@ setting@ for@ the@ transformation."
+    "likelihood@ criteria.@ Please@ add@ argument@ gap:(coupled),@ or@ gap:(character)."
+
 let dyno_gamma_warning = 
     "Gamma@ classes@ for@ dynamic@ MPL@ are@ un-necessary,@ and@ are@ being@ removed."
 
-let debug = false
+exception LikelihoodModelError
+
 let debug_printf msg format =
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
@@ -51,14 +58,14 @@ let barray_to_array2 bray =
 let print_barray1 a =
     for i = 0 to (Bigarray.Array1.dim a)-1 do
         Printf.printf "%2.10f\t" a.{i};
-    done; Printf.printf "\n"; ()
+    done; Printf.printf "\n%!"; ()
 
 and print_barray2 a =
     for i = 0 to (Bigarray.Array2.dim1 a)-1 do
         for j = 0 to (Bigarray.Array2.dim2 a)-1 do
             Printf.printf "%2.10f\t" a.{i,j};
         done; Printf.printf "\n";
-    done; Printf.printf "\n"; ()
+    done; Printf.printf "\n%!"; ()
 
 (* type to help the parsing of specification data *)
 type string_spec = string * (string * string * string * string) * float list
@@ -68,60 +75,70 @@ type string_spec = string * (string * string * string * string) * float list
 let empty_str_spec : string_spec = ("",("","","",""),[],`Consistent None,("",None),"",None)
 
 (* the default when commands are left off from the interactive console / scripts *)
-let default_command = (`Max, `MAL,`GTR None,None,`Consistent,`Missing)
+let default_command = (`Max, `MAL,`GTR [],None,`Consistent,`Missing)
 
-(* --- DEFAULTS FOR MODELS FROM PHYML --- *)
-(*  These are used for DNA sequences, and
- *  might not be applicable for all types
- *  of datasets.                          *)
-(* See, Set_Model_Parameters,
- *      Init_Model
- *      Translate_Custom_Mod_String       *)
-let default_tstv    = 4.0
-let default_gtr a   = Array.make (((a-1)*a)/2) 1.0
+(**  [default_tstv] default ratio for models wth tstv rates; same as phyml *)
+let default_tstv  = 4.0
+
+(** [default_gtr] the default parameter rates for GTR; all 1's. False for
+    coupled. otherwise, true *)
+let default_gtr a =
+    function | false -> Array.make (((a-2)*(a+1))/2) 1.0
+             | true  -> Array.make (((a)*(a-3))/2)   1.0 (* Coupled *)
+
+(** [default_alpha] default value for alpha parameter; these are the same as
+    phyml. p is if theta is being used (as in is a percentage) *)
 let default_alpha p = if p then 0.2 else 1.0
+
+(** [default_invar] default percent for invariant sites *)
 let default_invar   = 0.2
+
+(** [default_gap_r] default gap rate, for coupled gap parameters *)
 let default_gap_r   = 0.15
 
-(* list of set bits, or packed integer of set bits *)
+(** Define how characters can be sent to the classification function *)
 type chars = [ `List of int list | `Packed of int ]
 
+(** Define a distribution that branch lengths can be part of *)
 type site_var = 
     | Gamma of int * float
     | Theta of int * float * float
     (* | Given of (float * float) array *)
     | Constant 
 
+(** Define the substitution rate model, between characters *)
 type subst_model =
     | JC69
     | F81
-    | K2P    of float option
-    | F84    of float option
-    | HKY85  of float option
-    | TN93   of (float * float) option
-    | GTR    of float array option
+    | K2P    of float
+    | F84    of float
+    | HKY85  of float
+    | TN93   of (float * float)
+    | GTR    of float array
     | File   of float array array * string
     | Custom of (int All_sets.IntegerMap.t * float array * string)
 
+(** Define how base frequencies are calculated and used *)
 type priors = 
     | Estimated of float array
     | Given     of float array
     | Equal
 
+(** This is a specification of a model; and provides a one-to-one mapping to a
+    full model defined below **)
 type spec = {
     substitution : subst_model;
-    site_variation : site_var option;
+    site_variation : site_var;
     base_priors : priors;
     cost_fn : Methods.ml_costfn;
     use_gap : Methods.ml_gap;
-    iterate_model : bool;
-    iterate_alpha : bool;
+    alphabet : Alphabet.a * int;
 }
 
+(** Define the Model; here we store a diagonalized matrix, priors in C-format
+    big-array, along with some other minor details *)
 type model = {
     spec  : spec;
-    alph  : Alphabet.a;
-    alph_s: int;
     pi_0  : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
     invar : float option;
     rate  : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
@@ -132,64 +149,54 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
-let jc69_5 = { substitution = JC69; site_variation= None;cost_fn=`MAL;
-               iterate_alpha=true;iterate_model=true;use_gap=`Independent;
-               base_priors = Equal;  }
-
-and jc69_4 = { substitution = JC69;site_variation= None;cost_fn=`MAL;
-               iterate_alpha=true;iterate_model=true;use_gap=`Missing;
-               base_priors=Equal; }
-
-let jc69_5_gap flo = { jc69_5 with use_gap = `Coupled flo; }
-
+(** This is a mapping to the codes on the C-side for determining median
+    calculation functions from the cost-style *)
 let get_costfn_code a = match a.spec.cost_fn with 
     | `MPL -> 1 
     | `MAL -> 0 
 
+(** Return the alphabet for the characters *)
+let get_alphabet m = fst m.spec.alphabet
+
+(** Return the size of the alphabet for this model; includes gaps if necessary *)
+let get_alphabet_size m = snd m.spec.alphabet
+
+(** Compare the priors *)
 let compare_priors a b =
-    let compare_array x y = 
+    let compare_array x y =
         let results = ref true in
-        for i = 0 to a.alph_s - 1 do
+        for i = 0 to (snd a.spec.alphabet) - 1 do
             results := !results && (x.(i) =. y.(i));
         done;
         !results
     in
     match a.spec.base_priors ,a.spec.base_priors with
-        | _ when a.alph_s != b.alph_s -> false
+        | _ when (snd a.spec.alphabet) != (snd b.spec.alphabet) -> false
         | Equal , Equal            -> true
         | Estimated x, Estimated y
         | Given     x, Given     y -> compare_array x y
         | (Equal | Estimated _ | Given _), _ -> false
 
-(* a gentler compare that excludes the parameters of the model itself
+(** a gentler compare that excludes the parameters of the model itself
     Not to be used for a total ordering *)
 let compare a b = 
     let m_compare = match a.spec.substitution,b.spec.substitution with
         | JC69 , JC69 | F81 , F81 -> 0
-        | K2P m, K2P x | F84 m, F84 x | HKY85 m, HKY85 x ->
-                begin match m,x with
-                | None,None -> 0
-                | Some v,Some x when v =. x-> 0
-                | _,_ -> ~-1
-                end
-        | Custom _, Custom _
-        | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
+        | K2P _, K2P _ | F84 _, F84 _ | HKY85 _, HKY85 _ -> 0
+        | Custom _, Custom _ | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
         | File (_,x), File (_,y) when x = y -> 0
         | _,_ -> ~-1
     and c_compare = if a.spec.cost_fn = b.spec.cost_fn then 0 else ~-1
     and v_compare = match a.spec.site_variation,b.spec.site_variation with
-        | Some (Gamma (i,a)), Some (Gamma (ix,ax)) ->
-                if i = ix && a = ax then 0 else ~-1
-        | Some (Theta (i,a,p)), Some (Theta (ix,ax,px)) ->
-                if i = ix && a = ax && p = px then 0 else ~-1
-        | None, None | Some Constant, Some Constant 
-        | Some Constant, None | None, Some Constant -> 0
-        | _,_ -> ~-1
+        | Gamma (i,_), Gamma (ix,_)     -> if i = ix then 0 else ~-1
+        | Theta (i,_,_), Theta (ix,_,_) -> if i = ix then 0 else ~-1
+        | Constant, Constant            -> 0
+        | (Gamma _|Theta _|Constant), _ -> ~-1
     and g_compare = match a.spec.use_gap,b.spec.use_gap with
         | `Missing, `Missing
-        | `Independent, `Independent -> 0
-        | `Coupled x, `Coupled y when x = y -> 0
-        | _, _ -> ~-1
+        | `Independent, `Independent
+        | `Coupled _, `Coupled _ -> 0
+        | (`Missing | `Independent | `Coupled _), _ -> ~-1
     and p_compare = if compare_priors a b then 0 else ~-1 in
     (* just knowing that they are different is enough *)
     if debug then begin
@@ -208,6 +215,7 @@ module OrderedML = struct
 end
 module MlModelMap = Map.Make (OrderedML)
 
+(** Categorize a list of codes by model *)
 let categorize_by_model get_fn codes =
     let set_codes,non_lk_codes =
         List.fold_left
@@ -224,7 +232,6 @@ let categorize_by_model get_fn codes =
     let init = match non_lk_codes with | [] -> [] | xs -> [xs] in
     MlModelMap.fold (fun _ e a -> e :: a) set_codes init
 
-
 (** Count the number of parameters in the model; used for xIC functions **)
 let count_parameters model : int =
     let num_subst = match model.spec.substitution with
@@ -232,18 +239,36 @@ let count_parameters model : int =
         | JC69  | F81 | File _    -> 0
         | K2P _ | F84 _ | HKY85 _ -> 1
         | TN93 _                  -> 2
-        | GTR _  -> ((model.alph_s*(model.alph_s-1))/2) - 1
+        | GTR _  ->
+            let a = snd model.spec.alphabet in
+            ((a*(a-1))/2)-1
     and num_rates = match model.spec.site_variation with
-        | None | Some Constant -> 0
-        | Some Gamma _         -> 1
-        | Some Theta (x,_,_) when x = 1 -> 1
-        | Some Theta _         -> 2
+        | Constant        -> 0
+        | Gamma _         -> 1
+        | Theta (x,_,_) when x = 1 -> 1
+        | Theta _         -> 2
     and num_priors = match model.spec.base_priors with
         | Estimated f -> (Array.length f) - 1
         | Given     _ -> 0
         | Equal       -> 0
     in
     num_subst + num_priors + num_rates
+
+(** Return a list of all the models with default parameters; requires alphabet
+    to determine if tstv models are valid and length of GTR parameters *)
+let get_all_models alph gap est_prior =
+    let gtr_array = match gap with
+        | `Independent
+        | `Missing   -> default_gtr alph false
+        | `Coupled _ -> default_gtr alph true
+    in
+    [ (JC69,Equal);
+      (F81,est_prior);
+      (K2P default_tstv,Equal);
+      (F84 default_tstv,est_prior);
+      (HKY85 default_tstv,est_prior);
+      (TN93 (default_tstv,default_tstv),est_prior);
+      (GTR gtr_array,est_prior)]
 
 
 IFDEF USE_LIKELIHOOD THEN
@@ -453,30 +478,40 @@ let m_f84 pi_ gamma kappa a_size gap_r =
     m_tn93 pi_ alpha beta gamma a_size gap_r
 
 (* normalize against two characters that are not gaps; unless its the only choice *)
-let normalize ?(m=Numerical.minimum) spec ray = match spec.use_gap with
-    | `Independent -> 
-        let normalize_factor = max m ray.((Array.length ray) - 3) in
-        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
+let normalize ?(m=Numerical.minimum) alph gap_state vec = match gap_state with
+    | `Independent ->
+(*        let normalize_factor =*)
+(*            if (Alphabet.get_gap alph) = ((Alphabet.size alph)-1)*)
+(*                then max m vec.( (Array.length vec) - 3 )*)
+(*                else max m vec.( (Array.length vec) - 1 )*)
+(*        in*)
+        let normalize_factor = max m vec.((Array.length vec) - 1) in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) vec in
         vec, `Independent
     | `Coupled n ->
-        let normalize_factor = max m ray.((Array.length ray) - 1) in
-        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
-        vec, `Coupled ( n/.normalize_factor )
+        let normalize_factor = max m vec.((Array.length vec) - 1) in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) vec in
+        vec, `Coupled (n/.normalize_factor)
     | `Missing ->
-        let normalize_factor = max m ray.((Array.length ray) - 1) in
-        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
+        let normalize_factor = max m vec.((Array.length vec) - 1) in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) vec in
         vec,`Missing
 
 (* val gtr :: ANY ALPHABET size
    pi_ == n; co_ == ((n-1)*n)/2
    form of lower packed storage mode, excluding diagonal, *)
 let m_gtr_independent pi_ co_ a_size =
-    if ((a_size*(a_size-1))/2) <> Array.length co_ then begin
-        failwithf "Length of GTR parameters is insufficient for alphabet";
+    if (((a_size+1)*(a_size-2))/2) <> Array.length co_ then begin
+        failwithf ("Length of GTR parameters is incorrect for the "^^
+                   "alphabet. They should be %d, but are %d.")
+                  (((a_size+1)*(a_size-2))/2) (Array.length co_);
     end;
     (* last element of GTR = 1.0 *)
-    let last = co_.( (Array.length co_) - 1) in
-    let co_ = Array.map (fun x -> x /. last) co_ in
+    let co_ =
+        let size = (((a_size-1)*a_size)/2) in
+        Array.init (size)
+                   (fun i -> if i = (size-1) then 1.0 else co_.(i))
+    in
     (* create matrix *)
     let n = ref 0 in (* array index *)
     let srm = create_ba2 a_size a_size in
@@ -487,7 +522,7 @@ let m_gtr_independent pi_ co_ a_size =
             incr n;
         done;
     done;
-    (* normalize diagonal so row sums to 0 *)
+    (* set diagonal so row sums to 0 *)
     for i = 0 to (a_size-1) do begin
         let diag = ref 0.0 in
         for j = 0 to (a_size-1) do
@@ -500,13 +535,17 @@ let m_gtr_independent pi_ co_ a_size =
     srm
 
 let m_gtr_coupled pi_ co_ a_size i_gap r_gap =
-    if (((a_size-1)*(a_size-2))/2) <> Array.length co_ then begin
-        failwithf "Length of GTR parameters (%d) is insufficient for alphabet with coupled gap parameter (%d)"
-            (Array.length co_) (((a_size-1)*(a_size-2))/2);
+    if (((a_size)*(a_size-3))/2) <> Array.length co_ then begin
+        failwithf ("Length of GTR parameters (%d) is incorrect for alphabet "^^
+                   "(%d). It should be %d.")
+                  (Array.length co_) a_size (((a_size)*(a_size-3))/2)
     end;
-     (* last element of GTR = 1.0 *)
-    let last = co_.( (Array.length co_) - 1) in
-    let co_ = Array.map (fun x -> x /. last) co_ in
+     (* last element of GTR = 1.0; add back *)
+    let co_ =
+        let size = Array.length co_ in
+        Array.init (size+1)
+                   (fun i -> if i = (size) then 1.0 else co_.(i))
+    in
     (* create matrix *)
     let n = ref 0 in (* array index *)
     let srm = create_ba2 a_size a_size in
@@ -528,7 +567,7 @@ let m_gtr_coupled pi_ co_ a_size i_gap r_gap =
             done;
         end;
     done;
-    (* normalize diagonal so row sums to 0 *)
+    (* set diagonal so row sums to 0 *)
     for i = 0 to (a_size-1) do begin
         let diag = ref 0.0 in
         for j = 0 to (a_size-1) do
@@ -540,9 +579,12 @@ let m_gtr_coupled pi_ co_ a_size i_gap r_gap =
     m_meanrate srm pi_;
     srm
 
-let m_gtr pi_ co_ a_size gap_r = match gap_r with
-    | Some (i,r) -> m_gtr_coupled pi_ co_ a_size i r
-    | None       -> m_gtr_independent pi_ co_ a_size
+let m_gtr pi_ co_ a_size gap_r =
+    let srm = match gap_r with
+        | Some (i,r) -> m_gtr_coupled pi_ co_ a_size i r
+        | None       -> m_gtr_independent pi_ co_ a_size
+    in
+    srm
 
 (* val m_file :: any alphabet size -- recomputes diagonal and divides by meanrate *)
 let m_file pi_ f_rr a_size =
@@ -634,16 +676,18 @@ let process_custom_model alph_size (f_aa: char array array) =
    since the lapack routines reeturn DGEBAL parameter illegal value instead of a
    backtrace *)
 let check_for_nan mat =
-    for i = 0 to (Bigarray.Array2.dim1 mat)-1 do
-        for j = 0 to (Bigarray.Array2.dim1 mat)-1 do
-            assert( not (Numerical.is_nan mat.{i,j}));
+    try for i = 0 to (Bigarray.Array2.dim1 mat)-1 do
+            for j = 0 to (Bigarray.Array2.dim1 mat)-1 do
+                assert( not (Numerical.is_nan mat.{i,j}));
+            done;
         done;
-    done;
-    ()
+        true
+    with _ ->
+        false
 
 (* functions to diagonalize the two types of substitution matrices *)
 let diagonalize (sym : bool) mat =
-    check_for_nan mat;
+    assert( check_for_nan mat );
     let alph = Bigarray.Array2.dim1 mat in
     let n_u  = create_ba2 alph alph in 
     let () = Bigarray.Array2.blit mat n_u in
@@ -669,30 +713,20 @@ let compose model t = match model.ui with
 
 let subst_matrix model topt =
     let _gapr = match model.spec.use_gap with
-        | `Coupled x   -> Some (Alphabet.get_gap model.alph, x)
+        | `Coupled x   -> Some (Alphabet.get_gap (fst model.spec.alphabet), x)
         | `Independent -> None
         | `Missing     -> None
-    and a_size = model.alph_s 
+    and a_size = snd model.spec.alphabet
     and priors = model.pi_0 in
     let m = match model.spec.substitution with
-        | JC69  -> m_jc69 priors 1.0 a_size _gapr
-        | F81   -> m_f81 priors 1.0 a_size _gapr
-        | K2P t -> let t = match t with | Some x -> x | None -> default_tstv in
-                   m_k2p priors t 1.0 a_size _gapr
-        | F84 t -> let t = match t with | Some x -> x | None -> default_tstv in
-                   m_f84 priors t 1.0 a_size _gapr
-        | HKY85 t -> let t = match t with | Some x -> x | None -> default_tstv in
-                   m_hky85 priors t a_size _gapr
-        | TN93 tstv -> let ts,tv = match tstv with | Some (x,y) -> x,y | None -> default_tstv,default_tstv in
-                   m_tn93 priors ts tv 1.0 a_size _gapr
-        | GTR c ->
-                let c,gapr = match c,_gapr with
-                    | Some xs, _   -> normalize model.spec xs
-                    | None, Some _ -> default_gtr (a_size-1), model.spec.use_gap
-                    | None, _      -> default_gtr a_size, model.spec.use_gap
-                in
-                m_gtr priors c a_size _gapr
-        | File (m,s)-> m_file priors m a_size
+        | JC69          -> m_jc69 priors 1.0 a_size _gapr
+        | F81           -> m_f81 priors 1.0 a_size _gapr
+        | K2P t         -> m_k2p priors t 1.0 a_size _gapr
+        | F84 t         -> m_f84 priors t 1.0 a_size _gapr
+        | HKY85 t       -> m_hky85 priors t a_size _gapr
+        | TN93 (ts,tv)  -> m_tn93 priors ts tv 1.0 a_size _gapr
+        | GTR c         -> m_gtr priors c a_size _gapr
+        | File (m,s)    -> m_file priors m a_size
         | Custom (assoc,ray,_) -> m_custom priors assoc ray a_size
     in
     match topt with
@@ -703,7 +737,8 @@ let subst_matrix model topt =
             done;
         done;
         m
-    | None -> m
+    | None ->
+        m
 
 
 (* print output in our nexus format or Phyml output *)
@@ -715,20 +750,15 @@ let output_model output output_table nexus model set =
         let () = match model.spec.substitution with
             | JC69   -> printf "@[Model = JC69;@]@\n";
             | F81    -> printf "@[Model = F81;@]";
-            | K2P None -> printf "@[Model = K2P;@]";
-            | K2P (Some x) -> printf "@[Model = K2P;@]";
+            | K2P x  -> printf "@[Model = K2P;@]";
                         printf "@[Parameters = %f;@]" x
-            | F84 None -> printf "@[Model = F84;@]";
-            | F84 (Some x) -> printf "@[Model = F84;@]";
+            | F84 x  -> printf "@[Model = F84;@]";
                         printf "@[Parameters = %f;@]" x
-            | HKY85 None -> printf "@[Model = HKY85;@]";
-            | HKY85 (Some x) -> printf "@[Model = HKY85;@]";
+            | HKY85 x-> printf "@[Model = HKY85;@]";
                         printf "@[Parameters = %f;@]" x
-            | TN93 None -> printf "@[Model = TN93;@]";
-            | TN93 (Some (a,b)) -> printf "@[Model = TN93;@]";
+            | TN93 (a,b) -> printf "@[Model = TN93;@]";
                         printf "@[Parameters = %f %f;@]" a b
-            | GTR None -> printf "@[Model = GTR;@]"
-            | GTR (Some xs) -> printf "@[Model = GTR;@]";
+            | GTR xs -> printf "@[Model = GTR;@]";
                         printf "@[Parameters = ";
                         Array.iter (printf "%f ") xs;
                         printf ";@]";
@@ -754,7 +784,7 @@ let output_model output output_table nexus model set =
                         end else
                             printf ",@]@[%s %.5f" s x.(i) 
                         with _ -> ())
-                    (Alphabet.to_list model.alph);
+                    (Alphabet.to_list (fst model.spec.alphabet));
                 printf ";@]@]"
         in
         let () = match model.spec.cost_fn with
@@ -762,11 +792,11 @@ let output_model output output_table nexus model set =
             | `MAL -> printf "@[Cost = mal;@]"; 
         in
         let () = match model.spec.site_variation with
-            | Some Constant | None -> ()
-            | Some (Gamma (c, p)) ->
+            | Constant        -> ()
+            | Gamma (c, p)    ->
                 printf "@[Variation = gamma;@]@[alpha = %.5f@]@[sites = %d;@]" p c
-            | Some (Theta (c, p, i)) ->
-                printf ("@[Variation = gamma;@]@[alpha = %.5f@]@[sites = %d;@]"
+            | Theta (c, p, i) ->
+                printf ("@[Variation = theta;@]@[alpha = %.5f@]@[sites = %d;@]"
                         ^^"@[percent = %.5f;@]") p c i
         in
         let () = match model.spec.use_gap with
@@ -792,12 +822,11 @@ let output_model output output_table nexus model set =
     end else (* phylip *) begin
         printf "@[<hov 0>Discrete gamma model: ";
         let () = match model.spec.site_variation with
-            | Some Constant
-            | None -> printf "No@]@\n"
-            | Some (Gamma (cats,param)) ->
+            | Constant -> printf "No@]@\n"
+            | Gamma (cats,param) ->
                 printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]\n"^^
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param
-            | Some (Theta (cats,param,inv)) ->
+            | Theta (cats,param,inv) ->
                 printf ("Yes@]@\n[@<hov 1>- Number of categories: %d@]\n"^^
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param;
                 printf ("@[<hov 1>- Proportion of invariant: %.4f@]\n") inv
@@ -805,7 +834,7 @@ let output_model output output_table nexus model set =
         printf "@]\n";
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
-            | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n"; 
+            | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n";
         in
         printf "@[<hov 0>Priors / Base frequencies:@\n";
         let () = match model.spec.base_priors with
@@ -816,51 +845,64 @@ let output_model output output_table nexus model set =
                         (* this expection handling avoids gaps when they are not
                          * enabled in the alphabet as an additional character *)
                         try printf "@[<hov 1>- f(%s)= %.5f@]@\n" s x.(i) with _ -> ())
-                    (Alphabet.to_list model.alph);
+                    (Alphabet.to_list (fst model.spec.alphabet));
         in
         printf "@[<hov 0>Model Parameters: ";
+        let a = (snd model.spec.alphabet) in
         let () = match model.spec.substitution with
             | JC69  -> printf "JC69@]@\n"
             | F81   -> printf "F81@]@\n"
-            | K2P x -> printf "K2P@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n"
-                        (match x with Some x -> x | None -> default_tstv)
-            | F84 x -> printf "F84@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n"
-                        (match x with Some x -> x | None -> default_tstv)
-            | HKY85 x->printf "HKY85@]@\n@[<hov 1>- Transition/transversion ratio:%.5f@]@\n"
-                        (match x with Some x -> x | None -> default_tstv)
-            | TN93 None->printf "tn93@]@\n@[<hov 1>- transition/transversion ratio:%.5f/%.5f@]@\n"
-                            default_tstv default_tstv
-            | TN93 (Some (a,b)) -> 
-                printf "tn93@]@\n@[<hov 1>- transition/transversion ratio:%.5f/%.5f@]@\n" a b 
-            | GTR x -> gtr_mod := true;
+            | K2P x ->
+                printf "K2P@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n" x
+            | F84 x ->
+                printf "F84@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n" x
+            | HKY85 x    ->
+                printf "HKY85@]@\n@[<hov 1>- Transition/transversion ratio:%.5f@]@\n" x
+            | TN93 (a,b) -> 
+                printf "tn93@]@\n@[<hov 1>- transition/transversion ratio:%.5f/%.5f@]@\n" a b
+            | GTR ray -> gtr_mod := true;
                 printf "GTR@]@\n@[<hov 1>- Rate Parameters: @]@\n";
-                let get_str i = Alphabet.match_code i model.alph
-                and convert s r c = (c + (r * (s-1)) - ((r*(r+1))/2)) - 1 in
-                let ray = match x with | Some x -> x | None -> default_gtr model.alph_s in
+                let get_str i = Alphabet.match_code i (fst model.spec.alphabet)
+                and convert s r c = (c + (r*(s-1)) - ((r*(r+1))/2)) - 1 in
                 begin match model.spec.use_gap with
                     | `Coupled x ->
-                        for i = 0 to model.alph_s - 2 do for j = i+1 to model.alph_s - 2 do
-                            printf "@[<hov 1>%s <-> %s - %.5f@]@\n" (get_str i) 
-                                    (get_str j) ray.(convert (model.alph_s-1) i j)
-                        done; done;
-                        printf "@[<hov 1>%s <-> N - %.5f@]@\n" 
-                            (get_str (Alphabet.get_gap model.alph)) x
+                        let ray =
+                            let size = (((a-3)*a)/2) in
+                            Array.init (size+1)
+                                       (fun i -> if i = (size) then 1.0 else ray.(i))
+                        in
+                        for i = 0 to a - 2 do
+                            for j = i+1 to a - 2 do
+                                let x = convert (a-1) i j in
+                                printf "@[<hov 1>%s <-> %s - %.5f@]@\n"
+                                    (get_str i) (get_str j) ray.(convert (a-1) i j)
+                            done;
+                        done;
+                        printf "@[<hov 1>%s <-> N - %.5f@]@\n"
+                            (get_str (Alphabet.get_gap (fst model.spec.alphabet))) x
                     | `Missing | `Independent ->
-                        for i = 0 to model.alph_s - 1 do for j = i+1 to model.alph_s - 1 do
-                            printf "@[<hov 1>%s <-> %s - %.5f@]@\n" (get_str i) 
-                                    (get_str j) ray.(convert model.alph_s i j)
-                        done; done
+                        let ray =
+                            let size = (((a-1)*a)/2) in
+                            Array.init (size)
+                                       (fun i -> if i = (size-1) then 1.0 else ray.(i))
+                        in
+                        for i = 0 to a - 1 do
+                            for j = i+1 to a - 1 do
+                                printf "@[<hov 1>%s <-> %s - %.5f@]@\n" (get_str i)
+                                        (get_str j) ray.(convert a i j)
+                            done;
+                        done
                 end
             | File (ray,name) ->
                 printf "File:%s@]@\n" name;
                 let mat = compose model 0.0 in
                 printf "@[<hov 1>[";
-                for i = 0 to model.alph_s - 1 do
-                    printf "%s ------- " (Alphabet.match_code i model.alph)
+                for i = 0 to a - 1 do
+                    printf "%s ------- " (Alphabet.match_code i (fst model.spec.alphabet))
                 done;
                 printf "]@]@\n";
-                for i = 0 to model.alph_s - 1 do
-                    for j = 0 to model.alph_s - 1 do
+                for i = 0 to a - 1 do
+                    for j = 0 to a - 1 do
                         printf "%.5f\t" mat.{i,j}
                     done;
                     printf "@\n";
@@ -880,14 +922,14 @@ let output_model output output_table nexus model set =
         printf "@[@[<hov 0>Instantaneous rate matrix:@]@\n";
         match output_table with
         | Some output_table ->
-            let table = Array.make_matrix (model.alph_s+1) model.alph_s "" in
+            let table = Array.make_matrix (a+1) a "" in
             let () =
                 let mat = compose model ~-.1.0 in
-                for i = 0 to model.alph_s - 1 do
-                    table.(0).(i) <- Alphabet.match_code i model.alph;
+                for i = 0 to a - 1 do
+                    table.(0).(i) <- Alphabet.match_code i (fst model.spec.alphabet);
                 done;
-                for i = 0 to model.alph_s - 1 do 
-                    for j = 0 to model.alph_s - 1 do
+                for i = 0 to a - 1 do 
+                    for j = 0 to a - 1 do
                         table.(i+1).(j) <- string_of_float mat.{i,j}
                     done;
                 done;
@@ -898,13 +940,13 @@ let output_model output output_table nexus model set =
             let () =
                 let mat = compose model ~-.1.0 in
                 printf "@[<hov 1>[";
-                for i = 0 to model.alph_s - 1 do
-                    printf "%s ------- " (Alphabet.match_code i model.alph)
+                for i = 0 to a - 1 do
+                    printf "%s ------- " (Alphabet.match_code i (fst model.spec.alphabet))
                 done;
                 printf "]";
-                for i = 0 to model.alph_s - 1 do
+                for i = 0 to a - 1 do
                     printf "@]@\n@[<hov 1>";
-                    for j = 0 to model.alph_s - 1 do
+                    for j = 0 to a - 1 do
                         printf "%8.5f  " mat.{i,j}
                     done;
                 done;
@@ -912,6 +954,8 @@ let output_model output output_table nexus model set =
             printf "@]@\n@]"
     end
 
+(** [compose_model] compose a substitution probability matrix from branch length
+    and substitution rate matrix. *)
 let compose_model sub_mat t = 
     let a_size = Bigarray.Array2.dim1 sub_mat in
     let (u_,d_,ui_) = 
@@ -924,7 +968,8 @@ let compose_model sub_mat t =
     in
     compose_gtr FMatrix.scratch_space u_ d_ ui_ t
 
-(* integerized converstion and composition of a model and branch lenghth *)
+(** [integerized_model] convert a model and branch length to a probability rate
+    matrix and then scale by a factor of accuracy and convert to integers. *)
 let integerized_model ?(sigma=4) model t =
     let sigma = 10.0 ** (float_of_int sigma)
     and create = match model.spec.substitution with
@@ -932,13 +977,15 @@ let integerized_model ?(sigma=4) model t =
             (fun s m i j -> ~-(int_of_float (s *.(log m.(i).(j)))))
         | _ ->
             (fun s m i j -> ~-(int_of_float (s *.(log (model.pi_0.{i} *. m.(i).(j))))))
-    and matrix = 
+    and matrix =
         barray_to_array2 (match model.ui with
         | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
         | None    -> compose_sym FMatrix.scratch_space model.u model.d t)
-    and imatrix = Array.make_matrix model.alph_s model.alph_s 0 in
-    assert( model.alph_s = Array.length matrix);
-    assert( model.alph_s = Array.length matrix.(0));
+    and imatrix =
+        Array.make_matrix (snd model.spec.alphabet) (snd model.spec.alphabet) 0
+    in
+    assert( (snd model.spec.alphabet) = Array.length matrix);
+    assert( (snd model.spec.alphabet) = Array.length matrix.(0));
     for i = 0 to (Array.length matrix) - 1 do
         for j = 0 to (Array.length matrix.(0)) - 1 do
             imatrix.(i).(j) <- create sigma matrix i j
@@ -946,29 +993,28 @@ let integerized_model ?(sigma=4) model t =
     done;
     imatrix
 
-(* create a cost matrix from a model *)
+(** create a cost matrix from a model *)
 let model_to_cm model t =
     let input = let t = max Numerical.minimum t in integerized_model model t in
     let llst = Array.to_list (Array.map Array.to_list input) in
-    let res = Cost_matrix.Two_D.of_list ~suppress:true llst model.alph_s in
+    let res = Cost_matrix.Two_D.of_list ~suppress:true llst (snd model.spec.alphabet) in
     res
 
 ELSE
 
     let output_model _ _ _ _ = failwith likelihood_not_enabled
     let compose _ _  = failwith likelihood_not_enabled
-    let spec_from_classification _ _ _ _ _ = failwith likelihood_not_enabled
+    let spec_from_classification _ _ _ _ _ _ = failwith likelihood_not_enabled
     let compare _ _ = failwith likelihood_not_enabled
     let classify_seq_pairs _ _ _ _ _ = failwith likelihood_not_enabled
     let subst_matrix _ _ = failwith likelihood_not_enabled
     let process_custom_model _ = failwith likelihood_not_enabled
     let model_to_cm _ _ = failwith likelihood_not_enabled
-
-    (** durability functions for outside toplevel access **)
     let compose_model _ _ = failwith likelihood_not_enabled
-    let m_file _ _ _ = failwith likelihood_not_enabled
-    let m_jc69 _ _ _ = failwith likelihood_not_enabled
-    let m_gtr  _ _ _ = failwith likelihood_not_enabled
+
+    let m_gtr  _ _ _ _ = failwith likelihood_not_enabled
+    let m_file _ _ _   = failwith likelihood_not_enabled
+    let m_jc69 _ _ _   = failwith likelihood_not_enabled
 
 END
 
@@ -976,104 +1022,92 @@ END
 (* ------------------------------------------------ *)
 (* CONVERSION/MODEL CREATION FUNCTIONS             *)
 
-(* convert a string spec to a specification, used in Parser for nexus *)
-let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file):string_spec) =
+(* convert a string spec (from nexus, for example) to a specification *)
+let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost,file):string_spec) =
   IFDEF USE_LIKELIHOOD THEN
-    let iterate_model = ref true in
-    let iterate_alpha = ref true in
+    let gap_info = match String.uppercase (fst gap),snd gap with
+        | "COUPLED", None   -> `Coupled default_gap_r
+        | "COUPLED", Some x -> `Coupled x
+        | "INDEPENDENT",_   -> `Independent
+        | "MISSING",_       -> `Missing
+        | "",_              -> `Missing
+        | x,_               -> failwithf "Invalid gap property: %s" x
+    in
     let submatrix = match String.uppercase name with
-        | "JC69" -> 
-            iterate_model := false;
-            (match param with
+        | "JC69" -> begin match param with
             | [] -> JC69
-            | _ -> failwith "Parameters don't match model")
-        | "F81" ->
-            iterate_model := false;
-            (match param with
+            | _ -> failwith "Parameters don't match model" end
+        | "F81" -> begin match param with
             | [] -> F81
-            | _ -> failwith "Parameters don't match model")
-        | "K80" | "K2P" -> (match param with
-            | ratio::[] ->
-                iterate_model := false;
-                K2P (Some ratio)
-            | []        -> K2P None
-            | _ -> failwith "Parameters don't match model")
-        | "F84" -> (match param with
-            | ratio::[] ->
-                iterate_model := false;
-                F84 (Some ratio)
-            | []        -> F84 None
-            | _ -> failwith "Parameters don't match model")
-        | "HKY" | "HKY85" -> (match param with
-            | ratio::[] ->
-                iterate_model := false;
-                HKY85 (Some ratio)
-            | []        -> HKY85 None
-            | _ -> failwith "Parameters don't match model")
-        | "TN93" -> (match param with
-            | ts::tv::[] ->
-                iterate_model := false;
-                TN93 (Some (ts,tv))
-            | []         -> TN93 None
-            | _ -> failwith "Parameters don't match model")
-        | "GTR" -> (match param with
-            | [] -> GTR None
-            | ls -> 
-                iterate_model := false;    
-                GTR (Some (Array.of_list ls)) )
+            | _ -> failwith "Parameters don't match model" end
+        | "K80" | "K2P" -> begin match param with
+            | ratio::[] -> K2P ratio
+            | []        -> K2P default_tstv
+            | _ -> failwith "Parameters don't match model" end
+        | "F84" -> begin match param with
+            | ratio::[] -> F84 ratio
+            | []        -> F84 default_tstv
+            | _ -> failwith "Parameters don't match model" end
+        | "HKY" | "HKY85" -> begin match param with
+            | ratio::[] -> HKY85 ratio
+            | []        -> HKY85 default_tstv
+            | _ -> failwith "Parameters don't match model" end
+        | "TN93" -> begin match param with
+            | ts::tv::[] -> TN93 (ts,tv)
+            | []         -> TN93 (default_tstv,default_tstv)
+            | _ -> failwith "Parameters don't match model" end
+        | "GTR" -> begin match param,gap_info with
+            | [], `Independent -> assert false 
+            | [], `Missing     -> assert false 
+            | [], `Coupled _   -> assert false 
+            | ls, _            -> GTR (Array.of_list ls) end
         | "GIVEN"->
             begin match file with
             | Some name ->
-                iterate_model := false;    
-                name
-                    --> FileStream.read_floatmatrix
-                    --> List.map (Array.of_list)
-                    --> Array.of_list
-                    --> (fun x -> File (x,name))
+                name --> FileStream.read_floatmatrix
+                     --> List.map (Array.of_list)
+                     --> Array.of_list
+                     --> (fun x -> File (x,name))
             | None -> failwith "File not specified for Likelihood Model."
             end
         | "CUSTOM" ->
             begin match file with
-            | Some name ->
-                iterate_model := true;
-                failwith "not done"
+            | Some name -> failwith "not done"
             | None -> failwith "File not specified for Likelihood Model."
             end
         (* ERROR *)
-        | "" -> failwith "No Model Specified"
-        | _  -> failwith "Incorrect Model"
+        | "" -> failwith  "No Model Specified."
+        | xx -> failwithf "I don't know %s as a Likelihood Rate Matrix." xx
     in
     let cost_fn : Methods.ml_costfn = match String.uppercase cost with
         | "MPL" -> `MPL
         | "MAL" -> `MAL
         | ""    -> `MAL (* unmentioned default *)
-        | x     -> 
-            failwith ("I don't know "^x^" as a cost mode for likelihood.")
+        | x     -> failwithf "I don't know %s as a cost mode for likelihood." x
     and variation = match String.uppercase var with
         | "GAMMA" ->
-            let alpha = try let res = float_of_string alpha in
-                            iterate_alpha := false;
-                            res
-                        with | _ -> default_alpha false in
-            Some (Gamma (int_of_string site, alpha))
+            let alpha = 
+                try float_of_string alpha
+                with _ -> default_alpha false
+            in
+            Gamma (int_of_string site, alpha)
         | "THETA" -> 
-            let alpha = try let res = float_of_string alpha in
-                            iterate_alpha := false;
-                            res
-                        with | _ -> default_alpha true in
-            let invar = try let res = float_of_string invar in
-                            iterate_alpha := !iterate_alpha || false;
-                            res
-                        with | _ -> default_invar in
-            Some (Theta (int_of_string site, alpha, invar))
+            let alpha =
+                try float_of_string alpha
+                with _ -> default_alpha true
+            in
+            let invar =
+                try float_of_string invar
+                with _ -> default_invar
+            in
+            Theta (int_of_string site, alpha, invar)
         | "NONE" | "CONSTANT" | "" ->
-            iterate_alpha := false;
-            None
-        | _ -> failwith "Unrecognized variation method"
+            Constant
+        | x -> failwithf "I don't unrecognized rate variation distribution %s" x
     and priors = match priors with
-        | `Given priors  -> Given (Array.of_list (List.map snd priors))
-        | `Equal -> Equal
-        | `Estimate (Some x) -> Estimated x
+        | `Given priors        -> Given (Array.of_list (List.map snd priors))
+        | `Equal               -> Equal
+        | `Estimate (Some x)   -> Estimated x
         | `Consistent pre_calc ->
             begin match submatrix, pre_calc with
                 | JC69, _
@@ -1082,35 +1116,27 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
                 | _ , None   -> assert false
             end
         | `Estimate None -> assert false
-    and gap_info =
-        match String.uppercase (fst gap),snd gap with
-        | "COUPLED", None   -> `Coupled default_gap_r
-        | "COUPLED", Some x -> `Coupled x
-        | "INDEPENDENT",_   -> `Independent
-        | "MISSING",_       -> `Missing
-        | "",_              -> `Missing
-        | x,_               -> failwith ("Invalid gap property: "^x)
     in
     {   substitution = submatrix;
         site_variation = variation;
         base_priors = priors;
         use_gap = gap_info;
-        cost_fn = cost_fn;
-        iterate_model = !iterate_model;
-        iterate_alpha = !iterate_alpha; }
+        alphabet = alph;
+        cost_fn = cost_fn; }
   ELSE
     failwith likelihood_not_enabled
   END
 
 
-let convert_methods_spec alph_size compute_priors (_,alph,cst,subst,site_variation,base_priors,use_gap) =
+(** Convert Methods.ml specification to that of an MlModel spec *)
+let convert_methods_spec (alph,alph_size) (compute_priors) 
+        ((_,talph,cst,subst,site_variation,base_priors,use_gap):Methods.ml_spec) =
     let u_gap = match use_gap with 
-            | `Independent | `Coupled _ -> true | `Missing -> false in
+        | `Independent | `Coupled _ -> true | `Missing -> false in
     let alph_size = 
         let w_gap = if u_gap then alph_size else alph_size - 1 in
-        match alph with | `Min | `Max  -> w_gap | `Int x -> x
+        match talph with | `Min | `Max  -> w_gap | `Int x -> x
     in
-    let i_alpha = ref true and i_model = ref true in
     let base_priors = match base_priors with
         | `Estimate  -> Estimated (compute_priors ())
         | `Equal     -> Equal
@@ -1121,114 +1147,68 @@ let convert_methods_spec alph_size compute_priors (_,alph,cst,subst,site_variati
                 | _ -> Estimated (compute_priors ())
             end
     and site_variation = match site_variation with
-        | None   -> Some Constant 
+        | None -> Constant 
         | Some (`Gamma (w,y)) -> 
             let y = match y with
-                | Some x -> i_alpha := false; x 
+                | Some x -> x 
                 | None   -> default_alpha false
             in
-            Some (Gamma (w,y))
+            Gamma (w,y)
         | Some (`Theta (w,y)) ->
             let y,p = match y with 
-                | Some x -> i_alpha := false; x 
+                | Some x -> x 
                 | None   -> default_alpha true, default_invar
             in
-            Some (Theta (w,y,p))
+            Theta (w,y,p)
     and substitution = match subst with
         | `AIC _ | `BIC _ | `AICC _ -> assert false
-        | `JC69 -> i_model := false;
-                   JC69
-        | `F81  -> i_model := false;
-                   F81
-        | `K2P (Some x) ->
-            let aray = Array.of_list x in
-            if Array.length aray = 1 then begin
-                i_model := false;
-                K2P (Some aray.(0))
-            end else if Array.length aray = 0 then begin
-                K2P None
-            end else
-                let () =
-                    Status.user_message Status.Error
-                        "Likelihood@ model@ K80@ requires@ 1@ or@ 0@ parameters"
-                in
-                failwith("Incorrect Parameters");
-        | `K2P None -> K2P None
-        | `HKY85 (Some x) ->
-            let aray = Array.of_list x in
-            if Array.length aray = 1 then begin
-                i_model := false;
-                HKY85 (Some aray.(0))
-            end else if Array.length aray = 0 then begin
-                HKY85 None
-            end else
-                let () =
-                    Status.user_message Status.Error
-                        "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters"
-                in
-                failwith("Incorrect Parameters");
-        | `HKY85 None -> HKY85 None
-        | `F84 (Some x) ->
-            let aray = Array.of_list x in
-            if Array.length aray = 1 then begin
-                i_model := false;
-                F84 (Some aray.(0))
-            end else if Array.length aray = 0 then begin
-                F84 None
-            end else
-                let () =
-                    Status.user_message Status.Error
-                        "Likelihood@ model@ F84@ requires@ 1@ parameters"
-                in
-                failwith("Incorrect Parameters");
-        | `F84 None -> F84 None
-        | `TN93 (Some x) ->
-            let aray = Array.of_list x in
-            if Array.length aray <> 2 then
-                let () =
-                    Status.user_message Status.Error
-                        "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters"
-                in
-                failwith("Incorrect Parameters");
-            else if Array.length aray = 0 then begin
-                TN93 None
-            end else begin
-                i_model := false;
-                TN93 (Some (aray.(0),aray.(1)))
-            end
-        | `TN93 None -> TN93 None
-        | `GTR (Some x) ->
-            let aray = Array.of_list x in
-            let n_a = (alph_size * (alph_size-1)) / 2 in
-            if (Array.length aray) <> n_a then
-                let () = Status.user_message Status.Error
-                    ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
-                     "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
-                     (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".")
-                in
-                failwith "Incorrect Parameters";
-            else if Array.length aray = 0 then begin
-                GTR None
-            end else begin
-                i_model := false;
-                GTR (Some aray)
-            end
-        | `GTR None -> GTR None
+        | `JC69    -> JC69
+        | `F81     -> F81
+        | `K2P [x] -> K2P x
+        | `K2P []  -> K2P default_tstv
+        | `K2P _   ->
+                Status.user_message Status.Error
+                    "Likelihood@ model@ K2P@ requires@ 1@ or@ 0@ parameters";
+                raise LikelihoodModelError
+        | `HKY85 [x] -> HKY85 x
+        | `HKY85 []  -> HKY85 default_tstv
+        | `HKY85 _   ->
+                Status.user_message Status.Error
+                    "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters";
+                raise LikelihoodModelError
+        | `F84 [x]   -> F84 x
+        | `F84 []    -> F84 default_tstv
+        | `F84 _     ->
+                Status.user_message Status.Error
+                    "Likelihood@ model@ F84@ requires@ 1@ or@ 0@ parameters";
+                raise LikelihoodModelError
+        | `TN93 [x;y] -> TN93 (x,y)
+        | `TN93 []    -> TN93 (default_tstv,default_tstv)
+        | `TN93 _     ->
+                Status.user_message Status.Error
+                    "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters";
+                raise LikelihoodModelError
+        | `GTR xs -> GTR (Array.of_list xs)
         | `File str ->
-                (* this needs to be changed to allow remote files as well *)
+            (* this needs to be changed to allow remote files as well *)
             let matrix = Cost_matrix.Two_D.matrix_of_file float_of_string (`Local str) in
             let matrix = Array.of_list (List.map (Array.of_list) matrix) in
-            (* check the array size == a_size *)
-            (* check the array array size == a_size *)
-            Array.iter 
+            Array.iter
                 (fun x ->
                     if Array.length x = alph_size then ()
-                    else failwith "Input@ file@ is@ inconsistent@ with@ alphabet.")
+                    else begin
+                        Status.user_message Status.Error
+                            "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters";
+                        raise LikelihoodModelError
+                    end)
                 (matrix);
             if Array.length matrix = alph_size then
                 File (matrix,str)
-            else
-                failwith "Input@ file@ is@ inconsistent@ with@ alphabet."
+            else begin
+                Status.user_message Status.Error
+                    "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters";
+                raise LikelihoodModelError
+            end;
         | `Custom str ->
             let convert str = assert( String.length str = 1 ); String.get str 0 in
             let matrix = Cost_matrix.Two_D.matrix_of_file convert (`Local str) in
@@ -1239,13 +1219,12 @@ let convert_methods_spec alph_size compute_priors (_,alph,cst,subst,site_variati
     { substitution = substitution;
     site_variation = site_variation;
        base_priors = base_priors;
-     iterate_model = !i_model;
-     iterate_alpha = !i_alpha;
+          alphabet = (alph,alph_size);
            cost_fn = cst;
            use_gap = use_gap; }
 
 
-(* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
+(** check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
 let verify_rates probs rates =
     let p1 = (Bigarray.Array1.dim probs) = (Bigarray.Array1.dim rates)
     and p2 =
@@ -1258,22 +1237,14 @@ let verify_rates probs rates =
     in
     p1 && p2
 
-(* create a model based on a specification and an alphabet *)
-let create ?(min_prior=Numerical.minimum) alph lk_spec = 
+(** create a model based on a specification and an alphabet *)
+let create ?(min_prior=Numerical.minimum) lk_spec = 
   IFDEF USE_LIKELIHOOD THEN
-    let alph = Alphabet.to_sequential alph in
-    let (a_size) = match lk_spec.use_gap with
-        | `Missing -> (Alphabet.size alph) - 1
-        | `Independent 
-        | `Coupled _ -> Alphabet.size alph
-    in
+    let (alph,a_size) = lk_spec.alphabet in
     (* set up all the probability and rates *)
     let variation,probabilities,invar =
         match lk_spec.site_variation with
-        | None ->
-            ba_of_array1 [| 1.0 |], ba_of_array1 [| 1.0 |], None
-        | Some a -> begin match a with
-            | Constant ->  (* same as NONE *)
+            | Constant ->
                 ba_of_array1 [| 1.0 |], ba_of_array1 [| 1.0 |], None
             | Gamma (x,y) -> (* SITES,ALPHA *)
                 let p = create_ba1 x in
@@ -1290,7 +1261,6 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
                     let r = Numerical.gamma_rates x x w in
                     r,p,Some z
                 end
-        end
     in
     assert( verify_rates probabilities variation );
     (* extract the prior probability *)
@@ -1317,46 +1287,35 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
         | `Missing     -> None
     in
     (*  get the substitution rate matrix and set sym variable and to_formatter vars *)
-    let sym, sub_mat, subst_model, rep_gap = match lk_spec.substitution with
-        | JC69  -> true,  m_jc69 priors 1.0 a_size _gapr, JC69, lk_spec.use_gap
-        | F81   -> false, m_f81 priors 1.0 a_size _gapr, F81, lk_spec.use_gap
-        | K2P t -> 
-            let t = match t with | Some x -> x | None -> default_tstv in
-            true,  m_k2p priors t 1.0 a_size _gapr, lk_spec.substitution, lk_spec.use_gap
-        | F84 t -> 
-            let t = match t with | Some x -> x | None -> default_tstv in
-            false, m_f84 priors t 1.0 a_size _gapr, lk_spec.substitution, lk_spec.use_gap  
-        | HKY85 t ->
-            let t = match t with | Some x -> x | None -> default_tstv in
-            false, m_hky85 priors t a_size _gapr, lk_spec.substitution, lk_spec.use_gap
-        (* more complex models *)
-        | TN93 tstv ->
-            let ts,tv = match tstv with 
-                | Some (x,y) -> x,y 
-                | None       -> default_tstv,default_tstv
-            in
-            false, m_tn93 priors ts tv 1.0 a_size _gapr, lk_spec.substitution, lk_spec.use_gap
+    let sym, sub_mat, subst_model = match lk_spec.substitution with
+        | JC69  -> true,  m_jc69 priors 1.0 a_size _gapr, JC69
+        | F81   -> false, m_f81 priors 1.0 a_size _gapr, F81
+        | K2P t -> true,  m_k2p priors t 1.0 a_size _gapr, lk_spec.substitution
+        | F84 t -> false, m_f84 priors t 1.0 a_size _gapr, lk_spec.substitution
+        | HKY85 t -> false, m_hky85 priors t a_size _gapr, lk_spec.substitution
+        | TN93 (ts,tv) ->
+            false, m_tn93 priors ts tv 1.0 a_size _gapr, lk_spec.substitution
         | GTR c ->
-            let c,gapr = match c,_gapr with 
-                | Some xs, _   -> normalize lk_spec xs
-                | None, Some _ -> default_gtr (a_size-1), lk_spec.use_gap 
-                | None, _      -> default_gtr a_size, lk_spec.use_gap
+            let c = match (Array.length c), lk_spec.use_gap with
+                | 0, `Coupled _ -> default_gtr a_size true
+                | 0, _          -> default_gtr a_size false
+                | _, _          -> c
             in
-            false, m_gtr priors c a_size _gapr, (GTR (Some c)),gapr
+            false, m_gtr priors c a_size _gapr, (GTR c)
         | File (m,s)->
-            false, m_file priors m a_size, lk_spec.substitution, lk_spec.use_gap
+            false, m_file priors m a_size, lk_spec.substitution
         | Custom (assoc,xs,_) ->
-            false, m_custom priors assoc xs a_size, lk_spec.substitution, lk_spec.use_gap
+            false, m_custom priors assoc xs a_size, lk_spec.substitution
     in
     (* ensure that when priors are not =, we use a model that asserts that *)
     let lk_spec = match lk_spec.base_priors with
         | Estimated _  when sym ->
             Status.user_message Status.Warning 
-                "I am using equal priors as required in the selected likelihood model";
+                "I@ am@ using@ equal@ priors@ as@ required@ in@ the@ selected@ likelihood@ model.";
             { lk_spec with base_priors = Equal }
         | Given _ when sym ->
             Status.user_message Status.Warning
-                "I am using equal priors as required in the selected likelihood model";
+                "I@ am@ using@ equal@ priors@ as@ required@ in@ the@ selected@ likelihood@ model.";
             { lk_spec with base_priors = Equal }
         | (Estimated _ | Equal | Given _) -> lk_spec
     in
@@ -1364,12 +1323,9 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
     {
       rate = variation;
       prob = probabilities;
-      spec = {lk_spec with substitution = subst_model; 
-                           use_gap = rep_gap; };
+      spec = {lk_spec with substitution = subst_model; };
      invar = invar;
       pi_0 = priors;
-      alph = alph;
-    alph_s = a_size;
          s = sub_mat;
          u = u_;
          d = d_;
@@ -1379,19 +1335,25 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
     failwith likelihood_not_enabled
   END
 
+
+(** Print a substitution probability matrix *)
 let debug_model model t =
     let subst = subst_matrix model t in
     print_barray2 subst; print_newline ();
     match t with | Some t -> print_barray2 (compose model t) | None -> ()
 
+
+(** Replace the priors in a model with that of an array *)
 let replace_priors model array = 
     if debug then begin
         Printf.printf "Replacing Priors\n\t%!";
         Array.iter (fun x -> Printf.printf "%f, " x) array;
         print_newline ();
     end;
-    create model.alph {model.spec with base_priors = Estimated array}
+    create {model.spec with base_priors = Estimated array}
 
+
+(** Compute the priors of a dataset by frequency and gap-counts *)
 let compute_priors (alph,u_gap) freq_ (count,gcount) lengths : float array = 
     let size = if u_gap then (Alphabet.size alph) else (Alphabet.size alph)-1 in
     let gap_contribution = (float_of_int gcount) /. (float_of_int size) in
@@ -1425,53 +1387,10 @@ let compute_priors (alph,u_gap) freq_ (count,gcount) lengths : float array =
     end;
     final_priors
 
+(** Add Independent Gap to a model *)
 let add_gap_to_model compute_priors model = 
-    Status.user_message Status.Warning dyno_likelihood_warning;
-    let size = model.alph_s + 1 in
-    let priors = match model.spec.base_priors with
-        | Estimated _  -> Estimated (compute_priors ())
-        | Equal        -> Equal
-        | Given    _   ->
-            failwith ("I cannot transform the specified model to add gap as a"^
-                      " character. The given priors requires a prior for the "^
-                      "gap character.")
-    and rates = match model.spec.substitution with
-        (* these models require no changes *)
-        | JC69    | F81 | K2P _   | F84 _
-        | HKY85 _ | TN93 _ | GTR None -> model.spec.substitution
-        (* user defined rate matrices cannot on transfered *)
-        | Custom _
-        | File _ -> 
-            failwith ("I cannot transform the specified characters to"^
-                      " dynamic likelihood characters; the given rate"^
-                      " matrix requires gap transformation rates.")
-        | GTR (Some xs) ->
-            let convert_i_to_rc l i = 
-                let rec convert_ r v =
-                    let sub = l - r - 1 in
-                    if v < sub then (r,l+(v-sub))
-                    else convert_ (r+1) (v-sub)
-                in
-                convert_ 0 i
-            and convert_rc_to_i l (r,c) = 
-                let r,c = (min r c)+1,(max r c)+1 in
-                c + (l*r) - l - 1 - (((r+1)*r)/2)
-            in
-            let ngtr =
-                Array.init 
-                    (((size-1)*size)/2)
-                    (fun i -> 
-                        let r,c = convert_i_to_rc size i in
-                        if c = size - 1 then 0.01
-                        else xs.(convert_rc_to_i (size-1) (r,c)))
-            in
-            GTR (Some ngtr)
-    in
-    let new_spec = {model.spec with base_priors = priors; 
-                                        use_gap = `Independent;
-                                   substitution = rates; }
-    in
-    create model.alph new_spec
+    Status.user_message Status.Error dyno_likelihood_warning;
+    raise LikelihoodModelError
 
 let add_gap_to_model compute_priors model = 
     match model.spec.use_gap with
@@ -1480,10 +1399,10 @@ let add_gap_to_model compute_priors model =
 
 let remove_gamma_from_spec spec = 
     match spec.site_variation with
-    | Some Constant | None -> spec
-    | _ -> 
+    | Constant -> spec
+    | Gamma _ | Theta _ -> 
         Status.user_message Status.Warning dyno_gamma_warning;
-        { spec with site_variation = None; }
+        { spec with site_variation = Constant; }
 
 IFDEF USE_LIKELIHOOD THEN
 
@@ -1543,8 +1462,13 @@ let classify_seq_pairs leaf1 leaf2 seq1 seq2 acc =
     in
     List.fold_left2 mk_transitions acc seq1 seq2
 
+let get_priors f_prior alph code = match f_prior with
+    | Estimated x -> x.(Alphabet.match_base code alph)
+    | Given     x -> x.(Alphabet.match_base code alph)
+    | Equal       -> 1.0 /. (float_of_int (Alphabet.size alph))
+
 (* Develop a model from a classification --created above *)
-let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
+let spec_from_classification alph gap kind rates (priors:Methods.ml_priors) costfn (comp_map,pis) =
     let tuple_sum = 
         All_sets.FullTupleMap.fold (fun k v a -> a +. v) comp_map 0.0
     and ugap = match gap with
@@ -1552,40 +1476,39 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
         | `Independent  -> true
         | `Coupled _    -> true
     in
-    let f_priors = 
-        let sum = All_sets.IntegerMap.fold (fun k v x -> v +. x) pis 0.0
-        and gap_size =
-            try All_sets.IntegerMap.find (Alphabet.get_gap alph) pis
-            with | Not_found -> 0.0
-        in
-        let l =
-            (* subtract gaps from totals *)
-            if not ugap then begin
-                let sum = sum -. gap_size in
+    let f_priors,a_size = match priors,kind with
+        | `Equal,_ | (`Consistent | `Estimate), (`JC69 | `K2P _) ->
+            let size =
+                if ugap then (Alphabet.size alph) else (Alphabet.size alph)-1
+            in
+            Equal,size
+        | `Consistent,_ | `Estimate,_ ->
+            let sum = All_sets.IntegerMap.fold (fun k v x -> v +. x) pis 0.0
+            and gap_size =
+                try All_sets.IntegerMap.find (Alphabet.get_gap alph) pis
+                with | Not_found -> 0.0
+            in
+            let l =
+                let sum = if ugap then sum else sum -. gap_size in
                 List.fold_left
                     (fun acc (r,b) -> match b with
-                        | b when b = Alphabet.get_gap alph -> acc
+                        | b when (not ugap) && (b = Alphabet.get_gap alph) -> acc
                         | b ->
                             let c =
                                 try (All_sets.IntegerMap.find b pis) /. sum
-                                with | Not_found -> 0.0 in
+                                with Not_found -> 0.0 in
                             c :: acc)
                     []
                     (Alphabet.to_list alph)
-            (* gaps are charcters *)
-            end else begin
-                List.fold_left
-                    (fun acc (r,b) ->
-                        let c = try (All_sets.IntegerMap.find b pis) /. sum
-                                with | Not_found -> 0.0 in
-                        c :: acc)
-                    []
-                    (Alphabet.to_list alph)
-            end
-        in
-        Array.of_list (List.rev l)
+            in
+            let ray = Array.of_list (List.rev l) in
+            Estimated ray, Array.length ray
+        | `Given xs, _ ->
+            let ray = Array.of_list xs in
+            Given ray, Array.length ray
     and is_comp a b =
-        (* these models assume nucleotides only; T<->C=1, A<->G=2  *)
+        (* these models assume nucleotides only; T<->C=1, A<->G=2, this is
+            because this is used in DNA/nucleotide models only (k2p,hky85...) *)
              if (Alphabet.match_base "T" alph) = a then
                  if (Alphabet.match_base "C" alph) = b then 1 else 0
         else if (Alphabet.match_base "C" alph) = a then
@@ -1612,10 +1535,10 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
         s1 /. a, s2 /. a, v /. a, a
     in
     (* build the model *)
-    let m = try match kind with
-        | `JC69 -> JC69
-        | `F81  -> F81
-        | `K2P _ -> 
+    let m,gap = try match kind with
+        | `JC69 -> JC69,gap
+        | `F81  -> F81,gap
+        | `K2P _ ->
             (* YANG: 1.12                                       *)
             (*  alpha*t = -0.5 * log(1-2S-V) + 0.25 * log(1-2V) *)
             (* 2*beta*t = -0.5 * log(1-2V)                      *)   
@@ -1625,7 +1548,7 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
             let s = s1 +. s2 in
             let numer = 2.0 *. (log (1.0-.(2.0*.s)-.v))
             and denom = log (1.0-.(2.0*.v)) in
-            K2P (Some ((numer /. denom)-.1.0))
+            K2P ((numer /. denom)-.1.0),gap
         | `GTR _ ->
             let tuple_sum a1 a2 map =
                 let one = try All_sets.FullTupleMap.find (a1,a2) map 
@@ -1637,32 +1560,65 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
             in
             (* create list of transitions for GTR model creation *)
             (* 1 -> 2, 1 -> 3, 1 -> 4 ... 2 -> 3 ... *)
-            let lst = 
-                List.fold_right
-                    (fun (s1,alph1) acc1 ->
-                        if (not ugap) && ((Alphabet.get_gap alph) = alph1) then
-                            acc1
-                        else
-                            List.fold_right
-                                (fun (s2,alph2) acc2 ->
-                                    if alph2 <= alph1 then acc2
-                                    else if (not ugap) && ((Alphabet.get_gap alph) = alph2) then
-                                        acc2
-                                    else begin
-                                        let sum = tuple_sum alph1 alph2 comp_map in
-                                        sum :: acc2 
-                                    end)
-                                (Alphabet.to_list alph) acc1)
-                        (Alphabet.to_list alph) []
-            in
-            let sum = List.fold_left (fun a x -> x +. a) 0.0 lst in
-            let lst = List.map (fun x -> x /. sum) lst in
-            GTR (Some (Array.of_list lst))
+            begin match gap with
+                | `Independent | `Missing ->
+                    let cgap = Alphabet.get_gap alph in
+                    let lst =
+                        List.fold_right
+                            (fun (s1,alph1) acc1 ->
+                                if (not ugap) && (cgap = alph1) then
+                                    acc1
+                                else
+                                    List.fold_right
+                                        (fun (s2,alph2) acc2 ->
+                                            if alph2 <= alph1 then acc2
+                                            else if (not ugap) && (cgap = alph2) then
+                                                acc2
+                                            else begin
+                                                let sum = tuple_sum alph1 alph2 comp_map in
+                                                sum :: acc2 
+                                            end)
+                                        (Alphabet.to_list alph) acc1)
+                            (Alphabet.to_list alph) []
+                    in
+                    let sum = List.fold_left (fun a x -> x +. a) 0.0 lst in
+                    let lst = List.map (fun x -> x /. sum) lst in
+                    let arr,gap = normalize alph gap (Array.of_list lst) in
+                    let arr = Array.init ((List.length lst)-1) (fun i -> arr.(i)) in
+                    GTR arr,gap
+                | `Coupled _ ->
+                    let cgap = Alphabet.get_gap alph in
+                    let lst,gap_trans =
+                        List.fold_right
+                            (fun (s1,alph1) acc1 ->
+                                if cgap = alph1 then acc1
+                                else
+                                    List.fold_right
+                                        (fun (s2,alph2) ((chrt,gapt) as acc2) ->
+                                            if alph2 <= alph1    then acc2
+                                            else if cgap = alph2 then
+                                                let sum = tuple_sum alph1 alph2 comp_map in
+                                                (chrt, sum +. gapt)
+                                            else begin
+                                                let sum = tuple_sum alph1 alph2 comp_map in
+                                                (sum :: chrt,gapt)
+                                            end)
+                                        (Alphabet.to_list alph) acc1)
+                            (Alphabet.to_list alph)
+                            ([],0.0)
+                    in
+                    let sum = List.fold_left (fun a x -> x +. a) gap_trans lst in
+                    let lst = List.map (fun x -> x /. sum) lst in
+                    let gap = `Coupled (gap_trans /. (sum *. (float_of_int a_size))) in
+                    let arr,gap = normalize alph gap (Array.of_list lst) in
+                    let arr = Array.init ((List.length lst)-1) (fun i -> arr.(i)) in
+                    GTR arr,gap
+            end
         | `F84 _ ->
-            let pi_a = f_priors.(Alphabet.match_base "A" alph)
-            and pi_c = f_priors.(Alphabet.match_base "C" alph)
-            and pi_g = f_priors.(Alphabet.match_base "G" alph)
-            and pi_t = f_priors.(Alphabet.match_base "T" alph) in
+            let pi_a = get_priors f_priors alph "A"
+            and pi_c = get_priors f_priors alph "C"
+            and pi_g = get_priors f_priors alph "G"
+            and pi_t = get_priors f_priors alph "T" in
             let pi_y = pi_c +. pi_t and pi_r = pi_a +. pi_g in
             let s1,s2,v,a = get_sva comp_map in let s = s1 +. s2 in
             let a = ~-. (log (1.0 -. (s /. (2.0 *. (pi_t*.pi_c/.pi_y +. pi_a*.pi_g/.pi_r)))
@@ -1670,12 +1626,12 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
                                          (pi_a*.pi_g*.pi_y/.pi_r))) /.
                                     (2.0 *. (pi_t*.pi_c *. pi_r +. pi_a *. pi_g *. pi_y))))
             and b = ~-. (log (1.0 -. (v/.(2.0 *. pi_y*.pi_r)))) in
-            F84 (Some (a/.b -. 1.0))
+            F84 (a/.b -. 1.0),gap
         | `HKY85 _ ->
-            let pi_a = f_priors.(Alphabet.match_base "A" alph)
-            and pi_c = f_priors.(Alphabet.match_base "C" alph)
-            and pi_g = f_priors.(Alphabet.match_base "G" alph)
-            and pi_t = f_priors.(Alphabet.match_base "T" alph) in
+            let pi_a = get_priors f_priors alph "A"
+            and pi_c = get_priors f_priors alph "C"
+            and pi_g = get_priors f_priors alph "G"
+            and pi_t = get_priors f_priors alph "T" in
             let pi_y = pi_c +. pi_t and pi_r = pi_a +. pi_g in
             let s1,s2,v,a = get_sva comp_map in let s = s1 +. s2 in
             let a = ~-. (log (1.0 -. (s /. (2.0 *. (pi_t*.pi_c/.pi_y +. pi_a*.pi_g/.pi_r)))
@@ -1683,12 +1639,12 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
                                          (pi_a*.pi_g*.pi_y/.pi_r))) /.
                                     (2.0 *. (pi_t*.pi_c *. pi_r +. pi_a *. pi_g *. pi_y))))
             and b = ~-. (log (1.0 -. (v/.(2.0 *. pi_y*.pi_r)))) in
-            HKY85 (Some (a/.b -. 1.0))
+            HKY85 (a/.b -. 1.0),gap
         | `TN93 _ ->
-            let pi_a = f_priors.(Alphabet.match_base "A" alph)
-            and pi_c = f_priors.(Alphabet.match_base "C" alph)
-            and pi_g = f_priors.(Alphabet.match_base "G" alph)
-            and pi_t = f_priors.(Alphabet.match_base "T" alph) in
+            let pi_a = get_priors f_priors alph "A"
+            and pi_c = get_priors f_priors alph "C"
+            and pi_g = get_priors f_priors alph "G"
+            and pi_t = get_priors f_priors alph "T" in
             let pi_y = pi_c +. pi_t and pi_r = pi_a +. pi_g
             and s1,s2,v,a = get_sva comp_map in
             let a1 = ~-. (log (1.0 -. (pi_y*.s1/.(2.0*.pi_t*.pi_c)) -.  (v/.(2.0*.pi_y))))
@@ -1697,7 +1653,7 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
             (* finally compute the ratios *)
             let k1 = (a1 -. (pi_r *. b)) /. (pi_y *. b)
             and k2 = (a2 -. (pi_y *. b)) /. (pi_r *. b) in 
-            TN93 (Some (k1,k2))
+            TN93 (k1,k2),gap
         | `Custom _
         | `File _ -> failwith "I cannot estimate this type of model"
         with | Not_found -> failwith "Cannot find something for model"
@@ -1712,77 +1668,85 @@ let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
         same /. all
     in
     let v = match rates with
-        | None -> None
-        | Some (`Gamma (i,_)) -> Some (Gamma (i,1.0))
-        | Some (`Theta (i,_)) -> Some (Theta (i,0.2,calc_invar tuple_sum comp_map))
+        | None ->
+            Constant
+        | Some (`Gamma (i,_)) ->
+            Gamma (i,default_alpha false)
+        | Some (`Theta (i,_)) ->
+            Theta (i,default_alpha true,calc_invar tuple_sum comp_map)
     in
     {
         substitution = m;
         site_variation = v;
-        base_priors = Estimated f_priors;
+        base_priors = f_priors;
         cost_fn = costfn;
         use_gap = gap;
-        iterate_model = false;
-        iterate_alpha = false;
+        alphabet = (alph, a_size);
     }
 
 let convert_gapr m = function
-    | `Coupled x   -> Some (Alphabet.get_gap m.alph,x)
+    | `Coupled x   -> Some (Alphabet.get_gap (fst m.spec.alphabet),x)
     | `Independent -> None
     | `Missing     -> None
 
 let update_jc69 old_model gap_r = 
     let subst_spec = { old_model.spec with use_gap = gap_r; }
     and gap_r = convert_gapr old_model gap_r in
-    let subst_model = m_jc69 old_model.pi_0 1.0 old_model.alph_s gap_r in
+    let subst_model =
+        m_jc69 old_model.pi_0 1.0 (snd old_model.spec.alphabet) gap_r in
     let u,d,ui = diagonalize true subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_f81 old_model gap_r = 
     let subst_spec = { old_model.spec with use_gap = gap_r; }
     and gap_r = convert_gapr old_model gap_r in
-    let subst_model = m_f81 old_model.pi_0 1.0 old_model.alph_s gap_r in
+    let subst_model =
+        m_f81 old_model.pi_0 1.0 (snd old_model.spec.alphabet) gap_r in
     let u,d,ui = diagonalize true subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_k2p old_model new_value gap_r =
-    let subst_spec = { old_model.spec with substitution = K2P (Some new_value);
+    let subst_spec = { old_model.spec with substitution = K2P new_value;
                                            use_gap = gap_r; }
     and gap_r = convert_gapr old_model gap_r in
-    let subst_model = m_k2p old_model.pi_0 new_value 1.0 old_model.alph_s gap_r in
+    let subst_model =
+        m_k2p old_model.pi_0 new_value 1.0 (snd old_model.spec.alphabet) gap_r in
     let u,d,ui = diagonalize true subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_hky old_model new_value gap_r =
-    let subst_spec = { old_model.spec with substitution = HKY85 (Some new_value);
+    let subst_spec = { old_model.spec with substitution = HKY85 new_value;
                                            use_gap = gap_r; }
     and gap_r = convert_gapr old_model gap_r in
-    let subst_model = m_hky85 old_model.pi_0 new_value old_model.alph_s gap_r in
+    let subst_model =
+        m_hky85 old_model.pi_0 new_value (snd old_model.spec.alphabet) gap_r in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_tn93 old_model ((x,y) as new_value) gap_r =
-    let subst_spec = { old_model.spec with substitution = TN93 (Some new_value);
+    let subst_spec = { old_model.spec with substitution = TN93 new_value;
                                            use_gap = gap_r; }
     and gap_r = convert_gapr old_model gap_r in
-    let subst_model = m_tn93 old_model.pi_0 x y 1.0 old_model.alph_s gap_r in
+    let subst_model =
+        m_tn93 old_model.pi_0 x y 1.0 (snd old_model.spec.alphabet) gap_r in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_f84 old_model new_value gap_r =
-    let subst_spec = { old_model.spec with substitution = F84 (Some new_value);
+    let subst_spec = { old_model.spec with substitution = F84 new_value;
                                            use_gap = gap_r; }
     and gap_r = convert_gapr old_model gap_r in
-    let subst_model = m_f84 old_model.pi_0 new_value 1.0 old_model.alph_s gap_r in
+    let subst_model =
+        m_f84 old_model.pi_0 new_value 1.0 (snd old_model.spec.alphabet) gap_r in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_gtr old_model new_values gap_r =
-    let normalized,gap_r = normalize {old_model.spec with use_gap = gap_r} new_values in
-    let subst_spec = { old_model.spec with substitution = GTR (Some normalized);
+    let subst_spec = { old_model.spec with substitution = GTR new_values;
                                            use_gap = gap_r; }
     and gap_r = convert_gapr old_model gap_r in
-    let subst_model = m_gtr old_model.pi_0 normalized old_model.alph_s gap_r in
+    let subst_model =
+        m_gtr old_model.pi_0 new_values (snd old_model.spec.alphabet) gap_r in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
@@ -1792,28 +1756,29 @@ and update_custom old_model new_values =
             { old_model.spec with substitution = Custom (assoc,new_values,s); },assoc
         | _ -> assert false
     in
-    let subst_model = m_custom old_model.pi_0 assoc new_values old_model.alph_s in
+    let subst_model =
+        m_custom old_model.pi_0 assoc new_values (snd old_model.spec.alphabet) in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s = subst_model; u = u; d = d; ui = ui; }
 
 and update_alpha old_model new_value =
     let new_spec_var,new_array = match old_model.spec.site_variation with
-        | Some (Gamma (i,_))   -> Some (Gamma (i,new_value)),
-                                  Numerical.gamma_rates new_value new_value i
-        | Some (Theta (i,_,p)) -> Some (Theta (i,new_value,p)),
-                                  Numerical.gamma_rates new_value new_value i
-        | _ -> failwith "Model doesn't specify site variation"
+        | Gamma (i,_)   -> Gamma (i,new_value),
+                           Numerical.gamma_rates new_value new_value i
+        | Theta (i,_,p) -> Theta (i,new_value,p),
+                           Numerical.gamma_rates new_value new_value i
+        | Constant      -> Constant,old_model.rate
     in
     { old_model with rate = new_array;
                      spec = { old_model.spec with site_variation = new_spec_var;} }
 
 and update_alpha_invar old_model new_alpha new_invar =
     let new_spec_var,new_array = match old_model.spec.site_variation with
-        | Some (Gamma (i,_)) -> Some (Gamma (i,new_alpha)),
-                                Numerical.gamma_rates new_alpha new_alpha i
-        | Some (Theta (i,_,_)) -> Some (Theta (i,new_alpha,new_invar)),
-                                  Numerical.gamma_rates new_alpha new_alpha i
-        | _ -> failwith "Model doesn't specify site variation"
+        | Gamma (i,_)   -> Gamma (i,new_alpha),
+                           Numerical.gamma_rates new_alpha new_alpha i
+        | Theta (i,_,_) -> Theta (i,new_alpha,new_invar),
+                           Numerical.gamma_rates new_alpha new_alpha i
+        | Constant      -> Constant, old_model.rate
     in
     { old_model with rate = new_array;
                      spec = { old_model.spec with site_variation = new_spec_var; };
@@ -1825,7 +1790,7 @@ END
  * transformed to the model, this is a much more readable form then other model
  * data --the decomposed matrix for example. *)
 let to_formatter (model: model) : Xml.xml Sexpr.t list =
-    let alph = model.alph in
+    let alph,alph_s = model.spec.alphabet in
     let priors = 
         let inner = 
             Array.mapi
@@ -1835,7 +1800,7 @@ let to_formatter (model: model) : Xml.xml Sexpr.t list =
                         { `String (Alphabet.match_code i alph)} --))
                 (match model.spec.base_priors with
                     | Equal ->
-                        Array.make (model.alph_s) (1.0 /. (float_of_int model.alph_s))
+                        Array.make alph_s (1.0 /. (float_of_int alph_s))
                     | Given x | Estimated x -> x)
         in
         (PXML -[Xml.Characters.priors] { `Set (Array.to_list inner) } --)
@@ -1846,64 +1811,52 @@ let to_formatter (model: model) : Xml.xml Sexpr.t list =
             | GTR _   -> "gtr"      | File _  -> "file"
             | Custom _ -> "custom"
     and get_alpha m = match m.spec.site_variation with
-        | None | Some Constant -> `Float 0.0
-        | Some (Gamma (_,x)) 
-        | Some (Theta (_,x,_))  -> `Float x
+        | Constant -> `Float 0.0
+        | Gamma (_,x)
+        | Theta (_,x,_) -> `Float x
     and get_invar m = match m.spec.site_variation with
-        | Some (Gamma _) | None | Some Constant -> `Float 0.0
-        | Some (Theta (_,_,p))  -> `Float p
+        | Gamma _ | Constant -> `Float 0.0
+        | Theta (_,_,p) -> `Float p
     and get_gap m = match m.spec.use_gap with
         | `Missing     -> `String "missing"
         | `Independent -> `String "independent"
         | `Coupled x   -> `String ("coupled:"^string_of_float x)
     and get_cats m = match m.spec.site_variation with
-        | None | Some Constant -> `Int 1
-        | Some (Gamma (c,_)) 
-        | Some (Theta (c,_,_))  -> `Int c
+        | Constant -> `Int 1
+        | Gamma (c,_)
+        | Theta (c,_,_) -> `Int c
     and parameters m = match m.spec.substitution with
         | JC69  | F81 -> []
         | K2P x | F84 x | HKY85 x ->
-                let x = match x with 
-                        | Some x -> x 
-                        | None -> default_tstv
-                in
-                [(PXML -[Xml.Data.param 1]
-                    ([Xml.Alphabet.value] = [`Float x])
-                    { `String "" } --)]
-        | TN93 x -> 
-                let a,b = match x with
-                        | Some (a,b) -> a,b
-                        | None -> default_tstv,default_tstv
-                in
-                (PXML -[Xml.Data.param 1]
-                    ([Xml.Alphabet.value] = [`Float a])
-                    { `String "" } --) ::
-                [(PXML -[Xml.Data.param 2]
-                    ([Xml.Alphabet.value] = [`Float b])
-                    { `String "" } --)]
+            [(PXML -[Xml.Data.param 1]
+                ([Xml.Alphabet.value] = [`Float x])
+                { `String "" } --)]
+        | TN93 (a,b) -> 
+            (PXML -[Xml.Data.param 1]
+                ([Xml.Alphabet.value] = [`Float a])
+                { `String "" } --) ::
+            [(PXML -[Xml.Data.param 2]
+                ([Xml.Alphabet.value] = [`Float b])
+                { `String "" } --)]
         | GTR ray ->
-                let ray = match ray with 
-                    | None -> default_gtr m.alph_s
-                    | Some x -> x
-                in
-                let r,_ =
-                    Array.fold_left
-                        (fun (acc,i) x ->
-                            (PXML -[Xml.Data.param i]
-                                ([Xml.Alphabet.value] = [`Float x])
-                                { `String "" } --) :: acc,i+1)
-                        ([],1)
-                        ray
-                in
-                List.rev r
+            let r,_ =
+                Array.fold_left
+                    (fun (acc,i) x ->
+                        (PXML -[Xml.Data.param i]
+                            ([Xml.Alphabet.value] = [`Float x])
+                            { `String "" } --) :: acc,i+1)
+                    ([],1)
+                    ray
+            in
+            List.rev r
         | Custom (_,_,str) ->
-                [(PXML -[Xml.Data.param 1]
-                    ([Xml.Alphabet.value] = [`String str])
-                    { `String "" } --)]
+            [(PXML -[Xml.Data.param 1]
+                ([Xml.Alphabet.value] = [`String str])
+                { `String "" } --)]
         | File (_,str) ->
-                [(PXML -[Xml.Data.param 1]
-                    ([Xml.Alphabet.value] = [`String str])
-                    { `String "" } --)]
+            [(PXML -[Xml.Data.param 1]
+                ([Xml.Alphabet.value] = [`String str])
+                { `String "" } --)]
     in
     (PXML
         -[Xml.Characters.model]
@@ -1926,9 +1879,10 @@ let short_name model =
         | GTR _   -> "GTR"  | File _  -> "FILE"
         | Custom _-> "CUSTOM"
     and variation_name = match model.spec.site_variation with
-        | Some (Gamma _ ) -> "+G"
-        | Some (Theta _ ) -> "+G+I"
-        | Some (Constant) | None -> ""
+        | Theta (i,_,_) when i > 1 -> "+G+I"
+        | Gamma _ -> "+G"
+        | Theta _ -> "+I"
+        | Constant -> ""
     in
     model_name ^ variation_name
 
@@ -1940,42 +1894,34 @@ and get_update_function_for_model model =
     let split_array ray = 
         ray.((Array.length ray)-1),
         Array.init ((Array.length ray)-1) (fun i -> ray.(i)) in
-    if model.spec.iterate_model then begin
-        match model.spec.substitution,model.spec.use_gap with
-            | JC69,`Coupled _   -> Some (fun y x -> update_jc69 y (`Coupled x.(0)))
-            | F81,`Coupled _    -> Some (fun y x -> update_f81 y (`Coupled x.(0)))
-            | K2P _,`Coupled _  -> Some (fun y x -> update_k2p y x.(0) (`Coupled x.(1)))
-            | TN93 _,`Coupled _ -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) (`Coupled x.(2)))
-            | F84 _,`Coupled _  -> Some (fun y x -> update_f84 y x.(0) (`Coupled x.(1)))
-            | HKY85 _,`Coupled _-> Some (fun y x -> update_hky y x.(0) (`Coupled x.(1)))
-            | GTR _,`Coupled _  ->
-                Some (fun y x -> 
-                        let h,t = split_array x in update_gtr y t (`Coupled h))
-            (* no fifth state *)
-            | JC69,_ | F81,_ | File _,_ -> None
-            | TN93 _,z  -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) z)
-            | F84 _,z   -> Some (fun y x -> update_f84 y x.(0) z)
-            | GTR _,z   -> Some (fun y x -> update_gtr y x z)
-            | K2P _,z   -> Some (fun y x -> update_k2p y x.(0) z)
-            | HKY85 _,z -> Some (fun y x -> update_hky y x.(0) z)
-            | Custom _,_-> Some (fun y x -> update_custom y x)
-    end else begin
-        None
-    end
+    match model.spec.substitution,model.spec.use_gap with
+        | JC69,`Coupled _   -> Some (fun y x -> update_jc69 y (`Coupled x.(0)))
+        | F81,`Coupled _    -> Some (fun y x -> update_f81 y (`Coupled x.(0)))
+        | K2P _,`Coupled _  -> Some (fun y x -> update_k2p y x.(0) (`Coupled x.(1)))
+        | TN93 _,`Coupled _ -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) (`Coupled x.(2)))
+        | F84 _,`Coupled _  -> Some (fun y x -> update_f84 y x.(0) (`Coupled x.(1)))
+        | HKY85 _,`Coupled _-> Some (fun y x -> update_hky y x.(0) (`Coupled x.(1)))
+        | GTR _,`Coupled _  ->
+            Some (fun y x -> 
+                    let h,t = split_array x in update_gtr y t (`Coupled h))
+        (* no fifth state *)
+        | JC69,_ | F81,_ | File _,_ -> None
+        | TN93 _,z  -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) z)
+        | F84 _,z   -> Some (fun y x -> update_f84 y x.(0) z)
+        | GTR _,z   -> Some (fun y x -> update_gtr y x z)
+        | K2P _,z   -> Some (fun y x -> update_k2p y x.(0) z)
+        | HKY85 _,z -> Some (fun y x -> update_hky y x.(0) z)
+        | Custom _,_-> Some (fun y x -> update_custom y x)
   ELSE
     None
   END
 
 and get_update_function_for_alpha model = 
   IFDEF USE_LIKELIHOOD THEN
-    if model.spec.iterate_alpha then begin
-        match model.spec.site_variation with
-        | Some (Gamma _) -> Some update_alpha
-        | Some (Theta _) -> Some update_alpha
-        | None | Some Constant -> None
-    end else begin
-        None
-    end
+    match model.spec.site_variation with
+        | Gamma _  -> Some update_alpha
+        | Theta _  -> Some update_alpha
+        | Constant -> None
   ELSE
     None
   END
@@ -1987,42 +1933,28 @@ let get_current_parameters_for_model model =
         | JC69,`Coupled gapr | F81,`Coupled gapr ->
             (Array.make 1 gapr)
         | F84 x,`Coupled gapr | K2P x,`Coupled gapr | HKY85 x,`Coupled gapr ->
-            let x = Array.make 2 (match x with | None -> default_tstv | Some x -> x) in
+            let x = Array.make 2 x in
             x.(1) <- gapr;
             x
-        | TN93 x,`Coupled gapr ->
-            let x1,x2 = match x with 
-                | Some (x,y) -> x,y
-                | None -> default_tstv,default_tstv
-            in
+        | TN93 (x1,x2),`Coupled gapr ->
             let y = Array.make 3 x2 in
             y.(0) <- x1;
             y.(2) <- gapr;
             y
-        | GTR (Some y),`Coupled gapr ->
+        | GTR y,`Coupled gapr ->
             let y = Array.init ((Array.length y)+1)
                        (fun i -> if i = Array.length y then gapr else y.(i))
             in
             y
-        | GTR None,`Coupled gapr ->
-            let a = Array.make ((((model.alph_s-1)*model.alph_s)/2)+1) 1.0 in 
-            a.((Array.length a)-1) <- gapr;
-            a
         (* no gap below *)
         | JC69,_ | F81,_ | File _,_ -> [||]
         | F84 x,_ | K2P x,_ | HKY85 x,_ ->
-            let x = match x with | None -> default_tstv | Some x -> x in
-            (Array.make 1 x)
-        | TN93 x,_  ->
-            let x1,x2 = match x with 
-                | Some (x,y) -> x,y
-                | None -> default_tstv,default_tstv
-            in
+            Array.make 1 x
+        | TN93 (x1,x2),_  ->
             let y = Array.make 2 x2 in
             y.(0) <- x1;
             y
-        | GTR (Some x),_    -> x
-        | GTR None,_        -> (default_gtr model.alph_s)
+        | GTR x,_ -> x
         | Custom (_,xs,_),_ -> xs
   ELSE
     [||]
@@ -2032,9 +1964,9 @@ let get_current_parameters_for_model model =
 and get_current_parameters_for_alpha model =
   IFDEF USE_LIKELIHOOD THEN
     match model.spec.site_variation with
-        | Some (Gamma (cat,alpha)) -> Some alpha
-        | Some (Theta (cat,alpha,invar)) -> Some alpha
-        | None | Some Constant -> None
+        | Gamma (cat,alpha) -> Some alpha
+        | Theta (cat,alpha,invar) -> Some alpha
+        | Constant -> None
   ELSE
     None
   END

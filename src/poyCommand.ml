@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2684 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2710 $"
 
 let debug = false 
 
@@ -1247,7 +1247,7 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
     | `Help _ as meth -> meth :: acc
     | `Use x -> `Set x :: acc
     | `Echo (a, []) ->
-            `Echo (a,`Information) :: acc
+            (`Echo (a,`Information)) :: acc
     | `Echo (a, y) ->
             List.fold_left (fun acc x -> `Echo (a, x) :: acc) acc y
     | `Set settings ->
@@ -1352,14 +1352,21 @@ let create_expr () =
                 [ LIDENT "jc69" -> `JC69 ] |
                 [ LIDENT "f81"  -> `F81  ] |
                     (* values of these types get checked later *)
-                [ LIDENT "f84";   x = OPT ml_floatlist -> `F84   x ] |
-                [ LIDENT "k80";   x = OPT ml_floatlist -> `K2P   x ] |
-                [ LIDENT "k2p";   x = OPT ml_floatlist -> `K2P   x ] |
-                [ LIDENT "hky";   x = OPT ml_floatlist -> `HKY85 x ] |
-                [ LIDENT "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
-                [ LIDENT "tn93";  x = OPT ml_floatlist -> `TN93  x ] |
-                [ LIDENT "gtr";   x = OPT ml_floatlist -> `GTR   x ] |
-                [ LIDENT "file"; ":"; x = STRING -> `File x ] |
+                [ LIDENT "f84";   x = OPT ml_floatlist ->
+                    let x = (function None -> [] | Some x -> x) x in `F84 x  ] |
+                [ LIDENT "k80";   x = OPT ml_floatlist ->
+                    let x = (function None -> [] | Some x -> x) x in `K2P x  ] |
+                [ LIDENT "k2p";   x = OPT ml_floatlist ->
+                    let x = (function None -> [] | Some x -> x) x in `K2P x  ] |
+                [ LIDENT "hky";   x = OPT ml_floatlist ->
+                    let x = (function None -> [] | Some x -> x) x in `HKY85 x] |
+                [ LIDENT "hky85"; x = OPT ml_floatlist ->
+                    let x = (function None -> [] | Some x -> x) x in `HKY85 x] |
+                [ LIDENT "tn93";  x = OPT ml_floatlist ->
+                    let x = (function None -> [] | Some x -> x) x in `TN93 x ] |
+                [ LIDENT "gtr";   x = OPT ml_floatlist ->
+                    let x = (function None -> [] | Some x -> x) x in `GTR x  ] |
+                [ LIDENT "file"; ":"; x = STRING   -> `File x ] |
                 [ LIDENT "custom"; ":"; x = STRING -> `Custom x ]
             ];
         site_properties:

@@ -33,11 +33,11 @@ type site_var =
 type subst_model =
     | JC69
     | F81
-    | K2P   of float option
-    | F84   of float option
-    | HKY85 of float option
-    | TN93  of (float * float) option
-    | GTR   of (float array) option
+    | K2P   of float
+    | F84   of float
+    | HKY85 of float
+    | TN93  of (float * float)
+    | GTR   of float array
     (** [GTR] alphabetical order describtion of the transition rates *)
     | File  of float array array * string
     (** [File] matrix read from a file, diagonal is readjusted so row = 0 *)
@@ -52,22 +52,17 @@ type priors =
 
 type spec = {
     substitution : subst_model;
-    site_variation : site_var option;
+    site_variation : site_var;
     base_priors : priors;
     cost_fn : Methods.ml_costfn;
     use_gap : Methods.ml_gap;
-    iterate_model : bool;
-    iterate_alpha : bool;
+    alphabet : Alphabet.a * int;
 }
 (** [spec] the specification of the model. *)
 
 type model = {
     (** [spec] specification this model was created from *)
     spec  : spec;
-    (** [alph] the alphabet. *)
-    alph : Alphabet.a;
-    (** [alph_s] size of the alphabet for the model. *)
-    alph_s : int;
     (** [pi_0] priors for the model *)
     pi_0  : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
     (** [invar] the percent used for the proportion of invariant sites *)
@@ -116,11 +111,12 @@ val default_command :
 val compare_priors : model -> model -> bool
 (** compare two sets of priors *)
 
-val convert_string_spec : string_spec -> spec
+val convert_string_spec : Alphabet.a * int -> string_spec -> spec
 (** [convert_string_spec] convert a string spec from nexus and other formats to
    the basic specification in for a likelihood model *)
 
-val convert_methods_spec : int -> (unit -> float array) -> Methods.ml_spec -> spec
+val convert_methods_spec :
+    (Alphabet.a * int) -> (unit -> float array) -> Methods.ml_spec -> spec
 (** [convert_methods_spec] convert the specification from Methods into the
     proper MlModel.spec; this then can be converted to MlModel.model *)
 
@@ -135,15 +131,6 @@ val classify_seq_pairs :
 
 
 (** {6 External Access to Key Models *)
-
-val jc69_5_gap : float -> spec
-(** sample spec for testing of 5 state JC69 with different gap rate *)
-
-val jc69_5 : spec
-(** sample spec for testing of 5 state JC69 *)
-
-val jc69_4 : spec
-(** sample spec for testing of 4 state JC69 *)
 
 val m_gtr : 
     (float, 'a, 'b) Bigarray.Array1.t -> float array -> int -> (int * float) option
@@ -163,11 +150,17 @@ val m_file :
 
 (** {6 Create / Modify Models and Specifications of models *)
 
-val create : ?min_prior:float -> Alphabet.a -> spec -> model
+val create : ?min_prior:float -> spec -> model
 (** [create_lk_model s] create the model for likelihood from parser *)
 
 val get_costfn_code : model -> int
 (** code for costfn for c-side *)
+
+val get_alphabet : model -> Alphabet.a
+(** return the alphabet associated with the model; always sequential *)
+
+val get_alphabet_size : model -> int
+(** return the size of the alphabet; includes/excludes gap when appropriate *)
 
 val categorize_by_model : ('a -> spec) -> 'a list -> 'a list list
 (** categorize a list of values into a list list of values; usually codes *)
@@ -200,8 +193,8 @@ val compare : model -> model -> int
 
 val spec_from_classification :
     Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution ->
-        Methods.ml_site_variation option -> Methods.ml_costfn ->
-    (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
+        Methods.ml_site_variation option -> Methods.ml_priors -> Methods.ml_costfn
+    -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
 (** Create the specification from the classification of the columns; above *)
 
 val compose : model -> float -> 
@@ -265,3 +258,8 @@ val model_to_cm : model -> float -> Cost_matrix.Two_D.m * Cost_matrix.Two_D.m
 (** {6 Model Properties and Information *)
 
 val count_parameters : model -> int
+(** Count the number of paramters in the model; for Model Selection *)
+
+val get_all_models :
+    int -> Methods.ml_gap -> priors -> (subst_model * priors) list
+(** Get a list of models with default prior information; for model selection *)

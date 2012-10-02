@@ -144,12 +144,8 @@ type ('a, 'b) adjust_fn =
  * iterated and what edges to adjust branch lengths. *)
 
 type ('a, 'b) cost_fn =
-    ('a, 'b ) nodes_manager option -> 
-    Tree.join_jxn -> Tree.join_jxn ->
-    float ->
-    'a ->
-    ('a, 'b) p_tree ->
-    clade_cost
+    ('a, 'b ) nodes_manager option -> Tree.join_jxn -> Tree.join_jxn ->
+        float -> 'a -> ('a, 'b) p_tree -> clade_cost
 (** type of the function that determines the cost of a join. It takes both the
 * tree and clade junctions as arguments, the cost of pruning the clade and the
 * node that was the root of the clade and returns the cost of joining the clade
@@ -225,18 +221,11 @@ end
                 ('a, 'b) wagner_edges_mgr) list -> unit
         method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
         method process :
-            ('a, 'b) cost_fn ->
-              ('a,'b) nodes_manager option ->
-                float ->
-                    'a ->
-                        ('a, 'b) join_fn ->
-                            Tree.join_jxn ->
-                                Tree.join_jxn -> 
-                                    ('a, 'b) p_tree -> 
-                                        ('a, 'b) wagner_edges_mgr ->
-                                            t_status
-    method evaluate : unit
-    method results : (('a, 'b) p_tree * float) list
+            ('a, 'b) cost_fn -> ('a,'b) nodes_manager option -> float -> 'a ->
+                ('a, 'b) join_fn -> Tree.join_jxn -> Tree.join_jxn ->
+                    ('a, 'b) p_tree -> ('a, 'b) wagner_edges_mgr -> t_status
+        method evaluate : unit
+        method results : (('a, 'b) p_tree * float) list
     end
 
 
@@ -262,25 +251,26 @@ end
     * allows us to incorporate various heuristics into the search easily. The
     * parameterized types are the types from the p_tree. *)
       class type ['a, 'b] search_mgr = object
-          method features : (string * string) list -> (string * string) list
+        
+        method features : (string * string) list -> (string * string) list
 
-          method init : (('a, 'b) p_tree * float * clade_cost * ('a, 'b) tabu_mgr) list 
-              -> unit
+        method init :
+            (('a, 'b) p_tree * float * clade_cost * ('a, 'b) tabu_mgr) list -> unit
         (** Function to initialize the list of trees to be searched
          * and their individual costs and break_deltas associated with
          * them. *)
               
-          method clone : ('a, 'b) search_mgr
+        method clone : ('a, 'b) search_mgr
         (** Function to create a fresh instance of a search mgr object
             with all data initialized to default values. *)
               
         (** [process cost_fn join_fn
          *       join_1_jxn join_2_jxn tree_delta 
          *       broken_tree -> Travesal Status *)
-          method process : ('a, 'b) cost_fn -> float -> 'a ->
-              ('a, 'b) join_fn -> incremental list ->
-              Tree.join_jxn -> Tree.join_jxn -> 
-              ('a, 'b) tabu_mgr -> ('a, 'b) p_tree -> t_status 
+        method process :
+            ('a, 'b) cost_fn -> float -> 'a -> ('a, 'b) join_fn ->
+                incremental list -> Tree.join_jxn -> Tree.join_jxn ->
+                    ('a, 'b) tabu_mgr -> ('a, 'b) p_tree -> t_status 
         (** This function decides whether to perform a join operation 
          * and add the tree to the queue of trees to be searched. *)
               

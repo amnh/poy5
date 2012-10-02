@@ -519,6 +519,9 @@ end
 (** return string representation of a node *)
 val string_of_node : node -> string
 
+(** return a string of a join-junction *)
+val string_of_jxn : join_jxn -> string
+
 (** Run a tree through a battery of consistency tests *)
 val test_tree : u_tree -> unit
 
