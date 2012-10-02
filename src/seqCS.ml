@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2684 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2686 $"
 
 let debug = false
 let debug_distance = false 
@@ -947,7 +947,6 @@ module DOS = struct
                 else
                     Sequence.Align.closest parent mine.sequence h.c2_full Matrix.default 
             in
-            let rescost = make_cost tmpcost tmpcost 
             (int_of_float (get_cost3 mine.costs)) (int_of_float mine.costs.sum_cost) in
             if debug then begin
                 Printf.printf "parent seq = %!";
