@@ -301,6 +301,7 @@ module OutputInformation : sig
 
     type t = [
         | `CostMode
+        | `OptMode
         | `TreeInformation of [ treelengths_information | `Number ] list
         | `TaxonInformation
         | `CharacterInformation of character_information list
@@ -639,7 +640,7 @@ val make_partitioned : [`Clip | `NoClip] -> bool_characters -> d -> d
 
 val has_dynamic : d -> bool
 
-val has_likelihood: d -> bool
+val has_static_likelihood: d -> bool
 
 val type_of_dynamic_likelihood: d -> Methods.ml_costfn option
 

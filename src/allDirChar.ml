@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2707 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2709 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -164,7 +164,7 @@ module F : Ptree.Tree_Operations
      * posterity. *)
     let rec using_likelihood types ptree =
         let data_test = match types with
-            | `Static   -> Data.has_likelihood ptree.Ptree.data
+            | `Static   -> Data.has_static_likelihood ptree.Ptree.data
             | `Dynamic  ->
                 begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
                     | Some _ -> true
