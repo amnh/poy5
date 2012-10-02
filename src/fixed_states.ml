@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "Fixed_states" "$Revision: 2546 $"
+let () = SadmanOutput.register "Fixed_states" "$Revision: 2684 $"
 
 type elt = SankCS.elt (*cside*)
 type t = SankCS.t (*cside*)

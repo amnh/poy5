@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Subseq" "$Revision: 1644 $"
+let () = SadmanOutput.register "Subseq" "$Revision: 2684 $"
 (** The data and functions applied to a subsequence in a chromosome *)
 
 type type_t = Alied | Deleted | Both

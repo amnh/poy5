@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "IncList" "$Revision: 736 $"
+let () = SadmanOutput.register "IncList" "$Revision: 2684 $"
 
 (** This module implements a data structure and 
 * methods for an increasing list *)

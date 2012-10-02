@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2660 $"
+let () = SadmanOutput.register "" "$Revision: 2710 $"
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 2660 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 2710 $"
 
 type tab_state = Begin | First | Continue
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SufTree" "$Revision: 2784 $"
+let () = SadmanOutput.register "SufTree" "$Revision: 2684 $"
 
 (** sufTree module implements structures and
 * functions of the suffix tree. The implementations

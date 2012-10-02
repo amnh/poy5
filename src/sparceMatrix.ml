@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SparceMatrix" "$Revision: 1616 $"
+let () = SadmanOutput.register "SparceMatrix" "$Revision: 2684 $"
 
 (* SparceMatrix provides a simple matrix for which some
 columns and rows can be added and removed every now and then. Instead of

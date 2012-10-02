@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "BreakinvAli" "$Revision: 2656 $"
+let () = SadmanOutput.register "BreakinvAli" "$Revision: 2684 $"
 
 (** The implementation of funtions to calculate the cost, 
 * alignments and medians between general sequences 
@@ -45,6 +45,10 @@ type breakinv_t = {
     cost2 : int; (** the cost between this breakinv and its second child *)
     recost1 : int; (** the recost between this breakinv and its first child *)
     recost2 : int; (** the recost between this breakinv and its second child *)
+
+    (*store cost3 and sumcost in each breakinv_t*)
+    cost3 : int; (** cost(mine,ch1)+cost(mine,ch2)+cost(mine,parent) *)
+    sum_cost : int; (** cost of subtree root at this breakinv_t of this node*)
 
     delimiter_lst : int list (* delimiter list for multichromosome *)
 }
@@ -118,6 +122,9 @@ let init seq delimiters =
     cost2 = 0;
     recost1 = 0;
     recost2 = 0;    
+
+    cost3 = 0;
+    sum_cost = 0;
 
     delimiter_lst = delimiters;
 }
@@ -473,6 +480,8 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                       cost2 = total_cost - recost2;
                       recost1 = recost1;
                       recost2 = recost2;
+                      cost3 = 0; (*for median2, set cost3 to 0. median3 will update this*)
+                      sum_cost = total_cost + med1.sum_cost + med2.sum_cost;
                       delimiter_lst = newdelimiters 
                      }
                  in    
@@ -501,6 +510,8 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         cost2 = 0;
         recost1 = 0;
         recost2 = 0;
+        cost3 = 0;
+        sum_cost = med1.sum_cost + med2.sum_cost;
         delimiter_lst = med1.delimiter_lst
         }]
         end

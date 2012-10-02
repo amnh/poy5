@@ -77,7 +77,9 @@ type med_t = {
     recost1 : int; (** the recost from this genome to its first child *)
     cost2 : int; (** the cost from this genome to its second child *)
     recost2 : int; (** the recost from this genome to its second child *)
-
+    (*store cost3 and sumcost in each med_t*)
+    cost3 : int; (** cost(mine,ch1)+cost(mine,ch2)+cost(mine,parent) *)
+    sum_cost : int; (** cost of subtree root at this med_t of this node*)
 }
 
 (** [genome_block_t] is data structure for a block
@@ -239,7 +241,7 @@ val find_med3 :
   med_t ->
   med_t ->
   Cost_matrix.Two_D.m ->
-  Cost_matrix.Three_D.m -> Data.dyna_pam_t -> int * med_t
+  Cost_matrix.Three_D.m -> Data.dyna_pam_t -> int * int * med_t * bool
 
 
 

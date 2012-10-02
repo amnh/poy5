@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 2700 $"
+let () = SadmanOutput.register "Main" "$Revision: 2710 $"
 
 let seed = truncate (Unix.time ())
 

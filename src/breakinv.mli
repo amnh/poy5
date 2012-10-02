@@ -95,7 +95,7 @@ val find_meds3_albert : meds_t -> meds_t -> meds_t -> meds_t
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
 * the breakinv median [mine] of three breakinv medians 
 * [ch1], [ch2] and [parent] *) 
-val readjust_3d : meds_t -> meds_t -> meds_t -> 'a -> 'b -> meds_t -> int * meds_t * bool
+val readjust_3d : meds_t -> meds_t -> meds_t -> 'a -> 'b -> meds_t -> int * int * meds_t * bool
 
 (** [compare meds1 meds2] returns 0 if breakinv list [meds1]
 * is the same as breakinv list [meds2], otherwise (-1) or (1) *)

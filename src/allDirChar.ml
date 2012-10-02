@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2708 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2711 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -36,6 +36,7 @@ let debug_downpass_fn       = false
 let debug_single_assignment = false
 let debug_diagnosis         = false
 let debug_create_root       = false
+let debug_reroot            = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -169,7 +170,7 @@ module F : Ptree.Tree_Operations
      * posterity. *)
     let rec using_likelihood types ptree =
         let data_test = match types with
-            | `Static   -> Data.has_likelihood ptree.Ptree.data
+            | `Static   -> Data.has_static_likelihood ptree.Ptree.data
             | `Dynamic  ->
                 begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
                     | Some _ -> true
@@ -316,7 +317,8 @@ module F : Ptree.Tree_Operations
             let node = { AllDirNode.unadjusted = [node]; adjusted = Some node } in
             let cost = Node.Standard.tree_cost None nnode in
             let extracost = Node.extra_cost_from_root nnode in
-            if debug_create_root then Printf.printf "create_root with cost %f - %f\n%!" cost extracost;
+            if debug_create_root then
+                Printf.printf "create_root with cost %f - %f\n%!" cost extracost;
             let cost = cost -. extracost in
             {
                 Ptree.root_median = Some ((`Edge (a, b)), node);
@@ -518,7 +520,7 @@ module F : Ptree.Tree_Operations
     let report_all_roots tree =
         List.iter
             (fun (Tree.Edge (a,b),c) ->
-                Printf.printf "(%d,%d) -- %f\n" a b c)
+                Printf.printf "root at (%d,%d) -- %f\n" a b c)
             (root_costs tree)
 
 
@@ -645,8 +647,9 @@ module F : Ptree.Tree_Operations
                 if debug_single_assignment then
                     info_user_message "assign single subtree on root node %d,%d" a b;
                 let root, rooth = get_root_direction rootg in
-                let handle_node = 
-                    (Ptree.get_node_data a ptree).AllDirNode.unadjusted 
+                let handle_node =
+                    let hnode = Ptree.get_node_data a ptree in
+                    hnode.AllDirNode.unadjusted
                         --> AllDirNode.not_with b
                         --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
                 and other_node =
@@ -666,8 +669,7 @@ module F : Ptree.Tree_Operations
                 let treecost = Node.Standard.tree_cost None root in
                 let extracost = Node.extra_cost_from_root root in
                 if debug_single_assignment then 
-                    info_user_message "assign cost to root :%f - %f" treecost
-                    extracost;
+                    info_user_message "assign cost to root :%f - extra:%f" treecost extracost;
                 let ptree = 
                     Ptree.assign_root_to_connected_component 
                         handle (Some (edge, readjusted)) 
@@ -760,8 +762,10 @@ module F : Ptree.Tree_Operations
                     let leaf = AllDirNode.AllDirF.apply_time false this parn in
                     Ptree.add_node_data code leaf ptree
             | (Tree.Interior (_, par,a ,b)) as v -> 
+                    if debug_uppass_fn then info_user_message "add vertex with node#.%d(par=%d,a=%d,b=%d,prev=%d)" code par a b prev;
                     let a,b = Tree.other_two_nbrs prev v in
                     let interior = create_lazy_interior_up ptree code a b prev in
+                    if debug_uppass_fn then info_user_message "add internal node#.%d(a=%d,b=%d,prev=%d as par) to ptree"  code a b prev;
                     Ptree.add_node_data code interior ptree
         in
         (* Because the tree is currently disjoint; the final edge has no data;
@@ -772,8 +776,12 @@ module F : Ptree.Tree_Operations
             info_user_message "Performing Calculation on Root" else ();
         let _,ptree = match start_edge_opt with
             | Some (a,b) ->
+		        if debug_uppass_fn then 
+		            info_user_message "call refresh_edge with start_edge(%d,%d)" a b;
                 refresh_edge true root_opt (Tree.Edge (a,b)) (Tree.EdgeMap.empty,ptree) 
             | None ->
+		        if debug_uppass_fn then 
+		            info_user_message "no start edge, iter over all handles to refresh_edges";
                 IntSet.fold 
                     (fun h (edge_map,ptree) ->
                         try begin
@@ -921,7 +929,8 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Iterative `ApproxD _
-            | `Normal -> 
+            | `Normal ->
+		        if debug_reroot then Printf.printf "reroot_fn, Normal,Iterative2D,etc..call create_root\n%!";
                 let root = 
                     let new_roots = create_root h n ptree in
                     if force || 
@@ -932,6 +941,7 @@ module F : Ptree.Tree_Operations
                 in
                 add_component_root ptree h root, []
             | `Iterative `ThreeD _ -> 
+		        if debug_reroot then Printf.printf "reroot_fn, Iterative3D, just add component root\n%!";
                 add_component_root ptree h root, []
         in
         update_node_manager tree (`Reroot inc) n_mgr;

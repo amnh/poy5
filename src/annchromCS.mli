@@ -72,6 +72,7 @@ type t = {
   recosts : float IntMap.t;
   total_cost : float;
   total_recost : float;
+  subtree_cost : float;
   subtree_recost : float;
   c2_full : Cost_matrix.Two_D.m;
   c2_original : Cost_matrix.Two_D.m;
@@ -110,4 +111,4 @@ val to_single : IntSet.t -> t option -> t -> t -> float * float * t
 val copy_chrom_map : t -> t -> t
 val readjust :
   All_sets.Integers.t option ->
-  All_sets.Integers.t -> t -> t -> t -> t -> All_sets.Integers.t * float * t
+  All_sets.Integers.t -> t -> t -> t -> t -> All_sets.Integers.t * float * float * t

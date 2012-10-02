@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2654 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2684 $"
 
 
 exception Illegal_Cm_Format;;
@@ -118,11 +118,11 @@ module Two_D = struct
         in
         func m 1
 
+    (** [check_level cm] return true is the cost maxtri is using level : when 1<=level<=size*)
     let check_level cm =
         let level = get_level cm in
         let size = get_ori_a_sz cm in
         (level>=1) && (level<=size)
-    ;;
     
     let clear_duplication_in_list oldlist =
         let oldlist = List.sort compare oldlist in
@@ -480,7 +480,6 @@ module Two_D = struct
             (*combcode - num_comb_without_gap this is wrong*)
         else
             combcode
-     
 
     (* a,b,i belongs to alpha list, if newcost = cost(a,i)+cost(i,b) is less
     * than oldcost = cost(a,b),
@@ -1448,12 +1447,12 @@ module Two_D = struct
     let states_of_code code cm = 
         if check_level cm 
             then combcode_to_comblist code cm 
-            else BitSet.Int.list_of_packed_max code (alphabet_size cm)
+        else List.rev(BitSet.Int.list_of_packed_max code (alphabet_size cm))
 
     let code_of_states states cm =
         if check_level cm
             then comblist_to_combcode states cm
-            else BitSet.Int.packed_of_list_max states (alphabet_size cm)
+        else BitSet.Int.packed_of_list_max states (alphabet_size cm)
 
     (*to do : apply tie breaker to to_single finctions*)
     let get_closest cm a b =
@@ -1494,7 +1493,6 @@ module Two_D = struct
             match states_of_code b cm with(*get a list of code based on codeb*)
             | [] -> failwith "~ No bits on?"
             | bits ->
-                let bits = List.rev bits in
                 if debug then begin
                     Printf.printf "b without gap = %d, b code lst = [%!" b;
                     List.iter ( fun x -> Printf.printf "%d," x) bits;
@@ -1686,6 +1684,8 @@ module Three_D = struct
         done(*loop on i*)
     ;;
 
+    (* [of_two_dim_comb] use bitwise operation , make a 3d matrix from 2d matrix.
+    * Note: tie_breaker for median is 'first' -- function [pick_bit] does that. *)
     let of_two_dim_comb nm m =
         let debug = false in
         let alph = Two_D.alphabet_size m

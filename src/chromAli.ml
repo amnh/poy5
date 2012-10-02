@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2656 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2684 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -42,6 +42,8 @@ type seg_t = {
     cost : int; (** the cost of aligning the segment *)
     alied_med : Sequence.s; (** the median sequence of the segment *)
 
+    
+
     sta1 : int; (** start position of the segment on the first chromosome *)
     en1 : int; (** end position of the segment on the first chromosome *)
     alied_seq1 : Sequence.s; (** aligned sequence of this segment on the first chromosome *)
@@ -65,6 +67,9 @@ type med_t = {
     cost2 : int;
     recost2 : int;
     chrom_map : seg_t list;    
+    (*store cost3 and sumcost in each med_t*)
+    cost3 : int; (** cost(mine,ch1)+cost(mine,ch2)+cost(mine,parent) *)
+    sum_cost : int; (** cost of subtree root at this med_t of this node*)
 }
 
 
@@ -79,6 +84,8 @@ let create_med seq = {
     recost1 = 0;
     cost2 = 0;
     recost2 =0;
+    cost3 = 0;
+    sum_cost = 0;
 }
 
 let init_med seq = 
@@ -91,6 +98,8 @@ let init_med seq =
                recost1 = 0;
                cost2 = 0;
                recost2 =0;
+               cost3 = 0;
+                sum_cost = 0;
               } 
     in  
     med
@@ -134,6 +143,8 @@ let clone_med m = {
     cost2 =m.cost2;
     recost1 = m.recost1;
     recost2 = m.recost2;
+    cost3 = m.cost3;
+    sum_cost = m.sum_cost;
     chrom_map = List.map clone_seg m.chrom_map
 }
 
@@ -377,8 +388,18 @@ let get_extra_cost_for_root x cost_mat =
         segt.cost - newcost + acc
     ) 0 x.chrom_map
 
-
-let create_median_mauve (seq1, chrom1_id) (seq2, chrom2_id) full_code_lstlst
+(** [create_median_mauve] take original seq of both children, cost_lstlst of
+* lcbs, alied sequence of both children, a cost matrix between each pair of
+* aligned lcb as alignment_matrix.
+ * and (total_cost,0,recost), recost1 will be 0, recost2 will be the
+ * rearrangement cost between lcb blocks. total_cost is the (recost + editing
+ * cost) 
+ * later we fill cost1 and cost2 with 
+ * cost1 = total_cost - recost2;
+   cost2 = total_cost - recost1;
+   so cost2 will be total_cost, cost1 will be the editing cost
+*)
+let create_median_mauve (seq1, chrom1_id,sumcost_ch1) (seq2, chrom2_id, sumcost_ch2) full_code_lstlst
 gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,recost2) cost_mat ali_pam =
     let debug = false in
     if debug then Printf.printf "create median mauve : \n%!";
@@ -419,7 +440,7 @@ gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,
             let ali_or_del_cost,subseq1,subseq2 = alignment_matrix.(code1).(code2) in
             if debug then Printf.printf "create median seq with subseq1/2 (size=%d,%d)\n%!"
             (Sequence.length subseq1) (Sequence.length subseq2);
-            let newseq,_ = (*we already have the cost from alignment_matrix*) 
+            let newseq,_ = (*the second is a cost, but we already have the cost from alignment_matrix*) 
                 Sequence.create_median_seq ~approx:`First subseq1 subseq2 cost_mat in
             let med_len = Sequence.cmp_num_not_gap newseq in 
             if debug then Printf.printf "ali_or_del_cost = %d,med_len = %d(Wout_gap=%d)\n %!" 
@@ -448,10 +469,12 @@ gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,
      ref_code1 = chrom1_id;
      ref_code2 = chrom2_id;
      chrom_map = chrom_map;
-     cost1 = total_cost - recost2;
-     cost2 = total_cost - recost1;
+     cost1 = 0;
+     cost2 = total_cost;
      recost1 = recost1;
      recost2 = recost2;
+     cost3 = 0; (* cost3 is 0 for median2, until we update it with median3 function*)
+     sum_cost = total_cost + sumcost_ch1 + sumcost_ch2;
     }
 
 
@@ -461,9 +484,9 @@ gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,
 *                  ali_mat alied_gen_seq1 alied_gen_seq2 (order2_arr, total_cost, recost1, recost2) 
 *                   cost_mat ali_pam] creates the median between 
 * two chromosome [seq1] and [seq2] given a [global_map] *)
-let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, chrom2_id) global_map 
-        ali_mat alied_gen_seq1 alied_gen_seq2 
-        (order2_arr, total_cost, recost1, recost2) cost_mat ali_pam = 
+let create_median subseq1_ls subseq2_ls gen_gap_code
+(seq1,chrom1_id,sumcost_ch1) (seq2, chrom2_id,sumcost_ch2) global_map 
+ali_mat alied_gen_seq1 alied_gen_seq2 (order2_arr, total_cost, recost1, recost2) cost_mat ali_pam = 
     let approx = ali_pam.ChromPam.approx in
     let locus_indel_cost = ali_pam.ChromPam.locus_indel_cost in 
     let adder (submed_ls, nascent_len, chrom_map) ali_pos  = 
@@ -600,6 +623,8 @@ let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, ch
      cost2 = total_cost - recost1;
      recost1 = recost1;
      recost2 = recost2;
+     cost3 = 0;
+     sum_cost = total_cost + sumcost_ch1 + sumcost_ch2;
     }
 
 
@@ -723,6 +748,7 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam
                    chrom_map = [];
                    cost1 = 0; recost1 = 0;
                    cost2 = 0; recost2 = 0;
+                   cost3 = 0; sum_cost = med1.sum_cost + med2.sum_cost;
                   } 
         in 
         0, 0, [med]
@@ -734,81 +760,79 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam
                    ref_code2 = -1;
                    chrom_map = [];
                    cost1 = 0; recost1 = 0;
-                   cost2 = 0; recost2 = 0;                  
+                   cost2 = 0; recost2 = 0; 
+                   cost3 = 0; sum_cost = med1.sum_cost + med2.sum_cost;                 
                   } in 
         0, 0, [med]
     end 
     else 
         let total_cost,recost,med_ls =
-        match (ChromPam.use_mauve_annotator ali_pam) with
-        | true ->
-        if debug2 then Printf.printf "find_simple_med2_ls,call mauve annotater \n%!";
-        (*base_code+2 is the start code for non-lcb block*)
-        let full_code_lstlst,gen_gap_code,alignment_matrix, alied_code1_lst,
-            alied_code2_lst, total_cost, (_, recost) =
-                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam 
-                outputtofile old_cost
+            match (ChromPam.use_mauve_annotator ali_pam) with
+            | true ->
+            if debug2 then Printf.printf "find_simple_med2_ls,call mauve annotater \n%!";
+            (*base_code+2 is the start code for non-lcb block*)
+            let full_code_lstlst,gen_gap_code,alignment_matrix, alied_code1_lst,
+                alied_code2_lst, total_cost, (_, recost) =
+                    AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam 
+                    outputtofile old_cost
+            in
+            let alied_gen_seq2 = Array.of_list alied_code2_lst in
+            let re_gen_seq2 = Array_ops.filter 
+            (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
+            let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
+            let all_order_ls = 
+                if ali_pam.ChromPam.approx = `Second then [(gen_seq2, recost, 0)]
+                else 
+                if (Utl.isEqualArr gen_seq2 re_gen_seq2 compare) ||
+                    (ali_pam.ChromPam.keep_median = 1) || 
+                    (ali_pam.ChromPam.approx = `First) then [(re_gen_seq2, 0, recost)]
+                else [(re_gen_seq2, 0, recost); (gen_seq2, recost, 0)]
+            in
+            total_cost,
+            recost,
+            List.fold_right
+                (fun (order_arr, recost1, recost2) med_ls ->
+                     let med = 
+                         create_median_mauve (seq1, med1.ref_code, med1.sum_cost)
+                         (seq2, med2.ref_code, med2.sum_cost)
+                         full_code_lstlst gen_gap_code alied_code1_lst alied_code2_lst 
+                         alignment_matrix (total_cost,0,recost) cost_mat ali_pam
+                     in
+                     med::med_ls
+                ) all_order_ls []
+            | false ->
+            if debug2 then Printf.printf "find_simple_med2_ls,call vinh annotater\n%!";
+            let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in 
+            let subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, alied_gen_seq1,
+                alied_gen_seq2, total_cost, (_, recost)  = 
+                AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam 
+            in
+            let re_gen_seq2 = Array_ops.filter 
+            (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
+            let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
+            let all_order_ls = 
+                if ali_pam.ChromPam.approx = `Second then [(gen_seq2, recost, 0)]
+                else 
+                if (Utl.isEqualArr gen_seq2 re_gen_seq2 compare) ||
+                    (ali_pam.ChromPam.keep_median = 1) || 
+                    (ali_pam.ChromPam.approx = `First) then [(re_gen_seq2, 0, recost)]
+                else [(re_gen_seq2, 0, recost); (gen_seq2, recost, 0)]
+            in 
+            total_cost,
+            recost,
+            List.fold_right
+                (fun (order_arr, recost1, recost2) med_ls ->
+                     let med = 
+                         create_median subseq1_ls subseq2_ls gen_gap_code
+                         (seq1, med1.ref_code,med1.sum_cost) (seq2,
+                         med2.ref_code,med2.sum_cost) global_map
+                         ali_mat alied_gen_seq1 alied_gen_seq2 
+                         (order_arr, total_cost, recost1, recost2) cost_mat ali_pam
+                     in
+                     med::med_ls
+                ) all_order_ls []
         in
-        let alied_gen_seq2 = Array.of_list alied_code2_lst in
-        let re_gen_seq2 = Array_ops.filter 
-        (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
-        let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
-        let all_order_ls = 
-            if ali_pam.ChromPam.approx = `Second then [(gen_seq2, recost, 0)]
-            else 
-            if (Utl.isEqualArr gen_seq2 re_gen_seq2 compare) ||
-                (ali_pam.ChromPam.keep_median = 1) || 
-                (ali_pam.ChromPam.approx = `First) then [(re_gen_seq2, 0, recost)]
-            else [(re_gen_seq2, 0, recost); (gen_seq2, recost, 0)]
-        in
-        total_cost,
-        recost,
-        List.fold_right
-            (fun (order_arr, recost1, recost2) med_ls ->
-                 let med = 
-                     create_median_mauve (seq1, med1.ref_code) (seq2, med2.ref_code)
-                     full_code_lstlst gen_gap_code alied_code1_lst alied_code2_lst 
-                     alignment_matrix (total_cost,0,recost) cost_mat ali_pam
-                 in
-                 med::med_ls
-            ) all_order_ls []
-        | false ->
-        if debug2 then Printf.printf "find_simple_med2_ls,call vinh annotater\n%!";
-        let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in 
-        let subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, alied_gen_seq1,
-            alied_gen_seq2, total_cost, (_, recost)  = 
-            AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam 
-        in
-        let re_gen_seq2 = Array_ops.filter 
-        (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
-        let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
-        let all_order_ls = 
-            if ali_pam.ChromPam.approx = `Second then [(gen_seq2, recost, 0)]
-            else 
-            if (Utl.isEqualArr gen_seq2 re_gen_seq2 compare) ||
-                (ali_pam.ChromPam.keep_median = 1) || 
-                (ali_pam.ChromPam.approx = `First) then [(re_gen_seq2, 0, recost)]
-            else [(re_gen_seq2, 0, recost); (gen_seq2, recost, 0)]
-        in 
-        total_cost,
-        recost,
-        List.fold_right
-            (fun (order_arr, recost1, recost2) med_ls ->
-                 let med = 
-                     create_median subseq1_ls subseq2_ls gen_gap_code
-                     (seq1, med1.ref_code) (seq2, med2.ref_code) global_map
-                     ali_mat alied_gen_seq1 alied_gen_seq2 
-                     (order_arr, total_cost, recost1, recost2) cost_mat ali_pam
-                 in
-                 med::med_ls
-            ) all_order_ls []
-    in
-    if debug then Printf.printf "total_cost = %d, rc = %d\n%!" total_cost recost;  
-(*
-       List.iter Block.print global_map; 
-        fprintf stdout "Total_cost, recost: %i %i\n" total_cost recost; flush stdout;
-*) 
-    total_cost, recost, med_ls
+        total_cost, recost, med_ls
 
 
 
@@ -968,8 +992,9 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
                         (Sequence.length sub_seq3 = 0) then detect_change new_med (l_p + 1)
                     else begin                        
 
-                        let _, median_seq, _ = Sequence.Align.readjust_3d
-                            ~first_gap:false sub_seq1 sub_seq2 sub_seqm c2 c3 sub_seq3 
+                        let _, _, median_seq, _ = Sequence.Align.readjust_3d
+                            ~first_gap:false sub_seq1 sub_seq2 sub_seqm c2 c3
+                            sub_seq3 mine.cost2 mine.cost3
                         in
 
                         detect_change ((f_p, l_p, median_seq)::new_med) (l_p + 1)
@@ -996,21 +1021,41 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
             sub_seq::seq_ls
         end else seq_ls
     in 
-    
+   (* no need to calculate old cost3 again, we carry it with us
     let cost1, _ = cmp_cost ch1 mine c2 pam `Chromosome in 
     let cost2, _ = cmp_cost ch2 mine c2 pam `Chromosome in 
     let cost3, _ = cmp_cost ch3 mine c2 pam `Chromosome in 
     let total_cost = cost1 + cost2 + cost3 in
-
+   *)
+   (*get old cost12 and cost3*)
+    let old_cost3 = mine.cost3 in
+    let old_cost12 = mine.cost1 + mine.cost2 in
+    let old_sumcost = mine.sum_cost in
+    (*get new cost12 and cost3*)
     let new_mine_seq = Sequence.concat (List.rev seq_ls) in
-    let new_mine = {mine with seq = new_mine_seq} in
-
-    let new_cost1, _ = cmp_cost ch1 new_mine c2 pam `Chromosome in 
-    let new_cost2, _ = cmp_cost ch2 new_mine c2 pam `Chromosome in 
-    let new_cost3, _ = cmp_cost ch3 new_mine c2 pam `Chromosome in 
-    let total_new_cost = new_cost1 + new_cost2 + new_cost3 in 
-    if total_new_cost < total_cost then total_new_cost, new_mine
-    else total_cost, mine
+    let new_mine = {mine with seq = new_mine_seq } in
+    let new_cost_mine_ch1, new_recost_mine_ch1 = cmp_cost ch1 new_mine c2 pam `Chromosome in 
+    let new_cost_mine_ch2, new_recost_mine_ch2 = cmp_cost ch2 new_mine c2 pam `Chromosome in 
+    let new_cost12 = new_cost_mine_ch2 + new_cost_mine_ch1 in
+    let new_cost_mine_parent, _ = cmp_cost ch3 new_mine c2 pam `Chromosome in 
+    let new_cost3 = new_cost_mine_ch1 + new_cost_mine_ch2 + new_cost_mine_parent in 
+    let new_sumcost = ch1.sum_cost + ch2.sum_cost + new_cost12 in
+    (*update new_mine with cost12 and cost3*)
+    let new_mine = {new_mine with
+            cost1 = new_cost_mine_ch1;
+            recost1 = new_recost_mine_ch1;
+            cost2 = new_cost_mine_ch2;
+            recost2 = new_recost_mine_ch2;
+            cost3 = new_cost3; 
+            sum_cost = new_sumcost;
+    } in
+    (*we return the new cost12, not new cost3 back to chrom.ml*)
+    if (new_cost12 < old_cost12)||(new_cost3 < old_cost3)||(new_sumcost <
+    old_sumcost)
+    (*we don't compare sequence itself, for they might be huge: ||(0 <> compare new_mine_seq mine.seq)*)
+    then 
+        new_cost12, new_sumcost, new_mine,  true
+    else old_cost12, old_sumcost, mine, false
 
 
 

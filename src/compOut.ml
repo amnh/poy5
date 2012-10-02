@@ -769,7 +769,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                 fo (string_of_int number_of_static_characters);
                 fo ";@]@,";
                 let () =
-                    if Data.has_likelihood data then
+                    if Data.has_static_likelihood data then
                         output_likelihood_symbols fo data terminals_sorted
                     else begin
                         fo "@[FORMAT ";

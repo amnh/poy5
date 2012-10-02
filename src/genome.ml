@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Genome" "$Revision: 2656 $"
+let () = SadmanOutput.register "Genome" "$Revision: 2684 $"
 
 (** Genome module implements functions to create medians
     between two lists of genomes *)
@@ -286,17 +286,19 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let ach2 = List.hd ch2.med_ls in
     let amine = List.hd mine.med_ls in
     let aparent = List.hd parent.med_ls in
-    
+   (* 
     let cost1, _  = cmp_min_pair_cost ch1 mine in
     let cost2, _  = cmp_min_pair_cost ch2 mine in
     let costp, _ = cmp_min_pair_cost parent mine in
     let old_cost = cost1 + cost2 + costp in 
+   *)
 
-
-    let cost, adjust_med = GenomeAli.find_med3 ach1 ach2 aparent amine c2 c3
+    let new_cost12,new_sumcost, adjust_med, anything_changed = GenomeAli.find_med3 ach1 ach2 aparent amine c2 c3
         chrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
-
-(*    fprintf stdout "old_cost: %i, new_cost: %i\n" old_cost cost; flush stdout; *)
+    new_cost12, new_sumcost, adjust_med, anything_changed 
+(*
     if old_cost <= cost then  old_cost, mine, false
     else cost, adjust_med, true
+*)
+

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2697 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2710 $"
 
 module IntSet = All_sets.Integers
 
@@ -1469,6 +1469,7 @@ let process_transform (run : r) (meth : Methods.transform) =
             { run with nodes = nodes; data = data; trees = trees }
 
 let load_data (meth : Methods.input) data nodes =
+    let debug = false in
     let prealigned_files = ref [] in
     let rec reader annotated is_prealigned data (meth : Methods.simple_input) = 
         match meth with
@@ -1599,6 +1600,9 @@ let load_data (meth : Methods.input) data nodes =
                 let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
                 let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
                 let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
+                if debug then 
+                    Printf.printf "scripting.ml, load custom alphabet,with tie_breaker:(%b,%b,%b)\n%!" tie_breaker_first
+                    tie_breaker_last tie_breaker_random;
                 let tb = (*we use First as custom alphabet's tie breaker*)
                     if tie_breaker_first then `First
                     else if tie_breaker_last then `Last

@@ -62,6 +62,9 @@ type med_t = {
     cost2 : int;
     recost2 : int;
     chrom_map : seg_t list;    
+    (*store cost3 and sumcost in each med_t*)
+    cost3 : int;
+    sum_cost : int;
 }
 
 val get_extra_cost_for_root: med_t -> Cost_matrix.Two_D.m -> int
@@ -104,8 +107,8 @@ val create_median :
   Subseq.subseq_t list ->
   Subseq.subseq_t list ->
     int ->
-  Sequence.s * int ->
-  Sequence.s * int ->
+  Sequence.s * int * int ->
+  Sequence.s * int * int ->
   Block.block_t list ->
   (Sequence.s * Sequence.s) array array ->
   int array ->
@@ -148,7 +151,8 @@ val find_med3 :
   med_t ->
   med_t ->
   Cost_matrix.Two_D.m ->
-  Cost_matrix.Three_D.m -> Data.dyna_pam_t -> int * med_t
+  Cost_matrix.Three_D.m -> Data.dyna_pam_t -> int * int * med_t * bool
+
 
 val print : med_t -> unit
 

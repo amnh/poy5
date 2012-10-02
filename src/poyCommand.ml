@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2677 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2710 $"
 
 let debug = false 
 
@@ -1444,7 +1444,7 @@ let create_expr () =
             [
                 [ left_parenthesis; x = INT; ","; y = keep_method; right_parenthesis
                 ->(int_of_string x,y) ]|
-                [ x=INT -> (int_of_string x,`Keep_Random) ]
+                [ x=INT -> (int_of_string x,`First) ]
             ];
         transform_method:
             [

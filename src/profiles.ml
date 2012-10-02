@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Profiles" "$Revision: 1644 $"
+let () = SadmanOutput.register "Profiles" "$Revision: 2684 $"
 
 (* Book keeping of the current state of the processes *)
 type condition =

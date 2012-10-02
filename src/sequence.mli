@@ -367,6 +367,10 @@ module Align : sig
 
     val closest : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> s * int
 
+    (**[recost a b cm] there was no comment for this one, anyway, to me this looks
+    * like a function return the cost of two alied
+    * sequence a and b with costmatrix cm. works for datatype with combination through
+    * bitwise(like dna), or those without combination , like old aminoacid*)
     val recost : s -> s -> Cost_matrix.Two_D.m -> int
 
     (** [align_3_powell a b c m o e] generates a quadruple [(a', b', c', ed)]
@@ -380,7 +384,7 @@ module Align : sig
     * cost between the three sequences [a], [b], and [c], according to the cost
     * matrix specified by [cm] and [cm3]. *)
     val align_3_powell_inter : s -> s -> s -> Cost_matrix.Two_D.m ->
-        Cost_matrix.Three_D.m -> s * int
+        Cost_matrix.Three_D.m -> s * int * int 
 
     (** [readjust_3d a b mine cm cm3 p] readjust [mine] as the median between
     * the sequences [a], [b] and [p]. The result is a triple [(ed, s, ch)],
@@ -388,12 +392,12 @@ module Align : sig
     * center of [a], [b], and [p], and [ch] is true iff [ch] is different from
     * [mine]. *)
     val readjust_3d : ?first_gap:bool -> s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> s
-    -> int * s * bool
+    -> int -> int -> int * int * s * bool
 
     val readjust_3d_custom_alphabet : s -> s -> s -> Cost_matrix.Two_D.m ->
-        Cost_matrix.Three_D.m -> s -> int * s * bool
+        Cost_matrix.Three_D.m -> s -> int -> int -> int * int * s * s * s * s 
 
-end
+end  (*end of module Align*)
 
 (** [select_one s m] 
  * Given a bitset of sequences [s] and a transformation cost matrix [m], select
@@ -410,10 +414,9 @@ val select_one_randomized : s -> Cost_matrix.Two_D.m -> s
 * transformation cost matrix [cm]. The function returns a tuple [(a, b)], where
 * [b] is the new readjusted median, and [a] is the cost of that median as the
 * parent of [ch1] and [ch2]. *)
-val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> bool -> int * s * bool
+val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> bool -> int * int * s * bool
 
 
-val readjust_custom_alphabet : s -> s -> s -> Cost_matrix.Two_D.m -> s -> int * s * bool
 
 (* A module to perform alignments in pure Ocaml for debugging and easy
 * experimentation *)

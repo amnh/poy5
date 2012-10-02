@@ -196,6 +196,8 @@ module Two_D : sig
     * according to the cost matrix cm. *)
     external median : int -> int -> m -> int = "cm_CAML_get_median"
 
+    external get_gap_startNO : m -> int = "cm_CAML_get_gap_startNO"
+
     (** [states_of_code code cm] return the list of states in an alphabet from a
         state code from a median/leaf *)
     val states_of_code : int -> m -> int list
@@ -252,6 +254,9 @@ module Two_D : sig
     (* [matrix_of_file fn file] Read a file into an array array, and map a
        function over the values; we ensure that the matrix is rectangular. *)
     val matrix_of_file: (string -> 'a) -> FileStream.f -> 'a list list
+
+    (** [check_level return true if cost matrix is using level]*)
+    val check_level : m -> bool
 end
 
 module Three_D : sig
@@ -277,6 +282,8 @@ module Three_D : sig
 
     (** [clone x] creates a fresh copy of the cost matrix x *)
     external clone : m -> m = "cm_CAML_clone_3d"
+
+    
 
     (** [of_two_dim cm] creates a fresh three dimensional cost matrix using the
     * values stored in the two dimensional matrix cm. This is the only way to

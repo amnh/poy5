@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "UnionTree" "$Revision: 1616 $"
+let () = SadmanOutput.register "UnionTree" "$Revision: 2684 $"
 
 (* This module handles operations on trees with Node.Union.n data in their
 * vertices *)

@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2677 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2710 $"
 
 let debug = false
 
@@ -71,6 +71,16 @@ let total_cost (a : t) = match a with
     | GenomeCS a -> a.GenomeCS.total_cost
     | BreakinvCS a -> a.BreakinvCS.total_cost
     | AnnchromCS a -> a.AnnchromCS.total_cost
+
+(** [get_subtree_cost a] returns the cost of subtree *)
+let get_subtree_cost (a : t) = match a with
+    | MlCS a -> MlDynamicCS.total_cost a (*to do, nic*)
+    | SeqCS a -> a.SeqCS.subtree_cost
+    | ChromCS a -> a.ChromCS.subtree_cost
+    | GenomeCS a -> a.GenomeCS.subtree_cost
+    | BreakinvCS a -> a.BreakinvCS.subtree_cost
+    | AnnchromCS a -> a.AnnchromCS.subtree_cost
+
 
 (** [total_recost a] returns the total recost to create
 *  dynamic character set [a]*)
@@ -615,42 +625,37 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
     let no_iterative_other_than_for_seqs = false in
     match ch1, ch2, parent, mine with
     | SeqCS ch1, SeqCS ch2, SeqCS parent, SeqCS mine ->
-        let modified, new_cost, nc = 
+        (*modified is a list of character id that get changed, new_cost is the cost(ch1,ch2), nc is the new SeqCS.t updated with new characters and new total_cost*)
+        let modified, new_cost, new_sumcost, nc  = 
             if ch1.SeqCS.alph = Alphabet.nucleotides then  
                 SeqCS.readjust mode to_adjust modified ch1 ch2 parent mine 
             else 
-                SeqCS.readjust_custom_alphabet mode modified ch1 ch2 parent mine 
-        in
-        let prev_cost = SeqCS.distance 0. ch1 mine +. SeqCS.distance 0. ch2 mine in
-        modified, prev_cost, new_cost, (SeqCS nc)    
+                SeqCS.readjust_custom_alphabet mode modified ch1 ch2 parent mine in
+	    modified,  new_cost, new_sumcost, (SeqCS nc)    
     | _, _, _, mine when no_iterative_other_than_for_seqs ->  
             let prev_cost = total_cost mine in
-            modified, prev_cost, prev_cost, mine
+            modified, prev_cost,get_subtree_cost mine,  mine
     | ChromCS ch1, ChromCS ch2, ChromCS parent, ChromCS mine when ch1.ChromCS.alph =
         Alphabet.nucleotides -> 
-            let modified, new_cost, nc = 
+            let modified, new_cost,new_sumcost, nc = 
                 ChromCS.readjust to_adjust modified ch1 ch2 parent mine in
-            let prev_cost = ChromCS.distance ch1 mine +. ChromCS.distance ch2 mine in
-            modified, prev_cost, new_cost, (ChromCS nc)
+            modified, new_cost, new_sumcost,(ChromCS nc)
     | AnnchromCS ch1, AnnchromCS ch2, AnnchromCS parent, AnnchromCS mine 
         when ch1.AnnchromCS.alph = Alphabet.nucleotides -> 
-          let modified, new_cost, nc = 
+          let modified, new_cost, new_sumcost, nc = 
               AnnchromCS.readjust to_adjust modified ch1 ch2 parent mine in
-          let prev_cost = AnnchromCS.distance ch1 mine +. AnnchromCS.distance ch2 mine in
-          modified, prev_cost, new_cost, (AnnchromCS nc)
+          modified, new_cost, new_sumcost, (AnnchromCS nc)
     | BreakinvCS ch1, BreakinvCS ch2, BreakinvCS parent, BreakinvCS mine ->
-          let modified, new_cost, nc = 
+          let modified, new_cost,new_sumcost, nc = 
               BreakinvCS.readjust to_adjust modified ch1 ch2 parent mine in
-          let prev_cost = BreakinvCS.distance ch1 mine +. BreakinvCS.distance ch2 mine in
-          modified, prev_cost, new_cost, (BreakinvCS nc)
+          modified,  new_cost, new_sumcost, (BreakinvCS nc)
     | GenomeCS ch1, GenomeCS ch2, GenomeCS parent, GenomeCS mine ->
-          let modified, new_cost, nc = 
+          let modified, new_cost, new_sumcost, nc = 
               GenomeCS.readjust to_adjust modified ch1 ch2 parent mine in
-          let prev_cost = GenomeCS.distance ch1 mine +. GenomeCS.distance ch2 mine in
-          modified, prev_cost, new_cost, (GenomeCS nc)
+          modified, new_cost, new_sumcost, (GenomeCS nc)
     | _, _, _, mine ->  
             let prev_cost = total_cost mine in
-            modified, prev_cost, prev_cost, mine
+            modified,  prev_cost, get_subtree_cost mine, mine
 
 (* readjust the likelihood characters; has the additional branch length
  * arguments included *)

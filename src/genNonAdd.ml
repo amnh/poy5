@@ -32,6 +32,8 @@ type cost_tuple =
 {
     min : float;
     max : float;
+    (*to do: change this to cost2,cost2_max and cost3, just like
+    * seqCS.cost_tuple.*)
 }
 
 type gnonadd_sequence = {

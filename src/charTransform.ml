@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2708 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2711 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1058,11 +1058,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         | `UseLikelihood (_,_,_,#Methods.ml_optimization,_,_,_) ->
             IFDEF USE_LIKELIHOOD THEN
                 Status.user_message Status.Warning
-                    ("This type of character transformation, one where model"
-                    ^"selection is used, requires a tree in memory. Because of"
+                    ("This type of character transformation (one where model" 
+                    ^"selection is used) requires a tree in memory. Because of"
                     ^"this the elikelihood command should be called, though the"
                     ^"rest of the command was correct.");
-                    data,nodes
+                data,nodes
             ELSE
                 Status.user_message Status.Warning
                     ("Likelihood is not enabled. No transformation is being applied"
@@ -1072,7 +1072,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             END
         | `UseLikelihood x ->
             IFDEF USE_LIKELIHOOD THEN
-                let () = Methods.cost := `Iterative (`ThreeD None) in
                 Node.load_data (Data.set_likelihood data x)
             ELSE
                 Status.user_message Status.Warning

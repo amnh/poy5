@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2703 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2710 $"
 
 let eager        = false
 let uppass_debug = false
@@ -810,8 +810,8 @@ struct
      *          [P]
     **)
     let uppass_heuristic p_data p_time m a b =
-        if uppass_debug then
-            info_user_message "Performing uppass Heuristic on %d with (%d,%d) and %d"
+        if uppass_debug then 
+            info_user_message "Performing uppass Heuristic on %d with ch1=%d,ch2=%d,p=%d"
                 (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
         (* open all the taxon codes; they get used often for directions *)
         let mc = taxon_code m and ac = taxon_code a
@@ -896,9 +896,16 @@ struct
         in
         let res = { unadjusted = allDir; adjusted = None } in
         if uppass_debug then
+	    begin
             info_user_message
-                "End of Performing uppass Heuristic on %d with (%d,%d) and %d"
-                (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
+        "End of Performing uppass Heuristic on %d with ch1=%d,ch2=%d,p=%d"
+        (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
+        (*print_node_data a true;
+        print_node_data b true;*)
+        (*info_user_message "return node#.%d with node data:" (taxon_code m);
+		print_node_data res true;
+	*)  
+	  end;
         res
 
     (** adjust the branches in the tree, including branch lengths, uses

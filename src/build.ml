@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 2645 $"
+let () = SadmanOutput.register "Build" "$Revision: 2709 $"
 
 let debug_profile_memory = false
 
@@ -911,9 +911,10 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
 end
 
-module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n) (EdgeH : Edge.EdgeSig with type n = NodeH.n) 
-    (TreeOps : Ptree.Tree_Operations with type a = NodeH.n with type b = EdgeH.e)
-    = struct
+module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n)
+            (EdgeH : Edge.EdgeSig with type n = NodeH.n) 
+            (TreeOps : Ptree.Tree_Operations with type a = NodeH.n with type b = EdgeH.e) =
+    struct
 
         type a = NodeH.n
         type b = EdgeH.e
@@ -942,7 +943,7 @@ module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n) (EdgeH : Edg
 
         let build_initial_trees trees data n b =
             let has_dyn = Data.has_dynamic data in
-            let has_lik = Data.has_likelihood data in
+            let has_lik = Data.has_static_likelihood data in
             if has_dyn || has_lik then
                 DH.build_initial_trees trees data n b
             else

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2708 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2711 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -588,6 +588,10 @@ let get_node_ids ptree =
     @return new ptree with the data added to node with id=id.
             Any old data is silently overwritten. *)
 let add_node_data id data ptree = 
+    let debug = false in
+    if debug then begin
+        Printf.printf "ptree.add_node_data to node#.%d\n%!" id;
+    end;
     let new_node_data = (All_sets.IntegerMap.add id data ptree.node_data) in
         { ptree with node_data = new_node_data }
 

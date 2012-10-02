@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Primes" "$Revision: 1644 $"
+let () = SadmanOutput.register "Primes" "$Revision: 2684 $"
 
 module Probable = struct
 

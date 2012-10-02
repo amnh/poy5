@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2659 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2710 $"
 
 let debug_find_local_optimum = false
 
@@ -484,13 +484,13 @@ module MakeNormal
             | Tree.Skip -> None 
             *)
         in
-        let rec try_comp component =
+        (*let rec try_comp component =
             if component = components
             then None
             else match tbr_joins component with
             | None -> try_comp (succ component)
             | Some forest -> Some forest in
-
+        *)
         let res = None in
         Status.finished status;
 
@@ -973,22 +973,19 @@ module Make
                 | None -> new Sampler.do_nothing
                 | Some x -> x 
             in
-        match  Data.has_likelihood data || Data.has_dynamic data, queue with
+        match  Data.has_static_likelihood data || Data.has_dynamic data, queue with
             | true, None -> 
-                    DH.find_local_optimum ~base_sampler:sampler data b trees d e
+                DH.find_local_optimum ~base_sampler:sampler data b trees d e
             | true, Some queue -> 
-                    DH.find_local_optimum ~base_sampler:sampler ~queue data b 
-                    trees d e
+                DH.find_local_optimum ~base_sampler:sampler ~queue data b trees d e
             | false, queue ->
-                    let nodeh, nodes = collect_nodes data trees in
-                    let trees = Sexpr.map (from_h_to_s nodes) trees in
-                    let trees = 
-                        match queue with
-                        | None -> SH.find_local_optimum data b trees d e
-                        | Some queue -> 
-                                SH.find_local_optimum ~queue data b trees d e
-                    in
-                    Sexpr.map (from_s_to_h nodeh) trees
+                let nodeh, nodes = collect_nodes data trees in
+                let trees = Sexpr.map (from_h_to_s nodes) trees in
+                let trees = match queue with
+                    | None       -> SH.find_local_optimum data b trees d e
+                    | Some queue -> SH.find_local_optimum ~queue data b trees d e
+                in
+                Sexpr.map (from_s_to_h nodeh) trees
 
     let forest_search data b c d trees =
         if 0 = Sexpr.length trees then trees

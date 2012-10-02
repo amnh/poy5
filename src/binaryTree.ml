@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* This binary tree module is a splay tree -- a balanced binary tree *)
-let () = SadmanOutput.register "BinaryTree" "$Revision: 1751 $"
+let () = SadmanOutput.register "BinaryTree" "$Revision: 2684 $"
 
 type ('k,'a) b_tree =
     | Empty

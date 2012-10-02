@@ -19,7 +19,7 @@
 
 (** Module for handling POY's advanced, adaptive help system *)
 
-let () = SadmanOutput.register "HelpIndex" "$Revision: 1644 $"
+let () = SadmanOutput.register "HelpIndex" "$Revision: 2684 $"
 
 let index = Help.index
 

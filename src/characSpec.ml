@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "CharacSpec" "$Revision: 1644 $"
+let () = SadmanOutput.register "CharacSpec" "$Revision: 2684 $"
 
 exception Illegal_Assigned_Probabilities of float
 exception Undefined_Variable of string

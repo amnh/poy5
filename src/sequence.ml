@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2656 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2684 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -67,10 +67,10 @@ external set : (s -> int -> int -> unit) = "seq_CAML_set";;
 external prepend : s -> int -> unit = "seq_CAML_prepend";;
 
 
-let check_level cm =
-    let level = Cost_matrix.Two_D.get_level cm in
+let check_level cm = Cost_matrix.Two_D.check_level cm 
+   (* let level = Cost_matrix.Two_D.get_level cm in
     let size = Cost_matrix.Two_D.get_ori_a_sz cm in
-    (level>1) && (level<=size)
+    (level>1) && (level<=size) *)
 
 
 let make_empty a =
@@ -877,7 +877,11 @@ module Align = struct
 
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let debug = false in
-        if debug then Printf.printf "Align.cost_2\n%!";
+        if debug then begin
+            Printf.printf "Align.cost_2 on s1&s2:\n%!";
+            printseqcode s1;
+            printseqcode s2;
+        end;
         let deltaw_calc s1len s2len = 
             let dif = s1len - s2len in
             let lower_limit = int_of_float ((float_of_int s1len) *.  0.10) in
@@ -904,12 +908,16 @@ module Align = struct
         let gaps = max g1 g2 in
         (*note that we pass longer seq as seq1 to the cside, this is different
         * in newkkonen/affine alignement/likelihood*)
-        if ls1 <= ls2 then
-            let deltaw = gaps + deltaw_calc ls1 ls2 in
-            c_cost_2 s1 s2 m1 m2 deltaw
-        else 
-            let deltaw = gaps + deltaw_calc ls2 ls1 in
-            c_cost_2 s2 s1 m1 m2 deltaw
+        let res = 
+            if ls1 <= ls2 then
+                let deltaw = gaps + deltaw_calc ls1 ls2 in
+                c_cost_2 s1 s2 m1 m2 deltaw
+            else 
+                let deltaw = gaps + deltaw_calc ls2 ls1 in
+                c_cost_2 s2 s1 m1 m2 deltaw
+        in
+        if debug then Printf.printf "return cost = %d\n%!" res;
+        res
 
     (*pass different cost matrix(m1) here*)
     let cost_2 ?deltaw s1 s2 m1 m2 =
@@ -1219,8 +1227,7 @@ module Align = struct
         let uselevel = check_level cm in
         let debug = false in
         if debug then begin
-        Printf.printf "closest, uselevel = %b,use_comb=%d, parent and mine = \n%!" uselevel
-        (Cost_matrix.Two_D.combine cm) ;
+        Printf.printf "Sequence.Align.[closest], uselevel = %b,use_comb=%d, parent and mine = \n%!" uselevel (Cost_matrix.Two_D.combine cm) ;
         printseqcode s1;
         printseqcode s2;
         end;
@@ -1228,49 +1235,49 @@ module Align = struct
             s2, 0
         else
         let (s, _) as res = 
-        if 0 = Cost_matrix.Two_D.combine cm then 
-            (* We always have just one sequence per type s *)
-            let s1', s2', cst = align_2 s1 s2 cm m in
-            let get_closest v i =
-                let v' = get s1' i in
-                let all = Cost_matrix.Two_D.get_all_elements cm in
-                if v = all then 
-                    if v' = all then 1 (* We pick one, any will be fine *)
-                    else v'
-                else v
-            in
-            remove_gaps2 (mapi get_closest s2') cm, cst
-        else
-            let s1', s2', comp =
-                if 0 = compare s1 s2 then
-                    (* We remove all the gaps if we are using combinations *)
-                    if 0 = Cost_matrix.Two_D.combine cm then 
-                        s1, s2, true
-                    else
-                        if uselevel then 
-                            let gap_filter x =
-                                gap_filter_for_combcode x cm
-                            in
-                            let news1 = map gap_filter s1 and
-                            news2 = map gap_filter s2 in 
-                            news1, news2, true
+            if 0 = Cost_matrix.Two_D.combine cm then 
+                (* We always have just one sequence per type s *)
+                let s1', s2', cst = align_2 s1 s2 cm m in
+                let get_closest v i =
+                    let v' = get s1' i in
+                    let all = Cost_matrix.Two_D.get_all_elements cm in
+                    if v = all then 
+                        if v' = all then 1 (* We pick one, any will be fine *)
+                        else v'
+                    else v
+                in
+                remove_gaps2 (mapi get_closest s2') cm, cst
+            else
+                let s1', s2', comp =
+                    if 0 = compare s1 s2 then
+                        (* We remove all the gaps if we are using combinations *)
+                        if 0 = Cost_matrix.Two_D.combine cm then 
+                            s1, s2, true
                         else
-                            let mask = lnot (Cost_matrix.Two_D.gap cm) in
-                            mapi (fun x pos -> 
-                                if pos > 0 then x land mask else x) s1, 
-                            mapi (fun x pos -> 
-                                if pos > 0 then x land mask else x) s2, 
-                            true
-                else
-                    let s1', s2', _ = align_2 s1 s2 cm m in
-                    if debug then begin
-                        Printf.printf "s1' and s2' from align parent and mine :\n%!";
-                        printseqcode s1';
-                        printseqcode s2';
-                    end;
-                    s1', s2', false
-            in
-            let s2' =
+                            if uselevel then 
+                                let gap_filter x =
+                                    gap_filter_for_combcode x cm
+                                in
+                                let news1 = map gap_filter s1 and
+                                news2 = map gap_filter s2 in 
+                                news1, news2, true
+                            else
+                                let mask = lnot (Cost_matrix.Two_D.gap cm) in
+                                mapi (fun x pos -> 
+                                    if pos > 0 then x land mask else x) s1, 
+                                mapi (fun x pos -> 
+                                    if pos > 0 then x land mask else x) s2, 
+                                true
+                    else
+                        let s1', s2', _ = align_2 s1 s2 cm m in
+                        if debug then begin
+                            Printf.printf "s1' and s2' from align parent and mine :\n%!";
+                            printseqcode s1';
+                            printseqcode s2';
+                        end;
+                        s1', s2', false
+                in
+            let s2',s2'wgap =
                 let s2' = 
                     let get_closest v i =
                         let v' = get s1' i in
@@ -1278,23 +1285,36 @@ module Align = struct
                     in
                     mapi get_closest s2' 
                 in
-                remove_gaps2 s2' cm
+                remove_gaps2 s2' cm, s2'
             in
             if debug then begin
-                Printf.printf ", s2' from get_closest on s1' = %!"; printseqcode s2';
+                Printf.printf ", s2' from get_closest based on s1' : %!"; 
+                printseqcode s2'wgap;
             end;
             (* We must recalculate the distance between sequences because the
             * set ditance calculation is an upper bound in the affine gap cost
             * model *)
             if comp then 
                 s2', 0
-            else
-                s2', cost_2 s1 s2' cm m
+            else begin
+                let rescost = cost_2 s1 s2' cm m in
+                if debug then begin
+                    Printf.printf "call cost_2 on s1 and s2':\n%!";
+                    printseqcode s1;
+                    printseqcode s2';
+                    Printf.printf "return cost = %d\n%!" rescost;
+                end;
+                s2', rescost
+            end
         in
         res
 
-
+    (**[recost a b cm] there was no comment for this one, anyway, to me this looks
+    * like a function that return the cost of two alied
+    * sequence a and b with costmatrix cm. works for combination through
+    * bitwise(like dna) datatype, or those without combination , like old aminoacid*)
     let recost a b cm =
+        let debug = false in
         assert (length a = length b);
         let len = length a 
         and gap = Cost_matrix.Two_D.gap cm 
@@ -1303,22 +1323,41 @@ module Align = struct
             | Cost_matrix.Affine x -> x
             | _ -> 0
         in
-        if 1 = Cost_matrix.Two_D.combine cm then
+        let usecombine = (1 = Cost_matrix.Two_D.combine cm) in
+        let uselevel = check_level cm in
+        if debug then begin
+            Printf.printf "Sequence.Align.recost,usecombine=%b,uselevel=%b,on seq1 and seq2 (len=%d):\n%!" 
+            usecombine uselevel len;
+            printseqcode a;
+            printseqcode b;
+        end;
+        let code_has_gap combcode gap cm =
+            if uselevel then
+                combcode >= (Cost_matrix.Two_D.get_gap_startNO cm)
+            else
+                0 <> (combcode land gap)
+        in
+        let code_has_no_gap combcode gap cm =
+            ( (code_has_gap combcode gap cm)=false )
+        in
+        if usecombine then (*use combination on cost matrix*)
             let rec process_cost it cost is_gap_block =
                 if it = len then cost
-                else 
-                    let ba = get a it
-                    and bb = get b it in
+                else begin
+                    let ba = get a it and bb = get b it in
                     let c = Cost_matrix.Two_D.cost ba bb cm in
-                    if not is_gap_block && ((0 <> ba land gap) || (0 <> bb land
-                    gap)) then
+                    (*the gap block continue*)
+                    if not is_gap_block && ( (code_has_gap ba gap cm) || (code_has_gap bb gap cm) ) then
                         process_cost (it + 1) (cost + c + gap_opening) true
-                    else if (0 = ba land gap) && (0 = bb land gap) then
+                    (*continue with non-gap block*)
+                    else if (code_has_no_gap ba gap cm) && (code_has_no_gap bb gap cm) then
                         process_cost (it + 1) (cost + c) false
+                    (*start a new gap block*)
                     else process_cost (it + 1) (cost + c) true
+                end
             in
             process_cost 0 0 false
-        else
+        else (*no combination in cost matrix*)
             let rec process_cost it cost is_gap_block =
                 if it = len then cost
                 else
@@ -1348,7 +1387,7 @@ module Align = struct
         s1p, s2p, s3p, c
 
     let align_3_powell_inter s1 s2 s3 cm cm3 =
-        let debug = false in
+        let debug = false and debug2 = false in
         let gap = Cost_matrix.Two_D.gap cm in
         let mm, go, ge =
             match Cost_matrix.Two_D.affine cm with
@@ -1364,72 +1403,96 @@ module Align = struct
         in
         let a, b, c, cost = align_3_powell s1 s2 s3 mm go ge in
         if debug then begin
-            Printf.printf "create new med3 based on these:\n%!";
+            Printf.printf "create new med3 based on alied ch1,ch2 and parent:\n%!";
             printseqcode a;
             printseqcode b;
             printseqcode c;
         end;
+        (*get cost2 of ab *)
+        let costab = recost a b cm in
+        (*get median sequence out of alied a b and c*)
         let len = length a in
         let median = create (len + 1) in
+        let medianWgap = create (len+1) in
         for i = len - 1 downto 0 do
             let a = get a i in
             let b = get b i in
             let c = get c i in
             let to_prepend = Cost_matrix.Three_D.median a b c cm3 in
-            if debug then Printf.printf "med3 of %d,%d,%d is %d\n%!"
+            if debug2 then Printf.printf "med3 of %d,%d,%d is %d\n%!"
             a b c to_prepend;
             if to_prepend <> gap then prepend median to_prepend
             else ();
         done;
+        if debug then begin
+            Printf.printf "return medianWgap :\n%!";
+            printseqcode medianWgap;
+        end;
         prepend median gap;
-        median, cost
+        median, cost, costab
 
-    let readjust_3d ?(first_gap = true) s1 s2 m cm cm3 p =
-        let debug = false in
+    let readjust_3d ?(first_gap = true) s1 s2 m cm cm3 p oldcost12 oldcost3 =
+        let debug = false and debug2 = false in
         if debug then begin
             Printf.printf "sequence.readjust_3d on child1,child2,parent and \
             mine(size = %d,%d,%d):\n%!" (length s1) (length s2) (length p);
-            printseqcode s1;
-            printseqcode s2;
-            printseqcode p;
-            printseqcode m;
+            if debug2 then begin 
+                printseqcode s1;
+                printseqcode s2;
+                printseqcode p;
+                printseqcode m;
+            end;
         end;
+        (* length of two children and mine are the same, that doesn't mean nothing
+        * happened during readjust function on the children.the children could
+        * have different assignment with same length.
         if length s1 = length s2 && length m = length p && length s1 = length m
         then begin
             if debug then 
                 Printf.printf "length of four sequence are the same, do
                     nothing\n%!";
-            0, m, false
+            0, 0, m, false
         end
         else begin
-            let cost,newseq,anything_changed = 
-                let gap = Cost_matrix.Two_D.gap cm in
-                if is_empty s1 gap && not (is_empty s2 gap) then
-                    0, s2, 0 <> compare m s2
-                else if is_empty s2 gap && not (is_empty s1 gap) then 
-                    0, s1, 0 <> compare m s1
-                else if is_empty p gap then 
-                    0, p, 0 <> compare m p
-                else
-                    match first_gap with 
-                    | true -> 
-                          let res, x = align_3_powell_inter s1 s2 p cm cm3 in
-                          x, res, 0 <> compare m res
-                    | false ->
-                          let s1 = prepend_char s1 gap in 
-                          let s2 = prepend_char s2 gap in 
-                          let p = prepend_char p gap in 
-                          let res, x = align_3_powell_inter s1 s2 p cm cm3 in
-                          let res = del_first_char res in 
-                          x, res, 0 <> compare m res
-            in
-            if debug then begin
-                Printf.printf "cost = %d,anything changed = %b, new seq for mine = %!"
-                cost anything_changed;
+	    *)
+        let cost, cost12, newseq, anything_changed = 
+            let gap = Cost_matrix.Two_D.gap cm in
+            if is_empty s1 gap && not (is_empty s2 gap) then
+                let _ = if debug then Printf.printf "empty ch1, return ch2\n%!" in
+                0, 0, s2, 0 <> compare m s2
+            else if is_empty s2 gap && not (is_empty s1 gap) then 
+                let _ = if debug then Printf.printf "empty ch2, return ch1\n%!" in
+                0, 0, s1, 0 <> compare m s1
+            else if is_empty p gap then 
+                let _ = if debug then Printf.printf "empty parent, return parent\n%!" in
+                0, 0, p, 0 <> compare m p
+            else
+                (*x is the sum cost of s1&res,s2&res and p&res, cost12 is the cost of s1&s2*)
+                match first_gap with 
+                | true -> 
+                      let res, x, cost12 = align_3_powell_inter s1 s2 p cm cm3 in
+                      x, cost12, res, 
+                      (cost12<>oldcost12)||(x<>oldcost3)||(0 <> compare m res)
+                | false ->
+                      let s1 = prepend_char s1 gap in 
+                      let s2 = prepend_char s2 gap in 
+                      let p = prepend_char p gap in 
+                      let res, x, cost12 = align_3_powell_inter s1 s2 p cm cm3 in
+                      let res = del_first_char res in 
+                      x, cost12, res, 
+                      (cost12<>oldcost12)||(x<>oldcost3)||(0 <> compare m res)
+        in
+        if debug then begin
+            Printf.printf "return cost3 = %d(old:%d), cost12=%d(old:%d),anything \
+            changed=%b(we only compare median&cost2&cost3 here, \
+            subtree_cost is compared in seqCS.ml),and new seq for mine\n%!" 
+            cost oldcost3 cost12 oldcost12 anything_changed;
+            if debug2 then begin 
                 printseqcode newseq;
             end;
-            cost,newseq,anything_changed
-        end
+        end;
+        cost,cost12,newseq,anything_changed
+    (*end*)
 
     (*readjust 3d functions for custom alphabet start*)
     type direction_3D = Start |AAA | AAG | AGA | AGG | GAA | GAG | GGA
@@ -1487,37 +1550,63 @@ module Align = struct
             Printf.printf "bestcost = %d, bestmed = %!" !bestcost;
             Utl.printIntList !bestmed;
         end;
-        if getcost then !bestcost
+    (*compare
+        let single_code_map x =
+            if x=1 then 1 (*A*)
+            else if x=2 then 2 (*C*)
+            else if x=3  then 4 (*G*)
+            else if x=4 then 8 (*T*)
+            else if x=5 then 16 (*-*)
+            else failwith "only take 1,2,3,4,5"
+        in
+        let get_bestmed d3d x y z = Cost_matrix.Three_D.median x y z d3d in
+        let get_bestcost d3d x y z = Cost_matrix.Three_D.cost x y z d3d in
+        let default3d = Cost_matrix.Three_D.default in
+        let x = single_code_map i 
+        and y = single_code_map j
+        and z = single_code_map k 
+        in
+    compare*)
+        if getcost then 
+            (*compare
+            let bc = get_bestcost default3d x y z in
+            if !bestcost <> bc then begin 
+                Printf.printf "diff best cost on %d,%d,%d => %d <> %d\n%!"
+                i j k !bestcost bc;
+                assert(false);
+            end;
+            compare*)
+            !bestcost
         else 
             let len = (List.length !bestmed) in
-            if tie_breaker=0 then
-                List.nth !bestmed (Random.int len) 
-            else if tie_breaker=1 then
-                List.nth !bestmed 0
-            else if tie_breaker=2 then
-                List.nth !bestmed (len-1)
-            else
-                failwith "unkown tie_breaker code in sequence.get_cost3d_2_htbl"
+            let bestmedian = 
+                if tie_breaker=0 then
+                    List.nth !bestmed (Random.int len) 
+                else if tie_breaker=1 then
+                    List.nth !bestmed 0
+                else if tie_breaker=2 then
+                    List.nth !bestmed (len-1)
+                else
+                    failwith "unkown tie_breaker code in sequence.get_cost3d_2_htbl"
+            in
+            (*compare
+            let bm = get_bestmed default3d x y z in
+            if (single_code_map bestmedian) <> bm then begin 
+                Printf.printf "diff best median on %d,%d,%d => %d <> %d, check \
+                medlst with tie_breaker = %d, [%!"
+                i j k (single_code_map bestmedian) bm tie_breaker;
+                List.iter (fun c -> Printf.printf "%d," c) !bestmed;
+                Printf.printf "]\n%!";
+                assert(false);
+            end;
+            compare*)
+            bestmedian
         
 
 
     let get_cost3d i j k gapcode cm2d cm3d no_3dcm =
         (*let get_cost2d = Cost_matrix.Two_D.cost in*)
         let res = 
-            (*return gap insert/delete cost
-            * this is not right for 3D -- it's correct for 2D though
-            * if i=2,j=2,k=gapcode
-            * best median is 2 not gapcode
-            if i=gapcode then
-                (get_cost2d j gapcode cm2d) +
-                (get_cost2d k gapcode cm2d)
-            else if j=gapcode then
-                (get_cost2d i gapcode cm2d) +
-                (get_cost2d k gapcode cm2d)
-            else if k=gapcode then
-                (get_cost2d i gapcode cm2d) +
-                (get_cost2d j gapcode cm2d)
-            else *)
                 (*return alignment cost*)
                 if no_3dcm then
                     get_cost3d_w_htbl true i j k cm2d
@@ -1537,17 +1626,22 @@ module Align = struct
      
 
     (*NOTE: input sequence must start with gap*)
-    let readjust_3d_custom_alphabet ch1 ch2 mine cm2d cm3d parent =
+    let readjust_3d_custom_alphabet ch1 ch2 mine cm2d cm3d parent oldcost2 oldcost3 =
         (*debug2 print out input and output sequence, debug3 print out steps in
         * updating alignment matrix and backtrace*)
         let debug = false and debug2 = false and debug3 = false in
+        (* to do : rethink this , same length of mine and two children doesn't mean nothing
+        * changed. two children could be with different assignment than previous
+        * iteration*)
+	    (*
         if length ch1 = length ch2 && length mine = length parent && length ch1 = length
         mine then begin
             if debug then Printf.printf 
             "readjust_3d_custom_alphabet,length of mine=parent=ch1=ch2, do nothing\n%!";
-            0, mine, false
+            0, 0, mine, ch1, ch2, mine, false
         end
         else begin (*when three input are not the same length*)
+	*)
             (*to do: cm3d should be None if we don't have it, fix this in
             * scripting.ml*)
             let gapcode3d = Cost_matrix.Three_D.gap cm3d in
@@ -1558,12 +1652,15 @@ module Align = struct
             in
             (*if only one of ch1/ch2 is empty, return the non-empty one*)
             if is_empty ch1 gapcode && not (is_empty ch2 gapcode) then
-                0, ch2, 0 <> compare mine ch2
+                let _ = if debug then Printf.printf "empty ch1, return ch2\n%!" in
+                0, 0, ch2, ch2, ch2, ch2(*, 0 <> compare mine ch2*)
             else if is_empty ch2 gapcode && not (is_empty ch1 gapcode) then
-                0, ch1, 0 <> compare mine ch1
+                let _ = if debug then Printf.printf "empty ch2, return ch1\n%!" in
+                0, 0, ch1, ch1, ch1, ch1(*,  0 <> compare mine ch1*)
             (*else if parent is empty(ch1 ch2 are both empty or non-empty), return parent*)
             else if is_empty parent gapcode then
-                0, parent, 0 <> compare mine parent 
+	            let _ = if debug then Printf.printf "empty parent, return parent\n%!" in
+                0, 0, parent, parent, parent, parent(*, 0 <> compare mine parent*) 
             (*else call regular alignment *)
             else begin 
                 let ch1 = gap_filter_for_seq ch1 cm2d in
@@ -1576,8 +1673,8 @@ module Align = struct
                     let tb = Cost_matrix.Two_D.get_tie_breaker cm2d in
                     Printf.printf
                     "sequence.readjust_3d_custom_alphabet,size=%d,%d,%d,gapcode=%d,\
-                    we don't have 3dcm = %b, tie breaker = %d\n%!" 
-                    size1 size2 size3 gapcode no_3dcm tb;
+                    we don't have 3dcm = %b, tie breaker = %d, old cost3 = %d\n%!" 
+                    size1 size2 size3 gapcode no_3dcm tb oldcost3;
                     if debug2 then begin
                     Printf.printf " on ch1:%!";
                     printseqcode ch1;
@@ -1591,6 +1688,11 @@ module Align = struct
                 end;
                 (*result median seq*)
                 let med3seq = create (size1+size2+size3) in (*use prepend later*)
+                let med3seqWgap = create (size1+size2+size3) in (*use prepend later*)
+                (*alied child1 child2 *)
+                let aliedch1seq = create (size1+size2+size3) in (*use prepend later*)
+                let aliedch2seq = create (size1+size2+size3) in (*use prepend later*)
+                let aliedparseq = create (size1+size2+size3) in (*use prepend later*)
                 (*3d alignment matrix*)
                 let algn_mat_3d = 
                    Array.init size1 (fun i -> 
@@ -1687,6 +1789,7 @@ module Align = struct
                     done;
                 done;
                 let rescost,_ = algn_mat_3d.(size1-1).(size2-1).(size3-1) in
+                (*backtracing*)
                 if debug3 then Printf.printf "rescost = %d, go for backtrace\n%!" rescost;
                 let pick_dir dirlst x y z = 
                     if (has_aaa dirlst) then 
@@ -1723,25 +1826,53 @@ module Align = struct
                     no_3dcm in
                     if debug3 then Printf.printf "med3 of %d,%d,%d is %d\n%!" 
                     seqcode1 seqcode2 seqcodepar to_prepend;
+                    (*only prepend med3 when it's not a gap*)
+                    prepend med3seqWgap to_prepend;
                     if to_prepend <> gapcode then prepend med3seq to_prepend;
+                    (*prepend alied seq for child1 and child2 also*)
+                    prepend aliedch1seq seqcode1;
+                    prepend aliedch2seq seqcode2;
+                    prepend aliedparseq seqcodepar;
                     x := nextx; y := nexty; z := nextz;
                 done;
                 (*remember to append a gap for new median3 seq*)
-                let resseq = remove_gaps med3seq ~gapcode:gapcode true in
-                (*prepend med3seq gapcode;*)
-                let anything_changed = 0 <> compare resseq mine in
                 if debug then begin 
-                    Printf.printf "end of readjust 3d function for custom alphabet,\
-                    cost = %d, anything changed = %b, new mine is\n%!" rescost anything_changed;
-                    if debug2 then 
-                    printseqcode resseq;
+                    Printf.printf "med3seq with gap = %!";
+                    printseqcode med3seqWgap;
                 end;
-                rescost,resseq, anything_changed
+                let cost12 = recost aliedch1seq aliedch2seq cm2d in
+                (*prepend med3seq gapcode;*)
+                (*let anything_changed = 
+                    (oldcost3 <> rescost)||(oldcost2 <> cost12)||(0 <> compare resseq mine) in
+                *)
+                if debug then begin 
+                    Printf.printf "end of readjust 3d function for \
+                    custom_alphabet in sequence.ml, \
+                    cost3 = %d(old:%d), cost2 = %d(old:%d)\n%!" 
+                    rescost oldcost3 cost12 oldcost2;
+                    if debug2 then begin
+                        Printf.printf "new mine with gap is:%!";
+                        printseqcode med3seqWgap;
+                        Printf.printf "new alied ch1 is:%!";
+                        printseqcode aliedch1seq;
+                        Printf.printf "new alied ch2 is:%!";
+                        printseqcode aliedch2seq;
+                        Printf.printf "new alied parent is:%!";
+                        printseqcode aliedparseq;
+                    end;
+                end;
+                rescost, cost12, med3seq, aliedch1seq, aliedch2seq, med3seqWgap
             end (*end of call regular alignment *)
-        end (*end of when three input are not the same length*)
-    (*readjust 3d functions for custom alphabet end*)
+    (*end (*end of when three input are not the same length*)
+    *)
+     (* readjust 3d functions for custom alphabet end*)
+
+
 
 end (*end of module Align*)
+
+
+
 
 module NewkkAlign = struct 
     
@@ -1982,9 +2113,6 @@ let select_one_randomized s cm =
     in
     select_one_generic get_one_item s cm
 
-let readjust_custom_alphabet a b m cm parent = 
-    0, m, false
-    
 
 (**[readjust] is just for dna sequence*)
 let readjust a b m cm parent use_ukk =
@@ -2029,7 +2157,7 @@ let readjust a b m cm parent use_ukk =
         else true, cacb, Align.closest b ac cm matr, cabc 
     in
     let has_to_print, c, (s, _), previous = make_center a b parent in
-    c, s, has_to_print
+    c, c, s, has_to_print
 
 
 

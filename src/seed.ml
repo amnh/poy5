@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Seed" "$Revision: 2782 $"
+let () = SadmanOutput.register "Seed" "$Revision: 2684 $"
 type pairChromPam_t = ChromPam.chromPairAliPam_t
 
 (** The seed module contains data and funtions to 

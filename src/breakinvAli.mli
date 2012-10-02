@@ -39,6 +39,10 @@ type breakinv_t = {
     recost1 : int; (** the recost between this breakinv and its first child *)
     recost2 : int; (** the recost between this breakinv and its second child *)
 
+    (*store cost3 and sumcost in each breakinv_t*)
+    cost3 : int; (** cost(mine,ch1)+cost(mine,ch2)+cost(mine,parent) *)
+    sum_cost : int; (** cost of subtree root at this breakinv_t of this node*)
+
     delimiter_lst: int list (* delimiter list for multichromosome *)
 }
 
