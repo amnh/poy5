@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2710 $"
+let () = SadmanOutput.register "Node" "$Revision: 2712 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -3522,10 +3522,6 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     *)
 		            if (IntSet.is_empty !modified)&&((cost<>mine.cost)||(sumcost<>mine.sum_cost)) then 
 				    failwith "node.ml readjust function, same median,different node cost";	
-                    (* to do : only update when better subtree cost showup
-                    if sumcost<mine.sum_cost then 
-                    else
-                    *)
                     let res = 
                     Dynamic
                         { mine with

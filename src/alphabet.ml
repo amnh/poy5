@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2684 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 2712 $"
 
 
 (* $Id: alphabet.ml 2871 2008-05-23 17:48:34Z andres $ *)
@@ -369,8 +369,8 @@ let match_code x alph = match alph.kind with
         with | Not_found -> 
             (*All_sets.IntegerMap.iter (fun k v -> Printf.printf "%d->%s\n%!" k v)
             alph.code_to_string;*)
-            (*raise (Illegal_Code x)*)
-            ("["^(string_of_int x)^"]")
+            raise (Illegal_Code x)
+            (*  ("["^(string_of_int x)^"]") *)
 
 let find_code = match_code
 
