@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sampler" "$Revision: 2707 $"
+let () = SadmanOutput.register "Sampler" "$Revision: 2708 $"
 
 (* The sampler module is divided in two submodules, one containing te
 * application related samplers (App), and one with research intended samplers
@@ -425,9 +425,8 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process incr jux1 jux2 vert tree ntree delta cost real_cost = 
             let printf format = Printf.ksprintf printer format in
             let cost_before= Ptree.get_cost `Adjusted tree in
-            let tree_after = TreeOps.model_fn tree in
+            let tree_after = TreeOps.model_fn None tree in
             let cost_after = Ptree.get_cost `Adjusted tree_after in
-            Printf.printf "PRINTING!!!\n%!";
             printf "%s -- Adjusted: %f --> %f\n%!" stamp cost_before cost_after
     end
 

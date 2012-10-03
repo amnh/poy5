@@ -398,8 +398,6 @@ type d = {
     (* branch lengths read from nexus file: tree -> node -> char *)
     (* node is defined by partition of leaves in the tree        *)
     branches : (string, ((string, float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t option;
-    (* determine if we should iterate the branches *)
-    iterate_branches : bool;
     (* The set of codes that belong to the class of Non additive with up to 1
     * states (useless!) *)
     non_additive_1 : int list;
@@ -465,7 +463,6 @@ let compare data1 data2 : bool =
         && (data1.character_specs = data2.character_specs)
         && (data1.ignore_taxa_set = data2.ignore_taxa_set)
         && (data1.ignore_character_set = data2.ignore_character_set)
-        && (data1.iterate_branches = data2.iterate_branches)
         && (data1.complex_schema = data2.complex_schema)
         && (data1.files = data2.files)
         && (data1.machine = data2.machine)
@@ -550,7 +547,6 @@ let empty () =
         ignore_character_set = [];
         trees = [];
         branches = None;
-        iterate_branches = true;
         non_additive_1 = [];
         non_additive_8 = [];
         non_additive_16 = [];
@@ -1268,13 +1264,13 @@ let process_trees data file =
         let () = close_in ch in
         let cnt = ref 0 in
         let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
-        let branches, found =
-            branches_to_map data None None (List.map (fun (x,_,_) -> x) trees)
+        let branches =
+            let branches,found = branches_to_map data None None
+                            (List.map (fun (x,_,_) -> x) trees) in
+            if found then Some branches else None
         in
-        let branches = if found then Some branches else None in
         { data with trees = data.trees @ trees;
-                    branches = branches;
-                    iterate_branches = (not found);}
+                    branches = branches; }
     with
     | Sys_error err ->
         let file = FileStream.filename file in
@@ -1692,9 +1688,6 @@ let process_parsed_breakinv data res original_filename file tcmfile tcm_full
     parsed_bkinv_seq in
     resdata
     
-
-
-
 let process_parsed_genome data res original_filename file tcmfile tcm_full
                           tcm_original tcm3 default_mode lk_model alphabet
                           dyna_state dyna_pam weight =
@@ -1908,7 +1901,6 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
         List.fold_left ~f:fold_over_a_taxon_lst ~init:data file_frag_taxon_seq
     
     
-
 let process_annotated_chrom data res original_filename file tcmfile tcm_full
                             tcm_original tcm3 default_mode lk_model alphabet
                             dyna_state dyna_pam weight =
@@ -2156,9 +2148,9 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                 process_parsed_sequences
                     false u.Nexus.File.u_weight default_tcm
                     Cost_matrix.Two_D.default Cost_matrix.Two_D.default
-                    Cost_matrix.Three_D.default `DO false
-                    u.Nexus.File.u_alph file `Ml data u.Nexus.File.u_data
-                    u.Nexus.File.u_model u.Nexus.File.u_pam
+                    Cost_matrix.Three_D.default `DO false u.Nexus.File.u_alph
+                    file `Ml data u.Nexus.File.u_data u.Nexus.File.u_model
+                    u.Nexus.File.u_pam
             | None ->
                 let tcm_full,tcm_original,name = match u.Nexus.File.u_tcm with
                     | None ->
@@ -2230,11 +2222,12 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
         (character_nsets,character_sets)
     in
     (* create set for branches *)
-    let tbl,found =
-        branches_to_map data None (Some file_out.Nexus.File.branches)
-                        file_out.Nexus.File.trees
+    let tbl =
+        let tbl,found =
+            branches_to_map data None (Some file_out.Nexus.File.branches)
+                                 file_out.Nexus.File.trees in
+        if found then Some tbl else None
     in
-    let tbl = if found then Some tbl else None in
     (** Change the output if we are using likelihood *)
     let using_likelihood =
         let if_unaligned =
@@ -2254,15 +2247,14 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
         in
         if_unaligned || if_aligned
     in
-    let d = 
+    let d =
         {data with
             character_sets = csets;
             character_nsets = cnsets;
             branches = tbl;
             search_information =
                 if using_likelihood then likelihood_output_information
-                                    else parsimony_output_information;
-            iterate_branches = (not found); }
+                                    else parsimony_output_information; }
     in
     Status.finished st;
     new_codes, d
