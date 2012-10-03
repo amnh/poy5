@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2710 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2713 $"
 
 let debug = false
 
@@ -622,6 +622,8 @@ let single_to_multi single_t =
 * readjusts the current median [mine] of three medians [ch1],
 * [ch2], and [parent] using three dimentional alignments*)
 let readjust mode to_adjust modified ch1 ch2 parent mine =
+    let debug = false in
+    if debug then  Printf.printf "DynamicCS.readjust\n%!";
     let no_iterative_other_than_for_seqs = false in
     match ch1, ch2, parent, mine with
     | SeqCS ch1, SeqCS ch2, SeqCS parent, SeqCS mine ->

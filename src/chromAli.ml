@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2684 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2713 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -992,7 +992,7 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
                         (Sequence.length sub_seq3 = 0) then detect_change new_med (l_p + 1)
                     else begin                        
 
-                        let _, _, median_seq, _ = Sequence.Align.readjust_3d
+                        let _, _, median_seq, _, _, _ = Sequence.Align.readjust_3d
                             ~first_gap:false sub_seq1 sub_seq2 sub_seqm c2 c3
                             sub_seq3 mine.cost2 mine.cost3
                         in

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2712 $"
+let () = SadmanOutput.register "Node" "$Revision: 2713 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -513,7 +513,9 @@ let extract_states alph data in_codes node =
 (*[cs_update_cost_only mine ch1 ch2] when any of the children has a different
 * sum_cost, but the assignment for that children(from median function) remain
 * the same, here we only need to update sum_cost of mine*)
-let cs_update_cost_only mine ch1 ch2 = match mine,ch1,ch2 with 
+let cs_update_cost_only mine ch1 ch2 = 
+    let debug = false in
+    match mine,ch1,ch2 with
     | StaticMl m, StaticMl c1, StaticMl c2 ->
         IFDEF USE_LIKELIHOOD THEN
             let sumcost = m.cost in
@@ -523,7 +525,7 @@ let cs_update_cost_only mine ch1 ch2 = match mine,ch1,ch2 with
         END
     | Dynamic m, Dynamic c1, Dynamic c2 ->
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
-            Printf.printf "update_cost_only, sum_cost <- %f\n%!" sumcost;
+            if debug then Printf.printf "update_cost_only, sum_cost <- %f\n%!" sumcost;
             Dynamic { m with sum_cost = sumcost;}, sumcost
     | AddVec m, AddVec c1, AddVec c2 -> 
             let sumcost = c1.sum_cost +. c2.sum_cost +. m.cost in
@@ -552,7 +554,6 @@ let cs_update_cost_only mine ch1 ch2 = match mine,ch1,ch2 with
 
 (* calculate the median between two nodes *)
 let rec cs_median code anode bnode prev t1 t2 a b =
-    let debug_cs_median = false in
    if debug_cs_median then Printf.printf "node.cs_median, on node %d and %d:\n%!"
 	anode.taxon_code bnode.taxon_code;
     match a, b with
@@ -1390,10 +1391,12 @@ let update_cost_only mine child1 child2 =
             map3 (fun a b c -> cs_update_cost_only a b c) mine.characters child1.characters child2.characters )
         in
         let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in
-        if debug then Printf.printf "update total_cost=%f only to node#.%d \
-        (old cost = %f, ch1(%d,%f),ch2(%d,%f)\n%!"
-        total_cost mine.taxon_code mine.total_cost child1.taxon_code child1.total_cost
-        child2.taxon_code child2.total_cost;
+        let _ = 
+            if debug then Printf.printf 
+            "update total_cost=%f only to node#.%d (old cost = %f, ch1(%d,%f),ch2(%d,%f)\n%!"
+            total_cost mine.taxon_code mine.total_cost child1.taxon_code child1.total_cost
+            child2.taxon_code child2.total_cost;
+        in
         {mine with 
             characters = characters_with_new_cost; 
             total_cost = total_cost;
@@ -3405,11 +3408,11 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                 mine.taxon_code parent.taxon_code cost minet.cost cost minet.sum_cost;
                 Dynamic {
                             preliminary = res; final = res;
-                            (*we should not replace cost&sum_cost with cost to
+                            (*we should NOT replace cost&sum_cost with cost to
                             * its parent, maybe we can add cost_to_parent to the
                             * data-structure.*)
                             cost = minet.cost;
-                            sum_cost = minet.cost;
+                            sum_cost = minet.sum_cost;
                             weight = minet.weight;
                             time = minet.time;
                         }
@@ -3521,7 +3524,8 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     * the new seq & cost set if modified is empty.
                     *)
 		            if (IntSet.is_empty !modified)&&((cost<>mine.cost)||(sumcost<>mine.sum_cost)) then 
-				    failwith "node.ml readjust function, same median,different node cost";	
+				    failwith "node.ml readjust function, nothing changed from \
+                    lower function, but different node cost or subtree cost";	
                     let res = 
                     Dynamic
                         { mine with

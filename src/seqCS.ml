@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2710 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2713 $"
 
 let debug = false
 let debug_distance = false 
@@ -866,38 +866,71 @@ module DOS = struct
             and emptypar = Sequence.is_empty parent.sequence gap in
             match empty1, empty2, emptypar with
             | false, false, false ->
-                    let cost3, cost2, seqm, changed =
+                    let oldcost3 = int_of_float mine.costs.cost3
+                    and oldcost2 = int_of_float mine.costs.cost2
+                    and oldsumcost = int_of_float mine.costs.sum_cost in
                         (*cost3 is the sum cost of alied_ch1&new_med,
                         * alied_ch2&new_med and alied_parent&new_med,
                         * cost2 is the cost of alied_ch1&alied_ch2*)
-                        match mode with
-                        | `ThreeD _ -> 
-                                if debug then 
-                                    Printf.printf "iter = 3d, call readjust_3d\n%!";
-                                Sequence.Align.readjust_3d ch1.sequence ch2.sequence
-                                mine.sequence c2 h.c3 parent.sequence 
-                                (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
-                        | `ApproxD _ ->
-                                if debug then 
-                                    Printf.printf "iter=approx, call readjust\n%!";
-                                Sequence.readjust ch1.sequence ch2.sequence
-                                mine.sequence c2 parent.sequence use_ukk
-                    in
-                    let sumcost = sumcost_ch12 + cost2 in
-                    (*return modifed = true if 
-                    * #1. if subtree cost root on this character of this node is different, 
-                    * that means cost of some grand grand child is different, or #2.
-                    * #2. if node cost(both cost2 and cost3) of this character of this node is different.
-                    * #3. if median assignment to this character of this node is different*)
-                    let changed = 
-                        if (changed=false)&&(sumcost<=(int_of_float mine.costs.sum_cost)) then
-                            true
-                        else
-                            changed
-                    in
-                    let rescost = make_cost cost2 cost2 cost3 sumcost in
-                    { mine with sequence = seqm; costs = rescost },
-                    cost3, cost2, sumcost, changed
+                    (
+                    match mode with
+                    | `ThreeD _ -> 
+                        if debug then Printf.printf "iter = 3d, call Sequence.readjust_3d\n%!";
+                        let newcost3, newcost2, newseqm,newaliedch1,newaliedch2, newseqmWgap=
+                            Sequence.Align.readjust_3d ch1.sequence ch2.sequence
+                            mine.sequence c2 h.c3 parent.sequence 
+                            (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
+                        in
+                        let newsumcost = sumcost_ch12 + newcost2 in
+                        (*return modifed = true if 
+                        * #1. if subtree cost root on this character of this node is different, 
+                        * that means cost of some grand grand child is different, or #2.
+                        * #2. if node cost(cost2 or cost3) of this character of this node is different.
+                        * #3. if median assignment to this character of this node is different*)
+                        let anything_changed =
+                            if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                            (newcost2<>oldcost2) || (0<>compare mine.sequence newseqm) 
+                            then true
+                            else false
+                        in
+                        if debug then Printf.printf "end of seqCS.DOS.adjust, \
+                        cost2=%d(%d),cost3=%d(%d),sumcost=%d(%d)\n%!"
+                        newcost2 oldcost2 newcost3 oldcost3 newsumcost oldsumcost;
+                        let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                        { mine with sequence = newseqm; 
+                        aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
+                        costs = rescosts },
+                        newcost3, 
+                        newcost2, 
+                        newsumcost,
+                        anything_changed
+                    | `ApproxD _ ->
+                        if debug then Printf.printf "iter=approx, call Sequence.readjust\n%!";
+                        let newcost3,newcost2,newseqm, _, _, _ = 
+                            Sequence.readjust ch1.sequence ch2.sequence
+                            mine.sequence c2 parent.sequence use_ukk
+                        in
+                        let newsumcost = sumcost_ch12 + newcost2 in
+                        let anything_changed =
+                            if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                            (newcost2<>oldcost2) || (0<>compare mine.sequence newseqm) 
+                            then true
+                            else false
+                        in
+                        if debug then Printf.printf "end of seqCS.DOS.adjust, \
+                        cost2=%d(%d),cost3=%d(%d),sumcost=%d(%d)\n%!"
+                        newcost2 oldcost2 newcost3 oldcost3 newsumcost oldsumcost;
+                        let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                        { mine with sequence = newseqm; 
+                        (*we don't update aligned children here
+                        * aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
+                        *)
+                        costs = rescosts },
+                        newcost3, 
+                        newcost2, 
+                        newsumcost,
+                        anything_changed
+                    ) (*end of match mode with iterative:exact or approximate*)                     
             | true, true, _ -> ch1, 0, 0, sumcost_ch12, false
             | true, _, true -> ch1, 0, 0, sumcost_ch12, false
             | _, true, true -> ch2, 0, 0, sumcost_ch12, false
@@ -908,9 +941,6 @@ module DOS = struct
             | _, false, false ->
                     algn ch2.sequence parent.sequence
         in
-        if debug then Printf.printf "end of seqCS.DOS.adjust, old:cost2=%f(could be from to_single),\
-        cost3=%f,sumcost=%f; new:cost2=%d, cost3=%d, sumcost=%d, anything_changed = %b\n%!"
-        mine.costs.cost2 mine.costs.cost3 mine.costs.sum_cost cost2 cost3 sumcost changed;
         (*return modifed = true if 
             * #1. if subtree cost root on this character of this node is different, 
             * that means cost of some grand grand child is different, or #2.
@@ -1089,7 +1119,7 @@ module DOS = struct
                     Sequence.printseqcode seq;
                     print_newline();
                 in
-                Printf.printf "costs = (%f,%f), seq a,b,alieda,aliedb= \n%!" rescost.cost2 rescost.cost3; 
+                Printf.printf "costs = (cost2:%f,cost3:%f), seq a,b,alieda,aliedb= \n%!" rescost.cost2 rescost.cost3; 
                 print_seqlist a.sequence; print_seqlist b.sequence;
                 print_seqlist tmpa; print_seqlist tmpb;
                 Printf.printf "seqm: %!"; print_seqlist seqm;
@@ -2135,7 +2165,7 @@ let same_codes a b =
 (*any change here must also go to [readjust]*)
 let readjust_custom_alphabet mode modified ch1 ch2 parent mine =
     let debug = false in
-    if debug then Printf.printf "seqCS.readjust_custom_alphabet,old total_cost=%f\n%!" mine.total_cost;
+    if debug then Printf.printf "seqCS.readjust_custom_alphabet\n%!";
     (*list of character code that being modified in DOS.[readjust_custom_alphabet] *)
     let new_modified = ref [] in
     let total_cost = ref 0 in (*sum cost of each characters: node cost*)
@@ -2148,8 +2178,6 @@ let readjust_custom_alphabet mode modified ch1 ch2 parent mine =
                         let changed, res, cost3, cost2, sumcost = 
                             DOS.readjust_custom_alphabet mode mine.heuristic a b c d
                         in
-                        if debug then Printf.printf
-                        "seqCS.readjust_custom_alphabet,changed=%b,cost3=%d,cost2=%d,total_cost=%d\n%!" changed cost3 cost2 !total_cost;
                         if changed then begin
                             if debug then Printf.printf "add code = %d to modified set\n%!" code;
                             new_modified := code :: !new_modified;
@@ -2164,16 +2192,9 @@ let readjust_custom_alphabet mode modified ch1 ch2 parent mine =
         mine.codes ch1.characters ch2.characters parent.characters
         mine.characters
     in
-(*this is a tmp fix
-    if (!new_modified = []) then begin
-	    let tc = float_of_int !total_cost in
-	    let new_sumcost = tc +. ch1_sumcost +. ch2_sumcost in
-	    if new_sumcost<>mine_sumcost then
-		    Array.iter (fun code ->
-			    new_modified := code ::!new_modified;
-		) mine.codes;
-    end;
-this is a tmp fix*)
+    if debug then 
+        Printf.printf "nodecost=%d(%f),subtree cost=%d(%f),return to node.ml\n%!"
+    !total_cost mine.total_cost !total_sum_cost mine.subtree_cost;
     let modified = 
         List.fold_left (fun acc x -> All_sets.Integers.add x acc)
         modified !new_modified
@@ -2191,11 +2212,13 @@ this is a tmp fix*)
 (*any change here must also go to [readjust_custom_alphabet]*)
 let readjust mode to_adjust modified ch1 ch2 parent mine =
     let debug = false in
-    assert (parent.alph = Alphabet.nucleotides);(*this function is only for dna sequence*)
+    if debug then Printf.printf "seqCS.readjust\n%!";
+    (* assert (parent.alph = Alphabet.nucleotides);this function is only for dna sequence*)
     let use_ukk = match !Methods.algn_mode with
         | `Algn_Newkk  -> true
         | `Algn_Normal -> false
     in
+    (*acc the modified character code, node cost and subtree cost*)
     let new_modified = ref [] 
     and total_cost = ref 0 
     and total_sum_cost = ref 0 in
@@ -2229,6 +2252,8 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
         mine.codes ch1.characters ch2.characters parent.characters
         mine.characters
     in
+    if debug then Printf.printf "nodecost=%d(%f),subtree cost=%d(%f),return to node.ml\n%!"
+    !total_cost mine.total_cost !total_sum_cost mine.subtree_cost;
     let modified = 
         List.fold_left (fun acc x -> All_sets.Integers.add x acc)
         modified !new_modified
