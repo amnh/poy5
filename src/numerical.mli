@@ -34,7 +34,7 @@ val minimum   : float
 (** {6 Types} *)
 
 type 'a simplex
-(** How we internally, keeping it abstract, of course *)
+(** How we internally represent a simplex, keeping it abstract, of course *)
 
 type simplex_strategy = 
     {   alpha : float;  (** The Reflection factor *)
@@ -57,7 +57,7 @@ type subplex_strategy =
 (** {6 Floating Point Functions} *)
 
 val is_nan : float -> bool
-(** is the floating point number NAN *)
+(** is the floating point number the IEEE representation of NAN *)
 
 val is_inf : float -> bool
 (** is the floating point number +/- infinity *)
@@ -68,18 +68,61 @@ val is_zero : float -> bool
 
 (** {6 Special Functions} *)
 
-external gamma : float -> float = "gamma_CAML_gamma"
+val gamma : float -> float
 (** [gamma x] calculates the gamma of x. Using Lanczos Approximation, with
     error around 1e-15. Max value for overflow is around 142. *)
 
-external lngamma : float -> float = "gamma_CAML_lngamma"
+val lngamma : float -> float
 (** [lngamma x] calculates the ln gamma of x using Lanczos Approximation. *)
 
-external gamma_rates: float -> float -> int -> 
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t = "gamma_CAML_rates"
+val gamma_rates:
+    float -> float -> int -> 
+        (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t
 (** [gamma_rates alpha beta cats] -> rates takes alpha, beta gamma parameters
     and number of categories to cut the gamma function into, and returns the mean
     rates in those cuts of 1/cats parts. *)
+
+val rand_normal : float -> float -> float
+(** [rand_normal m stdev] generate a random variable with a normal distribution
+    with the mean [m] and standard deviation [stdev]. **)
+
+val rand_exp : float -> float
+(** [rand_exp m] Generates a random variable with the exponential distribution
+    of mean [m]. *)
+
+val rand_gamma : float -> float -> float
+(** [rand_gamma shape scale] Generates a random variable with a gamma
+    distribuation of the shape and scale parameters passed. *)
+
+(** {6 Statisical Objects *)
+
+class type running_stats = object
+(** [running_stats] is an object that can calculate the variance,
+    standard-deviation, min, max, and mean from a set of data of unknown size,
+    and will update for each additional number. Use [push] to add numbers, then
+    other functions will update accordingly. *)
+
+    method push : float -> unit
+    (** Push a new value to the running stats object *)
+
+    method iter : unit -> int
+    (** the current number of iterations *)
+
+    method min  : unit -> int
+    (** the current minimum found in the data-set *)
+
+    method max  : unit -> int
+    (** the current maximum found in the data-set *)
+
+    method variance : unit -> float
+    (** calculate the current variance in the data-set *)
+
+    method mean     : unit -> float
+    (** calculate the current mean of the data-set *)
+
+    method std_dev  : unit -> float
+    (** calculate the current standard-deviation of the data-set *)
+end
 
 
 (** {6 Numerical Optimization Functions} *)
@@ -165,6 +208,17 @@ type opt_modes =
 val default_numerical_optimization_strategy :
     opt_modes -> int -> optimization_strategy list
 (** Take the cost model of the Methods module and determine an opt strategy *)
+
+val default_number_of_passes : opt_modes -> int
+(** Determine the default number of passes, in an optimization routine to do
+    under the specified optimization level *)
+
+val set_tol_c_brents_method : float -> unit
+(** Set the C tolerance in brents method; for optimization of branch lenghths *)
+
+val get_tol : opt_modes -> float
+(** Get the tolerance for that optimization level; used to communicate with
+    external routines --for example, the C-brents method routine. *)
 
 val run_method :
     optimization_strategy list -> (float array -> 'a * float)  
