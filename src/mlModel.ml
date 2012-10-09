@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2705 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2723 $"
 
 open Numerical.FPInfix
 
@@ -257,18 +257,13 @@ let count_parameters model : int =
 (** Return a list of all the models with default parameters; requires alphabet
     to determine if tstv models are valid and length of GTR parameters *)
 let get_all_models alph gap est_prior =
-    let gtr_array = match gap with
-        | `Independent
-        | `Missing   -> default_gtr alph false
-        | `Coupled _ -> default_gtr alph true
-    in
     [ (JC69,Equal);
       (F81,est_prior);
       (K2P default_tstv,Equal);
       (F84 default_tstv,est_prior);
       (HKY85 default_tstv,est_prior);
       (TN93 (default_tstv,default_tstv),est_prior);
-      (GTR gtr_array,est_prior)]
+      (GTR [||],est_prior)]
 
 
 IFDEF USE_LIKELIHOOD THEN
@@ -502,8 +497,8 @@ let normalize ?(m=Numerical.minimum) alph gap_state vec = match gap_state with
    form of lower packed storage mode, excluding diagonal, *)
 let m_gtr_independent pi_ co_ a_size =
     if (((a_size+1)*(a_size-2))/2) <> Array.length co_ then begin
-        failwithf ("Length of GTR parameters is incorrect for the "^^
-                   "alphabet. They should be %d, but are %d.")
+        failwithf ("Length of GTR parameters (I) is incorrect for the alphabet."
+                   ^^"They should be %d, but are %d.")
                   (((a_size+1)*(a_size-2))/2) (Array.length co_);
     end;
     (* last element of GTR = 1.0 *)
@@ -873,7 +868,6 @@ let output_model output output_table nexus model set =
                         in
                         for i = 0 to a - 2 do
                             for j = i+1 to a - 2 do
-                                let x = convert (a-1) i j in
                                 printf "@[<hov 1>%s <-> %s - %.5f@]@\n"
                                     (get_str i) (get_str j) ray.(convert (a-1) i j)
                             done;

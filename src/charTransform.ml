@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2711 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2723 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1049,7 +1049,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 end
         | `UseParsimony chars ->
             IFDEF USE_LIKELIHOOD THEN
-                let () = Methods.cost := `Normal in
                 Node.load_data (Data.set_parsimony data chars)
             ELSE
                 Status.user_message Status.Information "No characters have been transformed";

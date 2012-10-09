@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2711 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2723 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = true
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -116,6 +116,7 @@ module F : Ptree.Tree_Operations
                 error_user_message "Couldn't find tree name %s" t_name;
             None
 
+
     (** [create_branch_table table ptree] 
      * Creates a hashtable with all the branch data. The key is the pair of
      * nodes lengths and the value is either a single length or a list of
@@ -164,6 +165,7 @@ module F : Ptree.Tree_Operations
         IntSet.fold (create_branch_table) (Ptree.get_handles ptree) ();
         trees_table
 
+
     (* check if the ptree has likelihood characters by it's data; obviously this
      * means that data must be up to date --an invariant that we hold. The old
      * version of this function, that checks the ptree is left below for
@@ -182,6 +184,7 @@ module F : Ptree.Tree_Operations
                 (using_likelihood `Static ptree ) || (using_likelihood `Dynamic ptree)
         in
         data_test
+
 
     (* Update Data.d in ptree with branch data. Used to transfer data between
      * dynamic and static likelihood; used under Dynamic Likelihood only. *)
@@ -949,8 +952,7 @@ module F : Ptree.Tree_Operations
 
     let print_tree_times ptree = 
         let str_dir x = match x.AllDirNode.dir with
-            | Some (x,y) ->
-                (string_of_int x)^","^(string_of_int y)
+            | Some (x,y) -> (string_of_int x)^","^(string_of_int y)
             | None       -> "none"
         in
         let get_node x = AllDirNode.force_val x.AllDirNode.lazy_node in
@@ -1066,7 +1068,6 @@ module F : Ptree.Tree_Operations
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
                 let (changed,new_affected,new_ptree : adjust_acc) = 
-
                     let none_affected = IntMap.empty in
                     let () = Array_ops.randomize all_edges in
                     Array.fold_left
@@ -1252,9 +1253,11 @@ module F : Ptree.Tree_Operations
         in
         ptree
 
-
-
-
+    let adjust_assignment max_count nodes ptree =
+        if using_likelihood `Either ptree then
+            ptree
+        else
+            adjust_assignment max_count nodes ptree
 
 
     (* ------------------------------------------------------------------------ *)
@@ -1526,13 +1529,16 @@ module F : Ptree.Tree_Operations
         end
 
     (* adjust the assignment of internal nodes, and models for a tree *)
-    let model_fn ?(max_iter=20) node_man tree =
+    let model_fn ?max_iter node_man tree =
         let rates_fn tree =
             let tree =
                 if using_likelihood `Static tree then static_model_fn tree else tree in
             let tree =
                 if using_likelihood `Dynamic tree then dynamic_model_fn tree else tree in
             tree
+        and max_iter = match max_iter with
+            | Some i -> i
+            | None   -> Numerical.default_number_of_passes !Methods.opt_mode
         in
         (* adjust model and branches -- for likelihood *)
         let adjust_ do_model do_branches branches iterations first_tree = 
@@ -1560,7 +1566,7 @@ module F : Ptree.Tree_Operations
                         mcost,mtree,iter
                     end
                 in
-                if icost =. bcost || iter > max_iter
+                if icost =. bcost || iter >= max_iter
                     then btree
                     else loop_ iter bcost btree
             in
@@ -1595,7 +1601,7 @@ module F : Ptree.Tree_Operations
     let downpass ptree =
         if debug_downpass_fn then info_user_message "Downpass Begins,%!";
         current_snapshot "AllDirChar.downpass start";
-        let res = match !Methods.cost with
+        let ptree = match !Methods.cost with
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
@@ -1610,22 +1616,24 @@ module F : Ptree.Tree_Operations
         in
         current_snapshot "AllDirChar.downpass end";
         if debug_downpass_fn then info_user_message "Downpass Ends\n%!";
-        update_branches res
+        ptree
 
-    let uppass ptree = 
+    (* ----------------- *)
+    let uppass ptree =
         if debug_uppass_fn then info_user_message "UPPASS begin:%!";
         current_snapshot "AllDirChar.uppass start";
-        let tree = match !Methods.cost with
+        let ptree = match !Methods.cost with
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> ptree --> pick_best_root --> assign_single
+            | `Normal ->
+                ptree --> pick_best_root --> assign_single --> model_fn None
             | `Iterative (`ApproxD _)
-            | `Iterative (`ThreeD _) -> ptree
+            | `Iterative (`ThreeD _) -> ptree --> model_fn None
         in
         current_snapshot "AllDirChar.uppass end";
         if debug_uppass_fn then info_user_message "UPPASS ends.%!";
-        tree
+        ptree
 
     let rec clear_subtree v p ptree = 
         if debug_clear_subtree then
@@ -1828,21 +1836,8 @@ module F : Ptree.Tree_Operations
             incremental = [];
         }
 
-    let get_other_neighbors (a, b) tree acc = 
-        let add_one a b acc =
-            match Ptree.get_node a tree with
-            | Tree.Interior (_, x, y, z) ->
-                    if x <> b then IntMap.add x None acc
-                    else IntMap.add y None acc
-            | _ -> acc
-        in
-        let beg = 
-            match acc with
-            | None -> IntMap.empty 
-            | Some x -> x
-        in
-        Some (beg --> add_one a b --> add_one b a)
 
+    (* ----------------- *)
     let break_fn n_mgr ((s1, s2) as a) b =
         let res = match !Methods.cost with
         | `Iterative (`ApproxD _)
@@ -1858,8 +1853,9 @@ module F : Ptree.Tree_Operations
                     Ptree.incremental = []; }
         in
         update_node_manager (res.Ptree.ptree) (`Break res) n_mgr;
-        {res with
-            Ptree.ptree = update_branches res.Ptree.ptree; }
+        let ptree = model_fn n_mgr res.Ptree.ptree in
+        {res with Ptree.ptree = update_branches ptree; }
+
 
     (* ----------------- *)
     let join_fn _ jxn1 jxn2 ptree =
@@ -1931,7 +1927,7 @@ module F : Ptree.Tree_Operations
 
     let join_fn n_mgr a b c d =
         let d = clear_internals true d in
-        let (ptree, tdel) as ret = match !Methods.cost with
+        let (ptree, tdel) = match !Methods.cost with
             | `Normal ->
                 if debug_join_fn then Printf.printf "join_fn, Normal,%!";
                 let tree,delta =join_fn a b c d in
@@ -1961,11 +1957,12 @@ module F : Ptree.Tree_Operations
                 in
                 tree, delta
         in
+        let ptree = model_fn n_mgr ptree in
         if debug_join_fn then
             info_user_message "Joined with cost: %f (%f)" 
                     (Ptree.get_cost `Adjusted ptree)
                     (Ptree.get_cost `Unadjusted ptree);
-        ret
+        (ptree,tdel)
 
 
     type tmp = Edge of (int * int) | Clade of a
