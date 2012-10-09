@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2713 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2717 $"
 
 let debug = false
 let debug_distance = false 
@@ -750,7 +750,7 @@ module DOS = struct
         delimiters = []
     }
 
-    let print do_single_seq = 
+   let print do_single_seq = 
         (*Sequence.print stdout do_single_seq.sequence Alphabet.nucleotides*)
         Printf.printf "cost = (cost2:%f,cost3:%f,subtree_cost:%f),%!" (get_cost2 do_single_seq.costs)
         (get_cost3 do_single_seq.costs) (do_single_seq.costs.sum_cost)
@@ -821,7 +821,8 @@ module DOS = struct
         newsumcost
 
 
-    (*readjust function for dna sequence under module DOS *)
+    (*readjust function for dna sequence under module DOS, include approx=exact
+    * and approximate*)
     let readjust mode h ch1 ch2 parent mine use_ukk =
         let debug = false in
         if debug then Printf.printf "seqCS.DOS.readjust,use_ukk=%b\n%!" use_ukk;
@@ -1149,7 +1150,6 @@ module DOS = struct
                 Sequence.Align.recost alied_ch1 alied_ch2 h.c2_original
                 (*Sequence.Align.cost_2 alied_ch1 alied_ch2 h.c2_original Matrix.default*) 
         in
-        let debug_distance = true in
         if debug_distance then begin
             Printf.printf "cost_between_two_alied_children_of_root, two alied children:\n%!";
             Sequence.printseqcode alied_ch1;
@@ -1228,6 +1228,7 @@ module DOS = struct
         { n with sequence = res; costs = rescost }
 
     let distance alph h missing_distance a b use_ukk =
+        let debug = false in
         let gap = Cost_matrix.Two_D.gap h.c2_original in 
         if Sequence.is_empty a.sequence gap || 
             Sequence.is_empty b.sequence gap then missing_distance
@@ -1276,6 +1277,7 @@ ELSE
                 if tmp > 8 then tmp 
                 else 8
             in
+        if debug then Printf.printf "seqCS.DOS.distance\n%!";
             if use_ukk then
             Sequence.NewkkAlign.cost_2  ~deltaw a.sequence b.sequence
             h.c2_original Sequence.NewkkAlign.default_ukkm
@@ -1286,6 +1288,8 @@ END
 
 (*[dist_2] is called to calculates the cost of joining the node [n] between [a] and [b] in a tree*)
         let dist_2 h n a b use_ukk =
+            let debug = false in
+            if debug then Printf.printf "SeqCS.DOS.dist_2\n%!";
             let gap = Cost_matrix.Two_D.gap h.c2_full in
             let tmp =
                 if Sequence.is_empty a.sequence gap then
@@ -1674,6 +1678,8 @@ module PartitionedDOS = struct
 
 
     let dist_2 h n a b use_ukk =
+        let debug = false in
+        if debug then Printf.printf "SeqCS.Union.dist_2\n%!";
         let total = ref 0 in
         let do_one n a b =
             let a, b, _, _, fixmedian, _, _ = clip_n_fix a b in
@@ -1804,7 +1810,6 @@ let print in_data =
         | Heuristic_Selection x -> 
                 Printf.printf "Heuristic_Selection,%!";
                 DOS.print x;
-        (*| Relaxed_Lifted x -> Printf.printf "Relaxed_Lifted,no print functionyet%!"*)
         | Partitioned x -> Printf.printf "Partitioned,no print function yet%!"
     ) seq_chr_arr;
     Printf.printf "\n%!"
@@ -1991,6 +1996,8 @@ module Union = struct
         | _, _ -> failwith "SeqCS.union"
 
     let distance_union a b = 
+        let debug = false in
+        if debug then Printf.printf "SeqCS.Union.distance_union\n%!";
         match a, b with
         | Some a, Some b ->
                 let use_ukk = match !Methods.algn_mode with

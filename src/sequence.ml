@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2713 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2717 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -356,7 +356,7 @@ let printDNA seq =
 
 let printseqcode seq =
     let len = length seq in
-    Printf.printf "[%!";
+    Printf.printf "len=%d,[%!" len;
     for i = 0 to (len-1) do  
         Printf.printf "%d,%!" (get seq i) 
     done;
@@ -917,6 +917,13 @@ module Align = struct
                 c_cost_2 s2 s1 m1 m2 deltaw
         in
         if debug then Printf.printf "return cost = %d\n%!" res;
+        if debug && (res=0 && ((length s1)<>(length s2))) then begin
+            Printf.printf "align seq1(len=%d) != seq2(len=%d) \n%!" (length s1)
+            (length s2);
+            printseqcode s1;
+            printseqcode s2;
+            (*failwith "len1!=len2 , cost = 0"; *)
+        end;
         res
 
     (*pass different cost matrix(m1) here*)
@@ -2804,6 +2811,11 @@ END
         let create_seq = create 
 
         let create_union do_init s = 
+            let debug = false in
+            if debug then begin 
+                Printf.printf "create union with sequence=%!";
+                printseqcode s;
+            end;
             let create cap =
                     Bigarray.Array1.create 
                     constructor
@@ -2845,6 +2857,11 @@ END
             }
 
         let leaf s =
+            let debug = false in
+            if debug then begin
+                Printf.printf "sequence.Unions.leaf create union with seq:%!";
+                printseqcode s;
+            end;
             let s = clone s in
             assert (length s == capacity s);
             create_union true s 
@@ -2854,10 +2871,13 @@ END
                 "union_CAML_make_b" "union_CAML_make"
 
         let union a b m ua ub cm =
+            let debug = false in
             let new_seq, len = 
                 let c = (length ua.seq) + (length ub.seq) + 2 in
                 create c, c
             in
+            if debug then Printf.printf "union seqa and seqb, new seq len = %d(%d+%d+2)\n%!" 
+            len (length ua.seq) (length ub.seq);
             let u = create_union false new_seq in
             make_union a b m ua ub u cm;
             u

@@ -100,6 +100,16 @@ seq_get (const seqt a, int p) {
     return (*(seq_get_ptr (a, p)));
 }
 
+void
+seq_print (const seqt a) {
+    int i;
+    printf("len=%d,cap=%d,[",a->len,a->cap);
+    for(i=0;i<a->len; i++) {
+        printf("%d ",seq_get(a,i));
+    }
+    printf("]\n"); fflush(stdout);
+}
+
 #ifdef _WIN32
 __inline void
 #else
@@ -431,6 +441,8 @@ seq_CAML_create (value cap) {
     if (len > SHORT_SEQUENCES) 
         failwith ("You are analyzing long sequences. This version of POY was compiled without the --enable-long-sequences option, setting a hard-coded limit of SHORT_SEQUENCES in their length. To run this analysis you need to enable that option at compile time. Either compile yourself the program, or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
 #endif
+    int debug = 0;
+    if(debug) fprintf("seq.c create seq with len = %d\n", len);
     s = sizeof (SEQT) * len;
     res = caml_alloc_custom 
         (&sequence_custom_operations, (sizeof(struct seq) + s), len, SEQ_UNUSED_MEMORY);
@@ -445,6 +457,7 @@ seq_CAML_create (value cap) {
     tmp2->end = tmp2->begin = tmp2->head + len - 1;
     tmp2->begin++;
     assert (tmp2 == Seq_pointer(res));
+    assert(tmp2->magic_number == POY_SEQ_MAGIC_NUMBER);
     CAMLreturn(res);
 }
 
@@ -547,16 +560,20 @@ seq_CAML_set (value s, value p, value v) {
 
 value 
 seq_CAML_copy (value from, value to) {
+    int debug = 0;
     CAMLparam2(from, to);
     seqt cto, cfrom;
     int i;
     Seq_custom_val(cto,to);
     Seq_custom_val(cfrom,from);
     assert (cto->cap >= cfrom->len);
+    if(debug) 
+        printf("seq.c copy len=%d, cap=%d,",cfrom->len,cfrom->cap);
     cto->len = 0;
     cto->begin = cto->end + 1;
-    for (i = cfrom->len - 1; i > -1; i--)
+    for (i = cfrom->len - 1; i > -1; i--) {
         seq_prepend (cto, seq_get (cfrom, i));
+    }
     CAMLreturn(Val_unit);
 }
 

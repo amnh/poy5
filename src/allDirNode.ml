@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2710 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2717 $"
 
 let eager        = false
 let uppass_debug = false
@@ -1132,7 +1132,11 @@ struct
             let x = get_node "AllDirNode.AllDirF.Union.leaf" code n.unadjusted in
             OneDirF.Union.leaf taxon_code code x.lazy_node
 
-        let distance a b = OneDirF.Union.distance a b
+        let distance a b = 
+            let debug = false in
+            if debug then
+                Printf.printf "AllDirNode.AllDirF.Union.distance,%!";
+            OneDirF.Union.distance a b
 
         let saturation = OneDirF.Union.saturation
 

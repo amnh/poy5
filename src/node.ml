@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2713 $"
+let () = SadmanOutput.register "Node" "$Revision: 2717 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -4366,6 +4366,13 @@ END
         { u with charactersu = map2 u.charactersu par.characters }
 
     let leaf taxon_code _ c =
+        let debug = false in
+        let code = 
+            match taxon_code with
+            | None -> c.taxon_code
+            | Some v -> v
+        in
+        if debug then Printf.printf "node.Union.leaf create union for Node:%d\n%!" code;
         let create_union f x = 
             { ch = f x.preliminary; u_weight = x.weight }
         in
@@ -4406,14 +4413,14 @@ END
         in
         let nc = List.fold_left single_leaf [] c.characters in
         let nc = List.rev nc in
-        let code = 
-            match taxon_code with
-            | None -> c.taxon_code
-            | Some v -> v
-        in
+        if debug then Printf.printf "end of node.Union.leaf \n%!";
         { charactersu = nc; min_child_codeu = code }
 
     let distance a b =
+        let debug = false in
+        if debug then  
+            Printf.printf "node.Union.distance on Anode:%d and Bnode:%d --> %!"
+            a.min_child_codeu b.min_child_codeu;
         let rec distance acc a b = 
             match a, b with
             | (Nonadd8U a) :: at, (Nonadd8U b) :: bt ->
@@ -4462,6 +4469,8 @@ END
         res
 
     let distance_node code a b =
+        let debug = false in
+        if debug then Printf.printf "node.Union.distance_node,%!";
         let a = leaf None code a in
         distance a b
 
