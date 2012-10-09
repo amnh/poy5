@@ -59,7 +59,6 @@
 #define MAX_ITER     500     // number of iterations for brents method
 #define BL_MIN       1e-8    // minimum branch length 
 #define BL_MAX       100     // maximum branch length
-#define BRENT_TOL    1e-4    // tolerance parameter for brents method
 
 #define NEGINF       log(0)
 #define INF          1/0
@@ -348,8 +347,10 @@ int compare_chars( const mll* c1, const mll* c2)
     }
     return 0;
 }
-int likelihood_CAML_compare( value c1, value c2 )
-{ return compare_chars( ML_val(c1), ML_val(c2) ); }
+
+int likelihood_CAML_compare( value c1, value c2 ){
+    return compare_chars( ML_val(c1), ML_val(c2) );
+}
 
 /* custom garbage collection */
 static struct custom_operations likelihood_custom_operations  = {
@@ -450,7 +451,6 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
     #ifdef LK_DATA_ALIGNMENT
 
         int c,a;
-
         //basic data
         l_stuff = (double*) Data_bigarray_val( A );
         ret = (mll*) malloc( sizeof(mll) );
@@ -458,7 +458,6 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
         ret->rates = Bigarray_val(A)->dim[0];
         ret->c_len = Bigarray_val(A)->dim[1];
         ret->alph  = Bigarray_val(A)->dim[2];
-
         ret->stride = ret->alph + (4 - (ret->alph % 4)); //4 doubles = 16 bytes
         //allocate new and copy
         lk_malloc(lkvec, ret->rates * ret->c_len * ret->stride * sizeof(double));
@@ -527,9 +526,7 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
     CAMLreturn( lk );
 }
 
-/**
- * filters an ml struct with all the indexes in the passed array --ordered
- */
+/** filters an ml struct with all the indexes in the passed array --ordered */
 value likelihood_CAML_filter(value as, value ibs)
 {  
     CAMLparam2( as, ibs );
@@ -657,8 +654,7 @@ void scale_VL( const double *VR, double *VL, const int n, const int s)
  * eigenvalues (this happens less often in GTR, but symmetric matrices have
  * an easy solution, Ut = Ui). Otherwise we just scale Ui's rows (scale_VL).
  *
- * output is in VL.
- */
+ * output is in VL.  */
 int
 mk_inverse(mat *space,double *VL, const double *VR, int n)
 {
@@ -693,9 +689,8 @@ mk_inverse(mat *space,double *VL, const double *VR, int n)
     return i;
 }
 
-/**  [apply_exp diag n m t]
- * Multiplies the diagonal of [diag], an [n]x[m] matrix by [t] and applies exp()
- */
+/**  [apply_exp diag n m t] Multiplies the diagonal of [diag], an [n]x[m]
+ * matrix by [t] and applies exp() */
 #ifdef _WIN32
 __inline void 
 #else
@@ -709,8 +704,7 @@ apply_exp(double* D, const int n, const int m, const double t)
         D[i] = exp( D[i] * t );
 }
 
-/** [log_matrix m]
- * Take the log of each value of the matrix */
+/** [log_matrix m] Take the log of each value of the matrix */
 #ifdef _WIN32
 __inline void 
 #else
@@ -723,8 +717,7 @@ log_matrix(double* PA, const int n, const int m){
         PA[i] = log( PA[i] );
 }
 
-/** [create_identity P n]
- * Fill a square matrix with identity; width && height = n */
+/** [create_identity P n] Fill a square matrix with I; width && height = n */
 #ifdef _WIN32
 __inline void 
 #else
@@ -749,7 +742,6 @@ double proportion( const mll* a, const mll* b)
     assert(a->stride == b->stride);
     assert(a->c_len == b->c_len);
     assert(a->rates == b->rates);
-
     prop = k = 0;
     //i holds current char, j holds current array location, k holds curr char
     for(i=0;i<a->c_len*a->rates;i++){
@@ -782,6 +774,7 @@ value likelihood_CAML_proportion( value a, value b )
     CAMLreturn( prop );
 }
 
+/** Return the minimum branch length used in the optimization routines. */
 value likelihood_CAML_minimum_bl( value unit )
 {
     CAMLparam1(unit);
@@ -798,6 +791,24 @@ value likelihood_CAML_set_smoothness( value a ){
     CAMLparam1( a );
     SMPL_K = Double_val( a );
     CAMLreturn( Val_unit );
+}
+
+/** Set the TOLERANCE used in the optimization functions for the convergence of
+ * the brents method functions used in optimizing the branch lengths. */
+double BRENT_TOL = 1e-6;
+value likelihood_CAML_set_tol( value a ){
+    CAMLparam1( a );
+    BRENT_TOL = Double_val( a );
+    CAMLreturn( Val_unit );
+}
+
+/** Get the TOLERANCE used in the optimization functions for the convergence of
+ * the brents method functions used in optimizing the branch lengths. */
+value likelihood_CAML_get_tol( value unit ){
+    CAMLparam1( unit );
+    CAMLlocal1( brent_tol );
+    brent_tol = caml_copy_double( BRENT_TOL );
+    CAMLreturn( brent_tol );
 }
 
 
