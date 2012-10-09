@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2717 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2719 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -651,8 +651,8 @@ module Align = struct
             medianwg swaped in
         if debug then begin
             Printf.printf "cost=%d,resi & resj = \n%!" cost;
-            print stdout resi Alphabet.nucleotides;print_newline();
-            print stdout resj Alphabet.nucleotides;print_newline();
+            printseqcode resi;
+            printseqcode resj;
         end;
         if swaped=0 then
         median, resi, resj, cost, medianwg
@@ -1065,8 +1065,8 @@ module Align = struct
         if debug then begin
             Printf.printf "Sequence.Align.align_2,\n%!";
             if debug2 then begin
-                print stdout s1 Alphabet.nucleotides;print_newline();
-            print stdout s2 Alphabet.nucleotides;print_newline();
+                printseqcode s1; 
+                printseqcode s2;
             end;
         end;
         let cmp s1 s2 =
@@ -1094,8 +1094,8 @@ module Align = struct
         if debug then begin
            Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
            if debug2 then begin
-            print stdout res_s1 Alphabet.nucleotides;print_newline();
-            print stdout res_s2 Alphabet.nucleotides;print_newline(); 
+            printseqcode  res_s1;
+            printseqcode  res_s2; 
            end;
         end;
         (*cost compare test
@@ -1968,8 +1968,8 @@ module NewkkAlign = struct
         in
         if debug then begin
             Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
-            print stdout res_s1 Alphabet.nucleotides;print_newline();
-            print stdout res_s2 Alphabet.nucleotides;print_newline();
+            printseqcode res_s1;
+            printseqcode res_s2;
         end;
         (*cost&algn compare test start
                 let oc1 =  open_out "newkkonen.out" in
@@ -3149,7 +3149,7 @@ just for test, we call them both and compare the cost*)
 * that three first letters of three sequences to be gaps *)
 let align3 (seq1 : s) (seq2 : s) (seq3 : s) 
            (cost_cube : Cost_matrix.Three_D.m)= 
-
+    let debug = false in
 	let len1 = length seq1 in
 	let len2 = length seq2 in
 	let len3 = length seq3 in
@@ -3162,20 +3162,21 @@ let align3 (seq1 : s) (seq2 : s) (seq3 : s)
 	let ext_seq3 = init (fun pos -> if pos = 0 then gap_code 
 						else get seq3 (pos - 1)) (len3 + 1) in 
 
-    let nuc = Alphabet.nucleotides in 
-	print stdout ext_seq1 nuc; print_newline ();
-	print stdout ext_seq2 nuc; print_newline ();
-	print stdout ext_seq3 nuc; print_newline ();
+    if debug then begin
+    printseqcode ext_seq1; 
+	printseqcode ext_seq2; 
+	printseqcode ext_seq3;
+    end;
 	
 	let ext_alied_seq1, ext_alied_seq2, ext_alied_seq3, cost = 
         Align.align_3 ext_seq1 ext_seq2 ext_seq3 cost_cube 
             Matrix.default in 		
-	
-	print stdout ext_alied_seq1 nuc; print_newline ();
-	print stdout ext_alied_seq2 nuc; print_newline ();
-	print stdout ext_alied_seq3 nuc; print_newline ();
-
-	print_endline "End of POY align_3";
+    if debug then begin
+	printseqcode ext_alied_seq1;
+	printseqcode ext_alied_seq2;
+	printseqcode ext_alied_seq3;
+    print_endline "End of POY align_3";
+    end;
 	let ali_len = length ext_alied_seq1 - 1 in 
 	let alied_seq1 = subseq ext_alied_seq1 1 ali_len in 
 	let alied_seq2 = subseq ext_alied_seq2 1 ali_len in 
