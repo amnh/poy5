@@ -436,12 +436,12 @@ case ${OS_INFORMATION} in
              AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
                 AC_CHECK_LIB(g2c,main,LFORTRAN="-lg2c",
                   AC_CHECK_LIB(f2c,main,LFORTRAN="-lf2c",
-                    [AC_MSG_RESULT([no]); USE_LIKELIHOOD="false"])))])
+                    [USE_LIKELIHOOD="false"])))])
 
         AS_IF([test $USE_LIKELIHOOD = "false"],
-            [AC_MSG_RESULT([disabled])],
+            [],
             [AC_CHECK_LIB([lapack],[main],
-                [USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood"; 
+                [USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";OUSE_LIKELIHOOD=",use_likelihood";
                  LIBS="-llapack -lblas $LFORTRAN $LIBS"], [])])
 
         #if we cannot enable likelihood; check if this was forced!
