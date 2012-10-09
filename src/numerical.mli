@@ -108,10 +108,10 @@ class type running_stats = object
     method iter : unit -> int
     (** the current number of iterations *)
 
-    method min  : unit -> int
+    method min  : unit -> float
     (** the current minimum found in the data-set *)
 
-    method max  : unit -> int
+    method max  : unit -> float
     (** the current maximum found in the data-set *)
 
     method variance : unit -> float

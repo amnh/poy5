@@ -165,7 +165,7 @@ double rand_normal( const double mean, const double stdev )
 
     return (mean + stdev * r * sin(theta));
 }
-value gamma_CAML_randnormal( value m, value s)
+value gamma_CAML_randnormal( value m, value s )
 {
     CAMLparam2( m, s );
     CAMLlocal1( r );
@@ -229,7 +229,7 @@ value gamma_CAML_randgamma( value sh, value sc )
 {
     CAMLparam2( sh,sc );
     CAMLlocal1( r );
-    r = caml_copy_double( rand_exp( Double_val(sh), Double_val(sc) ) );
+    r = caml_copy_double( rand_gamma( Double_val(sh), Double_val(sc) ) );
     return r;
 }
 
