@@ -25,8 +25,45 @@
 #include <assert.h>
 #include "union.h"
 
+void 
+union_print (unionofft a) {
+	printf("union { seq: ");
+	seq_print(a->s);
+	printf("counter = %d, length = %d, position = %d, offsets= %d, begin = %d, end = %d }\n",
+	a->counter,a->length,a->position,*(a->offsets),*(a->begin),*(a->end));
+	return;
+}
+
 void
 union_prepend_pair (unionofft a, unionofft b, unionofft c, SEQT or){
+    int debug = 0;
+    if(debug) 
+{
+	if(a->position <0 ) failwith("neg position a");
+	if(b->position <0 ) failwith("neg position b");
+	SEQT acode = seq_get(a->s,a->position);
+	if(acode<0) failwith("neg dna code a");
+	if(acode>33) failwith("dna code > 33");
+	SEQT bcode = seq_get(b->s,b->position);
+	if(bcode<0) failwith("neg dna code b");
+	if(bcode>33) failwith("dna code b > 33");
+
+}
+    UNION_OFFT apos = a->position;
+    UNION_OFFT bpos = b->position;
+    UNION_OFFT to_prepend = or;
+    if (apos>=0) {
+        to_prepend = to_prepend | seq_get (a->s, apos);
+        a->position--;
+        a->end--;
+    }
+    if (bpos>=0) {
+        to_prepend = to_prepend | seq_get (b->s, bpos);
+        b->position--;
+        b->end--;
+    }
+    seq_prepend (c->s, to_prepend);
+/*
     seq_prepend (c->s, \
             or | seq_get (a->s, a->position) \
             | seq_get (b->s, b->position));
@@ -34,14 +71,32 @@ union_prepend_pair (unionofft a, unionofft b, unionofft c, SEQT or){
     b->position--;
     a->end--;
     b->end--;
+*/
     return;
 }
 
 void
 union_prepend_item (unionofft source, unionofft target, SEQT or) {
+    int debug = 0;
+    if(debug) 
+    {
+	if(source->position <0 ) failwith("neg position");
+	if(seq_get(source->s,source->position)<0) failwith("neg dna code");
+	if(seq_get(source->s,source->position)>33) failwith("dna code > 33");
+    }
+    UNION_OFFT to_prepend = or;
+    UNION_OFFT apos = source->position;
+    if(apos>=0) {
+        to_prepend = to_prepend | seq_get (source->s, apos);
+        source->position--;
+        source->end--;
+    }
+    seq_prepend (target->s, to_prepend);
+    /*
     seq_prepend (target->s, or | seq_get (source->s, source->position));
     source->position--;
     source->end--;
+    */
     return;
 }
 
@@ -50,6 +105,8 @@ union_copy_single (unionofft a, unionofft c, UNION_OFFT it, SEQT or) {
     UNION_OFFT i;
     i = *(a->end);
     it += i;
+    int debug = 0;
+    if(debug) printf("(copy pos=%d to %d from srcUn to desUn) ",a->position,a->position-i);
     while (i > 0) {
         union_prepend_item (a, c, or);
         i--;
@@ -60,10 +117,18 @@ union_copy_single (unionofft a, unionofft c, UNION_OFFT it, SEQT or) {
 int
 union_copy_non_homologous (unionofft au, unionofft bu, unionofft c, \
         UNION_OFFT items, SEQT gap) {
-    if (au->position != -1) 
-        items = union_copy_single (au, c, items, gap);
-    if (bu->position != -1)
-        items = union_copy_single (bu, c, items, gap);
+    int debug = 0;
+    if(debug) printf("copy non homologous, au->pos=%d,bu->pos=%d,",au->position,bu->position);
+    if (au->position >/*!=*/ -1) {
+        if(debug) printf("copy from au:");
+        items = union_copy_single (au, c, items, gap); }
+    if (bu->position >/*!=*/ -1){
+        if(debug) printf("copy from bu:");
+        items = union_copy_single (bu, c, items, gap); }
+    if(debug) {
+        printf("end of copy, au.pos=%d,bu.pos=%d\n", au->position, bu->position);
+        fflush(stdout); 
+    }
     return (items);
 }
 
@@ -71,6 +136,9 @@ void
 union_prepend_and_fill_items (SEQT interm, unionofft c, UNION_OFFT prep, unionofft a, \
         unionofft b, UNION_OFFT apos, UNION_OFFT bpos) {
     UNION_OFFT i;
+    int debug = 0;
+	if(debug) printf("prepend and fill items, prepend %d to cu,prep=%d,apos=%d,bpos=%d\n",
+	interm,prep,apos,bpos);
     for (i = prep; i > 0; i--) {
         *(c->end) = i;
         c->end--;
@@ -101,6 +169,19 @@ union_move_left (unionofft a) {
 void
 union_merge (seqt a, seqt b, seqt median, unionofft au, \
         unionofft bu, unionofft c, cmt m) {
+    int debug = 0;
+    if(debug) {
+		printf("union_merge with seqa,b and m\n");
+		seq_print(a); 
+		seq_print(b); 
+		seq_print(median); 
+		printf("au:");
+	        union_print(au);
+		printf("bu:");
+		union_print(bu);
+		printf("cu:");
+		union_print(c);
+    }
     UNION_OFFT items_prepended = 0, i, gap, lena, interm, apos, bpos;
     SEQT *begina, *beginb, *beginm;
     lena = seq_get_len (a);
@@ -111,55 +192,82 @@ union_merge (seqt a, seqt b, seqt median, unionofft au, \
     assert (lena == seq_get_len (b));
     i = lena - 1;
     while ((au->begin <= au->end) || (bu->begin <= bu->end)) {
+        if(debug) {
+            printf("i=%d, checkAu:%d, checkBu:%d -->  ",
+                i,(au->begin<=au->end),(bu->begin<=bu->end)); fflush(stdout); }
         items_prepended = union_copy_non_homologous (au, bu, c, \
                 items_prepended, gap);
+        if(debug) { printf("items_prepended=%d,",items_prepended); fflush(stdout); }
         if (i >= 0) {
             interm = beginm[i];
             if (gap == interm) {
+            if(debug) { printf("gap==interm(m[i]), \n"); fflush(stdout); }
                 if (i != 0) {
                     if (gap == begina[i]) union_prepend_item (bu, c, gap);
                     else if (gap == beginb[i]) union_prepend_item (au, c, gap);
                     else union_prepend_pair (au, bu, c, gap);
+		            if(debug) printf("after prepend_itemORpair, au.pos:%d,bu.pos:%d;",
+                            au->position,bu->position);
                 }
                 else {
                     union_prepend_and_fill_items (gap, c, items_prepended, au, bu, \
                             0, 0);
                     au->end--;
                     bu->end--;
+		            if(debug) {
+                        printf("i==0,return with unionc:\n");
+                        union_print(c);
+		                fflush(stdout);
+                    }
                     return;
                 }
                 items_prepended += 1;
+                if(debug) printf("items_prepended++, au.pos:%d,bu.pos:%d;",
+                        au->position,bu->position);
             }
             else {
+    		if(debug) printf("gap!=interm,\n"); fflush(stdout);
                 if (gap == begina[i]) {
+                    if(debug) printf("gap==begina[i],");
                     apos = 0;
                     bpos = bu->position;
-                    interm = interm | union_move_left (bu);
+                    if(bpos>=0) interm = interm | union_move_left (bu);
                 }
                 else if (gap == beginb[i]) {
+                    if(debug) printf("gap==beginb[i],");
                     bpos = 0;
                     apos = au->position;
-                    interm = interm | union_move_left (au);
+                    if(apos>=0) interm = interm | union_move_left (au);
                 } 
                 else {
+                    if(debug) printf("gap<>begina[i] and gap<>beginb[i],");
                     bpos = bu->position;
                     apos = au->position;
-                    interm = interm | union_move_left (au);
-                    interm = interm | union_move_left (bu);
+                    if(bpos>=0) interm = interm | union_move_left (au);
+                    if(apos>=0) interm = interm | union_move_left (bu);
                 }
                 union_prepend_and_fill_items (interm, c, items_prepended, au, bu, \
                         apos, bpos);
                 items_prepended = 0;
+		        if(debug) printf("after prepend, set items_prepended to 0, au.pos:%d,bu.pos:%d;",
+                        au->position,bu->position);
             }
             i--;
-        }
-    }
+        }//end of i>=0
+        else {}
+    }//end of while()
     if (gap != seq_get (c->s, 0)) {
         seq_prepend (c->s, gap);
         *(c->ca_offsets) = 0;
         *(c->cb_offsets) = 0;
         *(c->end) = 0;
     }
+	if(debug)
+        {
+		printf("at the end of merge, check union c:\n");
+		union_print(c);
+		fflush(stdout);
+	}
     return;
 }
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2714 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2724 $"
 
 module IntSet = All_sets.Integers
 
@@ -1603,6 +1603,10 @@ let load_data (meth : Methods.input) data nodes =
                 let alphabet, (twod_full,twod_original,matrix), threed =
                     Alphabet.of_file alph orientation init3D level respect_case tb
                 in
+                if debug then begin
+                    Printf.printf "check alphabet:\n%!";
+                    Alphabet.print alphabet;
+                end;
                 (*to do : connect this to prealigned*)
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;

@@ -384,7 +384,7 @@ module Align : sig
     * cost between the three sequences [a], [b], and [c], according to the cost
     * matrix specified by [cm] and [cm3]. *)
     val align_3_powell_inter : s -> s -> s -> Cost_matrix.Two_D.m ->
-        Cost_matrix.Three_D.m -> s * int * int 
+        Cost_matrix.Three_D.m -> s * int * int * s * s * s
 
     (** [readjust_3d a b mine cm cm3 p] readjust [mine] as the median between
     * the sequences [a], [b] and [p]. The result is a triple [(ed, s, ch)],
@@ -392,7 +392,7 @@ module Align : sig
     * center of [a], [b], and [p], and [ch] is true iff [ch] is different from
     * [mine]. *)
     val readjust_3d : ?first_gap:bool -> s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> s
-    -> int -> int -> int * int * s * bool
+    -> int -> int -> int * int * s * s * s * s 
 
     val readjust_3d_custom_alphabet : s -> s -> s -> Cost_matrix.Two_D.m ->
         Cost_matrix.Three_D.m -> s -> int -> int -> int * int * s * s * s * s 
@@ -414,7 +414,8 @@ val select_one_randomized : s -> Cost_matrix.Two_D.m -> s
 * transformation cost matrix [cm]. The function returns a tuple [(a, b)], where
 * [b] is the new readjusted median, and [a] is the cost of that median as the
 * parent of [ch1] and [ch2]. *)
-val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> bool -> int * int * s * bool
+val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> bool -> int * int * s
+* s * s * s
 
 
 

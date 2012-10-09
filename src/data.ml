@@ -5500,10 +5500,14 @@ let assign_tcm_to_characters data chars foname tcm newalph =
                 in
                 let newdespec =
                     match newalph with 
-                    | None -> 
+                    | None ->
+                            if debug_level then Printf.printf "replace dspec \
+                            with new tcm, keep old alphabet\n%!";
                             (Dynamic { dspec with tcm = tcmfile; tcm2d_full = tcm_full;
                             tcm2d_original = tcm_original; tcm3d = tcm3 })
                     | Some newa ->
+                            if debug_level then
+                            Printf.printf "replace dspec with new tcm and new alphabet:\n%!";
                             (Dynamic { dspec with tcm = tcmfile; tcm2d_full =
                                 tcm_full; tcm2d_original = tcm_original; 
                             tcm3d = tcm3; alph = newa})
@@ -5942,7 +5946,7 @@ let assign_level data chars tie_breaker level =
     in
     List.fold_left 
         ~f:(fun acc (a, tcm, newalph) -> assign_tcm_to_characters acc (`Some a)
-        None tcm None)
+        None tcm (Some newalph))
         ~init:data codes
 
 let rec make_affine cost_model tcmfile = match tcmfile with

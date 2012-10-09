@@ -122,6 +122,8 @@ inline SEQT
 #endif
 seq_get (const seqt a, int p);
 
+void seq_print(const seqt a);
+
 /* Stores the value v in the position p of sequence a. */
 #ifdef _WIN32
 __inline void

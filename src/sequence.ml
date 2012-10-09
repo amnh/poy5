@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2684 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2719 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -356,7 +356,7 @@ let printDNA seq =
 
 let printseqcode seq =
     let len = length seq in
-    Printf.printf "[%!";
+    Printf.printf "len=%d,[%!" len;
     for i = 0 to (len-1) do  
         Printf.printf "%d,%!" (get seq i) 
     done;
@@ -651,8 +651,8 @@ module Align = struct
             medianwg swaped in
         if debug then begin
             Printf.printf "cost=%d,resi & resj = \n%!" cost;
-            print stdout resi Alphabet.nucleotides;print_newline();
-            print stdout resj Alphabet.nucleotides;print_newline();
+            printseqcode resi;
+            printseqcode resj;
         end;
         if swaped=0 then
         median, resi, resj, cost, medianwg
@@ -917,6 +917,13 @@ module Align = struct
                 c_cost_2 s2 s1 m1 m2 deltaw
         in
         if debug then Printf.printf "return cost = %d\n%!" res;
+        if debug && (res=0 && ((length s1)<>(length s2))) then begin
+            Printf.printf "align seq1(len=%d) != seq2(len=%d) \n%!" (length s1)
+            (length s2);
+            printseqcode s1;
+            printseqcode s2;
+            (*failwith "len1!=len2 , cost = 0"; *)
+        end;
         res
 
     (*pass different cost matrix(m1) here*)
@@ -1058,8 +1065,8 @@ module Align = struct
         if debug then begin
             Printf.printf "Sequence.Align.align_2,\n%!";
             if debug2 then begin
-                print stdout s1 Alphabet.nucleotides;print_newline();
-            print stdout s2 Alphabet.nucleotides;print_newline();
+                printseqcode s1; 
+                printseqcode s2;
             end;
         end;
         let cmp s1 s2 =
@@ -1087,8 +1094,8 @@ module Align = struct
         if debug then begin
            Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
            if debug2 then begin
-            print stdout res_s1 Alphabet.nucleotides;print_newline();
-            print stdout res_s2 Alphabet.nucleotides;print_newline(); 
+            printseqcode  res_s1;
+            printseqcode  res_s2; 
            end;
         end;
         (*cost compare test
@@ -1421,6 +1428,7 @@ module Align = struct
             let to_prepend = Cost_matrix.Three_D.median a b c cm3 in
             if debug2 then Printf.printf "med3 of %d,%d,%d is %d\n%!"
             a b c to_prepend;
+            prepend medianWgap to_prepend;
             if to_prepend <> gap then prepend median to_prepend
             else ();
         done;
@@ -1429,7 +1437,7 @@ module Align = struct
             printseqcode medianWgap;
         end;
         prepend median gap;
-        median, cost, costab
+        median, cost, costab, a, b, medianWgap
 
     let readjust_3d ?(first_gap = true) s1 s2 m cm cm3 p oldcost12 oldcost3 =
         let debug = false and debug2 = false in
@@ -1455,43 +1463,40 @@ module Align = struct
         end
         else begin
 	    *)
-        let cost, cost12, newseq, anything_changed = 
-            let gap = Cost_matrix.Two_D.gap cm in
-            if is_empty s1 gap && not (is_empty s2 gap) then
-                let _ = if debug then Printf.printf "empty ch1, return ch2\n%!" in
-                0, 0, s2, 0 <> compare m s2
-            else if is_empty s2 gap && not (is_empty s1 gap) then 
-                let _ = if debug then Printf.printf "empty ch2, return ch1\n%!" in
-                0, 0, s1, 0 <> compare m s1
-            else if is_empty p gap then 
-                let _ = if debug then Printf.printf "empty parent, return parent\n%!" in
-                0, 0, p, 0 <> compare m p
-            else
-                (*x is the sum cost of s1&res,s2&res and p&res, cost12 is the cost of s1&s2*)
-                match first_gap with 
-                | true -> 
-                      let res, x, cost12 = align_3_powell_inter s1 s2 p cm cm3 in
-                      x, cost12, res, 
-                      (cost12<>oldcost12)||(x<>oldcost3)||(0 <> compare m res)
-                | false ->
-                      let s1 = prepend_char s1 gap in 
-                      let s2 = prepend_char s2 gap in 
-                      let p = prepend_char p gap in 
-                      let res, x, cost12 = align_3_powell_inter s1 s2 p cm cm3 in
-                      let res = del_first_char res in 
-                      x, cost12, res, 
-                      (cost12<>oldcost12)||(x<>oldcost3)||(0 <> compare m res)
-        in
-        if debug then begin
-            Printf.printf "return cost3 = %d(old:%d), cost12=%d(old:%d),anything \
-            changed=%b(we only compare median&cost2&cost3 here, \
-            subtree_cost is compared in seqCS.ml),and new seq for mine\n%!" 
-            cost oldcost3 cost12 oldcost12 anything_changed;
+    let newcost3,newcost2,newseqm,ali_ch1, ali_ch2, newseqmWgap = 
+        let gap = Cost_matrix.Two_D.gap cm in
+        if is_empty s1 gap && not (is_empty s2 gap) then
+            let _ = if debug then Printf.printf "empty ch1, return ch2\n%!" in
+            0, 0, s2,s2,s2,s2
+        else if is_empty s2 gap && not (is_empty s1 gap) then 
+            let _ = if debug then Printf.printf "empty ch2, return ch1\n%!" in
+            0, 0, s1,s1,s1,s1
+        else if is_empty p gap then 
+            let _ = if debug then Printf.printf "empty parent, return parent\n%!" in
+            0, 0, p,p,p,p
+        else
+            (*x is the cost3 = sum cost of s1&res,s2&res and p&res, cost12 is the cost of s1&s2*)
+            match first_gap with 
+            | true -> 
+                  let res, x, cost12, ali_ch1, ali_ch2, newseqmWgap = align_3_powell_inter s1 s2 p cm cm3 in
+                  x, cost12, res, ali_ch1, ali_ch2, newseqmWgap
+            | false ->
+                  let s1 = prepend_char s1 gap in 
+                  let s2 = prepend_char s2 gap in 
+                  let p = prepend_char p gap in 
+                  let res, x, cost12, ali_ch1, ali_ch2, newseqmWgap = 
+                      align_3_powell_inter s1 s2 p cm cm3 in
+                  let res = del_first_char res in 
+                  x, cost12, res,ali_ch1, ali_ch2, newseqmWgap
+    in
+    if debug then begin
+            Printf.printf "return cost3 = %d(old:%d), cost12=%d(old:%d)\n%!" 
+            newcost3 oldcost3 newcost2 oldcost12 ;
             if debug2 then begin 
-                printseqcode newseq;
+            printseqcode newseqm;
             end;
         end;
-        cost,cost12,newseq,anything_changed
+    newcost3,newcost2,newseqm, ali_ch1, ali_ch2, newseqmWgap
     (*end*)
 
     (*readjust 3d functions for custom alphabet start*)
@@ -1963,8 +1968,8 @@ module NewkkAlign = struct
         in
         if debug then begin
             Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
-            print stdout res_s1 Alphabet.nucleotides;print_newline();
-            print stdout res_s2 Alphabet.nucleotides;print_newline();
+            printseqcode res_s1;
+            printseqcode res_s2;
         end;
         (*cost&algn compare test start
                 let oc1 =  open_out "newkkonen.out" in
@@ -2150,14 +2155,31 @@ let readjust a b m cm parent use_ukk =
         and cbca = cbca + cbc
         and cacb = cacb + cac in
         if cabc <= cbca then
-            if cabc <= cacb then false, cabc, Align.closest c ab cm matr, cabc
-            else true, cacb, Align.closest b ac cm matr, cabc
+            if cabc <= cacb then Align.closest c ab cm matr
+            else Align.closest b ac cm matr
         else if cbca < cacb then
-            true, cbca, Align.closest a bc cm matr, cabc 
-        else true, cacb, Align.closest b ac cm matr, cabc 
+             Align.closest a bc cm matr
+        else 
+            Align.closest b ac cm matr
     in
-    let has_to_print, c, (s, _), previous = make_center a b parent in
-    c, c, s, has_to_print
+    let  (newseqm, _) = make_center a b parent in
+    (*now we recalculate cost between new seq of mine and two children, and parent*)
+    (*Also: in function [make_center], if cabc is the smallest, we don't need to
+    * recalculate cost2 and cost3, they are there, just get them out.
+    * but for all other cases, like cacb<cabc, we do need to redo alignment.
+    * so let's just do it anyway*)
+    let aliedch1,aliedm1,cost_m_ch1 = Align.align_2 a newseqm cm matr in
+    let aliedch2,aliedm2,cost_m_ch2 = Align.align_2 b newseqm cm matr in
+    (*aliedch1 and aliedch2 at this point still might be different length,need
+    * to align them again.*)
+    (*let aliedch1, aliedch2, _ = Align.align_2 aliedch1 aliedch2 cm matr in
+    *)
+    let aliedp,aliedmp,cost_m_p = Align.align_2 parent newseqm cm matr in
+    let cost2 = cost_m_ch1 + cost_m_ch2 in
+    let cost3 = cost2 + cost_m_p in
+    (*return newcost3, newcost2,  newseqm,newaliedch1,newaliedch2, newseqmWgap 
+    * we won't change aliedch1,aliedch2 and aliedmWgap back in seqCS*)
+    cost3, cost2, newseqm, aliedmp, aliedmp, aliedmp
 
 
 
@@ -2789,6 +2811,11 @@ END
         let create_seq = create 
 
         let create_union do_init s = 
+            let debug = false in
+            if debug then begin 
+                Printf.printf "create union with sequence=%!";
+                printseqcode s;
+            end;
             let create cap =
                     Bigarray.Array1.create 
                     constructor
@@ -2830,6 +2857,11 @@ END
             }
 
         let leaf s =
+            let debug = false in
+            if debug then begin
+                Printf.printf "sequence.Unions.leaf create union with seq:%!";
+                printseqcode s;
+            end;
             let s = clone s in
             assert (length s == capacity s);
             create_union true s 
@@ -2839,10 +2871,13 @@ END
                 "union_CAML_make_b" "union_CAML_make"
 
         let union a b m ua ub cm =
+            let debug = false in
             let new_seq, len = 
                 let c = (length ua.seq) + (length ub.seq) + 2 in
                 create c, c
             in
+            if debug then Printf.printf "union seqa and seqb, new seq len = %d(%d+%d+2)\n%!" 
+            len (length ua.seq) (length ub.seq);
             let u = create_union false new_seq in
             make_union a b m ua ub u cm;
             u
@@ -3114,7 +3149,7 @@ just for test, we call them both and compare the cost*)
 * that three first letters of three sequences to be gaps *)
 let align3 (seq1 : s) (seq2 : s) (seq3 : s) 
            (cost_cube : Cost_matrix.Three_D.m)= 
-
+    let debug = false in
 	let len1 = length seq1 in
 	let len2 = length seq2 in
 	let len3 = length seq3 in
@@ -3127,20 +3162,21 @@ let align3 (seq1 : s) (seq2 : s) (seq3 : s)
 	let ext_seq3 = init (fun pos -> if pos = 0 then gap_code 
 						else get seq3 (pos - 1)) (len3 + 1) in 
 
-    let nuc = Alphabet.nucleotides in 
-	print stdout ext_seq1 nuc; print_newline ();
-	print stdout ext_seq2 nuc; print_newline ();
-	print stdout ext_seq3 nuc; print_newline ();
+    if debug then begin
+    printseqcode ext_seq1; 
+	printseqcode ext_seq2; 
+	printseqcode ext_seq3;
+    end;
 	
 	let ext_alied_seq1, ext_alied_seq2, ext_alied_seq3, cost = 
         Align.align_3 ext_seq1 ext_seq2 ext_seq3 cost_cube 
             Matrix.default in 		
-	
-	print stdout ext_alied_seq1 nuc; print_newline ();
-	print stdout ext_alied_seq2 nuc; print_newline ();
-	print stdout ext_alied_seq3 nuc; print_newline ();
-
-	print_endline "End of POY align_3";
+    if debug then begin
+	printseqcode ext_alied_seq1;
+	printseqcode ext_alied_seq2;
+	printseqcode ext_alied_seq3;
+    print_endline "End of POY align_3";
+    end;
 	let ali_len = length ext_alied_seq1 - 1 in 
 	let alied_seq1 = subseq ext_alied_seq1 1 ali_len in 
 	let alied_seq2 = subseq ext_alied_seq2 1 ali_len in 
