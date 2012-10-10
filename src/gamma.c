@@ -86,8 +86,6 @@ value gamma_CAML_gamma( value v_x )
     CAMLreturn( v_g );
 }
 
-
-
 /** [lngamma z]
  * Computes the ln gamma function of z using Lanczos Approximation.
  *
@@ -109,6 +107,7 @@ double lngamma( const double xx )
     return -tmp+log(2.5066282746310005*ser/x);
 }
 */
+
 double lngamma( const double xx )
 {
     int j;
@@ -137,8 +136,7 @@ value gamma_CAML_lngamma( value v_x )
 }
 
 /** [gamma_pdf r alpha beta]
- * Return the probability density function of the gamma distribution
- */
+ * Return the probability density function of the gamma distribution */
 double gamma_pdf(const double r, const double alpha, const double beta)
 {
     return (pow(beta,alpha)*pow(r, alpha-1))/(exp(beta*r)*gamma(alpha));
@@ -146,13 +144,11 @@ double gamma_pdf(const double r, const double alpha, const double beta)
 
 /** [lngamma_pdf r alpha beta]
  * Return the probability density function of the gamma distribution using ln
- * gamma. Since, exp(b*r)*gamma(a) = exp(b*r)*e(lngam(a)) = exp(b*r+lngam(a))
- */
+ * gamma. Since, exp(b*r)*gamma(a) = exp(b*r)*e(lngam(a)) = exp(b*r+lngam(a)) */
 double lngamma_pdf(const double r, const double alpha, const double beta)
 {
     return (pow(beta,alpha)*pow(r, alpha-1)) / (exp(beta*r + lngamma(alpha)) );
 }
-
 
 /** [rand_normal m s]
  * generate a random number in a given gaussian/normal distribution */
@@ -169,6 +165,13 @@ double rand_normal( const double mean, const double stdev )
 
     return (mean + stdev * r * sin(theta));
 }
+value gamma_CAML_randnormal( value m, value s )
+{
+    CAMLparam2( m, s );
+    CAMLlocal1( r );
+    r = caml_copy_double( rand_normal( Double_val(m), Double_val(s) ) );
+    return r;
+}
 
 /* [rand_exponential mean]
  * generate a random exponential value from a mean */
@@ -177,6 +180,13 @@ double rand_exp( const double mean )
     assert( mean > 0.0 );
     srand( time(NULL) );
     return (-mean * log(rand()));
+}
+value gamma_CAML_randexp( value m )
+{
+    CAMLparam1( m );
+    CAMLlocal1( r );
+    r = caml_copy_double( rand_exp( Double_val(m) ) );
+    return r;
 }
 
 /** [rand_gamma a b]
@@ -215,6 +225,14 @@ double rand_gamma( const double shape, const double scale )
     }
     return (scale * d * v);
 }
+value gamma_CAML_randgamma( value sh, value sc )
+{
+    CAMLparam2( sh,sc );
+    CAMLlocal1( r );
+    r = caml_copy_double( rand_gamma( Double_val(sh), Double_val(sc) ) );
+    return r;
+}
+
 
 
 /** confluent hypergeometric (for incomplete gamma ratio)
@@ -333,6 +351,11 @@ double gammap( const double x, const double a )
  * Algorithm AS241: The Percentage Points of the Normal Distribution.
  *     Accurate to about 1 part in 10**16
  */
+#ifdef _WIN32
+__inline
+#else
+inline
+#endif
 double point_normal_eq( const double *a, const double *b, const double r, const double q){
     double numr, deno;
     numr = ((((((a[7]*r+a[6])*r+a[5])*r+a[4])*r+a[3])*r+a[2])*r+a[1])*r+a[0];
@@ -426,7 +449,7 @@ double point_normal( double p ){
  * of freedom.  The gamma is related to this distribution by the define below.
  *
  * Algorithm AS91: The Percentage Points of the chi^2 Distribution
- *      (translated to C, and removed goto's) */
+ *      (translated to C, and removed goto's ~nrl) */
 double chi_pp( double p, double v ){
     double ch,s1,s2,s3,s4,s5,s6;
     double e,aa,xx,c,g,x,p1,a,q,p2,t,ig,b;

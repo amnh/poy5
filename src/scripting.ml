@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2717 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2724 $"
 
 module IntSet = All_sets.Integers
 
@@ -1483,25 +1483,12 @@ let load_data (meth : Methods.input) data nodes =
                 let files = explode_filenames files in
                 if is_prealigned then
                     prealigned_files := files :: !prealigned_files;
-                (* Avoid changing if we don't want this setting *)
-(*                let prev = match Data.type_of_dynamic_likelihood data with*)
-(*                    | None when Data.has_likelihood data -> true*)
-(*                    | Some _ -> true*)
-(*                    | None   -> false*)
-(*                in*)
                 let data =
                     List.fold_left
                         (Data.guess_class_and_add_file annotated is_prealigned)
                         data
                         files
                 in
-(*                begin match Data.type_of_dynamic_likelihood data with*)
-(*                    | None when Data.has_likelihood data && not prev ->*)
-(*                        Methods.cost := `Iterative (`ThreeD None)*)
-(*                    | Some _ when not prev ->*)
-(*                        Methods.cost := `Iterative (`ThreeD None)*)
-(*                    | (None | Some _) -> ()*)
-(*                end;*)
                 data
 
         | `PartitionedFile files 
@@ -2755,7 +2742,7 @@ END
     Status.full_report search_iteration_status;
     try
         (* We run this command in chunks of 10 trees to try to maintain a 
-        * set of trees and run fusing on them often but not too much *)
+           set of trees and run fusing on them often but not too much *)
         for i = 1 to 10 do
             incr iterations_counter;
             Status.message search_iteration_status ("Searching on tree number " ^ string_of_int
@@ -2812,9 +2799,7 @@ END
                             let nrun = exec nrun (CPOY swap {args}) in
                             nrun, false
                         with
-                        | err ->
-                                Methods.cost := prev_meth;
-                                raise err
+                        | err -> Methods.cost := prev_meth; raise err
             in
             Methods.cost := prev_meth;
             trees := Sexpr.union nrun.trees !trees;
@@ -2983,8 +2968,8 @@ let rec process_application run item =
     | `Interactive -> run
     | `Optimization opt_mode ->
         if !Methods.opt_mode <> opt_mode then begin
-            let () = Methods.opt_mode := opt_mode in
-            process_application run `ReDiagnose
+            let () = Methods.set_opt_mode opt_mode in
+            process_application run `ReDiagnoseTrees
         end else begin
             run
         end
@@ -3003,7 +2988,7 @@ let rec process_application run item =
                 end
             | `Iterative _ -> 
                 let () = Methods.cost := meth in
-                process_application run `ReDiagnose
+                process_application run `ReDiagnoseTrees
         else begin
             run
         end

@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2662 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2723 $"
 
 let compress = true
 
@@ -516,11 +516,10 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
     (* Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle; *)
     let (nta,nl) = match model.MlModel.ui with
         | None ->
-            readjust_sym FMatrix.scratch_space model.MlModel.u model.MlModel.d 
+            readjust_sym FMatrix.scratch_space model.MlModel.u model.MlModel.d
                          c1.chars c2.chars new_mine.chars c_t1 c_t2 pinv
                          c1.weights model.MlModel.rate model.MlModel.prob
                          model.MlModel.pi_0 new_mine.mle (MlModel.get_costfn_code model)
-
         | Some ui ->
             readjust_gtr FMatrix.scratch_space model.MlModel.u
                          model.MlModel.d ui c1.chars c2.chars new_mine.chars

@@ -72,6 +72,7 @@ type dyna_state_t = [
     | `Annotated
     (** A sequence of gene names, rearrangements are allowed *)
     | `Breakinv
+    (** A Custom Alphabet of unaligned information **)
     | `CustomAlphabet
 ]
 
@@ -103,8 +104,6 @@ type polymorphism_t = Methods.polymorphism_arg
 
 type clip = Clip | NoClip
 
-
-
 type dyna_initial_assgn =
     [ `Partitioned of clip
     | `AutoPartitioned of clip * int * (int,  ((int * int) list)) Hashtbl.t
@@ -127,7 +126,6 @@ type dynamic_hom_spec = {
     tcm : tcm_definition;
     initial_assignment : dyna_initial_assgn;
     tcm2d_full : Cost_matrix.Two_D.m;
-    (**)
     tcm2d_original : Cost_matrix.Two_D.m;
     tcm3d : Cost_matrix.Three_D.m;
     lk_model : MlModel.model option;
@@ -179,7 +177,7 @@ type affine_f = {
     distr : distr;
 }
 
-type model = 
+type model =
     | InDels of (float * float)
     | InDelSub of (float * float * float)
     | Subs of float
@@ -276,8 +274,7 @@ type cs_d =
         cost matrix *)
     | Dyna of (int * Sequence.s dyna_data)
     (** we don't read fixed states directly from file, we transform dynamic
-    * charactors into fixed_states *)
-    (*| FS of (int * Sequence.s fixedstates_data ) *)
+        charactors into fixed_states; this [int] is it's code. *)
     | FS of int 
     (** A static homology character, containing its code, and the character
         itself *)
@@ -289,15 +286,9 @@ type cs = cs_d * specified
 type tcm = int array array
 
 module OutputInformation = struct
-    type treelengths_information = [
-        | `Minimum
-        | `Maximum
-        | `Summary
-    ]
+    type treelengths_information = [ | `Minimum | `Maximum | `Summary ]
 
-    type file_information = [
-        | `Filename 
-    ]
+    type file_information = [ `Filename ]
 
     type character_information = [ `Type ]
 
@@ -320,29 +311,28 @@ module OutputInformation = struct
     ]
 end
 
-type alph = 
+type alph =
     | Nucleotides
     | Aminoacids
-    | GeneralAlphabet of 
+    | GeneralAlphabet of
         (string * Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a)
 
-type name = string 
+type name = string
 
 type kolmo_range = (float * float)
 
 type kolmo_parameter_pairs = (string * float)
 
-type kolmo_options = 
+type kolmo_options =
     [ `EProbability of  kolmo_parameter_pairs list
     | `FProbability of (string * kolmo_parameter_pairs list) ]
 
-type kolmogorov_modules = 
+type kolmogorov_modules =
     [ `SK of Kolmo.Compiler.sk_function list
     | `Alphabet of (name * (string list) * kolmo_options option)
     | `Character of (name * Kolmo.Compiler.sk_function list * kolmo_options option)
     | `WordSet of (name * name * kolmo_range * kolmo_options option)
     | `IntSet of (name * kolmo_range * kolmo_options option) ]
-
 
 type d = {
     (* The number of terminals currently loaded *)

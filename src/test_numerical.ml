@@ -134,10 +134,6 @@ module Test = struct
             MlModel.output_model (output_string stdout) None `Nexus model None in
         let update_model_to_vector tree chars =
             let model = Data.get_likelihood_model tree.Ptree.data chars in
-            let model = {model with
-                            MlModel.spec = {model.MlModel.spec with
-                                                MlModel.iterate_model = true}}
-            in
             let func = match MlModel.get_update_function_for_model model with
                 | Some f -> f | None   -> assert false
             in
@@ -178,48 +174,14 @@ module Test = struct
 
 end
 
-(** An object that keeps track of running variance, mean, and standard deviation
-    of a simulation. **)
-class running_stats = object(self)
-
-    val mutable   k = 0
-    val mutable m_k = 0.0
-    val mutable s_k = 0.0
-
-    val mutable max_x = 0.0
-    val mutable min_x = max_float
-
-    method push x_k =
-        k <- k+1;
-        max_x <- max max_x x_k;
-        min_x <- min min_x x_k;
-        if k = 1 then begin
-            m_k <- x_k;
-            s_k <- 0.0;
-        end else begin
-            let m_k1 = m_k +. ((x_k -. m_k) /. (float_of_int k)) in
-            let s_k1 = s_k +. ((x_k -. m_k1) *. (x_k -. m_k)) in
-            s_k <- s_k1;
-            m_k <- m_k1;
-        end
-
-    method iter ()     = k
-    method min ()      = min_x
-    method max ()      = max_x
-    method variance () = if k > 1 then s_k /. (float_of_int (k-1)) else 0.0
-    method mean ()     = if k = 0 then 0.0 else m_k
-    method std_dev ()  = sqrt (self#variance ())
-
-end
-
 let test_battery channel f n p r () =
     Status.set_verbosity `None; (* suppress warning messages *)
     (* for calculating the mean, standard deviation of algorithm results *)
-    let sim_obj = new running_stats and bfg_obj = new running_stats
-    and sub_obj = new running_stats and bnt_obj = new running_stats in
+    let sim_obj = new Numerical.running_stats and bfg_obj = new Numerical.running_stats
+    and sub_obj = new Numerical.running_stats and bnt_obj = new Numerical.running_stats in
     (* for calculating avg, and worst/best timings for algorithm *)
-    let sim_tme = new running_stats and bfg_tme = new running_stats
-    and sub_tme = new running_stats and bnt_tme = new running_stats in
+    let sim_tme = new Numerical.running_stats and bfg_tme = new Numerical.running_stats
+    and sub_tme = new Numerical.running_stats and bnt_tme = new Numerical.running_stats in
     let f t = let t = ref t in
               (fun p -> incr t; let _,fp = f p in float_of_int !t,fp)
     in
@@ -304,11 +266,12 @@ let main () =
         in
         test_battery channel f d p (int_of_string Sys.argv.(2)) ()
 
-let usage = "./test_numerical <FILE|FUNC> <DIMS> [OUTF]"
+let usage = "./test_numerical <FILE|FUNC DIMS> <ITER> [OUTF]"
 
 let desc = "FILE\t- A POY script that loads a tree and transforms to likelihood\n"
          ^ "FUNC\t- A function number 0-10\n"
          ^ "DIMS\t- Number of dimensions when using functions; dummy when using poy script\n"
+         ^ "ITER\t- Size of sample; number of times to run optimization\n"
          ^ "OUTF\t- (optional, default to screen). Output location a file, or stderr or stdout\n"
 
 let () =

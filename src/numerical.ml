@@ -17,13 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 2656 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 2727 $"
 
 let (-->) b a = a b
 
 let debug = false
 
-let coarse_debug = debug || false
+let coarse_debug = false
 
 let failwithf format = Printf.ksprintf failwith format
 
@@ -70,15 +70,55 @@ and is_inf x = match classify_float x with
 
 (** {6 Special functions} *)
 
-(** Calculate the Gamma(a) *)
 external gamma : float -> float = "gamma_CAML_gamma"
 
-(** Calculate the lnGamma(a) *)
 external lngamma : float -> float = "gamma_CAML_lngamma"
 
 external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t = 
         "gamma_CAML_rates"
+
+external rand_normal : float -> float -> float = "gamma_CAML_randnormal"
+
+external rand_exp    : float -> float = "gamma_CAML_randexp"
+
+external rand_gamma  : float -> float -> float = "gamma_CAML_randgamma"
+
+(** {6 Statistics Object} *)
+
+(** An object that keeps track of running variance, mean, and standard deviation
+    of a simulation. **)
+class running_stats = object(self)
+
+    val mutable   k = 0
+    val mutable m_k = 0.0
+    val mutable s_k = 0.0
+
+    val mutable max_x = 0.0
+    val mutable min_x = max_float
+
+    method push x_k =
+        k <- k+1;
+        max_x <- max max_x x_k;
+        min_x <- min min_x x_k;
+        if k = 1 then begin
+            m_k <- x_k;
+            s_k <- 0.0;
+        end else begin
+            let m_k1 = m_k +. ((x_k -. m_k) /. (float_of_int k)) in
+            let s_k1 = s_k +. ((x_k -. m_k1) *. (x_k -. m_k)) in
+            s_k <- s_k1;
+            m_k <- m_k1;
+        end
+
+    method iter ()     = k
+    method min ()      = min_x
+    method max ()      = max_x
+    method variance () = if k > 1 then s_k /. (float_of_int (k-1)) else 0.0
+    method mean ()     = if k = 0 then 0.0 else m_k
+    method std_dev ()  = sqrt (self#variance ())
+
+end
 
 
 (** {6 Infix Module} *)
@@ -179,6 +219,19 @@ type opt_modes =
     tree or some added information carried through the computation. The array
     should be the size of the dimension plus one. *)
 type 'a simplex = (float array * ('a * float)) array
+
+(** Set the brents tolerance for the C-Brents method in optimization branches *)
+external set_tol_c_brents_method : float -> unit = "likelihood_CAML_set_tol"
+
+(** Return the default tolerance set for the opt_mode **)
+let get_tol = function
+    | `None         -> max_float
+    | `Exhaustive _ -> tolerance
+    | `Coarse _     -> sqrt tolerance
+    | `Custom _     -> assert false
+
+(** get the brents tolerance for the C-Brents method in optimization branches *)
+external get_tol_c_brents_method : unit -> float = "likelihood_CAML_get_tol"
 
 (** Default Simplex Strategy defined by NMS *)
 let default_simplex =
@@ -1044,13 +1097,23 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
 
 (** Determine the numerical optimization strategy from the methods cost mode *)
 let default_numerical_optimization_strategy o p =
-    let tol = Some (1e-3) in
+    let tol = Some (get_tol o) in
     let meth = if p < 3 then `Brent_Multi else `BFGS in
     match o with
-    | `None            -> []
-    | `Coarse     iter -> (default_strategy ?tol ?iter meth) :: []
-    | `Exhaustive iter -> (default_strategy ?iter meth) :: []
-    | `Custom     strt -> strt
+    | `None         -> []
+    | `Coarse     _ -> (default_strategy ?tol meth) :: []
+    | `Exhaustive _ -> (default_strategy meth) :: []
+    | `Custom     s -> s
+
+(** Determine the default number of branch and model optimizations to do. These
+    are related to the current optimization mode stored in Methods (usually). *)
+let default_number_of_passes = function
+    | `None                -> 0
+    | `Coarse (Some i)
+    | `Exhaustive (Some i) -> i
+    | `Coarse None         -> 1
+    | `Custom _
+    | `Exhaustive None     -> max_int
 
 (** Run an optimization strategy; call the proper algorithm w/ convergence
     properties; a list of the appropriate ones are included here *)
@@ -1065,3 +1128,4 @@ let run_method opts f pfp =
             | `Brent_Multi              -> brents_method_multi ?max_iter ?tol f pfp)
         pfp
         opts
+

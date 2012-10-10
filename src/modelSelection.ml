@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2708 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2716 $"
 
 let ndebug = true
 
@@ -127,11 +127,16 @@ struct
         let nchars = Data.get_chars_codes_comp (Ptree.get_data tree) chars in
         let est_prior =
             let u_gap = match gap with
-                | `Independent | `Coupled _ -> true | `Missing -> false
+                | `Independent | `Coupled _ ->
+                        Printf.printf "INDEPENDENT/COUPLED\n%!";
+                        true
+                | `Missing ->
+                        Printf.printf "MISSING\n%!";
+                        false
             in
             Data.compute_priors (Ptree.get_data tree) nchars u_gap in
         let asize,a = Data.verify_alphabet (Ptree.get_data tree) nchars alph in
-        let base_spec = 
+        let base_spec =
             let init_spec = (chars,alph,cost,`JC69,osite,`Equal,gap) in
             MlModel.convert_methods_spec (a,asize) (fun () -> est_prior) init_spec
         in
@@ -173,11 +178,31 @@ struct
         in
         model_params + branch_params
 
+    (** [get_longest_of_code] return the longest taxon for this particular
+        character. This is used for dynamic likelihood primarily, but is also
+        used in static and other characters so we do not special case things. *)
+    let get_longest_of_code data code : int =
+        Hashtbl.fold
+            (fun t tbl acc -> match fst (Hashtbl.find tbl code) with
+                | Data.Dyna (_,state) ->
+                    let total =
+                        Array.fold_left
+                            (fun acc x -> acc + (Sequence.length x.Data.seq))
+                            0 state.Data.seq_arr
+                    in
+                    max total acc
+                | Data.Stat (_,state) -> max 1 acc
+                | Data.FS _           -> assert false)
+            data.Data.taxon_characters
+            0
+
     (** [sample_size] return the size of [n] in methods; this is to abstract the
         methodology used to determine [n] *)
     let sample_size tree chars : int =
-        chars --> Data.get_chars_codes_comp tree.Ptree.data
-              --> List.length
+        List.fold_left
+            (fun acc k -> acc + (get_longest_of_code tree.Ptree.data k))
+            (0)
+            (Data.get_chars_codes_comp tree.Ptree.data chars)
 
     (** [negative_loglikelihood] return the negative log-likelihood of a tree *)
     let negative_loglikelihood tree chars : float =
@@ -306,7 +331,6 @@ struct
                      "@ is@ not@ supported.@ Only@ all@ is@ allowed.")
                     (Data.string_of_characters char)
         in
-        Methods.cost := `Iterative (`ThreeD None);
         let warning = ref false in
         let tree_stats =
             specs --> Array.of_list
@@ -394,7 +418,7 @@ struct
         in
         let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
         let () =
-            ret.(0) <- [| "Model"; "-log(LK)"; "K"; ic_name; "delta"; "weight"; "cum(w)"; |]
+            ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |]
         in
         Array.fold_left
             (fun (i,w_cum) (({ic=(ic,d_ic,w_ic)}) as s) ->
@@ -403,6 +427,7 @@ struct
                 let i_array = 
                     [| (MlModel.short_name model);  (string_of_float s.lk);
                        (string_of_int (parameter_cardinality s.tree chars));
+                       (string_of_int (sample_size s.tree chars));
                        (string_of_float ic);  (string_of_float d_ic);
                        (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |];
                 in
