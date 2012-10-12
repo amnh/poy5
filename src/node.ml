@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2724 $"
+let () = SadmanOutput.register "Node" "$Revision: 2734 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -976,7 +976,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                             am.preliminary bm.preliminary pm.preliminary ot1 ot2
                     in
                     let cost = cost *. am.weight in
-                    let sumcost = cost +. bm.sum_cost +. am.sum_cost in
                     if debug then
                         info_user_message "Ending Cost: %f\t%f\t%f%!" t1 t2 cost;
                     let sumcost = cost +. bm.sum_cost +. am.sum_cost in
