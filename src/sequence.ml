@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2721 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2730 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -241,11 +241,11 @@ let remove_gaps s2' ?(gapcode=Alphabet.gap) prependgap =
 
 
 let is_empty seq gap =
-    let length = length seq in
-    if length=0 then true 
+    let len = length seq in
+    if len=0 then true 
     else 
         let rec check p =
-            if p = length then true
+            if p = len then true
             else 
                 if gap <> get seq p then false
                 else check (p + 1) 
@@ -1636,7 +1636,7 @@ module Align = struct
     let readjust_3d_custom_alphabet ch1 ch2 mine cm2d cm3d parent oldcost2 oldcost3 =
         (*debug2 print out input and output sequence, debug3 print out steps in
         * updating alignment matrix and backtrace*)
-        let debug = true and debug2 = false and debug3 = false in
+        let debug = false and debug2 = false and debug3 = false in
         (* to do : rethink this , same length of mine and two children doesn't mean nothing
         * changed. two children could be with different assignment than previous
         * iteration*)
@@ -1661,17 +1661,23 @@ module Align = struct
             let ch1 = gap_filter_for_seq ch1 cm2d in
             let ch2 = gap_filter_for_seq ch2 cm2d in
             let parent = gap_filter_for_seq parent cm2d in
+            let ch1_is_empty = is_empty ch1 gapcode in
+            let ch2_is_empty = is_empty ch2 gapcode in
+            let parent_is_empty = is_empty parent gapcode in
             (*if only one of ch1/ch2 is empty, return the non-empty one*)
-            if is_empty ch1 gapcode && not (is_empty ch2 gapcode) then
+            if ch1_is_empty && not (ch2_is_empty) then
                 let _ = if debug then Printf.printf "empty ch1, return ch2\n%!" in
-                0, 0, ch2, ch2, ch2, ch2(*, 0 <> compare mine ch2*)
-            else if is_empty ch2 gapcode && not (is_empty ch1 gapcode) then
+                0, 0, ch2, ch2, ch2, ch2
+            else if ch2_is_empty&& not (ch1_is_empty) then
                 let _ = if debug then Printf.printf "empty ch2, return ch1\n%!" in
-                0, 0, ch1, ch1, ch1, ch1(*,  0 <> compare mine ch1*)
-            (*else if parent is empty(ch1 ch2 are both empty or non-empty), return parent*)
-            else if is_empty parent gapcode then
+                0, 0, ch1, ch1, ch1, ch1
+            (*if both children are empty, return empty*)
+            else if ch1_is_empty && ch2_is_empty then
+                0, 0, ch1, ch1, ch1, ch1
+            (*else if parent is empty, return empty*)
+            else if parent_is_empty then
 	            let _ = if debug then Printf.printf "empty parent, return parent\n%!" in
-                0, 0, parent, parent, parent, parent(*, 0 <> compare mine parent*) 
+                0, 0, parent, parent, parent, parent 
             (*else call regular alignment *)
             else begin 
                 let size1 = length ch1 in 
@@ -1693,6 +1699,7 @@ module Align = struct
                     Printf.printf " old mine is: %!";
                     printseqcode mine;
                     end;
+                    assert(size1>0); assert(size2>0); assert(size3>0);
                 end;
                 (*result median seq*)
                 let med3seq = create (size1+size2+size3) in (*use prepend later*)

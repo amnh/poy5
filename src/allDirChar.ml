@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2723 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2730 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1105,7 +1105,9 @@ module F : Ptree.Tree_Operations
             | Some x -> x
             | None   -> max_int
         and first_affected = match nodes with
-            | None   -> IntMap.map (fun _ -> None) ptree.Ptree.node_data
+            | None   -> 
+                    (*we init an IntMap with node id -> None for each node in Ptree*)
+                    IntMap.map (fun _ -> None) ptree.Ptree.node_data
             | Some i -> i
         in
         (* We start by defining a function to adjust one node *)
@@ -1128,6 +1130,12 @@ module F : Ptree.Tree_Operations
                 end
         in
         (* add modified vertices in node_list to the set *)
+        (*node_list : the id list of node we need to update, 
+        * codes : an IntSet of 
+        * int list(character id we need to update) 
+        * character codes 
+        * affected i:an IntMap of previous affected nodes.
+        * int(node id) -> (Some IntSet of character id we need to update) *)
         let add_vertices_affected node_list codes affected =
             let add_one code affected =
                 if IntMap.mem code affected then
@@ -1135,7 +1143,12 @@ module F : Ptree.Tree_Operations
                         | Some conts ->
                             let res = IntSet.union conts codes in
                             IntMap.add code (Some res) affected
-                        | None -> assert false
+                        | None ->
+                                IntMap.add code (Some codes) affected
+                                (*since we init adjust function with
+                                * first_affected: a IntMap of
+                                * nodeid -> None, we should not assert false here
+                                * assert false*)
                     end
                 else
                     IntMap.add code (Some codes) affected
@@ -1144,12 +1157,33 @@ module F : Ptree.Tree_Operations
         in
         (* compose the above functions to adjust and modify the affected nodes *)
         let adjust_vertices_affected ((modified,affected_nodes,ptree) as acc) c2c prev curr =
+            let debug = false in
             if not (IntMap.mem curr c2c) then acc
             else match Ptree.get_node curr ptree with 
                 | (Tree.Interior (c,p,c1,c2)) as nd ->
+                        if debug then begin
+                            Printf.printf "adjust_vertices_affected, affected_nodes:\n%!";
+                            IntMap.iter(fun key v ->
+                                Printf.printf "%d --> " key;
+                                match v with
+                                | Some cset -> 
+                                        Printf.printf "[%!";
+                                        IntSet.iter (fun c -> Printf.printf "%d," c)
+                                        cset;
+                                        Printf.printf "]\n%!"
+                                | None ->
+                                        Printf.printf "None !\n%!"
+                            ) affected_nodes;
+                        end;
                     let c2c = IntMap.find curr c2c in
                     let a,b = Tree.other_two_nbrs prev nd in
                     let ccodes,affected,n_ptree = adjust_node c2c a b prev curr ptree in
+                    if debug then begin
+                        Printf.printf "end of adjust_node(m:%d,p:%d,c1:%d,c2:%d), \
+                        character codes we need to udpate:[%!" c p c1 c2;
+                        IntSet.iter (fun x -> Printf.printf "%d," x) ccodes;
+                        Printf.printf "]\n%!";
+                    end;
                     let n_ptree = match using_likelihood `Dynamic n_ptree with
                         (* we need to update the branch length from optimization *)
                         | true  -> update_edge_from_child_node true curr prev n_ptree
