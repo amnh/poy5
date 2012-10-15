@@ -53,6 +53,7 @@ module TupleMap : Map.S with type key = (int * int)
 module FullTuples : Set.S with type elt = (int * int)
 
 module FullTriples : Set.S with type elt = (int * int * int)
+module FullTriples2 : Set.S with type elt = (int * int * int)
 
 module IntSet : Set.S with type elt = Integers.t
 module IntSetMap : Map.S with type key = Integers.t

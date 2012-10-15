@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "All_sets" "$Revision: 2684 $"
+let () = SadmanOutput.register "All_sets" "$Revision: 2732 $"
 
 module OrderedString = struct
     type t = string 
@@ -59,6 +59,19 @@ module FullOrderedTriples = struct
         | x -> x
 end
 
+module FullOrderedTriples2 = struct
+    type t = (int * int * int) 
+    let compare (a, b, c) (d, e, f) =
+        match c - f with
+        | 0 ->  
+            begin match a - d with
+            | 0 -> b - e
+            | x -> x
+            end
+        | x -> x
+end
+
+
 module OrderedIntList = struct
     type t = int list 
     let rec compare a b =
@@ -90,6 +103,7 @@ module TupleMap = Map.Make (OrderedTuple)
 module FullTuples = Set.Make (FullOrderedTuple)
 
 module FullTriples = Set.Make (FullOrderedTriples)
+module FullTriples2 = Set.Make (FullOrderedTriples2)
 
 module FullTupleMap = Map.Make (FullOrderedTuple)
 
