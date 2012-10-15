@@ -3676,23 +3676,23 @@
                 Example output is below,
                 
                 \begin{center}
-                    \begin{tabular}{ l l l l | l l l || l }
-                    Model & -log(LK)    & K& N& AICC        & delta       &weight           &cum(w)         \\
+                    \begin{tabular}{ l r r r | r r r || r }
+                    Model &-log(LK)&K& N& AICC   & delta &weight   &cum(w)\\
                     \hline
-                    JC69  &538.819908577&31&49&1256.34569951&0.           &0.86352400193    &0.86352400193  \\
-                    JC69+G&532.219464237&32&49&1260.43892847&4.09322896695&0.111542670173   &0.975066672103 \\
-                    K81   &533.777479202&32&49&1263.5549584 &7.2092588965 &0.0234857122068  &0.99855238431  \\
-                    K81+G &526.763953595&33&49&1269.12790719&12.7822076835&0.00144761569038 &1. \\
-                    F81   &539.51231499 &34&49&1317.02462998&60.6789304729&5.75455940041e-14&1. \\
-                    HKY   &532.270539639&35&49&1328.38723312&72.0415336163&1.96179740048e-16&1. \\
-                    F84   &533.315576364&35&49&1330.47730658&74.131607068 &6.89922758558e-17&1. \\
-                    F81+G &533.682400832&35&49&1331.21095551&74.8652560022&4.78069050937e-17&1. \\
-                    HKY+G &526.03370905 &36&49&1346.0674181 &89.7217185927&2.84086612093e-20&1. \\
-                    F84+G &526.518508674&36&49&1347.03701735&90.6913178415&1.74946382183e-20&1. \\
-                    TN93  &531.899652278&36&49&1357.79930456&101.45360505 &8.05200419217e-23&1. \\
-                    TN93+G&525.841246024&37&49&1381.31885568&124.973156177&6.29069105221e-28&1. \\
-                    GTR   &530.724676428&39&49&1486.11601952&229.770320016&1.10225827866e-50&1. \\
-                    GTR+G &523.36592801 &40&49&1536.73185602&280.386156513&1.12510777414e-61&1. \\
+                    JC69  &538.819&31&49&1256.345&  0.000&0.863e-00&0.863 \\
+                    JC69+G&532.219&32&49&1260.438&  4.093&0.111e-00&0.975 \\
+                    K81   &533.777&32&49&1263.554&  7.209&0.023e-00&0.998 \\
+                    K81+G &526.763&33&49&1269.127& 12.782&0.001e-00&1.000 \\
+                    F81   &539.512&34&49&1317.024& 60.678&5.754e-14&1.000 \\
+                    HKY   &532.270&35&49&1328.387& 72.041&1.961e-16&1.000 \\
+                    F84   &533.315&35&49&1330.477& 74.131&6.899e-17&1.000 \\
+                    F81+G &533.682&35&49&1331.210& 74.865&4.780e-17&1.000 \\
+                    HKY+G &526.033&36&49&1346.067& 89.721&2.840e-20&1.000 \\
+                    F84+G &526.518&36&49&1347.037& 90.691&1.749e-20&1.000 \\
+                    TN93  &531.899&36&49&1357.799&101.453&8.052e-23&1.000 \\
+                    TN93+G&525.841&37&49&1381.318&124.973&6.290e-28&1.000 \\
+                    GTR   &530.724&39&49&1486.116&229.770&1.102e-50&1.000 \\
+                    GTR+G &523.365&40&49&1536.731&280.386&1.125e-61&1.000 \\
                     \end{tabular}
                 \end{center}
 
@@ -3701,14 +3701,14 @@
                 with a weight given by,
 
                     \begin{equation*}
-                        w_{i} = \frac{e^{\frac{-\delta_i}{2}}}
-                                     {\sum^R_r e^{\frac{-\delta_r}{2}}}
+                        w_{i} = \frac{e^{\frac{-\Delta_i}{2}}}
+                                     {\sum^R_r e^{\frac{-\Delta_r}{2}}}
                     \end{equation*}
 
                 This is the weight of evidence of model $r$ given the set of
                 models $R$. This is not a p-value, or statistic of confidence of
-                the model in regard to all models, but relative to otheres. The
-                cum(w), is the cumulative sum of weights to that row.
+                the model in regard to the true models, but relative to others.
+                The cum(w), is the cumulative sum of weights to that row.
 
                 \begin{description}
 
@@ -3719,12 +3719,12 @@
                         instead of to the screen. The formula to calculate the
                         AIC is given by,
                         \begin{equation*}
-                            AIC = - 2 log(\mathcal{L}(\hat{\theta}|data)) + 2 K
+                            AIC = - 2 \log(\mathcal{L}(\hat{\theta}|data)) + 2 K
                         \end{equation*}
                         Where $K$ is the number of parameters for the model,
                         $\hat{\theta}$. 
                         \begin{statement}
-                            If n/k < 40.0 then a warning message will be
+                            If n/K < 40.0 then a warning message will be
                             reported suggesting the use of AICc (below).
                         \end{statement} }
                         {aic}
@@ -3743,7 +3743,7 @@
                         the Information Theoretic approaches, it is in fact not
                         related to information theory. BIC is given by,
                         \begin{equation*}
-                            BIC = - 2 ln(\mathcal{L}(\hat{\theta}|data)) + K log(n)
+                            BIC = - 2 \ln(\mathcal{L}(\hat{\theta}|data)) + K \log(n)
                         \end{equation*}}
                         {bic}
                 \end{description}}
