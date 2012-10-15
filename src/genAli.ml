@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "GenAli" "$Revision: 2656 $"
+let () = SadmanOutput.register "GenAli" "$Revision: 2732 $"
 
 (** This module implements methods to align two general
 * characters allowing rearrangements *)
@@ -309,7 +309,8 @@ type matched_loci_array = {
         arr1_left : int; 
         arr2_left : int;
         marked_matrix : int array array  ; (* 1 means not-available, 0 is ok *)
-        cost_array : (int * int * int) array ; (* ( index i, index j, cost) *)
+        cost_set : All_sets.FullTriples2.t (*(int * int * int) array*) ; (* ( index i, index j, cost) *)
+        unused_size : int;
         matched_loci_list : (int * int * int) list ;(* (index i, index j, cost)*)
 }
 
@@ -373,7 +374,7 @@ let make_new_mark_matrix in_matrix indexi indexj gapcode =
         failwith ("why we are matching gap with gap?")
 
 let array_filter_nth in_array index =
-    let len = Array.length in_array in
+    (*let len = Array.length in_array in
     assert(index>=0); assert(index<len);
     let arra = 
         if (index=0) then [||]
@@ -383,7 +384,60 @@ let array_filter_nth in_array index =
     if (index+1 < len) then Array.sub in_array (index+1) (len-index-1)
     else [||] 
     in
-    Array.append arra arrb 
+    Array.append arra arrb
+    *)
+   (*mark it used*)
+    let out_array = Array.copy in_array in
+    out_array.(index) <- (-1,-1,-1);
+    out_array
+
+(** [set_filter_nth in_set index] return in_est without index_th element, and index_th element iteself
+* now we only need in_set without first item and second item, but just in case someone set h_size to 3 or
+* more, I have the third general case here*)
+let set_filter_nth in_set index =
+    if index=0 then 
+        let item = All_sets.FullTriples2.min_elt in_set in
+        All_sets.FullTriples2.remove item in_set, item 
+    else if index=1 then
+        let item0 = All_sets.FullTriples2.min_elt in_set in
+        let in_set_Wout_item0 = All_sets.FullTriples2.remove item0 in_set in
+        let item1 = All_sets.FullTriples2.min_elt in_set_Wout_item0 in
+        let in_set_Wout_item1 = All_sets.FullTriples2.remove item1 in_set in
+        in_set_Wout_item1, item1
+    else
+        let count = ref 0 in
+        (*fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
+fold f s a computes (f xN ... (f x2 (f x1 a))...), where x1 ... xN are the elements of s, in increasing order. *)
+        All_sets.FullTriples2.fold (fun item (accset,(i,j,cost)) ->
+         if !count < index then begin (*increase count*)
+             count := !count + 1;
+             accset,(i,j,cost)
+         end
+         else if !count = index then begin (*remove indexth item*)
+             count := !count + 1; (*we need to increase count*)
+             All_sets.FullTriples2.remove item accset, item
+         end
+         else (* count>index it's done*)
+            accset,(i,j,cost)
+        ) in_set (in_set,(0,0,0))
+
+
+let get_zth_unused in_array z = 
+    let arrlen = Array.length in_array in
+    let rec get_zth x count =
+        assert(x<arrlen);
+        let (idxi,idxj,costij) = in_array.(x) in
+        if ( idxi=(-1) ) then
+            get_zth (x+1) count
+        else
+            if count+1=z then 
+                (idxi,idxj,costij), x
+            else
+                get_zth (x+1) (count+1)
+    in
+    get_zth 0 0
+
+
     
 let get_best_n (in_list:matched_loci_array list) size =
     assert(size <= List.length in_list);
@@ -398,87 +452,122 @@ let get_best_n (in_list:matched_loci_array list) size =
 (* this function takes the result cost matrix from 
 *  function [create_pure_gen_cost_mat] as in_cost_mat. 
 *  get the part of matrix we need as out_cost_mat, also get a sorted cost array out of it. *)
-let make_cost_matrix_and_array in_cost_mat code1_arr code2_arr
+let make_cost_matrix_and_set in_cost_mat code1_arr code2_arr
 gapcode re_meth =  (* we will consider gap(indel) in the match *)
+    let debug = false and debug2 = false in
     let lst1 = (List.sort compare (Array.to_list code1_arr)) 
     and lst2 = (List.sort compare (Array.to_list code2_arr)) in
     let end1 = List.nth lst1 ((List.length lst1)-1)
     and end2 = List.nth lst2 ((List.length lst2)-1)  in
     let len1 = if (end1 mod 2)=0 then end1+2 else end1+3
     and len2 = if (end2 mod 2)=0 then end2+2 else end2+3 in
-    (*debug msg
-    Printf.printf "make cost matrix and array, gapcode=%d,code1_arr/code2_arr = \n %!" gapcode;
+    (*debug msg begin*)
+    if debug then begin
+        Printf.printf "make cost matrix and array, gapcode=%d,\
+    len1=%d,len2=%d, code1_arr/code2_arr = \n %!" len1 len2 gapcode;
     Utl.printIntArr code1_arr; Utl.printIntArr code2_arr; 
-    debug msg*)
-    let cost_list = ref [] in
+    end;
+    (*debug msg end*)
+    let empty_cost_set = All_sets.FullTriples2.empty in 
+    (*let cost_list = ref [] in*)
     let out_cost_mat = 
         Array.make_matrix len1 len2 Utl.large_int in
     (* the first column and line of above matrix will not be used *)
-    Array.iter(fun code1 ->
-        Array.iter (fun code2 ->
-            let i = if (code1 mod 2)<>0 then code1
-            else (code1-1) in
-            let j = if (code2 mod 2)<>0 then code2
-            else (code2-1) in
-            let cost = in_cost_mat.(i).(j) in
-            out_cost_mat.(i).(j) <- cost;
-            cost_list := (i,j,cost) :: !cost_list;
-            let cost = in_cost_mat.(i+1).(j) in
-            out_cost_mat.(i+1).(j) <- cost;
-            cost_list := (i+1,j,cost) :: !cost_list;
-            let cost = in_cost_mat.(i).(j+1) in
-            out_cost_mat.(i).(j+1) <- cost;
-            cost_list := (i,j+1,cost) :: !cost_list;
-            let cost = in_cost_mat.(i+1).(j+1) in
-            out_cost_mat.(i+1).(j+1) <- cost;
-            cost_list := (i+1,j+1,cost) :: !cost_list;
-        ) code2_arr;
-    )code1_arr;
+    let cost_set = 
+        Array.fold_left(fun cost_set code1 ->
+            let acc_cost_set = 
+                Array.fold_left (fun cost_set code2 ->
+                    let i = if (code1 mod 2)<>0 then code1
+                    else (code1-1) in
+                    let j = if (code2 mod 2)<>0 then code2
+                    else (code2-1) in
+                    if debug2 then Printf.printf "i=%d(code1:%d),j=%d(code2:%d),%!"
+                    i code1 j code2;
+                    let cost = in_cost_mat.(i).(j) in
+                    if debug2 then Printf.printf "apend cost.i.j:%d,%!" cost;
+                    out_cost_mat.(i).(j) <- cost;
+                    let cost_set = All_sets.FullTriples2.add (i,j,cost) cost_set in
+                    (*cost_list := (i,j,cost) :: !cost_list;*)
+                    let cost = in_cost_mat.(i+1).(j) in
+                    if debug2 then Printf.printf "apend cost.i+1.j:%d,%!" cost;
+                    out_cost_mat.(i+1).(j) <- cost;
+                    let cost_set = All_sets.FullTriples2.add (i+1,j,cost) cost_set in
+                    (*cost_list := (i+1,j,cost) :: !cost_list;*)
+                    let cost = in_cost_mat.(i).(j+1) in
+                    if debug2 then Printf.printf "apend cost.i.j+1:%d,%!" cost;
+                    out_cost_mat.(i).(j+1) <- cost;
+                    let cost_set = All_sets.FullTriples2.add (i,j+1,cost) cost_set in
+                    (*cost_list := (i,j+1,cost) :: !cost_list;*)
+                    let cost = in_cost_mat.(i+1).(j+1) in
+                    if debug2 then Printf.printf "apend cost.i+1.j+1:%d,%!" cost;
+                    out_cost_mat.(i+1).(j+1) <- cost;
+                    let cost_set = All_sets.FullTriples2.add (i+1,j+1,cost) cost_set in
+                    (*cost_list := (i+1,j+1,cost) :: !cost_list;*)
+                    cost_set
+            ) cost_set code2_arr in
+            acc_cost_set
+    ) empty_cost_set code1_arr in
     (*match with gap*)
-    Array.iter (fun code1 ->
+    if debug then Printf.printf "\n match with gap\n%!";
+    let cost_set = Array.fold_left (fun cost_set code1 ->
             let i = if (code1 mod 2)<>0 then code1
             else (code1-1) in
+            if debug2 then Printf.printf "i=%d(code1:%d),%!" i code1;
             let cost = in_cost_mat.(i).(gapcode) in
-            cost_list := (i,gapcode,cost) :: !cost_list;
+            if debug2 then Printf.printf "apend cost.i.gap:%d,%!" cost;
+            (*cost_list := (i,gapcode,cost) :: !cost_list;*)
+            let cost_set = All_sets.FullTriples2.add (i,gapcode,cost) cost_set in
             let cost = in_cost_mat.(i+1).(gapcode) in
-            cost_list := (i+1,gapcode,cost) :: !cost_list;
-    ) code1_arr;
-    Array.iter (fun code1 ->
+            if debug2 then Printf.printf "apend cost.i+1.gap:%d,%!" cost;
+            (*cost_list := (i+1,gapcode,cost) :: !cost_list;*)
+            let cost_set = All_sets.FullTriples2.add (i+1,gapcode,cost) cost_set in
+            cost_set
+    ) cost_set code1_arr in
+     let cost_set = Array.fold_left (fun cost_set code1 ->
             let i = if (code1 mod 2)<>0 then code1
             else (code1-1) in
+            if debug2 then Printf.printf "j=%d(code2:%d),%!" i code1;
             let cost = in_cost_mat.(i).(gapcode) in
-            cost_list := (gapcode,i,cost) :: !cost_list;
+            if debug2 then Printf.printf "apend cost.j.gap:%d,%!" cost;
+            (*cost_list := (gapcode,i,cost) :: !cost_list;*)
+            let cost_set = All_sets.FullTriples2.add (gapcode,i,cost) cost_set in
             let cost = in_cost_mat.(i+1).(gapcode) in
-            cost_list := (gapcode,i+1,cost) :: !cost_list;
-    ) code2_arr;
+            if debug2 then Printf.printf "apend cost.j+1.gap:%d,%!" cost;
+            (*cost_list := (gapcode,i+1,cost) :: !cost_list;*)
+            let cost_set = All_sets.FullTriples2.add (gapcode,i+1,cost) cost_set in
+            cost_set
+    ) cost_set code2_arr in
+    (*if debug then Printf.printf " sort cost list:\n%!";
     let cost_array = Array.of_list ( 
         List.sort (fun (_,_,cost1) (_,_,cost2) -> compare cost1 cost2
         ) !cost_list )
-    in
-(*debug msg 
+    in*)
+    (*debug msg*)
+    if debug2 then begin
   (*  Printf.printf "check in cost matrix:\n%!"; Utl.printIntMat in_cost_mat;*)
-    Printf.printf "check cost array:\n%!";
-    Array.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
-    ) cost_array;   Printf.printf "\n%!";
- debug msg*)
-    out_cost_mat, cost_array
+        Printf.printf "sorted cost set:\n%!";
+        All_sets.FullTriples2.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) %!" id1 id2 cost;
+        ) cost_set;   Printf.printf "\n%!";
+    end;
+    if debug then Printf.printf "return out_cost_mat and cost_set\n%!";
+    (* debug msg*)
+    out_cost_mat, cost_set
 
 (* heuristic function to match pair of input loci arrays.
 *  h_size is the heuristic size -- the number of best choice we keep in each
 *  round. *)
-let match_pair_heuristic full_cost_array marked_matrix size1 size2 h_size
+let match_pair_heuristic cost_set marked_matrix size1 size2 h_size
 gapcode =
     let debug = false in
     if debug then begin 
-        Printf.printf "match pair heuristic:\n%!";
-        Array.iter(fun (a,b,c) ->
-        Printf.printf "%d,%d,cost=%d\n%!" a b c) full_cost_array;
+        Printf.printf "match pair heuristic with cost_set:\n%!";
+       All_sets.FullTriples2.iter (fun (id1,id2,cost) ->  Printf.printf "(i:%d,j:%d,cost:%d) %!" id1 id2 cost;
+    ) cost_set;
     end;
     let candidate_list = ref [] in
-    let cost_array = full_cost_array in
+    (*init h_size match list with 0,1,..,h_size-1 item from cost_set choosen*)
     for x = 0 to (h_size-1) do
-        let (indexi, indexj, costij) = cost_array.(x) in
-        let costarr_left = array_filter_nth cost_array x in
+        let new_cost_set,(indexi, indexj, costij) = set_filter_nth cost_set x in
         let (init_match: matched_loci_array) = {
             cost = costij; 
             size = 1;
@@ -486,7 +575,8 @@ gapcode =
             arr2_left = if (indexj<gapcode) then size2-1 else size2 ;
             matched_loci_list = [(indexi, indexj, costij)];
             marked_matrix = make_new_mark_matrix marked_matrix indexi indexj gapcode;
-            cost_array = costarr_left;
+            cost_set = new_cost_set;
+            unused_size = All_sets.FullTriples2.cardinal new_cost_set;
         } in
         candidate_list := (!candidate_list) @ [init_match] ;
     done;
@@ -499,36 +589,34 @@ gapcode =
             let base_left1 = item.arr1_left and base_left2 = item.arr2_left in
             let matched_list = item.matched_loci_list in
             let marked_matrix = item.marked_matrix in
-            let cost_array = item.cost_array in
-(*debug msg
+            let cost_set = item.cost_set in
+            let unused_size = item.unused_size in
+(*debug msg*)
+            if debug then begin
             Printf.printf "left1=%d,left2=%d, gapcode = %d, check matched_list:\n%!"
             base_left1 base_left2 gapcode;
             List.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
             ) matched_list; Printf.printf "\n%!";
-(*            Printf.printf "check cost array:\n%!";
-            Array.iter (fun (id1,id2,cost) ->  
-                Printf.printf "(%d,%d,%d) " id1 id2 cost;
-            ) cost_array; Printf.printf "\n%!";
-*)
- (*       Printf.printf "check marked matrix:\n%!";  Utl.printIntMat
- *       marked_matrix;*)
-debug msg*)
+            (*       Printf.printf "check marked matrix:\n%!";  Utl.printIntMat  marked_matrix;*)
+            end;
+(*debug msg*)
+            (*run out of lcb blocks*)
             if( (base_left1=0)&&(base_left2=0) ) then begin
                 current_list := !current_list @ [item];
                 somethingleft := 0
             end 
             else begin
-                let picked = ref 0 and left_len = ref (Array.length cost_array)  
+                let picked = ref 0 
+                and left_len = ref unused_size  
                 and z = ref 0 in
+                (*create h_size match_item with first h_size unused ones from cost_set*)
                 while ( (!picked < h_size)&&(!z < !left_len)&&(!left_len >0) ) do
-                    let (indexi, indexj, costij) =  cost_array.(!z) in
-                    let costarr_left = array_filter_nth cost_array !z in
-                    if (indexi >= Array.length(marked_matrix) ) then
-                    Printf.printf "idi=%d > Array.sizei=%d\n%!" 
-                    indexi (Array.length marked_matrix);
-                    if (indexj >= Array.length(marked_matrix.(indexi))) then
-                        Printf.printf "idj=%d > Array.sizej=%d\n%!" indexj 
-                        ( Array.length marked_matrix.(indexi));
+                    (*pick zth from cost_set*)
+                    let new_cost_set,(indexi, indexj, costij) = set_filter_nth cost_set !z in
+                    (*sanity check*)
+                    if (indexi >= Array.length(marked_matrix) ) then Printf.printf "idi=%d > Array.sizei=%d\n%!"  indexi (Array.length marked_matrix);
+                    if (indexj >= Array.length(marked_matrix.(indexi))) then Printf.printf "idj=%d > Array.sizej=%d\n%!" indexj ( Array.length marked_matrix.(indexi));
+                    (*if i,j from the zth one is unused*)
                     if ( marked_matrix.(indexi).(indexj) = 0 ) then begin
                         let new_matched_list = (indexi, indexj, costij) :: matched_list in
                         let new_marked_matrix = 
@@ -545,14 +633,17 @@ debug msg*)
                                 else base_left2;
                             matched_loci_list = new_matched_list;
                             marked_matrix = new_marked_matrix;
-                            cost_array = costarr_left;
+                            cost_set = new_cost_set;
+                            unused_size = All_sets.FullTriples2.cardinal new_cost_set;
                         } in
                         current_list := (!current_list) @ [new_match_item];
                         picked := !picked + 1;
-                    end else ();
-                    left_len := Array.length costarr_left; 
-                    z := !z +1;
-                done;
+                        left_len := !left_len -1;
+                    end 
+                    (*i,j from zth one is used before, we need to look for the next one of cost_set*)
+                    else (); (*end of marked_matrix.i.j<>0*)
+                    z := !z +1; (*increase z in both case*)
+                done;(*end of while loop*)
             end 
             ;
         ) tmp_list ;
@@ -573,7 +664,7 @@ let get_neg_code code =
 *  we don't consider adding indel(all gaps sequence) here, call algn function in
 *  sequence.ml to take care of that.
 *  *)
-let match_pair arr1 arr2 cost_array sizex sizey gapcode =
+let match_pair arr1 arr2 cost_set sizex sizey gapcode =
     let debug = false in
     (* heuristic size: how many different matches we will keep at every step*)
     let heuristic_size = 2 in 
@@ -581,7 +672,7 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
     and size2 = Array.length arr2 in
     let marked_matrix = Array.make_matrix sizex sizey 0 in
     let (res_list:matched_loci_array list) = 
-        match_pair_heuristic cost_array marked_matrix size1 size2 heuristic_size gapcode in
+        match_pair_heuristic cost_set marked_matrix size1 size2 heuristic_size gapcode in
     let best = List.hd res_list in
     let matched_cost = best.cost in
     let matched_list = best.matched_loci_list in
@@ -602,8 +693,8 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
 
 (* [create_gen_ali_new] take code1_arr codem_arr as input code array, c2 is the
 * 2d matrix and cost_matrix is the "pure_cost_matrix" -- which is the "int array
-* array" version of c2. It then calls "make_cost_matrix_and_array" to get the
-* cost_array for the function "match_pair", which will give us a match, or you
+* array" version of c2. It then calls "make_cost_matrix_and_set" to get the
+* cost_set for the function "match_pair", which will give us a match, or you
 * can call it alignment between codes in the two input array, also the editing
 * cost. To get the rerrangement cost, we call "cmp_recost_simple" *)
 let create_gen_ali_new code1_arr codem_arr 
@@ -616,11 +707,11 @@ cost_matrix gapcode re_meth circular orientation  =
         sizex sizey;
         Utl.printIntArr code1_arr; Utl.printIntArr codem_arr;
     end;
-    let cost_mat, cost_array = 
-        make_cost_matrix_and_array cost_matrix code1_arr codem_arr gapcode re_meth
+    let cost_mat, cost_set = 
+        make_cost_matrix_and_set cost_matrix code1_arr codem_arr gapcode re_meth
     in
     let matched_list, matched_cost = 
-        match_pair code1_arr codem_arr cost_array sizex sizey gapcode in
+        match_pair code1_arr codem_arr cost_set sizex sizey gapcode in
     if debug then Printf.printf "matched_cost=editing_cost=%d,match pair done\n%!" matched_cost;
     let matched_array = Array.of_list matched_list in
     (*get codes that not matched with gap code in code1_arr from codem_arr by
