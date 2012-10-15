@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2730 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2733 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1605,6 +1605,7 @@ module F : Ptree.Tree_Operations
                     else loop_ iter bcost btree
             in
             let first_cost = Ptree.get_cost `Adjusted first_tree in
+            let first_tree = update_branches first_tree in
             loop_ 0 first_cost first_tree
         in
         let tree =
@@ -1874,12 +1875,12 @@ module F : Ptree.Tree_Operations
     (* ----------------- *)
     let break_fn n_mgr ((s1, s2) as a) b =
         let res = match !Methods.cost with
-        | `Iterative (`ApproxD _)
-        | `Iterative (`ThreeD _)
-        | `Exhaustive_Weak
-        | `Normal_plus_Vitamines
-        | `Normal -> break_fn a b
-        | `Exhaustive_Strong ->
+            | `Iterative (`ApproxD _)
+            | `Iterative (`ThreeD _)
+            | `Exhaustive_Weak
+            | `Normal_plus_Vitamines
+            | `Normal -> break_fn a b
+            | `Exhaustive_Strong ->
                 let breakage = break_fn a b in
                 { breakage with 
                     Ptree.break_delta = (Ptree.get_cost `Adjusted b) -. 
@@ -1887,8 +1888,8 @@ module F : Ptree.Tree_Operations
                     Ptree.incremental = []; }
         in
         update_node_manager (res.Ptree.ptree) (`Break res) n_mgr;
-        let ptree = model_fn n_mgr res.Ptree.ptree in
-        {res with Ptree.ptree = update_branches ptree; }
+        {res with
+            Ptree.ptree = model_fn n_mgr res.Ptree.ptree; }
 
 
     (* ----------------- *)
@@ -1966,7 +1967,6 @@ module F : Ptree.Tree_Operations
                 if debug_join_fn then Printf.printf "join_fn, Normal,%!";
                 let tree,delta =join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
-                let tree = update_branches tree in
                 tree, delta
             | `Iterative (`ThreeD iterations)
             | `Iterative (`ApproxD iterations) ->
@@ -1976,7 +1976,6 @@ module F : Ptree.Tree_Operations
                    tree --> pick_best_root
                         --> assign_single
                         --> adjust_assignment iterations None
-                        --> update_branches
                 in
                 tree, delta
             | `Normal_plus_Vitamines
@@ -1985,11 +1984,7 @@ module F : Ptree.Tree_Operations
                 if debug_join_fn then Printf.printf "join_fn, Exhaustive_WeakorStrong,%!";
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
-                let tree =
-                    tree --> uppass
-                         --> update_branches
-                in
-                tree, delta
+                uppass tree, delta
         in
         let ptree = model_fn n_mgr ptree in
         if debug_join_fn then
