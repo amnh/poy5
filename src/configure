@@ -628,6 +628,7 @@ OCAMLC
 OCAML
 CC_VERSION
 POY_VERSION_NUMBER
+USE_UNSAFE
 USE_VERIFY_COSTS
 USE_SSE
 USE_CONCORDE
@@ -725,6 +726,7 @@ enable_interface
 with_extras
 with_version_number
 with_ocaml_flags
+enable_unsafe
 enable_mpi
 enable_large_messages
 enable_shared_hd
@@ -1364,6 +1366,9 @@ Optional Features:
                           if ncurses is not found, then the readline interface
                           is used, if readline is not present either, then
                           choose the flat interface.
+  --enable-unsafe         When set, we increase inline level, compile with
+                          unsafe, and turn off assertions. Used for final
+                          releases to increase speed.
   --enable-mpi            Turns on parallel support using MPI. When using MPI
                           remember to set CC to the appropriate mpicc
                           compiler.
@@ -2945,6 +2950,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
@@ -3027,6 +3033,19 @@ if test "${with_ocaml_flags+set}" = set; then :
 fi
 
 
+
+# Check whether --enable-unsafe was given.
+if test "${enable_unsafe+set}" = set; then :
+  enableval=$enable_unsafe; if test x"$enableval" = x"no"; then
+                    USE_UNSAFE="false"
+                else
+                    USE_UNSAFE="true"
+                fi
+else
+  USE_UNSAFE="false"
+fi
+
+
 # Check whether --enable-mpi was given.
 if test "${enable_mpi+set}" = set; then :
   enableval=$enable_mpi; USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"; MPITOP="Mpi"
@@ -3083,15 +3102,15 @@ else
 fi
 
 
-USE_LIKELIHOOD="true"
-FORCE_LIKELIHOOD="no"
 # Check whether --enable-likelihood was given.
 if test "${enable_likelihood+set}" = set; then :
   enableval=$enable_likelihood; if test x"$enableval" = x"no"; then
                     FORCE_LIKELIHOOD="no"; USE_LIKELIHOOD="false"
                else
-                    FORCE_LIKELIHOOD="yes"
+                    FORCE_LIKELIHOOD="yes"; USE_LIKELIHOOD="true"
                fi
+else
+  USE_LIKELIHOOD="true"; FORCE_LIKELIHOOD="no"
 fi
 
 
@@ -3101,7 +3120,6 @@ fi
 #                [USE_CONCORDE="true"; DUSE_CONCORDE="-DUSE_CONCORDE";
 #                 OUSE_CONCORDE=",use_concorde"], [USE_CONCORDE="false"])
 
-USE_SSE="false"
 # Check whether --enable-sse was given.
 if test "${enable_sse+set}" = set; then :
   enableval=$enable_sse;  if test x"$enableval" = x"no"; then
@@ -3109,6 +3127,8 @@ if test "${enable_sse+set}" = set; then :
                  else
                     USE_SSE="true"
                  fi
+else
+  USE_SSE="false"
 fi
 
 
@@ -5200,7 +5220,9 @@ fi
 done
 
 
-# Time to handle the lapack checks
+# Time to handle the lapack checks; first we check if we need to check, then we
+# check the fortran routines, then lapack, then fail if there is an
+# inconsistency (the case being if we explicitly enable and it fails).
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking to enable likelihood" >&5
 $as_echo_n "checking to enable likelihood... " >&6; }
 case ${OS_INFORMATION} in
@@ -5216,7 +5238,8 @@ fi
         ;;
     *)
         if test $USE_LIKELIHOOD = "false"; then :
-
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled" >&5
+$as_echo "disabled" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: attempting" >&5
 $as_echo "attempting" >&6; }
@@ -5376,14 +5399,14 @@ $as_echo_n "checking if we enabled likelihood analysis... " >&6; }
 $as_echo "no " >&6; }
             { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "I cannot find LAPACK or FORTRAN routines to enable likelihood a analysis.
+as_fn_error $? "I cannot find LAPACK or FORTRAN routines to enable a likelihood analysis.
 See \`config.log' for more details" "$LINENO" 5; }
         elif test $USE_LIKELIHOOD = "true"; then
             { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes " >&5
 $as_echo "yes " >&6; }
         else
-            { $as_echo "$as_me:${as_lineno-$LINENO}: result: no " >&5
-$as_echo "no " >&6; }
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled " >&5
+$as_echo "disabled " >&6; }
         fi
         ;;
 esac
