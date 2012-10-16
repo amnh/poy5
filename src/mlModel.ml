@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2723 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2735 $"
 
 open Numerical.FPInfix
 
@@ -1025,7 +1025,7 @@ let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost
         | "INDEPENDENT",_   -> `Independent
         | "MISSING",_       -> `Missing
         | "",_              -> `Missing
-        | x,_               -> failwithf "Invalid gap property: %s" x
+        | x,_        -> failwithf "I encountered an invalid gap property, %s" x
     in
     let submatrix = match String.uppercase name with
         | "JC69" -> begin match param with
@@ -1050,11 +1050,9 @@ let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost
             | ts::tv::[] -> TN93 (ts,tv)
             | []         -> TN93 (default_tstv,default_tstv)
             | _ -> failwith "Parameters don't match model" end
-        | "GTR" -> begin match param,gap_info with
-            | [], `Independent -> assert false 
-            | [], `Missing     -> assert false 
-            | [], `Coupled _   -> assert false 
-            | ls, _            -> GTR (Array.of_list ls) end
+        | "GTR" -> begin match param with
+            | [] -> GTR [||]
+            | ls -> GTR (Array.of_list ls) end
         | "GIVEN"->
             begin match file with
             | Some name ->
@@ -1065,8 +1063,14 @@ let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost
             | None -> failwith "File not specified for Likelihood Model."
             end
         | "CUSTOM" ->
+            let alph_size = snd alph in
             begin match file with
-            | Some name -> failwith "not done"
+            | Some name -> 
+                let convert str = assert( String.length str = 1 ); String.get str 0 in
+                let matrix = Cost_matrix.Two_D.matrix_of_file convert (`Local name) in
+                let matrix = Array.of_list (List.map (Array.of_list) matrix) in
+                let assoc,ray = process_custom_model alph_size matrix in
+                Custom (assoc,ray,name)
             | None -> failwith "File not specified for Likelihood Model."
             end
         (* ERROR *)
