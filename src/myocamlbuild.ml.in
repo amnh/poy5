@@ -511,6 +511,7 @@ dispatch begin function
     if @USE_UNSAFE@ then begin
         flag ["ocaml"; "compile"] (S [A"-unsafe"]);
         flag ["ocaml"; "compile"] (S [A"-noassert"]);
+        flag ["ocaml"; "compile"; "native"]  (S [A"-inline";A"1000"]);
         flag ["ocaml"; "compile"] (S [A"-ccopt";A"-DNDEBUG"]);
         flag ["ocaml"; "compile"] (S [A"-ccopt";A"-finline-limit=1000"]);
         flag [    "c"; "compile"] (S [A"-ccopt";A"-DNDEBUG"]);
