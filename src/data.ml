@@ -5353,7 +5353,7 @@ let compute_fixed_states filename data code polymph =
                     * the gen_cost_mat, we set cost between matching lcb to 0 in
                     * block_mauve, just to make sure they are aligned to each other*)
                     if debug then begin
-                        Printf.printf "cost <- cost(%d,rc=%d)+edit_cost(%d),\
+                        Printf.printf "cost=%d(rc=%d,edit_cost=%d)\
                         alied_code1/code2=\n%!" cost rc edit_cost;
                         Utl.printIntArr alied_gen_seq1;
                         Utl.printIntArr alied_gen_seq2;

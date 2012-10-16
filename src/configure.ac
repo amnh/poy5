@@ -59,6 +59,7 @@ AC_SUBST(USE_LIKELIHOOD)
 AC_SUBST(USE_CONCORDE)
 AC_SUBST(USE_SSE)
 AC_SUBST(USE_VERIFY_COSTS)
+AC_SUBST(USE_UNSAFE)
 
 AC_SUBST(POY_VERSION_NUMBER)
 AC_SUBST(CC_VERSION)
@@ -115,6 +116,16 @@ AC_ARG_WITH([ocaml-flags],
             [AS_HELP_STRING([--with-ocaml-flags], [Add the following flags to the ocaml compiler.])],
             [OCAMLFLAGS=$withval],[])
 
+
+AC_ARG_ENABLE([unsafe], [AS_HELP_STRING([--enable-unsafe],
+              [When set, we increase inline level, compile with unsafe, and turn off assertions. Used for final releases to increase speed.])],
+              [if test x"$enableval" = x"no"; then
+                    USE_UNSAFE="false"
+                else
+                    USE_UNSAFE="true"
+                fi],
+              [USE_UNSAFE="false"])
+
 AC_ARG_ENABLE([mpi], [AS_HELP_STRING([--enable-mpi], 
               [Turns on parallel support using MPI. When using MPI remember to set CC to the appropriate mpicc compiler.])], 
               [USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"; MPITOP="Mpi"], 
@@ -126,7 +137,9 @@ AC_ARG_ENABLE([large-messages], [AS_HELP_STRING([--enable-large-messages],
               [USE_LARGE_MESSAGES="false"])
 
 AC_ARG_ENABLE([shared-hd], [AS_HELP_STRING([--enable-shared-hd],
-              [Force POY to support live broadcast of file contents when running in parallel. The default is false.])], [USESHAREDHD="true"; DUSENOSHAREDHD="-DUSENOSHAREDHD"; OUSENOSHAREDHD=",use_nosharedhd"], [USESHAREDHD="false"])
+              [Force POY to support live broadcast of file contents when running in parallel. The default is false.])],
+              [USESHAREDHD="true"; DUSENOSHAREDHD="-DUSENOSHAREDHD"; OUSENOSHAREDHD=",use_nosharedhd"],
+              [USESHAREDHD="false"])
 
 AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences], 
               [Enable the analysis of sequences longer than 16383 elements (The limit would be  2^31 or 2^63 for 32 bit and 64 bit architectures respectively). When using this option, more memory will be needed for the default search strategies. If you are analyzing fragments shorted than, say 12.000 bp, you are unlikely to need this option.])], 
@@ -151,15 +164,14 @@ AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
                 fi],
               [USE_XSLT="false"])
 
-USE_LIKELIHOOD="true"
-FORCE_LIKELIHOOD="no"
 AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
               [Enable/Disable the use of static and dynamic likelihood functions. We will automatically detect and enable likelihood if we can --we require lapack routines to be installed.])],
               [if test x"$enableval" = x"no"; then
                     FORCE_LIKELIHOOD="no"; USE_LIKELIHOOD="false"
                else
-                    FORCE_LIKELIHOOD="yes"
-               fi])
+                    FORCE_LIKELIHOOD="yes"; USE_LIKELIHOOD="true"
+               fi],
+               [USE_LIKELIHOOD="true"; FORCE_LIKELIHOOD="no"])
 
 #AC_ARG_ENABLE([concorde], [AS_HELP_STRING([--enable-concorde],
 #              [Enable the use of "CHLINKERN" and "GREEDYLK" tsp median solver. This
@@ -167,7 +179,6 @@ AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
 #                [USE_CONCORDE="true"; DUSE_CONCORDE="-DUSE_CONCORDE";
 #                 OUSE_CONCORDE=",use_concorde"], [USE_CONCORDE="false"])
 
-USE_SSE="false"
 AC_ARG_ENABLE([sse], [AS_HELP_STRING([--enable-sse],
               [Enable/Disable the Streaming SIMD Extensions for likelihood characters.
                On by default and auto-selects SSE3 or SSE4.])],
@@ -175,7 +186,8 @@ AC_ARG_ENABLE([sse], [AS_HELP_STRING([--enable-sse],
                     USE_SSE="false"
                  else
                     USE_SSE="true"
-                 fi],[])
+                 fi],
+                 [USE_SSE="false"])
 
 AC_ARG_ENABLE([large-alphabets], [AS_HELP_STRING([--enable-large-alphabets],
               [Enable the analysis of alphabets larger than 255 elements. When using this option, more memory will be needed to store each tree (4 or 8 times more for 32 and 64 bit computers respectively). This option is only needed for large alphabets if you use custom alphabets. Normal nucleotide, aminoacid, or morphological analyses are nor affected by this option.])],
@@ -420,7 +432,9 @@ AC_SEARCH_LIBS([zlibVersion],[z],,[AC_MSG_FAILURE( [I cannot find libz] )])
 #this will only pass if m is already included; we include from OS switch above,
 AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 
-# Time to handle the lapack checks
+# Time to handle the lapack checks; first we check if we need to check, then we
+# check the fortran routines, then lapack, then fail if there is an
+# inconsistency (the case being if we explicitly enable and it fails).
 AC_MSG_CHECKING([to enable likelihood])
 case ${OS_INFORMATION} in
     *-apple-*)
@@ -431,7 +445,7 @@ case ${OS_INFORMATION} in
         ;;
     *)
         AS_IF([test $USE_LIKELIHOOD = "false"],
-            [],
+            [AC_MSG_RESULT([disabled])],
             [AC_MSG_RESULT([attempting])
              AC_CHECK_LIB(gfortran,main,LFORTRAN="-lgfortran",
                 AC_CHECK_LIB(g2c,main,LFORTRAN="-lg2c",
@@ -448,11 +462,11 @@ case ${OS_INFORMATION} in
         AC_MSG_CHECKING([if we enabled likelihood analysis])
         if [(test $FORCE_LIKELIHOOD = "yes") && (test $USE_LIKELIHOOD = "false")]; then
             AC_MSG_RESULT( [no] )
-            AC_MSG_FAILURE( [I cannot find LAPACK or FORTRAN routines to enable likelihood a analysis.] )
+            AC_MSG_FAILURE( [I cannot find LAPACK or FORTRAN routines to enable a likelihood analysis.] )
         elif [test $USE_LIKELIHOOD = "true"]; then
             AC_MSG_RESULT( [yes] )
         else
-            AC_MSG_RESULT( [no] )
+            AC_MSG_RESULT( [disabled] )
         fi
         ;;
 esac

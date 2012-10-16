@@ -508,6 +508,15 @@ dispatch begin function
         flag ["ocaml"; "link"]
             (S [A"-cclib";A"-Wl,--no-as-needed"]);
 
+    if @USE_UNSAFE@ then begin
+        flag ["ocaml"; "compile"] (S [A"-unsafe"]);
+        flag ["ocaml"; "compile"] (S [A"-noassert"]);
+        flag ["ocaml"; "compile"] (S [A"-ccopt";A"-DNDEBUG"]);
+        flag ["ocaml"; "compile"] (S [A"-ccopt";A"-finline-limit=1000"]);
+        flag [    "c"; "compile"] (S [A"-ccopt";A"-DNDEBUG"]);
+        flag [    "c"; "compile"] (S [A"-ccopt";A"-finline-limit=1000"]);
+    end;
+
     flag ["shared"; "link"]
         (S [A"-ccopt";A"-shared"]);
 
