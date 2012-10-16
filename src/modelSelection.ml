@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2716 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2735 $"
 
 let ndebug = true
 
@@ -127,12 +127,8 @@ struct
         let nchars = Data.get_chars_codes_comp (Ptree.get_data tree) chars in
         let est_prior =
             let u_gap = match gap with
-                | `Independent | `Coupled _ ->
-                        Printf.printf "INDEPENDENT/COUPLED\n%!";
-                        true
-                | `Missing ->
-                        Printf.printf "MISSING\n%!";
-                        false
+                | `Independent | `Coupled _ -> true
+                | `Missing -> false
             in
             Data.compute_priors (Ptree.get_data tree) nchars u_gap in
         let asize,a = Data.verify_alphabet (Ptree.get_data tree) nchars alph in
@@ -144,7 +140,7 @@ struct
             let est_prior = MlModel.Estimated est_prior in
             MlModel.get_all_models asize gap est_prior
         and all_vari = match osite with
-            | None                -> [MlModel.Constant ]
+            | None                -> [MlModel.Constant]
             | Some (`Gamma (r,_)) -> [MlModel.Constant; MlModel.Gamma (r,0.1)]
             | Some (`Theta (1,_)) -> [MlModel.Constant; MlModel.Theta (1,0.1,0.1) ]
             | Some (`Theta (r,_)) -> [MlModel.Constant; MlModel.Gamma (r,0.1); MlModel.Theta (r,0.1,0.1)]

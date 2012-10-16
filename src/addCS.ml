@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AddCS" "$Revision: 2672 $"
+let () = SadmanOutput.register "AddCS" "$Revision: 2743 $"
 
 let debug = true
 let tests = false (* run additive self tests *)
@@ -280,7 +280,7 @@ module Make (Add : AdditiveInterface) : Make =
         Add.compare_data a.characters b.characters
 
     let get_length a =
-        Bigarray.Array1.dim a.codes 
+        Bigarray.Array1.dim a.codes
 
     let cardinal = get_length
 
@@ -312,13 +312,13 @@ module Make (Add : AdditiveInterface) : Make =
         resa
 
     let get_max a c =
-        Add.pos_get_max a.characters (find_pos a c)
+        Add.pos_get_max a.characters c
 
     let get_min a c =
-        Add.pos_get_min a.characters (find_pos a c)
+        Add.pos_get_min a.characters c
 
     let get_cost a c =
-        Add.pos_get_cost a.characters (find_pos a c)
+        Add.pos_get_cost a.characters c
 
     let get_code a p = a.codes.{p}
 
@@ -328,12 +328,12 @@ module Make (Add : AdditiveInterface) : Make =
 
     let to_list_with_cost t = 
         let len = get_length t in
-        let rec build it acc = 
-            if it < 0 then acc
-            else begin 
-                try let res = get_min t it, get_max t it, get_code t it, get_cost t it in
-                    build (it - 1) (res :: acc)
-                with | Failure "Not_found" -> build (it - 1) acc
+        let rec build i acc =
+            if i < 0 then
+                acc
+            else begin
+                let r = get_min t i, get_max t i, get_code t i, get_cost t i in
+                build (i-1) (r :: acc)
             end
         in
         build (len - 1) []
@@ -549,18 +549,18 @@ module Make (Add : AdditiveInterface) : Make =
 
     let to_formatter attr c parent d : Xml.xml Sexpr.t list =
         let module T = Xml.Characters in
-        let c_ls = to_list c in   
-        let c_parent_ls = match parent with 
-        | Some parent -> to_list parent  
-        | None -> c_ls
-        in 
-        let idx = ref 0 in 
+        let c_ls = to_list c in
+        let c_parent_ls = match parent with
+            | Some parent -> to_list parent
+            | None -> c_ls
+        in
+        let idx = ref 0 in
         let output_character (min, max, code, cost) =
-            let cost = distance (singleton (List.nth c_ls !idx) 0) 
-                (singleton (List.nth c_parent_ls !idx) 0) 
-            in 
-            incr idx; 
-            (PXML 
+            let cost = distance (singleton (List.nth c_ls !idx) 0)
+                                (singleton (List.nth c_parent_ls !idx) 0)
+            in
+            incr idx;
+            (PXML
                 -[T.additive]
                     (* Attributes *)
                     ([T.name] = [`String (Data.code_character code d)])
@@ -828,6 +828,7 @@ module Test = struct
 end 
 
 module Vector  = Make (AddVec)
+(*module Vector  = Make (AddGen)*)
 module General = Make (AddGen)
 
 
