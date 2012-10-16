@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2717 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2740 $"
 
 let debug = false
 let debug_distance = false 
@@ -1158,14 +1158,12 @@ module DOS = struct
         distance
 
     let get_extra_cost_for_root root h use_ukk =
-(* to do : 
         let dis = cost_between_two_alied_children_of_root root h use_ukk in
         let oldcost = root.costs.cost2 in
         if debug_distance then
             Printf.printf "DOS.get_extra_cost_for_root, oldcost(%f) - newcost(%d)\n%!" oldcost dis;
         oldcost -. (float_of_int dis)
-*)
-	0.
+	
 
     let median_3_no_union h p n c1 c2 use_ukk =
         let with_parent c =
