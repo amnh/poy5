@@ -827,27 +827,23 @@
             For static matrices, such as those obtained using the 
             command~\nccross{transform}{transformcommand},\poycommand{ratchet} randomly selects and
             reweights individual nucleotide positions (column vectors), as in Nixon's
-            original implementation ~\cite{Nixon1999}.
+            original implementation \cite{Nixon1999}.
             
-            Under default settings,
-            \poyargument{ratchet} selects 25 percent of characters and upweights
-            them by a factor of 2.  Unless \poyargument{ratchet} is performed
-            under default settings (that does not require the specification of the
-            fraction of data to be reweighted and the severity value), both
-            values must be specified in the proper order and separated by a comma.
-            This argument is only used as an argument for \poycommand{perturb}.}
+            Under default settings, \poyargument{ratchet} selects 25 percent of
+            characters and upweights them by a factor of 2.  Unless
+            \poyargument{ratchet} is performed under default settings (that does
+            not require the specification of the fraction of data to be
+            reweighted and the severity value), both values must be specified in
+            the proper order and separated by a comma.  This argument is only
+            used as an argument for \poycommand{perturb}.}
             {}
 
-        \argumentdefinition{resample}{\obligatory{(\poyint, \poylident)}}
-            {Resamples the data (characters or terminals) in random order with
-            replacement. The \poyargument{resample} string consists of an 
-            integer value
-            specifying the number of items to be resampled (followed by a comma)
-            and a lident value specifying whether characters or terminals
-            (values \poycommand{characters} and \poycommand{terminals}, respectively)
-            are to be resampled. Specifying both values
-            is required. No default settings are available for \poyargument{resample}. This
-            command is only used as an argument of \poycommand{perturb}.}
+        \argumentdefinition{resample}{\obligatory{(\poyint)}}
+            {Resamples the data characters in random order with replacement. The
+            \poyargument{resample} string consists of an integer value
+            specifying the number of items to be resampled. No default settings
+            are available for \poyargument{resample}. This command is only used
+            as an argument of \poycommand{perturb}.}
             {}
 
          \argumentdefinition{swap}{}
@@ -868,55 +864,56 @@
 
 	\end{arguments}
 
-    \poydefaults{ratchet, swap (trees:1)}
+    \poydefaults{ratchet:(0.25,2), swap (trees:1), iterations:1}
         {When no arguments specified, \poy performs the ratchet procedure under default
         settings.}
 	
 	\begin{poyexamples}
 	
-	\poyexample{perturb(resample:(50,terminals), iterations:10)}
-	{Performs 10 successive repetitions of random resampling of 50 percents of
-	terminals with replacement. Branch swapping is performed using
-	alternating SPR and TBR, and and keeping one minimum-cost
-	tree (the default of \poycommand{swap}).}
-	
-	\poyexample{perturb(iterations:20, ratchet:(0.18,3))}
+        \poyexample{perturb(resample:(50), iterations:10)}
+            {Performs 10 successive repetitions of random resampling of 50
+            percent of characters with replacement. Branch swapping is performed
+            using alternating SPR and TBR, and and keeping one minimum-cost tree
+            (the default of \poycommand{swap}).}
+        
+        \poyexample{perturb(iterations:20, ratchet:(0.18,3))}
             {Performs 20 successive repetitions of a variant of the ratchet (see
             above) by randomly selecting 18 percent of the characters (sequence
             fragments) and upweighting them by a factor of 3. Branch swapping is
-            performed using alternating SPR and TBR, and keeping one
-            optimal tree (the default of \poycommand{swap}).}
+            performed using alternating SPR and TBR, and keeping one optimal tree
+            (the default of \poycommand{swap}).}
 
-           \poyexample{perturb(iterations:1, transform (tcm:(4,3)))}
-            {Transforms the cost regime of all applicable characters (\emph{i.e.} molecular 
-            sequence data) to the new cost regime specified by
+        \poyexample{perturb(iterations:1, transform (tcm:(4,3)))}
+            {Transforms the cost regime of all applicable characters (\emph{i.e.}
+            molecular sequence data) to the new cost regime specified by
             \poyargument{transform} (cost of substitution 4 and cost of indel 3).
-            Subsequently a single round of branch swapping is
-            performed using alternating SPR and TBR, and and keeping one
-            optimal tree (the default of \poycommand{swap}).}
-            
-            \poyexample{perturb(ratchet:(0.2,5), iterations:25, swap(tbr, trees:5))}
+            Subsequently a single round of branch swapping is performed using
+            alternating SPR and TBR, and and keeping one optimal tree (the default
+            of \poycommand{swap}).}
+                
+        \poyexample{perturb(ratchet:(0.2,5), iterations:25, swap(tbr, trees:5))}
             {Performs 25 successive repetitions of a variant of the ratchet (see
             above) by randomly selecting 20 percent of the characters (sequence
             fragments) and upweighting them by a factor of 5. Branch swapping is
-            performed using TBR and keeping up to 5 optimal trees in each iteration.}
-            
-            \poyexample{perturb(transform(static\_approx), ratchet:(0.2,5), \\
-            iterations:25, swap(tbr, trees:5))}
-            {Transforms all applicable (\emph{i.e.} dynamic homology sequence characters) using
-            \poyargument{transform} into static characters. 
+            performed using TBR and keeping up to 5 optimal trees in each
+            iteration.}
+                
+        \poyexample{perturb(transform(static\_approx), ratchet:(0.2,5), iterations:25, swap(tbr, trees:5))}
+            {Transforms all applicable (\emph{i.e.} dynamic homology sequence
+            characters) using \poyargument{transform} into static characters.
             Therefore, the subsequent ratchet is performed at the level of
-            individual nucleotides (as in the original implementation), \emph{not}
-            sequence fragments. Thus, ratchet is performed by selecting 20 percent of
-            the characters (individual nucleotides) and upweighting them by a factor of 5.
-            Branch swapping is performed using TBR and keeping up to 5 optimal trees in 
-            each iteration as in the example above.}
+            individual nucleotides (as in the original implementation),
+            \emph{not} sequence fragments. Thus, ratchet is performed by
+            selecting 20 percent of the characters (individual nucleotides) and
+            upweighting them by a factor of 5.  Branch swapping is performed
+            using TBR and keeping up to 5 optimal trees in each iteration as in
+            the example above.}
 
 	\end{poyexamples}
                
 	\begin{poyalso}
 		\ncross{swap}{swapcommand}
-        		\ncross{transform}{transformcommand}
+        \ncross{transform}{transformcommand}
 	\end{poyalso}
 	
 \end{command}
