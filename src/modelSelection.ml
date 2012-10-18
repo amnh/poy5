@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2748 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2752 $"
 
 let ndebug = true
 
@@ -440,7 +440,7 @@ struct
                 "delta@ is@ less@ than@ 4.00).@ It@ is@ suggested@ that@ these"^^
                 "@ alternate@ models@ also@ be@ considered@ if@ doing@ a@ "^^
                 "further@ analysis,@ though@ I@ have@ only@ selected@ the@ "^^
-                "best@ to@ stay@ in@ memory.")
+                "best@ to@ stay@ in@ memory.");
         ret
 
     (** [generate_stats] Generates the stats of a tree based on a reporting
