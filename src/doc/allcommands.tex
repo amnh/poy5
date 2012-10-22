@@ -1,4 +1,4 @@
-\begin{command}{build}{buildcommand}
+     \begin{command}{build}{buildcommand}
 
     \syntax{\obligatory{(\optional{argument list})}}
 	
@@ -761,10 +761,6 @@
             {Reads and imports the contents of the \poy file
             \texttt{initial\_search.poy}, located in the current working
             directory.}
-
-        \poyexample{load("/Users/andres/test/initial.poy")}
-            {Reads and imports the contents of the \poy file \texttt{initial.poy}
-             in the absolute path described by the argument.}
     \end{poyexamples}
 
     \begin{poyalso}
@@ -782,22 +778,23 @@
 	\syntax{\obligatory{(\optional{argument list})}}
 
 	\begin{poydescription} 
-        Performs branch swapping on the trees currently in memory using a temporarily modified 
-        (``perturbed'') characters. Once a local optimum is found for 
-        the perturbed characters,
-        a new round of swapping using the original (non-modified) characters is
-        performed. Subsequently, the costs of the initial and final trees are
-        compared and the best trees are selected. If there are $n$ trees in
-        memory prior to searching using \poycommand{perturb}, then the  $n$ best
-        trees are selected at the end. For example, if there are 20 trees currently in memory,
-        20 individual \poycommand{perturb} procedures will be performed (each
-        procedure starting with one of the 20 initial trees), and 20
-        final trees are produced.        
-        This command allows for movement from a local search optimum in the tree space by
-        \emph{perturbing} the character space (hence the name). The
+        Performs branch swapping on the trees currently in memory using a
+        temporarily modified (``perturbed'') characters. Once a local optimum is
+        found for the perturbed characters, a new round of swapping using the
+        original (non-modified) characters is performed. Subsequently, the costs
+        of the initial and final trees are compared and the best trees are
+        selected. If there are $n$ trees in memory prior to searching using
+        \poycommand{perturb}, then the  $n$ best trees are selected at the end.
+        For example, if there are 20 trees currently in memory, 20 individual
+        \poycommand{perturb} procedures will be performed (each procedure
+        starting with one of the 20 initial trees), and 20 final trees are
+        produced.
+
+        This command allows for movement from a local search optimum in the tree
+        space by \emph{perturbing} the character space (hence the name). The
         arguments specify the type of perturbation (\poyargument{ratchet},
-        \poyargument{resample}, and \poyargument{transform}), the parameters of the
-        subsequent search (\poyargument{swap}), and the number of iterations 
+        \poyargument{resample}, and \poyargument{transform}), the parameters of
+        the subsequent search (\poyargument{swap}), and the number of iterations
         of the \poycommand{perturb} operation (\poyargument{iterations}).
         
         No new Wagner trees are generated following the perturbation of the
@@ -811,9 +808,9 @@
 
          \argumentdefinition{iterations}{\obligatory{\poyint}}
             {Repeats (iterates) the \poycommand{perturb} procedure for the
-            number of times specified by the integer value. The number of iterations
-            is reported in the \emph{Current Job} window of the ncurses interface
-            and to the standard error in the flat interface.}
+            number of times specified by the integer value. The number of
+            iterations is reported in the \emph{Current Job} window of the
+            ncurses interface and to the standard error in the flat interface.}
             {}
 
         \argumentdefinition{ratchet}{\optional{(\poyfloat, \poyint)}}
@@ -868,55 +865,55 @@
 
 	\end{arguments}
 
-    \poydefaults{ratchet, swap (trees:1)}
-        {When no arguments specified, \poy performs the ratchet procedure under default
-        settings.}
+    \poydefaults{ratchet:(0.25,2), iterations:1, swap (trees:1)}
+        {When no arguments specified, \poy performs the ratchet procedure under
+        default settings.}
 	
 	\begin{poyexamples}
 	
-	\poyexample{perturb(resample:(50,terminals), iterations:10)}
-	{Performs 10 successive repetitions of random resampling of 50 percents of
-	terminals with replacement. Branch swapping is performed using
-	alternating SPR and TBR, and and keeping one minimum-cost
-	tree (the default of \poycommand{swap}).}
+	    \poyexample{perturb(resample:(50,terminals), iterations:10)}
+        	{Performs 10 successive repetitions of random resampling of 50
+            percents of terminals with replacement. Branch swapping is performed
+            using alternating SPR and TBR, and and keeping one minimum-cost tree
+            (the default of \poycommand{swap}).}
 	
-	\poyexample{perturb(iterations:20, ratchet:(0.18,3))}
+	    \poyexample{perturb(iterations:20, ratchet:(0.18,3))}
             {Performs 20 successive repetitions of a variant of the ratchet (see
             above) by randomly selecting 18 percent of the characters (sequence
             fragments) and upweighting them by a factor of 3. Branch swapping is
             performed using alternating SPR and TBR, and keeping one
             optimal tree (the default of \poycommand{swap}).}
 
-           \poyexample{perturb(iterations:1, transform (tcm:(4,3)))}
-            {Transforms the cost regime of all applicable characters (\emph{i.e.} molecular 
-            sequence data) to the new cost regime specified by
+        \poyexample{perturb(iterations:1, transform (tcm:(4,3)))}
+            {Transforms the cost regime of all applicable characters (\emph{i.e.}
+            molecular sequence data) to the new cost regime specified by
             \poyargument{transform} (cost of substitution 4 and cost of indel 3).
             Subsequently a single round of branch swapping is
             performed using alternating SPR and TBR, and and keeping one
             optimal tree (the default of \poycommand{swap}).}
             
-            \poyexample{perturb(ratchet:(0.2,5), iterations:25, swap(tbr, trees:5))}
+        \poyexample{perturb(ratchet:(0.2,5), iterations:25, swap(tbr, trees:5))}
             {Performs 25 successive repetitions of a variant of the ratchet (see
             above) by randomly selecting 20 percent of the characters (sequence
             fragments) and upweighting them by a factor of 5. Branch swapping is
             performed using TBR and keeping up to 5 optimal trees in each iteration.}
             
-            \poyexample{perturb(transform(static\_approx), ratchet:(0.2,5), \\
-            iterations:25, swap(tbr, trees:5))}
-            {Transforms all applicable (\emph{i.e.} dynamic homology sequence characters) using
-            \poyargument{transform} into static characters. 
+        \poyexample{perturb(transform(static\_approx), ratchet:(0.2,5), iterations:25, swap(tbr, trees:5))}
+            {Transforms all applicable (\emph{i.e.} dynamic homology sequence
+            characters) using \poyargument{transform} into static characters.
             Therefore, the subsequent ratchet is performed at the level of
-            individual nucleotides (as in the original implementation), \emph{not}
-            sequence fragments. Thus, ratchet is performed by selecting 20 percent of
-            the characters (individual nucleotides) and upweighting them by a factor of 5.
-            Branch swapping is performed using TBR and keeping up to 5 optimal trees in 
-            each iteration as in the example above.}
+            individual nucleotides (as in the original implementation),
+            \emph{not} sequence fragments. Thus, ratchet is performed by
+            selecting 20 percent of the characters (individual nucleotides) and
+            upweighting them by a factor of 5.  Branch swapping is performed
+            using TBR and keeping up to 5 optimal trees in each iteration as in
+            the example above.}
 
 	\end{poyexamples}
                
 	\begin{poyalso}
 		\ncross{swap}{swapcommand}
-        		\ncross{transform}{transformcommand}
+        \ncross{transform}{transformcommand}
 	\end{poyalso}
 	
 \end{command}
@@ -2148,25 +2145,26 @@
 	\syntax{\obligatory{(\poystring \optional{, \poystring})}}
 
 	\begin{poydescription}
-            Saves the current \poy state of the program to a file (\poy file). The first, obligatory string argument
-            specified the name of the \poy file. The second, optional string argument specifies a
-            string included in the \poy file, that can be retrieved using the command \ccross{inspect}. 
+        Saves the current \poy state of the program to a file (\poy file). The
+        first, obligatory string argument specified the name of the \poy file.
+        The second, optional string argument specifies a string included in the
+        \poy file, that can be retrieved using the command \ccross{inspect}.
 
-            \poy files are not intended for permanent storage: they are recommended
-            for temporary storing of a \poy session by a user, checkpointing the
-            current state of a search to avoid loss work in case the computer or the
-            program itself fails, or to report bugs. \poy will also automatically
-            generate the file in many cases when a terminating error occurs (an
-            important exception is out-of-memory errors). The format of these files might 
-            differ among different versions of \poy; consequently, these files might not 
-            be interchangeable between all the versions of the program.
+        \poy files are not intended for permanent storage: they are recommended
+        for temporary storing of a \poy session by a user, checkpointing the
+        current state of a search to avoid loss work in case the computer or the
+        program itself fails, or to report bugs. \poy will also automatically
+        generate the file in many cases when a terminating error occurs (an
+        important exception is out-of-memory errors). The format of these files
+        might differ among different versions of \poy; consequently, these files
+        might not be interchangeable between all the versions of the program.
 	\end{poydescription}
 
     \begin{poyexamples}
         \poyexample{save("alldata.poy")}
-            {This command stores all the memory contents of the program in the file
-            \texttt{alldata.poy} located in the current working directory, as
-            printed by \poycommand{pwd()}.}
+            {This command stores all the memory contents of the program in the
+            file \texttt{alldata.poy} located in the current working directory,
+            as printed by \poycommand{pwd()}.}
 
         \poyexample{save("alldata.poy", "My total evidence \\data")}
             {This command performs the same operation as described in the example above,
@@ -3663,26 +3661,28 @@
                 \end{description}}
             {model}
             
-            \argumentdefinition{modelSelection}{}
-                { Alternatively, from selecting a model directly, we include
-                information theoretic approaches to model selection. These
-                include the Akaike Information Criteria (AIC), the second order
-                information criteria (AICc), and the Bayesian Information
-                Criteria (BIC). These methods require a tree in memory, will
-                optimize the model to the tree, and select the best (based on
-                the information criteria selected) to kept in memory; other
-                models will be reported to the user, but ultimately rejected.
-
-                Example output is below,
+            \argumentdefinition{modelselection}{}
+                { Alternatively from selecting a model directly as above, we
+                include information theoretic approaches to model selection.
+                These include the Akaike Information Criteria (AIC)
+                \cite{akaike1973}, the second order information criteria (AICc)
+                \cite{sugiura1978}, and the Bayesian Information Criteria (BIC)
+                \cite{schwarz1978}.
                 
+                These methods require a tree in memory, will optimize the model
+                to the tree of all available models, and select the best (based
+                on the information criteria selected) to kept in memory. A
+                report is also printed to show the scores and analysis of model
+                selection.
+            
                 \begin{center}
-                    \begin{tabular}{ l r r r | r r r || r }
-                    Model &-log(LK)&K& N& AICC   & delta &weight   &cum(w)\\
+                    \begin{tabular}{ l r r r | r | r r || r }
+                    Model &-log(LK)&K& N& AICc   & delta &weight   &cum(w)\\
                     \hline
-                    JC69  &538.819&31&49&1256.345&  0.000&0.863e-00&0.863 \\
-                    JC69+G&532.219&32&49&1260.438&  4.093&0.111e-00&0.975 \\
-                    K81   &533.777&32&49&1263.554&  7.209&0.023e-00&0.998 \\
-                    K81+G &526.763&33&49&1269.127& 12.782&0.001e-00&1.000 \\
+                    JC69  &538.819&31&49&1256.345&  0.000&0.863    &0.863 \\
+                    JC69+G&532.219&32&49&1260.438&  4.093&0.111    &0.975 \\
+                    K81   &533.777&32&49&1263.554&  7.209&0.023    &0.998 \\
+                    K81+G &526.763&33&49&1269.127& 12.782&0.001    &1.000 \\
                     F81   &539.512&34&49&1317.024& 60.678&5.754e-14&1.000 \\
                     HKY   &532.270&35&49&1328.387& 72.041&1.961e-16&1.000 \\
                     F84   &533.315&35&49&1330.477& 74.131&6.899e-17&1.000 \\
@@ -3709,6 +3709,9 @@
                 models $R$. This is not a p-value, or statistic of confidence of
                 the model in regard to the true models, but relative to others.
                 The cum(w), is the cumulative sum of weights to that row.
+
+                See \cite{burnhamandanderson1998} for further information and
+                approaches in model selection.
 
                 \begin{description}
 

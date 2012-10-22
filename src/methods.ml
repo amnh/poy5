@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 
-let () = SadmanOutput.register "Methods" "$Revision: 2720 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2746 $"
 
 exception TimedOut
 
@@ -602,15 +602,15 @@ type bremer_support = [
 * tree t, by reweighting their cost with severity s. 
 * [No_perturb] does not modify a tree t . *)
 type perturb_method = [
-    | `Ratchet of float * int 
-    | `Resample of [ `Characters of int | `Taxa of int ] 
-    | `UnResample of [ `Characters of int | `Taxa of int ] 
-    | `UnRatchet 
+    | `Ratchet of float * int
+    | `Resample of int
+    | `UnResample of int
+    | `UnRatchet
     | `UnFixImpliedAlignments
     | `FixImpliedAlignments of (characters * bool) ]
 
-type escape_local = [`PerturbateNSearch of (transform list * perturb_method *
-local_optimum * int * timer option) ]
+type escape_local =
+    [`PerturbateNSearch of (transform list * perturb_method * local_optimum * int * timer option) ]
 
 (** Method employed in the character weighting. 
 *

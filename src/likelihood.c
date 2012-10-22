@@ -38,9 +38,7 @@
 #endif
 
 #include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
-#ifdef USE_LIKELIHOOD   
 #include <math.h>           //log10,exp
-
 //caml specific headers
 #include <caml/alloc.h>     //copy_double, et cetera
 #include <caml/mlvalues.h>
@@ -50,6 +48,8 @@
 #include <caml/intext.h>    //serialization
 #include <caml/fail.h>      //failwith('')
 #include <caml/callback.h>
+
+#ifdef USE_LIKELIHOOD
 
 #include "floatmatrix.h"
 #include "likelihood.h"     //includes floatmatrix
@@ -2485,6 +2485,24 @@ likelihood_CAML_readjust_sym(value * argv, int argn)
     return likelihood_CAML_readjust_sym_wrapped
         (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],
          argv[7],argv[8],argv[9],argv[10],argv[11],argv[12],argv[13],argv[14]);
+}
+
+#else
+
+double BRENT_TOL = 1e-6;
+value likelihood_CAML_set_tol( value a ){
+    CAMLparam1( a );
+    BRENT_TOL = Double_val( a );
+    CAMLreturn( Val_unit );
+}
+
+/** Get the TOLERANCE used in the optimization functions for the convergence of
+ * the brents method functions used in optimizing the branch lengths. */
+value likelihood_CAML_get_tol( value unit ){
+    CAMLparam1( unit );
+    CAMLlocal1( brent_tol );
+    brent_tol = caml_copy_double( BRENT_TOL );
+    CAMLreturn( brent_tol );
 }
 
 #endif /* USE_LIKELIHOOD */

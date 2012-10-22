@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2723 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2746 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -258,16 +258,12 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         | `Ratchet (probability, severity) ->
                 [("type", "ratchet"); ("probability", string_of_float probability); 
                 ("severity", string_of_int severity)]
-        | `Resample (`Characters n) ->
+        | `Resample n ->
                 [("type", "characters"); ("sample size", string_of_int n)]
-        | `Resample (`Taxa n) ->
-                [("type", "taxa"); ("sample size", string_of_int n)]
         | `UnRatchet ->
                 [("type", "unratchet")]
-        | `UnResample (`Characters _) ->
+        | `UnResample _ ->
                 [("type", "unresample characters")]
-        | `UnResample (`Taxa _) ->
-                [("type", "unresample taxa")]
         | `UnFixImpliedAlignments ->
                 [("type", "unia")]
         | `FixImpliedAlignments _ ->
@@ -275,15 +271,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
     let perturbate_in_tree (meth : Methods.perturb_method) data tree =
         match meth with
-        | `Resample kind ->
+        | `Resample n ->
                 Sadman.start "sampling" (perturbation_features meth);
-                let data, tree = 
-                    match kind with
-                    | `Characters n -> resample_characters_in_tree n data tree
-                    | `Taxa n -> 
-                            (* TODO *)
-                            failwith "Not supported"
-                in
+                let data, tree = resample_characters_in_tree n data tree in 
                 Sadman.finish [];
                 data, TS.diagnose tree
         | `Ratchet (probability, severity) -> 
@@ -293,8 +283,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 a, TS.diagnose b
         | `UnRatchet 
         | `UnFixImpliedAlignments 
-        | `UnResample (`Characters _)
-        | `UnResample (`Taxa _) ->
+        | `UnResample _ ->
                 unratchet_tree data tree
         | `FixImpliedAlignments (chars, remove_non_informative) ->
                 Sadman.start "perturbation" (perturbation_features meth);
@@ -315,82 +304,73 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         substitute_nodes leaves t
 
     let undo = function 
-        | `Ratchet _ -> `UnRatchet
+        | `Ratchet _              -> `UnRatchet
         | `FixImpliedAlignments _ -> `UnFixImpliedAlignments
-        | `Resample ((`Characters _) as x) -> `UnResample x
-        | _ -> failwith "Unsupported undo"
+        | `Resample x             -> `UnResample x
+        | _                       -> failwith "Unsupported undo"
 
     let get_title = function
-        | `Ratchet _ -> "Ratcheting"
-        | `FixImpliedAlignments _ -> "Fixed Implied Alignment"
-        | `Resample (`Characters _) -> "Resampling Characters"
-        | `Resample (`Taxa _) -> "Resampling Characters"
-        | `UnRatchet -> "UnRatcheting"
-        | `UnFixImpliedAlignments -> "Rolling Implied Alignment back to DO"
-        | `UnResample (`Characters _) -> 
-                "Rolling Character Weights back to original"
-        | `UnResample _ -> 
-                "Rolling Taxon Weights back to original"
+        | `Ratchet _                -> "Ratcheting"
+        | `FixImpliedAlignments _   -> "Fixed Implied Alignment"
+        | `Resample _               -> "Resampling Characters"
+        | `UnRatchet                -> "UnRatcheting"
+        | `UnFixImpliedAlignments   -> "Rolling Implied Alignment back to DO"
+        | `UnResample _             -> "Rolling Character Weights back to original"
 
     let escape_local data queue trees = function
-        | `PerturbateNSearch 
-            (_, pert_method, (`LocalOptimum search_method), iterations, timer) ->
-                let st = 
-                    Status.create "Perturb Iteration" (Some iterations) ""
-                in
-                let trees = ref trees in
-                let wall = Timer.start () in
-                let check_time = 
-                    match timer with
-                    | None -> fun () -> ()
-                    | Some x ->
-                            let max_time = 
-                                match x with
-                                | `Fixed x -> x
-                                | `Dynamic x -> x () 
-                            in
-                            fun () -> 
-                                if max_time < Timer.wall wall then raise Exit
-                                else ()
-                in
-                let () =
-                    try for i = 1 to iterations do
-                            check_time ();
-                            Status.full_report ~adv:i st;
-                            let todo = Sexpr.length !trees in
-                            let title = get_title pert_method in
-                            let status = Status.create title (Some todo) "trees in \
-                            the current optimum" in
-                            Status.report status;
-                            let mapper = fun tree ->
-                                let data, x = perturbate_in_tree pert_method data tree in
-                                let x = TS.diagnose x in
-                                let did = Status.get_achieved status in
-                                Status.full_report ~adv:(did + 1) status;
-                                data, x
-                            in
-                            let prepared_trees = Sexpr.map mapper !trees in
-                            let set = 
-                                let prepared_trees = Sexpr.map snd prepared_trees in
-                                TreeSearch.sets search_method.Methods.tabu_join data 
-                                prepared_trees 
-                            in
-                            let new_optimal = 
-                                let f = TS.find_local_optimum in
-                                let res = 
-                                    Sexpr.map (fun (data, tree) ->
+        | `PerturbateNSearch (_, pert_method, (`LocalOptimum search_method), iterations, timer) ->
+            let st = Status.create "Perturb Iteration" (Some iterations) "" in
+            let trees = ref trees in
+            let wall = Timer.start () in
+            let check_time = match timer with
+                | None -> fun () -> ()
+                | Some x ->
+                    let max_time = match x with
+                        | `Fixed x -> x
+                        | `Dynamic x -> x () 
+                    in
+                    (fun () ->
+                        if max_time < Timer.wall wall then raise Exit else ())
+            in
+            let () =
+                try for i = 1 to iterations do
+                    check_time ();
+                    Status.full_report ~adv:i st;
+                    let todo = Sexpr.length !trees in
+                    let title = get_title pert_method in
+                    let status =
+                        Status.create title (Some todo) "trees in the current optimum"
+                    in
+                    Status.report status;
+                    let mapper = fun tree ->
+                        let data, x = perturbate_in_tree pert_method data tree in
+                        let x = TS.diagnose x in
+                        let did = Status.get_achieved status in
+                        Status.full_report ~adv:(did + 1) status;
+                        data, x
+                    in
+                    let prepared_trees = Sexpr.map mapper !trees in
+                    let set = 
+                        TreeSearch.sets search_method.Methods.tabu_join data
+                                        (Sexpr.map snd prepared_trees)
+                    in
+                    let new_optimal = 
+                        let f = TS.find_local_optimum in
+                        let res = 
+                            Sexpr.map
+                                (fun (data, tree) ->
                                     f data queue (`Single tree) set
-                                    (`LocalOptimum search_method))
-                                    prepared_trees
-                                in
-                                Sexpr.flatten res
-                            in
-                            trees := perturbe data new_optimal (undo pert_method);
-                            Status.finished status;
-                        done with Exit -> ()
-                in
-                Status.finished st;
-                !trees
+                                        (`LocalOptimum search_method))
+                                prepared_trees
+                        in
+                        Sexpr.flatten res
+                    in
+                    trees := perturbe data new_optimal (undo pert_method);
+                    Status.finished status;
+                done with Exit -> ()
+            in
+            Status.finished st;
+            !trees
 
     let replace_nodes nodes tree =
         let filter node = 

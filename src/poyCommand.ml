@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2710 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2746 $"
 
 let debug = false 
 
@@ -364,7 +364,7 @@ type reporta = [
 
 type perturba = [
     | `Ratchet of (float * int)
-    | `Resample of (int * charortax)
+    | `Resample of int
     | `Iterations of int
     | `TimeOut of Methods.timer
     | swap
@@ -881,9 +881,7 @@ let transform_perturb (tr, m, sw, it, timeout) = function
             let x = transform_swap_arguments x in
             tr, m, x, it, timeout
     | `Ratchet _ as x -> (tr, x, sw, it, timeout)
-    | `Resample (x, `Taxa) -> tr, `Resample (`Taxa x), sw, it, timeout
-    | `Resample (x, `Characters) -> 
-            tr, `Resample (`Characters x), sw, it, timeout
+    | `Resample x -> tr, `Resample x, sw, it, timeout
     | `Iterations it -> tr, m, sw, it, timeout
 
 let transform_perturb_arguments x : Methods.script list = 
@@ -1919,8 +1917,8 @@ let create_expr () =
             ];
         resample:
             [
-                [ LIDENT "resample"; ":"; left_parenthesis; x = INT; ","; y = charortax; 
-                    right_parenthesis -> `Resample (int_of_string x, y) ]
+                [ LIDENT "resample"; ":"; left_parenthesis; x = INT; ","; right_parenthesis
+                    -> `Resample (int_of_string x) ]
             ];
         charortax:
             [
