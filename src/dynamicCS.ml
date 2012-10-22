@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2713 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2747 $"
 
 let debug = false
 
@@ -355,9 +355,12 @@ let median_3 p n c1 c2 = match p, n, c1, c2 with
           GenomeCS (GenomeCS.median3 p n c1 c2)
     | _, _, _, _ -> failwith_todo "median_3"
 
-let get_extra_cost_for_root (a : t)  = match a with
+(** [cost_for_root root ] return distance between two algned children of
+* the root. due to non-zero diagonal this might be different from alignment cost
+* of the two children.*)
+let extra_cost_for_root (a : t) = match a with
     | MlCS x        -> 0.0
-    | SeqCS x       -> SeqCS.get_extra_cost_for_root x
+    | SeqCS x       -> SeqCS.extra_cost_for_root x
     | ChromCS x     -> ChromCS.get_extra_cost_for_root x
     | AnnchromCS x  -> AnnchromCS.get_extra_cost_for_root x 
     | GenomeCS x    -> GenomeCS.get_extra_cost_for_root x

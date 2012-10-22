@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2733 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2747 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -35,8 +35,9 @@ let debug_uppass_fn         = false
 let debug_downpass_fn       = false
 let debug_single_assignment = false
 let debug_diagnosis         = false
-let debug_create_root       = false
 let debug_reroot            = false
+let debug_create_root       = false 
+let debug_assign_single_handle = false 
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -313,18 +314,25 @@ module F : Ptree.Tree_Operations
     (* Create the edge data on (a,b) and use to update root information in tree *)
     let create_root a b (ptree : phylogeny) =
         let make_internal a b ptree =
+            if debug_create_root then 
+                Printf.printf "create root with edge (%d,%d)\n%!" a b;
             let norm = Tree.normalize_edge (Tree.Edge (a, b)) ptree.Ptree.tree in
-            let node = Ptree.get_edge_data norm ptree in
-            let nnode = AllDirNode.force_val node in
-            let node = {AllDirNode.lazy_node = node; code = 0; dir = Some (a,b)} in
-            let node = { AllDirNode.unadjusted = [node]; adjusted = Some node } in
-            let cost = Node.Standard.tree_cost None nnode in
-            let extracost = Node.extra_cost_from_root nnode in
+            let lazy_edge_data(*node*) = Ptree.get_edge_data norm ptree in
+            let edge_data(*nnode*) = AllDirNode.force_val lazy_edge_data(*node*) in
+            let adj_nodedata(*node*) = {AllDirNode.lazy_node = lazy_edge_data(*node*); code = 0; dir = Some (a,b)} in
+            let nodedata(*node*) = { AllDirNode.unadjusted = [adj_nodedata]; adjusted = Some adj_nodedata} in
+            let cost = Node.Standard.tree_cost None edge_data in
+            if debug_create_root then begin
+                Printf.printf "treecost=%f, root node data:\n%!" cost;
+                AllDirNode.print_node_data nodedata true;
+            end;
+            (*let extracost = 
+                    Node.extra_cost_from_root edge_data cost in
             if debug_create_root then
                 Printf.printf "create_root with cost %f - %f\n%!" cost extracost;
-            let cost = cost -. extracost in
+            let cost = cost -. extracost in*)
             {
-                Ptree.root_median = Some ((`Edge (a, b)), node);
+                Ptree.root_median = Some ((`Edge (a, b)), nodedata);
                 component_cost = cost;
                 adjusted_component_cost = cost;
             }
@@ -649,7 +657,9 @@ module F : Ptree.Tree_Operations
                 in
                 if debug_single_assignment then
                     info_user_message "assign single subtree on root node %d,%d" a b;
+                (*get root unadjusted node data as root*)
                 let root, rooth = get_root_direction rootg in
+                (*get handle node and other node*)
                 let handle_node =
                     let hnode = Ptree.get_node_data a ptree in
                     hnode.AllDirNode.unadjusted
@@ -660,23 +670,31 @@ module F : Ptree.Tree_Operations
                         --> AllDirNode.not_with a
                         --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
                 in
-                let root =
+                (*update single assignment to root*)
+                let root_tosingle =
                     Node.to_single (pre_ref_codes, fi_ref_codes) true
                                    (Some root) other_node handle_node
                 in
+                (*update rooth with new lazy_node*)
                 let rooti = 
                     { rooth with
-                        AllDirNode.lazy_node = AllDirNode.lazy_from_val (root) }
+                        AllDirNode.lazy_node = AllDirNode.lazy_from_val (root_tosingle) }
                 in
+                (*update rootg with new adjusted*)
                 let readjusted = { rootg with AllDirNode.adjusted = Some rooti} in
-                let treecost = Node.Standard.tree_cost None root in
-                let extracost = Node.extra_cost_from_root root in
-                if debug_single_assignment then 
-                    info_user_message "assign cost to root :%f - extra:%f" treecost extracost;
+                if debug_assign_single_handle then begin
+                    Printf.printf "root with new adjusted:\n%!";
+                    AllDirNode.print_node_data readjusted true; 
+                end;
+                let treecost = Node.Standard.tree_cost None root_tosingle in
+                (*
+                let extracost = Node.extra_cost_from_root root treecost in*)
+                if debug_assign_single_handle then 
+                    info_user_message "assign cost to root :treecost:%f" treecost;
                 let ptree = 
                     Ptree.assign_root_to_connected_component 
                         handle (Some (edge, readjusted)) 
-                        (treecost -. extracost) None ptree
+                        treecost (*treecost -. extracost*) None ptree
                 in
                 ptree, root, readjusted
             in
@@ -1022,11 +1040,12 @@ module F : Ptree.Tree_Operations
             (* assign the root and cost *)
             let ptree = refresh_all_edges (Some n_root) true (Some (a,b)) ptree in
             let treecost = AllDirNode.OneDirF.tree_cost None e_root in
-            let extracost = AllDirNode.OneDirF.extra_cost_from_root e_root in
+            (*let extracost =  AllDirNode.OneDirF.extra_cost_from_root e_root
+            treecost in*)
             let ptree =
                 let root_edge = (Some (`Edge (a,b),n_root)) in
                 Ptree.assign_root_to_connected_component handle root_edge
-                                            (treecost -. extracost) None ptree
+                                            treecost (*treecost -. extracost*) None ptree
             in
             let ptree = assign_single ptree in
             (changed,affected,ptree)
@@ -1361,7 +1380,7 @@ module F : Ptree.Tree_Operations
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
         let data = Ptree.get_edge_data e ptree in
         let c = AllDirNode.OneDirF.tree_cost None data in
-        let extrac = AllDirNode.OneDirF.extra_cost_from_root data in
+        (*let extrac =  AllDirNode.OneDirF.extra_cost_from_root data c in*)
         if abs_float cost > abs_float c then 
             let data =  { AllDirNode.lazy_node = data; dir = None; code = -1 } 
             in
@@ -1370,7 +1389,7 @@ module F : Ptree.Tree_Operations
             c, 
             Lazy.lazy_from_fun (fun () ->
                 Ptree.assign_root_to_connected_component handle comp 
-                (c -. extrac) None ptree)
+                c (*c -. extrac*) None ptree)
         else (cost, cbt)
 
 

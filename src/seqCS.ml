@@ -19,10 +19,10 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2740 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2747 $"
 
 let debug = false
-let debug_distance = false 
+let debug_distance = false
 
 module Codes = All_sets.IntegerMap
 
@@ -39,6 +39,9 @@ type cost_tuple = {
     sum_cost : float; (*cost of subtree rooted on this node*)
 }
 
+let print_cost_tuple ct = 
+    Printf.printf "[ cost2:%f(%f),cost3:%f,sum_cost:%f ]\n%!" ct.cost2
+    ct.cost2_max ct.cost3 ct.sum_cost
 
 let get_cost2 costs = costs.cost2
     
@@ -981,25 +984,46 @@ module DOS = struct
             if debug then begin
                 Printf.printf "parent seq = %!";
                 Sequence.printseqcode parent;
-                Printf.printf " seq with ambiguity = %!";
+                Printf.printf "seq with ambiguity = %!";
                 Sequence.printseqcode mine.sequence;
-                Printf.printf " ==> seq without ambiguity = %!";
+                Printf.printf "seq without ambiguity = %!";
                 Sequence.printseqcode seqm;
+                Printf.printf "cost remain unchanged:\n%!";
+                print_cost_tuple mine.costs;
             end;
             { mine with sequence = seqm; (*costs = rescost*) }, tmpcost
 
+    (*[median] alignment function under module DOS*)
     let median alph code h a b use_ukk =
         let debug = false in
-        if debug then Printf.printf "seqCS.DOS.median,use_ukk=%b\n%!" use_ukk; 
+        let non_zero_diag = true in
+        if debug then Printf.printf "seqCS.DOS.median,use_ukk=%b,len1:%d,len2:%d\n%!" 
+        use_ukk (Sequence.length a.sequence) (Sequence.length b.sequence); 
         let gap = Cost_matrix.Two_D.gap h.c2_full in
         let uselevel = Cost_matrix.Two_D.check_level h.c2_full in 
-        (* above are debug functions *)
-        if Sequence.is_empty a.sequence gap then
-            create b.sequence, 0 
-        else if Sequence.is_empty b.sequence gap then
-            create a.sequence, 0
+        if Sequence.is_empty a.sequence gap then begin
+            let cost = 
+                if non_zero_diag then
+                    Sequence.Align.recost b.sequence b.sequence h.c2_original
+                else 0
+            in
+            if debug then Printf.printf "first seq is empty,return second one with cost %d \n%!" cost;
+            create b.sequence, cost
+        end
+        else if Sequence.is_empty b.sequence gap then begin
+            let cost = 
+                if non_zero_diag then
+                    Sequence.Align.recost a.sequence a.sequence h.c2_original
+                else 0
+            in
+            if debug then Printf.printf "second seq is empty,return first one with cost %d\n%!" cost;
+            create a.sequence, cost
+        end
         else 
             let sumcost_ch12 = int_of_float(a.costs.sum_cost +. b.costs.sum_cost) in
+            (*seqm: median seq of a and b
+            * tmpa, tmpb: algned seq of a , b
+            * seqmwg: median seq with gap *)
             let seqm, tmpa, tmpb, tmpcost, seqmwg =
                 match Cost_matrix.Two_D.affine h.c2_full with
                 | Cost_matrix.Affine _ ->
@@ -1124,6 +1148,7 @@ module DOS = struct
                 print_seqlist a.sequence; print_seqlist b.sequence;
                 print_seqlist tmpa; print_seqlist tmpb;
                 Printf.printf "seqm: %!"; print_seqlist seqm;
+                Printf.printf "seqm with gap: %!"; print_seqlist seqmwg;
                 Printf.printf "call seq_to_bitset on these if they are bitwised, then return them.\n%!";
             end;
             let ba,bb,bm = 
@@ -1136,33 +1161,54 @@ module DOS = struct
             { sequence = seqm; aligned_children = (ba, bb, bm); costs = rescost;
             position = 0; delimiters = a.delimiters}, tmpcost
 
-    let cost_between_two_alied_children_of_root root h use_ukk =
+    let distance_between_two_alied_children_of_root root h use_ukk =
+        let debug = false in
         let gap = Cost_matrix.Two_D.gap h.c2_original in
         let alied_ch1, alied_ch2, _ = root.aligned_children in
         let alied_ch1, alied_ch2 = 
             bitset_to_seq gap alied_ch1, bitset_to_seq gap alied_ch2 in
+        if debug then begin
+            Printf.printf "distance_between_two_alied_children_of_root, two alied children:\n%!";
+            Sequence.printseqcode alied_ch1;
+            Sequence.printseqcode alied_ch2;
+        end;
         let distance = 
             (*we only need to calculate cost between two alied sequence, but
             [cost_2] in sequence.ml actually does an alignment, which is not linear.*)
             if use_ukk then
                 Sequence.NewkkAlign.cost_2 alied_ch1 alied_ch2 h.c2_original Sequence.NewkkAlign.default_ukkm
             else
-                Sequence.Align.recost alied_ch1 alied_ch2 h.c2_original
-                (*Sequence.Align.cost_2 alied_ch1 alied_ch2 h.c2_original Matrix.default*) 
+                begin
+                    let discost = Sequence.Align.recost alied_ch1 alied_ch2 h.c2_original in
+                    if debug then begin 
+                        (*debug: make sure algncost is same as cost2*)
+                        let algncost = 
+                            Sequence.Align.cost_2 alied_ch1 alied_ch2 h.c2_full Matrix.default
+                        in
+                        Printf.printf "algncost:%d, return distance=%d\n%!"
+                        algncost discost;
+                    end;
+                    discost
+                end
         in
-        if debug_distance then begin
-            Printf.printf "cost_between_two_alied_children_of_root, two alied children:\n%!";
-            Sequence.printseqcode alied_ch1;
-            Sequence.printseqcode alied_ch2;
-        end;
         distance
 
-    let get_extra_cost_for_root root h use_ukk =
-        let dis = cost_between_two_alied_children_of_root root h use_ukk in
-        let oldcost = root.costs.cost2 in
-        if debug_distance then
-            Printf.printf "DOS.get_extra_cost_for_root, oldcost(%f) - newcost(%d)\n%!" oldcost dis;
-        oldcost -. (float_of_int dis)
+    (*return extra cost between distance of two alied children of root and
+    * alignment cost of the children*)
+    let extra_cost_for_root root h use_ukk =
+        let debug = false in
+        let algncost = root.costs.cost2 in
+        if algncost=0. then 0. (*missing data, empty sequence, just return 0*)
+        else begin
+            let dis = distance_between_two_alied_children_of_root root h use_ukk in
+            let costdiff = algncost -. (float_of_int dis) in
+            if debug then begin
+                Printf.printf "cost diff = algncost:%f - dis:%d = %f\n%!" algncost dis costdiff;
+                assert(costdiff >= 0.);
+            end;
+            costdiff
+        end
+        
 	
 
     let median_3_no_union h p n c1 c2 use_ukk =
@@ -1225,11 +1271,16 @@ module DOS = struct
             } in
         { n with sequence = res; costs = rescost }
 
+    (*distance function under module DOS*)
     let distance alph h missing_distance a b use_ukk =
         let debug = false in
+        if debug then Printf.printf "seqCS.DOS.distance,%!";
         let gap = Cost_matrix.Two_D.gap h.c2_original in 
-        if Sequence.is_empty a.sequence gap || 
-            Sequence.is_empty b.sequence gap then missing_distance
+        if Sequence.is_empty a.sequence gap || Sequence.is_empty b.sequence gap then begin
+                if debug then Printf.printf "at least one of the sequence is empty,\
+                return missing_distance=%d\n%!" missing_distance;
+                missing_distance
+            end
         else
 IFDEF USE_VERIFY_COSTS THEN
             let seqa, seqb, cost = 
@@ -1275,13 +1326,16 @@ ELSE
                 if tmp > 8 then tmp 
                 else 8
             in
-        if debug then Printf.printf "seqCS.DOS.distance\n%!";
-            if use_ukk then
-            Sequence.NewkkAlign.cost_2  ~deltaw a.sequence b.sequence
-            h.c2_original Sequence.NewkkAlign.default_ukkm
-            else
-                Sequence.Align.cost_2 ~deltaw a.sequence b.sequence h.c2_original 
-            Matrix.default
+            if debug then Printf.printf "call cost_2 from Sequence use_ukk=%b\n%!" use_ukk;
+            let res = 
+                if use_ukk then
+                    Sequence.NewkkAlign.cost_2  ~deltaw a.sequence b.sequence
+                    h.c2_original Sequence.NewkkAlign.default_ukkm
+                else
+                    Sequence.Align.cost_2 ~deltaw a.sequence b.sequence h.c2_original 
+                    Matrix.default
+            in
+            res
 END
 
 (*[dist_2] is called to calculates the cost of joining the node [n] between [a] and [b] in a tree*)
@@ -1800,7 +1854,7 @@ let is_fixedstates x =
 
 let print in_data =
     let seq_chr_arr = in_data.characters in
-    Printf.printf "cost of all characters:%f(could be from to_single)\n%!" in_data.total_cost;
+    Printf.printf "total cost : %f [ \n%!" in_data.total_cost;
     Array.iter (fun item ->
      match item with
         | General_Prealigned x -> 
@@ -1810,7 +1864,7 @@ let print in_data =
                 DOS.print x;
         | Partitioned x -> Printf.printf "Partitioned,no print function yet%!"
     ) seq_chr_arr;
-    Printf.printf "\n%!"
+    Printf.printf " ] \n%!"
 
 (* return 1 if we are dealing with this kind of SeqCS data for multi-chromosome.*)
 let is_available in_data =
@@ -2379,7 +2433,7 @@ let median_3 p n c1 c2 =
     { n with characters = characters }
 
 
-let get_extra_cost_for_root a  =
+let extra_cost_for_root a  =
     let h = a.heuristic in
     let use_ukk = match !Methods.algn_mode with
         | `Algn_Newkk  -> true
@@ -2389,7 +2443,7 @@ let get_extra_cost_for_root a  =
     (fun seq_chr acc -> 
         match seq_chr with
         | Heuristic_Selection x ->
-            acc +. (DOS.get_extra_cost_for_root x h use_ukk)
+            acc +. (DOS.extra_cost_for_root x h use_ukk)
         | _ -> 0.0
     )
     a.characters 0.0

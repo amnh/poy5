@@ -242,7 +242,7 @@ val empty : [ `Likelihood | `SumLikelihood | `NotLikelihood ] -> node_data
  * for all the characters of the type [t], as listed below *)
 val total_cost_of_type : to_single -> node_data -> float
 
-val extra_cost_from_root : node_data -> float
+val extra_cost_from_root : node_data -> float -> float
 
 val get_cost_mode : node_data -> [ `Likelihood | `SumLikelihood | `NotLikelihood ]
 

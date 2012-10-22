@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2730 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2747 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -877,6 +877,7 @@ module Align = struct
         else
            count gap 0 s 
 
+    (*cost_2 function under module Align*)
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let debug = false in
         if debug then begin
@@ -896,6 +897,9 @@ module Align = struct
                     else v
         in
         let ls1 = length s1 and ls2 = length s2 in
+        if debug then Printf.printf "lens1=%d, lens2=%d,append a gap to empty one\n%!" ls1 ls2;
+        (*we prepend a gap to empty sequence, how about the other one? should we
+        * prepend a gap on that, too?*)
         let s1,ls1 = 
           if ls1=0 then (prepend_gap s1 m1),1
           else s1,ls1
@@ -918,7 +922,7 @@ module Align = struct
                 let deltaw = gaps + deltaw_calc ls2 ls1 in
                 c_cost_2 s2 s1 m1 m2 deltaw
         in
-        if debug then Printf.printf "return cost = %d\n%!" res;
+        if debug then Printf.printf "end of cost_2, return cost = %d\n%!" res;
         if debug && (res=0 && ((length s1)<>(length s2))) then begin
             Printf.printf "align seq1(len=%d) != seq2(len=%d) \n%!" (length s1)
             (length s2);
@@ -1322,7 +1326,7 @@ module Align = struct
     * like a function that return the cost of two alied
     * sequence a and b with costmatrix cm. works for combination through
     * bitwise(like dna) datatype, or those without combination , like old aminoacid*)
-    let recost a b cm =
+    let recost ?(first_gap=true) a b cm =
         let debug = false in
         assert (length a = length b);
         let len = length a 
@@ -1349,9 +1353,13 @@ module Align = struct
         let code_has_no_gap combcode gap cm =
             ( (code_has_gap combcode gap cm)=false )
         in
+        let startpos = if first_gap then 1 else 0 in
         if usecombine then (*use combination on cost matrix*)
             let rec process_cost it cost is_gap_block =
-                if it = len then cost
+                if it = len then begin
+                    if debug then Printf.printf "return cost = %d\n%!" cost;
+                    cost
+                end
                 else begin
                     let ba = get a it and bb = get b it in
                     let c = Cost_matrix.Two_D.cost ba bb cm in
@@ -1365,7 +1373,7 @@ module Align = struct
                     else process_cost (it + 1) (cost + c) true
                 end
             in
-            process_cost 0 0 false
+            process_cost startpos 0 false
         else (*no combination in cost matrix*)
             let rec process_cost it cost is_gap_block =
                 if it = len then cost
