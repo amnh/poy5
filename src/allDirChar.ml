@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2756 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2757 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1648,7 +1648,7 @@ module F : Ptree.Tree_Operations
         in
         tree
 
-    let model_fn ?max_iter node_man ptree = ptree
+    let model_fn ?max_iter node_man ptree =
         if using_likelihood `Either ptree
             then model_fn ?max_iter node_man ptree
             else ptree
