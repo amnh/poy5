@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2747 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2754 $"
 
 let debug = false
 let debug_distance = false
@@ -761,67 +761,133 @@ module DOS = struct
 
     let to_union a = Sequence.Unions.leaf a.sequence
 
+    (*small algn function for [readjust_XXXX] below, algn two child when parent is empty*)
+    let readjust_algn_two_child s1 s2 c2 sumcost_ch12 use_ukk oldsumcost
+    oldcost3 oldcost2 oldmineseq =
+        let cm = c2 in
+        let newseqm, cost =
+            match Cost_matrix.Two_D.affine cm with
+            | Cost_matrix.Affine _ ->
+                    let median,cost =
+                        if use_ukk then 
+                            let s1',s2',c = 
+                                Sequence.NewkkAlign.align_2 s1 s2 cm
+                                Sequence.NewkkAlign.default_ukkm
+                            in
+                            Sequence.median_2 s1' s2' cm, c
+                        else
+                            let m, _, _, cost, _ = 
+                                Sequence.Align.align_affine_3 s1 s2 cm in
+                            m,cost
+                    in
+                    let m = Sequence.select_one median cm in
+                    m, cost
+            | _ ->
+                let s1', s2', c =
+                        if use_ukk then
+                        Sequence.NewkkAlign.align_2 s1 s2 cm
+                        Sequence.NewkkAlign.default_ukkm
+                        else
+                    Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
+                in
+                let median = Sequence.median_2 s1' s2' cm in
+                let a = Sequence.select_one median cm in
+                a, c
+        in
+        let newsumcost = sumcost_ch12 + cost in
+        let changed =
+            if  (newsumcost<>oldsumcost) || (cost<>oldcost3) ||
+            (cost<>oldcost2) || (0<>compare oldmineseq newseqm) 
+            then true
+            else false
+        in
+        changed, create newseqm, cost, cost, newsumcost
 
-    
 
     (*readjust function for custom alphabet under module DOS *)
     let readjust_custom_alphabet mode h ch1 ch2 parent mine =
         let debug = false in
+        let use_ukk = false in (*we don't call ukkonen alignment for custom alphabet now*)
+        let gap = Cost_matrix.Two_D.gap h.c2_full in
+        let empty1 = Sequence.is_empty ch1.sequence gap 
+        and empty2 = Sequence.is_empty ch2.sequence gap 
+        and emptypar = Sequence.is_empty parent.sequence gap in
         if debug then Printf.printf "DOS.readjust_custom_alphabet\n%!";
-        let sumcost_ch12 = int_of_float( ch1.costs.sum_cost +.
-        ch2.costs.sum_cost) in
+        let oldcost3 = int_of_float mine.costs.cost3
+        and oldcost2 = int_of_float mine.costs.cost2
+        and oldsumcost = int_of_float mine.costs.sum_cost in
+        let sumcost_ch12 = int_of_float( ch1.costs.sum_cost +. ch2.costs.sum_cost) in
         let (oldaliedch1,oldaliedch2,oldminewgap) = mine.aligned_children in
         let oldaliedch1,oldaliedch2,oldminewgap = 
             match oldaliedch1,oldaliedch2,oldminewgap with
             | Raw a, Raw b, Raw c -> a,b,c
             | _ -> failwith "seqCS.DOS [readjust_custom_alphabet], wrong type of aliged_children"
         in
-        let newcost3, newcost2, newseqm, newaliedch1, newaliedch2, newseqmWgap(*, anything_changed*) =  
-                match mode with
-                | `ThreeD _ -> 
-                        if debug then Printf.printf "iter = 3d, call readjust_3d\n%!";
-                        Sequence.Align.readjust_3d_custom_alphabet ch1.sequence ch2.sequence
-                        mine.sequence h.c2_full h.c3 parent.sequence 
-                        (int_of_float mine.costs.cost2)
-                        (int_of_float mine.costs.cost3)
-                | `ApproxD _ ->
-                        if debug then Printf.printf "iter=approx, do nothing\n%!";
-                        int_of_float mine.costs.cost3, 
-                        int_of_float mine.costs.cost2, 
-                        mine.sequence, 
-                        oldaliedch1,oldaliedch2,oldminewgap
-        in
-            (*return changed = true if 
-                    * #1. if subtree cost root on this character of this node is different,
-                    * that's what we are doing here
-                    * that means cost of some grand grand child is different, or #2.
-                    * #2. if node cost(both cost2 and cost3) of this character of this node is different.
-                    * #3. if median assignment to this character of this node is different
-                    * *)
-        let oldcost3 = int_of_float mine.costs.cost3
-        and oldcost2 = int_of_float mine.costs.cost2
-        and oldsumcost = int_of_float mine.costs.sum_cost in
-        let newsumcost = newcost2 + sumcost_ch12 in
-        let anything_changed =
-            if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-            (newcost2<>oldcost2) || (0<>compare mine.sequence newseqm) 
-            then true
-            else false
-        in
-        if debug then 
-            Printf.printf "DOS.readjust_custom_alphabet,\
-            cost3=%d(old:%d), sumcost=%d(old:%d) \ 
-            anything_changed : %b\n%!" 
-            newcost3 oldcost3 newsumcost oldsumcost anything_changed;                  
-        let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
-        (*return changed:bool,new mine, newcost3, newcost2 and new sum cost*)
-        anything_changed, 
-        { mine with sequence = newseqm; 
-        aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
-        costs = rescosts },
-        newcost3, 
-        newcost2, 
-        newsumcost
+        match empty1, empty2, emptypar with
+        | false, false, false ->
+            let newcost3, newcost2, newseqm, newaliedch1, newaliedch2, newseqmWgap =  
+                    match mode with
+                    | `ThreeD _ -> 
+                            if debug then Printf.printf "iter = 3d, call readjust_3d\n%!";
+                            Sequence.Align.readjust_3d_custom_alphabet ch1.sequence ch2.sequence
+                            mine.sequence h.c2_full h.c3 parent.sequence 
+                            (int_of_float mine.costs.cost2)
+                            (int_of_float mine.costs.cost3)
+                    | `ApproxD _ ->
+                            if debug then Printf.printf "iter=approx, do nothing\n%!";
+                            int_of_float mine.costs.cost3, 
+                            int_of_float mine.costs.cost2, 
+                            mine.sequence, 
+                            oldaliedch1,oldaliedch2,oldminewgap
+            in
+                (*return changed = true if 
+                        * #1. if subtree cost root on this character of this node is different,
+                        * that's what we are doing here
+                        * that means cost of some grand grand child is different, or #2.
+                        * #2. if node cost(both cost2 and cost3) of this character of this node is different.
+                        * #3. if median assignment to this character of this node is different
+                        * *) 
+            let newsumcost = newcost2 + sumcost_ch12 in
+            let anything_changed =
+                if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                (newcost2<>oldcost2) || (0<>compare mine.sequence newseqm) 
+                then true
+                else false
+            in
+            if debug then 
+                Printf.printf "DOS.readjust_custom_alphabet,\
+                cost3=%d(old:%d), sumcost=%d(old:%d) \ 
+                anything_changed : %b\n%!" 
+                newcost3 oldcost3 newsumcost oldsumcost anything_changed;                  
+            let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+            (*return changed:bool,new mine, newcost3, newcost2 and new sum cost*)
+            anything_changed, 
+            { mine with sequence = newseqm; 
+            aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
+            costs = rescosts },
+            newcost3, 
+            newcost2, 
+            newsumcost
+        | true, true, _ -> 
+                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                 ch1.sequence mine.sequence),ch1, 0, 0, sumcost_ch12
+        | true, _, true -> 
+                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                ch1.sequence mine.sequence),
+                ch1, 0, 0, sumcost_ch12
+        | _, true, true -> 
+                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                ch1.sequence mine.sequence),
+                ch2, 0, 0, sumcost_ch12
+        | false, false, true ->
+                readjust_algn_two_child ch1.sequence ch2.sequence h.c2_full
+                sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+        | false, true, false ->
+                readjust_algn_two_child ch1.sequence parent.sequence h.c2_full
+                sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+        | _, false, false ->
+                readjust_algn_two_child ch2.sequence parent.sequence h.c2_full
+                sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
 
 
     (*readjust function for dna sequence under module DOS, include approx=exact
@@ -831,48 +897,16 @@ module DOS = struct
         if debug then Printf.printf "seqCS.DOS.readjust,use_ukk=%b\n%!" use_ukk;
         let c2 = h.c2_full in
         let gap = Cost_matrix.Two_D.gap c2 in
+        let oldcost3 = int_of_float mine.costs.cost3
+        and oldcost2 = int_of_float mine.costs.cost2
+        and oldsumcost = int_of_float mine.costs.sum_cost in
         let sumcost_ch12 = int_of_float (ch1.costs.sum_cost +. ch2.costs.sum_cost) in
-        let res, cost3, cost2, sumcost, changed = 
-            let algn s1 s2 =
-                let cm = c2 in
-                match Cost_matrix.Two_D.affine cm with
-                | Cost_matrix.Affine _ ->
-                        let median,cost =
-                            if use_ukk then 
-                                let s1',s2',c = 
-                                    Sequence.NewkkAlign.align_2 s1 s2 cm
-                                    Sequence.NewkkAlign.default_ukkm
-                                in
-                                Sequence.median_2 s1' s2' cm, c
-                            else
-                                let m, _, _, cost, _ = 
-                                    Sequence.Align.align_affine_3 s1 s2 cm in
-                                m,cost
-                        in
-                        let m = Sequence.select_one median cm in
-                        (*return new mine, cost3(same as cost2), cost2, subtree cost, changed=false*)
-                        create m, cost, cost, sumcost_ch12 + cost, false 
-                | _ ->
-                    let s1', s2', c =
-                            if use_ukk then
-                            Sequence.NewkkAlign.align_2 s1 s2 cm
-                            Sequence.NewkkAlign.default_ukkm
-                            else
-                        Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
-                    in
-                    let median = Sequence.median_2 s1' s2' cm in
-                    let a = Sequence.select_one median cm in 
-                    (*return new mine, cost3(same as cost2), cost2, subtree cost, changed=false*)
-                    create a, c , c, sumcost_ch12 + c, false
-            in
+        let changed, res, cost3, cost2, sumcost = 
             let empty1 = Sequence.is_empty ch1.sequence gap 
             and empty2 = Sequence.is_empty ch2.sequence gap 
             and emptypar = Sequence.is_empty parent.sequence gap in
             match empty1, empty2, emptypar with
             | false, false, false ->
-                    let oldcost3 = int_of_float mine.costs.cost3
-                    and oldcost2 = int_of_float mine.costs.cost2
-                    and oldsumcost = int_of_float mine.costs.sum_cost in
                         (*cost3 is the sum cost of alied_ch1&new_med,
                         * alied_ch2&new_med and alied_parent&new_med,
                         * cost2 is the cost of alied_ch1&alied_ch2*)
@@ -901,13 +935,13 @@ module DOS = struct
                         cost2=%d(%d),cost3=%d(%d),sumcost=%d(%d)\n%!"
                         newcost2 oldcost2 newcost3 oldcost3 newsumcost oldsumcost;
                         let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                        anything_changed,
                         { mine with sequence = newseqm; 
                         aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
                         costs = rescosts },
                         newcost3, 
                         newcost2, 
-                        newsumcost,
-                        anything_changed
+                        newsumcost
                     | `ApproxD _ ->
                         if debug then Printf.printf "iter=approx, call Sequence.readjust\n%!";
                         let newcost3,newcost2,newseqm, _, _, _ = 
@@ -925,25 +959,35 @@ module DOS = struct
                         cost2=%d(%d),cost3=%d(%d),sumcost=%d(%d)\n%!"
                         newcost2 oldcost2 newcost3 oldcost3 newsumcost oldsumcost;
                         let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                        anything_changed,
                         { mine with sequence = newseqm; 
-                        (*we don't update aligned children here
-                        * aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
-                        *)
+                        (*we don't update aligned children here*)
                         costs = rescosts },
                         newcost3, 
                         newcost2, 
-                        newsumcost,
-                        anything_changed
+                        newsumcost
                     ) (*end of match mode with iterative:exact or approximate*)                     
-            | true, true, _ -> ch1, 0, 0, sumcost_ch12, false
-            | true, _, true -> ch1, 0, 0, sumcost_ch12, false
-            | _, true, true -> ch2, 0, 0, sumcost_ch12, false
+            | true, true, _ -> 
+                    (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                    ch1.sequence mine.sequence), 
+                    ch1, 0, 0, sumcost_ch12
+            | true, _, true -> 
+                    (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                    ch1.sequence mine.sequence),
+                    ch1, 0, 0, sumcost_ch12
+            | _, true, true -> 
+                    (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                    ch2.sequence mine.sequence),
+                    ch2, 0, 0, sumcost_ch12
             | false, false, true ->
-                    algn ch1.sequence ch2.sequence
+                    readjust_algn_two_child ch1.sequence ch2.sequence c2
+                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
             | false, true, false ->
-                    algn ch1.sequence parent.sequence
+                    readjust_algn_two_child ch1.sequence parent.sequence c2
+                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
             | _, false, false ->
-                    algn ch2.sequence parent.sequence
+                    readjust_algn_two_child ch2.sequence parent.sequence c2
+                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
         in
         (*return modifed = true if 
             * #1. if subtree cost root on this character of this node is different, 
@@ -996,25 +1040,25 @@ module DOS = struct
     (*[median] alignment function under module DOS*)
     let median alph code h a b use_ukk =
         let debug = false in
-        let non_zero_diag = true in
+        let is_identity = Cost_matrix.Two_D.is_identity h.c2_original in
         if debug then Printf.printf "seqCS.DOS.median,use_ukk=%b,len1:%d,len2:%d\n%!" 
         use_ukk (Sequence.length a.sequence) (Sequence.length b.sequence); 
         let gap = Cost_matrix.Two_D.gap h.c2_full in
         let uselevel = Cost_matrix.Two_D.check_level h.c2_full in 
         if Sequence.is_empty a.sequence gap then begin
             let cost = 
-                if non_zero_diag then
+                if is_identity then 0
+                else
                     Sequence.Align.recost b.sequence b.sequence h.c2_original
-                else 0
             in
             if debug then Printf.printf "first seq is empty,return second one with cost %d \n%!" cost;
             create b.sequence, cost
         end
         else if Sequence.is_empty b.sequence gap then begin
             let cost = 
-                if non_zero_diag then
+                if is_identity then 0
+                else
                     Sequence.Align.recost a.sequence a.sequence h.c2_original
-                else 0
             in
             if debug then Printf.printf "second seq is empty,return first one with cost %d\n%!" cost;
             create a.sequence, cost
@@ -1198,8 +1242,10 @@ module DOS = struct
     let extra_cost_for_root root h use_ukk =
         let debug = false in
         let algncost = root.costs.cost2 in
+        let is_identity = Cost_matrix.Two_D.is_identity h.c2_original in
         if algncost=0. then 0. (*missing data, empty sequence, just return 0*)
-        else begin
+        else if is_identity then 0. (*0 diagonal in cost matrix*)
+        else begin (*non-0 diagonal in cost matrix*)
             let dis = distance_between_two_alied_children_of_root root h use_ukk in
             let costdiff = algncost -. (float_of_int dis) in
             if debug then begin

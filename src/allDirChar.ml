@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2747 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2754 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -317,20 +317,15 @@ module F : Ptree.Tree_Operations
             if debug_create_root then 
                 Printf.printf "create root with edge (%d,%d)\n%!" a b;
             let norm = Tree.normalize_edge (Tree.Edge (a, b)) ptree.Ptree.tree in
-            let lazy_edge_data(*node*) = Ptree.get_edge_data norm ptree in
-            let edge_data(*nnode*) = AllDirNode.force_val lazy_edge_data(*node*) in
-            let adj_nodedata(*node*) = {AllDirNode.lazy_node = lazy_edge_data(*node*); code = 0; dir = Some (a,b)} in
-            let nodedata(*node*) = { AllDirNode.unadjusted = [adj_nodedata]; adjusted = Some adj_nodedata} in
+            let lazy_edge_data = Ptree.get_edge_data norm ptree in
+            let edge_data = AllDirNode.force_val lazy_edge_data in
+            let adj_nodedata = {AllDirNode.lazy_node = lazy_edge_data; code = 0; dir = Some (a,b)} in
+            let nodedata = { AllDirNode.unadjusted = [adj_nodedata]; adjusted = Some adj_nodedata} in
             let cost = Node.Standard.tree_cost None edge_data in
             if debug_create_root then begin
                 Printf.printf "treecost=%f, root node data:\n%!" cost;
                 AllDirNode.print_node_data nodedata true;
             end;
-            (*let extracost = 
-                    Node.extra_cost_from_root edge_data cost in
-            if debug_create_root then
-                Printf.printf "create_root with cost %f - %f\n%!" cost extracost;
-            let cost = cost -. extracost in*)
             {
                 Ptree.root_median = Some ((`Edge (a, b)), nodedata);
                 component_cost = cost;

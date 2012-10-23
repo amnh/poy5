@@ -20,10 +20,10 @@
 (** A Breakinv character set implementation. The breakinv
 * character set allows rearrangements *)
 
-let () = SadmanOutput.register "BreakinvCS" "$Revision: 2684 $"
+let () = SadmanOutput.register "BreakinvCS" "$Revision: 2754 $"
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "Breakinv Character" "$Revision: 2684 $"
+let () = SadmanOutput.register "Breakinv Character" "$Revision: 2754 $"
 
 let debug = false
 
@@ -332,6 +332,9 @@ let get_extra_cost_for_root (a :t) =
     let get_ec code medst acc =
         acc + Breakinv.get_extra_cost_for_root medst 
     in
+    let is_identity = Cost_matrix.Two_D.is_identity a.c2_original in
+    if is_identity then 0. (*0 diagonal in cost matrix*)
+    else (*non-0 diagonal in cost matrix*)
     float_of_int (IntMap.fold get_ec a.meds 0) 
 
 

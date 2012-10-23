@@ -558,7 +558,7 @@ cm_CAML_bigarr_to_comb2list (value bigarr, value cm) {
  */
 cmt 
 cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
-        int is_metric, int all_elements, cmt res, int level, int comb_num, int gap_startNO,\
+        int is_metric, int is_identity, int all_elements, cmt res, int level, int comb_num, int gap_startNO,\
         int tie_breaker) {
     int debug = 0;
     size_t size; 
@@ -574,6 +574,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     cm_set_all_elements (res, all_elements);
     cm_set_affine (res, do_aff, gap_open);
     res->is_metric = is_metric;
+    res->is_identity = is_identity;
     cm_set_tie_breaker(res,tie_breaker);
     //safe guard
     if ((level<=1)&&(combinations!=0)) level=0;
@@ -1989,10 +1990,10 @@ cm_CAML_clone (value v) {
     //fprintf(stdout,"clone, c->map_sz=%d,c->a_sz=%d,level=%d,", c->map_sz,c->a_sz,c->level); fflush(stdout);
     if (c->combinations)
         cm_set_val (c->lcm, c->combinations, c->cost_model_type, \
-                c->gap_open, c->is_metric, c->all_elements, clone2, c->level, c->map_sz, c->gap_startNO, c->tie_breaker);
+                c->gap_open, c->is_metric, c->is_identity, c->all_elements, clone2, c->level, c->map_sz, c->gap_startNO, c->tie_breaker);
     else
         cm_set_val (c->a_sz, c->combinations, c->cost_model_type, \
-                c->gap_open, c->is_metric, c->all_elements, clone2, 1, c->a_sz, 0, c->tie_breaker);
+                c->gap_open, c->is_metric, c->is_identity, c->all_elements, clone2, 1, c->a_sz, 0, c->tie_breaker);
     level = c->level;
     a_sz = c->map_sz;
     combmatrix_size = (c->map_sz+1)  * (c->map_sz+1);
@@ -2526,7 +2527,7 @@ cm_CAML_create (value a_sz, value combine, value aff, value go, value all, value
     m->median = NULL;
     //allocate memory
     cm_set_val (Int_val(a_sz), Bool_val(combine), Int_val(aff), Int_val(go), \
-            0, Int_val(all), m, Int_val(level), Int_val(combine_number), Int_val(gap_start), Int_val(tie_breaker));
+            0, 0, Int_val(all), m, Int_val(level), Int_val(combine_number), Int_val(gap_start), Int_val(tie_breaker));
     CAMLreturn(tmp);
 }
 
@@ -2607,6 +2608,24 @@ cm_CAML_set_is_metric (value c) {
 
 value
 cm_CAML_get_is_metric (value c) {
+    CAMLparam1(c);
+    cmt init;
+    init = Cost_matrix_struct(c);
+    CAMLreturn(Val_int(init->is_metric));
+}
+
+
+value
+cm_CAML_set_is_identity (value c) {
+    CAMLparam1(c);
+    cmt init;
+    init = Cost_matrix_struct(c);
+    init->is_identity = 1;
+    CAMLreturn(Val_unit);
+}
+
+value
+cm_CAML_get_is_identity (value c) {
     CAMLparam1(c);
     cmt init;
     init = Cost_matrix_struct(c);

@@ -397,6 +397,7 @@ sankoff_init_eltarr (eltarr_p neweltarr, int num_states, int num_elts, int code,
     neweltarr->num_states=num_states;
     neweltarr->num_elts=num_elts;
     neweltarr->tcm = (int*)calloc(num_states*num_states,sizeof(int));
+    neweltarr->is_identity = 1;
     memcpy(neweltarr->tcm,tcm,sizeof(int)*num_states*num_states);
     neweltarr->elts = (elt_p)calloc(num_elts,sizeof(struct elt));
     return;
@@ -658,6 +659,7 @@ sankoff_CAML_filter_character(value this_eltarr, value ecode_bigarr, value get_c
     res_eap->num_states = eap->num_states;
     res_eap->num_elts = res_num_elts;
     res_eap->tcm = (int*)calloc(num_states*num_states,sizeof(int));
+    res_eap->is_identity = eap->is_identity;
     memcpy (res_eap->tcm,eap->tcm,sizeof(int)*num_states*num_states);
     res_eap->elts = (elt_p)calloc(res_num_elts,sizeof(struct elt));
     elt_p res_elts = res_eap->elts;
@@ -1052,14 +1054,15 @@ sankoff_CAML_canonize_elt (value bigarr_cm,value this_elt)
 
 
 value
-sankoff_CAML_create_eltarr (value taxon_code, value code, value number_of_states, value ecode_bigarr, value states_bigarr, value tcm_bigarr) {
-    CAMLparam5(taxon_code,code,number_of_states,ecode_bigarr,states_bigarr);
-    CAMLxparam1(tcm_bigarr);
+sankoff_CAML_create_eltarr (value is_identity, value taxon_code, value code, value number_of_states, value ecode_bigarr, value states_bigarr, value tcm_bigarr) {
+    CAMLparam5(is_identity,taxon_code,code,number_of_states,ecode_bigarr);
+    CAMLxparam2(states_bigarr,tcm_bigarr);
     CAMLlocal1(res);
     int debug = 0;
     int num_states;
     num_states = Int_val(number_of_states);
     int tcode = Int_val(taxon_code);
+    int iside = Int_val(is_identity);
     int mycode = Int_val(code); 
     int * cost_mat; int dimcm1, dimcm2;
     int * states_arrarr; int dims1, dims2;
@@ -1088,6 +1091,7 @@ sankoff_CAML_create_eltarr (value taxon_code, value code, value number_of_states
     neweltarr->sum_cost = 0;
     neweltarr->num_states = dimcm1;
     neweltarr->num_elts = dim;
+    neweltarr->is_identity = iside;
     //alloc its pointers
     neweltarr->tcm = (int*)calloc(dimcm1*dimcm2,sizeof(int));
     memcpy(neweltarr->tcm,cost_mat,sizeof(int) * dimcm1 * dimcm2);
@@ -1136,7 +1140,7 @@ sankoff_CAML_create_eltarr (value taxon_code, value code, value number_of_states
 value 
 sankoff_CAML_create_eltarr_bytecode (value * argv, int argn){
     return (sankoff_CAML_create_eltarr 
-        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5]));
+        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]));
 }
 
 //store the shared states between two eltarr. return the number of shared states
@@ -1210,16 +1214,20 @@ sankoff_get_extra_cost_for_root(eltarr_p eapRoot) {
     int i;
     int num_elts;
     num_elts = eapRoot->num_elts;
-    for (i=0;i<num_elts;i++)
-    {
-        acc = acc + sankoff_elt_get_extra_cost_for_root
-        (&((eapRoot->elts)[i]),eapRoot->tcm);
-        if(debug) printf("acc += %d,",acc);
+    int iside = eapRoot->is_identity;
+    if (iside==1) return 0;
+    else {
+        for (i=0;i<num_elts;i++)
+        {
+            acc = acc + sankoff_elt_get_extra_cost_for_root
+            (&((eapRoot->elts)[i]),eapRoot->tcm);
+            if(debug) printf("acc += %d,",acc);
+        }
+        if (debug) { 
+            printf("return extra cost for root = %d\n",acc);
+        }
+        return acc;
     }
-    if (debug) { 
-        printf("return extra cost for root = %d\n",acc);
-    }
-    return acc;
 }
 
 //Calculates array m -- the extra cost when joining a new branch/node R to existing

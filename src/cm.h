@@ -63,6 +63,7 @@ struct cm {
     int combinations;
     int gap_open;
     int is_metric;
+    int is_identity;
     int all_elements;
     int tie_breaker; //0=random,1=pick first,2=pick last
     int *combmap; // the combination codelist to combination code map [a,b] --> c

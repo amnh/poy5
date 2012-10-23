@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2747 $"
+let () = SadmanOutput.register "Node" "$Revision: 2754 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -1875,7 +1875,6 @@ let not_to_single =
 * being called by [chekc_cost] of allDirChar.ml *)
 let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
-    let  debug_distaice = true in 
     if debug_distance then
         Printf.printf "\n Node.distance_of_type on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
     let has_t x = List.exists (fun z -> z = x) t
@@ -3434,7 +3433,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         { mine with characters = chars; }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
-    let debug = false and debug2 = false in
+    let debug = true and debug2 = true in
     if debug then 
         Printf.printf "\n Node.ml readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
         mine.taxon_code parent.taxon_code ch1.taxon_code ch2.taxon_code;
@@ -3509,8 +3508,6 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     in
                     modified := m;
                     let cost = mine.weight *. cost in
-                    (* we do this in the lower level med3 function
-                      let sumcost = c1.sum_cost +. c2.sum_cost +. cost in*)
                     let sumcost = mine.weight *. sumcost in
                     if debug2 then begin
                         Printf.printf " update mine with sum_cost\
