@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2724 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2751 $"
 
 module IntSet = All_sets.Integers
 
@@ -43,11 +43,10 @@ let empty_search_results = {
     total_ratchet = 0;
 }
 
-let incr_search_results t cnt sr =
-    match t with
-    | `Builds -> { sr with total_builds = sr.total_builds + cnt }
-    | `Fuse -> { sr with total_fuse = sr.total_fuse + cnt }
-    | `Ratchet -> { sr with total_ratchet = sr.total_ratchet + cnt }
+let incr_search_results t cnt sr = match t with
+    | `Builds   -> { sr with total_builds   = sr.total_builds + cnt }
+    | `Fuse     -> { sr with total_fuse     = sr.total_fuse + cnt   }
+    | `Ratchet  -> { sr with total_ratchet  = sr.total_ratchet + cnt}
 
 let add_results cost sr =
     let cnt = 
@@ -367,10 +366,10 @@ module type S = sig
 end
 
 
-module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.EdgeSig with type n = Node.n) 
-    (TreeOps : 
-        Ptree.Tree_Operations with type a =
-            Node.n with type b = Edge.e)
+module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
+            (Edge : Edge.EdgeSig with type n = Node.n)
+            (TreeOps : Ptree.Tree_Operations with type a =
+                                      Node.n with type b = Edge.e)
     = struct
     type a = Node.n
     type b = Edge.e
@@ -2745,56 +2744,50 @@ END
            set of trees and run fusing on them often but not too much *)
         for i = 1 to 10 do
             incr iterations_counter;
-            Status.message search_iteration_status ("Searching on tree number " ^ string_of_int
-            !iterations_counter);
+            Status.message search_iteration_status ("Searching on tree number " ^ string_of_int !iterations_counter);
             Status.full_report search_iteration_status;
-            let nrun = 
-                let initial = 
-                    match user_constraint with
-                    | None -> [APOY trees:1]
-                    | Some file ->
-                        (`Constraint (Some file)) :: [APOY trees:1]
+            let nrun =
+                let initial = match user_constraint with
+                    | None      -> [APOY trees:1]
+                    | Some file -> (`Constraint (Some file)) :: [APOY trees:1]
                 in
                 exec !run (CPOY build {initial})
             in
             let build_cost = get_cost nrun in
             let prev_time = Timer.wall timer in
-            let nrun = 
+            let nrun =
                 let command =
-                    let initial = 
+                    let initial =
                         [APOY tbr; APOY timeout:[`Dynamic remaining_time]]
                     in
-                    CPOY swap 
-                    { initial --> add_constraint --> add_visited }
+                    CPOY swap { initial --> add_constraint --> add_visited }
                 in
                 exec nrun command
             in
             let search_time = (Timer.wall timer) -. prev_time in
             let do_perturb = build_cost = get_cost nrun in
             let prev_meth = !Methods.cost in
-            let nrun, do_perturb = 
-                if do_perturb && (0.3 < Random.float 1.) then 
+            let nrun, do_perturb =
+                if do_perturb && (0.3 < Random.float 1.) then
                     nrun, do_perturb
                 else
                     if not has_dynamic then nrun, true
                     else
-                        let initial = 
-                            let time () = 
-                                min (remaining_time ()) (search_time /. 2.) 
+                        let initial =
+                            let time () =
+                                min (remaining_time ()) (search_time /. 2.)
                             in
-                            [APOY timeout:[`Dynamic time]; APOY tbr] 
+                            [APOY timeout:[`Dynamic time]; APOY tbr]
                         in
                         try 
                             let args = 
-                                if (0.5 > Random.float 1.) && 
-                                    ((prev_meth = `Normal_plus_Vitamines) ||
-                                    (prev_meth = `Normal)) then
-                                        Methods.cost := `Exhaustive_Weak
-                                else ();
-                                initial --> 
-                                    add_constraint_iterations
-                                    (!iterations_counter >= 4) 4 nrun --> 
-                                    add_visited --> add_all
+                                if (0.5 > Random.float 1.) &&
+                                    ((prev_meth = `Normal_plus_Vitamines) || (prev_meth = `Normal)) then
+                                        Methods.cost := `Exhaustive_Weak;
+                                initial
+                                    --> add_constraint_iterations (!iterations_counter >= 4) 4 nrun
+                                    --> add_visited
+                                    --> add_all
                             in
                             let nrun = exec nrun (CPOY swap {args}) in
                             nrun, false
@@ -2826,12 +2819,9 @@ END
                 if 0. < remaining_time () then incr ratchets;
                 (* We need to pick one tree from all those in memory *)
                 let nrun = 
-                    let arr =
-                        !trees --> Sexpr.to_list 
-                        --> Array.of_list
-                    in
-                    let pos = 
-                        if (i mod 2) = 0 && 1 < Array.length arr then 
+                    let arr = !trees --> Sexpr.to_list --> Array.of_list in
+                    let pos =
+                        if (i mod 2) = 0 && 1 < Array.length arr then
                             (* One of the top 5 *)
                             Random.int (min 5 (Array.length arr))
                         else 0
@@ -2852,10 +2842,10 @@ END
                     exec nrun 
                         (if has_dynamic then
                             (CPOY 
-                            perturb (iterations:4, transform (tcm:(1,1), static_approx), timeout:[`Dynamic remaining_time], swap { swap_args }))
+                                perturb (iterations:4, transform (tcm:(1,1), static_approx), timeout:[`Dynamic remaining_time], swap { swap_args }))
                         else
                             (CPOY 
-                            perturb (iterations:4, timeout:[`Dynamic remaining_time], swap { swap_args }) swap (timeout:[`Dynamic remaining_time], randomized)))
+                                perturb (iterations:4, timeout:[`Dynamic remaining_time], swap { swap_args }) swap (timeout:[`Dynamic remaining_time], randomized)))
                 in
                 trees := Sexpr.union nrun.trees !trees;
                 update_information (`Initial nrun);
@@ -3756,10 +3746,8 @@ let rec folder (run : r) meth =
     | `Fusing ((_, _, _, _, x, _) as params) ->
             warn_if_no_trees_in_memory run.trees;
             begin
-                try 
-                    { run with trees = PTS.fusing run.data run.queue run.trees params }
-                with | Failure "Tree fusing: must have at least two trees" ->
-                    run
+                try { run with trees = PTS.fusing run.data run.queue run.trees params }
+                with | Failure "Tree fusing: must have at least two trees" -> run
             end
     | `Bootstrap (it, a, b, c) -> 
             let meth = `Bootstrap (it, a, b, (run.data.Data.root_at)) in

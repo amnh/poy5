@@ -18,18 +18,13 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2710 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2751 $"
 
 let debug_find_local_optimum = false
 
 let has_something something (`LocalOptimum (cost_calculation)) =
     let cost_calculation = cost_calculation.Methods.cc in
     List.exists (fun x -> x = something) cost_calculation
-
-    (* This needs to be moved out, so that the module is constructed accoding to
-    * this decition 
-    let has_exact = has_exact cost_calculation in
-    *)
 
 module type S = sig
 
@@ -76,8 +71,9 @@ module type S = sig
                       'a * Methods.local_optimum *
                       (int * int) -> (a, b) Ptree.p_tree Sexpr.t
 
-        val output_consensus : Data.d -> (a, b) Ptree.p_tree Sexpr.t -> string
-        option -> float option -> bool -> unit
+        val output_consensus :
+            Data.d -> (a, b) Ptree.p_tree Sexpr.t ->
+                string option -> float option -> bool -> unit
     end
 
 let get_transformations (`LocalOptimum (l_opt)) = 
@@ -177,11 +173,6 @@ module MakeNormal
 
     type a = Node.n
     type b = Edge.e
-
-
-    let debug_forest = false
-    let trace_forest = true
-    (** Whether to output forest search actions to the output log (top window) *)
 
     let odebug = Status.user_message Status.Information
 
@@ -796,39 +787,36 @@ let forest_search data queue origin_cost search trees =
     trees
 
     (** [fusing trees params] performs tree fusing with the given parameters *)
-    let fusing data queue trees 
-            (iterations, max_trees, weighting, keep_method, local_optimum, (min,
-                                                                            max)) =
+    let fusing data queue trees
+        (iterations, max_trees, weighting, keep_method, local_optimum, (min,max)) =
         (* default max_trees to number of trees *)
         let max_trees = match max_trees with
-        | Some m -> m
-        | None -> Sexpr.cardinal trees in
+            | Some m -> m
+            | None -> Sexpr.cardinal trees
+        in
         (* default iterations to....... 4 * max_trees ?? *)
         let iterations = match iterations with
-        | Some i -> i
-        | None -> max_trees * 4 in
-
+            | Some i -> i
+            | None -> max_trees * 4
+        in
         Sadman.start "tree-fusing"
             [("iterations", string_of_int iterations);
-             ("max_trees", string_of_int max_trees);
-            ];
-
+             ("max_trees", string_of_int max_trees); ];
         let weighting = match weighting with
-        | `Uniform -> (fun _ -> 1.)
+            | `Uniform -> (fun _ -> 1.)
         in
         let keep_method = `Best in
         let max_code, cntr = 
-            All_sets.IntegerMap.fold (fun code _ (acc, cnt) -> 
-                Pervasives.max code acc, cnt + 1)
-            data.Data.taxon_codes (0, 0)
+            All_sets.IntegerMap.fold
+                (fun code _ (acc, cnt) -> 
+                    Pervasives.max code acc, cnt + 1)
+                data.Data.taxon_codes
+                (0, 0)
         in
-        (* TODO: take only best of these *)
         let process t =
-            Sexpr.to_list (find_local_optimum data
-                                              queue
-                                              (Sexpr.singleton t) 
-                                              (sets_of_consensus trees)
-                                              local_optimum)
+            Sexpr.to_list
+                (find_local_optimum data queue (Sexpr.singleton t)
+                                    (sets_of_consensus trees) local_optimum)
         in
         let tree_list_with_nodes_managers =
             List.map
@@ -856,40 +844,37 @@ let forest_search data queue origin_cost search trees =
         let majority, majority_text = 
             match v with
             | None -> ntrees, "Strict"
+            | Some v when v > 100.0 -> 
+                Status.user_message Status.Error 
+                    ("You@ have@ requested@ a@ consensus@ with@ majority@ "
+                    ^"rule@ of@ more@ than@ 100@ percent,@ I@ don't@ see@ how@ "
+                    ^"to@ do@ that.");
+                failwith "Illegal Consensus Parameter";
+            | Some v when v <= 50.0 -> 
+                Status.user_message Status.Error 
+                    ("You@ have@ requested@ a@ consensus@ with@ majority@ rule"
+                    ^"@ less@ than@ or@ equal@ to@ 50@ percent;@ I@ can@ not@ "
+                    ^"do@ that@ because@ that@ percentage@ is@ not@ a@ "
+                    ^"majority!.@ Either@ you@ made@ a@ typo@ or@ you@ should@ "
+                    ^"reconsider@ your@ parameter@ selection.");
+                failwith "Illegal Consensus Parameter";
             | Some v -> 
-                    if v > 100.0 then begin
-                        Status.user_message Status.Error 
-                        ("You@ have@ requested@ a@ consensus@ " ^
-                        "with@ majority@ rule@ of@ more@ than@ " ^
-                        "100@ percent,@ I@ don't@ see@ how@ to@ " ^
-                        "do@ that.");
-                        failwith "Illegal Consensus Parameter"
-                    end else if v <= 50.0 then begin
-                        Status.user_message Status.Error 
-                        ("You@ have@ requested@ a@ consensus@ " ^
-                        "with@ majority@ rule@ less@ than@ or@ equal@ to" ^
-                        "50@ percent;@ I@ can@ not@ do@ that@ because@ " ^
-                        "that@ percentage@ is@ not@ a@ majority!.@ " ^
-                        "Either@ you@ made@ a@ typo@ " ^
-                        "or@ you@ should@ reconsider@ your@ " ^
-                        "parameter@ selection.");
-                        failwith "Illegal Consensus Parameter";
-                    end else 
-                        int_of_float 
-                        (ceil ((v *. (float_of_int ntrees) /.
-                        100.0))), ((string_of_float v) ^ " percent")
+                int_of_float (ceil ((v *. (float_of_int ntrees) /.  100.0))),
+                ((string_of_float v) ^ " percent")
         in
         let lst_trees = Sexpr.to_list trees in
         let rooting_leaf, tree = 
             match data.Data.root_at with
             | Some v -> 
-                    (match lst_trees with
+                begin match lst_trees with
                     | hd :: _ -> v, hd
-                    | _ -> failwith "No trees in memory")
-            | None -> 
-                    match lst_trees with
+                    | _ -> failwith "No trees in memory"
+                end
+            | None ->
+                begin match lst_trees with
                     | hd :: _ -> Ptree.choose_leaf hd, hd
                     | _ -> failwith "No trees in memory"
+                end
         in
         let res = Ptree.consensus PtreeSearch.collapse_as_needed (fun code ->
             Data.code_taxon code data) majority 

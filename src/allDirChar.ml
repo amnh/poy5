@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2754 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2758 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -1632,11 +1632,14 @@ module F : Ptree.Tree_Operations
                     do_branches, node_man#branches, node_man#model
                 | None -> true,None,true
             in
-            let n_tree = adjust_ do_model do_branches branches None tree in
-            if debug_model_fn then
-                info_user_message "Optimized Likelihood Params: %f to %f"
-                    (Ptree.get_cost `Adjusted tree) (Ptree.get_cost `Adjusted n_tree);
-            n_tree
+            if (not do_branches) && (not do_model) then
+                tree
+            else
+                let n_tree = adjust_ do_model do_branches branches None tree in
+                if debug_model_fn then
+                    info_user_message "Optimized Likelihood Params: %f to %f"
+                        (Ptree.get_cost `Adjusted tree) (Ptree.get_cost `Adjusted n_tree);
+                n_tree
         in
         tree
 
@@ -1978,7 +1981,6 @@ module F : Ptree.Tree_Operations
         let d = clear_internals true d in
         let (ptree, tdel) = match !Methods.cost with
             | `Normal ->
-                if debug_join_fn then Printf.printf "join_fn, Normal,%!";
                 let tree,delta =join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 tree, delta
@@ -1995,7 +1997,6 @@ module F : Ptree.Tree_Operations
             | `Normal_plus_Vitamines
             | `Exhaustive_Weak
             | `Exhaustive_Strong ->
-                if debug_join_fn then Printf.printf "join_fn, Exhaustive_WeakorStrong,%!";
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 uppass tree, delta
@@ -2003,8 +2004,7 @@ module F : Ptree.Tree_Operations
         let ptree = model_fn n_mgr ptree in
         if debug_join_fn then
             info_user_message "Joined with cost: %f (%f)" 
-                    (Ptree.get_cost `Adjusted ptree)
-                    (Ptree.get_cost `Unadjusted ptree);
+                    (Ptree.get_cost `Adjusted ptree) (Ptree.get_cost `Unadjusted ptree);
         (ptree,tdel)
 
 
