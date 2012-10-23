@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2717 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2747 $"
 
 let eager        = false
 let uppass_debug = false
@@ -96,8 +96,8 @@ let print_node_data ndata print_unadjusted=
         | Some nodedir ->
             let dir = nodedir.dir in
             let () = match dir with 
-                | Some (x,y) -> Printf.printf "dir=(%d,%d),%!" x y
-                | None -> Printf.printf "no dir,%!"
+                | Some (x,y) -> Printf.printf "dir=(%d,%d)\n%!" x y
+                | None -> Printf.printf "no dir\n%!"
             in
             let anode = nodedir.lazy_node in
             Node.print (force_val anode);
@@ -402,11 +402,16 @@ module OneDirF :
     let root_cost a = 
         Node.Standard.root_cost (force_val a)
 
-    let extra_cost_from_root a =
-        Node.extra_cost_from_root (force_val a)
+    let extra_cost_from_root a treecost =
+        Node.extra_cost_from_root (force_val a) treecost
 
-    let tree_cost a b =
-        (total_cost a b) +. (root_cost b)
+    let tree_cost a b = 
+        let debug = false in
+        let tc = (total_cost a b) +. (root_cost b) in
+        let ec = extra_cost_from_root b tc in
+        if debug then Printf.printf "OneDirF.tree_cost, %f-%f=%f\n%!"
+        tc ec (tc -. ec);
+        tc -. ec
 
     let to_single root a b c d set =
         let root' = force_opt root
@@ -1176,12 +1181,14 @@ struct
         | None   -> assert( using_static_likelihood a ); 0.0
         | Some x -> OneDirF.root_cost x.lazy_node
 
-    let extra_cost_from_root a = match a.adjusted with
+    let extra_cost_from_root a treecost = match a.adjusted with
         | None -> assert( using_static_likelihood a ); 0.0
-        | Some x ->  OneDirF.extra_cost_from_root x.lazy_node
+        | Some x ->  OneDirF.extra_cost_from_root x.lazy_node treecost
     
     let tree_cost a b = 
-        (total_cost a b) +. (root_cost b)
+        let tc = (total_cost a b) +. (root_cost b) in
+        let ec = extra_cost_from_root b tc in
+        tc -. ec
 
 end
 

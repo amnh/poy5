@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 2708 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 2747 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -220,7 +220,8 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          let root_prelim = Node.Standard.median None None mydata otherdata in
                          virt_root := Some (`Edge (selfid, otherid), root_prelim);
                          let tree_cost = Node.Standard.tree_cost None root_prelim in
-                         let extra_cost = Node.extra_cost_from_root root_prelim in
+                         let extra_cost = Node.extra_cost_from_root root_prelim
+                         tree_cost in
                          if debug_uppass_which_handle then odebug "uppass: handle is leaf";
                          if debug_diagnosis then
                              info_user_message "Final States Leaf: %d, %d" selfid otherid;
@@ -249,7 +250,6 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          if debug_uppass_which_handle then odebug "uppass: handle is internal";
                          let root_prelim = Node.Standard.median None None mydata pardata in
                          let tree_cost = Node.Standard.tree_cost None root_prelim in
-                         let extra_cost = Node.extra_cost_from_root root_prelim in
                          virt_root := Some (`Edge (nid, ch1id), root_prelim);
                          if debug_diagnosis then
                              info_user_message "Final States Node: %d -(%d,%d,%d)" nid ch1id ch2id ch3id;
@@ -258,7 +258,7 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          in
                          let ptree = Ptree.add_node_data nid median3 ptree in
                          let ptree = Ptree.assign_root_to_connected_component 
-                                            self_id !virt_root (tree_cost -. extra_cost) None ptree
+                                            self_id !virt_root (tree_cost) None ptree
                          in
                          (Tree.Continue, ptree)
                      end
@@ -459,22 +459,20 @@ let calculate_root ptree node_id neighbor =
           if Ptree.is_handle node_id ptree then
               (let root_median = Some (`Edge (node_id, neighbor), median) in
                let cost = Node.Standard.tree_cost None median in
-               let extracost = Node.extra_cost_from_root median in
                if debug then 
-                   Printf.printf "node#.%d is handle,cost of this root is %f,%f-%f\n%!"
-                       node_id median.Node.total_cost cost extracost;
+                   Printf.printf "node#.%d is handle,cost of this root is %f,%f\n%!"
+                       node_id median.Node.total_cost cost;
                Ptree.assign_root_to_connected_component node_id root_median
-                   (cost -. extracost) None ptree)
+                   (cost) None ptree)
           else if Ptree.is_handle neighbor ptree then
               (
                let root_median = Some (`Edge (neighbor, node_id), median) in
                let cost = Node.Standard.tree_cost None median in
-               let extracost = Node.extra_cost_from_root median in
                if debug then 
-                   Printf.printf "neighbor node#.%d is handle,cost of this root is %f,%f-%f\n%!"
-                       neighbor median.Node.total_cost cost extracost;
+                   Printf.printf "neighbor node#.%d is handle,cost of this root is %f,%f\n%!"
+                       neighbor median.Node.total_cost cost;
                Ptree.assign_root_to_connected_component neighbor root_median
-                    (cost -. extracost) None ptree)
+                    (cost) None ptree)
           else failwith "Chartree.calculate_root 1"
     | median, Some _ -> 
             (* As downpass_step received a None as node_id data, we don't expect
@@ -864,15 +862,14 @@ let incremental_uppass a b =
 let set_clade_root ptree clade_node new_clade_handle =
     let handle = Tree.int_of_id new_clade_handle 
     and cost = Node.Standard.tree_cost None clade_node in
-    let extracost = Node.extra_cost_from_root clade_node in
     match Tree.get_node handle ptree.Ptree.tree with
     | Tree.Leaf (_, neigh)
     | Tree.Interior (_, neigh, _, _) ->
             Ptree.assign_root_to_connected_component handle 
-            (Some (`Edge (handle, neigh), clade_node)) (cost -.extracost) None ptree
+            (Some (`Edge (handle, neigh), clade_node)) (cost) None ptree
     | Tree.Single _->
             Ptree.assign_root_to_connected_component handle None
-            (cost -. extracost) None ptree
+            (cost) None ptree
 
 let update_tree_data_break doup delta ptree =
     if debug_joinfn then Printf.printf "update tree data break, do uppass after downpass?%b,%!" doup;
@@ -905,10 +902,9 @@ let update_tree_data_break doup delta ptree =
             assert (Tree.is_handle nid ptree.Ptree.tree);
             let data = Ptree.get_node_data nid ptree in
             let cost = Node.Standard.tree_cost None data in
-            let extracost = Node.extra_cost_from_root data in
             let data = Node.Standard.fix_preliminary data in
             let item = Some ((`Single nid), data) in
-            Ptree.assign_root_to_connected_component nid item (cost-.extracost) None ptree, []
+            Ptree.assign_root_to_connected_component nid item (cost) None ptree, []
 
 let update_tree_data_break (tree_delta, clade_delta) ptree =
     let ptree, _ = update_tree_data_break true tree_delta ptree in
