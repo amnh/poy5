@@ -115,6 +115,7 @@ let create_set_data_pairs (fo : string -> unit) data code_char_pairs =
                             | Data.NexusFile spec ->
                                 begin match spec.Nexus.File.st_type with
                                     | Nexus.File.STLikelihood m -> (setname,charset,Some m)
+                                    | Nexus.File.STNCM _
                                     | Nexus.File.STOrdered
                                     | Nexus.File.STUnordered
                                     | Nexus.File.STSankoff _ -> (setname,charset,None)
@@ -431,6 +432,7 @@ let output_character_types fo output_format resolve_a data all_of_static =
         (x : (([`Pair of (int * int) | `Single of int]) * Nexus.File.st_type) option) = 
         match x with
         | None -> ""
+        | Some (range, Nexus.File.STNCM _)
         | Some (range, Nexus.File.STLikelihood _)
         | Some (range, Nexus.File.STUnordered) ->
                 if output_format = `Hennig then begin

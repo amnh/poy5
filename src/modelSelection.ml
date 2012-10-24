@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2735 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2749 $"
 
 let ndebug = true
 
@@ -410,7 +410,7 @@ struct
     (** [report_stats] currently a debug function for reporting information *)
     let report_stats stats chars : string array array =
         let ic_name = match stats.type_ic with 
-             | `AIC -> "AIC" | `AICC -> "AICC" | `BIC -> "BIC"
+             | `AIC -> "AIC" | `AICC -> "AICc" | `BIC -> "BIC"
         in
         let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
         let () =
@@ -441,6 +441,7 @@ struct
             | `AIC  _ -> `AIC
             | `AICC _ -> `AICC
             | `BIC  _ -> `BIC
+            | #Methods.ml_meta         -> assert false
             | #Methods.ml_substitution -> assert false
         in
         let model,dmodels = select_models tree spec in

@@ -557,8 +557,9 @@ val process_analyze_only_characters_file : bool -> bool -> d -> FileStream.f lis
 
 val process_rename_characters : d -> (string * string) -> d
 
-val assign_transformation_gaps :
-    d -> bool_characters -> int -> int -> d
+val assign_transformation_gaps : d -> bool_characters -> int -> int -> d
+
+val assign_ncm_weights_to_chars : d -> bool_characters -> Methods.ml_gap -> d
 
 val assign_level : d -> bool_characters -> Methods.keep_method -> int -> d 
     
@@ -722,16 +723,17 @@ val apply_boolean :
 val get_model : int -> d -> MlModel.model
 val get_model_opt : d -> int -> MlModel.model option
 
-(** [min_max_possible_cost a b c d e] applies the functions [a], [b] and [c] in
- * the ordered, unordered, and sankoff characters respectively listed in [d], 
+(** [min_max_possible_cost a b c d e f] applies the functions [a], [b] and [c]
+ * in the ordered, unordered, and sankoff characters respectively listed in [d], 
  * of all the terminals stored in [e], and returns the result per character in a
  * list of tuples holding the character code and the result. *)
 val apply_on_static :
-    (Nexus.File.static_state list -> float) -> (Nexus.File.static_state list -> 
-        float) -> 
-        (int array array -> Nexus.File.static_state list -> float) -> 
-            (MlModel.model -> Nexus.File.static_state list -> float) -> bool_characters ->
-            d -> (int * float) list
+    (Nexus.File.static_state list -> float) -> 
+    (Nexus.File.static_state list -> float) -> 
+    (int array array -> Nexus.File.static_state list -> float) -> 
+    (MlModel.model -> Nexus.File.static_state list -> float) ->
+    (Nexus.File.static_state list -> float) ->
+        bool_characters -> d -> (int * float) list
 
 val repack_codes : d -> d
 

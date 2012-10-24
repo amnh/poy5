@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2746 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2749 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1034,6 +1034,18 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 Status.user_message Status.Information "No characters have been transformed";
                 data,nodes
             END
+        | `UseLikelihood (chars,_,_,#Methods.ml_meta,_,_,ml_gap) ->
+                let m = "No@ Common@ Mechanism@ does@ not@ use@ rates,@ "^
+                        "priors,@ or@ cost@ arguments@ in@ the@ likelihood@ "^
+                        "command.@ I@ will@ ignore@ them,@ if@ included."
+                in
+                Status.user_message Status.Warning m;
+                (* define a transformation cost matrix : (1,1) *)
+                let gaps = 1 and trans = 1 in
+                let d = Data.assign_transformation_gaps data chars trans gaps in
+                let d = Data.assign_ncm_weights_to_chars d chars ml_gap in
+                d --> Data.categorize
+                  --> Node.load_data
         | `UseLikelihood (_,_,_,#Methods.ml_optimization,_,_,_) ->
             IFDEF USE_LIKELIHOOD THEN
                 Status.user_message Status.Warning
@@ -1049,7 +1061,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     " or contact support on the mailing list");
                     data,nodes
             END
-        | `UseLikelihood x ->
+        | `UseLikelihood ((_,_,_,#Methods.ml_substitution,_,_,_) as x) ->
             IFDEF USE_LIKELIHOOD THEN
                 Node.load_data (Data.set_likelihood data x)
             ELSE
@@ -1108,54 +1120,41 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 end
         | (`ReWeight _)
         | (`WeightFactor _) as m ->
-                data
-                --> Data.transform_weight m 
-                --> Data.categorize 
-                --> Node.load_data 
+                data --> Data.transform_weight m 
+                     --> Data.categorize 
+                     --> Node.load_data 
         | `Assign_Prep_Cost (filit, chars) ->
-                filit
-                --> Data.assign_prepend data chars
-                --> Data.categorize
-                --> Node.load_data 
+                filit --> Data.assign_prepend data chars
+                      --> Data.categorize
+                      --> Node.load_data 
         | `Assign_Tail_Cost (filit, chars) ->
-                filit
-                --> Data.assign_tail data chars
-                --> Data.categorize
-                --> Node.load_data 
+                filit --> Data.assign_tail data chars
+                      --> Data.categorize
+                      --> Node.load_data 
         | `Assign_Transformation_Cost_Matrix (file, chars) ->
-                file 
-                --> Data.assign_tcm_to_characters_from_file data chars 
-                --> Data.categorize 
-                --> Node.load_data 
+                file --> Data.assign_tcm_to_characters_from_file data chars 
+                     --> Data.categorize 
+                     --> Node.load_data 
         | `Assign_Affine_Gap_Cost (cost, chars) ->
-                let c = 
-                    if cost < 1 then (Cost_matrix.Linnear) 
-                    else (Cost_matrix.Affine cost)
-                in
-                c
-                --> Data.assign_affine_gap_cost data chars
-                --> Data.categorize
-                --> Node.load_data 
+                let c = if cost < 1 then (Cost_matrix.Linnear) 
+                                    else (Cost_matrix.Affine cost) in
+                c --> Data.assign_affine_gap_cost data chars
+                  --> Data.categorize
+                  --> Node.load_data 
         | `Assign_Level (level, tie_breaker, chars) ->
-                level
-                --> Data.assign_level data chars tie_breaker
-                --> Data.categorize
-                --> Node.load_data
+                level --> Data.assign_level data chars tie_breaker
+                      --> Data.categorize
+                      --> Node.load_data
         | `Create_Transformation_Cost_Matrix (trans, gaps, chars) ->
-                gaps 
-                --> Data.assign_transformation_gaps data chars trans 
-                --> Data.categorize 
-                --> Node.load_data 
+                gaps --> Data.assign_transformation_gaps data chars trans 
+                     --> Data.categorize 
+                     --> Node.load_data 
         | `Prioritize ->
-                let new_nodes = 
-                    trees 
-                    --> Sexpr.first 
-                    --> prioritize
-                in
+                let new_nodes = trees --> Sexpr.first --> prioritize in
                 data,
                 List.map 
-                (fun x -> Ptree.get_node_data (Node.taxon_code x) new_nodes) 
-                nodes
+                    (fun x -> Ptree.get_node_data (Node.taxon_code x) new_nodes) 
+                    nodes
         | `Search_Based (file,chars) ->
                 file 
                 --> Data.add_search_base_from_file data chars 
@@ -1245,14 +1244,18 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     css
         in
         match meth with
-            (** The ML_OPTIMIZAION Routines (AIC,AICC,BIC...) *)
+        | `EstLikelihood (_,_,_,#Methods.ml_meta,_,_,_) ->
+            (* This is over-ridden in the process_likelihood_commands in
+               poyCommands. This is because we apply the same to each tree. *)
+            assert false
+
         | `EstLikelihood ((chars,a,b,(#Methods.ml_optimization as c),d,e,f) as x) ->
             if Sexpr.is_empty trees then begin
                 let m = "Model@ Selection@ under@ likelihood@ requires@ a@ "^
                         "tree@ in@ memory.@ I@ will@ skip@ the@ transform@ "^
                         "entirely@ and@ leave@ the@ data@ as@ is.@ Please@ "^
-                        "build@ or@ load@ trees@ before@ transforming@ to@ a@ "^
-                        "model@ selection@ criteria."
+                        "build@ or@ load@ trees@ before@ transforming@ to@ "^
+                        "a@ model@ selection@ criteria."
                 in
                 Status.user_message Status.Error m;
                 trees, data, nodes
@@ -1264,7 +1267,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         | `BIC  file -> file
                     in
                     let table_out = Status.output_table (Status.Output (file,false,[])) in
-                    Sexpr.fold_left
+                    Sexpr.fold_status
+                        "Running model estimation on each tree"
+                        ~eta:true
                         (fun tsexp t ->
                             let stats = MS.generate_stats t x in
                             let ()    = table_out (MS.report_stats stats chars) in
@@ -1273,9 +1278,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         `Empty
                         trees
                 in
+                (** Load global data to the best tree by using its data. *)
                 let data, nodes =
-                    (** Load global data to the best tree if we are analyzing
-                        multiple trees. *)
                     let best_tree =
                         Sexpr.fold_left
                             (fun acc nex ->
