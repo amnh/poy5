@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2754 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2759 $"
 
 
 exception Illegal_Cm_Format;;
@@ -830,11 +830,12 @@ module Two_D = struct
             done;
         done
 
-    let fill_best_cost_and_median_for_some_combinations m a_sz level all_elements =
+    let fill_best_cost_and_median_for_some_combinations ?(create_original=false) m a_sz level all_elements =
         let debug = false and debug2 = false in
         let gapcode = gap m in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
+        let ori_size = get_ori_a_sz m in
         let numerator = Utl.p_m_n (a_sz-1) (level-1) in
         let denominator = Utl.factorial (level-1) in
         let comb_withgap = (numerator / denominator) in
@@ -847,35 +848,38 @@ module Two_D = struct
         let cleanup = cleanup m in
         if debug then
             Printf.printf "fill cm for some combinations: gapcode=%d,num_of_comb =%d,\
-        combwithgap = %d,all_elements=%d a_sz=%d\n%!" gapcode num_of_comb comb_withgap
-        all_elements a_sz;
+        combwithgap = %d,all_elements=%d a_sz=%d, create_original =%b\n%!" gapcode num_of_comb comb_withgap
+        all_elements a_sz create_original ;
         let _  = build_maps_comb_and_codelist m a_sz level all_elements in 
         for i = 1 to num_of_comb do
             let keylist = [i] in
             let li = combcode_to_comblist i m in
             for j = 1 to num_of_comb do 
                 if i<>all_elements && j<>all_elements then begin
-                    let best = ref 0
-                    and cost = ref max_int 
-                    and worst = ref 0 in
-                    let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
-                    let lj = combcode_to_comblist j m in
-                    test_combinations_by_level li lj a_sz m best cost worst
-                    comb_withgap num_of_comb level all_elements;
-                    let _ = 
-                        match li, lj with
-                        | [_], [_] ->
-                                let comb_i_j = comblist_to_combcode keylist m in
-                                if debug2 then Printf.printf  "median.%d.%d <- %d(cost=%d);\n%!" i j (comb_i_j) !cost;
-                                set_cost i j m !cost;
-                                set_median i j m ( comb_i_j );
-                        | _, _ ->
-                                if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
-                                i j !cost !best;
-                                set_cost (i) (j) m !cost;
-                                set_median (i) (j) m (cleanup !best);
-                    in
-                    set_worst (i) (j) m !worst;
+                    if create_original && i<=ori_size && j<=ori_size then ()
+                    else begin
+                        let best = ref 0
+                        and cost = ref max_int 
+                        and worst = ref 0 in
+                        let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
+                        let lj = combcode_to_comblist j m in
+                        test_combinations_by_level li lj a_sz m best cost worst
+                        comb_withgap num_of_comb level all_elements;
+                        let _ = 
+                            match li, lj with
+                            | [_], [_] ->
+                                    let comb_i_j = comblist_to_combcode keylist m in
+                                    if debug2 then Printf.printf  "median.%d.%d <- %d(cost=%d);\n%!" i j (comb_i_j) !cost;
+                                    set_cost i j m !cost;
+                                    set_median i j m ( comb_i_j );
+                            | _, _ ->
+                                    if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
+                                    i j !cost !best;
+                                    set_cost (i) (j) m !cost;
+                                    set_median (i) (j) m (cleanup !best);
+                        in
+                        set_worst (i) (j) m !worst;
+                    end;
                 end;(*end of if i<>all_elements && j<>all_elements*)
             done;
         done;
@@ -1210,7 +1214,8 @@ module Two_D = struct
             else
                 let () = Status.user_message Status.Warning "You@ are@ loading@ a@ non-metric@ TCM" in
                 if uselevel then
-                    fill_best_cost_and_median_for_some_combinations m a_sz level all_elements
+                    fill_best_cost_and_median_for_some_combinations ~create_original:create_original 
+                    m a_sz level all_elements
                 else
                     fill_best_cost_and_median_for_all_combinations_bitwise
                     ~create_original:create_original m a_sz

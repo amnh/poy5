@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2754 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2759 $"
 
 let debug = false
 let debug_distance = false
@@ -812,7 +812,12 @@ module DOS = struct
         let empty1 = Sequence.is_empty ch1.sequence gap 
         and empty2 = Sequence.is_empty ch2.sequence gap 
         and emptypar = Sequence.is_empty parent.sequence gap in
-        if debug then Printf.printf "DOS.readjust_custom_alphabet\n%!";
+        if debug then begin
+            Printf.printf "DOS.readjust_custom_alphabet start,ch1,ch2 and par=\n%!";
+            Sequence.printseqcode ch1.sequence;
+            Sequence.printseqcode ch2.sequence;
+            Sequence.printseqcode parent.sequence;
+        end;
         let oldcost3 = int_of_float mine.costs.cost3
         and oldcost2 = int_of_float mine.costs.cost2
         and oldsumcost = int_of_float mine.costs.sum_cost in
@@ -855,10 +860,7 @@ module DOS = struct
                 else false
             in
             if debug then 
-                Printf.printf "DOS.readjust_custom_alphabet,\
-                cost3=%d(old:%d), sumcost=%d(old:%d) \ 
-                anything_changed : %b\n%!" 
-                newcost3 oldcost3 newsumcost oldsumcost anything_changed;                  
+                Printf.printf "DOS.readjust_custom_alphabet,cost3=%d(old:%d), sumcost=%d(old:%d), anything_changed : %b\n%!" newcost3 oldcost3 newsumcost oldsumcost anything_changed;                  
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
             (*return changed:bool,new mine, newcost3, newcost2 and new sum cost*)
             anything_changed, 
@@ -869,23 +871,29 @@ module DOS = struct
             newcost2, 
             newsumcost
         | true, true, _ -> 
+                if debug then Printf.printf "empty ch1 and ch2, return ch1 and cost=0\n%!";
                 (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
                  ch1.sequence mine.sequence),ch1, 0, 0, sumcost_ch12
         | true, _, true -> 
+                if debug then Printf.printf "empty ch1 and par, return ch1 and cost=0\n%!";
                 (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
                 ch1.sequence mine.sequence),
                 ch1, 0, 0, sumcost_ch12
         | _, true, true -> 
+                if debug then Printf.printf "empty ch2 and par, return par and cost=0\n%!";
                 (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
                 ch1.sequence mine.sequence),
                 ch2, 0, 0, sumcost_ch12
         | false, false, true ->
+                if debug then Printf.printf "empty par, algn ch1&ch2\n%!";
                 readjust_algn_two_child ch1.sequence ch2.sequence h.c2_full
                 sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
         | false, true, false ->
+                if debug then Printf.printf "empty ch2, algn ch1&par\n%!";
                 readjust_algn_two_child ch1.sequence parent.sequence h.c2_full
                 sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
         | _, false, false ->
+                if debug then Printf.printf "empty ch1, algn ch2&par\n%!";
                 readjust_algn_two_child ch2.sequence parent.sequence h.c2_full
                 sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
 
@@ -1039,10 +1047,16 @@ module DOS = struct
 
     (*[median] alignment function under module DOS*)
     let median alph code h a b use_ukk =
-        let debug = false in
+        let debug = false and debug2 = false in
         let is_identity = Cost_matrix.Two_D.is_identity h.c2_original in
-        if debug then Printf.printf "seqCS.DOS.median,use_ukk=%b,len1:%d,len2:%d\n%!" 
-        use_ukk (Sequence.length a.sequence) (Sequence.length b.sequence); 
+        if debug then begin
+            Printf.printf "seqCS.DOS.median,use_ukk=%b,len1:%d,len2:%d\n%!" 
+            use_ukk (Sequence.length a.sequence) (Sequence.length b.sequence);
+            if debug2 then begin
+                Sequence.printseqcode a.sequence;
+                Sequence.printseqcode b.sequence;
+            end;
+        end;
         let gap = Cost_matrix.Two_D.gap h.c2_full in
         let uselevel = Cost_matrix.Two_D.check_level h.c2_full in 
         if Sequence.is_empty a.sequence gap then begin
@@ -1186,14 +1200,15 @@ module DOS = struct
                 let print_seqlist seq = 
                     (*Sequence.print stdout seq Alphabet.nucleotides;*)
                     Sequence.printseqcode seq;
-                    print_newline();
                 in
-                Printf.printf "costs = (cost2:%f,cost3:%f), seq a,b,alieda,aliedb= \n%!" rescost.cost2 rescost.cost3; 
-                print_seqlist a.sequence; print_seqlist b.sequence;
-                print_seqlist tmpa; print_seqlist tmpb;
-                Printf.printf "seqm: %!"; print_seqlist seqm;
-                Printf.printf "seqm with gap: %!"; print_seqlist seqmwg;
-                Printf.printf "call seq_to_bitset on these if they are bitwised, then return them.\n%!";
+                Printf.printf "return costs = (cost2:%f,cost3:%f) \n%!" rescost.cost2 rescost.cost3; 
+                if debug2 then begin
+                    Printf.printf "alieda,aliedb:\n%!";
+                    print_seqlist tmpa; print_seqlist tmpb;
+                    Printf.printf "seqm: %!"; print_seqlist seqm;
+                    Printf.printf "seqm with gap: %!"; print_seqlist seqmwg;
+                    Printf.printf "call seq_to_bitset on these if they are bitwised, then return them.\n%!";
+                end;
             end;
             let ba,bb,bm = 
                 if uselevel then (Raw tmpa), (Raw tmpb), (Raw seqm)
