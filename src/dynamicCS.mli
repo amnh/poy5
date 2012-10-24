@@ -215,9 +215,10 @@ val final_states :
 val median_3 : t -> t -> t -> t -> t
 
 
-(** [get_extra_cost_for_root root oldcost] return the extra cost due to non-zero
-* diagonal*)
-val get_extra_cost_for_root : t -> float
+(** [cost_for_root root ] return distance between two algned children of
+* the root. due to non-zero diagonal this might be different from alignment cost
+* of the two children.*)
+val extra_cost_for_root : t -> float 
 
 
 (* Like [distance] but calculates it only 

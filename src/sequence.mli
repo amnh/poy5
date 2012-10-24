@@ -371,7 +371,7 @@ module Align : sig
     * like a function return the cost of two alied
     * sequence a and b with costmatrix cm. works for datatype with combination through
     * bitwise(like dna), or those without combination , like old aminoacid*)
-    val recost : s -> s -> Cost_matrix.Two_D.m -> int
+    val recost : ?first_gap:bool -> s -> s -> Cost_matrix.Two_D.m -> int
 
     (** [align_3_powell a b c m o e] generates a quadruple [(a', b', c', ed)]
      * where [a'], [b'], and [c'], are the edited sequences of [a], [b], and [c]

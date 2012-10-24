@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2684 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2754 $"
 
 
 exception Illegal_Cm_Format;;
@@ -83,9 +83,11 @@ module Two_D = struct
     external set_median : 
         int -> int -> m -> int -> unit = "cm_CAML_set_median"
     external set_metric : m -> unit = "cm_CAML_set_is_metric"
+    external set_identity : m -> unit = "cm_CAML_set_is_identity"
     external c_get_is_metric : m -> int = "cm_CAML_get_is_metric"
-    let is_metric m =
-        1 = c_get_is_metric m
+    external c_get_is_identity : m -> int = "cm_CAML_get_is_identity"
+    let is_metric m =    1 = c_get_is_metric m
+    let is_identity m =    1 = c_get_is_identity m
     external set_prepend : int -> int -> m -> unit = "cm_CAML_set_prepend"
     external set_tail : int -> int -> m -> unit = "cm_CAML_set_tail"
     external get_tail : int -> m -> int = "cm_CAML_get_tail"
@@ -1113,7 +1115,8 @@ module Two_D = struct
         else Printf.printf " not symmetric \n%!";
         !res
 
-    let is_identity l =
+    (*print warning msg if there is cost between same states*)
+    let input_is_identity l =
         let h = Array.length l 
         and res = ref true in
         for i = 0 to h - 1 do
@@ -1141,12 +1144,10 @@ module Two_D = struct
 
     let input_is_metric l w = 
         let arr = list_to_matrix l w in
-        let res =
-            is_positive arr && 
-            is_symmetric arr && 
-            (*is_triangle_inequality arr &&*)
-            is_identity arr
-        in
+        let ispos = is_positive arr
+        and issym = is_symmetric arr 
+        and iside = input_is_identity arr in
+        let res = ispos && issym && iside  in
         if (res) then ()
         else
            begin
@@ -1158,7 +1159,7 @@ module Two_D = struct
                  print_newline();
                done;
            end;
-        res 
+        res, iside
 
     let fill_cost_matrix ?(create_original=false) ?(tie_breaker=`First) ?(use_comb=true) ?(level = 0) ?(suppress=false) 
                             l a_sz all_elements =
@@ -1193,12 +1194,14 @@ module Two_D = struct
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
                    use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
         in
-        let (uselevel:bool) = if level>1 then true  else false  in
+        let (uselevel:bool) = if level>1 then true else false  in
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
         if debug then
             Printf.printf "uselevel=%b,call fill_best_cost_and_median_XXX \n%!" uselevel;
-        if use_comb then
-            if suppress || (input_is_metric l a_sz) then
+        let ismetric, iside = input_is_metric l a_sz in
+        if iside then set_identity m;
+        if use_comb then 
+            if suppress || ismetric then
                let () = set_metric m in
                 if uselevel then
                     fill_best_cost_and_median_for_some_combinations m a_sz level all_elements
@@ -1211,8 +1214,10 @@ module Two_D = struct
                 else
                     fill_best_cost_and_median_for_all_combinations_bitwise
                     ~create_original:create_original m a_sz
+        (*end of if use_comb*)
         else
             fill_medians m a_sz;
+        (*end of not if use_comb*)
         fill_default_prepend_tail m;
         m
 (*

@@ -20,7 +20,7 @@
 (** A annotated chromosome character set implementation. 
 * The annotated chromosome character set allows rearrangements *)
 
-let () = SadmanOutput.register "AnnchromCS" "$Revision: 2684 $"
+let () = SadmanOutput.register "AnnchromCS" "$Revision: 2754 $"
 
 let debug = false
 let debug_assign_single = false
@@ -173,6 +173,9 @@ let get_extra_cost_for_root (a :t) =
     let get_ec code medst acc =
         acc + Annchrom.get_extra_cost_for_root medst a.c2_original 
     in
+    let is_identity = Cost_matrix.Two_D.is_identity a.c2_original in
+    if is_identity then 0. (*0 diagonal in cost matrix*)
+    else (*non-0 diagonal in cost matrix*)
     float_of_int (IntMap.fold get_ec a.meds 0) 
 
 

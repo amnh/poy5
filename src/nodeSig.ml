@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "NodeSig" "$Revision: 2654 $"
+let () = SadmanOutput.register "NodeSig" "$Revision: 2747 $"
 
 type direction = Without of int | Median of (int * int)
 
@@ -93,7 +93,7 @@ module type S = sig
     * (total_cost b) +. (distance a b)]. *)
     val total_cost : int option -> n -> float
 
-    val extra_cost_from_root: n -> float
+    val extra_cost_from_root: n -> float -> float
 
     val tree_cost : int option -> n -> float
 

@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2749 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2760 $"
 
 let debug = false 
 
@@ -861,13 +861,14 @@ let rec transform_fuse ?(iterations=None) ?(keep=None) ?(replace=`Better)
 
 
 (* Perturbing *)
-let perturb_default_swap : Methods.local_optimum = `LocalOptimum swap_default 
-let perturb_default_iterations = 1
-let perturb_default_perturb = `Ratchet (0.25, 2)
-let perturb_transform = []
-let perturb_default = 
-    (perturb_transform, perturb_default_perturb, perturb_default_swap, 
-    perturb_default_iterations, None)
+let pert_def_swap : Methods.local_optimum = `LocalOptimum swap_default
+let pert_def_iter    = 1
+let pert_def_perturb = `Ratchet (0.25, 2)
+let pert_def_trans   = []
+let pert_def_time    = None
+let perturb_default  =
+    (pert_def_trans,pert_def_perturb,pert_def_swap,pert_def_iter,pert_def_time)
+
 let transform_perturb (tr, m, sw, it, timeout) = function
     | `TimeOut x -> (tr, m, sw, it, Some x)
     | `Transform x  ->
@@ -1914,7 +1915,7 @@ let create_expr () =
                 [ LIDENT "ratchet"; ":"; left_parenthesis; x = FLOAT; ","; y = INT; 
                     right_parenthesis -> `Ratchet (float_of_string x,
                     int_of_string y) ] |
-                [ LIDENT "ratchet" -> perturb_default_perturb ]
+                [ LIDENT "ratchet" -> pert_def_perturb ]
             ];
         resample:
             [

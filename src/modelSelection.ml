@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2749 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2760 $"
 
 let ndebug = true
 
@@ -416,10 +416,12 @@ struct
         let () =
             ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |]
         in
+        let warning = ref false in
         Array.fold_left
             (fun (i,w_cum) (({ic=(ic,d_ic,w_ic)}) as s) ->
                 let charn = Data.get_chars_codes_comp s.tree.Ptree.data chars in
                 let model = Data.get_likelihood_model s.tree.Ptree.data charn in
+                warning := !warning || (d_ic < (4.00 +. Numerical.tolerance));
                 let i_array = 
                     [| (MlModel.short_name model);  (string_of_float s.lk);
                        (string_of_int (parameter_cardinality s.tree chars));
@@ -432,6 +434,13 @@ struct
             (1,0.0)
             stats.tree_stats
             --> ignore;
+        if !warning then
+            warn_user_message
+               ("Multiple@ models@ show@ a@ high@ confidence@ (where@ the@ "^^
+                "delta@ is@ less@ than@ 4.00).@ It@ is@ suggested@ that@ these"^^
+                "@ alternate@ models@ also@ be@ considered@ if@ doing@ a@ "^^
+                "further@ analysis,@ though@ I@ have@ only@ selected@ the@ "^^
+                "best@ to@ stay@ in@ memory.");
         ret
 
     (** [generate_stats] Generates the stats of a tree based on a reporting

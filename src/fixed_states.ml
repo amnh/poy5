@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "Fixed_states" "$Revision: 2684 $"
+let () = SadmanOutput.register "Fixed_states" "$Revision: 2754 $"
 
 type elt = SankCS.elt (*cside*)
 type t = SankCS.t (*cside*)
@@ -92,8 +92,8 @@ let off_array fs taxon =
     let mycode = 1 in (*if we only have one charactor for each taxon, this works
         fine. what if we have more?*)
     let ecode_arr = [|Int32.of_int 1|] in(*we have only one elt in each t*)
-    let new_eltarr = SankCS.create_eltarr taxon mycode len ecode_arr [|states|] distbl 
-    in
+    let new_eltarr = SankCS.create_eltarr taxon mycode len ecode_arr [|states|]
+    distbl true in
     {
         states_and_distbl = new_eltarr;
         sequence_table = seqtbl; 

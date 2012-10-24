@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2734 $"
+let () = SadmanOutput.register "Node" "$Revision: 2754 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -388,11 +388,14 @@ let empty cost_mode = {
 let print nd = 
     Printf.printf "{ taxon_code = %d, total_cost = %f, node_cost = %f \n%!"
     nd.taxon_code nd.total_cost nd.node_cost;
+    let count = ref 0 in
     List.iter 
         (fun a_cs ->
+            count := !count + 1;
             match a_cs with
             | Dynamic a_dyn ->
-                Printf.printf "cost = %f, sum_cost = %f \n%!" a_dyn.cost a_dyn.sum_cost;
+                Printf.printf "character#.%d, cost = %f, sum_cost = %f \n%!" 
+                !count a_dyn.cost a_dyn.sum_cost;
                 print_endline "Preliminary state";
                 DynamicCS.print a_dyn.preliminary;
                 print_endline "Final state";
@@ -554,7 +557,7 @@ let cs_update_cost_only mine ch1 ch2 =
 
 (* calculate the median between two nodes *)
 let rec cs_median code anode bnode prev t1 t2 a b =
-   if debug_cs_median then Printf.printf "node.cs_median, on node %d and %d:\n%!"
+    if debug_cs_median then Printf.printf "node.cs_median, on node %d and %d:\n%!"
 	anode.taxon_code bnode.taxon_code;
     match a, b with
     | StaticMl ca, StaticMl cb ->
@@ -795,7 +798,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     time = times;
                 } 
             in
-            if debug_cs_median then Printf.printf "node.cs_median, dynamic, \
+            if debug_cs_median then Printf.printf "end of node.cs_median, dynamic, \
             weight=%f,cost=%f,sum_cost=%f\n%!" ca.weight total_cost sumcost;
             Dynamic res, sumcost
     | Kolmo ca, Kolmo cb ->
@@ -1868,7 +1871,8 @@ let not_to_single =
                         (all_characters_single) 
                         (has_to_single) )
 
-
+(**[distance_of_type] return the distance of two node : nodea and nodeb. it's
+* being called by [chekc_cost] of allDirChar.ml *)
 let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
     if debug_distance then
@@ -3429,7 +3433,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         { mine with characters = chars; }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
-    let debug = false and debug2 = false in
+    let debug = true and debug2 = true in
     if debug then 
         Printf.printf "\n Node.ml readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
         mine.taxon_code parent.taxon_code ch1.taxon_code ch2.taxon_code;
@@ -3504,8 +3508,6 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     in
                     modified := m;
                     let cost = mine.weight *. cost in
-                    (* we do this in the lower level med3 function
-                      let sumcost = c1.sum_cost +. c2.sum_cost +. cost in*)
                     let sumcost = mine.weight *. sumcost in
                     if debug2 then begin
                         Printf.printf " update mine with sum_cost\
@@ -4645,23 +4647,42 @@ let compare_downpass = compare_data_preliminary
 
 let set_node_cost a b = { b with node_cost = a }
 
-
-let extra_cost_from_root n =
+(*when we have non-zero diagonal, cost from aligning two children of the root will
+* be higher than distance of two aligned children of the root. this function
+    * return the difference between them.*)
+let extra_cost_from_root n treecost =
     let debug = false in
-    if debug then Printf.printf "node.ml extra cost from root,%!";
-    let extra_cost_cs acc item =
-         match item with 
-        | Sank x -> 
-                let ec = SankCS.get_extra_cost_for_root x.preliminary in
-                if debug then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
-                acc +. (float_of_int ec)
-        | Dynamic x ->
-                let ec = DynamicCS.get_extra_cost_for_root x.preliminary  in
-                if debug then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc ec;
-                acc +. ec
-        | _ -> 0.0
-    in
-    List.fold_left extra_cost_cs 0.0 n.characters
+    if debug then begin
+        Printf.printf "node.ml extra cost from root, treecost=%f, root nodedata:\n%!" treecost;
+        print n;
+    end;
+    if treecost = 0. then 
+        (*when we build wagner tree, we add nodes one by one. so there will be
+        * time when the tree has only one node, which is a leafnode, tree cost
+        * should be 0 at this point.
+        * extra_cost_from_root will get distance of root's alied children,
+        * since they carry same sequence as the leaf itself,
+        * [get_extra_cost_for_root] might return some cost. *)
+        0.
+    else 
+        let acc_cost_cs acc item =
+             match item with 
+            | Sank x -> 
+                    let ec = SankCS.get_extra_cost_for_root x.preliminary in
+                    if debug then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
+                    acc +. (float_of_int ec)
+            | Dynamic x ->
+                    let disc = DynamicCS.extra_cost_for_root x.preliminary  in
+                    if debug then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
+                    acc +. disc
+            | _ -> 0.0
+        in
+        let cost = List.fold_left acc_cost_cs 0.0 n.characters in
+        (*I know for dynamic character we can just return distance cost as new cost for root, 
+        * there is no need to get cost difference between align cost and distance cost. but for
+        * sankoff charactor type, there is no algned children. *)
+        cost
+    
 
 
 

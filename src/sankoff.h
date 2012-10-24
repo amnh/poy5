@@ -57,6 +57,7 @@ struct elt_arr {
     int right_taxon_code; //taxon code of right child
     int num_states;//each elt should have the same state
     int * tcm; //cost matrix between states;
+    int is_identity; //1 if there is no cost between same states.
     int num_elts;//number of elts
     elt_p elts;//array of elts
     long int sum_cost;//sum of cost from each elt

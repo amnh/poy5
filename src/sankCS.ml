@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 2645 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 2754 $"
 
 let debug = false
 
@@ -154,6 +154,7 @@ external get_earray_cside : elt ->
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t = "sankoff_CAML_get_e_array"
 
 external get_extra_cost_for_root : t -> int = "sankoff_CAML_get_extra_cost_for_root"
+
 
 let to_string s = " to do "
 
@@ -472,15 +473,22 @@ let to_formatter_with_seq print_seq seq_arr seq_alph attr a (parent : t option) 
         idx := !idx + 1;
         res) items  items_parent
 
+let is_identity tcm =
+    let sizex = Array.length tcm in
+    let res = ref true in
+    for i = 0 to sizex-1 do
+        if tcm.(i).(i)<>0 then res:=false;
+    done;
+    !res
 
-
-external create_eltarr_cside : int -> int -> int ->
+external create_eltarr_cside : int -> int -> int -> int ->
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t -> 
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
         t = "sankoff_CAML_create_eltarr_bytecode" "sankoff_CAML_create_eltarr"
 
-let create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm =
+
+let create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm isidentity =
     let tcm_int32 = Utl.int_to_int32_mat tcm in
     let tcm_bigarr 
     = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in
@@ -488,12 +496,14 @@ let create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm =
     state_arrarr in
     let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
     ecode_arr in
-    create_eltarr_cside taxcode mycode nstates ecode_bigarr state_bigarr tcm_bigarr
+    let isidentity = if isidentity then 1 else 0 in (*we pass int instead of bool*)
+    create_eltarr_cside isidentity taxcode mycode nstates ecode_bigarr state_bigarr tcm_bigarr
 
 (*create sankoff chr from input file*)
 let of_parser tcm (arr, taxcode) mycode =
     let debug = false in
-    if debug then Printf.printf "SankCS.of_parser,taxcode=%d,mycode=%d\n%!" taxcode mycode;
+    let iside = is_identity tcm in
+    if debug then Printf.printf "SankCS.of_parser,taxcode=%d,mycode=%d,is identity=%b\n%!" taxcode mycode iside;
     let nstates = Array.length tcm in
     let all_states = Array.to_list (Array.init nstates (fun x -> x)) in
     let make_elt (elt, ecode) =
@@ -516,7 +526,7 @@ let of_parser tcm (arr, taxcode) mycode =
     let ecode_lst,state_arrlst = List.split eltlst in
     let ecode_arr,state_arrarr = Array.of_list ecode_lst, Array.of_list
     state_arrlst in
-    create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm,
+    create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm iside,
     taxcode
     
 

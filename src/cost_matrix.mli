@@ -143,6 +143,9 @@ module Two_D : sig
     * [lst] (which should be a valid input for [of_list]), is a metric matrix or
     * not. *)
     val is_metric : m -> bool
+    
+    (*[is_idntity] return true is there is no cost between same states in matrix m*)
+    val is_identity : m -> bool
 
     val get_all_elements : m -> int
 
