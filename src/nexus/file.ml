@@ -28,7 +28,7 @@ type st_type =
     | STUnordered
     | STSankoff of int array array  (* the cost matrix to use *)
     | STLikelihood of MlModel.model (* The ML model to use *)
-
+    | STNCM of float * st_type      (* previous weight, previous type *)
 
 type static_spec = {
     st_filesource : string; (* The file it came from *)
@@ -90,10 +90,11 @@ let spec_of_alph alphabet filename name =
     }
 
 let st_type_to_string = function
-    | STOrdered -> "Additive"
-    | STUnordered -> "Non Additive"
-    | STSankoff _ -> "Sankoff"
+    | STOrdered      -> "Additive"
+    | STUnordered    -> "Non Additive"
+    | STSankoff _    -> "Sankoff"
     | STLikelihood _ -> "Likelihood"
+    | STNCM _        -> "No Common Mechanism"
 
 let bool_to_string x = if x then "true" else "false"
 
@@ -136,10 +137,11 @@ let to_formatter s =
     in
     let ch_type =
         match s.st_type with
-        | STUnordered -> T.nonadditive
-        | STOrdered -> T.additive
-        | STSankoff _ -> T.sankoff
+        | STUnordered    -> T.nonadditive
+        | STOrdered      -> T.additive
+        | STSankoff _    -> T.sankoff
         | STLikelihood _ -> T.likelihood
+        | STNCM _        -> T.ncm
     in
     (RXML -[ch_type] 
         ([T.source] = [`String s.st_filesource])
@@ -148,7 +150,8 @@ let to_formatter s =
         ([T.missing_symbol] = [`String s.st_missing])
         ([T.matchstate_symbol] = 
             [match s.st_matchstate with 
-            | None -> `String "" | Some x -> `String x])
+                | None -> `String ""
+                | Some x -> `String x])
         ([T.gap_symbol] = [`String s.st_gap])
         ([T.ignore] = [`Bool s.st_eliminate])
         ([T.case] = [`Bool s.st_case])
@@ -1532,12 +1535,35 @@ let apply_chrome_model set params acc =
     { acc with unaligned = unaligned; }
 
 
+(** Apply the NCM Likelihood model to static characters only *)
+let apply_ncm_model p acc =
+    let chars =
+        try match List.find (function P.Chars _ -> true | _ -> false) p with
+            | P.Chars x-> x
+            | _        -> assert false
+        with Not_found -> [P.Name "all"]
+    in
+    List.iter
+        (apply_on_character_set
+            acc.csets
+            acc.characters
+            (fun i ->
+                let st_weight  = acc.characters.(i).st_weight
+                and st_type = acc.characters.(i).st_type in
+                acc.characters.(i) <-
+                    { acc.characters.(i) with
+                        (** this default aligns with usual conventions *)
+                        st_type = STNCM (st_weight,st_type);}))
+        chars;
+    acc
+
+(** Generate and apply a likelihood model to static and unaligned characters *)
 let apply_likelihood_model params acc =
     let proc_model (((name,((kind,site,alpha,invar) as var),
                         param,lst,gap,cst,file) as model), chars) = function
         | P.Model name       -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Parameters param -> ((name,var,param,lst,gap,cst,file),chars)
-        | P.Chars chars      -> (model,chars)
+        | P.Chars nchars     -> (model,nchars@chars)
         | P.Given_Priors lst -> ((name,var,param,`Given lst,gap,cst,file),chars)
         | P.Cost_Mode cst    -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Gap_Mode gap     -> ((name,var,param,lst,gap,cst,file),chars)
@@ -1633,6 +1659,18 @@ let apply_likelihood_model params acc =
             let () = convert_static xs in
             { acc with unaligned = convert_unaligned acc.unaligned; }
 
+(** This is a wrapper for the above to take the special case, NCM out of
+    contention and apply a tcm:(1,1) matrix with appropriate settings *)
+let apply_likelihood_model params acc =
+    let model_name =
+        match List.find (function | P.Model _ -> true | _ -> false) params with
+        | P.Model model_name -> model_name
+        | _                  -> assert false
+    in
+    match String.uppercase model_name with
+        | "NCM" -> apply_ncm_model params acc
+        |   _   -> apply_likelihood_model params acc
+
 
 let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
     | P.Taxa (number, taxa_list) ->
@@ -1646,11 +1684,9 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                     add_all_taxa acc.taxa taxa_list
             in
             { acc with taxa = taxa }
-
     | P.Characters chars -> 
             Status.user_message Status.Information "Adding data from Characters block";
             add_prealigned_characters file chars acc
-
     | P.Error block ->
             Status.user_message Status.Error
                 ("There@ is@ a@ parsing@ error@ in@ the@ block@ " ^
@@ -1660,57 +1696,49 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                  "continue@ with@ the@ rest@ of@ the@ file,@ but@ I@ " ^
                  "advice@ you@ to@ verify@ the@ cause@ of@ the@ error.");
             acc
-
     | P.Assumptions lst ->
             Status.user_message Status.Information "Adding data from Assumptions block";
             List.iter (update_assumptions acc) lst;
             acc
-
     | P.Trees (translations, newtrees) ->
             Status.user_message Status.Information "Adding data from Trees block";
-            let handle_tree tree = 
+            let handle_tree tree =
                 tree --> process_tree
                      --> generate_parser_friendly translations acc.taxa
             in
             let newtrees = List.map handle_tree newtrees in
             {acc with trees = acc.trees @ newtrees }
-
     | P.Unaligned data ->
             Status.user_message Status.Information "Adding data from Unaligned block";
-            let char_spec = 
+            let char_spec =
                 default_static acc.char_cntr file data.P.unal_format 0
             in
             let unal = uninterleave true data.P.unal in
-            let alph =
                 (* We override whatever choice for the unaligned
                 * sequences alphabet is, if we are dealing with our
                 * core, known, alphabets *)
-                match get_datatype data.P.unal_format with
-                | P.Dna | P.Rna | P.Nucleotide ->
-                        Alphabet.nucleotides
-                | P.Protein -> Alphabet.aminoacids
-                | P.DStandard -> char_spec.st_alph
-                | P.Continuous -> 
-                        failwith "POY can't handle continuous types"
+            let alph = match get_datatype data.P.unal_format with
+                | P.Dna | P.Rna | P.Nucleotide -> Alphabet.nucleotides
+                | P.Protein     -> Alphabet.aminoacids
+                | P.DStandard   -> char_spec.st_alph
+                | P.Continuous  -> failwith "POY can't handle continuous types"
             in
             let res = Fasta.of_string (FileContents.AlphSeq alph) unal in
-            { acc with 
+            { acc with
                 unaligned = (default_unaligned res alph) :: acc.unaligned; }
-
-    | P.Sets data -> 
+    | P.Sets data ->
             Status.user_message Status.Information "Adding data from Sets block";
-            List.iter 
+            List.iter
                 (fun (name, set) -> match set with
                     | P.CharacterSet set ->
                         let prepend acc item = item :: acc in
                         let set = List.fold_left prepend [] set in
                         Hashtbl.add acc.csets (String.uppercase name) set
-                    | _ -> 
+                    | _ ->
                         Status.user_message Status.Warning
                             ("I will ignore the set "^name^" defined in the NEXUS file."))
                 data;
             acc
-
     | P.Poy block ->
         Status.user_message Status.Information "Adding data from POY block";
         List.fold_left
@@ -1753,8 +1781,8 @@ let process_parsed file parsed : nexus =
        dependencies,
                    | depends on      | because 
         -----------+-----------------+---------------------
-        POY        | Characters      | calculating priors
-        POY        | Unaligned       | calculating priors 
+        POY        | Characters      | calculating likelihood priors
+        POY        | Unaligned       | calculating likelihood priors 
          *         | Assumptions     | contains cost matrices and other
                                        properties to specific characters
 

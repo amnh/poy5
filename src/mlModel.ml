@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2735 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2749 $"
 
 open Numerical.FPInfix
 
@@ -1159,7 +1159,7 @@ let convert_methods_spec (alph,alph_size) (compute_priors)
             in
             Theta (w,y,p)
     and substitution = match subst with
-        | `AIC _ | `BIC _ | `AICC _ -> assert false
+        | `AIC _ | `BIC _ | `AICC _ | `NCM -> assert false
         | `JC69    -> JC69
         | `F81     -> F81
         | `K2P [x] -> K2P x

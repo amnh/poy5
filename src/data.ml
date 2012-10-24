@@ -17,16 +17,16 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-include Dyn_pam (* TODO: this needs to be seperated properly. *)
+include Dyn_pam (* TODO (lin): this needs to be seperated properly. *)
 
 open StdLabels
 
-exception Nam_Collision of (CharacSpec.t * string)
 exception Illegal_argument
 
 type filename = string 
 
 module FullTupleMap = All_sets.FullTupleMap
+
 module IntMap = All_sets.IntegerMap
     
 let ( --> ) a b = b a
@@ -156,19 +156,8 @@ type static_hom_spec =
     | NexusFile of Nexus.File.static_spec 
     | FixedStates of fixed_state_spec 
 
-let get_nf_from_sta_spec shs = 
-    match shs with
-    | NexusFile x -> x
-    | _ -> failwith "get_nf_from_sta_spec,not for fixed states"
-
-let get_fs_from_sta_spec shs = 
-    match shs with
-    | FixedStates x -> x
-    | _ -> failwith "get_fs_from_sta_spec,only for fixed states"
-
 let get_weight_from_fs_spec fs_spec =
     fs_spec.original_dynspec.weight
-
 
 type distr = | MaxLength of int (* Any of the distributions with a maximum length *)
 
@@ -223,20 +212,17 @@ type specs =
     (** Static homology characters, includes the encoding specs from the
         parser and the name of the file it comes from (the name includes the
         column number). *)
-    | Static of static_hom_spec (*Nexus.File.static_spec or fixed states*)
-
+    | Static of static_hom_spec
     (** A dynamic homology based character type, with three parameters, the
         file name containing the set of sequences, the filename of the valid 
         fixed states that can be used for that set of sequences, and the file
         containing the transformation cost matrix to be used to perform their
         alignments.  Also, we store the alphabet used. *)
     | Dynamic of dynamic_hom_spec
-
     (** A set of characters that could be of several types. Probably some
         information is needed, but in the current implementation there is no
         need. As we get to more complex character types, this will change. *)
     | Set 
-
     (** The characters that should be analyzed using Kolmogorov complexity
         as optimality criterion. The only parameters really needed are the name
         of the character, the specification of the alphabet the character uses,
@@ -368,7 +354,6 @@ type d = {
     searchbase_names : int All_sets.StringMap.t;
     searchbase_codes : string All_sets.IntegerMap.t;
     searchbase_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
-    (**)
     (* A map between the character names and their corresponding codes *)
     character_names : (string, int) Hashtbl.t;
     (* A map between the character codes and their corresponding names *)
@@ -385,23 +370,23 @@ type d = {
     ignore_character_set : string list;
     (* The set of loaded trees *)
     trees : parsed_trees list;
-    (* branch lengths read from nexus file: tree -> node -> char *)
-    (* node is defined by partition of leaves in the tree        *)
+    (* branch lengths read from nexus file: tree -> node -> char
+       node is defined by partition of leaves in the tree        *)
     branches : (string, ((string, float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t option;
     (* The set of codes that belong to the class of Non additive with up to 1
-    * states (useless!) *)
+       states (useless!) *)
     non_additive_1 : int list;
     (* The set of codes that belong to the class of Non additive with up to 8
-    * states *)
+       states *)
     non_additive_8 : int list;
     (* The set of codes that belong to the class of Non additive with up to 16
-    * states *)
+       states *)
     non_additive_16 : int list;
     (* The set of codes that belong to the class of Non additive with up to 32
-    * states *)
+       states *)
     non_additive_32 : int list;
     (* The set of codes that belong to the class of Non additive with up to 33
-    * states *)
+       states *)
     non_additive_33 : int list;
     (* The set of codes that belong to the class of additive characters *)
     additive : int list;
@@ -415,9 +400,9 @@ type d = {
     kolmogorov : int list;
     (* The set of codes that belong to the class of Likelihood characters *)
     static_ml : int list;
-    (** Tree for how to arrange taxa into complex terminals *)
+    (* Tree for how to arrange taxa into complex terminals *)
     complex_schema : Parser.SetGroups.t list;
-    (** The association list of files and kind of data they could hold *)
+    (* The association list of files and kind of data they could hold *)
     files : (string * contents list) list;
     (* An index of characters defined using the MDL principle *)
     machine : Kolmo.Compiler.compiler;
@@ -772,14 +757,11 @@ let print (data : d) =
                                 dyna_data.seq_arr;
                 | FS code, _ ->
                     let char_name = Hashtbl.find data.character_codes code in
-                    Printf.fprintf stdout "code = %d, char_name = %s -> "
-                    code char_name;
+                    Printf.fprintf stdout "code = %d, char_name = %s -> " code char_name;
                 | Stat (code, None), _ ->
                     let a = match Hashtbl.find data.character_specs code with
-                        | Static x ->
-                            let y = get_nf_from_sta_spec x in
-                            y.Nexus.File.st_alph
-                        | _ -> failwith "Nope"
+                        | Static (NexusFile x) -> x.Nexus.File.st_alph
+                        | _                    -> assert false
                     in
                     begin
                         try Printf.fprintf stdout "[%d]%s |" code
@@ -788,13 +770,9 @@ let print (data : d) =
                                     code (Alphabet.get_gap a)
                     end
                 | Stat (code, (Some stuff)), _ ->
-                    let a =
-                        try match Hashtbl.find data.character_specs code with
-                                | Static x ->
-                                    let y = get_nf_from_sta_spec x in
-                                    y.Nexus.File.st_alph
-                                | _ -> failwith "Nope"
-                        with | _ -> failwithf "Couldn't find %d in specs" code
+                    let a =match Hashtbl.find data.character_specs code with
+                        | Static (NexusFile x) -> x.Nexus.File.st_alph
+                        | _                    -> assert false
                     in
                     begin match Nexus.File.static_state_to_list stuff with
                         | []  ->
@@ -861,27 +839,30 @@ let print (data : d) =
     and print_specs (code : int) (spec : specs) =
         let name = Hashtbl.find data.character_codes code in
         Printf.fprintf stdout "Key: %i, name: %s " code name;
-        (match spec with
-        | Dynamic dspec ->
-              (match dspec.state with
-               | `SeqPrealigned -> Printf.fprintf stdout "Seq Prealigned"
-               | `Seq -> Printf.fprintf stdout "Seq"
-               | `Ml -> Printf.fprintf stdout "Dynamic ML"
-               | `Breakinv -> Printf.fprintf stdout "Breakinv"
-               | `CustomAlphabet -> Printf.fprintf stdout "CustomAlphabet"
-               | `Chromosome -> Printf.fprintf stdout "Chromosome"
-               | `Genome -> Printf.fprintf stdout "Genome"
-               | `Annotated -> Printf.fprintf stdout "Annotated")
-        | Static x ->
-            (match x with
-            | NexusFile {Nexus.File.st_type=st_type} ->
-              (match st_type with
-               | Nexus.File.STOrdered -> Printf.fprintf stdout "Ordered"
-               | Nexus.File.STUnordered -> Printf.fprintf stdout "Unordered"
-               | Nexus.File.STLikelihood m -> Printf.fprintf stdout "Static ML"
-               | Nexus.File.STSankoff m -> Printf.fprintf stdout "Sankoff"; print_matrix m);
-            | FixedStates _ -> Printf.fprintf stdout "Fixed States"; )
-        | _ -> Printf.fprintf stdout "Not Dynamic");
+        begin match spec with
+            | Dynamic dspec ->
+                begin match dspec.state with
+                    | `SeqPrealigned -> Printf.fprintf stdout "Seq Prealigned"
+                    | `Seq -> Printf.fprintf stdout "Seq"
+                    | `Ml -> Printf.fprintf stdout "Dynamic ML"
+                    | `Breakinv -> Printf.fprintf stdout "Breakinv"
+                    | `CustomAlphabet -> Printf.fprintf stdout "CustomAlphabet"
+                    | `Chromosome -> Printf.fprintf stdout "Chromosome"
+                    | `Genome -> Printf.fprintf stdout "Genome"
+                    | `Annotated -> Printf.fprintf stdout "Annotated"
+                end
+            | Static (NexusFile {Nexus.File.st_type=st_type}) ->
+                begin match st_type with
+                    | Nexus.File.STOrdered      -> Printf.fprintf stdout "Ordered"
+                    | Nexus.File.STUnordered    -> Printf.fprintf stdout "Unordered"
+                    | Nexus.File.STLikelihood _ -> Printf.fprintf stdout "Static ML"
+                    | Nexus.File.STNCM _        -> Printf.fprintf stdout "NCM"
+                    | Nexus.File.STSankoff m    -> Printf.fprintf stdout "Sankoff"; print_matrix m
+                end
+            | Static (FixedStates _) -> Printf.fprintf stdout "Fixed States"
+            | Kolmogorov _ -> Printf.fprintf stdout "Kolmogorov"
+            | Set          -> Printf.fprintf stdout "Set"
+        end;
         print_newline ()
     and print_csets name chars =
         Printf.printf "%s -- (" name;
@@ -2823,53 +2804,59 @@ let classify code data =
 let categorize data =
     let data =
         { data with
-            non_additive_1 = [];    non_additive_8 = [];
+            non_additive_1  = [];   non_additive_8  = [];
             non_additive_16 = [];   non_additive_32 = [];
-            non_additive_33 = [];   additive = [];
-            sankoff = [];           fixed_states = [];
-            dynamics = [];
-            kolmogorov = [];        static_ml = [];
+            non_additive_33 = [];   additive        = [];
+            sankoff         = [];   fixed_states    = [];
+            dynamics        = [];   
+            kolmogorov      = [];   static_ml       = [];
         }
-    in                         
+    in
+    let rec add_static_type enc code st_type data =
+        let observed = List.length enc.Nexus.File.st_observed in
+        let between x y = observed >= x && observed <= y in
+        begin match st_type with
+            | Nexus.File.STSankoff _ ->
+                classify code data
+            | Nexus.File.STOrdered when observed > 1 ->
+                {data with additive = code :: data.additive }
+            | Nexus.File.STOrdered   -> data
+            | Nexus.File.STUnordered ->
+                if between 0 1 then
+                    { data with
+                        non_additive_1 = code :: data.non_additive_1 }
+                else if between 2 8 then
+                    { data with
+                        non_additive_8 = code :: data.non_additive_8 }
+                else if between 9 16 then
+                    { data with
+                        non_additive_16 = code :: data.non_additive_16 }
+                else if between 17 32 then
+                    { data with 
+                        non_additive_32 = code :: data.non_additive_32 }
+                else if observed > 32 then
+                    { data with
+                        non_additive_33 = code :: data.non_additive_33 }
+                else 
+                    assert false
+            | Nexus.File.STNCM (_,t) ->
+                add_static_type enc code t data
+            | Nexus.File.STLikelihood _ ->
+                {data with static_ml = code :: data.static_ml }
+        end
+    in
     (* let data = repack_codes data in*)
-    let categorizer code spec data =
-        match spec with
-        | Static x -> (* Process static characters *)
-        (match x with 
-            | NexusFile enc ->
-                let observed = List.length enc.Nexus.File.st_observed in
-                let between x y = observed >= x && observed <= y in
-                (match enc.Nexus.File.st_type with
-                | Nexus.File.STSankoff _ -> classify code data
-                | Nexus.File.STOrdered when observed > 1 ->
-                      { data with additive = code :: data.additive }
-                | Nexus.File.STOrdered -> data
-                | Nexus.File.STUnordered ->
-                        if between 0 1 then
-                            { data with
-                                non_additive_1 = code :: data.non_additive_1 }
-                        else if between 2 8 then
-                            { data with
-                                non_additive_8 = code :: data.non_additive_8 }
-                        else if between 9 16 then
-                            { data with
-                                non_additive_16 = code :: data.non_additive_16 }
-                        else if between 17 32 then
-                            { data with 
-                                non_additive_32 = code :: data.non_additive_32 }
-                        else if observed > 32 then
-                            { data with
-                                non_additive_33 = code :: data.non_additive_33 }
-                        else data
-                | Nexus.File.STLikelihood _ ->
-                        { data with static_ml = code :: data.static_ml })
-            | FixedStates enc ->
-                { data with fixed_states = code :: data.fixed_states }
-        )
+    let categorizer code spec data = match spec with
+        | Static (NexusFile enc) ->
+            add_static_type enc code enc.Nexus.File.st_type data
+        | Static (FixedStates enc) ->
+            { data with fixed_states = code :: data.fixed_states }
         | Dynamic _ -> 
-                { data with dynamics = code :: data.dynamics }
-        | Set ->  data
-        | Kolmogorov _ -> { data with kolmogorov = code :: data.kolmogorov }
+            { data with dynamics = code :: data.dynamics }
+        | Set ->
+            data
+        | Kolmogorov _ ->
+            { data with kolmogorov = code :: data.kolmogorov }
     in
     let res = Hashtbl.fold categorizer data.character_specs data in
     res
@@ -4300,8 +4287,7 @@ let categorize_characters data chars = match chars with
 let categorize_likelihood_chars_by_model chars data =
     let get_spec i = 
         let model = match Hashtbl.find data.character_specs i with
-            | Static x ->
-                let spec = get_nf_from_sta_spec x in 
+            | Static (NexusFile spec) ->
                 begin match spec.Nexus.File.st_type with
                     | Nexus.File.STLikelihood model -> model
                     | _ -> assert false
@@ -4383,9 +4369,8 @@ let get_tcmfile data c = match Hashtbl.find data.character_specs c  with
 let get_model_opt data c = 
     match Hashtbl.find data.character_specs c with
     | Dynamic dspec -> dspec.lk_model
-    | Static x ->
-        let sspec = get_nf_from_sta_spec x in
-        begin match sspec.Nexus.File.st_type with
+    | Static (NexusFile x) ->
+        begin match x.Nexus.File.st_type with
             | Nexus.File.STLikelihood model -> Some model
             | _ -> None
         end
@@ -4394,10 +4379,9 @@ let get_model_opt data c =
 
 let available_states data chars = 
     let observed ccode acode = match Hashtbl.find data.character_specs ccode with
-        | Static x -> 
-                let spec = get_nf_from_sta_spec x in 
-                List.mem acode (spec.Nexus.File.st_observed)
-        | Set | Kolmogorov _ | Dynamic _ ->
+        | Static (NexusFile spec) -> 
+            List.mem acode (spec.Nexus.File.st_observed)
+        | Set | Kolmogorov _ | Dynamic _ | Static (FixedStates _) ->
             failwith ("We do not support unaligned morphology characters. " ^
                       "Please remove 'alphabet:' argument in transform command")
     in
@@ -4583,12 +4567,10 @@ let apply_likelihood_model_on_char_table replace data table codes model =
         List.iter
             (fun code ->
                 match Hashtbl.find table code with
-                | Static x ->
-                    let y = get_nf_from_sta_spec x in
-                    if (is_likelihood y.Nexus.File.st_type) then 
-                    Hashtbl.replace table code
-                        (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
-                    else ()
+                | Static (NexusFile y) ->
+                    if (is_likelihood y.Nexus.File.st_type) then
+                        Hashtbl.replace table code
+                            (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
                 | Dynamic ({state = state} as x) when state = `Ml ->
                     let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
                         | None,`Independent | None,`Coupled _ ->
@@ -4599,15 +4581,14 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                     in
                     Hashtbl.replace table code
                         (Dynamic {x with state = `Ml;
-                                     lk_model = !model_opt;})
-                | _ -> ())
+                                      lk_model = !model_opt;})
+                | (Kolmogorov _|Dynamic _|Set|Static _) -> assert false)
             codes
     end else begin
         (* replace all characters in the set of codes *)
         List.iter
             (fun code -> match Hashtbl.find table code with
-                | Static x ->
-                    let y = get_nf_from_sta_spec x in
+                | Static (NexusFile y) ->
                     Hashtbl.replace table code
                         (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
                 | Dynamic x ->
@@ -4619,9 +4600,8 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                         | Some _,_ -> ()
                     in
                     Hashtbl.replace table code
-                        (Dynamic {x with state = `Ml;
-                                         lk_model = !model_opt;})
-                | _ -> failwith "Illegal conversion")
+                        (Dynamic {x with state = `Ml; lk_model = !model_opt;})
+                | (Kolmogorov _|Set|Static _) -> assert false)
         codes
     end
 
@@ -4635,23 +4615,21 @@ let update_priors data charcodes use_gap =
         List.iter
             (fun code -> 
                 match Hashtbl.find data.character_specs code,!model_s,!model_d with
-                | Static x, Some model,_ ->
-                        let y = get_nf_from_sta_spec x in
+                | Static (NexusFile x), Some model,_ ->
                     Hashtbl.replace data.character_specs code
-                        (Static (NexusFile {y with Nexus.File.st_type = model}))
-                | Static x, None, _ -> 
-                    let get_lk_model y = match y.Nexus.File.st_type with 
+                        (Static (NexusFile {x with Nexus.File.st_type = model}))
+                | Static (NexusFile x), None, _ -> 
+                    let model = match x.Nexus.File.st_type with 
                         | Nexus.File.STLikelihood x -> x
                         | _ -> assert false
                     in
-                    let y = get_nf_from_sta_spec x in
                     let model =
-                        Nexus.File.STLikelihood
-                            (MlModel.replace_priors (get_lk_model y) new_priors)
+                        let nmodel = MlModel.replace_priors model new_priors in
+                        Nexus.File.STLikelihood nmodel
                     in
                     model_s := Some model;
                     Hashtbl.replace data.character_specs code
-                        (Static (NexusFile {y with Nexus.File.st_type = model;}))
+                        (Static (NexusFile {x with Nexus.File.st_type = model;}))
                 | Dynamic x,_,((Some model) as m) ->
                     Hashtbl.replace data.character_specs code
                         (Dynamic {x with state = `Ml; lk_model = m;})
@@ -4691,11 +4669,11 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
         | _ -> false
     (* transform a character to a gap *)
     and apply_gap_to_cs taxon_code char_code spec state = match spec,state with
-        | Static sspec, (Stat (code,data),specified) ->
-                let y = get_nf_from_sta_spec sspec in
-            let gap = Alphabet.get_gap y.Nexus.File.st_alph in
+        | Static (NexusFile sspec), (Stat (code,data),specified) ->
+            let gap = Alphabet.get_gap sspec.Nexus.File.st_alph in
             (Stat (code, Some (`List [gap])),specified)
-        | _, _ -> failwithf "Data.remove_absent_present_encodings failure: %d" char_code
+        | _, _ ->
+            failwithf "Data.remove_absent_present_encodings fail: %d" char_code
     in
     (* test if we are using STATIC likelihood somewhere *)
     let test_using_likelihood data =
@@ -4715,25 +4693,21 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
         with | _ -> false
     (* apply the absent/present encoding column to the previous column *)
     and is_present tcode code state spec = match spec,state with
-        | Static sspec, (Stat (code,Some data) , _) ->
-                let y = get_nf_from_sta_spec sspec in
+        | Static (NexusFile y), (Stat (code,Some data) , _) ->
             let data_list = Nexus.File.static_state_to_list data
             and present = Alphabet.match_base "present" y.Nexus.File.st_alph in
             List.mem present data_list
-        | Static sspec, (Stat (code,None),_) ->
-                let y = get_nf_from_sta_spec sspec in
+        | Static (NexusFile y), (Stat (code,None),_) ->
             ignore (Alphabet.match_base "present" y.Nexus.File.st_alph);
             true
         | _,_ -> failwith "Incorrect Match1"
     and is_absent tcode code state spec = match spec,state with
-        | Static sspec, (Stat (code,Some data),_) ->
-                let y = get_nf_from_sta_spec sspec in
+        | Static (NexusFile y), (Stat (code,Some data),_) ->
             let data_list = Nexus.File.static_state_to_list data
             and absent = Alphabet.match_base "absent" y.Nexus.File.st_alph in
             List.mem absent data_list
-        | Static sspec, (Stat (code,None),_) ->
+        | Static (NexusFile y), (Stat (code,None),_) ->
             (* do the lookup anyway to ensure it exists *)
-                let y = get_nf_from_sta_spec sspec in
             ignore (Alphabet.match_base "absent" y.Nexus.File.st_alph);
             false
         | _,_ -> failwith "Incorrect Match2"
@@ -4809,7 +4783,7 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
 
 
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
- * the likelihood model specified in [lk] *)
+    the likelihood model specified in [lk] *)
 let set_parsimony data chars =
 IFDEF USE_LIKELIHOOD THEN
     (* apply a type to a set of STATIC characters in data *)
@@ -4817,10 +4791,25 @@ IFDEF USE_LIKELIHOOD THEN
         let new_specs = Hashtbl.copy data.character_specs in
         List.iter
             (fun code -> match Hashtbl.find new_specs code with
-                | Static x ->
-                    let y = get_nf_from_sta_spec x in
-                    Hashtbl.replace new_specs code
-                        (Static (NexusFile { y with Nexus.File.st_type = Nexus.File.STUnordered}))
+                | Static (NexusFile x) ->
+                    begin match x.Nexus.File.st_type with
+                        | Nexus.File.STLikelihood _ ->
+                            let r =
+                                {x with Nexus.File.st_type = Nexus.File.STUnordered}
+                            in
+                            Hashtbl.replace new_specs code (Static (NexusFile r))
+                        | Nexus.File.STNCM (weight,otype) ->
+                            let r =
+                                {x with Nexus.File.st_type = otype;
+                                        Nexus.File.st_weight = weight; } in
+                            Hashtbl.replace new_specs code (Static (NexusFile r))
+                        | _ ->
+                            (** already parsimony characters *)
+                            ()
+                    end
+                | Static (FixedStates x) ->
+                    (** already parsimony characters TODO ?? *)
+                    ()
                 | Dynamic x ->
                     Hashtbl.replace new_specs code
                         (Dynamic {x with lk_model = None; state = `Seq;})
@@ -5419,27 +5408,20 @@ let compute_fixed_states filename data code polymph =
     in
     let static_data = FixedStates fs_data in
     Hashtbl.replace data.character_specs code (Static static_data);
-    Hashtbl.iter ( fun taxon_code charactors_tbl -> 
-        Hashtbl.iter (fun charactor_code charactor_cs ->
-            if charactor_code=code then
-                begin
-                    let new_charactor_cs =
-                        match charactor_cs with
-                        | Dyna (csd_code,_), spec -> FS csd_code, spec
-                        | _ -> failwith "only expecting Dyna cs type"
-                    in
-                    Hashtbl.replace charactors_tbl charactor_code new_charactor_cs
-                end
-        ) charactors_tbl;
-    ) data.taxon_characters
-    (*how about searchbase_characters ?*)
-    (*let dyn_data =
-        { dhs with
-            initial_assignment = `FS fs_data;
-            state = `Seq;
-            polymorphism = polymph }
-    in
-    Hashtbl.replace data.character_specs code (Dynamic dyn_data)*)
+    Hashtbl.iter
+        (fun taxon_code charactors_tbl -> 
+            Hashtbl.iter
+                (fun charactor_code charactor_cs ->
+                    if charactor_code=code then begin
+                        let new_charactor_cs = match charactor_cs with
+                            | Dyna (csd_code,_), spec -> FS csd_code, spec
+                            | _ -> failwith "only expecting Dyna cs type"
+                        in
+                        Hashtbl.replace charactors_tbl charactor_code new_charactor_cs
+                    end)
+                charactors_tbl)
+        data.taxon_characters
+
 
 (*note that tcm here is a function*)
 (* make sure we call Data.categorize (Data.remove_taxa_to_ignore data) before
@@ -5451,90 +5433,80 @@ let assign_tcm_to_characters data chars foname tcm newalph =
     * operate properly in all the characters that are valid in the context. *)
     let per_size = Hashtbl.create 97 in
     let data = duplicate data in
-    (*let chars = get_chars_codes_comp data chars in
-    Printf.printf "dynamics list size = %d\n%!" (List.length chars);
-     why we only update tcm file for dynamic character type?
-    * *)
     let chars =  
         List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
                     (get_chars_codes_comp data chars)
-    in(**)
+    in
     let chars_specs =
         List.fold_left 
         ~f:(fun acc x -> 
             let res = Hashtbl.find data.character_specs x in
             let acc = (res, x) :: acc in
             Hashtbl.remove data.character_specs x;
-            acc
-        ) 
+            acc) 
         ~init:[] chars
     in
     let ref_tcmfile = ref None in
     let new_charspecs = 
         List.map 
-            (function ((Dynamic dspec), code) ->
-                let tcm_full,tcm_original, tcm3, tcmfile =
-                    if Hashtbl.mem per_size dspec.alph then 
-                        Hashtbl.find per_size dspec.alph
-                    else 
-                        let all_elements = 
-                            if dspec.alph = Alphabet.nucleotides then 31
-                            else if (Alphabet.is_aminoacids dspec.alph) then 21
-                            else (-1)
-                        in
-                        (*tcm is a function that take all_elements as input,
-                        * return 
-                        * tcm_full, tcm_original, Input_file ((FileStream.filename f), mat)) 
-                        * mat is int list list, directly from input costmatrix file*)
-                        let tcm_full, tcm_original, tcmfile = tcm all_elements in
-                        ref_tcmfile := Some tcmfile;
-                        if debug_level then 
-                            Printf.printf "Data.assign_tcm_to_characters,calc tcm3d if init3D=true\n%!";
-                        let tcm3d =
-                            if (Alphabet.use_3d dspec.alph) then
-                                Cost_matrix.Three_D.of_two_dim tcm_full
-                            else
-                                dspec.tcm3d
-                        in
-                        tcm_full, tcm_original, tcm3d, tcmfile
-                in
-                let newdespec =
-                    match newalph with 
-                    | None ->
-                            if debug_level then Printf.printf "replace dspec \
-                            with new tcm, keep old alphabet\n%!";
-                            (Dynamic { dspec with tcm = tcmfile; tcm2d_full = tcm_full;
-                            tcm2d_original = tcm_original; tcm3d = tcm3 })
-                    | Some newa ->
+            (function 
+                | ((Dynamic dspec), code) ->
+                    let tcm_full,tcm_original, tcm3, tcmfile =
+                        if Hashtbl.mem per_size dspec.alph then 
+                            Hashtbl.find per_size dspec.alph
+                        else 
+                            let all_elements = 
+                                if dspec.alph = Alphabet.nucleotides then 31
+                                else if (Alphabet.is_aminoacids dspec.alph) then 21
+                                else (-1)
+                            in
+                            let tcm_full, tcm_original, tcmfile = tcm all_elements in
+                            ref_tcmfile := Some tcmfile;
+                            if debug_level then 
+                                Printf.printf "Data.assign_tcm_to_characters,calc tcm3d if init3D=true\n%!";
+                            let tcm3d =
+                                if (Alphabet.use_3d dspec.alph) then
+                                    Cost_matrix.Three_D.of_two_dim tcm_full
+                                else
+                                    dspec.tcm3d
+                            in
+                            tcm_full, tcm_original, tcm3d, tcmfile
+                    in
+                    let newdespec = match newalph with 
+                        | None ->
                             if debug_level then
-                            Printf.printf "replace dspec with new tcm and new alphabet:\n%!";
-                            (Dynamic { dspec with tcm = tcmfile; tcm2d_full =
-                                tcm_full; tcm2d_original = tcm_original; 
-                            tcm3d = tcm3; alph = newa})
-                in
-                newdespec,
-                code
-                | _, code -> raise (Invalid_Character code)) chars_specs
+                                Printf.printf "replace dspec with new tcm, keep old alphabet\n%!";
+                            Dynamic { dspec with tcm = tcmfile; tcm2d_full = tcm_full;
+                                                 tcm2d_original = tcm_original; tcm3d = tcm3 }
+                        | Some newa ->
+                            if debug_level then
+                                Printf.printf "replace dspec with new tcm and new alphabet:\n%!";
+                            Dynamic { dspec with tcm = tcmfile; tcm2d_full = tcm_full;
+                                                 tcm2d_original = tcm_original; tcm3d = tcm3; alph = newa}
+                    in
+                    newdespec, code
+                | _, code -> raise (Invalid_Character code))
+            chars_specs
     in
-    let files = 
-        match !ref_tcmfile with
+    let files = match !ref_tcmfile with
         | Some (Input_file_GapOpening (tcmfile, _, _)) 
         | Some (Input_file (tcmfile, _)) -> 
-                if List.exists (function (x, _) -> x = tcmfile) data.files 
+            if List.exists (function (x, _) -> x = tcmfile) data.files 
                 then data.files
                 else (tcmfile, [CostMatrix]) :: data.files 
         | _ -> data.files
     in
-    List.iter ~f:(fun (spec, code) -> 
-                    Hashtbl.replace data.character_specs code spec)
-              new_charspecs;
-    List.iter ~f:(fun (spec, code) ->
-                    match spec with
-                    | Static (FixedStates x) ->
-                            let polymph = x.original_dynspec.polymorphism in
-                            compute_fixed_states None data code polymph;
-                    | _ -> ()
-    )  new_charspecs;
+    List.iter
+        ~f:(fun (spec, code) -> 
+            Hashtbl.replace data.character_specs code spec)
+        new_charspecs;
+    List.iter
+        ~f:(fun (spec, code) -> match spec with
+            | Static (FixedStates x) ->
+                let polymph = x.original_dynspec.polymorphism in
+                compute_fixed_states None data code polymph;
+            | _ -> ())
+        new_charspecs;
     { data with files = files }
 
 
@@ -5809,60 +5781,130 @@ let add_search_base_for_one_character_from_file data chars file character_name =
 
 
 let add_search_base_from_file data chars file_chname_lst = 
-    List.fold_left ~f:(fun accdata name ->
-        let chname,filename = name in
-        let newdata = add_search_base_for_one_character_from_file accdata chars filename
-        chname in
-        newdata
-    ) ~init:data file_chname_lst 
+    List.fold_left
+        ~f:(fun accdata name ->
+                let chname,filename = name in
+                let newdata = add_search_base_for_one_character_from_file
+                                                accdata chars filename chname in
+                newdata)
+        ~init:data file_chname_lst 
 
 
 let classify_characters_by_alphabet_size data chars =
-    let is_dynamic_character x = 
+    let is_dynamic_character x =
         (List.exists (fun y -> x = y) data.dynamics)
     in
     let make_tuple_of_character_and_size acc char =
-        let size = 
-            char 
-                --> get_alphabet data
-                --> Alphabet.to_sequential 
-                --> Alphabet.distinct_size
+        let size =
+            char --> get_alphabet data
+                 --> Alphabet.to_sequential 
+                 --> Alphabet.distinct_size
         in
         (char, size) :: acc
     in
     let classify_by_size list =
-        let sets = 
-            List.fold_left ~f:(fun acc (code, size) ->
-                if All_sets.IntegerMap.mem size acc then
-                    let prev = All_sets.IntegerMap.find size acc in
-                    All_sets.IntegerMap.add size (code :: prev) acc
-                else
-                    All_sets.IntegerMap.add size [code] acc)
-            ~init:All_sets.IntegerMap.empty list
+        let sets =
+            List.fold_left
+                ~f:(fun acc (code, size) ->
+                    if All_sets.IntegerMap.mem size acc then
+                        let prev = All_sets.IntegerMap.find size acc in
+                        All_sets.IntegerMap.add size (code :: prev) acc
+                    else
+                        All_sets.IntegerMap.add size [code] acc)
+                ~init:All_sets.IntegerMap.empty
+                list
         in
-        All_sets.IntegerMap.fold (fun a b acc -> (a, `Some (true, b)) :: acc)
-        sets []
+        All_sets.IntegerMap.fold
+            (fun a b acc -> (a, `Some (true, b)) :: acc) sets []
     in
-    chars 
-        --> get_chars_codes_comp data 
-        --> List.filter ~f:(is_dynamic_character)
+    chars
+        --> get_chars_codes_comp data
         --> List.fold_left ~f:make_tuple_of_character_and_size ~init:[]
         --> classify_by_size
 
+
 let assign_transformation_gaps data chars transformation gaps =
     let alphabet_sizes = classify_characters_by_alphabet_size data chars in
-    List.fold_left 
+    List.fold_left
         ~f:(fun data (size, chars) ->
-            let tcm = 
-                (fun x -> 
+            let tcm =
+                (fun x ->
                     let cm_full,cm_ori =
-                    Cost_matrix.Two_D.of_transformations_and_gaps 
-                                    (size < 7) size transformation gaps x in
-                    cm_full,cm_ori,
-                    (Substitution_Indel (transformation, gaps)))
+                        Cost_matrix.Two_D.of_transformations_and_gaps
+                                    (size < 7) size transformation gaps x
+                    in
+                    cm_full,cm_ori, (Substitution_Indel (transformation, gaps)))
             in
             assign_tcm_to_characters data chars None tcm None)
-        ~init:data alphabet_sizes
+        ~init:data
+        alphabet_sizes
+
+
+(** Function to apply weights based on the size of the alphabet to be,
+        w_i = - log ( 1 / |a_i| )
+    For nonadditive characters this is the size of the alphabet including gaps,
+    and for continuous characters we take the difference from high to low as the
+    alphabet size. This function only applies to static characters, we issue a
+    warning if [chars] contains characters that cannot be transformed. *)
+let assign_ncm_weights_to_chars data chars gap : d =
+    let ncm_weight s = ~-. (log (1.0 /. (float_of_int s)))
+    and warning = ref false
+    and data    = duplicate data in
+    let assign_weight_to_char st_w c =
+        match Hashtbl.find data.character_specs c with
+        | Dynamic _ | Kolmogorov _ | Set
+        | Static (FixedStates _)  ->
+            warning := true;
+            ()
+        | Static (NexusFile spec) ->
+            let st_t = Nexus.File.STNCM (spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
+            and st_w = spec.Nexus.File.st_weight *. st_w in
+            let r = NexusFile {spec with Nexus.File.st_weight = st_w;
+                                         Nexus.File.st_type   = st_t;} in
+            Hashtbl.replace data.character_specs c (Static r)
+    in
+    let a_cats = classify_characters_by_alphabet_size data chars in
+(*    Printf.printf "Transforming %d Sets of Characters from %s\n%!"*)
+(*                  (List.length a_cats) (string_of_characters chars);*)
+    List.iter
+        ~f:(fun (size,chars) ->
+            let w = ncm_weight size in
+(*            Printf.printf "\t%s (%d) -- %f\n%!" (string_of_characters chars) size w;*)
+            List.iter
+                ~f:(fun x -> assign_weight_to_char w x)
+                (get_chars_codes_comp data chars))
+        a_cats;
+    if !warning then begin
+        let m = "I@ have@ found@ characters@ that@ cannot@ be@ transformed@ "^
+                "to@ No@ Common@ Mechanism.@ I@ will@ ignore@ them@ and@ "^
+                "transform@ the@ characters@ I@ can." in
+        Status.user_message Status.Warning m
+    end;
+    data
+
+
+(** An un-assignment of the above; we keep the data in the STNCM variant so it's
+    an easy transform back *)
+let unassign_ncm_weights_to_chars data chars gap : d =
+    let data = duplicate data in
+    let unassign_weight_to_char c =
+        match Hashtbl.find data.character_specs c with
+        | Dynamic _
+        | Static (FixedStates _)  -> ()
+        | Static (NexusFile spec) ->
+            begin match spec.Nexus.File.st_type with
+                | Nexus.File.STNCM (w,t) ->
+                    let r = NexusFile {spec with Nexus.File.st_weight = w;
+                                                 Nexus.File.st_type   = t;} in
+                    Hashtbl.replace data.character_specs c (Static r)
+                | _ -> ()
+            end
+    in
+    List.iter
+        ~f:(fun x -> unassign_weight_to_char x)
+        (get_chars_codes_comp data chars);
+    data
+
 
 let codes_with_same_tcm codes data =
     (* This function assumes that the codes have already been filtered by class *)
@@ -6726,7 +6768,7 @@ module Sample = struct
         end else arr
 
     (** [jackknife_spec ar m] resamples [Array.length ar - m] characters without
-    * replacement uniformly at random *)
+        replacement uniformly at random *)
     let jackknife_spec ar prob =
         let n = Array.length ar in
         assert (prob <= 1.);
@@ -6754,6 +6796,7 @@ module Sample = struct
 
 end
 
+
 let to_human_readable data code item =
     let spec = 
         match Hashtbl.find data.character_specs code with
@@ -6763,21 +6806,20 @@ let to_human_readable data code item =
                 | _ -> assert false )
         | _ -> assert false
     in
-    let item = 
-        match spec.Nexus.File.st_type with
+    let item = match spec.Nexus.File.st_type with
         | Nexus.File.STUnordered -> List.nth spec.Nexus.File.st_observed item
-        | Nexus.File.STLikelihood _ | Nexus.File.STOrdered | Nexus.File.STSankoff _ -> item
+        | Nexus.File.STLikelihood _ | Nexus.File.STNCM _
+        | Nexus.File.STOrdered      | Nexus.File.STSankoff _ -> item
     in
     let name =
-        try 
-            try List.nth spec.Nexus.File.st_labels item with
+        try try List.nth spec.Nexus.File.st_labels item with
             | _ -> Alphabet.match_code item spec.Nexus.File.st_alph 
-        with
-            | (Alphabet.Illegal_Code n) as err ->
-                Alphabet.print spec.Nexus.File.st_alph;
-                raise err
+        with (Alphabet.Illegal_Code n) as err ->
+            Alphabet.print spec.Nexus.File.st_alph;
+            raise err
     in
     name
+
 
 let apply_boolean nonadd_f add_f data char = 
     match Hashtbl.find data.character_specs char with
@@ -6822,32 +6864,28 @@ let get_model code data =
     | _ -> failwith "Data.get_model 2"
 
 (* We define a function that adds the min possible cost to the tree *)
-let apply_on_static ordered unordered sankoff likelihood char data =
+let apply_on_static ordered unordered sankoff likelihood nocommonmechanism char data =
     let process_code acc code =
         match Hashtbl.find data.character_specs code with
-        | Static x ->
-                (match x with 
-                | NexusFile spec -> 
-                    let specified_static_chars = 
-                        Hashtbl.fold (fun a b acc -> 
-                            try match Hashtbl.find b code with
+        | Static (NexusFile spec) ->
+            let specified_static_chars = 
+                Hashtbl.fold
+                    (fun a b acc -> 
+                        try match Hashtbl.find b code with
                             | (Stat (_, x), `Specified) -> x :: acc
                             | _ -> acc
-                            with Not_found -> acc) data.taxon_characters []
-                    in
-                    let res = 
-                        match spec.Nexus.File.st_type with
-                        | Nexus.File.STOrdered -> 
-                                ordered specified_static_chars
-                        | Nexus.File.STUnordered -> 
-                                unordered specified_static_chars
-                        | Nexus.File.STSankoff mtx -> 
-                                sankoff mtx specified_static_chars 
-                        | Nexus.File.STLikelihood model -> 
-                                likelihood model specified_static_chars 
-                    in
-                    (code, res) :: acc
-                | _ -> failwith "apply_on_static , we need a function for fixed_states" )
+                        with Not_found -> acc)
+                    data.taxon_characters
+                    []
+            in
+            let res = match spec.Nexus.File.st_type with
+                | Nexus.File.STOrdered -> ordered specified_static_chars
+                | Nexus.File.STUnordered -> unordered specified_static_chars
+                | Nexus.File.STSankoff mtx -> sankoff mtx specified_static_chars 
+                | Nexus.File.STLikelihood model -> likelihood model specified_static_chars 
+                | Nexus.File.STNCM _ -> nocommonmechanism specified_static_chars
+            in
+            (code, res) :: acc
         | _ -> acc
     in
     let codes = get_chars_codes_comp data char in

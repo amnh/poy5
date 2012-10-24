@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Xml" "$Revision: 2684 $"
+let () = SadmanOutput.register "Xml" "$Revision: 2749 $"
 
 type tag = string
 
@@ -62,6 +62,7 @@ module Characters = struct
     let fixedstates = "Fixed States" ^ suffix
     let likelihood = "Likelihood" ^ suffix
     let dlikelihood = "Dynamic Likelihood" ^ suffix
+    let ncm = "No Common Mechanism"
     let set = "Set" ^ suffix
     let kolmogorov = "Kolmogorov" ^ suffix
 

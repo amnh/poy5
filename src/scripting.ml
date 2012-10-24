@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2751 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2760 $"
 
 module IntSet = All_sets.Integers
 
@@ -3927,6 +3927,7 @@ let rec folder (run : r) meth =
                             NonaddCS8.min_possible_cost 
                             SankCS.min_possible_cost
                             (fun _ _ -> 0.0)
+                            (fun _ -> 0.0)
                             realch
                             run.data
                     in
@@ -3983,6 +3984,7 @@ let rec folder (run : r) meth =
                                     Data.apply_on_static 
                                         (fun _ -> 0.) NonaddCS8.max_possible_cost
                                         SankCS.max_possible_cost (fun _ _ -> 0.)
+                                        (fun _ -> 0.0)
                                         realch run.data
                                 in
                                 let ri max_cost min_cost x =

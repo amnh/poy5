@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2751 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2760 $"
 
 let debug = false 
 
@@ -1173,7 +1173,7 @@ let transform_search items =
     | _ -> failwith "Forgot to update the list of options of search?"
 
 
-let process_likelihood_commands estd lst =
+let process_likelihood_commands est lst =
     let process (alph,cost,model,vari,prior,gaps) = function
         | `ML_alph  x -> ( x,   cost, model, vari, prior, gaps)
         | `ML_cost  x -> (alph,  x,   model, vari, prior, gaps)
@@ -1185,12 +1185,11 @@ let process_likelihood_commands estd lst =
     let (_,_,model,_,_,_) as tuple =
         List.fold_left process MlModel.default_command lst
     in
-    if estd 
-        then `EstLikelihood tuple
-        else begin match model with
-            | #Methods.ml_optimization -> `EstLikelihood tuple
-            | #Methods.ml_substitution -> `UseLikelihood tuple
-    end
+    match model with
+        | #Methods.ml_optimization          -> `EstLikelihood tuple
+        | #Methods.ml_meta                  -> `UseLikelihood tuple
+        | #Methods.ml_substitution when est -> `EstLikelihood tuple
+        | #Methods.ml_substitution          -> `UseLikelihood tuple
 
 
 let transform_stdsearch items = 
@@ -1347,6 +1346,8 @@ let create_expr () =
                 [ LIDENT "aic"; ":"; x = STRING  -> `AIC  (Some x) ] |
                 [ LIDENT "bic"; ":"; x = STRING  -> `BIC  (Some x) ] |
                 [ LIDENT "aicc"; ":"; x = STRING -> `AICC (Some x) ] |
+                (* Meta Likelihood; transforms as a special command *)
+                [ LIDENT "ncm" -> `NCM ] |
                 (* Standard likelihood transformation models *)
                 [ LIDENT "jc69" -> `JC69 ] |
                 [ LIDENT "f81"  -> `F81  ] |

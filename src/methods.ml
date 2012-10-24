@@ -17,8 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-
-let () = SadmanOutput.register "Methods" "$Revision: 2746 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2749 $"
 
 exception TimedOut
 
@@ -234,7 +233,9 @@ type ml_substitution = [
     | `Custom of string
 ]
 
-type ml_model = [ ml_optimization | ml_substitution ]
+type ml_meta = [ `NCM ]
+
+type ml_model = [ ml_optimization | ml_substitution | ml_meta ]
 
 type ml_alphabet = [ `Min | `Int of int | `Max ]
 
