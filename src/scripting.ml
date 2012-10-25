@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2760 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2767 $"
 
 module IntSet = All_sets.Integers
 
@@ -2113,8 +2113,7 @@ let warn_if_no_trees_in_memory trees =
     let items = Sexpr.length trees in
     if items = 0 then
         Status.user_message Status.Warning
-        ("There@ are@ no@ active@ trees@ in@ memory!")
-    else ()
+            ("There@ are@ no@ active@ trees@ in@ memory!")
 
 let get_trees_for_support support_class run =
     let do_support support_set x = 
@@ -3676,16 +3675,22 @@ let rec folder (run : r) meth =
     | #Methods.transform as meth ->
             process_transform run meth
     | #Methods.build as meth ->
-        let build_initial = Build.build_initial_trees in
-        begin match MainBuild.get_transformations meth with
-            | [] ->
-                let trees = build_initial run.trees run.data run.nodes meth in
-                { run with trees = trees; }
-            | trans ->
-                let run,untransforms = temporary_transforms trans run in
-                let tree = build_initial run.trees run.data run.nodes meth in
-                let run = { run with trees = tree } in
-                List.fold_left (fun r f -> f r) run untransforms
+        begin match run.nodes with
+        | [] ->
+            Status.user_message Status.Warning "There@ is@ no@ data@ in@ memory!";
+            run
+        | _  ->
+            let build_initial = Build.build_initial_trees in
+            begin match MainBuild.get_transformations meth with
+                | [] ->
+                    let trees = build_initial run.trees run.data run.nodes meth in
+                    { run with trees = trees; }
+                | trans ->
+                    let run,untransforms = temporary_transforms trans run in
+                    let tree = build_initial run.trees run.data run.nodes meth in
+                    let run = { run with trees = tree } in
+                    List.fold_left (fun r f -> f r) run untransforms
+            end
         end
     | #Methods.local_optimum as meth ->
             warn_if_no_trees_in_memory run.trees;
@@ -4541,8 +4546,7 @@ let set_console_run r = console_run_val := r
         let build data nodes = 
             Sexpr.to_list 
                 (Build.build_initial_trees `Empty data nodes 
-                    (`Build (1, (`Wagner_Rnd (1, 0.,`Last, [], `UnionBased None)), [],(`MaxCount 20,`JoinDelta)))
-                )
+                    (`Build (1, (`Wagner_Rnd (1, 0.,`Last, [], `UnionBased None)), [],(`MaxCount 20,`JoinDelta))))
     end
 
 
