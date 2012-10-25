@@ -19,13 +19,8 @@
 
 exception Illegal_argument
 
-(** This type is needed for the dynamic homologies datasets. Contains all the
- * valid options to perform a dynamic homology analysis. *)
-type dynhom_opts = 
-    | Tcm of string     (** A transformation cost matrix to be used *)
-
 (* The valid contents of an input file. These are not all of them, add others if
-* needed, these are all that we need for now. *)
+   needed, these are all that we need for now. *)
 type contents = 
     | Characters  (** Terminal characters *)
     | CostMatrix  (** A transformation cost matrix *)
@@ -33,32 +28,21 @@ type contents =
 
 type parsed_trees = ((string option * Tree.Parse.tree_types list) * string * int)
 
+(** Types for Dynamic Data Supported by POY *)
 type dyna_state_t = [
-|`SeqPrealigned
-(** A short sequence, no rearrangements are allowed*)
-| `Seq
-| `Ml
-
-(** A long sequence, genes inside are broken down
- * automatically, rearrangements are allowed*)
-| `Chromosome
-
-| `Genome 
-
-(** A list of shorted sequences 
- * annotated by piles, rearrangements are allowed *)
-| `Annotated
-
-(** A sequence of gene names, rearrangements are allowed *)
-| `Breakinv 
-
-| `CustomAlphabet]
-
-type polymorphism_t = Methods.polymorphism_arg
+    | `SeqPrealigned
+    | `Seq
+    | `Ml
+    | `Chromosome 
+    | `Genome 
+    | `Annotated
+    | `Breakinv
+    | `CustomAlphabet]
 
 (* none of the following should be in this module ... *)
 type annotate_tool_t =
     [ `Default of int * int * int | `Mauve of float * float * float * float ]
+
 type median_solver_t =
     [ `Albert
     | `BBTSP
@@ -68,7 +52,9 @@ type median_solver_t =
     | `Siepel
     | `SimpleLK
     | `Vinh ]
+
 type re_meth_t = [ `Locus_Breakpoint of int | `Locus_Inversion of int ]
+
 type dyna_pam_t = {
   median_solver : median_solver_t option;
   annotate_tool : annotate_tool_t option;
@@ -128,7 +114,7 @@ type dynamic_hom_spec = {
         * 1. Do_All: do the full "get_closest" thing, which might take a long time
         * 2. Pick_One: just pick one.
         * 3. Do_Nothing: do nothing, leave the input sequence as it is.*)
-    polymorphism : polymorphism_t;
+    polymorphism : Methods.polymorphism_arg;
 }
 
 type fixed_state_spec =
@@ -142,8 +128,7 @@ type fixed_state_spec =
 val get_weight_from_fs_spec : fixed_state_spec -> float
 
 type distr =
-    | MaxLength of int
-                        (* Any of the distributions with a maximum length *)
+    | MaxLength of int (* Any of the distributions with a maximum length *)
 
 type affine_f = {
     selfp : float; (* The natural logarithm of the probability *)
@@ -161,10 +146,10 @@ type arr = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type basic_kolmo_spec = {
     event_prob : float;         (** Probability of an event *)
-    tm : float list list;     (* The transformation cost matrix *)
-    be : arr;         (* Base encodings *)
-    simplebe : float array;              (** The original encoding cost *)
-    simplebed : float array;            (** The deletion cost in the tips *)
+    tm : float list list;       (** The transformation cost matrix *)
+    be : arr;    (* Base encodings *)
+    simplebe : float array;     (** The original encoding cost *)
+    simplebed : float array;    (** The deletion cost in the tips *)
     ins : float; (* Insertion encoding cost *)
     del : float; (* Deletion encoding cost *)
     sub : float; (* Substitution encoding cost *)
@@ -175,8 +160,8 @@ type basic_kolmo_spec = {
     branch_cost : float;        (** Extra cost incurred by each branch *)
     leaf_cost : float;          (** Extra cost incurred by marking a leaf *)
     end_cost : float;           (** Extra cost of ending the compuations and
-    producing the output *)
-    mo : model; (* The model *)
+                                    producing the output *)
+    mo : model;                 (* The model *)
 }
 
 type aux_kolmo_spec = {
@@ -192,21 +177,16 @@ type kolmo_spec = {
     ks : aux_kolmo_spec;
 }
 
-type static_hom_spec =  
-    | NexusFile of Nexus.File.static_spec 
-    | FixedStates of fixed_state_spec 
+type static_hom_spec =
+    | NexusFile of Nexus.File.static_spec
+    | FixedStates of fixed_state_spec
 
 (** A character specification. Contains the information regarding the
  * characteristics of a particular character *)
-type specs = 
-    (** Static homology characters, includes the encoding specs from the
-    * parser *)
-    | Static of static_hom_spec (* Nexus.File.static_spec or fixed states*)
-    (** A dynamic homology based character type, with three parameters, the
-    * file name containing the set of sequences, the filename of the valid 
-    * fixed states that can be used for that set of sequences, and the file
-    * containing the transformation cost matrix to be used to perform their
-     * alignments.  Also, we store the alphabet used. *)
+type specs =
+    (** Static homology characters, includes the encoding specs from the parser *)
+    | Static of static_hom_spec
+    (** A dynamic homology based character type *)
     | Dynamic of dynamic_hom_spec
     | Set 
     | Kolmogorov of kolmo_spec
@@ -217,20 +197,9 @@ type specs =
 type specified = [ `Specified | `Unknown ]
 
 
-type bool_characters = Methods.characters (*[
-    | `All
-    | `Some of (bool * int list)
-    | `Names of (bool * string list)
-    | `Random of float
-    | `CharSet of (bool * string list)
-    | `AllStatic
-    | `AllDynamic
-    | `Missing of (bool * int)
-    | `Range of ( bool * string * int * int)
-]*)
+type bool_characters = Methods.characters
 
 val string_of_characters : bool_characters -> string
-
 
 type characters = [
     | `All
@@ -317,7 +286,6 @@ type alph =
     | GeneralAlphabet of 
         (string * Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a)
 
-
 type name = string 
 
 type kolmo_range = (float * float)
@@ -367,7 +335,6 @@ type d = {
     searchbase_names : int All_sets.StringMap.t;
     searchbase_codes : string All_sets.IntegerMap.t;
     searchbase_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
-    (**)
     (* A map between the character names and their corresponding codes *)
     character_names : (string, int) Hashtbl.t;
     (* A map between the character codes and their corresponding names *)
@@ -400,7 +367,6 @@ type d = {
     files : (string * contents list) list;
     machine : Kolmo.Compiler.compiler;
     search_information : OutputInformation.t list;
-
     (** At what taxon to root output trees *)
     root_at : int option;
 }
@@ -433,21 +399,21 @@ val code_character : int -> d -> string
 
 val get_tcm : int -> d -> tcm
 
-
 val get_weight : int -> d -> float
 
 val get_weights : d -> (int * float) list
 
 val process_parsed_sequences :
      bool -> float -> tcm_definition -> Cost_matrix.Two_D.m ->
-         Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m ->
-        dyna_initial_assgn -> bool -> Alphabet.a -> string -> dyna_state_t ->
-            d -> (Sequence.s list list list * Parser.E.taxon) list -> MlModel.model option
-                -> dyna_pam_t option -> d
+         Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> dyna_initial_assgn ->
+             bool -> Alphabet.a -> string -> dyna_state_t -> d ->
+                 (Sequence.s list list list * Parser.E.taxon) list ->
+                     MlModel.model option -> dyna_pam_t option -> d
 
-val process_molecular_file : ?respect_case:bool -> tcm_definition -> Cost_matrix.Two_D.m ->
-    Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
-        dyna_state_t -> d -> FileStream.f -> d
+val process_molecular_file :
+    ?respect_case:bool -> tcm_definition -> Cost_matrix.Two_D.m ->
+        Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> bool -> Alphabet.a ->
+            dyna_initial_assgn-> bool -> dyna_state_t -> d -> FileStream.f -> d
 
 val add_static_file : ?report:bool -> [`Hennig | `Nexus] -> d -> FileStream.f -> d
 
@@ -467,13 +433,10 @@ val process_analyze_only_file : bool -> d -> FileStream.f list -> d
 
 val number_of_taxa : d -> int
 
-val process_analyze_only_taxa : 
-    [`Random of float | `CharSet of (bool * string list) 
-    | `Names of (bool * string list) | `Missing of (bool * int) ] -> d -> d
-
+val process_analyze_only_taxa : Methods.taxon_and_characters -> d -> d
 
 (* Functions to manipulate and determine character sets and demarcation of data
- * sets by type, model, ... *)
+   sets by type, model, ... *)
 val get_set_of_character : d -> int -> string option
 
 val categorize : d -> d
@@ -522,9 +485,9 @@ val synonyms_to_formatter : d -> Xml.xml
 
 val to_formatter : Xml.attributes -> d -> Xml.xml 
 
-type classes = 
-    [ `Fixedstates |`Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
-    | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
+type classes =
+    [ `Fixedstates |`Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood
+    | `Likelihood | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ]
 
 val get_code_from_characters_restricted : classes -> d -> characters -> int list
 
@@ -632,7 +595,7 @@ val transform_weight :
 
 val file_exists : d -> FileStream.f -> bool
 
-val make_fixed_states : string option -> bool_characters -> polymorphism_t option -> d -> d
+val make_fixed_states : string option -> bool_characters -> Methods.polymorphism_arg option -> d -> d
 
 val make_direct_optimization : bool_characters -> d -> d
 
@@ -742,5 +705,3 @@ val verify_trees : d -> parsed_trees -> unit
 val guess_class_and_add_file : bool -> bool -> d -> FileStream.f -> d
 
 val report_kolmogorov_machine : string option -> d -> d
-(*
-val is_fs : d -> int -> bool *)

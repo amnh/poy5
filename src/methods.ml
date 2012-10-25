@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 2749 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2762 $"
 
 exception TimedOut
 
@@ -100,7 +100,6 @@ type simple_input = [
     | `Chromosome of filename list
     | `Genome of filename list
     | `ComplexTerminals of filename list
-(* sequence file, alphabet file *)
 ]
 
 type input = [

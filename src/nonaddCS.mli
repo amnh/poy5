@@ -74,10 +74,6 @@ external set_elt_bit : ct -> int -> int -> unit
 (** [set_elt_bit set loc bit] sets bit [bit] of element [loc], signifying that
     element [loc] is / can be in state [bit]. *)
 
-type gen
-val rand_gen : unit -> gen
-val make_rand : gen -> t
-
 (** {2 Medians and distances} *)
 
 val median : 'a -> t -> t -> t
