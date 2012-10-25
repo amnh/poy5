@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 2707 $"
+let () = SadmanOutput.register "Queues" "$Revision: 2763 $"
 
 (** {1 Types} *)
 
@@ -1075,7 +1075,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         inherit (hold_n_fb_srch_mgr n strategy sampler) as super
 
         method private filter t cost =
-            cost <= (cur_best_cost +. threshold)
+            cost <= (cur_best_cost *. (1. +. (threshold /. 100.)))
 
         method features l =
             super#features (("threshold", string_of_float threshold) :: l)

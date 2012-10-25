@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2751 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2763 $"
 
 let debug_find_local_optimum = false
 
@@ -495,8 +495,13 @@ module MakeNormal
     let queue_manager max th keep sampler =
         fun () ->
             match max, th with
-            | 1, _ -> new PhyloQueues.first_best_srch_mgr (sampler ())
-            | n, th -> new PhyloQueues.hold_n_threshold_srch_mgr n keep th (sampler ())
+            | 1, th -> (*ignore threshold in this case*)
+                    if th <> 0. then
+                    Status.user_message Status.Information 
+                    ("threshold@ is@ ignored@ because@ tree@ number@ is@ 1.");
+                    new PhyloQueues.first_best_srch_mgr (sampler ())
+            | n, th -> 
+                    new PhyloQueues.hold_n_threshold_srch_mgr n keep th (sampler ())
 
     let create_sampler data queue previous item adj_tabu = 
         let ob = 
@@ -637,7 +642,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                 | `AllAround f -> 
                         (fun () -> new PhyloQueues.all_possible_joins f
                         (samplerf ()))
-                | `BestFirst -> 
+                | `BestFirst ->
                             queue_manager l_opt.Methods.num_keep
                             l_opt.Methods.threshold l_opt.Methods.keep samplerf
                 | `AllThenChoose -> 
