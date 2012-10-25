@@ -48,9 +48,6 @@ let debug_level = false
 let debug_search_base = false
 let debug_parsed_seq = false 
 
-type dynhom_opts = 
-    | Tcm of string     (* A transformation cost matrix to be used *)
-
 (** The valid types of contents of a file *)
 type contents = Characters | CostMatrix | Trees 
 
@@ -76,7 +73,6 @@ type dyna_state_t = [
     | `CustomAlphabet
 ]
 
-
 let print_dyna_state x = 
     Printf.printf "dyna state = %!";
     match x with
@@ -100,16 +96,13 @@ let print_transform_meth x =
     | `Change_Dyn_Pam _ -> Printf.printf "Change_Dyn_Pam\n%!"
     | `Seq_to_Kolmogorov _ -> Printf.printf "Seq_to_Kolmogorov\n%!"
 
-type polymorphism_t = Methods.polymorphism_arg
-
 type clip = Clip | NoClip
 
 type dyna_initial_assgn =
     [ `Partitioned of clip
     | `AutoPartitioned of clip * int * (int,  ((int * int) list)) Hashtbl.t
     | `GeneralNonAdd
-    | `DO
-]
+    | `DO ]
 
 type tcm_definition =
     | Substitution_Indel of (int * int)
@@ -138,7 +131,7 @@ type dynamic_hom_spec = {
         * 1. Do_All: do the full "get_closest" thing, which might take a long time
         * 2. Pick_One: just pick one.
         * 3. Do_Nothing: do nothing, leave the input sequence as it is.*)
-    polymorphism : polymorphism_t;
+    polymorphism : Methods.polymorphism_arg;
 }
 
 
@@ -488,8 +481,9 @@ let transform_range_to_codes file x y =
     in
     `Names (loop_ [] x y)
 
-let create_ht () = Hashtbl.create 1667 
+let create_ht () = Hashtbl.create 1667
 
+(** What to display under different criteria *)
 let likelihood_output_information = [`TreeInformation [`Summary]; `OptMode]
 and parsimony_output_information  = [`TreeInformation [`Summary]; `CostMode ]
 
@@ -569,12 +563,11 @@ let get_set_of_character data char : string option =
     |  _  -> failwithf "Character %d/%s is associated with multiple sets" char char_name
 
 
-let duplicate data = 
+let duplicate data =
     { data with
         character_code_gen = ref !(data.character_code_gen);
         taxon_characters = copy_taxon_characters data.taxon_characters;
-        searchbase_characters = copy_taxon_characters
-        data.searchbase_characters;
+        searchbase_characters = copy_taxon_characters data.searchbase_characters;
         character_names = Hashtbl.copy data.character_names;
         character_codes = Hashtbl.copy data.character_codes;
         character_specs = Hashtbl.copy data.character_specs;
@@ -584,13 +577,13 @@ let duplicate data =
     }
 
 (* recreate static_dynamic codes from dynamic_static map *)
-let reverse_dynamic_static_codes map = 
+let reverse_dynamic_static_codes map =
     All_sets.IntegerMap.fold
         (fun i lst acc ->
             let key = List.fold_right ~f:All_sets.Integers.add
                                       ~init:All_sets.Integers.empty lst in
             All_sets.IntSetMap.add key i acc)
-        map 
+        map
         All_sets.IntSetMap.empty
 
 (* [convert_dynamic_to_static_branches src dest] Use the static_dynamic_codes
@@ -616,7 +609,7 @@ let convert_dynamic_to_static_branches ~src ~dest =
             (fun tree map ->
                 let results =
                     All_sets.IntSetMap.fold
-                        (fun intset ntbl acc -> 
+                        (fun intset ntbl acc ->
                             let copy_node = Hashtbl.create 10 in
                             Hashtbl.iter (add_data copy_node) ntbl;
                             All_sets.IntSetMap.add intset copy_node acc)
@@ -629,16 +622,16 @@ let convert_dynamic_to_static_branches ~src ~dest =
     | None -> dest
 
 (* the converse of the above function *)
-let convert_static_to_dynamic_branches ~src ~dest = 
-    let add_data ctbl ntbl = 
+let convert_static_to_dynamic_branches ~src ~dest =
+    let add_data ctbl ntbl =
         All_sets.IntSetMap.iter
             (fun set new_code ->
                 let new_name = Hashtbl.find dest.character_codes new_code
-                and old_name,rep_code = 
+                and old_name,rep_code =
                     let rep_code = All_sets.Integers.max_elt set in
                     Hashtbl.find src.character_codes rep_code,rep_code
                 in
-                let lengths = 
+                let lengths =
                     try Hashtbl.find ctbl old_name
                     with | Not_found ->
                         failwithf "Could not find old_name:%s; new_code:%d new_name:%s; rep_code:%d"
@@ -652,10 +645,10 @@ let convert_static_to_dynamic_branches ~src ~dest =
     | Some branches ->
         let copy_tree = Hashtbl.create 10 in
         Hashtbl.iter
-            (fun tree map -> 
-                let results = 
+            (fun tree map ->
+                let results =
                     All_sets.IntSetMap.fold
-                        (fun partition lengths intset -> 
+                        (fun partition lengths intset ->
                             let ntbl = add_data lengths (Hashtbl.create 17) in
                             All_sets.IntSetMap.add partition ntbl intset)
                         map
@@ -668,40 +661,36 @@ let convert_static_to_dynamic_branches ~src ~dest =
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
-let set_fs_data seq_arr states_arr = 
-    { 
+let set_fs_data seq_arr states_arr =
+    {
         states = states_arr;
-        dynamic_data = set_dyna_data seq_arr; 
+        dynamic_data = set_dyna_data seq_arr;
     }
 
 (** [get_recost pams] returns the rearrangement cost in [pams] *)
-let get_recost user_pams = 
-    match user_pams.re_meth with
+let get_recost user_pams = match user_pams.re_meth with
     | None -> failwith "The rearrangement cost is not specified"
     | Some (`Locus_Breakpoint c)
     | Some (`Locus_Inversion c) -> c
 
-
 (** [get_locus_indel_cost user_pams] returns the locus indel cost in [pams] *)
-let get_locus_indel_cost user_pams = 
+let get_locus_indel_cost user_pams =
     match user_pams.locus_indel_cost with
     | None -> failwith "The locus indel cost is not specified"
     | Some c -> c
 
-
 let get_character_set_name data codes : string option = match codes with
     | [] -> failwith "No characters specified"
-    | code::codes -> 
+    | code::codes ->
         let char = Hashtbl.find data.character_codes code in
         if Hashtbl.mem data.character_nsets char then
             Some (Hashtbl.find data.character_nsets char)
         else
             None
 
-
 let get_likelihood_model data chars =
     let get_model x =
-        try match Hashtbl.find data.character_specs x with 
+        try match Hashtbl.find data.character_specs x with
             | Dynamic s when s.state = `Ml ->
                 begin match s.lk_model with
                     | Some xm -> x,xm
@@ -726,7 +715,7 @@ let get_likelihood_model data chars =
     | [] -> failwith "No Characters found"
 
 
-let get_empty_seq alph = 
+let get_empty_seq alph =
     let seq = Sequence.create 1 in
     let seq = Sequence.prepend_char seq (Alphabet.get_gap alph) in
     { seq = seq; delimiter = []; code = -1; }
@@ -906,7 +895,8 @@ let print (data : d) =
     All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;
     print_newline ()
 
-
+(** This counts the number of modified characters from a transformation; this is
+    so we build an informative report to the user *)
 let modified_characters data_one data_two : int =
     let data_one = data_one.character_specs
     and data_two = data_two.character_specs in
@@ -927,11 +917,10 @@ let modified_characters data_one data_two : int =
 let get_weight c data =
     match Hashtbl.find data.character_specs c with
     | Dynamic spec -> spec.weight
-    | Static x ->
-            (match x with
-            | NexusFile spec -> spec.Nexus.File.st_weight
-            | FixedStates spec -> spec.original_dynspec.weight )
-    | _ -> 1.0
+    | Static (NexusFile spec) -> spec.Nexus.File.st_weight
+    | Static (FixedStates spec) -> spec.original_dynspec.weight
+    | Set -> 1.0
+    | Kolmogorov _ -> 1.0
 
 
 let get_weights data =
@@ -2512,8 +2501,7 @@ let get_all_taxon_active_codes data =
 let absolute_of_percentage n precentage =
     truncate ((precentage *. (float_of_int n)) /. 100.)
 
-let rec process_analyze_only_taxa meth data = 
-    match meth with
+let rec process_analyze_only_taxa meth data = match meth with
     | `Random fraction ->
             let all_codes = Array.of_list (get_all_taxon_active_codes data) in
             Array_ops.randomize all_codes;
@@ -2543,7 +2531,6 @@ let rec process_analyze_only_taxa meth data =
                                     with | Not_found -> [] ) name_lst)
             in
             process_analyze_only_taxa (`Names (dont_complement,names)) data
-
     | `Missing (dont_complement, fraction) ->
             Status.user_message Status.Information "Here";
             let fraction = (float_of_int fraction) /. 100. in
@@ -2608,14 +2595,10 @@ let process_analyze_only_file dont_complement data files =
 let remove_taxa_to_ignore data = 
     let data = duplicate data in
     let process_data taxon data =
-        try
-            let tcode = 
-                All_sets.StringMap.find taxon data.taxon_names 
-            in
+        try let tcode = All_sets.StringMap.find taxon data.taxon_names in
             Hashtbl.remove data.taxon_characters tcode;
             data
-        with
-        | _ -> data
+        with | _ -> data
     in
     let data = All_sets.Strings.fold process_data data.ignore_taxa_set data in
     let data = find_code_for_root_if_removed data in
@@ -4135,9 +4118,6 @@ and complement_characters data characters =
         else x :: acc) data.character_codes [] in
     `Some res
 
-let get_all_codes data =
-    Hashtbl.fold (fun c _ acc -> c :: acc) data.character_codes  []
-
 let complement_characters_restricted kind data ch =
     let res = 
         let codes = get_chars_codes data ch in
@@ -4642,6 +4622,7 @@ let update_priors data charcodes use_gap =
                     model_d := Some model;
                     Hashtbl.replace data.character_specs code
                         (Dynamic {x with state = `Ml; lk_model = !model_d;})
+                | (Static (FixedStates _), _, _)
                 | (Kolmogorov _ | Set) , _ , _ -> assert false)
             charcodes;
         data
@@ -5791,9 +5772,6 @@ let add_search_base_from_file data chars file_chname_lst =
 
 
 let classify_characters_by_alphabet_size data chars =
-    let is_dynamic_character x =
-        (List.exists (fun y -> x = y) data.dynamics)
-    in
     let make_tuple_of_character_and_size acc char =
         let size =
             char --> get_alphabet data
@@ -5889,7 +5867,7 @@ let unassign_ncm_weights_to_chars data chars gap : d =
     let data = duplicate data in
     let unassign_weight_to_char c =
         match Hashtbl.find data.character_specs c with
-        | Dynamic _
+        | Dynamic _ | Kolmogorov _ | Set
         | Static (FixedStates _)  -> ()
         | Static (NexusFile spec) ->
             begin match spec.Nexus.File.st_type with

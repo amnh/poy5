@@ -21,7 +21,7 @@
  * implemented. The tabu manager specifies the order in which edges are broken by
  * the SPR and TBR search procedures. The list of edges in the tabu should always
  * match the edges in the tree. *)
-let () = SadmanOutput.register "Tabus" "$Revision: 2684 $"
+let () = SadmanOutput.register "Tabus" "$Revision: 2764 $"
 
 (* A module that provides the managers for a local search (rerooting, edge
 * breaking and joining. A tabu manager controls what edges are next ina series
@@ -654,14 +654,18 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     end
 
     (* root class; only updates the model using threshold and count. subclasses
-     * must provide branch functionality *)
-    class virtual nm_simple_base mcount mthreshold = object (self)
+     * must provide branch functionality using b_list, but includes return of
+     * b_list (method branches), this is to avoid bugs in accessing b_list but
+     * not clearing b_list after optimization. *)
+    class virtual nm_simple_base mcount mthreshold =
+        object (self)
 
             val threshold = mthreshold
             val maxcount  = mcount
             val mutable count = 0
             val mutable score = None
             val mutable iterate = false
+            val mutable b_list = None
 
             method private update_model (tree: ('a,'b) Ptree.p_tree)
                     (fn : ([ `Break of ('a, 'b) Ptree.breakage 
@@ -695,20 +699,26 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
             method fuse _ = self#clone
 
+            method branches = match b_list with
+                | Some [] -> b_list
+                | Some x  -> let copy = x in b_list <- Some []; Some copy
+                | None    -> None
+
             (* these much be implemented *)
-            method virtual branches       : Tree.edge list option
             method virtual update_iterate : ('a, 'b) Ptree.p_tree ->
                                             ([ `Break of ('a, 'b) Ptree.breakage 
                                              | `Join of Tree.join_delta 
                                              | `Reroot of Ptree.incremental list
                                              | `Cost ]) -> unit
+
             method virtual to_string : string
         end
 
-    class nm_simple_none mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)
+    class nm_simple_none mcount mthreshold : [Node.n,Edge.e] nodes_manager =
+        object (self)
             inherit nm_simple_base mcount mthreshold as super
 
-            method branches = Some []
+            method branches = Some [] (* over-ridden *)
             method update_iterate t m = self#update_model t m
             method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
             method to_string =
@@ -717,20 +727,13 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
                     (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
                     (opt_ string_of_float score) "None"
-(*
-            method fuse x = 
-                let r = x#clone in
-                let r#count = x#count + self#count in
-                let r#score = min self#count x#score in
-                let r#iterate = x#iterate || self#iterate in
-                r
-*)
-    end
+        end
 
-    class nm_simple_all mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)
+    class nm_simple_all mcount mthreshold : [Node.n,Edge.e] nodes_manager =
+        object (self)
             inherit nm_simple_base mcount mthreshold as super
 
-            method branches = None
+            method branches = None (* over-ridden *)
             method update_iterate t m = self#update_model t m
             method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
             method to_string =
@@ -739,12 +742,11 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
                     (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
                     (opt_ string_of_float score) "Always"
-    end
+        end
 
-    class nm_complex_delta mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)
+    class nm_complex_delta mcount mthreshold : [Node.n,Edge.e] nodes_manager =
+        object (self)
             inherit nm_simple_base mcount mthreshold as super
-
-            val mutable b_list = None
 
             method private edges_of_path tree delta = 
                 let make_edge a b = 
@@ -770,34 +772,18 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     let () = self#update_model tree fn in
                     b_list <- Some (self#edges_of_path tree delta)
 
-            method branches = match b_list with
-                | Some [] -> b_list (* not iterating anything *)
-                | Some x -> 
-(*                    Printf.printf "Iterating Edges: ";*)
-(*                    List.iter (fun (Tree.Edge (a,b)) ->*)
-(*                                    Printf.printf "%d -- %d, " a b) x;*)
-(*                    print_newline ();*)
-                    let copy = x in
-                    b_list <- Some [];
-                    Some copy
-                | None -> 
-(*                    Printf.printf "Iterating Edges: All\n%!";*)
-                    None
-
             method to_string =
                 let opt_ to_str = function | Some x -> to_str x | None -> "none" in
                 Printf.sprintf 
                     "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
                     (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
                     (opt_ string_of_float score) "Join Delta"
-    end
+        end
 
     class nm_complex_neighborhood dist mcount mthreshold : [Node.n,Edge.e] nodes_manager =
         object (self)
             inherit nm_simple_base mcount mthreshold as super
     
-            val mutable b_list = []
-
             method private edges_of_delta tree deltal deltar = 
                 let rec make_edge a b = 
                     let edge =
@@ -823,9 +809,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 | `Break _ | `Cost | `Reroot _ -> ()
                 | `Join (d1,d2,_) ->
                     let () = self#update_model tree fn in
-                    b_list <- self#edges_of_delta tree d1 d2
-
-            method branches = Some b_list
+                    b_list <- Some (self#edges_of_delta tree d1 d2)
 
             method to_string =
                 let opt_ to_str = function | Some x -> to_str x | None -> "none" in
@@ -833,10 +817,10 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
                     (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
                     (opt_ string_of_float score) "Join Neighborhood"
-    end
+        end
 
-    class simple_dfs (ptree : (Node.n, Edge.e) Ptree.p_tree) : 
-        [Node.n, Edge.e] edges_manager = object (self)
+    class simple_dfs (ptree : (Node.n, Edge.e) Ptree.p_tree) : [Node.n, Edge.e] edges_manager =
+        object (self)
 
             val mutable starting = true
             val to_do_later = Stack.create ()
@@ -856,14 +840,13 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
             method private add_both_children ((parent, child) as e) =
                 if List.exists (undirected_edge e) exclude_edges then ()
-                else
-                    try
-                        let node = Tree.get_node child tree in
+                else begin
+                    try let node = Tree.get_node child tree in
                         let (a, b) = Tree.other_two_nbrs parent node in
                         Stack.push (child, a) to_do_later;
                         Stack.push (child, b) to_do_later;
-                    with
-                    | _ -> ()
+                    with | _ -> ()
+                end
 
             method next_edge =
                 if starting then
@@ -895,10 +878,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     let _ = self#add_both_children res in
                     Some (Tree.Edge (a, b))
 
-            method exclude edges = 
-                exclude_edges <- edges
-
-    end
+            method exclude edges = exclude_edges <- edges
+        end
 
     let get_side side breakage = 
         match side with
