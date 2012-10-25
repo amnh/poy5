@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2754 $"
+let () = SadmanOutput.register "Node" "$Revision: 2759 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -787,8 +787,8 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let total_cost = ca.weight *. (DynamicCS.total_cost median) in
             let sumcost = ca.sum_cost +. cb.sum_cost +. total_cost in
             if debug_cs_median then
-                info_user_message "Return Median with costs: Cost:%f,\
-                S:%f(ca=%f,cb=%f)" total_cost sumcost ca.sum_cost cb.sum_cost;
+                info_user_message "Return Median with costs: Cost:%f,Sum_cost:%f(ca=%f,cb=%f)" 
+                total_cost sumcost ca.sum_cost cb.sum_cost;
             let res = 
                 { ca with 
                     preliminary = median;
@@ -3433,7 +3433,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         { mine with characters = chars; }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
-    let debug = true and debug2 = true in
+    let debug = false and debug2 = false in
     if debug then 
         Printf.printf "\n Node.ml readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
         mine.taxon_code parent.taxon_code ch1.taxon_code ch2.taxon_code;

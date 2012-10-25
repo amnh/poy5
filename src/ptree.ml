@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2751 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2764 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -1740,10 +1740,6 @@ let fuse source target terminals =
         | `Single (x, _) -> Tree.Single_Jxn x
     in
     let adj_3 = adj_1#fuse adj_2 in
-(*    Printf.printf "ADJ1 = %s\n%!" adj_1#to_string;*)
-(*    Printf.printf "ADJ2 = %s\n%!" adj_2#to_string;*)
-(*    Printf.printf "ADJ3 = %s\n%!" adj_3#to_string;*)
-(*    Printf.printf "DOING JOIN FROM FUSE\n%!";*)
     let tree, _ = Tree_Ops.join_fn (Some adj_3) [] jxn jxn2 tree in
     let tree = Tree_Ops.uppass tree in
     tree,adj_3
