@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2767 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2769 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -738,7 +738,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             --> MlModel.spec_from_classification alph gap subst vari pi cost
             --> MlModel.create
       ELSE
-        failwith MlModel.likelihood_not_enabled
+        Status.user_message Status.Error MlModel.likelihood_not_enabled;
+        raise MlModel.LikelihoodModelError
       END
 
 
@@ -824,7 +825,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             --> MlModel.spec_from_classification alph gap subst vari pi cost
             --> MlModel.create
       ELSE
-        failwith MlModel.likelihood_not_enabled
+        Status.user_message Status.Error MlModel.likelihood_not_enabled;
+        raise MlModel.LikelihoodModelError
       END
 
     let analyze_sequences sensible acc ((node, node_union), leafs) =

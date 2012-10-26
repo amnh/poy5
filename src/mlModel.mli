@@ -20,6 +20,8 @@
 
 (** {6 Types *)
 
+exception LikelihoodModelError
+
 type site_var = 
     (** [Gamma] #categories, alpha, beta *)
     | Gamma of int * float
