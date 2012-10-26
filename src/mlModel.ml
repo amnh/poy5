@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2749 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2769 $"
 
 open Numerical.FPInfix
 
@@ -27,8 +27,14 @@ let failwithf format = Printf.ksprintf failwith format
 
 let debug = false
 
+exception LikelihoodModelError
+
 let likelihood_not_enabled =
     "Likelihood@ not@ enabled:@ download@ different@ binary@ or@ contact@ mailing@ list" 
+
+let lfailwith () =
+    Status.user_message Status.Error likelihood_not_enabled;
+    raise LikelihoodModelError 
 
 let dyno_likelihood_warning = 
     "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
@@ -36,8 +42,6 @@ let dyno_likelihood_warning =
 
 let dyno_gamma_warning = 
     "Gamma@ classes@ for@ dynamic@ MPL@ are@ un-necessary,@ and@ are@ being@ removed."
-
-exception LikelihoodModelError
 
 let debug_printf msg format =
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
@@ -996,19 +1000,18 @@ let model_to_cm model t =
 
 ELSE
 
-    let output_model _ _ _ _ = failwith likelihood_not_enabled
-    let compose _ _  = failwith likelihood_not_enabled
-    let spec_from_classification _ _ _ _ _ _ = failwith likelihood_not_enabled
-    let compare _ _ = failwith likelihood_not_enabled
-    let classify_seq_pairs _ _ _ _ _ = failwith likelihood_not_enabled
-    let subst_matrix _ _ = failwith likelihood_not_enabled
-    let process_custom_model _ = failwith likelihood_not_enabled
-    let model_to_cm _ _ = failwith likelihood_not_enabled
-    let compose_model _ _ = failwith likelihood_not_enabled
-
-    let m_gtr  _ _ _ _ = failwith likelihood_not_enabled
-    let m_file _ _ _   = failwith likelihood_not_enabled
-    let m_jc69 _ _ _   = failwith likelihood_not_enabled
+    let output_model _ _ _ _ = lfailwith ()
+    let compose _ _  = lfailwith ()
+    let spec_from_classification _ _ _ _ _ _ = lfailwith ()
+    let compare _ _  = lfailwith ()
+    let classify_seq_pairs _ _ _ _ _ = lfailwith ()
+    let subst_matrix _ _  = lfailwith ()
+    let process_custom_model _ = lfailwith ()
+    let model_to_cm _ _   = lfailwith ()
+    let compose_model _ _ = lfailwith ()
+    let m_gtr  _ _ _ _ = lfailwith ()
+    let m_file _ _ _   = lfailwith ()
+    let m_jc69 _ _ _   = lfailwith ()
 
 END
 
@@ -1122,7 +1125,7 @@ let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost
         alphabet = alph;
         cost_fn = cost_fn; }
   ELSE
-    failwith likelihood_not_enabled
+    lfailwith ()
   END
 
 
@@ -1330,7 +1333,7 @@ let create ?(min_prior=Numerical.minimum) lk_spec =
         ui = ui_;
     }
   ELSE
-    failwith likelihood_not_enabled
+    lfailwith ()
   END
 
 

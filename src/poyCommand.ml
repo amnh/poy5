@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2760 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2767 $"
 
 let debug = false 
 
@@ -527,7 +527,7 @@ let transform_build
     | `Nj -> (n, `Nj, trans,iter)
     | `Prebuilt fn -> (n, (`Prebuilt fn), trans,iter)
     | `RandomTree ->
-            begin match meth with
+        begin match meth with
             | `Nj
             | `Prebuilt _ -> acc
             | `Wagner_Ordered x 
@@ -536,18 +536,18 @@ let transform_build
             | `Build_Random (x,_)
             | `Wagner_Rnd x -> (n, (`Build_Random (x,iter)), trans, iter)
             | `Constraint _ ->
-                    failwith 
+                failwith 
                     "Constraint tree has already been selected as build method."
             | `Branch_and_Bound _ ->
-                    failwith 
+                failwith 
                     "Branch and bound tree has already been selected as build method."
-            end
+        end
     | `Constraint file ->
-            let file = match file with
-                | None -> None
-                | Some x -> Some (`Local x)
-            in
-            begin match meth with
+        let file = match file with
+            | None -> None
+            | Some x -> Some (`Local x)
+        in
+        begin match meth with
             | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
             | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
             | `Wagner_Mst (keep_max, _, keep_method, lst, _)
@@ -555,20 +555,20 @@ let transform_build
             | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
                     (n, (`Constraint (1, 0.0, file, lst)), trans, iter)
             | `Branch_and_Bound _ ->
-                    failwith
+                failwith
                     "Branch and bound has already been selected as build method."
             | `Constraint _ ->
-                    failwith 
+                failwith 
                     "Constraint has already been selected as build method."
             | `Nj -> 
-                    failwith 
+                failwith 
                     "Neighbor joining has already been selected as build method."
             | `Prebuilt _ -> 
-                    failwith 
+                failwith 
                     "Prebuilt has already been selected as build method."
-            end
+        end
     | `Branch_and_Bound bound ->
-            begin match meth with
+        begin match meth with
             | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
             | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
             | `Wagner_Mst (keep_max, _, keep_method, lst, _)
@@ -578,17 +578,17 @@ let transform_build
             | `Branch_and_Bound (x,_) ->
                     (n, `Branch_and_Bound (x,iter), trans, iter)
             | `Constraint _ ->
-                    failwith 
+                failwith 
                     "Constraint has already been selected as build method."
             | `Nj -> 
-                    failwith 
+                failwith 
                     "Neighbor joining has already been selected as build method."
             | `Prebuilt _ -> 
-                    failwith 
+                failwith 
                     "Prebuilt has already been selected as build method."
-            end
+        end
     | `DistancesRnd ->
-            begin match meth with
+        begin match meth with
             | `Prebuilt _
             | `Wagner_Distances _ -> acc
             | `Wagner_Mst x
@@ -596,17 +596,17 @@ let transform_build
             | `Wagner_Ordered x
             | `Build_Random (x,_) -> (n, (`Wagner_Distances x), trans, iter)
             | `Constraint _ ->
-                    failwith 
+                failwith 
                     "Constraint has already been selected as build method."
             | `Branch_and_Bound _ -> 
-                    failwith
+                failwith
                     "Branch and bound tree has already been selected as build method."
             | `Nj -> 
-                    failwith 
+                failwith 
                     "Neighbor joining has already been selected as build method."
-            end
+        end
     | `Mst ->
-            begin match meth with
+        begin match meth with
             | `Prebuilt _
             | `Wagner_Mst _ -> acc
             | `Wagner_Distances x
@@ -614,17 +614,17 @@ let transform_build
             | `Wagner_Ordered x
             | `Build_Random (x,_) -> (n, (`Wagner_Mst x), trans, iter)
             | `Constraint _ ->
-                    failwith 
+                failwith 
                     "Constraint has already been selected as build method."
             | `Branch_and_Bound _ -> 
-                    failwith
+                failwith
                     "Branch and bound tree has already been selected as build method."
             | `Nj -> 
-                    failwith 
+                failwith 
                     "Neighbor joining has already been selected as build method."
-            end
+        end
     | `Random ->
-            begin match meth with
+        begin match meth with
             | `Prebuilt _
             | `Wagner_Rnd _ -> acc
             | `Wagner_Distances x
@@ -632,17 +632,17 @@ let transform_build
             | `Wagner_Ordered x
             | `Build_Random (x,_) -> (n, (`Wagner_Rnd x), trans, iter)
             | `Constraint _ ->
-                    failwith 
+                failwith 
                     "Constraint has already been selected as build method."
             | `Branch_and_Bound _ -> 
-                    failwith
+                failwith
                     "Branch and bound tree has already been selected as build method."
             | `Nj -> 
-                    failwith 
+                failwith 
                     "Neighbor joining has already been selected as build method."
-            end
+        end
     | `Ordered ->
-            begin match meth with
+        begin match meth with
             | `Prebuilt _
             | `Wagner_Ordered _ -> acc
             | `Wagner_Distances x
@@ -650,102 +650,83 @@ let transform_build
             | `Build_Random (x ,_)
             | `Wagner_Rnd x -> (n, (`Wagner_Ordered x), trans, iter)
             | `Constraint _ ->
-                    failwith 
+                failwith 
                     "Constraint has already been selected as build method."
             | `Branch_and_Bound _ -> 
-                    failwith
+                failwith
                     "Branch and bound tree has already been selected as build method."
             | `Nj -> 
-                    failwith 
+                failwith 
                     "Neighbor joining has already been selected as build method."
-            end
+        end
     | `Threshold x ->
-            let converter (a, _, c, d, e) = (a, x, c, d, e) in
-            let nmeth = 
-                match meth with
-                | `Branch_and_Bound _
-                | `Constraint _
-                | `Build_Random _
-                | `Nj
-                | `Prebuilt _ -> meth
-                | `Wagner_Distances y -> 
-                        `Wagner_Distances (converter y)
-                | `Wagner_Mst y -> 
-                        `Wagner_Mst (converter y)
-                | `Wagner_Rnd y -> 
-                        `Wagner_Rnd (converter y)
-                | `Wagner_Ordered y -> 
-                        `Wagner_Ordered (converter y)
-            in
-            n, nmeth, trans, iter
+        let converter (a, _, c, d, e) = (a, x, c, d, e) in
+        let nmeth = match meth with
+            | `Branch_and_Bound _
+            | `Constraint _
+            | `Build_Random _
+            | `Nj
+            | `Prebuilt _ -> meth
+            | `Wagner_Distances y -> `Wagner_Distances (converter y)
+            | `Wagner_Mst y -> `Wagner_Mst (converter y)
+            | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
+            | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
+        in
+        n, nmeth, trans, iter
     | `Trees x ->
-            (x, meth, trans, iter)
+        (x, meth, trans, iter)
     | `Lookahead x ->
-            let converter (_, b, c, d, e) = (x, b, c, d, e) in
-            let nmeth = 
-                match meth with
-                | `Branch_and_Bound _
-                | `Constraint _
-                | `Build_Random _
-                | `Nj
-                | `Prebuilt _ -> meth
-                | `Wagner_Distances y -> 
-                        `Wagner_Distances (converter y)
-                | `Wagner_Mst y -> 
-                        `Wagner_Mst (converter y)
-                | `Wagner_Rnd y -> 
-                        `Wagner_Rnd (converter y)
-                | `Wagner_Ordered y -> 
-                        `Wagner_Ordered (converter y)
-            in
-            n, nmeth, trans, iter
+        let converter (_, b, c, d, e) = (x, b, c, d, e) in
+        let nmeth = match meth with
+            | `Branch_and_Bound _
+            | `Constraint _
+            | `Build_Random _
+            | `Nj
+            | `Prebuilt _ -> meth
+            | `Wagner_Distances y -> `Wagner_Distances (converter y)
+            | `Wagner_Mst y -> `Wagner_Mst (converter y)
+            | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
+            | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
+        in
+        n, nmeth, trans, iter
     | `Last
     | `First
     | `Keep_Random as x -> 
-            let converter (a, b, _, c, d) = (a, b, x, c, d) in
-            let nmeth = 
-                match meth with
-                | `Constraint _
-                | `Nj
-                | `Prebuilt _ -> meth
-                | `Wagner_Distances y -> 
-                        `Wagner_Distances (converter y)
-                | `Wagner_Mst y -> 
-                        `Wagner_Mst (converter y)
-                | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
-                | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
-                | `Build_Random (y,i) -> `Build_Random ((converter y),i)
-                | `Branch_and_Bound ((a, b, _, c, d),i) ->
-                        `Branch_and_Bound ((a, b, x, c, d),i)
-            in
-            n, nmeth, trans, iter
+        let converter (a, b, _, c, d) = (a, b, x, c, d) in
+        let nmeth = match meth with
+            | `Constraint _
+            | `Nj
+            | `Prebuilt _ -> meth
+            | `Wagner_Distances y -> `Wagner_Distances (converter y)
+            | `Wagner_Mst y -> `Wagner_Mst (converter y)
+            | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
+            | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
+            | `Build_Random (y,i) -> `Build_Random ((converter y),i)
+            | `Branch_and_Bound ((a,b, _,c,d),i) -> 
+                    `Branch_and_Bound ((a,b,x,c,d),i)
+        in
+        n, nmeth, trans, iter
     | `Transform x ->
-            let t = transform_transform_arguments x in
-            (n, meth, (t @ trans), iter)
+        let t = transform_transform_arguments x in
+        (n, meth, (t @ trans), iter)
     | `IterationB xs ->
-            let (m,b) as i = transform_iterations xs in
-            n, meth, trans, i
+        let (m,b) as i = transform_iterations xs in
+        n, meth, trans, i
     | #Methods.tabu_join_strategy as tabu ->
-            let converter (a, b, c, d, _) = (a, b, c, d, tabu) in
-            let nmeth = 
-                match meth with
-                | `Constraint _
-                | `Branch_and_Bound _
-                | `Nj
-                | `Prebuilt _ -> meth
-                | `Wagner_Distances y -> 
-                        `Wagner_Distances (converter y)
-                | `Wagner_Mst y -> 
-                        `Wagner_Mst (converter y)
-                | `Wagner_Rnd y -> 
-                        `Wagner_Rnd (converter y)
-                | `Wagner_Ordered y -> 
-                        `Wagner_Ordered (converter y)
-                | `Build_Random (y,i) -> 
-                        `Build_Random ((converter y),i)
+        let converter (a, b, c, d, _) = (a, b, c, d, tabu) in
+        let nmeth = match meth with
+            | `Constraint _
+            | `Branch_and_Bound _
+            | `Nj
+            | `Prebuilt _ -> meth
+            | `Wagner_Distances y -> `Wagner_Distances (converter y)
+            | `Wagner_Mst y -> `Wagner_Mst (converter y)
+            | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
+            | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
+            | `Build_Random (y,i) -> `Build_Random ((converter y),i)
 
-            in
-            n, nmeth, trans, iter
+        in
+        n, nmeth, trans, iter
 
 let transform_build_arguments x
     : int * Methods.build_method * Methods.cost_calculation list * Methods.tabu_iteration_strategy =
