@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2747 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2768 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -877,7 +877,7 @@ module Align = struct
         else
            count gap 0 s 
 
-    (*cost_2 function under module Align*)
+    (*cost_2 function under module Align, called by seqCS.cost_2 to get join cost*)
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let debug = false in
         if debug then begin
@@ -897,15 +897,19 @@ module Align = struct
                     else v
         in
         let ls1 = length s1 and ls2 = length s2 in
-        if debug then Printf.printf "lens1=%d, lens2=%d,append a gap to empty one\n%!" ls1 ls2;
+        if debug then Printf.printf "lens1=%d, lens2=%d,%!" ls1 ls2;
         (*we prepend a gap to empty sequence, how about the other one? should we
         * prepend a gap on that, too?*)
         let s1,ls1 = 
-          if ls1=0 then (prepend_gap s1 m1),1
+          if ls1=0 then
+              let _ = if debug then Printf.printf "append a gap to empty seq1,%!" in
+              (prepend_gap s1 m1),1
           else s1,ls1
         in
         let s2,ls2 =
-            if ls2=0 then (prepend_gap s2 m1),1 
+            if ls2=0 then 
+                let _ = if debug then Printf.printf "append a gap to empty seq2,%!" in
+                (prepend_gap s2 m1),1 
             else s2,ls2
         in
         (*assert (ls1 <> 0);  assert (ls2 <> 0);*)
@@ -1329,18 +1333,20 @@ module Align = struct
     let recost ?(first_gap=true) a b cm =
         let debug = false in
         assert (length a = length b);
-        let len = length a 
+        let lena = length a
+        and lenb = length b
         and gap = Cost_matrix.Two_D.gap cm 
         and gap_opening =
             match Cost_matrix.Two_D.affine cm with
             | Cost_matrix.Affine x -> x
             | _ -> 0
         in
+        assert(lena=lenb); (*a and b must with same length for they are aligned sequence*)
+        let len = lena in
         let usecombine = (1 = Cost_matrix.Two_D.combine cm) in
         let uselevel = check_level cm in
         if debug then begin
-            Printf.printf "Sequence.Align.recost,usecombine=%b,uselevel=%b,on seq1 and seq2 (len=%d):\n%!" 
-            usecombine uselevel len;
+            Printf.printf "Sequence.Align.recost,first_gap=%b,usecombine=%b,uselevel=%b,on seq1 and seq2 (len=%d):\n%!" first_gap usecombine uselevel len;
             printseqcode a;
             printseqcode b;
         end;
@@ -1353,10 +1359,11 @@ module Align = struct
         let code_has_no_gap combcode gap cm =
             ( (code_has_gap combcode gap cm)=false )
         in
-        let startpos = if first_gap then 1 else 0 in
+        let startpos =  if first_gap then 1 else 0 in(*when len=0 and
+        startpos=1, we reach out of the range of arr, process_cost take care of this*)
         if usecombine then (*use combination on cost matrix*)
             let rec process_cost it cost is_gap_block =
-                if it = len then begin
+                if it >= len then begin
                     if debug then Printf.printf "return cost = %d\n%!" cost;
                     cost
                 end
@@ -1376,7 +1383,7 @@ module Align = struct
             process_cost startpos 0 false
         else (*no combination in cost matrix*)
             let rec process_cost it cost is_gap_block =
-                if it = len then cost
+                if it >= len then cost
                 else
                     let ba = get a it
                     and bb = get b it in
@@ -1387,7 +1394,7 @@ module Align = struct
                         process_cost (it + 1) (cost + c) false
                     else process_cost (it + 1) (cost + c) true
             in
-            process_cost 0 0 false
+            process_cost startpos 0 false
 
     external powell_3d : s -> s -> s -> s -> s -> s -> int -> int -> int -> int =
         "powell_3D_align_bc" "powell_3D_align"
@@ -1863,7 +1870,7 @@ module Align = struct
                     Printf.printf "med3seq with gap = %!";
                     printseqcode med3seqWgap;
                 end;
-                let cost12 = recost aliedch1seq aliedch2seq cm2d in
+                let cost12 = recost ~first_gap:false aliedch1seq aliedch2seq cm2d in
                 (*prepend med3seq gapcode;*)
                 (*let anything_changed = 
                     (oldcost3 <> rescost)||(oldcost2 <> cost12)||(0 <> compare resseq mine) in

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block_mauve" "$Revision: 2684 $"
+let () = SadmanOutput.register "Block_mauve" "$Revision: 2768 $"
 
 (* A.D. = Aaron E. Darling*)
 (* W = weight, R = ratio *)
@@ -26,6 +26,7 @@ let debug_remove_bad_match =  false
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
 let debug_search_outside = false
+let debug_join_3_cell = false 
 (*now we have 3 different function for removing bad lcbs: greedy,
 * dyn1,dyn2. greedy is from A.D.'s paper, dyn1 and dyn2 are my
 * idea. 
@@ -1484,7 +1485,6 @@ if debug2 then Printf.printf "work on cell.%d.%d(size=%d)\n%!" j (j+k) size;
                 let (resR,scoreR,lenR,codemapR) as from_cell_right = 
                     join_2_cell cell_right resmatrix.(1).(j) false
                 in
-                let debug_join_3_cell = false in
                 let (resD,scoreD,lenD,newcodemap) as from_cell_down = 
                     join_3_cell cell_down resmatrix.(1).(j) resmatrix.(1).(j+k) debug_join_3_cell in
                 let best_of_three = (*we should also compare score here?*) 
@@ -1689,7 +1689,6 @@ let debug = false and debug2 = false in
         end;
     in
     let join_3_cell midcell leftcell rightcell debug_join_3_cell =
-        let debug_join_3_cell = true in
         if debug_join_3_cell then Printf.printf "join 3 cell start\n%!";
         let (codelstM,scoreM,lenM,maskarrM) = midcell in
         let (codelstL,scoreL,lenL,maskarrL) = leftcell 
@@ -1750,7 +1749,7 @@ let debug = false and debug2 = false in
                     join_2_cell cellleft cellright false false debug_join
                 in
                 *)
-            let debug_join = true in
+            let debug_join = false in
             let lenperbk = ref 0 and basebknum = ref 0 in 
             let cellleft,_ = cov_mat.(j).(j) and cellright,_ = cov_mat.(j+1).(j+i) in
             let (codelstk,scorek,lenk,maskarrk) = 

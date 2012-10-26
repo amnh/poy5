@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 2763 $"
+let () = SadmanOutput.register "Queues" "$Revision: 2768 $"
 
 (** {1 Types} *)
 
@@ -863,6 +863,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             (j2 : Tree.join_jxn) 
             (tabu_mgr : ('a, 'b) Ptree.tabu_mgr)
             pt = 
+            let debug = false in 
+            if debug then Printf.printf "hold_n_fb_srch_mgr,process begin\n%!";
             incr_trees_considered ();
             let clade_cost = cost_fn (tabu_mgr#get_node_manager) j1 j2 b_delta cd_nd pt in
             match clade_cost with
@@ -871,6 +873,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     tabu_mgr#break_distance cc;
                     let new_tabu = tabu_mgr#clone in
                     let cost = Ptree.get_cost `Adjusted pt +. cc in
+                    if debug then Printf.printf "clade_cost = %f, tree adj cost = %f\n%!" cc cost;
                     let ljoin = lazy (join_fn (tabu_mgr#get_node_manager) incremental j1 j2 pt) in
                     let ltree = lazy (let (t, _) = Lazy.force ljoin in t) in
                     let ltabu =
@@ -882,7 +885,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             let nt = Lazy.force ltree in
                             Ptree.get_cost `Adjusted nt 
                         in
-                        if self#filter ltree cost then
+                        if debug then Printf.printf "pass filter 1, nt adj cost = %f\n%!" cost;
+                        if self#filter ltree cost then 
+                            let _ = if debug then Printf.printf 
+                            "pass filter2, add tree with cost:%f to list\n%!" cost in
                             self#insert (ltree, cost, ltabu)
                         else ()
                     else ();
@@ -1075,6 +1081,9 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         inherit (hold_n_fb_srch_mgr n strategy sampler) as super
 
         method private filter t cost =
+            let debug = false in
+            if debug then Printf.printf "hold_n_threshold_srch_mgr.filter,cost:%f <?= cur best \
+            cost:%f * (100+threshold:%f)/100\n%!" cost cur_best_cost threshold;
             cost <= (cur_best_cost *. (1. +. (threshold /. 100.)))
 
         method features l =

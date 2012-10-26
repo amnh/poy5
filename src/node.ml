@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2759 $"
+let () = SadmanOutput.register "Node" "$Revision: 2768 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -1996,7 +1996,9 @@ let distance ?(para=None) ?(parb=None) missing_distance
 (* Calculates the cost of joining the node [n] between [a] and [b] in a tree *)
 (* [a] must be the parent (ancestor) of [b] *)
 let dist_2 minimum_delta n a b =
-    if debug then Printf.printf "node.dist_2,%!";
+    let debug = false in
+    if debug then Printf.printf "node.dist_2, join node#.%d and node#.%d together\n%!"
+    a.taxon_code b.taxon_code;
     let rec ch_dist delta_left n' a' b' =
         match n', a', b' with
         | StaticMl nn, StaticMl aa, StaticMl bb ->
@@ -2114,7 +2116,6 @@ let dist_2 minimum_delta n a b =
             | n :: ncs, a :: acs, b :: bcs ->
                 let max_delta = minimum_delta -. acc in
                 let add_dist = ch_dist max_delta n a b in
-                if debug then Printf.printf "acc(%f)+=%f\n%!" acc add_dist;
                   chars (acc +. add_dist) (ncs, acs, bcs)
             | [], [], [] -> acc
             | _ -> raise (Illegal_argument "dist_2_chars")
@@ -2122,7 +2123,10 @@ let dist_2 minimum_delta n a b =
     let excludes = excludes_median n a in
     if has_excluded excludes
     then infinity
-    else chars 0. (n.characters, a.characters, b.characters)
+    else 
+        let res = chars 0. (n.characters, a.characters, b.characters) in
+        if debug then Printf.printf "return join cost = %f\n%!" res;
+        res
 
 let extract_stat = function
     | (Data.Stat (a, b), _) -> (b, a)

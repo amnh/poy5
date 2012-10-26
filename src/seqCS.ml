@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2759 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2768 $"
 
 let debug = false
 let debug_distance = false
@@ -860,7 +860,7 @@ module DOS = struct
                 else false
             in
             if debug then 
-                Printf.printf "DOS.readjust_custom_alphabet,cost3=%d(old:%d), sumcost=%d(old:%d), anything_changed : %b\n%!" newcost3 oldcost3 newsumcost oldsumcost anything_changed;                  
+                Printf.printf "DOS.readjust_custom_alphabet end,return cost3=%d(old:%d), sumcost=%d(old:%d), anything_changed : %b\n%!" newcost3 oldcost3 newsumcost oldsumcost anything_changed;                  
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
             (*return changed:bool,new mine, newcost3, newcost2 and new sum cost*)
             anything_changed, 
@@ -1047,7 +1047,7 @@ module DOS = struct
 
     (*[median] alignment function under module DOS*)
     let median alph code h a b use_ukk =
-        let debug = false and debug2 = false in
+        let debug = false and debug2 = true and debug3 = false in
         let is_identity = Cost_matrix.Two_D.is_identity h.c2_original in
         if debug then begin
             Printf.printf "seqCS.DOS.median,use_ukk=%b,len1:%d,len2:%d\n%!" 
@@ -1201,13 +1201,14 @@ module DOS = struct
                     (*Sequence.print stdout seq Alphabet.nucleotides;*)
                     Sequence.printseqcode seq;
                 in
-                Printf.printf "return costs = (cost2:%f,cost3:%f) \n%!" rescost.cost2 rescost.cost3; 
+                Printf.printf "return costs=(cost2:%f,cost3:%f) \n%!" rescost.cost2 rescost.cost3; 
                 if debug2 then begin
-                    Printf.printf "alieda,aliedb:\n%!";
-                    print_seqlist tmpa; print_seqlist tmpb;
+                    if debug3 then begin
+                        Printf.printf "alieda,aliedb:\n%!";
+                        print_seqlist tmpa; print_seqlist tmpb;
+                        Printf.printf "seqm with gap: %!"; print_seqlist seqmwg;
+                    end;
                     Printf.printf "seqm: %!"; print_seqlist seqm;
-                    Printf.printf "seqm with gap: %!"; print_seqlist seqmwg;
-                    Printf.printf "call seq_to_bitset on these if they are bitwised, then return them.\n%!";
                 end;
             end;
             let ba,bb,bm = 
@@ -1332,7 +1333,9 @@ module DOS = struct
             } in
         { n with sequence = res; costs = rescost }
 
-    (*distance function under module DOS*)
+    (*distance function under module DOS, this function calls alignment function
+        * from sequence.ml. return the cost. if the two input sequence is
+        * already aligned, we can use recost function, not this one*)
     let distance alph h missing_distance a b use_ukk =
         let debug = false in
         if debug then Printf.printf "seqCS.DOS.distance,%!";
@@ -1387,7 +1390,11 @@ ELSE
                 if tmp > 8 then tmp 
                 else 8
             in
-            if debug then Printf.printf "call cost_2 from Sequence use_ukk=%b\n%!" use_ukk;
+            if debug then begin
+                Printf.printf "call cost_2 from Sequence use_ukk=%b, seqa,seqb:\n%!" use_ukk;
+                Sequence.printseqcode a.sequence;
+                Sequence.printseqcode b.sequence;
+            end;
             let res = 
                 if use_ukk then
                     Sequence.NewkkAlign.cost_2  ~deltaw a.sequence b.sequence
@@ -1396,6 +1403,7 @@ ELSE
                     Sequence.Align.cost_2 ~deltaw a.sequence b.sequence h.c2_original 
                     Matrix.default
             in
+            if debug then Printf.printf "return %d, end of seqCS.DOS.distance\n%!" res;
             res
 END
 

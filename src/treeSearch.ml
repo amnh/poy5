@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2763 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2768 $"
 
 let debug_find_local_optimum = false
 
@@ -725,7 +725,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                 let queue_manager = queue_manager () in
                 let uncost = Ptree.get_cost `Unadjusted tree in
                 if debug_find_local_optimum then 
-                    Printf.printf "init tree search with cost = %f(%f)\n%!" cost uncost;
+                    Printf.printf "init tree search with cost = adj:%f(unadj:%f)\n%!" cost uncost;
                 queue_manager#init [(tree, cost, Ptree.NoCost, tabu_manager)];
                 try
                     let res = (search_fn queue_manager)#results in
