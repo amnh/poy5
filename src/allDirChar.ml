@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2758 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2772 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = true
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -682,14 +682,11 @@ module F : Ptree.Tree_Operations
                     AllDirNode.print_node_data readjusted true; 
                 end;
                 let treecost = Node.Standard.tree_cost None root_tosingle in
-                (*
-                let extracost = Node.extra_cost_from_root root treecost in*)
-                if debug_assign_single_handle then 
-                    info_user_message "assign cost to root :treecost:%f" treecost;
+                if debug_assign_single_handle then  info_user_message "assign_single, assign cost to root:%f" treecost;
                 let ptree = 
                     Ptree.assign_root_to_connected_component 
                         handle (Some (edge, readjusted)) 
-                        treecost (*treecost -. extracost*) None ptree
+                        treecost None ptree
                 in
                 ptree, root, readjusted
             in
@@ -703,6 +700,7 @@ module F : Ptree.Tree_Operations
                         --> assign_single_subtree true root b a
                         --> assign_single_subtree true root a b
                         --> (fun ptree ->
+                if debug_assign_single_handle then  info_user_message "assign cost to root(%d,%d) with %f and check_cost function" a b comp.Ptree.component_cost;
                                 Ptree.assign_root_to_connected_component 
                                     handle
                                     (Some ((`Edge (a, b)), readjusted))
@@ -1035,12 +1033,10 @@ module F : Ptree.Tree_Operations
             (* assign the root and cost *)
             let ptree = refresh_all_edges (Some n_root) true (Some (a,b)) ptree in
             let treecost = AllDirNode.OneDirF.tree_cost None e_root in
-            (*let extracost =  AllDirNode.OneDirF.extra_cost_from_root e_root
-            treecost in*)
             let ptree =
                 let root_edge = (Some (`Edge (a,b),n_root)) in
                 Ptree.assign_root_to_connected_component handle root_edge
-                                            treecost (*treecost -. extracost*) None ptree
+                                            treecost None ptree
             in
             let ptree = assign_single ptree in
             (changed,affected,ptree)
@@ -1112,6 +1108,7 @@ module F : Ptree.Tree_Operations
             - nodes     : the tested nodes/characters to avoid
             - ptree     : the tree to adjust *)
     let adjust_assignment max_count nodes ptree =
+	let debug = false in
         let mode = match !Methods.cost with
             | `Iterative x -> x
             | _            -> assert false
@@ -1285,6 +1282,7 @@ module F : Ptree.Tree_Operations
                     quick_2single n ad bd sets 
                     (*AllDirNode.AllDirF.to_single (Some n) None ad None bd sets*)
                 in
+		if debug then Printf.printf "adjust_assignment,assign cost to root(%d,%d) with check_cost,None\n%!" a b;
                 let ptree1 =
                     Ptree.assign_root_to_connected_component 
                             handle (Some (edge, root)) 
@@ -1373,6 +1371,7 @@ module F : Ptree.Tree_Operations
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
+	let debug = false in
         let data = Ptree.get_edge_data e ptree in
         let c = AllDirNode.OneDirF.tree_cost None data in
         (*let extrac =  AllDirNode.OneDirF.extra_cost_from_root data c in*)
@@ -1383,8 +1382,10 @@ module F : Ptree.Tree_Operations
             let comp = Some ((`Edge (a, b)), data) in
             c, 
             Lazy.lazy_from_fun (fun () ->
+		if debug then
+		Printf.printf "blindly_trust_downpass,assign cost to root(%d,%d):%f,None\n%!" a b c;
                 Ptree.assign_root_to_connected_component handle comp 
-                c (*c -. extrac*) None ptree)
+                c None ptree)
         else (cost, cbt)
 
 
@@ -1970,7 +1971,7 @@ module F : Ptree.Tree_Operations
                   --> refresh_roots
         in
         if debug_join_fn then
-            info_user_message "end of Joining, return ptree with cost %f(%f)"
+            info_user_message "end of Joining, return ptree with cost adj:%f(unadj:%f)"
                 (Ptree.get_cost `Adjusted ptree) (Ptree.get_cost `Unadjusted ptree);
         ptree, tree_delta
 

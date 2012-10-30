@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2768 $"
+let () = SadmanOutput.register "Node" "$Revision: 2772 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -4655,10 +4655,10 @@ let set_node_cost a b = { b with node_cost = a }
 * be higher than distance of two aligned children of the root. this function
     * return the difference between them.*)
 let extra_cost_from_root n treecost =
-    let debug = false in
+    let debug = false and debug2 = false in
     if debug then begin
         Printf.printf "node.ml extra cost from root, treecost=%f, root nodedata:\n%!" treecost;
-        print n;
+	if debug2=true then print n;
     end;
     if treecost = 0. then 
         (*when we build wagner tree, we add nodes one by one. so there will be
@@ -4749,7 +4749,10 @@ module Standard :
         let for_support = for_support
         let root_cost = root_cost
         let extra_cost_from_root = extra_cost_from_root
-        let tree_cost a b = (root_cost b) +. (total_cost a b)
+        let tree_cost a b =
+		let tc = (root_cost b) +. (total_cost a b) in
+		let ec = (extra_cost_from_root b tc) in
+		tc -. ec
         let to_single root _ a _ b sets =
             let combine = match root with
                 | Some _ -> true

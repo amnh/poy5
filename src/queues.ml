@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 2768 $"
+let () = SadmanOutput.register "Queues" "$Revision: 2772 $"
 
 (** {1 Types} *)
 
@@ -873,7 +873,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     tabu_mgr#break_distance cc;
                     let new_tabu = tabu_mgr#clone in
                     let cost = Ptree.get_cost `Adjusted pt +. cc in
-                    if debug then Printf.printf "clade_cost = %f, tree adj cost = %f\n%!" cc cost;
+                    if debug then Printf.printf "process,clade_cost = %f, tree adj cost+clade_cost = %f\n%!" cc cost;
                     let ljoin = lazy (join_fn (tabu_mgr#get_node_manager) incremental j1 j2 pt) in
                     let ltree = lazy (let (t, _) = Lazy.force ljoin in t) in
                     let ltabu =
@@ -885,7 +885,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             let nt = Lazy.force ltree in
                             Ptree.get_cost `Adjusted nt 
                         in
-                        if debug then Printf.printf "pass filter 1, nt adj cost = %f\n%!" cost;
+                        if debug then Printf.printf "pass filter 1, tree from join.adj_cost = %f\n%!" cost;
                         if self#filter ltree cost then 
                             let _ = if debug then Printf.printf 
                             "pass filter2, add tree with cost:%f to list\n%!" cost in
