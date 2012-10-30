@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2768 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2774 $"
 
 let debug = false
 let debug_distance = false
@@ -872,17 +872,17 @@ module DOS = struct
             newsumcost
         | true, true, _ -> 
                 if debug then Printf.printf "empty ch1 and ch2, return ch1 and cost=0\n%!";
-                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
                  ch1.sequence mine.sequence),ch1, 0, 0, sumcost_ch12
         | true, _, true -> 
                 if debug then Printf.printf "empty ch1 and par, return ch1 and cost=0\n%!";
-                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
                 ch1.sequence mine.sequence),
                 ch1, 0, 0, sumcost_ch12
         | _, true, true -> 
                 if debug then Printf.printf "empty ch2 and par, return par and cost=0\n%!";
-                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
-                ch1.sequence mine.sequence),
+                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                ch2.sequence mine.sequence),
                 ch2, 0, 0, sumcost_ch12
         | false, false, true ->
                 if debug then Printf.printf "empty par, algn ch1&ch2\n%!";
