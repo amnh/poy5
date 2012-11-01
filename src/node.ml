@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2772 $"
+let () = SadmanOutput.register "Node" "$Revision: 2775 $"
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -2414,8 +2414,8 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             in
             List.fold_left
                 (fun acc (w, lst) ->
-                    (character_code_gen (),
-                    (List.map (fun x -> w, x) lst)) :: acc)
+                    let chars = List.rev_map (fun x -> w,x) lst in
+                    (character_code_gen (), chars) :: acc)
                 [] res
         in
         let group_ml_by_model lst =
@@ -2502,11 +2502,11 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             List.map (fun x -> cg (), x) lsankcode in
         let add_codes ((_, x) as y) = 
             y, Array.map snd (Array.of_list (List.rev x)) in
-        let laddveccode = List.map add_codes laddveccode 
-        and laddgencode = List.map add_codes laddgencode 
-        and lnadd8code = List.map add_codes lnadd8code
-        and lnadd16code = List.map add_codes lnadd16code
-        and lnadd32code = List.map add_codes lnadd32code in
+        let laddveccode = List.rev_map add_codes laddveccode 
+        and laddgencode = List.rev_map add_codes laddgencode 
+        and lnadd8code  = List.rev_map add_codes lnadd8code
+        and lnadd16code = List.rev_map add_codes lnadd16code
+        and lnadd32code = List.rev_map add_codes lnadd32code in
         (* We need ways of making empty characters when a character is
            unspecified *)
         let get_static_encoding code =
@@ -2534,7 +2534,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             let chrom_data = Data.set_dyna_data [|empty_seq|] in 
             (Data.Dyna (code, chrom_data), `Unknown)
         in
-        let gen_fixedstates code = 
+        let gen_fixedstates code =
             (*looks like we just need the code, then later we can get
             * fixedstates's spec from data.Data.character_specs with that code.
             * everything -- including the original sequence is in there.*)
@@ -2554,50 +2554,33 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             (Data.FS code, `Unknown)
         in
         let gen_sank code =
-            (* print_endline ("adding sankoff with code " ^ string_of_int code);
-            * *)
+            (* print_endline ("adding sankoff with code " ^ string_of_int code); *)
             let specs = Hashtbl.find !data.Data.character_specs code in
-            let states = 
-                match specs with
-                | Data.Static x -> 
-                        (match x with 
-                        | Data.NexusFile enc -> `List enc.Nexus.File.st_observed
-                        | _ -> failwith "gen_sank is not for fixedstates" )
+            let states = match specs with
+                | Data.Static (Data.NexusFile enc) -> `List enc.Nexus.File.st_observed
                 | _ -> assert false 
             in
             (Data.Stat (code, Some states), `Unknown)
         in
         current_snapshot "Done";
-        !data, 
+        !data,
         fun tcode acc ->
             current_snapshot "Generating taxon";
-            let debug = false in
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
             let chfilenames = !data.Data.character_codes in
-            if debug then Printf.printf "\n Generating Taxon %d Has Characters: \n%!" tcode;
-(*            Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) tcharacters;*)
-(*            print_newline ();*)
             let get_character_with_code_n_weight gen_new (w, acc, cnt) (weight, code) = 
-                try 
-                    weight, (Hashtbl.find tcharacters code) :: acc, cnt + 1
-                with
-                | Not_found -> weight, (gen_new code) :: acc, cnt
+                try weight, (Hashtbl.find tcharacters code) :: acc, cnt + 1
+                with | Not_found -> weight, (gen_new code) :: acc, cnt
             in
             let get_character_with_code gen_new acc code = 
-                if debug then begin
-                    Printf.printf "get char with code=%d\n%!" code;
-                end;
-                try 
-                    (Hashtbl.find tcharacters code,Hashtbl.find chfilenames code) :: acc
-                with
-                | Not_found ->
-                        if debug then Printf.printf "not found, gen new;\n%!";
-                        (gen_new code,"") :: acc
+                try (Hashtbl.find tcharacters code,Hashtbl.find chfilenames code) :: acc
+                with | Not_found -> (gen_new code,"") :: acc
             in
             let addmapper gen_new ((x, y), arr) =
-                let a, b, cnt = 
-                    List.fold_left (get_character_with_code_n_weight gen_new) 
-                    (1., [], 0) y
+                let a, b, cnt =
+                    List.fold_left (get_character_with_code_n_weight gen_new)
+                                   (1., [], 0)
+                                   y
                 in
                 x, (a, b), arr
             in
@@ -2607,20 +2590,20 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             and lnadd16_chars = List.map (addmapper gen_nadd) lnadd16code
             and lnadd32_chars = List.map (addmapper gen_nadd) lnadd32code
             and lnadd33_chars = []
-            and ldynamic_chars = 
+            and ldynamic_chars =
                 List.fold_left (get_character_with_code gen_dynamic) [] dynamics
             and lfixedstates_chars =
                 List.fold_left (get_character_with_code gen_fixedstates) [] fixedstates
-            and lkolmo_chars = 
+            and lkolmo_chars =
                 List.fold_left (get_character_with_code gen_dynamic) [] kolmogorov
             and lsank_chars =
-                List.map 
-                (fun (x, y) -> x, List.fold_left (get_character_with_code gen_sank) 
-                [] y) 
-                lsankcode
+                List.map
+                    (fun (x, y) ->
+                        x, List.fold_left (get_character_with_code gen_sank) [] y)
+                    lsankcode
             in
-            let result = { 
-                characters = []; 
+            let result = {
+                characters = [];
                 total_cost = 0.;
                 node_cost = 0.;
                 taxon_code = tcode;
