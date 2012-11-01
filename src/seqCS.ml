@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2768 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2773 $"
 
 let debug = false
 let debug_distance = false
@@ -764,6 +764,7 @@ module DOS = struct
     (*small algn function for [readjust_XXXX] below, algn two child when parent is empty*)
     let readjust_algn_two_child s1 s2 c2 sumcost_ch12 use_ukk oldsumcost
     oldcost3 oldcost2 oldmineseq =
+	let debug = false in
         let cm = c2 in
         let newseqm, cost =
             match Cost_matrix.Two_D.affine cm with
@@ -794,13 +795,15 @@ module DOS = struct
                 let a = Sequence.select_one median cm in
                 a, c
         in
-        let newsumcost = sumcost_ch12 + cost in
+       let newsumcost = sumcost_ch12 + cost in
         let changed =
             if  (newsumcost<>oldsumcost) || (cost<>oldcost3) ||
             (cost<>oldcost2) || (0<>compare oldmineseq newseqm) 
             then true
             else false
         in
+	if debug then Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d\n%!"
+ changed newsumcost oldsumcost cost oldcost3 cost oldcost2; 
         changed, create newseqm, cost, cost, newsumcost
 
 
@@ -872,17 +875,17 @@ module DOS = struct
             newsumcost
         | true, true, _ -> 
                 if debug then Printf.printf "empty ch1 and ch2, return ch1 and cost=0\n%!";
-                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
                  ch1.sequence mine.sequence),ch1, 0, 0, sumcost_ch12
         | true, _, true -> 
                 if debug then Printf.printf "empty ch1 and par, return ch1 and cost=0\n%!";
-                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
                 ch1.sequence mine.sequence),
                 ch1, 0, 0, sumcost_ch12
         | _, true, true -> 
                 if debug then Printf.printf "empty ch2 and par, return par and cost=0\n%!";
-                (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
-                ch1.sequence mine.sequence),
+                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
+                ch2.sequence mine.sequence),
                 ch2, 0, 0, sumcost_ch12
         | false, false, true ->
                 if debug then Printf.printf "empty par, algn ch1&ch2\n%!";
@@ -1011,7 +1014,7 @@ module DOS = struct
         changed, 
         res, cost3, cost2, sumcost
 
-    let to_single h parent mine =
+    let to_single h parent mine opt_root =
         let debug = false in
         if debug then Printf.printf "seqCS.DOS.to_single,%!";
         let gap = Cost_matrix.Two_D.gap h.c2_full in
@@ -1043,7 +1046,12 @@ module DOS = struct
                 Printf.printf "cost remain unchanged:\n%!";
                 print_cost_tuple mine.costs;
             end;
-            { mine with sequence = seqm; (*costs = rescost*) }, tmpcost
+            match opt_root with
+            | None -> (*we are going to use mine as root anyway*) 
+                    { mine with sequence = seqm; }, tmpcost
+            | Some root ->
+                    (*keep aligned children of root*)
+                    { root with sequence = seqm; }, tmpcost
 
     (*[median] alignment function under module DOS*)
     let median alph code h a b use_ukk =
@@ -1562,7 +1570,7 @@ module PartitionedDOS = struct
 
     let identity x = x
 
-    let to_single h parent mine =
+    let to_single h parent mine  =
         let tmp_cost = ref 0 in
         let gap = Cost_matrix.Two_D.gap h.c2_full in
         let to_single_tip reverse parent mine =
@@ -1579,7 +1587,7 @@ module PartitionedDOS = struct
                 let parent', mine', _, _, _, _, fixmine = 
                     clip_n_fix parent mine 
                 in
-                let x, y = DOS.to_single h parent' mine' in
+                let x, y = DOS.to_single h parent' mine' None in
                 tmp_cost := y + !tmp_cost;
                 reverse (fixmine x)
         in
@@ -1596,7 +1604,7 @@ module PartitionedDOS = struct
             | Last parent, DO mine ->
                     DO (to_single_tip DOS.safe_reverse parent mine)
             | DO parent, DO mine ->
-                    let x, y = DOS.to_single h parent mine in
+                    let x, y = DOS.to_single h parent mine None in
                     tmp_cost := y + !tmp_cost;
                     DO x
             | Last _, First _
@@ -2391,9 +2399,30 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
     modified, total_cost, total_sum_cost,
     { mine with characters = adjusted; total_cost = total_cost; subtree_cost = total_sum_cost; }
 
-let to_single parent mine =
+let to_single parent mine opt_root =
     let total_cost = ref 0 in
-    let characters =
+    let characters = match opt_root with 
+    | Some root -> 
+        Array_ops.map_3 (fun a b c ->
+            match a, b, c with
+            | General_Prealigned a, General_Prealigned b, General_Prealigned c ->
+                    let res, c = GenNonAdd.to_single mine.alph mine.heuristic.c2_full a b in
+                    total_cost := c + !total_cost;
+                    General_Prealigned res
+            | Partitioned a, Partitioned b,Partitioned c ->
+                    let res, c = PartitionedDOS.to_single mine.heuristic a b in
+                    total_cost := c + !total_cost;
+                    Partitioned res
+            | Heuristic_Selection a, Heuristic_Selection b,Heuristic_Selection c ->
+                    let res, c = DOS.to_single mine.heuristic a b (Some c) in
+                    total_cost := c + !total_cost;
+                    Heuristic_Selection res
+            | Partitioned _, _, _
+            | _, Partitioned _, _
+            | General_Prealigned _, _, _ 
+            | Heuristic_Selection _, General_Prealigned _, _ -> assert false
+        ) parent.characters mine.characters root.characters 
+    | None -> 
         Array_ops.map_2 (fun a b ->
             match a, b with
             | General_Prealigned a, General_Prealigned b ->
@@ -2405,18 +2434,18 @@ let to_single parent mine =
                     total_cost := c + !total_cost;
                     Partitioned res
             | Heuristic_Selection a, Heuristic_Selection b ->
-                    let res, c = DOS.to_single mine.heuristic a b in
+                    let res, c = DOS.to_single mine.heuristic a b None in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
             | Partitioned _, _
             | _, Partitioned _
             | General_Prealigned _, _ 
-            | Heuristic_Selection _, General_Prealigned _ -> assert false) parent.characters
-                    mine.characters
+            | Heuristic_Selection _, General_Prealigned _ -> assert false) 
+        parent.characters mine.characters
     in
     let total_cost = float_of_int !total_cost in
     mine.total_cost, total_cost, 
-    { mine with characters = characters; (*total_cost = total_cost*) }
+    { mine with characters = characters; }
 
 
 let median code a b =
