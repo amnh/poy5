@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2777 $"
+let () = SadmanOutput.register "Node" "$Revision: 2778 $"
 
 let infinity = float_of_int max_int
 
@@ -4671,7 +4671,7 @@ let extra_cost_from_root n treecost =
             | _ -> 0.0
         in
         let cost = List.fold_left acc_cost_cs 0.0 n.characters in
-        if debug then Printf.printf "return %f\n%!" cost;
+        if debug then Printf.printf "return extra cost for root:%f\n%!" cost;
         (*I know for dynamic character we can just return distance cost as new cost for root, 
         * there is no need to get cost difference between align cost and distance cost. but for
         * sankoff charactor type, there is no algned children. *)

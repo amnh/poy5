@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2777 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2778 $"
 
 let debug = false
 let debug_distance = false
@@ -1055,8 +1055,10 @@ module DOS = struct
 
     (*[median] alignment function under module DOS*)
     let median alph code h a b use_ukk =
-        let debug = false and debug2 = true and debug3 = false in
+        let debug = false and debug2 = false and debug3 = false in
+        (*when diagonal is non-0, identity is false*)
         let is_identity = Cost_matrix.Two_D.is_identity h.c2_original in
+        let sumcost_ch12 = int_of_float(a.costs.sum_cost +. b.costs.sum_cost) in
         if debug then begin
             Printf.printf "seqCS.DOS.median,use_ukk=%b,len1:%d,len2:%d\n%!" 
             use_ukk (Sequence.length a.sequence) (Sequence.length b.sequence);
@@ -1074,7 +1076,36 @@ module DOS = struct
                     Sequence.Align.recost b.sequence b.sequence h.c2_original
             in
             if debug then Printf.printf "first seq is empty,return second one with cost %d \n%!" cost;
-            create b.sequence, cost
+            let res = create b.sequence in
+            let cost2 = float_of_int cost in
+            let sum_cost = float_of_int (sumcost_ch12 + cost) in
+            (*we use empty seq rather than median sequence itself as alied children sequence for purpose. 
+            * if cost between same state is x, different state is y. 
+            * child1: [aaa]
+            * child2: empty
+            * median: [aaa] with cost2 = 3x.
+            * 
+            * if this median node is just an internal node, distance function
+            * will add cost_mine_child1 and cost_mine_chil2, things are fine.
+            *
+            * if this median node happen to be root node, distance function will
+            * only calculate distance between two children. 
+            * 
+            * the distance between child1 and child2 is actually 0 -- that's by
+            * defination , cost between lost data and some data is 0.
+            * 
+            * there is a cost difference:3x -- need to be caught by function [extra_cost_for_root].
+            *
+            * [extra_cost_for_root] calculate distance between two alied
+            * children of root node, then return the difference between cost2
+            * and that distance. if two alied children are median sequence
+            * itself, there won't be a cost difference, only when two alied
+            * children are empty, we have distance as 0, cost difference be 3x
+            * *)
+            {res with aligned_children = (Raw a.sequence, Raw a.sequence, Raw b.sequence); 
+            costs = { cost2 = cost2; cost2_max = cost2; cost3 = 0.0; sum_cost = sum_cost; } 
+            },
+            cost
         end
         else if Sequence.is_empty b.sequence gap then begin
             let cost = 
@@ -1083,10 +1114,15 @@ module DOS = struct
                     Sequence.Align.recost a.sequence a.sequence h.c2_original
             in
             if debug then Printf.printf "second seq is empty,return first one with cost %d\n%!" cost;
-            create a.sequence, cost
+            let res = create a.sequence in
+            let sum_cost = float_of_int (sumcost_ch12 + cost) in
+            let cost2 = float_of_int cost in
+            {res with aligned_children = (Raw b.sequence, Raw b.sequence, Raw a.sequence); 
+            costs = { cost2 = cost2; cost2_max = cost2; cost3 = 0.0; sum_cost = sum_cost;}
+            },
+            cost
         end
         else 
-            let sumcost_ch12 = int_of_float(a.costs.sum_cost +. b.costs.sum_cost) in
             (*seqm: median seq of a and b
             * tmpa, tmpb: algned seq of a , b
             * seqmwg: median seq with gap *)
@@ -2420,7 +2456,8 @@ let to_single parent mine opt_root =
             | Partitioned _, _, _
             | _, Partitioned _, _
             | General_Prealigned _, _, _ 
-            | Heuristic_Selection _, General_Prealigned _, _ -> assert false
+            | Heuristic_Selection _, General_Prealigned _, _ 
+            | (Heuristic_Selection _, Heuristic_Selection _, (General_Prealigned _|Partitioned _)) -> assert false
         ) parent.characters mine.characters root.characters 
     | None -> 
         Array_ops.map_2 (fun a b ->
