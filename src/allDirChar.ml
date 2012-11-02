@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2773 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2777 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
