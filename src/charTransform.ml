@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2769 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2776 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1214,10 +1214,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             | css ->
                 List.fold_left
                     (fun data cs ->
-                        let data, minus =
-                            Data.remove_absent_present_encodings
-                                ~ignore_data:true data (`Some (true,cs)) in
-                        let cs = List.filter (fun x -> not (List.mem x minus)) cs in
                         let csa= Array.of_list cs in
                         let _,alpha = Data.verify_alphabet data cs `Max in
                         (Some csa, a, b, c, d, e, f)

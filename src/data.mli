@@ -616,8 +616,6 @@ val sync_dynamic_to_static_model : src:d -> dest:d -> d
 
 val sync_static_to_dynamic_model : src:d -> dest:d -> d
 
-val remove_absent_present_encodings : ?ignore_data:bool -> d -> bool_characters -> d * int list
-
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 
 module Sample : sig

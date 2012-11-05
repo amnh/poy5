@@ -2794,6 +2794,11 @@ let categorize data =
             dynamics        = [];   
             kolmogorov      = [];   static_ml       = [];
         }
+    and absent_present_alphabet enc = 
+        try let () = ignore (Alphabet.match_base "present" enc.Nexus.File.st_alph) 
+            and () = ignore (Alphabet.match_base "absent"  enc.Nexus.File.st_alph) in
+            true
+        with _ -> false
     in
     let rec add_static_type enc code st_type data =
         let observed = List.length enc.Nexus.File.st_observed in
@@ -2822,10 +2827,16 @@ let categorize data =
                         non_additive_33 = code :: data.non_additive_33 }
                 else 
                     assert false
+            (** Ignore Absent/Present Columns under likelihood by placing them
+                in the non_additive_1 category which is ignored. *)
+            | Nexus.File.STNCM (_,t) when absent_present_alphabet enc ->
+                { data with non_additive_1 = code :: data.non_additive_1 }
+            | Nexus.File.STLikelihood _ when absent_present_alphabet enc ->
+                { data with non_additive_1 = code :: data.non_additive_1 }
+            | Nexus.File.STLikelihood _ ->
+                { data with static_ml = code :: data.static_ml }
             | Nexus.File.STNCM (_,t) ->
                 add_static_type enc code t data
-            | Nexus.File.STLikelihood _ ->
-                {data with static_ml = code :: data.static_ml }
         end
     in
     (* let data = repack_codes data in*)
@@ -4230,14 +4241,9 @@ let categorize_characters_comp data chars = match chars with
     | `All -> categorize_sets data
     | othr ->
         let found set1 set2 = match set1 with
-            | x::xs when List.mem x set2 ->
-                (* assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs); *)
-                true
-            | _::xs -> 
-                (* assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));*)
-                false
-            | [] -> 
-                false
+            | x::xs when List.mem x set2 -> true
+            | _::xs -> false
+            | []    -> false
         in
         let selected = get_chars_codes_comp data chars in
         let all_sets = categorize_sets data in
@@ -4263,6 +4269,34 @@ let categorize_characters data chars = match chars with
             ~init:[]
             all_sets
 
+let classify_characters_by_alphabet_size data chars =
+    let make_tuple_of_character_and_size acc char =
+        let size =
+            char --> get_alphabet data
+                 --> Alphabet.to_sequential 
+                 --> Alphabet.distinct_size
+        in
+        (char, size) :: acc
+    in
+    let classify_by_size list =
+        let sets =
+            List.fold_left
+                ~f:(fun acc (code, size) ->
+                    if All_sets.IntegerMap.mem size acc then
+                        let prev = All_sets.IntegerMap.find size acc in
+                        All_sets.IntegerMap.add size (code :: prev) acc
+                    else
+                        All_sets.IntegerMap.add size [code] acc)
+                ~init:All_sets.IntegerMap.empty
+                list
+        in
+        All_sets.IntegerMap.fold
+            (fun a b acc -> (a, `Some (true, b)) :: acc) sets []
+    in
+    chars
+        --> get_chars_codes_comp data
+        --> List.fold_left ~f:make_tuple_of_character_and_size ~init:[]
+        --> classify_by_size
 
 let categorize_likelihood_chars_by_model chars data =
     let get_spec i = 
@@ -4286,6 +4320,10 @@ let categorize_likelihood_chars_by_model chars data =
         --> List.map ~f:(fun x -> MlModel.categorize_by_model get_spec x)
         --> List.flatten
 
+let categorize_characters_alphabet_comp d chars : int list list =
+    let lst = classify_characters_by_alphabet_size d chars in
+    let lst = List.map ~f:(fun (_,x) -> categorize_characters_comp d x) lst in
+    List.flatten lst
 
 let make_codon_partitions functional data name ccodes =
     let process_set name set nset codes = 
@@ -4318,24 +4356,20 @@ let make_codon_partitions functional data name ccodes =
             then Hashtbl.copy data.character_sets, Hashtbl.copy data.character_nsets
             else data.character_sets, data.character_nsets
     in
-    let ncodes =
-        List.map (fun x -> Hashtbl.find data.character_codes x) 
-                 (get_chars_codes_comp data ccodes)
-    in
+    let ncodes = List.map (fun x -> Hashtbl.find data.character_codes x) 
+                          (get_chars_codes_comp data ccodes) in
     let () = process_set name sets nsets ncodes in
     { data with
         character_sets = sets;
         character_nsets = nsets; }
 
-let get_tcm2d data c =
-    match Hashtbl.find data.character_specs c with
+let get_tcm2d data c = match Hashtbl.find data.character_specs c with
     | Dynamic dspec -> dspec.tcm2d_full,dspec.tcm2d_original
     | Kolmogorov dspec -> dspec.dhs.tcm2d_full,dspec.dhs.tcm2d_original
     | _ -> failwith "Data.get_tcm2d"
 
 
-let get_tcm3d data c =
-    match Hashtbl.find data.character_specs c  with
+let get_tcm3d data c = match Hashtbl.find data.character_specs c  with
     | Dynamic dspec -> dspec.tcm3d
     | Kolmogorov dspec -> dspec.dhs.tcm3d
     | _ -> failwith "Data.get_tcm3d"
@@ -4346,8 +4380,7 @@ let get_tcmfile data c = match Hashtbl.find data.character_specs c  with
     | Static dspec     -> failwith "Data.get_tcmfile; Cannot transform static data"
     | Set              -> failwith "Data.get_tcmfile; Cannot transform set data"
 
-let get_model_opt data c = 
-    match Hashtbl.find data.character_specs c with
+let get_model_opt data c = match Hashtbl.find data.character_specs c with
     | Dynamic dspec -> dspec.lk_model
     | Static (NexusFile x) ->
         begin match x.Nexus.File.st_type with
@@ -4448,13 +4481,13 @@ let compute_priors data chars u_gap =
     let size = if u_gap then size else size-1 in
     let priors = Array.make size 0.0 in
     (* A function that takes a list of states and add the appropriate value to
-    * each of the components of the priors *)
+       each of the components of the priors *)
     let inverse = 1. /. (float_of_int size) in
     let longest = ref 0 and lengths = ref [] in
     let gap_char = (Alphabet.get_gap alph) in (* 4, usually *)
     let counter = ref 0 and gap_counter = ref 0 in
     (* A function to add the frequencies in all the taxa from the characters
-    * specified in the list. *)
+       specified in the list. *)
     let taxon_adder tax taxon_chars =
         let total = ref 0 in
         let adder char_code =
@@ -4638,135 +4671,9 @@ let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) =
         --> categorize
 
 
-(* remove the absent/present columns in the parsed data, and modify the previous
- * column (the column the active/present column is adding data to), and modify
- * it to a gap for likelihood. This is only for likelihood characters, unless
- * ignore is set to true, in which case it will remove them with impunity! The
- * active/present columns in other characters are used for an additional cost to
- * that column, combined with the weight parameter. *)
-let remove_absent_present_encodings ?(ignore_data=false) data chars =
-    let is_likelihood = function
-        | Nexus.File.STLikelihood _ -> (true || ignore_data)
-        | _ -> false
-    (* transform a character to a gap *)
-    and apply_gap_to_cs taxon_code char_code spec state = match spec,state with
-        | Static (NexusFile sspec), (Stat (code,data),specified) ->
-            let gap = Alphabet.get_gap sspec.Nexus.File.st_alph in
-            (Stat (code, Some (`List [gap])),specified)
-        | _, _ ->
-            failwithf "Data.remove_absent_present_encodings fail: %d" char_code
-    in
-    (* test if we are using STATIC likelihood somewhere *)
-    let test_using_likelihood data =
-        let ret = ref false in
-        Hashtbl.iter
-            (fun x spec -> match spec with
-                | Static (NexusFile {Nexus.File.st_type = st_type}) ->
-                    ret := !ret || (is_likelihood st_type)
-                | _ -> ())
-            data.character_specs;
-        (!ret || ignore_data)
-    (* find if we are using the absent/present alphabet *)
-    and is_present_absent a =
-        try let () = ignore (Alphabet.match_base "present" a) 
-            and () = ignore (Alphabet.match_base "absent" a) in
-            true
-        with | _ -> false
-    (* apply the absent/present encoding column to the previous column *)
-    and is_present tcode code state spec = match spec,state with
-        | Static (NexusFile y), (Stat (code,Some data) , _) ->
-            let data_list = Nexus.File.static_state_to_list data
-            and present = Alphabet.match_base "present" y.Nexus.File.st_alph in
-            List.mem present data_list
-        | Static (NexusFile y), (Stat (code,None),_) ->
-            ignore (Alphabet.match_base "present" y.Nexus.File.st_alph);
-            true
-        | _,_ -> failwith "Incorrect Match1"
-    and is_absent tcode code state spec = match spec,state with
-        | Static (NexusFile y), (Stat (code,Some data),_) ->
-            let data_list = Nexus.File.static_state_to_list data
-            and absent = Alphabet.match_base "absent" y.Nexus.File.st_alph in
-            List.mem absent data_list
-        | Static (NexusFile y), (Stat (code,None),_) ->
-            (* do the lookup anyway to ensure it exists *)
-            ignore (Alphabet.match_base "absent" y.Nexus.File.st_alph);
-            false
-        | _,_ -> failwith "Incorrect Match2"
-    and branch_remove branch name = match branch with
-        | Some branch ->
-            Hashtbl.iter
-                (fun name v_set ->
-                    All_sets.IntSetMap.iter 
-                        (fun _ tbl -> Hashtbl.remove tbl name) (v_set) )
-                branch
-        | None -> ()
-    in
-    let apply_absent_encoding branch specs chars names codes code = 
-        Hashtbl.iter
-            (fun t_code t_state_tbl ->
-                let apstate = Hashtbl.find t_state_tbl code
-                and apspec  = Hashtbl.find specs code in
-                if is_present t_code code apstate apspec then begin
-                    let lkstate = Hashtbl.find t_state_tbl (code-1) 
-                    and lkspec  = Hashtbl.find specs (code-1) in
-                    let nstate = apply_gap_to_cs t_code (code-1) lkspec lkstate in
-                    Hashtbl.replace t_state_tbl (code-1) nstate;
-                    Hashtbl.remove t_state_tbl code;
-                end else begin
-                    assert(is_absent t_code code apstate apspec);
-                    Hashtbl.remove t_state_tbl code
-                end)
-            chars;
-        let name = Hashtbl.find codes code in
-        Hashtbl.remove names name;
-        Hashtbl.remove codes code;
-        Hashtbl.remove specs code;
-        branch_remove branch name
-    in
-    if test_using_likelihood data then begin
-        let copy_spec   = Hashtbl.copy data.character_specs
-        and copy_names  = Hashtbl.copy data.character_names
-        and copy_codes  = Hashtbl.copy data.character_codes
-        and copy_branch = copy_branches data.branches 
-        and copy_char   =
-            let n = Hashtbl.create (Hashtbl.length data.taxon_characters) in
-            Hashtbl.iter (fun k v -> Hashtbl.add n k (Hashtbl.copy v))
-                         data.taxon_characters;
-            n
-        in
-        let map,chars =
-            List.fold_left
-                ~f:(fun (acc,chars) k ->
-                    match Hashtbl.find data.character_specs k with
-                    | Static (NexusFile {Nexus.File.st_alph = st_alph;})
-                        when is_present_absent st_alph ->
-                            apply_absent_encoding copy_branch copy_spec copy_char copy_names copy_codes k;
-                            IntMap.map
-                                (fun x -> List.filter (fun y -> not (y = k)) x)
-                                acc, k::chars
-                    | Static x ->
-                            acc, chars
-                    | (Dynamic _ | Set | Kolmogorov _) -> assert false)
-                ~init:(data.dynamic_static_codes,[])
-                (get_code_from_characters_restricted_comp `AllStatic data chars)
-        in
-        { data with character_specs      = copy_spec;
-                    taxon_characters     = copy_char;
-                    character_names      = copy_names;
-                    character_codes      = copy_codes;
-                    dynamic_static_codes = map;
-                    branches             = copy_branch;
-                    static_dynamic_codes = reverse_dynamic_static_codes map; },
-        chars
-    end else begin
-        data,[]
-    end
-
-
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
     the likelihood model specified in [lk] *)
 let set_parsimony data chars =
-IFDEF USE_LIKELIHOOD THEN
     (* apply a type to a set of STATIC characters in data *)
     let transform_chars data chars =
         let new_specs = Hashtbl.copy data.character_specs in
@@ -4811,15 +4718,11 @@ IFDEF USE_LIKELIHOOD THEN
             let new_specs = transform_chars data chars in
             categorize { data with character_specs = new_specs;
                                    search_information = parsimony_output_information}
-ELSE
-    data
-END
 
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
 let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
-IFDEF USE_LIKELIHOOD THEN
     let u_gap = match use_gap with
         | `Independent | `Coupled _ -> true | `Missing -> false
     in
@@ -4843,33 +4746,21 @@ IFDEF USE_LIKELIHOOD THEN
             in
             apply_likelihood_model_on_chars data chars model
     in
-    let d,removed = remove_absent_present_encodings ~ignore_data:true data chars in
-    let d = categorize d in
-    let all_chars = categorize_characters_comp d chars in
+    let d = categorize data in
+    let all_chars = categorize_characters_alphabet_comp d chars in
     let data = List.fold_left ~f:(transform_char_set) ~init:d all_chars in
     { data with search_information = likelihood_output_information; }
-ELSE
-    failwith "Likelihood not enabled: download different binary or contact mailing list"
-END
 
 let get_tran_code_meth data meth = 
     let tran_code_ls, meth =
-        let a, b = 
-            match meth with
-            | `Seq_to_Chrom (a, b) ->
-                    a, `Seq_to_Chrom b
-            | `Custom_to_Breakinv (a, b) ->
-                    a, `Custom_to_Breakinv b
-            | `Annchrom_to_Breakinv (a, b) ->
-                    a, `Annchrom_to_Breakinv b
-            | `Change_Dyn_Pam (a, b) ->
-                    a, `Change_Dyn_Pam b
-            | `Chrom_to_Seq (a, b) ->
-                    a, `Chrom_to_Seq b
-            | `Breakinv_to_Custom (a, b) ->
-                    a, `Breakinv_to_Custom b
-            | `Seq_to_Kolmogorov (a, b) ->
-                    a, `Seq_to_Kolmogorov b
+        let a, b = match meth with
+            | `Seq_to_Chrom (a, b)       -> a, `Seq_to_Chrom b
+            | `Custom_to_Breakinv (a, b) -> a, `Custom_to_Breakinv b
+            | `Annchrom_to_Breakinv (a,b)-> a, `Annchrom_to_Breakinv b
+            | `Change_Dyn_Pam (a, b)     -> a, `Change_Dyn_Pam b
+            | `Chrom_to_Seq (a, b)       -> a, `Chrom_to_Seq b
+            | `Breakinv_to_Custom (a, b) -> a, `Breakinv_to_Custom b
+            | `Seq_to_Kolmogorov (a, b)  -> a, `Seq_to_Kolmogorov b
         in
         let dont_complement, codes =
             match a with
@@ -5771,36 +5662,6 @@ let add_search_base_from_file data chars file_chname_lst =
         ~init:data file_chname_lst 
 
 
-let classify_characters_by_alphabet_size data chars =
-    let make_tuple_of_character_and_size acc char =
-        let size =
-            char --> get_alphabet data
-                 --> Alphabet.to_sequential 
-                 --> Alphabet.distinct_size
-        in
-        (char, size) :: acc
-    in
-    let classify_by_size list =
-        let sets =
-            List.fold_left
-                ~f:(fun acc (code, size) ->
-                    if All_sets.IntegerMap.mem size acc then
-                        let prev = All_sets.IntegerMap.find size acc in
-                        All_sets.IntegerMap.add size (code :: prev) acc
-                    else
-                        All_sets.IntegerMap.add size [code] acc)
-                ~init:All_sets.IntegerMap.empty
-                list
-        in
-        All_sets.IntegerMap.fold
-            (fun a b acc -> (a, `Some (true, b)) :: acc) sets []
-    in
-    chars
-        --> get_chars_codes_comp data
-        --> List.fold_left ~f:make_tuple_of_character_and_size ~init:[]
-        --> classify_by_size
-
-
 let assign_transformation_gaps data chars transformation gaps =
     let alphabet_sizes = classify_characters_by_alphabet_size data chars in
     List.fold_left
@@ -5842,15 +5703,11 @@ let assign_ncm_weights_to_chars data chars gap : d =
             Hashtbl.replace data.character_specs c (Static r)
     in
     let a_cats = classify_characters_by_alphabet_size data chars in
-(*    Printf.printf "Transforming %d Sets of Characters from %s\n%!"*)
-(*                  (List.length a_cats) (string_of_characters chars);*)
     List.iter
         ~f:(fun (size,chars) ->
             let w = ncm_weight size in
-(*            Printf.printf "\t%s (%d) -- %f\n%!" (string_of_characters chars) size w;*)
-            List.iter
-                ~f:(fun x -> assign_weight_to_char w x)
-                (get_chars_codes_comp data chars))
+            List.iter ~f:(fun x -> assign_weight_to_char w x)
+                      (get_chars_codes_comp data chars))
         a_cats;
     if !warning then begin
         let m = "I@ have@ found@ characters@ that@ cannot@ be@ transformed@ "^
