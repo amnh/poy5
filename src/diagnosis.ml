@@ -17,9 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 2710 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 2768 $"
 
-let debug = true
 
 let sort_using_tree tree all_taxa =
     let set = 

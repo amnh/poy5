@@ -21,7 +21,7 @@
 * The chromosome character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "ChromCS" "$Revision: 2754 $"
+let () = SadmanOutput.register "ChromCS" "$Revision: 2778 $"
 
 let fprintf = Printf.fprintf
 
@@ -395,9 +395,7 @@ let to_single ref_codes (root : t option) single_parent mine =
     let previous_total_cost = mine.total_cost in 
     let c2_full = mine.c2_full in 
     let c2_original = mine.c2_original in 
-
     let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =        
-
         let amed = 
             try
                 List.find (fun med -> 
@@ -408,8 +406,6 @@ let to_single ref_codes (root : t option) single_parent mine =
                 List.hd med.Chrom.med_ls
             end 
         in         
-
-
         let parent_med = IntMap.find code single_parent.meds in  
         let aparent_med = 
             try
@@ -436,20 +432,17 @@ let to_single ref_codes (root : t option) single_parent mine =
                       med.Chrom.chrom_pam `Chromosome
                   in 
                   cost, recost, single_seq
-
             | Some root ->              
                   let single_root = ChromAli.to_single_root amed
                       aparent_med.ChromAli.ref_code c2_full 
                   in
                   0, 0, single_root
         in 
-        
-        let single_med = ChromAli.change_to_single amed single_seq c2_original in                     
+        let single_med = ChromAli.change_to_single amed single_seq c2_original in           
         let single_med = {med with Chrom.med_ls = [single_med]} in 
         let new_single = IntMap.add code single_med acc_meds in
         let new_costs = IntMap.add code (float_of_int cost) acc_costs in 
         let new_recosts = IntMap.add code (float_of_int recost) acc_recosts in 
-
         new_single, new_costs, new_recosts, (acc_total_cost + cost)
     in
     let meds, costs,  recosts, total_cost = 
@@ -458,14 +451,20 @@ let to_single ref_codes (root : t option) single_parent mine =
               IntMap.fold median root.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
         | None ->
               IntMap.fold median mine.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
-    in 
-
-
-    previous_total_cost, float_of_int total_cost, 
-    {mine with meds = meds; 
-         costs = costs;
-         recosts = recosts;
-         total_cost = float_of_int total_cost}
+    in
+    match root with
+    | None ->
+        previous_total_cost, float_of_int total_cost, 
+        {mine with meds = meds; 
+             (*costs = costs; we don't change node cost to cost_to_parent anymore
+             recosts = recosts;
+             total_cost = float_of_int total_cost*)}
+    | Some root ->
+        previous_total_cost, float_of_int total_cost, 
+        {root with meds = meds; 
+             (*costs = costs;
+             recosts = recosts;
+             total_cost = float_of_int total_cost*)}
          
 
 (** [get_active_ref_code t] returns active reference codes

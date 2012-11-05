@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2747 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2773 $"
 
 let debug = false
 
@@ -707,22 +707,24 @@ let final_states mine ch1 ch2 par t1 t2 t3 =
     | _,_,_,_ -> assert false
 
 
-(** [to_single ?is_root pre_ref_code alied_map p n] returns a node that contains per character a single state
- * which is closest to [p] among those available in [n]. Useful for tree length
- * verification. is_root optional paramter indicates that if n is root. The
- * default is false. pre_ref_code contains active codes for chromosome characters. 
- * Inactive codes are eliminated from diagnosis. 
- * If p is the handle, alied_map is the root containing the aligned map between p
- * and n for chromosome stuff, else alied_map is assigned by p *)
+(** [to_single  ref_codes root alied_map p n] returns a node that contains per character a single state
+ * which is closest to [p] among those available in [n].  
+ * we don't modify cost of node to cost_to_parent_node anymore. all we do is
+ * update sequence assigned to that node.
+ * when root is passed, we intend to replace the sequence, leave alied
+ * children sequence unchanged.
+ * when root is None, we will use mine as root back to to_single function of
+ * node.ml. 
+ **)
 let to_single ref_codes root parent mine time =
     match parent, mine with
     | SeqCS parent, SeqCS mine ->
-        let parent = match root with
-            | None           -> parent
-            | Some (SeqCS x) -> x
+        let parent, root  = match root with
+            | None           -> parent, None
+            | Some (SeqCS x) -> x, Some x
             | _              -> assert false
         in
-        let prev_cost, new_cost, median = SeqCS.to_single parent mine in
+        let prev_cost, new_cost, median = SeqCS.to_single parent mine root in
         prev_cost, new_cost, SeqCS median
     | MlCS parent, MlCS mine ->
         let min_bl = MlStaticCS.minimum_bl () in

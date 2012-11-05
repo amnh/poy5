@@ -23,7 +23,7 @@
 * read(custom_alphabet:("data file","cost matrix file",prealigned))
 * *)
 
-let debug = true
+let debug = false
 
 let fprintf = Printf.fprintf
 

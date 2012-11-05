@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2759 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2778 $"
 
 
 exception Illegal_Cm_Format;;
@@ -831,7 +831,7 @@ module Two_D = struct
         done
 
     let fill_best_cost_and_median_for_some_combinations ?(create_original=false) m a_sz level all_elements =
-        let debug = false and debug2 = false in
+        let debug = true and debug2 = false in
         let gapcode = gap m in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
@@ -871,7 +871,7 @@ module Two_D = struct
                                     let comb_i_j = comblist_to_combcode keylist m in
                                     if debug2 then Printf.printf  "median.%d.%d <- %d(cost=%d);\n%!" i j (comb_i_j) !cost;
                                     set_cost i j m !cost;
-                                    set_median i j m ( comb_i_j );
+                                    set_median i j m (cleanup !best)(* comb_i_j *);
                             | _, _ ->
                                     if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
                                     i j !cost !best;

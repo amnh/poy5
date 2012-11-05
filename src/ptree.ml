@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2764 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2773 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -2251,8 +2251,19 @@ let select_default adjusted cost = match adjusted with
 let assign_root_to_connected_component handle item cost adjusted ptree =
     let debug = false in
     let adjusted = select_default adjusted cost in
-    if debug then Printf.printf
-    "assign_root_to_connected_component,component_cost = %f(adjusted cost = %f)\n%!" cost adjusted;
+    if debug then begin
+	Printf.printf "assign root to connected component, root = %!";
+    	let _ =
+	match item with 
+    	|Some (edge, readjusted) ->
+		(match edge with 
+		 |`Edge (a , b) -> Printf.printf "edge at (%d,%d),%!" a b
+		 |`Single a -> Printf.printf "single node %d,%!" a
+		)
+    	|None -> Printf.printf "None,%!"  
+    	in
+	Printf.printf "with component_cost = %f(adjusted cost = %f)\n%!" cost adjusted;
+    end;
     let root = { 
         root_median = item;
         component_cost = cost;

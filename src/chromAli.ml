@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2713 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2778 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -1190,9 +1190,6 @@ let change_to_single med single_seq c2 =
             end 
         else single_seq
     in  
-    
-
-
     let gap = Cost_matrix.Two_D.gap c2 in
     let single_pos = ref 0 in 
     let new_map = List.map 

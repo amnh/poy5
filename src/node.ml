@@ -17,7 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2759 $"
+let () = SadmanOutput.register "Node" "$Revision: 2778 $"
+
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -1996,7 +1997,9 @@ let distance ?(para=None) ?(parb=None) missing_distance
 (* Calculates the cost of joining the node [n] between [a] and [b] in a tree *)
 (* [a] must be the parent (ancestor) of [b] *)
 let dist_2 minimum_delta n a b =
-    if debug then Printf.printf "node.dist_2,%!";
+    let debug = false in
+    if debug then Printf.printf "node.dist_2, join node#.%d and node#.%d together\n%!"
+    a.taxon_code b.taxon_code;
     let rec ch_dist delta_left n' a' b' =
         match n', a', b' with
         | StaticMl nn, StaticMl aa, StaticMl bb ->
@@ -2114,7 +2117,6 @@ let dist_2 minimum_delta n a b =
             | n :: ncs, a :: acs, b :: bcs ->
                 let max_delta = minimum_delta -. acc in
                 let add_dist = ch_dist max_delta n a b in
-                if debug then Printf.printf "acc(%f)+=%f\n%!" acc add_dist;
                   chars (acc +. add_dist) (ncs, acs, bcs)
             | [], [], [] -> acc
             | _ -> raise (Illegal_argument "dist_2_chars")
@@ -2122,7 +2124,10 @@ let dist_2 minimum_delta n a b =
     let excludes = excludes_median n a in
     if has_excluded excludes
     then infinity
-    else chars 0. (n.characters, a.characters, b.characters)
+    else 
+        let res = chars 0. (n.characters, a.characters, b.characters) in
+        if debug then Printf.printf "return join cost = %f\n%!" res;
+        res
 
 let extract_stat = function
     | (Data.Stat (a, b), _) -> (b, a)
@@ -2410,8 +2415,8 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             in
             List.fold_left
                 (fun acc (w, lst) ->
-                    (character_code_gen (),
-                    (List.map (fun x -> w, x) lst)) :: acc)
+                    let chars = List.rev_map (fun x -> w,x) lst in
+                    (character_code_gen (), chars) :: acc)
                 [] res
         in
         let group_ml_by_model lst =
@@ -2498,11 +2503,11 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             List.map (fun x -> cg (), x) lsankcode in
         let add_codes ((_, x) as y) = 
             y, Array.map snd (Array.of_list (List.rev x)) in
-        let laddveccode = List.map add_codes laddveccode 
-        and laddgencode = List.map add_codes laddgencode 
-        and lnadd8code = List.map add_codes lnadd8code
-        and lnadd16code = List.map add_codes lnadd16code
-        and lnadd32code = List.map add_codes lnadd32code in
+        let laddveccode = List.rev_map add_codes laddveccode 
+        and laddgencode = List.rev_map add_codes laddgencode 
+        and lnadd8code  = List.rev_map add_codes lnadd8code
+        and lnadd16code = List.rev_map add_codes lnadd16code
+        and lnadd32code = List.rev_map add_codes lnadd32code in
         (* We need ways of making empty characters when a character is
            unspecified *)
         let get_static_encoding code =
@@ -2530,7 +2535,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             let chrom_data = Data.set_dyna_data [|empty_seq|] in 
             (Data.Dyna (code, chrom_data), `Unknown)
         in
-        let gen_fixedstates code = 
+        let gen_fixedstates code =
             (*looks like we just need the code, then later we can get
             * fixedstates's spec from data.Data.character_specs with that code.
             * everything -- including the original sequence is in there.*)
@@ -2550,50 +2555,33 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             (Data.FS code, `Unknown)
         in
         let gen_sank code =
-            (* print_endline ("adding sankoff with code " ^ string_of_int code);
-            * *)
+            (* print_endline ("adding sankoff with code " ^ string_of_int code); *)
             let specs = Hashtbl.find !data.Data.character_specs code in
-            let states = 
-                match specs with
-                | Data.Static x -> 
-                        (match x with 
-                        | Data.NexusFile enc -> `List enc.Nexus.File.st_observed
-                        | _ -> failwith "gen_sank is not for fixedstates" )
+            let states = match specs with
+                | Data.Static (Data.NexusFile enc) -> `List enc.Nexus.File.st_observed
                 | _ -> assert false 
             in
             (Data.Stat (code, Some states), `Unknown)
         in
         current_snapshot "Done";
-        !data, 
+        !data,
         fun tcode acc ->
             current_snapshot "Generating taxon";
-            let debug = false in
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
             let chfilenames = !data.Data.character_codes in
-            if debug then Printf.printf "\n Generating Taxon %d Has Characters: \n%!" tcode;
-(*            Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) tcharacters;*)
-(*            print_newline ();*)
             let get_character_with_code_n_weight gen_new (w, acc, cnt) (weight, code) = 
-                try 
-                    weight, (Hashtbl.find tcharacters code) :: acc, cnt + 1
-                with
-                | Not_found -> weight, (gen_new code) :: acc, cnt
+                try weight, (Hashtbl.find tcharacters code) :: acc, cnt + 1
+                with | Not_found -> weight, (gen_new code) :: acc, cnt
             in
             let get_character_with_code gen_new acc code = 
-                if debug then begin
-                    Printf.printf "get char with code=%d\n%!" code;
-                end;
-                try 
-                    (Hashtbl.find tcharacters code,Hashtbl.find chfilenames code) :: acc
-                with
-                | Not_found ->
-                        if debug then Printf.printf "not found, gen new;\n%!";
-                        (gen_new code,"") :: acc
+                try (Hashtbl.find tcharacters code,Hashtbl.find chfilenames code) :: acc
+                with | Not_found -> (gen_new code,"") :: acc
             in
             let addmapper gen_new ((x, y), arr) =
-                let a, b, cnt = 
-                    List.fold_left (get_character_with_code_n_weight gen_new) 
-                    (1., [], 0) y
+                let a, b, cnt =
+                    List.fold_left (get_character_with_code_n_weight gen_new)
+                                   (1., [], 0)
+                                   y
                 in
                 x, (a, b), arr
             in
@@ -2603,20 +2591,20 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             and lnadd16_chars = List.map (addmapper gen_nadd) lnadd16code
             and lnadd32_chars = List.map (addmapper gen_nadd) lnadd32code
             and lnadd33_chars = []
-            and ldynamic_chars = 
+            and ldynamic_chars =
                 List.fold_left (get_character_with_code gen_dynamic) [] dynamics
             and lfixedstates_chars =
                 List.fold_left (get_character_with_code gen_fixedstates) [] fixedstates
-            and lkolmo_chars = 
+            and lkolmo_chars =
                 List.fold_left (get_character_with_code gen_dynamic) [] kolmogorov
             and lsank_chars =
-                List.map 
-                (fun (x, y) -> x, List.fold_left (get_character_with_code gen_sank) 
-                [] y) 
-                lsankcode
+                List.map
+                    (fun (x, y) ->
+                        x, List.fold_left (get_character_with_code gen_sank) [] y)
+                    lsankcode
             in
-            let result = { 
-                characters = []; 
+            let result = {
+                characters = [];
                 total_cost = 0.;
                 node_cost = 0.;
                 taxon_code = tcode;
@@ -3410,7 +3398,9 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                 Dynamic {
                             preliminary = res; final = res;
                             (*we should NOT replace cost&sum_cost with cost to
-                            * its parent, maybe we can add cost_to_parent to the
+                            * its parent,they are node cost and tree cost, and
+                            * they should remain that way. if we really need a
+                            * cost to parent, maybe we can add cost_to_parent to the
                             * data-structure.*)
                             cost = minet.cost;
                             sum_cost = minet.sum_cost;
@@ -4651,10 +4641,13 @@ let set_node_cost a b = { b with node_cost = a }
 * be higher than distance of two aligned children of the root. this function
     * return the difference between them.*)
 let extra_cost_from_root n treecost =
-    let debug = false in
+    let debug = false and debug2 = false in
     if debug then begin
-        Printf.printf "node.ml extra cost from root, treecost=%f, root nodedata:\n%!" treecost;
+        Printf.printf "node.ml extra cost from root, treecost=%f, %!" treecost;
+	    if debug2=true then begin
+        Printf.printf "root nodedata:%!";
         print n;
+        end;
     end;
     if treecost = 0. then 
         (*when we build wagner tree, we add nodes one by one. so there will be
@@ -4669,15 +4662,16 @@ let extra_cost_from_root n treecost =
              match item with 
             | Sank x -> 
                     let ec = SankCS.get_extra_cost_for_root x.preliminary in
-                    if debug then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
+                    if debug2 then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
                     acc +. (float_of_int ec)
             | Dynamic x ->
                     let disc = DynamicCS.extra_cost_for_root x.preliminary  in
-                    if debug then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
+                    if debug2 then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
                     acc +. disc
             | _ -> 0.0
         in
         let cost = List.fold_left acc_cost_cs 0.0 n.characters in
+        if debug then Printf.printf "return extra cost for root:%f\n%!" cost;
         (*I know for dynamic character we can just return distance cost as new cost for root, 
         * there is no need to get cost difference between align cost and distance cost. but for
         * sankoff charactor type, there is no algned children. *)
@@ -4745,7 +4739,10 @@ module Standard :
         let for_support = for_support
         let root_cost = root_cost
         let extra_cost_from_root = extra_cost_from_root
-        let tree_cost a b = (root_cost b) +. (total_cost a b)
+        let tree_cost a b =
+		let tc = (root_cost b) +. (total_cost a b) in
+		let ec = (extra_cost_from_root b tc) in
+		tc -. ec
         let to_single root _ a _ b sets =
             let combine = match root with
                 | Some _ -> true
