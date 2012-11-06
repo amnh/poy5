@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2778 $"
+let () = SadmanOutput.register "Node" "$Revision: 2783 $"
 
 let infinity = float_of_int max_int
 
@@ -728,8 +728,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     sum_cost = cost;
                     cost = cost }
             in
-            if debug_cs_median then Printf.printf "node.cs_median
-            sankoff,weight=%f, cost=%f=sum cost\n %!" ca.weight cost;
+            if debug_cs_median then Printf.printf "node.cs_median, sankoff,weight=%f, cost=%f=sum cost\n %!" ca.weight cost;
             Sank res, cost
     | FixedStates ca, FixedStates cb ->
             let median,cost = Fixed_states.median code ca.preliminary cb.preliminary in
@@ -1876,7 +1875,8 @@ let not_to_single =
 * being called by [chekc_cost] of allDirChar.ml *)
 let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
-    if debug_distance then
+let debug = false in
+    if debug then
         Printf.printf "\n Node.distance_of_type on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
     let has_t x = List.exists (fun z -> z = x) t
     and filter_dynamic res x = match x with
@@ -1887,7 +1887,8 @@ let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     in
     let has_nonadd = has_t `Nonadd
     and has_add = has_t `Add
-    and has_sank = has_t `Sank
+    and has_sank = has_t `Sank (*for sankoff, we get the cost from downpass, not
+uppass. node.[has_to_single] won't include Sank, here, this has_sank should be false*)
     and has_fixedstate = has_t `FixedStates 
     and dy_t = List.fold_left filter_dynamic [] t 
     and has_kolmo = has_t `Kolmo in
@@ -2133,11 +2134,8 @@ let extract_stat = function
     | (Data.Stat (a, b), _) -> (b, a)
     | _ -> raise (Illegal_argument "extract_stat")
 
-(*
-    let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
-            let chfilenames = !data.Data.character_codes in
-    Hashtbl.find tcharacters code,Hashtbl.find chfilenames code
-*)
+
+
 let extract_fixedstates data fs tcode = (*tcode = taxon code*) 
     match fs with
     | Data.FS code, _  -> (*code is charactor code belong to the taxon*)
@@ -2539,26 +2537,14 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             (*looks like we just need the code, then later we can get
             * fixedstates's spec from data.Data.character_specs with that code.
             * everything -- including the original sequence is in there.*)
-            (*to do : what do we need here?*)
-            (*let alph = Data.get_alphabet !data code in
-            let empty_seq = Data.get_empty_seq alph in
-            let specs = Hashtbl.find !data.Data.character_specs code in
-            let states = 
-                match specs with
-                | Data.Static x -> 
-                        (match x with  (*to do: what should we put here?*)
-                        | Data.FixedStates enc -> []
-                        | _ -> failwith "gen_sank is not for fixedstates" )
-                | _ -> assert false 
-            in
-            let fs_data = Data.set_fs_data [|empty_seq|] [] in*)
             (Data.FS code, `Unknown)
         in
         let gen_sank code =
             (* print_endline ("adding sankoff with code " ^ string_of_int code); *)
             let specs = Hashtbl.find !data.Data.character_specs code in
             let states = match specs with
-                | Data.Static (Data.NexusFile enc) -> `List enc.Nexus.File.st_observed
+                | Data.Static (Data.NexusFile enc) -> 
+                        `List enc.Nexus.File.st_observed
                 | _ -> assert false 
             in
             (Data.Stat (code, Some states), `Unknown)
@@ -2575,7 +2561,8 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             in
             let get_character_with_code gen_new acc code = 
                 try (Hashtbl.find tcharacters code,Hashtbl.find chfilenames code) :: acc
-                with | Not_found -> (gen_new code,"") :: acc
+                with | Not_found ->
+                    (gen_new code,"") :: acc
             in
             let addmapper gen_new ((x, y), arr) =
                 let a, b, cnt =
@@ -2692,18 +2679,28 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                     match lst with
                     | [] -> result
                     | _ ->
-                            let v = List.map (fun (sankcs,fname) -> extract_stat
-                            sankcs ) lst in
-                            let tcm =
+                            let v = List.map (fun (sankcs,fname) -> extract_stat sankcs ) lst in
+                            let tcm, specs =
                                 match v with
-                                | (_, code) :: _ -> Data.get_tcm code !data
-                                | _ -> failwith "This is impossible"
+                                | (_, code) :: _ -> 
+                                        Data.get_tcm code !data,
+                                        Hashtbl.find !data.Data.character_specs code
+                                | _ -> failwith "generate_taxon, get tcm, sankoff"
                             in
                             let arr= Array.of_list v in
                             let c, _ = SankCS.of_parser tcm (arr, tcode) code in
-                            let c = Sank { preliminary = c; final = c; cost = 0.;
-                                          sum_cost = 0.;
-                            weight = 1.; time = None,None,None; } in
+                            let weight = match specs with 
+                            | Data.Static (Data.NexusFile nf_static_spec) ->  
+                                nf_static_spec.Nexus.File.st_weight
+                            | _ -> failwith "generate_taxon, get weight, sankoff"
+                            in
+                            let c = Sank { 
+                                preliminary = c; 
+                                final = c; 
+                                cost = 0.;          
+                                sum_cost = 0.;
+                                weight = weight; 
+                                time = None,None,None; } in
                             { result with characters = c :: result.characters }
                 in
                 List.fold_left single_lsank_chars_process result lsank_chars
@@ -2760,7 +2757,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                                            final = c;
                                            cost = cost;
                                            sum_cost = cost;
-                                           weight = 1.;
+                                           weight = 1.; (*pass weight to cside,no need weight for ocaml side*)
                                            time = None,None,None; }
                             in
                             { result with characters = c :: result.characters;

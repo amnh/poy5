@@ -6170,6 +6170,7 @@ let set_weight_factor weight spec = match spec with
 let aux_transform_weight meth data =
     let f = match meth with
         | `ReWeight (chars, weight) ->
+                Printf.printf "reweight to %f\n%!" weight;
             let chars = 
                 let codes = get_chars_codes_comp data chars in
                 List.fold_left
@@ -6182,6 +6183,7 @@ let aux_transform_weight meth data =
                     then set_weight weight spec
                     else spec)
         | `WeightFactor (chars, weight) ->
+                Printf.printf "weight fac set to %f\n%!" weight;
             let chars =
                 let codes = get_chars_codes_comp data chars in
                 List.fold_left
@@ -6201,6 +6203,7 @@ let aux_transform_weight meth data =
 
 
 let transform_weight meth data = 
+    Printf.printf "data.transform_weight\n%!";
     let data = duplicate data in
     aux_transform_weight meth data;
     data

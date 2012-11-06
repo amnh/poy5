@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2780 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2783 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1118,7 +1118,6 @@ module F : Ptree.Tree_Operations
             - nodes     : the tested nodes/characters to avoid
             - ptree     : the tree to adjust *)
     let adjust_assignment max_count nodes ptree =
-	    let debug = false in
         let mode = match !Methods.cost with
             | `Iterative x -> x
             | _            -> assert false
