@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2778 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2780 $"
 
 
 exception Illegal_Cm_Format;;
@@ -831,7 +831,7 @@ module Two_D = struct
         done
 
     let fill_best_cost_and_median_for_some_combinations ?(create_original=false) m a_sz level all_elements =
-        let debug = true and debug2 = false in
+        let debug = false and debug2 = false in
         let gapcode = gap m in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in

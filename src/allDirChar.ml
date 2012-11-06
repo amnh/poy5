@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2777 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2780 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1252,11 +1252,11 @@ module F : Ptree.Tree_Operations
                 if (not changed) || (count = 1) || (prev_cost =. new_cost) || (new_cost > prev_cost)
                     then 
                         let _ = if debug then Printf.printf "end of \
-                        adjust_until_nothing_changes, return old ptree\n%!" in
+                        adjust_until_nothing_changes, return OLD ptree\n%!" in
                         ptree
                     else
                         let _ = if debug then Printf.printf "call iterator again \
-                        with better tree\n%!" in
+                        with BETTER tree\n%!" in
                         iterator (count - 1) new_cost new_affected new_ptree
             in
             if debug then Printf.printf "get initial cost before iterator\n%!";

@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2778 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2780 $"
 
 let debug = false
 let debug_distance = false
@@ -761,10 +761,92 @@ module DOS = struct
 
     let to_union a = Sequence.Unions.leaf a.sequence
 
-    (*small algn function for [readjust_XXXX] below, algn two child when parent is empty*)
+ (*distance function under module DOS, this function calls alignment function
+    * from sequence.ml. return the cost. 
+    * notice that we use original cost matrix, not the full one the
+    * calculate the distance.
+    * if the two input sequence is already aligned, we can use recost function, not this one*)
+    let distance alph h missing_distance a b use_ukk =
+        let debug = false in
+        if debug then Printf.printf "seqCS.DOS.distance,%!";
+        let gap = Cost_matrix.Two_D.gap h.c2_original in 
+        if Sequence.is_empty a.sequence gap || Sequence.is_empty b.sequence gap then begin
+                if debug then Printf.printf "at least one of the sequence is empty,\
+                return missing_distance=%d\n%!" missing_distance;
+                missing_distance
+            end
+        else
+IFDEF USE_VERIFY_COSTS THEN
+            let seqa, seqb, cost = 
+                if use_ukk then
+                Sequence.NewkkAlign.align_2 a.sequence b.sequence h.c2_original Sequence.NewkkAlign.default_ukkm
+                else
+                    Sequence.Align.align_2 a.sequence b.sequence h.c2_original 
+                Matrix.default 
+            in
+            let () = 
+                assert (
+                    let real_cost = 
+                        Sequence.Align.verify_cost_2 cost seqa seqb h.c2_original 
+                    in
+                    if cost < real_cost then
+                        let () = 
+                            Printf.printf 
+                            "Failed alignment between \
+                            \n%s\nand\n%s\nwith claimed cost %d \
+                            and real cost %d\n%!" 
+                            (Sequence.to_string seqa alph)
+                            (Sequence.to_string seqb alph)
+                            cost
+                            real_cost
+                        in
+                        false
+                    else if real_cost < cost then begin
+                        Printf.printf "Check this case\n%s\n%s\n has real cost %d and expected cost is %d\n%!"
+                        (Sequence.to_string seqa alph) (Sequence.to_string seqb
+                        alph) real_cost cost;
+                        true
+                    end else true
+            ) 
+            in
+            cost
+ELSE 
+            let deltaw = 
+                let tmp = 
+                    (max (Sequence.length a.sequence) (Sequence.length
+                    b.sequence)) 
+                    - (min (Sequence.length a.sequence) (Sequence.length
+                    b.sequence)) in
+                if tmp > 8 then tmp 
+                else 8
+            in
+            if debug then begin
+                Printf.printf "call cost_2 from Sequence use_ukk=%b, seqa,seqb:\n%!" use_ukk;
+                Sequence.printseqcode a.sequence;
+                Sequence.printseqcode b.sequence;
+            end;
+            let res = 
+                if use_ukk then
+                    Sequence.NewkkAlign.cost_2  ~deltaw a.sequence b.sequence
+                    h.c2_original Sequence.NewkkAlign.default_ukkm
+                else
+                    Sequence.Align.cost_2 ~deltaw a.sequence b.sequence h.c2_original 
+                    Matrix.default
+            in
+            if debug then Printf.printf "return %d, end of seqCS.DOS.distance\n%!" res;
+            res
+END  (*end of distance function under module DOS*)
+
+    (*small algn function for 3D function : [readjust_XXXX] below, when one of three sequence
+    * is empty, align the rest two. 
+    * if parent is empty, align two children, return alignment cost as cost2
+    * if any of the children is empty, align the other one and parent, the cost
+    * we get through alignment won't be cost2. the median is still good though
+    * Another problem is aligned child sequence. they won't be right for the
+    * second case, not sure what to do*)
     let readjust_algn_two_child s1 s2 c2 sumcost_ch12 use_ukk oldsumcost
     oldcost3 oldcost2 oldmineseq =
-	let debug = false in
+        let debug = false in
         let cm = c2 in
         let newseqm, cost =
             match Cost_matrix.Two_D.affine cm with
@@ -792,23 +874,25 @@ module DOS = struct
                     Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
                 in
                 let median = Sequence.median_2 s1' s2' cm in
+                (*why select_one? though it's ok to have ambiguity in
+        * medians. we compare this new median3 with old median3 -- which doesn't
+        * have ambiguity -- to see if anything changed*)
                 let a = Sequence.select_one median cm in
+                if debug then begin
+                    Sequence.printseqcode median;
+                    Printf.printf "resolve ambiguity -> %!";
+                    Sequence.printseqcode a;
+                end;
                 a, c
         in
-       let newsumcost = sumcost_ch12 + cost in
-        let changed =
-            if  (newsumcost<>oldsumcost) || (cost<>oldcost3) ||
-            (cost<>oldcost2) || (0<>compare oldmineseq newseqm) 
-            then true
-            else false
-        in
-	if debug then Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d\n%!"
- changed newsumcost oldsumcost cost oldcost3 cost oldcost2; 
-        changed, create newseqm, cost, cost, newsumcost
+        create newseqm, cost
 
 
-    (*readjust function for custom alphabet under module DOS *)
-    let readjust_custom_alphabet mode h ch1 ch2 parent mine =
+    (*readjust function for custom alphabet under module DOS, return changed,
+    * new median, new cost3, new cost2, new sumcost 
+    * to do: this function and [readjust] share a big part of code, maybe we
+    * should merge them*)
+    let readjust_custom_alphabet alph mode h ch1 ch2 parent mine =
         let debug = false in
         let use_ukk = false in (*we don't call ukkonen alignment for custom alphabet now*)
         let gap = Cost_matrix.Two_D.gap h.c2_full in
@@ -862,8 +946,12 @@ module DOS = struct
                 then true
                 else false
             in
-            if debug then 
-                Printf.printf "DOS.readjust_custom_alphabet end,return cost3=%d(old:%d), sumcost=%d(old:%d), anything_changed : %b\n%!" newcost3 oldcost3 newsumcost oldsumcost anything_changed;                  
+            if debug then begin
+                Printf.printf "DOS.readjust_custom_alphabet end,return \
+                cost3=%d(old:%d), sumcost=%d(old:%d), \
+                anything_changed : %b, newseqm = \n%!" newcost3 oldcost3 newsumcost oldsumcost anything_changed;  
+                Sequence.printseqcode newseqm;
+            end;
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
             (*return changed:bool,new mine, newcost3, newcost2 and new sum cost*)
             anything_changed, 
@@ -889,21 +977,79 @@ module DOS = struct
                 ch2, 0, 0, sumcost_ch12
         | false, false, true ->
                 if debug then Printf.printf "empty par, algn ch1&ch2\n%!";
-                readjust_algn_two_child ch1.sequence ch2.sequence h.c2_full
-                sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                let newmed, newcost2 = 
+                    readjust_algn_two_child ch1.sequence ch2.sequence h.c2_full
+                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                in
+                let newsumcost = newcost2 + sumcost_ch12 in
+                let newcost3 = newcost2 in (*parent is empty*)
+                let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                    (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
+                    then true else false
+                in
+                if debug then begin
+                    Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
+                    cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
+                    changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
+                    Sequence.printseqcode newmed.sequence;
+                end; 
+                changed, 
+                {newmed with costs = rescosts;},
+                newcost3, newcost2, newsumcost
         | false, true, false ->
                 if debug then Printf.printf "empty ch2, algn ch1&par\n%!";
-                readjust_algn_two_child ch1.sequence parent.sequence h.c2_full
-                sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                let newmed, _ =
+                    readjust_algn_two_child ch1.sequence parent.sequence h.c2_full
+                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                in
+                let newcost2 = distance alph h 0 ch1 newmed use_ukk in
+                let newsumcost = newcost2 + sumcost_ch12 in
+                let cost_mine_parent = distance alph h 0 newmed parent use_ukk in
+                let newcost3 = newcost2 + cost_mine_parent in
+                let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                    (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
+                    then true else false
+                in
+                if debug then begin
+                    Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
+                    cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
+                    changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
+                    Sequence.printseqcode newmed.sequence;
+                end;
+                changed,
+                {newmed with costs = rescosts},
+                newcost3, newcost2, newsumcost
         | _, false, false ->
                 if debug then Printf.printf "empty ch1, algn ch2&par\n%!";
-                readjust_algn_two_child ch2.sequence parent.sequence h.c2_full
-                sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                let newmed, _ =
+                    readjust_algn_two_child ch2.sequence parent.sequence h.c2_full
+                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                in
+                let newcost2 = distance alph h 0 ch2 newmed use_ukk in
+                let newsumcost = newcost2 + sumcost_ch12 in
+                let cost_mine_parent = distance alph h 0 newmed parent use_ukk in
+                let newcost3 = newcost2 + cost_mine_parent in
+                let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                    (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
+                    then true else false
+                in
+                if debug then begin
+                    Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
+                    cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
+                    changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
+                    Sequence.printseqcode newmed.sequence;
+                end;
+                changed,
+                {newmed with costs = rescosts},
+                newcost3, newcost2, newsumcost
 
 
     (*readjust function for dna sequence under module DOS, include approx=exact
     * and approximate*)
-    let readjust mode h ch1 ch2 parent mine use_ukk =
+    let readjust alph mode h ch1 ch2 parent mine use_ukk =
         let debug = false in
         if debug then Printf.printf "seqCS.DOS.readjust,use_ukk=%b\n%!" use_ukk;
         let c2 = h.c2_full in
@@ -991,14 +1137,73 @@ module DOS = struct
                     ch2.sequence mine.sequence),
                     ch2, 0, 0, sumcost_ch12
             | false, false, true ->
+                    let newmed, newcost2 = 
                     readjust_algn_two_child ch1.sequence ch2.sequence c2
                     sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                    in
+                    let newsumcost = newcost2 + sumcost_ch12 in
+                    let newcost3 = newcost2 in (*parent is empty*)
+                    let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                    let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                        (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
+                        then true else false
+                    in
+                    if debug then begin
+                        Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
+                        cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
+                        changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
+                        Sequence.printseqcode newmed.sequence;
+                    end; 
+                    changed, 
+                    {newmed with costs = rescosts;},
+                    newcost3, newcost2, newsumcost
             | false, true, false ->
+                    let newmed , _ =
                     readjust_algn_two_child ch1.sequence parent.sequence c2
                     sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                    in
+                    let newcost2 = distance alph h 0 ch1 newmed use_ukk in
+                    let newsumcost = newcost2 + sumcost_ch12 in
+                    let cost_mine_parent = distance alph h 0 newmed parent use_ukk in
+                    let newcost3 = newcost2 + cost_mine_parent in
+                    let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                    let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                        (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
+                        then true else false
+                    in
+                    if debug then begin
+                        Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
+                        cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
+                        changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
+                        Sequence.printseqcode newmed.sequence;
+                    end;
+                    changed,
+                    {newmed with costs = rescosts},
+                    newcost3, newcost2, newsumcost
             | _, false, false ->
+                    let newmed, _ =
                     readjust_algn_two_child ch2.sequence parent.sequence c2
                     sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                    in
+                    let newcost2 = distance alph h 0 ch2 newmed use_ukk in
+                    let newsumcost = newcost2 + sumcost_ch12 in
+                    let cost_mine_parent = distance alph h 0 newmed parent use_ukk in
+                    let newcost3 = newcost2 + cost_mine_parent in
+                    let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
+                    let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
+                        (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
+                        then true else false
+                    in
+                    if debug then begin
+                        Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
+                        cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
+                        changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
+                        Sequence.printseqcode newmed.sequence;
+                    end;
+                    changed,
+                    {newmed with costs = rescosts},
+                    newcost3, newcost2, newsumcost
+
         in
         (*return modifed = true if 
             * #1. if subtree cost root on this character of this node is different, 
@@ -1377,80 +1582,7 @@ module DOS = struct
             } in
         { n with sequence = res; costs = rescost }
 
-    (*distance function under module DOS, this function calls alignment function
-        * from sequence.ml. return the cost. if the two input sequence is
-        * already aligned, we can use recost function, not this one*)
-    let distance alph h missing_distance a b use_ukk =
-        let debug = false in
-        if debug then Printf.printf "seqCS.DOS.distance,%!";
-        let gap = Cost_matrix.Two_D.gap h.c2_original in 
-        if Sequence.is_empty a.sequence gap || Sequence.is_empty b.sequence gap then begin
-                if debug then Printf.printf "at least one of the sequence is empty,\
-                return missing_distance=%d\n%!" missing_distance;
-                missing_distance
-            end
-        else
-IFDEF USE_VERIFY_COSTS THEN
-            let seqa, seqb, cost = 
-                if use_ukk then
-                Sequence.NewkkAlign.align_2 a.sequence b.sequence h.c2_original Sequence.NewkkAlign.default_ukkm
-                else
-                    Sequence.Align.align_2 a.sequence b.sequence h.c2_original 
-                Matrix.default 
-            in
-            let () = 
-                assert (
-                    let real_cost = 
-                        Sequence.Align.verify_cost_2 cost seqa seqb h.c2_original 
-                    in
-                    if cost < real_cost then
-                        let () = 
-                            Printf.printf 
-                            "Failed alignment between \
-                            \n%s\nand\n%s\nwith claimed cost %d \
-                            and real cost %d\n%!" 
-                            (Sequence.to_string seqa alph)
-                            (Sequence.to_string seqb alph)
-                            cost
-                            real_cost
-                        in
-                        false
-                    else if real_cost < cost then begin
-                        Printf.printf "Check this case\n%s\n%s\n has real cost %d and expected cost is %d\n%!"
-                        (Sequence.to_string seqa alph) (Sequence.to_string seqb
-                        alph) real_cost cost;
-                        true
-                    end else true
-            ) 
-            in
-            cost
-ELSE 
-            let deltaw = 
-                let tmp = 
-                    (max (Sequence.length a.sequence) (Sequence.length
-                    b.sequence)) 
-                    - (min (Sequence.length a.sequence) (Sequence.length
-                    b.sequence)) in
-                if tmp > 8 then tmp 
-                else 8
-            in
-            if debug then begin
-                Printf.printf "call cost_2 from Sequence use_ukk=%b, seqa,seqb:\n%!" use_ukk;
-                Sequence.printseqcode a.sequence;
-                Sequence.printseqcode b.sequence;
-            end;
-            let res = 
-                if use_ukk then
-                    Sequence.NewkkAlign.cost_2  ~deltaw a.sequence b.sequence
-                    h.c2_original Sequence.NewkkAlign.default_ukkm
-                else
-                    Sequence.Align.cost_2 ~deltaw a.sequence b.sequence h.c2_original 
-                    Matrix.default
-            in
-            if debug then Printf.printf "return %d, end of seqCS.DOS.distance\n%!" res;
-            res
-END
-
+   
 (*[dist_2] is called to calculates the cost of joining the node [n] between [a] and [b] in a tree*)
         let dist_2 h n a b use_ukk =
             let debug = false in
@@ -1579,7 +1711,7 @@ module PartitionedDOS = struct
             let a, b, c, d, e, f, g = aux s2 s1 s2len s1len in
             b, a, d, c, e, g, f
 
-    let readjust mode h ch1 ch2 parent mine use_ukk =
+    let readjust alph mode h ch1 ch2 parent mine use_ukk =
         let cost = ref 0 in
         let is_0 = ref true in
         let res =
@@ -1596,7 +1728,7 @@ module PartitionedDOS = struct
                         mine.(i)
                 | DO ch1, DO ch2, DO parent, DO mine ->
                         let x, y, z3, z2, zsum = 
-                            DOS.readjust mode h ch1 ch2 parent mine use_ukk
+                            DOS.readjust alph mode h ch1 ch2 parent mine use_ukk
                         in
                         is_0 := !is_0 && x;
                         cost := !cost + z2;
@@ -2335,7 +2467,7 @@ let same_codes a b =
 
 (** median 3 function for custom alphabet *)
 (*any change here must also go to [readjust]*)
-let readjust_custom_alphabet mode modified ch1 ch2 parent mine =
+let readjust_custom_alphabet alph mode modified ch1 ch2 parent mine =
     let debug = false in
     if debug then Printf.printf "seqCS.readjust_custom_alphabet\n%!";
     (*list of character code that being modified in DOS.[readjust_custom_alphabet] *)
@@ -2348,7 +2480,7 @@ let readjust_custom_alphabet mode modified ch1 ch2 parent mine =
                 | Heuristic_Selection a, Heuristic_Selection b, 
                     Heuristic_Selection c, Heuristic_Selection d ->
                         let changed, res, cost3, cost2, sumcost = 
-                            DOS.readjust_custom_alphabet mode mine.heuristic a b c d
+                            DOS.readjust_custom_alphabet alph mode mine.heuristic a b c d
                         in
                         if changed then begin
                             if debug then Printf.printf "add code = %d to modified set\n%!" code;
@@ -2382,7 +2514,7 @@ let readjust_custom_alphabet mode modified ch1 ch2 parent mine =
 * parent of [mine] respectively, and [a] is the new cost of [b] as 
 * parent of [ch1] and [ch2]. *)
 (*any change here must also go to [readjust_custom_alphabet]*)
-let readjust mode to_adjust modified ch1 ch2 parent mine =
+let readjust alph mode to_adjust modified ch1 ch2 parent mine =
     let debug = false in
     if debug then Printf.printf "seqCS.readjust\n%!";
     (* assert (parent.alph = Alphabet.nucleotides);this function is only for dna sequence*)
@@ -2408,7 +2540,7 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
                 | Heuristic_Selection a, Heuristic_Selection b, 
                     Heuristic_Selection c, Heuristic_Selection d ->
                         let changed, res, cost3, cost2, sumcost = 
-                            DOS.readjust mode mine.heuristic a b c d use_ukk in
+                            DOS.readjust alph mode mine.heuristic a b c d use_ukk in
                         if changed then begin (*add character code to new_modified*)
                             if debug then Printf.printf "add character#.%d to change set\n%!" code;
                             new_modified := code :: !new_modified;

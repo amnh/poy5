@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2773 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2780 $"
 
 let debug = false
 
@@ -633,9 +633,9 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
         (*modified is a list of character id that get changed, new_cost is the cost(ch1,ch2), nc is the new SeqCS.t updated with new characters and new total_cost*)
         let modified, new_cost, new_sumcost, nc  = 
             if ch1.SeqCS.alph = Alphabet.nucleotides then  
-                SeqCS.readjust mode to_adjust modified ch1 ch2 parent mine 
+                SeqCS.readjust ch1.SeqCS.alph mode to_adjust modified ch1 ch2 parent mine 
             else 
-                SeqCS.readjust_custom_alphabet mode modified ch1 ch2 parent mine in
+                SeqCS.readjust_custom_alphabet ch1.SeqCS.alph mode modified ch1 ch2 parent mine in
 	    modified,  new_cost, new_sumcost, (SeqCS nc)    
     | _, _, _, mine when no_iterative_other_than_for_seqs ->  
             let prev_cost = total_cost mine in
