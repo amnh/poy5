@@ -456,10 +456,13 @@ val make_codon_partitions : bool -> d -> string -> Methods.characters -> d
 val remove_taxa_to_ignore : d -> d
 
 val get_sequence_tcm : int -> d -> Cost_matrix.Two_D.m
+
 val get_sequence_tcm_original : int -> d -> Cost_matrix.Two_D.m
 
 val get_tcm2d : d -> int -> Cost_matrix.Two_D.m * Cost_matrix.Two_D.m 
+
 val get_tcm3d : d -> int -> Cost_matrix.Three_D.m
+
 val get_tcmfile : d -> int -> tcm_definition
 
 val add_file : d -> contents list -> FileStream.f -> d
@@ -522,7 +525,8 @@ val process_rename_characters : d -> (string * string) -> d
 
 val assign_transformation_gaps : d -> bool_characters -> int -> int -> d
 
-val assign_ncm_weights_to_chars : d -> bool_characters -> Methods.ml_gap -> d
+val assign_ncm_weights_to_chars :
+    d -> bool_characters -> Methods.ml_alphabet -> Methods.ml_gap -> d
 
 val assign_level : d -> bool_characters -> Methods.keep_method -> int -> d 
     

@@ -840,14 +840,15 @@ let print (data : d) =
                     | `Genome -> Printf.fprintf stdout "Genome"
                     | `Annotated -> Printf.fprintf stdout "Annotated"
                 end
-            | Static (NexusFile {Nexus.File.st_type=st_type}) ->
+            | Static (NexusFile ({Nexus.File.st_type=st_type} as spec)) ->
                 begin match st_type with
                     | Nexus.File.STOrdered      -> Printf.fprintf stdout "Ordered"
                     | Nexus.File.STUnordered    -> Printf.fprintf stdout "Unordered"
                     | Nexus.File.STLikelihood _ -> Printf.fprintf stdout "Static ML"
                     | Nexus.File.STNCM _        -> Printf.fprintf stdout "NCM"
                     | Nexus.File.STSankoff m    -> Printf.fprintf stdout "Sankoff"; print_matrix m
-                end
+                end;
+                Printf.printf ": %s" (Nexus.File.to_string spec)
             | Static (FixedStates _) -> Printf.fprintf stdout "Fixed States"
             | Kolmogorov _ -> Printf.fprintf stdout "Kolmogorov"
             | Set          -> Printf.fprintf stdout "Set"
@@ -4766,7 +4767,6 @@ let remove_absent_present_encodings ?(ignore_data=false) data chars =
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
     the likelihood model specified in [lk] *)
 let set_parsimony data chars =
-IFDEF USE_LIKELIHOOD THEN
     (* apply a type to a set of STATIC characters in data *)
     let transform_chars data chars =
         let new_specs = Hashtbl.copy data.character_specs in
@@ -4788,9 +4788,8 @@ IFDEF USE_LIKELIHOOD THEN
                             (** already parsimony characters *)
                             ()
                     end
-                | Static (FixedStates x) ->
-                    (** already parsimony characters TODO ?? *)
-                    ()
+                (** already parsimony characters TODO ?? *)
+                | Static (FixedStates x) -> ()
                 | Dynamic x ->
                     Hashtbl.replace new_specs code
                         (Dynamic {x with lk_model = None; state = `Seq;})
@@ -4811,15 +4810,10 @@ IFDEF USE_LIKELIHOOD THEN
             let new_specs = transform_chars data chars in
             categorize { data with character_specs = new_specs;
                                    search_information = parsimony_output_information}
-ELSE
-    data
-END
-
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
 let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
-IFDEF USE_LIKELIHOOD THEN
     let u_gap = match use_gap with
         | `Independent | `Coupled _ -> true | `Missing -> false
     in
@@ -4848,9 +4842,7 @@ IFDEF USE_LIKELIHOOD THEN
     let all_chars = categorize_characters_comp d chars in
     let data = List.fold_left ~f:(transform_char_set) ~init:d all_chars in
     { data with search_information = likelihood_output_information; }
-ELSE
-    failwith "Likelihood not enabled: download different binary or contact mailing list"
-END
+
 
 let get_tran_code_meth data meth = 
     let tran_code_ls, meth =
@@ -5598,8 +5590,8 @@ let assign_tcm_to_characters_from_file data chars file =
             Printf.printf "new alphabet is :%!"; 
             Alphabet.print newalph; 
         end;
-        assign_tcm_to_characters old_data chars None newtcm_function (Some newalph)
-    ) ~init:data lst in
+        assign_tcm_to_characters old_data chars None newtcm_function (Some newalph))
+        ~init:data lst in
     if debug_level then Printf.printf "assign_tcm_to_characters_from_file done\n%!"; 
     new_data
 
@@ -5609,35 +5601,32 @@ let add_search_base_for_one_character_from_file data chars file character_name =
         try (Hashtbl.find data.character_names character_name)
         with | Not_found -> failwith "cannot add search base for non existing character"
     in
-    if debug_search_base then 
+    if debug_search_base then
         Printf.printf "Data.add_search_base_from_file %s, chcode=%d\n%!" file chcode;
     let original_filename = file in
-    let file = `Local file in 
+    let file = `Local file in
     let alphabet = get_alphabet data chcode in
     let ch = Parser.Files.molecular_to_fasta file in
-    let res = 
-        try Fasta.of_channel ~respect_case:true (FileContents.AlphSeq alphabet) ch with
-        | Fasta.Illegal_molecular_format fl ->
-                let file = FileStream.filename file in
-                let fl = { fl with Fasta.filename = file } in
-                print_error_message fl;
-                raise (Fasta.Illegal_molecular_format fl)
+    let res =
+        try Fasta.of_channel ~respect_case:true (FileContents.AlphSeq alphabet) ch
+        with Fasta.Illegal_molecular_format fl ->
+            let file = FileStream.filename file in
+            let fl = { fl with Fasta.filename = file } in
+            print_error_message fl;
+            raise (Fasta.Illegal_molecular_format fl)
     in
     let res = List.filter (function [[]], _ | [], _ -> false | _ -> true) res
     in
     close_in ch;
-    let data = duplicate data in (*really?*)
+    let data = duplicate data in
     let res = 
         let res = List.map (fun (res3, b) -> (List.flatten res3),b) res in 
         let tmp = 
-            List.map (fun (res2, b) -> 
+            List.map (fun (res2, b) ->
                           let res1 = List.flatten res2 in
                           List.map (fun s -> s, b) res1) res
         in
-        let arr = 
-            let lst = List.map (Array.of_list) tmp in
-            Array.of_list lst 
-        in
+        let arr = Array.of_list (List.map (Array.of_list) tmp) in
         let num_taxa = Array.length arr in
         let loci =
             Array.fold_left 
@@ -5664,13 +5653,9 @@ let add_search_base_for_one_character_from_file data chars file character_name =
         done; 
         !res
     in
-    (*get the old code*)
-    (*let chcode = !(data.character_code_gen) in*)
-    let locus_name = 
+    let locus_name =
         let c = ref (-1) in
-        ref (fun () ->
-            incr c;
-            original_filename  ^ ":" ^ string_of_int !c)
+        ref (fun () -> incr c; original_filename  ^ ":" ^ string_of_int !c)
     in
     let single_loci_processor acc res = 
         let debug_search_base = false in
@@ -5680,15 +5665,10 @@ let add_search_base_for_one_character_from_file data chars file character_name =
         * folded over the taxa collected in the [file]. *)
         let process_a_taxon data (seq, taxon) =
             if debug_search_base then Printf.printf "process_a_taxon --> %!";
-            (* Here is where, at the parser level, the fixed 
-            * states support should be added *)
-            let data, tcode = 
-                process_searchbase_code data taxon original_filename
-                (*process_taxon_code data taxon original_filename*) 
-            in
+            (* Here is where, at the parser level, the fixed states support should be added *)
+            let data, tcode = process_searchbase_code data taxon original_filename in
             if debug_search_base then Printf.printf "tcode=%d, %!" tcode;
-            if debug_search_base then 
-                Array.iter (fun x -> Sequence.printseqcode x) seq;
+            if debug_search_base then Array.iter (fun x -> Sequence.printseqcode x) seq;
             let tl = get_searchbase_characters data tcode in
             let dyna_state = `Seq and prealigned = false in
             let seqa = 
@@ -5711,53 +5691,40 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     let individual_fragments x = 
         List.map (List.map ~f:(fun (seq, t) -> [|seq|], t)) x
     in
-    let data = 
-       (* if annotated then process_annotated_chrom data 
-        else if dyna_state = `Genome then process_genome data
-        else if `DO = default_mode then *)
-            match (res --> individual_fragments) with
-            | [x] ->
-                    locus_name := (fun () -> original_filename);
-                    Printf.printf "only one fragments,call single_loci_processor\n%!";
-                    single_loci_processor data x
-            | [] -> 
-                    Printf.printf "data remain unchanged\n%!";
-                    data
-            | x -> 
-                    Printf.printf "fold on single_loci_processor (len=%d) \n%!" (List.length x);
-                    List.fold_left ~f:single_loci_processor ~init:data x
-       (* else 
-            (res --> merge_fragments -->
-            single_loci_processor data) *)
-    in 
-    
-    let sbfile = FileStream.filename file in
-    let files = 
-            if List.exists (function (x, _) -> x = sbfile) data.files 
-                then data.files
-            else (sbfile, [Characters]) :: data.files 
+    let data = match individual_fragments res with
+        | [x] -> locus_name := (fun () -> original_filename);
+                 Printf.printf "only one fragments,call single_loci_processor\n%!";
+                 single_loci_processor data x
+        | []  -> Printf.printf "data remain unchanged\n%!";
+                 data
+        | x   -> Printf.printf "fold on single_loci_processor (len=%d) \n%!" (List.length x);
+                 List.fold_left ~f:single_loci_processor ~init:data x
     in
-    let chars = 
+    let sbfile = FileStream.filename file in
+    let files =
+        if List.exists (function (x, _) -> x = sbfile) data.files
+            then data.files
+            else (sbfile, [Characters]) :: data.files
+    in
+    let chars =
         List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
                     (get_chars_codes_comp data chars)
     in
     let chars_specs =
-        List.fold_left 
-        ~f:(fun acc x -> 
-            let res = Hashtbl.find data.character_specs x in
-            let acc = (res, x) :: acc in
-            (*Hashtbl.remove data.character_specs x;*)
-            acc
-        ) 
-        ~init:[] chars
+        List.fold_left
+            ~f:(fun acc x ->
+                let res = Hashtbl.find data.character_specs x in
+                (res, x) :: acc)
+            ~init:[] chars
     in
-    List.iter ~f:(fun (spec, code) -> 
-        if debug_search_base then Printf.printf "call compute fixed states with code = %d\n%!" code;
-        let polymph = match spec with 
-        | Dynamic dspec ->
-                dspec.polymorphism
-        | _ -> `Do_All in
-        compute_fixed_states None data code polymph) chars_specs;
+    List.iter
+        ~f:(fun (spec, code) -> 
+                let polymph = match spec with 
+                    | Dynamic dspec -> dspec.polymorphism
+                    | _ -> `Do_All
+                in
+                compute_fixed_states None data code polymph)
+        chars_specs;
     { data with files = files }
 
 
@@ -5775,7 +5742,7 @@ let classify_characters_by_alphabet_size data chars =
     let make_tuple_of_character_and_size acc char =
         let size =
             char --> get_alphabet data
-                 --> Alphabet.to_sequential 
+                 --> Alphabet.to_sequential
                  --> Alphabet.distinct_size
         in
         (char, size) :: acc
@@ -5820,16 +5787,18 @@ let assign_transformation_gaps data chars transformation gaps =
 
 (** Function to apply weights based on the size of the alphabet to be,
         w_i = - log ( 1 / |a_i| )
-    For nonadditive characters this is the size of the alphabet including gaps,
-    and for continuous characters we take the difference from high to low as the
-    alphabet size. This function only applies to static characters, we issue a
-    warning if [chars] contains characters that cannot be transformed. *)
-let assign_ncm_weights_to_chars data chars gap : d =
+    We accept the alphabet argument for morphological characters and
+    non-additive characters if necessary. We will traditionally use the observed
+    states of the column; although this may be confusing for non-additive
+    characters when AC are present in the column and not TG-, and thus will have
+    a different weight then if interpreted as nucleotides. If characters are
+    present in [chars] that do not relate to this command, we ignore them and
+    proceed with a warning message. *)
+let assign_ncm_weights_to_chars data chars alph gap : d =
     let ncm_weight s = ~-. (log (1.0 /. (float_of_int s)))
     and warning = ref false
-    and data    = duplicate data in
-    let assign_weight_to_char st_w c =
-        match Hashtbl.find data.character_specs c with
+    and nspec = Hashtbl.copy data.character_specs in
+    let assign_weight_to_char st_w c = match Hashtbl.find nspec c with
         | Dynamic _ | Kolmogorov _ | Set
         | Static (FixedStates _)  ->
             warning := true;
@@ -5837,17 +5806,17 @@ let assign_ncm_weights_to_chars data chars gap : d =
         | Static (NexusFile spec) ->
             let st_t = Nexus.File.STNCM (spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
             and st_w = spec.Nexus.File.st_weight *. st_w in
-            let r = NexusFile {spec with Nexus.File.st_weight = st_w;
-                                         Nexus.File.st_type   = st_t;} in
-            Hashtbl.replace data.character_specs c (Static r)
+            let r = {spec with Nexus.File.st_weight = st_w;
+                               Nexus.File.st_type   = st_t; } in
+            Hashtbl.replace nspec c (Static (NexusFile r))
     in
     let a_cats = classify_characters_by_alphabet_size data chars in
-(*    Printf.printf "Transforming %d Sets of Characters from %s\n%!"*)
-(*                  (List.length a_cats) (string_of_characters chars);*)
+     Printf.printf "Transforming %d Sets of Characters from %s\n%!"
+                   (List.length a_cats) (string_of_characters chars);
     List.iter
         ~f:(fun (size,chars) ->
             let w = ncm_weight size in
-(*            Printf.printf "\t%s (%d) -- %f\n%!" (string_of_characters chars) size w;*)
+             Printf.printf "\t%s (%d) -- %f\n%!" (string_of_characters chars) size w;
             List.iter
                 ~f:(fun x -> assign_weight_to_char w x)
                 (get_chars_codes_comp data chars))
@@ -5858,7 +5827,7 @@ let assign_ncm_weights_to_chars data chars gap : d =
                 "transform@ the@ characters@ I@ can." in
         Status.user_message Status.Warning m
     end;
-    data
+    {data with character_specs = nspec; }
 
 
 (** An un-assignment of the above; we keep the data in the STNCM variant so it's
