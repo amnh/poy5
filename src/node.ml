@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2783 $"
+let () = SadmanOutput.register "Node" "$Revision: 2785 $"
 
 let infinity = float_of_int max_int
 
@@ -1963,6 +1963,7 @@ let distance ?(para=None) ?(parb=None) missing_distance
         | FixedStates a, FixedStates b ->
               a.weight *. Fixed_states.distance a.final b.final
         | Dynamic a, Dynamic b ->
+            if debug_distance then Printf.printf "DynamicCS, weight = %f\n%!" a.weight;
               a.weight *. DynamicCS.distance missing_distance a.final b.final
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.distance a.final b.final
@@ -4660,11 +4661,11 @@ let extra_cost_from_root n treecost =
             | Sank x -> 
                     let ec = SankCS.get_extra_cost_for_root x.preliminary in
                     if debug2 then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
-                    acc +. (float_of_int ec)
+                    acc +. ((float_of_int ec) *. x.weight)
             | Dynamic x ->
                     let disc = DynamicCS.extra_cost_for_root x.preliminary  in
                     if debug2 then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
-                    acc +. disc
+                    acc +. (disc *. x.weight)
             | _ -> 0.0
         in
         let cost = List.fold_left acc_cost_cs 0.0 n.characters in
