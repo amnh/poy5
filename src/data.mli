@@ -199,8 +199,6 @@ type specified = [ `Specified | `Unknown ]
 
 type bool_characters = Methods.characters
 
-val string_of_characters : bool_characters -> string
-
 type characters = [
     | `All
     | `Some of int list 
@@ -212,6 +210,10 @@ type characters = [
     | `Missing of (bool * int)
     | `Range of (string * int * int)
 ]
+
+val string_of_characters : characters -> string
+
+val string_of_characters_comp : bool_characters -> string
 
 val transform_range_to_codes : string -> int -> int -> [> `Names of string list]
 
@@ -441,9 +443,9 @@ val get_set_of_character : d -> int -> string option
 
 val categorize : d -> d
 
-val categorize_likelihood_chars_by_model : bool_characters -> d -> int list list
+val categorize_likelihood_chars_by_model : d -> characters -> int list list
 
-val categorize_sets : d -> int list list
+val categorize_likelihood_chars_by_model_comp : d -> bool_characters -> int list list
 
 val categorize_characters : d -> characters -> int list list
 
@@ -456,10 +458,13 @@ val make_codon_partitions : bool -> d -> string -> Methods.characters -> d
 val remove_taxa_to_ignore : d -> d
 
 val get_sequence_tcm : int -> d -> Cost_matrix.Two_D.m
+
 val get_sequence_tcm_original : int -> d -> Cost_matrix.Two_D.m
 
 val get_tcm2d : d -> int -> Cost_matrix.Two_D.m * Cost_matrix.Two_D.m 
+
 val get_tcm3d : d -> int -> Cost_matrix.Three_D.m
+
 val get_tcmfile : d -> int -> tcm_definition
 
 val add_file : d -> contents list -> FileStream.f -> d
@@ -522,7 +527,8 @@ val process_rename_characters : d -> (string * string) -> d
 
 val assign_transformation_gaps : d -> bool_characters -> int -> int -> d
 
-val assign_ncm_weights_to_chars : d -> bool_characters -> Methods.ml_gap -> d
+val assign_ncm_weights_to_chars :
+    d -> bool_characters -> Methods.ml_alphabet -> Methods.ml_gap -> d
 
 val assign_level : d -> bool_characters -> Methods.keep_method -> int -> d 
     

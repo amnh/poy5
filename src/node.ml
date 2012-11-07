@@ -17,7 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2775 $"
+let () = SadmanOutput.register "Node" "$Revision: 2778 $"
+
 let infinity = float_of_int max_int
 
 open Numerical.FPInfix
@@ -3397,7 +3398,9 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                 Dynamic {
                             preliminary = res; final = res;
                             (*we should NOT replace cost&sum_cost with cost to
-                            * its parent, maybe we can add cost_to_parent to the
+                            * its parent,they are node cost and tree cost, and
+                            * they should remain that way. if we really need a
+                            * cost to parent, maybe we can add cost_to_parent to the
                             * data-structure.*)
                             cost = minet.cost;
                             sum_cost = minet.sum_cost;
@@ -4640,8 +4643,11 @@ let set_node_cost a b = { b with node_cost = a }
 let extra_cost_from_root n treecost =
     let debug = false and debug2 = false in
     if debug then begin
-        Printf.printf "node.ml extra cost from root, treecost=%f, root nodedata:\n%!" treecost;
-	if debug2=true then print n;
+        Printf.printf "node.ml extra cost from root, treecost=%f, %!" treecost;
+	    if debug2=true then begin
+        Printf.printf "root nodedata:%!";
+        print n;
+        end;
     end;
     if treecost = 0. then 
         (*when we build wagner tree, we add nodes one by one. so there will be
@@ -4656,15 +4662,16 @@ let extra_cost_from_root n treecost =
              match item with 
             | Sank x -> 
                     let ec = SankCS.get_extra_cost_for_root x.preliminary in
-                    if debug then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
+                    if debug2 then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
                     acc +. (float_of_int ec)
             | Dynamic x ->
                     let disc = DynamicCS.extra_cost_for_root x.preliminary  in
-                    if debug then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
+                    if debug2 then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
                     acc +. disc
             | _ -> 0.0
         in
         let cost = List.fold_left acc_cost_cs 0.0 n.characters in
+        if debug then Printf.printf "return extra cost for root:%f\n%!" cost;
         (*I know for dynamic character we can just return distance cost as new cost for root, 
         * there is no need to get cost difference between align cost and distance cost. but for
         * sankoff charactor type, there is no algned children. *)

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2760 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2781 $"
 
 let ndebug = true
 
@@ -160,8 +160,7 @@ struct
         parameters in the model; this includes branches, model rates, gamma, and
         for each character set if there are more than one. *)
     let parameter_cardinality tree chars : int =
-        let sets =
-            Data.categorize_likelihood_chars_by_model chars tree.Ptree.data in
+        let sets = Data.categorize_likelihood_chars_by_model_comp tree.Ptree.data chars in
         let model_params =
             List.fold_left
                 (fun acc xs ->
@@ -197,8 +196,7 @@ struct
     let sample_size tree chars : int =
         List.fold_left
             (fun acc k -> acc + (get_longest_of_code tree.Ptree.data k))
-            (0)
-            (Data.get_chars_codes_comp tree.Ptree.data chars)
+            0 (Data.get_chars_codes_comp tree.Ptree.data chars)
 
     (** [negative_loglikelihood] return the negative log-likelihood of a tree *)
     let negative_loglikelihood tree chars : float =
@@ -218,7 +216,7 @@ struct
                 let model = update_model old_model diff in
                 Data.apply_likelihood_model_on_chars d xs model)
             (data)
-            (Data.categorize_likelihood_chars_by_model chars data)
+            (Data.categorize_likelihood_chars_by_model_comp data chars)
 
     (** [diagnose_tree_with_model] determine the maximum likelihood value for
         the tree and model. Return the ML parameters and negative log-likelihood *)
@@ -317,7 +315,7 @@ struct
 
     (** [stats_of_models] fills and calculates the *IC stats for a set of
         models, used as a basis for all *IC methods. *)
-    let stats_of_models specs ic chars spec tree =
+    let stats_of_models specs ic (chars : Data.bool_characters) spec tree =
         assert ( match specs with | [] -> false | _ -> true );
         let () = match chars with
             | `All -> ()
@@ -325,7 +323,7 @@ struct
                 error_user_message
                     ("Currently@ using@ %s@ as@ a@ subset@ of@ characters"^^
                      "@ is@ not@ supported.@ Only@ all@ is@ allowed.")
-                    (Data.string_of_characters char)
+                    (Data.string_of_characters_comp char)
         in
         let warning = ref false in
         let tree_stats =

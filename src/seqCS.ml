@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2774 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2778 $"
 
 let debug = false
 let debug_distance = false
@@ -764,6 +764,7 @@ module DOS = struct
     (*small algn function for [readjust_XXXX] below, algn two child when parent is empty*)
     let readjust_algn_two_child s1 s2 c2 sumcost_ch12 use_ukk oldsumcost
     oldcost3 oldcost2 oldmineseq =
+	let debug = false in
         let cm = c2 in
         let newseqm, cost =
             match Cost_matrix.Two_D.affine cm with
@@ -794,13 +795,15 @@ module DOS = struct
                 let a = Sequence.select_one median cm in
                 a, c
         in
-        let newsumcost = sumcost_ch12 + cost in
+       let newsumcost = sumcost_ch12 + cost in
         let changed =
             if  (newsumcost<>oldsumcost) || (cost<>oldcost3) ||
             (cost<>oldcost2) || (0<>compare oldmineseq newseqm) 
             then true
             else false
         in
+	if debug then Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d\n%!"
+ changed newsumcost oldsumcost cost oldcost3 cost oldcost2; 
         changed, create newseqm, cost, cost, newsumcost
 
 
@@ -1011,7 +1014,7 @@ module DOS = struct
         changed, 
         res, cost3, cost2, sumcost
 
-    let to_single h parent mine =
+    let to_single h parent mine opt_root =
         let debug = false in
         if debug then Printf.printf "seqCS.DOS.to_single,%!";
         let gap = Cost_matrix.Two_D.gap h.c2_full in
@@ -1043,12 +1046,19 @@ module DOS = struct
                 Printf.printf "cost remain unchanged:\n%!";
                 print_cost_tuple mine.costs;
             end;
-            { mine with sequence = seqm; (*costs = rescost*) }, tmpcost
+            match opt_root with
+            | None -> (*we are going to use mine as root anyway*) 
+                    { mine with sequence = seqm; }, tmpcost
+            | Some root ->
+                    (*keep aligned children of root*)
+                    { root with sequence = seqm; }, tmpcost
 
     (*[median] alignment function under module DOS*)
     let median alph code h a b use_ukk =
-        let debug = false and debug2 = true and debug3 = false in
+        let debug = false and debug2 = false and debug3 = false in
+        (*when diagonal is non-0, identity is false*)
         let is_identity = Cost_matrix.Two_D.is_identity h.c2_original in
+        let sumcost_ch12 = int_of_float(a.costs.sum_cost +. b.costs.sum_cost) in
         if debug then begin
             Printf.printf "seqCS.DOS.median,use_ukk=%b,len1:%d,len2:%d\n%!" 
             use_ukk (Sequence.length a.sequence) (Sequence.length b.sequence);
@@ -1066,7 +1076,36 @@ module DOS = struct
                     Sequence.Align.recost b.sequence b.sequence h.c2_original
             in
             if debug then Printf.printf "first seq is empty,return second one with cost %d \n%!" cost;
-            create b.sequence, cost
+            let res = create b.sequence in
+            let cost2 = float_of_int cost in
+            let sum_cost = float_of_int (sumcost_ch12 + cost) in
+            (*we use empty seq rather than median sequence itself as alied children sequence for purpose. 
+            * if cost between same state is x, different state is y. 
+            * child1: [aaa]
+            * child2: empty
+            * median: [aaa] with cost2 = 3x.
+            * 
+            * if this median node is just an internal node, distance function
+            * will add cost_mine_child1 and cost_mine_chil2, things are fine.
+            *
+            * if this median node happen to be root node, distance function will
+            * only calculate distance between two children. 
+            * 
+            * the distance between child1 and child2 is actually 0 -- that's by
+            * defination , cost between lost data and some data is 0.
+            * 
+            * there is a cost difference:3x -- need to be caught by function [extra_cost_for_root].
+            *
+            * [extra_cost_for_root] calculate distance between two alied
+            * children of root node, then return the difference between cost2
+            * and that distance. if two alied children are median sequence
+            * itself, there won't be a cost difference, only when two alied
+            * children are empty, we have distance as 0, cost difference be 3x
+            * *)
+            {res with aligned_children = (Raw a.sequence, Raw a.sequence, Raw b.sequence); 
+            costs = { cost2 = cost2; cost2_max = cost2; cost3 = 0.0; sum_cost = sum_cost; } 
+            },
+            cost
         end
         else if Sequence.is_empty b.sequence gap then begin
             let cost = 
@@ -1075,10 +1114,15 @@ module DOS = struct
                     Sequence.Align.recost a.sequence a.sequence h.c2_original
             in
             if debug then Printf.printf "second seq is empty,return first one with cost %d\n%!" cost;
-            create a.sequence, cost
+            let res = create a.sequence in
+            let sum_cost = float_of_int (sumcost_ch12 + cost) in
+            let cost2 = float_of_int cost in
+            {res with aligned_children = (Raw b.sequence, Raw b.sequence, Raw a.sequence); 
+            costs = { cost2 = cost2; cost2_max = cost2; cost3 = 0.0; sum_cost = sum_cost;}
+            },
+            cost
         end
         else 
-            let sumcost_ch12 = int_of_float(a.costs.sum_cost +. b.costs.sum_cost) in
             (*seqm: median seq of a and b
             * tmpa, tmpb: algned seq of a , b
             * seqmwg: median seq with gap *)
@@ -1562,7 +1606,7 @@ module PartitionedDOS = struct
 
     let identity x = x
 
-    let to_single h parent mine =
+    let to_single h parent mine  =
         let tmp_cost = ref 0 in
         let gap = Cost_matrix.Two_D.gap h.c2_full in
         let to_single_tip reverse parent mine =
@@ -1579,7 +1623,7 @@ module PartitionedDOS = struct
                 let parent', mine', _, _, _, _, fixmine = 
                     clip_n_fix parent mine 
                 in
-                let x, y = DOS.to_single h parent' mine' in
+                let x, y = DOS.to_single h parent' mine' None in
                 tmp_cost := y + !tmp_cost;
                 reverse (fixmine x)
         in
@@ -1596,7 +1640,7 @@ module PartitionedDOS = struct
             | Last parent, DO mine ->
                     DO (to_single_tip DOS.safe_reverse parent mine)
             | DO parent, DO mine ->
-                    let x, y = DOS.to_single h parent mine in
+                    let x, y = DOS.to_single h parent mine None in
                     tmp_cost := y + !tmp_cost;
                     DO x
             | Last _, First _
@@ -2391,9 +2435,31 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
     modified, total_cost, total_sum_cost,
     { mine with characters = adjusted; total_cost = total_cost; subtree_cost = total_sum_cost; }
 
-let to_single parent mine =
+let to_single parent mine opt_root =
     let total_cost = ref 0 in
-    let characters =
+    let characters = match opt_root with 
+    | Some root -> 
+        Array_ops.map_3 (fun a b c ->
+            match a, b, c with
+            | General_Prealigned a, General_Prealigned b, General_Prealigned c ->
+                    let res, c = GenNonAdd.to_single mine.alph mine.heuristic.c2_full a b in
+                    total_cost := c + !total_cost;
+                    General_Prealigned res
+            | Partitioned a, Partitioned b,Partitioned c ->
+                    let res, c = PartitionedDOS.to_single mine.heuristic a b in
+                    total_cost := c + !total_cost;
+                    Partitioned res
+            | Heuristic_Selection a, Heuristic_Selection b,Heuristic_Selection c ->
+                    let res, c = DOS.to_single mine.heuristic a b (Some c) in
+                    total_cost := c + !total_cost;
+                    Heuristic_Selection res
+            | Partitioned _, _, _
+            | _, Partitioned _, _
+            | General_Prealigned _, _, _ 
+            | Heuristic_Selection _, General_Prealigned _, _ 
+            | (Heuristic_Selection _, Heuristic_Selection _, (General_Prealigned _|Partitioned _)) -> assert false
+        ) parent.characters mine.characters root.characters 
+    | None -> 
         Array_ops.map_2 (fun a b ->
             match a, b with
             | General_Prealigned a, General_Prealigned b ->
@@ -2405,18 +2471,18 @@ let to_single parent mine =
                     total_cost := c + !total_cost;
                     Partitioned res
             | Heuristic_Selection a, Heuristic_Selection b ->
-                    let res, c = DOS.to_single mine.heuristic a b in
+                    let res, c = DOS.to_single mine.heuristic a b None in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
             | Partitioned _, _
             | _, Partitioned _
             | General_Prealigned _, _ 
-            | Heuristic_Selection _, General_Prealigned _ -> assert false) parent.characters
-                    mine.characters
+            | Heuristic_Selection _, General_Prealigned _ -> assert false) 
+        parent.characters mine.characters
     in
     let total_cost = float_of_int !total_cost in
     mine.total_cost, total_cost, 
-    { mine with characters = characters; (*total_cost = total_cost*) }
+    { mine with characters = characters; }
 
 
 let median code a b =

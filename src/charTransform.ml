@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2776 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2781 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -706,7 +706,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         constant sites as static data, below this function **)
     let estimate_dynamic_lk_model tree data branches alph
                                   (chars,_,cost,subst,vari,pi,gap) =
-      IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
             | Tree.Interior _ -> false
@@ -737,10 +736,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             --> debug_print_costs
             --> MlModel.spec_from_classification alph gap subst vari pi cost
             --> MlModel.create
-      ELSE
-        Status.user_message Status.Error MlModel.likelihood_not_enabled;
-        raise MlModel.LikelihoodModelError
-      END
 
 
     (* estimate a likelihood model from non-addative characters as defined in
@@ -748,7 +743,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
      * of leaves for priors, then construct the model. *)
     let estimate_static_lk_model tree data branches alph
                                  (chars,_,cost,subst,vari,pi,gap) =
-      IFDEF USE_LIKELIHOOD THEN
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
             | Tree.Interior _ -> false
@@ -824,10 +818,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             --> debug_print_costs
             --> MlModel.spec_from_classification alph gap subst vari pi cost
             --> MlModel.create
-      ELSE
-        Status.user_message Status.Error MlModel.likelihood_not_enabled;
-        raise MlModel.LikelihoodModelError
-      END
 
     let analyze_sequences sensible acc ((node, node_union), leafs) =
         try 
@@ -1030,47 +1020,26 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                             (`Static_Aprox (`Some (true, chars), true))
                 end
         | `UseParsimony chars ->
-            IFDEF USE_LIKELIHOOD THEN
                 Node.load_data (Data.set_parsimony data chars)
-            ELSE
-                Status.user_message Status.Information "No characters have been transformed";
-                data,nodes
-            END
-        | `UseLikelihood (chars,_,_,#Methods.ml_meta,_,_,ml_gap) ->
+        | `UseLikelihood (chars,alph,_,#Methods.ml_meta,_,_,ml_gap) ->
                 let m = "No@ Common@ Mechanism@ does@ not@ use@ rates,@ "^
                         "priors,@ or@ cost@ arguments@ in@ the@ likelihood@ "^
                         "command.@ I@ will@ ignore@ them,@ if@ included."
                 in
                 Status.user_message Status.Warning m;
                 ml_gap
-                    --> Data.assign_ncm_weights_to_chars data chars
+                    --> Data.assign_ncm_weights_to_chars data chars alph
                     --> Data.categorize
                     --> Node.load_data
         | `UseLikelihood (_,_,_,#Methods.ml_optimization,_,_,_) ->
-            IFDEF USE_LIKELIHOOD THEN
                 Status.user_message Status.Warning
                     ("This type of character transformation (one where model" 
                     ^"selection is used) requires a tree in memory. Because of"
                     ^"this the elikelihood command should be called, though the"
                     ^"rest of the command was correct.");
                 data,nodes
-            ELSE
-                Status.user_message Status.Warning
-                    ("Likelihood is not enabled. No transformation is being applied"
-                    ^". Please download a different binary with likelihood enabled"^
-                    " or contact support on the mailing list");
-                    data,nodes
-            END
         | `UseLikelihood ((_,_,_,#Methods.ml_substitution,_,_,_) as x) ->
-            IFDEF USE_LIKELIHOOD THEN
                 Node.load_data (Data.set_likelihood data x)
-            ELSE
-                Status.user_message Status.Warning
-                ("Likelihood is not enabled. No transformation is being applied"
-                ^". Please download a different binary with likelihood enabled"^
-                " or contact support on the mailing list");
-                data,nodes
-            END
         | `Prealigned_Transform chars ->
             data
                 --> (fun d -> Data.prealigned_characters ImpliedAlignment.analyze_tcm d chars)

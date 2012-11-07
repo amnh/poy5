@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2767 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2781 $"
 
 module IntSet = All_sets.Integers
 
@@ -4079,7 +4079,7 @@ let rec folder (run : r) meth =
                                         fo ("@[<hov 0>Set Name: "^cname^"@]@\n");
                                     fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                                     MlModel.output_model fo ft `Hennig model None)
-                            (Data.categorize_likelihood_chars_by_model chars run.data)
+                            (Data.categorize_likelihood_chars_by_model_comp run.data chars)
                     | trees ->
                         List.iter
                             (fun t ->
@@ -4087,7 +4087,8 @@ let rec folder (run : r) meth =
                                     | Some tname -> tname
                                     | None -> ""
                                 and cats =
-                                    Data.categorize_likelihood_chars_by_model chars t.Ptree.data
+                                    Data.categorize_likelihood_chars_by_model_comp
+                                                             t.Ptree.data chars
                                 in
                                 List.iter
                                     (fun xs ->
