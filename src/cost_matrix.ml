@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2778 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2784 $"
 
 
 exception Illegal_Cm_Format;;
@@ -831,7 +831,7 @@ module Two_D = struct
         done
 
     let fill_best_cost_and_median_for_some_combinations ?(create_original=false) m a_sz level all_elements =
-        let debug = true and debug2 = false in
+        let debug = false and debug2 = false in
         let gapcode = gap m in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
@@ -852,7 +852,6 @@ module Two_D = struct
         all_elements a_sz create_original ;
         let _  = build_maps_comb_and_codelist m a_sz level all_elements in 
         for i = 1 to num_of_comb do
-            let keylist = [i] in
             let li = combcode_to_comblist i m in
             for j = 1 to num_of_comb do 
                 if i<>all_elements && j<>all_elements then begin
@@ -861,17 +860,18 @@ module Two_D = struct
                         let best = ref 0
                         and cost = ref max_int 
                         and worst = ref 0 in
-                        let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
                         let lj = combcode_to_comblist j m in
                         test_combinations_by_level li lj a_sz m best cost worst
                         comb_withgap num_of_comb level all_elements;
                         let _ = 
                             match li, lj with
                             | [_], [_] ->
-                                    let comb_i_j = comblist_to_combcode keylist m in
-                                    if debug2 then Printf.printf  "median.%d.%d <- %d(cost=%d);\n%!" i j (comb_i_j) !cost;
+                                    if debug2 then Printf.printf  "median.%d.%d <- %d(cost=%d);\n%!"  i j !best !cost;
                                     set_cost i j m !cost;
-                                    set_median i j m (cleanup !best)(* comb_i_j *);
+                                    set_median i j m (cleanup !best)
+                                    (* we should not assume median of statei and statej to be
+                                    [i or j],  some cost matrix with cost.i.i >
+                                    cost.gap.gap , median.i.gap will be [gap], not [i or gap]*);
                             | _, _ ->
                                     if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
                                     i j !cost !best;
@@ -1254,7 +1254,18 @@ module Two_D = struct
             Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," use_comb level all_elements;
         match load_file_as_list ch with
         | [] -> failwith "No Alphabet"
-        |  l -> let w = calculate_alphabet_size l in
+        |  l -> 
+                let cost_between_gap = List.hd (List.rev l) in
+                if debug then Printf.printf "list len=%d , cost.gap.gap:%d; %!" (List.length l) cost_between_gap;
+                let l = 
+                    if cost_between_gap<>0 then begin
+                        Status.user_message Status.Warning 
+"forcing@ cost@ between@ gap@ to 0, we@ don't@ want@ different@ cost@ between@ tree@ downpass@ and@ uppass";
+                        List.rev (0 :: (List.tl (List.rev l)))
+                    end
+                    else l
+                in
+                let w = calculate_alphabet_size l in
                 let _,matrix_list = 
                     List.fold_right 
                         (fun item (cnt, acc ) -> match acc with
@@ -1271,7 +1282,6 @@ module Two_D = struct
                         Printf.printf "]\n";
                     ) matrix_list;
                 end;
-                if debug then Printf.printf "list len=%d %!" (List.length l);
                 let w, l =
                     if (w = all_elements && (not use_comb))
                     || (w = all_elements && (level>1) && (level<w))

@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2768 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2780 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -877,7 +877,7 @@ module Align = struct
         else
            count gap 0 s 
 
-    (*cost_2 function under module Align, called by seqCS.cost_2 to get join cost*)
+    (*cost_2 function under module Align, called by [cost_2] and [distance] from seqCS.ml to get cost*)
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let debug = false in
         if debug then begin
@@ -2127,9 +2127,16 @@ let select_one_generic get_one_item s cm =
         map (get_one_item asz) s
 
 let select_one s cm =
+    let uselevel = check_level cm in
     let sort_list = List.sort (fun a b -> a - b) in
     let get_one_item asz b =
-        match sort_list (BitSet.Int.list_of_packed_max b asz) with
+        let lst = 
+            if uselevel then
+                Cost_matrix.Two_D.combcode_to_comblist b cm 
+            else
+                BitSet.Int.list_of_packed_max b asz
+        in
+        match sort_list lst with
         | h :: _ -> h
         | [] -> failwith "Nothing?"
     in
