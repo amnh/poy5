@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2776 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2788 $"
 
 exception NotASequence of int
 
@@ -2701,7 +2701,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
     let to_static_homologies ignore filter_fn disjoint remove_noninformative 
                                 (chars : Methods.characters) data tree = 
         let codes = get_char_codes chars data in
-        let names = List.map (fun x -> Data.code_character x data) codes in
         let all_to_add = 
             List.fold_left 
                 (fun acc code -> 
@@ -2723,7 +2722,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let d,c = Data.add_multiple_static_parsed_file data all_to_add in
         let d   = Data.convert_dynamic_to_static_branches ~src:tree.Ptree.data ~dest:d in
         let d   = Data.sync_dynamic_to_static_model ~src:tree.Ptree.data ~dest:d in
-        if ignore then Data.process_ignore_characters false d (`Names names),c
+        if ignore then Data.process_ignore_characters false d (`Some codes),c
                   else d,c
 
     (* We don't care about updating the cost since this filter characters
