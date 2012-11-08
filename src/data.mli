@@ -395,10 +395,6 @@ val code_taxon : int -> d -> string
 (** [taxon_code n d] finds the code assigned to taxon [n] in the dataset [d]. *)
 val taxon_code : string -> d -> int
 
-val character_code : string -> d -> int
-
-val code_character : int -> d -> string
-
 val get_tcm : int -> d -> tcm
 
 val get_weight : int -> d -> float
@@ -468,6 +464,10 @@ val get_tcm3d : d -> int -> Cost_matrix.Three_D.m
 val get_tcmfile : d -> int -> tcm_definition
 
 val add_file : d -> contents list -> FileStream.f -> d
+
+val character_code : string -> d -> int
+
+val code_character : int -> d -> string
 
 val get_taxa : d -> string list
 
@@ -687,7 +687,7 @@ val apply_boolean :
 
 (** [get_model c d] returns the model of the ML character with code [c] in data
 * [d]. If the character is not of type ML, it will raise an exception. *)
-val get_model : int -> d -> MlModel.model
+val get_model : d -> int -> MlModel.model
 val get_model_opt : d -> int -> MlModel.model option
 
 (** [min_max_possible_cost a b c d e f] applies the functions [a], [b] and [c]

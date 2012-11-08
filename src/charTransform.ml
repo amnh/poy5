@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2781 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2789 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1274,6 +1274,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         let bs   = Tree.get_edges_tree t.Ptree.tree in
                         let data = static_transform t bs data a b c d e f chars in
                         let data = dynamic_transform t bs data a b c d e f chars in
+                        let data = Data.categorize data in
                         let ndata, nodes = Node.load_data data in
                         let t = substitute_nodes nodes (Ptree.set_data t ndata) in
                         Sexpr.union (`Single t) tsexp)

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2781 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2789 $"
 
 let ndebug = true
 
@@ -217,6 +217,7 @@ struct
                 Data.apply_likelihood_model_on_chars d xs model)
             (data)
             (Data.categorize_likelihood_chars_by_model_comp data chars)
+        --> Data.categorize
 
     (** [diagnose_tree_with_model] determine the maximum likelihood value for
         the tree and model. Return the ML parameters and negative log-likelihood *)

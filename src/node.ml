@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2783 $"
+let () = SadmanOutput.register "Node" "$Revision: 2789 $"
 
 let infinity = float_of_int max_int
 
@@ -2369,9 +2369,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                    lnadd32code lnadd33code lsankcode dynamics fixedstates kolmogorov
                    static_ml data cost_mode =
         let calc_total treesnum directions nodenum = 
-            let res = treesnum * ( directions *(nodenum-1) + nodenum )
-            in
-            res
+            treesnum * ( directions *(nodenum-1) + nodenum )
         in
         let add_character =  Data.add_character_spec
         and set = Data.Set
@@ -2727,9 +2725,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                 let single_ml_group =
                   IFDEF USE_LIKELIHOOD THEN
                     let seperate_data dat =
-                        let pairs = dat --> List.map snd --> List.flatten in
-                        let fsts = List.map fst pairs and snds = List.map snd pairs in
-                        fsts,snds
+                        dat --> List.map snd --> List.flatten --> List.split
                     in
                     fun result -> function
                         | [] -> result
@@ -2743,10 +2739,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                             in
                             let c = 
                                 cs --> List.map 
-                                        (fun x -> 
-                                            try Hashtbl.find tcharacters x
-                                            with | Not_found -> 
-                                                failwithf "Couldn't find char %d" x)
+                                        (fun x -> Hashtbl.find tcharacters x)
                                    --> List.map extract_stat (* bitset * code *)
                                    --> Array.of_list
                                    --> MlStaticCS.of_parser spec (Array.of_list ws)

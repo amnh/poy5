@@ -142,6 +142,7 @@ module Test = struct
                 let data,nodes =
                     model
                         --> Data.apply_likelihood_model_on_chars tree.Ptree.data chars
+                        --> Data.categorize
                         --> AllDirNode.AllDirF.load_data
                 in
                 let nodes =
