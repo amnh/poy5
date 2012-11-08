@@ -444,16 +444,13 @@ let absolute_of_percentage n percentage =
 
 module Accessor = struct
 
-    let get_alphabet data c =
-        try match Hashtbl.find data.character_specs c  with
-            | Dynamic dspec    -> dspec.alph
-            | Kolmogorov dspec -> dspec.dhs.alph
-            | Static (NexusFile sspec)   -> sspec.Nexus.File.st_alph
-            | Static (FixedStates sspec) -> sspec.original_dynspec.alph
-            | Set       ->
-                failwithf "Data.get_alphabet: Finding %d alphabet in Set" c
-        with Not_found ->
-            failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
+    (** Return the alphabet of the characters; otherwise fail *)
+    let get_alphabet data c = match Hashtbl.find data.character_specs c  with
+        | Dynamic dspec    -> dspec.alph
+        | Kolmogorov dspec -> dspec.dhs.alph
+        | Static (NexusFile sspec)   -> sspec.Nexus.File.st_alph
+        | Static (FixedStates sspec) -> sspec.original_dynspec.alph
+        | Set -> assert false
 
     (** [get_recost pams] returns the rearrangement cost in [pams] *)
     let get_recost user_pams = match user_pams.re_meth with
@@ -467,61 +464,61 @@ module Accessor = struct
         | None -> failwith "The locus indel cost is not specified"
         | Some c -> c
 
+    (** return the taxon_characters; the states; or a new table to represent
+        them. Used in parsing and transforming data *)
     let get_taxon_characters data tcode =
-        try Hashtbl.find data.taxon_characters tcode with 
-        | _ -> create_ht ()
+        try Hashtbl.find data.taxon_characters tcode
+        with | _ -> create_ht ()
 
+    (** return the search_based_characters; or a new table to represent them. *)
     let get_searchbase_characters data tcode =
-        try Hashtbl.find data.searchbase_characters tcode with 
-        | _ -> create_ht ()
+        try Hashtbl.find data.searchbase_characters tcode
+        with | _ -> create_ht ()
 
+    (** Look up the code from the character-name *)
     let code_character name d = Hashtbl.find d.character_codes name
 
+    (** Look up the name form the character-code *)
     let character_code code d = Hashtbl.find d.character_names code
 
-    let get_character_state data c =
-        match Hashtbl.find data.character_specs c  with
-        | Dynamic dspec -> dspec.state
-        | Kolmogorov dspec -> dspec.dhs.state
-        | _ -> failwith "Data.get_character_state"
-
+    (** return the spec from dyn-pam; contains median-solver, annotation tools,
+        et cetera for chrom character types. *)
     let get_pam data c =
         match Hashtbl.find data.character_specs c  with
         | Dynamic dspec -> dspec.pam
         | Kolmogorov dspec -> dspec.dhs.pam
         | _ -> failwith "Data.get_pam"
 
+    (** Return the static Sankoff TCM matrix *)
     let get_tcm code data = match Hashtbl.find data.character_specs code with
-        | Static x -> 
-            begin match x with 
-                | NexusFile spec ->
-                    begin match spec.Nexus.File.st_type with
-                        | Nexus.File.STSankoff x -> x
-                        | _ -> failwith "Unexpected"
-                    end
+        | Static (NexusFile spec) -> 
+            begin match spec.Nexus.File.st_type with
+                | Nexus.File.STSankoff x -> x
                 | _ -> failwith "Unexpected"
             end
         | _ -> failwith "Unexpected"
 
+    (** Return the dynamic tcm matrix --2d *)
     let get_tcm2d data c = match Hashtbl.find data.character_specs c with
         | Dynamic dspec -> dspec.tcm2d_full,dspec.tcm2d_original
         | Kolmogorov dspec -> dspec.dhs.tcm2d_full,dspec.dhs.tcm2d_original
         | _ -> failwith "Data.get_tcm2d"
 
-
+    (** return the dynamic tcm matrix --3d *)
     let get_tcm3d data c = match Hashtbl.find data.character_specs c  with
         | Dynamic dspec -> dspec.tcm3d
         | Kolmogorov dspec -> dspec.dhs.tcm3d
         | _ -> failwith "Data.get_tcm3d"
 
-
+    (** Return the specification for tcm; indel, substitution and gap opening
+        information in a raw format *)
     let get_tcmfile data c = match Hashtbl.find data.character_specs c  with
         | Dynamic dspec    -> dspec.tcm
         | Kolmogorov dspec -> dspec.dhs.tcm
         | Static dspec     -> failwith "Data.get_tcmfile; Cannot transform static data"
         | Set              -> failwith "Data.get_tcmfile; Cannot transform set data"
 
-
+    (** Return the likelihood model from the character code *)
     let get_model data code = match Hashtbl.find data.character_specs code with
         | Dynamic s when s.state = `Ml ->
             begin match s.lk_model with
@@ -535,10 +532,12 @@ module Accessor = struct
             end
         | _ -> failwith "Data.get_model"
 
+    (** Return the likelihood model from the character code; returns option type *)
     let get_model_opt data code = 
         try       Some (get_model data code)
         with _ -> None
 
+    (** return and verify the likelihood model of a character *)
     let get_likelihood_model data chars =
         match List.map (fun c -> c,get_model data c) chars with
         | (h,hm)::t ->
@@ -593,32 +592,6 @@ module Accessor = struct
         in
         Hashtbl.iter process_taxon data.taxon_characters;
         seqs
-
-    (*[get_sequence_tcm] return the full 2d cost matrix from dynmaic_hom_spec.*)
-    let get_sequence_tcm seqcode data = 
-        try match Hashtbl.find data.character_specs seqcode with
-            | Dynamic dspec    -> dspec.tcm2d_full
-            | Kolmogorov dspec -> dspec.dhs.tcm2d_full
-            | _ -> failwith "Data.get_sequence_tcm: Not a dynamic character"
-        with | Not_found as err ->
-            let name = Hashtbl.find data.character_codes seqcode in
-            let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-                      " with name " ^ StatusCommon.escape name in
-            Status.user_message Status.Error msg;
-            raise err
-
-    (*[get_sequence_tcm] return the full 2d cost matrix from dynmaic_hom_spec.*)
-    let get_sequence_tcm_original seqcode data = 
-        try match Hashtbl.find data.character_specs seqcode with
-            | Dynamic dspec    -> dspec.tcm2d_original
-            | Kolmogorov dspec -> dspec.dhs.tcm2d_original
-            | _ -> failwith "Data.get_sequence_tcm_original: Not a dynamic character"
-        with | Not_found as err ->
-            let name = Hashtbl.find data.character_codes seqcode in
-            let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-                      " with name " ^ StatusCommon.escape name in
-            Status.user_message Status.Error msg;
-            raise err
 
     let get_weight c data = match Hashtbl.find data.character_specs c with
         | Dynamic spec -> spec.weight
@@ -982,21 +955,10 @@ module CharacterSelection = struct
         let set = List.fold_left ~f:categorize ~init:All_sets.StringMap.empty chars in
         List.rev_map ~f:snd (All_sets.StringMap.bindings set)
 
-    (** categorize characters by observed state size *)
-    let categorize_characters_by_observed_size data chars : int list =
-        assert false
-
-    (** categorize characters by the distinct alphabet size *)
-    let categorize_characters_by_alphabet_size data chars : (int * bool_characters) list =
-        let make_tuple_of_character_and_size (char : int) =
-            let size =
-                char --> get_alphabet data
-                     --> Alphabet.to_sequential 
-                     --> Alphabet.distinct_size
-            in
-            (char, size)
-        in
-        let classify_by_size list =
+    (** categorize characters by pairing. This is to abstract the categorize by
+        alphabet function for other cases; observed, et cetera *)
+    let categorize_by_pairs data chars : (int * bool_characters) list =
+         let classify_by_size list =
             let sets =
                 List.fold_left
                     ~f:(fun acc (code, size) ->
@@ -1011,10 +973,22 @@ module CharacterSelection = struct
             All_sets.IntegerMap.fold
                 (fun a b acc -> (a, `Some (true, b)) :: acc) sets []
         in
+        classify_by_size chars
+    
+    (** categorize characters by the distinct alphabet size *)
+    let categorize_characters_by_alphabet_size data chars : (int * bool_characters) list =
+        let make_tuple_of_character_and_size char =
+            let size =
+                char --> get_alphabet data
+                     --> Alphabet.to_sequential 
+                     --> Alphabet.distinct_size
+            in
+            (char, size)
+        in
         chars
             --> categorize_sets data
             --> List.map ~f:(List.rev_map ~f:make_tuple_of_character_and_size)
-            --> List.map ~f:classify_by_size
+            --> List.map ~f:(categorize_by_pairs data)
             --> List.flatten
 
     (** Group a set of characters by their likelihood model; this may be
@@ -4036,7 +4010,7 @@ let all_pairs_alignments seqs cm =
  * [get_sequences code data] would output an empty stack. *)
 let alignments_of_code code data = 
     let seqs = get_sequences code data in
-    let cm = get_sequence_tcm code data in
+    let cm,_ = get_tcm2d data code in
     let pairs = all_pairs_alignments seqs cm in
     pairs
 
@@ -5613,29 +5587,58 @@ let assign_ncm_weights_to_chars data chars alph gap : d =
     let ncm_weight s = ~-. (log (1.0 /. (float_of_int s)))
     and warning = ref false
     and nspec = Hashtbl.copy data.character_specs in
-    let assign_weight_to_char st_w c = match Hashtbl.find nspec c with
+    let assign_weight_to_char c = match Hashtbl.find nspec c with
         | Dynamic _ | Kolmogorov _ | Set
-        | Static (FixedStates _)  ->
-            warning := true;
-            ()
+        | Static (FixedStates _)  -> warning := true
         | Static (NexusFile spec) ->
-            let st_t = Nexus.File.STNCM (spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
-            and st_w = spec.Nexus.File.st_weight *. st_w in
-            let r = {spec with Nexus.File.st_weight = st_w;
-                               Nexus.File.st_type   = st_t; } in
-            Hashtbl.replace nspec c (Static (NexusFile r))
+            begin match spec.Nexus.File.st_type with
+                | Nexus.File.STNCM _ -> ()
+                (* we use the hi - lo for the alphabet size *)
+                | Nexus.File.STOrdered   ->
+                    let st_w = match spec.Nexus.File.st_observed with
+                        | [lo;hi] -> ncm_weight (hi - lo)
+                        | _       -> assert false
+                    and st_t = 
+                        Nexus.File.STNCM
+                            (spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
+                    in
+                    let st_w = spec.Nexus.File.st_weight *. st_w in
+                    let r =
+                        {spec with Nexus.File.st_weight = st_w;
+                                   Nexus.File.st_type   = st_t; }
+                    in
+                    Hashtbl.replace nspec c (Static (NexusFile r))
+                (* we "transform" to Unordered by not keeping st_type *)
+                | Nexus.File.STLikelihood _ ->
+                    let st_w = ncm_weight (List.length spec.Nexus.File.st_observed)
+                    and st_t =
+                        Nexus.File.STNCM
+                            (spec.Nexus.File.st_weight,Nexus.File.STUnordered)
+                    in
+                    let st_w = spec.Nexus.File.st_weight *. st_w in
+                    let r =
+                        {spec with Nexus.File.st_weight = st_w;
+                                   Nexus.File.st_type   = st_t; }
+                    in
+                    Hashtbl.replace nspec c (Static (NexusFile r))
+                (* we use the observed states for the alphabet size *)
+                | Nexus.File.STSankoff _
+                | Nexus.File.STUnordered ->
+                    let st_w = ncm_weight (List.length spec.Nexus.File.st_observed)
+                    and st_t =
+                        Nexus.File.STNCM
+                            (spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
+                    in
+                    let st_w = spec.Nexus.File.st_weight *. st_w in
+                    let r =
+                        {spec with Nexus.File.st_weight = st_w;
+                                   Nexus.File.st_type   = st_t; }
+                    in
+                    Hashtbl.replace nspec c (Static (NexusFile r))
+            end
     in
-    let a_cats = categorize_characters_by_alphabet_size_comp data chars in
-     Printf.printf "Transforming %d Sets of Characters from %s\n%!"
-                   (List.length a_cats) (string_of_characters_comp chars);
-    List.iter
-        ~f:(fun (size,chars) ->
-            let w = ncm_weight size in
-            Printf.printf "\t%s (%d) -- %f\n%!" (string_of_characters_comp chars) size w;
-            List.iter
-                ~f:(fun x -> assign_weight_to_char w x)
-                (get_chars_codes_comp data chars))
-        a_cats;
+    List.iter ~f:(fun x -> assign_weight_to_char x)
+                 (get_chars_codes_comp data chars);
     if !warning then begin
         let m = "I@ have@ found@ characters@ that@ cannot@ be@ transformed@ "^
                 "to@ No@ Common@ Mechanism.@ I@ will@ ignore@ them@ and@ "^
@@ -6219,7 +6222,7 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
     let gap = Alphabet.get_gap alph in
     let character_name = Hashtbl.find data.character_codes code in
     let tcm_case, do_states, do_encoding = 
-        let cm = get_sequence_tcm code data in
+        let cm,_ = get_tcm2d data code in
         analyze_tcm cm model alph
     in
     (* We first define a function that collects all the limits of the gaps so
@@ -6449,7 +6452,7 @@ let sequence_statistics ch data =
 let compare_all_pairs char1 char2 complement data = 
     let alpha1 = get_alphabet data char1
     and alpha2 = get_alphabet data char2
-    and cm = get_sequence_tcm char1 data in
+    and cm,_ = get_tcm2d data char1 in
     let gap = Alphabet.get_gap alpha1 in
     if alpha1 = alpha2 then 
         let process_taxon a b (cnt, res) =

@@ -453,9 +453,7 @@ val make_codon_partitions : bool -> d -> string -> Methods.characters -> d
 
 val remove_taxa_to_ignore : d -> d
 
-val get_sequence_tcm : int -> d -> Cost_matrix.Two_D.m
-
-val get_sequence_tcm_original : int -> d -> Cost_matrix.Two_D.m
+val get_dyn_state : d -> int -> dyna_state_t
 
 val get_tcm2d : d -> int -> Cost_matrix.Two_D.m * Cost_matrix.Two_D.m 
 
@@ -552,8 +550,6 @@ val process_complex_terminals : d -> FileStream.f -> d
 val get_alphabet : d -> int -> Alphabet.a
 
 val get_pam : d -> int -> dyna_pam_t
-
-val get_character_state : d -> int -> dyna_state_t
 
 val process_taxon_code : d -> All_sets.StringMap.key -> string -> d * int
  
