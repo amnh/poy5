@@ -394,7 +394,7 @@ module Align : sig
     val readjust_3d : ?first_gap:bool -> s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> s
     -> int -> int -> int * int * s * s * s * s 
 
-    val readjust_3d_custom_alphabet : s -> s -> s -> Cost_matrix.Two_D.m ->
+    val readjust_3d_custom_alphabet : s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Two_D.m ->
         Cost_matrix.Three_D.m -> s -> int -> int -> int * int * s * s * s * s 
 
 end  (*end of module Align*)

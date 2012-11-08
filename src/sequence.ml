@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2787 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2793 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -1447,8 +1447,9 @@ module Align = struct
             if to_prepend <> gap then prepend median to_prepend
             else ();
         done;
-        (*get cost2 of ab *)
-        (*let costab = recost a b cm in*)
+        (*we return the new cost2 also. this is a median3 function,
+        * unlike median2 function, cost2 should be calculated by adding
+        * distance between new alied median and its two alied chilren, with original cost matrix *)
         let costma = recost medianWgap a oricm in
         let costmb = recost medianWgap b oricm in
         let costab = costma + costmb in
@@ -1652,7 +1653,7 @@ module Align = struct
      
 
     (*NOTE: input sequence must start with gap*)
-    let readjust_3d_custom_alphabet ch1 ch2 mine cm2d cm3d parent oldcost2 oldcost3 =
+    let readjust_3d_custom_alphabet ch1 ch2 mine cm2d oricm2d cm3d parent oldcost2 oldcost3 =
         (*debug2 print out input and output sequence, debug3 print out steps in
         * updating alignment matrix and backtrace*)
         let debug = false and debug2 = false and debug3 = false in
@@ -1874,7 +1875,12 @@ module Align = struct
                     Printf.printf "med3seq with gap = %!";
                     printseqcode med3seqWgap;
                 end;
-                let cost12 = recost ~first_gap:false aliedch1seq aliedch2seq cm2d in
+                (*we return the new cost2 also. this is a median3 function,
+                * unlike median2 function, cost2 should be calculated by adding
+                * distance between new alied median and its two alied chilren, with original cost matrix *)
+                let costmedch1 = recost ~first_gap:false aliedch1seq med3seqWgap oricm2d in
+                let costmedch2 = recost ~first_gap:false aliedch1seq med3seqWgap oricm2d in
+                let cost12 = costmedch1 + costmedch2 in
                 (*prepend med3seq gapcode;*)
                 (*let anything_changed = 
                     (oldcost3 <> rescost)||(oldcost2 <> cost12)||(0 <> compare resseq mine) in

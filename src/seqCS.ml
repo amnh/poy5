@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2787 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2793 $"
 
 let debug = false
 let debug_distance = false
@@ -916,7 +916,7 @@ END  (*end of distance function under module DOS*)
                         if debug then Printf.printf "iter = 3d, call readjust_3d\n%!";
                         if is_custom then
                             Sequence.Align.readjust_3d_custom_alphabet ch1.sequence ch2.sequence
-                            mine.sequence h.c2_full h.c3 parent.sequence 
+                            mine.sequence h.c2_full h.c2_original h.c3 parent.sequence 
                             (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
                         else
                             Sequence.Align.readjust_3d ch1.sequence ch2.sequence
@@ -1056,179 +1056,6 @@ END  (*end of distance function under module DOS*)
                 newcost3, 
                 newcost2, 
                 newsumcost
-
-(*
-    (*readjust function for dna sequence under module DOS, include approx=exact
-    * and approximate*)
-    let readjust2 alph mode h ch1 ch2 parent mine use_ukk =
-        let debug = false in
-        if debug then Printf.printf "seqCS.DOS.readjust,use_ukk=%b\n%!" use_ukk;
-        let c2 = h.c2_full in
-        let gap = Cost_matrix.Two_D.gap c2 in
-        let oldcost3 = int_of_float mine.costs.cost3
-        and oldcost2 = int_of_float mine.costs.cost2
-        and oldsumcost = int_of_float mine.costs.sum_cost in
-        let sumcost_ch12 = int_of_float (ch1.costs.sum_cost +. ch2.costs.sum_cost) in
-        let changed, res, cost3, cost2, sumcost = 
-            let empty1 = Sequence.is_empty ch1.sequence gap 
-            and empty2 = Sequence.is_empty ch2.sequence gap 
-            and emptypar = Sequence.is_empty parent.sequence gap in
-            match empty1, empty2, emptypar with
-            | false, false, false ->
-                        (*cost3 is the sum cost of alied_ch1&new_med,
-                        * alied_ch2&new_med and alied_parent&new_med,
-                        * cost2 is the cost of alied_ch1&alied_ch2*)
-                    (
-                    match mode with
-                    | `ThreeD _ -> 
-                        if debug then Printf.printf "iter = 3d, call Sequence.readjust_3d\n%!";
-                        let newcost3, newcost2, newseqm,newaliedch1,newaliedch2, newseqmWgap=
-                            Sequence.Align.readjust_3d ch1.sequence ch2.sequence
-                            mine.sequence c2 h.c3 parent.sequence 
-                            (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
-                        in
-                        let newsumcost = sumcost_ch12 + newcost2 in
-                        (*return modifed = true if 
-                        * #1. if subtree cost root on this character of this node is different, 
-                        * that means cost of some grand grand child is different, or #2.
-                        * #2. if node cost(cost2 or cost3) of this character of this node is different.
-                        * #3. if median assignment to this character of this node is different*)
-                        let anything_changed =
-                            if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                            (newcost2<>oldcost2) || (0<>compare mine.sequence newseqm) 
-                            then true
-                            else false
-                        in
-                        if debug then Printf.printf "end of seqCS.DOS.adjust, \
-                        cost2=%d(%d),cost3=%d(%d),sumcost=%d(%d)\n%!"
-                        newcost2 oldcost2 newcost3 oldcost3 newsumcost oldsumcost;
-                        let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
-                        anything_changed,
-                        { mine with sequence = newseqm; 
-                        aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
-                        costs = rescosts },
-                        newcost3, 
-                        newcost2, 
-                        newsumcost
-                    | `ApproxD _ ->
-                        if debug then Printf.printf "iter=approx, call Sequence.readjust\n%!";
-                        let newcost3,newcost2,newseqm, _, _, _ = 
-                            Sequence.readjust ch1.sequence ch2.sequence
-                            mine.sequence c2 parent.sequence use_ukk
-                        in
-                        let newsumcost = sumcost_ch12 + newcost2 in
-                        let anything_changed =
-                            if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                            (newcost2<>oldcost2) || (0<>compare mine.sequence newseqm) 
-                            then true
-                            else false
-                        in
-                        if debug then Printf.printf "end of seqCS.DOS.adjust, \
-                        cost2=%d(%d),cost3=%d(%d),sumcost=%d(%d)\n%!"
-                        newcost2 oldcost2 newcost3 oldcost3 newsumcost oldsumcost;
-                        let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
-                        anything_changed,
-                        { mine with sequence = newseqm; 
-                        (*we don't update aligned children here*)
-                        costs = rescosts },
-                        newcost3, 
-                        newcost2, 
-                        newsumcost
-                    ) (*end of match mode with iterative:exact or approximate*)                     
-            | true, true, _ -> 
-                    (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
-                    ch1.sequence mine.sequence), 
-                    ch1, 0, 0, sumcost_ch12
-            | true, _, true -> 
-                    (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
-                    ch1.sequence mine.sequence),
-                    ch1, 0, 0, sumcost_ch12
-            | _, true, true -> 
-                    (0<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare
-                    ch2.sequence mine.sequence),
-                    ch2, 0, 0, sumcost_ch12
-            | false, false, true ->
-                    let newmed, newcost2 = 
-                    readjust_algn_two_child ch1.sequence ch2.sequence c2
-                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
-                    in
-                    let newsumcost = newcost2 + sumcost_ch12 in
-                    let newcost3 = newcost2 in (*parent is empty*)
-                    let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
-                    let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                        (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
-                        then true else false
-                    in
-                    if debug then begin
-                        Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
-                        cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
-                        changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
-                        Sequence.printseqcode newmed.sequence;
-                    end; 
-                    changed, 
-                    {newmed with costs = rescosts;},
-                    newcost3, newcost2, newsumcost
-            | false, true, false ->
-                    let newmed , _ =
-                    readjust_algn_two_child ch1.sequence parent.sequence c2
-                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
-                    in
-                    let newcost2 = distance alph h 0 ch1 newmed use_ukk in
-                    let newsumcost = newcost2 + sumcost_ch12 in
-                    let cost_mine_parent = distance alph h 0 newmed parent use_ukk in
-                    let newcost3 = newcost2 + cost_mine_parent in
-                    let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
-                    let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                        (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
-                        then true else false
-                    in
-                    if debug then begin
-                        Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
-                        cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
-                        changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
-                        Sequence.printseqcode newmed.sequence;
-                    end;
-                    changed,
-                    {newmed with costs = rescosts},
-                    newcost3, newcost2, newsumcost
-            | _, false, false ->
-                    let newmed, _ =
-                    readjust_algn_two_child ch2.sequence parent.sequence c2
-                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
-                    in
-                    let newcost2 = distance alph h 0 ch2 newmed use_ukk in
-                    let newsumcost = newcost2 + sumcost_ch12 in
-                    let cost_mine_parent = distance alph h 0 newmed parent use_ukk in
-                    let newcost3 = newcost2 + cost_mine_parent in
-                    let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
-                    let changed = if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                        (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence) 
-                        then true else false
-                    in
-                    if debug then begin
-                        Printf.printf "chaged=%b,new sumcost=%d<?>old sumcost:%d, new \
-                        cost3:%d<?>oldcost3:%d, new cost2:%d<?>oldcost2:%d, return seqm = \n%!" 
-                        changed newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2; 
-                        Sequence.printseqcode newmed.sequence;
-                    end;
-                    changed,
-                    {newmed with costs = rescosts},
-                    newcost3, newcost2, newsumcost
-        in
-        (*return modifed = true if 
-            * #1. if subtree cost root on this character of this node is different, 
-            * that means cost of some grand grand child is different, or #2.
-            * #2. if node cost(both cost2 and cost3) of this character of this node is different.
-            * #3. if median assignment to this character of this node is different*)
-        (* pass this back from readjust function in sequence.ml
-        * (mine.costs.sum_cost <> res.costs.sum_cost)
-        || (mine.costs.cost3 <> res.costs.cost3) 
-        || (mine.costs.cost2 <> res.costs.cost2) 
-        || (0 <> compare res.sequence mine.sequence)
-        *)
-        changed, 
-        res, cost3, cost2, sumcost
-*)
 
     let to_single h parent mine opt_root =
         let debug = false in
