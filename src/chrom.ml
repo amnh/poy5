@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Chrom" "$Revision: 2684 $"
+let () = SadmanOutput.register "Chrom" "$Revision: 2787 $"
 
 (** Chrom  module implements functions to create medians
     between two lists of chromosomes *)
@@ -219,7 +219,7 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
 * the current median [mine] of three medians [ch1],
 * [ch2], and [parent] using three dimentional alignments*)
-let readjust_3d ch1 ch2 mine c2 c3 parent =
+let readjust_3d ch1 ch2 mine c2 oric2 c3 parent =
     (*to do : there should be a iter over list of med_ls, then return the acc*)
     let chrom_pam = mine.chrom_pam in 
     let ach1 = List.hd ch1.med_ls in 
@@ -233,7 +233,7 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let old_cost3 = cost1 + cost2 + costp in 
     *)
     let new_cost12,new_sumcost, adjust_med,anything_changed = 
-        ChromAli.find_med3 ach1 ach2 aparent amine c2 c3 chrom_pam in 
+        ChromAli.find_med3 ach1 ach2 aparent amine c2 oric2 c3 chrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
     (* again, this part is done in chromAli.find_med3
     if old_cost3 <= new_cost3 then  old_cost, mine, false

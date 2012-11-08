@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2780 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2787 $"
 
 let debug = false
 let debug_distance = false
@@ -888,13 +888,12 @@ END  (*end of distance function under module DOS*)
         create newseqm, cost
 
 
-    (*readjust function for custom alphabet under module DOS, return changed,
+    (*readjust function for dna and custom alphabet under module DOS, return changed,
     * new median, new cost3, new cost2, new sumcost 
     * to do: this function and [readjust] share a big part of code, maybe we
     * should merge them*)
-    let readjust_custom_alphabet alph mode h ch1 ch2 parent mine =
+    let readjust alph mode h ch1 ch2 parent mine use_ukk is_custom =
         let debug = false in
-        let use_ukk = false in (*we don't call ukkonen alignment for custom alphabet now*)
         let gap = Cost_matrix.Two_D.gap h.c2_full in
         let empty1 = Sequence.is_empty ch1.sequence gap 
         and empty2 = Sequence.is_empty ch2.sequence gap 
@@ -909,36 +908,45 @@ END  (*end of distance function under module DOS*)
         and oldcost2 = int_of_float mine.costs.cost2
         and oldsumcost = int_of_float mine.costs.sum_cost in
         let sumcost_ch12 = int_of_float( ch1.costs.sum_cost +. ch2.costs.sum_cost) in
-        let (oldaliedch1,oldaliedch2,oldminewgap) = mine.aligned_children in
-        let oldaliedch1,oldaliedch2,oldminewgap = 
-            match oldaliedch1,oldaliedch2,oldminewgap with
-            | Raw a, Raw b, Raw c -> a,b,c
-            | _ -> failwith "seqCS.DOS [readjust_custom_alphabet], wrong type of aliged_children"
-        in
         match empty1, empty2, emptypar with
         | false, false, false ->
             let newcost3, newcost2, newseqm, newaliedch1, newaliedch2, newseqmWgap =  
-                    match mode with
-                    | `ThreeD _ -> 
-                            if debug then Printf.printf "iter = 3d, call readjust_3d\n%!";
+                match mode with
+                | `ThreeD _ -> 
+                        if debug then Printf.printf "iter = 3d, call readjust_3d\n%!";
+                        if is_custom then
                             Sequence.Align.readjust_3d_custom_alphabet ch1.sequence ch2.sequence
                             mine.sequence h.c2_full h.c3 parent.sequence 
-                            (int_of_float mine.costs.cost2)
-                            (int_of_float mine.costs.cost3)
-                    | `ApproxD _ ->
-                            if debug then Printf.printf "iter=approx, do nothing\n%!";
+                            (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
+                        else
+                            Sequence.Align.readjust_3d ch1.sequence ch2.sequence
+                            mine.sequence h.c2_full h.c2_original h.c3 parent.sequence 
+                            (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
+                            
+                | `ApproxD _ ->
+                        if debug then Printf.printf "iter=approx, do nothing\n%!";
+                        if is_custom then
+                            let (oldaliedch1,oldaliedch2,oldminewgap) = mine.aligned_children in
+                            let oldaliedch1,oldaliedch2,oldminewgap = 
+                                match oldaliedch1,oldaliedch2,oldminewgap with
+                                | Raw a, Raw b, Raw c -> a,b,c
+                                | _ -> failwith "seqCS.DOS [readjust_custom_alphabet], wrong type of aliged_children"
+                            in
                             int_of_float mine.costs.cost3, 
                             int_of_float mine.costs.cost2, 
                             mine.sequence, 
                             oldaliedch1,oldaliedch2,oldminewgap
+                        else
+                            Sequence.readjust ch1.sequence ch2.sequence
+                            mine.sequence h.c2_full parent.sequence use_ukk
             in
-                (*return changed = true if 
-                        * #1. if subtree cost root on this character of this node is different,
-                        * that's what we are doing here
-                        * that means cost of some grand grand child is different, or #2.
-                        * #2. if node cost(both cost2 and cost3) of this character of this node is different.
-                        * #3. if median assignment to this character of this node is different
-                        * *) 
+            (*return changed = true if 
+            * #1. if subtree cost root on this character of this node is different,
+            * that's what we are doing here
+            * that means cost of some grand grand child is different, or #2.
+            * #2. if node cost(both cost2 and cost3) of this character of this node is different.
+            * #3. if median assignment to this character of this node is different
+            * *) 
             let newsumcost = newcost2 + sumcost_ch12 in
             let anything_changed =
                 if  (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
@@ -948,8 +956,9 @@ END  (*end of distance function under module DOS*)
             in
             if debug then begin
                 Printf.printf "DOS.readjust_custom_alphabet end,return \
-                cost3=%d(old:%d), sumcost=%d(old:%d), \
-                anything_changed : %b, newseqm = \n%!" newcost3 oldcost3 newsumcost oldsumcost anything_changed;  
+                cost3=%d(old:%d), sumcost=%d+%d=%d(old:%d), \
+                anything_changed : %b, newseqm = \n%!" newcost3 oldcost3 
+                newcost2 sumcost_ch12 newsumcost oldsumcost anything_changed;  
                 Sequence.printseqcode newseqm;
             end;
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
@@ -1044,12 +1053,14 @@ END  (*end of distance function under module DOS*)
                 end;
                 changed,
                 {newmed with costs = rescosts},
-                newcost3, newcost2, newsumcost
+                newcost3, 
+                newcost2, 
+                newsumcost
 
-
+(*
     (*readjust function for dna sequence under module DOS, include approx=exact
     * and approximate*)
-    let readjust alph mode h ch1 ch2 parent mine use_ukk =
+    let readjust2 alph mode h ch1 ch2 parent mine use_ukk =
         let debug = false in
         if debug then Printf.printf "seqCS.DOS.readjust,use_ukk=%b\n%!" use_ukk;
         let c2 = h.c2_full in
@@ -1203,7 +1214,6 @@ END  (*end of distance function under module DOS*)
                     changed,
                     {newmed with costs = rescosts},
                     newcost3, newcost2, newsumcost
-
         in
         (*return modifed = true if 
             * #1. if subtree cost root on this character of this node is different, 
@@ -1218,6 +1228,7 @@ END  (*end of distance function under module DOS*)
         *)
         changed, 
         res, cost3, cost2, sumcost
+*)
 
     let to_single h parent mine opt_root =
         let debug = false in
@@ -1728,7 +1739,7 @@ module PartitionedDOS = struct
                         mine.(i)
                 | DO ch1, DO ch2, DO parent, DO mine ->
                         let x, y, z3, z2, zsum = 
-                            DOS.readjust alph mode h ch1 ch2 parent mine use_ukk
+                            DOS.readjust alph mode h ch1 ch2 parent mine use_ukk false
                         in
                         is_0 := !is_0 && x;
                         cost := !cost + z2;
@@ -2470,6 +2481,7 @@ let same_codes a b =
 let readjust_custom_alphabet alph mode modified ch1 ch2 parent mine =
     let debug = false in
     if debug then Printf.printf "seqCS.readjust_custom_alphabet\n%!";
+    let use_ukk = false in (*we don't call ukkonen alignment for custom alphabet now*)
     (*list of character code that being modified in DOS.[readjust_custom_alphabet] *)
     let new_modified = ref [] in
     let total_cost = ref 0 in (*sum cost of each characters: node cost*)
@@ -2480,7 +2492,7 @@ let readjust_custom_alphabet alph mode modified ch1 ch2 parent mine =
                 | Heuristic_Selection a, Heuristic_Selection b, 
                     Heuristic_Selection c, Heuristic_Selection d ->
                         let changed, res, cost3, cost2, sumcost = 
-                            DOS.readjust_custom_alphabet alph mode mine.heuristic a b c d
+                            DOS.readjust alph mode mine.heuristic a b c d use_ukk true
                         in
                         if changed then begin
                             if debug then Printf.printf "add code = %d to modified set\n%!" code;
@@ -2540,7 +2552,7 @@ let readjust alph mode to_adjust modified ch1 ch2 parent mine =
                 | Heuristic_Selection a, Heuristic_Selection b, 
                     Heuristic_Selection c, Heuristic_Selection d ->
                         let changed, res, cost3, cost2, sumcost = 
-                            DOS.readjust alph mode mine.heuristic a b c d use_ukk in
+                            DOS.readjust alph mode mine.heuristic a b c d use_ukk false in
                         if changed then begin (*add character code to new_modified*)
                             if debug then Printf.printf "add character#.%d to change set\n%!" code;
                             new_modified := code :: !new_modified;

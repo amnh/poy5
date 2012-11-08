@@ -383,7 +383,7 @@ module Align : sig
     (** [align_3_powell_inter a b c cm cm3] generates the median and edition
     * cost between the three sequences [a], [b], and [c], according to the cost
     * matrix specified by [cm] and [cm3]. *)
-    val align_3_powell_inter : s -> s -> s -> Cost_matrix.Two_D.m ->
+    val align_3_powell_inter : s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Two_D.m ->
         Cost_matrix.Three_D.m -> s * int * int * s * s * s
 
     (** [readjust_3d a b mine cm cm3 p] readjust [mine] as the median between
@@ -391,7 +391,7 @@ module Align : sig
     * where [ed] is the total edition cost of the median [s], which is in the
     * center of [a], [b], and [p], and [ch] is true iff [ch] is different from
     * [mine]. *)
-    val readjust_3d : ?first_gap:bool -> s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> s
+    val readjust_3d : ?first_gap:bool -> s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> s
     -> int -> int -> int * int * s * s * s * s 
 
     val readjust_3d_custom_alphabet : s -> s -> s -> Cost_matrix.Two_D.m ->

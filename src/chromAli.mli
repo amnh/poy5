@@ -151,6 +151,7 @@ val find_med3 :
   med_t ->
   med_t ->
   Cost_matrix.Two_D.m ->
+  Cost_matrix.Two_D.m ->
   Cost_matrix.Three_D.m -> Data.dyna_pam_t -> int * int * med_t * bool
 
 

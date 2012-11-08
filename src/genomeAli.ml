@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "GenomeAli" "$Revision: 2713 $"
+let () = SadmanOutput.register "GenomeAli" "$Revision: 2787 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -1679,7 +1679,7 @@ let copy_chrom_map s d =
 (** [find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam]
 * create the median sequence of [ch1], [ch2], [ch3] based
 * on the current median [min] *)
-let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam = 
+let find_med3 ch1 ch2 ch3 mine cost_mat ori_cost_mat cost_cube pam = 
     let _, _, med1m_ls = find_med2_ls  ch1 mine cost_mat pam in
     let _, _, med2m_ls = find_med2_ls  ch2 mine cost_mat pam in
     let _, _, med3m_ls = find_med2_ls  ch3 mine cost_mat pam in
@@ -1807,7 +1807,8 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
                     else begin                        
 
                         let _, _, median_seq, _, _ , _  = Sequence.Align.readjust_3d
-                            ~first_gap:false sub_seq1 sub_seq2 sub_seqm cost_mat cost_cube sub_seq3 
+                            ~first_gap:false sub_seq1 sub_seq2 sub_seqm cost_mat
+                            ori_cost_mat cost_cube sub_seq3 
                             mine.cost2 mine.cost3
                         in
 

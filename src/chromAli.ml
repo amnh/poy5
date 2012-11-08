@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2778 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2787 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -893,7 +893,7 @@ let find_approx_med2 (med1 : med_t) (med2 : med_t) (med12 : med_t) =
 (** [find_med3 ch1 ch2 ch3 mine c2 c3 pam] returns
 * the median of [ch1], [ch2] and [ch3] where [mine]
 * is the current median of [ch1], [ch2] and [ch3] *) 
-let find_med3 ch1 ch2 ch3 mine c2 c3 pam = 
+let find_med3 ch1 ch2 ch3 mine c2 oric2 c3 pam = 
     let ali_pam = ChromPam.get_chrom_pam pam in 
     let _, _, med1m_ls = find_med2_ls ch1 mine c2 pam None in
     let _, _, med2m_ls = find_med2_ls ch2 mine c2 pam None in
@@ -993,7 +993,7 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
                     else begin                        
 
                         let _, _, median_seq, _, _, _ = Sequence.Align.readjust_3d
-                            ~first_gap:false sub_seq1 sub_seq2 sub_seqm c2 c3
+                            ~first_gap:false sub_seq1 sub_seq2 sub_seqm c2 oric2 c3
                             sub_seq3 mine.cost2 mine.cost3
                         in
 
