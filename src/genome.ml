@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Genome" "$Revision: 2684 $"
+let () = SadmanOutput.register "Genome" "$Revision: 2787 $"
 
 (** Genome module implements functions to create medians
     between two lists of genomes *)
@@ -279,7 +279,7 @@ let copy_chrom_map s_ch d_ch =
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
 * the current median [mine] of three medians [ch1],
 * [ch2], and [parent] using three dimentional alignments*)
-let readjust_3d ch1 ch2 mine c2 c3 parent = 
+let readjust_3d ch1 ch2 mine c2 oric2 c3 parent = 
     let chrom_pam = mine.chrom_pam in 
 
     let ach1 = List.hd ch1.med_ls in 
@@ -293,7 +293,8 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let old_cost = cost1 + cost2 + costp in 
    *)
 
-    let new_cost12,new_sumcost, adjust_med, anything_changed = GenomeAli.find_med3 ach1 ach2 aparent amine c2 c3
+    let new_cost12,new_sumcost, adjust_med, anything_changed =
+        GenomeAli.find_med3 ach1 ach2 aparent amine c2 oric2 c3
         chrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
     new_cost12, new_sumcost, adjust_med, anything_changed 

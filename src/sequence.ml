@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2780 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2793 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -1410,7 +1410,7 @@ module Align = struct
         let c = powell_3d s1 s2 s3 s1p s2p s3p mm go ge in
         s1p, s2p, s3p, c
 
-    let align_3_powell_inter s1 s2 s3 cm cm3 =
+    let align_3_powell_inter s1 s2 s3 cm oricm cm3 =
         let debug = false and debug2 = false in
         let gap = Cost_matrix.Two_D.gap cm in
         let mm, go, ge =
@@ -1431,9 +1431,7 @@ module Align = struct
             printseqcode a;
             printseqcode b;
             printseqcode c;
-        end;
-        (*get cost2 of ab *)
-        let costab = recost a b cm in
+        end; 
         (*get median sequence out of alied a b and c*)
         let len = length a in
         let median = create (len + 1) in
@@ -1449,14 +1447,20 @@ module Align = struct
             if to_prepend <> gap then prepend median to_prepend
             else ();
         done;
+        (*we return the new cost2 also. this is a median3 function,
+        * unlike median2 function, cost2 should be calculated by adding
+        * distance between new alied median and its two alied chilren, with original cost matrix *)
+        let costma = recost medianWgap a oricm in
+        let costmb = recost medianWgap b oricm in
+        let costab = costma + costmb in
         if debug then begin
-            Printf.printf "return medianWgap :\n%!";
+            Printf.printf "return cost2=%d,cost3=%d,medianWgap:\n%!" costab cost;
             printseqcode medianWgap;
         end;
         prepend median gap;
         median, cost, costab, a, b, medianWgap
 
-    let readjust_3d ?(first_gap = true) s1 s2 m cm cm3 p oldcost12 oldcost3 =
+    let readjust_3d ?(first_gap = true) s1 s2 m cm oricm cm3 p oldcost12 oldcost3 =
         let debug = false and debug2 = false in
         if debug then begin
             Printf.printf "sequence.readjust_3d on child1,child2,parent and \
@@ -1480,40 +1484,41 @@ module Align = struct
         end
         else begin
 	    *)
-    let newcost3,newcost2,newseqm,ali_ch1, ali_ch2, newseqmWgap = 
-        let gap = Cost_matrix.Two_D.gap cm in
-        if is_empty s1 gap && not (is_empty s2 gap) then
-            let _ = if debug then Printf.printf "empty ch1, return ch2\n%!" in
-            0, 0, s2,s2,s2,s2
-        else if is_empty s2 gap && not (is_empty s1 gap) then 
-            let _ = if debug then Printf.printf "empty ch2, return ch1\n%!" in
-            0, 0, s1,s1,s1,s1
-        else if is_empty p gap then 
-            let _ = if debug then Printf.printf "empty parent, return parent\n%!" in
-            0, 0, p,p,p,p
-        else
-            (*x is the cost3 = sum cost of s1&res,s2&res and p&res, cost12 is the cost of s1&s2*)
-            match first_gap with 
-            | true -> 
-                  let res, x, cost12, ali_ch1, ali_ch2, newseqmWgap = align_3_powell_inter s1 s2 p cm cm3 in
-                  x, cost12, res, ali_ch1, ali_ch2, newseqmWgap
-            | false ->
-                  let s1 = prepend_char s1 gap in 
-                  let s2 = prepend_char s2 gap in 
-                  let p = prepend_char p gap in 
-                  let res, x, cost12, ali_ch1, ali_ch2, newseqmWgap = 
-                      align_3_powell_inter s1 s2 p cm cm3 in
-                  let res = del_first_char res in 
-                  x, cost12, res,ali_ch1, ali_ch2, newseqmWgap
-    in
-    if debug then begin
-            Printf.printf "return cost3 = %d(old:%d), cost12=%d(old:%d)\n%!" 
-            newcost3 oldcost3 newcost2 oldcost12 ;
-            if debug2 then begin 
-            printseqcode newseqm;
+        let newcost3,newcost2,newseqm,ali_ch1, ali_ch2, newseqmWgap = 
+            let gap = Cost_matrix.Two_D.gap cm in
+            if is_empty s1 gap && not (is_empty s2 gap) then
+                let _ = if debug then Printf.printf "empty ch1, return ch2\n%!" in
+                0, 0, s2,s2,s2,s2
+            else if is_empty s2 gap && not (is_empty s1 gap) then 
+                let _ = if debug then Printf.printf "empty ch2, return ch1\n%!" in
+                0, 0, s1,s1,s1,s1
+            else if is_empty p gap then 
+                let _ = if debug then Printf.printf "empty parent, return parent\n%!" in
+                0, 0, p,p,p,p
+            else
+                (*x is the cost3 = sum cost of s1&res,s2&res and p&res, cost12 is the cost of s1&s2*)
+                match first_gap with 
+                | true -> 
+                      let res, x, cost12, ali_ch1, ali_ch2, newseqmWgap = 
+                          align_3_powell_inter s1 s2 p cm oricm cm3 in
+                      x, cost12, res, ali_ch1, ali_ch2, newseqmWgap
+                | false ->
+                      let s1 = prepend_char s1 gap in 
+                      let s2 = prepend_char s2 gap in 
+                      let p = prepend_char p gap in 
+                      let res, x, cost12, ali_ch1, ali_ch2, newseqmWgap = 
+                          align_3_powell_inter s1 s2 p cm oricm cm3 in
+                      let res = del_first_char res in 
+                      x, cost12, res,ali_ch1, ali_ch2, newseqmWgap
+        in
+        if debug then begin
+                Printf.printf "return cost3 = %d(old:%d), cost12=%d(old:%d)\n%!" 
+                newcost3 oldcost3 newcost2 oldcost12 ;
+                if debug2 then begin 
+                printseqcode newseqm;
+                end;
             end;
-        end;
-    newcost3,newcost2,newseqm, ali_ch1, ali_ch2, newseqmWgap
+        newcost3,newcost2,newseqm, ali_ch1, ali_ch2, newseqmWgap
     (*end*)
 
     (*readjust 3d functions for custom alphabet start*)
@@ -1648,7 +1653,7 @@ module Align = struct
      
 
     (*NOTE: input sequence must start with gap*)
-    let readjust_3d_custom_alphabet ch1 ch2 mine cm2d cm3d parent oldcost2 oldcost3 =
+    let readjust_3d_custom_alphabet ch1 ch2 mine cm2d oricm2d cm3d parent oldcost2 oldcost3 =
         (*debug2 print out input and output sequence, debug3 print out steps in
         * updating alignment matrix and backtrace*)
         let debug = false and debug2 = false and debug3 = false in
@@ -1870,7 +1875,12 @@ module Align = struct
                     Printf.printf "med3seq with gap = %!";
                     printseqcode med3seqWgap;
                 end;
-                let cost12 = recost ~first_gap:false aliedch1seq aliedch2seq cm2d in
+                (*we return the new cost2 also. this is a median3 function,
+                * unlike median2 function, cost2 should be calculated by adding
+                * distance between new alied median and its two alied chilren, with original cost matrix *)
+                let costmedch1 = recost ~first_gap:false aliedch1seq med3seqWgap oricm2d in
+                let costmedch2 = recost ~first_gap:false aliedch1seq med3seqWgap oricm2d in
+                let cost12 = costmedch1 + costmedch2 in
                 (*prepend med3seq gapcode;*)
                 (*let anything_changed = 
                     (oldcost3 <> rescost)||(oldcost2 <> cost12)||(0 <> compare resseq mine) in

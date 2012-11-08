@@ -21,7 +21,7 @@
 * The genome character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "GenomeCS" "$Revision: 2754 $"
+let () = SadmanOutput.register "GenomeCS" "$Revision: 2787 $"
 
 let fprintf = Printf.fprintf
 
@@ -427,6 +427,7 @@ let copy_chrom_map s_ch d_ch =
 let readjust to_adjust modified ch1 ch2 parent mine = 
     let empty = IntMap.empty and
             c2 = parent.c2_full and
+            oric2 = parent.c2_original and
             c3 = parent.c3 
     in
 
@@ -447,7 +448,7 @@ let readjust to_adjust modified ch1 ch2 parent mine =
         else begin
             let rescost,ressumcost, seqm, changed = 
                 Genome.readjust_3d ch1_chrom ch2_chrom my_chrom
-                    c2 c3 parent_chrom
+                    c2 oric2 c3 parent_chrom
             in
             let new_single = IntMap.add code seqm res_medians
             and new_costs = IntMap.add code (float_of_int rescost) res_costs 
