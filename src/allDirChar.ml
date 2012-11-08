@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2787 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2792 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1132,9 +1132,7 @@ module F : Ptree.Tree_Operations
             | Some x -> x
             | None   -> max_int
         and first_affected = match nodes with
-            | None   -> 
-                    (*we init an IntMap with node id -> None for each node in Ptree*)
-                    IntMap.map (fun _ -> None) ptree.Ptree.node_data
+            | None   -> IntMap.map (fun _ -> None) ptree.Ptree.node_data
             | Some i -> i
         in
         (* We start by defining a function to adjust one node *)
@@ -1527,8 +1525,7 @@ module F : Ptree.Tree_Operations
                 | []  -> tree
                 | xs  -> static_model_chars_fn xs tree)
             (tree)
-            (Data.categorize_likelihood_chars_by_model
-                                `AllStatic tree.Ptree.data)
+            (Data.categorize_likelihood_chars_by_model tree.Ptree.data `AllStatic)
 
 
     module IA = ImpliedAlignment.Make (AllDirNode.AllDirF) (Edge.LazyEdge)
@@ -1540,7 +1537,7 @@ module F : Ptree.Tree_Operations
         let optimize_static_tree ptree =
             let old_verbosity = Status.get_verbosity () in
             let dlk_categories = Data.categorize_likelihood_chars_by_model
-                                                `AllDynamic ptree.Ptree.data in
+                                                ptree.Ptree.data `AllDynamic in
             List.fold_left
                 (fun ptree chars ->
                     Status.set_verbosity `None;

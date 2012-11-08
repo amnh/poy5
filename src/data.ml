@@ -149,9 +149,6 @@ type static_hom_spec =
     | NexusFile of Nexus.File.static_spec 
     | FixedStates of fixed_state_spec 
 
-let get_weight_from_fs_spec fs_spec =
-    fs_spec.original_dynspec.weight
-
 type distr = | MaxLength of int (* Any of the distributions with a maximum length *)
 
 type affine_f = {
@@ -290,6 +287,8 @@ module OutputInformation = struct
     ]
 end
 
+
+
 type alph =
     | Nucleotides
     | Aminoacids
@@ -405,6 +404,8 @@ type d = {
     root_at : int option;
 }
 
+let create_ht () = Hashtbl.create 1667
+
 (** [compare d1 d2] Compare two data; we only return a boolean since ordering
     would be completely undefined and chaotic. The comparison ignores things
     that are not relevant to the DIAGNOSIS of the tree. This is to avoid
@@ -435,33 +436,250 @@ let compare data1 data2 : bool =
         && (data1.files = data2.files)
         && (data1.machine = data2.machine)
 
-type bool_characters = Methods.characters (* [
-    | `All
-    | `Some of (bool * int list)
-    | `Names of (bool * string list)
-    | `CharSet of (bool * string list)
-    | `Random of float
-    | `AllStatic
-    | `AllDynamic
-    | `Missing of (bool * int)
-    | `Range of (bool * string * int * int)
-] *)
+let check_fraction fraction : unit =
+    if (100. < fraction || fraction < 0.) then failwith "Illegal fraction"
 
-type characters = [
-    | `All
-    | `Some of int list 
-    | `CharSet of string list
-    | `Names of string list
-    | `Random of float
-    | `AllStatic
-    | `AllDynamic
-    | `Missing of (bool * int)
-    | `Range of (string * int * int)
-]
+let absolute_of_percentage n percentage =
+    truncate ((percentage *. (float_of_int n)) /. 100.)
 
-let string_of_characters =
-    let op = function | true -> "" | false -> "not " in
-    function
+module Accessor = struct
+
+    let get_alphabet data c =
+        try match Hashtbl.find data.character_specs c  with
+            | Dynamic dspec    -> dspec.alph
+            | Kolmogorov dspec -> dspec.dhs.alph
+            | Static (NexusFile sspec)   -> sspec.Nexus.File.st_alph
+            | Static (FixedStates sspec) -> sspec.original_dynspec.alph
+            | Set       ->
+                failwithf "Data.get_alphabet: Finding %d alphabet in Set" c
+        with Not_found ->
+            failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
+
+    (** [get_recost pams] returns the rearrangement cost in [pams] *)
+    let get_recost user_pams = match user_pams.re_meth with
+        | None -> failwith "The rearrangement cost is not specified"
+        | Some (`Locus_Breakpoint c)
+        | Some (`Locus_Inversion c) -> c
+
+    (** [get_locus_indel_cost user_pams] returns the locus indel cost in [pams] *)
+    let get_locus_indel_cost user_pams =
+        match user_pams.locus_indel_cost with
+        | None -> failwith "The locus indel cost is not specified"
+        | Some c -> c
+
+    let get_taxon_characters data tcode =
+        try Hashtbl.find data.taxon_characters tcode with 
+        | _ -> create_ht ()
+
+    let get_searchbase_characters data tcode =
+        try Hashtbl.find data.searchbase_characters tcode with 
+        | _ -> create_ht ()
+
+    let code_character name d = Hashtbl.find d.character_codes name
+
+    let character_code code d = Hashtbl.find d.character_names code
+
+    let get_character_state data c =
+        match Hashtbl.find data.character_specs c  with
+        | Dynamic dspec -> dspec.state
+        | Kolmogorov dspec -> dspec.dhs.state
+        | _ -> failwith "Data.get_character_state"
+
+    let get_pam data c =
+        match Hashtbl.find data.character_specs c  with
+        | Dynamic dspec -> dspec.pam
+        | Kolmogorov dspec -> dspec.dhs.pam
+        | _ -> failwith "Data.get_pam"
+
+    let get_tcm code data = match Hashtbl.find data.character_specs code with
+        | Static x -> 
+            begin match x with 
+                | NexusFile spec ->
+                    begin match spec.Nexus.File.st_type with
+                        | Nexus.File.STSankoff x -> x
+                        | _ -> failwith "Unexpected"
+                    end
+                | _ -> failwith "Unexpected"
+            end
+        | _ -> failwith "Unexpected"
+
+    let get_tcm2d data c = match Hashtbl.find data.character_specs c with
+        | Dynamic dspec -> dspec.tcm2d_full,dspec.tcm2d_original
+        | Kolmogorov dspec -> dspec.dhs.tcm2d_full,dspec.dhs.tcm2d_original
+        | _ -> failwith "Data.get_tcm2d"
+
+
+    let get_tcm3d data c = match Hashtbl.find data.character_specs c  with
+        | Dynamic dspec -> dspec.tcm3d
+        | Kolmogorov dspec -> dspec.dhs.tcm3d
+        | _ -> failwith "Data.get_tcm3d"
+
+
+    let get_tcmfile data c = match Hashtbl.find data.character_specs c  with
+        | Dynamic dspec    -> dspec.tcm
+        | Kolmogorov dspec -> dspec.dhs.tcm
+        | Static dspec     -> failwith "Data.get_tcmfile; Cannot transform static data"
+        | Set              -> failwith "Data.get_tcmfile; Cannot transform set data"
+
+
+    let get_model data code = match Hashtbl.find data.character_specs code with
+        | Dynamic s when s.state = `Ml ->
+            begin match s.lk_model with
+                | Some xm -> xm
+                | None    -> failwith "Data.get_model"
+            end
+        | Static (NexusFile y) ->
+            begin match y.Nexus.File.st_type with
+                | Nexus.File.STLikelihood x -> x
+                | _ -> failwith "Data.get_model"
+            end
+        | _ -> failwith "Data.get_model"
+
+    let get_model_opt data code = 
+        try       Some (get_model data code)
+        with _ -> None
+
+    let get_likelihood_model data chars =
+        match List.map (fun c -> c,get_model data c) chars with
+        | (h,hm)::t ->
+            assert( List.fold_left
+                        ~f:(fun acc (x,xm) -> acc && (0 = (MlModel.compare xm hm)))
+                        ~init:true
+                        t);
+            hm
+        | [] -> failwith "No Characters found"
+
+    let get_weight_from_fs_spec fs_spec =
+        fs_spec.original_dynspec.weight
+
+    let get_all_taxon_active_codes data = 
+        Hashtbl.fold (fun code _ acc -> code :: acc) data.taxon_characters [] 
+
+    let get_taxa data = 
+        All_sets.IntegerMap.fold (fun _ name acc -> name :: acc) data.taxon_codes []
+
+    let get_dyn_state data c =
+        try match Hashtbl.find data.character_specs c  with
+            | Dynamic dspec    -> dspec.state
+            | Kolmogorov kspec -> kspec.dhs.state
+            | Set | Static _   -> failwithf "Data.get_dyn_state,not dynamic, code=%d" c
+        with  Not_found        -> failwithf "Data.get_dyn_state: Couldn't find code=%d in character specs" c
+
+    let rec taxon_code name data =
+        try All_sets.StringMap.find name data.taxon_names
+        with | Not_found ->
+            try taxon_code (All_sets.StringMap.find name data.synonyms) data
+            with | Not_found -> failwithf "Cannot find Taxa %s" name
+
+    (** [get_sequences code data] outputs a stack containing all the sequences of the
+    * character [code] stored in [data]. The empty sequences (according to
+    * [Sequence.is_empy]) are not included in the stack. If the input code does not
+    * correspond to a sequence character, or the sequence contains more than one
+    * fragment, then it outputs an empty stack. *)
+    let get_sequences code data = 
+        let alpha = get_alphabet data code in
+        let gap = Alphabet.get_gap alpha in
+        let seqs = Stack.create () in
+        let process_taxon a b = 
+            match Hashtbl.find b code with
+            | (Stat _), _ -> ()
+            | FS _, _ -> () 
+            | (Dyna (_, d)), _ ->
+                    match d.seq_arr with
+                    | [|dv|] ->
+                            if not (Sequence.is_empty dv.seq gap) then 
+                                Stack.push dv.seq seqs
+                    | _ -> ()
+        in
+        Hashtbl.iter process_taxon data.taxon_characters;
+        seqs
+
+    (*[get_sequence_tcm] return the full 2d cost matrix from dynmaic_hom_spec.*)
+    let get_sequence_tcm seqcode data = 
+        try match Hashtbl.find data.character_specs seqcode with
+            | Dynamic dspec    -> dspec.tcm2d_full
+            | Kolmogorov dspec -> dspec.dhs.tcm2d_full
+            | _ -> failwith "Data.get_sequence_tcm: Not a dynamic character"
+        with | Not_found as err ->
+            let name = Hashtbl.find data.character_codes seqcode in
+            let msg = "Could not find the code " ^ string_of_int seqcode ^ 
+                      " with name " ^ StatusCommon.escape name in
+            Status.user_message Status.Error msg;
+            raise err
+
+    (*[get_sequence_tcm] return the full 2d cost matrix from dynmaic_hom_spec.*)
+    let get_sequence_tcm_original seqcode data = 
+        try match Hashtbl.find data.character_specs seqcode with
+            | Dynamic dspec    -> dspec.tcm2d_original
+            | Kolmogorov dspec -> dspec.dhs.tcm2d_original
+            | _ -> failwith "Data.get_sequence_tcm_original: Not a dynamic character"
+        with | Not_found as err ->
+            let name = Hashtbl.find data.character_codes seqcode in
+            let msg = "Could not find the code " ^ string_of_int seqcode ^ 
+                      " with name " ^ StatusCommon.escape name in
+            Status.user_message Status.Error msg;
+            raise err
+
+    let get_weight c data = match Hashtbl.find data.character_specs c with
+        | Dynamic spec -> spec.weight
+        | Static (NexusFile spec) -> spec.Nexus.File.st_weight
+        | Static (FixedStates spec) -> spec.original_dynspec.weight
+        | Set -> 1.0
+        | Kolmogorov _ -> 1.0
+
+    let get_weights data =
+        Hashtbl.fold
+            (fun x _ acc -> (x, get_weight x data) :: acc) 
+            data.character_specs []
+
+    let get_empty_seq alph =
+        let seq = Sequence.create 1 in
+        let seq = Sequence.prepend_char seq (Alphabet.get_gap alph) in
+        { seq = seq; delimiter = []; code = -1; }
+
+end
+include Accessor
+open Accessor
+
+module CharacterSelection = struct
+
+    (** How to specify characters directly *)
+    type characters = [
+        | `All
+        | `Some of int list 
+        | `CharSet of string list
+        | `Names of string list
+        | `Random of float
+        | `AllStatic
+        | `AllDynamic
+        | `Missing of (bool * int)
+        | `Range of (string * int * int)
+    ]
+
+    (** Bool characters are brought in from the parser, they are a pair; if we
+        should complement the characters, and a filtering function *)
+    type bool_characters = Methods.characters
+
+    (** These are the filter classes; the types of major characters in the sets.
+        We filter/return against this set, thus the data must be categorized
+        first before these are used *)
+    type classes = [
+        | `Fixedstates
+        | `Dynamic
+        |  `NonAdditive
+        | `StaticLikelihood
+        | `Sankoff
+        | `DynamicLikelihood
+        | `Likelihood
+        | `Additive
+        | `Kolmogorov
+        | `AllStatic
+        | `AllDynamic ]
+
+    (** Debug function to print bool_characters *)
+    let string_of_characters_comp =
+        let op = function | true -> "" | false -> "not " in
+        function
         | `All           -> "all"
         | `Some (y,x)    -> Printf.sprintf "%ssome:%d" (op y) (List.length x)
         | `CharSet (y,x) -> Printf.sprintf "%ssets:%d" (op y) (List.length x)
@@ -471,17 +689,478 @@ let string_of_characters =
         | `AllDynamic    -> "all-dynamic"
         | `Missing _     -> "missing"
         | `Range _       -> "range"
+    and string_of_characters =
+        function
+        | `All       -> "all"
+        | `Some x    -> Printf.sprintf "some:%d" (List.length x)
+        | `CharSet x -> Printf.sprintf "sets:%d" (List.length x)
+        | `Names x   -> Printf.sprintf "name:%d" (List.length x)
+        | `Random x  -> Printf.sprintf "rand:%f" x
+        | `AllStatic -> "all-static"
+        | `AllDynamic-> "all-dynamic"
+        | `Missing _ -> "missing"
+        | `Range _   -> "range"
+
+    (** Taken a set of characters, return a reduced, unique set, and report any
+        duplicates in selection. *)
+    let warn_if_repeated_and_choose_uniquely list str file =
+        let repeated, selected =
+            List.fold_left
+                ~f:(fun (repeated, seen) item ->
+                    if All_sets.Strings.mem item seen then
+                        All_sets.Strings.add item repeated, seen
+                    else
+                        repeated, All_sets.Strings.add item seen)
+                ~init:(All_sets.Strings.empty, All_sets.Strings.empty)
+                list
+        in
+        let total = All_sets.Strings.cardinal repeated in
+        if total > 1 then begin
+            let message, _ = 
+                All_sets.Strings.fold 
+                    (fun item (str, cnt) ->
+                        if cnt = 0 then str ^ item, 1 else str ^ ",@ " ^ item, 1) 
+                    (repeated)
+                    (("The@ following@ items@ are@ duplicated@ in@ the@ " ^
+                      StatusCommon.escape str ^ "@ " ^ StatusCommon.escape file ^":@ "), 0)
+            in
+            Status.user_message Status.Warning message
+        end else if total = 1 then begin
+            let item = All_sets.Strings.choose repeated in
+            output_errorf "%s@ is@ duplicated@ in@ the@ %s@ %s"
+                    (StatusCommon.escape item) (StatusCommon.escape str)
+                    (StatusCommon.escape file)
+        end;
+        All_sets.Strings.fold (fun x acc -> x :: acc) selected []
+
+    (** particular function; we transform a range to a list of codes. This is
+        common in a number of the functions. TODO; return `Some not `Names. *)
+    let transform_range_to_codes file x y =
+        assert( x < y );
+        let rec loop_ acc x y =
+            if x > y then acc
+            else loop_ ((file^":"^(string_of_int x))::acc) (x+1) y
+        in
+        `Names (loop_ [] x y)
+
+    (** Return the set of a particular character; the set name is reversed
+        verified in case things happen weirdly *)
+    let get_set_of_character data char : string option =
+        let char_name = Hashtbl.find data.character_codes char in
+        let all = Hashtbl.find_all data.character_nsets char_name in
+        match all with
+        | []  -> None
+        | [x] -> assert( List.mem char_name (Hashtbl.find data.character_sets x) );
+                 Some x
+        |  _  -> failwithf "Character %d/%s is associated with multiple sets" char char_name
+
+    (** Return the character set name from a list; assert that all elements are
+        from the same set. *)
+    let get_character_set_name data codes : string option = match codes with
+        | [] -> failwith "No characters specified"
+        | code::codes ->
+            let char = Hashtbl.find data.character_codes code in
+            if Hashtbl.mem data.character_nsets char then
+                Some (Hashtbl.find data.character_nsets char)
+            else
+                None
+
+    (** Select a random fraction of a list *) 
+    let select_random_sublist fraction lst =
+        let n = absolute_of_percentage (List.length lst) fraction in
+        let arr = Array.of_list lst in
+        let () = Array_ops.randomize arr in
+        Array.to_list (Array.sub arr 0 n )
+
+    (** piece of code for selecting character with missing filter *)
+    let rec get_code_with_missing dont_complement data fraction =
+        let taxa =
+            All_sets.StringMap.fold (fun _ _ acc -> acc + 1) data.taxon_names 0
+                --> float_of_int
+        in
+        let count_occurrences data =
+            let extract_info data =
+                Hashtbl.fold
+                    (fun code _ acc -> All_sets.IntegerMap.add code 0 acc)
+                    data.character_codes
+                    All_sets.IntegerMap.empty
+            in
+            let add_counter _ x counter = match x with
+                | Dyna (y, _), `Specified
+                | FS    y,     `Specified
+                | Stat (y, _), `Specified ->
+                        let cnt = All_sets.IntegerMap.find y counter in
+                        All_sets.IntegerMap.add y (cnt + 1) counter
+                | _, `Unknown -> counter
+            in
+            let add_taxon_to_character_counters _ taxon_cs_lst counters =
+                Hashtbl.fold add_counter taxon_cs_lst counters
+            in
+            Hashtbl.fold add_taxon_to_character_counters
+                         data.taxon_characters (extract_info data)
+        in
+        let fraction = (float_of_int fraction) /. 100. in
+        check_fraction fraction;
+        let codes =
+            All_sets.IntegerMap.fold
+                (fun code count acc ->
+                    if fraction <= ((float_of_int count) /. taxa)
+                        then code :: acc
+                        else acc)
+                (count_occurrences data) []
+        in
+        if dont_complement then codes
+        else match complement_characters data (`Some codes ) with
+            | `Some x -> x
+            | _       -> failwith "Data.get_code_with_missing"
+
+    (** Get the character codes from a type with a further restriction on the
+        types based on the type of data. Dynamic, Static, ... this requires the
+        data to be classified first. *)
+    and get_code_from_characters_restricted kind (data : d) (chs : characters) =
+        let kind_lst = match kind with
+            | `Fixedstates -> data.fixed_states
+            | `Dynamic -> data.dynamics
+            | `DynamicLikelihood ->
+                List.filter
+                    (fun x -> match Hashtbl.find data.character_specs x with
+                        | Dynamic x when x.state = `Ml -> true
+                        | _ -> false)
+                    data.dynamics
+            | `NonAdditive ->
+                    data.non_additive_1 @ data.non_additive_8 @
+                    data.non_additive_16 @ data.non_additive_32 @
+                    data.non_additive_33
+            | `Additive -> data.additive
+            | `Sankoff -> List.flatten data.sankoff
+            | `Kolmogorov -> data.kolmogorov
+            | `AllDynamic -> data.kolmogorov @ data.dynamics
+            | `StaticLikelihood -> data.static_ml
+            | `Likelihood ->
+                (get_code_from_characters_restricted `StaticLikelihood data chs) @
+                (get_code_from_characters_restricted `DynamicLikelihood data chs)
+            | `AllStatic ->
+                    data.non_additive_1 @ data.non_additive_8 @
+                    data.non_additive_16 @ data.non_additive_32 @
+                    data.additive @ data.non_additive_33 @
+                    data.static_ml @ data.fixed_states @ (List.flatten data.sankoff)
+        in
+        let rec items chs = match chs with
+            | `Some code_ls -> code_ls 
+            | `Range (file, x,y) -> items (transform_range_to_codes file x y)
+            | `Names name_ls -> get_chars_codes data chs
+            | `Random fraction ->
+                    check_fraction fraction;
+                    select_random_sublist fraction kind_lst
+            | `All -> kind_lst
+            | `AllDynamic when kind = `AllDynamic -> kind_lst
+            | `AllStatic  when kind = `AllStatic  -> kind_lst
+            | `AllDynamic | `AllStatic as m -> 
+                    get_code_from_characters_restricted m data `All
+            | `Missing (dont_complement, fraction) ->
+                    get_code_with_missing dont_complement data fraction
+            | `CharSet str_lst ->
+                let names =
+                    List.flatten 
+                        (List.map 
+                            ( fun x -> try Hashtbl.find data.character_sets x
+                                       with | Not_found -> [])
+                            str_lst)
+                in
+                items (`Names names)
+        in
+        let initial = items chs in
+        List.filter (fun x -> List.exists (fun y -> y = x) kind_lst) initial
+
+    (** Return all codes loaded *)
+    and get_all_codes data =
+        Hashtbl.fold (fun c _ acc -> c :: acc) data.character_codes []
+
+    (** Return the codes as represented by the character class *)
+    and get_chars_codes data chars = match chars with
+        | `All -> get_all_codes data 
+        | `Random fraction ->
+                check_fraction fraction;
+                select_random_sublist fraction (get_all_codes data)
+        | `Some codes -> codes
+        | `Range (file,x,y) -> get_chars_codes data (transform_range_to_codes file x y)
+        | `Names names ->
+                let names = 
+                    warn_if_repeated_and_choose_uniquely names "selected@ characters@ " ""
+                in
+                let get_code acc name =
+                    try (Hashtbl.find data.character_names name) :: acc 
+                    with | Not_found as err ->
+                        let nname = Str.regexp name in
+                        begin
+                            match
+                                Hashtbl.fold
+                                    (fun item code acc ->
+                                        if Str.string_match nname item 0 then
+                                            code :: acc
+                                        else acc)
+                                    data.character_names
+                                    acc
+                            with
+                            | [] ->
+                                Status.user_message Status.Error
+                                    ("Could@ not@ find@ any@ character@ matching@ "^
+                                     "the@ expression@ " ^ StatusCommon.escape name);
+                                raise err
+                            | r -> r
+                        end
+                in
+                List.fold_left ~f:get_code ~init:[] names
+        | `AllStatic | `AllDynamic as m -> 
+                get_code_from_characters_restricted m data `All
+        | `Missing (dont_complement, fraction) ->
+                get_code_with_missing dont_complement data fraction
+        | `CharSet sets ->
+                let names =
+                    List.flatten
+                        (List.map
+                            (fun x -> Hashtbl.find data.character_sets (String.uppercase x))
+                            sets)
+                in
+                get_chars_codes data (`Names names)
+
+    (** Complement a set of characters such that x >< x' and xUx' = ALL *)
+    and complement_characters data characters =
+        let codes = get_chars_codes data characters in
+        let res =
+            Hashtbl.fold
+                (fun x _ acc ->
+                    if List.exists (fun y -> x = y) codes then acc
+                    else x :: acc)
+                data.character_codes
+                []
+        in
+        `Some res
+
+    (** General wrapper for returning an 'int list' of characters comp *)
+    let character_comp_wrapper f data ch =
+        let dont_complement, ch = match ch with
+            | `Some (x, y) -> x, `Some y
+            | `Names (x, y) -> x, `Names y 
+            | `CharSet (x, y) -> x, `CharSet y
+            | `Range (x,file,a,b) -> x, transform_range_to_codes file a b
+            | `Random _ | `Missing _ | `All | `AllStatic | `AllDynamic as x -> true, x
+        in
+        let chars =
+            let codes = get_chars_codes data ch in
+            if dont_complement
+                then `Some codes
+                else complement_characters data (`Some codes)
+        in
+        f data chars
+
+    (** Get code from characters restricted with complement *)
+    let get_code_from_characters_restricted_comp kind data ch =
+        character_comp_wrapper (get_code_from_characters_restricted kind) data ch
+
+    (** get codes from characters with complement *)
+    let get_chars_codes_comp data ch =
+        character_comp_wrapper get_chars_codes data ch
+
+    (** return a list of all named character sets from chars *)
+    let categorize_sets data chars : int list list =
+        let categorize (map : int list All_sets.StringMap.t) (c : int) =
+            let name = Hashtbl.find data.character_codes c in
+            let mname =
+                if Hashtbl.mem data.character_nsets name then
+                    Hashtbl.find data.character_nsets name
+                else
+                    ""
+            in
+            let r = if All_sets.StringMap.mem mname map
+                        then (All_sets.StringMap.find mname map)
+                        else []
+            in
+            All_sets.StringMap.add mname (c::r) map
+        in
+        let chars = get_chars_codes data chars in
+        let set = List.fold_left ~f:categorize ~init:All_sets.StringMap.empty chars in
+        List.rev_map ~f:snd (All_sets.StringMap.bindings set)
+
+    (** categorize characters by observed state size *)
+    let categorize_characters_by_observed_size data chars : int list =
+        assert false
+
+    (** categorize characters by the distinct alphabet size *)
+    let categorize_characters_by_alphabet_size data chars : (int * bool_characters) list =
+        let make_tuple_of_character_and_size (char : int) =
+            let size =
+                char --> get_alphabet data
+                     --> Alphabet.to_sequential 
+                     --> Alphabet.distinct_size
+            in
+            (char, size)
+        in
+        let classify_by_size list =
+            let sets =
+                List.fold_left
+                    ~f:(fun acc (code, size) ->
+                        if All_sets.IntegerMap.mem size acc then
+                            let prev = All_sets.IntegerMap.find size acc in
+                            All_sets.IntegerMap.add size (code :: prev) acc
+                        else
+                            All_sets.IntegerMap.add size [code] acc)
+                    ~init:All_sets.IntegerMap.empty
+                    list
+            in
+            All_sets.IntegerMap.fold
+                (fun a b acc -> (a, `Some (true, b)) :: acc) sets []
+        in
+        chars
+            --> categorize_sets data
+            --> List.map ~f:(List.rev_map ~f:make_tuple_of_character_and_size)
+            --> List.map ~f:classify_by_size
+            --> List.flatten
+
+    (** Group a set of characters by their likelihood model; this may be
+        un-necessary if mlstatic becomes a list list, and we can just return that
+        directly based on other categorization methods done previously. *)
+    let categorize_likelihood_chars_by_model data (chars : characters) : int list list =
+        let get_spec i =
+            let model = match Hashtbl.find data.character_specs i with
+                | Static (NexusFile spec) ->
+                    begin match spec.Nexus.File.st_type with
+                        | Nexus.File.STLikelihood model -> model
+                        | _ -> assert false
+                    end
+                | Dynamic s when s.state = `Ml ->
+                    begin match s.lk_model with
+                        | Some model -> model
+                        | None -> assert false
+                    end
+                | _ -> assert false
+            in
+            model.MlModel.spec
+        in
+        chars
+            --> get_code_from_characters_restricted `Likelihood data
+            --> MlModel.categorize_by_model get_spec
+
+    (** [classify code data g] - is used for Sankoff characters to produce an
+     *  int list list. Every code that has the same cost matrix is placed
+     *  in the same int list.  
+     *  This function is placed here rather than in parser.ml because is needs
+     *  to use Data.get_tcm function and if this is used in parser.ml
+     *  then there is a circular dependency between poyParser.ml and parser.ml *)
+    let classify_sankoff code data = 
+        let match_cost_matrix code_cm first_lst data = match first_lst with
+            | hd :: _ -> 
+                let hd_cm = get_tcm hd data in
+                if code_cm = hd_cm then true else false
+            | [] -> false
+        in
+        let code_cm = get_tcm code data in
+        let rec builder lst = 
+            match lst with
+            | [] -> [[code]]
+            | hd :: tl -> 
+                    if match_cost_matrix code_cm hd data then
+                        (code :: hd) :: tl
+                    else hd :: builder tl
+        in
+        { data with sankoff = builder data.sankoff }
 
 
-let transform_range_to_codes file x y =
-    assert( x < y );
-    let rec loop_ acc x y =
-        if x > y then acc
-        else loop_ ((file^":"^(string_of_int x))::acc) (x+1) y
-    in
-    `Names (loop_ [] x y)
+    (** We must return 7 lists of integers containing the codes for each class of
+        characters. Clear all the sections, and rebuild. Associations of types to
+        classes is,
+            non_additive_X  - Static where st_type = Nexus.File.STUnordered
+            additive        - Static where st_type = Nexus.File.STOrdered
+            sankoff         - Static where st_type = Nexus.File.STSankoff
+            dynamics        - Dynamic
+            kolmogorov      - Kolmogorov
+            static_ml       - Static where st_type = Nexus.File.STLikelihood *)
+    let categorize data =
+        let data =
+            { data with
+                non_additive_1  = [];   non_additive_8  = [];
+                non_additive_16 = [];   non_additive_32 = [];
+                non_additive_33 = [];   additive        = [];
+                sankoff         = [];   fixed_states    = [];
+                dynamics        = [];   
+                kolmogorov      = [];   static_ml       = [];
+            }
+        and absent_present_alphabet enc = 
+            try let () = ignore (Alphabet.match_base "present" enc.Nexus.File.st_alph) 
+                and () = ignore (Alphabet.match_base "absent"  enc.Nexus.File.st_alph) in
+                true
+            with _ -> false
+        in
+        let rec add_static_type enc code st_type data =
+            let observed = List.length enc.Nexus.File.st_observed in
+            let between x y = observed >= x && observed <= y in
+            begin match st_type with
+                | Nexus.File.STSankoff _ ->
+                    classify_sankoff code data
+                | Nexus.File.STOrdered when observed > 1 ->
+                    {data with additive = code :: data.additive }
+                | Nexus.File.STOrdered   -> data
+                | Nexus.File.STUnordered ->
+                    if between 0 1 then
+                        { data with
+                            non_additive_1 = code :: data.non_additive_1 }
+                    else if between 2 8 then
+                        { data with
+                            non_additive_8 = code :: data.non_additive_8 }
+                    else if between 9 16 then
+                        { data with
+                            non_additive_16 = code :: data.non_additive_16 }
+                    else if between 17 32 then
+                        { data with 
+                            non_additive_32 = code :: data.non_additive_32 }
+                    else if observed > 32 then
+                        { data with
+                            non_additive_33 = code :: data.non_additive_33 }
+                    else 
+                        assert false
+                (** Ignore Absent/Present Columns under likelihood by placing them
+                    in the non_additive_1 category which is ignored. *)
+                | Nexus.File.STNCM _ when absent_present_alphabet enc ->
+                    { data with non_additive_1 = code :: data.non_additive_1 }
+                | Nexus.File.STLikelihood _ when absent_present_alphabet enc ->
+                    { data with non_additive_1 = code :: data.non_additive_1 }
+                | Nexus.File.STLikelihood _ ->
+                    { data with static_ml = code :: data.static_ml }
+                | Nexus.File.STNCM (_,t) ->
+                    add_static_type enc code t data
+            end
+        in
+        (* let data = repack_codes data in*)
+        let categorizer code spec data = match spec with
+            | Static (NexusFile enc) ->
+                add_static_type enc code enc.Nexus.File.st_type data
+            | Static (FixedStates enc) ->
+                { data with fixed_states = code :: data.fixed_states }
+            | Dynamic _ -> 
+                { data with dynamics = code :: data.dynamics }
+            | Set ->
+                data
+            | Kolmogorov _ ->
+                { data with kolmogorov = code :: data.kolmogorov }
+        in
+        let res = Hashtbl.fold categorizer data.character_specs data in
+        res
 
-let create_ht () = Hashtbl.create 1667
+    let categorize_likelihood_chars_by_model_comp data (chars:bool_characters) =
+        character_comp_wrapper categorize_likelihood_chars_by_model data chars
+
+    let categorize_characters data chars =
+        categorize_sets data chars
+
+    let categorize_characters_comp data chars =
+        character_comp_wrapper categorize_sets data chars
+    
+    let categorize_characters_by_alphabet_size_comp data (chars:bool_characters) =
+        character_comp_wrapper categorize_characters_by_alphabet_size data chars 
+end
+include CharacterSelection
+open CharacterSelection
+
 
 (** What to display under different criteria *)
 let likelihood_output_information = [`TreeInformation [`Summary]; `OptMode]
@@ -551,16 +1230,6 @@ let copy_branches = function
             branches;
         Some tbl
     | None   -> None
-
-
-let get_set_of_character data char : string option =
-    let char_name = Hashtbl.find data.character_codes char in
-    let all = Hashtbl.find_all data.character_nsets char_name in
-    match all with
-    | []  -> None
-    | [x] -> assert( List.mem char_name (Hashtbl.find data.character_sets x) );
-             Some x
-    |  _  -> failwithf "Character %d/%s is associated with multiple sets" char char_name
 
 
 let duplicate data =
@@ -666,60 +1335,6 @@ let set_fs_data seq_arr states_arr =
         states = states_arr;
         dynamic_data = set_dyna_data seq_arr;
     }
-
-(** [get_recost pams] returns the rearrangement cost in [pams] *)
-let get_recost user_pams = match user_pams.re_meth with
-    | None -> failwith "The rearrangement cost is not specified"
-    | Some (`Locus_Breakpoint c)
-    | Some (`Locus_Inversion c) -> c
-
-(** [get_locus_indel_cost user_pams] returns the locus indel cost in [pams] *)
-let get_locus_indel_cost user_pams =
-    match user_pams.locus_indel_cost with
-    | None -> failwith "The locus indel cost is not specified"
-    | Some c -> c
-
-let get_character_set_name data codes : string option = match codes with
-    | [] -> failwith "No characters specified"
-    | code::codes ->
-        let char = Hashtbl.find data.character_codes code in
-        if Hashtbl.mem data.character_nsets char then
-            Some (Hashtbl.find data.character_nsets char)
-        else
-            None
-
-let get_likelihood_model data chars =
-    let get_model x =
-        try match Hashtbl.find data.character_specs x with
-            | Dynamic s when s.state = `Ml ->
-                begin match s.lk_model with
-                    | Some xm -> x,xm
-                    | None    -> failwith "inconsistent dynamic likelihood state"
-                end
-            | Static (NexusFile dat) ->
-                begin match dat.Nexus.File.st_type with
-                    | Nexus.File.STLikelihood xm -> x,xm
-                    | _ -> failwithf "Unsupported static character: %d" x
-                end
-            | _ -> failwithf "Unsupported character: %d" x
-        with | Not_found ->
-            failwithf "Cannot find character: %d" x
-    in
-    match List.map get_model chars with
-    | (h,hm)::t ->
-        assert( List.fold_left
-                    ~f:(fun acc (x,xm) -> acc && (0 = (MlModel.compare xm hm)))
-                    ~init:true
-                    t);
-        hm
-    | [] -> failwith "No Characters found"
-
-
-let get_empty_seq alph =
-    let seq = Sequence.create 1 in
-    let seq = Sequence.prepend_char seq (Alphabet.get_gap alph) in
-    { seq = seq; delimiter = []; code = -1; }
-
 
 let print (data : d) =
     let print_matrix arr =
@@ -896,6 +1511,7 @@ let print (data : d) =
     All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;
     print_newline ()
 
+
 (** This counts the number of modified characters from a transformation; this is
     so we build an informative report to the user *)
 let modified_characters data_one data_two : int =
@@ -913,21 +1529,6 @@ let modified_characters data_one data_two : int =
             with | Not_found -> let () = incr modified in ())
         data_one;
     !modified
-
-
-let get_weight c data =
-    match Hashtbl.find data.character_specs c with
-    | Dynamic spec -> spec.weight
-    | Static (NexusFile spec) -> spec.Nexus.File.st_weight
-    | Static (FixedStates spec) -> spec.original_dynspec.weight
-    | Set -> 1.0
-    | Kolmogorov _ -> 1.0
-
-
-let get_weights data =
-    Hashtbl.fold
-        (fun x _ acc -> (x, get_weight x data) :: acc) 
-        data.character_specs []
 
 
 (* Returns a fresh object with the added synonym from [a] to [b] to [data]. *)
@@ -978,40 +1579,6 @@ let add_synonyms_file data file =
             (FileStream.filename file)
             (err);
         raise exn
-
-let warn_if_repeated_and_choose_uniquely list str file =
-    let repeated, selected = 
-        List.fold_left ~f:(fun (repeated, seen) item ->
-            if All_sets.Strings.mem item seen then
-                All_sets.Strings.add item repeated, seen
-            else repeated, All_sets.Strings.add item seen) 
-        ~init:(All_sets.Strings.empty, All_sets.Strings.empty) list
-    in
-    let total = All_sets.Strings.cardinal repeated in
-    if total > 0 then
-        if total = 1 then
-            let item = All_sets.Strings.choose repeated in
-            output_errorf
-                "%s@ is@ duplicated@ in@ the@ %s@ %s"
-                (StatusCommon.escape item)
-                (StatusCommon.escape str)
-                (StatusCommon.escape file)
-        else begin
-            let message, _ = 
-                All_sets.Strings.fold 
-                    (fun item (str, cnt) ->
-                        if cnt = 0 then str ^ item, 1
-                        else str ^ ",@ " ^ item, 1) 
-                    (repeated)
-                    (("The@ following@ items@ are@ duplicated@ in@ " ^
-                      "@ the@ " ^ StatusCommon.escape str ^ "@ " ^ StatusCommon.escape file
-                     ^":@ "), 0)
-            in
-            Status.user_message Status.Warning message
-        end
-    else ();
-    All_sets.Strings.fold (fun x acc -> x :: acc) selected []
-
 
 let trim taxon =
     let rec non_empty_position x n fmod res =
@@ -1272,38 +1839,6 @@ let process_fixed_states data = function
     | None ->
         { data with do_fs = true; }
 
-let find_code_for_root_if_removed data =
-    (* We want to test, if a terminal that is currently root is removed, we choose
-    * the one with the lowest terminal code, but if that's not the root, we
-    * continue like nothing *)
-    match data.root_at with
-    | Some c -> 
-        if Hashtbl.mem data.taxon_characters c
-        then 
-            data
-        else begin
-            let nc = 
-                Hashtbl.fold 
-                    (fun c _ acc -> match acc with
-                        | None -> Some c
-                        | Some accc ->
-                            if c < accc then Some c
-                            else acc)
-                    data.taxon_characters None
-            in
-            { data with root_at = nc }
-        end
-    | None -> data
-
-let pick_code_for_root code data = match data.root_at with
-    | None ->
-        { data with root_at = Some code }
-    | Some previous -> 
-        if Hashtbl.mem data.taxon_characters previous then
-            data 
-        else 
-            { data with root_at = Some code }
-
 (** Returns a [d] with the following condition: if [taxon] is present in [data]
  * then [data] is returned, otherwise, [data] with the added name and assigned code
  * is returned. In addition, if there is no preferred taxon assigned to the
@@ -1349,28 +1884,25 @@ let rec process_searchbase_code data taxon file =
     let taxon = trim taxon in
     if debug_search_base then 
         Printf.printf "process_searchbase_code with taxon=%s\n%!" taxon;
+    let pick_code_for_root code data = match data.root_at with
+        | Some previous when Hashtbl.mem data.taxon_characters previous -> data 
+        | None          -> { data with root_at = Some code }
+        | Some previous -> { data with root_at = Some code }
+    in
     if All_sets.StringMap.mem taxon data.taxon_names then 
-        (*already exists, we must have a root already! *)
-        (*let new_taxon_file = 
-            let set = All_sets.StringMap.find taxon data.taxon_files in
-            let set = All_sets.Strings.add file set in
-            All_sets.StringMap.add taxon set data.taxon_files 
-        in*)
         let new_searchbase_file =
-        if All_sets.StringMap.mem taxon data.searchbase_files then   
-            let set = All_sets.StringMap.find taxon data.searchbase_files in
-            let set = All_sets.Strings.add file set in
-            All_sets.StringMap.add taxon set data.searchbase_files
-        else
-            All_sets.StringMap.add taxon (All_sets.Strings.singleton file)
-            data.searchbase_files
+            if All_sets.StringMap.mem taxon data.searchbase_files then   
+                let set = All_sets.StringMap.find taxon data.searchbase_files in
+                let set = All_sets.Strings.add file set in
+                All_sets.StringMap.add taxon set data.searchbase_files
+            else
+                All_sets.StringMap.add taxon (All_sets.Strings.singleton file)
+                data.searchbase_files
         in
         { data with searchbase_files = new_searchbase_file }, 
         All_sets.StringMap.find taxon data.taxon_names
     else if All_sets.StringMap.mem taxon data.synonyms then
-        (* Is a synonym *)
-        process_searchbase_code data 
-        (All_sets.StringMap.find taxon data.synonyms) file
+        process_searchbase_code data (All_sets.StringMap.find taxon data.synonyms) file
     else begin
         let code = data.number_of_taxa + 1 in
         let searchbase_names = 
@@ -1386,19 +1918,11 @@ let rec process_searchbase_code data taxon file =
         let data = pick_code_for_root code data in
         { data with
             number_of_taxa = data.number_of_taxa + 1;
-            searchbase_names = searchbase_names; searchbase_codes = searchbase_codes;
+            searchbase_names = searchbase_names;
+            searchbase_codes = searchbase_codes;
             searchbase_files = searchbase_files },
         code
     end
-
-
-let get_taxon_characters data tcode =
-    try Hashtbl.find data.taxon_characters tcode with 
-    | _ -> create_ht ()
-
-let get_searchbase_characters data tcode =
-    try Hashtbl.find data.searchbase_characters tcode with 
-    | _ -> create_ht ()
 
 (* Changes in place *)
 let add_static_character_spec data (code, spec) =
@@ -2463,14 +2987,6 @@ let process_ignore_file data file =
             Status.user_message Status.Error msg;
             data
 
-let complement_taxa data taxa = 
-    let remover acc taxon = All_sets.StringMap.remove taxon acc in
-    let the_taxa = List.fold_left ~f:remover ~init:data.taxon_names taxa in
-    let elements = 
-        All_sets.StringMap.fold (fun name _ lst -> name :: lst) the_taxa []
-    in
-    elements
-
 let code_taxon code data = 
     All_sets.IntegerMap.find code data.taxon_codes
 
@@ -2496,11 +3012,13 @@ let report included excluded =
         ("@[Total@ excluded:@ " ^ string_of_int (total_excluded - 1) ^ "@]@,");
     ()
 
-let get_all_taxon_active_codes data = 
-    Hashtbl.fold (fun code _ acc -> code :: acc) data.taxon_characters [] 
-
-let absolute_of_percentage n precentage =
-    truncate ((precentage *. (float_of_int n)) /. 100.)
+let complement_taxa data taxa = 
+    let remover acc taxon = All_sets.StringMap.remove taxon acc in
+    let the_taxa = List.fold_left ~f:remover ~init:data.taxon_names taxa in
+    let elements = 
+        All_sets.StringMap.fold (fun name _ lst -> name :: lst) the_taxa []
+    in
+    elements
 
 let rec process_analyze_only_taxa meth data = match meth with
     | `Random fraction ->
@@ -2564,6 +3082,7 @@ let rec process_analyze_only_taxa meth data = match meth with
             report included excluded;
             process_analyze_only_taxa (`Names (false, excluded)) data
 
+
 let process_analyze_only_file dont_complement data files =
     let data = duplicate data in
     try let appender acc file = 
@@ -2594,13 +3113,30 @@ let process_analyze_only_file dont_complement data files =
         data
 
 let remove_taxa_to_ignore data = 
-    let data = duplicate data in
+    let find_code_for_root_if_removed data =
+        (* We want to test, if a terminal that is currently root is removed, we
+         * choose the one with the lowest terminal code, but if that's not the
+         * root, we continue like nothing *)
+        match data.root_at with
+        | Some c when Hashtbl.mem data.taxon_characters c -> data
+        | Some c -> 
+            let nc = 
+                Hashtbl.fold 
+                    (fun c _ acc -> match acc with
+                        | None      -> Some c
+                        | Some accc -> if c < accc then Some c else acc)
+                    data.taxon_characters None
+            in
+            { data with root_at = nc }
+        | None -> data
+    in
     let process_data taxon data =
         try let tcode = All_sets.StringMap.find taxon data.taxon_names in
             Hashtbl.remove data.taxon_characters tcode;
             data
         with | _ -> data
     in
+    let data = duplicate data in
     let data = All_sets.Strings.fold process_data data.ignore_taxa_set data in
     let data = find_code_for_root_if_removed data in
     data
@@ -2714,190 +3250,10 @@ let add_character_spec spec code data =
     end else raise Illegal_argument;
     data
 
-let rec taxon_code name data =
-    try All_sets.StringMap.find name data.taxon_names
-    with | Not_found ->
-        try taxon_code (All_sets.StringMap.find name data.synonyms) data
-        with | Not_found -> failwithf "Cannot find Taxa %s" name
-
-let get_tcm code data = 
-    match Hashtbl.find data.character_specs code with
-    | Static x -> 
-        (match x with 
-        | NexusFile spec ->
-            begin match spec.Nexus.File.st_type with
-                | Nexus.File.STSankoff x -> x
-                | _ -> failwith "Unexpected"
-            end
-        | _ -> failwith "Unexpected"
-        )
-    | _ -> failwith "Unexpected"
-
-
-
-(** funtion to see if a cost matrix matches the cost matrix associated with 
- *  the list first_lst.
- *  Parameters are
- *  code_cm is a cost matrix (int array array) 
- *  first_lst is an int list
- *  data is a Parser.Data.d type and this contains the encoding specs which
- *  contain the cost matrices.
-*)
-let match_cost_matrix code_cm first_lst data =
-    match first_lst with
-    | hd :: _ -> 
-            let hd_cm = get_tcm hd data in
-            if code_cm = hd_cm then true
-            else false
-    | [] -> false
-
-(** [classify code data g] - is used for Sankoff characters to produce an
- *  int list list. Every code that has the same cost matrix is placed
- *  in the same int list.  
- *  This function is placed here rather than in parser.ml because is needs
- *  to use Data.get_tcm function and if this is used in parser.ml
- *  then there is a circular dependency between poyParser.ml and parser.ml
- *  Parameters are
- *  code is an int  
- *  data is a Parser.Data.d type and this contains the encoding specs which
- *  contain the cost matrices.
- *  g is the int list list being built
- *)
-let classify code data = 
-    let code_cm = get_tcm code data in
-    let rec builder lst = 
-        match lst with
-        | [] -> [[code]]
-        | hd :: tl -> 
-                if match_cost_matrix code_cm hd data then
-                    (code :: hd) :: tl
-                else hd :: builder tl
-    in
-    { data with sankoff = builder data.sankoff }
-
-
-(** We must return 7 lists of integers containing the codes for each class of
-    characters. Clear all the sections, and rebuild. Associations of types to
-    classes is,
-        non_additive_X  - Static where st_type = Nexus.File.STUnordered
-        additive        - Static where st_type = Nexus.File.STOrdered
-        sankoff         - Static where st_type = Nexus.File.STSankoff
-        dynamics        - Dynamic
-        kolmogorov      - Kolmogorov
-        static_ml       - Static where st_type = Nexus.File.STLikelihood *)
-let categorize data =
-    let data =
-        { data with
-            non_additive_1  = [];   non_additive_8  = [];
-            non_additive_16 = [];   non_additive_32 = [];
-            non_additive_33 = [];   additive        = [];
-            sankoff         = [];   fixed_states    = [];
-            dynamics        = [];   
-            kolmogorov      = [];   static_ml       = [];
-        }
-    in
-    let rec add_static_type enc code st_type data =
-        let observed = List.length enc.Nexus.File.st_observed in
-        let between x y = observed >= x && observed <= y in
-        begin match st_type with
-            | Nexus.File.STSankoff _ ->
-                classify code data
-            | Nexus.File.STOrdered when observed > 1 ->
-                {data with additive = code :: data.additive }
-            | Nexus.File.STOrdered   -> data
-            | Nexus.File.STUnordered ->
-                if between 0 1 then
-                    { data with
-                        non_additive_1 = code :: data.non_additive_1 }
-                else if between 2 8 then
-                    { data with
-                        non_additive_8 = code :: data.non_additive_8 }
-                else if between 9 16 then
-                    { data with
-                        non_additive_16 = code :: data.non_additive_16 }
-                else if between 17 32 then
-                    { data with 
-                        non_additive_32 = code :: data.non_additive_32 }
-                else if observed > 32 then
-                    { data with
-                        non_additive_33 = code :: data.non_additive_33 }
-                else 
-                    assert false
-            | Nexus.File.STNCM (_,t) ->
-                add_static_type enc code t data
-            | Nexus.File.STLikelihood _ ->
-                {data with static_ml = code :: data.static_ml }
-        end
-    in
-    (* let data = repack_codes data in*)
-    let categorizer code spec data = match spec with
-        | Static (NexusFile enc) ->
-            add_static_type enc code enc.Nexus.File.st_type data
-        | Static (FixedStates enc) ->
-            { data with fixed_states = code :: data.fixed_states }
-        | Dynamic _ -> 
-            { data with dynamics = code :: data.dynamics }
-        | Set ->
-            data
-        | Kolmogorov _ ->
-            { data with kolmogorov = code :: data.kolmogorov }
-    in
-    let res = Hashtbl.fold categorizer data.character_specs data in
-    res
-
-
-let character_code name data = 
-    Hashtbl.find data.character_names name
-
-let code_character code data =
-    Hashtbl.find data.character_codes code
-
-(*[get_sequence_tcm] return the full 2d cost matrix from dynmaic_hom_spec.*)
-let get_sequence_tcm seqcode data = 
-    try match Hashtbl.find data.character_specs seqcode with
-        | Dynamic dspec    -> dspec.tcm2d_full
-        | Kolmogorov dspec -> dspec.dhs.tcm2d_full
-        | _ -> failwith "Data.get_sequence_tcm: Not a dynamic character"
-    with | Not_found as err ->
-        let name = code_character seqcode data in
-        let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-                  " with name " ^ StatusCommon.escape name in
-        Status.user_message Status.Error msg;
-        raise err
-
-(*[get_sequence_tcm] return the full 2d cost matrix from dynmaic_hom_spec.*)
-let get_sequence_tcm_original seqcode data = 
-    try match Hashtbl.find data.character_specs seqcode with
-        | Dynamic dspec    -> dspec.tcm2d_original
-        | Kolmogorov dspec -> dspec.dhs.tcm2d_original
-        | _ -> failwith "Data.get_sequence_tcm_original: Not a dynamic character"
-    with | Not_found as err ->
-        let name = code_character seqcode data in
-        let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-                  " with name " ^ StatusCommon.escape name in
-        Status.user_message Status.Error msg;
-        raise err
-
-
-let get_alphabet data c =
-    try match Hashtbl.find data.character_specs c  with
-        | Dynamic dspec    -> dspec.alph
-        | Kolmogorov dspec -> dspec.dhs.alph
-        | Static (NexusFile sspec)   -> sspec.Nexus.File.st_alph
-        | Static (FixedStates sspec) -> sspec.original_dynspec.alph
-        | Set       ->
-            failwithf "Data.get_alphabet: Finding %d alphabet in Set" c
-    with  Not_found ->
-        failwithf "Data.get_alphabet: Couldn't find %d in character specs" c
-
-
 let add_file data contents file = 
     let file = (FileStream.filename file), contents in
     { data with files = file :: data.files }
 
-
-let get_taxa data = 
-    All_sets.IntegerMap.fold (fun _ name acc -> name :: acc) data.taxon_codes []
 
 let make_value_formatter x = (PXML -[Xml.Data.value][`String x]--)
 
@@ -3658,40 +4014,6 @@ let get_state default = function
     | `Seq_to_Kolmogorov _ -> failwith "Illegal Data.get_state argument"
 
 
-let get_dyn_state data c =
-    try match Hashtbl.find data.character_specs c  with
-        | Dynamic dspec    -> dspec.state
-        | Kolmogorov kspec -> kspec.dhs.state
-        | Set | Static _   -> failwithf "Data.get_dyn_state,not dynamic, code=%d" c
-    with  Not_found        -> failwithf "Data.get_dyn_state: Couldn't find code=%d in character specs" c
-
-
-
-
-(** [get_sequences code data] outputs a stack containing all the sequences of the
-* character [code] stored in [data]. The empty sequences (according to
-* [Sequence.is_empy]) are not included in the stack. If the input code does not
-* correspond to a sequence character, or the sequence contains more than one
-* fragment, then it outputs an empty stack. *)
-let get_sequences code data = 
-    let alpha = get_alphabet data code in
-    let gap = Alphabet.get_gap alpha in
-    let seqs = Stack.create () in
-    let process_taxon a b = 
-        match Hashtbl.find b code with
-        | (Stat _), _ -> ()
-        | FS _, _ -> () 
-        | (Dyna (_, d)), _ ->
-                match d.seq_arr with
-                | [|dv|] ->
-                        if not (Sequence.is_empty dv.seq gap) then 
-                            Stack.push dv.seq seqs
-                | _ -> ()
-    in
-    Hashtbl.iter process_taxon data.taxon_characters;
-    seqs
-
-
 (** [all_pairs_alignments seqs cm] outputs a stack containing all the pairwise
 * comparisons between the sequences in the stack [seqs] employing the distance 
 * function specified by [cm]. The output consists of the aligned versions of
@@ -3761,7 +4083,7 @@ let statistics_of_alignments seqs pairs =
 let sequence_code_statistics data code =
     let seqs = get_sequences code data 
     and pairs = alignments_of_code code data
-    and name = code_character code data in
+    and name = Hashtbl.find data.character_codes code in
     name, statistics_of_alignments seqs pairs
 
 let kolmo_round_factor = 100.
@@ -3931,21 +4253,6 @@ let convert_dyna_spec data chcode spec transform_meth =
         end
     | _ -> failwith "Convert_dyna_spec: Not a dynamic character" 
 
-let check_fraction fraction =
-    if (100. < fraction || fraction < 0.) then
-        failwith "Illegal fraction"
-    else ()
-
-let select_random_sublist fraction lst =
-    let n = absolute_of_percentage (List.length lst) fraction in
-    let arr = Array.of_list lst in
-    Array_ops.randomize arr;
-    Array.to_list (Array.sub arr 0 n )
-
-type classes = 
-    [ `Fixedstates | `Dynamic |  `NonAdditive | `StaticLikelihood | `DynamicLikelihood | `Likelihood
-    | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
-
 let has_static_likelihood d = match d.static_ml with
     | [] -> false
     | _  -> true
@@ -3960,207 +4267,6 @@ let type_of_dynamic_likelihood d = match d.dynamics with
                 | None   -> assert false
             end
         | _ -> None
-
-
-let rec get_code_with_missing dont_complement data fraction = 
-    let taxa = 
-        let tmp = 
-            All_sets.StringMap.fold (fun _ _ acc -> acc + 1)
-            data.taxon_names 0
-        in
-        float_of_int tmp
-    in
-    let count_occurrences data =
-        let extract_info data =
-            Hashtbl.fold (fun code _ acc -> 
-                All_sets.IntegerMap.add code 0 acc) 
-            data.character_codes All_sets.IntegerMap.empty
-        in
-        let add_counter _ x counter =
-            match x with
-            | Dyna (y, _), `Specified 
-            | FS y, `Specified
-            | Stat (y, _), `Specified -> 
-                    let cnt = All_sets.IntegerMap.find y counter in
-                    All_sets.IntegerMap.add y (cnt + 1) counter
-            | _, `Unknown -> counter
-        in
-        let add_taxon_to_character_counters _ taxon_cs_lst counters = 
-            Hashtbl.fold add_counter taxon_cs_lst counters
-        in
-        Hashtbl.fold add_taxon_to_character_counters
-        data.taxon_characters (extract_info data)
-    in
-    let fraction = (float_of_int fraction) /. 100. in
-    let codes = 
-        All_sets.IntegerMap.fold (fun code count acc ->
-        if fraction <= ((float_of_int count) /. taxa) then code :: acc
-        else acc) (count_occurrences data) []
-    in
-    if dont_complement then codes
-    else 
-        match complement_characters data (`Some codes ) with
-        | `Some x -> x
-        | _ -> failwith "Data.get_code_with_missing"
-
-
-(**Give a list of characters, return their codes*)    
-and get_code_from_characters_restricted kind (data : d) (chs : characters) =
-    let kind_lst = match kind with
-        | `Fixedstates -> 
-            data.fixed_states 
-        | `Dynamic ->
-            data.dynamics
-        | `DynamicLikelihood ->
-            List.filter
-                (fun x -> match Hashtbl.find data.character_specs x with
-                    | Dynamic x when x.state = `Ml -> true
-                    | _ -> false)
-                data.dynamics
-        | `NonAdditive ->
-                data.non_additive_1 @ data.non_additive_8 @
-                data.non_additive_16 @ data.non_additive_32 @
-                data.non_additive_33
-        | `Additive -> data.additive
-        | `Sankoff -> List.flatten data.sankoff
-        | `Kolmogorov -> data.kolmogorov
-        | `AllDynamic -> data.kolmogorov @ data.dynamics
-        | `StaticLikelihood -> data.static_ml
-        | `Likelihood -> 
-            (get_code_from_characters_restricted `StaticLikelihood data chs) @
-            (get_code_from_characters_restricted `DynamicLikelihood data chs)
-        | `AllStatic -> 
-                data.non_additive_1 @ data.non_additive_8 @
-                data.non_additive_16 @ data.non_additive_32 @
-                data.additive @ data.non_additive_33 @
-                data.static_ml @ data.fixed_states @ (List.flatten data.sankoff)
-    in
-    let rec items chs = match chs with
-        | `Some code_ls -> code_ls 
-        | `Range (file, x,y) -> items (transform_range_to_codes file x y)
-        | `Names name_ls ->
-                get_chars_codes data chs
-                (* get_code_from_name data name_ls*)
-        | `Random fraction ->
-                check_fraction fraction;
-                select_random_sublist fraction kind_lst
-        | `All -> kind_lst
-        | `AllDynamic | `AllStatic as m -> 
-                get_code_from_characters_restricted m data `All
-        | `Missing (dont_complement, fraction) ->
-                get_code_with_missing dont_complement data fraction
-        | `CharSet str_lst ->
-            let names =
-                List.flatten 
-                    (List.map 
-                        ( fun x -> try Hashtbl.find data.character_sets x
-                                   with | Not_found -> [])
-                        str_lst)
-            in
-            items (`Names names)
-    in
-    let initial = items chs in
-    List.filter (fun x -> List.exists (fun y -> y = x) kind_lst) initial
-
-and get_all_codes data =
-    Hashtbl.fold (fun c _ acc -> c :: acc) data.character_codes  []
-
-and get_chars_codes data = function
-    | `All -> get_all_codes data 
-    | `Random fraction ->
-            check_fraction fraction;
-            select_random_sublist fraction (get_all_codes data)
-    | `Some codes -> codes
-    | `Range (file,x,y) -> get_chars_codes data (transform_range_to_codes file x y)
-    | `Names names ->
-            let names = 
-                warn_if_repeated_and_choose_uniquely names "selected@ characters@ " ""
-            in
-            let get_code acc name =
-                try (Hashtbl.find data.character_names name) :: acc 
-                with | Not_found as err ->
-                    let nname = Str.regexp name in
-                    begin
-                        match
-                            Hashtbl.fold
-                                (fun item code acc ->
-                                    if Str.string_match nname item 0 then
-                                        code :: acc
-                                    else acc)
-                                data.character_names
-                                acc
-                        with
-                        | [] ->
-                            Status.user_message Status.Error
-                                ("Could@ not@ find@ any@ character@ matching@ "^
-                                 "the@ expression@ " ^ StatusCommon.escape name);
-                            raise err
-                        | r -> r
-                    end
-            in
-            List.fold_left ~f:get_code ~init:[] names
-    | `AllStatic | `AllDynamic as m -> 
-            get_code_from_characters_restricted m data `All
-    | `Missing (dont_complement, fraction) ->
-            get_code_with_missing dont_complement data fraction
-    | `CharSet sets ->
-            let names =
-                List.flatten
-                    (List.map
-                        (fun x -> Hashtbl.find data.character_sets (String.uppercase x))
-                        sets)
-            in
-            get_chars_codes data (`Names names)
-
-and complement_characters data characters = 
-    let codes = get_chars_codes data characters in
-    let res = Hashtbl.fold (fun x _ acc -> 
-        if List.exists (fun y -> x = y) codes then acc
-        else x :: acc) data.character_codes [] in
-    `Some res
-
-let complement_characters_restricted kind data ch =
-    let res = 
-        let codes = get_chars_codes data ch in
-        List.fold_left
-            ~f:(fun acc x -> 
-                if (List.exists (fun y -> x = y) codes)
-                    then acc
-                    else x :: acc)
-            ~init:[]
-            (get_code_from_characters_restricted kind data `All)
-    in
-    `Some res
-
-let get_code_from_characters_restricted_comp kind d ch =
-    let dont_complement, chars = match ch with
-        | `Some (dont_complement, x) -> dont_complement, `Some x
-        | `Names (dont_complement, x) -> dont_complement, `Names x
-        | `CharSet (dont_complement, x) -> dont_complement, `CharSet x
-        | `Range (dont_complement, file, x, y) -> dont_complement, transform_range_to_codes file x y
-        | `Random _ | `Missing _ | `All | `AllDynamic | `AllStatic as x -> true, x
-    in
-    let chars = get_code_from_characters_restricted kind d chars in
-    if dont_complement then chars
-    else 
-        match complement_characters_restricted kind d (`Some chars) with
-        | `Some x -> x
-        | _ -> failwith "Impossible?"
-
-let get_chars_codes_comp data ch =
-    let dont_complement, ch = match ch with
-        | `Some (x, y) -> x, `Some y
-        | `Names (x, y) -> x, `Names y 
-        | `CharSet (x, y) -> x, `CharSet y
-        | `Range (x,file,a,b) -> x, transform_range_to_codes file a b
-        | `Random _ | `Missing _ | `All | `AllStatic | `AllDynamic as x -> true, x
-    in
-    let codes = get_chars_codes data ch in
-    if dont_complement then codes 
-    else 
-        match complement_characters data (`Some codes) with
-        | `Some x -> x
-        | _ -> failwith "Impossible?"
 
 (* non/functional creation of sets *)
 let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods.characters) = 
@@ -4190,102 +4296,6 @@ let make_set_partitions (functional:bool) (data:d) (name:string) (ccodes:Methods
         { data with character_sets = sets; character_nsets = nsets; }
     else
         data
-
-let categorize_sets data : int list list =
-    let rec inner_find i = function
-        | is::_ when List.mem i is -> true
-        |  _::iss -> inner_find i iss
-        | []      -> false
-    in
-    let named_sets = 
-        List.map
-            ~f:(fun xs ->
-                    List.fold_left
-                        ~f:(fun acc x ->
-                            try (Hashtbl.find data.character_names x)::acc
-                            with | Not_found -> acc)
-                        ~init:[]
-                        xs)
-            (Hashtbl.fold (fun k v acc -> v::acc) data.character_sets [])
-    in
-    (* add un-named sets from characters; seperate static and dynamic *)
-    let fcodes_static = 
-        List.filter
-            (fun x -> not (inner_find x named_sets))
-            (get_chars_codes_comp data `AllStatic)
-    and fcodes_dynamic = 
-        List.filter
-            (fun x -> not (inner_find x named_sets))
-            (get_chars_codes_comp data `AllDynamic)
-    in
-    let named_sets = match fcodes_static with
-        | [] -> named_sets
-        | fc -> fc :: named_sets in
-    let named_sets = match fcodes_dynamic with
-        | [] -> named_sets
-        | fc -> fc :: named_sets in
-    named_sets
-
-
-let categorize_characters_comp data chars = match chars with
-    | `All -> categorize_sets data
-    | othr ->
-        let found set1 set2 = match set1 with
-            | x::xs when List.mem x set2 ->
-                (* assert( List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs); *)
-                true
-            | _::xs -> 
-                (* assert( not (List.fold_left ~f:(fun acc x -> acc & (List.mem x set2)) ~init:true xs));*)
-                false
-            | [] -> 
-                false
-        in
-        let selected = get_chars_codes_comp data chars in
-        let all_sets = categorize_sets data in
-        List.fold_left
-            ~f:(fun acc xs ->
-                if found xs selected then xs :: acc else acc)
-            ~init:[]
-            all_sets
-
-let categorize_characters data chars = match chars with
-    | `All -> categorize_sets data
-    | othr ->
-        let found set1 set2 = match set1 with
-            | x::xs when List.mem x set2 -> true
-            | _::xs -> false
-            | []    -> false
-        in
-        let selected = get_chars_codes data chars in
-        let all_sets = categorize_sets data in
-        List.fold_left
-            ~f:(fun acc xs ->
-                if found xs selected then xs :: acc else acc)
-            ~init:[]
-            all_sets
-
-
-let categorize_likelihood_chars_by_model chars data =
-    let get_spec i = 
-        let model = match Hashtbl.find data.character_specs i with
-            | Static (NexusFile spec) ->
-                begin match spec.Nexus.File.st_type with
-                    | Nexus.File.STLikelihood model -> model
-                    | _ -> assert false
-                end
-            | Dynamic s when s.state = `Ml ->
-                begin match s.lk_model with
-                    | Some model -> model
-                    | None -> assert false
-                end
-            | _ -> assert false
-        in
-        model.MlModel.spec
-    in
-    chars
-        --> categorize_characters_comp data
-        --> List.map ~f:(fun x -> MlModel.categorize_by_model get_spec x)
-        --> List.flatten
 
 
 let make_codon_partitions functional data name ccodes =
@@ -4319,43 +4329,12 @@ let make_codon_partitions functional data name ccodes =
             then Hashtbl.copy data.character_sets, Hashtbl.copy data.character_nsets
             else data.character_sets, data.character_nsets
     in
-    let ncodes =
-        List.map (fun x -> Hashtbl.find data.character_codes x) 
-                 (get_chars_codes_comp data ccodes)
-    in
+    let ncodes = List.map (fun x -> Hashtbl.find data.character_codes x) 
+                          (get_chars_codes_comp data ccodes) in
     let () = process_set name sets nsets ncodes in
     { data with
         character_sets = sets;
         character_nsets = nsets; }
-
-let get_tcm2d data c =
-    match Hashtbl.find data.character_specs c with
-    | Dynamic dspec -> dspec.tcm2d_full,dspec.tcm2d_original
-    | Kolmogorov dspec -> dspec.dhs.tcm2d_full,dspec.dhs.tcm2d_original
-    | _ -> failwith "Data.get_tcm2d"
-
-
-let get_tcm3d data c =
-    match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec -> dspec.tcm3d
-    | Kolmogorov dspec -> dspec.dhs.tcm3d
-    | _ -> failwith "Data.get_tcm3d"
-
-let get_tcmfile data c = match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec    -> dspec.tcm
-    | Kolmogorov dspec -> dspec.dhs.tcm
-    | Static dspec     -> failwith "Data.get_tcmfile; Cannot transform static data"
-    | Set              -> failwith "Data.get_tcmfile; Cannot transform set data"
-
-let get_model_opt data c = 
-    match Hashtbl.find data.character_specs c with
-    | Dynamic dspec -> dspec.lk_model
-    | Static (NexusFile x) ->
-        begin match x.Nexus.File.st_type with
-            | Nexus.File.STLikelihood model -> Some model
-            | _ -> None
-        end
-    | _ -> None
 
 
 let available_states data chars = 
@@ -4449,13 +4428,13 @@ let compute_priors data chars u_gap =
     let size = if u_gap then size else size-1 in
     let priors = Array.make size 0.0 in
     (* A function that takes a list of states and add the appropriate value to
-    * each of the components of the priors *)
+       each of the components of the priors *)
     let inverse = 1. /. (float_of_int size) in
     let longest = ref 0 and lengths = ref [] in
     let gap_char = (Alphabet.get_gap alph) in (* 4, usually *)
     let counter = ref 0 and gap_counter = ref 0 in
     (* A function to add the frequencies in all the taxa from the characters
-    * specified in the list. *)
+       specified in the list. *)
     let taxon_adder tax taxon_chars =
         let total = ref 0 in
         let adder char_code =
@@ -4636,133 +4615,6 @@ let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) =
     apply_likelihood_model_on_char_table false data new_specs char_codes model;
     { data with character_specs = new_specs;
                 search_information = likelihood_output_information;}
-        --> categorize
-
-
-(* remove the absent/present columns in the parsed data, and modify the previous
- * column (the column the active/present column is adding data to), and modify
- * it to a gap for likelihood. This is only for likelihood characters, unless
- * ignore is set to true, in which case it will remove them with impunity! The
- * active/present columns in other characters are used for an additional cost to
- * that column, combined with the weight parameter. *)
-let remove_absent_present_encodings ?(ignore_data=false) data chars =
-    let is_likelihood = function
-        | Nexus.File.STLikelihood _ -> (true || ignore_data)
-        | _ -> false
-    (* transform a character to a gap *)
-    and apply_gap_to_cs taxon_code char_code spec state = match spec,state with
-        | Static (NexusFile sspec), (Stat (code,data),specified) ->
-            let gap = Alphabet.get_gap sspec.Nexus.File.st_alph in
-            (Stat (code, Some (`List [gap])),specified)
-        | _, _ ->
-            failwithf "Data.remove_absent_present_encodings fail: %d" char_code
-    in
-    (* test if we are using STATIC likelihood somewhere *)
-    let test_using_likelihood data =
-        let ret = ref false in
-        Hashtbl.iter
-            (fun x spec -> match spec with
-                | Static (NexusFile {Nexus.File.st_type = st_type}) ->
-                    ret := !ret || (is_likelihood st_type)
-                | _ -> ())
-            data.character_specs;
-        (!ret || ignore_data)
-    (* find if we are using the absent/present alphabet *)
-    and is_present_absent a =
-        try let () = ignore (Alphabet.match_base "present" a) 
-            and () = ignore (Alphabet.match_base "absent" a) in
-            true
-        with | _ -> false
-    (* apply the absent/present encoding column to the previous column *)
-    and is_present tcode code state spec = match spec,state with
-        | Static (NexusFile y), (Stat (code,Some data) , _) ->
-            let data_list = Nexus.File.static_state_to_list data
-            and present = Alphabet.match_base "present" y.Nexus.File.st_alph in
-            List.mem present data_list
-        | Static (NexusFile y), (Stat (code,None),_) ->
-            ignore (Alphabet.match_base "present" y.Nexus.File.st_alph);
-            true
-        | _,_ -> failwith "Incorrect Match1"
-    and is_absent tcode code state spec = match spec,state with
-        | Static (NexusFile y), (Stat (code,Some data),_) ->
-            let data_list = Nexus.File.static_state_to_list data
-            and absent = Alphabet.match_base "absent" y.Nexus.File.st_alph in
-            List.mem absent data_list
-        | Static (NexusFile y), (Stat (code,None),_) ->
-            (* do the lookup anyway to ensure it exists *)
-            ignore (Alphabet.match_base "absent" y.Nexus.File.st_alph);
-            false
-        | _,_ -> failwith "Incorrect Match2"
-    and branch_remove branch name = match branch with
-        | Some branch ->
-            Hashtbl.iter
-                (fun name v_set ->
-                    All_sets.IntSetMap.iter 
-                        (fun _ tbl -> Hashtbl.remove tbl name) (v_set) )
-                branch
-        | None -> ()
-    in
-    let apply_absent_encoding branch specs chars names codes code = 
-        Hashtbl.iter
-            (fun t_code t_state_tbl ->
-                let apstate = Hashtbl.find t_state_tbl code
-                and apspec  = Hashtbl.find specs code in
-                if is_present t_code code apstate apspec then begin
-                    let lkstate = Hashtbl.find t_state_tbl (code-1) 
-                    and lkspec  = Hashtbl.find specs (code-1) in
-                    let nstate = apply_gap_to_cs t_code (code-1) lkspec lkstate in
-                    Hashtbl.replace t_state_tbl (code-1) nstate;
-                    Hashtbl.remove t_state_tbl code;
-                end else begin
-                    assert(is_absent t_code code apstate apspec);
-                    Hashtbl.remove t_state_tbl code
-                end)
-            chars;
-        let name = Hashtbl.find codes code in
-        Hashtbl.remove names name;
-        Hashtbl.remove codes code;
-        Hashtbl.remove specs code;
-        branch_remove branch name
-    in
-    if test_using_likelihood data then begin
-        let copy_spec   = Hashtbl.copy data.character_specs
-        and copy_names  = Hashtbl.copy data.character_names
-        and copy_codes  = Hashtbl.copy data.character_codes
-        and copy_branch = copy_branches data.branches 
-        and copy_char   =
-            let n = Hashtbl.create (Hashtbl.length data.taxon_characters) in
-            Hashtbl.iter (fun k v -> Hashtbl.add n k (Hashtbl.copy v))
-                         data.taxon_characters;
-            n
-        in
-        let map,chars =
-            List.fold_left
-                ~f:(fun (acc,chars) k ->
-                    match Hashtbl.find data.character_specs k with
-                    | Static (NexusFile {Nexus.File.st_alph = st_alph;})
-                        when is_present_absent st_alph ->
-                            apply_absent_encoding copy_branch copy_spec copy_char copy_names copy_codes k;
-                            IntMap.map
-                                (fun x -> List.filter (fun y -> not (y = k)) x)
-                                acc, k::chars
-                    | Static x ->
-                            acc, chars
-                    | (Dynamic _ | Set | Kolmogorov _) -> assert false)
-                ~init:(data.dynamic_static_codes,[])
-                (get_code_from_characters_restricted_comp `AllStatic data chars)
-        in
-        { data with character_specs      = copy_spec;
-                    taxon_characters     = copy_char;
-                    character_names      = copy_names;
-                    character_codes      = copy_codes;
-                    dynamic_static_codes = map;
-                    branches             = copy_branch;
-                    static_dynamic_codes = reverse_dynamic_static_codes map; },
-        chars
-    end else begin
-        data,[]
-    end
-
 
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
     the likelihood model specified in [lk] *)
@@ -4782,13 +4634,11 @@ let set_parsimony data chars =
                         | Nexus.File.STNCM (weight,otype) ->
                             let r =
                                 {x with Nexus.File.st_type = otype;
-                                        Nexus.File.st_weight = weight; } in
+                                        Nexus.File.st_weight = weight; }
+                            in
                             Hashtbl.replace new_specs code (Static (NexusFile r))
-                        | _ ->
-                            (** already parsimony characters *)
-                            ()
+                        | _ -> ()
                     end
-                (** already parsimony characters TODO ?? *)
                 | Static (FixedStates x) -> ()
                 | Dynamic x ->
                     Hashtbl.replace new_specs code
@@ -4811,79 +4661,71 @@ let set_parsimony data chars =
             categorize { data with character_specs = new_specs;
                                    search_information = parsimony_output_information}
 
+
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
 let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
     let u_gap = match use_gap with
         | `Independent | `Coupled _ -> true | `Missing -> false
+    and ap_alph alph =
+        try let () = ignore (Alphabet.match_base "present" alph) 
+            and () = ignore (Alphabet.match_base "absent"  alph) in
+            true
+        with _ -> false
+    and set_local_ncm data cs =
+        List.iter
+            (fun c -> match Hashtbl.find data.character_specs c with
+                | Dynamic _ | Kolmogorov _ | Set
+                | Static (FixedStates _)  -> assert false
+                | Static (NexusFile spec) ->
+                    let st_t = Nexus.File.STNCM (spec.Nexus.File.st_weight,
+                                                 spec.Nexus.File.st_type) in
+                    let r = NexusFile {spec with Nexus.File.st_type = st_t; } in
+                    Hashtbl.replace data.character_specs c (Static r))
+            cs;
+        data
     in
-    let transform_char_set data chars = match chars with
-        | [] -> data
-        | x::xs ->
+    let transform_char_set data (size,chars) =
+        let chars = get_chars_codes_comp data chars in
+        let alph_size,alph = verify_alphabet data chars alph in
+        assert( alph_size = size );
+        (** Convert the characters; we want to skip absent/present, but still
+            set their status, so we use NCM, which will filter them later *)
+        match chars with
+        | []                   -> data
+        | cs when ap_alph alph -> set_local_ncm data cs
+        | (x::xs) as chars     ->
             let dynamic = match Hashtbl.find data.character_specs x with
                 | Dynamic _ -> true
                 | _ -> false
             in
             (* We get the characters and filter them out to have only static types *)
-            let model =
-                let compute_priors () = compute_priors data chars u_gap in
-                let alph_size,alph = verify_alphabet data chars alph in
-                let lk_spec = MlModel.convert_methods_spec (alph,alph_size) compute_priors m_spec in
-                let lk_spec =
-                    if dynamic then MlModel.remove_gamma_from_spec lk_spec
-                               else lk_spec
-                in
-                MlModel.create lk_spec
+            let compute_priors () = compute_priors data chars u_gap in
+            let lk_spec = MlModel.convert_methods_spec (alph,alph_size) compute_priors m_spec in
+            let lk_spec =
+                if dynamic then MlModel.remove_gamma_from_spec lk_spec
+                           else lk_spec
             in
+            let model = MlModel.create lk_spec in
             apply_likelihood_model_on_chars data chars model
     in
-    let d,removed = remove_absent_present_encodings ~ignore_data:true data chars in
-    let d = categorize d in
-    let all_chars = categorize_characters_comp d chars in
-    let data = List.fold_left ~f:(transform_char_set) ~init:d all_chars in
-    { data with search_information = likelihood_output_information; }
-
+    let chars = categorize_characters_by_alphabet_size_comp data chars in
+    let data = List.fold_left ~f:(transform_char_set) ~init:data chars in
+    categorize data
 
 let get_tran_code_meth data meth = 
     let tran_code_ls, meth =
-        let a, b = 
-            match meth with
-            | `Seq_to_Chrom (a, b) ->
-                    a, `Seq_to_Chrom b
-            | `Custom_to_Breakinv (a, b) ->
-                    a, `Custom_to_Breakinv b
-            | `Annchrom_to_Breakinv (a, b) ->
-                    a, `Annchrom_to_Breakinv b
-            | `Change_Dyn_Pam (a, b) ->
-                    a, `Change_Dyn_Pam b
-            | `Chrom_to_Seq (a, b) ->
-                    a, `Chrom_to_Seq b
-            | `Breakinv_to_Custom (a, b) ->
-                    a, `Breakinv_to_Custom b
-            | `Seq_to_Kolmogorov (a, b) ->
-                    a, `Seq_to_Kolmogorov b
+        let a, b = match meth with
+            | `Seq_to_Chrom (a, b)       -> a, `Seq_to_Chrom b
+            | `Custom_to_Breakinv (a, b) -> a, `Custom_to_Breakinv b
+            | `Annchrom_to_Breakinv (a,b)-> a, `Annchrom_to_Breakinv b
+            | `Change_Dyn_Pam (a, b)     -> a, `Change_Dyn_Pam b
+            | `Chrom_to_Seq (a, b)       -> a, `Chrom_to_Seq b
+            | `Breakinv_to_Custom (a, b) -> a, `Breakinv_to_Custom b
+            | `Seq_to_Kolmogorov (a, b)  -> a, `Seq_to_Kolmogorov b
         in
-        let dont_complement, codes =
-            match a with
-            | `Some (dont_complement, codes) ->
-                    dont_complement, `Some codes
-            | `Range (dont_complement, file, x,y) ->
-                    dont_complement, transform_range_to_codes file x y
-            | `Names (dont_complement, names) ->
-                    dont_complement, `Names names
-            | `CharSet (dont_complement, names) ->
-                    dont_complement, `CharSet names
-            | `Random _ | `Missing _ | `All | `AllDynamic | `AllStatic as x -> true, x
-        in
-        let codes = get_code_from_characters_restricted `AllDynamic data codes in
-        let codes = 
-            if dont_complement then codes
-            else 
-                match complement_characters data (`Some codes) with
-                | `Some x -> x
-                | _ -> failwith "Impossible?"
-        in
-        codes, b
+        let a = get_code_from_characters_restricted_comp `AllDynamic data a in
+        a, b
     in
     tran_code_ls, meth
 
@@ -5026,24 +4868,25 @@ let process_ignore_characters_file report data file =
 
 let replace_name_in_spec name = function
     | Static e -> 
-            ( match e with 
-            | NexusFile nf -> Static (NexusFile { nf with Nexus.File.st_name =
-                name })
-            | FixedStates fs -> Static (FixedStates { fs with
-            original_dynspec = { fs.original_dynspec with filename = name }}) 
-            )
-    | Dynamic dspec -> Dynamic { dspec with filename = name }
+        begin match e with
+            | NexusFile nf ->
+                Static (NexusFile { nf with Nexus.File.st_name = name })
+            | FixedStates fs ->
+                Static (FixedStates { fs with original_dynspec = { fs.original_dynspec with filename = name }})
+        end
+    | Dynamic dspec ->
+        Dynamic { dspec with filename = name }
     | Kolmogorov d ->
-            Kolmogorov { d with dhs = { d.dhs with filename = name } }
-    | Set -> Set
-
+        Kolmogorov { d with dhs = { d.dhs with filename = name } }
+    | Set ->
+        Set
 
 let process_rename_characters data (a, b) = 
     let data = duplicate data in
     if Hashtbl.mem data.character_names b then
         raise Illegal_argument
     else begin
-        let code = character_code a data in
+        let code = Hashtbl.find data.character_names a in
         let spec = Hashtbl.find data.character_specs code in
         Hashtbl.replace data.character_names b code;
         Hashtbl.replace data.character_codes code b;
@@ -5122,6 +4965,7 @@ let get_sequences_of_code data code =
     in
     (Hashtbl.fold process_taxon 
     data.taxon_characters [])
+
 
 let auto_partition mode data code =
     let mode = match mode with
@@ -5486,15 +5330,8 @@ let assign_tcm_to_characters data chars foname tcm newalph =
 let assign_tcm_to_characters_from_file data chars file =
     if debug_level then Printf.printf "assign_tcm_to_characters_from_file begin\n%!";
     let default_km = `Keep_Random in
-    let lst = List.map (fun x -> 
-        if debug_level then Printf.printf "get alphabet/dynstate/tcm with code = %d\n%!" x;
-        let old_tcm,_ = get_tcm2d data x in
-        get_alphabet data x, get_dyn_state data x, old_tcm 
-    ) 
-    (get_code_from_characters_restricted_comp `Dynamic data chars) 
-    in
-    let new_data = List.fold_left ~f:(fun old_data (old_alphabet,old_state,old_tcm) ->
-        let orientation =  match old_state  with
+    let transform_characters old_data old_alphabet old_state old_tcm = 
+        let orientation =  match old_state with
             | `Breakinv -> true
             | _ -> false
         in
@@ -5503,8 +5340,7 @@ let assign_tcm_to_characters_from_file data chars file =
         let is_dna = if old_alphabet = Alphabet.dna then true else false in
         let is_dna_or_ami_or_nucleotides = (is_dna || is_aminoacids || is_nucleotides) in
         let oldlevel,ori_sz = Alphabet.get_level old_alphabet,  Alphabet.get_ori_size old_alphabet in
-        let newtcm_function,newalph = 
-            match file with
+        let newtcm_function,newalph = match file with
             | None ->
                 (fun x -> Cost_matrix.Two_D.default, Cost_matrix.Two_D.default, default_tcm), old_alphabet
             | Some (f,level_and_tie_breaker) ->
@@ -5518,50 +5354,50 @@ let assign_tcm_to_characters_from_file data chars file =
                 let level,tie_breaker,use_comb,change_alphabet =
                     match level_and_tie_breaker with
                     | None -> 
-                            (*when there is no new level and tiebreaker,tie breaker is set to
-                            * default -- do we want to keep the old tie breaker?*)
-                            if debug_level then Printf.printf "no new tie_breaker value\n%!";
-                            (*we do full combination for dna and nucleotides*)
-                            if is_dna||is_nucleotides then   0,default_km,true,false
-                            (*old level is > 1 and <= size, we keep the old level,
-                            * combination is keep to true*)
-                            else if (Alphabet.check_level old_alphabet) then
-                                oldlevel,default_km,true,false
-                            (*old level = 1, there is no combination*)
-                            else if oldlevel=1 then  oldlevel,default_km,false,false
-                            (*anything else*)
-                            else 0,`Keep_Random,false,false
+                        (*when there is no new level and tiebreaker,tie breaker is set to
+                        * default -- do we want to keep the old tie breaker?*)
+                        if debug_level then Printf.printf "no new tie_breaker value\n%!";
+                        (*we do full combination for dna and nucleotides*)
+                        if is_dna||is_nucleotides then   0,default_km,true,false
+                        (*old level is > 1 and <= size, we keep the old level,
+                        * combination is keep to true*)
+                        else if (Alphabet.check_level old_alphabet) then
+                            oldlevel,default_km,true,false
+                        (*old level = 1, there is no combination*)
+                        else if oldlevel=1 then  oldlevel,default_km,false,false
+                        (*anything else*)
+                        else 0,`Keep_Random,false,false
                     | Some (l,tb) ->
-                            (*when there is a new level value and tie breaker*)
-                            if debug_level then begin 
-                                Printf.printf "new level=%d,new tie_breaker=%!" l; 
-                                Methods.print_keep_method tb; 
-                            end;
-                            (*do full combination for dna and nucleotides *)
-                            if is_dna then 0,tb,true,false
-                            (*set level to 1 if input level <= 1, 
-                            * set level to original alphabet size if input level > ori_sz*)
-                            else if l<=1 then 1,tb,false,true
-                            else if l>ori_sz then ori_sz,tb,true,true
-                            (*finally if 1<level<=ori_sz, create the new cost matrix
-                            * if the combination by level won't blew off the memory*)
-                            else if (Alphabet.is_combination_by_level old_alphabet)||
-                                    (Alphabet.is_aminoacids old_alphabet) then
-                            begin
-                                let use_comb = Cost_matrix.Two_D.get_combination old_tcm in 
-                                let tmp =
-                                    Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                                    pure_sz l in
-                                if tmp <= 0 then begin
-                                    output_info ("The alphabet size based on the new level is"^
-                                     " too large. I will apply level value from the \
-                                     old cost marix we are using for this one.\n%!");
-                                    oldlevel, tb, use_comb, false 
-                                end
-                                else l,tb,true,true 
+                        (*when there is a new level value and tie breaker*)
+                        if debug_level then begin 
+                            Printf.printf "new level=%d,new tie_breaker=%!" l; 
+                            Methods.print_keep_method tb; 
+                        end;
+                        (*do full combination for dna and nucleotides *)
+                        if is_dna then 0,tb,true,false
+                        (*set level to 1 if input level <= 1, 
+                        * set level to original alphabet size if input level > ori_sz*)
+                        else if l<=1 then 1,tb,false,true
+                        else if l>ori_sz then ori_sz,tb,true,true
+                        (*finally if 1<level<=ori_sz, create the new cost matrix
+                        * if the combination by level won't blew off the memory*)
+                        else if (Alphabet.is_combination_by_level old_alphabet)||
+                                (Alphabet.is_aminoacids old_alphabet) then
+                        begin
+                            let use_comb = Cost_matrix.Two_D.get_combination old_tcm in 
+                            let tmp =
+                                Cost_matrix.Two_D.calc_number_of_combinations_by_level
+                                pure_sz l in
+                            if tmp <= 0 then begin
+                                output_info ("The alphabet size based on the new level is"^
+                                 " too large. I will apply level value from the \
+                                 old cost marix we are using for this one.\n%!");
+                                oldlevel, tb, use_comb, false 
                             end
-                            else
-                                oldlevel,tb,false,false
+                            else l,tb,true,true 
+                        end
+                        else
+                            oldlevel,tb,false,false
                 in
                 (*new create function [tcm x], x is all_elemetns*)
                 (fun x -> 
@@ -5590,8 +5426,16 @@ let assign_tcm_to_characters_from_file data chars file =
             Printf.printf "new alphabet is :%!"; 
             Alphabet.print newalph; 
         end;
-        assign_tcm_to_characters old_data chars None newtcm_function (Some newalph))
-        ~init:data lst in
+        assign_tcm_to_characters old_data chars None newtcm_function (Some newalph)
+    in
+    let new_data =
+        List.fold_left
+            ~f:(fun acc d ->
+                    transform_characters acc (get_alphabet acc d)
+                            (get_dyn_state acc d) (fst (get_tcm2d acc d)) )
+            ~init:data
+            (get_code_from_characters_restricted_comp `Dynamic data chars)
+    in
     if debug_level then Printf.printf "assign_tcm_to_characters_from_file done\n%!"; 
     new_data
 
@@ -5668,7 +5512,8 @@ let add_search_base_for_one_character_from_file data chars file character_name =
             (* Here is where, at the parser level, the fixed states support should be added *)
             let data, tcode = process_searchbase_code data taxon original_filename in
             if debug_search_base then Printf.printf "tcode=%d, %!" tcode;
-            if debug_search_base then Array.iter (fun x -> Sequence.printseqcode x) seq;
+            if debug_search_base then 
+                Array.iter (fun x -> Sequence.printseqcode x) seq;
             let tl = get_searchbase_characters data tcode in
             let dyna_state = `Seq and prealigned = false in
             let seqa = 
@@ -5702,8 +5547,8 @@ let add_search_base_for_one_character_from_file data chars file character_name =
     in
     let sbfile = FileStream.filename file in
     let files =
-        if List.exists (function (x, _) -> x = sbfile) data.files
-            then data.files
+            if List.exists (function (x, _) -> x = sbfile) data.files
+                then data.files
             else (sbfile, [Characters]) :: data.files
     in
     let chars =
@@ -5738,38 +5583,8 @@ let add_search_base_from_file data chars file_chname_lst =
         ~init:data file_chname_lst 
 
 
-let classify_characters_by_alphabet_size data chars =
-    let make_tuple_of_character_and_size acc char =
-        let size =
-            char --> get_alphabet data
-                 --> Alphabet.to_sequential
-                 --> Alphabet.distinct_size
-        in
-        (char, size) :: acc
-    in
-    let classify_by_size list =
-        let sets =
-            List.fold_left
-                ~f:(fun acc (code, size) ->
-                    if All_sets.IntegerMap.mem size acc then
-                        let prev = All_sets.IntegerMap.find size acc in
-                        All_sets.IntegerMap.add size (code :: prev) acc
-                    else
-                        All_sets.IntegerMap.add size [code] acc)
-                ~init:All_sets.IntegerMap.empty
-                list
-        in
-        All_sets.IntegerMap.fold
-            (fun a b acc -> (a, `Some (true, b)) :: acc) sets []
-    in
-    chars
-        --> get_chars_codes_comp data
-        --> List.fold_left ~f:make_tuple_of_character_and_size ~init:[]
-        --> classify_by_size
-
-
 let assign_transformation_gaps data chars transformation gaps =
-    let alphabet_sizes = classify_characters_by_alphabet_size data chars in
+    let alphabet_sizes = categorize_characters_by_alphabet_size_comp data chars in
     List.fold_left
         ~f:(fun data (size, chars) ->
             let tcm =
@@ -5810,13 +5625,13 @@ let assign_ncm_weights_to_chars data chars alph gap : d =
                                Nexus.File.st_type   = st_t; } in
             Hashtbl.replace nspec c (Static (NexusFile r))
     in
-    let a_cats = classify_characters_by_alphabet_size data chars in
+    let a_cats = categorize_characters_by_alphabet_size_comp data chars in
      Printf.printf "Transforming %d Sets of Characters from %s\n%!"
-                   (List.length a_cats) (string_of_characters chars);
+                   (List.length a_cats) (string_of_characters_comp chars);
     List.iter
         ~f:(fun (size,chars) ->
             let w = ncm_weight size in
-             Printf.printf "\t%s (%d) -- %f\n%!" (string_of_characters chars) size w;
+            Printf.printf "\t%s (%d) -- %f\n%!" (string_of_characters_comp chars) size w;
             List.iter
                 ~f:(fun x -> assign_weight_to_char w x)
                 (get_chars_codes_comp data chars))
@@ -5852,7 +5667,6 @@ let unassign_ncm_weights_to_chars data chars gap : d =
         (get_chars_codes_comp data chars);
     data
 
-
 let codes_with_same_tcm codes data =
     (* This function assumes that the codes have already been filtered by class *)
     let rec assign_matching acc ((code : int), tcm, tcm_original, alph, tcmfile) =
@@ -5885,21 +5699,18 @@ let assign_level data chars tie_breaker level =
         List.map (fun (a, cm_full, cm_ori, alph, tcmfile) ->
             (*we only apply change to level on custom alphabet and aminoacids.*)
             if (Alphabet.is_combination_by_level alph)||(Alphabet.is_aminoacids alph) then begin  
-                if debug_level then begin
-                Printf.printf "before assigning:%!"; Alphabet.print alph;
-                end;
+                if debug_level then
+                    Printf.printf "before assigning:%!"; Alphabet.print alph;
                 let name = make_level level tcmfile in
                 (*get new cost matrix based on new level*)
                 let rescm,resalph =
-                    let all_elements = Cost_matrix.Two_D.get_all_elements
-                    cm_full in
+                    let all_elements = Cost_matrix.Two_D.get_all_elements cm_full in
                     let oldlevel = Cost_matrix.Two_D.get_level cm_full in
                     let ori_sz = Cost_matrix.Two_D.get_ori_a_sz cm_full in
                     let pure_sz = if all_elements>0 then ori_sz-1 else ori_sz in
                     let combnum =
                         if level > 1 then
-                            Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                            pure_sz level 
+                            Cost_matrix.Two_D.calc_number_of_combinations_by_level pure_sz level 
                         else
                             ori_sz
                     in
@@ -5914,29 +5725,25 @@ let assign_level data chars tie_breaker level =
                             Printf.printf "create new cost matrix by level\n%!";
                         let cm_full = Cost_matrix.Two_D.create_cm_by_level cm_full level
                         oldlevel all_elements tie_breaker in
-                        cm_full,
-                        Alphabet.create_alph_by_level alph level oldlevel
+                        cm_full, Alphabet.create_alph_by_level alph level oldlevel
                     end;
-                  in
-                  if debug_level then begin
+                in
+                if debug_level then begin
                     Printf.printf "End of Data.assign_level,check new alph %!"; Alphabet.print resalph;
-                  end;
-                  (true, a),(fun _ -> rescm, cm_ori, name),resalph
-                  (*
-                  * (bool * 'a) * ('b -> Cost_matrix.Two_D.m * Cost_matrix.Two_D.m * tcm_definition) * Alphabet.a
-                  *)
-            end
-            else begin
-                    output_info ("we don't do combination by level on this \
+                end;
+                (true, a),(fun _ -> rescm, cm_ori, name),resalph
+            end else begin
+                output_info ("we don't do combination by level on this \
                     kind of alphabet, I will NOT apply any changes to this one.");
-                   (true,a),(fun _ -> cm_full, cm_ori, tcmfile),alph 
-            end
-        ) (codes_with_same_tcm codes data)
+                (true,a),(fun _ -> cm_full, cm_ori, tcmfile),alph 
+            end)
+        (codes_with_same_tcm codes data)
     in
     List.fold_left 
-        ~f:(fun acc (a, tcm, newalph) -> assign_tcm_to_characters acc (`Some a)
-        None tcm (Some newalph))
-        ~init:data codes
+        ~f:(fun acc (a, tcm, newalph) ->
+                assign_tcm_to_characters acc (`Some a) None tcm (Some newalph))
+        ~init:data
+        codes
 
 let rec make_affine cost_model tcmfile = match tcmfile with
     | Substitution_Indel (a, b) ->
@@ -6041,18 +5848,6 @@ let process_complex_terminals data filename =
         end
     else { data with complex_schema = [] }
 
-let get_character_state data c =
-    match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec -> dspec.state
-    | Kolmogorov dspec -> dspec.dhs.state
-    | _ -> failwith "Data.get_character_state"
-
-let get_pam data c =
-    match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec -> dspec.pam
-    | Kolmogorov dspec -> dspec.dhs.pam
-    | _ -> failwith "Data.get_pam"
-
 let report_taxon_file_cross_reference chars data filename =
     let files_arr, taxa = 
         match chars with
@@ -6100,8 +5895,9 @@ let report_taxon_file_cross_reference chars data filename =
                 let codes = List.sort Pervasives.compare codes in
                 let codes_arr = Array.of_list codes 
                 and chars_arr = 
-                    let name x = StatusCommon.escape (Hashtbl.find
-                    data.character_codes x) in
+                    let name x = 
+                        StatusCommon.escape (Hashtbl.find data.character_codes x)
+                    in
                     Array.of_list ("Terminal" :: List.map name codes)
                 in
                 let taxa = 
@@ -6421,7 +6217,7 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
     let alph = get_alphabet data code in
     let model = get_model_opt data code in
     let gap = Alphabet.get_gap alph in
-    let character_name = code_character code data in
+    let character_name = Hashtbl.find data.character_codes code in
     let tcm_case, do_states, do_encoding = 
         let cm = get_sequence_tcm code data in
         analyze_tcm cm model alph
@@ -6571,13 +6367,14 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
                     and name = code_taxon a data in
                     let seq = Array.of_list seq in
                     if Array.length seq <> Array.length enc then begin
+                        let name = Hashtbl.find data.character_codes code in
                         Status.user_message Status.Error
-                        ("The@ prealigned@ sequences@ in@ " ^
-                        code_character code data ^ "@ do@ not@ have@ \
-                        the@ same@ length.@ The@ taxon@ " ^ name ^ "@ \
-                        has@ a@ sequence@ of@ length@ " ^ string_of_int 
-                        (Array.length seq) ^ "@ while@ the@ expected@ \
-                        length@ is@ " ^ string_of_int (Array.length enc));
+                            ("The@ prealigned@ sequences@ in@ " ^ name ^
+                             "@ do@ not@ have@ the@ same@ length.@ The@ taxon@ "
+                            ^ name ^ "@ has@ a@ sequence@ of@ length@ " ^
+                             string_of_int (Array.length seq) ^ "@ while@ the"^
+                             "@ expected@ length@ is@ " ^
+                             string_of_int (Array.length enc));
                         failwith "Illegal prealigned molecular sequences."
                     end;
                     enc, (Some name) :: names, seq :: acc
@@ -6634,13 +6431,12 @@ type tcm_class =
 
 let prealigned_characters analyze_tcm data chars =
     let codes = get_chars_codes_comp data chars in
-    let names = List.map (fun x -> code_character x data) codes in
+    let names = List.map (fun x -> Hashtbl.find data.character_codes x) codes in
     let res = List.rev_map (process_prealigned analyze_tcm data) codes in
     let d =
         List.fold_left
             ~f:(fun acc (file,triple) ->
-                    let _,d = gen_add_static_parsed_file false acc file triple in
-                    d)
+                    snd (gen_add_static_parsed_file false acc file triple))
             ~init:data
             res
     in
@@ -6685,8 +6481,8 @@ let compare_all_pairs char1 char2 complement data =
 
 let compare_pairs ch1 ch2 complement data =
     let rec process_pair acc a b =
-        let namea = code_character a data
-        and nameb = code_character b data in
+        let namea = Hashtbl.find data.character_codes a
+        and nameb = Hashtbl.find data.character_codes b in
         match compare_all_pairs a b complement data with
         | None -> acc
         | Some (cnt, sum) ->
@@ -6694,9 +6490,11 @@ let compare_pairs ch1 ch2 complement data =
     in
     let codes1 = get_chars_codes_comp data ch1
     and codes2 = get_chars_codes_comp data ch2 in
-    List.fold_left ~f:(fun acc x ->
-        List.fold_left ~f:(fun acc y -> process_pair acc x y) ~init:acc codes1)
-    ~init:[] codes2
+    List.fold_left
+        ~f:(fun acc x ->
+            List.fold_left ~f:(fun acc y -> process_pair acc x y)
+                           ~init:acc codes1)
+        ~init:[] codes2
 
 module Sample = struct
     let characters_to_arr chars =
@@ -6798,17 +6596,6 @@ let apply_boolean nonadd_f add_f data char =
             )
     | _ -> true
 
-let get_model code data =
-    match Hashtbl.find data.character_specs code with
-    | Static y ->
-        (match y with 
-            | NexusFile x ->
-                (match x.Nexus.File.st_type with
-                    | Nexus.File.STLikelihood x -> x
-                    | _ -> failwith "Data.get_model")
-            | _ -> failwith "Data.get_model 3"
-        )
-    | _ -> failwith "Data.get_model 2"
 
 (* We define a function that adds the min possible cost to the tree *)
 let apply_on_static ordered unordered sankoff likelihood nocommonmechanism char data =
@@ -6838,6 +6625,9 @@ let apply_on_static ordered unordered sankoff likelihood nocommonmechanism char 
     let codes = get_chars_codes_comp data char in
     List.fold_left ~f:process_code ~init:[] codes
 
+(** General function to load information; we guess the file type, by usually
+    reading in the first few lines, then send the file to the correct function
+    to be loaded into the data storage. *)
 let guess_class_and_add_file annotated is_prealigned data filename =
     if file_exists data filename then
         let () =
@@ -6864,15 +6654,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
         let add_file contents = add_file data contents filename in
         let res = 
             match Parser.Files.test_file filename with
-            | Parser.Files.Is_Poy -> 
-                    failwith "TODO Is_poy"
-                    (*
-                    let data = add_file [] in
-                    file_type_message "POY";
-                    (match filename with
-                    | `Local filename
-                    | `Remote filename -> of_file data filename)
-                    *)
+            | Parser.Files.Is_Poy -> failwith "TODO Is_poy"
             | Parser.Files.Is_Clustal| Parser.Files.Is_TinySeq
             | Parser.Files.Is_Fasta| Parser.Files.Is_Genome| Parser.Files.Is_ASN1
             | Parser.Files.Is_Genbank| Parser.Files.Is_INSDSeq| Parser.Files.Is_GBSeq
@@ -6932,7 +6714,6 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     process_complex_terminals data filename
         in
         categorize (remove_taxa_to_ignore res)
-
 
 let report_kolmogorov_machine file data =
     let fo = Status.Output (file, false, []) in

@@ -199,8 +199,6 @@ type specified = [ `Specified | `Unknown ]
 
 type bool_characters = Methods.characters
 
-val string_of_characters : bool_characters -> string
-
 type characters = [
     | `All
     | `Some of int list 
@@ -212,6 +210,10 @@ type characters = [
     | `Missing of (bool * int)
     | `Range of (string * int * int)
 ]
+
+val string_of_characters : characters -> string
+
+val string_of_characters_comp : bool_characters -> string
 
 val transform_range_to_codes : string -> int -> int -> [> `Names of string list]
 
@@ -393,10 +395,6 @@ val code_taxon : int -> d -> string
 (** [taxon_code n d] finds the code assigned to taxon [n] in the dataset [d]. *)
 val taxon_code : string -> d -> int
 
-val character_code : string -> d -> int
-
-val code_character : int -> d -> string
-
 val get_tcm : int -> d -> tcm
 
 val get_weight : int -> d -> float
@@ -441,9 +439,9 @@ val get_set_of_character : d -> int -> string option
 
 val categorize : d -> d
 
-val categorize_likelihood_chars_by_model : bool_characters -> d -> int list list
+val categorize_likelihood_chars_by_model : d -> characters -> int list list
 
-val categorize_sets : d -> int list list
+val categorize_likelihood_chars_by_model_comp : d -> bool_characters -> int list list
 
 val categorize_characters : d -> characters -> int list list
 
@@ -466,6 +464,10 @@ val get_tcm3d : d -> int -> Cost_matrix.Three_D.m
 val get_tcmfile : d -> int -> tcm_definition
 
 val add_file : d -> contents list -> FileStream.f -> d
+
+val character_code : string -> d -> int
+
+val code_character : int -> d -> string
 
 val get_taxa : d -> string list
 
@@ -620,8 +622,6 @@ val sync_dynamic_to_static_model : src:d -> dest:d -> d
 
 val sync_static_to_dynamic_model : src:d -> dest:d -> d
 
-val remove_absent_present_encodings : ?ignore_data:bool -> d -> bool_characters -> d * int list
-
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 
 module Sample : sig
@@ -687,7 +687,7 @@ val apply_boolean :
 
 (** [get_model c d] returns the model of the ML character with code [c] in data
 * [d]. If the character is not of type ML, it will raise an exception. *)
-val get_model : int -> d -> MlModel.model
+val get_model : d -> int -> MlModel.model
 val get_model_opt : d -> int -> MlModel.model option
 
 (** [min_max_possible_cost a b c d e f] applies the functions [a], [b] and [c]

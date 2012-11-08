@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2769 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2789 $"
 
 open Numerical.FPInfix
 
@@ -1242,6 +1242,7 @@ let verify_rates probs rates =
 let create ?(min_prior=Numerical.minimum) lk_spec = 
   IFDEF USE_LIKELIHOOD THEN
     let (alph,a_size) = lk_spec.alphabet in
+    assert( a_size > 1 );
     (* set up all the probability and rates *)
     let variation,probabilities,invar =
         match lk_spec.site_variation with
