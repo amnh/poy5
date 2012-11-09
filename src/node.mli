@@ -242,14 +242,6 @@ val empty : [ `Likelihood | `SumLikelihood | `NotLikelihood ] -> node_data
  * for all the characters of the type [t], as listed below *)
 val total_cost_of_type : to_single -> node_data -> float
 
-val extra_cost_from_root : node_data -> float -> float
-
-val get_cost_mode : node_data -> [ `Likelihood | `SumLikelihood | `NotLikelihood ]
-
-(*val classify_data : bool -> node_data -> bool -> node_data -> int list option ->*)
-(*        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->*)
-(*            (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)*)
-
 val to_string : node_data -> string
 
 val print : node_data -> unit
@@ -257,4 +249,3 @@ val print : node_data -> unit
 val copy_chrom_map : node_data -> node_data -> node_data
 
 val median_counter : int ref
-

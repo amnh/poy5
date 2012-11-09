@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2747 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2797 $"
 
 let eager        = false
 let uppass_debug = false
@@ -403,7 +403,7 @@ module OneDirF :
         Node.Standard.root_cost (force_val a)
 
     let extra_cost_from_root a treecost =
-        Node.extra_cost_from_root (force_val a) treecost
+        Node.Standard.extra_cost_from_root (force_val a) treecost
 
     let tree_cost a b = 
         let debug = false in

@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2723 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2797 $"
 
 let compress = true
 
@@ -562,6 +562,7 @@ let extract_states a_node =
     done;
     !result
 
+(** Resolve the assignment at a node to the be expected value from the median *)
 let resolve ?(single=false) t =
     let comp,init = match t.model.MlModel.spec.MlModel.cost_fn with
         | `MPL -> max,(log 0.0)
@@ -592,22 +593,26 @@ let resolve ?(single=false) t =
     done;
     Sequence.of_array (Array.of_list (List.rev !result))
 
-
-let distance a_node b_node t1 t2 = (* codes don't matter here *)
+(** Return the distance (the mle score) in joining two nodes *)
+let distance a_node b_node t1 t2 =
     let t = median2 a_node b_node t1 t2 0 0 in t.mle
 
-(* insert a node between two *)
-(* (c, b) -> (c,(a),b)  *)
+(** Return the cost of inserting a node between two: (c, b) -> (a,(n,b))  *)
 let dist_2 n a b nt at bt xt= 
     let x = median2 a b at bt 0 0 in
     let tt = 0.5 in (* estimate time here *)
     let y = median2 x n tt nt 0 0 in
     y.mle
 
-let median_3 p x c1 c2  =  x
+(** Median_3 is not necessary in static characters *)
+let median_3 p x c1 c2 = x
+
 let reroot_median a b at bt = median2 a b at bt 0 0
+
+(** Median cost is the MLE score of the node *)
 let median_cost ta = ta.mle
 
+(** Process codes for striping out characters in the data-set *)
 and process_codes comp node_codes codes =
     let loopi_ i c = match (All_sets.Integers.exists (fun x -> x = c) codes) with
         | true  when comp -> Some i
@@ -623,18 +628,23 @@ and process_codes comp node_codes codes =
         --> Array.to_list --> List.filter loopOpt_ --> Array.of_list
         --> Array.map loopStrip_
 
+(** Filter out codes in the codes data-set *)
 let f_codes_comp t codes =
     let opt_idx = process_codes true t.codes codes in
     { t with chars = filter t.chars opt_idx;
              codes = process_codes false t.codes codes; }
 
+(** Filter out codes NOT in the codes data-set *)
 let f_codes t codes =
     let opt_idx = process_codes false t.codes codes in
     { t with chars = filter t.chars opt_idx;
              codes = process_codes true t.codes codes; }
 
+(** Compare to characters data *)
 let compare_data a b = compare_chars a.chars b.chars
 
+(** Compare the model of two characters; to determine if a median between them
+    can be done; for consistency purposes *)
 let compare a b = MlModel.compare a.model b.model
 
 (* Does the tree in yang for testing; for decimal approximation. *)
@@ -659,7 +669,6 @@ let yang () =
     let root= median2 tca cc 0.1 0.1 0 0 in
     Printf.printf "YANG TREE COST: %f\n" (root_cost root)
 
-
 ELSE
 
 let likelihood_error = 
@@ -670,4 +679,46 @@ let minimum_bl () = failwith likelihood_error
 type t = unit
 
 END
+
+(** Return the NCM priors for the codes specified; here we assume the data has
+    integrity, and that any subset of codes be sent here to obtain a prior cost.
+    This is for ease of use; we don't categorize characters in node, since we
+    need a cost for that function anyways. *)
+let ncm_priors data codes =
+    (* very analogous to the Data.assign_ncm_weight *)
+    let rec get_prior_of_spec w spec t = match t with
+        | Nexus.File.STNCM (x,t) -> get_prior_of_spec (x*.w) spec t
+        | Nexus.File.STOrdered   ->
+            let st_w = match spec.Nexus.File.st_observed with
+                | [lo;hi] -> ncm_prior (hi - lo)
+                | _       -> 0.0
+            in
+            w *. st_w
+        | Nexus.File.STLikelihood _ -> 0.0
+        | Nexus.File.STSankoff _
+        | Nexus.File.STUnordered ->
+            w *. (ncm_prior (List.length spec.Nexus.File.st_observed))
+    (* each character should start out as NCM *)
+    and is_ncm t = match t.Nexus.File.st_type with
+        | Nexus.File.STNCM _ -> true
+        | _ -> false
+    (* the prior is, log (1 - 1/s)) *)
+    and ncm_prior s = log ((float_of_int (s-1)) /. (float_of_int s)) in
+    (* calculate the overall-cost for static characters from codes *)
+    let codes = match codes with
+        | Some x -> x
+        | None   -> Data.get_chars_codes data `All
+    in
+    List.fold_left
+        (fun acc code ->
+            let a_cost = match Hashtbl.find data.Data.character_specs code with
+                | Data.Static (Data.NexusFile spec) when is_ncm spec ->
+                    get_prior_of_spec 1.0 spec spec.Nexus.File.st_type
+                | Data.Dynamic _ | Data.Kolmogorov _ | Data.Set
+                | Data.Static (Data.FixedStates _)
+                | Data.Static (Data.NexusFile _) -> 0.0
+            in
+            a_cost +. acc)
+        0.0
+        codes
 

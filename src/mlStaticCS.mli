@@ -17,9 +17,16 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-type t  
+type t
 
+(** [compress] if we should compress the columns of static likelihood data *)
 val compress : bool
+
+(** [minimum_bl ] return the minimum branch length allowed for edges *)
+val minimum_bl : unit -> float
+
+(** Calculate the priors of NCM; added to the over-all cost of a tree. *)
+val ncm_priors : Data.d -> int list option -> float
 
 IFDEF USE_LIKELIHOOD THEN
 type s  (* abstract type: contains matrix of character codes *)
@@ -27,9 +34,6 @@ type s  (* abstract type: contains matrix of character codes *)
 (** [estimate_time a b ] -> time
 * estimates the time between two nodes using proporation (above) *)
 val estimate_time : t -> t -> float * float
-
-(** [minimum_bl ] return the minimum branch length allowed for edges *)
-val minimum_bl : unit -> float
 
 (** [gc_alloc_max] -> how many nodes to alloc before a GC is triggered *)
 external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
@@ -168,6 +172,7 @@ val yang : unit -> unit
 ELSE
 
 val likelihood_error : string
-val minimum_bl : unit -> float
 
 END
+
+
