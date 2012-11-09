@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2797 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2799 $"
 
 let compress = true
 
@@ -703,11 +703,15 @@ let ncm_priors data codes =
         | Nexus.File.STNCM _ -> true
         | _ -> false
     (* the prior is, log (1 - 1/s)) *)
-    and ncm_prior s = log ((float_of_int (s-1)) /. (float_of_int s)) in
+    and ncm_prior s =
+        ~-. (log ((float_of_int (s-1)) /. (float_of_int s)))
+    in
     (* calculate the overall-cost for static characters from codes *)
     let codes = match codes with
         | Some x -> x
-        | None   -> Data.get_chars_codes data `All
+        | None   -> 
+            let codes = (`Some (false,data.Data.non_additive_1)) in
+            Data.get_chars_codes_comp data codes
     in
     List.fold_left
         (fun acc code ->
@@ -718,7 +722,7 @@ let ncm_priors data codes =
                 | Data.Static (Data.FixedStates _)
                 | Data.Static (Data.NexusFile _) -> 0.0
             in
-            a_cost +. acc)
+            acc +. a_cost)
         0.0
         codes
 
