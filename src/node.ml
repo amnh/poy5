@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2790 $"
+let () = SadmanOutput.register "Node" "$Revision: 2797 $"
 
 let infinity = float_of_int max_int
 
@@ -1641,16 +1641,6 @@ let get_code {taxon_code=taxcode} = taxcode
 let prior c n = 
 IFDEF USE_LIKELIHOOD THEN
     let priors = 
-(*        match c with*)
-(*        | None ->*)
-(*            (fun acc -> function*)
-(*                | Dynamic a ->*)
-(*                    begin match a.preliminary with*)
-(*                    | DynamicCS.MlCS x -> MlDynamicCS.prior x*)
-(*                    | _                -> acc*)
-(*                    end*)
-(*                | _ -> acc)*)
-(*        | Some c ->*)
             (fun acc -> function
                 | Dynamic a when DynamicCS.mem c a.final ->
                     begin match a.preliminary with
@@ -2550,7 +2540,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
         in
         current_snapshot "Done";
         !data,
-        fun tcode acc ->
+        (fun tcode acc ->
             current_snapshot "Generating taxon";
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
             let chfilenames = !data.Data.character_codes in
@@ -2763,7 +2753,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                 List.fold_left single_ml_group result lstaticmlcode
             in
             let () = current_snapshot "Finished taxon" in
-            result :: acc
+            result :: acc)
 
 let node_contents_compare a b = match a, b with
     | Nonadd8 _ , Nonadd8 _
@@ -4491,49 +4481,48 @@ END
             end
 
     let compare a b = compare a.charactersu b.charactersu
-end 
-(* Given a map of characters, their codes and a node, create a new node that
-* removes the set of characters and adds the characters stored in the map
-* for it *)
-let build_node static_characters chars node = 
-    let new_char = 
-        All_sets.IntegerMap.find node.taxon_code static_characters 
+end
+
+
+(** Given a map of characters, their codes and a node, create a new node that
+    removes the set of characters and adds the characters stored in the map *)
+let build_node static_characters chars node =
+    let new_char =
+        All_sets.IntegerMap.find node.taxon_code static_characters
     in
     let new_node = f_codes_comp chars node in
-    { new_node with characters = (Nonadd8 new_char) ::
-        new_node.characters }
+    { new_node with
+        characters = (Nonadd8 new_char) :: new_node.characters; }
+
 
 let support_chars starting _ n = 
-            let filter_map fn lst =
-                let lst = List.map fn lst in
-                let lst = List.filter (function Some _ -> true | _ -> false) lst in
-                let lst = List.map (function Some a -> a | _ -> assert false) lst in
-                lst in
-            let char_list =
-                let extract n =
-                    match n with
-                    | Nonadd8 r ->
-                          let code = List.hd (NonaddCS8.codes r.final) in
-                          if code >= starting
-                          then Some r
-                          else None
-                    | _ -> None
-                in
-                filter_map extract n.characters
-            in
-            List.map
-                (fun char ->
-                     (* clade not present iff cost > 1 *)
-                     char.sum_cost,
-                     List.hd (NonaddCS8.codes char.final) - starting)
-                char_list
+    let filter_map fn lst =
+        lst --> List.map fn
+            --> List.filter (function Some _ -> true | _ -> false)
+            --> List.map (function Some a -> a | _ -> assert false)
+    in
+    let char_list =
+        let extract n = match n with
+            | Nonadd8 r ->
+                let code = List.hd (NonaddCS8.codes r.final) in
+                if code >= starting then Some r else None
+            | _ -> None
+        in
+        filter_map extract n.characters
+    in
+    List.map
+        (fun char ->
+             (* clade not present iff cost > 1 *)
+             char.sum_cost,
+             List.hd (NonaddCS8.codes char.final) - starting)
+        char_list
+
 
 let get_dynamic_preliminary data =
     let data = data.characters in
     let data =
         List.filter (function Dynamic _ | Kolmo _ -> true | _ -> false) data
     in
-
     List.map 
         (function 
             | Dynamic d -> d.preliminary 
@@ -4541,34 +4530,35 @@ let get_dynamic_preliminary data =
             | _ -> failwith "Impossible")
         data
 
+
 let new_characters character_code acc taxa =
     let max_code = ref 0 in
-    (* A function that takes a sequence code and a sequence and 
-    * it to the current set of elements for a character creation *)
+    (* A function that takes a sequence code and a sequence and
+       it to the current set of elements for a character creation *)
     let add_sequence_to_character_set _ sequence (cur_code, acc) =
         let add_base (counter, acc) item =
             max_code := counter;
-            (counter + 1, ((counter, (counter, item), 0.0) :: acc)) 
+            (counter + 1, ((counter, (counter, item), 0.0) :: acc))
         in
         Array.fold_left add_base (cur_code, acc) sequence
     in
     (* A function that will handle a taxon and a list of sets of sequences *)
     let build_taxon current_code acc (taxcode, sequences) =
-        let handle acc sequence = 
+        let handle acc sequence =
             All_sets.IntegerMap.fold add_sequence_to_character_set sequence acc
         in
         let _, lst = List.fold_left handle (current_code, []) sequences in
         let chars = NonaddCS8.of_list lst in
-        let chars = 
-            { preliminary = chars; final = chars; cost = 0.0;
-              sum_cost = 0.0;
-            weight = 1.0 ; time = None,None,None }
+        let chars =
+            { preliminary = chars; final = chars; cost = 0.0; sum_cost = 0.0;
+              weight = 1.0 ; time = None,None,None; }
         in
         All_sets.IntegerMap.add taxcode chars acc
     in
     (* Add each taxon to a map where each taxon is assigned a nonadditive
-    * character set *)
+       character set *)
     List.fold_left (build_taxon character_code) acc taxa
+
 
 let for_support starting leaves leaves_id nodes =
     let cost_mode = 
@@ -4649,26 +4639,24 @@ let extra_cost_from_root n treecost =
         * [get_extra_cost_for_root] might return some cost. *)
         0.
     else 
-        let acc_cost_cs acc item =
-             match item with 
+        let acc_cost_cs acc item = match item with 
             | Sank x -> 
-                    let ec = SankCS.get_extra_cost_for_root x.preliminary in
-                    if debug2 then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
-                    acc +. ((float_of_int ec) *. x.weight)
+                let ec = SankCS.get_extra_cost_for_root x.preliminary in
+                if debug2 then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
+                acc +. ((float_of_int ec) *. x.weight)
             | Dynamic x ->
-                    let disc = DynamicCS.extra_cost_for_root x.preliminary  in
-                    if debug2 then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
-                    acc +. (disc *. x.weight)
-            | _ -> 0.0
+                let disc = DynamicCS.extra_cost_for_root x.preliminary  in
+                if debug2 then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
+                acc +. (disc *. x.weight)
+            | _ ->
+                0.0
         in
         let cost = List.fold_left acc_cost_cs 0.0 n.characters in
         if debug then Printf.printf "return extra cost for root:%f\n%!" cost;
-        (*I know for dynamic character we can just return distance cost as new cost for root, 
+        (*I know for dynamic character we can just return distance cost as new cost for root,
         * there is no need to get cost difference between align cost and distance cost. but for
         * sankoff charactor type, there is no algned children. *)
         cost
-    
-
 
 
 module Standard : 
@@ -4732,103 +4720,101 @@ module Standard :
         let extra_cost_from_root = extra_cost_from_root
         let tree_cost a b =
 		let tc = (root_cost b) +. (total_cost a b) in
-		let ec = (extra_cost_from_root b tc) in
-		tc -. ec
+		let ec = (extra_cost_from_root b tc) in tc -. ec
         let to_single root _ a _ b sets =
             let combine = match root with
                 | Some _ -> true
                 | None   -> false
             in
             to_single sets combine root a b
-        let get_nonadd_8 _ = get_nonadd_8 
-        let get_nonadd_16 _ = get_nonadd_16 
-        let get_nonadd_32 _ = get_nonadd_32 
+        let get_nonadd_8 _ = get_nonadd_8
+        let get_nonadd_16 _ = get_nonadd_16
+        let get_nonadd_32 _ = get_nonadd_32
         let get_addgen _ = get_addgen
         let get_addvec _ = get_addvec
         let get_sank _ = get_sank
         let get_dynamic _ = get_dynamic
         let get_fixedstates _ = get_fixedstates
         let get_mlstatic _ = get_mlstatic
-        let compare a b = 
-            let rec aux_cmt a b =
-                match a, b with
+        let compare a b =
+            let rec aux_cmt a b = match a, b with
                 | (Nonadd8 ha) :: ta, (Nonadd8 hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x
                 | (Nonadd8 ha) :: ta, _ -> -1
                 | (Nonadd16 ha) :: ta, (Nonadd16 hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x
                 | (Nonadd16 ha) :: ta, _ -> -1
                 | (Nonadd32 ha) :: ta, (Nonadd32 hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x
                 | (Nonadd32 ha) :: ta, _ -> -1
                 | (AddGen ha) :: ta, (AddGen hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x
                 | (AddGen ha) :: ta, _ -> -1
                 | (AddVec ha) :: ta, (AddVec hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x
                 | (AddVec ha) :: ta, _ -> -1
                 | (Sank ha) :: ta, (Sank hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = SankCS.compare_data ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = SankCS.compare_data ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x
                 | (Sank ha) :: ta, _ -> -1
                 | (FixedStates ha) :: ta, (FixedStates hb) :: tb ->
-                            let cmp = Fixed_states.compare_data ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
+                    let cmp = Fixed_states.compare_data ha.preliminary hb.preliminary in
+                    if cmp = 0 then
+                        aux_cmt ta tb
+                    else cmp
                 | (FixedStates ha) :: ta, _ -> -1
                 | (Dynamic ha) :: ta, (Dynamic hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x
                 | (Dynamic ha) :: ta, _ -> -1
                 | (Kolmo ha) :: ta, (Kolmo hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x
                 | (Kolmo ha) :: ta, _ -> -1
                 | (StaticMl ha) :: ta, (StaticMl hb) :: tb ->
                     IFDEF USE_LIKELIHOOD THEN
@@ -4836,7 +4822,7 @@ module Standard :
                         if x = 0 then
                             (* specialized compare --only compares general model *)
                             let cmp = MlStaticCS.compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
+                            if cmp = 0 then
                                 aux_cmt ta tb
                             else cmp
                         else x
@@ -4845,13 +4831,13 @@ module Standard :
                     END
                 | (StaticMl ha) :: ta, _ -> -1
                 | (Set ha) :: ta, (Set hb) :: tb ->
-                        let x = compare ha.weight hb.weight in
-                        if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then 
-                                aux_cmt ta tb
-                            else cmp
-                        else x 
+                    let x = compare ha.weight hb.weight in
+                    if x = 0 then
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then
+                            aux_cmt ta tb
+                        else cmp
+                    else x 
                 | (Set ha) :: ta, _ -> 1
                 | [], [] -> 0
                 | [], _ -> -1

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2792 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2797 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -357,7 +357,7 @@ module F : Ptree.Tree_Operations
                 (tree.Ptree.node_data)
                 (infinity)
         else
-           0.0
+            MlStaticCS.ncm_priors tree.Ptree.data chars
 
 
     let total_cost ptree adj chars = Ptree.get_cost `Adjusted ptree
