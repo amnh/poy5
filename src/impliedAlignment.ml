@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2788 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2791 $"
 
 exception NotASequence of int
 
@@ -2297,7 +2297,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                     let funs =
                                         if All_sets.IntegerMap.mem c funs then funs
                                         else begin
-                                            let tcm = Data.get_sequence_tcm c data in
+                                            let tcm,_ = Data.get_tcm2d data c in
                                             let mc, f, g = analyze_tcm tcm model alph in
                                             All_sets.IntegerMap.add c (mc, f, g) funs
                                         end 
@@ -2316,86 +2316,75 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     let (clas: matrix_class), 
                         (res: FileContents.t list), 
                         (encf:(Alphabet.a * Parser.OldHennig.Encoding.s) list)  = 
-
                         List.fold_left 
                         (fun (_, acc, acc2) (code, (is_missing, s)) -> 
                             let clas, to_parser, to_encoding = 
                                 All_sets.IntegerMap.find code transform_functions 
                             in
-                            let is_missing = 
-                                match is_missing with 
+                            let is_missing = match is_missing with 
                                 | `Exists -> 
-                                        let () =
-                                            match s with
-                                            | `DO _ -> ()
-                                            | `First _ | `Last _ as x ->
-                                                    let rec fix_one next pos x =
-                                                        if 0 > pos ||
-                                                        (Array.length x) <= pos then
-                                                            ()
-                                                        else if x.(pos) = 0 then
-                                                            begin
-                                                                (* WARNING: This
-                                                                * only work for
-                                                                * DNA sequences,
-                                                                * 15 is all
-                                                                * minus gap
-                                                                * *)
-                                                                x.(pos) <- 31;
-                                                                fix_one next
-                                                                 (next pos) x
-                                                        end else ()
-                                                    in
-                                                    match x with
-                                                    | `First x ->
-                                                            fix_one succ 0 x
-                                                    | `Last x ->
-                                                            fix_one pred
-                                                            ((Array.length x) - 1) x
-                                        in
-                                        `Exists
-                                | `Missing -> begin
-                                      let state = Data.get_character_state data code in 
-                                      match state with 
-                                      | `Chromosome | `Annotated ->
-                                              let s = 
-                                                  match s with
-                                                  | `DO s | `First s 
-                                                  | `Last s -> s
-                                              in
-                                            let seq_len = Array.length s in 
-                                            let seq_op, seq_ex = 
-                                                match clas with
-                                                | `AllOne gapc -> 0, gapc
-                                                | `AllOneGapSame (_, gapc) ->  0, gapc
-                                                | `AffinePartition (_, ex, op) -> op, ex
-                                                | `AllSankoff _ -> 
-                                                        (* This is an error, but
-                                                        * I am confused with the
-                                                        * handling of seq_ex
-                                                        * below. Somehow it
-                                                        * assumes that
-                                                        * ex = seq_ex? And if
-                                                        * sankoff is used this
-                                                        * should raise an error
-                                                        * ... *)
-                                                        0, 0
-                                            in 
-                                            let pam = Data.get_pam data code in 
-                                            let op, ex = 
-                                                match pam.Data.locus_indel_cost with
-                                                | Some (op, ex) -> op, ex 
-                                                | None -> ChromPam.locus_indel_cost_default 
+                                    let () = match s with
+                                        | `DO _ -> ()
+                                        | `First _ | `Last _ as x ->
+                                            let rec fix_one next pos x =
+                                                if 0 > pos || (Array.length x) <= pos then
+                                                    ()
+                                                else if x.(pos) = 0 then
+                                                    begin
+                                                        (* WARNING: This
+                                                        * only work for
+                                                        * DNA sequences,
+                                                        * 15 is all
+                                                        * minus gap
+                                                        * *)
+                                                        x.(pos) <- 31;
+                                                        fix_one next (next pos) x
+                                                end else ()
                                             in
-                                            let locus_indel_cost = op + ex * seq_len / 100 in 
-                                            let num_gaps = (locus_indel_cost - seq_op)/seq_ex in
-                                            let alph = Data.get_alphabet data code in 
-                                            let all = Utl.deref (Alphabet.get_all alph) in 
-                                            for p = 0 to seq_len - num_gaps - 1 do
-                                                s.(p) <- all;
-                                            done;
-                                            `Exists
-                                      | _ -> `Missing
+                                            match x with
+                                            | `First x -> fix_one succ 0 x
+                                            | `Last x  -> fix_one pred ((Array.length x) - 1) x
+                                    in
+                                    `Exists
+                                | `Missing -> begin
+                                    let state = Data.get_dyn_state data code in 
+                                    match state with 
+                                    | `Chromosome | `Annotated ->
+                                        let s = match s with
+                                              | `DO s | `First s 
+                                              | `Last s -> s
+                                        in
+                                        let seq_len = Array.length s in
+                                        let seq_op, seq_ex = match clas with
+                                            | `AllOne gapc -> 0, gapc
+                                            | `AllOneGapSame (_, gapc) ->  0, gapc
+                                            | `AffinePartition (_, ex, op) -> op, ex
+                                            | `AllSankoff _ -> 
+                                                    (* This is an error, but
+                                                    * I am confused with the
+                                                    * handling of seq_ex
+                                                    * below. Somehow it
+                                                    * assumes that
+                                                    * ex = seq_ex? And if
+                                                    * sankoff is used this
+                                                    * should raise an error
+                                                    * ... *)
+                                                    0, 0
+                                        in 
+                                        let pam = Data.get_pam data code in 
+                                        let op, ex = match pam.Data.locus_indel_cost with
+                                            | Some (op, ex) -> op, ex 
+                                            | None -> ChromPam.locus_indel_cost_default 
+                                        in
+                                        let locus_indel_cost = op + ex * seq_len / 100 in 
+                                        let num_gaps = (locus_indel_cost - seq_op)/seq_ex in
+                                        let alph = Data.get_alphabet data code in 
+                                        let all = Utl.deref (Alphabet.get_all alph) in 
+                                        for p = 0 to seq_len - num_gaps - 1 do
+                                            s.(p) <- all;
+                                        done;
+                                        `Exists
+                                    | _ -> `Missing
                                   end 
                             in
                             let s = 
@@ -2608,7 +2597,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     (fun x ->
                          let alph = Data.get_alphabet data x in
                          let gap = Alphabet.get_gap alph in
-                         let tcm = Data.get_sequence_tcm x data in
+                         let tcm,_ = Data.get_tcm2d data x in
                          let kind =
                              match Hashtbl.find data.Data.character_specs x with
                              | Data.Dynamic x ->

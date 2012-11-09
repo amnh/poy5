@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2789 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2791 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -675,8 +675,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         let process_partitions data (sequences, character) =
             let name = Data.code_character character data in
-            let tcm = Data.get_sequence_tcm character data in
-            let tcm_original = Data.get_sequence_tcm_original character data in
+            let tcm,tcm_original = Data.get_tcm2d data character in
             let treed = Data.get_tcm3d data character 
             and tcmfile = Data.get_tcmfile data character in
             let alph = Data.get_alphabet data character in

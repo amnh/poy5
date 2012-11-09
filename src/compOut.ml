@@ -320,7 +320,7 @@ let output_poy_nexus_block (fo : string -> unit) data labeling code_char_pairs :
             if pos < len then Buffer.add_string level ","
             else Buffer.add_string level ";@]@,";
         and add_dynpam fo code data posstr : unit =
-            match Data.get_character_state data code with
+            match Data.get_dyn_state data code with
             | `Chromosome | `Genome -> 
                 use_pam := true;
                 use_assump := true;
