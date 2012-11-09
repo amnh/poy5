@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2784 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2798 $"
 
 
 exception Illegal_Cm_Format;;
@@ -471,15 +471,17 @@ module Two_D = struct
     let gap_filter_for_combcode combcode cm =
         let level = get_level cm and ori_a_sz = get_ori_a_sz cm 
         and total_num = get_map_sz cm in
-        assert(level>1);
-        let num_comb_with_gap = calc_num_of_comb_with_gap ori_a_sz level in
-        if ( (total_num-combcode)< num_comb_with_gap ) then
-            let combcodelst = combcode_to_comblist combcode cm in
-            let gapcode = gap cm in
-            let combcodelst_withoutgap = 
-            List.filter (fun x -> x<> gapcode) combcodelst in
-            comblist_to_combcode combcodelst_withoutgap cm
-            (*combcode - num_comb_without_gap this is wrong*)
+        if (level>1) then
+            let num_comb_with_gap = calc_num_of_comb_with_gap ori_a_sz level in
+            if ( (total_num-combcode)< num_comb_with_gap ) then
+                let combcodelst = combcode_to_comblist combcode cm in
+                let gapcode = gap cm in
+                let combcodelst_withoutgap = 
+                List.filter (fun x -> x<> gapcode) combcodelst in
+                comblist_to_combcode combcodelst_withoutgap cm
+                (*combcode - num_comb_without_gap this is wrong*)
+            else
+                combcode
         else
             combcode
 

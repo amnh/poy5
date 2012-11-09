@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block_mauve" "$Revision: 2794 $"
+let () = SadmanOutput.register "Block_mauve" "$Revision: 2798 $"
 (* A.D. = Aaron E. Darling*)
 (* W = weight, R = ratio *)
 
@@ -1674,11 +1674,7 @@ pos2seed_tbl_right seed2pos_tbl mum_tbl;
     let j_mum = get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
     let sign_newmum = update_mum_to_mumtbl None {j_mum with subsuming_pointer = i_seedNO } mum_tbl false in
     assert(sign_newmum);
-    if debug then begin
-        Printf.printf "after chain: \n%!"; (*don't print mumi: it might be removed already*)
-        let j_mum = get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
-        print_mum false true j_mum;
-    end
+    if debug then Printf.printf "make a chain end \n%!"
 (* chainable_lst *)
 
 

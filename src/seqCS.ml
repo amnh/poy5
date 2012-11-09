@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2793 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2798 $"
 
 let debug = false
 let debug_distance = false
@@ -899,7 +899,7 @@ END  (*end of distance function under module DOS*)
         and empty2 = Sequence.is_empty ch2.sequence gap 
         and emptypar = Sequence.is_empty parent.sequence gap in
         if debug then begin
-            Printf.printf "DOS.readjust_custom_alphabet start,ch1,ch2 and par=\n%!";
+            Printf.printf "DOS.readjust_custom_alphabet start,is_custom=%b,ch1,ch2 and par=\n%!" is_custom;
             Sequence.printseqcode ch1.sequence;
             Sequence.printseqcode ch2.sequence;
             Sequence.printseqcode parent.sequence;
