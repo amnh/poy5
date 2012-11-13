@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2797 $"
+let () = SadmanOutput.register "Node" "$Revision: 2804 $"
 
 let infinity = float_of_int max_int
 
@@ -4719,8 +4719,9 @@ module Standard :
         let root_cost = root_cost
         let extra_cost_from_root = extra_cost_from_root
         let tree_cost a b =
-		let tc = (root_cost b) +. (total_cost a b) in
-		let ec = (extra_cost_from_root b tc) in tc -. ec
+		    let tc = (root_cost b) +. (total_cost a b) in
+		    let ec = (extra_cost_from_root b tc) in 
+            tc -. ec
         let to_single root _ a _ b sets =
             let combine = match root with
                 | Some _ -> true

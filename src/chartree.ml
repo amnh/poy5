@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 2797 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 2804 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -220,8 +220,6 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          let root_prelim = Node.Standard.median None None mydata otherdata in
                          virt_root := Some (`Edge (selfid, otherid), root_prelim);
                          let tree_cost = Node.Standard.tree_cost None root_prelim in
-                         let extra_cost = Node.Standard.extra_cost_from_root root_prelim
-                         tree_cost in
                          if debug_uppass_which_handle then odebug "uppass: handle is leaf";
                          if debug_diagnosis then
                              info_user_message "Final States Leaf: %d, %d" selfid otherid;
@@ -231,7 +229,7 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          let ptree = Ptree.add_node_data selfid mydata ptree in
                          let ptree = 
                              Ptree.assign_root_to_connected_component 
-                                        self_id !virt_root (tree_cost -. extra_cost) None ptree
+                                        self_id !virt_root tree_cost None ptree
                          in
                          (Tree.Continue, ptree)
                      end

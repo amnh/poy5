@@ -22,6 +22,7 @@ open Command
 
 (* Configuration section *)
 let static = true
+let debug_cside = false
 let concordelib= "@CONCORDE_LIB@"
 let cc = "@CC@"
 let cflags = "-Wall @CFLAGS@"
@@ -67,7 +68,10 @@ let process_flags ocaml_option cflags =
 
 let ccompileflags =
     let flags = process_flags "-ccopt" cflags in  
-    A"-cc" ::  A cc :: flags 
+    if debug_cside then
+        A"-runtime-variant" :: A"d" :: A"-cc" ::  A cc :: flags
+    else
+        A"-cc" ::  A cc :: flags 
 
 
 and clinkflags = 
