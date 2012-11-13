@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2804 $"
+let () = SadmanOutput.register "Node" "$Revision: 2806 $"
 
 let infinity = float_of_int max_int
 
@@ -2150,31 +2150,28 @@ let extract_fixedstates data fs tcode = (*tcode = taxon code*)
                         failwith("we have cs=dyna instead of fs")
     | _ -> raise (Illegal_argument "extract fixedstates")
 
-let extract_dynamic data dyna tcode = 
-    match dyna with 
-    | (Data.Dyna (dyna_code, chrom_data), _) -> 
-          let specs = Hashtbl.find data.Data.character_specs dyna_code in  
-          let specs, weight =
-              match specs with 
+let extract_dynamic data dyna tcode = match dyna with
+    | (Data.Dyna (dyna_code, chrom_data), _) ->
+          let specs = Hashtbl.find data.Data.character_specs dyna_code in
+          let specs, weight = match specs with
               | Data.Dynamic d -> d, d.Data.weight
               | _ -> failwith "extract dynamic"
-          in 
-          let dyna =  
-              let num_taxa = Data.number_of_taxa data in
-              DynamicCS.of_array specs [|(chrom_data, dyna_code)|] 
-              dyna_code tcode num_taxa 
-          in 
-          { preliminary = dyna; 
-            final = dyna; 
-            cost = 0.; 
+          in
+          let dyna =
+              DynamicCS.of_array specs [|(chrom_data, dyna_code)|]
+                                 dyna_code tcode (Data.number_of_taxa data)
+          in
+          { preliminary = dyna;
+            final = dyna;
+            cost = 0.;
             weight = weight;
             sum_cost = 0.;
             time = None,None,None;
-          } 
+          }
     | Data.Stat (code, _), _ ->
-          raise (Illegal_argument ("Stat" ^ (string_of_int code))) 
+          raise (Illegal_argument ("Stat" ^ (string_of_int code)))
     | Data.FS code, _  ->
-          raise (Illegal_argument ("FS " ^ (string_of_int code))) 
+          raise (Illegal_argument ("FS " ^ (string_of_int code)))
 
 let extract_kolmo data kolmo tcode = 
     match kolmo with
@@ -2510,30 +2507,22 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
         let gen_add code =
             let enc = get_static_encoding code in
             (Data.Stat (code, Some (`List enc.Nexus.File.st_observed)), `Unknown) 
-        in
-        let gen_nadd code =
+        and gen_nadd code =
             let enc = get_static_encoding code in
             (Data.Stat (code, Some (`List enc.Nexus.File.st_observed)), `Unknown) 
-        in
-        let gen_dynamic code =
+        and gen_dynamic code =
             let alph = Data.get_alphabet !data code in
             (* print_endline ("adding sequence with code " ^ string_of_int code); *)
             let empty_seq = Data.get_empty_seq alph in
             let chrom_data = Data.set_dyna_data [|empty_seq|] in 
             (Data.Dyna (code, chrom_data), `Unknown)
-        in
-        let gen_fixedstates code =
-            (*looks like we just need the code, then later we can get
-            * fixedstates's spec from data.Data.character_specs with that code.
-            * everything -- including the original sequence is in there.*)
+        and gen_fixedstates code =
             (Data.FS code, `Unknown)
-        in
-        let gen_sank code =
-            (* print_endline ("adding sankoff with code " ^ string_of_int code); *)
-            let specs = Hashtbl.find !data.Data.character_specs code in
-            let states = match specs with
-                | Data.Static (Data.NexusFile enc) -> 
-                        `List enc.Nexus.File.st_observed
+        and gen_mlstatic code =
+            (Data.Stat (code,None),`Unknown)
+        and gen_sank code =
+            let states = match Hashtbl.find !data.Data.character_specs code with
+                | Data.Static (Data.NexusFile enc) -> `List enc.Nexus.File.st_observed
                 | _ -> assert false 
             in
             (Data.Stat (code, Some states), `Unknown)
@@ -2550,14 +2539,12 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             in
             let get_character_with_code gen_new acc code = 
                 try (Hashtbl.find tcharacters code,Hashtbl.find chfilenames code) :: acc
-                with | Not_found ->
-                    (gen_new code,"") :: acc
+                with | Not_found -> (gen_new code,"") :: acc
             in
             let addmapper gen_new ((x, y), arr) =
                 let a, b, cnt =
                     List.fold_left (get_character_with_code_n_weight gen_new)
-                                   (1., [], 0)
-                                   y
+                                   (1., [], 0) y
                 in
                 x, (a, b), arr
             in
@@ -2664,24 +2651,21 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                       { result with characters = c @ result.characters }
             in
             let result = (* SANK *)
-                let single_lsank_chars_process result (code, lst) =
-                    match lst with
+                let single_lsank_chars_process result (code, lst) = match lst with
                     | [] -> result
-                    | _ ->
-                            let v = List.map (fun (sankcs,fname) -> extract_stat sankcs ) lst in
-                            let tcm, specs =
-                                match v with
+                    | _  -> let v = List.map (fun (sankcs,fname) -> extract_stat sankcs ) lst in
+                            let tcm, specs = match v with
                                 | (_, code) :: _ -> 
-                                        Data.get_tcm code !data,
-                                        Hashtbl.find !data.Data.character_specs code
+                                    Data.get_tcm code !data,
+                                    Hashtbl.find !data.Data.character_specs code
                                 | _ -> failwith "generate_taxon, get tcm, sankoff"
                             in
                             let arr= Array.of_list v in
                             let c, _ = SankCS.of_parser tcm (arr, tcode) code in
                             let weight = match specs with 
-                            | Data.Static (Data.NexusFile nf_static_spec) ->  
-                                nf_static_spec.Nexus.File.st_weight
-                            | _ -> failwith "generate_taxon, get weight, sankoff"
+                                | Data.Static (Data.NexusFile nf_static_spec) ->  
+                                    nf_static_spec.Nexus.File.st_weight
+                                | _ -> failwith "generate_taxon, get weight, sankoff"
                             in
                             let c = Sank { 
                                 preliminary = c; 
@@ -2697,15 +2681,13 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             let result = (* KOLMO *)
                 match lkolmo_chars with
                 | [] -> result
-                | _ ->
-                        let c = 
+                | _  -> let c = 
                             List.map 
-                            (fun (kolm,fname) -> extract_kolmo !data kolm tcode)
-                            lkolmo_chars
+                                (fun (kolm,fname) -> extract_kolmo !data kolm tcode)
+                                lkolmo_chars
                         in
                         let total_cost = 
-                            List.fold_left (fun acc c -> acc +.  c.sum_cost)
-                            0. c 
+                            List.fold_left (fun acc c -> acc +.  c.sum_cost) 0. c 
                         in
                         let c = List.map (fun c -> Kolmo c) c in
                         { result with characters = c @ result.characters; 
@@ -2718,36 +2700,35 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                     let seperate_data dat =
                         dat --> List.map snd --> List.flatten --> List.split
                     in
-                    fun result -> function
+                    (fun result -> function
                         | [] -> result
                         | all_data ->
                             let ws,cs = seperate_data all_data in
                             let spec = 
                                 match Hashtbl.find (!data).Data.character_specs
                                                     (List.hd cs) with
-                                | Data.Static (Data.NexusFile x) -> x 
+                                | Data.Static (Data.NexusFile x) -> x
                                 | _ -> assert false
+                            and resolve_missing x =
+                                try extract_stat (Hashtbl.find tcharacters x)
+                                with Not_found -> extract_stat (gen_mlstatic x)
                             in
-                            let c = 
-                                cs --> List.map 
-                                        (fun x -> Hashtbl.find tcharacters x)
-                                   --> List.map extract_stat (* bitset * code *)
+                            let c =
+                                cs --> List.map resolve_missing (* bitset * code *)
                                    --> Array.of_list
                                    --> MlStaticCS.of_parser spec (Array.of_list ws)
                             in
                             let cost = MlStaticCS.root_cost c in
-                            let c = 
-                                StaticMl { preliminary = c;
-                                           final = c;
-                                           cost = cost;
-                                           sum_cost = cost;
-                                           weight = 1.; (*pass weight to cside,no need weight for ocaml side*)
+                            let c =
+                                StaticMl { preliminary = c; final = c;
+                                           cost = cost;     sum_cost = cost;
+                                           weight = 1.; (* weight  on cside *)
                                            time = None,None,None; }
                             in
                             { result with characters = c :: result.characters;
-                                          total_cost = result.total_cost +. cost; }
+                                          total_cost = result.total_cost +.  cost; })
                   ELSE
-                    fun result _ -> result
+                    (fun result _ -> result)
                   END
                 in
                 List.fold_left single_ml_group result lstaticmlcode
