@@ -1059,7 +1059,7 @@ module CharacterSelection = struct
                 dynamics        = [];   
                 kolmogorov      = [];   static_ml       = [];
             }
-        and absent_present_alphabet enc = 
+        and absent_present enc =
             try let () = ignore (Alphabet.match_base "present" enc.Nexus.File.st_alph) 
                 and () = ignore (Alphabet.match_base "absent"  enc.Nexus.File.st_alph) in
                 true
@@ -1092,19 +1092,16 @@ module CharacterSelection = struct
                             non_additive_33 = code :: data.non_additive_33 }
                     else 
                         assert false
-                (** Ignore Absent/Present Columns under likelihood by placing them
-                    in the non_additive_1 category which is ignored. *)
-                | Nexus.File.STNCM _ when absent_present_alphabet enc ->
-                    { data with non_additive_1 = code :: data.non_additive_1 }
-                | Nexus.File.STLikelihood _ when absent_present_alphabet enc ->
-                    { data with non_additive_1 = code :: data.non_additive_1 }
+                (** Ignore Absent/Present Columns under likelihood *)
+                | Nexus.File.STNCM _        when absent_present enc -> data
+                | Nexus.File.STLikelihood _ when absent_present enc -> data
                 | Nexus.File.STLikelihood _ ->
                     { data with static_ml = code :: data.static_ml }
                 | Nexus.File.STNCM (_,t) ->
                     add_static_type enc code t data
             end
         in
-        (* let data = repack_codes data in*)
+        (* let data = repack_codes data in *)
         let categorizer code spec data = match spec with
             | Static (NexusFile enc) ->
                 add_static_type enc code enc.Nexus.File.st_type data
