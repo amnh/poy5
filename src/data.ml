@@ -1059,7 +1059,7 @@ module CharacterSelection = struct
                 dynamics        = [];   
                 kolmogorov      = [];   static_ml       = [];
             }
-        and absent_present_alphabet enc = 
+        and absent_present enc = 
             try let () = ignore (Alphabet.match_base "present" enc.Nexus.File.st_alph) 
                 and () = ignore (Alphabet.match_base "absent"  enc.Nexus.File.st_alph) in
                 true
@@ -1092,16 +1092,13 @@ module CharacterSelection = struct
                             non_additive_33 = code :: data.non_additive_33 }
                     else 
                         assert false
-                (** Ignore Absent/Present Columns under likelihood by placing them
-                    in the non_additive_1 category which is ignored. *)
-                | Nexus.File.STNCM (a,_,t) when a > 1 ->
-                    add_static_type enc code t data
-                | Nexus.File.STLikelihood _ when absent_present_alphabet enc ->
-                    data
+                (** Ignore Absent/Present Columns under likelihood *)
+                | Nexus.File.STNCM _        when absent_present enc -> data
+                | Nexus.File.STLikelihood _ when absent_present enc -> data
                 | Nexus.File.STLikelihood _ ->
                     { data with static_ml = code :: data.static_ml }
-                | Nexus.File.STNCM _ ->
-                    data
+                | Nexus.File.STNCM (_,_,t) ->
+                    add_static_type enc code t data
             end
         in
         (* let data = repack_codes data in*)
@@ -5604,7 +5601,7 @@ let assign_ncm_weights_to_chars data chars alph gap : d =
                             (st_o,spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
                     in
                     let st_w = spec.Nexus.File.st_weight *. (ncm_weight st_o) in
-                    Printf.printf "NCM Weight : %dO - %d - %f\n%!" c st_o st_w;
+(*                    Printf.printf "NCM Weight : %dO - %d - %f\n%!" c st_o st_w;*)
                     let r =
                         {spec with Nexus.File.st_weight = st_w;
                                    Nexus.File.st_type   = st_t; }
@@ -5633,7 +5630,7 @@ let assign_ncm_weights_to_chars data chars alph gap : d =
                         Nexus.File.STNCM
                             (st_o,spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
                     in
-                    Printf.printf "NCM Weight : %dU - %d - %f\n%!" c st_o st_w;
+(*                    Printf.printf "NCM Weight : %dU - %d - %f\n%!" c st_o st_w;*)
                     let st_w = spec.Nexus.File.st_weight *. st_w in
                     let r =
                         {spec with Nexus.File.st_weight = st_w;
