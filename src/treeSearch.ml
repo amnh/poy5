@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2768 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2805 $"
 
 let debug_find_local_optimum = false
 
@@ -418,76 +418,60 @@ module MakeNormal
         tree
 
     (** [forest_joins forest] attempts to join pairs of forest components using
-        TBR join.  Those whose join cost is less than the origin/loss cost will
-        be kept. *)
-    let rec forest_joins forest =
-        let components = Ptree.components forest in
-        (*
-        let join_tabu = PhyloTabus.join_to_tree_in_forest forest in
-        *)
+        TBR join. Those whose join cost is less than the origin/loss cost will
+        be kept.
+        TODO:: To get the forest search working again, we need to modify the
+        tabu managers so that instead of using left and right uses a code
+        assigned to each individual component. That's the only way to get the
+        necessary way to connect multiple elements in a forest using the tabu
+        managers. Right now there is no nice way to do it, and this is a low
+        priority issue, therefore, I am leaving a note and doing it later. *)
+    let rec forest_joins forest = forest
+        (*let components = Ptree.components forest in
+        let join_tabu = PhyloTabus.join_to_tree_in_forest forest in 
         let status = Status.create "Attempting to join forest components"
-            (Some components) "" in
-
-        (** [tbr_joins component] tries to join [component] to all other
-            components in the tree *)
+                                   (Some components) ""
+        in
+        (* [tbr_joins comp] tries to join [comp] to all other components *)
         let tbr_joins component = 
-            failwith "Forest searches are off in this release"
-            (* TODO:
-                * To get the forest search working again, we need to modify the
-                * tabu managers so that instead of using left and right uses a
-                * code assigned to each individual component. That's the only
-                * way to get the necessary way to connect multiple elements in a
-                * forest using the tabu managers. Right now there is no nice way
-                * to do it, and this is a low priority issue, therefore, I am
-                * leaving a note and doing it later. *)
-            (*
-            Status.full_report ~adv:component status;
+
             let tabu, right = join_tabu component in
             let mgr = new PhyloQueues.first_best_srch_mgr (new Sampler.do_nothing) in
-            let () =
-                mgr#init [(forest, Ptree.get_cost `Adjusted forest,
-                           Ptree.NoCost, tabu)] in
-
+            let () = mgr#init [(forest, Ptree.get_cost `Adjusted forest, Ptree.NoCost, tabu)] in
             (* get the current `Right junction *)
             let j2 = Ptree.jxn_of_handle forest right in
-            
             (* get the `Right (clade) root node *)
             let clade_node =
                 let root =
                     All_sets.IntegerMap.find right forest.Ptree.component_root in
                 let root = root.Ptree.root_median in
                 match root with
-                    (* This shouldn't happen;  our passed-in forest should have
-                       been evaluated, etc., and all the roots should be 
-                       defiend. *)
                 | None -> assert false
                 | Some (_, clade_node) -> clade_node in
-            let status =
-                PtreeSearch.tbr_join mgr tabu forest j2 clade_node
-                    forest.Ptree.origin_cost in
+            let status = PtreeSearch.tbr_join mgr tabu forest j2 clade_node
+                                              forest.Ptree.origin_cost
+            in
             match status with
             | Tree.Break ->
-                  let results = mgr#results in
-                  (* Only interested in the first one *)
-                  let (forest, _, _) = List.hd results in
-                  Some forest
+                let results = mgr#results in
+                (* Only interested in the first one *)
+                let (forest, _, _) = List.hd results in
+                Some forest
             | Tree.Continue
             | Tree.Skip -> None 
-            *)
         in
-        (*let rec try_comp component =
-            if component = components
-            then None
-            else match tbr_joins component with
-            | None -> try_comp (succ component)
-            | Some forest -> Some forest in
-        *)
-        let res = None in
+        let rec try_comp component =
+            if component = components then
+                None
+            else
+                match tbr_joins component with
+                | None -> try_comp (succ component)
+                | Some forest -> Some forest
+        in
         Status.finished status;
-
         match res with
         | None -> forest
-        | Some forest -> forest_joins forest
+        | Some forest -> forest_joins forest *)
 
     let diagnose tree =
         PtreeSearch.uppass (PtreeSearch.downpass tree)
