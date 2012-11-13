@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2773 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2807 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -2252,23 +2252,23 @@ let assign_root_to_connected_component handle item cost adjusted ptree =
     let debug = false in
     let adjusted = select_default adjusted cost in
     if debug then begin
-	Printf.printf "assign root to connected component, root = %!";
-    	let _ =
-	match item with 
-    	|Some (edge, readjusted) ->
-		(match edge with 
-		 |`Edge (a , b) -> Printf.printf "edge at (%d,%d),%!" a b
-		 |`Single a -> Printf.printf "single node %d,%!" a
-		)
-    	|None -> Printf.printf "None,%!"  
+	    Printf.printf "assign root to connected component, root = %!";
+    	let () = match item with 
+    	    |Some (edge, readjusted) ->
+		        begin match edge with 
+		            |`Edge (a , b) -> Printf.printf "edge at (%d,%d),%!" a b
+		            |`Single a -> Printf.printf "single node %d,%!" a
+		        end
+    	    |None -> Printf.printf "None,%!"  
     	in
-	Printf.printf "with component_cost = %f(adjusted cost = %f)\n%!" cost adjusted;
+	    Printf.printf "with component_cost = %f(adjusted cost = %f)\n%!" cost adjusted;
     end;
-    let root = { 
-        root_median = item;
-        component_cost = cost;
-        adjusted_component_cost = adjusted 
-    } in
+    let root =
+        { root_median = item;
+          component_cost = cost;
+          adjusted_component_cost = adjusted 
+        }
+    in
     let new_component = 
         All_sets.IntegerMap.add handle root ptree.component_root 
     in
