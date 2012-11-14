@@ -170,7 +170,7 @@ value gamma_CAML_randnormal( value m, value s )
     CAMLparam2( m, s );
     CAMLlocal1( r );
     r = caml_copy_double( rand_normal( Double_val(m), Double_val(s) ) );
-    return r;
+    CAMLreturn( r );
 }
 
 /* [rand_exponential mean]
@@ -186,7 +186,7 @@ value gamma_CAML_randexp( value m )
     CAMLparam1( m );
     CAMLlocal1( r );
     r = caml_copy_double( rand_exp( Double_val(m) ) );
-    return r;
+    CAMLreturn( r );
 }
 
 /** [rand_gamma a b]
@@ -230,7 +230,7 @@ value gamma_CAML_randgamma( value sh, value sc )
     CAMLparam2( sh,sc );
     CAMLlocal1( r );
     r = caml_copy_double( rand_gamma( Double_val(sh), Double_val(sc) ) );
-    return r;
+    CAMLreturn( r );
 }
 
 

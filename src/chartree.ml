@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 2804 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 2810 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -121,8 +121,15 @@ let print_node_data_indent ?(indent = 3) trees =
         trees
 
 
+let calculate_root_cost tree median =
+    let tree_cost = Node.Standard.tree_cost None median in
+    let prior_cost = MlStaticCS.ncm_priors tree.Ptree.data None in
+    tree_cost +. prior_cost
+
+
 let hashdoublefind tree node_ids = None 
 (* we don't use likelihood in chartree, so no extra data is neccessary *)
+
 
 let downpass_handle handle ({Ptree.tree=tree} as ptree) =
     Tree.post_order_node_visit
@@ -167,11 +174,10 @@ let downpass ({Ptree.tree=tree} as ptree) =
 let uppass_handle handle ({Ptree.tree=tree} as ptree) =
     if debug_diagnosis then Printf.printf "Uppass Begins\n%!";
     let ptree = 
-        let d =
-            match Ptree.get_node handle ptree with
+        let d = match Ptree.get_node handle ptree with
             | Tree.Single _ -> 
-                    let d = Ptree.get_node_data handle ptree in
-                    Some ((`Single handle), d)
+                let d = Ptree.get_node_data handle ptree in
+                Some ((`Single handle), d)
             | _ -> None
         in
         Ptree.assign_root_to_connected_component handle d 0. None ptree 
@@ -189,95 +195,93 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
     let get_node = Ptree.get_node_data in
     Tree.pre_order_node_visit
         (fun parent_id self_id ptree ->
-             (* assumption: tree topology has not changed *)
-             let node = Tree.get_node self_id tree in
-             match node with
-             | Tree.Single _ -> 
-                     let data = Ptree.get_node_data self_id ptree in
-                     let ptree = 
-                         Ptree.assign_root_to_connected_component
-                            self_id (Some ((`Single self_id), data)) 0. None ptree
-                     in
-                     (Tree.Continue, ptree)
-             | Tree.Leaf (selfid, otherid) -> begin
-                   match parent_id with
-                   | Some p ->
-                         assert (p = otherid);
-                         (* For OTUs, we perform a 3-median to handle the case
-                            of polymorphic states... *)
-                         let mydata = Ptree.get_node_data selfid ptree in
-                         let otherdata = Ptree.get_node_data otherid ptree in
-                         if debug_diagnosis then
-                             info_user_message "Final States Leaf: %d, %d" selfid otherid;
-                         let median3 = Node.Standard.final_states None otherdata mydata mydata mydata in
-                         let ptree = Ptree.add_node_data selfid median3 ptree in
-                         (Tree.Continue, ptree) (* OTU *)
-                   | None -> begin
-                         (* We're dealing with a handle node that's also a leaf.
-                            We want to calculate the last median and store it. *)
-                         let mydata = Ptree.get_node_data selfid ptree in
-                         let otherdata = Ptree.get_node_data otherid ptree in
-                         let root_prelim = Node.Standard.median None None mydata otherdata in
-                         virt_root := Some (`Edge (selfid, otherid), root_prelim);
-                         let tree_cost = Node.Standard.tree_cost None root_prelim in
-                         if debug_uppass_which_handle then odebug "uppass: handle is leaf";
-                         if debug_diagnosis then
-                             info_user_message "Final States Leaf: %d, %d" selfid otherid;
-                         let mydata =
-                             Node.Standard.final_states None root_prelim mydata mydata mydata 
-                         in
-                         let ptree = Ptree.add_node_data selfid mydata ptree in
-                         let ptree = 
-                             Ptree.assign_root_to_connected_component 
-                                        self_id !virt_root tree_cost None ptree
-                         in
-                         (Tree.Continue, ptree)
-                     end
-               end
-             | Tree.Interior (nid, ch1id, ch2id, ch3id) ->
-                   match parent_id with
-                   | None -> begin
+            (* assumption: tree topology has not changed *)
+            let node = Tree.get_node self_id tree in
+            match node with
+            | Tree.Single _ -> 
+                let data = Ptree.get_node_data self_id ptree in
+                let ptree = 
+                    Ptree.assign_root_to_connected_component self_id
+                                (Some ((`Single self_id), data)) 0. None ptree
+                in
+                (Tree.Continue, ptree)
+            | Tree.Leaf (selfid, otherid) ->
+                begin match parent_id with
+                    | Some p ->
+                        assert (p = otherid);
+                        (* For OTUs, we perform a 3-median to handle the case
+                           of polymorphic states... *)
+                        let mydata = Ptree.get_node_data selfid ptree in
+                        let otherdata = Ptree.get_node_data otherid ptree in
+                        if debug_diagnosis then
+                            info_user_message "Final States Leaf: %d, %d" selfid otherid;
+                        let median3 = Node.Standard.final_states None otherdata mydata mydata mydata in
+                        let ptree = Ptree.add_node_data selfid median3 ptree in
+                        (Tree.Continue, ptree) (* OTU *)
+                   | None ->
+                        (* We're dealing with a handle node that's also a leaf.
+                           We want to calculate the last median and store it. *)
+                        let mydata = Ptree.get_node_data selfid ptree in
+                        let otherdata = Ptree.get_node_data otherid ptree in
+                        let root_prelim = Node.Standard.median None None mydata otherdata in
+                        virt_root := Some (`Edge (selfid, otherid), root_prelim);
+                        let cost = calculate_root_cost ptree root_prelim in
+                        if debug_uppass_which_handle then odebug "uppass: handle is leaf";
+                        if debug_diagnosis then
+                            info_user_message "Final States Leaf: %d, %d" selfid otherid;
+                        let mydata =
+                            Node.Standard.final_states None root_prelim mydata mydata mydata 
+                        in
+                        let ptree = Ptree.add_node_data selfid mydata ptree in
+                        let ptree = 
+                            Ptree.assign_root_to_connected_component 
+                                        self_id !virt_root cost None ptree
+                        in
+                        (Tree.Continue, ptree)
+                end
+            | Tree.Interior (nid, ch1id, ch2id, ch3id) ->
+                begin match parent_id with
+                    | None ->
                          (* We're dealing with a handle node.  We calculate a
                             median for the handle and its "parent"; then, we
-                            calculate the handle's final state.  WARNING: my
+                            oalculate the handle's final state.  WARNING: my
                             parent does not get assigned its final state. *)
-                         let mydata = get_node nid ptree in
-                         let pardata = get_node ch1id ptree in
-                         let ch1data = get_node ch2id ptree in
-                         let ch2data = get_node ch3id ptree in
-                         if debug_uppass_which_handle then odebug "uppass: handle is internal";
-                         let root_prelim = Node.Standard.median None None mydata pardata in
-                         let tree_cost = Node.Standard.tree_cost None root_prelim in
-                         virt_root := Some (`Edge (nid, ch1id), root_prelim);
-                         if debug_diagnosis then
-                             info_user_message "Final States Node: %d -(%d,%d,%d)" nid ch1id ch2id ch3id;
-                         let median3 = 
-                             Node.Standard.final_states None root_prelim mydata ch1data ch2data
-                         in
-                         let ptree = Ptree.add_node_data nid median3 ptree in
-                         let ptree = Ptree.assign_root_to_connected_component 
-                                            self_id !virt_root (tree_cost) None ptree
-                         in
-                         (Tree.Continue, ptree)
-                     end
-                   | Some parent_id -> begin
-                         (* We should treat the case of the node which is the
-                            handle's parent separately; we now do this. *)
-                         let ch1id, ch2id = 
-                             assert (check_assertion_two_nbrs parent_id node "0");
-                             Tree.other_two_nbrs parent_id node 
-                         in
-                         let mydata = get_node nid ptree in
-                         let pardata = get_parent nid parent_id ptree in
-                         let ch1data = get_node ch1id ptree in
-                         let ch2data = get_node ch2id ptree in
-                         if debug_diagnosis then
-                             info_user_message "Final States Node: %d -(%d,%d,%d)" nid ch1id ch2id ch3id;
-                         let median3 =
-                             Node.Standard.final_states None pardata mydata ch1data ch2data
-                         in
-                         (Tree.Continue, Ptree.add_node_data nid median3 ptree)
-                    end)
+                        let mydata = get_node nid ptree in
+                        let pardata = get_node ch1id ptree in
+                        let ch1data = get_node ch2id ptree in
+                        let ch2data = get_node ch3id ptree in
+                        if debug_uppass_which_handle then odebug "uppass: handle is internal";
+                        let root_prelim = Node.Standard.median None None mydata pardata in
+                        let cost = calculate_root_cost ptree root_prelim in
+                        virt_root := Some (`Edge (nid, ch1id), root_prelim);
+                        if debug_diagnosis then
+                            info_user_message "Final States Node: %d -(%d,%d,%d)" nid ch1id ch2id ch3id;
+                        let median3 = 
+                            Node.Standard.final_states None root_prelim mydata ch1data ch2data
+                        in
+                        let ptree = Ptree.add_node_data nid median3 ptree in
+                        let ptree = Ptree.assign_root_to_connected_component 
+                                           self_id !virt_root cost None ptree
+                        in
+                        (Tree.Continue, ptree)
+                    | Some parent_id ->
+                        (* We should treat the case of the node which is the
+                           handle's parent separately; we now do this. *)
+                        let ch1id, ch2id = 
+                            assert (check_assertion_two_nbrs parent_id node "0");
+                            Tree.other_two_nbrs parent_id node 
+                        in
+                        let mydata = get_node nid ptree in
+                        let pardata = get_parent nid parent_id ptree in
+                        let ch1data = get_node ch1id ptree in
+                        let ch2data = get_node ch2id ptree in
+                        if debug_diagnosis then
+                            info_user_message "Final States Node: %d -(%d,%d,%d)" nid ch1id ch2id ch3id;
+                        let median3 =
+                            Node.Standard.final_states None pardata mydata ch1data ch2data
+                        in
+                        (Tree.Continue, Ptree.add_node_data nid median3 ptree)
+                end)
         handle
         tree
         ptree
@@ -447,36 +451,22 @@ let simple_downpass ?(debug_joinfn=debug_joinfn) continuation ptree node_id c1 c
                     Printf.printf "New cost and New median\n%!";
                 All (Ptree.add_node_data node_id median ptree)
 
+
 (** [calculate_root ptree node_id neighbor] calculates a new virtual root for
  * the tree, when [node_id] or [neighbor] is the handle. The function requires that
  * both node_id and neighbor have already calculated their downpass data. *)
 let calculate_root ptree node_id neighbor =
-    let debug = false in
     match downpass_step ptree None node_id neighbor with
-    | median, None ->
-          if Ptree.is_handle node_id ptree then
-              (let root_median = Some (`Edge (node_id, neighbor), median) in
-               let cost = Node.Standard.tree_cost None median in
-               if debug then 
-                   Printf.printf "node#.%d is handle,cost of this root is %f,%f\n%!"
-                       node_id median.Node.total_cost cost;
-               Ptree.assign_root_to_connected_component node_id root_median
-                   (cost) None ptree)
-          else if Ptree.is_handle neighbor ptree then
-              (
-               let root_median = Some (`Edge (neighbor, node_id), median) in
-               let cost = Node.Standard.tree_cost None median in
-               if debug then 
-                   Printf.printf "neighbor node#.%d is handle,cost of this root is %f,%f\n%!"
-                       neighbor median.Node.total_cost cost;
-               Ptree.assign_root_to_connected_component neighbor root_median
-                    (cost) None ptree)
-          else failwith "Chartree.calculate_root 1"
-    | median, Some _ -> 
-            (* As downpass_step received a None as node_id data, we don't expect
-             * any data to come from any node_id in the second element in the
-             * tuple *)
-            failwith "Chartree.calculate_root"
+    | median, None when Ptree.is_handle node_id ptree ->
+        let root_median = Some (`Edge (node_id, neighbor), median) in
+        let cost = calculate_root_cost ptree median in
+        Ptree.assign_root_to_connected_component node_id root_median (cost) None ptree
+    | median, None when Ptree.is_handle neighbor ptree ->
+        let root_median = Some (`Edge (neighbor, node_id), median) in
+        let cost = calculate_root_cost ptree median in
+        Ptree.assign_root_to_connected_component neighbor root_median (cost) None ptree
+    | _ ->  assert false
+
 
 (** [incremental_downpass_step continuation ptree node_id] will attempt a
  * downpass step over the vertex with id [node_id] in the tree [ptree]. Depending
@@ -858,16 +848,15 @@ let incremental_uppass a b =
 
 (* cost_fn must have type key -> tree -> cost *)
 let set_clade_root ptree clade_node new_clade_handle =
-    let handle = Tree.int_of_id new_clade_handle 
-    and cost = Node.Standard.tree_cost None clade_node in
+    let handle = Tree.int_of_id new_clade_handle in
+    let cost = calculate_root_cost ptree clade_node in
     match Tree.get_node handle ptree.Ptree.tree with
     | Tree.Leaf (_, neigh)
     | Tree.Interior (_, neigh, _, _) ->
-            Ptree.assign_root_to_connected_component handle 
-            (Some (`Edge (handle, neigh), clade_node)) (cost) None ptree
+        Ptree.assign_root_to_connected_component handle 
+            (Some (`Edge (handle, neigh), clade_node)) cost None ptree
     | Tree.Single _->
-            Ptree.assign_root_to_connected_component handle None
-            (cost) None ptree
+        Ptree.assign_root_to_connected_component handle None cost None ptree
 
 let update_tree_data_break doup delta ptree =
     if debug_joinfn then Printf.printf "update tree data break, do uppass after downpass?%b,%!" doup;
@@ -899,7 +888,7 @@ let update_tree_data_break doup delta ptree =
     | `Single (nid, newhandle) -> 
             assert (Tree.is_handle nid ptree.Ptree.tree);
             let data = Ptree.get_node_data nid ptree in
-            let cost = Node.Standard.tree_cost None data in
+            let cost = calculate_root_cost ptree data in
             let data = Node.Standard.fix_preliminary data in
             let item = Some ((`Single nid), data) in
             Ptree.assign_root_to_connected_component nid item (cost) None ptree, []

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2797 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2807 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -349,15 +349,18 @@ module F : Ptree.Tree_Operations
                 }
 
     let prior_cost tree chars =
-        if using_likelihood `Dynamic tree then
-            All_sets.IntegerMap.fold
-                (fun k v min_prior -> 
-                    let new_prior = AllDirNode.AllDirF.min_prior chars v in
-                    min new_prior min_prior)
-                (tree.Ptree.node_data)
-                (infinity)
-        else
-            MlStaticCS.ncm_priors tree.Ptree.data chars
+        let dyn_cost =
+            if using_likelihood `Dynamic tree then
+                All_sets.IntegerMap.fold
+                    (fun k v min_prior ->
+                        let new_prior = AllDirNode.AllDirF.min_prior chars v in
+                        min new_prior min_prior)
+                    (tree.Ptree.node_data)
+                    (infinity)
+            else
+                0.0
+        in
+        dyn_cost +. (MlStaticCS.ncm_priors tree.Ptree.data chars)
 
 
     let total_cost ptree adj chars = Ptree.get_cost `Adjusted ptree
@@ -404,7 +407,7 @@ module F : Ptree.Tree_Operations
     (* Determine the cost of a tree from the handle. A optional root can be
      * passed if the tree requires it for applying the root. *)
     let check_cost new_tree handle new_root =
-        let debug = false in
+        let debug = true in
         if debug then Printf.printf "alldirchar.check_cost ->\n%!";
         (* Some characters are computed by the downpass, we extract that
          * portion of the cost, which is contained in the root.
@@ -1341,27 +1344,26 @@ module F : Ptree.Tree_Operations
             match Ptree.get_node code ptree with
             | Tree.Single _
             | Tree.Leaf (_, _) -> 
-                    assert (IntMap.mem code ptree.Ptree.node_data);
-                    if debug_downpass_fn then
-                        info_user_message "Skipping Leaf/Single %d%!" code; 
-                    ptree
+                assert (IntMap.mem code ptree.Ptree.node_data);
+                if debug_downpass_fn then
+                    info_user_message "Skipping Leaf/Single %d%!" code; 
+                ptree
             | (Tree.Interior (_, par, a, b)) as v ->
-                    let a,b = Tree.other_two_nbrs prev v in
-                    if debug_downpass_fn then
-                        info_user_message
-                            "Adding Vertex %d post Order: (%d,%d) and %d%!" 
-                                            code a b prev;
-                    let interior = 
-                        let p1 = fst (Ptree.create_partition ptree (Tree.Edge (b,code))), b
-                        and p2 = fst (Ptree.create_partition ptree (Tree.Edge (a,code))), a in
-                        match hashdoublefind ptree [p1;p2] with
-                        | Some x -> create_lazy_interior_down ~branches:x ptree (Some code) a b
-                        | None   -> create_lazy_interior_down ptree (Some code) a b
-                    in
-                    Ptree.add_node_data code interior ptree
+                let a,b = Tree.other_two_nbrs prev v in
+                if debug_downpass_fn then
+                    info_user_message "Adding Vertex %d post Order: (%d,%d) and %d%!"
+                                        code a b prev;
+                let interior =
+                    let p1 = fst (Ptree.create_partition ptree (Tree.Edge (b,code))), b
+                    and p2 = fst (Ptree.create_partition ptree (Tree.Edge (a,code))), a in
+                    match hashdoublefind ptree [p1;p2] with
+                    | Some x -> create_lazy_interior_down ~branches:x ptree (Some code) a b
+                    | None   -> create_lazy_interior_down ptree (Some code) a b
+                in
+                Ptree.add_node_data code interior ptree
         in
-        let ptree = 
-            IntSet.fold 
+        let ptree =
+            IntSet.fold
                 (fun x (ptree:phylogeny) ->
                     try begin
                         match (Ptree.get_component_root x ptree).Ptree.root_median with
@@ -1372,9 +1374,9 @@ module F : Ptree.Tree_Operations
                                 add_vertex_post_order
                                 (Tree.Edge (a,b))
                                 ptree.Ptree.tree ptree
-                        | None 
+                        | None
                         | Some _ -> ptree
-                    end with | Not_found -> 
+                    end with | Not_found ->
                         begin match Ptree.get_node x ptree with
                         | Tree.Leaf (a,b)
                         | Tree.Interior (a,b,_,_) ->
@@ -1389,37 +1391,26 @@ module F : Ptree.Tree_Operations
                 ptree.Ptree.tree.Tree.handles
                 ptree
         in
-        let ptree =
-            let ptree = refresh_all_edges None true None ptree in
-            if do_roots then refresh_roots ptree else ptree
-        in
-        ptree
+        let ptree = refresh_all_edges None true None ptree in
+        if do_roots then refresh_roots ptree else ptree
 
-    let blindly_trust_downpass ptree 
-        (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
-	let debug = false in
+
+    let blindly_trust_downpass ptree (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
         let data = Ptree.get_edge_data e ptree in
         let c = AllDirNode.OneDirF.tree_cost None data in
-        (*let extrac =  AllDirNode.OneDirF.extra_cost_from_root data c in*)
-        if abs_float cost > abs_float c then 
-            let data =  { AllDirNode.lazy_node = data; dir = None; code = -1 } 
-            in
+        if abs_float cost > abs_float c then
+            let data =  { AllDirNode.lazy_node = data; dir = None; code = -1 } in
             let data = { AllDirNode.unadjusted = [data]; adjusted = Some data } in
             let comp = Some ((`Edge (a, b)), data) in
             c, 
-            Lazy.lazy_from_fun (fun () ->
-		if debug then
-		Printf.printf "blindly_trust_downpass,assign cost to root(%d,%d):%f,None\n%!" a b c;
-                Ptree.assign_root_to_connected_component handle comp 
-                c None ptree)
-        else (cost, cbt)
+            Lazy.lazy_from_fun
+                (fun () ->
+                    Ptree.assign_root_to_connected_component handle comp c None ptree)
+        else 
+            (cost, cbt)
 
 
     let general_pick_best_root selection_method ptree =
-        (* debug msg 
-        Printf.printf "\n #2. general_pick_best_root\n%!";
-        let newcost = check_cost_all_handles ptree in
-         debug msg*)
         let edgesnhandles = 
             IntSet.fold 
                 (fun handle acc ->
@@ -1450,6 +1441,7 @@ module F : Ptree.Tree_Operations
             Lazy.force_val ptree
         in 
         List.fold_left process ptree edgesnhandles 
+
 
     let pick_best_root ptree =
         if using_likelihood `OnlyStatic ptree then ptree

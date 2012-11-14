@@ -1059,7 +1059,7 @@ module CharacterSelection = struct
                 dynamics        = [];   
                 kolmogorov      = [];   static_ml       = [];
             }
-        and absent_present enc =
+        and absent_present enc = 
             try let () = ignore (Alphabet.match_base "present" enc.Nexus.File.st_alph) 
                 and () = ignore (Alphabet.match_base "absent"  enc.Nexus.File.st_alph) in
                 true
@@ -1097,11 +1097,11 @@ module CharacterSelection = struct
                 | Nexus.File.STLikelihood _ when absent_present enc -> data
                 | Nexus.File.STLikelihood _ ->
                     { data with static_ml = code :: data.static_ml }
-                | Nexus.File.STNCM (_,t) ->
+                | Nexus.File.STNCM (_,_,t) ->
                     add_static_type enc code t data
             end
         in
-        (* let data = repack_codes data in *)
+        (* let data = repack_codes data in*)
         let categorizer code spec data = match spec with
             | Static (NexusFile enc) ->
                 add_static_type enc code enc.Nexus.File.st_type data
@@ -4602,7 +4602,7 @@ let set_parsimony data chars =
                                 {x with Nexus.File.st_type = Nexus.File.STUnordered}
                             in
                             Hashtbl.replace new_specs code (Static (NexusFile r))
-                        | Nexus.File.STNCM (weight,otype) ->
+                        | Nexus.File.STNCM (_,weight,otype) ->
                             let r =
                                 {x with Nexus.File.st_type = otype;
                                         Nexus.File.st_weight = weight; }
@@ -4649,8 +4649,8 @@ let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spe
                 | Dynamic _ | Kolmogorov _ | Set
                 | Static (FixedStates _)  -> assert false
                 | Static (NexusFile spec) ->
-                    let st_t = Nexus.File.STNCM (spec.Nexus.File.st_weight,
-                                                 spec.Nexus.File.st_type) in
+                    let st_t = Nexus.File.STNCM (1,spec.Nexus.File.st_weight,
+                                                   spec.Nexus.File.st_type) in
                     let r = NexusFile {spec with Nexus.File.st_type = st_t; } in
                     Hashtbl.replace data.character_specs c (Static r))
             cs;
@@ -5589,17 +5589,19 @@ let assign_ncm_weights_to_chars data chars alph gap : d =
         | Static (FixedStates _)  -> warning := true
         | Static (NexusFile spec) ->
             begin match spec.Nexus.File.st_type with
-                | Nexus.File.STNCM _ -> ()
-                (* we use the hi - lo for the alphabet size *)
-                | Nexus.File.STOrdered   ->
-                    let st_w = match spec.Nexus.File.st_observed with
-                        | [lo;hi] -> ncm_weight (hi - lo)
-                        | _       -> assert false
-                    and st_t = 
-                        Nexus.File.STNCM
-                            (spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
+                | Nexus.File.STNCM _   -> ()
+                | Nexus.File.STOrdered ->
+                    let st_o = 
+                        let lo = List.fold_left ~f:min ~init:max_int spec.Nexus.File.st_observed
+                        and hi = List.fold_left ~f:max ~init:0 spec.Nexus.File.st_observed in
+                        1 + (hi-lo)
                     in
-                    let st_w = spec.Nexus.File.st_weight *. st_w in
+                    let st_t =
+                        Nexus.File.STNCM
+                            (st_o,spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
+                    in
+                    let st_w = spec.Nexus.File.st_weight *. (ncm_weight st_o) in
+(*                    Printf.printf "NCM Weight : %dO - %d - %f\n%!" c st_o st_w;*)
                     let r =
                         {spec with Nexus.File.st_weight = st_w;
                                    Nexus.File.st_type   = st_t; }
@@ -5607,10 +5609,11 @@ let assign_ncm_weights_to_chars data chars alph gap : d =
                     Hashtbl.replace nspec c (Static (NexusFile r))
                 (* we "transform" to Unordered by not keeping st_type *)
                 | Nexus.File.STLikelihood _ ->
-                    let st_w = ncm_weight (List.length spec.Nexus.File.st_observed)
+                    let st_o = (List.length spec.Nexus.File.st_observed) in
+                    let st_w = ncm_weight st_o
                     and st_t =
                         Nexus.File.STNCM
-                            (spec.Nexus.File.st_weight,Nexus.File.STUnordered)
+                            (st_o,spec.Nexus.File.st_weight,Nexus.File.STUnordered)
                     in
                     let st_w = spec.Nexus.File.st_weight *. st_w in
                     let r =
@@ -5621,11 +5624,13 @@ let assign_ncm_weights_to_chars data chars alph gap : d =
                 (* we use the observed states for the alphabet size *)
                 | Nexus.File.STSankoff _
                 | Nexus.File.STUnordered ->
+                    let st_o = List.length spec.Nexus.File.st_observed in
                     let st_w = ncm_weight (List.length spec.Nexus.File.st_observed)
                     and st_t =
                         Nexus.File.STNCM
-                            (spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
+                            (st_o,spec.Nexus.File.st_weight,spec.Nexus.File.st_type)
                     in
+(*                    Printf.printf "NCM Weight : %dU - %d - %f\n%!" c st_o st_w;*)
                     let st_w = spec.Nexus.File.st_weight *. st_w in
                     let r =
                         {spec with Nexus.File.st_weight = st_w;
@@ -5655,7 +5660,7 @@ let unassign_ncm_weights_to_chars data chars gap : d =
         | Static (FixedStates _)  -> ()
         | Static (NexusFile spec) ->
             begin match spec.Nexus.File.st_type with
-                | Nexus.File.STNCM (w,t) ->
+                | Nexus.File.STNCM (_,w,t) ->
                     let r = NexusFile {spec with Nexus.File.st_weight = w;
                                                  Nexus.File.st_type   = t;} in
                     Hashtbl.replace data.character_specs c (Static r)

@@ -26,9 +26,9 @@ let (-|>) a b = let () = b a in a
 type st_type = 
     | STOrdered
     | STUnordered
-    | STSankoff of int array array  (* the cost matrix to use *)
-    | STLikelihood of MlModel.model (* The ML model to use *)
-    | STNCM of float * st_type      (* previous weight, previous type *)
+    | STSankoff of int array array   (* the cost matrix to use *)
+    | STLikelihood of MlModel.model  (* The ML model to use *)
+    | STNCM of int * float * st_type (* alphabet size, previous weight, previous type *)
 
 type static_spec = {
     st_filesource : string; (* The file it came from *)
@@ -1542,18 +1542,28 @@ let apply_ncm_model p acc =
             | P.Chars x-> x
             | _        -> assert false
         with Not_found -> [P.Name "all"]
-    in
+    and get_alphabet_size old = match old.st_type with
+        | STLikelihood _ | STNCM _ -> assert false
+        | STOrdered -> 
+            let lo = List.fold_left min max_int old.st_observed
+            and hi = List.fold_left max 0       old.st_observed in
+            1 + (hi-lo)
+        | STSankoff _ | STUnordered ->
+            List.length old.st_observed
+    and ncm_weight s = ~-. (log (1.0 /. (float_of_int s))) in
     List.iter
         (apply_on_character_set
             acc.csets
             acc.characters
             (fun i ->
-                let st_weight  = acc.characters.(i).st_weight
+                let st_weight = acc.characters.(i).st_weight
                 and st_type = acc.characters.(i).st_type in
+                let st_alpha = get_alphabet_size acc.characters.(i) in
                 acc.characters.(i) <-
                     { acc.characters.(i) with
                         (** this default aligns with usual conventions *)
-                        st_type = STNCM (st_weight,st_type);}))
+                        st_weight = ncm_weight st_alpha;
+                        st_type   = STNCM (st_alpha,st_weight,st_type);}))
         chars;
     acc
 

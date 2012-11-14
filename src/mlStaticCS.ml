@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2799 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2807 $"
 
 let compress = true
 
@@ -414,11 +414,16 @@ let of_parser spec weights characters =
     (* loop to create array for each character *)
     let loop_ (states,code) = match states with 
         | None -> Array.make a_size 1.0
-        | Some s -> 
+        | Some s ->
             let lst = Nexus.File.static_state_to_list s in
-            if (not u_gap) && (List.mem a_gap lst) then
+            let lst_minus_gap = List.filter (fun x -> not (x = a_gap)) lst in
+            (*  Under a Missing gap model, if the gap character is set along
+                with another character (ie, A/-) then we use the other chars
+                minus the gap, else we set the state as we would a gap. *)
+            if (not u_gap) && (List.mem a_gap lst) && ((List.length lst_minus_gap) = 0) then
                 Array.make a_size 1.0 
             else begin
+                let lst = if (not u_gap) then lst_minus_gap else lst in
                 list_of a_size 0.0
                     --> List.fold_right set_in lst
                     --> Array.of_list
@@ -686,22 +691,11 @@ END
     need a cost for that function anyways. *)
 let ncm_priors data codes =
     (* very analogous to the Data.assign_ncm_weight *)
-    let rec get_prior_of_spec w spec t = match t with
-        | Nexus.File.STNCM (x,t) -> get_prior_of_spec (x*.w) spec t
-        | Nexus.File.STOrdered   ->
-            let st_w = match spec.Nexus.File.st_observed with
-                | [lo;hi] -> ncm_prior (hi - lo)
-                | _       -> 0.0
-            in
-            w *. st_w
-        | Nexus.File.STLikelihood _ -> 0.0
-        | Nexus.File.STSankoff _
-        | Nexus.File.STUnordered ->
-            w *. (ncm_prior (List.length spec.Nexus.File.st_observed))
-    (* each character should start out as NCM *)
-    and is_ncm t = match t.Nexus.File.st_type with
-        | Nexus.File.STNCM _ -> true
-        | _ -> false
+    let rec get_prior_of_spec t = match t with
+        | Nexus.File.STNCM (a,w,_) when a > 1 -> w *. (ncm_prior a)
+        | Nexus.File.STSankoff _ | Nexus.File.STUnordered
+        | Nexus.File.STOrdered   | Nexus.File.STLikelihood _ 
+        | Nexus.File.STNCM _ -> 0.0
     (* the prior is, log (1 - 1/s)) *)
     and ncm_prior s =
         ~-. (log ((float_of_int (s-1)) /. (float_of_int s)))
@@ -709,20 +703,14 @@ let ncm_priors data codes =
     (* calculate the overall-cost for static characters from codes *)
     let codes = match codes with
         | Some x -> x
-        | None   -> 
-            let codes = (`Some (false,data.Data.non_additive_1)) in
-            Data.get_chars_codes_comp data codes
+        | None   -> Data.get_chars_codes_comp data `All
     in
     List.fold_left
-        (fun acc code ->
-            let a_cost = match Hashtbl.find data.Data.character_specs code with
-                | Data.Static (Data.NexusFile spec) when is_ncm spec ->
-                    get_prior_of_spec 1.0 spec spec.Nexus.File.st_type
-                | Data.Dynamic _ | Data.Kolmogorov _ | Data.Set
-                | Data.Static (Data.FixedStates _)
-                | Data.Static (Data.NexusFile _) -> 0.0
-            in
-            acc +. a_cost)
+        (fun acc code -> match Hashtbl.find data.Data.character_specs code with
+            | Data.Static (Data.NexusFile spec) ->
+                acc +. (get_prior_of_spec spec.Nexus.File.st_type)
+            | Data.Dynamic _ | Data.Kolmogorov _ | Data.Set
+            | Data.Static (Data.FixedStates _) -> 0.0)
         0.0
         codes
 
