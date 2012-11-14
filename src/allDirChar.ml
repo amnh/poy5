@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2820 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2822 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1226,7 +1226,7 @@ module F : Ptree.Tree_Operations
         (* loop to adjust a tree and *)
         let adjust_until_nothing_changes max_count start_ptree =
             (* Post order traversal of internal nodes *)
-            let debug = false in
+            let debug = true in
             if debug then Printf.printf "adjust until nothing changes begin\n%!";
             let adjust_loop prev_affected handle adjust_acc =
                 match (Ptree.get_component_root handle ptree).Ptree.root_median with
@@ -1681,8 +1681,12 @@ module F : Ptree.Tree_Operations
                 ptree --> clear_internals false
                       --> internal_downpass true
                       --> pick_best_root
-                      --> assign_single
+                      (*we need assign_single before adjust function because
+                      *we call [check_cost] to get an initial value*)
+                      --> assign_single 
                       --> adjust_assignment iterations None
+                      (*we need assign_single after adjust function or report(diagnosis) won't work *)
+                      --> assign_single
         in
         current_snapshot "AllDirChar.downpass end";
         if debug_downpass_fn then info_user_message "Downpass Ends\n%!";
