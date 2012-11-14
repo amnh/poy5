@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2798 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2809 $"
 
 
 exception Illegal_Cm_Format;;
@@ -984,7 +984,7 @@ module Two_D = struct
                 if debug then begin
                 Printf.printf "median.%d.%d <- %!" i j;
                 List.iter (Printf.printf "%d ") (matrix.(i).(j));
-                Printf.printf ";";
+                Printf.printf ", cost = %d;\n%!" !best;
                 end;
             done;
         done;
