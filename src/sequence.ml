@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2793 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2809 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -1549,9 +1549,10 @@ module Align = struct
         List.iter (fun dir -> print_dir dir) lst;
         Printf.printf "]\n%!"
 
-(*to do: add hashtbl*)
+(*to do: we can use some hashtbl to store visited values.*)
     let get_cost3d_w_htbl getcost i j k cm2d  =
         let debug = false in
+        let all_elements = Cost_matrix.Two_D.get_all_elements cm2d in
         let tie_breaker = Cost_matrix.Two_D.get_tie_breaker cm2d in
         let get_cost2d = Cost_matrix.Two_D.cost in
         let size = Cost_matrix.Two_D.get_ori_a_sz cm2d in
@@ -1559,19 +1560,22 @@ module Align = struct
         let bestcost = ref Utl.large_int in
         let bestmed = ref [] in
         if debug then 
-        Printf.printf "get_cost3d_w_htbl,%d,%d,%d,ori alphabet size=%d,tie breaker=%d\n%!" 
-        i j k size tie_breaker;
+        Printf.printf "get_cost3d_w_htbl,%d,%d,%d,ori alphabet size=%d,tie breaker=%d,all_elements=%d\n%!" 
+        i j k size tie_breaker all_elements;
         for x = 1 to size do
-            let cix = get_cost2d i x cm2d in
-            let cjx = get_cost2d j x cm2d in
-            let ckx = get_cost2d k x cm2d in
-            let cx = cix + cjx + ckx in
-            if cx = !bestcost then
-                bestmed := !bestmed @ [x]
-            else if cx < !bestcost then begin
-                bestmed := [x];
-                bestcost := cx;
-            end;
+            if x<>all_elements then begin
+                let cix = get_cost2d i x cm2d in
+                let cjx = get_cost2d j x cm2d in
+                let ckx = get_cost2d k x cm2d in
+                let cx = cix + cjx + ckx in
+                if cx = !bestcost then
+                    bestmed := !bestmed @ [x]
+                else if cx < !bestcost then begin
+                    bestmed := [x];
+                    bestcost := cx;
+                end;
+            end
+            else ()
         done;
         if debug then begin 
             Printf.printf "bestcost = %d, bestmed = %!" !bestcost;
