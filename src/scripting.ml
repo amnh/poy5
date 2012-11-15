@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2781 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2814 $"
 
 module IntSet = All_sets.Integers
 
@@ -1309,7 +1309,7 @@ let report_memory () =
         --> append "Fragments" stat.Gc.fragments string_of_int
         --> append "Compactions" stat.Gc.compactions string_of_int
         --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
-        --> fun x -> x ^ "@]@]%!"
+        --> fun x -> x ^ "@]@]@,%!"
 
 let explode_filenames files =
     (*
@@ -2956,12 +2956,13 @@ let rec process_application run item =
     | `Algn_Newkk | `Algn_Normal
     | `Interactive -> run
     | `Optimization opt_mode ->
-        if !Methods.opt_mode <> opt_mode then begin
-            let () = Methods.set_opt_mode opt_mode in
-            process_application run `ReDiagnoseTrees
-        end else begin
-            run
-        end
+        let old_opt_mode = !Methods.opt_mode in
+        let () = Methods.set_opt_mode opt_mode in
+        let c  = Numerical.compare_opt_mode old_opt_mode opt_mode in
+        if c = 0 || c = 1
+            then run
+            else process_application run `ReDiagnoseTrees
+
     | `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak 
     | `Exhaustive_Strong | `Iterative _ as meth -> 
         if !Methods.cost <> meth then

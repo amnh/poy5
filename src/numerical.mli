@@ -205,6 +205,8 @@ type opt_modes =
     | `Exhaustive of int option
     | `Custom of optimization_strategy list ]
 
+val compare_opt_mode : opt_modes -> opt_modes -> int 
+
 val default_numerical_optimization_strategy :
     opt_modes -> int -> optimization_strategy list
 (** Take the cost model of the Methods module and determine an opt strategy *)
