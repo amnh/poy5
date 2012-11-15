@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2807 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2815 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -407,7 +407,7 @@ module F : Ptree.Tree_Operations
     (* Determine the cost of a tree from the handle. A optional root can be
      * passed if the tree requires it for applying the root. *)
     let check_cost new_tree handle new_root =
-        let debug = true in
+        let debug = false in
         if debug then Printf.printf "alldirchar.check_cost ->\n%!";
         (* Some characters are computed by the downpass, we extract that
          * portion of the cost, which is contained in the root.

@@ -2230,35 +2230,38 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
         *)
         let max_num_fragment = ref 0 in
         let file_taxon_frag_seq =
-            Array.of_list (List.map (fun (taxon_chrom_loci_frag_seq,t) ->
-            (*we are only expecting one chromosome for each taxon*)
-            (*we are only expecting one loci for each chromosome*)
-            (*each loci is a list of fragment, each fragment is a sequence*)
-            let seq_t_arr = match taxon_chrom_loci_frag_seq with 
-                | [[loci_frag_seq]] -> (*this is a sequence list*) 
-                       if !max_num_fragment < (List.length loci_frag_seq) then
-                           begin
-                           if !max_num_fragment=0 then
-                                max_num_fragment := (List.length loci_frag_seq)
-                           else
-                               failwith ("we have an inconsistent number of \
-                               fragments in sequence from input file:"^original_filename);
-                           end
-                        else ();
-                        Array.of_list ( List.map (fun fragseq -> (fragseq,t) )
-                        loci_frag_seq )
-                | _ -> failwith ("we are working on normal sequence here, there\
-                should not be any loci('|') or chromosome ('@') delimiters")
-            in
-            seq_t_arr
-        ) file_taxon_chrom_loci_frag_seq ) in
-        (*tranpose the matrix above, make it looks like this
-        * [
-            [seq belong to frag1 in taxon1;seq belong to frag1 in taxon2;...];
-            [seq belong to frag2 in taxon1;seq belong to frag3 in taxon2;...];
-            ...
-          ]
-        *)
+            List.map
+                (fun (taxon_chrom_loci_frag_seq,t) ->
+                    (*we are only expecting one chromosome for each taxon*)
+                    (*we are only expecting one loci for each chromosome*)
+                    (*each loci is a list of fragment, each fragment is a seq *)
+                    match taxon_chrom_loci_frag_seq with 
+                        | [[loci_frag_seq]] -> (*this is a sequence list*) 
+                            if !max_num_fragment < (List.length loci_frag_seq) then begin
+                                if !max_num_fragment=0 then
+                                    max_num_fragment := (List.length loci_frag_seq)
+                                else begin
+                                    output_errorf
+                                        ("I found an inconsistent number of^^
+                                         fragments in the sequence from %s.")
+                                        original_filename;
+                                    failwith "Illegal prealigned molecular sequences."
+                                end
+                           end;
+                            Array.of_list
+                                (List.map (fun fragseq -> (fragseq,t))
+                                          loci_frag_seq)
+                        | _ ->
+                            output_errorf
+                                ("Normal@ sequence@ was@ loaded@ from@ %s;@ I@ "
+                                ^^"unexpectedly@ encountered@ loci('|')@ or@ "
+                                ^^"chromosome@ ('@@')@ delimiters.")
+                                original_filename;
+                            failwith "Illegal prealigned molecular sequences.")
+                file_taxon_chrom_loci_frag_seq
+        in
+        let file_taxon_frag_seq = Array.of_list file_taxon_frag_seq in
+        (*tranpose the matrix above *)
         let num_taxon = Array.length file_taxon_frag_seq in
         let max_num_fragment = !max_num_fragment in
         if debug_parsed_seq then  
@@ -6300,7 +6303,9 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         let res = List.rev_map (fun (start, _) ->
             if gap = Sequence.get seq start then
                 FileContents.Unordered_Character (2, false)
-            else FileContents.Unordered_Character (1, false)) lst in
+            else
+                FileContents.Unordered_Character (1, false)) lst
+        in
         List.rev res
     in
     let compute_blocks_of_indels () =
@@ -6326,8 +6331,7 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         let blocks = find_start [] 0 gaps in
         blocks
     in
-    let blocks = 
-        match tcm_case with
+    let blocks = match tcm_case with
         | `AllSankoff (Some _)
         | `AffinePartition _ -> compute_blocks_of_indels ()
         | `AllOneGapSame _ 
@@ -6372,17 +6376,16 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
                     and name = code_taxon a data in
                     let seq = Array.of_list seq in
                     if Array.length seq <> Array.length enc then begin
-                        let name = Hashtbl.find data.character_codes code in
-                        Status.user_message Status.Error
-                            ("The@ prealigned@ sequences@ in@ " ^ name ^
-                             "@ do@ not@ have@ the@ same@ length.@ The@ taxon@ "
-                            ^ name ^ "@ has@ a@ sequence@ of@ length@ " ^
-                             string_of_int (Array.length seq) ^ "@ while@ the"^
-                             "@ expected@ length@ is@ " ^
-                             string_of_int (Array.length enc));
+                        output_errorf
+                            ("The@ prealigned@ sequences@ do@ not@ have@ "^^
+                             "the@ same@ length.@ The@ taxon@ %s@ has@ a@ "^^
+                             "sequence@ of@ length@ %d@ while@ the@ expected@ "^^
+                             "length@ is@ %d.")
+                            (Hashtbl.find data.character_codes code)
+                            (Array.length seq) (Array.length enc);
                         failwith "Illegal prealigned molecular sequences."
-                    end;
-                    enc, (Some name) :: names, seq :: acc
+                    end else
+                        enc, (Some name) :: names, seq :: acc
                 | _ -> assert false
             end
         else 
