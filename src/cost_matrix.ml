@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2798 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2824 $"
 
 
 exception Illegal_Cm_Format;;
@@ -984,7 +984,7 @@ module Two_D = struct
                 if debug then begin
                 Printf.printf "median.%d.%d <- %!" i j;
                 List.iter (Printf.printf "%d ") (matrix.(i).(j));
-                Printf.printf ";";
+                Printf.printf ", cost = %d;\n%!" !best;
                 end;
             done;
         done;
@@ -1711,21 +1711,14 @@ module Three_D = struct
     let of_two_dim_comb nm m =
         let debug = false in
         let alph = Two_D.alphabet_size m
-        and gap = Two_D.gap m 
-        and lcm = Two_D.lcm m 
-        in
-        if debug then 
-        Printf.printf "of_two_dim_comb,alph size = %d, gapcode = %d, lcm = %d\n%!" 
-        alph gap lcm;
+        and gap = Two_D.gap m
+        and lcm = Two_D.lcm m in
+        if debug then
+            Printf.printf "of_two_dim_comb,alph size = %d, gapcode = %d, lcm = %d\n%!"
+                          alph gap lcm;
         let max = 1 lsl lcm in
         let rec pick_bit cur item =
-            assert (
-                if cur < max then true
-                else 
-                    let _ = Printf.printf 
-                    "Max is %d and lcm is %d while cur is %d\n%!" max
-                        lcm cur in
-                    false);
+            assert ( cur < max );
             if 0 <> cur land item then cur
             else pick_bit (cur lsl 1) item
         in
@@ -1769,20 +1762,16 @@ module Three_D = struct
         let debug = false in
         let map_sz = Two_D.get_map_sz m
         and ori_a_sz = Two_D.get_ori_a_sz m
-        and all_elements = Two_D.get_all_elements m
-        in
+        and all_elements = Two_D.get_all_elements m in
         let tie_breaker = Two_D.get_tie_breaker m in
         Status.user_message Status.Warning 
-        "Building@ 3D@ matrix,@  if@ this@ takes@ too@ long,@ turn@ 3D@ off"; 
+            "Building@ 3D@ matrix,@  if@ this@ takes@ too@ long,@ turn@ 3D@ off"; 
         if debug then 
-            Printf.printf "of two dim by level,\
-            map_sz=%d,ori_a_sz=%d,,all_elements = %d,tie_breaker=%d\n%!"
-        map_sz ori_a_sz all_elements tie_breaker;
+            Printf.printf "of two dim by level, map_sz=%d,ori_a_sz=%d,,all_elements = %d,tie_breaker=%d\n%!"
+                          map_sz ori_a_sz all_elements tie_breaker;
         let is_metric = Two_D.is_metric m in
-        if is_metric then ()
-        else 
-              Status.user_message Status.Warning 
-                    "You@ are@ loading@ a@ non-metric@ TCM";
+        if not is_metric then
+            Status.user_message Status.Warning "You@ are@ loading@ a@ non-metric@ TCM";
         for i = 1 to map_sz do
             for j = 1 to map_sz do
                 for k = 1 to map_sz do
@@ -1790,16 +1779,14 @@ module Three_D = struct
                     let bestcost = ref Utl.large_int in
                     let bestmedlst = ref [] in
                     for inter = 1 to map_sz do
-                        let newcost = (Two_D.cost inter i m) + 
-                                (Two_D.cost inter j m) +
-                                (Two_D.cost inter k m) 
+                        let newcost =
+                            (Two_D.cost inter i m) + (Two_D.cost inter j m) + (Two_D.cost inter k m) 
                         in
                         let debug2 = false in
                         if debug2 then 
                             Printf.printf "i=%d,j=%d,k=%d,inter=%d,newcost <- %d + %d + %d \n%!"
-                            i j k inter
-                            (Two_D.cost inter i m) (Two_D.cost inter j m)
-                            (Two_D.cost inter k m);
+                                          i j k inter (Two_D.cost inter i m)
+                                          (Two_D.cost inter j m) (Two_D.cost inter k m);
                         if newcost = !bestcost then
                             bestmedlst := !bestmedlst @ [inter]
                         else if newcost < !bestcost then begin
@@ -1833,17 +1820,17 @@ module Three_D = struct
         let nm = make_three_dim m in
         match combine nm with
         | 0 ->
-                if debug then Printf.printf "no comb\n%!";
-                of_two_dim_no_comb nm m;
-                nm;
-        | _ -> 
-                let uselevel = Two_D.check_level m in
-                if debug then Printf.printf "with comb, uselevel=%b\n%!" uselevel;
-                if uselevel then
-                    of_two_dim_by_level nm m
-                else 
-                    of_two_dim_comb nm m;
-                nm;;
+            if debug then Printf.printf "no comb\n%!";
+            of_two_dim_no_comb nm m;
+            nm;
+        | _ ->
+            let uselevel = Two_D.check_level m in
+            if debug then Printf.printf "with comb, uselevel=%b\n%!" uselevel;
+            if uselevel then
+                of_two_dim_by_level nm m
+            else 
+                of_two_dim_comb nm m;
+            nm;;
 
     let perturbe cm sev prob =
         let cm = clone cm in
@@ -1862,15 +1849,15 @@ module Three_D = struct
     let default_nucleotides = default
     (* This is lazy because the POY initialization would take too long *)
     let default_aminoacids = 
-        Lazy.lazy_from_fun (
-            fun () -> 
-                let st = Status.create 
-                    "Calculating@ Three@ Dimansional@ Aminoacid@ Cost@ Matrix"
-                    None ""
+        Lazy.lazy_from_fun
+            (fun () -> 
+                let st =
+                    Status.create
+                        "Calculating@ Three@ Dimensional@ Aminoacid@ Cost@ Matrix"
+                        None ""
                 in
                 let res = of_two_dim Two_D.default_aminoacids in
                 Status.finished st;
-                res
-            )
+                res)
 
 end;;
