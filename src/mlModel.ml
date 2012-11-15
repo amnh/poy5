@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2789 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2811 $"
 
 open Numerical.FPInfix
 
@@ -165,8 +165,8 @@ let get_alphabet m = fst m.spec.alphabet
 (** Return the size of the alphabet for this model; includes gaps if necessary *)
 let get_alphabet_size m = snd m.spec.alphabet
 
-(** Compare the priors *)
-let compare_priors a b =
+(** Compare two models; not to be used for a total ordering (ret neg or zero) *)
+let compare a b = 
     let compare_array x y =
         let results = ref true in
         for i = 0 to (snd a.spec.alphabet) - 1 do
@@ -174,40 +174,42 @@ let compare_priors a b =
         done;
         !results
     in
-    match a.spec.base_priors ,a.spec.base_priors with
-        | _ when (snd a.spec.alphabet) != (snd b.spec.alphabet) -> false
-        | Equal , Equal            -> true
-        | Estimated x, Estimated y
-        | Given     x, Given     y -> compare_array x y
-        | (Equal | Estimated _ | Given _), _ -> false
-
-(** a gentler compare that excludes the parameters of the model itself
-    Not to be used for a total ordering *)
-let compare a b = 
+    let compare_priors a b = match a.spec.base_priors ,a.spec.base_priors with
+            | _ when (snd a.spec.alphabet) != (snd b.spec.alphabet) -> false
+            | Equal , Equal            -> true
+            | Estimated x, Estimated y
+            | Given     x, Given     y -> compare_array x y
+            | (Equal | Estimated _ | Given _), _ -> false
+    in
     let m_compare = match a.spec.substitution,b.spec.substitution with
         | JC69 , JC69 | F81 , F81 -> 0
-        | K2P _, K2P _ | F84 _, F84 _ | HKY85 _, HKY85 _ -> 0
-        | Custom _, Custom _ | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
+        | K2P x, K2P y | F84 x, F84 y | HKY85 x, HKY85 y when x = y -> 0
+        | Custom _, Custom _ -> 0
+        | TN93 (x1,x2),  TN93 (y1,y2) when x1 = y1 && x2 = y2 -> 0
+        | GTR xs, GTR ys when compare_array xs ys -> 0
         | File (_,x), File (_,y) when x = y -> 0
         | _,_ -> ~-1
     and c_compare = if a.spec.cost_fn = b.spec.cost_fn then 0 else ~-1
     and v_compare = match a.spec.site_variation,b.spec.site_variation with
-        | Gamma (i,_), Gamma (ix,_)     -> if i = ix then 0 else ~-1
-        | Theta (i,_,_), Theta (ix,_,_) -> if i = ix then 0 else ~-1
+        | Gamma (ix,ax), Gamma (iy,ay) ->
+            if ix=iy && ax=ay then 0 else ~-1
+        | Theta (ix,ax,bx), Theta (iy,ay,by) ->
+            if ix=iy && ax=ay && bx=by then 0 else ~-1
         | Constant, Constant            -> 0
         | (Gamma _|Theta _|Constant), _ -> ~-1
     and g_compare = match a.spec.use_gap,b.spec.use_gap with
         | `Missing, `Missing
-        | `Independent, `Independent
-        | `Coupled _, `Coupled _ -> 0
+        | `Independent, `Independent -> 0
+        | `Coupled x, `Coupled y when x=y-> 0
         | (`Missing | `Independent | `Coupled _), _ -> ~-1
     and p_compare = if compare_priors a b then 0 else ~-1 in
     (* just knowing that they are different is enough *)
     if debug then begin
-        Printf.printf "Models : %b\n%!" (m_compare >= 0);
-        Printf.printf "Rate   : %b\n%!" (v_compare >= 0);
-        Printf.printf "Use Gap: %b\n%!" (g_compare >= 0);
-        Printf.printf "Priors : %b\n%!" (p_compare >= 0);
+        Printf.printf "Models : %b\n%!" (m_compare = 0);
+        Printf.printf "Rate   : %b\n%!" (v_compare = 0);
+        Printf.printf "Use Gap: %b\n%!" (g_compare = 0);
+        Printf.printf "Priors : %b\n%!" (p_compare = 0);
+        Printf.printf "Cost   : %b\n%!" (c_compare = 0);
     end;
     m_compare + v_compare + g_compare + p_compare + c_compare
     

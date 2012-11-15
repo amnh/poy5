@@ -110,9 +110,6 @@ val default_command :
     Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_model
         * Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap
 
-val compare_priors : model -> model -> bool
-(** compare two sets of priors *)
-
 val convert_string_spec : Alphabet.a * int -> string_spec -> spec
 (** [convert_string_spec] convert a string spec from nexus and other formats to
    the basic specification in for a likelihood model *)
