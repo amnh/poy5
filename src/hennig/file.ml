@@ -32,7 +32,7 @@ let default_hennig gap_handling alph equates file pos =
       st_name = file ^ ":" ^ string_of_int pos;
       st_alph = alph;
       st_observed = [];
-      st_normal = None;
+      st_normal = Some 0;
       st_labels = [];
       st_weight = 1.0;
       st_type = STOrdered;
@@ -150,7 +150,7 @@ let make_sankoff_matrix spec =
 let normalize_continuous_characters 
         (taxa  : Nexus.File.taxon option array)
         (matrix: Nexus.File.static_state array array)
-        (chars : Nexus.File.static_spec array) =
+        (chars : Nexus.File.static_spec array) : bool =
     let state_max = 255 in
     (* find minimum character value for character c; ignore missing *)
     let find_by_f_character f i c =
@@ -184,20 +184,26 @@ let normalize_continuous_characters
             end
         done;
         chars.(c) <- { chars.(c) with st_normal = Some state_min; }
+    and denormalize_by_minimum c : unit =
+        chars.(c) <- { chars.(c) with st_normal = None; }
     in
     let can_normalize = ref true in
     for c = 0 to ((Array.length chars)-1) do
         let smin = find_by_f_character min max_int c in
         let smax = find_by_f_character max 0 c in
-        if smax - smin > state_max then
-            can_normalize := false
+        if smax - smin > state_max then can_normalize := false
     done;
-    let () = 
-        if !can_normalize then
+    let () =
+        if !can_normalize then begin
             for c = 0 to ((Array.length chars)-1) do
                 let smin = find_by_f_character min max_int c in
                 normalize_by_minimum smin c
-            done;
+            done
+        end else begin
+            for c = 0 to ((Array.length chars)-1) do
+                denormalize_by_minimum c
+            done
+        end
     in
     !can_normalize
 
