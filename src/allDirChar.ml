@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2832 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2833 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1651,7 +1651,7 @@ module F : Ptree.Tree_Operations
                 | None -> true,None,true
             in
             let do_model,do_branches =
-                if !Methods.opt_mode then false,false else do_model,do_branches
+                if `None = !Methods.opt_mode then false,false else do_model,do_branches
             in
             if (not do_branches) && (not do_model) then
                 tree
