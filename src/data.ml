@@ -2850,10 +2850,12 @@ let check_if_taxa_are_ok file taxa =
     second
 
 let print_error_message fl =
-    let msg = "Unexpected@ character@ in@ file@ " ^ fl.Fasta.filename ^ 
-    "@ in@ taxon@ " ^ StatusCommon.escape fl.Fasta.taxon ^ ".@ The@ character@ '" ^ 
-    StatusCommon.escape fl.Fasta.character ^ "' " ^ 
-    "is@ illegal@ in@ this@ file@ format." in
+    let msg =
+        "Unexpected@ character@ in@ file@ " ^ fl.Fasta.filename ^ "@ in@ taxon"^
+        "@ " ^ StatusCommon.escape fl.Fasta.taxon ^ ".@ The@ character@ '" ^
+        StatusCommon.escape fl.Fasta.character ^ "' " ^ "is@ illegal@ in@ this"^
+        "@ file@ format."
+    in
     Status.user_message Status.Error msg
 
 
