@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 2727 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 2814 $"
 
 let (-->) b a = a b
 
@@ -1094,6 +1094,20 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
     in
     cdebug_printf "Subplex Found %s -- %f\n%!" (pp_farray p) fp;
     pdfp
+
+let compare_opt_mode a b = match a,b with
+    | `None,`None
+    | `Coarse None, `Coarse None
+    | `Custom _, `Custom _
+    | `Exhaustive None, `Exhaustive None -> 0
+    | `Exhaustive (Some x), `Exhaustive (Some y)
+    | `Coarse (Some x), `Coarse (Some y) when x=y -> 0
+    (* We order a > b if it is more exhaustive *)
+    | `Coarse _ , `None 
+    | `Exhaustive _, (`Coarse _ | `None) -> 1
+    | `Exhaustive (Some x), `Exhaustive (Some y)
+    | `Coarse (Some x), `Coarse (Some y) -> Pervasives.compare x y
+    | _, ( `Custom _ | `Exhaustive _ | `Coarse _ | `None) -> -1
 
 (** Determine the numerical optimization strategy from the methods cost mode *)
 let default_numerical_optimization_strategy o p =

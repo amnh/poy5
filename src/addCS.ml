@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AddCS" "$Revision: 2743 $"
+let () = SadmanOutput.register "AddCS" "$Revision: 2819 $"
 
 let debug = true
 let tests = false (* run additive self tests *)
@@ -846,11 +846,14 @@ let split_vectorized_characters data codes =
         | Some _ -> true
         | None   -> false
     in
-    let vectorized,general = List.partition is_character_vectorizable codes in
-    Printf.ksprintf (Status.user_message Status.Information)
-                    ("Vectorized: %d of %d characters.\n%!")
-                    (List.length vectorized) (List.length codes);
-    vectorized,general
+    match codes with
+    | [] -> [],[]
+    | _  ->
+        let vectorized,general = List.partition is_character_vectorizable codes in
+        Printf.ksprintf (Status.user_message Status.Information)
+                        ("@[Vectorized:@[%d of %d characters.@]@]")
+                        (List.length vectorized) (List.length codes);
+        vectorized,general
 
 
 let is_potentially_informative elts = 
