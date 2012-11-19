@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2798 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2823 $"
 
 let debug = false
 let debug_distance = false
@@ -1914,7 +1914,6 @@ type sequence_characters =
     | General_Prealigned of GenNonAdd.gnonadd_sequence
     | Heuristic_Selection of DOS.do_single_sequence
     | Partitioned of PartitionedDOS.partitioned_sequence
-    (*| Relaxed_Lifted of RL.t_w_seqtbl*)
 
 (** A sequence character type. *)
 type t = { 
@@ -2458,7 +2457,7 @@ let to_single parent mine opt_root =
 
 let median code a b =
     let debug = false in
-    if debug then Printf.printf "seqCS.median -> \n%!";
+    if debug then Printf.printf "seqCS.median,\n%!";
     let total_cost = ref 0 in
     let h = a.heuristic in
     let alph = a.alph in
@@ -2470,14 +2469,17 @@ let median code a b =
         Array_ops.map_2 (fun a b ->
             match a, b with
             | General_Prealigned a, General_Prealigned b ->
+                    if debug then Printf.printf "General Prealigned,%!";
                     let res, c = GenNonAdd.median h.c2_full a b in
                     total_cost := c + !total_cost;
                     General_Prealigned res
             | Partitioned a, Partitioned b ->
+                    if debug then Printf.printf "Partitioned,%!";
                     let res, c = PartitionedDOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
                     Partitioned res
             | Heuristic_Selection a, Heuristic_Selection b ->
+                    if debug then Printf.printf "Heuristic Selection,%!";
                     let res, c = DOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res

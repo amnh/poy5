@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2781 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2823 $"
 
 module IntSet = All_sets.Integers
 
@@ -1560,12 +1560,17 @@ let load_data (meth : Methods.input) data nodes =
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
                 in
+                let is_prealigned = List.mem (`Prealigned) read_options in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let alpha = 
                     if init3D then Alphabet.aminoacids_use_3d
                     else Alphabet.aminoacids in
+                let dynastate,default_mode = 
+                    if is_prealigned then 
+                        `SeqPrealigned,`GeneralNonAdd 
+                    else `CustomAlphabet,`DO in
                 List.fold_left 
                     (fun d f -> 
                         Data.process_molecular_file 
@@ -1573,10 +1578,10 @@ let load_data (meth : Methods.input) data nodes =
                                     Cost_matrix.Two_D.default_aminoacids
                                     Cost_matrix.Two_D.default_aminoacids
                                     (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                                    annotated alpha `DO is_prealigned `Seq d f)
+                                    annotated alpha default_mode is_prealigned dynastate d f)
                     data files
-        | `GeneralAlphabetSeq (seq, alph, read_options) ->
-                let data = Data.add_file data [Data.Characters] seq in
+        | `GeneralAlphabetSeq (f, alph, read_options) ->
+                let data = Data.add_file data [Data.Characters] f in
                 let orientation =
                     (List.mem (`Orientation false) read_options) 
                 in
@@ -1595,7 +1600,7 @@ let load_data (meth : Methods.input) data nodes =
                     else if tie_breaker_random then `Keep_Random
                     else `First
                 in
-                let data = Data.add_file data [Data.Characters] seq in
+                (*let data = Data.add_file data [Data.Characters] f in*)
                 (* read the alphabet and tcm *)
                 let level = 2 in (* set level = 2 by default *)
                 let respect_case = true in
@@ -1607,7 +1612,7 @@ let load_data (meth : Methods.input) data nodes =
                     Alphabet.print alphabet;
                 end;
                 (*to do : connect this to prealigned*)
-                if is_prealigned then prealigned_files := [seq] ::
+                if is_prealigned then prealigned_files := [f] ::
                     !prealigned_files;
                 let dynastate,default_mode = 
                     if is_prealigned then 
@@ -1619,7 +1624,7 @@ let load_data (meth : Methods.input) data nodes =
                         ~respect_case:respect_case
                         (Data.Input_file (tcmfile,matrix))
                         twod_full twod_original threed annotated alphabet default_mode
-                        is_prealigned dynastate data seq 
+                        is_prealigned dynastate data f 
         | `Breakinv (seq, alph, read_options) ->
                 (** read breakinv data from files each breakinv is 
                  * presented as a sequence of general alphabets *)

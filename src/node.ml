@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2806 $"
+let () = SadmanOutput.register "Node" "$Revision: 2823 $"
 
 let infinity = float_of_int max_int
 
@@ -650,6 +650,10 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let cost = NonaddCS16.median_cost median in
             let cost = cost *. ca.weight in
             let sumcost = ca.sum_cost +. cb.sum_cost +. cost in
+             if debug_cs_median then 
+                Printf.printf "node.ml cs_median Nonadd16 weight=%f, cost <- %f,\
+                sumcost<-%f(l)+%f(r)+cost=%f\n%!" ca.weight cost ca.sum_cost
+                cb.sum_cost sumcost;
             let res =
                 { ca with
                     preliminary = median; 
@@ -669,6 +673,10 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let cost = NonaddCS32.median_cost median in
             let cost = cost *. ca.weight in
             let sumcost = ca.sum_cost +. cb.sum_cost +. cost in
+             if debug_cs_median then 
+                Printf.printf "node.ml cs_median Nonadd32 weight=%f, cost <- %f,\
+                sumcost<-%f(l)+%f(r)+cost=%f\n%!" ca.weight cost ca.sum_cost
+                cb.sum_cost sumcost;
             let res =
                 { ca with
                     preliminary = median; 
