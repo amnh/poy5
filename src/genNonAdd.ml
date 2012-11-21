@@ -150,10 +150,15 @@ let median cost_mat a b =
     {seq = medseq; costs = make_cost dis },dis
 
 (*when there is no 3d matrix, what do we do for median3 function? 
-* for dynamic data, we align both child and parent, then return the better one
-* for prealigned data, everything is aligned already, *)
+*  we align both child and parent, then return the better one *)
 let median_3_fake cost_mat parent mine child1 child2 =
-    mine
+    let medpc1,dist1 = median cost_mat parent child1 in
+    let medpc2,dist2 = median cost_mat parent child2 in
+    if dist1<dist2 then
+        medpc1
+    else
+        medpc2
+    
 
 let median_3 cost_mat parent mine child1 child2 =
     let dis, medseq = get_distance_3d parent child1 child2 cost_mat in
