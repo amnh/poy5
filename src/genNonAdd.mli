@@ -44,7 +44,11 @@ val distance : gnonadd_sequence -> gnonadd_sequence -> Cost_matrix.Two_D.m -> in
 val median : Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence ->
     gnonadd_sequence * int
 
-(** [median_3 cost_mat parent mine child1 child2] return a new median for mine
+(** [median_3_fake h parent mine child1 child2] *)
+val median_3_fake : Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence ->
+    gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence
+
+(** [median_3 h parent mine child1 child2] return a new median3 for mine
 * with info from parent,child1 and child2 *)
 val median_3 : Cost_matrix.Three_D.m -> gnonadd_sequence -> gnonadd_sequence ->
     gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence
