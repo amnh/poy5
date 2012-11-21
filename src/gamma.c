@@ -334,8 +334,10 @@ void gcf( double *gam,double a,double x,double *gln )
 double gammap( const double x, const double a )
 {
     double gam,gln;
-    if (x < 0.0 || a <= 0.0)
+    if (x < 0.0 || a <= 0.0){
+        printf("Incomplete Gamma Calculated with: x:%f and a:%f\n",x,a);
         failwith("Invalid argument for incomplete gamma");
+    }
     if ( x < (a+1.0)) {
         gser(&gam,a,x,&gln);
     } else {
