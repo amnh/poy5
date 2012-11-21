@@ -305,9 +305,9 @@ let ukkonen_align seqarr1 seqarr2 cost_matrix =
             addsize := !addsize -1 ;
             addlst := !addsize :: !addlst;
             resukkarr :=
-                Array.append (Array.make !addsize (0,0,`None)) !resukkarr;
+                Array_ops.array_append (Array.make !addsize (0,0,`None)) !resukkarr;
             resukkarr := 
-                Array.append !resukkarr (Array.make !addsize (0,0,`None));
+                Array_ops.array_append !resukkarr (Array.make !addsize (0,0,`None));
         done;
         let addlst = !addlst in
         if debug_memsize then 

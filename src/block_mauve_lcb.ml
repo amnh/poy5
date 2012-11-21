@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block_mauve" "$Revision: 2823 $"
+let () = SadmanOutput.register "Block_mauve" "$Revision: 2836 $"
 
 (* A.D. = Aaron E. Darling*)
 (* W = weight, R = ratio *)
@@ -757,7 +757,7 @@ let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
                 if debug3 then assert(sanity_check_is_dna_seq newsubseq);
                 if debug2 then checkpoint_lcb ("before append ["^(string_of_int
                 leftend)^","^(string_of_int rightend)^"]");
-                rightend,Array.append accseq newsubseq
+                rightend,Array_ops.array_append accseq newsubseq
             ) (leftmost-1,[||]) lcb_range 
         in
         let last_size = rightmost-last_rightend in
@@ -773,7 +773,7 @@ let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
 		Printf.printf "]\n%!";
 		checkpoint_lcb "before append possible last piece";
 	end;
-        Array.append tmpseq subend
+        Array_ops.array_append tmpseq subend
     ) old_seqarr (Array.of_list lcb_range_lst_lst) in
     let size_lst = Array.fold_right (fun seq acc ->
         (Array.length seq)::acc ) seq_outside_lcb_arr [] 

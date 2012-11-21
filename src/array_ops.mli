@@ -21,6 +21,12 @@
 
 (* $Id: array_ops.mli 2871 2008-05-23 17:48:34Z andres $ *)
 
+(** [array_append_caml3 arr1 arr2] return Array.append arr1 arr2.
+* this is a walk around of seg fault problem causing by Array.append of Ocaml4.0.X. 
+* here we create our version of Array.append, does the job just like append function from Ocaml3.12.X. *)
+val array_append : 'a array -> 'a array -> 'a array
+
+
 (** [flatten_array a] converts an array array ref referenced by a into a
  single array of the same type of a, pointed by tgt.*)
 val flatten_array : 'a array array -> 'a array 
