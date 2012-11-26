@@ -108,7 +108,6 @@ let split_chromosomes = split_subsequences "@"
 type fl = {
     filename  : string;
     taxon     : string;
-    sequence  : string;
     character : string;
     line      : int;
 }
@@ -121,7 +120,7 @@ let doprepend alph seq v =
     with | Alphabet.Illegal_Character c ->
         if v <> " " then
             let fl = 
-                { filename = ""; taxon = ""; sequence = "";
+                { filename = ""; taxon = "";
                   character = c; line = 0 }
             in
             raise (Illegal_molecular_format fl)
@@ -162,20 +161,21 @@ let process_file_imp ?(respect_case=false) remove_gaps ch alph =
     let res = ref []
     and sequence = ref []
     and lexer = Alphabet.Lexer.make_lexer true respect_case alph
-    and taxon = ref "" in
-    let get_line = get_line () in
+    and taxon = ref ""
+    and line_read = ref 0 in
+    let get_line x = incr line_read; get_line () x in
     let last_line_empty = ref true in
     try while true do
         match get_line ch with
         | Read line ->
             if is_taxon line || !last_line_empty then begin
-                try let tmps =  
-                    !sequence
-                        --> List.rev
-                        --> split_chromosomes
-                        --> List.map split_loci
-                        --> List.map (List.map split_frag)
-                        --> List.map (List.map (List.map (process_sequence remove_gaps lexer alph)))
+                try let tmps =
+                        !sequence
+                            --> List.rev
+                            --> split_chromosomes
+                            --> List.map split_loci
+                            --> List.map (List.map split_frag)
+                            --> List.map (List.map (List.map (process_sequence remove_gaps lexer alph)))
                     in
                     let result = tmps, (process_taxon_name "$" !taxon) in
                     res := result :: !res;
@@ -184,10 +184,21 @@ let process_file_imp ?(respect_case=false) remove_gaps ch alph =
                         taxon := String.sub line 1 ((String.length line) - 1);
                     sequence := [];
                     last_line_empty := false;
-                with | Illegal_molecular_format fl ->
-                    let fl = { fl with taxon = line } in
-                    raise (Illegal_molecular_format fl)
-            end else (sequence := line :: !sequence;)
+                with
+                    | Illegal_molecular_format fl ->
+                        let fl = { fl with taxon = line } in
+                        raise (Illegal_molecular_format fl)
+                    | Alphabet.Lexer_Error (c,p) ->
+                        let fl =
+                            { filename = "";  (* added up-stream *)
+                              taxon = !taxon;
+                              character = c;
+                              line = !line_read; }
+                        in
+                        raise (Illegal_molecular_format fl)
+            end else begin
+                sequence := line :: !sequence
+            end
         | Eot -> last_line_empty := true
         | Eof ->
             let tmps =
@@ -206,25 +217,20 @@ let process_file_imp ?(respect_case=false) remove_gaps ch alph =
     with | Finished -> !res
 
 
-exception Unsupported_file_format of string
+exception Unsupported_file_format
 
 let of_channel_obj ?(respect_case=false) t ch  =
-    let res = 
-        match t with
+    let res = match t with
         | FileContents.Nucleic_Acids 
         | FileContents.AlphSeq _ 
-        | FileContents.Proteins -> process_file_imp ~respect_case:respect_case true ch (alphabet_of_t t) 
+        | FileContents.Proteins ->
+            process_file_imp ~respect_case:respect_case true ch (alphabet_of_t t) 
         | FileContents.Prealigned_Alphabet _ ->
-                process_file_imp  ~respect_case:respect_case false ch (alphabet_of_t t)
-        | _ -> 
-                let msg = 
-                    "Unexpected error 01. Contact the AMNH programming team." 
-                in
-                raise (Unsupported_file_format msg)
+            process_file_imp  ~respect_case:respect_case false ch (alphabet_of_t t)
+        | _ -> raise Unsupported_file_format
     in
-    List.fold_left (fun acc ((_, b) as item) -> 
-        if b <> "" then item :: acc
-        else acc) [] res
+    List.fold_left
+        (fun acc ((_, b) as item) -> if b <> "" then item :: acc else acc) [] res
 
 let of_channel ?(respect_case=false) t ch  =
     of_channel_obj ~respect_case:respect_case t (FileStream.stream_reader ch) 
@@ -241,13 +247,11 @@ let to_channel ch l alp =
     List.iter (output ch alp) l
 
 let of_file ?(respect_case=false) t f =
-    try 
-        let ch = FileStream.Pervasives.open_in f in
+    try let ch = FileStream.Pervasives.open_in f in
         let res = of_channel_obj ~respect_case:respect_case t ch in
         FileStream.Pervasives.close_in ch;
         res
-    with
-    | Illegal_molecular_format fl ->
-            let f = FileStream.filename f in
-            let fl = { fl with filename = f } in
-            raise (Illegal_molecular_format fl)
+    with | Illegal_molecular_format fl ->
+        let f = FileStream.filename f in
+        let fl = { fl with filename = f } in
+        raise (Illegal_molecular_format fl)

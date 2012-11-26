@@ -35,6 +35,7 @@
 exception Illegal_Character of string
 exception Illegal_Code of int
 
+exception Lexer_Error of string * int
 
 (** {2 Types} *)
 

@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2798 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2839 $"
 
 let debug = false
 let debug_distance = false
@@ -1360,19 +1360,19 @@ END  (*end of distance function under module DOS*)
         
 	
 
-    let median_3_no_union h p n c1 c2 use_ukk =
+    let median_3_no_union cm2 p n c1 c2 use_ukk =
         let with_parent c =
             let s1, s2, costs =
                 if use_ukk then 
-                    Sequence.NewkkAlign.align_2 p.sequence c.sequence h.c2_full Sequence.NewkkAlign.default_ukkm
+                    Sequence.NewkkAlign.align_2 p.sequence c.sequence cm2 Sequence.NewkkAlign.default_ukkm
                 else 
-                    Sequence.Align.align_2 p.sequence c.sequence h.c2_full Matrix.default
+                    Sequence.Align.align_2 p.sequence c.sequence cm2 Matrix.default
             in
             { n with 
-                sequence = Sequence.median_2 s1 s2 h.c2_full;
+                sequence = Sequence.median_2 s1 s2 cm2;
                 costs = 
                     {   cost2 = float_of_int costs; 
-                        cost2_max = float_of_int (Sequence.Align.max_cost_2 s1 s2 h.c2_full);
+                        cost2_max = float_of_int (Sequence.Align.max_cost_2 s1 s2 cm2);
                         cost3 = get_cost3 n.costs;
                         sum_cost = get_sum_cost n.costs;
                     }
@@ -1381,13 +1381,13 @@ END  (*end of distance function under module DOS*)
         let (res1, cost1) = with_parent c1
         and (res2, cost2) = with_parent c2 in
         let res = if cost1 < cost2 then res1 else res2 in
-        let gap = Cost_matrix.Two_D.gap h.c2_full in
+        let gap = Cost_matrix.Two_D.gap cm2 in
         if gap <> (Sequence.get res.sequence 0) then 
             Sequence.prepend res.sequence gap;
         res
 
-    let median_3_union h p n c1 c2 use_ukk =
-        let gap = Cost_matrix.Two_D.gap h.c2_full in
+    let median_3_union cm2 p n c1 c2 use_ukk =
+        let gap = Cost_matrix.Two_D.gap cm2 in
         let a, b, _ = n.aligned_children in
         let a = bitset_to_seq gap a
         and b = bitset_to_seq gap b in
@@ -1398,15 +1398,15 @@ END  (*end of distance function under module DOS*)
             Sequence.printseqcode b;
         end;
         assert (Sequence.length a = Sequence.length b);
-        let res = Sequence.Align.union a b h.c2_full in
+        let res = Sequence.Align.union a b cm2 in
         let a, b, cost = 
             if use_ukk then 
-                Sequence.NewkkAlign.align_2 p.sequence res h.c2_full Sequence.NewkkAlign.default_ukkm
+                Sequence.NewkkAlign.align_2 p.sequence res cm2 Sequence.NewkkAlign.default_ukkm
             else
-                Sequence.Align.align_2 p.sequence res h.c2_full Matrix.default 
+                Sequence.Align.align_2 p.sequence res cm2 Matrix.default 
         in
         let res = 
-            let res = Sequence.median_2 a b h.c2_full in
+            let res = Sequence.median_2 a b cm2 in
             if gap <> Sequence.get res 0 then
                 Sequence.prepend res gap;
             res
@@ -1414,7 +1414,7 @@ END  (*end of distance function under module DOS*)
         let rescost = 
             { 
                 cost2 = float_of_int cost; 
-                cost2_max = float_of_int (Sequence.Align.max_cost_2 a b h.c2_full);
+                cost2_max = float_of_int (Sequence.Align.max_cost_2 a b cm2);
                 cost3 = float_of_int cost;
                 sum_cost = c1.costs.sum_cost +. c2.costs.sum_cost +. (float_of_int cost);
             } in
@@ -1914,7 +1914,6 @@ type sequence_characters =
     | General_Prealigned of GenNonAdd.gnonadd_sequence
     | Heuristic_Selection of DOS.do_single_sequence
     | Partitioned of PartitionedDOS.partitioned_sequence
-    (*| Relaxed_Lifted of RL.t_w_seqtbl*)
 
 (** A sequence character type. *)
 type t = { 
@@ -2458,7 +2457,7 @@ let to_single parent mine opt_root =
 
 let median code a b =
     let debug = false in
-    if debug then Printf.printf "seqCS.median -> \n%!";
+    if debug then Printf.printf "seqCS.median,\n%!";
     let total_cost = ref 0 in
     let h = a.heuristic in
     let alph = a.alph in
@@ -2470,14 +2469,17 @@ let median code a b =
         Array_ops.map_2 (fun a b ->
             match a, b with
             | General_Prealigned a, General_Prealigned b ->
+                    if debug then Printf.printf "General Prealigned,%!";
                     let res, c = GenNonAdd.median h.c2_full a b in
                     total_cost := c + !total_cost;
                     General_Prealigned res
             | Partitioned a, Partitioned b ->
+                    if debug then Printf.printf "Partitioned,%!";
                     let res, c = PartitionedDOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
                     Partitioned res
             | Heuristic_Selection a, Heuristic_Selection b ->
+                    if debug then Printf.printf "Heuristic Selection,%!";
                     let res, c = DOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
@@ -2498,15 +2500,14 @@ let median code a b =
 (*median_3 is called throught node.ml [cs_final_states], to assign final states to each internal node*)
 let median_3 p n c1 c2 =
     let h = n.heuristic in
-    let generic_map_4 f1 f3 a b c d use_ukk =
+    let cm2 = h.c2_full and cm3 = h.c3 in
+    let generic_map_4 f1 f3 a b c d cm_HS cm_GP use_ukk =
         Array_ops.map_4 (fun a b c d ->
             match a, b, c, d with
-            | Heuristic_Selection a, Heuristic_Selection b, 
-            Heuristic_Selection c, Heuristic_Selection d ->
-                Heuristic_Selection (f1 h a b c d use_ukk)
-            | General_Prealigned a, General_Prealigned b,
-            General_Prealigned c, General_Prealigned d ->
-                General_Prealigned (f3 h.c3 a b c d) 
+            | Heuristic_Selection a, Heuristic_Selection b,  Heuristic_Selection c, Heuristic_Selection d ->
+                Heuristic_Selection (f1 cm_HS a b c d use_ukk)
+            | General_Prealigned a, General_Prealigned b, General_Prealigned c, General_Prealigned d ->
+                General_Prealigned (f3 cm_GP a b c d) 
             | Partitioned _, Partitioned _, Partitioned _, Partitioned _ ->
                     b
             | _ -> assert false)
@@ -2519,8 +2520,8 @@ let median_3 p n c1 c2 =
             | `Algn_Newkk  -> true
             | `Algn_Normal -> false
         in
-        generic_map_4 DOS.median_3_no_union GenNonAdd.median_3
-                p.characters n.characters c1.characters c2.characters use_ukk
+        generic_map_4 DOS.median_3_no_union GenNonAdd.median_3_fake
+                p.characters n.characters c1.characters c2.characters cm2 cm2 use_ukk
     in
     (* A function to calculate the uppass values if the alphabet does handle
     * properly the union of the items inside. *)
@@ -2530,10 +2531,10 @@ let median_3 p n c1 c2 =
             | `Algn_Normal -> false
         in
         generic_map_4 DOS.median_3_union GenNonAdd.median_3
-                p.characters n.characters c1.characters c2.characters use_ukk
+                p.characters n.characters c1.characters c2.characters cm2 cm3 use_ukk
     in
     let characters = 
-        let has_combinations = 1 = Cost_matrix.Two_D.combine n.heuristic.c2_full in
+        let has_combinations = 1 = Cost_matrix.Two_D.combine cm2 in
         if has_combinations then median_union () else median_no_union ()
     in
     { n with characters = characters }

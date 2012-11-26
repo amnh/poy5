@@ -56,8 +56,8 @@
 
 //CONSTANTS
 #define EPSILON      1e-10   // error for numerical calculations
-#define MAX_ITER     500     // number of iterations for brents method
-#define BL_MIN       1e-8    // minimum branch length 
+#define MAX_ITER     200     // number of iterations for brents method
+#define BL_MIN       1e-13   // minimum branch length 
 #define BL_MAX       100     // maximum branch length
 
 #define NEGINF       log(0)
@@ -962,7 +962,9 @@ compose_sym(double* P,const double* U,const double* D,const float t,int n,double
     if(t == -1.0){ /** Instantaneous rate matrix **/
         dgemm_(&ntran,&ntran, &n, &n, &n, &alpha, U, &n, P, &n, &beta, TMP, &n );
         dgemm_(&ntran,&_tran,&n,&n,&n,&alpha,TMP,&n,U,&n,&beta,P,&n);
-    } else if(t >= EPSILON){
+/*    } else if(t <= EPSILON){*/
+/*        create_identity( P , n );*/
+    } else {
         apply_exp(P,n,n,t); //exp(D*t); along diagonal only
         //calculates: C = op(A)*op(B)*a + C*b
         dgemm_(&ntran,&ntran,        //format, op(A), op(B)
@@ -972,8 +974,6 @@ compose_sym(double* P,const double* U,const double* D,const float t,int n,double
                 &beta, TMP, &n );    //multiplier for C, MATRIX C, stride for C
         //if scalor mult of C == 0, C isn't used to add
         dgemm_(&ntran,&_tran,&n,&n,&n,&alpha,TMP,&n,U,&n,&beta,P,&n);
-    } else {
-        create_identity( P , n );
     }
 }
 value
@@ -1051,6 +1051,8 @@ likelihood_CAML_compose_gtr(value tmp,value U, value D, value Ui, value t)
 
     CAMLreturn( res );
 }
+
+
 
 /**  [median_h P l c nl a]  
  * Finds half the likelihood vector of child [l] and probability matrix [P] into [nl]
@@ -1330,6 +1332,48 @@ likelihood_CAML_loglikelihood( value * argv, int argn )
         (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5]);
 }
 
+/** Calculate the variance of the ratio of the sites of two vectors, presumably,
+ * the leaf taxa-set is the same in each vector; this is the running variance
+ * algorithm so only one pass is done on the vector. */
+float variance_ratio(const mll* a, const mll* b, const double* ws,
+                     const double* pi, const double* pr, const double pinvar)
+{
+    int h;
+    double avg=0,var=0,a_h,b_h,v_h;
+
+    for(h = 0; h < a->c_len; ++h){
+        a_h = loglikelihood_site( a, ws[h], pi, pr, pinvar, h );
+        b_h = loglikelihood_site( b, ws[h], pi, pr, pinvar, h );
+        avg+= a_h - b_h;
+    }
+    avg = avg / a->c_len;
+    for(h = 0; h < a->c_len; ++h){
+        a_h = loglikelihood_site( a, ws[h], pi, pr, pinvar, h );
+        b_h = loglikelihood_site( b, ws[h], pi, pr, pinvar, h );
+        v_h = (a_h - b_h) - avg;
+        var+= (v_h * v_h);
+    }
+    var = var * (a->c_len / (a->c_len-1));
+    return var;
+}
+
+/** Calculate the variance of a likelihood vector **/
+float variance( const mll* a, const double* ws, const double* pi,
+                    const double* pr, const double pinvar)
+{
+    int h;
+    double avg=0,var=0,a_h;
+
+    for(h = 0; h < a->c_len; ++h)
+        avg+= loglikelihood_site( a, ws[h], pi, pr, pinvar, h );
+    avg = avg / a->c_len;
+    for(h = 0; h < a->c_len; ++h){
+        a_h = loglikelihood_site( a, ws[h], pi, pr, pinvar, h );
+        var+= (a_h - avg) * (a_h - avg);
+    }
+    var = var * (a->c_len / (a->c_len-1));
+    return var;
+}
 
 /** SSE functions for medians */
 #ifdef __SSE3__

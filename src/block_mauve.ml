@@ -17,12 +17,14 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block_mauve" "$Revision: 2684 $"
+let () = SadmanOutput.register "Block_mauve" "$Revision: 2823 $"
 
 (* A.D. = Aaron E. Darling*)
 (* W = weight, R = ratio *)
 
 let debug_main = false 
+
+let debug_major_slice = false
 
 open Printf
 open Block_mauve_seed
@@ -53,6 +55,12 @@ let skip_huge_nonlcb_block = true
 let minimum_lcb_weight = 2 
 let init_tb_size = 50
 let init_seed_size = 50
+
+let checkpoint_major_slice msg =
+    prerr_endline ("block_mauve.ml checkpoint_major_slice at position "^ msg);
+    let slice_number = Gc.major_slice 0 in
+    prerr_endline ("number of major slice = "^(string_of_int slice_number))
+
 
 (** some operation on int/int list/int array/etc.. we gonna need *)
 let to_ori_code code =
@@ -276,7 +284,10 @@ let fill_in_indel full_range_lstlst =
 
 
 
-
+(*[fill_in_cost_ali_mat] fill in cost between blocks .
+* for cost matrix ali_mat. [Sequence.align2] is being called to
+get the editing cost between two lcb blocks. [Sequence.cmp_gap_cost] is being
+called to get the deletion cost of a lcb block*)
 let fill_in_cost_ali_mat maximum_lcb_len cost_mat seq1 seq2 in_seqarr code_range_lst1 code_range_lst2 gen_gap_code
 locus_indel_cost ali_mat gen_cost_mat base len_lst1 use_ukk 
 mum_tbl seed2pos_tbl lcb_tbl =
@@ -386,6 +397,7 @@ let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio min_lcb_
 locus_indel_cost cost_mat use_ukk =
     let debug2 = false in
     (*transform poy costmatrix into hodx_matrix in mauve*)
+    if debug_major_slice then checkpoint_major_slice "begin of get_matcharr_and_costmatrix";
     fill_in_hmatrix cost_mat;
     let len1 = Sequence.length seq1 and len2 = Sequence.length seq2 in
     let minlen = if (len1>len2) then len2 else len1 in
@@ -410,6 +422,7 @@ locus_indel_cost cost_mat use_ukk =
         Printf.printf "original code list is \n%!";
         printIntListList code_list;
     end;
+    if debug_major_slice then checkpoint_major_slice "got lcbs, start to fill in cost matrix";
     let base = List.length (List.hd code_list) in (*start number of non-lcb block*)
     let len_lst1 = List.length (List.hd full_range_lstlst) in
     let len_lst2 = List.length (List.nth full_range_lstlst 1) in
@@ -465,6 +478,8 @@ locus_indel_cost cost_mat use_ukk =
     in*)
     if debug_main then Printf.printf "end of main function in block_mauve. return with cost=(edit:%d,indel=%d)\n%!"
     edit_cost indel_cost;
+    if debug_major_slice then
+        checkpoint_major_slice "end of get_matcharr_and_costmatrix";
     code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,edit_cost,indel_cost,full_code_lstlst
 
 (** [get_range_with_code] return the range of match block code1 and block code2. if

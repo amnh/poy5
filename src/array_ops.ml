@@ -18,10 +18,32 @@
 (* USA                                                                        *)
 
 (* $Id: array_ops.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Array_ops" "$Revision: 2684 $"
+let () = SadmanOutput.register "Array_ops" "$Revision: 2836 $"
 
 
 exception Empty
+
+let use_array_append_from_caml3 = true
+
+(** [array_append_caml3 arr1 arr2] return Array.append arr1 arr2.
+* this is a walk around of seg fault problem causing by Array.append of Ocaml4.0.X. 
+* here we create our version of Array.append, does the job just like append function from Ocaml3.12.X. *)
+let array_append a1 a2 =
+  if use_array_append_from_caml3 then begin
+      let l1 = Array.length a1 and l2 = Array.length a2 in
+      if l1 = 0 && l2 = 0 then [||] else begin
+          (*Array.get calls safe_get from array.c, this is not what they did, they call unsafe_get in Ocaml3.12.X, but there is
+          * no entrance for unsafe_get in Array.mli*)
+        let r = Array.make (l1 + l2) (Array.get (if l1 > 0 then a1 else a2) 0) in
+        for i = 0 to l1 - 1 do Array.set r i (Array.get a1 i) done;
+        for i = 0 to l2 - 1 do Array.set r (i + l1) (Array.get a2 i) done;
+        r
+      end;
+  end
+  else 
+      Array.append a1 a2
+
+
 
 let rec _calculate_size a len lst sum =
     match len with 

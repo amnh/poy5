@@ -42,7 +42,6 @@ end
 type fl = {
     filename : string;
     taxon : string;
-    sequence : string;
     character : string;
     line : int;
 }

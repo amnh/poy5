@@ -46,7 +46,7 @@ let output_infof format =
 let debug_kolmo = false
 let debug_level = false
 let debug_search_base = false
-let debug_parsed_seq = false 
+let debug_parsed_seq = false
 
 (** The valid types of contents of a file *)
 type contents = Characters | CostMatrix | Trees 
@@ -2219,7 +2219,7 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                                    tcm_original tcm3 default_mode lk_model
                                    alphabet dyna_state dyna_pam weight
                                    prealigned domerge =
-    if debug_parsed_seq then Printf.printf "process normal sequence\n%!";
+    if debug_parsed_seq then Printf.printf "process normal sequence, prealigned:%b\n%!" prealigned;
     let get_multi_segment_seq file_taxon_chrom_loci_frag_seq =
         (* input seq list list list list become a matrix looks like this:
         * [ 
@@ -2850,10 +2850,12 @@ let check_if_taxa_are_ok file taxa =
     second
 
 let print_error_message fl =
-    let msg = "Unexpected@ character@ in@ file@ " ^ fl.Fasta.filename ^ 
-    "@ in@ taxon@ " ^ StatusCommon.escape fl.Fasta.taxon ^ ".@ The@ character@ '" ^ 
-    StatusCommon.escape fl.Fasta.character ^ "' " ^ 
-    "is@ illegal@ in@ this@ file@ format." in
+    let msg =
+        "Unexpected@ character@ in@ file@ " ^ fl.Fasta.filename ^ "@ in@ taxon"^
+        "@ " ^ StatusCommon.escape fl.Fasta.taxon ^ ".@ The@ character@ '" ^
+        StatusCommon.escape fl.Fasta.character ^ "' " ^ "is@ illegal@ in@ this"^
+        "@ file@ format."
+    in
     Status.user_message Status.Error msg
 
 
@@ -2915,6 +2917,8 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_orig
 
 let process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_original tcm3 annotated alphabet
                             mode is_prealigned dyna_state data file =
+    let debug = false in
+    if debug then Printf.printf "Data.process_molecular_file is_prealigned = %b\n%!" is_prealigned;
     let data =
         aux_process_molecular_file ~respect_case:respect_case
             tcmfile tcm_full tcm_original tcm3 alphabet

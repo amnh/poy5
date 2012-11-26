@@ -17,14 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2712 $"
-
-
-(* $Id: alphabet.ml 2871 2008-05-23 17:48:34Z andres $ *)
+let () = SadmanOutput.register "Alphabet" "$Revision: 2830 $"
 
 exception Illegal_Character of string
 exception Illegal_Code of int
 exception Illegal_List of int list
+(* Define an exception to return the character and location of error *)
+exception Lexer_Error of string * int
 
 let debug = false
 
@@ -493,30 +492,24 @@ module Lexer = struct
         List.fold_left (fun acc (a, b) ->
             add_stream a b acc) (Unfinished CM.empty) lst
 
-    let rec single_processor issue_warnings respect_case stream acc = 
-        function
-        | Code x -> 
-                x :: acc
+    let rec single_processor issue_warnings respect_case stream acc = function
+        | Code x -> x :: acc
         | Unfinished x ->
-                let c = 
+                let c =
                     let c = Stream.next stream in
                     if respect_case then c
                     else Char.uppercase c 
                 in
-                try single_processor issue_warnings respect_case stream acc 
-                (CM.find c x) with
-                | Not_found as err ->
+                try single_processor issue_warnings respect_case stream acc (CM.find c x)
+                with | Not_found ->
+                    let char = String.make 1 c and pos = Stream.count stream in
                     if issue_warnings then begin
                         Status.user_message Status.Error 
                             ("I@ could@ not@ find@ the@ character@ " ^ 
-                             (StatusCommon.escape (String.make 1 c)) ^ 
-                             "@ in@ position@ " ^ string_of_int (Stream.count stream));
-                        Status.user_message Status.Error
-                            ("I@ found@ an@ illegal@ character@ in@ " ^
-                             "the@ " ^ "last@ file@ I@ was@ reading.");
-                    end else 
-                        ();
-                    raise err
+                             (StatusCommon.escape char) ^ "@ in@ position@ " ^
+                             string_of_int pos)
+                    end;
+                    raise (Lexer_Error (char,pos))
 
     let make_simplified_lexer style respect_case issue_warnings a =
         let lexer = internal_lexer respect_case a in
@@ -565,7 +558,7 @@ module Lexer = struct
                 match Stream.peek stream with
                 | None -> raise Exit
                 | Some v ->
-                        match v with
+                    begin match v with
                         | '\001' .. '\032' ->
                                 Stream.junk stream;
                                 processor_driver ();
@@ -581,29 +574,30 @@ module Lexer = struct
                                 Stream.junk stream;
                                 full_processor []
                         | _ -> single_processor issue_warnings respect_case stream [] lexer
+                    end
             in
             processor_driver ()
 
     let make_lexer issue_warnings respect_case a = 
         let lexer = internal_lexer respect_case a in
-        fun stream lst len ->
+        (fun stream lst len ->
             let rec full_processor acc cnt =
                 match Stream.peek stream with
                 | Some v ->
-                        begin match v with
+                    begin match v with
                         | '\001' .. '\032' ->
-                                Stream.junk stream;
-                                full_processor acc cnt
+                            Stream.junk stream;
+                            full_processor acc cnt
                         | _ ->
-                                let res = single_processor issue_warnings
-                                respect_case stream acc lexer in
-(*                                Printf.fprintf stdout " "; *)
-                                full_processor res (cnt + 1)
-                        end
+                            let res =
+                                single_processor issue_warnings respect_case stream acc lexer
+                            in
+                            full_processor res (cnt + 1)
+                    end
                 | None -> acc, cnt
             in
             let res, cnt = full_processor lst len in
-            res, cnt
+            res, cnt)
 end
 
 

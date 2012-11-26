@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2814 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2835 $"
 
 module IntSet = All_sets.Integers
 
@@ -1277,12 +1277,12 @@ let reroot_at_outgroup run =
         match data.Data.root_at with
         | None          -> ptree
         | Some outgroup ->
-               try let nbr = Ptree.get_parent outgroup ptree in
-                   let ptree, update =
-                       TreeOps.reroot_fn None false (Tree.Edge (outgroup, nbr)) ptree in
-                   let ptree = TreeOps.incremental_uppass ptree update in
-                   ptree
-               with _ -> ptree
+           try let nbr = Ptree.get_parent outgroup ptree in
+               let ptree, update =
+                   TreeOps.reroot_fn None false (Tree.Edge (outgroup, nbr)) ptree in
+               let ptree = TreeOps.incremental_uppass ptree update in
+               ptree
+           with _ -> ptree
     in
     { run with
         trees = Sexpr.map (reroot_at_outgroup run.data) run.trees }
@@ -1560,12 +1560,17 @@ let load_data (meth : Methods.input) data nodes =
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
                 in
+                let is_prealigned = List.mem (`Prealigned) read_options in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let alpha = 
                     if init3D then Alphabet.aminoacids_use_3d
                     else Alphabet.aminoacids in
+                let dynastate,default_mode = 
+                    if is_prealigned then 
+                        `SeqPrealigned,`GeneralNonAdd 
+                    else `CustomAlphabet,`DO in
                 List.fold_left 
                     (fun d f -> 
                         Data.process_molecular_file 
@@ -1573,10 +1578,10 @@ let load_data (meth : Methods.input) data nodes =
                                     Cost_matrix.Two_D.default_aminoacids
                                     Cost_matrix.Two_D.default_aminoacids
                                     (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                                    annotated alpha `DO is_prealigned `Seq d f)
+                                    annotated alpha default_mode is_prealigned dynastate d f)
                     data files
-        | `GeneralAlphabetSeq (seq, alph, read_options) ->
-                let data = Data.add_file data [Data.Characters] seq in
+        | `GeneralAlphabetSeq (f, alph, read_options) ->
+                let data = Data.add_file data [Data.Characters] f in
                 let orientation =
                     (List.mem (`Orientation false) read_options) 
                 in
@@ -1595,7 +1600,7 @@ let load_data (meth : Methods.input) data nodes =
                     else if tie_breaker_random then `Keep_Random
                     else `First
                 in
-                let data = Data.add_file data [Data.Characters] seq in
+                (*let data = Data.add_file data [Data.Characters] f in*)
                 (* read the alphabet and tcm *)
                 let level = 2 in (* set level = 2 by default *)
                 let respect_case = true in
@@ -1607,7 +1612,7 @@ let load_data (meth : Methods.input) data nodes =
                     Alphabet.print alphabet;
                 end;
                 (*to do : connect this to prealigned*)
-                if is_prealigned then prealigned_files := [seq] ::
+                if is_prealigned then prealigned_files := [f] ::
                     !prealigned_files;
                 let dynastate,default_mode = 
                     if is_prealigned then 
@@ -1619,7 +1624,7 @@ let load_data (meth : Methods.input) data nodes =
                         ~respect_case:respect_case
                         (Data.Input_file (tcmfile,matrix))
                         twod_full twod_original threed annotated alphabet default_mode
-                        is_prealigned dynastate data seq 
+                        is_prealigned dynastate data f 
         | `Breakinv (seq, alph, read_options) ->
                 (** read breakinv data from files each breakinv is 
                  * presented as a sequence of general alphabets *)
@@ -2147,18 +2152,21 @@ let get_trees_for_support support_class run =
     in
     match support_class with
     | `Bremer (Some input_files) ->
-            S.bremer_of_input_file_but_trust_input_cost 
+            S.bremer_of_input_file_but_trust_input_cost
                 (match run.data.Data.root_at with
-                    | Some x -> x 
-                    | None -> failwith "no root?")
+                    | Some x -> x
+                    | None ->
+                        Status.user_message Status.Error
+                            ("I@ require@ a@ specified@ root.@ See@ the@ "^
+                             "documentation@ for@ the@ set(root:ID)@ command.");
+                            raise Not_found)
                 (fun x -> Data.code_taxon x run.data)
                 run.data
                 input_files
-                run.trees, 
+                run.trees,
             "Bremer"
     | `Bremer None ->
-            Sexpr.map (S.support_to_string_tree run.data)
-                      run.bremer_support, 
+            Sexpr.map (S.support_to_string_tree run.data) run.bremer_support,
             "Bremer"
     | `Jackknife x ->
             let res = do_support run.jackknife_support x in
@@ -2167,10 +2175,9 @@ let get_trees_for_support support_class run =
             let res = do_support run.bootstrap_support x in
             res, "Bootstrap"
 
-let rec handle_support_output run meth =
-    match meth with
+let rec handle_support_output run meth = match meth with
     | `Supports (support_class, filename) ->
-            (match support_class with
+        begin match support_class with
             | Some support_class ->
                 let trees, title = get_trees_for_support support_class run in
                 (* If we have bremer supports, we print them *)
@@ -2178,48 +2185,48 @@ let rec handle_support_output run meth =
                 Status.user_message fo ("@[<v>@[" ^ title ^ "@ Supports:@]@,");
                 let output tree =
                     Status.user_message fo ("@[Support@ tree:@]@,@[");
-                    Status.user_message fo 
-                    (AsciiTree.for_formatter false true false tree);
+                    Status.user_message fo (AsciiTree.for_formatter false true false tree);
                     Status.user_message fo "@]";
                 in
                 Sexpr.leaf_iter output trees;
                 Status.user_message fo "@,%!@]";
             | None ->
-                    let a = Some (`Bremer None)
-                    and b = Some (`Jackknife `Individual)
-                    and c = Some (`Bootstrap `Individual) in
-                    handle_support_output run (`Supports (a, filename));
-                    handle_support_output run (`Supports (b, filename));
-                    handle_support_output run (`Supports (c, filename));)
+                let a = Some (`Bremer None)
+                and b = Some (`Jackknife `Individual)
+                and c = Some (`Bootstrap `Individual) in
+                handle_support_output run (`Supports (a, filename));
+                handle_support_output run (`Supports (b, filename));
+                handle_support_output run (`Supports (c, filename));
+        end
     | `GraphicSupports (support_class, filename) ->
-            (match support_class with
+        begin match support_class with
             | Some support_class ->
                 let trees, title = get_trees_for_support support_class run in
                 let trees = Sexpr.to_list trees in
                 let trees = Array.of_list trees in
                 if 0 = Array.length trees then ()
-                else 
-                    (let trees = Array.map (fun x -> 0.0, x) trees in
+                else begin
+                    let trees = Array.map (fun x -> 0.0, x) trees in
                     match filename with
-                    | Some filename ->
-                        GraphicsPs.display "" filename trees; 
-                    | None ->
+                        | Some f -> GraphicsPs.display "" f trees
+                        | None   ->
                             let fo = Status.Output (filename,false, []) in
-                            Array.iter 
-                            (fun (_, x) ->
-                                let r = AsciiTree.to_string ~sep:2 ~bd:6 true x in
-                                Status.user_message fo 
-                                ("@[@[<v>@[" ^ title ^ "@ Support@ tree@]@,@[");
-                                Status.user_message fo r;
-                                Status.user_message fo "@,@]@]@]%!";) 
-                            trees;)
-                | None ->
-                    let a = Some (`Bremer None)
-                    and b = Some (`Jackknife `Individual)
-                    and c = Some (`Bootstrap `Individual) in
-                    handle_support_output run (`GraphicSupports (a, filename));
-                    handle_support_output run (`GraphicSupports (b, filename));
-                    handle_support_output run (`GraphicSupports (c, filename));)
+                            Array.iter
+                                (fun (_, x) ->
+                                    let r = AsciiTree.to_string ~sep:2 ~bd:6 true x in
+                                    Status.user_message fo ("@[@[<v>@[" ^ title ^ "@ Support@ tree@]@,@[");
+                                    Status.user_message fo r;
+                                    Status.user_message fo "@,@]@]@]%!";)
+                                trees;
+                end
+            | None ->
+                let a = Some (`Bremer None)
+                and b = Some (`Jackknife `Individual)
+                and c = Some (`Bootstrap `Individual) in
+                handle_support_output run (`GraphicSupports (a, filename));
+                handle_support_output run (`GraphicSupports (b, filename));
+                handle_support_output run (`GraphicSupports (c, filename));
+        end
 
 let update_mergingscript folder mergingscript run tmp =
     let tmp = { run with trees = Sexpr.union tmp.trees

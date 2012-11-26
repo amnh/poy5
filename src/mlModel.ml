@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2811 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2834 $"
 
 open Numerical.FPInfix
 
@@ -828,7 +828,7 @@ let output_model output output_table nexus model set =
                 printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]\n"^^
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param
             | Theta (cats,param,inv) ->
-                printf ("Yes@]@\n[@<hov 1>- Number of categories: %d@]\n"^^
+                printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]\n"^^
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param;
                 printf ("@[<hov 1>- Proportion of invariant: %.4f@]\n") inv
         in

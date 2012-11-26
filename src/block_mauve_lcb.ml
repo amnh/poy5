@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block_mauve" "$Revision: 2804 $"
+let () = SadmanOutput.register "Block_mauve" "$Revision: 2836 $"
 
 (* A.D. = Aaron E. Darling*)
 (* W = weight, R = ratio *)
@@ -64,8 +64,12 @@ let get_min_of_lst = Utl.get_min_of_lst
 *)
 
 let checkpoint_lcb p =
-  Gc.compact ();
-  prerr_endline ("block_mauve_lcb.ml checkpoint at position " ^ p)
+  (*
+Gc.compact ();
+  *)
+  prerr_endline ("block_mauve_lcb.ml checkpoint at position " ^ p);
+  let slice_number = Gc.major_slice 0 in
+  prerr_endline ("major slice number = "^(string_of_int slice_number))
 
 
 let minimum_cover_ratio = ref 0.4
@@ -729,7 +733,7 @@ let get_full_range_lstlst lcb_range_lstlst in_seqsize_lst =
 * building lcb_tbl, old_seq_range_lst is range of input sequences, but if we
 * are working inside a huge lcb, old_seq_range_lst is the range of that huge lcb*)    
 let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
-    let debug = false and debug2 = false in
+    let debug = false and debug2 = false and debug3 = false in
     if debug then Printf.printf "get seq outside lcbs\n%!";
     if debug2 then checkpoint_lcb "beginning of get seq outside lcbs";
     (*let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seq_size_lst in*)
@@ -750,10 +754,10 @@ let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
                     Array.sub seq (pre_rightend+1) (leftend-pre_rightend-1) 
                     else [||]
                 in
-                if debug2 then assert(sanity_check_is_dna_seq newsubseq);
+                if debug3 then assert(sanity_check_is_dna_seq newsubseq);
                 if debug2 then checkpoint_lcb ("before append ["^(string_of_int
                 leftend)^","^(string_of_int rightend)^"]");
-                rightend,Array.append accseq newsubseq
+                rightend,Array_ops.array_append accseq newsubseq
             ) (leftmost-1,[||]) lcb_range 
         in
         let last_size = rightmost-last_rightend in
@@ -762,8 +766,14 @@ let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
             Array.sub seq (last_rightend+1) last_size 
             else [||]
         in
-        if debug2 then checkpoint_lcb "before append possible last piece";
-        Array.append tmpseq subend
+        if debug2 then begin
+                Printf.printf "tmpsq size = %d, last_size =%d-%d=%d,[%!" 
+		(Array.length tmpseq) rightmost last_rightend last_size;
+		Array.iter (fun x -> Printf.printf "%d,%!" x) subend;
+		Printf.printf "]\n%!";
+		checkpoint_lcb "before append possible last piece";
+	end;
+        Array_ops.array_append tmpseq subend
     ) old_seqarr (Array.of_list lcb_range_lst_lst) in
     let size_lst = Array.fold_right (fun seq acc ->
         (Array.length seq)::acc ) seq_outside_lcb_arr [] 
@@ -771,7 +781,7 @@ let get_seq_outside_lcbs old_seqarr lcb_range_lst_lst old_seq_range_lst =
     if debug then begin
         Printf.printf "return seq arr with size = %!";
         printIntList2 size_lst;
-        if debug2 then
+        if debug3 then
             Array.iter (fun s -> 
                 assert(sanity_check_is_dna_seq s);
             ) seq_outside_lcb_arr;
