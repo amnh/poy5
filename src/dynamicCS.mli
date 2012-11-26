@@ -125,6 +125,10 @@ val state : t -> Data.dyna_state_t
 (** [code a] returns the code of dynamic character set [a] *)
 val code : t -> int
 
+(** [codes a] return an array of codes that are included in the data of this
+    character. These create a one-to-one relationship with Data.d *)
+val codes : t -> int array
+
 (** [mem c t] returns true if code [c] is a part of this character [t] **)
 val mem : int list option -> t -> bool
 

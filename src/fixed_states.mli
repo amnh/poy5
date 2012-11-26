@@ -22,7 +22,7 @@ val get_earray : t_w_seqtbl -> int array
 
 val get_min_states : t_w_seqtbl -> int * int
 
-val off_array : Data.fixed_state_spec -> int -> t_w_seqtbl 
+val of_array : Data.fixed_state_spec -> int -> int -> t_w_seqtbl 
 
 val distance : t_w_seqtbl -> t_w_seqtbl -> float
 
