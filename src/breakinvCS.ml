@@ -20,10 +20,10 @@
 (** A Breakinv character set implementation. The breakinv
 * character set allows rearrangements *)
 
-let () = SadmanOutput.register "BreakinvCS" "$Revision: 2754 $"
+let () = SadmanOutput.register "BreakinvCS" "$Revision: 2842 $"
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "Breakinv Character" "$Revision: 2754 $"
+let () = SadmanOutput.register "Breakinv Character" "$Revision: 2842 $"
 
 let debug = false
 
@@ -146,6 +146,8 @@ let median2 (a : t) (b : t) =
     in
     let subtree_recost = a.subtree_recost +. b.subtree_recost +. (float_of_int total_recost) in
     let subtree_cost = a.subtree_cost +. b.subtree_cost +. (float_of_int total_recost) in
+    if debug then Printf.printf "return cost=%d,%d,%f,%f\n%!" total_cost total_recost
+    subtree_cost subtree_recost;
     { a with meds = medab_map; costs = new_costs; recosts = new_recosts;
           total_cost = float_of_int total_cost; 
           total_recost = float_of_int total_recost;
