@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SearchInformation" "$Revision: 2709 $"
+let () = SadmanOutput.register "SearchInformation" "$Revision: 2860 $"
 
 let handle_tree_information trees acc = function
     | `Number -> 
@@ -32,7 +32,7 @@ let handle_tree_information trees acc = function
             in
             Sexpr.fold_left minimizer infinity trees
         in
-        acc ^ ("@[<hov>Minimum@ lenght:@ " ^ string_of_float min ^ "@]@,")
+        acc ^ ("@[<hov>Minimum@ length:@ " ^ string_of_float min ^ "@]@,")
     | `Maximum ->
         let max =
             let maximizer acc x =
@@ -73,7 +73,7 @@ let handle_tree_information trees acc = function
                     else
                         ""
                 in
-                Printf.sprintf "%ss@ with@ costs@ %f to %f@]%s"
+                Printf.sprintf "%ss@ with@ costs@ %F to %F@]%s"
                                storing min max count_str
         end
 
@@ -126,7 +126,7 @@ let show_information trees data timer acc = function
     | `TreeInformation items ->
         begin match trees with
             | Some trees ->
-                let acc = acc ^ "@,@[<v 2>Trees:@ " in
+                let acc = acc ^ "@,@[<v 2>Trees:@," in
                 let acc = List.fold_left (handle_tree_information trees) acc items in
                 acc ^ "@] "
             | None -> acc
