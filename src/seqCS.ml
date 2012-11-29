@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2839 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2865 $"
 
 let debug = false
 let debug_distance = false
@@ -1927,12 +1927,6 @@ type t = {
     heuristic : heuristic;          (** The heuristic to be used *)
     priority : int list;            (** The information ordering *)
 }
-(*
-let is_fixedstates x =
-    match x.characters.(0) with
-    | Relaxed_Lifted _ -> true
-    | _ -> false
-*)
 
 let print in_data =
     let seq_chr_arr = in_data.characters in
@@ -1954,7 +1948,6 @@ let is_available in_data =
     | General_Prealigned _ -> 0
     | Heuristic_Selection _ -> 0
     | Partitioned _ -> 0
-    (*| Relaxed_Lifted _ -> 0*)
     
 let flatten t_lst = 
     List.map ( fun x -> 
@@ -2077,55 +2070,53 @@ module Union = struct
                 in
                 sat /. (float_of_int len)
 
-    let union self ua ub =
-        match ua, ub with
+    let union self ua ub = match ua, ub with
         | Some ua, Some ub ->
-                let c2 = ua.u_c2 in
-                let gap = Cost_matrix.Two_D.gap c2 in
-                let do_one self uniona unionb =
-                    if Sequence.is_empty uniona.Sequence.Unions.seq gap then
-                        unionb 
-                    else if Sequence.is_empty unionb.Sequence.Unions.seq gap 
-                    then
-                        uniona 
-                    else 
-                        let tmpa, tmpb, tmpc = self.DOS.aligned_children in
-                        let tmpa = DOS.bitset_to_seq gap tmpa 
-                        and tmpb = DOS.bitset_to_seq gap tmpb 
-                        and tmpc = DOS.bitset_to_seq gap tmpc in
-                        (Sequence.Unions.union tmpa tmpb tmpc uniona unionb c2)
-                in
-                let union uniona unionb self =
-                    match self with
-                    | General_Prealigned _ -> failwith "write union later"
-                    | Heuristic_Selection self ->
-                        (match uniona, unionb with
+            let c2 = ua.u_c2 in
+            let gap = Cost_matrix.Two_D.gap c2 in
+            let do_one self uniona unionb =
+                if Sequence.is_empty uniona.Sequence.Unions.seq gap then
+                    unionb 
+                else if Sequence.is_empty unionb.Sequence.Unions.seq gap then
+                    uniona 
+                else
+                    let tmpa, tmpb, tmpc = self.DOS.aligned_children in
+                    let tmpa = DOS.bitset_to_seq gap tmpa
+                    and tmpb = DOS.bitset_to_seq gap tmpb
+                    and tmpc = DOS.bitset_to_seq gap tmpc in
+                    (Sequence.Unions.union tmpa tmpb tmpc uniona unionb c2)
+            in
+            let union uniona unionb self = match self with
+                | General_Prealigned _ -> failwith "write union later"
+                | Heuristic_Selection self ->
+                    begin match uniona, unionb with
                         | Some (Single uniona), Some (Single unionb) ->
-                                Some (Single (do_one self uniona unionb))
-                        | _ -> assert false)
-                    (*| Relaxed_Lifted _ -> None*)
-                    | Partitioned self -> 
-                            (match uniona, unionb with
-                            | Some (Array uniona), Some (Array unionb) ->
-                                    let arr = 
-                                        Array_ops.map_3 (fun a b c ->
-                                            let a = 
-                                                match a with
-                                                | PartitionedDOS.Last a 
-                                                | PartitionedDOS.First a
-                                                | PartitionedDOS.DO a -> a
-                                            in
-                                            do_one a b c)
-                                            self uniona unionb
-                                    in
-                                    Some (Array arr)
-                            | _ -> assert false)
-                in
-                let union = 
-                    Array_ops.map_3 union ua.unions ub.unions
-                    self.characters
-                in
-                Some { ua with unions = union }
+                            Some (Single (do_one self uniona unionb))
+                        | _ -> assert false
+                    end
+                | Partitioned self -> 
+                    begin match uniona, unionb with
+                        | Some (Array uniona), Some (Array unionb) ->
+                            let arr = 
+                                Array_ops.map_3
+                                    (fun a b c ->
+                                        let a = match a with
+                                            | PartitionedDOS.Last a 
+                                            | PartitionedDOS.First a
+                                            | PartitionedDOS.DO a -> a
+                                        in
+                                        do_one a b c)
+                                    self uniona unionb
+                            in
+                            Some (Array arr)
+                        | _ -> assert false
+                    end
+            in
+            let union = 
+                Array_ops.map_3 union ua.unions ub.unions
+                self.characters
+            in
+            Some { ua with unions = union }
         | None, None -> None
         | _, _ -> failwith "SeqCS.union"
 
@@ -2655,8 +2646,6 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
         | `Algn_Normal -> false
     in
     let h = t.heuristic in
-    let res_state = ref (-1) in
-    let is_fs = ref false in
     let rec output_sequence acc code seq do_to_single =
         let one_sequence (cmin, cmax, c3, ccost, csumcost, seqs) par seq =
             let cost = seq.DOS.costs in
@@ -2686,99 +2675,75 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                     (csumcost +. cost.sum_cost),
                     seq.DOS.sequence :: seqs
         in
-        let cost, costb, max, seq =
-            match seq with
+        let cost, costb, max, seq = match seq with
             | Partitioned seqs -> 
-                    let min, max, cost3, total, sumcost,seqs =
-                        match do_to_single with
-                        | None -> Array.fold_right (fun a acc ->
-                                match a with
-                                | PartitionedDOS.Last a 
+                let min, max, cost3, total, sumcost,seqs = match do_to_single with
+                    | None ->
+                        Array.fold_right
+                            (fun a acc -> match a with
+                                | PartitionedDOS.Last a
                                 | PartitionedDOS.First a
-                                | PartitionedDOS.DO a -> 
-                                        one_sequence acc None a) 
-                                seqs (0.,0.,0.,0.,0.,[]) 
-                        | Some (Partitioned par) ->
-                                Array_ops.fold_right_2 (fun acc a b ->
-                                    match a, b with
-                                    | PartitionedDOS.Last a, 
-                                        PartitionedDOS.Last b 
-                                    | PartitionedDOS.First a, 
-                                        PartitionedDOS.First b
-                                    | PartitionedDOS.DO a, 
-                                        PartitionedDOS.DO b -> 
-                                            one_sequence acc (Some b) a
-                                    | _ -> assert false)
-                                (0., 0., 0., 0., 0., []) seqs par
-                        | Some _ -> assert false
-                    in
-                    { cost2 = min; cost2_max = max; cost3 = cost3; sum_cost =
-                        sumcost;  }, (`FloatFloatTuple (min, max)),
-                    max, seqs
+                                | PartitionedDOS.DO a -> one_sequence acc None a)
+                            seqs
+                            (0.,0.,0.,0.,0.,[])
+                    | Some (Partitioned par) ->
+                        Array_ops.fold_right_2
+                            (fun acc a b -> match a, b with
+                                | PartitionedDOS.Last a, PartitionedDOS.Last b 
+                                | PartitionedDOS.First a, PartitionedDOS.First b
+                                | PartitionedDOS.DO a, PartitionedDOS.DO b -> 
+                                    one_sequence acc (Some b) a
+                                | _ -> assert false)
+                            (0., 0., 0., 0., 0., [])
+                            seqs
+                            par
+                    | Some _ -> assert false
+                in
+                let cost =
+                    {cost2=min; cost2_max=max; cost3=cost3; sum_cost=sumcost;}
+                in
+                cost, (`FloatFloatTuple (min, max)), max, seqs
             | General_Prealigned seq ->
-                    if debug then Printf.printf "seqCS.GP.to_formatter\n%!";
-                    let cost = seq.GenNonAdd.costs in
-                    let mincost,maxcost = 
-                        cost.GenNonAdd.min,cost.GenNonAdd.max
-                    in
-                    let cost = { cost2 = mincost;  cost2_max = maxcost; 
-                    cost3 = 0.; sum_cost = 0.;(*we don't really need cost3 and
-                    sum_cost here for we don't report them in diagnosis*) } in
-                    let costb,max = `FloatFloatTuple (mincost,maxcost), maxcost in 
-                    cost, costb, max, [seq.GenNonAdd.seq]
+                if debug then Printf.printf "seqCS.GP.to_formatter\n%!";
+                let cost = seq.GenNonAdd.costs in
+                let mincost,maxcost = 
+                    cost.GenNonAdd.min,cost.GenNonAdd.max
+                in
+                let cost = { cost2 = mincost;  cost2_max = maxcost; cost3 = 0.; sum_cost = 0.; } in
+                let costb,max = `FloatFloatTuple (mincost,maxcost), maxcost in 
+                cost, costb, max, [seq.GenNonAdd.seq]
             | Heuristic_Selection seq ->
-                    if debug then  Printf.printf "seqCS.HS.to_formatter\n%!";
-                    let cost = seq.DOS.costs in
-                    let costb, max = 
-                        match do_to_single with
-                        | None -> 
-                            `FloatFloatTuple (cost.cost2, cost.cost2_max),
-                            cost.cost2_max
-                        | Some (Heuristic_Selection par) ->
-                                let par = par.DOS.sequence in
-                                let s1, s2, min =
-                                    if use_ukk then
-                                        Sequence.NewkkAlign.align_2 seq.DOS.sequence 
+                if debug then  Printf.printf "seqCS.HS.to_formatter\n%!";
+                let cost = seq.DOS.costs in
+                let costb, max = match do_to_single with
+                    | None -> 
+                        `FloatFloatTuple (cost.cost2, cost.cost2_max), cost.cost2_max
+                    | Some (Heuristic_Selection par) ->
+                        let par = par.DOS.sequence in
+                        let s1, s2, min =
+                            if use_ukk then
+                                Sequence.NewkkAlign.align_2 seq.DOS.sequence 
                                     par h.c2_full Sequence.NewkkAlign.default_ukkm
-                                    else 
-                                        Sequence.Align.align_2 seq.DOS.sequence 
+                            else 
+                                Sequence.Align.align_2 seq.DOS.sequence 
                                     par h.c2_full Matrix.default
-                                in
-                                let max = 
-                                    Sequence.Align.max_cost_2 s1 s2 h.c2_full 
-                                in
-                                `IntTuple (min, max), float_of_int max
-                        | Some (General_Prealigned _)
-                        | Some (Partitioned _) -> assert false 
-                    in
-                    cost, costb, max, [seq.DOS.sequence]
-            (*| Relaxed_Lifted x  ->
-                    is_fs := true;
-                    if debug then  Printf.printf "seqCS.RL.to_formatter\n%!";
-                    let bestc,best_state = RL.get_min_states x in
-                    res_state := best_state;
-                    DOS.make_cost bestc, 
-                    `IntTuple (bestc, bestc),float_of_int bestc,
-                    [x.RL.sequence_table.(best_state)] *)
+                        in
+                        let max = Sequence.Align.max_cost_2 s1 s2 h.c2_full in
+                        `IntTuple (min, max), float_of_int max
+                    | Some (General_Prealigned _)
+                    | Some (Partitioned _) -> assert false 
+                in
+                cost, costb, max, [seq.DOS.sequence]
         in
-        let statename = (string_of_int !res_state) in
-        let seq () = 
-            match seq with
-            | [] -> assert false
-            | seq -> 
-                    match report_type,!is_fs with
-                    | `Normal,_ 
-                    | `StateOnly,false ->
-                    "state:"^statename^",seq:"^
-                    (String.concat "#" 
-                    (List.map (fun x -> 
-                        let x = Sequence.del_first_char x in
-                        Sequence.to_formater x t.alph) seq))
-                    | `StateOnly,true -> statename
+        let seq () =
+            String.concat "#"
+                (List.map
+                    (fun x -> let x = Sequence.del_first_char x in
+                              Sequence.to_formater x t.alph)
+                    seq)
         in
         let definite_str = 
-            if max > 0. then  `String "true"
-            else `String "false"
+            if max > 0. then  `String "true" else `String "false"
         in 
         let module T = Xml.Characters in
         (PXML 
@@ -2793,8 +2758,7 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                 { `Fun seq }
             --) :: acc
     in
-    let parent = 
-        match do_to_single with
+    let parent = match do_to_single with
         | None -> Array.map (fun _ -> None) t.characters
         | Some x -> Array.map (fun x -> Some x) x.characters
     in
@@ -2831,7 +2795,6 @@ let tabu_distance a =
     Array.fold_left
         (fun sum -> function
             | Partitioned x         -> sum +. (PartitionedDOS.tabu_distance x)
-            (*| Relaxed_Lifted _      -> sum*)
             | General_Prealigned y  -> (GenNonAdd.get_max_cost y.GenNonAdd.costs) +. sum
             | Heuristic_Selection y -> y.DOS.costs.cost2_max +. sum)
         0.0 a.characters
@@ -2908,7 +2871,6 @@ let encoding enc x =
     Array.fold_left (fun acc x -> 
         match x with
         | Partitioned x -> acc +. (PartitionedDOS.encoding enc x)
-        (*| Relaxed_Lifted _ -> acc*)
         | General_Prealigned x -> 
                 acc +. (Sequence.encoding enc x.GenNonAdd.seq)
         | Heuristic_Selection x -> 
