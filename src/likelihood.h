@@ -106,34 +106,21 @@ unsigned long likelihood_CAML_deserialize( void* dst );
 value likelihood_CAML_register (value u0);
 
 /**
- * help functions...
- */
-// make diagonal matrix from vector
-#ifdef _WIN32
-__inline void
-#else
-inline void
-#endif
-mk_diag(double* M, const int n);
-
-// applies exp() to a diagonal [n]x[m] matrix, [D], with constant scalor [t]
-#ifdef _WIN32
-__inline void
-#else
-inline void
-#endif
-apply_exp( double* D, const int n, const int m, const double t);
-
-/**
  * diagonalization functions
  */
+// make diagonal matrix from vector
+void mk_diag(double* M, const int n);
+
+// applies exp() to a diagonal [n]x[m] matrix, [D], with constant scalor [t]
+void apply_exp( double* D, const int n, const int m, const double t);
+
 //reconstructs a diagonalized matrix after applying exp(D*t)
 //  P is *output*.. thus: U*exp(D*t)*Ut
 void compose_sym( double* P, const double* U, const double* D,
-                        const float t, const int n,double* tmp);
-//  P is *output*.. thus: U*exp(D*t)*Ui
-void compose_gtr( double* P, const double* U, const double* D,
-                        const double* Ui, const double t, const int n, double* tmp);
+                        const float t, const int n, double* tmp);
+void compose_gtr( double* P, const double* U, const double* D, const double* Ui,
+                        const double t, const int n, double* tmp);
+
 //diagonalize a symmetric [n]x[n] matrix [A] into A*D*At 
 //  A is overwritten as eigenvectors
 //  D is a diagonal matrix of eigenvalues --assumed clean
@@ -150,12 +137,13 @@ void median_MAL( const double* Pa, const double* Pb, const struct ml* a,
                         const struct ml* b, struct ml* c, const int rate_idx );
 void median_MPL( const double* Pa, const double* Pb, const struct ml* a,
                         const struct ml* b, struct ml* c, const int rate_idx );
+
 //loglikelihood of a median with priors [p], probabilities [prob] and percent
 //invariant sites, [pinvar] and character set [l]
 double logMALlikelihood( const struct ml *l, const double* ws, const double* pi, 
                         const double* prob, const double pinvar );
 double logMPLlikelihood( const struct ml *l, const double* ws, const double* pi, 
-                        const double* prob );
+                        const double* prob, const double pinvar );
 
 
 /**
