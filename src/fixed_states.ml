@@ -19,26 +19,26 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "Fixed_states" "$Revision: 2754 $"
+let () = SadmanOutput.register "Fixed_states" "$Revision: 2831 $"
 
 type elt = SankCS.elt (*cside*)
+
 type t = SankCS.t (*cside*)
 
 type t_w_seqtbl = {
     states_and_distbl : t;
     sequence_table: Sequence.s array; (*we carry original sequence before
-    transform(fixed_state) with us*)
+                                        transform(fixed_state) with us*)
     alph : Alphabet.a;
 }
 
 let cardinal t = 1 (*we have only 1 elt for each t*)
 
 let f_codes x codes = (*this function is for filtering out elt from elt_array with some code, but
-we only have one elt here, nothing should be done anyway*)
-    x 
+                        we only have one elt here, nothing should be done anyway*)
+    x
 
 let f_codes_comp x codes = x (*similar to f_codes*)
-
 
 (*t = 1,2,3.  1:get states,2:get best states of leftchild,3:get best states of rightchild*)
 let get_states x t = 
@@ -58,42 +58,41 @@ let get_min_states x =
         Utl.printIntArr earray;
     end;
     let idx = ref (-1) in
-    let _ , bestidx = 
-    Array.fold_left (fun (min_extra_cost,pos) extra_cost ->
-        idx := !idx + 1;
-        if extra_cost<min_extra_cost then
-            extra_cost,!idx
-        else
-            min_extra_cost,pos
-    ) (Utl.large_int,0) earray
+    let _ , bestidx =
+    Array.fold_left
+        (fun (min_extra_cost,pos) extra_cost ->
+            idx := !idx + 1;
+            if extra_cost<min_extra_cost
+                then extra_cost,!idx
+                else min_extra_cost,pos)
+        (Utl.large_int,0)
+        earray
     in
     states.(bestidx),bestidx
 
-let off_array fs taxon = 
+let of_array fs taxon code = 
     let debug = false in
     if debug then
-        Printf.printf "Fixed_states.off_array,taxon=%d\n%!" taxon;
+        Printf.printf "Fixed_states.off_array,taxon=%d,code:%d\n%!" taxon code;
     let distbl = Utl.float_to_int_mat fs.Data.costs in
     let seqtbl = fs.Data.seqs in
     let len = Array.length fs.Data.seqs in
     let states =
-        let seqs = 
-            try Hashtbl.find_all fs.Data.codes taxon with
-            | Not_found -> [] 
+        let seqs = try Hashtbl.find_all fs.Data.codes taxon
+                   with | Not_found -> []
         in
         let is_empty = seqs = [] in
         (*infinity here is not infinity on the c side, we pass (-1) instead*)
         Array.init len
             (fun x ->
-                if is_empty || List.exists (fun y -> y = x) seqs then
-                    Int32.of_int 0
-                else Int32.of_int (-1))
+                if is_empty || List.exists (fun y -> y = x) seqs
+                    then Int32.of_int 0
+                    else Int32.of_int (-1))
     in
-    let mycode = 1 in (*if we only have one charactor for each taxon, this works
-        fine. what if we have more?*)
-    let ecode_arr = [|Int32.of_int 1|] in(*we have only one elt in each t*)
-    let new_eltarr = SankCS.create_eltarr taxon mycode len ecode_arr [|states|]
-    distbl true in
+    let ecode_arr = [|Int32.of_int code|] in
+    let new_eltarr =
+        SankCS.create_eltarr taxon code len ecode_arr [|states|] distbl true
+    in
     {
         states_and_distbl = new_eltarr;
         sequence_table = seqtbl; 
@@ -107,12 +106,9 @@ let to_formatter report_type attr tws d =
     SankCS.to_formatter_with_seq true tws.sequence_table tws.alph attr tws.states_and_distbl None d
     | `StateOnly ->
     SankCS.to_formatter_with_seq false tws.sequence_table tws.alph attr tws.states_and_distbl None d
-     
-
-
+ 
 (*do nothing*)
 let to_single parent child =  child, 0
-
 
 let median code a b =
     let debug = false in

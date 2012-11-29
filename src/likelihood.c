@@ -76,6 +76,7 @@
 #define SHIFT(a,b,c,d) (a)=(b);(b)=(c);(c)=(d)
 #define SIGN(a,b) (b>0)?fabs(a):-fabs(a)
 #define EQUALS(a,b) fabs(a-b)<EPSILON
+#define RAND_RANGE(lo,hi) ((double)rand() / ((double)RAND_MAX+lo) * hi)
 
 /* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
 /*                     used to ensure no imaginary roots when diagonalizing */
@@ -1054,28 +1055,6 @@ likelihood_CAML_compose_gtr(value tmp,value U, value D, value Ui, value t)
 
 
 
-/**  [median_h P l c nl a]  
- * Finds half the likelihood vector of child [l] and probability matrix [P] into [nl]
- *
- *  [a] - length of each vector (in practice, the alphabet size) [P] is [a]x[a]
- *  [c] - the start of the character to do work on */
-#ifdef _WIN32
-__inline void 
-#else
-inline void 
-#endif
-median_h( const double* P, const double* l, const int c_start, double* tmp, const int a)
-{
-    int i,j; double elm;
-    //for each row of P
-    for(i=0; i<a; ++i){
-        elm = 0;
-        for(j=0;j<a;++j)
-            elm += P[(i*a)+j] * l[c_start+j];
-        tmp[i] = elm;
-    }
-}
-
 /* calculates the likelihood for the invariant site class */
 double
 loglikelihood_site_invar(const mll* l,const double* pi,const int i)
@@ -1087,9 +1066,9 @@ loglikelihood_site_invar(const mll* l,const double* pi,const int i)
     num = 1;
     ret = 0.0;
     if( 0 == l->lv_invar[i]){ return ret; }
-    while( j < 32 ){ //TODO:: max alphabet size?
+    while( j < 32 ){ //max alphabet size?
         if ( num & l->lv_invar[i] ){
-            ret += pi[j]; //similar to line 846, but lv_s[..] = 1
+            ret += pi[j]; //similar to line logMAL_site, but lv_s[..] = 1
             set++;
         }
         j++;
@@ -1098,14 +1077,9 @@ loglikelihood_site_invar(const mll* l,const double* pi,const int i)
     return ret / set;
 }
 
-/* [loglikelihood_site ml p prob]
- * calculate the likelihood for a single site */
-#ifdef _WIN32
-__inline double
-#else
-inline double
-#endif
-loglikelihood_site(const mll* l, const double weight, const double* pi,
+/* [loglikelihood_site ml p prob] calculate the likelihood for a single site */
+double
+logMAL_site( const mll* l, const double weight, const double* pi,
                     const double* prob, const double pinvar,const int i )
 {
     int j,h,r_start,c_start;
@@ -1128,7 +1102,8 @@ loglikelihood_site(const mll* l, const double weight, const double* pi,
     }
     return ( log( tmp2 ) * weight );
 }
-/* calculates the likelihood for a rate class */
+
+/* calculates the likelihood for a particular rate class; not used currently */
 double
 loglikelihood_rate(const mll* l,const double* pi,const int h)
 {
@@ -1143,8 +1118,9 @@ loglikelihood_rate(const mll* l,const double* pi,const int h)
     }
     return ret;
 }
-double
-loglikelihood_invar( const mll* l, const double *pi )
+
+/* calculate the likelihood for the invar class of char; not used currently */
+double loglikelihood_invar( const mll* l, const double *pi )
 {
     int i;
     double ret,tmp;
@@ -1159,10 +1135,10 @@ loglikelihood_invar( const mll* l, const double *pi )
 
 double
 logMPL_site( const mll* l, const double weight, const double* pi,
-                    const double* prob, const int i )
+                const double* prob, const double pinvar, const int i )
 {
     int r, j, c;
-    double max_v;
+    double max_v,tmp;
     max_v = c = NEGINF; /* placeholder for C; to avoid compiler warnings */
     for(r=0; r < l->rates;++r){
         c = (r * (l->stride * l->c_len)) + (l->stride * i);
@@ -1170,8 +1146,14 @@ logMPL_site( const mll* l, const double weight, const double* pi,
             max_v = MAX (l->lv_s[c+j] + log(pi[j]), max_v);
         }
     }
-    max_v= max_v * weight;
-    return max_v;
+    if( 1 == l->invar ){
+        assert( pinvar >= 0.0 );
+        tmp = loglikelihood_site_invar ( l , pi, i );
+        tmp = MAX( max_v * (1 - pinvar), 1e-300 ) + (pinvar * tmp);
+    } else {
+        tmp = MAX( max_v, 1e-300 );
+    }
+    return ( tmp * weight );
 }
 
 /** Smooth/soft Max function; does not contain a sharp discontinuity;
@@ -1188,7 +1170,7 @@ logMPL_site( const mll* l, const double weight, const double* pi,
     and, http://www.johndcook.com/blog/2010/01/20/how-to-compute-the-soft-maximum/ */
 double
 logSMPL_site( const mll* l, const double weight, const double* pi,
-                    const double* prob, const int i )
+                    const double* prob, const double pinvar, const int i )
 {
     int r, j, c;
     double maximum, s_max;
@@ -1201,7 +1183,8 @@ logSMPL_site( const mll* l, const double weight, const double* pi,
             s_max += exp( ((l->lv_s[c+j] + log(pi[j])) - maximum) * SMPL_K );
         }
     }
-    s_max = (maximum + (log(s_max)/SMPL_K)) * weight;
+    s_max = (maximum + (log(s_max)/SMPL_K));
+    //TODO; needs to include INVAR
     return s_max;
 }
 
@@ -1220,11 +1203,11 @@ double logMALlikelihood( const mll* l, const double* ws, const double* pi,
     int i; 
     double ret_s,ret_c,ret_y,ret_t;
 
-    ret_s = loglikelihood_site(l,ws[0],pi,prob,pinvar,0);
+    ret_s = logMAL_site(l,ws[0],pi,prob,pinvar,0);
     ret_c = 0.0;
     for(i = 1;i<l->c_len; i++)
     {
-        ret_y = (loglikelihood_site(l,ws[i],pi,prob,pinvar,i)) - ret_c;
+        ret_y = (logMAL_site(l,ws[i],pi,prob,pinvar,i)) - ret_c;
         ret_t = ret_s + ret_y;
         ret_c = (ret_t - ret_s) - ret_y;
         ret_s = ret_t;
@@ -1234,22 +1217,23 @@ double logMALlikelihood( const mll* l, const double* ws, const double* pi,
     int i; double ret;
     ret = 0.0;
     for(i=0;i<l->c_len;i++)
-        ret += loglikelihood_site(l,ws[i],pi,prob,pinvar,i);
+        ret += logMAL_site(l,ws[i],pi,prob,pinvar,i);
     return ( -ret );
 #endif
 }
 
-double logMPLlikelihood( const mll* l,const double* ws,const double* pi,const double* prob)
+double logMPLlikelihood( const mll* l, const double* ws, const double* pi,
+                            const double* prob, const double pinvar )
 {
 #ifdef KAHANSUMMATION
-    int i; 
+    int i;
     double ret_s,ret_c,ret_y,ret_t;
 
-    ret_s = logMPL_site(l,ws[0],pi,prob,0);
+    ret_s = logMPL_site(l,ws[0],pi,prob,pinvar,0);
     ret_c = 0.0;
     for(i = 1;i<l->c_len; i++)
     {
-        ret_y = (logMPL_site(l,ws[i],pi,prob,i)) - ret_c;
+        ret_y = (logMPL_site(l,ws[i],pi,prob,pinvar,i)) - ret_c;
         ret_t = ret_s + ret_y;
         ret_c = (ret_t - ret_s) - ret_y;
         ret_s = ret_t;
@@ -1260,22 +1244,24 @@ double logMPLlikelihood( const mll* l,const double* ws,const double* pi,const do
     double ret;
     ret = 0.0;
     for(i=0;i<l->c_len;i++)
-        ret += logMPL_site(l,ws[i],pi,prob,i);
+        ret += logMPL_site(l,ws[i],pi,prob,pinvar,i);
     return ( -ret );
 #endif
 }
 
-double logSMPLlikelihood( const mll* l,const double* ws,const double* pi,const double* prob)
+
+double logSMPLlikelihood( const mll* l, const double* ws, const double* pi, 
+                                const double* prob, const double pinvar )
 {
 #ifdef KAHANSUMMATION
     int i; 
     double ret_s,ret_c,ret_y,ret_t;
 
-    ret_s = logSMPL_site(l,ws[0],pi,prob,0);
+    ret_s = logSMPL_site(l,ws[0],pi,prob,pinvar,0);
     ret_c = 0.0;
     for(i = 1;i<l->c_len; i++)
     {
-        ret_y = (logSMPL_site(l,ws[i],pi,prob,i)) - ret_c;
+        ret_y = (logSMPL_site(l,ws[i],pi,prob,pinvar,i)) - ret_c;
         ret_t = ret_s + ret_y;
         ret_c = (ret_t - ret_s) - ret_y;
         ret_s = ret_t;
@@ -1286,11 +1272,24 @@ double logSMPLlikelihood( const mll* l,const double* ws,const double* pi,const d
     double ret;
     ret = 0.0;
     for(i=0;i<l->c_len;i++)
-        ret += logMPL_site(l,ws[i],pi,prob,i);
+        ret += logMPL_site(l,ws[i],pi,prob,pinvar,i);
     return ( -ret );
 #endif
 }
 
+/** [loglikelihood_site - opens up logM*L_site functions to mpl variable */
+double
+loglikelihood_site(const mll* l,const double weight,const double* pi,
+            const double* prob, const double pinvar,const int cost,const int i)
+{
+    switch( cost ){
+        case MALCOST :
+            return logMAL_site( l, weight, pi, prob, pinvar, i );
+        case MPLCOST :
+            return logMPL_site( l, weight, pi, prob, pinvar, i );
+    }
+    assert( FALSE );
+}
 
 double
 loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob,
@@ -1302,14 +1301,13 @@ loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob
             total_cost = logMALlikelihood( l, ws, pi, prob, pinvar );
             break;
         case MPLCOST: 
-            total_cost = logMPLlikelihood( l, ws, pi, prob );
+            total_cost = logMPLlikelihood( l, ws, pi, prob, pinvar );
             break;
         default :
             assert( FALSE );
     }
     return total_cost;
 }
-
 /* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
 value
 likelihood_CAML_loglikelihood_wrapped(value s,value w,value pi,value prob,value pinvar,value mpl)
@@ -1324,7 +1322,6 @@ likelihood_CAML_loglikelihood_wrapped(value s,value w,value pi,value prob,value 
     mle = caml_copy_double( ll );
     CAMLreturn( mle );
 }
-
 value
 likelihood_CAML_loglikelihood( value * argv, int argn )
 {
@@ -1335,44 +1332,198 @@ likelihood_CAML_loglikelihood( value * argv, int argn )
 /** Calculate the variance of the ratio of the sites of two vectors, presumably,
  * the leaf taxa-set is the same in each vector; this is the running variance
  * algorithm so only one pass is done on the vector. */
-float variance_ratio(const mll* a, const mll* b, const double* ws,
-                     const double* pi, const double* pr, const double pinvar)
+float
+variance_ratio(double *ravg, const mll* a, const mll* b, const double* ws,
+        const double* pi, const double* pr, const double pinvar, const int mpl)
 {
     int h;
     double avg=0,var=0,a_h,b_h,v_h;
-
     for(h = 0; h < a->c_len; ++h){
-        a_h = loglikelihood_site( a, ws[h], pi, pr, pinvar, h );
-        b_h = loglikelihood_site( b, ws[h], pi, pr, pinvar, h );
+        a_h = loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h);
+        b_h = loglikelihood_site(b, ws[h], pi, pr, pinvar, mpl, h);
         avg+= a_h - b_h;
     }
     avg = avg / a->c_len;
     for(h = 0; h < a->c_len; ++h){
-        a_h = loglikelihood_site( a, ws[h], pi, pr, pinvar, h );
-        b_h = loglikelihood_site( b, ws[h], pi, pr, pinvar, h );
+        a_h = loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h );
+        b_h = loglikelihood_site(b, ws[h], pi, pr, pinvar, mpl, h );
         v_h = (a_h - b_h) - avg;
         var+= (v_h * v_h);
     }
     var = var * (a->c_len / (a->c_len-1));
+    *ravg= avg;
     return var;
+}
+value
+likelihood_CAML_variance_ratio_wrapped( value a, value b, value w, value pi,
+                                        value pr, value pinvar, value mpl)
+{
+    CAMLparam5( a,b,w,pi,pr );
+    CAMLxparam2( pinvar,mpl );
+    CAMLlocal1( ret );
+    double mean,variance;
+    variance = variance_ratio( &mean, ML_val(a), ML_val(b),
+                    Data_bigarray_val(w), Data_bigarray_val(pi),
+                    Data_bigarray_val(pr), Double_val(pinvar), Int_val(mpl));
+    ret = caml_alloc_tuple( 2 );
+    Store_field(ret, 0, caml_copy_double( mean ));
+    Store_field(ret, 1, caml_copy_double( variance ));
+    CAMLreturn( ret );
+}
+value likelihood_CAML_variance_ratio( value * argv, int argn )
+{
+    return likelihood_CAML_variance_ratio_wrapped
+        (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5],argv[6]);
 }
 
 /** Calculate the variance of a likelihood vector **/
-float variance( const mll* a, const double* ws, const double* pi,
-                    const double* pr, const double pinvar)
+float variance( double* mean, const mll* a, const double* ws, const double* pi,
+                const double* pr, const double pinvar, const int mpl)
 {
     int h;
     double avg=0,var=0,a_h;
-
     for(h = 0; h < a->c_len; ++h)
-        avg+= loglikelihood_site( a, ws[h], pi, pr, pinvar, h );
+        avg+= loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h);
     avg = avg / a->c_len;
     for(h = 0; h < a->c_len; ++h){
-        a_h = loglikelihood_site( a, ws[h], pi, pr, pinvar, h );
+        a_h = loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h);
         var+= (a_h - avg) * (a_h - avg);
     }
     var = var * (a->c_len / (a->c_len-1));
+    *mean = avg;
     return var;
+}
+value
+likelihood_CAML_variance_wrapped( value a, value w, value pi, value pr,
+                                    value pinvar, value mpl)
+{
+    CAMLparam5( a,w,pi,pr,pinvar );
+    CAMLxparam1( mpl );
+    CAMLlocal1( ret );
+    double mean,var;
+    var = variance( &mean, ML_val(a), Data_bigarray_val(w), Data_bigarray_val(pi),
+                         Data_bigarray_val(pr), Double_val(pinvar), Int_val(mpl));
+    ret = caml_alloc_tuple( 2 );
+    Store_field(ret, 0, caml_copy_double( mean ));
+    Store_field(ret, 1, caml_copy_double( var ));
+    CAMLreturn( ret );
+}
+value likelihood_CAML_variance( value * argv, int argn )
+{
+    return likelihood_CAML_variance_wrapped
+        (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5]);
+}
+
+
+/** Using the CDF, find the index for g, braketed by gmin and gmax; recursive */
+int rand_bisect_cdf(const double* cdf, const int n, const double g,
+                    const int gmin, const int gmax)
+{
+    int guess;
+    assert( n >= gmax );
+    assert( 0 <= gmin );
+    if( gmin == gmax ){
+        if( 0 == gmin ){
+            assert( cdf[0] > g );
+            //printf("%f --> %d\n", g, gmin);
+            return 0;
+        } else{
+            assert( (cdf[gmin] > g) && (cdf[gmin-1] < g) );
+            //printf("%f --> %d\n", g, gmin);
+            return gmin;
+        }
+    }
+    guess = (gmax + gmin) / 2;
+    //printf("GUESSING:(%d,%d) -> %d\n", gmin, gmax, guess);
+    if ( (cdf[guess] > g) && (cdf[guess-1] < g) ){
+        //printf("%f --> %d\n", g, guess);
+        return guess;
+    } else {
+        if ( cdf[guess] < g )
+            return rand_bisect_cdf( cdf, n, g, guess, gmax );
+        else
+            return rand_bisect_cdf( cdf, n, g, gmin, guess );
+    }
+}
+
+/** Do a single resample by randomly selecting n characters, with replacement
+ * from the likelihood vector using the CDF to weigh each character. */
+float resample_likelihood( const double* sll, const double* cdf, const int n)
+{
+    double resample_lk = 0.0;
+    int resample_idx,j;
+    for(j = 0; j < n; ++j){
+        resample_idx = rand_bisect_cdf(cdf,n,RAND_RANGE(0,cdf[n-1]),0,n);
+        resample_lk += sll[ resample_idx ];
+    }
+    return resample_lk;
+}
+
+/** RELL (resample estimated log likelihood) BootStrap - this function resamples
+ * the data by randomly generating a new set of characters from a distribution
+ * represented by the characters.  new distributions by re-weighting the
+ * characters; but in not optimizing the * parameters. Thus, we build the
+ * site-likelihood and randomly sum up values * from the resultant vector to
+ * obtain a resampled log-likelihood; given site * weights are not recovered. We
+ * find the mean and variance of the results. */
+void
+rell_bootstrap( double* mean, double* var, const mll* a, const double* ws, const double* pi,
+                const double* prob, const double pinvar, const int mpl, const int rep)
+{
+    double *cdf,*sll;
+    double cumm, resample_mean, resample_var, resample_lki, resample_tmp;
+    int i;
+    //the mean/var functions have special cases for rep<=1; ignore not necessary
+    assert( rep > 1 );
+    //set up the random function; use time. XXX issue in setting seed!
+    srand( time(NULL) );
+    //create cumulative probability function using weights; compressed columns
+    //also fill the vector of site log likelihoods; same loop is fine.
+    cdf = (double*) malloc( sizeof(double)*a->c_len );
+    sll = (double*) malloc( sizeof(double)*a->c_len );
+    for(i = 0,cumm=0.0; i < a->c_len; ++i){
+        cumm+= ws[i];
+        cdf[i] = cumm;
+        sll[i] = loglikelihood_site( a, ws[i], pi, prob, pinvar, mpl, i );
+    }
+    //printf("CDF: "); printarrayf( cdf, a->c_len );
+    //printf("SLL: "); printarrayf( sll, a->c_len );
+    //we use the running-stats algorithm to determine the mean and variance
+    resample_mean = resample_likelihood( sll, cdf, a->c_len );
+    resample_var  = 0.0;
+    for(i = 1; i< rep; ++i){
+        resample_lki  = resample_likelihood( sll, cdf, a->c_len );
+        //printf("%d -- %f\n", i, resample_lki);
+        resample_tmp  = resample_mean + ((resample_lki - resample_mean) / i);
+        resample_var += (resample_lki - resample_tmp) * (resample_lki - resample_mean);
+        resample_mean = resample_tmp;
+    }
+    free( cdf );
+    free( sll );
+    //copy over return values
+    *mean = resample_mean;
+    *var  = resample_var / (rep-1);
+}
+
+value
+likelihood_CAML_rell_bootstrap_wrapped( value s, value w, value pi, value prob,
+                                        value pinvar, value mpl, value rep)
+{
+    CAMLparam5( s,w,pi,prob,pinvar );
+    CAMLxparam2( mpl,rep );
+    CAMLlocal1( ret );
+    double mean, var;
+    rell_bootstrap(&mean, &var, ML_val(s), Data_bigarray_val(w), Data_bigarray_val(pi),
+                   Data_bigarray_val(prob), Double_val(pinvar), Int_val(mpl), Int_val(rep));
+    ret = caml_alloc_tuple( 2 );
+    Store_field(ret, 0, caml_copy_double( mean ));
+    Store_field(ret, 1, caml_copy_double( var ));
+    CAMLreturn( ret );
+}
+
+value likelihood_CAML_rell_bootstrap( value * argv, int argn ){
+    return likelihood_CAML_rell_bootstrap_wrapped
+                (argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6]);
 }
 
 /** SSE functions for medians */
@@ -1434,6 +1585,29 @@ float variance( const mll* a, const double* ws, const double* pi,
     }
 
 #endif
+
+
+/**  [median_h P l c nl a]  
+ * Finds half the likelihood vector of child [l] and probability matrix [P] into [nl]
+ *
+ *  [a] - length of each vector (in practice, the alphabet size) [P] is [a]x[a]
+ *  [c] - the start of the character to do work on */
+#ifdef _WIN32
+__inline void 
+#else
+inline void 
+#endif
+median_h( const double* P, const double* l, const int c_start, double* tmp, const int a)
+{
+    int i,j; double elm;
+    //for each row of P
+    for(i=0; i<a; ++i){
+        elm = 0;
+        for(j=0;j<a;++j)
+            elm += P[(i*a)+j] * l[c_start+j];
+        tmp[i] = elm;
+    }
+}
 
 /** [median_c Pa Pb a b c]
  * Finds the likelihood vector [c] based on vectors of its children [a] and

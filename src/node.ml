@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2823 $"
+let () = SadmanOutput.register "Node" "$Revision: 2845 $"
 
 let infinity = float_of_int max_int
 
@@ -34,14 +34,13 @@ let debug_formatter = false
 let debug_distance  = false
 let debug_cs_median = false
 
-let likelihood_error = 
-    "Likelihood not enabled: download different binary or contact mailing list" 
-
 let (-->) b a = a b
 
 let odebug = Status.user_message Status.Information
+
 let info_user_message format = 
     Printf.ksprintf (Status.user_message Status.Information) format
+
 let failwithf format = Printf.ksprintf (failwith) format
 
 let pp_fopt chan fopt = match fopt with
@@ -193,6 +192,25 @@ let extract_cost = function
         ELSE
             failwith MlStaticCS.likelihood_error
         END
+
+let rec codes = function
+    | Nonadd8 v  -> v.preliminary.NonaddCS8.codes
+    | Nonadd16 v -> v.preliminary.NonaddCS16.codes
+    | Nonadd32 v -> v.preliminary.NonaddCS32.codes
+    | AddVec v   -> Array.of_list (AddCS.Vector.codes v.preliminary)
+    | AddGen v   -> Array.of_list (AddCS.General.codes v.preliminary)
+    | Sank v     -> SankCS.get_earray v.preliminary
+    | FixedStates v -> Fixed_states.get_earray v.preliminary
+    | Dynamic v  -> DynamicCS.codes v.preliminary
+    | Set _      -> assert false
+    | Kolmo v    -> v.preliminary.KolmoCS.characters.SeqCS.codes
+    | StaticMl v -> 
+        IFDEF USE_LIKELIHOOD THEN
+            MlStaticCS.get_codes v.preliminary
+        ELSE
+            failwith MlStaticCS.likelihood_error
+        END
+
 
 let get_characters_cost chars =
     List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars
@@ -482,34 +500,36 @@ let extract_states alph data in_codes node =
                 end done;
                 !r)
         | None -> (fun _ -> true) (* all data *)
-    and norm c = 
+    and norm c lst = 
         List.map
             (fun x -> let str = Data.to_human_readable data c x in
                       Alphabet.find_base str alph)
+            lst
     in
     let extract_states_cs = function
+        | x when not (include_cs (codes x)) -> []
         | Nonadd8 a ->
-            if not (include_cs a.final.NonaddCS8.codes) then []
-            else List.map
-                    (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS8.e_to_list e)) )
-                    (NonaddCS8.to_simple_list a.final)
+            List.map
+                (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS8.e_to_list e)))
+                (NonaddCS8.to_simple_list a.final)
         | Nonadd16 a ->
-            if not (include_cs a.final.NonaddCS16.codes) then []
-            else List.map
-                    (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS16.e_to_list e) ))
-                    (NonaddCS16.to_simple_list a.final)
+            List.map
+                (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS16.e_to_list e) ))
+                (NonaddCS16.to_simple_list a.final)
         | Nonadd32 a ->
-            if not (include_cs a.final.NonaddCS32.codes) then []
-            else List.map
-                    (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS32.e_to_list e)))
-                    (NonaddCS32.to_simple_list a.final)
+            List.map
+                (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS32.e_to_list e)))
+                (NonaddCS32.to_simple_list a.final)
         | StaticMl a ->
             IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.extract_states a.final
             ELSE
-                failwith "Unsupported character type"
+                failwith MlStaticCS.likelihood_error
             END
-        | _ -> failwith "Unsupported character type"
+        | _ ->
+            (* I really don't like this part; what happens when call elikelihood
+               on additive characters; this needs to be thought out. *)
+            assert false
     in
     List.flatten (List.map extract_states_cs node.characters)
 
@@ -1274,50 +1294,56 @@ let root_cost root =
 
 let get_characters_of_type map t node =
     List.map map 
-    (List.filter (function
-        | Nonadd8 _ when t = `NonAdd8 -> true
-        | Nonadd16 _ when t = `NonAdd8 -> true
-        | Nonadd32 _ when t = `NonAdd8 -> true
-        | AddGen _ when t = `Add -> true
-        | AddVec _ when t = `Add -> true
-        | Sank _ when t = `Sank -> Printf.printf "get_characters_of_type,is Sank\n%!"; true
-        | FixedStates _ when t = `FixedState -> Printf.printf "get_characters_of_type,is FixedState\n%!"; true
-        | StaticMl _ when t = `StaticML -> true
-        | Dynamic _ when t = `Dynamic -> true
-        | Set _ when t = `Set -> true
-        | Dynamic _ when t = `Ml -> true (* TODO *)
-        | _ -> false) node.characters)
+        (List.filter
+            (function
+                | Nonadd8 _ when t = `NonAdd8 -> true
+                | Nonadd16 _ when t = `NonAdd8 -> true
+                | Nonadd32 _ when t = `NonAdd8 -> true
+                | AddGen _ when t = `Add -> true
+                | AddVec _ when t = `Add -> true
+                | Sank _ when t = `Sank -> true
+                | FixedStates _ when t = `FixedState -> true
+                | StaticMl _ when t = `StaticML -> true
+                | Dynamic _ when t = `Dynamic -> true
+                | Set _ when t = `Set -> true
+                | Dynamic r when t = `Ml ->
+                    begin match r.preliminary with
+                        | DynamicCS.MlCS _ -> true
+                        | _                -> false
+                    end
+                | _ -> false)
+            node.characters)
 
-let get_nonadd_8 = 
-    get_characters_of_type 
-    (function Nonadd8 x -> x.preliminary, x.final | _ -> assert false) 
-    `NonAdd8 
-let get_nonadd_16 = 
-    get_characters_of_type 
+let get_nonadd_8 =
+    get_characters_of_type
+    (function Nonadd8 x -> x.preliminary, x.final | _ -> assert false)
+    `NonAdd8
+let get_nonadd_16 =
+    get_characters_of_type
     (function Nonadd16 x -> x.preliminary, x.final | _ -> assert false)
     `NonAdd16
-let get_nonadd_32 = 
-    get_characters_of_type 
+let get_nonadd_32 =
+    get_characters_of_type
     (function Nonadd32 x -> x.preliminary, x.final | _ -> assert false)
-    `NonAdd32 
-let get_addgen = 
-    get_characters_of_type 
+    `NonAdd32
+let get_addgen =
+    get_characters_of_type
     (function AddGen x -> x.preliminary, x.final | _ -> assert false)
     `AddGen
-let get_addvec = 
-    get_characters_of_type 
+let get_addvec =
+    get_characters_of_type
     (function AddVec x -> x.preliminary, x.final | _ -> assert false)
     `AddVec
-let get_sank = 
-    get_characters_of_type 
+let get_sank =
+    get_characters_of_type
     (function Sank x -> x.preliminary, x.final | _ -> assert false)
     `Sank
-let get_fixedstates = 
-    get_characters_of_type 
+let get_fixedstates =
+    get_characters_of_type
     (function FixedStates x -> x.preliminary, x.final | _ -> assert false)
     `FixedStates
-let get_dynamic = 
-    get_characters_of_type 
+let get_dynamic =
+    get_characters_of_type
     (function Dynamic x -> x.preliminary, x.final | _ -> assert false)
     `Dynamic
 
@@ -1329,7 +1355,7 @@ IFDEF USE_LIKELIHOOD THEN
 
     and get_mldynamic = 
         get_characters_of_type 
-            (function StaticMl x -> x.preliminary, x.final | _ -> assert false)
+            (function Dynamic x -> x.preliminary, x.final | _ -> assert false)
             `Ml
 ELSE
     let get_mlstatic x = []
@@ -1672,7 +1698,7 @@ let classify_data leafa dataa leafb datab chars acc =
               DynamicCS.classify_transformations leafa a.final leafb b.final chars acc
         | (Kolmo _ | StaticMl _ | Nonadd8 _ | Nonadd16 _ | Nonadd32 _
           | AddGen _ | AddVec _ | FixedStates _ | Sank _ | Set _ | Dynamic _ ),_ ->
-            assert false
+              acc
     in
     List.fold_left2 classify_two acc dataa.characters datab.characters
 
@@ -2137,25 +2163,23 @@ let extract_stat = function
 
 let extract_fixedstates data fs tcode = (*tcode = taxon code*) 
     match fs with
-    | Data.FS code, _  -> (*code is charactor code belong to the taxon*)
-            let specs = Hashtbl.find data.Data.character_specs code in  
-            let specs, weight =
-                match specs with 
-                | Data.Static (Data.FixedStates fs_spec) ->  fs_spec, Data.get_weight_from_fs_spec fs_spec
-                | _ -> failwith "extract fiexed states"
-            in 
-            (* val off_array : Data.fixed_state_spec -> int -> t_w_seqtbl *)
-            let tws =  Fixed_states.off_array specs tcode in 
-            {
-                preliminary = tws;
-                final = tws; 
-                cost = 0.; 
-                weight = weight;
-                sum_cost = 0.;
-                time = None,None,None;
-            }
-    | Data.Dyna code, _ -> 
-                        failwith("we have cs=dyna instead of fs")
+    | Data.FS code, _  -> (*code is charactor code belong to the taxons *)
+        let specs = Hashtbl.find data.Data.character_specs code in
+        let specs, weight = match specs with
+            | Data.Static (Data.FixedStates fs_spec) ->  fs_spec, Data.get_weight_from_fs_spec fs_spec
+            | _ -> failwith "extract fiexed states"
+        in
+        (* val off_array : Data.fixed_state_spec -> int -> t_w_seqtbl *)
+        let tws =  Fixed_states.of_array specs tcode code in
+        {
+            preliminary = tws;
+            final = tws; 
+            cost = 0.; 
+            weight = weight;
+            sum_cost = 0.;
+            time = None,None,None;
+        }
+    | Data.Dyna code, _ -> failwith("we have cs=dyna instead of fs")
     | _ -> raise (Illegal_argument "extract fixedstates")
 
 let extract_dynamic data dyna tcode = match dyna with
@@ -2647,40 +2671,40 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                       { result with characters = c @ result.characters } 
             in
             let result = (* FIXED STATES *)
-                match lfixedstates_chars with 
-                | [] -> result 
-                | _ ->
-                      let c = 
-                          List.map 
-                          (fun (fs,fname) -> extract_fixedstates !data fs tcode) 
-                          lfixedstates_chars 
-                      in
-                      let c : cs list = List.map (fun c -> FixedStates c) c in
-                      { result with characters = c @ result.characters }
+                match lfixedstates_chars with
+                | [] -> result
+                | _  ->
+                    let c =
+                        List.map
+                            (fun (fs,fname) -> extract_fixedstates !data fs tcode)
+                            lfixedstates_chars
+                    in
+                    let c : cs list = List.map (fun c -> FixedStates c) c in
+                    { result with characters = c @ result.characters;}
             in
             let result = (* SANK *)
                 let single_lsank_chars_process result (code, lst) = match lst with
                     | [] -> result
                     | _  -> let v = List.map (fun (sankcs,fname) -> extract_stat sankcs ) lst in
                             let tcm, specs = match v with
-                                | (_, code) :: _ -> 
+                                | (_, code) :: _ ->
                                     Data.get_tcm code !data,
                                     Hashtbl.find !data.Data.character_specs code
                                 | _ -> failwith "generate_taxon, get tcm, sankoff"
                             in
                             let arr= Array.of_list v in
                             let c, _ = SankCS.of_parser tcm (arr, tcode) code in
-                            let weight = match specs with 
-                                | Data.Static (Data.NexusFile nf_static_spec) ->  
+                            let weight = match specs with
+                                | Data.Static (Data.NexusFile nf_static_spec) ->
                                     nf_static_spec.Nexus.File.st_weight
                                 | _ -> failwith "generate_taxon, get weight, sankoff"
                             in
-                            let c = Sank { 
-                                preliminary = c; 
-                                final = c; 
-                                cost = 0.;          
+                            let c = Sank {
+                                preliminary = c;
+                                final = c;
+                                cost = 0.;
                                 sum_cost = 0.;
-                                weight = weight; 
+                                weight = weight;
                                 time = None,None,None; } in
                             { result with characters = c :: result.characters }
                 in

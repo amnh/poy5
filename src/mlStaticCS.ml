@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2807 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2847 $"
 
 let compress = true
 
@@ -135,12 +135,33 @@ external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
 
 external copy : s -> s = "likelihood_CAML_copy"
 
-external loglikelihood: (* vector, weight, priors, probabilities, and %invar -> loglk *)
+external loglikelihood: (* vector, weight, priors, probabilities, %invar, mpl -> loglk *)
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> float -> int -> float =
           "likelihood_CAML_loglikelihood" "likelihood_CAML_loglikelihood_wrapped"
+
+external rell_bootstrap: (* vector, weight, priors, probabilities, %invar, mpl, rel -> mean * var *)
+    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> float -> int -> int -> float * float =
+          "likelihood_CAML_rell_bootstrap" "likelihood_CAML_rell_bootstrap_wrapped"
+
+external lk_variance_ratio :
+    s -> s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+           -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+           -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+        -> float -> int -> float * float =
+          "likelihood_CAML_variance_ratio" "likelihood_CAML_variance_ratio_wrapped"
+
+external lk_variance :
+    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> float -> int -> float * float =
+          "likelihood_CAML_variance" "likelihood_CAML_variance_wrapped"
 
 external filter: s -> int array -> s = "likelihood_CAML_filter"
 
@@ -321,6 +342,24 @@ let median3 an bn cn t1 t2 t3 =
         mle = loglike; 
     }
 
+(* ------------------------------------------------------------------------- *)
+(* Bootstrap / statistical confidence tests *)
+
+let rell_bootstrap an num_replicates =
+    let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    rell_bootstrap
+            an.chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob
+            pinvar (MlModel.get_costfn_code an.model) num_replicates
+
+let variance_ratio an bn =
+    let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    lk_variance_ratio an.chars bn.chars an.weights an.model.MlModel.pi_0
+        an.model.MlModel.prob pinvar (MlModel.get_costfn_code an.model)
+
+let variance an =
+    let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    lk_variance an.chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob
+                pinvar (MlModel.get_costfn_code an.model)
 
 (* ------------------------------------------------------------------------- *)
 (* parser/formatter stuff *)

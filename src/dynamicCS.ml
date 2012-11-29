@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2780 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 2831 $"
 
 let debug = false
 
@@ -38,12 +38,6 @@ type t =
     | ChromCS of ChromCS.t 
     | AnnchromCS of AnnchromCS.t
     | GenomeCS of GenomeCS.t
-
-(*
-let is_fixedstates dcs = match dcs with
-    | SeqCS x -> SeqCS.is_fixedstates x
-    | _       -> false
-*)
 
 type u =
     | U_SeqCS of SeqCS.Union.u
@@ -148,6 +142,18 @@ let code (a : t) = match a with
     | GenomeCS a -> a.GenomeCS.code
     | BreakinvCS a -> a.BreakinvCS.code
     | AnnchromCS a -> a.AnnchromCS.code
+
+let codes = function
+    | MlCS a       -> a.MlDynamicCS.codes
+    | SeqCS a      -> a.SeqCS.codes
+    | ChromCS a    ->
+        Array.of_list (IntMap.fold (fun k _ a -> k::a) a.ChromCS.meds [])
+    | GenomeCS a   ->
+        Array.of_list (IntMap.fold (fun k _ a -> k::a) a.GenomeCS.meds [])
+    | BreakinvCS a ->
+        Array.of_list (IntMap.fold (fun k _ a -> k::a) a.BreakinvCS.meds [])
+    | AnnchromCS a ->
+        Array.of_list (IntMap.fold (fun k _ a -> k::a) a.AnnchromCS.meds [])
 
 let print dyn = match dyn with
     | ChromCS ch -> ChromCS.print ch
@@ -278,39 +284,36 @@ let of_array spec genome_arr code taxon num_taxa =
             in 
             let t = SeqCS.of_array spec seq_arr code taxon in
             begin match meth, spec.Data.lk_model with
-            | `SeqPrealigned,_ 
-            | `CustomAlphabet,_
-            | `Seq,_ -> SeqCS t
-            | `Ml,Some m -> MlCS (MlDynamicCS.make (spec.Data.alph) t m)
-            | `Ml,None -> failwith "DynamicCS.of_array; No likelihood model found"
+                | `SeqPrealigned,_ 
+                | `CustomAlphabet,_
+                | `Seq,_ -> SeqCS t
+                | `Ml,Some m -> MlCS (MlDynamicCS.make (spec.Data.alph) t m)
+                | `Ml,None -> assert false
             end
     | `Breakinv ->
-    (*for breakinv and chromosome, we are only expecting one sequence in 
-    * Data.seq_arr -- since we only have one character per input file.*)
-            let seq_arr = 
-                Array.map 
-                (fun (genome_data, genome_code) ->
-                    let first_seq_deli = 
-                        genome_data.Data.seq_arr.(0) in
-                    let first_seq = first_seq_deli.Data.seq in 
-                    let first_deli = first_seq_deli.Data.delimiter
-                    in
-                    (first_seq, first_deli, genome_code)) genome_arr
-            in 
+            let seq_arr =
+                Array.map
+                    (fun (genome_data, genome_code) ->
+                        assert( 1 = (Array.length genome_data.Data.seq_arr));
+                        let first_seq_deli = genome_data.Data.seq_arr.(0) in
+                        let first_seq  = first_seq_deli.Data.seq in 
+                        let first_deli = first_seq_deli.Data.delimiter in
+                        (first_seq, first_deli, genome_code))
+                    genome_arr
+            in
             let t = BreakinvCS.of_array spec seq_arr code in
             BreakinvCS t
-    | `Chromosome  ->
-            let seq_arr = 
-                Array.map 
-                (fun (genome_data, genome_code) ->
-                    let first_seqa = 
-                        genome_data.Data.seq_arr.(0) in
-                    let first_seq = first_seqa.Data.seq in 
-                    (first_seq, genome_code)) genome_arr
+    | `Chromosome ->
+            let seq_arr =
+                Array.map
+                    (fun (genome_data, genome_code) ->
+                        assert( 1 = (Array.length genome_data.Data.seq_arr));
+                        let first_seqa = genome_data.Data.seq_arr.(0) in
+                        let first_seq = first_seqa.Data.seq in 
+                        (first_seq, genome_code))
+                    genome_arr
             in
-            let t = 
-                ChromCS.of_array spec seq_arr code taxon num_taxa 
-            in 
+            let t = ChromCS.of_array spec seq_arr code taxon num_taxa in
             ChromCS t
     | `Annotated -> 
           let t = AnnchromCS.of_array spec genome_arr code  taxon num_taxa in

@@ -65,6 +65,18 @@ val median1 : t -> t -> float -> t
 val median2 : t -> t -> float -> float -> int -> int -> t
 val median3 : t -> t -> t -> float -> float -> float -> t
 
+(** [rell_bootstrap n num] Computes the RELL Bootstrap of resampling [num] times
+    on the distribution of characters in [n]. *)
+val rell_bootstrap : t -> int -> float * float
+
+(** [variance_ratio a b] calculate the variance and mean of two trees; they are
+    assumed to have the same leaf taxa and thus magnitude of likelihood vectors
+    in comparison. *)
+val variance_ratio : t -> t -> float * float
+
+(** [variance a] calculate the variance and mean of sites of a node *)
+val variance : t -> float * float 
+
 (** resolves median to most likely state; and converts to sequence. single is
     set if we should perform a single character assignment to the data. *)
 val resolve : ?single:bool -> t -> Sequence.s
@@ -121,9 +133,9 @@ val compare : t -> t -> int
  *   The function returns the set of modified characters (all of them), the old
  * likelihood, the new likelihood, the new branch lengths and an updated t
  * with new likelihood_vector and same model. *)
-val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->  
-                t -> t -> t -> float -> float ->
-                All_sets.Integers.t * float * float * (float*float) * t
+val readjust :
+    All_sets.Integers.t option -> All_sets.Integers.t ->  t -> t -> t -> float
+        -> float -> All_sets.Integers.t * float * float * (float*float) * t
 
 
 (** [of_parser spec characters] creates a character set with specification

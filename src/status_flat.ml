@@ -19,7 +19,9 @@
 
 exception Illegal_update
 
-let () = SadmanOutput.register "Status_flat" "$Revision: 2660 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 2861 $"
+
+let ndebug = true
 
 let stdferr = StatusCommon.Format.formatter_of_out_channel stderr
 
@@ -38,12 +40,10 @@ let verbosity : [ `None | `All ] ref = ref `All
 
 let set_verbosity x = verbosity := x
 
-
 let get_verbosity () = !verbosity
 
-
 let build_prefix_suffix title =
-    ("@[@[" ^ title ^ "@ :@ @]@["), "@]@]@\n%!"
+    ("@[@[" ^ title ^ "@ :@ @]@,@["), "@]@]@\n%!"
 
 let type_string = function
     | SearchReport
@@ -60,11 +60,9 @@ let type_string = function
             let prefix, suffix = build_prefix_suffix "Status" in
             prefix, stdferr, (fun () -> ()), suffix
     | Output (file, _, fo_ls) -> 
-            let ch, f = 
-                match file with
-                | Some f -> 
-                      StatusCommon.Files.openf f fo_ls, (fun () -> ())
-                | None -> stdfout, fun () -> ()
+            let ch, f = match file with
+                | Some f -> StatusCommon.Files.openf f fo_ls, (fun () -> ())
+                | None   -> stdfout, fun () -> ()
             in
             "", ch, f, ""
 
@@ -102,6 +100,7 @@ let to_do_if_parallel =
     ref (fun t m ->
             let msg, ch, f, append = type_string t in
             let msg = msg ^ m ^ append in
+            let msg = if ndebug then msg else StatusCommon.escape msg in
             let msg = StatusCommon.string_to_format msg in
             let () = StatusCommon.Format.fprintf ch msg in
             let () = StatusCommon.Format.pp_print_flush ch () in
