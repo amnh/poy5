@@ -3137,16 +3137,21 @@ let report_terminals_files filename taxon_files ignored_taxa =
         in
         All_sets.Strings.fold process_all_files files acc
     and print_file file_name (included, excluded) =
-        fo ("@,@[<v 2>@{<u>Input File:@} " ^ StatusCommon.escape file_name ^ "@,@[<v 0>");
+        fo ("@,@[<v 2>@{<u>Input File:@} " ^ StatusCommon.escape file_name ^ "@,");
         let output_list str lst = 
-            Printf.ksprintf fo "@,@[Terminals %s (%d)@]@[<v 2>@,@[<v 0>"
-                            (StatusCommon.escape str) (List.length lst);
-            List.iter (fun x -> fo (StatusCommon.escape x); fo "@,") lst;
-            fo "@]@]";
+            let acc = Printf.sprintf "@[<v 2>@[Terminals %s (%d)@]@,@[<v 2>@,"
+                                    (StatusCommon.escape str) (List.length lst)
+            in
+            let acc =
+                List.fold_left
+                    ~f:(fun acc x -> acc ^ "@[" ^ (StatusCommon.escape x) ^ "@]@,")
+                    ~init:acc lst
+            in
+            acc ^ "@]@,@]"
         in
-        output_list "Included" included;
-        output_list "Excluded" excluded;
-        fo "@]@]@,"
+        fo (output_list "Included" included);
+        fo (output_list "Excluded" excluded);
+        fo "@]@,"
     in
     let files = All_sets.StringMap.fold make_per_file_set taxon_files files in
     fo "@[<v 2>@{<b>Terminals Files@}:@,@[<v 0>";
