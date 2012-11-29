@@ -19,7 +19,7 @@
 
 exception Illegal_update
 
-let () = SadmanOutput.register "Status_flat" "$Revision: 2861 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 2873 $"
 
 let ndebug = true
 
@@ -43,7 +43,7 @@ let set_verbosity x = verbosity := x
 let get_verbosity () = !verbosity
 
 let build_prefix_suffix title =
-    ("@[@[" ^ title ^ "@ :@ @]@,@["), "@]@]@\n%!"
+    ("@[@[" ^ title ^ "@ :@ @]@["), "@]@]@\n%!"
 
 let type_string = function
     | SearchReport
