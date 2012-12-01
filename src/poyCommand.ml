@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2842 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2892 $"
 
 let debug = false 
 
@@ -1905,7 +1905,9 @@ let create_expr () =
             ];
         resample:
             [
-                [ LIDENT "resample"; ":"; left_parenthesis; x = INT; ","; right_parenthesis
+
+                [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ] |
+                [ LIDENT "resample"; ":"; left_parenthesis; x = INT; right_parenthesis
                     -> `Resample (int_of_string x) ]
             ];
         charortax:
