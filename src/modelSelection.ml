@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2789 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2916 $"
 
 let ndebug = true
 
@@ -212,11 +212,12 @@ struct
     (** [apply_model_to_data] apply the model specification to a set of chars *)
     let apply_model_to_data old_model diff chars data : Data.d =
         List.fold_left
-            (fun d xs ->
+            (fun d (_,xs) ->
                 let model = update_model old_model diff in
-                Data.apply_likelihood_model_on_chars d xs model)
+                let codes = Data.get_chars_codes_comp data xs in
+                Data.apply_likelihood_model_on_chars d codes model)
             (data)
-            (Data.categorize_likelihood_chars_by_model_comp data chars)
+            (Data.categorize_characters_by_alphabet_size_comp data chars)
         --> Data.categorize
 
     (** [diagnose_tree_with_model] determine the maximum likelihood value for

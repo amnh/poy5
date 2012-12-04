@@ -445,6 +445,13 @@ val categorize_characters : d -> characters -> int list list
 
 val categorize_characters_comp : d -> bool_characters -> int list list
 
+val categorize_characters_by_alphabet_size_comp : 
+    d -> bool_characters -> (int * bool_characters) list
+
+val categorize_characters_by_alphabet_size : 
+    d -> characters -> (int * bool_characters) list
+
+
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
 
 val make_codon_partitions : bool -> d -> string -> Methods.characters -> d
