@@ -1145,7 +1145,6 @@ logMPL_site( const mll* l, const double weight, const double* pi,
         for(j=0; j < l->alph; ++j){
             max_v = MAX (l->lv_s[c+j] + log(pi[j]), max_v);
         }
-        printf("\n");
     }
     if( 1 == l->invar ){
         assert( pinvar >= 0.0 );
