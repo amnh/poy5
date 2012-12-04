@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2845 $"
+let () = SadmanOutput.register "Node" "$Revision: 2912 $"
 
 let infinity = float_of_int max_int
 
@@ -3361,7 +3361,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                 let root_pre,bl = match root with
                     | Some (Dynamic root) ->
                         begin match root.time with
-                            | None,None,None  -> Some root.preliminary, None
+                            | None,None,_     -> Some root.preliminary, None
                             | Some x,Some y,_ -> Some root.preliminary, Some (x +. y)
                             | _               -> assert( false )
                         end
