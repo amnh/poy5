@@ -1149,11 +1149,9 @@ logMPL_site( const mll* l, const double weight, const double* pi,
     if( 1 == l->invar ){
         assert( pinvar >= 0.0 );
         tmp = loglikelihood_site_invar ( l , pi, i );
-        tmp = MAX( max_v * (1 - pinvar), 1e-300 ) + (pinvar * tmp);
-    } else {
-        tmp = MAX( max_v, 1e-300 );
+        max_v=(0.0 == tmp )?max_v:MAX(max_v, log(tmp));
     }
-    return ( tmp * weight );
+    return ( max_v * weight );
 }
 
 /** Smooth/soft Max function; does not contain a sharp discontinuity;
@@ -1167,7 +1165,13 @@ logMPL_site( const mll* l, const double weight, const double* pi,
     max function.
 
     See, http://www.johndcook.com/blog/2010/01/13/soft-maximum/
-    and, http://www.johndcook.com/blog/2010/01/20/how-to-compute-the-soft-maximum/ */
+    and, http://www.johndcook.com/blog/2010/01/20/how-to-compute-the-soft-maximum/
+
+    unfortunetly, this was found not to be effective in smoothing out the MPL
+    function. The loss of smoothness across the tree is the major issue, not at
+    a node level; thus we were getting the same score and behavior.
+    
+    TODO; needs to include INVAR
 double
 logSMPL_site( const mll* l, const double weight, const double* pi,
                     const double* prob, const double pinvar, const int i )
@@ -1184,9 +1188,8 @@ logSMPL_site( const mll* l, const double weight, const double* pi,
         }
     }
     s_max = (maximum + (log(s_max)/SMPL_K));
-    //TODO; needs to include INVAR
     return s_max;
-}
+} */
 
 /** [loglikelihood ml p prob %]
  * returns loglikelihood of a character set. |p| = l->stride
@@ -1234,34 +1237,6 @@ double logMPLlikelihood( const mll* l, const double* ws, const double* pi,
     for(i = 1;i<l->c_len; i++)
     {
         ret_y = (logMPL_site(l,ws[i],pi,prob,pinvar,i)) - ret_c;
-        ret_t = ret_s + ret_y;
-        ret_c = (ret_t - ret_s) - ret_y;
-        ret_s = ret_t;
-    }
-    return ( -ret_s );
-#else
-    int i;
-    double ret;
-    ret = 0.0;
-    for(i=0;i<l->c_len;i++)
-        ret += logMPL_site(l,ws[i],pi,prob,pinvar,i);
-    return ( -ret );
-#endif
-}
-
-
-double logSMPLlikelihood( const mll* l, const double* ws, const double* pi, 
-                                const double* prob, const double pinvar )
-{
-#ifdef KAHANSUMMATION
-    int i; 
-    double ret_s,ret_c,ret_y,ret_t;
-
-    ret_s = logSMPL_site(l,ws[0],pi,prob,pinvar,0);
-    ret_c = 0.0;
-    for(i = 1;i<l->c_len; i++)
-    {
-        ret_y = (logSMPL_site(l,ws[i],pi,prob,pinvar,i)) - ret_c;
         ret_t = ret_s + ret_y;
         ret_c = (ret_t - ret_s) - ret_y;
         ret_s = ret_t;

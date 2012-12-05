@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2878 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2931 $"
 
 open Numerical.FPInfix
 
@@ -1666,19 +1666,17 @@ let spec_from_classification alph gap kind rates (priors:Methods.ml_priors) cost
         let same = 
             List.fold_left
                 (fun acc (_,ac) ->
-                    acc +. (All_sets.FullTupleMap.find (ac,ac) comp_map) )
+                    acc +. (try (All_sets.FullTupleMap.find (ac,ac) comp_map)
+                            with | Not_found -> 0.0))
                 0.0
                 (Alphabet.to_list alph)
         in
         same /. all
     in
     let v = match rates with
-        | None ->
-            Constant
-        | Some (`Gamma (i,_)) ->
-            Gamma (i,default_alpha false)
-        | Some (`Theta (i,_)) ->
-            Theta (i,default_alpha true,calc_invar tuple_sum comp_map)
+        | None                -> Constant
+        | Some (`Gamma (i,_)) -> Gamma (i,default_alpha false)
+        | Some (`Theta (i,_)) -> Theta (i,default_alpha true,calc_invar tuple_sum comp_map)
     in
     {
         substitution = m;

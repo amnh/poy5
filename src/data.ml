@@ -1128,6 +1128,7 @@ module CharacterSelection = struct
     
     let categorize_characters_by_alphabet_size_comp data (chars:bool_characters) =
         character_comp_wrapper categorize_characters_by_alphabet_size data chars 
+
 end
 include CharacterSelection
 open CharacterSelection

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2833 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2918 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1226,7 +1226,7 @@ module F : Ptree.Tree_Operations
         (* loop to adjust a tree and *)
         let adjust_until_nothing_changes max_count start_ptree =
             (* Post order traversal of internal nodes *)
-            let debug = true in
+            let debug = debug_cost_fn in
             if debug then Printf.printf "adjust until nothing changes begin\n%!";
             let adjust_loop prev_affected handle adjust_acc =
                 match (Ptree.get_component_root handle ptree).Ptree.root_median with
@@ -1666,7 +1666,7 @@ module F : Ptree.Tree_Operations
 
     let model_fn ?max_iter node_man ptree =
         if using_likelihood `Either ptree
-            then model_fn ?max_iter node_man ptree
+            then model_fn ?max_iter node_man (assign_single ptree)
             else ptree
 
 

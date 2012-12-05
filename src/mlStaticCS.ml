@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2847 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2910 $"
 
 let compress = true
 
@@ -292,7 +292,7 @@ let median2 an bn t1 t2 acode bcode =
                       an.model.MlModel.prob pinvar
                       (MlModel.get_costfn_code an.model)
     in
-    assert( loglike >= 0.0 );
+    assert( loglike >= -0.0 );
     { an with
         chars = n_chars;
         mle = loglike; 
@@ -315,8 +315,11 @@ let median1 an bn t1 =
         loglikelihood n_chars an.weights am.MlModel.pi_0 
                       am.MlModel.prob pinvar (MlModel.get_costfn_code am)
     in
-    assert( loglike >= 0.0 );
-    { an with chars = n_chars; mle = loglike; }
+    assert( loglike >= -0.0 );
+    { an with
+        chars = n_chars;
+        mle = loglike;
+    }
 
 let median3 an bn cn t1 t2 t3 =
     let am = an.model in
@@ -336,7 +339,7 @@ let median3 an bn cn t1 t2 t3 =
                       an.model.MlModel.prob pinvar
                       (MlModel.get_costfn_code an.model)
     in
-    assert( loglike >= 0.0 );
+    assert( loglike >= -0.0 );
     { an with
         chars = n_chars;
         mle = loglike; 
@@ -347,14 +350,13 @@ let median3 an bn cn t1 t2 t3 =
 
 let rell_bootstrap an num_replicates =
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
-    rell_bootstrap
-            an.chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob
-            pinvar (MlModel.get_costfn_code an.model) num_replicates
+    rell_bootstrap an.chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob
+                pinvar (MlModel.get_costfn_code an.model) num_replicates
 
 let variance_ratio an bn =
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
     lk_variance_ratio an.chars bn.chars an.weights an.model.MlModel.pi_0
-        an.model.MlModel.prob pinvar (MlModel.get_costfn_code an.model)
+                an.model.MlModel.prob pinvar (MlModel.get_costfn_code an.model)
 
 let variance an =
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
@@ -493,8 +495,7 @@ let of_parser spec weights characters =
                       computed_model.MlModel.prob pinvar
                       (MlModel.get_costfn_code computed_model)
     in
-    (* print_barray3with1 ba_chars weights; *)
-    assert( loglike >= 0.0 );
+    assert( loglike >= -0.0 );
     {    mle  = loglike;
        model  = computed_model;
        codes  = codes;
