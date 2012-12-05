@@ -4671,9 +4671,12 @@ let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spe
     let transform_char_set data (size,chars) =
         let chars = get_chars_codes_comp data chars in
         let alph_size,alph = verify_alphabet data chars alph in
-        assert( alph_size = size );
-        (** Convert the characters; we want to skip absent/present, but still
-            set their status, so we use NCM, which will filter them later *)
+        (* testing that size=alph_size will not work since, alph_size is based
+           on the size of the alphabet, where alph_size is observed size, or
+           passed by a parameter.
+        assert( alph_size = size ); *)
+        (* Convert the characters; we want to skip absent/present, but still
+           set their status, so we use NCM, which will filter them later *)
         match chars with
         | []                   -> data
         | cs when ap_alph alph -> set_local_ncm data cs
@@ -4692,9 +4695,12 @@ let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spe
             let model = MlModel.create lk_spec in
             apply_likelihood_model_on_chars data chars model
     in
-    let chars = categorize_characters_by_alphabet_size_comp data chars in
-    let data = List.fold_left ~f:(transform_char_set) ~init:data chars in
-    categorize data
+    try let chars = categorize_characters_by_alphabet_size_comp data chars in
+        let data = List.fold_left ~f:(transform_char_set) ~init:data chars in
+        categorize data
+    with (MlModel.LikelihoodModelError str) as exp ->
+        Status.user_message Status.Error (Str.global_replace (Str.regexp " ") "@ " str);
+        raise exp
 
 let get_tran_code_meth data meth = 
     let tran_code_ls, meth =
@@ -4724,7 +4730,7 @@ let transform_dynamic (meth: Methods.dynamic_char_transform) data =
                 data := d
             end)
         !data.character_specs;
-    let new_taxon_chs = 
+    let new_taxon_chs =
         let new_tbl = create_ht () in
         Hashtbl.iter 
             (fun code ch_ls -> 
@@ -6651,14 +6657,13 @@ let guess_class_and_add_file annotated is_prealigned data filename =
             let filename = FileStream.filename filename in
             let msg = 
                 "@[A@ file@ with@ name@ " ^ StatusCommon.escape filename ^ 
-                "@ has@ previously@ " 
-                ^ "been@ loaded.@ Sorry,@ I@ will@ cowardly@ refuse@ to@ "
-                ^ "load@ its@ contents@ again.@ However,@ I@ will@ continue@ "
-                ^ "loading@ any@ files@ remaining.@]"
+                "@ has@ previously@ been@ loaded.@ Sorry,@ I@ will@ cowardly@ "^
+                "refuse@ to@ load@ its@ contents@ again.@ However,@ I@ will@ " ^
+                "continue@ loading@ any@ files@ remaining.@]"
             in
             Status.user_message Status.Error msg
         in
-        data
+        raise Status.Illegal_update
     else
         let file_type_message str = 
             let msg =
@@ -6669,8 +6674,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
             Status.user_message Status.Information msg
         in
         let add_file contents = add_file data contents filename in
-        let res = 
-            match Parser.Files.test_file filename with
+        let res = match Parser.Files.test_file filename with
             | Parser.Files.Is_Poy -> failwith "TODO Is_poy"
             | Parser.Files.Is_Clustal| Parser.Files.Is_TinySeq
             | Parser.Files.Is_Fasta| Parser.Files.Is_Genome| Parser.Files.Is_ASN1
