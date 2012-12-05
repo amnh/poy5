@@ -1149,11 +1149,9 @@ logMPL_site( const mll* l, const double weight, const double* pi,
     if( 1 == l->invar ){
         assert( pinvar >= 0.0 );
         tmp = loglikelihood_site_invar ( l , pi, i );
-        tmp = (max_v * (1 - pinvar)) + (pinvar * tmp);
-    } else {
-        tmp = max_v;
+        max_v=(0.0 == tmp )?max_v:MAX(max_v, log(tmp));
     }
-    return ( tmp * weight );
+    return ( max_v * weight );
 }
 
 /** Smooth/soft Max function; does not contain a sharp discontinuity;
