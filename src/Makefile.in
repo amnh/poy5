@@ -52,7 +52,7 @@ NATIVEDYNLINK := @NATIVEDYNLINK@
 .PHONY: commands.pdf poy.native poy.byte poy.top clean distclean install doc all poy uninstall portal.native portal install_server
 
 ##################################
-#
+# Basic Compilation Entry Points
 #
 
 poy : poy.native 
@@ -66,17 +66,17 @@ poy.byte:
 poy.native: 
 	$(OCAMLBUILD) $@
 
-commands.pdf:
-	$(OCAMLBUILD) $@
+all: poy.byte poy.top VERSION poy.native
 
-poy_test.byte: 
+##################################
+# Documentation through OCamlbuild
+
+commands.pdf:
 	$(OCAMLBUILD) $@
 
 doc: 
 	$(OCAMLBUILD) commands.pdf
 	cp _build/commands.pdf ./manual.pdf
-
-all: poy.byte poy.top VERSION poy.native
 
 ##################################
 # Cleaning / Removing POY
@@ -124,6 +124,9 @@ install_portal: install portal.native
 ##################################
 # Commands for testing
 #
+
+poy_test.byte: 
+	$(OCAMLBUILD) $@
 
 poy_test.native:
 	$(OCAMLBUILD) poy_test.native
