@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2916 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 2924 $"
 
 let ndebug = true
 
@@ -178,16 +178,19 @@ struct
         used in static and other characters so we do not special case things. *)
     let get_longest_of_code data code : int =
         Hashtbl.fold
-            (fun t tbl acc -> match fst (Hashtbl.find tbl code) with
-                | Data.Dyna (_,state) ->
-                    let total =
-                        Array.fold_left
-                            (fun acc x -> acc + (Sequence.length x.Data.seq))
-                            0 state.Data.seq_arr
-                    in
-                    max total acc
-                | Data.Stat (_,state) -> max 1 acc
-                | Data.FS _           -> assert false)
+            (fun t tbl acc ->
+                try match fst (Hashtbl.find tbl code) with
+                    | Data.Dyna (_,state) ->
+                        let total =
+                            Array.fold_left
+                                (fun acc x -> acc + (Sequence.length x.Data.seq))
+                                0 state.Data.seq_arr
+                        in
+                        max total acc
+                    | Data.Stat (_,state) -> max 1 acc
+                    | Data.FS _           -> assert false
+                (* not found if missing data; len=0, so pass along acc *)
+                with Not_found -> acc)
             data.Data.taxon_characters
             0
 
@@ -413,8 +416,11 @@ struct
              | `AIC -> "AIC" | `AICC -> "AICc" | `BIC -> "BIC"
         in
         let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
-        let () =
-            ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |]
+        let () = match stats.type_ic with
+            | `AIC ->
+                ret.(0) <- [| "Model"; "-log(LK)"; "K"; ic_name; "delta"; "weight"; "cum(w)"; |]
+            | `AICC | `BIC ->
+                ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |]
         in
         let warning = ref false in
         Array.fold_left
@@ -422,12 +428,18 @@ struct
                 let charn = Data.get_chars_codes_comp s.tree.Ptree.data chars in
                 let model = Data.get_likelihood_model s.tree.Ptree.data charn in
                 warning := !warning || (d_ic < (4.00 +. Numerical.tolerance));
-                let i_array = 
-                    [| (MlModel.short_name model);  (string_of_float s.lk);
-                       (string_of_int (parameter_cardinality s.tree chars));
-                       (string_of_int (sample_size s.tree chars));
-                       (string_of_float ic);  (string_of_float d_ic);
-                       (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |];
+                let i_array = match stats.type_ic with
+                    | `AIC -> 
+                        [| (MlModel.short_name model);  (string_of_float s.lk);
+                           (string_of_int (parameter_cardinality s.tree chars));
+                           (string_of_float ic);  (string_of_float d_ic);
+                           (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |]
+                    | `AICC | `BIC -> 
+                        [| (MlModel.short_name model);  (string_of_float s.lk);
+                           (string_of_int (parameter_cardinality s.tree chars));
+                           (string_of_int (sample_size s.tree chars));
+                           (string_of_float ic);  (string_of_float d_ic);
+                           (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |]
                 in
                 ret.(i) <- i_array;
                 ((i+1),(w_cum +. w_ic)) )
