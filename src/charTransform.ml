@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2791 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2929 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1171,35 +1171,46 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
 
     let rec transform_tree_characters (trees,data,nodes) meth =
+        let ap_alph alph =
+            try let () = ignore (Alphabet.match_base "present" alph) 
+                and () = ignore (Alphabet.match_base "absent"  alph) in
+                true
+            with _ -> false
+        in
         let static_transform t bs data a b c d e f chars =
             let chars =
                 let chars = Data.get_code_from_characters_restricted_comp
                                                     `AllStatic data chars in
-                Data.categorize_characters data (`Some chars)
+                Data.categorize_characters_by_alphabet_size data (`Some chars)
             in
             match chars with
             | []  -> data
             | css ->
                 List.fold_left
-                    (fun data cs ->
+                    (fun data (_,b_chars) ->
+                        let cs = Data.get_chars_codes_comp data b_chars in
                         let csa= Array.of_list cs in
                         let _,alpha = Data.verify_alphabet data cs `Max in
-                        (Some csa, a, b, c, d, e, f)
-                            --> estimate_static_lk_model t data bs alpha
-                            --> Data.apply_likelihood_model_on_chars data cs)
+                        if ap_alph alpha then
+                            data
+                        else 
+                            (Some csa, a, b, c, d, e, f)
+                                --> estimate_static_lk_model t data bs alpha
+                                --> Data.apply_likelihood_model_on_chars data cs)
                     data
                     css
         and dynamic_transform tree bs data a b c d e f chars =
             let chars =
                 let chars = Data.get_code_from_characters_restricted_comp
                                                     `AllDynamic data chars in
-                Data.categorize_characters data (`Some chars)
+                Data.categorize_characters_by_alphabet_size data (`Some chars)
             in
             match chars with
             | []  -> data
             | css ->
                 List.fold_left
-                    (fun data cs ->
+                    (fun data (_,b_chars) ->
+                        let cs = Data.get_chars_codes_comp data b_chars in
                         let _,alpha = Data.verify_alphabet data cs `Max in
                         (Some cs,a,b,c,d,e,f)
                             --> estimate_dynamic_lk_model tree data bs alpha
