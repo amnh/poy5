@@ -953,7 +953,7 @@ module CharacterSelection = struct
         in
         let chars = get_chars_codes data chars in
         let set = List.fold_left ~f:categorize ~init:All_sets.StringMap.empty chars in
-        List.rev_map ~f:snd (All_sets.StringMap.bindings set)
+        All_sets.StringMap.fold (fun _ v acc -> v::acc) set []
 
     (** categorize characters by pairing. This is to abstract the categorize by
         alphabet function for other cases; observed, et cetera *)
