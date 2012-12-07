@@ -4383,20 +4383,12 @@ let verify_alphabet data chars alph =
                        " observed states (%d)") (All_sets.Strings.cardinal states);
         x, append_sequential states x Alphabet.gap_repr
     | `Max   ->
-        begin match List.map (get_alphabet data) chars with
-        | h :: t ->
-            ignore 
-                (List.fold_left
-                    ~f:(fun acc x -> 
-                            if x = h then acc 
-                            else begin
-                                (* Alphabet.print x; Alphabet.print h; *)
-                                failwith "The alphabet of the characters is different"
-                            end)
-                    ~init:true t);
-            let alph = Alphabet.to_sequential h in
-            (Alphabet.size alph), alph
-        | [] -> failwith "No alphabet to verify?"
+        begin match List.map (fun x -> (x,get_alphabet data x)) chars with
+            | (ch,h) :: t ->
+                assert (List.fold_left ~f:(fun acc (cx,x) -> x = h) ~init:true t);
+                let alph = Alphabet.to_sequential h in
+                (Alphabet.size alph), alph
+            | [] -> assert false
         end
 
 (** [compute_priors data chars] computes the observed frequencies for all the
@@ -4696,8 +4688,19 @@ let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spe
             let model = MlModel.create lk_spec in
             apply_likelihood_model_on_chars data chars model
     in
-    try let chars = categorize_characters_by_alphabet_size_comp data chars in
-        let data = List.fold_left ~f:(transform_char_set) ~init:data chars in
+    try let s_chars =
+            `Some (get_code_from_characters_restricted_comp `AllStatic data chars)
+        and d_chars =
+            `Some (get_code_from_characters_restricted_comp `AllDynamic data chars)
+        in
+        let data =
+            List.fold_left
+                ~f:(transform_char_set) ~init:data
+                (categorize_characters_by_alphabet_size data s_chars) in
+        let data =
+            List.fold_left
+                ~f:(transform_char_set) ~init:data
+                (categorize_characters_by_alphabet_size data d_chars) in
         categorize data
     with (MlModel.LikelihoodModelError str) as exp ->
         Status.user_message Status.Error (Str.global_replace (Str.regexp " ") "@ " str);

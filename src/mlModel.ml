@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2931 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2933 $"
 
 open Numerical.FPInfix
 
@@ -30,17 +30,17 @@ let debug = false
 exception LikelihoodModelError of string
 
 let likelihood_not_enabled =
-    "Likelihood@ not@ enabled:@ download@ different@ binary@ or@ contact@ mailing@ list" 
+    "Likelihood not enabled: download different binary or contact mailing list" 
 
 let lfailwith () =
     raise (LikelihoodModelError likelihood_not_enabled)
 
 let dyno_likelihood_warning = 
-    "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
-    "likelihood@ criteria.@ Please@ add@ argument@ gap:(coupled),@ or@ gap:(character)."
+    "Gap as an additional character is required for the dynamic "^
+    "likelihood criteria. Please add argument gap:(coupled), or gap:(character)."
 
 let dyno_gamma_warning = 
-    "Gamma@ classes@ for@ dynamic@ MPL@ are@ un-necessary,@ and@ are@ being@ removed."
+    "Gamma classes for dynamic MPL are un-necessary, and are being removed."
 
 let debug_printf msg format =
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
@@ -1402,11 +1402,12 @@ let add_gap_to_model compute_priors model =
     | `Missing -> add_gap_to_model compute_priors model
     | `Independent | `Coupled _ -> model
 
-let remove_gamma_from_spec spec = 
+let remove_gamma_from_spec spec =
     match spec.site_variation with
-    | Constant -> spec
-    | Gamma _ | Theta _ -> 
-        Status.user_message Status.Warning dyno_gamma_warning;
+    | Constant          -> spec
+    | Gamma _ | Theta _ ->
+        Status.user_message Status.Warning
+            (Str.global_replace (Str.regexp " ") "@ " dyno_gamma_warning);
         { spec with site_variation = Constant; }
 
 IFDEF USE_LIKELIHOOD THEN
