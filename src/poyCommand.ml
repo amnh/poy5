@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2934 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2947 $"
 
 let debug = false 
 
@@ -1852,7 +1852,7 @@ let create_expr () =
                 [ LIDENT "supports"; y = OPT opt_support_names -> `Supports y ] |
                 [ LIDENT "graphsupports"; y = OPT opt_support_names -> 
                     `GraphicSupports y ] |
-                [ LIDENT "diagnosis"; y = OPT opt_report_type -> 
+                [ LIDENT "diagnosis"; y = OPT opt_report_type ->
                     match y with 
                     | None -> `Diagnosis `Normal
                     | Some x -> `Diagnosis x] |
@@ -2430,7 +2430,7 @@ let create_expr () =
             ];
         opt_report_type:
             [
-                [","; x = report_type -> x]
+                [":"; x = report_type -> x]
             ];
         (* Support values *)
         support_argument:
