@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2892 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2934 $"
 
 let debug = false 
 
@@ -2574,7 +2574,7 @@ and read_script_files optimize (files : [`Inlined of string | `Filename of strin
         List.map
             (fun f -> 
                 let where = match f with
-                    | `Filename f -> "file@ @{<b>" ^ f ^ "@}@"
+                    | `Filename f -> "file@ @{<b>" ^ f ^ "@}"
                     | `Inlined f -> "inlined@ script"
                 in
                 try match f with
@@ -2602,7 +2602,7 @@ and read_script_files optimize (files : [`Inlined of string | `Filename of strin
                         failwith "Script execution stopped"
                     | err ->
                         Status.user_message Status.Error 
-                            ("Error@ while@ processing@ script@  " ^ where);
+                            ("Error@ while@ processing@ script@ " ^ where);
                         raise err)
             files 
     in
