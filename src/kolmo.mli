@@ -59,6 +59,9 @@ module S_K :
     val sk_define_interpreted : string -> string list -> primitives -> unit
     val create : primitives -> string list -> primitives
     val to_pdf : primitives -> string -> unit
+
+    (* this is added to fix compilation of mlpacks issue; mantis:5752 *)
+    val dummy : string -> Graphicpdf.display
   end
 
 module Compiler : sig

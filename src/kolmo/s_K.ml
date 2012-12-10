@@ -175,6 +175,8 @@ let s_encode tree =
         in
         Graphicpdf.close_graph display
 
+    let dummy file = Graphicpdf.open_file file
+
     let rec s_decode lst = 
         let rec aux_s_decode lst = 
             match lst with
