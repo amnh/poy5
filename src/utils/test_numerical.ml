@@ -166,13 +166,12 @@ module Test = struct
         let () = (POY run ([files])) in
         let t = List.hd (Phylo.Runtime.trees ()) in
         let chars = 
-            t.Ptree.data
-                --> Data.categorize_likelihood_chars_by_model `All
-                --> List.hd
+            match Data.categorize_likelihood_chars_by_model t.Ptree.data `All with
+            | [x] -> x
+            |  _  -> failwith "This application only supports one character set"
         in
         let f = update_model_to_vector t chars in
         f, print_model, get_model_dimension t chars
-
 end
 
 let test_battery channel f n p r () =
@@ -267,16 +266,19 @@ let main () =
         in
         test_battery channel f d p (int_of_string Sys.argv.(2)) ()
 
-let usage = "./test_numerical <FILE|FUNC DIMS> <ITER> [OUTF]"
+let usage = (Sys.argv.(0))^" <FILE|FUNC DIMS> <ITER> [OUTF]"
 
-let desc = "FILE\t- A POY script that loads a tree and transforms to likelihood\n"
-         ^ "FUNC\t- A function number 0-10\n"
-         ^ "DIMS\t- Number of dimensions when using functions; dummy when using poy script\n"
-         ^ "ITER\t- Size of sample; number of times to run optimization\n"
-         ^ "OUTF\t- (optional, default to screen). Output location a file, or stderr or stdout\n"
+let desc = "  FILE\t- A POY script that loads a tree and transforms to likelihood\n"
+         ^ "  FUNC\t- A function number 0-10\n"
+         ^ "  DIMS\t- Number of dimensions when using functions\n"
+         ^ "  ITER\t- Size of sample; number of times to run optimization\n"
+         ^ "  OUTF\t- (optional, default to screen). Output location a file, or stderr or stdout\n"
 
 let () =
-    if ("--help" = Sys.argv.(1)) || ("-h" = Sys.argv.(1))
-        then Printf.printf "%s\n%s\n%!" usage desc
-        else main ()
+    try
+        if ("--help" = Sys.argv.(1)) || ("-h" = Sys.argv.(1))
+            then Printf.printf "%s\n%s\n%!" usage desc
+            else main ()
+    with _ ->
+        Printf.printf "%s\n%s\n%!" usage desc
 

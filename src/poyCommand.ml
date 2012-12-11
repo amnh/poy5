@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2947 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 2968 $"
 
 let debug = false 
 
@@ -345,6 +345,7 @@ type reporta = [
     | `FasWinClad
     | `Nexus
     | `Model of old_identifiers
+    | `LKSites of old_identifiers
     | `Pairwise of old_identifiers
     | `Script of string list
     | `ExplainScript of string
@@ -975,6 +976,8 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             (`Nexus (file)) :: acc, file
     | `Pairwise x ->
             (`Pairwise (file,x)) :: acc, file
+    | `LKSites x ->
+            (`LKSites (file,x)) :: acc, file
     | `Model x ->
             (`Model (file,x)) :: acc, file
     | `Script lst ->
@@ -1835,6 +1838,8 @@ let create_expr () =
                 [ LIDENT "nexus" -> `Nexus ] | 
                 [ LIDENT "lkmodel"; ":"; x = old_identifiers -> `Model x ] | 
                 [ LIDENT "lkmodel" -> `Model `All ] | 
+                [ LIDENT "lksites"; ":"; x = old_identifiers -> `LKSites x ] | 
+                [ LIDENT "lksites" -> `LKSites `All ] | 
                 [ LIDENT "script" -> `Script (!console_script) ] |
                 [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |
                 [ LIDENT "pairwise" -> `Pairwise `All ] |

@@ -1265,6 +1265,29 @@ loglikelihood_site(const mll* l,const double weight,const double* pi,
     }
     assert( FALSE );
 }
+value
+likelihood_CAML_loglikelihood_site_wrapped(value a, value pi, value prob,
+                                           value pinvar, value cost, value ci)
+{
+    CAMLparam5( a,pi,prob,pinvar,cost );
+    CAMLxparam1( ci );
+    CAMLlocal1( mle );
+    double ll;
+    int i;
+
+    i = Int_val( ci );
+    ll = loglikelihood_site( ML_val(a), 1.0, (double*) Data_bigarray_val(pi),
+            (double*)Data_bigarray_val(prob), Double_val(pinvar), Int_val(cost), i);
+    mle = caml_copy_double( ll );
+    CAMLreturn( mle );
+}
+value
+likelihood_CAML_loglikelihood_site(value * argv, int argn)
+{
+    return likelihood_CAML_loglikelihood_site_wrapped
+            (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
+}
+
 
 double
 loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob,

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 2684 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 2968 $"
 
 let debug = false
 
@@ -390,6 +390,7 @@ let dependency_relations (init : Methods.script) =
                 | `FasWinClad filename
                 | `Nexus filename
                 | `Model (filename,_)
+                | `LKSites (filename,_)
                 | `Pairwise (filename,_)
                 | `Script (filename,_)
                 | `Dataset filename
@@ -1774,6 +1775,8 @@ let script_to_string (init : Methods.script) =
                         "@[report the nexus file@]"
                 | `Pairwise _ -> 
                         "@[report the pairwise distance matrix for characters@]"
+                | `LKSites _ -> 
+                        "@[report the site loglikelihood of trees@]"
                 | `Model _ -> 
                         "@[report the likelihood model@]"
                 | `Script _ -> 
@@ -2049,6 +2052,7 @@ let is_master_only (init : Methods.script) =
     | `FasWinClad _
     | `Nexus _
     | `Model _
+    | `LKSites _
     | `Pairwise _
     | `Script _
     | `ExplainScript _

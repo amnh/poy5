@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2835 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2968 $"
 
 module IntSet = All_sets.Integers
 
@@ -4063,8 +4063,13 @@ let rec folder (run : r) meth =
                 let script = PoyCommand.of_file false script in
                 Analyzer.explain_tree filename script;
                 run
+
             | `Pairwise (filename,chars) ->
                 failwith "NOT DONE"
+
+            | `LKSites (filename,chars) ->
+                failwith "NOT DONE"
+
             | `Model (filename,chars) ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
                 let ft = Some (Status.output_table (Status.Output (filename, false, []))) in
