@@ -77,6 +77,10 @@ val variance_ratio : t -> t -> float * float
 (** [variance a] calculate the variance and mean of sites of a node *)
 val variance : t -> float * float 
 
+(** [site_likelihood a] returns an array of pairs, weight for pattern and the
+    site likelihood for that pattern. *)
+val site_likelihood : t -> (float * float) array
+
 (** resolves median to most likely state; and converts to sequence. single is
     set if we should perform a single character assignment to the data. *)
 val resolve : ?single:bool -> t -> Sequence.s

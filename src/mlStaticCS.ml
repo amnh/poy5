@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2910 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2969 $"
 
 let compress = true
 
@@ -141,6 +141,12 @@ external loglikelihood: (* vector, weight, priors, probabilities, %invar, mpl ->
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> float -> int -> float =
           "likelihood_CAML_loglikelihood" "likelihood_CAML_loglikelihood_wrapped"
+
+external loglikelihood_site: (* vector, weight, priors, probabilities, %invar, mpl -> loglk *)
+    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> float -> int -> int -> float =
+          "likelihood_CAML_loglikelihood_site" "likelihood_CAML_loglikelihood_site_wrapped"
 
 external rell_bootstrap: (* vector, weight, priors, probabilities, %invar, mpl, rel -> mean * var *)
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
@@ -287,10 +293,9 @@ let median2 an bn t1 t2 acode bcode =
                 am.MlModel.rate (MlModel.get_costfn_code am)
     in
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
-    let loglike = 
+    let loglike =
         loglikelihood n_chars an.weights an.model.MlModel.pi_0 
-                      an.model.MlModel.prob pinvar
-                      (MlModel.get_costfn_code an.model)
+                      an.model.MlModel.prob pinvar (MlModel.get_costfn_code an.model)
     in
     assert( loglike >= -0.0 );
     { an with
@@ -362,6 +367,16 @@ let variance an =
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
     lk_variance an.chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob
                 pinvar (MlModel.get_costfn_code an.model)
+
+let site_likelihood an : (float * float) array =
+    let m = an.model in
+    let pinvar = match m.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    Array.init (Bigarray.Array1.dim an.weights)
+        (fun i ->
+            let s = 
+                loglikelihood_site an.chars m.MlModel.pi_0 m.MlModel.prob
+                                    pinvar (MlModel.get_costfn_code m) i in
+            (an.weights.{i},s))
 
 (* ------------------------------------------------------------------------- *)
 (* parser/formatter stuff *)
