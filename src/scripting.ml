@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2971 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2975 $"
 
 module IntSet = All_sets.Integers
 
@@ -3114,13 +3114,13 @@ let rec process_application run item =
             Kml.KFile.kml ~plugin "POY analysis" output_file run.data csv run.trees;
             run
      | `InspectFile str ->
-            try let (desc, _, _, _, _, _, _) = PoyFile.read_file str in
+            try let (desc, _, _) = PoyFile.read_file str in
                 let desc = match desc with
                      | None -> "No@ description@ available."
                      | Some d -> d
                 in
                 Status.user_message Status.Information
-                    ("@[<v 2>" ^ (StatusCommon.escape str) ^ 
+                    ("@[<v 2>" ^ (StatusCommon.escape str) ^
                      " is a POY file: @,@[" ^ desc ^ "@]@]");
                 run
              with | _ -> 
@@ -4376,7 +4376,10 @@ END
                 run
             | `Save (fn, comment) ->
                 begin try
-                    PoyFile.store_file (comment, run, !Methods.cost) fn;
+                    let srun = {run with runtime_store = create_hstb ();
+                                         data_store = create_hstb (); }
+                    in
+                    PoyFile.store_file (comment, srun, !Methods.cost) fn;
                     run
                 with | err ->
                     let msg = 
@@ -4388,12 +4391,11 @@ END
                     run
                 end
             | `Load fn ->
-                begin try 
+                begin try
                     let (comment, run, cost_mode)  = PoyFile.read_file fn in
                     Methods.cost := cost_mode;
-                    let descr = 
-                        match comment with
-                        | None -> "No description available."
+                    let descr = match comment with
+                        | None   -> "No description available."
                         | Some d -> d
                     in
                     Status.user_message Status.Information 
@@ -4401,9 +4403,9 @@ END
                         ^ "@,@[" ^ StatusCommon.escape descr ^ "@]@]");
                     run
                 with | PoyFile.InvalidFile ->
-                    let msg = 
-                        "The file " ^ StatusCommon.escape fn ^ 
-                        " is not a@ valid" ^ "@ POY@ fileformat."
+                    let msg =
+                        "The@ file@ " ^ StatusCommon.escape fn ^ 
+                        " is@ not a@ valid" ^ "@ POY@ fileformat."
                     in
                     Status.user_message Status.Error msg;
                     run
