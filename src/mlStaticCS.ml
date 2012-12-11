@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2969 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 2971 $"
 
 let compress = true
 
@@ -376,7 +376,7 @@ let site_likelihood an : (float * float) array =
             let s = 
                 loglikelihood_site an.chars m.MlModel.pi_0 m.MlModel.prob
                                     pinvar (MlModel.get_costfn_code m) i in
-            (an.weights.{i},s))
+            (an.weights.{i},~-.s))
 
 (* ------------------------------------------------------------------------- *)
 (* parser/formatter stuff *)

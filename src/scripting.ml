@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2968 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2971 $"
 
 module IntSet = All_sets.Integers
 
@@ -620,52 +620,50 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     try `String (Data.code_taxon code data) with
                     | Not_found -> `String (string_of_int code)
                 in
-                let get_node code = 
-                    try Hashtbl.find nodes (get_name code) with
-                    | er -> 
-                            raise er
+                let get_node code =
+                    try Hashtbl.find nodes (get_name code)
+                    with er -> raise er
                 in
-                let get_gis code = 
+                let get_gis code =
                     let name = get_name code in
-                    try Hashtbl.find gis_table name with
-                    | er ->
-                            raise er
+                    try Hashtbl.find gis_table name
+                    with er -> raise er
                 in
                 match Ptree.get_roots tree with
-                | [x] -> 
-                        (match x.Ptree.root_median with
-                        | Some ((`Single x), root) ->  
-                                let node = get_node x in
-                                let gis = get_gis x in
-                                Tree.Parse.Leafp (node, gis)
+                | [x] ->
+                    begin match x.Ptree.root_median with
+                        | Some ((`Single x), root) ->
+                            let node = get_node x in
+                            let gis = get_gis x in
+                            Tree.Parse.Leafp (node, gis)
                         | Some ((`Edge edge), root) ->
-                                let leaf _ cur _ =
-                                    let node = get_node cur in
-                                    let gis = get_gis cur in
-                                    Tree.Parse.Leafp (node, gis)
-                                and internal _ cur x y =
-                                    let xgis = extract_gis x
-                                    and ygis = extract_gis y in
-                                    let my_gis = TemporalGIS.initial_ancestor xgis ygis in
-                                    let node = get_node cur in
-                                    Tree.Parse.Nodep ([x; y], (node, my_gis))
-                                in
-                                let node = 
-                                    try Hashtbl.find nodes (`String "root") with
-                                    | err -> 
-                                            raise err
-                                in
-                                let left, right = 
-                                    Tree.post_order_node_with_edge_visit leaf 
-                                    internal (Tree.Edge edge) tree.Ptree.tree 
-                                    (Tree.Parse.Leafp (node, empty))
-                                in
-                                let gis = 
-                                    TemporalGIS.initial_ancestor (extract_gis left) 
-                                    (extract_gis right)
-                                in
-                                Tree.Parse.Nodep ([left; right], (node, gis))
-                        | None -> assert false)
+                            let leaf _ cur _ =
+                                let node = get_node cur in
+                                let gis = get_gis cur in
+                                Tree.Parse.Leafp (node, gis)
+                            and internal _ cur x y =
+                                let xgis = extract_gis x
+                                and ygis = extract_gis y in
+                                let my_gis = TemporalGIS.initial_ancestor xgis ygis in
+                                let node = get_node cur in
+                                Tree.Parse.Nodep ([x; y], (node, my_gis))
+                            in
+                            let node =
+                                try Hashtbl.find nodes (`String "root")
+                                with err -> raise err
+                            in
+                            let left, right = 
+                                Tree.post_order_node_with_edge_visit leaf 
+                                internal (Tree.Edge edge) tree.Ptree.tree 
+                                (Tree.Parse.Leafp (node, empty))
+                            in
+                            let gis = 
+                                TemporalGIS.initial_ancestor (extract_gis left) 
+                                (extract_gis right)
+                            in
+                            Tree.Parse.Nodep ([left; right], (node, gis))
+                        | None -> assert false
+                    end
                 | _ -> failwith "Kml generation requires forest of only one tree"
 
             let adjust_tree tree =
@@ -1338,27 +1336,25 @@ END
 (* this function differs from update_trees_to_data in that we do not modify the
  * data of the trees, or update the data to the tree (if load_data is false).
  * This is done when cost modes and other settings have been changed, and does
- * not affect the data or how the data is created. *) 
+ * not affect the data or how the data is created. *)
 let rediagnose_trees ?(classify=true) load_data run =
     let replacer nodes nd = 
         let code = Node.taxon_code nd in
-        try All_sets.IntegerMap.find code nodes with
-        | Not_found as err-> 
-                Status.user_message Status.Error 
-                ("Couldn't find code " ^ string_of_int code);
-                raise err
-    and create_node_set ns = 
+        try All_sets.IntegerMap.find code nodes
+        with | Not_found as err ->
+            Status.user_message Status.Error ("Couldn't find code " ^ string_of_int code);
+            raise err
+    and create_node_set ns =
         List.fold_left
-            (fun acc x -> 
-                All_sets.IntegerMap.add (Node.taxon_code x) x acc)
+            (fun acc x -> All_sets.IntegerMap.add (Node.taxon_code x) x acc)
             All_sets.IntegerMap.empty ns
     in
-    let doit st tree = 
-        let data, nodes = 
-            if load_data then 
+    let doit st tree =
+        let data, nodes =
+            if load_data then
                 let d,n = Node.load_data ~classify tree.Ptree.data in
                 (d, create_node_set n)
-            else 
+            else
                 (tree.Ptree.data, tree.Ptree.node_data)
         in
         let tree = { tree with Ptree.node_data = nodes; data = data; } in
@@ -1375,7 +1371,7 @@ let rediagnose_trees ?(classify=true) load_data run =
         let stored = Sexpr.map (doit st) run.stored_trees in
         Status.finished st;
         { run with trees = trees; stored_trees = stored }
-    else 
+    else
         run
 
 let update_trees_to_data ?(classify=true) force load_data run =
@@ -2121,8 +2117,7 @@ let warn_if_no_trees_in_memory trees =
             ("There@ are@ no@ active@ trees@ in@ memory!")
 
 let get_trees_for_support support_class run =
-    let do_support support_set x = 
-        match support_set with
+    let do_support support_set x = match support_set with
         | None -> `Empty
         | Some (iterations, fs) ->
                 match x with
@@ -2174,6 +2169,37 @@ let get_trees_for_support support_class run =
     | `Bootstrap x ->
             let res = do_support run.bootstrap_support x in
             res, "Bootstrap"
+
+(** PAUP-like output for site likelihood *)
+let report_lk_sites ft tree chars : unit =
+    let tree_num = ref 0 in
+    let header = [| "Tree"; "-lnL"; "Site"; "Weight"; "-lnL"; |] in
+    let modify_array (cost,array) =
+        let second = [| string_of_int !tree_num; string_of_float cost; ""; ""; ""; |] in
+        incr tree_num;
+        Array.init
+            ((Array.length array)+2)
+            (fun i ->
+                if i = 0 then header else
+                if i = 1 then second
+                else begin
+                    let a,b = array.(i-2) in
+                    [| ""; "";string_of_int (i-2); string_of_float a; string_of_float b; |]
+                end)
+    in
+    match Ptree.get_roots tree with
+    | [x] ->
+        let node_root = match x.Ptree.root_median with
+            | Some (_,n) -> n
+            | None       -> assert false
+        in
+        List.iter (fun x -> let x = modify_array x in ft x)
+                  (Node.get_lk_sites node_root chars)
+    |  _  ->
+        Status.user_message Status.Error
+            ("I@ am@ unsure@ what@ to@ do@ about@ reporting@ site@ likelihood@ "
+            ^"on@ a@ disjoint@ tree.@ I@ am@ skipping@ reporting@ its@ data")
+
 
 let rec handle_support_output run meth = match meth with
     | `Supports (support_class, filename) ->
@@ -3854,11 +3880,11 @@ let rec folder (run : r) meth =
                 let runs = explode_trees run in
                 let trees =
                     Sexpr.map_status 
-                    "Transforming and searching each tree independently"
-                    ~eta:true
-                    (fun x ->
-                        run_and_untransform (temporary_transforms trans x))
-                    runs 
+                        "Transforming and searching each tree independently"
+                        ~eta:true
+                        (fun x ->
+                            run_and_untransform (temporary_transforms trans x))
+                        runs
                 in
                 choose_best trees)
     | #Methods.runtime_store as meth -> 
@@ -3880,8 +3906,7 @@ let rec folder (run : r) meth =
             let script = PoyCommand.read_script_files true 
                 (List.map (fun x -> `Filename x) files) in
             let script = Sexpr.of_list script in
-            Sexpr.fold_status "Running commands" ~eta:true file_folder run
-            script
+            Sexpr.fold_status "Running commands" ~eta:true file_folder run script
     | #Methods.report as meth ->
             (* Update the trees to reflect the rooting we want *)
             let run = reroot_at_outgroup run in 
@@ -4063,13 +4088,21 @@ let rec folder (run : r) meth =
                 let script = PoyCommand.of_file false script in
                 Analyzer.explain_tree filename script;
                 run
-
             | `Pairwise (filename,chars) ->
                 failwith "NOT DONE"
-
             | `LKSites (filename,chars) ->
-                failwith "NOT DONE"
-
+                let ft = Status.output_table (Status.Output (filename, false, [])) in
+                let items = Sexpr.length run.trees in
+                let chars = Array.of_list (Data.get_chars_codes_comp run.data chars) in
+                if items = 0 then begin
+                    Status.user_message Status.Warning
+                        ("There@ are@ no@ active@ trees@ in@ memory!");
+                    run
+                end else begin
+                    Sexpr.leaf_iter (fun x -> report_lk_sites ft x chars)
+                                    run.trees;
+                    run
+                end
             | `Model (filename,chars) ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
                 let ft = Some (Status.output_table (Status.Output (filename, false, []))) in

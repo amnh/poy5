@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2797 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2971 $"
 
 let eager        = false
 let uppass_debug = false
@@ -254,6 +254,8 @@ module OneDirF :
     let extract_states alph d a c0 b = Node.Standard.extract_states alph d None c0 (force_val b)
 
     let to_string v = Node.Standard.to_string (force_val v)
+
+    let get_lk_sites x c = Node.Standard.get_lk_sites (force_val x) c
 
     let apply_single_f_on_lazy f a = f (force_val a)
 
@@ -934,6 +936,10 @@ struct
               unadjusted = replace_dir node_dir mine.unadjusted; }
         in
         (node,modi)
+
+    let get_lk_sites n c = match n.unadjusted with
+        | [a] -> OneDirF.get_lk_sites a.lazy_node c
+        |  _  -> assert false
 
     let to_string nodes =
         let adj_data = get_adjusted_nodedata nodes "allDirNode,to_string no adj-data" in

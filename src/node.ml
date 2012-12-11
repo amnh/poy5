@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2912 $"
+let () = SadmanOutput.register "Node" "$Revision: 2971 $"
 
 let infinity = float_of_int max_int
 
@@ -3757,6 +3757,33 @@ let to_formatter_single report_type (pre_ref_codes,fi_ref_codes) acc d (node_dat
             ([acc])
             { `Delayed lazy_children } --)
 
+let get_lk_sites node chars =
+    let include_cs cs_codes =
+        let r = ref false in
+        for i = 0 to (Array.length chars) - 1 do begin
+            if !r then ()
+            else begin
+                for j = 0 to (Array.length cs_codes) - 1 do
+                    r := !r || (chars.(i) = cs_codes.(j));
+                done;
+            end
+        end done;
+        !r
+    in
+    let get_sites_cs acc x = match x with
+        | StaticMl a when not (include_cs (codes x)) -> acc
+        | StaticMl a ->
+            IFDEF USE_LIKELIHOOD THEN
+                (MlStaticCS.root_cost a.preliminary,
+                 MlStaticCS.site_likelihood a.preliminary)::acc
+            ELSE
+                failwith MlStaticCS.likelihood_error
+            END
+        | _ -> acc
+    in
+    List.fold_left get_sites_cs [] node.characters
+        
+
 (** [copy_chrom_map source des] copies the chromosome map
 * which creates chromosome [source] to chromosome map which creates chromosome [des] *)
 let copy_chrom_map source des =
@@ -4702,8 +4729,7 @@ module Standard :
         let exclude_info _ x = x.exclude_info
         let has_excluded = has_excluded
         let taxon_code x = x.taxon_code
-        (* TODO This function must be removed *)
-        let union_distance _ _ = 0.
+        let union_distance _ _ = 0.  (* TODO This function must be removed *)
         let is_collapsable = is_collapsable
         let classify_data = classify_data
         let to_xml = to_xml
@@ -4712,6 +4738,7 @@ module Standard :
         let num_otus _ x = x.num_otus
         let get_sequences = get_sequences
         let build_node = build_node
+        let get_lk_sites n c = get_lk_sites n c
         let get_dynamic_preliminary _ = get_dynamic_preliminary
         let get_dynamic_adjusted _ _ = 
             failwith "No single assignment available"
