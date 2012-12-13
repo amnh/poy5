@@ -17,10 +17,11 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2971 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2985 $"
 
 let eager        = false
 let uppass_debug = false
+let downpass_debug=false
 
 type exclude = Node.exclude
 
@@ -443,16 +444,16 @@ let q_print n =
                     | Some (a,b) -> Printf.printf "(%d,%d) " a b
                     | None       -> Printf.printf "none ")
               n.unadjusted;
-    Printf.printf "\n\tUnadjusted Data:\n";
-    List.iter (fun x ->
-                print_string "\t\t";
-                Node.print_times (force_val x.lazy_node))
-              n.unadjusted;
-    Printf.printf "\n\tAdjusted Data:\n";
-    List.iter (fun x ->
-                print_string "\t\t";
-                Node.print_times (force_val x.lazy_node))
-              adjusted_data_lst;
+(*    Printf.printf "\n\tUnadjusted Data:\n";*)
+(*    List.iter (fun x ->*)
+(*                print_string "\t\t";*)
+(*                Node.print_times (force_val x.lazy_node))*)
+(*              n.unadjusted;*)
+(*    Printf.printf "\n\tAdjusted Data:\n";*)
+(*    List.iter (fun x ->*)
+(*                print_string "\t\t";*)
+(*                Node.print_times (force_val x.lazy_node))*)
+(*              adjusted_data_lst;*)
     print_newline ()
 
 
@@ -666,6 +667,10 @@ struct
     (* calculate the median between a and b. old can be used as a heuristic,
      * branches are the supplied branch lengths of the children a and b, *)
     let median ?branches my_code old a b =
+        if downpass_debug then
+            info_user_message "Creating Median From (%d,%d) to %s"
+                (taxon_code a) (taxon_code b)
+                (match my_code with Some x -> string_of_int x | None -> "none");
         let na, nb,code = match my_code with
             | Some code ->
                 let in_a = not_with code a.unadjusted

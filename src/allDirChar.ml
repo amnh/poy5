@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2918 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 2985 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -27,7 +27,6 @@ let debug_profile_memory    = false
 let debug_node_fn           = false
 let debug_model_fn          = true
 let debug_adjust_fn         = false
-let debug_clear_subtree     = false
 let debug_join_fn           = false
 let debug_branch_fn         = false
 let debug_cost_fn           = false
@@ -37,7 +36,7 @@ let debug_single_assignment = false
 let debug_diagnosis         = false
 let debug_reroot            = false
 let debug_create_root       = false 
-let debug_assign_single_handle = false 
+let debug_assign_single_handle = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -601,6 +600,16 @@ module F : Ptree.Tree_Operations
     let clear_internals force t = t
 
     let print_all_nodes ptree =
+        All_sets.IntegerMap.iter
+            (fun k v ->
+                Printf.printf "Component Root %d - (%s) - " k
+                    (match v.Ptree.root_median with
+                        | Some (`Edge (x,y), n) ->
+                            string_of_int x ^ "," ^ string_of_int y
+                        | Some (`Single x,n) ->
+                            string_of_int x
+                        | None -> "none"))
+            ptree.Ptree.component_root;
         All_sets.IntegerMap.iter
             (fun k v -> AllDirNode.q_print v)
             (ptree.Ptree.node_data)
@@ -1712,19 +1721,6 @@ module F : Ptree.Tree_Operations
         if debug_uppass_fn then info_user_message "UPPASS ends.%!";
         ptree
 
-    let rec clear_subtree v p ptree = 
-        if debug_clear_subtree then
-            info_user_message "Clearing vertex %d with parent %d." v p
-        else ();
-        match Ptree.get_node v ptree with
-        | Tree.Leaf _ | Tree.Single _ -> ptree
-        | (Tree.Interior (_, a, b, c)) as vn ->
-                let uno,dos = Tree.other_two_nbrs p vn in
-                p --> create_lazy_interior_up ptree v uno dos
-                  --> fun x -> Ptree.add_node_data v x ptree
-                  --> clear_subtree uno v
-                  --> clear_subtree dos v
-
     (* reset the data in the removed direction, by running essentially an uppass
      * heuristic to fill in the other data starting at (a,b). edge data is a
      * previous node data that can be used for edge data, and direction
@@ -1745,34 +1741,20 @@ module F : Ptree.Tree_Operations
         | None -> refresh_all_edges None false (Some (a,b)) ptree
 
 
-    let create_or_lift_edge edge_l edge_r i_code ptree = 
-        (* if not (using_likelihood `Either ptree) then begin*)
-            let node = AllDirNode.AllDirF.median (Some i_code) None
-                        (Ptree.get_node_data edge_l ptree)
-                        (Ptree.get_node_data edge_r ptree) in
-            Ptree.add_node_data i_code node ptree
-        (* end else begin
-            try let lr = Ptree.get_edge_data (Tree.Edge (edge_l,edge_r)) ptree in
-                let node = 
-                    {   AllDirNode.dir = Some (edge_l,edge_r);
-                        code = i_code;
-                        lazy_node = lr;
-                    } 
-                in
-                let node = 
-                    { AllDirNode.adjusted = None;
-                      AllDirNode.unadjusted = [node];   }
-                in
-                Ptree.add_node_data i_code node ptree
-            with | Not_found ->
-                failwithf "Cannot lift %d -- %d to %d" edge_l edge_r i_code
-        end *)
+    let create_edge edge_l edge_r i_code ptree = 
+        let node =
+            AllDirNode.AllDirF.median (Some i_code) None
+                    (Ptree.get_node_data edge_l ptree)
+                    (Ptree.get_node_data edge_r ptree) in
+        Ptree.add_node_data i_code node ptree
 
 
     let clean_ex_neighbor a b ptree = 
         let data = Ptree.get_node_data a ptree in
         let notwith_un = AllDirNode.not_with b data.AllDirNode.unadjusted in
         let node = { AllDirNode.unadjusted = [notwith_un]; adjusted = None; } in
+        if debug_node_fn then
+            info_user_message "Cleaning vertex %d with parent %d." a b;
         Ptree.add_node_data a node ptree
 
     let get_edge_n_force a b ptree =
@@ -1954,7 +1936,7 @@ module F : Ptree.Tree_Operations
                         --> clean_ex_neighbor a b
                         --> clean_ex_neighbor b a
                         --> Ptree.remove_root_of_component h
-                        --> create_or_lift_edge a b v
+                        --> create_edge a b v
                 in
                 v, h, ptree
             | (`Single (v, _)), (`Single (h, true)), _ ->
@@ -1968,8 +1950,8 @@ module F : Ptree.Tree_Operations
                         --> clean_ex_neighbor d c
                         --> clean_ex_neighbor a b
                         --> clean_ex_neighbor b a
-                        --> create_or_lift_edge a b r
-                        --> create_or_lift_edge c d v
+                        --> create_edge a b r
+                        --> create_edge c d v
                 in
                 r, v, ptree
             | (`Single (v, _)), (`Edge (r, a, b, Some h)), _ ->
@@ -1978,9 +1960,9 @@ module F : Ptree.Tree_Operations
                         --> Ptree.remove_node_data r
                         --> clean_ex_neighbor a b
                         --> clean_ex_neighbor b a
-                        --> create_or_lift_edge a b r
+                        --> create_edge a b r
                 in
-                r, h, ptree
+                v, r, ptree
             | _ -> failwith "Unexpected AllDirChar.join_fn"
         in
         let ptree = { ptree with Ptree.tree = ret } in
