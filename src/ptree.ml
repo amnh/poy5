@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2807 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2985 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -73,28 +73,25 @@ let get_data ptree = ptree.data
 let set_data ptree data = { ptree with data = data; }
 
 let get_cost clas ptree =
-    let get_cost = 
-        match clas with
+    let get_cost = match clas with
         | `Adjusted -> fun x -> x.adjusted_component_cost
         | `Unadjusted -> fun x -> x.component_cost
     in
-    if ptree.origin_cost = infinity
-    then
-          let adder = fun _ v acc -> (get_cost v) +. acc in
-          All_sets.IntegerMap.fold adder ptree.component_root
-              0.
+    if ptree.origin_cost = infinity then
+        let adder = fun _ v acc -> (get_cost v) +. acc in
+        All_sets.IntegerMap.fold adder ptree.component_root 0.
     else
-          let adder = fun _ v acc -> (get_cost v) +. acc +. ptree.origin_cost in
-          All_sets.IntegerMap.fold adder ptree.component_root (-. ptree.origin_cost)
+        let adder = fun _ v acc -> (get_cost v) +. acc +. ptree.origin_cost in
+        All_sets.IntegerMap.fold adder ptree.component_root (-. ptree.origin_cost)
 
 let set_origin_cost cost ptree =
-    { ptree with origin_cost = cost }
+    { ptree with origin_cost = cost;}
 
-let remove_root_of_component node ptree = 
-    { ptree with component_root = 
+let remove_root_of_component node ptree =
+    { ptree with component_root =
         All_sets.IntegerMap.remove node ptree.component_root }
 
-let empty data = { 
+let empty data = {
     data = data;
     node_data = All_sets.IntegerMap.empty ;
     edge_data = Tree.EdgeMap.empty ;
