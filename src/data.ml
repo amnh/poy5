@@ -23,6 +23,8 @@ open StdLabels
 
 exception Illegal_argument
 
+exception Illegal_Taxa of string
+
 type filename = string 
 
 module FullTupleMap = All_sets.FullTupleMap
@@ -579,16 +581,16 @@ module Accessor = struct
         let alpha = get_alphabet data code in
         let gap = Alphabet.get_gap alpha in
         let seqs = Stack.create () in
-        let process_taxon a b = 
-            match Hashtbl.find b code with
+        let process_taxon a b = match Hashtbl.find b code with
             | (Stat _), _ -> ()
-            | FS _, _ -> () 
+            | (FS _), _   -> ()
             | (Dyna (_, d)), _ ->
-                    match d.seq_arr with
+                begin match d.seq_arr with
                     | [|dv|] ->
-                            if not (Sequence.is_empty dv.seq gap) then 
-                                Stack.push dv.seq seqs
+                        if not (Sequence.is_empty dv.seq gap) then
+                            Stack.push dv.seq seqs
                     | _ -> ()
+                end
         in
         Hashtbl.iter process_taxon data.taxon_characters;
         seqs
@@ -2969,7 +2971,15 @@ let process_ignore_file data file =
 let code_taxon code data = 
     All_sets.IntegerMap.find code data.taxon_codes
 
-let report included excluded =
+let report d included excluded =
+    let rec included_in_data = function
+        | []      -> ()
+        | x :: xs ->
+            try let () = ignore (taxon_code x d) in
+                included_in_data xs
+            with (Failure _) -> raise (Illegal_Taxa x)
+    in
+    let () = included_in_data included in
     let len1 = List.length included
     and len2 = List.length excluded in
     let total = max len1 len2 in
@@ -3058,9 +3068,8 @@ let rec process_analyze_only_taxa meth data = match meth with
                 if dont_complement then included, excluded
                 else excluded, included
             in
-            report included excluded;
+            report data included excluded;
             process_analyze_only_taxa (`Names (false, excluded)) data
-
 
 let process_analyze_only_file dont_complement data files =
     let data = duplicate data in
@@ -3084,12 +3093,18 @@ let process_analyze_only_file dont_complement data files =
                 then complement_taxa data taxa, taxa
                 else taxa, complement_taxa data taxa
         in
-        report taxa ignored;
-        let data = List.fold_left ~f:process_ignore_taxon ~init:data ignored in
-        data
-    with | Failure msg ->
+        report data taxa ignored;
+        List.fold_left ~f:process_ignore_taxon ~init:data ignored
+    with 
+    | Failure msg ->
         Status.user_message Status.Error msg;
         data
+    | (Illegal_Taxa i) as exp ->
+        Status.user_message Status.Error
+           ("Taxa@ "^ i ^"@ is@ included@ in@ terminals@ files@ but@ is@ not@ "^
+            "loaded@ in@ data.@ Please@ remove@ taxa@ from@ file.");
+        raise exp
+
 
 let remove_taxa_to_ignore data = 
     let find_code_for_root_if_removed data =
