@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2985 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2991 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -1826,11 +1826,11 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
             let wsum = List.fold_left (+.) 0. weights in
             let target, tnum, weights, trees' =
                 choose_remove (Random.float wsum) weights trees' in
-            let msg =
-                Printf.sprintf "tree #%d [%f] -> tree #%d [%f]"
-                               snum (get_cost `Adjusted (fst source))
-                               tnum (get_cost `Adjusted (fst target))
-            in
+(*            let msg =*)
+(*                Printf.sprintf "tree #%d [%f] -> tree #%d [%f]"*)
+(*                               snum (get_cost `Adjusted (fst source))*)
+(*                               tnum (get_cost `Adjusted (fst target))*)
+(*            in*)
             let locations = fuse_all_locations ~min:cmin ~max:cmax [source; target] in
             (* let location = Sexpr.choose_random locations in *)
             let process_location location = match location with
@@ -1840,9 +1840,9 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
                         | ((tree,_), _, _) when tree == (fst target) -> t1, t2
                         | _ -> assert false in
                     let new_tree,a3 = fuse t1 t2 terminals in
-                    Status.full_report 
-                        ~msg:(msg ^ ": tree with cost " ^ string_of_float (get_cost `Adjusted new_tree))
-                        status;
+(*                    Status.full_report *)
+(*                        ~msg:(msg ^ ": tree with cost " ^ string_of_float (get_cost `Adjusted new_tree))*)
+(*                        status;*)
                     (new_tree,a3)
                 | _ -> assert false
             in
