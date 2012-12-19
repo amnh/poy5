@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3003 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3004 $"
 
 let debug = false
 let debug_distance = false
@@ -34,21 +34,15 @@ type union_element =
 
 
 type cost_tuple = {
-    cost2 : float;    (*cost2 is cost of aligning child1 and child2*)
-    cost2_max : float;(*cost2_max is max cost of aligning child1 and child2*)
-    cost3 : float;    (*cost3 is cost_mine_child1 + cost_mine_child2 + cost_mine_parent *)
-    sum_cost : float; (*cost of subtree rooted on this node*)
+    cost2: float;      (*cost2 is cost of aligning child1 and child2*)
+    cost2_max: float;  (*cost2_max is max cost of aligning child1 and child2*)
+    cost3: float;      (*cost3 is cost_mine_child1 + cost_mine_child2 + cost_mine_parent *)
+    sum_cost: float;   (*cost of subtree rooted on this node*)
 }
 
 let print_cost_tuple ct = 
-    Printf.printf "[ cost2:%f(%f),cost3:%f,sum_cost:%f ]\n%!"
+    Printf.printf "[cost2:%f(%f),cost3:%f,sum_cost:%f]\n%!"
                   ct.cost2 ct.cost2_max ct.cost3 ct.sum_cost
-
-let get_cost2 costs = costs.cost2
-    
-let get_cost3 costs = costs.cost3
-
-let get_sum_cost costs = costs.sum_cost
 
 type packed_algn = 
     | Packed of (int * BitSet.t * packed_algn)
@@ -639,9 +633,9 @@ module DOS = struct
 
     let make_cost cost2 cost2_max cost3 sumcost = 
         {
-            cost2 = float_of_int cost2; 
-            cost2_max = float_of_int cost2_max; 
-            cost3 = float_of_int cost3;
+            cost2    = float_of_int cost2; 
+            cost2_max= float_of_int cost2_max; 
+            cost3    = float_of_int cost3;
             sum_cost = float_of_int sumcost;
         }
 
@@ -692,11 +686,10 @@ module DOS = struct
         delimiters = []
     }
 
-   let print do_single_seq = 
-        Printf.printf "cost = (c2:%f,c3:%f,subt:%f) - %!"
-            (get_cost2 do_single_seq.costs) (get_cost3 do_single_seq.costs)
-            (get_sum_cost do_single_seq.costs);
-        Sequence.printseqcode do_single_seq.sequence; 
+   let print seq = 
+        Printf.printf "cost = (c2:%F|%F,c3:%F,subt:%F)- %!"
+            seq.costs.cost2 seq.costs.cost2_max seq.costs.cost3 seq.costs.sum_cost;
+        Sequence.printseqcode seq.sequence;
         ()
 
     let to_union a = Sequence.Unions.leaf a.sequence
@@ -711,11 +704,10 @@ module DOS = struct
         if debug then Printf.printf "seqCS.DOS.distance,%!";
         let gap = Cost_matrix.Two_D.gap h.c2_original in 
         if Sequence.is_empty a.sequence gap || Sequence.is_empty b.sequence gap then begin
-                if debug then Printf.printf "at least one of the sequence is empty,\
-                return missing_distance=%d\n%!" missing_distance;
-                missing_distance
-            end
-        else
+            if debug then
+                Printf.printf "at least one of the sequence is empty,return missing_distance=%d\n%!" missing_distance;
+            missing_distance
+        end else
 IFDEF USE_VERIFY_COSTS THEN
             let seqa, seqb, cost = 
                 if use_ukk then
@@ -773,41 +765,32 @@ END
     * second case, not sure what to do*)
     let readjust_algn_two_child s1 s2 c2 sumcost_ch12 use_ukk oldsumcost 
                                 oldcost3 oldcost2 oldmineseq =
-        let debug = false in
-        let cm = c2 in
-        let newseqm, cost = match Cost_matrix.Two_D.affine cm with
+        let newseqm, cost = match Cost_matrix.Two_D.affine c2 with
             | Cost_matrix.Affine _ ->
                 let median,cost =
-                    if use_ukk then 
-                        let s1',s2',c = 
-                            Sequence.NewkkAlign.align_2 s1 s2 cm
-                            Sequence.NewkkAlign.default_ukkm
+                    if use_ukk then
+                        let s1',s2',c =
+                            Sequence.NewkkAlign.align_2 s1 s2 c2 Sequence.NewkkAlign.default_ukkm
                         in
-                        Sequence.median_2 s1' s2' cm, c
+                        Sequence.median_2 s1' s2' c2, c
                     else
-                        let m, _, _, cost, _ = 
-                            Sequence.Align.align_affine_3 s1 s2 cm in
+                        let m,_,_,cost,_ = Sequence.Align.align_affine_3 s1 s2 c2 in
                         m,cost
                 in
-                let m = Sequence.select_one median cm in
+                let m = Sequence.select_one median c2 in
                 m, cost
             | _ ->
                 let s1', s2', c =
                     if use_ukk then
-                        Sequence.NewkkAlign.align_2 s1 s2 cm Sequence.NewkkAlign.default_ukkm
+                        Sequence.NewkkAlign.align_2 s1 s2 c2 Sequence.NewkkAlign.default_ukkm
                     else
-                        Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
+                        Sequence.Align.align_2 ~first_gap:true s1 s2 c2 Matrix.default
                 in
-                let median = Sequence.median_2 s1' s2' cm in
+                let median = Sequence.median_2 s1' s2' c2 in
                 (* why select_one? though it's ok to have ambiguity in medians.
                    we compare this new median3 with old median3 -- which doesn't
                    have ambiguity -- to see if anything changed*)
-                let a = Sequence.select_one median cm in
-                if debug then begin
-                    Sequence.printseqcode median;
-                    Printf.printf "resolve ambiguity -> %!";
-                    Sequence.printseqcode a;
-                end;
+                let a = Sequence.select_one median c2 in
                 a, c
         in
         create newseqm, cost
@@ -830,10 +813,10 @@ END
             Printf.printf "\tM -"; Sequence.printseqcode mine.sequence;
             Printf.printf "\tPA-"; Sequence.printseqcode parent.sequence;
         end;
-        let oldcost3 = int_of_float mine.costs.cost3
-        and oldcost2 = int_of_float mine.costs.cost2
-        and oldsumcost = int_of_float mine.costs.sum_cost in
-        let sumcost_ch12 = int_of_float( ch1.costs.sum_cost +. ch2.costs.sum_cost) in
+        let minecost2    = int_of_float mine.costs.cost2 in
+        let minesumcost  = int_of_float mine.costs.sum_cost in
+        let minecost3    = int_of_float mine.costs.cost3 in
+        let sumcost_ch12 = int_of_float (ch1.costs.sum_cost +. ch2.costs.sum_cost) in
         match empty1, empty2, emptypar with
         | false, false, false ->
             let newcost3, newcost2, newseqm, newaliedch1, newaliedch2, newseqmWgap =  
@@ -842,11 +825,11 @@ END
                     if is_custom then
                         Sequence.Align.readjust_3d_custom_alphabet ch1.sequence ch2.sequence
                             mine.sequence h.c2_full h.c2_original h.c3 parent.sequence
-                            (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
+                            minecost2 minecost3
                     else
                         Sequence.Align.readjust_3d ch1.sequence ch2.sequence
                             mine.sequence h.c2_full h.c2_original h.c3 parent.sequence 
-                            (int_of_float mine.costs.cost2) (int_of_float mine.costs.cost3)
+                            minecost2 minecost3
                 | `ApproxD _ ->
                     if is_custom then
                         let (oldaliedch1,oldaliedch2,oldminewgap) = mine.aligned_children in
@@ -855,9 +838,9 @@ END
                             | Raw a, Raw b, Raw c -> a,b,c
                             | _ -> failwith "seqCS.DOS [readjust_custom_alphabet], wrong type of aliged_children"
                         in
-                        int_of_float mine.costs.cost3, 
-                        int_of_float mine.costs.cost2, 
-                        mine.sequence, 
+                        minecost3,
+                        minecost2,
+                        mine.sequence,
                         oldaliedch1,oldaliedch2,oldminewgap
                     else
                         Sequence.readjust ch1.sequence ch2.sequence
@@ -870,54 +853,56 @@ END
                 #3. median assignment to this character changes *) 
             let newsumcost = newcost2 + sumcost_ch12 in
             let anything_changed =
-                (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                (newcost2<>oldcost2) || (0<>compare mine.sequence newseqm)
+                (newsumcost<>minesumcost) || (newcost3<>minecost3) ||
+                (newcost2<>minecost2) || (0<>compare mine.sequence newseqm)
             in
             if debug then
                 Printf.printf "COSTS: sumcosts(%d,%d), cost3(%d,%d), cost2(%d,%d)\n%!"
-                            newsumcost oldsumcost newcost3 oldcost3 newcost2 oldcost2;
+                        newsumcost minesumcost newcost3 minecost3 newcost2 minecost2;
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
             let mine =
-                {mine with sequence = newseqm;
-                            aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
-                            costs = rescosts }
+                {mine with
+                    sequence = newseqm;
+                    aligned_children = (Raw newaliedch1, Raw newaliedch2, Raw newseqmWgap);
+                    costs = rescosts;}
             in
             anything_changed, mine, newcost3, newcost2, newsumcost
         | true, true, _ -> 
             let changed =
-                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare ch1.sequence mine.sequence)
+                (sumcost_ch12<>minesumcost) || (0<>minecost3) || 
+                (0<>minecost2) || (0<>compare ch1.sequence mine.sequence)
             in
             changed,ch1, 0, 0, sumcost_ch12
         | true, _, true -> 
             let changed = 
-                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare ch1.sequence mine.sequence)
+                (sumcost_ch12<>minesumcost) || (0<>minecost3) ||
+                (0<>minecost2) || (0<>compare ch1.sequence mine.sequence)
             in
             changed, ch1, 0, 0, sumcost_ch12
         | _, true, true -> 
             let changed =
-                (sumcost_ch12<>oldsumcost)||(0<>oldcost3)||(0<>oldcost2)||(0<>compare ch2.sequence mine.sequence)
+                (sumcost_ch12<>minesumcost) || (0<>minecost3) ||
+                (0<>minecost2) || (0<>compare ch2.sequence mine.sequence)
             in
             changed, ch2, 0, 0, sumcost_ch12
         | false, false, true ->
             let newmed, newcost2 = 
                 readjust_algn_two_child ch1.sequence ch2.sequence h.c2_full
-                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2
-                    mine.sequence
+                    sumcost_ch12 use_ukk minesumcost minecost3 minecost2 mine.sequence
             in
             let newsumcost = newcost2 + sumcost_ch12 in
             let newcost3 = newcost2 in (*parent is empty*)
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
             let changed =
-                (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence)
+                (newsumcost<>minesumcost) || (newcost3<>minecost3) ||
+                (newcost2<>minecost2) || (0<>compare mine.sequence newmed.sequence)
             in
-            let mine = {newmed with costs = rescosts;} in
+            let mine = {newmed with costs = rescosts} in
             changed, mine, newcost3, newcost2, newsumcost
         | false, true, false ->
             let newmed, _ =
-                readjust_algn_two_child ch1.sequence parent.sequence
-                    h.c2_full sumcost_ch12 use_ukk oldsumcost oldcost3
-                    oldcost2 mine.sequence
+                readjust_algn_two_child ch1.sequence parent.sequence h.c2_full
+                    sumcost_ch12 use_ukk minesumcost minecost3 minecost2 mine.sequence
             in
             let newcost2 = distance alph h 0 ch1 newmed use_ukk in
             let newsumcost = newcost2 + sumcost_ch12 in
@@ -925,24 +910,24 @@ END
             let newcost3 = newcost2 + cost_mine_parent in
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
             let changed =
-                (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence)
+                (newsumcost<>minesumcost) || (newcost3<>minecost3) ||
+                (newcost2<>minecost2) || (0<>compare mine.sequence newmed.sequence)
             in
             let mine = {newmed with costs = rescosts} in
             changed, mine, newcost3, newcost2, newsumcost
         | _, false, false ->
             let newmed, _ =
                 readjust_algn_two_child ch2.sequence parent.sequence h.c2_full
-                    sumcost_ch12 use_ukk oldsumcost oldcost3 oldcost2 mine.sequence
+                    sumcost_ch12 use_ukk minesumcost minecost3 minecost2 mine.sequence
             in
             let newcost2 = distance alph h 0 ch2 newmed use_ukk in
             let newsumcost = newcost2 + sumcost_ch12 in
             let cost_mine_parent = distance alph h 0 newmed parent use_ukk in
             let newcost3 = newcost2 + cost_mine_parent in
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
-            let changed = 
-                (newsumcost<>oldsumcost) || (newcost3<>oldcost3) ||
-                (newcost2<>oldcost2) || (0<>compare mine.sequence newmed.sequence)
+            let changed =
+                (newsumcost<>minesumcost) || (newcost3<>minecost3) ||
+                (newcost2<>minecost2) || (0<>compare mine.sequence newmed.sequence)
             in
             let mine = {newmed with costs = rescosts} in
             changed, mine, newcost3, newcost2, newsumcost
@@ -970,14 +955,10 @@ END
                     Sequence.Align.closest parent mine.sequence h.c2_full Matrix.default
             in
             if debug then begin
-                Printf.printf "parent seq = %!";
-                Sequence.printseqcode parent;
-                Printf.printf "seq with ambiguity = %!";
-                Sequence.printseqcode mine.sequence;
-                Printf.printf "seq without ambiguity = %!";
-                Sequence.printseqcode seqm;
-                Printf.printf "cost remain unchanged:\n%!";
-                print_cost_tuple mine.costs;
+                Printf.printf "parent seq = %!"; Sequence.printseqcode parent;
+                Printf.printf "seq with ambiguity = %!"; Sequence.printseqcode mine.sequence;
+                Printf.printf "seq without ambiguity = %!"; Sequence.printseqcode seqm;
+                Printf.printf "cost remain unchanged:\n%!"; print_cost_tuple mine.costs;
             end;
             match opt_root with
             | None -> (*we are going to use mine as root anyway*) 
@@ -988,13 +969,13 @@ END
 
     (*[median] alignment function under module DOS*)
     let median alph code h a b use_ukk =
-        let debug = false and debug2 = false and debug3 = false in
+        let debug = false and debug2 = false in
         (*when diagonal is non-0, identity is false*)
         let is_identity = Cost_matrix.Two_D.is_identity h.c2_original in
-        let sumcost_ch12 = int_of_float(a.costs.sum_cost +. b.costs.sum_cost) in
+        let sumcost_ch12 = int_of_float (a.costs.sum_cost +. b.costs.sum_cost) in
         if debug then begin
             Printf.printf "seqCS.DOS.median,use_ukk=%b,len1:%d,len2:%d\n%!" 
-            use_ukk (Sequence.length a.sequence) (Sequence.length b.sequence);
+                use_ukk (Sequence.length a.sequence) (Sequence.length b.sequence);
             if debug2 then begin
                 Sequence.printseqcode a.sequence;
                 Sequence.printseqcode b.sequence;
@@ -1005,13 +986,10 @@ END
         if Sequence.is_empty a.sequence gap then begin
             let cost = 
                 if is_identity then 0
-                else
-                    Sequence.Align.recost b.sequence b.sequence h.c2_original
+                else Sequence.Align.recost b.sequence b.sequence h.c2_original
             in
-            if debug then Printf.printf "first seq is empty,return second one with cost %d \n%!" cost;
             let res = create b.sequence in
-            let cost2 = float_of_int cost in
-            let sum_cost = float_of_int (sumcost_ch12 + cost) in
+            let sum_cost = (sumcost_ch12 + cost) in
             (*we use empty seq rather than median sequence itself as alied children sequence for purpose. 
             * if cost between same state is x, different state is y. 
             * child1: [aaa]
@@ -1033,161 +1011,56 @@ END
             * children of root node, then return the difference between cost2
             * and that distance. if two alied children are median sequence
             * itself, there won't be a cost difference, only when two alied
-            * children are empty, we have distance as 0, cost difference be 3x
-            * *)
-            {res with aligned_children = (Raw a.sequence, Raw a.sequence, Raw b.sequence); 
-            costs = { cost2 = cost2; cost2_max = cost2; cost3 = 0.0; sum_cost = sum_cost; } 
-            },
-            cost
+            * children are empty, we have distance as 0, cost difference be 3x *)
+            let m =
+                {res with
+                    aligned_children = (Raw a.sequence, Raw a.sequence, Raw b.sequence);
+                    costs = make_cost cost cost 0 sum_cost; }
+            in
+            m,cost
         end
         else if Sequence.is_empty b.sequence gap then begin
             let cost = 
                 if is_identity then 0
-                else
-                    Sequence.Align.recost a.sequence a.sequence h.c2_original
+                else Sequence.Align.recost a.sequence a.sequence h.c2_original
             in
             if debug then Printf.printf "second seq is empty,return first one with cost %d\n%!" cost;
             let res = create a.sequence in
-            let sum_cost = float_of_int (sumcost_ch12 + cost) in
-            let cost2 = float_of_int cost in
-            {res with aligned_children = (Raw b.sequence, Raw b.sequence, Raw a.sequence); 
-            costs = { cost2 = cost2; cost2_max = cost2; cost3 = 0.0; sum_cost = sum_cost;}
-            },
-            cost
-        end
-        else 
-            (*seqm: median seq of a and b
-            * tmpa, tmpb: algned seq of a , b
-            * seqmwg: median seq with gap *)
+            let sum_cost = sumcost_ch12 + cost in
+            let m =
+                {res with
+                    aligned_children = (Raw b.sequence, Raw b.sequence, Raw a.sequence); 
+                    costs = make_cost cost cost 0 sum_cost;}
+            in
+            m, cost
+        end else begin
             let seqm, tmpa, tmpb, tmpcost, seqmwg =
                 match Cost_matrix.Two_D.affine h.c2_full with
                 | Cost_matrix.Affine _ ->
-                        (**)
-                        if use_ukk then
-                            let tmpa,tmpb,tmpcost = 
-                                Sequence.NewkkAlign.align_2 a.sequence b.sequence 
-                                h.c2_full Sequence.NewkkAlign.default_ukkm in
-                            let seqm = Sequence.Align.ancestor_2 tmpa tmpb
-                            h.c2_full in
-                            let seqmwg = 
-                                Sequence.median_2_with_gaps tmpa tmpb h.c2_full 
-                            in
-                            seqm, tmpa, tmpb, tmpcost, seqmwg
-                        else
-                            Sequence.Align.align_affine_3 a.sequence b.sequence
-                            h.c2_full
-                        (*this is debug code for comparing newkkonen alignment
-                        * and normal alignment*)
-                        (* compare cost and alignment
-                        let notthesame s1 s2 =
-                            if (Sequence.compare s1 s2)<>0 then true
-                            else false
+                    if use_ukk then
+                        let tmpa,tmpb,tmpcost =
+                            Sequence.NewkkAlign.align_2 a.sequence b.sequence
+                                h.c2_full Sequence.NewkkAlign.default_ukkm
                         in
-                        let tmpa,tmpb,tmpcost = 
-                                Sequence.NewkkAlign.align_2 a.sequence b.sequence 
-                                h.c2_full Sequence.NewkkAlign.default_ukkm in
                         let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2_full in
-                        let seqmwg = Sequence.median_2_with_gaps tmpa tmpb h.c2_full 
-                        in
-                        let seqm2, tmpa2, tmpb2, tmpcost2, seqmwg2 =
-                        Sequence.Align.align_affine_3 a.sequence b.sequence h.c2
-                        in
-                        (*just compare the cost*)
-                        let oc1 =  open_out "algn.cost" in
-                        Printf.fprintf oc1 "%d%!" tmpcost;
-                        close_out oc1;
-                        let oc2 =  open_out "newkkonen.cost" in
-                        Printf.fprintf oc2 "%d%!" tmpcost2;
-                        close_out oc2;
-                        (* compare the traceback*)
-                        if (notthesame seqm seqm2)||(notthesame seqmwg
-                        seqmwg2)||(notthesame tmpa tmpa2)||(notthesame tmpb
-                        tmpb2) then begin
-                            Printf.printf "diff between newkkonen and normal affine alignment:\n%!";
-                            Printf.printf "input seq(len1=%d,len2=%d) :\n%!"
-                            (Sequence.length a.sequence) (Sequence.length b.sequence);
-                            Sequence.print stdout a.sequence Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout b.sequence Alphabet.nucleotides;print_newline();
-                            Printf.printf "tmpa from algn.c, tmpa2 from newkkonen.c:\n%!";
-                            Sequence.print stdout tmpa Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout tmpa2 Alphabet.nucleotides;print_newline();
-                            Printf.printf "tmpb,tmpb2:\n%!";
-                            Sequence.print stdout tmpb Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout tmpb2 Alphabet.nucleotides;print_newline();
-                            Printf.printf "seqm with gap :\n%!";
-                            Sequence.print stdout seqmwg Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout seqmwg2 Alphabet.nucleotides;print_newline();
-                            Printf.printf "seqm : \n%!";
-                            Sequence.print stdout seqm Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout seqm2 Alphabet.nucleotides;print_newline();
-                            assert(false);
-                        end;
+                        let seqmwg = Sequence.median_2_with_gaps tmpa tmpb h.c2_full in
                         seqm, tmpa, tmpb, tmpcost, seqmwg
-                        compare cost and alignment *)
+                    else
+                        Sequence.Align.align_affine_3 a.sequence b.sequence h.c2_full
                 | _ ->
-                        let tmpa, tmpb, tmpcost =
-                           if use_ukk then 
-                                Sequence.NewkkAlign.align_2 a.sequence b.sequence
-                            h.c2_full Sequence.NewkkAlign.default_ukkm
-                        (*in
-                        let tmpa2, tmpb2, tmpcost2 =*)
-                            else 
-                                Sequence.Align.align_2 a.sequence b.sequence
-                                h.c2_full
-                            Matrix.default
-                        in
-                        let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2_full in
-                        let seqmwg = 
-                            Sequence.median_2_with_gaps tmpa tmpb h.c2_full 
-                        in
-                        (*
-                        let seqm2 = Sequence.Align.ancestor_2 tmpa tmpb h.c2_full in
-                        let seqmwg2 = 
-                            Sequence.median_2_with_gaps tmpa2 tmpb2 h.c2_full 
-                        in
-                        let notthesame s1 s2 =
-                            if (Sequence.compare s1 s2)<>0 then true
-                            else false
-                        in
-                        if (notthesame seqm seqm2)||(notthesame seqmwg
-                        seqmwg2)||(notthesame tmpa tmpa2)||(notthesame tmpb
-                        tmpb2) then begin
-                            Printf.printf "diff between newkkonen and normal alignment:\n%!";
-                            Printf.printf "input seq :\n%!";
-                            Sequence.print stdout a.sequence Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout b.sequence Alphabet.nucleotides;print_newline();
-                            Printf.printf "tmpa from algn.c, tmpa2 from newkkonen.c:\n%!";
-                            Sequence.print stdout tmpa Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout tmpa2 Alphabet.nucleotides;print_newline();
-                            Printf.printf "tmpb,tmpb2:\n%!";
-                            Sequence.print stdout tmpb Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout tmpb2 Alphabet.nucleotides;print_newline();
-                            Printf.printf "seqm with gap :\n%!";
-                            Sequence.print stdout seqmwg Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout seqmwg2 Alphabet.nucleotides;print_newline();
-                            Printf.printf "seqm : \n%!";
-                            Sequence.print stdout seqm Alphabet.nucleotides;print_newline();
-                            Sequence.print stdout seqm2 Alphabet.nucleotides;print_newline();
-                            assert(false);
-                        end;*)
-                        seqm, tmpa, tmpb, tmpcost, seqmwg
+                    let tmpa, tmpb, tmpcost =
+                       if use_ukk then 
+                            Sequence.NewkkAlign.align_2 a.sequence b.sequence
+                                h.c2_full Sequence.NewkkAlign.default_ukkm
+                        else 
+                            Sequence.Align.align_2 a.sequence b.sequence
+                                h.c2_full Matrix.default
+                    in
+                    let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2_full in
+                    let seqmwg = Sequence.median_2_with_gaps tmpa tmpb h.c2_full in
+                    seqm, tmpa, tmpb, tmpcost, seqmwg
             in
             let rescost = make_cost tmpcost tmpcost 0 (tmpcost + sumcost_ch12) in
-            if debug then begin 
-                let print_seqlist seq = 
-                    (*Sequence.print stdout seq Alphabet.nucleotides;*)
-                    Sequence.printseqcode seq;
-                in
-                Printf.printf "return costs=(cost2:%f,cost3:%f) \n%!" rescost.cost2 rescost.cost3; 
-                if debug2 then begin
-                    if debug3 then begin
-                        Printf.printf "alieda,aliedb:\n%!";
-                        print_seqlist tmpa; print_seqlist tmpb;
-                        Printf.printf "seqm with gap: %!"; print_seqlist seqmwg;
-                    end;
-                    Printf.printf "seqm: %!"; print_seqlist seqm;
-                end;
-            end;
             let ba,bb,bm = 
                 if uselevel then (Raw tmpa), (Raw tmpb), (Raw seqm)
                 else
@@ -1195,60 +1068,47 @@ END
                     seq_to_bitset gap tmpb (Raw b.sequence), 
                     seq_to_bitset gap seqmwg (Raw seqm) 
             in
-            { sequence = seqm; aligned_children = (ba, bb, bm); costs = rescost;
-            position = 0; delimiters = a.delimiters}, tmpcost
+            let m = 
+                {   sequence = seqm;
+                    aligned_children = (ba, bb, bm);
+                    costs = rescost;
+                    position = 0;
+                    delimiters = a.delimiters}
+            in
+            m, tmpcost
+        end
+
 
     let distance_between_two_alied_children_of_root root h use_ukk =
-        let debug = false in
         let gap = Cost_matrix.Two_D.gap h.c2_original in
         let alied_ch1, alied_ch2, _ = root.aligned_children in
-        let alied_ch1, alied_ch2 = 
+        let alied_ch1, alied_ch2 =
             bitset_to_seq gap alied_ch1, bitset_to_seq gap alied_ch2 in
-        if debug then begin
-            Printf.printf "distance_between_two_alied_children_of_root, two alied children:\n%!";
-            Sequence.printseqcode alied_ch1;
-            Sequence.printseqcode alied_ch2;
-        end;
         let distance = 
             (*we only need to calculate cost between two alied sequence, but
             [cost_2] in sequence.ml actually does an alignment, which is not linear.*)
             if use_ukk then
                 Sequence.NewkkAlign.cost_2 alied_ch1 alied_ch2 h.c2_original Sequence.NewkkAlign.default_ukkm
-            else
-                begin
-                    let discost = Sequence.Align.recost alied_ch1 alied_ch2 h.c2_original in
-                    if debug then begin 
-                        (*debug: make sure algncost is same as cost2*)
-                        let algncost = 
-                            Sequence.Align.cost_2 alied_ch1 alied_ch2 h.c2_full Matrix.default
-                        in
-                        Printf.printf "algncost:%d, return distance=%d\n%!"
-                        algncost discost;
-                    end;
-                    discost
-                end
+            else begin
+                Sequence.Align.recost alied_ch1 alied_ch2 h.c2_original
+            end
         in
         distance
+
 
     (*return extra cost between distance of two alied children of root and
     * alignment cost of the children*)
     let extra_cost_for_root root h use_ukk =
-        let debug = false in
-        let algncost = root.costs.cost2 in
         let is_identity = Cost_matrix.Two_D.is_identity h.c2_original in
-        if algncost=0. then 0. (*missing data, empty sequence, just return 0*)
-        else if is_identity then 0. (*0 diagonal in cost matrix*)
+        if root.costs.cost2 = 0. then
+            0. (*missing data, empty sequence, just return 0*)
+        else if is_identity then
+            0. (*0 diagonal in cost matrix*)
         else begin (*non-0 diagonal in cost matrix*)
             let dis = distance_between_two_alied_children_of_root root h use_ukk in
-            let costdiff = algncost -. (float_of_int dis) in
-            if debug then begin
-                Printf.printf "cost diff = algncost:%f - dis:%d = %f\n%!" algncost dis costdiff;
-                assert(costdiff >= 0.);
-            end;
-            costdiff
+            root.costs.cost2 -. (float_of_int dis)
         end
-        
-	
+
 
     let median_3_no_union cm2 p n c1 c2 use_ukk =
         let with_parent c =
@@ -1258,23 +1118,25 @@ END
                 else 
                     Sequence.Align.align_2 p.sequence c.sequence cm2 Matrix.default
             in
-            { n with 
-                sequence = Sequence.median_2 s1 s2 cm2;
-                costs = 
-                    {   cost2 = float_of_int costs; 
-                        cost2_max = float_of_int (Sequence.Align.max_cost_2 s1 s2 cm2);
-                        cost3 = get_cost3 n.costs;
-                        sum_cost = get_sum_cost n.costs;
-                    }
-            }, costs
+            let costs_max = Sequence.Align.max_cost_2 s1 s2 cm2 in
+            let m =
+                { n with 
+                    sequence = Sequence.median_2 s1 s2 cm2;
+                    costs =
+                        { n.costs with
+                            cost2 = float_of_int costs;
+                            cost2_max = float_of_int costs_max; }; }
+            in
+            m, costs
         in
         let (res1, cost1) = with_parent c1
         and (res2, cost2) = with_parent c2 in
         let res = if cost1 < cost2 then res1 else res2 in
         let gap = Cost_matrix.Two_D.gap cm2 in
-        if gap <> (Sequence.get res.sequence 0) then 
+        if gap <> (Sequence.get res.sequence 0) then
             Sequence.prepend res.sequence gap;
         res
+
 
     let median_3_union cm2 p n c1 c2 use_ukk =
         let gap = Cost_matrix.Two_D.gap cm2 in
@@ -1282,10 +1144,8 @@ END
         let a = bitset_to_seq gap a
         and b = bitset_to_seq gap b in
         if (Sequence.length a)<>(Sequence.length b) then begin
-            Printf.printf "seqa(len=%d) : %!" (Sequence.length a);
-            Sequence.printseqcode a;
-            Printf.printf "seqb(len=%d) : %!" (Sequence.length b);
-            Sequence.printseqcode b;
+            Printf.printf "seqa(len=%d) : %!" (Sequence.length a); Sequence.printseqcode a;
+            Printf.printf "seqb(len=%d) : %!" (Sequence.length b); Sequence.printseqcode b;
         end;
         assert (Sequence.length a = Sequence.length b);
         let res = Sequence.Align.union a b cm2 in
@@ -1301,40 +1161,37 @@ END
                 Sequence.prepend res gap;
             res
         in
-        let rescost = 
-            { 
-                cost2 = float_of_int cost; 
-                cost2_max = float_of_int (Sequence.Align.max_cost_2 a b cm2);
-                cost3 = float_of_int cost;
-                sum_cost = c1.costs.sum_cost +. c2.costs.sum_cost +. (float_of_int cost);
-            } in
-        { n with sequence = res; costs = rescost }
+        let rescost =
+            { (make_cost cost (Sequence.Align.max_cost_2 a b cm2) cost 0) with
+                sum_cost = c1.costs.sum_cost +. c2.costs.sum_cost +.  (float_of_int cost); }
+        in
+        { n with sequence = res; costs = rescost; }
 
    
-(*[dist_2] is called to calculates the cost of joining the node [n] between [a] and [b] in a tree*)
-        let dist_2 h n a b use_ukk =
-            let debug = false in
-            if debug then Printf.printf "SeqCS.DOS.dist_2\n%!";
-            let gap = Cost_matrix.Two_D.gap h.c2_full in
-            let tmp =
-                if Sequence.is_empty a.sequence gap then
-                    n.sequence
-                else 
-                    Sequence.Align.full_median_2 a.sequence
-                    b.sequence h.c2_full Matrix.default
-            in
-            let cost =
-                if use_ukk then
+    (*[dist_2] is called to calculates the cost of joining the node [n] between [a] and [b] in a tree*)
+    let dist_2 h n a b use_ukk =
+        let debug = false in
+        if debug then Printf.printf "SeqCS.DOS.dist_2\n%!";
+        let gap = Cost_matrix.Two_D.gap h.c2_full in
+        let tmp =
+            if Sequence.is_empty a.sequence gap then
+                n.sequence
+            else 
+                Sequence.Align.full_median_2 a.sequence b.sequence h.c2_full Matrix.default
+        in
+        let cost =
+            if use_ukk then
                 Sequence.NewkkAlign.cost_2 n.sequence tmp h.c2_full Sequence.NewkkAlign.default_ukkm
-                else
-                    Sequence.Align.cost_2 n.sequence tmp h.c2_full
-                Matrix.default
-            in
-            cost
+            else
+                Sequence.Align.cost_2 n.sequence tmp h.c2_full Matrix.default
+        in
+        cost
 
-        let compare a b =
-            Sequence.compare a.sequence b.sequence
+    let compare a b =
+        Sequence.compare a.sequence b.sequence
 end
+
+
 
 module PartitionedDOS = struct
     type fragment = 
@@ -1345,36 +1202,35 @@ module PartitionedDOS = struct
     type partitioned_sequence = fragment array
 
     let create mode clip alph =
-        let seqs =
-            match mode with
+        let seqs = match mode with
             | `Partitioned seqs -> seqs
             | `AutoPartitioned (splits, seq) ->
-                    let seqs = Sequence.split splits seq alph in
-                    Array.of_list seqs 
+                Array.of_list (Sequence.split splits seq alph)
         in
         let last = (Array.length seqs) - 1 in
-        Array.mapi (fun pos x -> 
-            if pos = 0 && clip = Data.Clip then
-                First (DOS.create x)
-            else if pos = last && clip = Data.Clip then
-                Last (DOS.create x)
-            else DO (DOS.create x)) seqs
+        Array.mapi
+            (fun pos x -> 
+                if pos = 0 && clip = Data.Clip then
+                    First (DOS.create x)
+                else if pos = last && clip = Data.Clip then
+                    Last (DOS.create x)
+                else DO (DOS.create x))
+            seqs
 
     let empty clip size alph = 
         let s = Sequence.create 1 in
         Sequence.prepend s (Alphabet.get_gap alph);
         let cr = DOS.create s in
-        Array.init size (fun x -> 
-            if x = 0 && clip = Data.Clip then
-                First cr
-            else if x = size - 1 && Data.Clip = clip then
-                Last cr
-            else DO cr)
+        Array.init size
+            (fun x ->
+                if x = 0 && clip = Data.Clip then
+                    First cr
+                else if x = size - 1 && Data.Clip = clip then
+                    Last cr
+                else DO cr)
 
-    let to_union a = Array.map (function 
-        | Last x
-        | First x
-        | DO x -> DOS.to_union x) a
+    let to_union a = 
+        Array.map (function | Last x | First x | DO x -> DOS.to_union x) a
 
     let clip_n_fix s1 s2 = 
         (* We return the sequences with their corrections, and functions 
@@ -1383,31 +1239,32 @@ module PartitionedDOS = struct
         let aux s1 s2 s1len s2len =
             assert (s1len >= s2len);
             if s1len > (s2len *. Sequence.Clip.fraction) then
-                (* We eliminate enough to make the length difference 
+                (* We eliminate enough to make the length difference
                 * only 10% of the overall length *)
                 let maxlen = truncate (s2len *. Sequence.Clip.fraction) in
                 let dif = (truncate s1len) - maxlen in
                 let cnt = ref (truncate s1len) in
-                let s1' = Sequence.init (fun x ->
-                    decr cnt;
-                    if x = 0 then Sequence.get s1.DOS.sequence 0
-                    else Sequence.get s1.DOS.sequence !cnt) maxlen 
+                let s1' =
+                    Sequence.init
+                        (fun x ->
+                            decr cnt;
+                            if x = 0 then Sequence.get s1.DOS.sequence 0
+                            else Sequence.get s1.DOS.sequence !cnt)
+                        maxlen
                 in
                 let s1' = { s1 with DOS.sequence = s1' } in
                 let add_bottom x =
                     let len = Sequence.length x.DOS.sequence in
                     let newx = Sequence.create (len + dif) in
                     for i = (len - 1) downto 1 do
-                        Sequence.prepend newx 
-                        (Sequence.get x.DOS.sequence i);
+                        Sequence.prepend newx (Sequence.get x.DOS.sequence i);
                     done;
                     { x with DOS.sequence = newx }
                 in
                 let fixs1 x =
                     let newx = add_bottom x in
                     for i = dif downto 0 do
-                        Sequence.prepend newx.DOS.sequence 
-                        (Sequence.get s1.DOS.sequence i);
+                        Sequence.prepend newx.DOS.sequence (Sequence.get s1.DOS.sequence i);
                     done;
                     newx
                 in
@@ -1422,8 +1279,7 @@ module PartitionedDOS = struct
                 let fixmedian x = 
                     let newx = add_bottom x in
                     for i = dif downto 0 do
-                        Sequence.prepend newx.DOS.sequence
-                        (Sequence.get s1.DOS.sequence i)
+                        Sequence.prepend newx.DOS.sequence (Sequence.get s1.DOS.sequence i)
                     done;
                     newx
                 in
@@ -1434,28 +1290,30 @@ module PartitionedDOS = struct
         in
         let s1len = float_of_int (Sequence.length s1.DOS.sequence)
         and s2len = float_of_int (Sequence.length s2.DOS.sequence) in
-        if s1len >= s2len then aux s1 s2 s1len s2len
+        if s1len >= s2len then
+            aux s1 s2 s1len s2len
         else 
             let a, b, c, d, e, f, g = aux s2 s1 s2len s1len in
             b, a, d, c, e, g, f
+
 
     let readjust alph mode h ch1 ch2 parent mine use_ukk =
         let cost = ref 0 in
         let is_0 = ref true in
         let res =
-            Array.init (Array.length ch1) (fun i ->
-                match ch1.(i), ch2.(i), parent.(i), mine.(i) with
-                | _, _, _, First _ 
-                | _, _, First _, _ 
-                | _, First _, _, _ 
-                | First _, _, _, _ 
-                | _, _, _, Last _ 
-                | _, _, Last _, _ 
-                | _, Last _, _, _ 
-                | Last _, _, _, _  ->
-                        mine.(i)
-                | DO ch1, DO ch2, DO parent, DO mine ->
-                        let x, y, z3, z2, zsum = 
+            Array.init
+                (Array.length ch1)
+                (fun i -> match ch1.(i), ch2.(i), parent.(i), mine.(i) with
+                    | _, _, _, First _
+                    | _, _, First _, _
+                    | _, First _, _, _
+                    | First _, _, _, _
+                    | _, _, _, Last _
+                    | _, _, Last _, _
+                    | _, Last _, _, _
+                    | Last _, _, _, _ -> mine.(i)
+                    | DO ch1, DO ch2, DO parent, DO mine ->
+                        let x, y, z3, z2, zsum =
                             DOS.readjust alph mode h ch1 ch2 parent mine use_ukk false
                         in
                         is_0 := !is_0 && x;
@@ -1509,7 +1367,6 @@ module PartitionedDOS = struct
         res, !tmp_cost
 
 
-
     let median alph code h a b use_ukk =
         let tmpcost = ref 0 in
         let median_of_tip reverse a b =
@@ -1526,37 +1383,37 @@ module PartitionedDOS = struct
                 let seqm, tmpa, tmpb, cost, seqmwg =
                     match Cost_matrix.Two_D.affine h.c2_full with
                     | Cost_matrix.Affine _ ->
-                            if use_ukk then
-                                let tmpa,tmpb,tmpcost =
-                                    Sequence.NewkkAlign.align_2 a.DOS.sequence 
-                                b.DOS.sequence h.c2_full Sequence.NewkkAlign.default_ukkm in
-                                let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2_full in
-                                let seqmwg = 
-                                    Sequence.median_2_with_gaps tmpa tmpb h.c2_full 
-                                in
-                                seqm, tmpa, tmpb, tmpcost, seqmwg
-                            else
-                                Sequence.Align.align_affine_3 a.DOS.sequence
-                                b.DOS.sequence h.c2_full
-                    | _ ->
-                            let tmpa, tmpb, cost = 
-                                if use_ukk then
+                        if use_ukk then
+                            let tmpa,tmpb,tmpcost =
                                 Sequence.NewkkAlign.align_2 a.DOS.sequence 
-                                b.DOS.sequence h.c2_full Sequence.NewkkAlign.default_ukkm
-                                else
-                                    Sequence.Align.align_2 a.DOS.sequence 
-                                b.DOS.sequence h.c2_full Matrix.default
+                                    b.DOS.sequence h.c2_full Sequence.NewkkAlign.default_ukkm
                             in
                             let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2_full in
-                            let seqmwg = 
-                                Sequence.median_2_with_gaps tmpa tmpb h.c2_full 
-                            in
-                            seqm, tmpa, tmpb, cost, seqmwg
+                            let seqmwg = Sequence.median_2_with_gaps tmpa tmpb h.c2_full in
+                            seqm, tmpa, tmpb, tmpcost, seqmwg
+                        else
+                            Sequence.Align.align_affine_3 a.DOS.sequence
+                                b.DOS.sequence h.c2_full
+                    | _ ->
+                        let tmpa, tmpb, cost = 
+                            if use_ukk then
+                                Sequence.NewkkAlign.align_2 a.DOS.sequence 
+                                    b.DOS.sequence h.c2_full Sequence.NewkkAlign.default_ukkm
+                            else
+                                Sequence.Align.align_2 a.DOS.sequence 
+                                    b.DOS.sequence h.c2_full Matrix.default
+                        in
+                        let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2_full in
+                        let seqmwg = Sequence.median_2_with_gaps tmpa tmpb h.c2_full in
+                        seqm, tmpa, tmpb, cost, seqmwg
                 in
-                let newcost2 = Sequence.Clip.correct_distance gap h.c2_full tmpa tmpb
-                    cost in
-                let rescost = DOS.make_cost newcost2 newcost2 0 ( newcost2 +
-                int_of_float(a.DOS.costs.sum_cost +. b.DOS.costs.sum_cost) ) in
+                let newcost2 =
+                    Sequence.Clip.correct_distance gap h.c2_full tmpa tmpb cost in
+                let rescost =
+                    let r = DOS.make_cost newcost2 newcost2 0 newcost2 in
+                    {r with
+                        sum_cost = r.sum_cost +. a.DOS.costs.sum_cost +.  b.DOS.costs.sum_cost; }
+                in
                 let a = fixa a in
                 let b = fixb b in
                 let a = reverse a
@@ -1565,13 +1422,12 @@ module PartitionedDOS = struct
                 and tmpb = reverse (fixmb (DOS.create tmpb))
                 and seqm = reverse (fixmedian (DOS.create seqm))
                 and seqmwg = reverse (fixmedian (DOS.create seqmwg)) in
-                let ba = 
+                let ba =
                     DOS.seq_to_bitset gap tmpa.DOS.sequence (Raw a.DOS.sequence)
-                and bb = 
-                    DOS.seq_to_bitset gap tmpb.DOS.sequence (Raw b.DOS.sequence) 
-                and bm = 
-                    DOS.seq_to_bitset gap seqmwg.DOS.sequence 
-                    (Raw seqm.DOS.sequence) 
+                and bb =
+                    DOS.seq_to_bitset gap tmpb.DOS.sequence (Raw b.DOS.sequence)
+                and bm =
+                    DOS.seq_to_bitset gap seqmwg.DOS.sequence (Raw seqm.DOS.sequence)
                 in
                 assert (
                     if not (tmpa.DOS.sequence = DOS.bitset_to_seq gap ba) then
@@ -1590,54 +1446,56 @@ module PartitionedDOS = struct
                 assert (seqmwg.DOS.sequence = DOS.bitset_to_seq gap bm);
                 tmpcost := !tmpcost + cost;
                 { DOS.sequence = seqm.DOS.sequence; 
-                aligned_children = (ba, bb, bm); 
-                costs = rescost; position = 0; 
-                (*tmp solution, fix this later*)
-                delimiters = a.DOS.delimiters }
+                    aligned_children = (ba, bb, bm); 
+                    costs = rescost;
+                    position = 0; 
+                    delimiters = a.DOS.delimiters }
         in
-        let res = 
-            Array.init (Array.length a) (fun i ->
-                match a.(i), b.(i) with
-                | DO a, First b
-                | First a, DO b -> DO (median_of_tip identity a b)
-                | First a, First b -> First (median_of_tip identity a b)
-                | Last a, DO b
-                | DO a, Last b -> DO (median_of_tip DOS.safe_reverse a b)
-                | Last a, Last b -> Last (median_of_tip DOS.safe_reverse a b)
-                | DO a, DO b ->
-                        let x, y = DOS.median alph code h a b use_ukk in
-                        tmpcost := y + !tmpcost;
-                        DO x
-                | First _, _
-                | Last _, _ -> assert false
-                )
+        let res =
+            Array.init
+                (Array.length a)
+                (fun i -> match a.(i), b.(i) with
+                    | DO a, First b
+                    | First a, DO b -> DO (median_of_tip identity a b)
+                    | First a, First b -> First (median_of_tip identity a b)
+                    | Last a, DO b
+                    | DO a, Last b -> DO (median_of_tip DOS.safe_reverse a b)
+                    | Last a, Last b -> Last (median_of_tip DOS.safe_reverse a b)
+                    | DO a, DO b ->
+                            let x, y = DOS.median alph code h a b use_ukk in
+                            tmpcost := y + !tmpcost;
+                            DO x
+                    | First _, _
+                    | Last _, _ -> assert false)
         in
         res, !tmpcost
 
     let median_3_no_union h p n c1 c2 use_ukk =
-        Array.init (Array.length n) (fun i ->
-            match p.(i), n.(i), c1.(i), c2.(i) with
-            | Last p, Last n, Last c1, Last c2 
-            | First p, First n, First c1, First c2 ->
-                    assert (false) (* TODO *)
-            | DO p, DO n, DO c1, DO c2 ->
-                    DO (DOS.median_3_no_union h p n c1 c2 use_ukk)
-            | Last _, _, _, _
-            | First _, _, _, _
-            | DO _, _, _, _ -> assert false)
+        Array.init
+            (Array.length n)
+            (fun i -> match p.(i), n.(i), c1.(i), c2.(i) with
+                    | Last p, Last n, Last c1, Last c2 
+                    | First p, First n, First c1, First c2 ->
+                        assert (false) (* TODO *)
+                    | DO p, DO n, DO c1, DO c2 ->
+                        DO (DOS.median_3_no_union h p n c1 c2 use_ukk)
+                    | Last _, _, _, _
+                    | First _, _, _, _
+                    | DO _, _, _, _ -> assert false)
 
     let median_3_union h p n c1 c2 use_ukk=
-        Array.init (Array.length n) (fun i ->
-            match p.(i), n.(i), c1.(i), c2.(i) with
-            | First p, First n, First c1, First c2 -> 
+        Array.init
+            (Array.length n)
+            (fun i -> match p.(i), n.(i), c1.(i), c2.(i) with
+                | First p, First n, First c1, First c2 -> 
                     First n
-            | Last p, Last n, Last c1, Last c2 ->
+                | Last p, Last n, Last c1, Last c2 ->
                     Last n
-            | DO p, DO n, DO c1, DO c2 ->
+                | DO p, DO n, DO c1, DO c2 ->
                     DO (DOS.median_3_union h p n c1 c2 use_ukk)
-            | First _, _, _, _
-            | Last _, _, _, _
-            | DO _, _, _, _ -> assert false)
+                | First _, _, _, _
+                | Last _, _, _, _
+                | DO _, _, _, _ -> assert false)
 
 
     let distance alph h missing_distance a b use_ukk =
@@ -1648,7 +1506,7 @@ module PartitionedDOS = struct
             let a, b, _, _, _, _, _ = clip_n_fix a b in
             dist := !dist + 
                 Sequence.Clip.corrected_distance h.c2_original missing_distance
-                a.DOS.sequence b.DOS.sequence use_ukk
+                                a.DOS.sequence b.DOS.sequence use_ukk
         in
         for i = (Array.length a) - 1 downto 0 do
             match a.(i), b.(i) with
@@ -1659,7 +1517,7 @@ module PartitionedDOS = struct
             | Last a, DO b
             | Last a, Last b -> distance_tip DOS.safe_reverse a b
             | DO a, DO b -> 
-                    dist := !dist + DOS.distance alph h missing_distance a b use_ukk
+                dist := !dist + DOS.distance alph h missing_distance a b use_ukk
             | Last _, First _
             | First _, Last _ -> assert false
         done;
@@ -1667,18 +1525,19 @@ module PartitionedDOS = struct
 
     let merge arr = 
         let total_len, min, max, cost3,sum_cost = 
-            Array.fold_left (fun (total_len, mincost, maxcost,
-            acccost3,accsumcost) x -> 
-                match x with
-                | Last x 
-                | First x
-                | DO x ->
+            Array.fold_left 
+                (fun (total_len, mincost, maxcost, acccost3,accsumcost) x -> 
+                    match x with
+                    | Last x 
+                    | First x
+                    | DO x ->
                         total_len + Sequence.length x.DOS.sequence,
                         mincost +. x.DOS.costs.cost2,
                         maxcost +. x.DOS.costs.cost2_max,
                         acccost3 +. x.DOS.costs.cost3,
                         accsumcost +. x.DOS.costs.sum_cost)
-            (0, 0., 0., 0., 0.) arr
+                (0, 0.,0.,0.,0.)
+                arr
         in
         let res = Sequence.create total_len in
         for i = (Array.length arr) - 1 downto 0 do
@@ -1686,19 +1545,19 @@ module PartitionedDOS = struct
             | Last seq
             | First seq
             | DO seq ->
-                    let seq = seq.DOS.sequence in
-                    let len = Sequence.length seq in
-                    for j = (len - 1) downto 1 do
-                        Sequence.prepend  res (Sequence.get seq j);
-                    done;
-                    if i = 0 then Sequence.prepend res (Sequence.get seq 0) ;
+                let seq = seq.DOS.sequence in
+                let len = Sequence.length seq in
+                for j = (len - 1) downto 1 do
+                    Sequence.prepend  res (Sequence.get seq j);
+                done;
+                if i = 0 then
+                    Sequence.prepend res (Sequence.get seq 0);
         done;
         { DOS.sequence = res;
-        aligned_children = Raw res, Raw res, Raw res;
-        costs = {cost2 = min; cost2_max = max; cost3 = cost3; sum_cost = sum_cost; };
-        position = 0;
-        (* fix this later *)
-        delimiters = []
+            aligned_children = Raw res, Raw res, Raw res;
+            costs = {cost2 = min; cost2_max = max; cost3 = cost3; sum_cost = sum_cost; };
+            position = 0;
+            delimiters = []
         }
 
 
@@ -1714,17 +1573,17 @@ module PartitionedDOS = struct
                     n.DOS.sequence
                 else 
                     Sequence.Align.full_median_2 a.DOS.sequence
-                    b.DOS.sequence h.c2_full Matrix.default
+                        b.DOS.sequence h.c2_full Matrix.default
             in
             let tmp = fixmedian { a with DOS.sequence = tmp } in
             let cost = 
                 let n, tmp, _, _, _, _, _ = clip_n_fix n tmp in
                 if use_ukk then
-                Sequence.NewkkAlign.cost_2 n.DOS.sequence 
-                tmp.DOS.sequence h.c2_full Sequence.NewkkAlign.default_ukkm
+                    Sequence.NewkkAlign.cost_2 n.DOS.sequence tmp.DOS.sequence
+                        h.c2_full Sequence.NewkkAlign.default_ukkm
                 else
-                    Sequence.Align.cost_2 n.DOS.sequence 
-                tmp.DOS.sequence h.c2_full Matrix.default
+                    Sequence.Align.cost_2 n.DOS.sequence tmp.DOS.sequence
+                        h.c2_full Matrix.default
             in
             total := !total + cost
         in
@@ -1779,30 +1638,32 @@ module PartitionedDOS = struct
         with 
         | Exit -> !compare
 
-    let tabu_distance a =
-        Array.fold_left (fun sum y -> 
-            match y with
-            | First y
-            | Last y
-            | DO y -> y.DOS.costs.cost2_max +. sum) 0.0 a
+    let tabu_distance arr =
+        Array.fold_left
+            (fun sum y -> match y with
+                | First y
+                | Last y
+                | DO y -> y.DOS.costs.cost2_max +. sum)
+            0.0
+            arr
 
     let encoding enc arr =
-        Array.fold_left (fun sum x ->
-            match x with
-            | First x
-            | Last x
-            | DO x -> sum +. (Sequence.encoding enc x.DOS.sequence)) 0. arr
-
-
+        Array.fold_left
+            (fun sum x -> match x with
+                | First x
+                | Last x
+                | DO x -> sum +. (Sequence.encoding enc x.DOS.sequence))
+            0.0
+            arr
 end
 
 
 let max_float = float_of_int (max_int / 20) 
 
 type sequence_characters =
-    | General_Prealigned of GenNonAdd.gnonadd_sequence
-    | Heuristic_Selection of DOS.do_single_sequence
-    | Partitioned of PartitionedDOS.partitioned_sequence
+    | General_Prealigned    of GenNonAdd.gnonadd_sequence
+    | Heuristic_Selection   of DOS.do_single_sequence
+    | Partitioned           of PartitionedDOS.partitioned_sequence
 
 (** A sequence character type. *)
 type t = { 
@@ -2251,8 +2112,10 @@ let readjust alph mode to_adjust modified ch1 ch2 parent mine =
                 match a, b, c, d with
                     | Heuristic_Selection a, Heuristic_Selection b, 
                         Heuristic_Selection c, ((Heuristic_Selection d) as e) when skip_it ->
-                            total_cost := (int_of_float (get_cost2 d.DOS.costs)) + !total_cost;
-                            total_sum_cost := (int_of_float (get_sum_cost d.DOS.costs)) + !total_sum_cost;
+                            let cost2 = int_of_float d.DOS.costs.cost2
+                            and scost = int_of_float d.DOS.costs.sum_cost in
+                            total_cost := cost2 + !total_cost;
+                            total_sum_cost := scost + !total_sum_cost;
                             e
                     | Heuristic_Selection a, Heuristic_Selection b, 
                         Heuristic_Selection c, Heuristic_Selection d ->
@@ -2287,50 +2150,51 @@ let to_single parent mine opt_root =
     let total_cost = ref 0 in
     let characters = match opt_root with 
     | Some root -> 
-        Array_ops.map_3 (fun a b c ->
-            match a, b, c with
-            | General_Prealigned a, General_Prealigned b, General_Prealigned c ->
+        Array_ops.map_3
+            (fun a b c -> match a, b, c with
+                | General_Prealigned a, General_Prealigned b, General_Prealigned c ->
                     let res, c = GenNonAdd.to_single mine.alph mine.heuristic.c2_full a b in
                     total_cost := c + !total_cost;
                     General_Prealigned res
-            | Partitioned a, Partitioned b,Partitioned c ->
+                | Partitioned a, Partitioned b,Partitioned c ->
                     let res, c = PartitionedDOS.to_single mine.heuristic a b in
                     total_cost := c + !total_cost;
                     Partitioned res
-            | Heuristic_Selection a, Heuristic_Selection b,Heuristic_Selection c ->
+                | Heuristic_Selection a, Heuristic_Selection b,Heuristic_Selection c ->
                     let res, c = DOS.to_single mine.heuristic a b (Some c) in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
-            | Partitioned _, _, _
-            | _, Partitioned _, _
-            | General_Prealigned _, _, _ 
-            | Heuristic_Selection _, General_Prealigned _, _ 
-            | (Heuristic_Selection _, Heuristic_Selection _, (General_Prealigned _|Partitioned _)) -> assert false
-        ) parent.characters mine.characters root.characters 
-    | None -> 
-        Array_ops.map_2 (fun a b ->
-            match a, b with
-            | General_Prealigned a, General_Prealigned b ->
+                | Partitioned _, _, _
+                | _, Partitioned _, _
+                | General_Prealigned _, _, _ 
+                | Heuristic_Selection _, General_Prealigned _, _ 
+                | (Heuristic_Selection _, Heuristic_Selection _,
+                    (General_Prealigned _|Partitioned _)) -> assert false)
+            parent.characters mine.characters root.characters 
+    | None ->
+        Array_ops.map_2
+            (fun a b -> match a, b with
+                | General_Prealigned a, General_Prealigned b ->
                     let res, c = GenNonAdd.to_single mine.alph mine.heuristic.c2_full a b in
                     total_cost := c + !total_cost;
                     General_Prealigned res
-            | Partitioned a, Partitioned b ->
+                | Partitioned a, Partitioned b ->
                     let res, c = PartitionedDOS.to_single mine.heuristic a b in
                     total_cost := c + !total_cost;
                     Partitioned res
-            | Heuristic_Selection a, Heuristic_Selection b ->
+                | Heuristic_Selection a, Heuristic_Selection b ->
                     let res, c = DOS.to_single mine.heuristic a b None in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
-            | Partitioned _, _
-            | _, Partitioned _
-            | General_Prealigned _, _ 
-            | Heuristic_Selection _, General_Prealigned _ -> assert false) 
-        parent.characters mine.characters
+                | Partitioned _, _
+                | _, Partitioned _
+                | General_Prealigned _, _ 
+                | Heuristic_Selection _, General_Prealigned _ -> assert false)
+            parent.characters
+            mine.characters
     in
     let total_cost = float_of_int !total_cost in
-    mine.total_cost, total_cost, 
-    { mine with characters = characters; }
+    mine.total_cost, total_cost, { mine with characters = characters; }
 
 
 let median code a b =
@@ -2344,34 +2208,34 @@ let median code a b =
         | `Algn_Normal -> false
     in
     let characters =
-        Array_ops.map_2 (fun a b ->
-            match a, b with
-            | General_Prealigned a, General_Prealigned b ->
+        Array_ops.map_2
+            (fun a b -> match a, b with
+                | General_Prealigned a, General_Prealigned b ->
                     if debug then Printf.printf "General Prealigned,%!";
                     let res, c = GenNonAdd.median h.c2_full a b in
                     total_cost := c + !total_cost;
                     General_Prealigned res
-            | Partitioned a, Partitioned b ->
+                | Partitioned a, Partitioned b ->
                     if debug then Printf.printf "Partitioned,%!";
                     let res, c = PartitionedDOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
                     Partitioned res
-            | Heuristic_Selection a, Heuristic_Selection b ->
+                | Heuristic_Selection a, Heuristic_Selection b ->
                     if debug then Printf.printf "Heuristic Selection,%!";
                     let res, c = DOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
-            | Partitioned _, _
-            | _, Partitioned _
-            | Heuristic_Selection _, _
-            | General_Prealigned _ , _ -> assert false) a.characters b.characters
+                | Partitioned _, _
+                | Heuristic_Selection _,_
+                | General_Prealigned _,_ -> assert false)
+            a.characters
+            b.characters
     in
-    let res = { a with characters = characters; total_cost = float_of_int
-    !total_cost } in
+    let res =
+        { a with characters = characters;
+                 total_cost = float_of_int !total_cost}
+    in
     if debug then Printf.printf "<- seqCS.median, tocal_cost<-%d\n%!" !total_cost;
-    (*
-    Status.user_message Status.Information (to_string res);
-    *)
     res
 
 
@@ -2380,19 +2244,17 @@ let median_3 p n c1 c2 =
     let h = n.heuristic in
     let cm2 = h.c2_full and cm3 = h.c3 in
     let generic_map_4 f1 f3 a b c d cm_HS cm_GP use_ukk =
-        Array_ops.map_4 (fun a b c d ->
-            match a, b, c, d with
-            | Heuristic_Selection a, Heuristic_Selection b,  Heuristic_Selection c, Heuristic_Selection d ->
-                Heuristic_Selection (f1 cm_HS a b c d use_ukk)
-            | General_Prealigned a, General_Prealigned b, General_Prealigned c, General_Prealigned d ->
-                General_Prealigned (f3 cm_GP a b c d) 
-            | Partitioned _, Partitioned _, Partitioned _, Partitioned _ ->
+        Array_ops.map_4
+            (fun a b c d -> match a, b, c, d with
+                | Heuristic_Selection a, Heuristic_Selection b,  Heuristic_Selection c, Heuristic_Selection d ->
+                    Heuristic_Selection (f1 cm_HS a b c d use_ukk)
+                | General_Prealigned a, General_Prealigned b, General_Prealigned c, General_Prealigned d ->
+                    General_Prealigned (f3 cm_GP a b c d) 
+                | Partitioned _, Partitioned _, Partitioned _, Partitioned _ ->
                     b
-            | _ -> assert false)
-        a b c d
+                | _ -> assert false)
+            a b c d
     in
-    (* A function to calculate the uppass values if the alphabet cannot 
-    * handle the union of the items inside *)
     let median_no_union () = 
         let use_ukk = match !Methods.algn_mode with
             | `Algn_Newkk  -> true
@@ -2425,15 +2287,11 @@ let extra_cost_for_root a  =
         | `Algn_Normal -> false
     in
     Array.fold_right
-    (fun seq_chr acc -> 
-        match seq_chr with
-        | Heuristic_Selection x ->
-            acc +. (DOS.extra_cost_for_root x h use_ukk)
-        | _ -> 0.0
-    )
-    a.characters 0.0
-
-
+        (fun seq_chr acc -> match seq_chr with
+            | Heuristic_Selection x -> acc +. (DOS.extra_cost_for_root x h use_ukk)
+            | _ -> acc)
+        a.characters
+        0.0
 
 let distance missing_distance a b = 
     let missing_distance = int_of_float missing_distance in
@@ -2537,33 +2395,33 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
         let one_sequence (cmin, cmax, c3, ccost, csumcost, seqs) par seq =
             let cost = seq.DOS.costs in
             match par with
-            | None -> 
-                    (cmin +. cost.cost2), 
-                    (cmax +. cost.cost2_max), 
+            | None ->
+                    (cmin +. cost.cost2),
+                    (cmax +. cost.cost2_max),
                     (c3 +. cost.cost3),
-                    (ccost +. cost.cost2_max), 
+                    (ccost +. cost.cost2_max),
                     (csumcost +. cost.sum_cost),
                     seq.DOS.sequence :: seqs
-            | Some par -> 
+            | Some par ->
                     let par = par.DOS.sequence in
                     let s1, s2, min =
-                        if use_ukk then 
-                        Sequence.NewkkAlign.align_2 seq.DOS.sequence 
-                        par h.c2_full Sequence.NewkkAlign.default_ukkm
+                        if use_ukk then
+                            Sequence.NewkkAlign.align_2 seq.DOS.sequence
+                                par h.c2_full Sequence.NewkkAlign.default_ukkm
                         else
-                            Sequence.Align.align_2 seq.DOS.sequence 
-                        par h.c2_full Matrix.default
+                            Sequence.Align.align_2 seq.DOS.sequence
+                                par h.c2_full Matrix.default
                     in
                     let max = Sequence.Align.max_cost_2 s1 s2 h.c2_full in
-                    (cmin +. (float_of_int min)), 
+                    (cmin +. (float_of_int min)),
                     (cmax +. (float_of_int max)),
                     (c3 +. cost.cost3),
-                    (ccost +. cost.cost2_max), 
+                    (ccost +. cost.cost2_max),
                     (csumcost +. cost.sum_cost),
                     seq.DOS.sequence :: seqs
         in
-        let cost, costb, max, seq = match seq with
-            | Partitioned seqs -> 
+        let costb, max, seq = match seq with
+            | Partitioned seqs ->
                 let min, max, cost3, total, sumcost,seqs = match do_to_single with
                     | None ->
                         Array.fold_right
@@ -2581,30 +2439,20 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                                 | PartitionedDOS.DO a, PartitionedDOS.DO b -> 
                                     one_sequence acc (Some b) a
                                 | _ -> assert false)
-                            (0., 0., 0., 0., 0., [])
+                            (0.,0.,0.,0.,0.,[])
                             seqs
                             par
                     | Some _ -> assert false
                 in
-                let cost =
-                    {cost2=min; cost2_max=max; cost3=cost3; sum_cost=sumcost;}
-                in
-                cost, (`FloatFloatTuple (min, max)), max, seqs
+                (`FloatFloatTuple (min, max)), max, seqs
             | General_Prealigned seq ->
-                if debug then Printf.printf "seqCS.GP.to_formatter\n%!";
                 let cost = seq.GenNonAdd.costs in
-                let mincost,maxcost = 
-                    cost.GenNonAdd.min,cost.GenNonAdd.max
-                in
-                let cost = { cost2 = mincost;  cost2_max = maxcost; cost3 = 0.; sum_cost = 0.; } in
-                let costb,max = `FloatFloatTuple (mincost,maxcost), maxcost in 
-                cost, costb, max, [seq.GenNonAdd.seq]
+                let mincost,maxcost = cost.GenNonAdd.min,cost.GenNonAdd.max in
+                `FloatFloatTuple (mincost,maxcost), maxcost, [seq.GenNonAdd.seq]
             | Heuristic_Selection seq ->
-                if debug then  Printf.printf "seqCS.HS.to_formatter\n%!";
                 let cost = seq.DOS.costs in
-                let costb, max = match do_to_single with
-                    | None -> 
-                        `FloatFloatTuple (cost.cost2, cost.cost2_max), cost.cost2_max
+                let min, max = match do_to_single with
+                    | None -> cost.cost2, cost.cost2_max
                     | Some (Heuristic_Selection par) ->
                         let par = par.DOS.sequence in
                         let s1, s2, min =
@@ -2616,11 +2464,11 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                                     par h.c2_full Matrix.default
                         in
                         let max = Sequence.Align.max_cost_2 s1 s2 h.c2_full in
-                        `IntTuple (min, max), float_of_int max
+                        float_of_int min, float_of_int max
                     | Some (General_Prealigned _)
                     | Some (Partitioned _) -> assert false 
                 in
-                cost, costb, max, [seq.DOS.sequence]
+                (`FloatFloatTuple (min,max)), max, [seq.DOS.sequence]
         in
         let seq () =
             String.concat "#"
@@ -2629,30 +2477,27 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                               Sequence.to_formater x t.alph)
                     seq)
         in
-        let definite_str = 
-            if max > 0. then  `String "true" else `String "false"
-        in 
+        let definite_str = if max > 0. then  `String "true" else `String "false" in 
         let module T = Xml.Characters in
         (PXML 
             -[T.sequence] 
                 (* Attributes *)
-                ([T.name] = [`String ((Data.code_character code
-                d))])
+                ([T.name] = [`String ((Data.code_character code d))])
                 ([T.cost] = [costb])
                 ([T.definite] = [definite_str])
                 ([attr])
-                
                 { `Fun seq }
             --) :: acc
     in
     let parent = match do_to_single with
-        | None -> Array.map (fun _ -> None) t.characters
+        | None   -> Array.map (fun _ -> None)   t.characters
         | Some x -> Array.map (fun x -> Some x) x.characters
     in
     Array_ops.fold_right_3 output_sequence [] t.codes t.characters parent
 
+
 let get_sequences (data:t) : Sequence.s array array =
-    Array.map 
+    Array.map
         (function
             | General_Prealigned x -> [| x.GenNonAdd.seq |]
             | Heuristic_Selection x -> [| x.DOS.sequence |]
@@ -2682,16 +2527,17 @@ let tabu_distance a =
     Array.fold_left
         (fun sum -> function
             | Partitioned x         -> sum +. (PartitionedDOS.tabu_distance x)
-            | General_Prealigned y  -> (GenNonAdd.get_max_cost y.GenNonAdd.costs) +. sum
-            | Heuristic_Selection y -> y.DOS.costs.cost2_max +. sum)
-        0.0 a.characters
+            | General_Prealigned y  -> sum +. (GenNonAdd.get_max_cost y.GenNonAdd.costs)
+            | Heuristic_Selection y -> sum +. y.DOS.costs.cost2_max)
+        0.0
+        a.characters
 
 
 let explode cs = 
     let h = cs.heuristic in
     Array_ops.fold_right_2
         (fun acc code -> function
-            | Partitioned _ -> failwith "TODO 12345"
+            | Partitioned _ -> failwith "TODO"
             | General_Prealigned seq ->
                 (code, seq.GenNonAdd.seq, h.c2_full, h.c2_original, h.c3, cs.alph) :: acc
             | Heuristic_Selection seq ->
