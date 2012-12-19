@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 2985 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3005 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1149,8 +1149,7 @@ module F : Ptree.Tree_Operations
         in
         (* We start by defining a function to adjust one node *)
         let adjust_node chars_to_check ch1_k ch2_k parent_k mine_k ptree =
-            current_snapshot 
-                (Printf.sprintf "AllDirChar.adjust_node %d" mine_k);
+            current_snapshot (Printf.sprintf "AllDirChar.adjust_node %d" mine_k);
             if debug_adjust_fn then
                 info_user_message "AllDirChar.adjust_node, on %d, (%d,%d), %d"
                                         mine_k ch1_k ch2_k parent_k;
@@ -1194,11 +1193,10 @@ module F : Ptree.Tree_Operations
         in
         (* compose the above functions to adjust and modify the affected nodes *)
         let adjust_vertices_affected ((modified,affected_nodes,ptree) as acc) c2c prev curr =
-            let debug = false in
             if not (IntMap.mem curr c2c) then acc
             else match Ptree.get_node curr ptree with 
                 | (Tree.Interior (c,p,c1,c2)) as nd ->
-                        if debug then begin
+                        if debug_adjust_fn then begin
                             Printf.printf "adjust_vertices_affected, affected_nodes:\n%!";
                             IntMap.iter(fun key v ->
                                 Printf.printf "key:%d --> chacter set:" key;
@@ -1215,9 +1213,9 @@ module F : Ptree.Tree_Operations
                     let c2c = IntMap.find curr c2c in
                     let a,b = Tree.other_two_nbrs prev nd in
                     let ccodes,affected,n_ptree = adjust_node c2c a b prev curr ptree in
-                    if debug then begin
+                    if debug_adjust_fn then begin
                         Printf.printf "end of adjust_node(m:%d,p:%d,c1:%d,c2:%d), \
-                        character codes we need to udpate:[%!" c p c1 c2;
+                                character codes we need to udpate:[%!" c p c1 c2;
                         IntSet.iter (fun x -> Printf.printf "%d," x) ccodes;
                         Printf.printf "]\n%!";
                     end;
@@ -1235,8 +1233,7 @@ module F : Ptree.Tree_Operations
         (* loop to adjust a tree and *)
         let adjust_until_nothing_changes max_count start_ptree =
             (* Post order traversal of internal nodes *)
-            let debug = debug_cost_fn in
-            if debug then Printf.printf "adjust until nothing changes begin\n%!";
+            if debug_adjust_fn then Printf.printf "adjust until nothing changes begin\n%!";
             let adjust_loop prev_affected handle adjust_acc =
                 match (Ptree.get_component_root handle ptree).Ptree.root_median with
                 | Some ((`Edge(a,b)),c) ->
@@ -1260,28 +1257,26 @@ module F : Ptree.Tree_Operations
                             (true,none_affected,ptree)
                 in
                 (* now ptree can be used normaliy *)
-                if debug then Printf.printf "call check_cost_all_handles :\n%!";
+                if debug_adjust_fn then Printf.printf "call check_cost_all_handles :\n%!";
                 let new_cost = check_cost_all_handles new_ptree in
-                if debug then
-                    Printf.printf "Iteration %d completed: prev cost:%f --> new cost:%f \
-                    anything changed:%b\n%!" (max_count - count) prev_cost new_cost changed;
+                if debug_adjust_fn then
+                    Printf.printf "Iteration %d completed: prev cost:%f --> new cost:%f anything changed:%b\n%!"
+                                  (max_count - count) prev_cost new_cost changed;
                 if (not changed) || (count = 1) || (prev_cost =. new_cost) || (new_cost > prev_cost)
-                    then 
-                        let _ = if debug then Printf.printf "end of \
-                        adjust_until_nothing_changes, return OLD ptree\n%!" in
+                    then begin
+                        if debug_adjust_fn then
+                            Printf.printf "end of adjust_until_nothing_changes; return old\n%!";
                         ptree
-                    else
-                        let _ = if debug then Printf.printf "call iterator again \
-                        with BETTER tree\n%!" in
+                    end else begin
                         iterator (count - 1) new_cost new_affected new_ptree
+                    end
             in
-            if debug then Printf.printf "get initial cost before iterator\n%!";
             let initial_cost = check_cost_all_handles ptree in
-            if debug then Printf.printf "call iterator with initial cost = %f\n%!" initial_cost;
+            if debug_adjust_fn then
+                Printf.printf "call iterator with initial cost = %f\n%!" initial_cost;
             iterator max_count initial_cost first_affected ptree
         in
         let set_handle_n_root_n_cost handle ptree =
-		    let debug = false in
             (*move AllDirF.to_single here,we are going to move to_single
             * related function in allDirChar to allDirNode *)
             let quick_2single root b d set =
@@ -1320,17 +1315,13 @@ module F : Ptree.Tree_Operations
                     quick_2single n ad bd sets 
                     (*AllDirNode.AllDirF.to_single (Some n) None ad None bd sets*)
                 in
-		if debug then Printf.printf "adjust_assignment,assign cost to root(%d,%d) with check_cost,None\n%!" a b;
-                let ptree1 =
-                    Ptree.assign_root_to_connected_component 
-                            handle (Some (edge, root)) 
-                            (check_cost ptree handle None) None ptree
-                in
-                refresh_all_edges None true None ptree1
+                Ptree.assign_root_to_connected_component 
+                        handle (Some (edge, root)) 
+                        (check_cost ptree handle None) None ptree
             | Some _ -> ptree
         in
         let newtree = adjust_until_nothing_changes max_count ptree in
-        let ptree = 
+        let ptree =
             IntSet.fold (set_handle_n_root_n_cost)
                         (ptree.Ptree.tree.Tree.handles)
                         (newtree)
@@ -1338,10 +1329,9 @@ module F : Ptree.Tree_Operations
         ptree
 
     let adjust_assignment max_count nodes ptree =
-        if using_likelihood `Either ptree then
-            ptree
-        else
-            adjust_assignment max_count nodes ptree
+        if using_likelihood `Either ptree
+            then ptree
+            else adjust_assignment max_count nodes ptree
 
 
     (* ------------------------------------------------------------------------ *)
@@ -2153,7 +2143,8 @@ module F : Ptree.Tree_Operations
                 get_unadjusted par node
             else match node.AllDirNode.adjusted with
                 | Some x -> AllDirNode.force_val x.AllDirNode.lazy_node
-                | None   -> failwith "AllDirChar.to_formatter; no single data"
+                | None   -> failwithf "AllDirChar.to_formatter; no single data: %d -- %d"
+                                        par (AllDirNode.AllDirF.taxon_code node)
         in
         let tree = assign_final_states tree in
         let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in
