@@ -67,7 +67,7 @@ val median3 : t -> t -> t -> float -> float -> float -> t
 
 (** [rell_bootstrap n num] Computes the RELL Bootstrap of resampling [num] times
     on the distribution of characters in [n]. *)
-val rell_bootstrap : t -> int -> float * float
+val rell_bootstrap : ?chars : int -> t -> int -> float * float
 
 (** [variance_ratio a b] calculate the variance and mean of two trees; they are
     assumed to have the same leaf taxa and thus magnitude of likelihood vectors
@@ -102,13 +102,13 @@ val reroot_median : t -> t -> float -> float -> t
 val dist_2 : t -> t -> t -> float -> float -> float -> float option -> float
 
 (** [f_codes x c]
-* creates a new character set where all characters with code appearing in [c]
-* have been filtered out. *)
+    creates a new character set where all characters with code appearing in [c]
+    have been filtered out. *)
 val f_codes : t -> All_sets.Integers.t -> t
 
 (** [f_codes_comp x c]
-* creates a new character set where all characters with code NOT appearing in
-* [c] have been filtered out (the complement of [f_codes]).*)
+    creates a new character set where all characters with code NOT appearing in
+    [c] have been filtered out (the complement of [f_codes]).*)
 val f_codes_comp : t -> All_sets.Integers.t -> t
 
 (** [cardinal x] returns the cardinality of the character set [x].*)
@@ -121,39 +121,38 @@ val mem : int list option -> t -> bool
 val union: t -> t -> t -> t
 
 (** [compare_data a b]
-* is a total ordering of the character sets, where [compare a b < 0]
-* iff [a < b], [compare a b = 0] iff [a = b], otherwise [compare a b > 0]. *)
+    is a total ordering of the character sets, where [compare a b < 0]
+    iff [a < b], [compare a b = 0] iff [a = b], otherwise [compare a b > 0]. *)
 val compare_data : t -> t -> int
 
 val compare : t -> t -> int
 
 (** [readjust check has_changed c1 c2 mine t1 t2 ]
- *       -> modified set * old_mle * new_mle * (new_branch_lengths) * new node
- *
- *   Check/xopt and has_changed/x are not used, as they determine iteration on a
- * subset of characters, which doesn't make sense when branch lengths affect all
- * the characters in the set. Seperation of the characters should be done in
- * different complete character sets at the node level. 
- *   The function returns the set of modified characters (all of them), the old
- * likelihood, the new likelihood, the new branch lengths and an updated t
- * with new likelihood_vector and same model. *)
+        -> modified set * old_mle * new_mle * (new_branch_lengths) * new node
+    Check/xopt and has_changed/x are not used, as they determine iteration on a
+    subset of characters, which doesn't make sense when branch lengths affect
+    all the characters in the set. Seperation of the characters should be done
+    in different complete character sets at the node level. 
+
+    The function returns the set of modified characters (all of them), the old
+    likelihood, the new likelihood, the new branch lengths and an updated t with
+    new likelihood_vector and same model. *)
 val readjust :
     All_sets.Integers.t option -> All_sets.Integers.t ->  t -> t -> t -> float
         -> float -> All_sets.Integers.t * float * float * (float*float) * t
 
 
 (** [of_parser spec characters] creates a character set with specification
-* [spec] and characters defined in the array [characters], where each element is
-* a tuple [(states, code)], where [states] is the list of states observed in the
-* characters with code [code]. If [states = None] then the character is missing
-* (should be treated as if [states] held all the possible states for the
-* character).*)
-(*  [spec] -> [weights] -> [characters: ([states]*[code]) array] -> t *)
+    [spec] and characters defined in the array [characters], where each element
+    is a tuple [(states, code)], where [states] is the list of states observed
+    in the characters with code [code]. If [states = None] then the character is
+    missing (should be treated as if [states] held all the possible states for
+    the character).*)
 val of_parser : Nexus.File.static_spec -> float array -> ((Nexus.File.static_state * int) array) -> t
 
 (** [of_parser_simple chars model] A simple parser, generates the type [t] from
- * a string of character states, and a previously created model. Normal usage for
- * toplevel interaction and prototyping new code. *)
+    a string of character states, and a previously created model. Normal usage
+    for toplevel interaction and prototyping new code. *)
 val of_parser_simple : string -> MlModel.model -> t
 
 (** [root_cost t] The extra cost incurred by the root of the tree. *)

@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 2971 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3001 $"
 
 let compress = true
 
@@ -28,7 +28,7 @@ external register : unit -> unit = "likelihood_CAML_register"
 let () = register ()
 
 let (-->) a b = b a 
-let (=.) a b = abs_float (a-.b) < Numerical.epsilon 
+open Numerical.FPInfix
 
 type s
 
@@ -152,7 +152,7 @@ external rell_bootstrap: (* vector, weight, priors, probabilities, %invar, mpl, 
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
-      -> float -> int -> int -> float * float =
+      -> float -> int -> int -> int option -> float * float =
           "likelihood_CAML_rell_bootstrap" "likelihood_CAML_rell_bootstrap_wrapped"
 
 external lk_variance_ratio :
@@ -353,10 +353,10 @@ let median3 an bn cn t1 t2 t3 =
 (* ------------------------------------------------------------------------- *)
 (* Bootstrap / statistical confidence tests *)
 
-let rell_bootstrap an num_replicates =
+let rell_bootstrap ?chars an num_replicates =
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
     rell_bootstrap an.chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob
-                pinvar (MlModel.get_costfn_code an.model) num_replicates
+                pinvar (MlModel.get_costfn_code an.model) num_replicates chars
 
 let variance_ratio an bn =
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in

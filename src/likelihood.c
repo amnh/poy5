@@ -1335,22 +1335,28 @@ variance_ratio(double *ravg, const mll* a, const mll* b, const double* ws,
         const double* pi, const double* pr, const double pinvar, const int mpl)
 {
     int h;
-    double avg=0,var=0,a_h,b_h,v_h;
+    double avg=0,var=0,a_h,b_h,v_h,n=0.0;
     for(h = 0; h < a->c_len; ++h){
         a_h = loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h);
         b_h = loglikelihood_site(b, ws[h], pi, pr, pinvar, mpl, h);
         avg+= a_h - b_h;
+        n  += ws[h];
     }
-    avg = avg / a->c_len;
-    for(h = 0; h < a->c_len; ++h){
-        a_h = loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h );
-        b_h = loglikelihood_site(b, ws[h], pi, pr, pinvar, mpl, h );
-        v_h = (a_h - b_h) - avg;
-        var+= (v_h * v_h);
+    if( 0.0 == n ){
+        *ravg = 0.0;
+        return 0.0;
+    } else {
+        avg = avg / n;
+        for(h = 0; h < a->c_len; ++h){
+            a_h = loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h );
+            b_h = loglikelihood_site(b, ws[h], pi, pr, pinvar, mpl, h );
+            v_h = (a_h - b_h) - avg;
+            var+= (v_h * v_h);
+        }
+        var = var * (n/(n-1));
+        *ravg= avg;
+        return var;
     }
-    var = var * (a->c_len / (a->c_len-1));
-    *ravg= avg;
-    return var;
 }
 value
 likelihood_CAML_variance_ratio_wrapped( value a, value b, value w, value pi,
@@ -1379,17 +1385,24 @@ float variance( double* mean, const mll* a, const double* ws, const double* pi,
                 const double* pr, const double pinvar, const int mpl)
 {
     int h;
-    double avg=0,var=0,a_h;
-    for(h = 0; h < a->c_len; ++h)
-        avg+= loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h);
-    avg = avg / a->c_len;
+    double avg=0,var=0,a_h,n=0.0;
     for(h = 0; h < a->c_len; ++h){
-        a_h = loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h);
-        var+= (a_h - avg) * (a_h - avg);
+        avg+= loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h);
+        n  += ws[h];
     }
-    var = var * (a->c_len / (a->c_len-1));
-    *mean = avg;
-    return var;
+    if( 0.0 == n ){
+        *mean = 0.0;
+        return 0.0;
+    } else {
+        avg = avg / n;
+        for(h = 0; h < a->c_len; ++h){
+            a_h = loglikelihood_site(a, ws[h], pi, pr, pinvar, mpl, h);
+            var+= (a_h - avg) * (a_h - avg);
+        }
+        var = var * (n/(n-1));
+        *mean = avg;
+        return var;
+    }
 }
 value
 likelihood_CAML_variance_wrapped( value a, value w, value pi, value pr,
@@ -1454,7 +1467,7 @@ float resample_likelihood( const double* sll, const double* cdf, const int n)
         resample_idx = rand_bisect_cdf(cdf,n,RAND_RANGE(0,cdf[n-1]),0,n);
         resample_lk += sll[ resample_idx ];
     }
-    return resample_lk;
+    return (-resample_lk);
 }
 
 /** RELL (resample estimated log likelihood) BootStrap - this function resamples
@@ -1465,16 +1478,15 @@ float resample_likelihood( const double* sll, const double* cdf, const int n)
  * obtain a resampled log-likelihood; given site * weights are not recovered. We
  * find the mean and variance of the results. */
 void
-rell_bootstrap( double* mean, double* var, const mll* a, const double* ws, const double* pi,
-                const double* prob, const double pinvar, const int mpl, const int rep)
+rell_bootstrap( double* mean, double* var, const mll* a, const double* ws,
+                const double* pi, const double* prob, const double pinvar,
+                const int mpl, const int rep, int n)
 {
     double *cdf,*sll;
     double cumm, resample_mean, resample_var, resample_lki, resample_tmp;
     int i;
     //the mean/var functions have special cases for rep<=1; ignore not necessary
     assert( rep > 1 );
-    //set up the random function; use time. XXX issue in setting seed!
-    srand( time(NULL) );
     //create cumulative probability function using weights; compressed columns
     //also fill the vector of site log likelihoods; same loop is fine.
     cdf = (double*) malloc( sizeof(double)*a->c_len );
@@ -1482,19 +1494,23 @@ rell_bootstrap( double* mean, double* var, const mll* a, const double* ws, const
     for(i = 0,cumm=0.0; i < a->c_len; ++i){
         cumm+= ws[i];
         cdf[i] = cumm;
-        sll[i] = loglikelihood_site( a, ws[i], pi, prob, pinvar, mpl, i );
+        sll[i] = loglikelihood_site( a, 1.0, pi, prob, pinvar, mpl, i );
     }
-    //printf("CDF: "); printarrayf( cdf, a->c_len );
     //printf("SLL: "); printarrayf( sll, a->c_len );
-    //we use the running-stats algorithm to determine the mean and variance
-    resample_mean = resample_likelihood( sll, cdf, a->c_len );
+    //printf("CDF: "); printarrayf( cdf, a->c_len ); 
+    n = (n == -1)?cumm:n;
+    //printf("Doing %d Replicates of %d Characters\n", rep, n);
+    //we use the running-stats algorithm to determine the mean and variance, we
+    //assume rep > 1, above, thus we ignore rep=0 and rep=1.
+    resample_mean = resample_likelihood( sll, cdf, n );
     resample_var  = 0.0;
+    //printf("\t%d -- %f -- %f -- %f\n", 0, resample_mean,resample_mean,resample_var);
     for(i = 1; i< rep; ++i){
-        resample_lki  = resample_likelihood( sll, cdf, a->c_len );
-        //printf("%d -- %f\n", i, resample_lki);
+        resample_lki  = resample_likelihood( sll, cdf, n );
         resample_tmp  = resample_mean + ((resample_lki - resample_mean) / i);
         resample_var += (resample_lki - resample_tmp) * (resample_lki - resample_mean);
         resample_mean = resample_tmp;
+        //printf("\t%d -- %f -- %f -- %f\n", i, resample_lki,resample_mean, ((i==1)?0.0:(resample_var/(i-1))) );
     }
     free( cdf );
     free( sll );
@@ -1505,14 +1521,16 @@ rell_bootstrap( double* mean, double* var, const mll* a, const double* ws, const
 
 value
 likelihood_CAML_rell_bootstrap_wrapped( value s, value w, value pi, value prob,
-                                        value pinvar, value mpl, value rep)
+                                    value pinvar, value mpl, value rep, value ni)
 {
     CAMLparam5( s,w,pi,prob,pinvar );
-    CAMLxparam2( mpl,rep );
+    CAMLxparam3( mpl,rep,ni );
     CAMLlocal1( ret );
     double mean, var;
+    int n;
+    n = (Val_none == ni) ? -1 : Some_val(ni);
     rell_bootstrap(&mean, &var, ML_val(s), Data_bigarray_val(w), Data_bigarray_val(pi),
-                   Data_bigarray_val(prob), Double_val(pinvar), Int_val(mpl), Int_val(rep));
+                Data_bigarray_val(prob), Double_val(pinvar), Int_val(mpl), Int_val(rep), n);
     ret = caml_alloc_tuple( 2 );
     Store_field(ret, 0, caml_copy_double( mean ));
     Store_field(ret, 1, caml_copy_double( var ));
@@ -1521,7 +1539,7 @@ likelihood_CAML_rell_bootstrap_wrapped( value s, value w, value pi, value prob,
 
 value likelihood_CAML_rell_bootstrap( value * argv, int argn ){
     return likelihood_CAML_rell_bootstrap_wrapped
-                (argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6]);
+                (argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7]);
 }
 
 /** SSE functions for medians */

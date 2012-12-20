@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2975 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3001 $"
 
 module IntSet = All_sets.Integers
 
@@ -1824,21 +1824,17 @@ let output_clade_file data fn counter tree =
 
 
 let runtime_store rediagnose run meth =
-    let store name run clas =
-        match clas with
-        | `Data -> Hashtbl.replace run.data_store name (run.data, run.nodes)
-        | `Trees -> Hashtbl.replace run.tree_store name run.trees
-        | `Bremer -> Hashtbl.replace run.bremer_store name run.bremer_support
-        | `Jackknife -> 
-                Hashtbl.replace run.jackknife_store name run.jackknife_support
-        | `Bootstrap -> 
-                Hashtbl.replace run.bootstrap_store name run.bootstrap_support
+    let store name run clas = match clas with
+        | `Data      -> Hashtbl.replace run.data_store name (run.data, run.nodes)
+        | `Trees     -> Hashtbl.replace run.tree_store name run.trees
+        | `Bremer    -> Hashtbl.replace run.bremer_store name run.bremer_support
+        | `Jackknife -> Hashtbl.replace run.jackknife_store name run.jackknife_support
+        | `Bootstrap -> Hashtbl.replace run.bootstrap_store name run.bootstrap_support
     in
-    let remove name run clas =
-        match clas with
-        | `Data -> Hashtbl.remove run.data_store name 
-        | `Trees -> Hashtbl.remove run.tree_store name
-        | `Bremer -> Hashtbl.remove run.bremer_store name
+    let remove name run clas = match clas with
+        | `Data      -> Hashtbl.remove run.data_store name 
+        | `Trees     -> Hashtbl.remove run.tree_store name
+        | `Bremer    -> Hashtbl.remove run.bremer_store name
         | `Jackknife -> Hashtbl.remove run.jackknife_store name
         | `Bootstrap -> Hashtbl.remove run.bootstrap_store name
     in
@@ -2242,7 +2238,7 @@ let rec handle_support_output run meth = match meth with
                                     let r = AsciiTree.to_string ~sep:2 ~bd:6 true x in
                                     Status.user_message fo ("@[@[<v>@[" ^ title ^ "@ Support@ tree@]@,@[");
                                     Status.user_message fo r;
-                                    Status.user_message fo "@,@]@]@]%!";)
+                                    Status.user_message fo "@,@]@]@]%!")
                                 trees;
                 end
             | None ->
