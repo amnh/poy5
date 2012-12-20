@@ -1068,38 +1068,34 @@ module CharacterSelection = struct
             with _ -> false
         in
         let rec add_static_type enc code st_type data =
-            let observed = List.length enc.Nexus.File.st_observed in
-            let between x y = observed >= x && observed <= y in
+            let observed = List.length enc.Nexus.File.st_observed   in
+            let between x y = observed >= x && observed <= y        in
+            let is_zero_weight enc = enc.Nexus.File.st_weight = 0.0 in
             begin match st_type with
-                | Nexus.File.STSankoff _ ->
-                    classify_sankoff code data
+                | _ when is_zero_weight enc -> data
+                | Nexus.File.STSankoff _    -> classify_sankoff code data
                 | Nexus.File.STOrdered when observed > 1 ->
                     {data with additive = code :: data.additive }
-                | Nexus.File.STOrdered   -> data
-                | Nexus.File.STUnordered ->
+                | Nexus.File.STOrdered      -> data
+                | Nexus.File.STUnordered    ->
                     if between 0 1 then
-                        { data with
-                            non_additive_1 = code :: data.non_additive_1 }
+                        {data with non_additive_1  = code::data.non_additive_1 }
                     else if between 2 8 then
-                        { data with
-                            non_additive_8 = code :: data.non_additive_8 }
+                        {data with non_additive_8  = code::data.non_additive_8 }
                     else if between 9 16 then
-                        { data with
-                            non_additive_16 = code :: data.non_additive_16 }
+                        {data with non_additive_16 = code::data.non_additive_16}
                     else if between 17 32 then
-                        { data with 
-                            non_additive_32 = code :: data.non_additive_32 }
+                        {data with non_additive_32 = code::data.non_additive_32}
                     else if observed > 32 then
-                        { data with
-                            non_additive_33 = code :: data.non_additive_33 }
-                    else 
+                        {data with non_additive_33 = code::data.non_additive_33}
+                    else
                         assert false
                 (** Ignore Absent/Present Columns under likelihood *)
                 | Nexus.File.STNCM _        when absent_present enc -> data
                 | Nexus.File.STLikelihood _ when absent_present enc -> data
                 | Nexus.File.STLikelihood _ ->
                     { data with static_ml = code :: data.static_ml }
-                | Nexus.File.STNCM (_,_,t) ->
+                | Nexus.File.STNCM (_,_,t)  ->
                     add_static_type enc code t data
             end
         in
