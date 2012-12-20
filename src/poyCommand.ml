@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2987 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3008 $"
 
 let debug = false 
 
@@ -452,19 +452,12 @@ let transform_transform acc (id, x) =
             | `Tcm (f,l_and_tb) -> 
                     (`Assign_Transformation_Cost_Matrix ((Some ((`Local f),l_and_tb)), id)) :: acc
             | `SearchBased f -> (`Search_Based (f,id)) :: acc
-            | `Gap (a, b) -> 
-                    (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
-            | `AffGap (c) ->
-                    (`Assign_Affine_Gap_Cost (c, id)) ::
-                        acc
-            | `PrepInput x ->
-                    (`Assign_Prep_Cost ((`Array x), id)) :: acc
-            | `PrepFile x ->
-                    (`Assign_Prep_Cost ((`File (`Local x)), id)) :: acc
-            | `TailInput x ->
-                    (`Assign_Tail_Cost ((`Array x), id)) :: acc
-            | `TailFile x ->
-                    (`Assign_Tail_Cost ((`File (`Local x)), id)) :: acc
+            | `Gap (a, b) -> (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
+            | `AffGap c -> (`Assign_Affine_Gap_Cost (c, id)) :: acc
+            | `PrepInput x -> (`Assign_Prep_Cost ((`Array x), id)) :: acc
+            | `PrepFile x -> (`Assign_Prep_Cost ((`File (`Local x)), id)) :: acc
+            | `TailInput x -> (`Assign_Tail_Cost ((`Array x), id)) :: acc
+            | `TailFile x -> (`Assign_Tail_Cost ((`File (`Local x)), id)) :: acc
             | `MultiStaticApproximation noninf -> (`MultiStatic_Aprox (id, noninf)) :: acc
             | `StaticApproximation noninf -> (`Static_Aprox (id, noninf)) :: acc
             | `Automatic_Static_Aprox sens -> (`Automatic_Static_Aprox sens) :: acc
