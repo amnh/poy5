@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3003 $"
+let () = SadmanOutput.register "Node" "$Revision: 3011 $"
 
 let infinity = float_of_int max_int
 
@@ -2165,8 +2165,9 @@ let extract_fixedstates data fs tcode = (*tcode = taxon code*)
     match fs with
     | Data.FS code, _  -> (*code is charactor code belong to the taxons *)
         let specs = Hashtbl.find data.Data.character_specs code in
-        let specs, weight = match specs with
-            | Data.Static (Data.FixedStates fs_spec) ->  fs_spec, Data.get_weight_from_fs_spec fs_spec
+        let weight= Data.get_weight code data in
+        let specs = match specs with
+            | Data.Static (Data.FixedStates fs_spec) ->  fs_spec
             | _ -> failwith "extract fiexed states"
         in
         (* val off_array : Data.fixed_state_spec -> int -> t_w_seqtbl *)

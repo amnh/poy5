@@ -123,8 +123,6 @@ type fixed_state_spec =
         original_dynspec : dynamic_hom_spec;
     }
 
-val get_weight_from_fs_spec : fixed_state_spec -> float
-
 type distr =
     | MaxLength of int (* Any of the distributions with a maximum length *)
 
@@ -396,6 +394,8 @@ val taxon_code : string -> d -> int
 val get_tcm : int -> d -> tcm
 
 val get_weight : int -> d -> float
+
+val set_weight : int -> float -> d -> d
 
 val get_weights : d -> (int * float) list
 

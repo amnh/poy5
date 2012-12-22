@@ -550,9 +550,6 @@ module Accessor = struct
             hm
         | [] -> failwith "No Characters found"
 
-    let get_weight_from_fs_spec fs_spec =
-        fs_spec.original_dynspec.weight
-
     let get_all_taxon_active_codes data = 
         Hashtbl.fold (fun code _ acc -> code :: acc) data.taxon_characters [] 
 
@@ -6057,6 +6054,25 @@ let aux_transform_weight meth data =
 let transform_weight meth data = 
     let data = duplicate data in
     aux_transform_weight meth data;
+    data
+
+let set_weight c w data =
+    let ch = match Hashtbl.find data.character_specs c with
+        | Dynamic spec ->
+            Dynamic {spec with weight = w; }
+        | Static (NexusFile spec) ->
+            Static (NexusFile {spec with Nexus.File.st_weight = w;})
+        | Static (FixedStates spec) ->
+            let ch = 
+                {spec with
+                    original_dynspec = 
+                        {spec.original_dynspec with weight = w;}}
+            in
+            Static (FixedStates ch)
+        | Set -> assert false
+        | Kolmogorov _ -> assert false
+    in
+    Hashtbl.replace data.character_specs c ch;
     data
 
 

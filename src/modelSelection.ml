@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 3010 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 3011 $"
 
 let ndebug = true
 
@@ -297,7 +297,7 @@ struct
 
     (** [best_model] return the optimial tree from stats *)
     let best_model stats =
-        stats.tree_stats.( fst stats.min_ic ).tree
+        stats.tree_stats.(fst stats.min_ic).tree
 
     (** [stats_of_tree] fill stats of criteria tests from a ML tree. Warning is
         used to tell the user when a situation occurs that the number of
@@ -399,36 +399,25 @@ struct
             assert( (fst_trp tree_stats.(fst min_ic).ic) = (snd min_ic) );
             { tree_stats = tree_stats; min_ic = min_ic; type_ic = x.type_ic; }
 
-    (** [report_stats] currently a debug function for reporting information *)
+    (** [report_stats] function for reporting information in a table. *)
     let report_stats stats chars : string array array =
         let ic_name = match stats.type_ic with 
              | `AIC -> "AIC" | `AICC -> "AICc" | `BIC -> "BIC"
         in
         let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
-        let () = match stats.type_ic with
-            | `AIC ->
-                ret.(0) <- [| "Model"; "-log(LK)"; "K"; ic_name; "delta"; "weight"; "cum(w)"; |]
-            | `AICC | `BIC ->
-                ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |]
-        in
+        ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |];
         let warning = ref false in
         Array.fold_left
             (fun (i,w_cum) (({ic=(ic,d_ic,w_ic)}) as s) ->
                 let charn = Data.get_chars_codes_comp s.tree.Ptree.data chars in
                 let model = Data.get_likelihood_model s.tree.Ptree.data charn in
                 warning := !warning || ((i>1) && (d_ic < 4.00));
-                let i_array = match stats.type_ic with
-                    | `AIC -> 
-                        [| (MlModel.short_name model);  (string_of_float s.lk);
-                           (string_of_int (parameter_cardinality s.tree chars));
-                           (string_of_float ic);  (string_of_float d_ic);
-                           (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |]
-                    | `AICC | `BIC -> 
-                        [| (MlModel.short_name model);  (string_of_float s.lk);
-                           (string_of_int (parameter_cardinality s.tree chars));
-                           (string_of_int (sample_size s.tree chars));
-                           (string_of_float ic);  (string_of_float d_ic);
-                           (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |]
+                let i_array =
+                    [| (MlModel.short_name model);  (string_of_float s.lk);
+                       (string_of_int (parameter_cardinality s.tree chars));
+                       (string_of_int (sample_size s.tree chars));
+                       (string_of_float ic);  (string_of_float d_ic);
+                       (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |]
                 in
                 ret.(i) <- i_array;
                 ((i+1),(w_cum +. w_ic)))
@@ -458,14 +447,34 @@ struct
         let stats = stats_of_models dmodels ic chars model tree in
         stats
 
+    (** To only optimize a subset of the characters, let weight the characters
+        to 0 first, then unapply it later with sister function. *)
+    let collect_character_weights tree =
+        List.fold_left
+            (fun acc (c,f) -> All_sets.IntegerMap.add c f acc)
+            (All_sets.IntegerMap.empty)
+            (Data.get_weights (Ptree.get_data tree))
+
+    (** Reapply previous weights to a set of characters *)
+    and reweight_characters weights chars tree =
+        let data = Data.duplicate (Ptree.get_data tree) in
+        let data = 
+            List.fold_left
+                (fun d c ->
+                    Data.set_weight c (All_sets.IntegerMap.find c weights) d)
+                data (Data.get_chars_codes_comp data chars)
+        in
+        Ptree.set_data tree data
+
     (** [set_characters_weight] isolate a set of characters by transforming the
-        weights. The ones passed to 1.0, and others to 0.0. *)
-    let set_characters_weight tree achars chars =
+        weights. The ones passed to previous value, and others to 0.0. *)
+    let set_characters_weight tree weights achars chars =
         let n_data =
             let data   = Ptree.get_data tree in
             let nchars = Data.complement_characters_comp data chars in
             let nchars = Data.intersect_characters_comp data achars nchars in
-            data --> Data.transform_weight (`ReWeight ( chars,1.0))
+            tree --> reweight_characters weights chars
+                 --> Ptree.get_data
                  --> Data.transform_weight (`ReWeight (nchars,0.0))
                  --> Data.categorize
         in
@@ -478,16 +487,15 @@ struct
         and table_out = match report_table with
             | None   -> (fun _ _ -> ())
             | Some x -> (fun s c -> x (report_stats s c))
-        and data = Ptree.get_data t in
-        let charss = Data.categorize_characters_by_alphabet_size_comp data chars in
+        in
         (* fold over each character, optimizing it, while setting
             other-character weights to 0 *)
-        let _, t =
+        let optimize_tree weights t charss = 
             let status = status (List.length charss) in
             List.fold_left
                 (fun (i,t) ((s,c) : int * Data.bool_characters) ->
                     let x  = replace_chars_in_spec c x in
-                    let t  = set_characters_weight t chars c in
+                    let t  = set_characters_weight t weights chars c in
                     let s  = generate_stats t x in
                     let () = table_out s c in
                     let t  = best_model s in
@@ -495,10 +503,15 @@ struct
                     (i+1,t))
                 (0,t)
                 charss
+            --> snd
         in
-        (* rediagnose tree with combined data-sets of each character *)
         let data,nodes =
-            t   --> Ptree.get_data
+            let data = Data.transform_weight (`ReWeight (`All ,0.0)) (Ptree.get_data t) in
+            let c = Data.categorize_characters_by_alphabet_size_comp data chars in
+            let weights = collect_character_weights t in
+            c   --> optimize_tree weights (Ptree.set_data t data)  
+                --> reweight_characters weights `All
+                --> Ptree.get_data
                 --> Data.transform_weight (`ReWeight (chars,1.0))
                 --> Data.categorize
                 --> Node.load_data
