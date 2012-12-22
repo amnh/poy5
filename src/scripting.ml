@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3001 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3010 $"
 
 module IntSet = All_sets.Integers
 
@@ -1309,29 +1309,10 @@ let report_memory () =
         --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
         --> fun x -> x ^ "@]@]@,%!"
 
+
 let explode_filenames files =
-    (*
-IFDEF USEPARALLEL THEN
-    let is_master = 0 = Mpi.comm_rank Mpi.comm_world in
-    let files = 
-        try
-            `Normal 
-                (if is_master then
-                    Parser.explode_filenames files 
-                else [])
-        with
-        | err -> `Error (Printexc.to_string err)
-    in
-    match Mpi.broadcast files 0 Mpi.comm_world with
-    | `Normal files -> List.map (fun x -> `Remote x) files 
-    | `Error str -> 
-            failwith ("Failed reading file with exception " ^ str)
-ELSE
-    *)
    List.map (fun x -> `Local x)  (Parser.Wildcard.explode_filenames files)
-   (*
-END
-   *)
+
 
 (* this function differs from update_trees_to_data in that we do not modify the
  * data of the trees, or update the data to the tree (if load_data is false).
@@ -1464,186 +1445,143 @@ let process_transform (run : r) (meth : Methods.transform) =
             { run with nodes = nodes; data = data; trees = trees }
 
 let load_data (meth : Methods.input) data nodes =
-    let debug = false in
     let prealigned_files = ref [] in
     let rec reader annotated is_prealigned data (meth : Methods.simple_input) = 
         match meth with
         | `Poyfile files ->
-                failwith "TODO"
-                (*
-                let files = Parser.explode_filenames files in
-                List.fold_left Parser.of_file data files
-                *)
+            failwith "TODO"
         | `AutoDetect files ->
-                let files = explode_filenames files in
-                if is_prealigned then
-                    prealigned_files := files :: !prealigned_files;
-                let data =
-                    List.fold_left
-                        (Data.guess_class_and_add_file annotated is_prealigned)
-                        data
-                        files
-                in
-                data
-
+            let files = explode_filenames files in
+            if is_prealigned then
+                prealigned_files := files :: !prealigned_files;
+            List.fold_left
+                (Data.guess_class_and_add_file annotated is_prealigned)
+                data files
         | `PartitionedFile files 
         | `Nucleotides files  as meth ->
-                let mode = 
-                    match meth with
-                    | `PartitionedFile _ -> `Partitioned Data.Clip
-                    | `Nucleotides _ -> `DO
-                in
-                let files = explode_filenames files in
-                let data = 
-                    List.fold_left 
+            let mode = match meth with
+                | `PartitionedFile _ -> `Partitioned Data.Clip
+                | `Nucleotides _ -> `DO
+            in
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
-                in
-                if is_prealigned then prealigned_files := files ::
-                    !prealigned_files;
-                List.fold_left 
-                    (fun d f -> 
-                        Data.process_molecular_file
-                                Data.default_tcm
-                                Cost_matrix.Two_D.default
-                                Cost_matrix.Two_D.default
-                                Cost_matrix.Three_D.default annotated
-                                Alphabet.nucleotides mode is_prealigned `Seq d f)
+            in
+            if is_prealigned then
+                prealigned_files := files :: !prealigned_files;
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file Data.default_tcm
+                            Cost_matrix.Two_D.default Cost_matrix.Two_D.default
+                            Cost_matrix.Three_D.default annotated
+                            Alphabet.nucleotides mode is_prealigned `Seq d f)
                 data files
+        (** read chromosome data from files each chromosome is presented simply
+            as a long plain nucleotide sequences *)
         | `Chromosome files ->
-(** read chromosome data from files each chromosome is 
-* presented simply as a long plain nucleotide sequences *)
-                let files = explode_filenames files in
-                let data = 
-                    List.fold_left 
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
-                in
-                List.fold_left 
-                    (fun d f ->
-                        Data.process_molecular_file
-                                Data.default_tcm
-                                Cost_matrix.Two_D.default 
-                                Cost_matrix.Two_D.default 
-                                Cost_matrix.Three_D.default annotated
-                                Alphabet.nucleotides `DO false `Chromosome d f)
-                    data files
-        | `Genome files -> 
-(** read genome data from files each genome is 
-* presented as a sequence of chromosomes separated by @ signs *)
-                let files = explode_filenames files in
-                let data = 
-                    List.fold_left 
+            in
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file Data.default_tcm
+                            Cost_matrix.Two_D.default Cost_matrix.Two_D.default
+                            Cost_matrix.Three_D.default annotated
+                            Alphabet.nucleotides `DO false `Chromosome d f)
+                data files
+        (** read genome data from files each genome is presented as a sequence
+            of chromosomes separated by @ signs *)
+        | `Genome files ->
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
-                in
-                let data =
-                    List.fold_left
-                        (fun d f ->
-                            Data.process_molecular_file
-                                    Data.default_tcm
-                                    Cost_matrix.Two_D.default 
-                                    Cost_matrix.Two_D.default 
-                                    Cost_matrix.Three_D.default annotated
-                                    Alphabet.nucleotides `DO false `Genome d f)
-                        data files
-                in 
-                data
+            in
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file Data.default_tcm
+                            Cost_matrix.Two_D.default Cost_matrix.Two_D.default
+                            Cost_matrix.Three_D.default annotated
+                            Alphabet.nucleotides `DO false `Genome d f)
+                data files
         | `Aminoacids (files,read_options) ->
-                let files = explode_filenames files in
-                let data = 
-                    List.fold_left 
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
-                in
-                let is_prealigned = List.mem (`Prealigned) read_options in
-                if is_prealigned then prealigned_files := files ::
-                    !prealigned_files;
-                let init3D = (List.mem (`Init3D true) read_options) in
-                let alpha = 
-                    if init3D then Alphabet.aminoacids_use_3d
-                    else Alphabet.aminoacids in
-                let dynastate,default_mode = 
-                    if is_prealigned then 
-                        `SeqPrealigned,`GeneralNonAdd 
-                    else `CustomAlphabet,`DO in
-                List.fold_left 
-                    (fun d f -> 
-                        Data.process_molecular_file 
-                                    Data.default_tcm
-                                    Cost_matrix.Two_D.default_aminoacids
-                                    Cost_matrix.Two_D.default_aminoacids
-                                    (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                                    annotated alpha default_mode is_prealigned dynastate d f)
-                    data files
+            in
+            let is_prealigned = List.mem (`Prealigned) read_options in
+            if is_prealigned then
+                prealigned_files := files :: !prealigned_files;
+            let init3D = List.mem (`Init3D true) read_options in
+            let alpha =
+                if init3D then Alphabet.aminoacids_use_3d
+                          else Alphabet.aminoacids
+            in
+            let dynastate,default_mode =
+                if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
+                                 else `CustomAlphabet,`DO
+            in
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file Data.default_tcm
+                        Cost_matrix.Two_D.default_aminoacids Cost_matrix.Two_D.default_aminoacids
+                        (Lazy.force Cost_matrix.Three_D.default_aminoacids)
+                        annotated alpha default_mode is_prealigned dynastate d f)
+                data files
         | `GeneralAlphabetSeq (f, alph, read_options) ->
-                let data = Data.add_file data [Data.Characters] f in
-                let orientation =
-                    (List.mem (`Orientation false) read_options) 
-                in
-                let init3D = (List.mem (`Init3D true) read_options) in
-                let is_prealigned = List.mem (`Prealigned) read_options in
-                (*get tie breaker for cost matrix*)
-                let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
-                let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
-                let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
-                if debug then 
-                    Printf.printf "scripting.ml, load custom alphabet,with tie_breaker:(%b,%b,%b)\n%!" tie_breaker_first
-                    tie_breaker_last tie_breaker_random;
-                let tb = (*we use First as custom alphabet's tie breaker*)
-                    if tie_breaker_first then `First
-                    else if tie_breaker_last then `Last
-                    else if tie_breaker_random then `Keep_Random
-                    else `First
-                in
-                (*let data = Data.add_file data [Data.Characters] f in*)
-                (* read the alphabet and tcm *)
-                let level = 2 in (* set level = 2 by default *)
-                let respect_case = true in
-                let alphabet, (twod_full,twod_original,matrix), threed =
-                    Alphabet.of_file alph orientation init3D level respect_case tb
-                in
-                if debug then begin
-                    Printf.printf "check alphabet:\n%!";
-                    Alphabet.print alphabet;
-                end;
-                (*to do : connect this to prealigned*)
-                if is_prealigned then prealigned_files := [f] ::
-                    !prealigned_files;
-                let dynastate,default_mode = 
-                    if is_prealigned then 
-                        `SeqPrealigned,`GeneralNonAdd 
-                    else `CustomAlphabet,`DO in
-                (*else `Seq,`DO in*)
-                let tcmfile = FileStream.filename alph in
-                Data.process_molecular_file
-                        ~respect_case:respect_case
-                        (Data.Input_file (tcmfile,matrix))
-                        twod_full twod_original threed annotated alphabet default_mode
-                        is_prealigned dynastate data f 
+            let data = Data.add_file data [Data.Characters] f in
+            let orientation = List.mem (`Orientation false) read_options in
+            let init3D = List.mem (`Init3D true) read_options in
+            let is_prealigned = List.mem (`Prealigned) read_options in
+            let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
+            let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
+            let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
+            let tb = (*we use First as custom alphabet's tie breaker*)
+                if tie_breaker_first then `First
+                else if tie_breaker_last then `Last
+                else if tie_breaker_random then `Keep_Random
+                else `First
+            in
+            let level = 2 in
+            let respect_case = true in
+            let alphabet, (twod_full,twod_original,matrix), threed =
+                Alphabet.of_file alph orientation init3D level respect_case tb
+            in
+            if is_prealigned then
+                prealigned_files := [f] :: !prealigned_files;
+            let dynastate,default_mode =
+                if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
+                                 else `CustomAlphabet,`DO
+            in
+            let tcmfile = FileStream.filename alph in
+            Data.process_molecular_file ~respect_case:respect_case
+                    (Data.Input_file (tcmfile,matrix)) twod_full twod_original
+                    threed annotated alphabet default_mode is_prealigned dynastate data f
+        (** read breakinv data from files each breakinv is presented as a
+            sequence of general alphabets *)
         | `Breakinv (seq, alph, read_options) ->
-                (** read breakinv data from files each breakinv is 
-                 * presented as a sequence of general alphabets *)
-                let data = Data.add_file data [Data.Characters] seq in
-                (*orientation is set to true by default*)
-                let orientation =
-                    if (List.mem (`Orientation false) read_options) then false
-                    else true
-                in
-                let init3D = (List.mem (`Init3D true) read_options) in
-                let data = Data.add_file data [Data.Characters] seq in
-                (* read the alphabet and tcm *)
-                let respect_case = true in
-                let alphabet, (twod,twod_ori,matrix), threed =
-                    Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
-                and tcmfile = FileStream.filename alph in
-                Data.process_molecular_file 
-                        (Data.Input_file (tcmfile,matrix))
-                        twod twod_ori threed annotated alphabet `DO
-                        is_prealigned `Breakinv data seq
+            let data = Data.add_file data [Data.Characters] seq in
+            let orientation = not (List.mem (`Orientation false) read_options) in
+            let init3D = (List.mem (`Init3D true) read_options) in
+            let data = Data.add_file data [Data.Characters] seq in
+            let respect_case = true in
+            let alphabet, (twod,twod_ori,matrix), threed =
+                Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
+            and tcmfile = FileStream.filename alph in
+            Data.process_molecular_file (Data.Input_file (tcmfile,matrix)) twod
+                    twod_ori threed annotated alphabet `DO is_prealigned
+                    `Breakinv data seq
         | `ComplexTerminals files ->
-                List.fold_left Data.process_complex_terminals data 
-                (explode_filenames files)
+            List.fold_left Data.process_complex_terminals data
+                           (explode_filenames files)
 
     and annotated_reader data (meth : Methods.input) =
         match meth with

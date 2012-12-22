@@ -937,6 +937,24 @@ module CharacterSelection = struct
     let get_chars_codes_comp data ch =
         character_comp_wrapper get_chars_codes data ch
 
+    (** return the complement of bool_characters *)
+    let complement_characters_comp d ch = match ch with
+        | `Some (x, y)     -> `Some (not x, y)
+        | `Names (x, y)    -> `Names (not x, y)
+        | `CharSet (x, y)  -> `CharSet (not x, y)
+        | `Range (x,f,a,b) -> `Range (not x,f,a,b)
+        | `Random x        -> `Random (1.0 -. x)
+        | `Missing (x,y)   -> `Missing (not x, y)
+        | `All             -> `Some (true,[])
+        | `AllStatic       -> `Some (false,get_chars_codes_comp d ch)
+        | `AllDynamic      -> `Some (false,get_chars_codes_comp d ch)
+
+    (** return set intersection of characters; restrict set ch2 by ch1. *)
+    let intersect_characters_comp d ch1 ch2 =
+        let ch2 = get_chars_codes_comp d ch2
+        and ch1 = get_chars_codes_comp d ch1 in
+        `Some (true, List.filter (fun x -> List.mem x ch1) ch2)
+
     (** return a list of all named character sets from chars *)
     let categorize_sets data chars : int list list =
         let categorize (map : int list All_sets.StringMap.t) (c : int) =
@@ -959,7 +977,7 @@ module CharacterSelection = struct
 
     (** categorize characters by pairing. This is to abstract the categorize by
         alphabet function for other cases; observed, et cetera *)
-    let categorize_by_pairs data chars : (int * bool_characters) list =
+    let categorize_by_pairs data chars : (int * characters) list =
          let classify_by_size list =
             let sets =
                 List.fold_left
@@ -973,12 +991,12 @@ module CharacterSelection = struct
                     list
             in
             All_sets.IntegerMap.fold
-                (fun a b acc -> (a, `Some (true, b)) :: acc) sets []
+                (fun a b acc -> (a, `Some b) :: acc) sets []
         in
         classify_by_size chars
     
     (** categorize characters by the distinct alphabet size *)
-    let categorize_characters_by_alphabet_size data chars : (int * bool_characters) list =
+    let categorize_characters_by_alphabet_size data chars : (int * characters) list =
         let make_tuple_of_character_and_size char =
             let size =
                 char --> get_alphabet data
@@ -1125,8 +1143,10 @@ module CharacterSelection = struct
         character_comp_wrapper categorize_sets data chars
     
     let categorize_characters_by_alphabet_size_comp data (chars:bool_characters) =
-        character_comp_wrapper categorize_characters_by_alphabet_size data chars 
-
+        List.map
+            (fun (s,c) -> match c with
+                | `Some c -> (s,`Some (true,c)) | _ -> assert false)
+            (character_comp_wrapper categorize_characters_by_alphabet_size data chars)
 end
 include CharacterSelection
 open CharacterSelection
@@ -4673,7 +4693,7 @@ let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spe
         data
     in
     let transform_char_set data (size,chars) =
-        let chars = get_chars_codes_comp data chars in
+        let chars = get_chars_codes data chars in
         let alph_size,alph = verify_alphabet data chars alph in
         (* testing that size=alph_size will not work since, alph_size is based
            on the size of the alphabet, where alph_size is observed size, or

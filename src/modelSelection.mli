@@ -107,6 +107,11 @@ module type S = sig
         create a stats object; most convenient entry point. *)
     val generate_stats : tree -> Methods.ml_spec -> stats
         
+    (** [optimize_tree_and_report] Optimize the given tree with reports;
+        supports multiple characters. *)
+    val optimize_tree_and_report :
+        (string array array -> unit) option -> (int -> Status.status) -> tree
+            -> Methods.ml_spec -> tree
 end
 
 module Make :

@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2929 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 3010 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1188,7 +1188,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             | css ->
                 List.fold_left
                     (fun data (_,b_chars) ->
-                        let cs = Data.get_chars_codes_comp data b_chars in
+                        let cs = Data.get_chars_codes data b_chars in
                         let csa= Array.of_list cs in
                         let _,alpha = Data.verify_alphabet data cs `Max in
                         if ap_alph alpha then
@@ -1210,7 +1210,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             | css ->
                 List.fold_left
                     (fun data (_,b_chars) ->
-                        let cs = Data.get_chars_codes_comp data b_chars in
+                        let cs = Data.get_chars_codes data b_chars in
                         let _,alpha = Data.verify_alphabet data cs `Max in
                         (Some cs,a,b,c,d,e,f)
                             --> estimate_dynamic_lk_model tree data bs alpha
@@ -1236,19 +1236,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 trees, data, nodes
             end else begin
                 let trees =
-                    let file = match c with
-                        | `AIC  file -> file
-                        | `AICC file -> file
-                        | `BIC  file -> file
+                    let f = match c with | `AIC f | `AICC f | `BIC f -> f in
+                    let table_out =
+                        Some (Status.output_table (Status.Output (f,false,[])))
+                    and st i =
+                        Status.create "Model Selection" (Some i) "Optimizing Character"
                     in
-                    let table_out = Status.output_table (Status.Output (file,false,[])) in
                     Sexpr.fold_status
                         "Running model estimation on each tree"
                         ~eta:true
                         (fun tsexp t ->
-                            let stats = MS.generate_stats t x in
-                            let ()    = table_out (MS.report_stats stats chars) in
-                            let t     = MS.best_model stats in
+                            let t = MS.optimize_tree_and_report table_out st t x in
                             Sexpr.union (`Single t) tsexp)
                         `Empty
                         trees

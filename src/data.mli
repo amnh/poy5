@@ -449,7 +449,7 @@ val categorize_characters_by_alphabet_size_comp :
     d -> bool_characters -> (int * bool_characters) list
 
 val categorize_characters_by_alphabet_size : 
-    d -> characters -> (int * bool_characters) list
+    d -> characters -> (int * characters) list
 
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
@@ -521,6 +521,10 @@ val process_ignore_characters : bool -> d -> characters -> d
 val process_ignore_characters_file : bool -> d -> FileStream.f -> d
 
 val complement_characters : d -> characters -> [ `All | `Some of int list | `Names of string list ]
+
+val complement_characters_comp : d -> bool_characters -> bool_characters
+
+val intersect_characters_comp :  d -> bool_characters -> bool_characters -> bool_characters
 
 val complement_taxa : d -> int list -> int list
 

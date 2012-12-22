@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2924 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 3010 $"
 
 let ndebug = true
 
@@ -80,6 +80,10 @@ module type S = sig
         (MlModel.model -> float option) -> stats -> Data.bool_characters -> float * float
 
     val generate_stats : tree -> Methods.ml_spec -> stats
+
+    val optimize_tree_and_report :
+        (string array array -> unit) option -> (int -> Status.status) -> tree
+            -> Methods.ml_spec -> tree
 end
 
 module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
@@ -237,16 +241,9 @@ struct
                 All_sets.IntegerMap.empty
                 nodes
         in
-        let tree =
-            { tree with Ptree.node_data = node_data; Ptree.data = data; }
-                --> TreeOps.downpass
-                --> TreeOps.uppass
-        in
-        let charn = Data.get_chars_codes_comp tree.Ptree.data chars in
-        let model = Data.get_likelihood_model tree.Ptree.data charn in
-        info_user_message "Optimized %s to %f"
-            (MlModel.short_name model) (negative_loglikelihood tree chars);
-        tree
+        { tree with Ptree.node_data = node_data; Ptree.data = data; }
+            --> TreeOps.downpass
+            --> TreeOps.uppass
 
 
     (** {2 General Information Metrics for Model Selection *)
@@ -322,14 +319,6 @@ struct
         models, used as a basis for all *IC methods. *)
     let stats_of_models specs ic (chars : Data.bool_characters) spec tree =
         assert ( match specs with | [] -> false | _ -> true );
-        let () = match chars with
-            | `All -> ()
-            | char ->
-                error_user_message
-                    ("Currently@ using@ %s@ as@ a@ subset@ of@ characters"^^
-                     "@ is@ not@ supported.@ Only@ all@ is@ allowed.")
-                    (Data.string_of_characters_comp char)
-        in
         let warning = ref false in
         let tree_stats =
             specs --> Array.of_list
@@ -427,7 +416,7 @@ struct
             (fun (i,w_cum) (({ic=(ic,d_ic,w_ic)}) as s) ->
                 let charn = Data.get_chars_codes_comp s.tree.Ptree.data chars in
                 let model = Data.get_likelihood_model s.tree.Ptree.data charn in
-                warning := !warning || (d_ic < (4.00 +. Numerical.tolerance));
+                warning := !warning || ((i>1) && (d_ic < 4.00));
                 let i_array = match stats.type_ic with
                     | `AIC -> 
                         [| (MlModel.short_name model);  (string_of_float s.lk);
@@ -442,7 +431,7 @@ struct
                            (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |]
                 in
                 ret.(i) <- i_array;
-                ((i+1),(w_cum +. w_ic)) )
+                ((i+1),(w_cum +. w_ic)))
             (1,0.0)
             stats.tree_stats
             --> ignore;
@@ -469,6 +458,60 @@ struct
         let stats = stats_of_models dmodels ic chars model tree in
         stats
 
+    (** [set_characters_weight] isolate a set of characters by transforming the
+        weights. The ones passed to 1.0, and others to 0.0. *)
+    let set_characters_weight tree achars chars =
+        let n_data =
+            let data   = Ptree.get_data tree in
+            let nchars = Data.complement_characters_comp data chars in
+            let nchars = Data.intersect_characters_comp data achars nchars in
+            data --> Data.transform_weight (`ReWeight ( chars,1.0))
+                 --> Data.transform_weight (`ReWeight (nchars,0.0))
+                 --> Data.categorize
+        in
+        Ptree.set_data tree n_data
+
+    (** [optimize_tree_and_report o t c] Report and generate the best tree by
+        composing the models for each character. *)
+    let optimize_tree_and_report report_table status t ((chars,_,_,_,_,_,_) as x) =
+        let replace_chars_in_spec z (_,a,b,c,d,e,f) = (z,a,b,c,d,e,f)
+        and table_out = match report_table with
+            | None   -> (fun _ _ -> ())
+            | Some x -> (fun s c -> x (report_stats s c))
+        and data = Ptree.get_data t in
+        let charss = Data.categorize_characters_by_alphabet_size_comp data chars in
+        (* fold over each character, optimizing it, while setting
+            other-character weights to 0 *)
+        let _, t =
+            let status = status (List.length charss) in
+            List.fold_left
+                (fun (i,t) ((s,c) : int * Data.bool_characters) ->
+                    let x  = replace_chars_in_spec c x in
+                    let t  = set_characters_weight t chars c in
+                    let s  = generate_stats t x in
+                    let () = table_out s c in
+                    let t  = best_model s in
+                    let () = Status.full_report ~adv:(i+1) status in
+                    (i+1,t))
+                (0,t)
+                charss
+        in
+        (* rediagnose tree with combined data-sets of each character *)
+        let data,nodes =
+            t   --> Ptree.get_data
+                --> Data.transform_weight (`ReWeight (chars,1.0))
+                --> Data.categorize
+                --> Node.load_data
+        in
+        let node_data =
+            List.fold_left
+                (fun acc x -> All_sets.IntegerMap.add (Node.taxon_code x) x acc)
+                All_sets.IntegerMap.empty
+                nodes
+        in
+        {t with Ptree.node_data = node_data; Ptree.data = data; }
+            --> TreeOps.downpass
+            --> TreeOps.uppass
 end
 
 (** Test against the scripting module Phylo; we use magic to transform the
