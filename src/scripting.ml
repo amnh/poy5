@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3010 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3014 $"
 
 module IntSet = All_sets.Integers
 
@@ -1702,30 +1702,29 @@ let temporary_transforms meths run =
 let output_clade_file data fn counter tree =
     let cost = Ptree.get_cost `Adjusted tree in
     let all_otus = Ptree.get_all_leaves_ids tree in
-
     (* Code borrowed from Support.bremer_to_sexpr *)
     let fn = fn ^ string_of_int (counter ()) ^ ".hen" in
     let file = open_out fn in
     output_string file
         ("xread\n'Clades file for tree with cost "
          ^ string_of_float cost ^ "'\n");
-
     let visit (Tree.Edge (h, n)) =
         let otus = Ptree.get_leaves n tree in
         let n_otus = List.length otus in
         if n_otus = 1
         then None
         else
-            let otu_set = List.fold_left
-                (fun set elt -> All_sets.Integers.add
-                     (Node.taxon_code elt)
-                     set) All_sets.Integers.empty otus in
+            let otu_set =
+                List.fold_left
+                    (fun set elt ->
+                        All_sets.Integers.add
+                            (Node.taxon_code elt) set)
+                    All_sets.Integers.empty otus
+            in
             Some (otu_set)
     in
-
     let list =
-        let visit edge list =
-            match visit edge with
+        let visit edge list = match visit edge with
             | None -> (Tree.Continue, list)
             | Some s -> (Tree.Continue, s :: list) in
         let list_of_handle h acc =
@@ -1733,31 +1732,24 @@ let output_clade_file data fn counter tree =
         let handles = tree.Ptree.tree.Tree.handles in
         All_sets.Integers.fold list_of_handle handles []
     in
-
     output_string file
         (string_of_int (List.length list) ^ " "
          ^ string_of_int (List.length all_otus) ^ "\n");
     List.iter
         (fun otu ->
              output_string file
-                (let code = 
-                    Node.taxon_code (Ptree.get_node_data otu tree)
-                in
-                 try Data.code_taxon code data with
-                 | Not_found -> string_of_int code);
+                (let code = Node.taxon_code (Ptree.get_node_data otu tree) in
+                 try Data.code_taxon code data
+                 with | Not_found -> string_of_int code);
              output_string file "\n";
              List.iter
                  (fun set ->
                       output_string file
-                          (if All_sets.Integers.mem otu set
-                           then "1"
-                           else "0"))
+                          (if All_sets.Integers.mem otu set then "1" else "0"))
                  list;
              output_string file "\n")
         all_otus;
-
-    output_string file
-        ";\ncc-.;\nproc /;\n";
+    output_string file ";\ncc-.;\nproc /;\n";
     close_out file
 
 

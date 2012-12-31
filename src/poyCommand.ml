@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3008 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3014 $"
 
 let debug = false 
 
@@ -978,16 +978,15 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `ExplainScript script ->
             (`ExplainScript (script, file)) :: acc, file
     | `Clades -> 
-            begin match file with
+        begin match file with
             | None ->
-                    let msg = "Sorry,@ I@ need@ a@ filename@ to@ output@ " ^
+                let msg = "Sorry,@ I@ need@ a@ filename@ to@ output@ " ^
                     "the@ clades@ file.@ I@ will@ ignore@ your@ clades@ " ^
                     "request." in
-                    Status.user_message Status.Error msg;
-                    acc, file
-            | Some f ->
-                    (`Clades f) :: acc, file
-            end
+                Status.user_message Status.Error msg;
+                acc, file
+            | Some f -> (`Clades f) :: acc, file
+        end
     | `CrossReferences x -> (`CrossReferences (x, file)) :: acc, file
     | `TerminalsFiles -> (`TerminalsFiles file) :: acc, file
     | `Supports c -> (`Supports (c, file)) :: acc, file
@@ -2427,8 +2426,7 @@ let create_expr () =
             ];
         (* Support values *)
         support_argument:
-            [
-                [ x = build -> (x :> supporta) ] |
+            [ [ x = build -> (x :> supporta) ] |
                 [ x = swap -> (x :> supporta) ] |
                 [ x = support_method -> (x :> supporta) ]
             ];
