@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2807 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3014 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -73,28 +73,25 @@ let get_data ptree = ptree.data
 let set_data ptree data = { ptree with data = data; }
 
 let get_cost clas ptree =
-    let get_cost = 
-        match clas with
+    let get_cost = match clas with
         | `Adjusted -> fun x -> x.adjusted_component_cost
         | `Unadjusted -> fun x -> x.component_cost
     in
-    if ptree.origin_cost = infinity
-    then
-          let adder = fun _ v acc -> (get_cost v) +. acc in
-          All_sets.IntegerMap.fold adder ptree.component_root
-              0.
+    if ptree.origin_cost = infinity then
+        let adder = fun _ v acc -> (get_cost v) +. acc in
+        All_sets.IntegerMap.fold adder ptree.component_root 0.
     else
-          let adder = fun _ v acc -> (get_cost v) +. acc +. ptree.origin_cost in
-          All_sets.IntegerMap.fold adder ptree.component_root (-. ptree.origin_cost)
+        let adder = fun _ v acc -> (get_cost v) +. acc +. ptree.origin_cost in
+        All_sets.IntegerMap.fold adder ptree.component_root (-. ptree.origin_cost)
 
 let set_origin_cost cost ptree =
-    { ptree with origin_cost = cost }
+    { ptree with origin_cost = cost;}
 
-let remove_root_of_component node ptree = 
-    { ptree with component_root = 
+let remove_root_of_component node ptree =
+    { ptree with component_root =
         All_sets.IntegerMap.remove node ptree.component_root }
 
-let empty data = { 
+let empty data = {
     data = data;
     node_data = All_sets.IntegerMap.empty ;
     edge_data = Tree.EdgeMap.empty ;
@@ -666,16 +663,11 @@ let get_edge_data edge ptree =
    
 let move_cost_n_root hid id ptree =
     let comp_cost = ptree.component_root in
-    try 
-        let x = All_sets.IntegerMap.find hid comp_cost in
+    try let x = All_sets.IntegerMap.find hid comp_cost in
         let res = All_sets.IntegerMap.remove hid comp_cost in
-        let res = 
-            All_sets.IntegerMap.add id { x with root_median = None } 
-            res
-        in
+        let res = All_sets.IntegerMap.add id { x with root_median = None } res in
         { ptree with component_root = res }
-    with
-    | Not_found -> ptree
+    with | Not_found -> ptree
 
 (** [move_handle id ptree]
     @return new ptree with the current id as a handle. THE DATA
@@ -1829,11 +1821,11 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
             let wsum = List.fold_left (+.) 0. weights in
             let target, tnum, weights, trees' =
                 choose_remove (Random.float wsum) weights trees' in
-            let msg =
-                Printf.sprintf "tree #%d [%f] -> tree #%d [%f]"
-                               snum (get_cost `Adjusted (fst source))
-                               tnum (get_cost `Adjusted (fst target))
-            in
+(*            let msg =*)
+(*                Printf.sprintf "tree #%d [%f] -> tree #%d [%f]"*)
+(*                               snum (get_cost `Adjusted (fst source))*)
+(*                               tnum (get_cost `Adjusted (fst target))*)
+(*            in*)
             let locations = fuse_all_locations ~min:cmin ~max:cmax [source; target] in
             (* let location = Sexpr.choose_random locations in *)
             let process_location location = match location with
@@ -1843,9 +1835,9 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
                         | ((tree,_), _, _) when tree == (fst target) -> t1, t2
                         | _ -> assert false in
                     let new_tree,a3 = fuse t1 t2 terminals in
-                    Status.full_report 
-                        ~msg:(msg ^ ": tree with cost " ^ string_of_float (get_cost `Adjusted new_tree))
-                        status;
+(*                    Status.full_report *)
+(*                        ~msg:(msg ^ ": tree with cost " ^ string_of_float (get_cost `Adjusted new_tree))*)
+(*                        status;*)
                     (new_tree,a3)
                 | _ -> assert false
             in
@@ -2224,19 +2216,16 @@ let get_leaves ?(init=[]) root t =
     match get_node root t with
     | Tree.Single _ -> (get_node_data root t) :: init
     | _ ->
-            pre_order_node_visit
-                (fun parent node_id acc ->
-                    try
-                     match get_node node_id t with
-                     | Tree.Leaf _ -> (Tree.Continue,
-                                  (get_node_data node_id t) :: acc)
+        pre_order_node_visit
+            (fun parent node_id acc ->
+                try match get_node node_id t with
+                    | Tree.Leaf _ -> (Tree.Continue, (get_node_data node_id t) :: acc)
                      | _ -> (Tree.Continue, acc)
-                    with 
-                    | Not_found as err -> 
-                            Status.user_message Status.Information 
-                            ("Failed with code " ^ string_of_int node_id);
-                            raise err)
-                root t init
+                with | Not_found as err -> 
+                    Status.user_message Status.Information 
+                        ("Failed with code " ^ string_of_int node_id);
+                    raise err)
+            root t init
 
 let get_all_leaves t =
     All_sets.Integers.fold
@@ -2249,27 +2238,14 @@ let select_default adjusted cost = match adjusted with
     | None -> cost
 
 let assign_root_to_connected_component handle item cost adjusted ptree =
-    let debug = false in
     let adjusted = select_default adjusted cost in
-    if debug then begin
-	    Printf.printf "assign root to connected component, root = %!";
-    	let () = match item with 
-    	    |Some (edge, readjusted) ->
-		        begin match edge with 
-		            |`Edge (a , b) -> Printf.printf "edge at (%d,%d),%!" a b
-		            |`Single a -> Printf.printf "single node %d,%!" a
-		        end
-    	    |None -> Printf.printf "None,%!"  
-    	in
-	    Printf.printf "with component_cost = %f(adjusted cost = %f)\n%!" cost adjusted;
-    end;
     let root =
         { root_median = item;
           component_cost = cost;
           adjusted_component_cost = adjusted 
         }
     in
-    let new_component = 
+    let new_component =
         All_sets.IntegerMap.add handle root ptree.component_root 
     in
     { ptree with component_root = new_component; }
@@ -2282,10 +2258,8 @@ let get_handle_cost adjusted ptree handle_id =
 
 let get_leaves_ids ?(init=[]) root t =
     pre_order_node_visit
-        (fun parent node_id acc ->
-             match get_node node_id t with
-             | Tree.Leaf _ -> (Tree.Continue,
-                               node_id :: acc)
+        (fun parent node_id acc -> match get_node node_id t with
+             | Tree.Leaf _ -> (Tree.Continue, node_id :: acc)
              | _ -> (Tree.Continue, acc))
         root t init
 
@@ -2294,12 +2268,6 @@ let get_all_leaves_ids t =
         (fun h init -> get_leaves_ids ~init h t)
         t.tree.Tree.handles
         []
-
-let wipe_costs ptree = 
-    { 
-        ptree with
-        component_root = All_sets.IntegerMap.empty;
-    }
 
 (** [break_median ptree id] creates two trees from one by removing one of the
     edges incident to [id].  ([id] must be an internal node.)  If the neighbors

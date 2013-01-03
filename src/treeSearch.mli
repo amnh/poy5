@@ -46,9 +46,8 @@ module type S =
             (a, b) Ptree.p_tree -> (a, b) Ptree.p_tree
 
         val find_local_optimum :
-            ?base_sampler:(a, b) Sampler.search_manager_sampler  ->
-          ?queue : (float array * (int * int) list * int * Status.status *
-          int ref * float) ->
+          ?base_sampler:(a, b) Sampler.search_manager_sampler  ->
+          ?queue : (float array * (int * int) list * int * Status.status * int ref * float) ->
           Data.d ->
           Sampler.ft_queue ->
           (a, b) Ptree.p_tree Sexpr.t ->

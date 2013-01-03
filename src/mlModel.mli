@@ -20,7 +20,7 @@
 
 (** {6 Types *)
 
-exception LikelihoodModelError
+exception LikelihoodModelError of string
 
 type site_var = 
     (** [Gamma] #categories, alpha, beta *)

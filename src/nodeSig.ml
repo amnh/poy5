@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "NodeSig" "$Revision: 2747 $"
+let () = SadmanOutput.register "NodeSig" "$Revision: 2971 $"
 
 type direction = Without of int | Median of (int * int)
 
@@ -82,8 +82,12 @@ module type S = sig
     val get_times_between : n -> n option -> (int array * (float option)) list
 
     (** [to_string n] produces a string representation of the node. This is used
-    * for debugging purposes. There is no particular format requirement. *)
+        for debugging purposes. There is no particular format requirement. *)
     val to_string : n -> string
+
+    (** [get_lk_sites] returns a pair, weight and likelihood score of the stored
+        sites. Returns [] if no likelihood is present. *)
+    val get_lk_sites : n -> int array -> (float * (float * float) array) list
 
     (** [total_cost par n] calculates the cost of the tree rooted by the node [n]. 
     * when the parent has code [par].

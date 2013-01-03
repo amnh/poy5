@@ -17,10 +17,11 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2797 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 2985 $"
 
 let eager        = false
 let uppass_debug = false
+let downpass_debug=false
 
 type exclude = Node.exclude
 
@@ -255,6 +256,8 @@ module OneDirF :
 
     let to_string v = Node.Standard.to_string (force_val v)
 
+    let get_lk_sites x c = Node.Standard.get_lk_sites (force_val x) c
+
     let apply_single_f_on_lazy f a = f (force_val a)
 
     let total_cost x n =
@@ -441,16 +444,16 @@ let q_print n =
                     | Some (a,b) -> Printf.printf "(%d,%d) " a b
                     | None       -> Printf.printf "none ")
               n.unadjusted;
-    Printf.printf "\n\tUnadjusted Data:\n";
-    List.iter (fun x ->
-                print_string "\t\t";
-                Node.print_times (force_val x.lazy_node))
-              n.unadjusted;
-    Printf.printf "\n\tAdjusted Data:\n";
-    List.iter (fun x ->
-                print_string "\t\t";
-                Node.print_times (force_val x.lazy_node))
-              adjusted_data_lst;
+(*    Printf.printf "\n\tUnadjusted Data:\n";*)
+(*    List.iter (fun x ->*)
+(*                print_string "\t\t";*)
+(*                Node.print_times (force_val x.lazy_node))*)
+(*              n.unadjusted;*)
+(*    Printf.printf "\n\tAdjusted Data:\n";*)
+(*    List.iter (fun x ->*)
+(*                print_string "\t\t";*)
+(*                Node.print_times (force_val x.lazy_node))*)
+(*              adjusted_data_lst;*)
     print_newline ()
 
 
@@ -664,6 +667,10 @@ struct
     (* calculate the median between a and b. old can be used as a heuristic,
      * branches are the supplied branch lengths of the children a and b, *)
     let median ?branches my_code old a b =
+        if downpass_debug then
+            info_user_message "Creating Median From (%d,%d) to %s"
+                (taxon_code a) (taxon_code b)
+                (match my_code with Some x -> string_of_int x | None -> "none");
         let na, nb,code = match my_code with
             | Some code ->
                 let in_a = not_with code a.unadjusted
@@ -934,6 +941,10 @@ struct
               unadjusted = replace_dir node_dir mine.unadjusted; }
         in
         (node,modi)
+
+    let get_lk_sites n c = match n.unadjusted with
+        | [a] -> OneDirF.get_lk_sites a.lazy_node c
+        |  _  -> assert false
 
     let to_string nodes =
         let adj_data = get_adjusted_nodedata nodes "allDirNode,to_string no adj-data" in

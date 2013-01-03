@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2835 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3014 $"
 
 module IntSet = All_sets.Integers
 
@@ -620,52 +620,50 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     try `String (Data.code_taxon code data) with
                     | Not_found -> `String (string_of_int code)
                 in
-                let get_node code = 
-                    try Hashtbl.find nodes (get_name code) with
-                    | er -> 
-                            raise er
+                let get_node code =
+                    try Hashtbl.find nodes (get_name code)
+                    with er -> raise er
                 in
-                let get_gis code = 
+                let get_gis code =
                     let name = get_name code in
-                    try Hashtbl.find gis_table name with
-                    | er ->
-                            raise er
+                    try Hashtbl.find gis_table name
+                    with er -> raise er
                 in
                 match Ptree.get_roots tree with
-                | [x] -> 
-                        (match x.Ptree.root_median with
-                        | Some ((`Single x), root) ->  
-                                let node = get_node x in
-                                let gis = get_gis x in
-                                Tree.Parse.Leafp (node, gis)
+                | [x] ->
+                    begin match x.Ptree.root_median with
+                        | Some ((`Single x), root) ->
+                            let node = get_node x in
+                            let gis = get_gis x in
+                            Tree.Parse.Leafp (node, gis)
                         | Some ((`Edge edge), root) ->
-                                let leaf _ cur _ =
-                                    let node = get_node cur in
-                                    let gis = get_gis cur in
-                                    Tree.Parse.Leafp (node, gis)
-                                and internal _ cur x y =
-                                    let xgis = extract_gis x
-                                    and ygis = extract_gis y in
-                                    let my_gis = TemporalGIS.initial_ancestor xgis ygis in
-                                    let node = get_node cur in
-                                    Tree.Parse.Nodep ([x; y], (node, my_gis))
-                                in
-                                let node = 
-                                    try Hashtbl.find nodes (`String "root") with
-                                    | err -> 
-                                            raise err
-                                in
-                                let left, right = 
-                                    Tree.post_order_node_with_edge_visit leaf 
-                                    internal (Tree.Edge edge) tree.Ptree.tree 
-                                    (Tree.Parse.Leafp (node, empty))
-                                in
-                                let gis = 
-                                    TemporalGIS.initial_ancestor (extract_gis left) 
-                                    (extract_gis right)
-                                in
-                                Tree.Parse.Nodep ([left; right], (node, gis))
-                        | None -> assert false)
+                            let leaf _ cur _ =
+                                let node = get_node cur in
+                                let gis = get_gis cur in
+                                Tree.Parse.Leafp (node, gis)
+                            and internal _ cur x y =
+                                let xgis = extract_gis x
+                                and ygis = extract_gis y in
+                                let my_gis = TemporalGIS.initial_ancestor xgis ygis in
+                                let node = get_node cur in
+                                Tree.Parse.Nodep ([x; y], (node, my_gis))
+                            in
+                            let node =
+                                try Hashtbl.find nodes (`String "root")
+                                with err -> raise err
+                            in
+                            let left, right = 
+                                Tree.post_order_node_with_edge_visit leaf 
+                                internal (Tree.Edge edge) tree.Ptree.tree 
+                                (Tree.Parse.Leafp (node, empty))
+                            in
+                            let gis = 
+                                TemporalGIS.initial_ancestor (extract_gis left) 
+                                (extract_gis right)
+                            in
+                            Tree.Parse.Nodep ([left; right], (node, gis))
+                        | None -> assert false
+                    end
                 | _ -> failwith "Kml generation requires forest of only one tree"
 
             let adjust_tree tree =
@@ -1311,54 +1309,33 @@ let report_memory () =
         --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
         --> fun x -> x ^ "@]@]@,%!"
 
+
 let explode_filenames files =
-    (*
-IFDEF USEPARALLEL THEN
-    let is_master = 0 = Mpi.comm_rank Mpi.comm_world in
-    let files = 
-        try
-            `Normal 
-                (if is_master then
-                    Parser.explode_filenames files 
-                else [])
-        with
-        | err -> `Error (Printexc.to_string err)
-    in
-    match Mpi.broadcast files 0 Mpi.comm_world with
-    | `Normal files -> List.map (fun x -> `Remote x) files 
-    | `Error str -> 
-            failwith ("Failed reading file with exception " ^ str)
-ELSE
-    *)
    List.map (fun x -> `Local x)  (Parser.Wildcard.explode_filenames files)
-   (*
-END
-   *)
+
 
 (* this function differs from update_trees_to_data in that we do not modify the
  * data of the trees, or update the data to the tree (if load_data is false).
  * This is done when cost modes and other settings have been changed, and does
- * not affect the data or how the data is created. *) 
+ * not affect the data or how the data is created. *)
 let rediagnose_trees ?(classify=true) load_data run =
     let replacer nodes nd = 
         let code = Node.taxon_code nd in
-        try All_sets.IntegerMap.find code nodes with
-        | Not_found as err-> 
-                Status.user_message Status.Error 
-                ("Couldn't find code " ^ string_of_int code);
-                raise err
-    and create_node_set ns = 
+        try All_sets.IntegerMap.find code nodes
+        with | Not_found as err ->
+            Status.user_message Status.Error ("Couldn't find code " ^ string_of_int code);
+            raise err
+    and create_node_set ns =
         List.fold_left
-            (fun acc x -> 
-                All_sets.IntegerMap.add (Node.taxon_code x) x acc)
+            (fun acc x -> All_sets.IntegerMap.add (Node.taxon_code x) x acc)
             All_sets.IntegerMap.empty ns
     in
-    let doit st tree = 
-        let data, nodes = 
-            if load_data then 
+    let doit st tree =
+        let data, nodes =
+            if load_data then
                 let d,n = Node.load_data ~classify tree.Ptree.data in
                 (d, create_node_set n)
-            else 
+            else
                 (tree.Ptree.data, tree.Ptree.node_data)
         in
         let tree = { tree with Ptree.node_data = nodes; data = data; } in
@@ -1375,7 +1352,7 @@ let rediagnose_trees ?(classify=true) load_data run =
         let stored = Sexpr.map (doit st) run.stored_trees in
         Status.finished st;
         { run with trees = trees; stored_trees = stored }
-    else 
+    else
         run
 
 let update_trees_to_data ?(classify=true) force load_data run =
@@ -1468,186 +1445,143 @@ let process_transform (run : r) (meth : Methods.transform) =
             { run with nodes = nodes; data = data; trees = trees }
 
 let load_data (meth : Methods.input) data nodes =
-    let debug = false in
     let prealigned_files = ref [] in
     let rec reader annotated is_prealigned data (meth : Methods.simple_input) = 
         match meth with
         | `Poyfile files ->
-                failwith "TODO"
-                (*
-                let files = Parser.explode_filenames files in
-                List.fold_left Parser.of_file data files
-                *)
+            failwith "TODO"
         | `AutoDetect files ->
-                let files = explode_filenames files in
-                if is_prealigned then
-                    prealigned_files := files :: !prealigned_files;
-                let data =
-                    List.fold_left
-                        (Data.guess_class_and_add_file annotated is_prealigned)
-                        data
-                        files
-                in
-                data
-
+            let files = explode_filenames files in
+            if is_prealigned then
+                prealigned_files := files :: !prealigned_files;
+            List.fold_left
+                (Data.guess_class_and_add_file annotated is_prealigned)
+                data files
         | `PartitionedFile files 
         | `Nucleotides files  as meth ->
-                let mode = 
-                    match meth with
-                    | `PartitionedFile _ -> `Partitioned Data.Clip
-                    | `Nucleotides _ -> `DO
-                in
-                let files = explode_filenames files in
-                let data = 
-                    List.fold_left 
+            let mode = match meth with
+                | `PartitionedFile _ -> `Partitioned Data.Clip
+                | `Nucleotides _ -> `DO
+            in
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
-                in
-                if is_prealigned then prealigned_files := files ::
-                    !prealigned_files;
-                List.fold_left 
-                    (fun d f -> 
-                        Data.process_molecular_file
-                                Data.default_tcm
-                                Cost_matrix.Two_D.default
-                                Cost_matrix.Two_D.default
-                                Cost_matrix.Three_D.default annotated
-                                Alphabet.nucleotides mode is_prealigned `Seq d f)
+            in
+            if is_prealigned then
+                prealigned_files := files :: !prealigned_files;
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file Data.default_tcm
+                            Cost_matrix.Two_D.default Cost_matrix.Two_D.default
+                            Cost_matrix.Three_D.default annotated
+                            Alphabet.nucleotides mode is_prealigned `Seq d f)
                 data files
+        (** read chromosome data from files each chromosome is presented simply
+            as a long plain nucleotide sequences *)
         | `Chromosome files ->
-(** read chromosome data from files each chromosome is 
-* presented simply as a long plain nucleotide sequences *)
-                let files = explode_filenames files in
-                let data = 
-                    List.fold_left 
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
-                in
-                List.fold_left 
-                    (fun d f ->
-                        Data.process_molecular_file
-                                Data.default_tcm
-                                Cost_matrix.Two_D.default 
-                                Cost_matrix.Two_D.default 
-                                Cost_matrix.Three_D.default annotated
-                                Alphabet.nucleotides `DO false `Chromosome d f)
-                    data files
-        | `Genome files -> 
-(** read genome data from files each genome is 
-* presented as a sequence of chromosomes separated by @ signs *)
-                let files = explode_filenames files in
-                let data = 
-                    List.fold_left 
+            in
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file Data.default_tcm
+                            Cost_matrix.Two_D.default Cost_matrix.Two_D.default
+                            Cost_matrix.Three_D.default annotated
+                            Alphabet.nucleotides `DO false `Chromosome d f)
+                data files
+        (** read genome data from files each genome is presented as a sequence
+            of chromosomes separated by @ signs *)
+        | `Genome files ->
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
-                in
-                let data =
-                    List.fold_left
-                        (fun d f ->
-                            Data.process_molecular_file
-                                    Data.default_tcm
-                                    Cost_matrix.Two_D.default 
-                                    Cost_matrix.Two_D.default 
-                                    Cost_matrix.Three_D.default annotated
-                                    Alphabet.nucleotides `DO false `Genome d f)
-                        data files
-                in 
-                data
+            in
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file Data.default_tcm
+                            Cost_matrix.Two_D.default Cost_matrix.Two_D.default
+                            Cost_matrix.Three_D.default annotated
+                            Alphabet.nucleotides `DO false `Genome d f)
+                data files
         | `Aminoacids (files,read_options) ->
-                let files = explode_filenames files in
-                let data = 
-                    List.fold_left 
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
-                in
-                let is_prealigned = List.mem (`Prealigned) read_options in
-                if is_prealigned then prealigned_files := files ::
-                    !prealigned_files;
-                let init3D = (List.mem (`Init3D true) read_options) in
-                let alpha = 
-                    if init3D then Alphabet.aminoacids_use_3d
-                    else Alphabet.aminoacids in
-                let dynastate,default_mode = 
-                    if is_prealigned then 
-                        `SeqPrealigned,`GeneralNonAdd 
-                    else `CustomAlphabet,`DO in
-                List.fold_left 
-                    (fun d f -> 
-                        Data.process_molecular_file 
-                                    Data.default_tcm
-                                    Cost_matrix.Two_D.default_aminoacids
-                                    Cost_matrix.Two_D.default_aminoacids
-                                    (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                                    annotated alpha default_mode is_prealigned dynastate d f)
-                    data files
+            in
+            let is_prealigned = List.mem (`Prealigned) read_options in
+            if is_prealigned then
+                prealigned_files := files :: !prealigned_files;
+            let init3D = List.mem (`Init3D true) read_options in
+            let alpha =
+                if init3D then Alphabet.aminoacids_use_3d
+                          else Alphabet.aminoacids
+            in
+            let dynastate,default_mode =
+                if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
+                                 else `CustomAlphabet,`DO
+            in
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file Data.default_tcm
+                        Cost_matrix.Two_D.default_aminoacids Cost_matrix.Two_D.default_aminoacids
+                        (Lazy.force Cost_matrix.Three_D.default_aminoacids)
+                        annotated alpha default_mode is_prealigned dynastate d f)
+                data files
         | `GeneralAlphabetSeq (f, alph, read_options) ->
-                let data = Data.add_file data [Data.Characters] f in
-                let orientation =
-                    (List.mem (`Orientation false) read_options) 
-                in
-                let init3D = (List.mem (`Init3D true) read_options) in
-                let is_prealigned = List.mem (`Prealigned) read_options in
-                (*get tie breaker for cost matrix*)
-                let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
-                let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
-                let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
-                if debug then 
-                    Printf.printf "scripting.ml, load custom alphabet,with tie_breaker:(%b,%b,%b)\n%!" tie_breaker_first
-                    tie_breaker_last tie_breaker_random;
-                let tb = (*we use First as custom alphabet's tie breaker*)
-                    if tie_breaker_first then `First
-                    else if tie_breaker_last then `Last
-                    else if tie_breaker_random then `Keep_Random
-                    else `First
-                in
-                (*let data = Data.add_file data [Data.Characters] f in*)
-                (* read the alphabet and tcm *)
-                let level = 2 in (* set level = 2 by default *)
-                let respect_case = true in
-                let alphabet, (twod_full,twod_original,matrix), threed =
-                    Alphabet.of_file alph orientation init3D level respect_case tb
-                in
-                if debug then begin
-                    Printf.printf "check alphabet:\n%!";
-                    Alphabet.print alphabet;
-                end;
-                (*to do : connect this to prealigned*)
-                if is_prealigned then prealigned_files := [f] ::
-                    !prealigned_files;
-                let dynastate,default_mode = 
-                    if is_prealigned then 
-                        `SeqPrealigned,`GeneralNonAdd 
-                    else `CustomAlphabet,`DO in
-                (*else `Seq,`DO in*)
-                let tcmfile = FileStream.filename alph in
-                Data.process_molecular_file
-                        ~respect_case:respect_case
-                        (Data.Input_file (tcmfile,matrix))
-                        twod_full twod_original threed annotated alphabet default_mode
-                        is_prealigned dynastate data f 
+            let data = Data.add_file data [Data.Characters] f in
+            let orientation = List.mem (`Orientation false) read_options in
+            let init3D = List.mem (`Init3D true) read_options in
+            let is_prealigned = List.mem (`Prealigned) read_options in
+            let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
+            let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
+            let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
+            let tb = (*we use First as custom alphabet's tie breaker*)
+                if tie_breaker_first then `First
+                else if tie_breaker_last then `Last
+                else if tie_breaker_random then `Keep_Random
+                else `First
+            in
+            let level = 2 in
+            let respect_case = true in
+            let alphabet, (twod_full,twod_original,matrix), threed =
+                Alphabet.of_file alph orientation init3D level respect_case tb
+            in
+            if is_prealigned then
+                prealigned_files := [f] :: !prealigned_files;
+            let dynastate,default_mode =
+                if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
+                                 else `CustomAlphabet,`DO
+            in
+            let tcmfile = FileStream.filename alph in
+            Data.process_molecular_file ~respect_case:respect_case
+                    (Data.Input_file (tcmfile,matrix)) twod_full twod_original
+                    threed annotated alphabet default_mode is_prealigned dynastate data f
+        (** read breakinv data from files each breakinv is presented as a
+            sequence of general alphabets *)
         | `Breakinv (seq, alph, read_options) ->
-                (** read breakinv data from files each breakinv is 
-                 * presented as a sequence of general alphabets *)
-                let data = Data.add_file data [Data.Characters] seq in
-                (*orientation is set to true by default*)
-                let orientation =
-                    if (List.mem (`Orientation false) read_options) then false
-                    else true
-                in
-                let init3D = (List.mem (`Init3D true) read_options) in
-                let data = Data.add_file data [Data.Characters] seq in
-                (* read the alphabet and tcm *)
-                let respect_case = true in
-                let alphabet, (twod,twod_ori,matrix), threed =
-                    Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
-                and tcmfile = FileStream.filename alph in
-                Data.process_molecular_file 
-                        (Data.Input_file (tcmfile,matrix))
-                        twod twod_ori threed annotated alphabet `DO
-                        is_prealigned `Breakinv data seq
+            let data = Data.add_file data [Data.Characters] seq in
+            let orientation = not (List.mem (`Orientation false) read_options) in
+            let init3D = (List.mem (`Init3D true) read_options) in
+            let data = Data.add_file data [Data.Characters] seq in
+            let respect_case = true in
+            let alphabet, (twod,twod_ori,matrix), threed =
+                Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
+            and tcmfile = FileStream.filename alph in
+            Data.process_molecular_file (Data.Input_file (tcmfile,matrix)) twod
+                    twod_ori threed annotated alphabet `DO is_prealigned
+                    `Breakinv data seq
         | `ComplexTerminals files ->
-                List.fold_left Data.process_complex_terminals data 
-                (explode_filenames files)
+            List.fold_left Data.process_complex_terminals data
+                           (explode_filenames files)
 
     and annotated_reader data (meth : Methods.input) =
         match meth with
@@ -1768,30 +1702,29 @@ let temporary_transforms meths run =
 let output_clade_file data fn counter tree =
     let cost = Ptree.get_cost `Adjusted tree in
     let all_otus = Ptree.get_all_leaves_ids tree in
-
     (* Code borrowed from Support.bremer_to_sexpr *)
     let fn = fn ^ string_of_int (counter ()) ^ ".hen" in
     let file = open_out fn in
     output_string file
         ("xread\n'Clades file for tree with cost "
          ^ string_of_float cost ^ "'\n");
-
     let visit (Tree.Edge (h, n)) =
         let otus = Ptree.get_leaves n tree in
         let n_otus = List.length otus in
         if n_otus = 1
         then None
         else
-            let otu_set = List.fold_left
-                (fun set elt -> All_sets.Integers.add
-                     (Node.taxon_code elt)
-                     set) All_sets.Integers.empty otus in
+            let otu_set =
+                List.fold_left
+                    (fun set elt ->
+                        All_sets.Integers.add
+                            (Node.taxon_code elt) set)
+                    All_sets.Integers.empty otus
+            in
             Some (otu_set)
     in
-
     let list =
-        let visit edge list =
-            match visit edge with
+        let visit edge list = match visit edge with
             | None -> (Tree.Continue, list)
             | Some s -> (Tree.Continue, s :: list) in
         let list_of_handle h acc =
@@ -1799,50 +1732,39 @@ let output_clade_file data fn counter tree =
         let handles = tree.Ptree.tree.Tree.handles in
         All_sets.Integers.fold list_of_handle handles []
     in
-
     output_string file
         (string_of_int (List.length list) ^ " "
          ^ string_of_int (List.length all_otus) ^ "\n");
     List.iter
         (fun otu ->
              output_string file
-                (let code = 
-                    Node.taxon_code (Ptree.get_node_data otu tree)
-                in
-                 try Data.code_taxon code data with
-                 | Not_found -> string_of_int code);
+                (let code = Node.taxon_code (Ptree.get_node_data otu tree) in
+                 try Data.code_taxon code data
+                 with | Not_found -> string_of_int code);
              output_string file "\n";
              List.iter
                  (fun set ->
                       output_string file
-                          (if All_sets.Integers.mem otu set
-                           then "1"
-                           else "0"))
+                          (if All_sets.Integers.mem otu set then "1" else "0"))
                  list;
              output_string file "\n")
         all_otus;
-
-    output_string file
-        ";\ncc-.;\nproc /;\n";
+    output_string file ";\ncc-.;\nproc /;\n";
     close_out file
 
 
 let runtime_store rediagnose run meth =
-    let store name run clas =
-        match clas with
-        | `Data -> Hashtbl.replace run.data_store name (run.data, run.nodes)
-        | `Trees -> Hashtbl.replace run.tree_store name run.trees
-        | `Bremer -> Hashtbl.replace run.bremer_store name run.bremer_support
-        | `Jackknife -> 
-                Hashtbl.replace run.jackknife_store name run.jackknife_support
-        | `Bootstrap -> 
-                Hashtbl.replace run.bootstrap_store name run.bootstrap_support
+    let store name run clas = match clas with
+        | `Data      -> Hashtbl.replace run.data_store name (run.data, run.nodes)
+        | `Trees     -> Hashtbl.replace run.tree_store name run.trees
+        | `Bremer    -> Hashtbl.replace run.bremer_store name run.bremer_support
+        | `Jackknife -> Hashtbl.replace run.jackknife_store name run.jackknife_support
+        | `Bootstrap -> Hashtbl.replace run.bootstrap_store name run.bootstrap_support
     in
-    let remove name run clas =
-        match clas with
-        | `Data -> Hashtbl.remove run.data_store name 
-        | `Trees -> Hashtbl.remove run.tree_store name
-        | `Bremer -> Hashtbl.remove run.bremer_store name
+    let remove name run clas = match clas with
+        | `Data      -> Hashtbl.remove run.data_store name 
+        | `Trees     -> Hashtbl.remove run.tree_store name
+        | `Bremer    -> Hashtbl.remove run.bremer_store name
         | `Jackknife -> Hashtbl.remove run.jackknife_store name
         | `Bootstrap -> Hashtbl.remove run.bootstrap_store name
     in
@@ -2121,8 +2043,7 @@ let warn_if_no_trees_in_memory trees =
             ("There@ are@ no@ active@ trees@ in@ memory!")
 
 let get_trees_for_support support_class run =
-    let do_support support_set x = 
-        match support_set with
+    let do_support support_set x = match support_set with
         | None -> `Empty
         | Some (iterations, fs) ->
                 match x with
@@ -2175,6 +2096,37 @@ let get_trees_for_support support_class run =
             let res = do_support run.bootstrap_support x in
             res, "Bootstrap"
 
+(** PAUP-like output for site likelihood *)
+let report_lk_sites ft tree chars : unit =
+    let tree_num = ref 0 in
+    let header = [| "Tree"; "-lnL"; "Site"; "Weight"; "-lnL"; |] in
+    let modify_array (cost,array) =
+        let second = [| string_of_int !tree_num; string_of_float cost; ""; ""; ""; |] in
+        incr tree_num;
+        Array.init
+            ((Array.length array)+2)
+            (fun i ->
+                if i = 0 then header else
+                if i = 1 then second
+                else begin
+                    let a,b = array.(i-2) in
+                    [| ""; "";string_of_int (i-2); string_of_float a; string_of_float b; |]
+                end)
+    in
+    match Ptree.get_roots tree with
+    | [x] ->
+        let node_root = match x.Ptree.root_median with
+            | Some (_,n) -> n
+            | None       -> assert false
+        in
+        List.iter (fun x -> let x = modify_array x in ft x)
+                  (Node.get_lk_sites node_root chars)
+    |  _  ->
+        Status.user_message Status.Error
+            ("I@ am@ unsure@ what@ to@ do@ about@ reporting@ site@ likelihood@ "
+            ^"on@ a@ disjoint@ tree.@ I@ am@ skipping@ reporting@ its@ data")
+
+
 let rec handle_support_output run meth = match meth with
     | `Supports (support_class, filename) ->
         begin match support_class with
@@ -2216,7 +2168,7 @@ let rec handle_support_output run meth = match meth with
                                     let r = AsciiTree.to_string ~sep:2 ~bd:6 true x in
                                     Status.user_message fo ("@[@[<v>@[" ^ title ^ "@ Support@ tree@]@,@[");
                                     Status.user_message fo r;
-                                    Status.user_message fo "@,@]@]@]%!";)
+                                    Status.user_message fo "@,@]@]@]%!")
                                 trees;
                 end
             | None ->
@@ -3088,13 +3040,13 @@ let rec process_application run item =
             Kml.KFile.kml ~plugin "POY analysis" output_file run.data csv run.trees;
             run
      | `InspectFile str ->
-            try let (desc, _, _, _, _, _, _) = PoyFile.read_file str in
+            try let (desc, _, _) = PoyFile.read_file str in
                 let desc = match desc with
                      | None -> "No@ description@ available."
                      | Some d -> d
                 in
                 Status.user_message Status.Information
-                    ("@[<v 2>" ^ (StatusCommon.escape str) ^ 
+                    ("@[<v 2>" ^ (StatusCommon.escape str) ^
                      " is a POY file: @,@[" ^ desc ^ "@]@]");
                 run
              with | _ -> 
@@ -3854,11 +3806,11 @@ let rec folder (run : r) meth =
                 let runs = explode_trees run in
                 let trees =
                     Sexpr.map_status 
-                    "Transforming and searching each tree independently"
-                    ~eta:true
-                    (fun x ->
-                        run_and_untransform (temporary_transforms trans x))
-                    runs 
+                        "Transforming and searching each tree independently"
+                        ~eta:true
+                        (fun x ->
+                            run_and_untransform (temporary_transforms trans x))
+                        runs
                 in
                 choose_best trees)
     | #Methods.runtime_store as meth -> 
@@ -3880,8 +3832,7 @@ let rec folder (run : r) meth =
             let script = PoyCommand.read_script_files true 
                 (List.map (fun x -> `Filename x) files) in
             let script = Sexpr.of_list script in
-            Sexpr.fold_status "Running commands" ~eta:true file_folder run
-            script
+            Sexpr.fold_status "Running commands" ~eta:true file_folder run script
     | #Methods.report as meth ->
             (* Update the trees to reflect the rooting we want *)
             let run = reroot_at_outgroup run in 
@@ -4065,6 +4016,19 @@ let rec folder (run : r) meth =
                 run
             | `Pairwise (filename,chars) ->
                 failwith "NOT DONE"
+            | `LKSites (filename,chars) ->
+                let ft = Status.output_table (Status.Output (filename, false, [])) in
+                let items = Sexpr.length run.trees in
+                let chars = Array.of_list (Data.get_chars_codes_comp run.data chars) in
+                if items = 0 then begin
+                    Status.user_message Status.Warning
+                        ("There@ are@ no@ active@ trees@ in@ memory!");
+                    run
+                end else begin
+                    Sexpr.leaf_iter (fun x -> report_lk_sites ft x chars)
+                                    run.trees;
+                    run
+                end
             | `Model (filename,chars) ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
                 let ft = Some (Status.output_table (Status.Output (filename, false, []))) in
@@ -4338,7 +4302,10 @@ END
                 run
             | `Save (fn, comment) ->
                 begin try
-                    PoyFile.store_file (comment, run, !Methods.cost) fn;
+                    let srun = {run with runtime_store = create_hstb ();
+                                         data_store = create_hstb (); }
+                    in
+                    PoyFile.store_file (comment, srun, !Methods.cost) fn;
                     run
                 with | err ->
                     let msg = 
@@ -4350,12 +4317,11 @@ END
                     run
                 end
             | `Load fn ->
-                begin try 
+                begin try
                     let (comment, run, cost_mode)  = PoyFile.read_file fn in
                     Methods.cost := cost_mode;
-                    let descr = 
-                        match comment with
-                        | None -> "No description available."
+                    let descr = match comment with
+                        | None   -> "No description available."
                         | Some d -> d
                     in
                     Status.user_message Status.Information 
@@ -4363,9 +4329,9 @@ END
                         ^ "@,@[" ^ StatusCommon.escape descr ^ "@]@]");
                     run
                 with | PoyFile.InvalidFile ->
-                    let msg = 
-                        "The file " ^ StatusCommon.escape fn ^ 
-                        " is not a@ valid" ^ "@ POY@ fileformat."
+                    let msg =
+                        "The@ file@ " ^ StatusCommon.escape fn ^ 
+                        " is@ not a@ valid" ^ "@ POY@ fileformat."
                     in
                     Status.user_message Status.Error msg;
                     run

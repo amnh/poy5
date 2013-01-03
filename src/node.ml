@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2880 $"
+let () = SadmanOutput.register "Node" "$Revision: 3020 $"
 
 let infinity = float_of_int max_int
 
@@ -2168,8 +2168,9 @@ let extract_fixedstates data fs tcode = (*tcode = taxon code*)
     match fs with
     | Data.FS code, _  -> (*code is charactor code belong to the taxons *)
         let specs = Hashtbl.find data.Data.character_specs code in
-        let specs, weight = match specs with
-            | Data.Static (Data.FixedStates fs_spec) ->  fs_spec, Data.get_weight_from_fs_spec fs_spec
+        let weight= Data.get_weight code data in
+        let specs = match specs with
+            | Data.Static (Data.FixedStates fs_spec) ->  fs_spec
             | _ -> failwith "extract fiexed states"
         in
         (* val off_array : Data.fixed_state_spec -> int -> t_w_seqtbl *)
@@ -3364,7 +3365,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
                 let root_pre,bl = match root with
                     | Some (Dynamic root) ->
                         begin match root.time with
-                            | None,None,None  -> Some root.preliminary, None
+                            | None,None,_     -> Some root.preliminary, None
                             | Some x,Some y,_ -> Some root.preliminary, Some (x +. y)
                             | _               -> assert( false )
                         end
@@ -3420,14 +3421,13 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         { mine with characters = chars; }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
-    let debug = false and debug2 = false in
     if debug then 
-        Printf.printf "\n Node.ml readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
-        mine.taxon_code parent.taxon_code ch1.taxon_code ch2.taxon_code;
+        Printf.printf "\nNode.readjust on mine:%d, parent:%d,ch1:%d, ch2:%d\n%!"
+                      mine.taxon_code parent.taxon_code ch1.taxon_code ch2.taxon_code;
     let ch1, ch2 =
-        if ch1.min_child_code < ch2.min_child_code then
-            ch1, ch2
-        else ch2, ch1
+        if ch1.min_child_code < ch2.min_child_code
+            then ch1, ch2
+            else ch2, ch1
     in
     let modified = ref All_sets.Integers.empty in
     let cs_readjust c1 c2 parent mine =
@@ -3474,8 +3474,6 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     modified := m;
                     let cost = mine.weight *. n_cost in
                     let sumcost = cost +. c1.sum_cost +. c2.sum_cost in
-(*                    Printf.printf "Optimized Cost %f(%f,%f,%f) --> %f(%f,%f,%f)\n%!"*)
-(*                                  (p_cost *. mine.weight) ot1 ot2 ot3 cost t1 t2 t3;*)
                     Dynamic
                         { mine with
                             preliminary = res;
@@ -3496,35 +3494,17 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     modified := m;
                     let cost = mine.weight *. cost in
                     let sumcost = mine.weight *. sumcost in
-                    if debug2 then begin
-                        Printf.printf " update mine with sum_cost\
-                        <-- c1.sum_cost(%f)+c2.sum_cost(%f)+new node cost(%f) = %f,\
-                        old sum_cost = %f, old node cost = %f;\n%!" 
-                        c1.sum_cost c2.sum_cost cost sumcost mine.sum_cost mine.cost;
-                        (*DynamicCS.print res;*)
-                    end;
-                    (*bug to fix: even when both the seq assignment and cost for 
-                    * mine remain the same, the sum_cost could change. 
-                    * in this case, modified is empty.
-                    * in allDirChar.[adjust_node], we won't udpate node_data with
-                    * the new seq & cost set if modified is empty.
-                    *)
 		            if (IntSet.is_empty !modified)&&((cost<>mine.cost)||(sumcost<>mine.sum_cost)) then 
-				    failwith "node.ml readjust function, nothing changed from \
-                    lower function, but different node cost or subtree cost";	
-                    let res = 
-                    Dynamic
-                        { mine with
-                            preliminary = res; 
-                            final = res; 
-                            cost = cost;
-                            sum_cost = sumcost;
-                            time=None,None,None;
-                        }
+				        failwith "node.ml readjust function, nothing changed from lower function, but different node cost or subtree cost";
+                    let res =
+                        Dynamic
+                            { mine with
+                                preliminary = res;
+                                final = res; 
+                                cost = cost;
+                                sum_cost = sumcost;
+                                time=None,None,None; }
                     in
-                    if debug2 then begin
-                        Printf.printf "end of node.readjust,return new med\n%!";
-                    end;
                     res, sumcost
             end
         | Nonadd8 c1, Nonadd8 c2, Nonadd8 parent, Nonadd8 mine -> Nonadd8 mine, mine.sum_cost
@@ -3540,27 +3520,20 @@ let readjust mode to_adjust ch1 ch2 parent mine =
     in
     if mine.total_cost = infinity then 
         mine, !modified
-    else
-        let _ = 
-            if debug2 then Printf.printf "map4 on ch1,ch2,parent and mine's characters (len = %d)\n%!" 
-            (List.length ch1.characters) 
-        in
+    else begin
         let characters, sumcost_list = 
-            List.split ( map4 cs_readjust ch1.characters ch2.characters
+            List.split (map4 cs_readjust ch1.characters ch2.characters
                              parent.characters mine.characters )
         in
         let node_cost = get_characters_cost characters in
         let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
-	if debug then
-		Printf.printf "end of Node.readjust, return mine with total_cost=%f(old \
-        total_cost=%f),node_cost=%f(old node_cost=%f)\n\n%!" total_cost
-        mine.total_cost node_cost mine.node_cost;
         let res = 
             { mine with characters = characters; 
                         total_cost = total_cost; 
                          node_cost = node_cost; }
         in
         res, !modified
+    end
 
 let to_single_root (pre_ref_codes, fi_ref_codes) mine =
     to_single (pre_ref_codes, fi_ref_codes) true (Some mine) mine mine
@@ -3759,6 +3732,33 @@ let to_formatter_single report_type (pre_ref_codes,fi_ref_codes) acc d (node_dat
             ([T.notu] = [`Int node_data.num_otus])
             ([acc])
             { `Delayed lazy_children } --)
+
+let get_lk_sites node chars =
+    let include_cs cs_codes =
+        let r = ref false in
+        for i = 0 to (Array.length chars) - 1 do begin
+            if !r then ()
+            else begin
+                for j = 0 to (Array.length cs_codes) - 1 do
+                    r := !r || (chars.(i) = cs_codes.(j));
+                done;
+            end
+        end done;
+        !r
+    in
+    let get_sites_cs acc x = match x with
+        | StaticMl a when not (include_cs (codes x)) -> acc
+        | StaticMl a ->
+            IFDEF USE_LIKELIHOOD THEN
+                (MlStaticCS.root_cost a.preliminary,
+                 MlStaticCS.site_likelihood a.preliminary)::acc
+            ELSE
+                failwith MlStaticCS.likelihood_error
+            END
+        | _ -> acc
+    in
+    List.fold_left get_sites_cs [] node.characters
+        
 
 (** [copy_chrom_map source des] copies the chromosome map
 * which creates chromosome [source] to chromosome map which creates chromosome [des] *)
@@ -4705,8 +4705,7 @@ module Standard :
         let exclude_info _ x = x.exclude_info
         let has_excluded = has_excluded
         let taxon_code x = x.taxon_code
-        (* TODO This function must be removed *)
-        let union_distance _ _ = 0.
+        let union_distance _ _ = 0.  (* TODO This function must be removed *)
         let is_collapsable = is_collapsable
         let classify_data = classify_data
         let to_xml = to_xml
@@ -4715,6 +4714,7 @@ module Standard :
         let num_otus _ x = x.num_otus
         let get_sequences = get_sequences
         let build_node = build_node
+        let get_lk_sites n c = get_lk_sites n c
         let get_dynamic_preliminary _ = get_dynamic_preliminary
         let get_dynamic_adjusted _ _ = 
             failwith "No single assignment available"

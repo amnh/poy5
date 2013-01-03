@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2805 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2976 $"
 
 let debug_find_local_optimum = false
 
@@ -46,13 +46,13 @@ module type S = sig
         (a, b) Ptree.p_tree -> (a, b) Ptree.p_tree
 
     val find_local_optimum :
-          ?base_sampler:(a, b) Sampler.search_manager_sampler -> 
-              ?queue : (float array * (int * int) list * int * Status.status * int ref * float) ->
-          Data.d ->
-              Sampler.ft_queue ->
-                  (a, b) Ptree.p_tree Sexpr.t ->
-                      All_sets.IntSet.t Lazy.t ->
-                          Methods.local_optimum -> (a, b) Ptree.p_tree Sexpr.t
+        ?base_sampler:(a, b) Sampler.search_manager_sampler -> 
+        ?queue : (float array * (int * int) list * int * Status.status * int ref * float) ->
+        Data.d ->
+            Sampler.ft_queue ->
+                (a, b) Ptree.p_tree Sexpr.t ->
+                    All_sets.IntSet.t Lazy.t ->
+                        Methods.local_optimum -> (a, b) Ptree.p_tree Sexpr.t
 
       val forest_search :
           Data.d ->
@@ -108,7 +108,10 @@ let sets_of_consensus trees  =
         All_sets.IntSet.empty)
 
 let sets_of_parser data tree =
-    let get_code x = Data.taxon_code x data in
+    let get_code x =
+        try Data.taxon_code x data
+        with Failure s -> raise (Failure (s^" in constraint file."))
+    in
     let rec process tree acc =
         match tree with
         | Tree.Parse.Leafp x ->
@@ -144,8 +147,8 @@ let sets meth data trees =
                 | [[tree]] -> lazy (sets_of_parser data tree)
                 | _ -> 
                     Status.user_message Status.Error
-                    ("To@ use@ constraint@ files@ you@ must@ provide@ a@ " ^
-                    "single@ tree,@ not@ more,@ no@ forests@ are@ allowed.");
+                        ("To@ use@ constraint@ files@ you@ must@ provide@ a@ " ^
+                         "single@ tree,@ not@ more,@ no@ forests@ are@ allowed.");
                     failwith "Illegal input file"
                 with
                    | err -> Status.user_message Status.Error
@@ -919,14 +922,15 @@ module Make
 
     let collect_nodes data trees =
         let tree = Sexpr.first trees in
-        let aux_collect key node taxaacc = 
-            match node with
-            | Tree.Single _ | Tree.Leaf _ -> 
-                    (Ptree.get_node_data key tree) :: taxaacc
-            | _ -> taxaacc
+        let aux_collect key node taxaacc = match node with
+            | Tree.Single _ | Tree.Leaf _ ->
+                (Ptree.get_node_data key tree) :: taxaacc
+            | _ ->
+                taxaacc
         in
-        let nodes = All_sets.IntegerMap.fold aux_collect 
-            tree.Ptree.tree.Tree.u_topo [] in
+        let nodes =
+            All_sets.IntegerMap.fold aux_collect tree.Ptree.tree.Tree.u_topo []
+        in
         nodes, List.map NodeH.to_other nodes
 
     let replace_contents downpass uppass get_code nodes ptree =

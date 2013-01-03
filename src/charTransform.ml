@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2791 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 3010 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -1171,35 +1171,46 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
 
     let rec transform_tree_characters (trees,data,nodes) meth =
+        let ap_alph alph =
+            try let () = ignore (Alphabet.match_base "present" alph) 
+                and () = ignore (Alphabet.match_base "absent"  alph) in
+                true
+            with _ -> false
+        in
         let static_transform t bs data a b c d e f chars =
             let chars =
                 let chars = Data.get_code_from_characters_restricted_comp
                                                     `AllStatic data chars in
-                Data.categorize_characters data (`Some chars)
+                Data.categorize_characters_by_alphabet_size data (`Some chars)
             in
             match chars with
             | []  -> data
             | css ->
                 List.fold_left
-                    (fun data cs ->
+                    (fun data (_,b_chars) ->
+                        let cs = Data.get_chars_codes data b_chars in
                         let csa= Array.of_list cs in
                         let _,alpha = Data.verify_alphabet data cs `Max in
-                        (Some csa, a, b, c, d, e, f)
-                            --> estimate_static_lk_model t data bs alpha
-                            --> Data.apply_likelihood_model_on_chars data cs)
+                        if ap_alph alpha then
+                            data
+                        else 
+                            (Some csa, a, b, c, d, e, f)
+                                --> estimate_static_lk_model t data bs alpha
+                                --> Data.apply_likelihood_model_on_chars data cs)
                     data
                     css
         and dynamic_transform tree bs data a b c d e f chars =
             let chars =
                 let chars = Data.get_code_from_characters_restricted_comp
                                                     `AllDynamic data chars in
-                Data.categorize_characters data (`Some chars)
+                Data.categorize_characters_by_alphabet_size data (`Some chars)
             in
             match chars with
             | []  -> data
             | css ->
                 List.fold_left
-                    (fun data cs ->
+                    (fun data (_,b_chars) ->
+                        let cs = Data.get_chars_codes data b_chars in
                         let _,alpha = Data.verify_alphabet data cs `Max in
                         (Some cs,a,b,c,d,e,f)
                             --> estimate_dynamic_lk_model tree data bs alpha
@@ -1225,19 +1236,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 trees, data, nodes
             end else begin
                 let trees =
-                    let file = match c with
-                        | `AIC  file -> file
-                        | `AICC file -> file
-                        | `BIC  file -> file
+                    let f = match c with | `AIC f | `AICC f | `BIC f -> f in
+                    let table_out =
+                        Some (Status.output_table (Status.Output (f,false,[])))
+                    and st i =
+                        Status.create "Model Selection" (Some i) "Optimizing Character"
                     in
-                    let table_out = Status.output_table (Status.Output (file,false,[])) in
                     Sexpr.fold_status
                         "Running model estimation on each tree"
                         ~eta:true
                         (fun tsexp t ->
-                            let stats = MS.generate_stats t x in
-                            let ()    = table_out (MS.report_stats stats chars) in
-                            let t     = MS.best_model stats in
+                            let t = MS.optimize_tree_and_report table_out st t x in
                             Sexpr.union (`Single t) tsexp)
                         `Empty
                         trees

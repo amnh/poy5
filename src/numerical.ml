@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 2814 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 2964 $"
 
 let (-->) b a = a b
 
@@ -94,7 +94,7 @@ class running_stats = object(self)
     val mutable m_k = 0.0
     val mutable s_k = 0.0
 
-    val mutable max_x = 0.0
+    val mutable max_x = min_float
     val mutable min_x = max_float
 
     method push x_k =

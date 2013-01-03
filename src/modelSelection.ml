@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 2789 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 3011 $"
 
 let ndebug = true
 
@@ -80,6 +80,10 @@ module type S = sig
         (MlModel.model -> float option) -> stats -> Data.bool_characters -> float * float
 
     val generate_stats : tree -> Methods.ml_spec -> stats
+
+    val optimize_tree_and_report :
+        (string array array -> unit) option -> (int -> Status.status) -> tree
+            -> Methods.ml_spec -> tree
 end
 
 module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
@@ -178,16 +182,19 @@ struct
         used in static and other characters so we do not special case things. *)
     let get_longest_of_code data code : int =
         Hashtbl.fold
-            (fun t tbl acc -> match fst (Hashtbl.find tbl code) with
-                | Data.Dyna (_,state) ->
-                    let total =
-                        Array.fold_left
-                            (fun acc x -> acc + (Sequence.length x.Data.seq))
-                            0 state.Data.seq_arr
-                    in
-                    max total acc
-                | Data.Stat (_,state) -> max 1 acc
-                | Data.FS _           -> assert false)
+            (fun t tbl acc ->
+                try match fst (Hashtbl.find tbl code) with
+                    | Data.Dyna (_,state) ->
+                        let total =
+                            Array.fold_left
+                                (fun acc x -> acc + (Sequence.length x.Data.seq))
+                                0 state.Data.seq_arr
+                        in
+                        max total acc
+                    | Data.Stat (_,state) -> max 1 acc
+                    | Data.FS _           -> assert false
+                (* not found if missing data; len=0, so pass along acc *)
+                with Not_found -> acc)
             data.Data.taxon_characters
             0
 
@@ -212,11 +219,12 @@ struct
     (** [apply_model_to_data] apply the model specification to a set of chars *)
     let apply_model_to_data old_model diff chars data : Data.d =
         List.fold_left
-            (fun d xs ->
+            (fun d (_,xs) ->
                 let model = update_model old_model diff in
-                Data.apply_likelihood_model_on_chars d xs model)
+                let codes = Data.get_chars_codes_comp data xs in
+                Data.apply_likelihood_model_on_chars d codes model)
             (data)
-            (Data.categorize_likelihood_chars_by_model_comp data chars)
+            (Data.categorize_characters_by_alphabet_size_comp data chars)
         --> Data.categorize
 
     (** [diagnose_tree_with_model] determine the maximum likelihood value for
@@ -233,16 +241,9 @@ struct
                 All_sets.IntegerMap.empty
                 nodes
         in
-        let tree =
-            { tree with Ptree.node_data = node_data; Ptree.data = data; }
-                --> TreeOps.downpass
-                --> TreeOps.uppass
-        in
-        let charn = Data.get_chars_codes_comp tree.Ptree.data chars in
-        let model = Data.get_likelihood_model tree.Ptree.data charn in
-        info_user_message "Optimized %s to %f"
-            (MlModel.short_name model) (negative_loglikelihood tree chars);
-        tree
+        { tree with Ptree.node_data = node_data; Ptree.data = data; }
+            --> TreeOps.downpass
+            --> TreeOps.uppass
 
 
     (** {2 General Information Metrics for Model Selection *)
@@ -296,7 +297,7 @@ struct
 
     (** [best_model] return the optimial tree from stats *)
     let best_model stats =
-        stats.tree_stats.( fst stats.min_ic ).tree
+        stats.tree_stats.(fst stats.min_ic).tree
 
     (** [stats_of_tree] fill stats of criteria tests from a ML tree. Warning is
         used to tell the user when a situation occurs that the number of
@@ -318,14 +319,6 @@ struct
         models, used as a basis for all *IC methods. *)
     let stats_of_models specs ic (chars : Data.bool_characters) spec tree =
         assert ( match specs with | [] -> false | _ -> true );
-        let () = match chars with
-            | `All -> ()
-            | char ->
-                error_user_message
-                    ("Currently@ using@ %s@ as@ a@ subset@ of@ characters"^^
-                     "@ is@ not@ supported.@ Only@ all@ is@ allowed.")
-                    (Data.string_of_characters_comp char)
-        in
         let warning = ref false in
         let tree_stats =
             specs --> Array.of_list
@@ -406,30 +399,28 @@ struct
             assert( (fst_trp tree_stats.(fst min_ic).ic) = (snd min_ic) );
             { tree_stats = tree_stats; min_ic = min_ic; type_ic = x.type_ic; }
 
-    (** [report_stats] currently a debug function for reporting information *)
+    (** [report_stats] function for reporting information in a table. *)
     let report_stats stats chars : string array array =
         let ic_name = match stats.type_ic with 
              | `AIC -> "AIC" | `AICC -> "AICc" | `BIC -> "BIC"
         in
         let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
-        let () =
-            ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |]
-        in
+        ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |];
         let warning = ref false in
         Array.fold_left
             (fun (i,w_cum) (({ic=(ic,d_ic,w_ic)}) as s) ->
                 let charn = Data.get_chars_codes_comp s.tree.Ptree.data chars in
                 let model = Data.get_likelihood_model s.tree.Ptree.data charn in
-                warning := !warning || (d_ic < (4.00 +. Numerical.tolerance));
-                let i_array = 
+                warning := !warning || ((i>1) && (d_ic < 4.00));
+                let i_array =
                     [| (MlModel.short_name model);  (string_of_float s.lk);
                        (string_of_int (parameter_cardinality s.tree chars));
                        (string_of_int (sample_size s.tree chars));
                        (string_of_float ic);  (string_of_float d_ic);
-                       (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |];
+                       (string_of_float w_ic); (string_of_float (w_ic +. w_cum)); |]
                 in
                 ret.(i) <- i_array;
-                ((i+1),(w_cum +. w_ic)) )
+                ((i+1),(w_cum +. w_ic)))
             (1,0.0)
             stats.tree_stats
             --> ignore;
@@ -456,6 +447,84 @@ struct
         let stats = stats_of_models dmodels ic chars model tree in
         stats
 
+    (** To only optimize a subset of the characters, let weight the characters
+        to 0 first, then unapply it later with sister function. *)
+    let collect_character_weights tree =
+        List.fold_left
+            (fun acc (c,f) -> All_sets.IntegerMap.add c f acc)
+            (All_sets.IntegerMap.empty)
+            (Data.get_weights (Ptree.get_data tree))
+
+    (** Reapply previous weights to a set of characters *)
+    and reweight_characters weights chars tree =
+        let data = Data.duplicate (Ptree.get_data tree) in
+        let data = 
+            List.fold_left
+                (fun d c ->
+                    Data.set_weight c (All_sets.IntegerMap.find c weights) d)
+                data (Data.get_chars_codes_comp data chars)
+        in
+        Ptree.set_data tree data
+
+    (** [set_characters_weight] isolate a set of characters by transforming the
+        weights. The ones passed to previous value, and others to 0.0. *)
+    let set_characters_weight tree weights achars chars =
+        let n_data =
+            let data   = Ptree.get_data tree in
+            let nchars = Data.complement_characters_comp data chars in
+            let nchars = Data.intersect_characters_comp data achars nchars in
+            tree --> reweight_characters weights chars
+                 --> Ptree.get_data
+                 --> Data.transform_weight (`ReWeight (nchars,0.0))
+                 --> Data.categorize
+        in
+        Ptree.set_data tree n_data
+
+    (** [optimize_tree_and_report o t c] Report and generate the best tree by
+        composing the models for each character. *)
+    let optimize_tree_and_report report_table status t ((chars,_,_,_,_,_,_) as x) =
+        let replace_chars_in_spec z (_,a,b,c,d,e,f) = (z,a,b,c,d,e,f)
+        and table_out = match report_table with
+            | None   -> (fun _ _ -> ())
+            | Some x -> (fun s c -> x (report_stats s c))
+        in
+        (* fold over each character, optimizing it, while setting
+            other-character weights to 0 *)
+        let optimize_tree weights t charss = 
+            let status = status (List.length charss) in
+            List.fold_left
+                (fun (i,t) ((s,c) : int * Data.bool_characters) ->
+                    let x  = replace_chars_in_spec c x in
+                    let t  = set_characters_weight t weights chars c in
+                    let s  = generate_stats t x in
+                    let () = table_out s c in
+                    let t  = best_model s in
+                    let () = Status.full_report ~adv:(i+1) status in
+                    (i+1,t))
+                (0,t)
+                charss
+            --> snd
+        in
+        let data,nodes =
+            let data = Data.transform_weight (`ReWeight (`All ,0.0)) (Ptree.get_data t) in
+            let c = Data.categorize_characters_by_alphabet_size_comp data chars in
+            let weights = collect_character_weights t in
+            c   --> optimize_tree weights (Ptree.set_data t data)  
+                --> reweight_characters weights `All
+                --> Ptree.get_data
+                --> Data.transform_weight (`ReWeight (chars,1.0))
+                --> Data.categorize
+                --> Node.load_data
+        in
+        let node_data =
+            List.fold_left
+                (fun acc x -> All_sets.IntegerMap.add (Node.taxon_code x) x acc)
+                All_sets.IntegerMap.empty
+                nodes
+        in
+        {t with Ptree.node_data = node_data; Ptree.data = data; }
+            --> TreeOps.downpass
+            --> TreeOps.uppass
 end
 
 (** Test against the scripting module Phylo; we use magic to transform the

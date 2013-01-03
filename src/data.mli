@@ -123,8 +123,6 @@ type fixed_state_spec =
         original_dynspec : dynamic_hom_spec;
     }
 
-val get_weight_from_fs_spec : fixed_state_spec -> float
-
 type distr =
     | MaxLength of int (* Any of the distributions with a maximum length *)
 
@@ -397,6 +395,8 @@ val get_tcm : int -> d -> tcm
 
 val get_weight : int -> d -> float
 
+val set_weight : int -> float -> d -> d
+
 val get_weights : d -> (int * float) list
 
 val process_parsed_sequences :
@@ -444,6 +444,13 @@ val categorize_likelihood_chars_by_model_comp : d -> bool_characters -> int list
 val categorize_characters : d -> characters -> int list list
 
 val categorize_characters_comp : d -> bool_characters -> int list list
+
+val categorize_characters_by_alphabet_size_comp : 
+    d -> bool_characters -> (int * bool_characters) list
+
+val categorize_characters_by_alphabet_size : 
+    d -> characters -> (int * characters) list
+
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
 
@@ -514,6 +521,10 @@ val process_ignore_characters : bool -> d -> characters -> d
 val process_ignore_characters_file : bool -> d -> FileStream.f -> d
 
 val complement_characters : d -> characters -> [ `All | `Some of int list | `Names of string list ]
+
+val complement_characters_comp : d -> bool_characters -> bool_characters
+
+val intersect_characters_comp :  d -> bool_characters -> bool_characters -> bool_characters
 
 val complement_taxa : d -> int list -> int list
 

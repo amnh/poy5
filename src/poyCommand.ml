@@ -19,17 +19,17 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 2842 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3014 $"
 
 let debug = false 
 
 type tie_breaker = Methods.keep_method
 
 type read_option_t = [
-| `Init3D of bool
-| `Orientation of bool
-| `Prealigned
-| `TieBreaker of tie_breaker
+    | `Init3D of bool
+    | `Orientation of bool
+    | `Prealigned
+    | `TieBreaker of tie_breaker
 ]
 
 type otherfiles = [
@@ -345,6 +345,7 @@ type reporta = [
     | `FasWinClad
     | `Nexus
     | `Model of old_identifiers
+    | `LKSites of old_identifiers
     | `Pairwise of old_identifiers
     | `Script of string list
     | `ExplainScript of string
@@ -451,19 +452,12 @@ let transform_transform acc (id, x) =
             | `Tcm (f,l_and_tb) -> 
                     (`Assign_Transformation_Cost_Matrix ((Some ((`Local f),l_and_tb)), id)) :: acc
             | `SearchBased f -> (`Search_Based (f,id)) :: acc
-            | `Gap (a, b) -> 
-                    (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
-            | `AffGap (c) ->
-                    (`Assign_Affine_Gap_Cost (c, id)) ::
-                        acc
-            | `PrepInput x ->
-                    (`Assign_Prep_Cost ((`Array x), id)) :: acc
-            | `PrepFile x ->
-                    (`Assign_Prep_Cost ((`File (`Local x)), id)) :: acc
-            | `TailInput x ->
-                    (`Assign_Tail_Cost ((`Array x), id)) :: acc
-            | `TailFile x ->
-                    (`Assign_Tail_Cost ((`File (`Local x)), id)) :: acc
+            | `Gap (a, b) -> (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
+            | `AffGap c -> (`Assign_Affine_Gap_Cost (c, id)) :: acc
+            | `PrepInput x -> (`Assign_Prep_Cost ((`Array x), id)) :: acc
+            | `PrepFile x -> (`Assign_Prep_Cost ((`File (`Local x)), id)) :: acc
+            | `TailInput x -> (`Assign_Tail_Cost ((`Array x), id)) :: acc
+            | `TailFile x -> (`Assign_Tail_Cost ((`File (`Local x)), id)) :: acc
             | `MultiStaticApproximation noninf -> (`MultiStatic_Aprox (id, noninf)) :: acc
             | `StaticApproximation noninf -> (`Static_Aprox (id, noninf)) :: acc
             | `Automatic_Static_Aprox sens -> (`Automatic_Static_Aprox sens) :: acc
@@ -975,6 +969,8 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             (`Nexus (file)) :: acc, file
     | `Pairwise x ->
             (`Pairwise (file,x)) :: acc, file
+    | `LKSites x ->
+            (`LKSites (file,x)) :: acc, file
     | `Model x ->
             (`Model (file,x)) :: acc, file
     | `Script lst ->
@@ -982,16 +978,15 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `ExplainScript script ->
             (`ExplainScript (script, file)) :: acc, file
     | `Clades -> 
-            begin match file with
+        begin match file with
             | None ->
-                    let msg = "Sorry,@ I@ need@ a@ filename@ to@ output@ " ^
+                let msg = "Sorry,@ I@ need@ a@ filename@ to@ output@ " ^
                     "the@ clades@ file.@ I@ will@ ignore@ your@ clades@ " ^
                     "request." in
-                    Status.user_message Status.Error msg;
-                    acc, file
-            | Some f ->
-                    (`Clades f) :: acc, file
-            end
+                Status.user_message Status.Error msg;
+                acc, file
+            | Some f -> (`Clades f) :: acc, file
+        end
     | `CrossReferences x -> (`CrossReferences (x, file)) :: acc, file
     | `TerminalsFiles -> (`TerminalsFiles file) :: acc, file
     | `Supports c -> (`Supports (c, file)) :: acc, file
@@ -1011,40 +1006,35 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `Nodes ->
             (`Nodes file) :: acc, file
 
-let transform_report_arguments x =
-    match x with
+let transform_report_arguments x = match x with
     | [`File file] ->
             let file = Some file in
             [`Ascii (file, true); `Diagnosis (`Normal,file); `Trees ([], file)]
     | [] -> [`Ascii (None, true); `Diagnosis (`Normal,None); `Trees ([], None)]
-    | _ -> 
-            let def = [], None in
+    | _  -> let def = [], None in
             let x, _ = List.fold_left transform_report def x in
             x
 
 (* Selecting *)
 let transform_select (choose, (acc : Methods.script list)) = function
-    | `Characters 
+    | `Characters
     | `Taxa as x -> (x, acc)
     | (`Random _) | (`Missing _) | (`Names _) as meth ->
         begin match choose with
             | `Taxa       -> (choose, ((`AnalyzeOnly meth) :: acc))
-            | `Characters ->  (choose, (`AnalyzeOnlyCharacters meth) :: acc)
+            | `Characters -> (choose, (`AnalyzeOnlyCharacters meth) :: acc)
         end
     | `Files (do_complement, x) ->
         let x = List.map (fun x -> `Local x) x in
         begin match choose with
-            | `Taxa -> 
+            | `Taxa ->
                 (choose, ((`AnalyzeOnlyFiles (do_complement, x)) :: acc))
-            | `Characters -> 
+            | `Characters ->
                 (choose, ((`AnalyzeOnlyCharacterFiles (do_complement, x)) :: acc))
         end
-    | `BestN _
-    | `BestWithin _
-    | `Unique
-    | `RandomTrees _ as x ->
-            (choose, (x :: acc))
-    | `AllStatic | `AllDynamic  as x -> 
+    | `BestN _ | `BestWithin _ | `Unique | `RandomTrees _ as x ->
+        (choose, (x :: acc))
+    | `AllStatic | `AllDynamic  as x ->
         begin match choose with
             | `Taxa ->
                 let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
@@ -1053,7 +1043,7 @@ let transform_select (choose, (acc : Methods.script list)) = function
                 in
                 Status.user_message Status.Error msg;
                 (choose, acc)
-            | `Characters -> 
+            | `Characters ->
                 (choose, ((`AnalyzeOnlyCharacters x) :: acc))
         end
     | _ -> 
@@ -1064,51 +1054,51 @@ let transform_select (choose, (acc : Methods.script list)) = function
         Status.user_message Status.Error msg;
         (choose, acc)
 
-let transform_select_arguments x =
-    match x with
+let transform_select_arguments x = match x with
     | [] -> [`BestN None; `Unique]
-    | x ->
-        let _, res = List.fold_left transform_select (`Taxa, []) x in
-        res
+    | x  -> snd (List.fold_left transform_select (`Taxa, []) x)
 
 (* Renaming *)
 let transform_rename (on, (files : Methods.filename list), ren, acc) x = 
-    let is_empty =
-        match files, ren with
+    let is_empty = match files, ren with
         | [], [] -> true
         | _ -> false
     in
     match x with
     | `Characters ->
-            (match on with
+        begin match on with
             | `Characters -> (on, files, ren, acc)
             | `Taxa ->
-                    if is_empty then (`Characters, files, ren, acc)
-                    else 
-                        let acc = (`RenameCharacters ren) :: acc in
-                        (`Characters, [], [], acc))
+                if is_empty then (`Characters, files, ren, acc)
+                else
+                    let acc = (`RenameCharacters ren) :: acc in
+                    (`Characters, [], [], acc)
+        end
     | `Taxa ->
-            (match on with
+        begin match on with
             | `Taxa -> (on, files, ren, acc)
             | `Characters ->
-                    if is_empty then (`Taxa, files, ren, acc)
-                    else 
-                        let acc = 
-                            (`SynonymsFile (List.rev files)) :: 
-                                (`Synonyms ren) :: acc
-                        in
-                        (`Taxa, [], [], acc))
-    | `File f -> 
-            (match on with
+                if is_empty then (`Taxa, files, ren, acc)
+                else
+                    let acc =
+                        (`SynonymsFile (List.rev files))::(`Synonyms ren)::acc
+                    in
+                    (`Taxa, [], [], acc)
+        end
+    | `File f ->
+        begin match on with
             | `Taxa -> (on, (`Local f) :: files, ren, acc)
-            | `Characters -> 
-                    let msg = "We@ only@ suport@ command@ line@ character@ " ^
+            | `Characters ->
+                let msg = "We@ only@ suport@ command@ line@ character@ " ^
                     "renaming@ for@ now.@ If@ you@ think@ this@ is@ a@ useful"
-                    ^ "@ feature,@ file@ the@ request.@ For@ now,@ the@ file" 
-                    ^ " " ^ StatusCommon.escape f ^ "@ will@ be@ ignored." in
-                    Status.user_message Status.Error msg;
-                    (on, files, ren, acc))
-    | `Syn s -> (on, files, s :: ren, acc)
+                    ^ "@ feature,@ file@ the@ request.@ For@ now,@ the@ file@ "
+                    ^ StatusCommon.escape f ^ "@ will@ be@ ignored."
+                in
+                Status.user_message Status.Error msg;
+                (on, files, ren, acc)
+        end
+    | `Syn s ->
+        (on, files, s :: ren, acc)
     
 let transform_rename_arguments x =
     match List.fold_left transform_rename (`Taxa, [], [], []) x with
@@ -1835,6 +1825,8 @@ let create_expr () =
                 [ LIDENT "nexus" -> `Nexus ] | 
                 [ LIDENT "lkmodel"; ":"; x = old_identifiers -> `Model x ] | 
                 [ LIDENT "lkmodel" -> `Model `All ] | 
+                [ LIDENT "lksites"; ":"; x = old_identifiers -> `LKSites x ] | 
+                [ LIDENT "lksites" -> `LKSites `All ] | 
                 [ LIDENT "script" -> `Script (!console_script) ] |
                 [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |
                 [ LIDENT "pairwise" -> `Pairwise `All ] |
@@ -1852,7 +1844,7 @@ let create_expr () =
                 [ LIDENT "supports"; y = OPT opt_support_names -> `Supports y ] |
                 [ LIDENT "graphsupports"; y = OPT opt_support_names -> 
                     `GraphicSupports y ] |
-                [ LIDENT "diagnosis"; y = OPT opt_report_type -> 
+                [ LIDENT "diagnosis"; y = OPT opt_report_type ->
                     match y with 
                     | None -> `Diagnosis `Normal
                     | Some x -> `Diagnosis x] |
@@ -1905,7 +1897,9 @@ let create_expr () =
             ];
         resample:
             [
-                [ LIDENT "resample"; ":"; left_parenthesis; x = INT; ","; right_parenthesis
+
+                [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ] |
+                [ LIDENT "resample"; ":"; left_parenthesis; x = INT; right_parenthesis
                     -> `Resample (int_of_string x) ]
             ];
         charortax:
@@ -2428,12 +2422,11 @@ let create_expr () =
             ];
         opt_report_type:
             [
-                [","; x = report_type -> x]
+                [":"; x = report_type -> x]
             ];
         (* Support values *)
         support_argument:
-            [
-                [ x = build -> (x :> supporta) ] |
+            [ [ x = build -> (x :> supporta) ] |
                 [ x = swap -> (x :> supporta) ] |
                 [ x = support_method -> (x :> supporta) ]
             ];
@@ -2572,7 +2565,7 @@ and read_script_files optimize (files : [`Inlined of string | `Filename of strin
         List.map
             (fun f -> 
                 let where = match f with
-                    | `Filename f -> "file@ @{<b>" ^ f ^ "@}@"
+                    | `Filename f -> "file@ @{<b>" ^ f ^ "@}"
                     | `Inlined f -> "inlined@ script"
                 in
                 try match f with
@@ -2600,7 +2593,7 @@ and read_script_files optimize (files : [`Inlined of string | `Filename of strin
                         failwith "Script execution stopped"
                     | err ->
                         Status.user_message Status.Error 
-                            ("Error@ while@ processing@ script@  " ^ where);
+                            ("Error@ while@ processing@ script@ " ^ where);
                         raise err)
             files 
     in

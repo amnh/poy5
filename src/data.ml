@@ -23,6 +23,8 @@ open StdLabels
 
 exception Illegal_argument
 
+exception Illegal_Taxa of string
+
 type filename = string 
 
 module FullTupleMap = All_sets.FullTupleMap
@@ -548,9 +550,6 @@ module Accessor = struct
             hm
         | [] -> failwith "No Characters found"
 
-    let get_weight_from_fs_spec fs_spec =
-        fs_spec.original_dynspec.weight
-
     let get_all_taxon_active_codes data = 
         Hashtbl.fold (fun code _ acc -> code :: acc) data.taxon_characters [] 
 
@@ -579,16 +578,16 @@ module Accessor = struct
         let alpha = get_alphabet data code in
         let gap = Alphabet.get_gap alpha in
         let seqs = Stack.create () in
-        let process_taxon a b = 
-            match Hashtbl.find b code with
+        let process_taxon a b = match Hashtbl.find b code with
             | (Stat _), _ -> ()
-            | FS _, _ -> () 
+            | (FS _), _   -> ()
             | (Dyna (_, d)), _ ->
-                    match d.seq_arr with
+                begin match d.seq_arr with
                     | [|dv|] ->
-                            if not (Sequence.is_empty dv.seq gap) then 
-                                Stack.push dv.seq seqs
+                        if not (Sequence.is_empty dv.seq gap) then
+                            Stack.push dv.seq seqs
                     | _ -> ()
+                end
         in
         Hashtbl.iter process_taxon data.taxon_characters;
         seqs
@@ -935,6 +934,24 @@ module CharacterSelection = struct
     let get_chars_codes_comp data ch =
         character_comp_wrapper get_chars_codes data ch
 
+    (** return the complement of bool_characters *)
+    let complement_characters_comp d ch = match ch with
+        | `Some (x, y)     -> `Some (not x, y)
+        | `Names (x, y)    -> `Names (not x, y)
+        | `CharSet (x, y)  -> `CharSet (not x, y)
+        | `Range (x,f,a,b) -> `Range (not x,f,a,b)
+        | `Random x        -> `Random (1.0 -. x)
+        | `Missing (x,y)   -> `Missing (not x, y)
+        | `All             -> `Some (true,[])
+        | `AllStatic       -> `Some (false,get_chars_codes_comp d ch)
+        | `AllDynamic      -> `Some (false,get_chars_codes_comp d ch)
+
+    (** return set intersection of characters; restrict set ch2 by ch1. *)
+    let intersect_characters_comp d ch1 ch2 =
+        let ch2 = get_chars_codes_comp d ch2
+        and ch1 = get_chars_codes_comp d ch1 in
+        `Some (true, List.filter (fun x -> List.mem x ch1) ch2)
+
     (** return a list of all named character sets from chars *)
     let categorize_sets data chars : int list list =
         let categorize (map : int list All_sets.StringMap.t) (c : int) =
@@ -953,11 +970,11 @@ module CharacterSelection = struct
         in
         let chars = get_chars_codes data chars in
         let set = List.fold_left ~f:categorize ~init:All_sets.StringMap.empty chars in
-        List.rev_map ~f:snd (All_sets.StringMap.bindings set)
+        All_sets.StringMap.fold (fun _ v acc -> v::acc) set []
 
     (** categorize characters by pairing. This is to abstract the categorize by
         alphabet function for other cases; observed, et cetera *)
-    let categorize_by_pairs data chars : (int * bool_characters) list =
+    let categorize_by_pairs data chars : (int * characters) list =
          let classify_by_size list =
             let sets =
                 List.fold_left
@@ -971,12 +988,12 @@ module CharacterSelection = struct
                     list
             in
             All_sets.IntegerMap.fold
-                (fun a b acc -> (a, `Some (true, b)) :: acc) sets []
+                (fun a b acc -> (a, `Some b) :: acc) sets []
         in
         classify_by_size chars
     
     (** categorize characters by the distinct alphabet size *)
-    let categorize_characters_by_alphabet_size data chars : (int * bool_characters) list =
+    let categorize_characters_by_alphabet_size data chars : (int * characters) list =
         let make_tuple_of_character_and_size char =
             let size =
                 char --> get_alphabet data
@@ -1066,38 +1083,34 @@ module CharacterSelection = struct
             with _ -> false
         in
         let rec add_static_type enc code st_type data =
-            let observed = List.length enc.Nexus.File.st_observed in
-            let between x y = observed >= x && observed <= y in
+            let observed = List.length enc.Nexus.File.st_observed   in
+            let between x y = observed >= x && observed <= y        in
+            let is_zero_weight enc = enc.Nexus.File.st_weight = 0.0 in
             begin match st_type with
-                | Nexus.File.STSankoff _ ->
-                    classify_sankoff code data
+                | _ when is_zero_weight enc -> data
+                | Nexus.File.STSankoff _    -> classify_sankoff code data
                 | Nexus.File.STOrdered when observed > 1 ->
                     {data with additive = code :: data.additive }
-                | Nexus.File.STOrdered   -> data
-                | Nexus.File.STUnordered ->
+                | Nexus.File.STOrdered      -> data
+                | Nexus.File.STUnordered    ->
                     if between 0 1 then
-                        { data with
-                            non_additive_1 = code :: data.non_additive_1 }
+                        {data with non_additive_1  = code::data.non_additive_1 }
                     else if between 2 8 then
-                        { data with
-                            non_additive_8 = code :: data.non_additive_8 }
+                        {data with non_additive_8  = code::data.non_additive_8 }
                     else if between 9 16 then
-                        { data with
-                            non_additive_16 = code :: data.non_additive_16 }
+                        {data with non_additive_16 = code::data.non_additive_16}
                     else if between 17 32 then
-                        { data with 
-                            non_additive_32 = code :: data.non_additive_32 }
+                        {data with non_additive_32 = code::data.non_additive_32}
                     else if observed > 32 then
-                        { data with
-                            non_additive_33 = code :: data.non_additive_33 }
-                    else 
+                        {data with non_additive_33 = code::data.non_additive_33}
+                    else
                         assert false
                 (** Ignore Absent/Present Columns under likelihood *)
                 | Nexus.File.STNCM _        when absent_present enc -> data
                 | Nexus.File.STLikelihood _ when absent_present enc -> data
                 | Nexus.File.STLikelihood _ ->
                     { data with static_ml = code :: data.static_ml }
-                | Nexus.File.STNCM (_,_,t) ->
+                | Nexus.File.STNCM (_,_,t)  ->
                     add_static_type enc code t data
             end
         in
@@ -1127,7 +1140,10 @@ module CharacterSelection = struct
         character_comp_wrapper categorize_sets data chars
     
     let categorize_characters_by_alphabet_size_comp data (chars:bool_characters) =
-        character_comp_wrapper categorize_characters_by_alphabet_size data chars 
+        List.map
+            (fun (s,c) -> match c with
+                | `Some c -> (s,`Some (true,c)) | _ -> assert false)
+            (character_comp_wrapper categorize_characters_by_alphabet_size data chars)
 end
 include CharacterSelection
 open CharacterSelection
@@ -2968,7 +2984,15 @@ let process_ignore_file data file =
 let code_taxon code data = 
     All_sets.IntegerMap.find code data.taxon_codes
 
-let report included excluded =
+let report d included excluded =
+    let rec included_in_data = function
+        | []      -> ()
+        | x :: xs ->
+            try let () = ignore (taxon_code x d) in
+                included_in_data xs
+            with (Failure _) -> raise (Illegal_Taxa x)
+    in
+    let () = included_in_data included in
     let len1 = List.length included
     and len2 = List.length excluded in
     let total = max len1 len2 in
@@ -3057,9 +3081,8 @@ let rec process_analyze_only_taxa meth data = match meth with
                 if dont_complement then included, excluded
                 else excluded, included
             in
-            report included excluded;
+            report data included excluded;
             process_analyze_only_taxa (`Names (false, excluded)) data
-
 
 let process_analyze_only_file dont_complement data files =
     let data = duplicate data in
@@ -3083,12 +3106,18 @@ let process_analyze_only_file dont_complement data files =
                 then complement_taxa data taxa, taxa
                 else taxa, complement_taxa data taxa
         in
-        report taxa ignored;
-        let data = List.fold_left ~f:process_ignore_taxon ~init:data ignored in
-        data
-    with | Failure msg ->
+        report data taxa ignored;
+        List.fold_left ~f:process_ignore_taxon ~init:data ignored
+    with 
+    | Failure msg ->
         Status.user_message Status.Error msg;
         data
+    | (Illegal_Taxa i) as exp ->
+        Status.user_message Status.Error
+           ("Taxa@ "^ i ^"@ is@ included@ in@ terminals@ files@ but@ is@ not@ "^
+            "loaded@ in@ data.@ Please@ remove@ taxa@ from@ file.");
+        raise exp
+
 
 let remove_taxa_to_ignore data = 
     let find_code_for_root_if_removed data =
@@ -4382,20 +4411,12 @@ let verify_alphabet data chars alph =
                        " observed states (%d)") (All_sets.Strings.cardinal states);
         x, append_sequential states x Alphabet.gap_repr
     | `Max   ->
-        begin match List.map (get_alphabet data) chars with
-        | h :: t ->
-            ignore 
-                (List.fold_left
-                    ~f:(fun acc x -> 
-                            if x = h then acc 
-                            else begin
-                                (* Alphabet.print x; Alphabet.print h; *)
-                                failwith "The alphabet of the characters is different"
-                            end)
-                    ~init:true t);
-            let alph = Alphabet.to_sequential h in
-            (Alphabet.size alph), alph
-        | [] -> failwith "No alphabet to verify?"
+        begin match List.map (fun x -> (x,get_alphabet data x)) chars with
+            | (ch,h) :: t ->
+                assert (List.fold_left ~f:(fun acc (cx,x) -> x = h) ~init:true t);
+                let alph = Alphabet.to_sequential h in
+                (Alphabet.size alph), alph
+            | [] -> assert false
         end
 
 (** [compute_priors data chars] computes the observed frequencies for all the
@@ -4669,11 +4690,14 @@ let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spe
         data
     in
     let transform_char_set data (size,chars) =
-        let chars = get_chars_codes_comp data chars in
+        let chars = get_chars_codes data chars in
         let alph_size,alph = verify_alphabet data chars alph in
-        assert( alph_size = size );
-        (** Convert the characters; we want to skip absent/present, but still
-            set their status, so we use NCM, which will filter them later *)
+        (* testing that size=alph_size will not work since, alph_size is based
+           on the size of the alphabet, where alph_size is observed size, or
+           passed by a parameter.
+        assert( alph_size = size ); *)
+        (* Convert the characters; we want to skip absent/present, but still
+           set their status, so we use NCM, which will filter them later *)
         match chars with
         | []                   -> data
         | cs when ap_alph alph -> set_local_ncm data cs
@@ -4692,9 +4716,23 @@ let set_likelihood data (((chars,alph,_,_,_,_,use_gap) as m_spec):Methods.ml_spe
             let model = MlModel.create lk_spec in
             apply_likelihood_model_on_chars data chars model
     in
-    let chars = categorize_characters_by_alphabet_size_comp data chars in
-    let data = List.fold_left ~f:(transform_char_set) ~init:data chars in
-    categorize data
+    try let s_chars =
+            `Some (get_code_from_characters_restricted_comp `AllStatic data chars)
+        and d_chars =
+            `Some (get_code_from_characters_restricted_comp `AllDynamic data chars)
+        in
+        let data =
+            List.fold_left
+                ~f:(transform_char_set) ~init:data
+                (categorize_characters_by_alphabet_size data s_chars) in
+        let data =
+            List.fold_left
+                ~f:(transform_char_set) ~init:data
+                (categorize_characters_by_alphabet_size data d_chars) in
+        categorize data
+    with (MlModel.LikelihoodModelError str) as exp ->
+        Status.user_message Status.Error (Str.global_replace (Str.regexp " ") "@ " str);
+        raise exp
 
 let get_tran_code_meth data meth = 
     let tran_code_ls, meth =
@@ -4724,7 +4762,7 @@ let transform_dynamic (meth: Methods.dynamic_char_transform) data =
                 data := d
             end)
         !data.character_specs;
-    let new_taxon_chs = 
+    let new_taxon_chs =
         let new_tbl = create_ht () in
         Hashtbl.iter 
             (fun code ch_ls -> 
@@ -6020,6 +6058,25 @@ let transform_weight meth data =
     aux_transform_weight meth data;
     data
 
+let set_weight c w data =
+    let ch = match Hashtbl.find data.character_specs c with
+        | Dynamic spec ->
+            Dynamic {spec with weight = w; }
+        | Static (NexusFile spec) ->
+            Static (NexusFile {spec with Nexus.File.st_weight = w;})
+        | Static (FixedStates spec) ->
+            let ch = 
+                {spec with
+                    original_dynspec = 
+                        {spec.original_dynspec with weight = w;}}
+            in
+            Static (FixedStates ch)
+        | Set -> assert false
+        | Kolmogorov _ -> assert false
+    in
+    Hashtbl.replace data.character_specs c ch;
+    data
+
 
 let file_exists data filename =
     List.exists (fun (x, _) -> x = FileStream.filename filename) data.files
@@ -6653,14 +6710,13 @@ let guess_class_and_add_file annotated is_prealigned data filename =
             let filename = FileStream.filename filename in
             let msg = 
                 "@[A@ file@ with@ name@ " ^ StatusCommon.escape filename ^ 
-                "@ has@ previously@ " 
-                ^ "been@ loaded.@ Sorry,@ I@ will@ cowardly@ refuse@ to@ "
-                ^ "load@ its@ contents@ again.@ However,@ I@ will@ continue@ "
-                ^ "loading@ any@ files@ remaining.@]"
+                "@ has@ previously@ been@ loaded.@ Sorry,@ I@ will@ cowardly@ "^
+                "refuse@ to@ load@ its@ contents@ again.@ However,@ I@ will@ " ^
+                "continue@ loading@ any@ files@ remaining.@]"
             in
             Status.user_message Status.Error msg
         in
-        data
+        raise Status.Illegal_update
     else
         let file_type_message str = 
             let msg =
@@ -6671,8 +6727,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
             Status.user_message Status.Information msg
         in
         let add_file contents = add_file data contents filename in
-        let res = 
-            match Parser.Files.test_file filename with
+        let res = match Parser.Files.test_file filename with
             | Parser.Files.Is_Poy -> failwith "TODO Is_poy"
             | Parser.Files.Is_Clustal| Parser.Files.Is_TinySeq
             | Parser.Files.Is_Fasta| Parser.Files.Is_Genome| Parser.Files.Is_ASN1

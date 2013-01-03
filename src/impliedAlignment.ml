@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2791 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2959 $"
 
 exception NotASequence of int
 
@@ -2573,7 +2573,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 | [single] -> single
                 |    _     -> failwith "Disjoint tree in static approx"
         in
-        let res = remove_opening_gap res in
+(* TODO       let res = remove_opening_gap res in*)
         let (a, b, c) =
             if remove_non_informative then update_ia_encodings res
             else res

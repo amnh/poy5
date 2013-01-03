@@ -96,7 +96,7 @@ val rand_gamma : float -> float -> float
 
 (** {6 Statisical Objects *)
 
-class type running_stats = object
+class running_stats : object
 (** [running_stats] is an object that can calculate the variance,
     standard-deviation, min, max, and mean from a set of data of unknown size,
     and will update for each additional number. Use [push] to add numbers, then

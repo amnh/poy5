@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 2834 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 2933 $"
 
 open Numerical.FPInfix
 
@@ -27,21 +27,20 @@ let failwithf format = Printf.ksprintf failwith format
 
 let debug = false
 
-exception LikelihoodModelError
+exception LikelihoodModelError of string
 
 let likelihood_not_enabled =
-    "Likelihood@ not@ enabled:@ download@ different@ binary@ or@ contact@ mailing@ list" 
+    "Likelihood not enabled: download different binary or contact mailing list" 
 
 let lfailwith () =
-    Status.user_message Status.Error likelihood_not_enabled;
-    raise LikelihoodModelError 
+    raise (LikelihoodModelError likelihood_not_enabled)
 
 let dyno_likelihood_warning = 
-    "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
-    "likelihood@ criteria.@ Please@ add@ argument@ gap:(coupled),@ or@ gap:(character)."
+    "Gap as an additional character is required for the dynamic "^
+    "likelihood criteria. Please add argument gap:(coupled), or gap:(character)."
 
 let dyno_gamma_warning = 
-    "Gamma@ classes@ for@ dynamic@ MPL@ are@ un-necessary,@ and@ are@ being@ removed."
+    "Gamma classes for dynamic MPL are un-necessary, and are being removed."
 
 let debug_printf msg format =
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
@@ -351,6 +350,9 @@ let m_jc69 pi_ mu a_size gap_r =
 
 (* val k2p :: only 4 or 5 characters *)
 let m_k2p pi_ alpha beta a_size gap_r =
+    if not ((a_size = 4) || (a_size = 5)) then begin
+        raise (LikelihoodModelError "Alphabet does not support this model")
+    end;
     let srm = create_ba2 a_size a_size in
     let beta = if beta >. 0.0 then beta else Numerical.minimum in
     Bigarray.Array2.fill srm beta;
@@ -360,9 +362,14 @@ let m_k2p pi_ alpha beta a_size gap_r =
     (* set up the diagonal elements *)
     let () = match gap_r with
         | None -> 
-            let diag = if a_size = 4 then
-                            -. alpha -. beta -. beta
-                       else -. alpha -. beta *. 3.0  in
+            let diag =
+                if a_size = 4 then
+                    -. alpha -. beta -. beta
+                else begin
+                    assert ( a_size = 5 );
+                    -. alpha -. beta *. 3.0
+                end
+            in
             for i = 0 to (a_size-1) do
                 srm.{i,i} <- diag
             done;
@@ -390,6 +397,9 @@ let m_k2p pi_ alpha beta a_size gap_r =
 
 (* val tn93 :: only 4 or 5 characters *)
 let m_tn93 pi_ alpha beta gamma a_size gap_r =
+    if not ((a_size = 4) || (a_size = 5)) then begin
+        raise (LikelihoodModelError "Alphabet size does not support this model")
+    end;
     let srm = create_ba2 a_size a_size in
     let gamma = if gamma >. 0.0 then gamma else Numerical.minimum in
     Bigarray.Array2.fill srm gamma;
@@ -481,11 +491,6 @@ let m_f84 pi_ gamma kappa a_size gap_r =
 (* normalize against two characters that are not gaps; unless its the only choice *)
 let normalize ?(m=Numerical.minimum) alph gap_state vec = match gap_state with
     | `Independent ->
-(*        let normalize_factor =*)
-(*            if (Alphabet.get_gap alph) = ((Alphabet.size alph)-1)*)
-(*                then max m vec.( (Array.length vec) - 3 )*)
-(*                else max m vec.( (Array.length vec) - 1 )*)
-(*        in*)
         let normalize_factor = max m vec.((Array.length vec) - 1) in
         let vec = Array.map (fun i -> (max m i) /. normalize_factor) vec in
         vec, `Independent
@@ -642,14 +647,16 @@ let process_custom_model alph_size (f_aa: char array array) =
     let assoc = ref All_sets.IntegerMap.empty in
     let idx = ref 0 in
     let a_size = Array.length f_aa in
-    if not (a_size = alph_size) then
-        failwithf "Alphabet size for priors and model inconsistent: %d =/= %d" a_size alph_size;
+    if not (a_size = alph_size) then begin
+        raise (LikelihoodModelError "Alphabet size does not match model")
+    end;
     for i = 0 to a_size -1 do
         assert( Array.length f_aa.(i) = a_size );
         for j = i+1 to a_size-1 do
             let letter = Char.code f_aa.(i).(j) in
-            if not ( letter = Char.code f_aa.(j).(i) ) then
-                failwithf "Custom model should be symmetric: %d,%d =/= %d,%d" i j j i;
+            if not ( letter = Char.code f_aa.(j).(i) ) then begin
+                raise (LikelihoodModelError "Custom model should be symmetric")
+            end;
             assoc := All_sets.IntegerMap.add !idx letter !assoc;
             found := All_sets.Integers.add letter !found;
             incr idx;
@@ -1030,7 +1037,8 @@ let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost
         | "INDEPENDENT",_   -> `Independent
         | "MISSING",_       -> `Missing
         | "",_              -> `Missing
-        | x,_        -> failwithf "I encountered an invalid gap property, %s" x
+        | x,_        ->
+            raise (LikelihoodModelError ("Invalid gap property, "^x))
     in
     let submatrix = match String.uppercase name with
         | "JC69" -> begin match param with
@@ -1060,33 +1068,35 @@ let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost
             | ls -> GTR (Array.of_list ls) end
         | "GIVEN"->
             begin match file with
-            | Some name ->
-                name --> FileStream.read_floatmatrix
-                     --> List.map (Array.of_list)
-                     --> Array.of_list
-                     --> (fun x -> File (x,name))
-            | None -> failwith "File not specified for Likelihood Model."
+                | Some name ->
+                    name --> FileStream.read_floatmatrix
+                         --> List.map (Array.of_list)
+                         --> Array.of_list
+                         --> (fun x -> File (x,name))
+                | None ->
+                    raise (LikelihoodModelError "No File specified for model")
             end
         | "CUSTOM" ->
             let alph_size = snd alph in
             begin match file with
-            | Some name -> 
-                let convert str = assert( String.length str = 1 ); String.get str 0 in
-                let matrix = Cost_matrix.Two_D.matrix_of_file convert (`Local name) in
-                let matrix = Array.of_list (List.map (Array.of_list) matrix) in
-                let assoc,ray = process_custom_model alph_size matrix in
-                Custom (assoc,ray,name)
-            | None -> failwith "File not specified for Likelihood Model."
+                | Some name ->
+                    let convert str = assert( String.length str = 1 ); String.get str 0 in
+                    let matrix = Cost_matrix.Two_D.matrix_of_file convert (`Local name) in
+                    let matrix = Array.of_list (List.map (Array.of_list) matrix) in
+                    let assoc,ray = process_custom_model alph_size matrix in
+                    Custom (assoc,ray,name)
+                | None ->
+                    raise (LikelihoodModelError "No File specified for model")
             end
         (* ERROR *)
-        | "" -> failwith  "No Model Specified."
-        | xx -> failwithf "I don't know %s as a Likelihood Rate Matrix." xx
+        | "" -> raise (LikelihoodModelError "No model specified")
+        | xx -> raise (LikelihoodModelError ("Unknown likelihood model "^xx))
     in
     let cost_fn : Methods.ml_costfn = match String.uppercase cost with
         | "MPL" -> `MPL
         | "MAL" -> `MAL
         | ""    -> `MAL (* unmentioned default *)
-        | x     -> failwithf "I don't know %s as a cost mode for likelihood." x
+        | x     -> raise (LikelihoodModelError ("Unknown cost mode "^x))
     and variation = match String.uppercase var with
         | "GAMMA" ->
             let alpha = 
@@ -1106,7 +1116,7 @@ let convert_string_spec alph ((name,(var,site,alpha,invar),param,priors,gap,cost
             Theta (int_of_string site, alpha, invar)
         | "NONE" | "CONSTANT" | "" ->
             Constant
-        | x -> failwithf "I don't unrecognized rate variation distribution %s" x
+        | x -> raise (LikelihoodModelError ("Unknown rate variation mode "^x))
     and priors = match priors with
         | `Given priors        -> Given (Array.of_list (List.map snd priors))
         | `Equal               -> Equal
@@ -1170,27 +1180,23 @@ let convert_methods_spec (alph,alph_size) (compute_priors)
         | `K2P [x] -> K2P x
         | `K2P []  -> K2P default_tstv
         | `K2P _   ->
-                Status.user_message Status.Error
-                    "Likelihood@ model@ K2P@ requires@ 1@ or@ 0@ parameters";
-                raise LikelihoodModelError
+                raise (LikelihoodModelError
+                    "Likelihood model K2P requires 1 or 0 parameters")
         | `HKY85 [x] -> HKY85 x
         | `HKY85 []  -> HKY85 default_tstv
         | `HKY85 _   ->
-                Status.user_message Status.Error
-                    "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters";
-                raise LikelihoodModelError
+                raise (LikelihoodModelError
+                    "Likelihood model HKY85 requires 1 or 0 parameters")
         | `F84 [x]   -> F84 x
         | `F84 []    -> F84 default_tstv
         | `F84 _     ->
-                Status.user_message Status.Error
-                    "Likelihood@ model@ F84@ requires@ 1@ or@ 0@ parameters";
-                raise LikelihoodModelError
+                raise (LikelihoodModelError
+                    "Likelihood model F84 requires 1 or 0 parameters")
         | `TN93 [x;y] -> TN93 (x,y)
         | `TN93 []    -> TN93 (default_tstv,default_tstv)
         | `TN93 _     ->
-                Status.user_message Status.Error
-                    "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters";
-                raise LikelihoodModelError
+                raise (LikelihoodModelError
+                    "Likelihood model TN93 requires 2 or 0 parameters")
         | `GTR xs -> GTR (Array.of_list xs)
         | `File str ->
             (* this needs to be changed to allow remote files as well *)
@@ -1200,17 +1206,13 @@ let convert_methods_spec (alph,alph_size) (compute_priors)
                 (fun x ->
                     if Array.length x = alph_size then ()
                     else begin
-                        Status.user_message Status.Error
-                            "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters";
-                        raise LikelihoodModelError
+                        raise (LikelihoodModelError "Likelihood model TN93 requires 2 or 0 parameters")
                     end)
                 (matrix);
             if Array.length matrix = alph_size then
                 File (matrix,str)
             else begin
-                Status.user_message Status.Error
-                    "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters";
-                raise LikelihoodModelError
+                raise (LikelihoodModelError "Likelihood model TN93 requires 2 or 0 parameters")
             end;
         | `Custom str ->
             let convert str = assert( String.length str = 1 ); String.get str 0 in
@@ -1281,7 +1283,7 @@ let create ?(min_prior=Numerical.minimum) lk_spec =
         in
         if not (a_size = Array.length p) then begin
             debug_printf "Alphabet = %d; Priors = %d\n%!" a_size (Array.length p);
-            failwith "MlModel.create: Priors don't match alphabet"
+            raise (LikelihoodModelError "Priors don't match alphabet");
         end;
         ba_of_array1 p
     in
@@ -1393,19 +1395,19 @@ let compute_priors (alph,u_gap) freq_ (count,gcount) lengths : float array =
 
 (** Add Independent Gap to a model *)
 let add_gap_to_model compute_priors model = 
-    Status.user_message Status.Error dyno_likelihood_warning;
-    raise LikelihoodModelError
+    raise (LikelihoodModelError dyno_likelihood_warning)
 
 let add_gap_to_model compute_priors model = 
     match model.spec.use_gap with
     | `Missing -> add_gap_to_model compute_priors model
     | `Independent | `Coupled _ -> model
 
-let remove_gamma_from_spec spec = 
+let remove_gamma_from_spec spec =
     match spec.site_variation with
-    | Constant -> spec
-    | Gamma _ | Theta _ -> 
-        Status.user_message Status.Warning dyno_gamma_warning;
+    | Constant          -> spec
+    | Gamma _ | Theta _ ->
+        Status.user_message Status.Warning
+            (Str.global_replace (Str.regexp " ") "@ " dyno_gamma_warning);
         { spec with site_variation = Constant; }
 
 IFDEF USE_LIKELIHOOD THEN
@@ -1665,19 +1667,17 @@ let spec_from_classification alph gap kind rates (priors:Methods.ml_priors) cost
         let same = 
             List.fold_left
                 (fun acc (_,ac) ->
-                    acc +. (All_sets.FullTupleMap.find (ac,ac) comp_map) )
+                    acc +. (try (All_sets.FullTupleMap.find (ac,ac) comp_map)
+                            with | Not_found -> 0.0))
                 0.0
                 (Alphabet.to_list alph)
         in
         same /. all
     in
     let v = match rates with
-        | None ->
-            Constant
-        | Some (`Gamma (i,_)) ->
-            Gamma (i,default_alpha false)
-        | Some (`Theta (i,_)) ->
-            Theta (i,default_alpha true,calc_invar tuple_sum comp_map)
+        | None                -> Constant
+        | Some (`Gamma (i,_)) -> Gamma (i,default_alpha false)
+        | Some (`Theta (i,_)) -> Theta (i,default_alpha true,calc_invar tuple_sum comp_map)
     in
     {
         substitution = m;
