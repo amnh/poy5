@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2809 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2880 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -363,6 +363,10 @@ let printseqcode seq =
         Printf.printf "%d,%!" (get seq i) 
     done;
     Printf.printf "]\n%!"
+
+(**[start_with_gap seq gapcode] return true if seq start with gap*)
+let start_with_gap seq gapcode = 
+    ((get seq 0) = gapcode)
 
 
 let copy_from_in x y z u =
@@ -881,7 +885,7 @@ module Align = struct
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let debug = false in
         if debug then begin
-            Printf.printf "Align.cost_2 on s1&s2:\n%!";
+            Printf.printf "Align.cost_2 NO gap opening on s1&s2:\n%!";
             printseqcode s1;
             printseqcode s2;
         end;
@@ -919,21 +923,22 @@ module Align = struct
         (*note that we pass longer seq as seq1 to the cside, this is different
         * in newkkonen/affine alignement/likelihood*)
         let res = 
-            if ls1 <= ls2 then
+            if ls1 <= ls2 then 
                 let deltaw = gaps + deltaw_calc ls1 ls2 in
                 c_cost_2 s1 s2 m1 m2 deltaw
             else 
                 let deltaw = gaps + deltaw_calc ls2 ls1 in
                 c_cost_2 s2 s1 m1 m2 deltaw
         in
-        if debug then Printf.printf "end of cost_2, return cost = %d\n%!" res;
-        if debug && (res=0 && ((length s1)<>(length s2))) then begin
+        if debug then 
+            Printf.printf "end of cost_2, return cost = %d\n%!" res;
+        (*if debug && (res=0 && ((length s1)<>(length s2))) then begin
             Printf.printf "align seq1(len=%d) != seq2(len=%d) \n%!" (length s1)
             (length s2);
             printseqcode s1;
             printseqcode s2;
             (*failwith "len1!=len2 , cost = 0"; *)
-        end;
+        end;*)
         res
 
     (*pass different cost matrix(m1) here*)
@@ -2009,6 +2014,8 @@ module NewkkAlign = struct
             Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
             printseqcode res_s1;
             printseqcode res_s2;
+            assert(start_with_gap res_s1 (Cost_matrix.Two_D.gap c));
+            assert(start_with_gap res_s2 (Cost_matrix.Two_D.gap c));
         end;
         (*cost&algn compare test start
                 let oc1 =  open_out "newkkonen.out" in
@@ -2029,7 +2036,11 @@ module NewkkAlign = struct
 
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let debug = false in
-        if debug then Printf.printf "Newkkonen.cost_2\n%!";
+        if debug then begin 
+            Printf.printf "Newkkonen.cost_2 on s1&s2:\n%!";
+            printseqcode s1;
+            printseqcode s2;
+        end;
         let ls1 = length s1 and ls2 = length s2 in
         let s1,s2,ls1,ls2 = 
             if ls1<=ls2 then s1,s2,ls1,ls2
@@ -2047,13 +2058,27 @@ module NewkkAlign = struct
         if ls1 <= ls2 then
             match Cost_matrix.Two_D.affine m1 with
             | Cost_matrix.Affine _ ->
-                    newkk_cost2_affine s1 s2 m1 m2 0
+                    let cost = newkk_cost2_affine s1 s2 m1 m2 0 in
+                    if debug then begin
+                        Printf.printf "cost = %d, aligned s1,s2:\n%!" cost;
+                        let s1p, s2p = get_alignment s1 s2 m1 m2 true 0 in
+                        printseqcode s1p;
+                        printseqcode s2p;
+                    end;
+                    cost
             | _ ->
                     newkk_cost2 s1 s2 m1 m2 0
         else 
             match Cost_matrix.Two_D.affine m1 with
             | Cost_matrix.Affine _ ->
-                newkk_cost2_affine s2 s1 m1 m2 1 
+                    let cost = newkk_cost2_affine s2 s1 m1 m2 1 in
+                    if debug then begin
+                        Printf.printf "cost = %d, aligned s1,s2:\n%!" cost;
+                        let s1p, s2p = get_alignment s1 s2 m1 m2 true 1 in
+                        printseqcode s2p;
+                        printseqcode s1p;
+                    end;
+                    cost
             | _ ->
                 newkk_cost2 s2 s1 m1 m2 1
 
@@ -2069,6 +2094,8 @@ module NewkkAlign = struct
 
 (*closest s1 s2 cm ukkm*)
     let closest s1 s2 cm m =
+        let debug = false in
+        if debug then Printf.printf "Sequence.Newkk.closest\n%!";
         let uselevel = check_level cm in
         if is_empty s2 (Cost_matrix.Two_D.gap cm) then
             s2, 0
@@ -2922,10 +2949,18 @@ END
                 let c = (length ua.seq) + (length ub.seq) + 2 in
                 create c, c
             in
-            if debug then Printf.printf "union seqa and seqb, new seq len = %d(%d+%d+2)\n%!" 
+            if debug then begin
+                Printf.printf "union seqa and seqb, new seq len = %d(%d+%d+2)\n%!" 
             len (length ua.seq) (length ub.seq);
+                printseqcode ua.seq;
+                printseqcode ub.seq;
+                printseqcode a;
+                printseqcode b;
+                printseqcode m;
+            end;
             let u = create_union false new_seq in
             make_union a b m ua ub u cm;
+            if debug then Printf.printf "return union\n%!";
             u
 
         let get_seq u = u.seq

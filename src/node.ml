@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2845 $"
+let () = SadmanOutput.register "Node" "$Revision: 2880 $"
 
 let infinity = float_of_int max_int
 
@@ -1464,6 +1464,9 @@ let median ?branches code old a b =
     in
     let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
     let node_cost  = get_characters_cost new_characters in
+    if debug_treebuild then
+         Printf.printf  "end of mapx in node.ml,return nodedata with node_cost=%f,total_cost=%f\n%!" 
+	node_cost total_cost;
     if debug_treebuild then
          info_user_message "end of mapx in node.ml,return nodedata with node_cost=%f,total_cost=%f" 
 	node_cost total_cost;

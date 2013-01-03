@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 2865 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 2880 $"
 
 let debug = false
 let debug_distance = false
@@ -768,7 +768,7 @@ module DOS = struct
     * if the two input sequence is already aligned, we can use recost function, not this one*)
     let distance alph h missing_distance a b use_ukk =
         let debug = false in
-        if debug then Printf.printf "seqCS.DOS.distance,%!";
+        if debug then Printf.printf "SeqCS.DOS.distance,%!";
         let gap = Cost_matrix.Two_D.gap h.c2_original in 
         if Sequence.is_empty a.sequence gap || Sequence.is_empty b.sequence gap then begin
                 if debug then Printf.printf "at least one of the sequence is empty,\
@@ -830,8 +830,26 @@ ELSE
                     Sequence.NewkkAlign.cost_2  ~deltaw a.sequence b.sequence
                     h.c2_original Sequence.NewkkAlign.default_ukkm
                 else
-                    Sequence.Align.cost_2 ~deltaw a.sequence b.sequence h.c2_original 
-                    Matrix.default
+                    let cost_from_costfn = Sequence.Align.cost_2 ~deltaw a.sequence b.sequence h.c2_original 
+                    Matrix.default in
+                    (*here we call alignment function , the one with backtrace
+                    * in algn.c, to verify the cost from the one without backtrace in algn.c*)
+                    let _ = if debug then
+                        let alim, alia, alib, alicost, alimwg = 
+                                Sequence.Align.align_affine_3 a.sequence b.sequence
+                                h.c2_full
+                        in
+                        if(cost_from_costfn <> alicost) then begin
+                            Printf.printf "cost from alignment:%d,aligned seq:\n%!" alicost;
+                            Sequence.printseqcode alia;
+                            Sequence.printseqcode alib;
+                            Sequence.printseqcode alimwg;
+                            Printf.printf "cost from nobacktrace function = %d != \
+                            cost from alignment function = %d\n%!" cost_from_costfn alicost;
+                        end;
+                        assert(cost_from_costfn = alicost);
+                    in
+                    cost_from_costfn
             in
             if debug then Printf.printf "return %d, end of seqCS.DOS.distance\n%!" res;
             res
@@ -1305,6 +1323,7 @@ END  (*end of distance function under module DOS*)
                     seq_to_bitset gap tmpb (Raw b.sequence), 
                     seq_to_bitset gap seqmwg (Raw seqm) 
             in
+            if debug then Printf.printf "return median and cost\n%!";
             { sequence = seqm; aligned_children = (ba, bb, bm); costs = rescost;
             position = 0; delimiters = a.delimiters}, tmpcost
 
@@ -2481,7 +2500,7 @@ let median code a b =
     in
     let res = { a with characters = characters; total_cost = float_of_int
     !total_cost } in
-    if debug then Printf.printf "<- seqCS.median, tocal_cost<-%d\n%!" !total_cost;
+    if debug then Printf.printf "end of seqCS.median, return tocal_cost:%d\n%!" !total_cost;
     (*
     Status.user_message Status.Information (to_string res);
     *)

@@ -37,6 +37,9 @@
 #define GAPCODE 16
 #define HAS_GAP(code) ( code&GAPCODE )
 
+//use this to kick gap out of code
+#define NOGAP 15
+
 //directions
 #define START 0
 #define ALIGN_TO_ALIGN 1
@@ -58,6 +61,14 @@
 #define INSERT_EQ_DELETE 1024
 
 #define has_flag(dir,flag) (dir&flag)
+
+inline int my_add(a, b) {
+    if(a>=INT_MAX/2) 
+        return INT_MAX/2; 
+    else if (b>=INT_MAX/2) 
+        return INT_MAX/2; 
+    else return(a+b);
+}
 
 enum MODE { m_todo, m_delete, m_insert, m_diagonal, m_align } backtrace_mode;
 
@@ -111,7 +122,42 @@ void print_mode (enum MODE mode)
 //are the same, put this down for traceback.
 //
 
+/*
+ * GO : gap opening cost passed in
+ *
+ * v  : vertical, from right
+ * h  : horizontal, from left
+ * 
+ *
+ * go is the gap opening cost function
+ * go(Ai) = [ if i=1 and Ai contains gap then 0
+ *            if i>1 and Ai-1 contains NO gap, Ai contains gap then 0
+ *            otherwise GO ]
+ *
+ * ge is the gap extension cost, which in our case is just the cost from align no-gap base to a gap
+ * ge(x) = [ if x has gap then 0 else b ]
+ *
+ * go' is the extra cost funtion when not selecting gap in Ai means splitting an indel block
+   go'(Ai,Bj) = subst(Ai no gap,Bj) + [ if Ai contains no Gap then 0, otherwise GO ]
 
+
+   g[i,j] = min {
+      g[i-1,j-1] + subst(Ai,Bj)
+      d[i-1,j-1] + subst(Ai,Bj) + go(A,i) + go(B,j)
+      v[i-1,j-1] + go'(Bj,Ai)
+      h[i-1,j-1] + go'(Ai,Bj)
+     }
+
+   d[i,j] = diag(Ai,Bj) + min [d[i-1,j-1], g[i-1,j-1] + go(Ai) + go(Bi)]
+
+   diag(Ai,Bj) = [ if Ai has gap and Bj has gap then 0
+                    else Inf ]
+   
+   h[i.j] = min [ h[i,j-1] + ge(Bj), d[i,j-1] + ge(Bj) + go(Bj)  ]
+
+   v[i,j] = min [ v[i-1,j-1] + ge(Ai) , d[i-1,j] + ge(Ai) + go(Ai) ]
+
+*/
 
 
 #define my_prepend(a,b) assert (a->cap > a->len); \
@@ -123,6 +169,44 @@ void print_mode (enum MODE mode)
 #define MIN(a,b) ( ((a)<(b))? (a):(b) )
 #define MAX3(a,b,c) ( (MAX(a,b)>MAX(b,c))? (MAX(a,b)):(MAX(b,c)) )
 #define MAX4(a,b,c,d) ( MAX3(a,b,c)>d ) ? ( MAX3(a,b,c):d )
+
+//get gap openning cost when start a indel block
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+get_go(int base,int prebase, int idx, int gap_opening)
+{
+    if (idx ==1 && HAS_GAP(base) ) return 0;
+    else if ( idx > 1 && !HAS_GAP(prebase) && HAS_GAP(base) ) return 0;
+    else return gap_opening;
+}
+
+//get gap openning cost when extending a indel block
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+get_extgo(int base,int prebase, int idx, int gap_opening)
+{
+    if ( HAS_GAP(prebase) && !HAS_GAP(base) ) return gap_opening;
+    else return 0;
+}
+
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+get_diag (int base1, int base2) {
+    if (HAS_GAP(base1) && HAS_GAP(base2)) return 0;
+    else return INT_MAX/2;
+}
+
+
 
 
 void print_direction (DIRECTION_MATRIX dir)
@@ -255,7 +339,8 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
         if (affine) {
             m->pool_affP = realloc (m->pool_affP,len_we_need*sizeof(int));
             m->pool_affQ = realloc (m->pool_affQ,len_we_need*sizeof(int));
-            m->pool_affD = realloc (m->pool_affD,len_we_need*sizeof(int));
+            m->pool_affED = realloc (m->pool_affED,len_we_need*sizeof(int));
+            m->pool_affCD = realloc (m->pool_affCD,len_we_need*sizeof(int));
         }
     }
         ukkdiag_p emptydiag;
@@ -263,7 +348,8 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
         //define these two pointer anyway 
         int * thisaffP = m->pool_affP;
         int * thisaffQ = m->pool_affQ;
-        int * thisaffD = m->pool_affD;
+        int * thisaffED = m->pool_affED;
+        int * thisaffCD = m->pool_affCD;
         DIRECTION_MATRIX * thisdir = m->pool_dir;
         DIRECTION_MATRIX * thisgap = m->pool_gapnum;
         //we need to set pointers of each diagonal again. realloc might move the
@@ -283,10 +369,12 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
             if (affine) {
             emptydiag -> affParr = thisaffP;
             emptydiag -> affQarr = thisaffQ;
-            emptydiag -> affDarr = thisaffD;
+            emptydiag -> affEDarr = thisaffED;
+            emptydiag -> affCDarr = thisaffCD;
             thisaffP += diaglen;
             thisaffQ += diaglen;
-            thisaffD += diaglen;
+            thisaffED += diaglen;
+            thisaffCD += diaglen;
             }
             thiscost += diaglen;
             thisdir += diaglen;
@@ -310,7 +398,8 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
             if (affine) {
             emptydiag -> affParr = thisaffP;
             emptydiag -> affQarr = thisaffQ;
-            emptydiag -> affDarr = thisaffD;
+            emptydiag -> affEDarr = thisaffED;
+            emptydiag -> affCDarr = thisaffCD;
             }
             if (i<newsize-1) //don't move out of range
             { 
@@ -321,7 +410,8 @@ expand_mat (newkkmat_p m,MAT_SIZE newk,MAT_SIZE oldk,int affine)
             if (affine) {
                 thisaffP += diaglen;
                 thisaffQ += diaglen; 
-                thisaffD += diaglen; 
+                thisaffED += diaglen; 
+                thisaffCD += diaglen; 
             }
             }
         }
@@ -416,7 +506,7 @@ __inline void
 #else
 inline void 
 #endif
-get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECTION_MATRIX * dir, DIRECTION_MATRIX *  s1_max_gapnum,DIRECTION_MATRIX *  s2_max_gapnum, int * affP, int * affQ, int * affD, int affine )
+get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECTION_MATRIX * dir, DIRECTION_MATRIX *  s1_max_gapnum,DIRECTION_MATRIX *  s2_max_gapnum, int * affP, int * affQ, int * affED, int * affCD,int affine )
 {
     int debug = 0;
     ukkdiag_p thisdiag = m->diagonal;
@@ -434,41 +524,26 @@ get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECT
     if (affine) {
     int * thisParr = thisdiag->affParr;
     int * thisQarr = thisdiag->affQarr;
-    int * thisRarr = thisdiag->affDarr;
+    int * thisEDarr = thisdiag->affEDarr;
+    int * thisCDarr = thisdiag->affCDarr;
     *affP = thisParr[idx_in_my_diag];
     *affQ = thisQarr[idx_in_my_diag];
-    *affD = thisRarr[idx_in_my_diag];
+    *affCD = thisCDarr[idx_in_my_diag];
+    *affED = thisEDarr[idx_in_my_diag];
     }
-    if (debug) { printf("get ukkcost,diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d/%d,affP=%d,affQ=%d,affD=%d,affine=%d\n",
-            whichdiag,idx_in_my_diag,*cost,*dir,*s1_max_gapnum,*s2_max_gapnum,*affP,*affQ,*affD,affine); fflush(stdout);}
+    if (debug) { printf("get ukkcost,diag#.%d,idx#.%d,cost=%d,dir=%d,mapgapnum=%d/%d,affP=%d,affQ=%d,affED=%d,affCD=%d,affine=%d\n",
+            whichdiag,idx_in_my_diag,*cost,*dir,*s1_max_gapnum,*s2_max_gapnum,*affP,*affQ,*affED,*affCD,affine); fflush(stdout);}
 };
-/*
-void get_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int * cost, DIRECTION_MATRIX * dir, DIRECTION_MATRIX *  max_gapnum, int * affP, int * affQ, int affine )
-{
-    int i=0, count=0;
-    for (i=0;i<whichdiag;i++)
-    {
-       count +=  (m->diagonal_size_arr)[i];
-    }
-    count = count + idx_in_my_diag;
-    *cost = (m->pool_cost)[count];
-    *dir = (m->pool_dir)[count];
-    *max_gapnum = (m->pool_gapnum)[count];
-    if (affine) {
-    *affP = (m->pool_affP)[count];
-    *affQ = (m->pool_affQ)[count];}
-}
-*/
 
 
-void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIRECTION_MATRIX dir,DIRECTION_MATRIX  s1_max_gapnum,DIRECTION_MATRIX  s2_max_gapnum, int affP, int affQ, int affD, int affine)
+void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIRECTION_MATRIX dir,DIRECTION_MATRIX  s1_max_gapnum,DIRECTION_MATRIX  s2_max_gapnum, int affP, int affQ, int affED, int affCD, int affine)
 {
     int debug = 0;
     ukkdiag_p thisdiag = m->diagonal;
     if ((idx_in_my_diag >= thisdiag->len) || (idx_in_my_diag<0)) { debug=1; }
     if (debug) { 
-        printf ("set ukkcost, diag#.%d,idx#.%d,cost=%d,dir=%d,gapnum=%d/%d,affP=%d,affQ=%d,affD=%d",
-                whichdiag,idx_in_my_diag,cost,dir,s1_max_gapnum,s2_max_gapnum,affP,affQ,affD); 
+        printf ("set ukkcost, diag#.%d,idx#.%d,cost=%d,dir=%d,gapnum=%d/%d,affP=%d,affQ=%d,affED=%d,affCD=%d,",
+                whichdiag,idx_in_my_diag,cost,dir,s1_max_gapnum,s2_max_gapnum,affP,affQ,affED,affCD); 
         print_direction(dir);
         printf ("\n");
         fflush(stdout);}
@@ -485,10 +560,12 @@ void set_ukkcost (int whichdiag, int idx_in_my_diag, newkkmat_p m, int cost, DIR
     if (affine) {
         int * thisParr = thisdiag->affParr;
         int * thisQarr = thisdiag->affQarr;
-        int * thisRarr = thisdiag->affDarr;
+        int * thisEDarr = thisdiag->affEDarr;
+        int * thisCDarr = thisdiag->affCDarr;
     thisParr[idx_in_my_diag] = affP;
     thisQarr[idx_in_my_diag] = affQ;
-    thisRarr[idx_in_my_diag] = affD;
+    thisEDarr[idx_in_my_diag] = affED;
+    thisCDarr[idx_in_my_diag] = affCD;
     }
 
 };
@@ -502,8 +579,12 @@ void sanity_check2 (int x)
     }
 };
 
-void get_cmcost (const cmt c, int a, int b, int * res)
+//get_cmcost return cost between code a and code b from cost matrix c.
+//when exclude_gap_for_a is true, we get rid of the gap from a before getting the cost, exclude_gap_for_b is similar
+void get_cmcost (const cmt c, int a, int b, int * res, int exclude_gap_for_a, int exclude_gap_for_b)
 {
+    if (exclude_gap_for_a) a = NOGAP & a;
+    if (exclude_gap_for_b) b = NOGAP & b;
     if(cm_check_level(c) == 1)
         *res = cm_get_cost (c->cost, a, b, c->map_sz+1);
     else
@@ -526,57 +607,61 @@ int outside_diagonal_area (int i, int j, int newk, int lenX, int lenY)
 
 
 void assign_best_cost_and_direction 
-(int costDiag, int costM, int costL, int costR, 
- int thisP, int thisQ, int thisD,
+(int costM, int costDiag, int costL, int costR, 
+ int thisP, int thisQ, int thisED, int thisCD,
  int open_costDiag, int ext_costDiag, int open_costL, int ext_costL, int open_costR, int ext_costR, 
- DIRECTION_MATRIX s1_gapnum_fromM,DIRECTION_MATRIX s1_gapnum_fromL, DIRECTION_MATRIX s1_gapnum_fromR,
- DIRECTION_MATRIX s2_gapnum_fromM,DIRECTION_MATRIX s2_gapnum_fromL,DIRECTION_MATRIX s2_gapnum_fromR, 
- int whichdiag,int idx_in_my_diag, newkkmat_p m, int affine)
+ DIRECTION_MATRIX gapnum1_fromM,DIRECTION_MATRIX gapnum1_fromL, DIRECTION_MATRIX gapnum1_fromR,
+ DIRECTION_MATRIX gapnum2_fromM,DIRECTION_MATRIX gapnum2_fromL,DIRECTION_MATRIX gapnum2_fromR, 
+ int whichdiag,int idx_in_my_diag, newkkmat_p m, int affine,int debug)
 {
-    int debug = 0;
-    if (debug) printf("\nassign_best_cost_and_direction,costDiag=%d,costM=%d,costL=%d,costR=%d,ext_costR=%d,ext_costL=%d\n",
-            costDiag,costM,costL,costR,ext_costR,ext_costL);
+    if(debug) printf("\nassign_best_cost_and_direction,costM=%d,costDiag=%d,costL=%d,costR=%d,ext_costR=%d,open_costR=%d,ext_costL=%d,open_costL=%d,ext_costDiag=%d,open_costDiag=%d\n",
+     costM,costDiag,costL,costR,ext_costR,open_costR,ext_costL,open_costR,ext_costDiag,open_costDiag);
+    //do gaps on horizontal
     DIRECTION_MATRIX bestdir = DO_INSERT;
     int bestcost = costL;
-    int resgapnum1 = s1_gapnum_fromL+1; 
-    int resgapnum2 = s2_gapnum_fromL;
+    int resgapnum1 = gapnum1_fromL+1; 
+    int resgapnum2 = gapnum2_fromL;
+    //do gaps on vertical
     if (costR<=bestcost) {
         if (costR<bestcost) {
             bestcost = costR;
             bestdir = DO_DELETE;
-            resgapnum1 = s1_gapnum_fromR;
-            resgapnum2 = s2_gapnum_fromR+1;
+            resgapnum1 = gapnum1_fromR;
+            resgapnum2 = gapnum2_fromR+1;
         }
         else {
             bestdir = bestdir | DO_DELETE;
-            resgapnum1 = MAX(resgapnum1,s1_gapnum_fromR);
-            resgapnum2 = MAX(resgapnum2,s2_gapnum_fromR+1);
+            resgapnum1 = MAX(resgapnum1,gapnum1_fromR);
+            resgapnum2 = MAX(resgapnum2,gapnum2_fromR+1);
         }
     }
+    //do alignment on diagonal
     if (costM<=bestcost) {
         if (costM<bestcost) {
-            bestcost = costM;
+            bestcost = thisCD;
             bestdir = ALIGN_TO_ALIGN;
-            resgapnum1 = s1_gapnum_fromM;
-            resgapnum2 = s2_gapnum_fromM;
+            resgapnum1 = gapnum1_fromM;
+            resgapnum2 = gapnum2_fromM;
         }
         else {
-            bestdir = bestdir | ALIGN_TO_ALIGN;
-            resgapnum1 = MAX(resgapnum1,s1_gapnum_fromM);
-            resgapnum2 = MAX(resgapnum2,s2_gapnum_fromM);
+            //this is not complete, for affine, thisCD could mean Delete2Algn, Insert2Algn or Algn2Algn, but for traceback, all three will lead us from i,j to i-1,j-1, so why bother to tell them apart?
+            bestdir = bestdir | ALIGN_TO_ALIGN; 
+            resgapnum1 = MAX(resgapnum1,gapnum1_fromM);
+            resgapnum2 = MAX(resgapnum2,gapnum2_fromM);
         }
     }
+    //do gaps on diagonal
     if (costDiag<=bestcost) {
         if (costDiag<bestcost) {
             bestcost = costDiag;
             bestdir = DO_DIAG;
-            resgapnum1 = s1_gapnum_fromM;
-            resgapnum2 = s2_gapnum_fromM;
+            resgapnum1 = gapnum1_fromM;
+            resgapnum2 = gapnum2_fromM;
         }
         else {
             bestdir = bestdir | DO_DIAG;
-            resgapnum1 = MAX(resgapnum1,s1_gapnum_fromM);
-            resgapnum2 = MAX(resgapnum2,s2_gapnum_fromM);
+            resgapnum1 = MAX(resgapnum1,gapnum1_fromM);
+            resgapnum2 = MAX(resgapnum2,gapnum2_fromM);
         }
     }
     if (ext_costR>=open_costR) bestdir = bestdir|END_DELETE;
@@ -594,517 +679,212 @@ void assign_best_cost_and_direction
         print_direction(bestdir); 
         printf("\n");  fflush(stdout);
     }
-    set_ukkcost(whichdiag,idx_in_my_diag, m, bestcost, bestdir, resgapnum1,resgapnum2, thisP, thisQ, thisD, affine);
+    //update cost arrays
+    set_ukkcost(whichdiag,idx_in_my_diag, m, bestcost, bestdir, resgapnum1,resgapnum2, thisP, thisQ, thisED, thisCD, affine);
 }
 
-void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i, int j, int newk,int oldk, int go,int swaped)
+//this is the function update internal/left border/right border cell.
+void update_internal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i, int j, int newk,int oldk, int go,int at_leftborder, int at_rightborder)
 {
-    int debug = 0;
+    int debug = 0; //for this function
+    int debug2 = 0;//for assign_best_cost_and_direction
+    //if (i==35&&j>=50) { debug = 1; debug2 = 1; }
     int gapcode = cm_get_gap (c);
+    //get s1[i],s1[i-1],s2[j],s2[j-1]
+    int base1 = seq_get(s1,i); int base2 = seq_get(s2,j);
+    int prev_base1 = seq_get(s1,i-1); int prev_base2 = seq_get(s2,j-1);
+    //addcost will be reused in all three directions
     int addcost = 0;
-    int costL=0, costR=0, costM=0, costDiag=0;
-    //ext_costX and open_costX are for affine backtrace.
-    int ext_costR=0, open_costR=0;
-    int ext_costL=0, open_costL=0;
-    int ext_costDiag=0, open_costDiag=0;
-    //DIRECTION_MATRIX resdir;
-    int thisP=INT_MAX/2, thisQ=INT_MAX/2, thisD=INT_MAX/2;
     //set affine to 1 if gap opening is set
     int affine=0;
     if (go>=0) affine=1;
     int realgo=0;
     if (go>0) realgo=go;
     //init affP and affQ anyway
-    int affP=INT_MAX/2, affQ=INT_MAX/2, affD=INT_MAX/2;
-    if (debug) { printf(" update internal cell(affine=%d),",affine); fflush(stdout); }
-    //flag & flag2 are for gap sign.
-    int prev_base1 = seq_get(s1,i-1); int prev_base2 = seq_get(s2,j-1);
-    int base1 = seq_get(s1,i); int base2 = seq_get(s2,j);
-    int flag, flag2;
-    int gocost; //gocost = gap opening cost depends on flag, flag2 and realgo.
+    int thisP=INT_MAX/2, thisQ=INT_MAX/2, thisED=INT_MAX/2, thisCD=INT_MAX/2;
+    int affP=INT_MAX/2, affQ=INT_MAX/2, affED=INT_MAX/2, affCD=INT_MAX/2;
+    //init gap opening cost 
+    int go_base1=0, go_base2=0;
+    int extgo_base1=0, extgo_base2=0;
+    if(affine) {
+        go_base1 = get_go (base1,prev_base1,i,realgo);
+        go_base2 = get_go (base2,prev_base2,j,realgo);
+	extgo_base1 = get_extgo(base1,prev_base1,i,realgo);
+	extgo_base2 = get_extgo(base2,prev_base2,i,realgo);
+    }
+    if (debug) { printf(" update cell at [%d,%d], affine:%d,at left border:%d,at right border:%d\n",
+            i,j,affine,at_leftborder,at_rightborder); fflush(stdout); }
     //fill costL with cost from left (insert)
-    int costfromL=0; DIRECTION_MATRIX dirL; DIRECTION_MATRIX s1_gapnum_fromL=0;DIRECTION_MATRIX s2_gapnum_fromL=0;
-    if (j==0) {
-        if (debug) printf ("j==0,set costfromL = costL = thisQ <- INT_MAX/2\n");
-        costfromL = costL = thisQ = INT_MAX/2; }//leftmost column of matrix
-    else {
-    int whichdiagL=0, idx_in_my_diagL=0, at_leftborderL=0, at_rightborderL=0;
-    get_idx(-1,i,j-1,m,&whichdiagL,&idx_in_my_diagL,&at_leftborderL,&at_rightborderL,NULL);
-    get_ukkcost(whichdiagL,idx_in_my_diagL, m, &costfromL, &dirL, &s1_gapnum_fromL,&s2_gapnum_fromL, &affP, &affQ, &affD, affine);
-    get_cmcost (c,base2,gapcode,&addcost);
-    if (affine) {
-        flag = (gapcode & prev_base2);
-        flag2 = gapcode & base2; 
-        if (!flag && flag2) gocost = 0; else gocost = realgo;
-        //if previous base contains no gap, but this base has, gap opening cost
-        //for current position should be 0. also if previous base contains gap,
-        //but this one doesn't, gap extension cost for current position should include gap opening cost.
-        if ( flag && !flag2 ) ext_costL = affQ + addcost + realgo;
-        else ext_costL = affQ + addcost;
-        open_costL = costfromL + addcost + gocost;
-        costL = MIN(open_costL, ext_costL); 
-        thisQ = costL; 
+    int costfromL=0; 
+    DIRECTION_MATRIX dirL; DIRECTION_MATRIX gapnum1_fromL=0;DIRECTION_MATRIX gapnum2_fromL=0;
+    int costL=0, ext_costL=0, open_costL=0;
+    if (at_leftborder) {
+        //we are at left border, there is no cost from left, set costL to big
+        //number, also set ext_costL and open_costL to the same big number, make
+        //sure that later function [assign_best_cost_and_direction] add 'END_INSERT' to this cell
+        costfromL = costL = thisQ = ext_costL = open_costL = INT_MAX/2; 
+        gapnum1_fromL=0; gapnum2_fromL=0;
     }
-    else
-        costL = costfromL + addcost;
-    if (debug) {  printf ("costL <- min (costfromL<%d> + addcost<%d> + go <%d>,affQ<%d>+addcost<%d>) = %d\n",
-    costfromL,addcost,realgo,affQ,addcost,costL);
-    fflush(stdout); }
-    }
-    //fill costR with cost from right (delete)
-    int costfromR=0; DIRECTION_MATRIX dirR; DIRECTION_MATRIX s1_gapnum_fromR=0; DIRECTION_MATRIX s2_gapnum_fromR=0;
-    if (i==0) {
-        if (debug) printf ("i==0,costfromR = costR = thisP <- INT_MAX/2\n");
-        costfromR = costR = thisP = INT_MAX/2; }//first line of matrix
     else {
-        int whichdiagR=0, idx_in_my_diagR=0, at_leftborderR=0, at_rightborderR=0;
-        get_idx(-1,i-1,j,m,&whichdiagR,&idx_in_my_diagR,&at_leftborderR,&at_rightborderR,NULL);
-        get_ukkcost(whichdiagR,idx_in_my_diagR, m, &costfromR, &dirR, &s1_gapnum_fromR, &s2_gapnum_fromR, &affP, &affQ, &affD,affine); 
-        get_cmcost (c,base1,gapcode,&addcost);
-        if (affine) {
-            flag = (gapcode & prev_base1);
-            flag2 = gapcode & base1; 
-            if (!flag && flag2) gocost = 0; else gocost = realgo;
-            //if previous base contains gap while this base does not, gap
-            //extension cost should include gap opening cost.
-            if (flag && !flag2) ext_costR = affP + addcost + realgo;
-            else ext_costR = affP + addcost;
-            open_costR = costfromR + addcost + gocost;
-            costR = MIN(open_costR, ext_costR);
-            thisP = costR;
+        if (j==0) {//leftmost column of matrix
+            if (debug) printf ("j==0,set costfromL = costL = thisQ = ext_costL = open_costL <- INT_MAX/2\n");
+            costfromL = costL = thisQ = ext_costL = open_costL = INT_MAX/2; 
+            gapnum1_fromL=0; gapnum2_fromL=0;
         }
-        else
-            costR = costfromR + addcost;
-            if (debug) printf ("costR <- min (costfromR<%d> + addcost<%d> + realgo <%d>,affP<%d>+addcost<%d>)=%d\n",
-                    costfromR,addcost,realgo,affP,addcost,costR);
+        else {
+            int whichdiagL=0, idx_in_my_diagL=0, at_leftborderL=0, at_rightborderL=0;
+            //for affine, get h[i,j-1]:affQ and d[i,j-1]:affED
+            //for regular, coustfromL is enough
+            get_idx(-1,i,j-1,m,&whichdiagL,&idx_in_my_diagL,&at_leftborderL,&at_rightborderL,NULL);
+            get_ukkcost(whichdiagL,idx_in_my_diagL, m, &costfromL, &dirL, &gapnum1_fromL,&gapnum2_fromL, &affP, &affQ, &affED, &affCD, affine);
+            //get gap exten cost: ge(Bj) 
+            get_cmcost (c,base2,gapcode,&addcost,0,0);
+            if (affine) {
+                // h[i.j] = min [ h[i,j-1] + ge(Bj), d[i,j-1] + ge(Bj) + go(Bj)  ]
+                ext_costL = my_add(affQ,addcost+extgo_base2);
+                open_costL = my_add(affCD, addcost+go_base2);
+                costL = MIN(open_costL,ext_costL);
+                thisQ = costL;
+                if (debug) {  printf ("costL <- min (%d,%d) = %d\n",ext_costL,open_costL,costL); fflush(stdout); }
+            }
+            else
+                costL = costfromL + addcost;
+        }
+    }//end of at left border or not
+    //fill costR with cost from right (delete)
+    int costfromR=0;
+    int costR = 0, ext_costR=0, open_costR=0;
+    DIRECTION_MATRIX dirR; DIRECTION_MATRIX gapnum1_fromR=0; DIRECTION_MATRIX gapnum2_fromR=0;
+    if (at_rightborder) {
+        //we are at right border, there is no cost from right, set costR to big
+        //number, also set ext_costR and open_costR to the same big number, make
+        //sure that later function [assign_best_cost_and_direction] add 'END_DELETE' to this cell
+        costfromR = costR = thisP = open_costR = ext_costR= INT_MAX/2; 
+        gapnum1_fromR=0; gapnum2_fromR=0;
     }
-    //fill in costM and costDiag with cost from align & diagonal(when doing affine)
-    int costfromM=0; DIRECTION_MATRIX dirM; DIRECTION_MATRIX s1_gapnum_fromM=0; DIRECTION_MATRIX s2_gapnum_fromM=0;
+    else { 
+        //first line of matrix
+        if (i==0) {
+            if (debug) printf ("i==0,costfromR = costR = thisP = open_costR = ext_costR <- INT_MAX/2\n");
+            costfromR = costR = thisP = open_costR = ext_costR= INT_MAX/2; 
+            gapnum1_fromR=0; gapnum2_fromR=0;
+        }
+        else {
+            int whichdiagR=0, idx_in_my_diagR=0, at_leftborderR=0, at_rightborderR=0;
+            //for affine, get v[i-1,j] : affP and d[i-1,j] : affED
+            //for regular, costfromR is enough.
+            get_idx(-1,i-1,j,m,&whichdiagR,&idx_in_my_diagR,&at_leftborderR,&at_rightborderR,NULL);
+            get_ukkcost(whichdiagR,idx_in_my_diagR, m, &costfromR, &dirR, &gapnum1_fromR, &gapnum2_fromR, &affP, &affQ, &affED,&affCD, affine); 
+            //get gap exten cost : ge(Ai)
+            get_cmcost (c,base1,gapcode,&addcost,0,0);
+            if (affine) {
+                //v[i,j] = min [ v[i-1,j-1] + ge(Ai) , d[i-1,j] + ge(Ai) + go(Ai) ]
+                ext_costR = my_add(affP, addcost+extgo_base1);
+                open_costR = my_add(affCD,addcost+go_base1);
+                costR = MIN(open_costR,ext_costR);
+                thisP = costR;
+                if (debug) printf ("costR <- min (%d,%d)=%d\n",ext_costR,open_costR,costR);
+            }
+            else
+                costR = costfromR + addcost;
+        }
+    }//end of at right border or not
+    //fill costM and costDiag from diagonal 
+    //for affine, 
+    //g[i,j] = min {
+    //  case1:g[i-1,j-1] + subst(Ai,Bj)
+    //  case2:d[i-1,j-1] + subst(Ai,Bj) + go(A,i) + go(B,j)
+    //  case3:v[i-1,j-1] + go'(Bj,Ai)
+    //  case4:h[i-1,j-1] + go'(Ai,Bj)
+    // }
+    //d[i,j] = diag(Ai,Bj) + min [d[i-1,j-1], g[i-1,j-1] + go(Ai) + go(Bi)]
+    int costfromM=0; 
+    DIRECTION_MATRIX dirM; DIRECTION_MATRIX gapnum1_fromM=0; DIRECTION_MATRIX gapnum2_fromM=0;
+    int costDiag=0, costM=0; 
+    int ext_costDiag=0, open_costDiag=0;
+    int costDiagfromR=0, costDiagfromL=0;
+    int costDiagfromCD=0, costDiagfromED=0;
     if (i*j==0) { //first line or leftmost column of matrix
-        if (debug) printf ("i==0||j==0,set costfromM = costM <- INT_MAX/2\n");
-        costfromM = costM = costDiag = INT_MAX/2; 
+        if (debug) printf ("i==0||j==0,set costfromM = costDiag <- INT_MAX/2\n");
+        costfromM = costM = costDiag = ext_costDiag = open_costDiag = costDiagfromR = costDiagfromL = costDiagfromCD = costDiagfromED = INT_MAX/2; 
         if (i+j==0) failwith ("newkkonen.c,update_internal_cell,we don't update (0,0) here\n");
     }
     else {
+        //addcost : align (base1, base2)
+        get_cmcost (c,base1,base2,&addcost,1,1);
         int whichdiagM=0, idx_in_my_diagM=0, at_leftborderM=0, at_rightborderM=0;
         get_idx(-1,i-1,j-1,m,&whichdiagM,&idx_in_my_diagM,&at_leftborderM,&at_rightborderM,NULL);
-        get_ukkcost(whichdiagM,idx_in_my_diagM, m, &costfromM, &dirM, &s1_gapnum_fromM, &s2_gapnum_fromM, &affP, &affQ, &affD,affine);
-        get_cmcost (c,base1,base2,&addcost);
-        costM = costfromM + addcost;
-        if (debug) printf ("costM <- costfromM<%d> + addcost<%d> = %d\n",costfromM,addcost,costM);
-        //costDiag = min (cost from gap extension on diagonal, cost from gap opening on diagonal)
-        //prev_baseX could be passed to this function
-        int ext_diag,open_diag;
-        flag = ( HAS_GAP(base1) && HAS_GAP(base2) );
-        flag2 = ( (!HAS_GAP(prev_base1))&&(!(HAS_GAP(prev_base2))) );
-        ext_diag = flag?0:(INT_MAX/2);
-        open_diag = flag?(flag2?0:(2*realgo)):INT_MAX/2;
-        ext_costDiag = affD + ext_diag;
-        open_costDiag = costfromM + open_diag;
-        costDiag = MIN(ext_costDiag,open_costDiag);
-        if (debug) printf ("costDiag <- MIN(ext cost(%d+%d=%d),open cost(%d+%d=%d)) = %d\n", 
-                affD,ext_diag,ext_costDiag,costfromM,open_diag,open_costDiag,costDiag);
-    }
-    int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
-    get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
-    if (debug&&affine) printf("open_costL=%d,ext_costL=%d,open_costR=%d,ext_costR=%d,open_costDiag=%d,ext_costDiag=%d, ",
-            open_costL,ext_costL,open_costR,ext_costR,open_costDiag,ext_costDiag);
-    assign_best_cost_and_direction(costDiag,costM,costL,costR,
-                                   thisP,thisQ,thisD,
-                                   open_costDiag,ext_costDiag,open_costL,ext_costL,open_costR,ext_costR,
-                                   s1_gapnum_fromM,s1_gapnum_fromL,s1_gapnum_fromR,
-                                   s2_gapnum_fromM,s2_gapnum_fromL,s2_gapnum_fromR,
-                                   whichdiag,idx_in_my_diag,m,affine);
-    /*assign the min cost and directions as result
-    if ( (costM<=costR)&&(costM<=costL) )//include alignment
-    {
-        if ( (costM==costR) && (costM==costL) )
-        { 
-            if (debug) printf ("cost <---- costM=costL=costR\n");
-            resdir = ALIGN_TO_ALIGN|ALIGN_TO_INSERT|ALIGN_TO_DELETE|DO_DELETE|DO_INSERT;
-            //remember where the first gap start
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, resdir, 
-                    MAX3(s1_gapnum_fromM,s1_gapnum_fromL+1,s1_gapnum_fromR),
-                    MAX3(s2_gapnum_fromM,s2_gapnum_fromL,s2_gapnum_fromR+1),
-                    thisP, thisQ, thisD, affine);
-        }
-        else if ( ( (costM<costR)&&(costR<=costL) ) || ( (costM<costL)&&(costL<=costR) ) )//M<R<=L,M<L<=R
-        {
-            if (debug) printf ("cost <---- costM\n");
-            resdir = ALIGN_TO_ALIGN;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, resdir, s1_gapnum_fromM,s2_gapnum_fromM, thisP, thisQ, thisD, affine);
-        }
-        else if ( (costM==costR)&&(costM<costL)) //M=R<L
-        {
-            if (debug) printf ("cost <---- costM=costR\n");
-            resdir = ALIGN_TO_ALIGN|ALIGN_TO_DELETE|DO_DELETE;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, resdir, 
-                    MAX(s1_gapnum_fromM,s1_gapnum_fromR),
-                    MAX(s2_gapnum_fromM,s2_gapnum_fromR+1),
-                    thisP, thisQ, thisD, affine);
-        }
-        else if ( (costM==costL)&&(costM<costR) )//M=L<R
-        {
-            if (debug) printf ("cost <---- costM=costL\n");
-            resdir = ALIGN_TO_ALIGN|ALIGN_TO_INSERT|DO_INSERT;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, resdir, 
-                    MAX(s1_gapnum_fromM,s1_gapnum_fromL+1),
-                    MAX(s2_gapnum_fromM,s2_gapnum_fromL),
-                    thisP, thisQ, thisD, affine);
-        }
-        else 
-            failwith("unexpect relation between cost L,M,R when choosing ALIGN\n");
-    }
-    //L<M<=R or L<R<=M
-    else if ( ((costL<costM) && (costM<=costR))||((costL<costR)&&(costR<=costM)) )
-    {
-            if (debug) printf ("cost <---- costL\n");
-            resdir = DO_INSERT;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT; 
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costL, resdir, s1_gapnum_fromL+1,s2_gapnum_fromL, thisP, thisQ, thisD, affine);
-    }
-    //R<M<=L or R<L<=M
-    else if ( ((costR<costM) && (costM<=costL)) || ((costR<costL)&&(costL<=costM)) )
-    {
-            if (debug) printf ("cost <---- costR\n");
-            resdir = DO_DELETE;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costR, resdir, s1_gapnum_fromR,s2_gapnum_fromR+1, thisP, thisQ, thisD, affine);
-    }
-    //L=R<M
-    else if ((costL==costR)&&(costR<costM))
-    {
-         if (debug) printf ("cost <---- costR==costL\n");
-         resdir = DO_DELETE|DO_INSERT;
-         if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-         if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-         set_ukkcost(whichdiag,idx_in_my_diag, m, costR, resdir, 
-                 MAX(s1_gapnum_fromL+1,s1_gapnum_fromR),
-                 MAX(s2_gapnum_fromR+1,s2_gapnum_fromL),
-                 thisP, thisQ, thisD, affine);
-    }
-    else
-        failwith("unexpect relation between cost L,M,R,Diag\n");
-    */
-
-};
-
-void update_left_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i, int j, int newk,int go)
-{
-    int debug = 0;
-    if (debug) printf (" update left border cell, ");
-    int gapcode = cm_get_gap (c);
-    int addcost = 0;
-    int thisP=INT_MAX/2, thisQ=INT_MAX/2, thisD=INT_MAX/2;
-    //set affine to 1 if gap opening is set
-    int affine=0;
-    if (go>=0) affine=1;
-    int realgo=0;
-    if (go>0) realgo=go;
-    //set affP and affQ anyway
-    int affP=INT_MAX/2, affQ=INT_MAX/2, affD=INT_MAX/2;
-    int costR=0, costM=0, costDiag=0;
-    //for affine traceback
-    int ext_costR=0, open_costR=0;
-    int ext_costDiag=0, open_costDiag=0;
-    //flag & flag2 are for gap sign.
-    int prev_base1 = seq_get(s1,i-1); 
-    int base1 = seq_get(s1,i); 
-    int flag, flag2;
-    int gocost; //gocost = gap opening cost depends on flag, flag2 and realgo.
-    int costfromR=0; DIRECTION_MATRIX dirR; DIRECTION_MATRIX gapnum1_fromR=0,gapnum2_fromR=0;
-    if (i==0) { failwith ("newkkonen.c,update_left_border_cell,we don't update (0,0)\n"); }
-    else {
-        int whichdiagR=0, idx_in_my_diagR=0, at_leftborderR=0, at_rightborderR=0;
-        get_idx(-1,i-1,j,m,&whichdiagR,&idx_in_my_diagR,&at_leftborderR,&at_rightborderR,NULL);
-        get_ukkcost(whichdiagR,idx_in_my_diagR, m, &costfromR, &dirR, &gapnum1_fromR, &gapnum2_fromR, &affP, &affQ, &affD, affine); 
-        //get_cmcost (c,seq_get(s1,i),gapcode,&addcost);
-        get_cmcost (c,base1,gapcode,&addcost);
+        //for affine, get previous d,g,v,h as affED,affCD,affQ,affP
+        //for regular, costfromM is enough
+        get_ukkcost(whichdiagM,idx_in_my_diagM, m, &costfromM, &dirM, &gapnum1_fromM, &gapnum2_fromM, &affP, &affQ, &affED, &affCD, affine);
         if (affine) {
-            flag = (gapcode & prev_base1);
-            flag2 = gapcode & base1; 
-            if (!flag && flag2) gocost = 0; else gocost = realgo;
-            //if previous base contains gap while this base does not, gap
-            //extension cost should include gap opening cost.
-            if (flag && !flag2) ext_costR = affP + addcost + realgo;
-            else ext_costR = affP + addcost;
-            open_costR = costfromR + addcost + gocost;
-            costR = MIN(ext_costR, open_costR);
-            thisP = costR;
+            //g[i,j] case1: cost at [i-1,j-1] could from align Ai-1 and Bj-1
+            //align Ai,Bj base on the previous align of Ai-1,Bj-1 : g[i-1,j-1] + subst(Ai,Bj)
+            costDiagfromCD=my_add(affCD,addcost);
+            thisCD = costDiagfromCD;
+            //g[i,j] case 3&4: cost at [i-1,j-1] could from deletion or insertion
+            //align Ai,Bj base on the previous deletion: costDiagfromR: v[i-1,j-1] + go'(Bj,Ai)
+            //align Ai,Bj base on the previous insertion: costDiagfromL: h[i-1,j-1] + go'(Ai,Bj)
+            //addcost_base1nogap : align (base1 without its gap , base2)
+            //addcost_base2nogap : align (base2 without its gap , base1)
+            int base1nogap = base1 & NOGAP;
+            int base2nogap = base2 & NOGAP;
+            int addcost_base1nogap, addcost_base2nogap;
+            get_cmcost (c,base1nogap,base2,&addcost_base1nogap,0,0);
+            get_cmcost (c,base1,base2nogap,&addcost_base2nogap,0,0);
+            if (base1nogap == base1)
+                costDiagfromR = affP + addcost_base1nogap;
+            else
+                costDiagfromR = affP + addcost_base1nogap + realgo;
+            if (base2nogap == base2)
+                costDiagfromL = affQ + addcost_base2nogap;
+            else
+                costDiagfromL = affQ + addcost_base2nogap + realgo;
+            thisCD = MIN(thisCD,costDiagfromR);
+            thisCD = MIN(thisCD,costDiagfromL);
+            //g[i,j] case2: cost at [i-1,j-1] could from gap extension or gap opening
+            //align Ai,Bj base on the previous diag gap extenion of opening: 
+            //d[i-1,j-1] + subst(Ai,Bj) + go(A,i) + go(B,j)
+            costDiagfromED = my_add(affED, go_base1+go_base2+addcost);
+            thisCD = MIN(thisCD,costDiagfromED);
+            //d[i,j] : align base1's gap with base2's gap
+            int diag = get_diag (base1, base2);
+            open_costDiag = go_base1 + go_base2;
+            open_costDiag = my_add(affCD,open_costDiag);
+            ext_costDiag = my_add(affED,diag);
+            thisED = MIN(ext_costDiag,open_costDiag);
+            //remember to udpate costM and costDiag
+            costM = thisCD;
+            costDiag = thisED;
+            if (debug&&affine) printf(" thisCD <- min[%d,%d,%d,%d], thisED <-min[%d,%d] \n",
+                    costDiagfromCD,costDiagfromED,costDiagfromR,costDiagfromL,open_costDiag,ext_costDiag );
         }
-        else costR = costfromR + addcost;
+        else
+            costM = addcost + costfromM;
     }
-    int costfromM=0; DIRECTION_MATRIX dirM; DIRECTION_MATRIX gapnum1_fromM=0,gapnum2_fromM=0;
-    if (j==0) { costfromM = costM = costDiag = INT_MAX/2; }//leftmost column of matrix
-    else {
-        int whichdiagM=0, idx_in_my_diagM=0, at_leftborderM=0, at_rightborderM=0;
-        get_idx(-1,i-1,j-1,m,&whichdiagM,&idx_in_my_diagM,&at_leftborderM,&at_rightborderM,NULL);
-        get_ukkcost(whichdiagM,idx_in_my_diagM, m, &costfromM, &dirM, &gapnum1_fromM,&gapnum2_fromM, &affP, &affQ, &affD, affine);
-        int base1 = seq_get(s1,i); int base2 = seq_get(s2,j);
-        get_cmcost (c,base1,base2,&addcost);
-        costM = costfromM + addcost;
-        //costDiag = min (cost from gap extension on diagonal, cost from gap opening on diagonal)
-        //prev_baseX could be passed to this function
-        int prev_base1 = seq_get(s1,i-1); int prev_base2 = seq_get(s2,j-1);
-        int flag, flag2;
-        int ext_diag,open_diag;
-        flag = ( HAS_GAP(base1) && HAS_GAP(base2) );
-        flag2 = ( (!HAS_GAP(prev_base1))&&(!(HAS_GAP(prev_base2))) );
-        ext_diag = flag?0:(INT_MAX/2);
-        open_diag = flag?(flag2?0:(2*realgo)):INT_MAX/2;
-        ext_costDiag = affD + ext_diag;
-        open_costDiag = costfromM + open_diag;
-        costDiag = MIN(ext_costDiag,open_costDiag);
-        if (debug) printf ("costDiag <- MIN(ext cost(%d+%d=%d),open cost(%d+%d=%d)) = %d\n", 
-                affD,ext_diag,ext_costDiag,costfromM,open_diag,open_costDiag,costDiag);
-    }
-    int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
-    get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
-    assert(at_leftborder);
-    if (debug&&affine) printf("open_costR=%d,ext_costR=%d,open_costDiag=%d,ext_costDiag=%d ",
-            open_costR,ext_costR,open_costDiag,ext_costDiag);
-    //we are at left border, there is no cost from left, set costL to big
-    //number, also set ext_costL and open_costL to the same big number, make
-    //sure that later function [assign_best_cost_and_direction] add 'END_INSERT' to this cell
-    int costL = INT_MAX/2;
-    int ext_costL=INT_MAX/2, open_costL=INT_MAX/2;
-    DIRECTION_MATRIX s1_gapnum_fromL=0;DIRECTION_MATRIX s2_gapnum_fromL=0;
-    assign_best_cost_and_direction(costDiag,costM,costL,costR,
-                                   thisP,thisQ,thisD,
+    //if (debug&&affine) printf("open_costL=%d,ext_costL=%d,open_costR=%d,ext_costR=%d,costM=%d,costDiag=%d\n", 
+    //open_costL,ext_costL,open_costR,ext_costR,costM,costDiag);
+    //update cost&dir for position (i,j)
+    //no need to get whichdiag&idx_in_my_diag again, we can pass this in
+    int whichdiag=0, idx_in_my_diag=0, this_at_leftborder=0, this_at_rightborder=0;
+    get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&this_at_leftborder,&this_at_rightborder,NULL);
+    assign_best_cost_and_direction(costM,costDiag,costL,costR,
+                                   thisP,thisQ,thisED,thisCD,
                                    open_costDiag,ext_costDiag,open_costL,ext_costL,open_costR,ext_costR,
-                                   gapnum1_fromM,s1_gapnum_fromL,gapnum1_fromR,
-                                   gapnum2_fromM,s2_gapnum_fromL,gapnum2_fromR,
-                                   whichdiag,idx_in_my_diag,m,affine);
-    /*
-    if (costR<costM) 
-    {
-        if (debug) printf ("cost <---- costR\n");
-        resdir = resdir|DO_DELETE;
-        if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-        if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costR, resdir, gapnum1_fromR, gapnum2_fromR+1, thisP, thisQ, thisD, affine);
-    }
-    else
-    {
-        if (costM==costR)
-        {
-            if (debug) printf ("cost <---- costM=costR\n");
-            resdir = resdir|ALIGN_TO_ALIGN|ALIGN_TO_DELETE|DO_DELETE;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, resdir,
-                MAX(gapnum1_fromM,gapnum1_fromR),
-                MAX(gapnum2_fromM,gapnum2_fromR+1),
-                thisP, thisQ, thisD, affine);
-        }
-        else {
-            if (debug) printf ("cost <---- costM\n");
-            resdir = resdir | ALIGN_TO_ALIGN;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, resdir, gapnum1_fromM, gapnum2_fromM,thisP, thisQ, thisD, affine);
-        }
-    }
-    */
+                                   gapnum1_fromM,gapnum1_fromL,gapnum1_fromR,
+                                   gapnum2_fromM,gapnum2_fromL,gapnum2_fromR,
+                                   whichdiag,idx_in_my_diag,m,affine,debug2);
 };
 
-void update_right_border_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i, int j, int newk,int go)
-{
-    int debug = 0;
-    if (debug) printf (" update right border cell ,");
-    int gapcode = cm_get_gap (c);
-    int addcost = 0;
-    int thisP=INT_MAX/2, thisQ=INT_MAX/2, thisD=INT_MAX/2;
-    //set affine to 1 if gap opening is set
-    int affine=0;
-    if (go>=0) affine=1;
-    int realgo=0;
-    if (go>0) realgo=go;
-    //set affP and affQ anyway
-    int affP=INT_MAX/2, affQ=INT_MAX/2, affD=INT_MAX/2;
-    int costL=0, costM=0, costDiag=0;
-    //these are for affine traceback
-    int ext_costL=0, open_costL=0;
-    int ext_costDiag=0, open_costDiag=0;
-    //flag & flag2 are for gap sign.
-    //int prev_base1 = seq_get(s1,i-1); 
-    int prev_base2 = seq_get(s2,j-1);
-    //int base1 = seq_get(s1,i); 
-    int base2 = seq_get(s2,j);
-    int flag, flag2;
-    int gocost; //gocost = gap opening cost depends on flag, flag2 and realgo.
-    int costfromL=0; DIRECTION_MATRIX dirL; DIRECTION_MATRIX gapnum1_fromL=0, gapnum2_fromL=0;
-    if (j==0) { failwith ("newkkonen.c update_right_border_cell, cannot be at left border as well\n"); }
-    else {
-    int whichdiagL=0, idx_in_my_diagL=0, at_leftborderL=0, at_rightborderL=0;
-    get_idx(-1,i,j-1,m,&whichdiagL,&idx_in_my_diagL,&at_leftborderL,&at_rightborderL,NULL);
-    get_ukkcost(whichdiagL,idx_in_my_diagL, m, &costfromL, &dirL, &gapnum1_fromL,&gapnum2_fromL,&affP, &affQ, &affD, affine);
-    //get_cmcost (c,seq_get(s2,j),gapcode,&addcost);
-    get_cmcost (c,base2,gapcode,&addcost);
-    if (affine) {
-        flag = (gapcode & prev_base2);
-        flag2 = gapcode & base2; 
-        if (!flag && flag2) gocost = 0; else gocost = realgo;
-        //if previous base contains no gap, but this base has, gap opening cost
-        //for current position should be 0. also if previous base contains gap,
-        //but this one doesn't, gap extension cost for current position should include gap opening cost.
-        if ( flag && !flag2 ) ext_costL = affQ + addcost + realgo;
-        else ext_costL = affQ + addcost;
-        open_costL = costfromL + addcost + gocost;
-        costL = MIN(open_costL, ext_costL); 
-        thisQ = costL; 
-    }
-    else 
-        costL = costfromL + addcost;
-    }
-    int costfromM=0; DIRECTION_MATRIX dirM; DIRECTION_MATRIX gapnum1_fromM=0, gapnum2_fromM=0;
-    if (i==0) { costfromM = costM = costDiag = INT_MAX/2; }//top line of matrix
-    else {
-        int whichdiagM=0, idx_in_my_diagM=0, at_leftborderM=0, at_rightborderM=0;
-        get_idx(-1,i-1,j-1,m,&whichdiagM,&idx_in_my_diagM,&at_leftborderM,&at_rightborderM,NULL);
-        get_ukkcost(whichdiagM,idx_in_my_diagM, m, &costfromM, &dirM, &gapnum1_fromM, &gapnum2_fromM, &affP, &affQ, &affD, affine); 
-        int base1 = seq_get(s1,i); int base2 = seq_get(s2,j);
-        get_cmcost (c,base1,base2,&addcost);
-        costM = costfromM + addcost;
-        //costDiag = min (cost from gap extension on diagonal, cost from gap opening on diagonal)
-        //prev_baseX could be passed to this function
-        int prev_base1 = seq_get(s1,i-1); int prev_base2 = seq_get(s2,j-1);
-        int flag, flag2;
-        int ext_diag,open_diag;
-        flag = ( HAS_GAP(base1) && HAS_GAP(base2) );
-        flag2 = ( (!HAS_GAP(prev_base1))&&(!(HAS_GAP(prev_base2))) );
-        ext_diag = flag?0:(INT_MAX/2);
-        open_diag = flag?(flag2?0:(2*realgo)):INT_MAX/2;
-        ext_costDiag = affD + ext_diag;
-        open_costDiag = costfromM + open_diag;
-        costDiag = MIN(ext_costDiag,open_costDiag);
-        if (debug) printf ("costDiag <- MIN(ext cost(%d+%d=%d),open cost(%d+%d=%d)) = %d\n", 
-                affD,ext_diag,ext_costDiag,costfromM,open_diag,open_costDiag,costDiag);
-    }
-    int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
-    get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
-    assert(at_rightborder);
-    if (debug&&affine) printf("open_costL=%d,ext_costL=%d,open_costDiag=%d,ext_costDiag=%d, ",
-            open_costL,ext_costL,open_costDiag,ext_costDiag);
-    //we are at right border, there is no cost from right, set costR to big
-    //number, also set ext_costR and open_costR to the same big number, make
-    //sure that later function [assign_best_cost_and_direction] add 'END_DELETE' to this cell
-    int costR = INT_MAX/2;
-    int ext_costR=INT_MAX/2, open_costR=INT_MAX/2;
-    DIRECTION_MATRIX s1_gapnum_fromR=0;DIRECTION_MATRIX s2_gapnum_fromR=0;
-    assign_best_cost_and_direction(costDiag,costM,costL,costR,
-                                   thisP,thisQ,thisD,
-                                   open_costDiag,ext_costDiag,open_costL,ext_costL,open_costR,ext_costR,
-                                   gapnum1_fromM,gapnum1_fromL,s1_gapnum_fromR,
-                                   gapnum2_fromM,gapnum2_fromL,s2_gapnum_fromR,
-                                   whichdiag,idx_in_my_diag,m,affine);
-    /*if (costL<costM)
-    {
-        if (debug) {printf("cost <---- costL=%d < costM=%d\n",costL,costM); fflush(stdout);}
-        resdir = DO_INSERT;
-        if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-        if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-        set_ukkcost(whichdiag,idx_in_my_diag, m, costL, resdir, gapnum1_fromL+1, gapnum2_fromL, thisP, thisQ, thisD, affine);
-    }
-    else
-    {
-        if (debug) {printf("cost <---- costL=%d >= costM=%d\n",costL,costM); fflush(stdout);}
-        if (costM==costL) {
-            resdir = ALIGN_TO_ALIGN|ALIGN_TO_INSERT|DO_INSERT;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, resdir, 
-                MAX(gapnum1_fromM,gapnum1_fromL+1),
-                MAX(gapnum2_fromM,gapnum2_fromL),
-                thisP, thisQ, thisD, affine);
-        }
-        else {
-            resdir = ALIGN_TO_ALIGN;
-            if (ext_costR>open_costR) resdir = resdir|END_DELETE;
-            if (ext_costL>open_costL) resdir = resdir|END_INSERT;
-            set_ukkcost(whichdiag,idx_in_my_diag, m, costM, resdir, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, thisD, affine);
-        }
-    }*/
-};
 
-//when len_s1 = len_s2, we have only one diagnoal to start with, each cell of
-//this diagonal is both at left and at right border.
-void update_central_diagonal_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i, int j, int newk, int go)
-{
-    int debug = 0;
-    int costM=0, costDiag=0;
-    int addcost = 0;
-    int thisP=INT_MAX/2, thisQ=INT_MAX/2, thisD=INT_MAX/2;
-     //set affine to 1 if gap opening is set
-    int affine=0;
-    if (go>=0) affine=1;
-    int realgo=0;
-    if (go>0) realgo=go;
-    //set affP and affQ anyway
-    int affP=INT_MAX/2, affQ=INT_MAX/2, affD=INT_MAX/2;
-    int costfromM=0; 
-    int ext_costDiag=0, open_costDiag=0;
-    DIRECTION_MATRIX dirM; DIRECTION_MATRIX gapnum1_fromM=0, gapnum2_fromM=0;
-    if ((i==0)||(j==0)) { failwith ("newkkonen.c, update_central_diagonal_cell, we don't need update (0,0)\n"); }
-    else {
-        int whichdiagM=0, idx_in_my_diagM=0, at_leftborderM=0, at_rightborderM=0;
-        get_idx(-1,i-1,j-1,m,&whichdiagM,&idx_in_my_diagM,&at_leftborderM,&at_rightborderM,NULL);
-        get_ukkcost(whichdiagM,idx_in_my_diagM, m, &costfromM, &dirM, &gapnum1_fromM, &gapnum2_fromM, &affP, &affQ, &affD, affine);
-        int base1 = seq_get(s1,i); int base2 = seq_get(s2,j);
-        get_cmcost (c,base1,base2,&addcost);
-        costM = costfromM + addcost;
-        if (debug) printf ("costM <- costfromM<%d> + addcost<%d> = %d\n",costfromM,addcost,costM);
-        //costDiag = min (cost from gap extension on diagonal, cost from gap opening on diagonal)
-        //prev_baseX could be passed to this function
-        int prev_base1 = seq_get(s1,i-1); int prev_base2 = seq_get(s2,j-1);
-        int flag, flag2;
-        int ext_diag,open_diag;
-        flag = ( HAS_GAP(base1) && HAS_GAP(base2) );
-        flag2 = ( (!HAS_GAP(prev_base1))&&(!(HAS_GAP(prev_base2))) );
-        ext_diag = flag?0:(INT_MAX/2);
-        open_diag = flag?(flag2?0:(2*realgo)):INT_MAX/2;
-        ext_costDiag = affD + ext_diag;
-        open_costDiag = costfromM + open_diag;
-        costDiag = MIN(ext_costDiag,open_costDiag);
-        if (debug) printf ("costDiag <- MIN(ext cost(%d+%d=%d),open cost(%d+%d=%d)) = %d\n", 
-                affD,ext_diag,ext_costDiag,costfromM,open_diag,open_costDiag,costDiag);
-    }
-    int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
-    get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
-    assert(at_rightborder);
-    assert(at_leftborder);
-    int costL = INT_MAX/2;
-    int ext_costL=INT_MAX/2, open_costL=INT_MAX/2;
-    DIRECTION_MATRIX s1_gapnum_fromL=0;DIRECTION_MATRIX s2_gapnum_fromL=0;
-    int costR = INT_MAX/2;
-    int ext_costR=INT_MAX/2, open_costR=INT_MAX/2;
-    DIRECTION_MATRIX s1_gapnum_fromR=0;DIRECTION_MATRIX s2_gapnum_fromR=0;
-    assign_best_cost_and_direction(costDiag,costM,costL,costR,
-                                   thisP,thisQ,thisD,
-                                   open_costDiag,ext_costDiag,open_costL,ext_costL,open_costR,ext_costR,
-                                   gapnum1_fromM,s1_gapnum_fromL,s1_gapnum_fromR,
-                                   gapnum2_fromM,s2_gapnum_fromL,s2_gapnum_fromR,
-                                   whichdiag,idx_in_my_diag,m,affine);
-    //set_ukkcost(whichdiag,idx_in_my_diag, m, costM, ALIGN_TO_ALIGN, gapnum1_fromM, gapnum2_fromM, thisP, thisQ, thisD, affine);
-    if (debug) printf("update_central_diagonal,cost<-costM=%d\n",costM);
-};
+
 
 int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i, int j, int newk, int oldk, int go, int getcost, int swaped)
 {
     int debug = 0;
     int oldcost=0,newcost=0;
-    int oldaffP=0, oldaffQ=0, oldaffD=0;
-    int newaffP=0, newaffQ=0, newaffD=0;
+    int oldaffP=0, oldaffQ=0, oldaffED=0, oldaffCD=0;
+    int newaffP=0, newaffQ=0, newaffED=0, newaffCD=0;
     DIRECTION_MATRIX oldgapnum1=0, oldgapnum2=0;
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0, first_time_update=0;
     get_idx(oldk,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,&first_time_update);
@@ -1119,29 +899,33 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
     if (getcost) {
         //get old cost first
         DIRECTION_MATRIX olddir;
-        get_ukkcost(whichdiag,idx_in_my_diag, m, &oldcost, &olddir, &oldgapnum1,&oldgapnum2, &oldaffP, &oldaffQ, &oldaffD, affine); 
+        get_ukkcost(whichdiag,idx_in_my_diag, m, &oldcost, &olddir, &oldgapnum1,&oldgapnum2, &oldaffP, &oldaffQ, &oldaffED, &oldaffCD, affine); 
     }
     if ( i==0 && j==0 ) return 0;//we don't update (0,0)
     else 
     {
-        if (at_leftborder&&at_rightborder) 
+        /*if (at_leftborder&&at_rightborder) 
             update_central_diagonal_cell (s1, s2, m, c,i, j, newk, go);
-        else if (at_leftborder)
+        else*/ 
+            update_internal_cell (s1, s2, m, c,i, j, newk, oldk, go, at_leftborder, at_rightborder);
+        /*else if (at_leftborder)
             update_left_border_cell (s1, s2, m, c,i, j, newk, go);
         else if (at_rightborder)
             update_right_border_cell (s1, s2, m, c,i, j, newk, go);
         else
-            update_internal_cell (s1, s2, m, c,i, j, newk, oldk, go, swaped);
+            update_internal_cell (s1, s2, m, c,i, j, newk, oldk, go, swaped); */
         if (getcost) {
             DIRECTION_MATRIX newdir, newgapnum1,newgapnum2;
-            get_ukkcost(whichdiag,idx_in_my_diag, m, &newcost, &newdir, &newgapnum1,&newgapnum2, &newaffP, &newaffQ, &newaffD, affine);
+            get_ukkcost(whichdiag,idx_in_my_diag, m, &newcost, &newdir, &newgapnum1,&newgapnum2, &newaffP, &newaffQ, &newaffED, &newaffCD, affine);
             if (debug) {
                 printf("print direction:"); fflush(stdout);
                 print_direction(newdir);
-                printf("newcost=%d(gapnum=%d/%d,aff=%d/%d/%d),oldcost=%d(gapnum=%d/%d,aff=%d/%d/%d)\n",newcost,newgapnum1,newgapnum2,newaffP,newaffQ, newaffD, oldcost,oldgapnum1,oldgapnum2,oldaffP,oldaffQ,oldaffD); 
-                fflush(stdout);}
+                printf("newcost=%d(gapnum=%d/%d,aff=P:%d/Q:%d/ED:%d/CD:%d),oldcost=%d(gapnum=%d/%d,aff=P:%d/Q:%d/ED:%d/CD:%d)\n",newcost,newgapnum1,newgapnum2,newaffP,newaffQ, newaffED, newaffCD, oldcost,oldgapnum1,oldgapnum2,oldaffP,oldaffQ,oldaffED,oldaffCD); 
+                fflush(stdout);
+                assert(newcost>=0);
+            }
             if (affine) {
-                if ( (newaffD==oldaffD)&&(newaffQ==oldaffQ)&&(newaffP==oldaffP)&&(newcost==oldcost)&&(newgapnum1==oldgapnum1)&&(newgapnum2==oldgapnum2) ) 
+                if ( (newaffCD==oldaffCD)&&(newaffED==oldaffED)&&(newaffQ==oldaffQ)&&(newaffP==oldaffP)&&(newcost==oldcost)&&(newgapnum1==oldgapnum1)&&(newgapnum2==oldgapnum2) ) 
                 { return 0; }
                 else 
                 {  return 1; }
@@ -1156,10 +940,10 @@ int update_a_cell (const seqt s1, const seqt s2,newkkmat_p m, const cmt c, int i
         {
             if (debug) {
                 DIRECTION_MATRIX newdir, newgapnum1,newgapnum2;
-                get_ukkcost(whichdiag,idx_in_my_diag, m, &newcost, &newdir, &newgapnum1,&newgapnum2, &newaffP, &newaffQ, &newaffD, affine);
+                get_ukkcost(whichdiag,idx_in_my_diag, m, &newcost, &newdir, &newgapnum1,&newgapnum2, &newaffP, &newaffQ, &newaffED, &newaffCD, affine);
                 printf("print direction:"); fflush(stdout);
                 print_direction(newdir);
-                printf("newcost=%d(gapnum=%d/%d,aff=%d/%d/%d)\n",newcost,newgapnum1,newgapnum2,newaffP,newaffQ,newaffD); 
+                printf("newcost=%d(gapnum=%d/%d,aff=%d/%d/%d/%d)\n",newcost,newgapnum1,newgapnum2,newaffP,newaffQ,newaffED, newaffCD); 
                 fflush(stdout);}
                 if(first_time_update==1) //first time updating this cell, set costchange to 1
                     return 1;
@@ -1212,7 +996,7 @@ void update_a_row (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int i,
     else
     {
         if (debug) 
-        {printf("update a row,i=%d,(startj,endj)=(%d,%d),last_updated_j=%d\n",i,startj,endj,last_updated_j); fflush(stdout);}
+        {printf("\nupdate a row,i=%d,(startj,endj)=(%d,%d),last_updated_j=%d\n",i,startj,endj,last_updated_j); fflush(stdout);}
         //let's do this in iteration
         //init next_j with startj, follow_prevq set to false
         next_j = startj; follow_prevq=0;//last_updated_j=startj-1;
@@ -1371,8 +1155,8 @@ void ukktest (const seqt s1, const seqt s2,newkkmat_p m, const cmt c,int current
     int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
     get_idx(-1,lenX-1,lenY-1,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
     int cost; DIRECTION_MATRIX dir; DIRECTION_MATRIX gapnum1; DIRECTION_MATRIX gapnum2;
-    int affP=INT_MAX/2, affQ=INT_MAX/2, affD=INT_MAX/2; //init affP and affQ anyway
-    get_ukkcost(whichdiag,idx_in_my_diag,m, &cost, &dir, &gapnum1,&gapnum2,&affP, &affQ, &affD, affine);
+    int affP=INT_MAX/2, affQ=INT_MAX/2, affED=INT_MAX/2,affCD=INT_MAX/2; //init affP and affQ anyway
+    get_ukkcost(whichdiag,idx_in_my_diag,m, &cost, &dir, &gapnum1,&gapnum2,&affP, &affQ, &affED, &affCD, affine);
     *res_cost = cost;
     if (gapnum1>gapnum2) *res_gapnum = gapnum1;
     else *res_gapnum = gapnum2;
@@ -1418,14 +1202,17 @@ init_affine_mat (newkkmat_p m)
     {
         m->pool_affP = realloc (m->pool_affP,oldlen*sizeof(int));
         m->pool_affQ = realloc (m->pool_affQ,oldlen*sizeof(int));
-        m->pool_affD = realloc (m->pool_affD,oldlen*sizeof(int));
+        m->pool_affED = realloc (m->pool_affED,oldlen*sizeof(int));
+        m->pool_affCD = realloc (m->pool_affCD,oldlen*sizeof(int));
         int * thisaffP = m->pool_affP;
         int * thisaffQ = m->pool_affQ; 
-        int * thisaffD = m->pool_affD; 
+        int * thisaffED = m->pool_affED; 
+        int * thisaffCD = m->pool_affCD; 
         ukkdiag_p thisdiag = m->diagonal;
         thisdiag -> affParr = thisaffP;
         thisdiag -> affQarr = thisaffQ;
-        thisdiag -> affDarr = thisaffD;
+        thisdiag -> affEDarr = thisaffED;
+        thisdiag -> affCDarr = thisaffCD;
         int diaglen;
         int diag_arr_size = m->diag_size;
         if (debug) { printf("init space for affine, oldlen=%d,diag_arr_size=%d\n",oldlen,diag_arr_size); fflush(stdout);}
@@ -1435,12 +1222,14 @@ init_affine_mat (newkkmat_p m)
             assert(diaglen>0);
             thisdiag -> affParr = thisaffP;
             thisdiag -> affQarr = thisaffQ;
-            thisdiag -> affDarr = thisaffD;
+            thisdiag -> affEDarr = thisaffED;
+            thisdiag -> affCDarr = thisaffCD;
             if (i<diag_arr_size-1) //don't move out of range
             {
             thisaffP += diaglen;
             thisaffQ += diaglen;
-            thisaffD += diaglen;
+            thisaffED += diaglen;
+            thisaffCD += diaglen;
             thisdiag ++;
             }
         }
@@ -1531,19 +1320,22 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m,int affine)
             if (debug) {printf("expand affine P and Q diagnonal\n"); fflush(stdout);}
             m->pool_affP = realloc (m->pool_affP,len*sizeof(int));
             m->pool_affQ = realloc (m->pool_affQ,len*sizeof(int));
-            m->pool_affD = realloc (m->pool_affD,len*sizeof(int));
+            m->pool_affED = realloc (m->pool_affED,len*sizeof(int));
+            m->pool_affCD = realloc (m->pool_affCD,len*sizeof(int));
         }
         else
         {
             m->pool_affP = NULL;
             m->pool_affQ = NULL;
-            m->pool_affD = NULL;
+            m->pool_affED = NULL;
+            m->pool_affCD = NULL;
         }
     }   
         int * thiscost = m->pool_cost;
         int * thisaffP = m->pool_affP;
         int * thisaffQ = m->pool_affQ; 
-        int * thisaffD = m->pool_affD; 
+        int * thisaffED = m->pool_affED; 
+        int * thisaffCD = m->pool_affCD; 
         DIRECTION_MATRIX * thisdir = m->pool_dir;
         DIRECTION_MATRIX * thisgap = m->pool_gapnum;
         ukkdiag_p thisdiag = m->diagonal;
@@ -1557,9 +1349,10 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m,int affine)
             if (affine) {
             thisdiag -> affParr = thisaffP;
             thisdiag -> affQarr = thisaffQ;
-            thisdiag -> affDarr = thisaffD;
+            thisdiag -> affEDarr = thisaffED;
+            thisdiag -> affCDarr = thisaffCD;
             }
-            set_ukkcost(i,0,m,0,0,0,0,0,0,0,affine);
+            set_ukkcost(i,0,m,0,0,0,0,0,0,0,0,affine);
             if (i<baseband-1) //don't move out of range
             {
             thisdiag ++;
@@ -1569,7 +1362,8 @@ init_mat (MAT_SIZE lenX, MAT_SIZE lenY,newkkmat_p m,int affine)
             if (affine) {
                 thisaffP += lenX;
                 thisaffQ += lenX;
-                thisaffD += lenX;
+                thisaffED += lenX;
+                thisaffCD += lenX;
             }
             }
         }
@@ -1587,7 +1381,7 @@ int get_indel_cost (const seqt s, int len, const cmt c)
     {
         thiscode = seq_get (s,i);
         thiscost=0;
-        get_cmcost(c,thiscode,gapcode,&thiscost);
+        get_cmcost(c,thiscode,gapcode,&thiscost,1,0);
         indelcost += thiscost;
     }
     return indelcost;
@@ -1636,33 +1430,47 @@ newkk_algn (const seqt s1, const seqt s2, MAT_SIZE s1_len, MAT_SIZE s2_len, int 
             printf("newkkonen.newkk_algn, baseband=%d,gapcode=%d,delta=%d,go=%d(realgo=%d),swaped=%d\n",bb,gapcode,delta,go,realgo,swaped);
             fflush(stdout);
         }
-        set_ukkcost(0,0,m,0,START,0,0,realgo,realgo,realgo,affine);
+        //init first row , algn gaps to longer sequence
+        //g[0,0]=0, d[0,0]=INF, v[0,0]=GO, h[0,0]=GO
+        set_ukkcost(0,0,m,0,START,0,0,realgo,realgo,INT_MAX/2,0,affine);
         if (debug) {printf("init first row\n"); fflush(stdout);}
         for (i=1;i<bb;i++)
         {
            if (debug2) { printf("init (0,%d) ",i); fflush(stdout); }
             int whichdiag=0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
             get_idx(-1,0,i-1,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
-            int precost; DIRECTION_MATRIX predir; DIRECTION_MATRIX pre_gapnum1,pre_gapnum2; 
-            int affP=INT_MAX/2, affQ=INT_MAX/2, affD=INT_MAX/2; //we init affP and affQ even we are not doing affine
-            get_ukkcost(whichdiag,idx_in_my_diag,m, &precost, &predir, &pre_gapnum1,&pre_gapnum2, &affP, &affQ, &affD, affine);
+            int costfromL; DIRECTION_MATRIX predir; DIRECTION_MATRIX pre_gapnum1,pre_gapnum2; 
+            //we init affP and affQ even we are not doing affine
+            //g[0,i] = d[0,i] = v[0,i] = INF, h[0,i] = h[0,i-1] + GO
+            int affP=INT_MAX/2, affQ=INT_MAX/2, affED=INT_MAX/2, affCD=INT_MAX/2; 
+            get_ukkcost(whichdiag,idx_in_my_diag,m, &costfromL, &predir, &pre_gapnum1,&pre_gapnum2, &affP, &affQ, &affED, &affCD, affine);
             whichdiag=0; idx_in_my_diag=0; at_leftborder=0; at_rightborder=0;
             get_idx(-1,0,i,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
-            int thiscost=0;
-            int thisP=INT_MAX/2,thisQ,thisD=INT_MAX/2;
+            int costL=0, gocost = 0, addcost = 0, open_costL=0, ext_costL=0;
+            int thisP=INT_MAX/2,thisQ=0,thisED=INT_MAX/2, thisCD=INT_MAX/2;
             int thisbase = seq_get (s2,i);
             int prevbase = seq_get (s2,i-1);
             int flag = gapcode & prevbase;
-            int flag2 = gapcode &thisbase;
-            get_cmcost(c,thisbase,gapcode,&thiscost);
-            if ( flag && !flag2 ) {
-               thiscost = realgo + thiscost + precost;
-            }
-            else { 
-                thiscost = precost + thiscost; }
-            thisQ = thiscost;
-            if (debug2) { printf("with %d; whichdiag=%d,idx=%d,dir=%d,gapnum=%d/%d\n ", thiscost,whichdiag,idx_in_my_diag,DO_INSERT,pre_gapnum1+1,pre_gapnum2+1); fflush(stdout);}
-            set_ukkcost(whichdiag,idx_in_my_diag,m, thiscost, DO_INSERT | END_INSERT | END_DELETE | END_DIAG, pre_gapnum1+1, pre_gapnum2,thisP,thisQ,thisD,affine);
+            int flag2 = gapcode & thisbase;
+            get_cmcost(c,thisbase,gapcode,&addcost,0,0);
+            if (debug2) { printf("prev has gap:%d, this has gap:%d,",flag,flag2); }
+            if(affine) {
+                if (i==1) {//we append the first gap to each seq, that doesn't count as prev base contains gap
+                    if (flag2) gocost = 0; else gocost = realgo;
+                }
+                else {
+                     if (!flag && flag2) gocost = 0; 
+                            else gocost = realgo;
+
+                }
+                if ( flag && !flag2 ) ext_costL = affQ + addcost + realgo;
+                else ext_costL = affQ + addcost;
+                open_costL = costfromL + addcost + gocost;
+                costL = MIN(open_costL, ext_costL); 
+                thisQ = costL; }//end of if (affine)
+            else { costL = costfromL + addcost; }//end of not affine
+            if (debug2) { printf("with cost:%d [whichdiag=%d,idx=%d], gapnum:%d/%d\n ", costL,whichdiag,idx_in_my_diag,pre_gapnum1+1,pre_gapnum2+1); fflush(stdout);}
+            set_ukkcost(whichdiag,idx_in_my_diag,m, costL, DO_INSERT | END_INSERT | END_DELETE | END_DIAG, pre_gapnum1+1, pre_gapnum2,thisP,thisQ,thisED,thisCD,affine);
         }
         int iniT = (m->baseband) * delta;
         if (debug) {printf ("done with first row, call increaseT with iniT=%d\n",iniT); fflush(stdout);}
@@ -1697,7 +1505,6 @@ newkkonen_CAML_algn (value s1, value s2, value c, value a,value swaped)
     s2_len = seq_get_len (s2p);
     assert (s2_len >= s1_len);
     int res;
-    //int gap_open = tc->gap_open; no need to pass gap opening if we are not doing affine
     int debug = 0;
     if (debug) {
     printf("newkkonen_CAML_algn,no gap opening\n"); fflush(stdout);}
@@ -1763,7 +1570,7 @@ void newkk_follow_deletion (const seqt s1, seqt alis1, seqt alis2, const cmt c, 
     if(debug) { printf ("Delete,"); fflush(stdout);}
         add1 = seq_get(s1,*i);
         add2 = cm_get_gap(c);
-        my_prepend(alis1,add1);
+        my_prepend(alis1,/*NOGAP &*/ add1);
         my_prepend(alis2,add2);
         *i=*i-1;
 
@@ -1777,7 +1584,7 @@ void newkk_follow_insertion (const seqt s2, seqt alis1, seqt alis2,const cmt c, 
         add2 = seq_get(s2,*j);
         add1 = cm_get_gap(c);
         my_prepend(alis1,add1);
-        my_prepend(alis2,add2);
+        my_prepend(alis2,/*NOGAP &*/ add2);
         *j=*j-1;
 }
 
@@ -1833,6 +1640,8 @@ void newkk_follow_deletion_or_insertion_affine (enum MODE * mode, int insert_del
     }
 }
 
+
+//backtrace function for non-affine
 void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2, 
         int len1, int len2, const cmt c, const newkkmat_p m,int swaped)
 {
@@ -1846,49 +1655,51 @@ void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
        trivial_backtrace(s1,s2,alis1,alis2,len1,len2,c);
    }//end of trivial case
    else {
-   int add1 = 0,add2 = 0;
-   int whichdiag, idx_in_my_diag, at_leftborder, at_rightborder;
-   int cost; DIRECTION_MATRIX dir; DIRECTION_MATRIX gapnum1; DIRECTION_MATRIX gapnum2; 
-    //set affP and affQ anyway
-   int affP=INT_MAX/2, affQ=INT_MAX/2, affD=INT_MAX/2;
-   int i=len1-1, j=len2-1;
-   while(i>=0&&j>=0)
-   {
-    whichdiag = 0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
-    cost = 0; dir = 0; gapnum1 = 0; gapnum2 = 0;
-    get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
-    get_ukkcost(whichdiag,idx_in_my_diag,m, &cost, &dir, &gapnum1, &gapnum2,&affP, &affQ, &affD, affine);
-    if(debug) {printf ("i=%d,j=%d :",i,j); print_direction(dir); fflush(stdout); }
-    int has_insert, has_delete;
-    has_insert = has_flag(dir,DO_INSERT);
-    has_delete = has_flag(dir,DO_DELETE);
-    if (dir==START) 
-    {
-        if(debug) { printf ("Start\n"); fflush(stdout);}
-        if ( (i!=0) ||(j!=0) ) 
-            failwith ("ERROR: newkkonen.backtrace,we are expecting i==0 && j==0");
-        add1 = add2 = cm_get_gap(c);
-        my_prepend(alis1,add1);
-        my_prepend(alis2,add2);
-        i--; j--;
-    }
-    else {//follow what algn.c is doing -- for affine, we favor insert/delete over algn, for non-affine, we pick algn first
-        if (has_flag(dir,ALIGN_TO_ALIGN))//(dir==DO_ALIGN)
-        {
-            if(debug) { printf ("Align\n");fflush(stdout);}
-            add1 = seq_get(s1,i);
-            add2 = seq_get(s2,j);
-            my_prepend(alis1,add1);
-            my_prepend(alis2,add2);
-            i--; j--;
-        }
-        else
-        {
-            newkk_follow_deletion_or_insertion (swaped,has_insert,has_delete,s1,s2,alis1,alis2,c,&i,&j);
-        }  
-        
-    } 
-   }//end of while(i>=0&&j>=0)
+       int add1 = 0,add2 = 0;
+       int whichdiag, idx_in_my_diag, at_leftborder, at_rightborder;
+       int cost; DIRECTION_MATRIX dir; DIRECTION_MATRIX gapnum1; DIRECTION_MATRIX gapnum2; 
+        //set affP and affQ anyway
+       int affP=INT_MAX/2, affQ=INT_MAX/2, affED=INT_MAX/2, affCD=INT_MAX/2;
+       int i=len1-1, j=len2-1;
+       while(i>=0&&j>=0)
+       {
+            whichdiag = 0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
+            cost = 0; dir = 0; gapnum1 = 0; gapnum2 = 0;
+            get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
+            get_ukkcost(whichdiag,idx_in_my_diag,m, &cost, &dir, &gapnum1, &gapnum2,&affP, &affQ, &affED, &affCD, affine);
+            if(debug) {printf ("i=%d,j=%d :",i,j); print_direction(dir); fflush(stdout); }
+            int has_insert, has_delete;
+            has_insert = has_flag(dir,DO_INSERT);
+            has_delete = has_flag(dir,DO_DELETE);
+            if (dir==START) 
+            {
+                if(debug) { printf ("Start\n"); fflush(stdout);}
+                if ( (i!=0) ||(j!=0) ) 
+                    failwith ("ERROR: newkkonen.backtrace,we are expecting i==0 && j==0");
+                add1 = add2 = cm_get_gap(c);
+                my_prepend(alis1,add1);
+                my_prepend(alis2,add2);
+                i--; j--;
+            }
+            else {//follow what algn.c is doing -- for affine, we favor insert/delete over algn, for non-affine, we pick algn first
+                if (has_flag(dir,ALIGN_TO_ALIGN))//(dir==DO_ALIGN)
+                {
+                    if(debug) { printf ("Align\n");fflush(stdout);}
+                    add1 = seq_get(s1,i);
+                    add2 = seq_get(s2,j);
+                    my_prepend(alis1,add1);
+                    my_prepend(alis2,add2);
+                    i--; j--;
+                }
+                else
+                {
+                    newkk_follow_deletion_or_insertion (swaped,has_insert,has_delete,s1,s2,alis1,alis2,c,&i,&j);
+                }  
+                
+            } 
+       }//end of while(i>=0&&j>=0)
+       //at the end of while loop, we should reach (-1,-1) from (0,0)
+       assert( (i== -1)&&(j==-1));
    }//end of non-trivial case
    if(debug) { printf ("end of backtrace\n"); fflush(stdout);}
 };
@@ -1934,7 +1745,7 @@ void backtrace_affine (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
    int whichdiag, idx_in_my_diag, at_leftborder, at_rightborder;
    int cost; DIRECTION_MATRIX dir; DIRECTION_MATRIX gapnum1; DIRECTION_MATRIX gapnum2; 
     //set affP and affQ anyway
-   int affP=INT_MAX/2, affQ=INT_MAX/2, affD=INT_MAX/2;
+   int affP=INT_MAX/2, affQ=INT_MAX/2, affED=INT_MAX/2, affCD=INT_MAX/2;
    int i=len1-1, j=len2-1;
    int mode_delete=0, mode_insert=0;
    int has_diag=0, has_insert=0, has_delete=0, has_algn=0;
@@ -1942,10 +1753,11 @@ void backtrace_affine (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
    int insert_delete_are_the_same = 0;
    while(i>=0&&j>=0)
    {
+       //if (i==35&&j==62) debug = 1;
         whichdiag = 0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
         cost = 0; dir = 0; gapnum1 = 0; gapnum2 = 0;
         get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
-        get_ukkcost(whichdiag,idx_in_my_diag,m, &cost, &dir, &gapnum1, &gapnum2,&affP, &affQ, &affD, affine);
+        get_ukkcost(whichdiag,idx_in_my_diag,m, &cost, &dir, &gapnum1, &gapnum2,&affP, &affQ, &affED, &affCD, affine);
         if(debug) {printf ("i=%d,j=%d :",i,j); print_direction(dir); fflush(stdout); }
         if (dir==START) 
         {
@@ -2003,8 +1815,8 @@ void backtrace_affine (const seqt s1, const seqt s2, seqt alis1, seqt alis2,
                 if(debug) { printf ("Align\n");fflush(stdout);}
                 add1 = seq_get(s1,i);
                 add2 = seq_get(s2,j);
-                my_prepend(alis1,add1);
-                my_prepend(alis2,add2);
+                my_prepend(alis1,NOGAP & add1);
+                my_prepend(alis2,NOGAP & add2);
                 i--; j--;
                 mode = m_todo;
             }
@@ -2103,7 +1915,8 @@ newkkmat_CAML_free (value m) {
     free(tmp->pool_gapnum);
     if (tmp->pool_affP!=NULL) free(tmp->pool_affP);
     if (tmp->pool_affQ!=NULL) free(tmp->pool_affQ);
-    if (tmp->pool_affD!=NULL) free(tmp->pool_affD);
+    if (tmp->pool_affED!=NULL) free(tmp->pool_affED);
+    if (tmp->pool_affCD!=NULL) free(tmp->pool_affCD);
     return;
 };
 

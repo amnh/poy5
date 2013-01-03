@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2824 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 2880 $"
 
 
 exception Illegal_Cm_Format;;
@@ -1202,10 +1202,9 @@ module Two_D = struct
         in
         let (uselevel:bool) = if level>1 then true else false  in
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
-        if debug then
-            Printf.printf "uselevel=%b,call fill_best_cost_and_median_XXX \n%!" uselevel;
         let ismetric, iside = input_is_metric l a_sz in
         if iside then set_identity m;
+        if debug then Printf.printf "uselevel=%b,ismetric=%b, call fill_best_cost_and_median_XXX \n%!" uselevel ismetric;
         if use_comb then 
             if suppress || ismetric then
                let () = set_metric m in
@@ -1421,6 +1420,7 @@ module Two_D = struct
         ] 21
 
     let of_transformations_and_gaps use_combinations alph_size trans gaps all_elements =
+        let debug = false in
         if debug then Printf.printf "of_transformations_and_gaps (%d,%d,%d,%d)\n%!"
         alph_size trans gaps all_elements;
         let list_with_zero_in_position pos =
