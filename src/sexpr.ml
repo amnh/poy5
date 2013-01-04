@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sexpr" "$Revision: 2681 $"
+let () = SadmanOutput.register "Sexpr" "$Revision: 3019 $"
 
 type 'a t = [ `Empty | `Set of 'a t list | `Single of 'a ]
 
@@ -280,20 +280,15 @@ let fold_status str ?(eta=true) fn init sexpr =
         let time = Timer.start () in
         let feedback adv =
             let elapsed_wall = Timer.wall time in
-            let msg =
-                match adv - 1 with
-                | 0 -> ""
-                | adv ->
-                      Timer.status_msg elapsed_wall adv n
+            let msg = match adv - 1 with
+                | 0   -> ""
+                | adv -> Timer.status_msg elapsed_wall adv n
             in
             if eta
-            then Status.full_report ~adv ~msg status
-            else Status.full_report ~adv status
+                then Status.full_report ~adv ~msg status
+                else Status.full_report ~adv status
         in
-        let res =
-            fold_feedback
-                feedback
-                fn init sexpr in
+        let res = fold_feedback feedback fn init sexpr in
         Status.finished status;
         res
     end else fold_left fn init sexpr

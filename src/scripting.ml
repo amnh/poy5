@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3014 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3019 $"
 
 module IntSet = All_sets.Integers
 
@@ -3593,9 +3593,10 @@ let rec folder (run : r) meth =
             in
             let run = 
                 let eta = true in
-                Sexpr.fold_status "Running pipeline on each tree" ~eta 
-                (on_each_tree folder (`Set ([`Data],
-                name)) dosomething mergingscript) run run.trees
+                Sexpr.fold_status
+                    "Running pipeline on each tree" ~eta
+                    (on_each_tree folder (`Set ([`Data], name)) dosomething mergingscript)
+                    run run.trees
             in
             let run = 
                 {run with   trees = run.stored_trees;
