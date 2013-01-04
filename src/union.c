@@ -201,7 +201,7 @@ union_merge (seqt a, seqt b, seqt median, unionofft au, \
         if (i >= 0) {
             interm = beginm[i];
             if (gap == interm) {
-            if(debug) { printf("gap==interm(m[i]), \n"); fflush(stdout); }
+            if(debug) { printf("gap==interm(m[i:%d]), \n",i); fflush(stdout); }
                 if (i != 0) {
                     if (gap == begina[i]) union_prepend_item (bu, c, gap);
                     else if (gap == beginb[i]) union_prepend_item (au, c, gap);
@@ -249,12 +249,12 @@ union_merge (seqt a, seqt b, seqt median, unionofft au, \
                 union_prepend_and_fill_items (interm, c, items_prepended, au, bu, \
                         apos, bpos);
                 items_prepended = 0;
-		        if(debug) printf("after prepend, set items_prepended to 0, au.pos:%d,bu.pos:%d;",
+		        if(debug) printf("after prepend, set items_prepended to 0, au.pos:%d,bu.pos:%d\n",
                         au->position,bu->position);
             }
             i--;
         }//end of i>=0
-        else {}
+        else {  if ((au->begin <= au->end) || (bu->begin <= bu->end)) failwith("infinit loop"); }
     }//end of while()
     if (gap != seq_get (c->s, 0)) {
         seq_prepend (c->s, gap);

@@ -5833,13 +5833,15 @@ let rec assign_affine_gap_cost data chars cost =
     let codes = 
         List.map 
             (fun (a, b_full,b_ori, alph, tcmfile) -> 
-                let b_full =
+                let b_full,b_ori =
                     if Alphabet.nucleotides = alph then
                         let b_full = Cost_matrix.Two_D.clone b_full in
                         let () = Cost_matrix.Two_D.set_affine b_full cost in
-                        b_full
+                        let b_ori = Cost_matrix.Two_D.clone b_ori in
+                        let () = Cost_matrix.Two_D.set_affine b_ori cost in 
+                        b_full,b_ori
                     else 
-                        b_full
+                        b_full,b_ori
                 in 
                 (true, a), (fun _ -> b_full, b_ori, make_affine cost tcmfile),alph)
             (codes_with_same_tcm codes data)
