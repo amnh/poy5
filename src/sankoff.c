@@ -385,10 +385,12 @@ __inline void
 #else
 inline void
 #endif
-sankoff_init_eltarr (eltarr_p neweltarr, int num_states, int num_elts, int code, int taxon_code, int left_taxon_code, int right_taxon_code, int * tcm) {
+sankoff_init_eltarr (eltarr_p neweltarr, int num_states, int num_elts, int code, int taxon_code, int left_taxon_code, int right_taxon_code, int * tcm, int is_id) {
     int debug = 0;
-    if(debug) printf("sankoff_init_eltarr, left tcode=%d,right tcode=%d, tcode=%d, code = %d\n",
-            left_taxon_code, right_taxon_code,taxon_code,code);
+    if(debug){
+        printf("sankoff_init_eltarr, ltcode=%d, rtcode=%d, tcode=%d, code = %d\n",
+                left_taxon_code, right_taxon_code,taxon_code,code);
+    }
     neweltarr->code = code;
     neweltarr->taxon_code = taxon_code;
     neweltarr->left_taxon_code = left_taxon_code;
@@ -397,7 +399,7 @@ sankoff_init_eltarr (eltarr_p neweltarr, int num_states, int num_elts, int code,
     neweltarr->num_states=num_states;
     neweltarr->num_elts=num_elts;
     neweltarr->tcm = (int*)calloc(num_states*num_states,sizeof(int));
-    neweltarr->is_identity = 1;
+    neweltarr->is_identity = is_id;
     memcpy(neweltarr->tcm,tcm,sizeof(int)*num_states*num_states);
     neweltarr->elts = (elt_p)calloc(num_elts,sizeof(struct elt));
     return;
@@ -1178,24 +1180,25 @@ inline int
 #endif
 sankoff_elt_get_extra_cost_for_root(elt_p eproot,int * tcm) {
     int debug = 0;
-   int * leftchildstates = eproot->leftstates;
-   int * rightchildstates = eproot->rightstates;
-   int cost=0, beststate=0;
-   int num_states = eproot->num_states;
-   sankoff_get_min_state(eproot,&cost,&beststate);
-   assert(beststate<num_states);
-   int beststateleft = leftchildstates[beststate];
-   int beststateright = rightchildstates[beststate];
-   int extra_cost_left=0, extra_cost_right=0;
-   if (beststateleft==beststate) {
-       extra_cost_left = sankoff_return_value(tcm,num_states,num_states,beststate,beststateleft);
-   }
-   if (beststateright==beststate) {
-       extra_cost_right = sankoff_return_value(tcm,num_states,num_states,beststate,beststateright);
-   }
-   if (debug) { printf("sankoff_elt_get_extra_cost_for_root,beststate = Root:%d,Left:%d,Right:%d\n",
-           beststate,beststateleft,beststateright); }
-   return (extra_cost_right + extra_cost_left);
+    int * leftchildstates = eproot->leftstates;
+    int * rightchildstates = eproot->rightstates;
+    int cost=0, beststate=0;
+    int num_states = eproot->num_states;
+    sankoff_get_min_state(eproot,&cost,&beststate);
+    assert(beststate<num_states);
+    int beststateleft = leftchildstates[beststate];
+    int beststateright = rightchildstates[beststate];
+    int extra_cost_left=0, extra_cost_right=0;
+    if (beststateleft==beststate) {
+        extra_cost_left = sankoff_return_value(tcm,num_states,num_states,beststate,beststateleft);
+    }
+    if (beststateright==beststate) {
+        extra_cost_right = sankoff_return_value(tcm,num_states,num_states,beststate,beststateright);
+    }
+    if (debug) {
+        printf("sankoff_elt_get_extra_cost_for_root,beststate = Root:%d,Left:%d,Right:%d\n",
+                beststate,beststateleft,beststateright); }
+    return (extra_cost_right + extra_cost_left);
 }
 
 #ifdef _win32
@@ -1205,27 +1208,20 @@ inline int
 #endif
 sankoff_get_extra_cost_for_root(eltarr_p eapRoot) {
     int debug = 0;
-    if (debug) { 
-        printf("sankoff_get_extra_cost_for_root,nodeRoot:\n");
-        fflush(stdout);
-        sankoff_print_eltarr(eapRoot,1,1,0,1);
-    }
+    if (debug) { printf("sankoff_get_extra_cost_for_root,nodeRoot:\n"); }
     int acc=0;
     int i;
-    int num_elts;
-    num_elts = eapRoot->num_elts;
+    int num_elts = eapRoot->num_elts;
     int iside = eapRoot->is_identity;
-    if (iside==1) return 0;
-    else {
-        for (i=0;i<num_elts;i++)
-        {
-            acc = acc + sankoff_elt_get_extra_cost_for_root
-            (&((eapRoot->elts)[i]),eapRoot->tcm);
-            if(debug) printf("acc += %d,",acc);
+    if (iside==1){
+        if (debug) { printf("\tis_identity, 0.0 cost\n"); }  
+        return 0;
+    } else {
+        for (i=0;i<num_elts;i++) {
+            acc = acc + sankoff_elt_get_extra_cost_for_root(&((eapRoot->elts)[i]),eapRoot->tcm);
+            if(debug){ printf("\tacc += %d,\n",acc); }
         }
-        if (debug) { 
-            printf("return extra cost for root = %d\n",acc);
-        }
+        if (debug) { printf("return extra cost for root = %d\n",acc); }
         return acc;
     }
 }
@@ -1485,7 +1481,7 @@ sankoff_median_3(eltarr_p eapA,eltarr_p eapN, eltarr_p eapL, eltarr_p eapR, elta
             sankoff_print_eltarr(eapN,1,1,0,0);
         }
         //alloc neweapN's pointers 
-        sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapN->left_taxon_code,eapN->right_taxon_code, eapN->tcm);
+        sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapN->left_taxon_code,eapN->right_taxon_code, eapN->tcm, eapN->is_identity);
         for (i=0;i<num_elts;i++)
         {
             sankoff_create_empty_elt(&((neweapN->elts)[i]),num_states,-1);
@@ -1512,7 +1508,7 @@ sankoff_median_3(eltarr_p eapA,eltarr_p eapN, eltarr_p eapL, eltarr_p eapR, elta
             sankoff_print_eltarr(eapR,1,1,0,0);
         } 
         int is_left_child = sankoff_is_left_or_right_child(eapN,eapA);
-        sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapL->taxon_code,eapR->taxon_code, eapN->tcm);
+        sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapL->taxon_code,eapR->taxon_code, eapN->tcm, eapN->is_identity);
         for (i=0;i<num_elts;i++)
         {
             sankoff_create_empty_elt(&((neweapN->elts)[i]),num_states,-1);
@@ -1640,8 +1636,6 @@ sankoff_elt_distance(elt_p ep1, elt_p ep2, int * tcm, elt_p newep) {
         sankoff_print_elt(ep1,0,0,0,0);
         sankoff_print_elt(ep2,0,0,0,0);
     }
-    int subtree_distance; //we don't really need this 
-    subtree_distance = sankoff_elt_median(ep1,ep2,tcm,newep);
     if (debug) {
         printf("end of elt median\n"); 
         sankoff_print_elt(newep,1,1,0,1);
@@ -1679,7 +1673,7 @@ sankoff_median(int median_node_tcode,eltarr_p eap1,eltarr_p eap2, eltarr_p newel
     num_states = eap1->num_states;
     num_elts = eap1->num_elts;
     //remember which one is our left child , which one is right.
-    sankoff_init_eltarr (neweltarr, num_states, num_elts, eap1->code, median_node_tcode, eap1->taxon_code,eap2->taxon_code, eap1->tcm);
+    sankoff_init_eltarr (neweltarr, num_states, num_elts, eap1->code, median_node_tcode, eap1->taxon_code,eap2->taxon_code, eap1->tcm, eap1->is_identity);
     for (i=0;i<num_elts;i++)
     {
         sankoff_create_empty_elt(&((neweltarr->elts)[i]),num_states,-1);
@@ -1746,7 +1740,7 @@ sankoff_distance(eltarr_p eap1,eltarr_p eap2, eltarr_p neweltarr) {
     num_states = eap1->num_states;
     num_elts = eap1->num_elts;
     //we don't need the median, just the distance
-    sankoff_init_eltarr (neweltarr, num_states, num_elts, eap1->code, 0, eap1->taxon_code,eap2->taxon_code,eap1->tcm);
+    sankoff_init_eltarr (neweltarr, num_states, num_elts, eap1->code, 0, eap1->taxon_code,eap2->taxon_code,eap1->tcm,eap1->is_identity);
     for (i=0;i<num_elts;i++)
     {
         sankoff_create_empty_elt(&((neweltarr->elts)[i]),num_states,-1);
@@ -1838,10 +1832,12 @@ sankoff_CAML_dist_2(value a, value b,value c) {
 value
 sankoff_CAML_get_extra_cost_for_root(value a) {
     CAMLparam1(a);
+    CAMLlocal1(ores);
     eltarr_p eapRoot;
     eapRoot = Sankoff_return_eltarr(a);
     int res = sankoff_get_extra_cost_for_root(eapRoot);
-    CAMLreturn(Val_int(res));
+    ores = Val_int(res);
+    CAMLreturn(ores);
 }
 
 /* no one calls this

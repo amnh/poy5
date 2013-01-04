@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 2831 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 3017 $"
 
 let debug = false
 
@@ -154,7 +154,6 @@ external get_earray_cside : elt ->
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t = "sankoff_CAML_get_e_array"
 
 external get_extra_cost_for_root : t -> int = "sankoff_CAML_get_extra_cost_for_root"
-
 
 let to_string s = " to do "
 
@@ -488,12 +487,12 @@ external create_eltarr_cside : int -> int -> int -> int ->
 
 let create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm isidentity =
     let tcm_int32 = Utl.int_to_int32_mat tcm in
-    let tcm_bigarr 
-    = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in
-    let state_bigarr = Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout
-    state_arrarr in
-    let ecode_bigarr = Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
-    ecode_arr in
+    let tcm_bigarr =
+        Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout tcm_int32 in
+    let state_bigarr =
+        Bigarray.Array2.of_array Bigarray.int32 Bigarray.c_layout state_arrarr in
+    let ecode_bigarr =
+        Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout ecode_arr in
     let isidentity = if isidentity then 1 else 0 in (*we pass int instead of bool*)
     create_eltarr_cside isidentity taxcode mycode nstates ecode_bigarr state_bigarr tcm_bigarr
 
@@ -513,17 +512,18 @@ let of_parser tcm (arr, taxcode) mycode =
         in
         assert (List.fold_left (fun acc x -> acc && x < nstates) true states);
         (*infinity here is not infinity on the c side, we pass (-1) instead*)
-        let state_arr =  Array.init nstates (fun i -> 
-            if List.mem i states then Int32.of_int 0 
-            else Int32.of_int (-1) (*infinity*)
-        ) in
+        let state_arr =
+            Array.init nstates
+                (fun i ->
+                    if List.mem i states then Int32.of_int 0 
+                    else Int32.of_int (-1) (*infinity*))
+        in
         Int32.of_int ecode, state_arr
     in
     let elts = Array.map make_elt arr in
     let eltlst = Array.to_list elts in 
     let ecode_lst,state_arrlst = List.split eltlst in
-    let ecode_arr,state_arrarr = Array.of_list ecode_lst, Array.of_list
-    state_arrlst in
+    let ecode_arr,state_arrarr = Array.of_list ecode_lst, Array.of_list state_arrlst in
     create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm iside,
     taxcode
     

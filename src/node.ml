@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3011 $"
+let () = SadmanOutput.register "Node" "$Revision: 3017 $"
 
 let infinity = float_of_int max_int
 
@@ -4635,15 +4635,11 @@ let set_node_cost a b = { b with node_cost = a }
 * be higher than distance of two aligned children of the root. this function
     * return the difference between them.*)
 let extra_cost_from_root n treecost =
-    let debug = false and debug2 = false in
-    if debug then begin
+    let debug = false in
+    if debug then
         Printf.printf "node.ml extra cost from root, treecost=%f, %!" treecost;
-	    if debug2=true then begin
-        Printf.printf "root nodedata:%!";
-        print n;
-        end;
-    end;
-    if treecost = 0. then 
+    if treecost = 0. then begin
+        if debug then Printf.printf "tree cost = 0.0\n%!";
         (*when we build wagner tree, we add nodes one by one. so there will be
         * time when the tree has only one node, which is a leafnode, tree cost
         * should be 0 at this point.
@@ -4651,15 +4647,15 @@ let extra_cost_from_root n treecost =
         * since they carry same sequence as the leaf itself,
         * [get_extra_cost_for_root] might return some cost. *)
         0.
-    else 
+    end else 
         let acc_cost_cs acc item = match item with 
             | Sank x -> 
                 let ec = SankCS.get_extra_cost_for_root x.preliminary in
-                if debug2 then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
+                if debug then Printf.printf "sankCS,acc(%f) += %d\n%!" acc ec;
                 acc +. ((float_of_int ec) *. x.weight)
             | Dynamic x ->
                 let disc = DynamicCS.extra_cost_for_root x.preliminary  in
-                if debug2 then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
+                if debug then Printf.printf "DynamicCS,acc(%f) += %f\n%!" acc disc;
                 acc +. (disc *. x.weight)
             | _ ->
                 0.0
