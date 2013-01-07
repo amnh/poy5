@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 3011 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 3022 $"
 
 let ndebug = true
 
@@ -328,10 +328,10 @@ struct
         let () =
             if !warning then
                 warn_user_message
-                       ("When@ the@ sample@ size@ of@ a@ set@ of@ data@ is@ "^^
-                        "small@ (say,@ n/k < 40),@ it@ is@ recommended@ that"^^
-                        "@ the@ second-order@ AIC,@ AICc,@ be@ used@ instead"^^
-                        "@ (Hurvich@ and@ Tsai,@ 1989,@ 1995;@ Sugiura,@ 1978).")
+                   ("When@ the@ sample@ size@ of@ a@ set@ of@ data@ is@ "^^
+                    "small@ (say,@ n/k < 40),@ it@ is@ recommended@ that"^^
+                    "@ the@ second-order@ AIC,@ AICc,@ be@ used@ instead"^^
+                    "@ (Hurvich@ and@ Tsai,@ 1989,@ 1995;@ Sugiura,@ 1978).")
         in
         Array.sort (fun x y -> Pervasives.compare (snd x) (snd y)) tree_stats;
         let min_ic = (0, snd tree_stats.(0)) in
@@ -405,7 +405,7 @@ struct
              | `AIC -> "AIC" | `AICC -> "AICc" | `BIC -> "BIC"
         in
         let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
-        ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta"; "weight"; "cum(w)"; |];
+        ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta "^ic_name; "weight"; "cum(w)"; |];
         let warning = ref false in
         Array.fold_left
             (fun (i,w_cum) (({ic=(ic,d_ic,w_ic)}) as s) ->
