@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3023 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3025 $"
 
 let debug = false 
 
@@ -530,11 +530,9 @@ let transform_build
             | `Build_Random (x,_)
             | `Wagner_Rnd x -> (n, (`Build_Random (x,iter)), trans, iter)
             | `Constraint _ ->
-                failwith 
-                    "Constraint tree has already been selected as build method."
+                failwith "Constraint tree has already been selected as build method."
             | `Branch_and_Bound _ ->
-                failwith 
-                    "Branch and bound tree has already been selected as build method."
+                failwith "Branch and bound tree has already been selected as build method."
         end
     | `Constraint file ->
         let file = match file with
@@ -552,14 +550,11 @@ let transform_build
                 failwith
                     "Branch and bound has already been selected as build method."
             | `Constraint _ ->
-                failwith 
-                    "Constraint has already been selected as build method."
+                failwith "Constraint has already been selected as build method."
             | `Nj -> 
-                failwith 
-                    "Neighbor joining has already been selected as build method."
+                failwith "Neighbor joining has already been selected as build method."
             | `Prebuilt _ -> 
-                failwith 
-                    "Prebuilt has already been selected as build method."
+                failwith "Prebuilt has already been selected as build method."
         end
     | `Branch_and_Bound bound ->
         begin match meth with
@@ -568,18 +563,15 @@ let transform_build
             | `Wagner_Mst (keep_max, _, keep_method, lst, _)
             | `Build_Random ((keep_max, _, keep_method, lst, _),_)
             | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
-                    (n,`Branch_and_Bound ((bound, None, keep_method, keep_max, lst),iter),trans,iter)
+                (n,`Branch_and_Bound ((bound, None, keep_method, keep_max, lst),iter),trans,iter)
             | `Branch_and_Bound (x,_) ->
-                    (n, `Branch_and_Bound (x,iter), trans, iter)
+                (n, `Branch_and_Bound (x,iter), trans, iter)
             | `Constraint _ ->
-                failwith 
-                    "Constraint has already been selected as build method."
+                failwith "Constraint has already been selected as build method."
             | `Nj -> 
-                failwith 
-                    "Neighbor joining has already been selected as build method."
+                failwith "Neighbor joining has already been selected as build method."
             | `Prebuilt _ -> 
-                failwith 
-                    "Prebuilt has already been selected as build method."
+                failwith "Prebuilt has already been selected as build method."
         end
     | `DistancesRnd ->
         begin match meth with
@@ -590,32 +582,26 @@ let transform_build
             | `Wagner_Ordered x
             | `Build_Random (x,_) -> (n, (`Wagner_Distances x), trans, iter)
             | `Constraint _ ->
-                failwith 
-                    "Constraint has already been selected as build method."
+                failwith "Constraint has already been selected as build method."
             | `Branch_and_Bound _ -> 
-                failwith
-                    "Branch and bound tree has already been selected as build method."
+                failwith "Branch and bound tree has already been selected as build method."
             | `Nj -> 
-                failwith 
-                    "Neighbor joining has already been selected as build method."
+                failwith "Neighbor joining has already been selected as build method."
         end
     | `Mst ->
         begin match meth with
             | `Prebuilt _
             | `Wagner_Mst _ -> acc
             | `Wagner_Distances x
-            | `Wagner_Rnd x 
+            | `Wagner_Rnd x
             | `Wagner_Ordered x
             | `Build_Random (x,_) -> (n, (`Wagner_Mst x), trans, iter)
             | `Constraint _ ->
-                failwith 
-                    "Constraint has already been selected as build method."
+                failwith "Constraint has already been selected as build method."
             | `Branch_and_Bound _ -> 
-                failwith
-                    "Branch and bound tree has already been selected as build method."
+                failwith "Branch and bound tree has already been selected as build method."
             | `Nj -> 
-                failwith 
-                    "Neighbor joining has already been selected as build method."
+                failwith "Neighbor joining has already been selected as build method."
         end
     | `Random ->
         begin match meth with
@@ -626,14 +612,11 @@ let transform_build
             | `Wagner_Ordered x
             | `Build_Random (x,_) -> (n, (`Wagner_Rnd x), trans, iter)
             | `Constraint _ ->
-                failwith 
-                    "Constraint has already been selected as build method."
+                failwith "Constraint has already been selected as build method."
             | `Branch_and_Bound _ -> 
-                failwith
-                    "Branch and bound tree has already been selected as build method."
+                failwith "Branch and bound tree has already been selected as build method."
             | `Nj -> 
-                failwith 
-                    "Neighbor joining has already been selected as build method."
+                failwith "Neighbor joining has already been selected as build method."
         end
     | `Ordered ->
         begin match meth with
@@ -644,14 +627,11 @@ let transform_build
             | `Build_Random (x ,_)
             | `Wagner_Rnd x -> (n, (`Wagner_Ordered x), trans, iter)
             | `Constraint _ ->
-                failwith 
-                    "Constraint has already been selected as build method."
+                failwith "Constraint has already been selected as build method."
             | `Branch_and_Bound _ -> 
-                failwith
-                    "Branch and bound tree has already been selected as build method."
+                failwith "Branch and bound tree has already been selected as build method."
             | `Nj -> 
-                failwith 
-                    "Neighbor joining has already been selected as build method."
+                failwith "Neighbor joining has already been selected as build method."
         end
     | `Threshold x ->
         let converter (a, _, c, d, e) = (a, x, c, d, e) in
@@ -685,7 +665,7 @@ let transform_build
         n, nmeth, trans, iter
     | `Last
     | `First
-    | `Keep_Random as x -> 
+    | `Keep_Random as x ->
         let converter (a, b, _, c, d) = (a, b, x, c, d) in
         let nmeth = match meth with
             | `Constraint _
@@ -696,7 +676,7 @@ let transform_build
             | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
             | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
             | `Build_Random (y,i) -> `Build_Random ((converter y),i)
-            | `Branch_and_Bound ((a,b, _,c,d),i) -> 
+            | `Branch_and_Bound ((a,b, _,c,d),i) ->
                     `Branch_and_Bound ((a,b,x,c,d),i)
         in
         n, nmeth, trans, iter
@@ -730,16 +710,16 @@ let transform_build_arguments x
 (* Swapping *)
 let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
                     Methods.threshold = 0.0;
-                    Methods.num_keep = 1;  
-                    Methods.keep = `Last; 
-                    Methods.cc = [];     
-                    Methods.oo = None;  
+                    Methods.num_keep = 1;
+                    Methods.keep = `Last;
+                    Methods.cc = [];
+                    Methods.oo = None;
                     Methods.tm = `BestFirst;
                     Methods.tabu_break = `DistanceSorted false;
                     Methods.tabu_join = `UnionBased None;
                     Methods.tabu_reroot = `Bfs None;
                     Methods.tabu_iterate = iter_default;
-                    Methods.samples = [] }
+                    Methods.samples = []; }
 
 let swap_default_none = { swap_default with Methods.ss = `None }
 
@@ -753,10 +733,6 @@ let transform_swap l_opt (param : swapa) = match param with
     | #swap_strategy as space ->
         { l_opt with Methods.ss = space }
     | `Transform x ->
-        (*let x =
-            let id,trlst = x in
-            List.map (fun tr -> (id,tr) ) trlst
-        in*)
         let t = transform_transform_arguments x in 
         let cclist = t @ l_opt.Methods.cc in
         { l_opt with Methods.cc = cclist }
@@ -778,16 +754,6 @@ let transform_swap l_opt (param : swapa) = match param with
     | #Methods.samples as s ->
         { l_opt with Methods.samples = s :: l_opt.Methods.samples }
 
-(* let transform_swap (meth, (a, b, c, d), e) = function *)
-(*     | `Threshold x -> (meth, (x, b, c, d), e) *)
-(*     | `Trees x -> (meth, (a, x, c, d), e) *)
-(*     | #Methods.keep_method as m -> (meth, (a, b, m, d), e) *)
-(*     | #swap_strategy as x -> (x, (a,  b, c, d), e) *)
-(*     | `Transform x -> *)
-(*             let t = transform_transform_arguments x in *)
-(*             (meth, (a, b, c, t @ d), e) *)
-(*     | (`Forest _) as x ->(meth, (a, b, c, d), x) *)
-
 
 let transform_swap_arguments (lst : swapa list) =
     let options = List.fold_left transform_swap swap_default lst in
@@ -795,44 +761,37 @@ let transform_swap_arguments (lst : swapa list) =
 
 (* Fusing *)
 let rec transform_fuse ?(iterations=None) ?(keep=None) ?(replace=`Better)
-        ?(search=`LocalOptimum swap_default_none) ?(weighting=`Uniform) ?(clades=(4,7)) = function
-            | [] -> `Fusing (iterations, keep, weighting, replace, search, clades)
-            | x :: xs ->
-                  (match x with
-                   | `Keep keep ->
-                         let keep = Some keep in
-                         transform_fuse ~iterations ~keep ~replace ~search
-                             ~weighting ~clades xs
-                   | `Iterations iterations ->
-                         let iterations = Some iterations in
-                         transform_fuse ~iterations ~keep ~replace ~search
-                             ~weighting ~clades xs
-                   | `Replace replace -> transform_fuse ~iterations ~keep
-                         ~replace ~search ~weighting ~clades xs
-                   | `Weighting weighting -> transform_fuse ~iterations ~keep
-                         ~replace ~search ~weighting ~clades xs
-                   | `Clades (i, Some j) ->
-                         let clades = (i, j) in
-                         transform_fuse ~iterations ~keep ~replace ~search
-                             ~weighting ~clades xs
-                   | `Clades (i, None) ->
-                         let clades = (i, i) in
-                         transform_fuse ~iterations ~keep ~replace ~search
-                             ~weighting ~clades xs
-                   | `Swap swapas ->
-                         let search = transform_swap_arguments swapas in
-                         transform_fuse ~iterations ~keep ~replace ~search
-                             ~weighting ~clades xs
-                   | `IterationF stuff -> 
-                        let strat = transform_iterations stuff in
-                        let search = match search with
-                            | `LocalOptimum x -> 
-                                `LocalOptimum {x with Methods.tabu_iterate = strat; }
-                        in
-                        transform_fuse 
-                                ~iterations ~keep ~replace ~search ~weighting ~clades xs
-                  )
-
+        ?(search=`LocalOptimum swap_default_none) ?(weighting=`Uniform) ?(clades=(4,7)) =
+    function
+    | [] -> `Fusing (iterations, keep, weighting, replace, search, clades)
+    | x :: xs ->
+        begin match x with
+           | `Keep keep ->
+                 let keep = Some keep in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Iterations iterations ->
+                 let iterations = Some iterations in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Replace replace ->
+                transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Weighting weighting ->
+                transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Clades (i, Some j) ->
+                 let clades = (i, j) in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Clades (i, None) ->
+                 let clades = (i, i) in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Swap swapas ->
+                 let search = transform_swap_arguments swapas in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `IterationF stuff -> 
+                let strat = transform_iterations stuff in
+                let search = match search with
+                    | `LocalOptimum x -> `LocalOptimum {x with Methods.tabu_iterate = strat; }
+                in
+                transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+        end
 
 
 (* Perturbing *)
@@ -847,15 +806,11 @@ let perturb_default  =
 let transform_perturb (tr, m, sw, it, timeout) = function
     | `TimeOut x -> (tr, m, sw, it, Some x)
     | `Transform x  ->
-            (*let x =
-                let id,trlst = x in
-                List.map (fun tr -> (id,tr) ) trlst
-            in*)
-            let x = transform_transform_arguments x in
-            ((x @ tr), m, sw, it, timeout)
+        let x = transform_transform_arguments x in
+        ((x @ tr), m, sw, it, timeout)
     | `Swap x -> 
-            let x = transform_swap_arguments x in
-            tr, m, x, it, timeout
+        let x = transform_swap_arguments x in
+        tr, m, x, it, timeout
     | `Ratchet _ as x -> (tr, x, sw, it, timeout)
     | `Resample x -> tr, `Resample x, sw, it, timeout
     | `Iterations it -> tr, m, sw, it, timeout
@@ -874,28 +829,25 @@ let support_default =
 
 let transform_support (meth, (ss, sr, ssw, sb)) = function
     | `Swap s ->
-            let v = transform_swap_arguments s in
-            (meth, (ss, sr, v, sb))
+        let v = transform_swap_arguments s in
+        (meth, (ss, sr, v, sb))
     | `Build s ->
-            let z = transform_build_arguments s in
-            (meth, (ss, sr, ssw, z))
+        let z = transform_build_arguments s in
+        (meth, (ss, sr, ssw, z))
     | `Bremer as x -> (x, (ss, sr, ssw, sb))
     | `Bootstrap x ->
-            let nx = 
-                match x with
-                | None -> sr
-                | Some v -> v
-            in
-            (`Bootstrap, (ss, nx, ssw, sb))
+        let nx = match x with
+            | None -> sr
+            | Some v -> v
+        in
+        (`Bootstrap, (ss, nx, ssw, sb))
     | `Jackknife items ->
-            let process_item (a, b, c, sb) = function
-                | `Select x -> 
-                        (x, b, c, sb)
-                | `Resample x ->
-                        (a, x, c, sb)
-            in
-            let r = List.fold_left process_item (ss, sr, ssw, sb) items in
-            (`Jackknife, r)
+        let process_item (a, b, c, sb) = function
+            | `Select x   -> (x, b, c, sb)
+            | `Resample x -> (a, x, c, sb)
+        in
+        let r = List.fold_left process_item (ss, sr, ssw, sb) items in
+        (`Jackknife, r)
 
 let rec transform_support_arguments args =
     (* lift iteration to the local_optimum; for ease of use *)
@@ -918,71 +870,53 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `Xslt x -> (`Xslt x) :: acc, file
     | `Ascii x -> (`Ascii (file, x)) :: acc, file
     | `KML (plugin, out_file) -> 
-            (match file with
+        begin match file with
             | None -> failwith "KML generation requires an output file"
-            | Some f -> 
-                    (`KML (Some plugin, `Local out_file, f)) :: acc, file)
+            | Some f -> (`KML (Some plugin, `Local out_file, f)) :: acc, file
+        end
     | `Memory -> (`Memory file) :: acc, file
     | `Graph x -> 
-            begin match acc, file with
+        begin match acc, file with
             | (_ :: _), None -> ()
             | (_ :: _), Some _ ->
-                    let msg = "You@ have@ requested@ to@ output@ " ^
-                    "a@ postscript@ file@ in@ a@ flat@ text@ file,@ this@ " ^
-                    "is@ probably@ not@ what@ you@ expect.@ If@ you@ want@ " ^
-                    "to@ output@ a@ graphical@ " ^
-                    "version@ of@ your@ tree@ in@ a@ file,@ assign@ a@ " ^
-                    "different@ " ^
-                    "filename@ to@ the@ graph@ command@ in@ the@ report@ line."
-                    in
-                    Status.user_message Status.Warning msg
+                let msg = "You@ have@ requested@ to@ output@ a@ postscript@ "^
+                    "file@ in@ a@ flat@ text@ file,@ this@ is@ probably@ not@ "^
+                    "what@ you@ expect.@ If@ you@ want@ to@ output@ a@ "^
+                    "graphical@ version@ of@ your@ tree@ in@ a@ file,@ "^
+                    "assign@ a@ different@ filename@ to@ the@ graph@ command@ "^
+                    "in@ the@ report@ line."
+                in
+                Status.user_message Status.Warning msg                       
             | _ -> ()
-            end;
-            (`Graph (file, x)) :: acc, file
-    | `Trees lst ->
-            (`Trees (lst, file)) :: acc, file
-    | `MstR ->
-            (`MstR file) :: acc, file
-    | `KolmoMachine ->
-            (`KolmoMachine (file)) :: acc, file
-    | `TreeCosts ->
-            (`TreeCosts (file)) :: acc, file
-    | `TreesStats ->
-            (`TreesStats (file)) :: acc, file
-    | `SearchStats ->
-            (`SearchStats (file)) :: acc, file
-    | `TimeDelta str ->
-            (`TimeDelta (str, file)) :: acc, file
-    | `Consensus v ->
-            (`Consensus (file, v)) :: acc, file
-    | `GraphicConsensus v ->
-            (`GraphicConsensus (file, v)) :: acc, file
-    | `SequenceStats c ->
-            (`SequenceStats (file, c)) :: acc, file
-    | `Ci c -> (`Ci (file, c)) :: acc, file 
-    | `Ri c -> (`Ri (file, c)) :: acc, file
-    | `CompareSequences (a, b, c) ->
-            (`CompareSequences (file, a, b, c)) :: acc, file
-    | `FasWinClad ->
-            (`FasWinClad (file)) :: acc, file
-    | `Nexus ->
-            (`Nexus (file)) :: acc, file
-    | `Pairwise x ->
-            (`Pairwise (file,x)) :: acc, file
-    | `LKSites x ->
-            (`LKSites (file,x)) :: acc, file
-    | `Model x ->
-            (`Model (file,x)) :: acc, file
-    | `Script lst ->
-            (`Script (file,lst)) :: acc, file
-    | `ExplainScript script ->
-            (`ExplainScript (script, file)) :: acc, file
-    | `Clades -> 
+        end;
+        (`Graph (file, x)) :: acc, file
+    | `Trees lst         -> (`Trees (lst, file)) :: acc, file
+    | `MstR              -> (`MstR file) :: acc, file
+    | `KolmoMachine      -> (`KolmoMachine (file)) :: acc, file
+    | `TreeCosts         -> (`TreeCosts (file)) :: acc, file
+    | `TreesStats        -> (`TreesStats (file)) :: acc, file
+    | `SearchStats       -> (`SearchStats (file)) :: acc, file
+    | `TimeDelta str     -> (`TimeDelta (str, file)) :: acc, file
+    | `Consensus v       -> (`Consensus (file, v)) :: acc, file
+    | `GraphicConsensus v-> (`GraphicConsensus (file, v)) :: acc, file
+    | `SequenceStats c   -> (`SequenceStats (file, c)) :: acc, file
+    | `Ci c              -> (`Ci (file, c)) :: acc, file 
+    | `Ri c              -> (`Ri (file, c)) :: acc, file
+    | `CompareSequences (a,b,c)
+                         -> (`CompareSequences (file, a, b, c)) :: acc, file
+    | `FasWinClad        -> (`FasWinClad (file)) :: acc, file
+    | `Nexus             -> (`Nexus (file)) :: acc, file
+    | `Pairwise x        -> (`Pairwise (file,x)) :: acc, file
+    | `LKSites x         -> (`LKSites (file,x)) :: acc, file
+    | `Model x           -> (`Model (file,x)) :: acc, file
+    | `Script lst        -> (`Script (file,lst)) :: acc, file
+    | `ExplainScript scr -> (`ExplainScript (scr, file)) :: acc, file
+    | `Clades ->
         begin match file with
             | None ->
-                let msg = "Sorry,@ I@ need@ a@ filename@ to@ output@ " ^
-                    "the@ clades@ file.@ I@ will@ ignore@ your@ clades@ " ^
-                    "request." in
+                let msg = "Sorry,@ I@ need@ a@ filename@ to@ output@ the@ " ^
+                    "clades@ file.@ I@ will@ ignore@ your@ clades@ request."
+                in
                 Status.user_message Status.Error msg;
                 acc, file
             | Some f -> (`Clades f) :: acc, file
@@ -993,18 +927,18 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `GraphicSupports c -> (`GraphicSupports (c, file)) :: acc, file
     | `AllRootsCost -> (`AllRootsCost file) :: acc, file
     | `Implied_Alignments (id, include_header) ->
-            (match id with
+        begin match id with
             | #Methods.characters as id ->
-                    (`Implied_Alignment (file, id, include_header)) :: acc, file
-            | _ -> acc, file)
+                (`Implied_Alignment (file, id, include_header)) :: acc, file
+            | _ -> acc, file
+        end
     | `GraphicDiagnosis c -> 
-            (match file with
+        begin match file with
             | None -> (`Diagnosis (c,file)) :: acc, file
-            | Some file -> (`GraphicDiagnosis (c,file)) :: acc, Some file)
-    | `Diagnosis c -> 
-            (`Diagnosis (c,file)) :: acc, file
-    | `Nodes ->
-            (`Nodes file) :: acc, file
+            | Some file -> (`GraphicDiagnosis (c,file)) :: acc, Some file
+        end
+    | `Diagnosis c -> (`Diagnosis (c,file)) :: acc, file
+    | `Nodes       -> (`Nodes file) :: acc, file
 
 let transform_report_arguments x = match x with
     | [`File file] ->
@@ -1046,7 +980,7 @@ let transform_select (choose, (acc : Methods.script list)) = function
             | `Characters ->
                 (choose, ((`AnalyzeOnlyCharacters x) :: acc))
         end
-    | _ -> 
+    | _ ->
         let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
             "@ the@ taxa@.@ So@ please,@ if@ it@ is@ worth@ " ^
             "the@ time@ and@ effort,@ place@ the@ feature@ request."
@@ -1110,37 +1044,30 @@ let transform_rename_arguments x =
             (`RenameCharacters ren) :: acc
 
 let default_search : Methods.script list = 
-(*    List.rev [`Build build_default; `LocalOptimum swap_default]*)
-    let change_transforms x = 
-        { swap_default with Methods.cc = x }
-    in
+    let change_transforms x = { swap_default with Methods.cc = x } in
     let s1 = change_transforms [(`Static_Aprox (`All, false))]
-    and s2 = 
-        change_transforms 
-        [(`Automatic_Sequence_Partition (`All, false, None));
-        (`Automatic_Static_Aprox false)]
-    and s3 = 
-        change_transforms
-        [`Automatic_Sequence_Partition (`All, false, None)]
-    in
+    and s2 = change_transforms [(`Automatic_Sequence_Partition (`All, false, None)); (`Automatic_Static_Aprox false)]
+    and s3 = change_transforms [`Automatic_Sequence_Partition (`All, false, None)] in
     List.rev (`Build build_default :: `LocalOptimum s1 :: `LocalOptimum s2 :: [`LocalOptimum s3])
 
-let transform_search items = 
-    let do_transform = 
+let transform_search items =
+    let do_transform =
         List.exists (function `Transform true -> true | _ -> false) items
     and do_build =
-        List.fold_left (fun acc ction ->
-            acc && (match ction with `Build false -> false | _ -> true)) true items
+        List.fold_left
+            (fun acc ction ->
+                acc && (match ction with `Build false -> false | _ -> true))
+            true items
     in
     match default_search with
     | [a; b; c; d] ->
-            if not do_build && not do_transform then 
-                [`LocalOptimum swap_default]
-            else if not do_transform then
-                [`LocalOptimum swap_default; d]
-            else if not do_build then
-                [a; b; c]
-            else default_search
+        if not do_build && not do_transform then 
+            [`LocalOptimum swap_default]
+        else if not do_transform then
+            [`LocalOptimum swap_default; d]
+        else if not do_build then
+            [a; b; c]
+        else default_search
     | _ -> failwith "Forgot to update the list of options of search?"
 
 
@@ -1181,27 +1108,21 @@ let transform_stdsearch items =
 let rec transform_command (acc : Methods.script list) (meth : command) : Methods.script list =
     match meth with
     | `Plugin (name, commands) ->
-            let rec process_contents x =
-                match x with
-                | `Lident _
-                | `Float _ | `Empty | `Int _ | `String _ as x
-                -> x
-                | `Labled (name, args) ->
-                        `Labled (name, process_contents args)
-                | `List lst ->
-                        `List (List.map process_contents lst)
-                | `Command c -> 
-                        let c = transform_command [] c in
-                        let c = List.map (fun x -> `Command x) c in
-                        `List c
-            in
-            (`Plugin (name, process_contents commands)) :: acc
+        let rec process_contents x = match x with
+            | `Lident _ | `Float _ | `Empty | `Int _ | `String _ as x -> x
+            | `Labled (name, args) -> `Labled (name, process_contents args)
+            | `List lst -> `List (List.map process_contents lst)
+            | `Command c -> 
+                let c = transform_command [] c in
+                `List (List.map (fun x -> `Command x) c)
+        in
+        (`Plugin (name, process_contents commands)) :: acc
     | `Version
-    | `Exit 
+    | `Exit
     | `Recover
     | `ClearRecovered
     | `Redraw
-    | `Wipe 
+    | `Wipe
     | `ReDiagnose
     | `ReDiagnoseTrees
     | `ClearMemory _
@@ -1215,48 +1136,27 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
     | `PrintWDir
     | `Help _ as meth -> meth :: acc
     | `Use x -> `Set x :: acc
-    | `Echo (a, []) ->
-            (`Echo (a,`Information)) :: acc
-    | `Echo (a, y) ->
-            List.fold_left (fun acc x -> `Echo (a, x) :: acc) acc y
-    | `Set settings ->
-            let s = ((List.rev settings) :> Methods.script list)  in
-            s @ acc
-    | `Read meth ->
-            ((List.rev meth) :> Methods.script list) @ acc
+    | `Echo (a, []) -> (`Echo (a,`Information)) :: acc
+    | `Echo (a, y) -> List.fold_left (fun acc x -> `Echo (a, x) :: acc) acc y
+    | `Set settings -> ((List.rev settings) :> Methods.script list)@acc
+    | `Read meth -> ((List.rev meth) :> Methods.script list) @ acc
     | `Build x ->
-            let setting = transform_build_arguments x in
-            (`Build setting) :: acc
-    | `Swap x ->
-            (transform_swap_arguments x) :: acc
-    | `Search args ->
-            (transform_search args) @ acc
-    | `StandardSearch args ->
-            (transform_stdsearch args) :: acc
-    | `Fuse x ->
-          (transform_fuse x) :: acc
-    | `Support x ->
-            (transform_support_arguments x) :: acc
+        let setting = transform_build_arguments x in
+        (`Build setting) :: acc
+    | `Swap x -> (transform_swap_arguments x) :: acc
+    | `Search args -> (transform_search args) @ acc
+    | `StandardSearch args -> (transform_stdsearch args) :: acc
+    | `Fuse x -> (transform_fuse x) :: acc
+    | `Support x -> (transform_support_arguments x) :: acc
     | `Calculate _ -> acc
-    | `Report x ->
-            if debug then Printf.printf "transform_report_arguments\n%!";
-            (transform_report_arguments x) @ acc
-    | `Select x ->
-            (transform_select_arguments x) @ acc
-    | `Transform x ->
-            (*let x =
-                let id,trlst = x in
-                List.map (fun tr -> (id,tr) ) trlst
-            in*)
-            let x = transform_transform_arguments x in
-            x @ acc
-    | `Perturb x ->
-            (transform_perturb_arguments x) @ acc
-    | `Rename x ->
-            (transform_rename_arguments x) @ acc
+    | `Report x -> (transform_report_arguments x) @ acc
+    | `Select x -> (transform_select_arguments x) @ acc
+    | `Transform x -> (transform_transform_arguments x) @ acc
+    | `Perturb x -> (transform_perturb_arguments x) @ acc
+    | `Rename x -> (transform_rename_arguments x) @ acc
     | `Repeat (it, com) ->
-            let res = List.rev (List.fold_left transform_command [] com) in
-            `Repeat (it, res) :: acc
+        let res = List.rev (List.fold_left transform_command [] com) in
+        `Repeat (it, res) :: acc
 
 let transform_all_commands (x : command list) = 
     List.rev (List.fold_left transform_command [] x)
@@ -1281,14 +1181,9 @@ let create_expr () =
                     right_parenthesis -> x ]
             ];
         id_opt_lst:
-            [
-                [ 
-                    y = LIST1 [left_parenthesis; x = identifiers_opt; right_parenthesis -> x
-                    ] SEP "," ->`Transform (List.flatten y)
-                ] |
-                [
-                    y = identifiers_opt -> `Transform y
-                ]
+            [ [ y = LIST1 [left_parenthesis; x = identifiers_opt;
+                            right_parenthesis -> x ] SEP "," ->`Transform (List.flatten y) ] |
+              [ y = identifiers_opt -> `Transform y ]
             ];
         identifiers_opt:
             [ [id = identifiers; ","; left_parenthesis; 
@@ -1298,8 +1193,7 @@ let create_expr () =
                     (List.map (fun trf -> (`All,trf)) x) ]
             ];
         ml_floatlist:
-            [[
-                ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
+            [[ ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
                 right_parenthesis -> List.map float_of_string x
             ]];
         ml_alphabet: 
@@ -1311,12 +1205,12 @@ let create_expr () =
         ml_substitution: 
             [
                 (* Information Criteria Selection *)
-                [ LIDENT "aic"  -> `AIC  None ] |
-                [ LIDENT "bic"  -> `BIC  None ] |
-                [ LIDENT "aicc" -> `AICC None ] |
                 [ LIDENT "aic"; ":"; x = STRING  -> `AIC  (Some x) ] |
                 [ LIDENT "bic"; ":"; x = STRING  -> `BIC  (Some x) ] |
                 [ LIDENT "aicc"; ":"; x = STRING -> `AICC (Some x) ] |
+                [ LIDENT "aic"  -> `AIC  None ] |
+                [ LIDENT "bic"  -> `BIC  None ] |
+                [ LIDENT "aicc" -> `AICC None ] |
                 (* Meta Likelihood; transforms as a special command *)
                 [ LIDENT "ncm" -> `NCM ] |
                 (* Standard likelihood transformation models *)
@@ -1378,7 +1272,7 @@ let create_expr () =
                 [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL]
             ];
         partitioned_mode:
-            [   
+            [
                 [ LIDENT "clip" -> `Clip ] | [ LIDENT "noclip" -> `NoClip ]
             ];
         ml_properties:
@@ -1419,7 +1313,6 @@ let create_expr () =
             ];
         transform_method:
             [
-                
                 [ LIDENT "origin_cost"; ":"; x = integer_or_float ->
                     `OriginCost (float_of_string x) ] |
                 [ LIDENT "prioritize" -> `Prioritize ] |
@@ -1436,10 +1329,8 @@ let create_expr () =
                 [ LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
                 [ LIDENT "tcm"; ":"; left_parenthesis; 
                      x = tcm_arguments; right_parenthesis -> x ] |
-                [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
-                    `Partitioned x ] |  
-                [ LIDENT "fixed_states"; x = OPT fixed_states_option -> 
-                    match x with
+                [ LIDENT "partitioned"; ":"; x = partitioned_mode -> `Partitioned x ] |  
+                [ LIDENT "fixed_states"; x = OPT fixed_states_option -> match x with
                     | Some y -> `Fixed_States y
                     | None -> `Fixed_States (None,None)
                 ] | 
@@ -1462,20 +1353,16 @@ let create_expr () =
                 [ LIDENT "ti"; ":"; left_parenthesis; x = LIST1 [ x = INT -> x] SEP ",";
                     right_parenthesis -> 
                         `PrepInput (Array.of_list (List.map (int_of_string) x)) ] |
-                [ LIDENT "static_approx"; x = OPT uninformative_characters -> 
-                    match x with 
+                [ LIDENT "static_approx"; x = OPT uninformative_characters -> match x with 
                     | None -> `StaticApproximation true 
                     | Some v -> `StaticApproximation v ] |
-                [ LIDENT "multi_static_approx"; x = OPT uninformative_characters -> 
-                    match x with 
+                [ LIDENT "multi_static_approx"; x = OPT uninformative_characters -> match x with 
                     | None -> `MultiStaticApproximation true 
                     | Some v -> `MultiStaticApproximation v ] |
-                [ LIDENT "auto_static_approx"; x = OPT optional_boolean -> 
-                    match x with
+                [ LIDENT "auto_static_approx"; x = OPT optional_boolean -> match x with
                     | None -> `Automatic_Static_Aprox false 
                     | Some x -> `Automatic_Static_Aprox x ] |
-                [ LIDENT "auto_sequence_partition"; x = OPT optional_boolean -> 
-                    match x with
+                [ LIDENT "auto_sequence_partition"; x = OPT optional_boolean -> match x with
                     | None -> `Automatic_Sequence_Partition (false, None)
                     | Some x -> `Automatic_Sequence_Partition (x, None) ] |
                 [ LIDENT "sequence_partition"; ":"; x = INT -> 
@@ -1518,8 +1405,7 @@ let create_expr () =
         tcm_arguments:
             [
                 [ x = INT; ","; y = INT -> `Gap (int_of_string x, int_of_string y)] |
-                [ x = STRING; level_value = OPT optional_level -> 
-                    match level_value with 
+                [ x = STRING; level_value = OPT optional_level -> match level_value with 
                     | None -> `Tcm (x,None)
                     | Some y -> `Tcm (x,Some y)
                 ]
@@ -1567,7 +1453,7 @@ let create_expr () =
                 [ LIDENT "siepel" -> `Siepel       ] |
                 [ LIDENT "default" -> `Albert      ] |
                 [ LIDENT "caprara" -> `Albert      ] |
-                [ LIDENT "vinh" -> `Vinh     ]
+                [ LIDENT "vinh" -> `Vinh           ]
             ];
         annotate_param:
             [
@@ -1722,24 +1608,20 @@ let create_expr () =
                     `Logfile (Some x) ] |
                 [ LIDENT "nolog" -> `Logfile None ] |
                 [ LIDENT "seed"; ":"; x = neg_integer -> `SetSeed (int_of_string x) ] |
-
                 [ LIDENT "root"; ":"; x = STRING -> `RootName x ] |
                 [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x)) ] |
-
                 [ LIDENT "exhaustive_do"    -> `Exhaustive_Weak ] |
-                [ LIDENT "iterative"; ":"; x = iterative_mode -> `Iterative x ] |
+                [ LIDENT "iterative"; ":"; x = iterative_mode
+                                            -> `Iterative x ] |
                 [ LIDENT "normal_do"        -> `Normal ] |
                 [ LIDENT "normal_do_plus"   -> `Normal_plus_Vitamines ] |
-
                 [ LIDENT "opt"; ":"; x = opt_level   -> `Optimization x ] |
-
                 [ LIDENT "codon_partition"; ":"; 
                     left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
                         `Alias (n,`Codon x) ] |
                 [ LIDENT "partition"; ":"; 
                     left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
                         `Alias (n,`Chars x) ]|
-
                 [ LIDENT "space_saving_alignment" -> `Algn_Newkk ]|
                 [ LIDENT "normal_alignment" -> `Algn_Normal ]
             ];
