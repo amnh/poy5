@@ -507,6 +507,9 @@ double chi_pp( double p, double v ){
 
     return (ch);
 }
+
+/** [gamma_pp p alpha beta ]
+    Finds the percentage point [p] of the gamma distribution. */
 #define gamma_pp(prob,alpha,beta) chi_pp(prob,2.0*alpha)/(2.0*beta)
 
 /** [gamma_rates rates alpha beta cuts k]

@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3020 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3023 $"
 
 let debug = false
 let debug_distance = false
@@ -748,8 +748,10 @@ ELSE
                     Sequence.NewkkAlign.cost_2  ~deltaw a.sequence b.sequence
                                 h.c2_original Sequence.NewkkAlign.default_ukkm
                 else
-                    let cost_from_costfn = Sequence.Align.cost_2 ~deltaw a.sequence b.sequence h.c2_original 
-                    Matrix.default in
+                    let cost_from_costfn =
+                        Sequence.Align.cost_2 ~deltaw a.sequence b.sequence
+                                                h.c2_original Matrix.default
+                    in
                     (*here we call alignment function , the one with backtrace
                     * in algn.c, to verify the cost from the one without backtrace in algn.c*)
                     let _ = if debug then

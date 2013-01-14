@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3014 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3023 $"
 
 let debug = false 
 
@@ -1462,11 +1462,11 @@ let create_expr () =
                 [ LIDENT "ti"; ":"; left_parenthesis; x = LIST1 [ x = INT -> x] SEP ",";
                     right_parenthesis -> 
                         `PrepInput (Array.of_list (List.map (int_of_string) x)) ] |
-                [ LIDENT "static_approx"; x = OPT informative_characters -> 
+                [ LIDENT "static_approx"; x = OPT uninformative_characters -> 
                     match x with 
                     | None -> `StaticApproximation true 
                     | Some v -> `StaticApproximation v ] |
-                [ LIDENT "multi_static_approx"; x = OPT informative_characters -> 
+                [ LIDENT "multi_static_approx"; x = OPT uninformative_characters -> 
                     match x with 
                     | None -> `MultiStaticApproximation true 
                     | Some v -> `MultiStaticApproximation v ] |
@@ -1552,7 +1552,7 @@ let create_expr () =
 (*                        float_of_string deletion, *)
 (*                        float_of_string substitution) ]*)
 (*            ];*)
-        informative_characters:
+        uninformative_characters:
             [
                 [ ":"; LIDENT "keep" -> false ] |
                 [ ":"; LIDENT "remove" -> true ]
@@ -1571,11 +1571,10 @@ let create_expr () =
             ];
         annotate_param:
             [
-                [ LIDENT "vinh"; ","; x = INT; ","; y = INT; ","; z = INT 
-                    -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
-                [ LIDENT "mauve"; ","; a = FLOAT; ","; b = FLOAT; ","; c = FLOAT;
-                ","; d = FLOAT 
-                    -> `Mauve (float_of_string a,float_of_string b, float_of_string c, float_of_string d) ]
+                [ LIDENT "vinh"; ","; x = INT; ","; y = INT; ","; z = INT ->
+                    `Default (int_of_string x,int_of_string y, int_of_string z) ] |
+                [ LIDENT "mauve"; ","; a = FLOAT; ","; b = FLOAT; ","; c = FLOAT; ","; d = FLOAT ->
+                    `Mauve (float_of_string a,float_of_string b, float_of_string c, float_of_string d) ]
             ];
         genome_argument:
             [
@@ -1728,9 +1727,8 @@ let create_expr () =
                 [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x)) ] |
 
                 [ LIDENT "exhaustive_do"    -> `Exhaustive_Weak ] |
-                [ LIDENT "iterative"; ":"; x = iterative_mode
-                                            -> `Iterative x ] |
-                [ LIDENT "normal_do"        -> `Normal ] | 
+                [ LIDENT "iterative"; ":"; x = iterative_mode -> `Iterative x ] |
+                [ LIDENT "normal_do"        -> `Normal ] |
                 [ LIDENT "normal_do_plus"   -> `Normal_plus_Vitamines ] |
 
                 [ LIDENT "opt"; ":"; x = opt_level   -> `Optimization x ] |
@@ -2433,48 +2431,40 @@ let create_expr () =
         support_method:
             [
                 [ LIDENT "bremer" -> `Bremer ] |
-                [ LIDENT "jackknife"; x = OPT list_of_jackknifea ->
-                    match x with
+                [ LIDENT "jackknife"; x = OPT list_of_jackknifea -> match x with
                     | None -> `Jackknife []
                     | Some v -> `Jackknife v ] |
                 [ LIDENT "bootstrap"; x = OPT integer -> `Bootstrap x ]
             ];
         opt_support_names:
-            [
-                [ ":"; y = support_names -> y ]
-            ];
+            [ [ ":"; y = support_names -> y ] ];
         support_names:
             [
                 [ LIDENT "bremer"; ":"; x = STRING -> `Bremer (Some [(`Local x)]) ] |
-                [ LIDENT "bremer"; ":"; left_parenthesis; x = LIST1 [ y = STRING
-                -> y] SEP ",";
-                    right_parenthesis -> 
+                [ LIDENT "bremer"; ":"; left_parenthesis; x = LIST1 [ y = STRING -> y] SEP ",";
+                    right_parenthesis ->
                         `Bremer (Some (List.map (fun x -> `Local x) x))] |
                 [ LIDENT "bremer" -> `Bremer None ] |
-                [ LIDENT "jackknife"; y = OPT [ x = summary_class -> x ] -> 
-                    match y with
+                [ LIDENT "jackknife"; y = OPT [ x = summary_class -> x ] -> match y with
                     | None -> `Jackknife `Individual
                     | Some y -> `Jackknife y] |
-                [ LIDENT "bootstrap"; y = OPT [ x = summary_class -> x ] -> 
-                    match y with
+                [ LIDENT "bootstrap"; y = OPT [ x = summary_class -> x ] -> match y with
                     | None -> `Bootstrap `Individual
                     | Some y -> `Bootstrap y]
             ];
         summary_class:
-            [ 
-                [ ":"; LIDENT "individual" -> `Individual ] | 
+            [
+                [ ":"; LIDENT "individual" -> `Individual ] |
                 [ ":"; LIDENT "consensus" -> `Consensus ] |
                 [ ":"; x = STRING -> `InputFile x ]
             ];
         list_of_jackknifea:
             [
-                [ ":"; left_parenthesis; x = LIST0 [x = jackknifea -> x] SEP ","; 
-                    right_parenthesis -> x ]
+                [ ":"; left_parenthesis; x = LIST0 [x = jackknifea -> x] SEP ","; right_parenthesis -> x ]
             ];
         jackknifea:
             [
-                [ LIDENT "remove"; ":"; x = integer_or_float -> `Select
-                (float_of_string x) ] |
+                [ LIDENT "remove"; ":"; x = integer_or_float -> `Select (float_of_string x) ] |
                 [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ]
             ];
         (* Shared items *)

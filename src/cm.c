@@ -1391,8 +1391,6 @@ cm_set_value_nonbit (int a, int b, int v, int *p, int sz) {
 
 void
 cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
-    int debug = 0;
-    int debug2 = 0;
     int i, j, l, m, *tmp_cost, *tcm, *tmp_to, *prepend, *tail, *to;
     int alphabet_size, uselevel;
     SEQT *begin;
@@ -1404,35 +1402,25 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     tmp_to = to + l;
     begin = seq_get_begin (s);         /* Inlined seq_get for speed purposes */
     /* We will use the 0'th row to store the cost of the prepend */
-    for (m = 0; m < l; m++)
-    {
+    for (m = 0; m < l; m++) {
         to[m] = prepend[begin[m]];
     }
     uselevel =  cm_check_level(c);
-    if (uselevel==1) alphabet_size = c->map_sz;
-    else alphabet_size = c->a_sz;
-    if (debug) printf("cm_precalc_4algn,l=%d,alphabet_size = %d\n",l,alphabet_size);
-    for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
-        tmp_to[0] = tail[j];
-        if(uselevel == 1) {
+    alphabet_size = (uselevel==1)? c->map_sz : c->a_sz;
+    if( uselevel == 1 ){
+        for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
+            tmp_to[0] = tail[j];
             for (i = 1; i < l; i++) {
                 tmp_to[i] = cm_get_cost(tcm,j,begin[i],c->map_sz+1);
             }
-        } else {
+        }
+    } else {
+        for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
+            tmp_to[0] = tail[j];
             tmp_cost = cm_get_row (tcm, j, c->lcm);
             for (i = 1; i < l; i++) {
                  tmp_to[i] = tmp_cost[begin[i]];
             }
-        }
-    }
-    if (debug2) { 
-        printf("check precal matrix (alphabet_size=%d,l=%d):\n",alphabet_size,l);
-        tmp_to = to;
-        for (j = 0; j <= alphabet_size; j++, tmp_to += l)
-        {
-            for (i = 0; i < l; i++)
-                printf("%d,",tmp_to[i]);
-            printf("\n");
         }
     }
     return;
@@ -1443,13 +1431,14 @@ cm_get_precal_row (const int *p, SEQT item, int len) {
     return (p + (len * item));
 }
 
+
 #ifdef _WIN32
 __inline const int *
 #else
 inline const int *
 #endif
-cm_get_pos_in_precalc (const int *to, int s3l, int a_sz, int s1c, int s2c, \
-        int s3p) {
+cm_get_pos_in_precalc (const int *to, int s3l, int a_sz, int s1c, int s2c, int s3p)
+{
     int *res;
     a_sz++;
     res = (int *) to + ((s1c * (a_sz * s3l)) + (s3l * s2c) + s3p);
@@ -1671,8 +1660,7 @@ cm_set_median_3d_level (SEQT a, SEQT b, SEQT cp, SEQT v, cm_3dt c) {
 }
 
 
-unsigned long
-cm_CAML_deserialize (void *v) {
+unsigned long cm_CAML_deserialize (void *v) {
     cmt n;
     int len; 
     n = (cmt) v;
@@ -1725,8 +1713,7 @@ cm_CAML_deserialize (void *v) {
     return (sizeof(struct cm));
 }
 
-unsigned long
-cm_CAML_deserialize_3d (void *v) {
+unsigned long cm_CAML_deserialize_3d (void *v) {
     cm_3dt n;
     int len;
     n = (cm_3dt) v;
@@ -1773,11 +1760,11 @@ cm_CAML_deserialize_3d (void *v) {
 }
 
 void
-cm_CAML_serialize (value vcm, unsigned long *wsize_32, \
-        unsigned long *wsize_64) {
+cm_CAML_serialize (value vcm, unsigned long *wsize_32, unsigned long *wsize_64)
+{
     cmt c;
     int len; 
-       if (!NDEBUG) {
+    if (!NDEBUG) {
         printf ("I will serialize cm!\n");
         fflush (stdout);
     }
@@ -1822,8 +1809,8 @@ cm_CAML_serialize (value vcm, unsigned long *wsize_32, \
 }
 
 void
-cm_CAML_serialize_3d (value vcm, unsigned long *wsize_32, \
-        unsigned long *wsize_64) {
+cm_CAML_serialize_3d (value vcm, unsigned long *wsize_32, unsigned long *wsize_64)
+{
     cm_3dt c;
     int len;
     c = Cost_matrix_struct_3d(vcm);
