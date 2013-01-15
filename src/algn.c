@@ -1143,7 +1143,7 @@ algn_newkk_increaseT (const seqt s1, int *prec, int lenX, int lenY, matricest m,
     p = (T - (lenY-lenX))/2;
     gap_num = algn_newkk_test(s1,prec,lenX,lenY,m,c,gap_row,p,&cost);
     newp = (2*T - (lenY-lenX))/2;
-    if ((gap_num<p)||(newp-lenY+1>=0)) {
+    if (((gap_num+1)<p)||(newp-lenY+1>=0)) {
         return cost;
     } else {
         return algn_newkk_increaseT(s1,prec,lenX,lenY,m,c,gap_row,T*2);
