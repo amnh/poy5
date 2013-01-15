@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 2880 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3023 $"
 
 
 exception Illegal_Cm_Format;;
@@ -1621,10 +1621,8 @@ module Three_D = struct
     let set_affine m model = 
         match model with
         | No_Alignment -> c_set_aff m 2 0
-        | Linnear -> 
-                c_set_aff m 0 0 
-        | Affine go -> 
-                c_set_aff m 1 go
+        | Linnear      -> c_set_aff m 0 0 
+        | Affine go    -> c_set_aff m 1 go
 
 
     let affine m = 

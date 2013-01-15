@@ -644,7 +644,9 @@ void assign_best_cost_and_direction
             resgapnum2 = gapnum2_fromM;
         }
         else {
-            //this is not complete, for affine, thisCD could mean Delete2Algn, Insert2Algn or Algn2Algn, but for traceback, all three will lead us from i,j to i-1,j-1, so why bother to tell them apart?
+            //this is not complete, for affine, thisCD could mean Delete2Algn,
+            //  Insert2Algn or Algn2Algn, but for traceback, all three will lead
+            //  us from i,j to i-1,j-1, so why bother to tell them apart?
             bestdir = bestdir | ALIGN_TO_ALIGN; 
             resgapnum1 = MAX(resgapnum1,gapnum1_fromM);
             resgapnum2 = MAX(resgapnum2,gapnum2_fromM);
@@ -1597,9 +1599,7 @@ void newkk_follow_deletion_or_insertion (int swaped,int has_insert, int has_dele
             assert(has_insert);//(dir==DO_INSERT);
             newkk_follow_insertion(s2,alis1,alis2,c,j);
         }
-    }
-    else
-    {
+    } else {
         if (has_insert)//(dir==DO_INSERT)
             newkk_follow_insertion(s2,alis1,alis2,c,j);
         else {
@@ -1623,9 +1623,7 @@ void newkk_follow_deletion_or_insertion_affine (enum MODE * mode, int insert_del
             newkk_follow_insertion(s2,alis1,alis2,c,j);
             if (has_end_insert||insert_delete_are_the_same) *mode = m_todo;
         }
-    }
-    else
-    {
+    } else {
         if (has_insert)//(dir==DO_INSERT) 
         {
             newkk_follow_insertion(s2,alis1,alis2,c,j);
@@ -1643,71 +1641,53 @@ void newkk_follow_deletion_or_insertion_affine (enum MODE * mode, int insert_del
 
 //backtrace function for non-affine
 void backtrace (const seqt s1, const seqt s2, seqt alis1, seqt alis2, 
-        int len1, int len2, const cmt c, const newkkmat_p m,int swaped)
+                int len1, int len2, const cmt c, const newkkmat_p m,int swaped)
 {
-   int affine = 0;
-   int debug = 0;
-   if(debug) {
-       printf("\nnewkkonen backtrace,len1=%d,len2=%d,swaped=%d\n",len1,len2,swaped); fflush(stdout);    }
-   assert(len1<=len2);
-   if (len2 > MUCH_LONGER * len1) 
-   {
-       trivial_backtrace(s1,s2,alis1,alis2,len1,len2,c);
-   }//end of trivial case
-   else {
-       int add1 = 0,add2 = 0;
-       int whichdiag, idx_in_my_diag, at_leftborder, at_rightborder;
-       int cost; DIRECTION_MATRIX dir; DIRECTION_MATRIX gapnum1; DIRECTION_MATRIX gapnum2; 
-        //set affP and affQ anyway
-       int affP=INT_MAX/2, affQ=INT_MAX/2, affED=INT_MAX/2, affCD=INT_MAX/2;
-       int i=len1-1, j=len2-1;
-       while(i>=0&&j>=0)
-       {
+    int add1 = 0,add2 = 0, cost, affine;
+    int whichdiag, idx_in_my_diag, at_leftborder, at_rightborder;
+    DIRECTION_MATRIX dir, gapnum1, gapnum2; 
+    int affP=INT_MAX/2, affQ=INT_MAX/2, affED=INT_MAX/2, affCD=INT_MAX/2;
+    int i=len1-1, j=len2-1;
+    int has_insert, has_delete;
+    assert(len1<=len2);
+    if (len2 > MUCH_LONGER * len1) {
+        trivial_backtrace(s1,s2,alis1,alis2,len1,len2,c);
+    } else {
+        while(i>=0&&j>=0) {
             whichdiag = 0, idx_in_my_diag=0, at_leftborder=0, at_rightborder=0;
             cost = 0; dir = 0; gapnum1 = 0; gapnum2 = 0;
             get_idx(-1,i,j,m,&whichdiag,&idx_in_my_diag,&at_leftborder,&at_rightborder,NULL);
             get_ukkcost(whichdiag,idx_in_my_diag,m, &cost, &dir, &gapnum1, &gapnum2,&affP, &affQ, &affED, &affCD, affine);
-            if(debug) {printf ("i=%d,j=%d :",i,j); print_direction(dir); fflush(stdout); }
-            int has_insert, has_delete;
             has_insert = has_flag(dir,DO_INSERT);
             has_delete = has_flag(dir,DO_DELETE);
-            if (dir==START) 
-            {
-                if(debug) { printf ("Start\n"); fflush(stdout);}
+            if (dir==START) {
                 if ( (i!=0) ||(j!=0) ) 
                     failwith ("ERROR: newkkonen.backtrace,we are expecting i==0 && j==0");
                 add1 = add2 = cm_get_gap(c);
                 my_prepend(alis1,add1);
                 my_prepend(alis2,add2);
                 i--; j--;
-            }
-            else {//follow what algn.c is doing -- for affine, we favor insert/delete over algn, for non-affine, we pick algn first
+            } else { //follow what algn.c is doing -- for affine, we favor 
+                     //insert/delete over algn; otherwise we pick algn first
                 if (has_flag(dir,ALIGN_TO_ALIGN))//(dir==DO_ALIGN)
                 {
-                    if(debug) { printf ("Align\n");fflush(stdout);}
                     add1 = seq_get(s1,i);
                     add2 = seq_get(s2,j);
                     my_prepend(alis1,add1);
                     my_prepend(alis2,add2);
                     i--; j--;
-                }
-                else
-                {
+                } else {
                     newkk_follow_deletion_or_insertion (swaped,has_insert,has_delete,s1,s2,alis1,alis2,c,&i,&j);
-                }  
-                
-            } 
+                }
+            }
        }//end of while(i>=0&&j>=0)
        //at the end of while loop, we should reach (-1,-1) from (0,0)
        assert( (i== -1)&&(j==-1));
    }//end of non-trivial case
-   if(debug) { printf ("end of backtrace\n"); fflush(stdout);}
-};
+}
 
 void copy_dir_to_mode (enum MODE * mode, int has_insert, int has_delete, int has_algn, int has_diag, int swaped)
 {
-    int debug = 0;
-    if (debug) printf("copy_dir_to_mode,swaped=%d,has_insert=%d,has_delete=%d,has_algn=%d\n",swaped,has_insert,has_delete,has_algn);
     if (!swaped) {
         if (has_delete)  *mode = m_delete;
         else if (has_insert)  *mode = m_insert;

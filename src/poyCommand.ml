@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3022 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3025 $"
 
 let debug = false 
 
@@ -598,9 +598,9 @@ let transform_build
             | `Build_Random (x,_) -> (n, (`Wagner_Mst x), trans, iter)
             | `Constraint _ ->
                 failwith "Constraint has already been selected as build method."
-            | `Branch_and_Bound _ ->
+            | `Branch_and_Bound _ -> 
                 failwith "Branch and bound tree has already been selected as build method."
-            | `Nj ->
+            | `Nj -> 
                 failwith "Neighbor joining has already been selected as build method."
         end
     | `Random ->
@@ -613,9 +613,9 @@ let transform_build
             | `Build_Random (x,_) -> (n, (`Wagner_Rnd x), trans, iter)
             | `Constraint _ ->
                 failwith "Constraint has already been selected as build method."
-            | `Branch_and_Bound _ ->
+            | `Branch_and_Bound _ -> 
                 failwith "Branch and bound tree has already been selected as build method."
-            | `Nj ->
+            | `Nj -> 
                 failwith "Neighbor joining has already been selected as build method."
         end
     | `Ordered ->
@@ -628,9 +628,9 @@ let transform_build
             | `Wagner_Rnd x -> (n, (`Wagner_Ordered x), trans, iter)
             | `Constraint _ ->
                 failwith "Constraint has already been selected as build method."
-            | `Branch_and_Bound _ ->
+            | `Branch_and_Bound _ -> 
                 failwith "Branch and bound tree has already been selected as build method."
-            | `Nj ->
+            | `Nj -> 
                 failwith "Neighbor joining has already been selected as build method."
         end
     | `Threshold x ->
@@ -733,7 +733,7 @@ let transform_swap l_opt (param : swapa) = match param with
     | #swap_strategy as space ->
         { l_opt with Methods.ss = space }
     | `Transform x ->
-        let t = transform_transform_arguments x in
+        let t = transform_transform_arguments x in 
         let cclist = t @ l_opt.Methods.cc in
         { l_opt with Methods.cc = cclist }
     | `IterationS xs ->
@@ -766,29 +766,29 @@ let rec transform_fuse ?(iterations=None) ?(keep=None) ?(replace=`Better)
     | [] -> `Fusing (iterations, keep, weighting, replace, search, clades)
     | x :: xs ->
         begin match x with
-            | `Keep keep ->
-                let keep = Some keep in
+           | `Keep keep ->
+                 let keep = Some keep in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Iterations iterations ->
+                 let iterations = Some iterations in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Replace replace ->
                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
-            | `Iterations iterations ->
-                let iterations = Some iterations in
+           | `Weighting weighting ->
                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
-            | `Replace replace ->
-                transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
-            | `Weighting weighting ->
-                transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
-            | `Clades (i, Some j) ->
-                let clades = (i, j) in
-                transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
-            | `Clades (i, None) ->
-                let clades = (i, i) in
-                transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
-            | `Swap swapas ->
-                let search = transform_swap_arguments swapas in
-                transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
-            | `IterationF stuff ->
+           | `Clades (i, Some j) ->
+                 let clades = (i, j) in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Clades (i, None) ->
+                 let clades = (i, i) in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `Swap swapas ->
+                 let search = transform_swap_arguments swapas in
+                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+           | `IterationF stuff -> 
                 let strat = transform_iterations stuff in
                 let search = match search with
-                    | `LocalOptimum x -> `LocalOptimum {x with Methods.tabu_iterate = strat;}
+                    | `LocalOptimum x -> `LocalOptimum {x with Methods.tabu_iterate = strat; }
                 in
                 transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
         end
@@ -843,7 +843,7 @@ let transform_support (meth, (ss, sr, ssw, sb)) = function
         (`Bootstrap, (ss, nx, ssw, sb))
     | `Jackknife items ->
         let process_item (a, b, c, sb) = function
-            | `Select x -> (x, b, c, sb)
+            | `Select x   -> (x, b, c, sb)
             | `Resample x -> (a, x, c, sb)
         in
         let r = List.fold_left process_item (ss, sr, ssw, sb) items in
@@ -886,7 +886,7 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
                     "assign@ a@ different@ filename@ to@ the@ graph@ command@ "^
                     "in@ the@ report@ line."
                 in
-                Status.user_message Status.Warning msg
+                Status.user_message Status.Warning msg                       
             | _ -> ()
         end;
         (`Graph (file, x)) :: acc, file
@@ -914,7 +914,7 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `Clades ->
         begin match file with
             | None ->
-                let msg = "Sorry,@ I@ need@ a@ filename@ to@ output@ the@ "^
+                let msg = "Sorry,@ I@ need@ a@ filename@ to@ output@ the@ " ^
                     "clades@ file.@ I@ will@ ignore@ your@ clades@ request."
                 in
                 Status.user_message Status.Error msg;
@@ -939,7 +939,6 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
         end
     | `Diagnosis c -> (`Diagnosis (c,file)) :: acc, file
     | `Nodes       -> (`Nodes file) :: acc, file
-
 
 let transform_report_arguments x = match x with
     | [`File file] ->
@@ -982,8 +981,8 @@ let transform_select (choose, (acc : Methods.script list)) = function
                 (choose, ((`AnalyzeOnlyCharacters x) :: acc))
         end
     | _ ->
-        let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of"^
-            "@ the@ taxa@.@ So@ please,@ if@ it@ is@ worth@ "^
+        let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
+            "@ the@ taxa@.@ So@ please,@ if@ it@ is@ worth@ " ^
             "the@ time@ and@ effort,@ place@ the@ feature@ request."
         in
         Status.user_message Status.Error msg;
@@ -1035,7 +1034,6 @@ let transform_rename (on, (files : Methods.filename list), ren, acc) x =
     | `Syn s ->
         (on, files, s :: ren, acc)
     
-
 let transform_rename_arguments x =
     match List.fold_left transform_rename (`Taxa, [], [], []) x with
     | `Characters, [], [], x 
@@ -1044,7 +1042,6 @@ let transform_rename_arguments x =
             (`SynonymsFile files) :: (`Synonyms ren) ::  acc
     | `Characters, _, ren, acc ->
             (`RenameCharacters ren) :: acc
-
 
 let default_search : Methods.script list = 
     let change_transforms x = { swap_default with Methods.cc = x } in
@@ -1071,8 +1068,7 @@ let transform_search items =
         else if not do_build then
             [a; b; c]
         else default_search
-    | _ ->
-        failwith "Forgot to update the list of options of search?"
+    | _ -> failwith "Forgot to update the list of options of search?"
 
 
 let process_likelihood_commands est lst =
@@ -1113,8 +1109,7 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
     match meth with
     | `Plugin (name, commands) ->
         let rec process_contents x = match x with
-            | `Lident _
-            | `Float _ | `Empty | `Int _ | `String _ as x -> x
+            | `Lident _ | `Float _ | `Empty | `Int _ | `String _ as x -> x
             | `Labled (name, args) -> `Labled (name, process_contents args)
             | `List lst -> `List (List.map process_contents lst)
             | `Command c -> 
@@ -1187,8 +1182,8 @@ let create_expr () =
             ];
         id_opt_lst:
             [ [ y = LIST1 [left_parenthesis; x = identifiers_opt;
-                            right_parenthesis -> x ] SEP "," ->`Transform (List.flatten y)] |
-              [ y = identifiers_opt -> `Transform y]
+                            right_parenthesis -> x ] SEP "," ->`Transform (List.flatten y) ] |
+              [ y = identifiers_opt -> `Transform y ]
             ];
         identifiers_opt:
             [ [id = identifiers; ","; left_parenthesis; 
@@ -1201,13 +1196,15 @@ let create_expr () =
             [[ ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
                 right_parenthesis -> List.map float_of_string x
             ]];
-        ml_alphabet:
-            [   [ LIDENT "max" -> `Max ] |
+        ml_alphabet: 
+            [
+                [ LIDENT "max" -> `Max ] |
                 [ LIDENT "min" -> `Min ] |
                 [ x = INT      -> `Int (int_of_string x) ]
             ];
         ml_substitution: 
-            [   (* Information Criteria Selection *)
+            [
+                (* Information Criteria Selection *)
                 [ LIDENT "aic"; ":"; x = STRING  -> `AIC  (Some x) ] |
                 [ LIDENT "bic"; ":"; x = STRING  -> `BIC  (Some x) ] |
                 [ LIDENT "aicc"; ":"; x = STRING -> `AICC (Some x) ] |
@@ -1238,12 +1235,14 @@ let create_expr () =
                 [ LIDENT "custom"; ":"; x = STRING -> `Custom x ]
             ];
         site_properties:
-            [   [ right_parenthesis -> None ] |
+            [
+                [ right_parenthesis -> None ] |
                 [ ","; y = LIST1 integer_or_float SEP ",";right_parenthesis ->
                     Some (List.map float_of_string y) ]
             ];
         ml_rates: 
-            [   [ LIDENT "gamma";":";left_parenthesis;x = INT; d = site_properties -> 
+            [
+                [ LIDENT "gamma";":";left_parenthesis;x = INT; d = site_properties -> 
                     let d = match d with | Some [x] -> Some x | None -> None
                         | _ -> failwith "Improper Gamma Argument" in
                     Some (`Gamma (int_of_string x, d)) ] |
@@ -1255,7 +1254,8 @@ let create_expr () =
                 [ LIDENT "none" -> None ]
             ];
         ml_priors:
-            [   [ LIDENT "estimate" -> `Estimate ] |
+            [ 
+                [ LIDENT "estimate" -> `Estimate ] |
                 [ LIDENT "equal" -> `Equal ] | 
                 [ LIDENT "given"; ":"; left_parenthesis; 
                     x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
@@ -1268,11 +1268,16 @@ let create_expr () =
               [ LIDENT "coupled"; ":"; x = integer_or_float -> `Coupled (float_of_string x) ]
             ];
         ml_costfn:
-            [ [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL] ];
+            [
+                [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL]
+            ];
         partitioned_mode:
-            [ [ LIDENT "clip" -> `Clip ] | [ LIDENT "noclip" -> `NoClip ] ];
+            [
+                [ LIDENT "clip" -> `Clip ] | [ LIDENT "noclip" -> `NoClip ]
+            ];
         ml_properties:
-            [   [ x = ml_substitution
+            [
+                [ x = ml_substitution
                                 -> `ML_subst x ] |
                 [ LIDENT "alphabet"; ":"; x = ml_alphabet
                                 -> `ML_alph  x ] |
@@ -1285,16 +1290,21 @@ let create_expr () =
                 [ x = ml_costfn -> `ML_cost  x ]
             ];
         optional_poly :
-            [ [","; x = polymorphism_parameter -> x ] ];
+            [
+                [","; x = polymorphism_parameter -> x ]
+            ];
         polymorphism_parameter:
-            [   [ LIDENT "ignore_polymorphism" -> `Do_Nothing ] |
+            [
+                [ LIDENT "ignore_polymorphism" -> `Do_Nothing ] |
                 [ LIDENT "simple_polymorphism" -> `Pick_One] |
                 [ LIDENT "full_polymorphism" -> `Do_All]
             ];
         fixed_states_option :
-            [  [":"; left_parenthesis; 
+            [
+               [":"; left_parenthesis; 
                     x = OPT [z=STRING->z]; y = OPT optional_poly;
-               right_parenthesis -> (x,y) ] ];
+               right_parenthesis -> (x,y) ]
+            ];
         level_and_tiebreaker :
             [
                 [ left_parenthesis; x = INT; ","; y = keep_method; right_parenthesis
@@ -1322,7 +1332,8 @@ let create_expr () =
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> `Partitioned x ] |  
                 [ LIDENT "fixed_states"; x = OPT fixed_states_option -> match x with
                     | Some y -> `Fixed_States y
-                    | None -> `Fixed_States (None,None) ] | 
+                    | None -> `Fixed_States (None,None)
+                ] | 
                 [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
                 [ LIDENT "do" -> `Direct_Optimization ] |
                 [ LIDENT "gap_opening"; ":"; x = INT -> `AffGap (int_of_string x) ] |
@@ -1342,10 +1353,10 @@ let create_expr () =
                 [ LIDENT "ti"; ":"; left_parenthesis; x = LIST1 [ x = INT -> x] SEP ",";
                     right_parenthesis -> 
                         `PrepInput (Array.of_list (List.map (int_of_string) x)) ] |
-                [ LIDENT "static_approx"; x = OPT informative_characters -> match x with 
+                [ LIDENT "static_approx"; x = OPT uninformative_characters -> match x with 
                     | None -> `StaticApproximation true 
                     | Some v -> `StaticApproximation v ] |
-                [ LIDENT "multi_static_approx"; x = OPT informative_characters -> match x with 
+                [ LIDENT "multi_static_approx"; x = OPT uninformative_characters -> match x with 
                     | None -> `MultiStaticApproximation true 
                     | Some v -> `MultiStaticApproximation v ] |
                 [ LIDENT "auto_static_approx"; x = OPT optional_boolean -> match x with
@@ -1427,10 +1438,14 @@ let create_expr () =
 (*                        float_of_string deletion, *)
 (*                        float_of_string substitution) ]*)
 (*            ];*)
-        informative_characters:
-            [ [ ":"; LIDENT "keep" -> false ] | [ ":"; LIDENT "remove" -> true ] ];
+        uninformative_characters:
+            [
+                [ ":"; LIDENT "keep" -> false ] |
+                [ ":"; LIDENT "remove" -> true ]
+            ];
         median_solvers:
-            [   [ LIDENT "mgr" -> `MGR             ] |
+            [
+                [ LIDENT "mgr" -> `MGR   ] |
                 [ LIDENT "simplelk" -> `SimpleLK   ] |
                 [ LIDENT "chainedlk" -> `ChainedLK ] |
                 [ LIDENT "coalestsp" -> `COALESTSP ] |
@@ -1442,11 +1457,10 @@ let create_expr () =
             ];
         annotate_param:
             [
-                [ LIDENT "vinh"; ","; x = INT; ","; y = INT; ","; z = INT 
-                    -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
-                [ LIDENT "mauve"; ","; a = FLOAT; ","; b = FLOAT; ","; c = FLOAT;
-                ","; d = FLOAT 
-                    -> `Mauve (float_of_string a,float_of_string b, float_of_string c, float_of_string d) ]
+                [ LIDENT "vinh"; ","; x = INT; ","; y = INT; ","; z = INT ->
+                    `Default (int_of_string x,int_of_string y, int_of_string z) ] |
+                [ LIDENT "mauve"; ","; a = FLOAT; ","; b = FLOAT; ","; c = FLOAT; ","; d = FLOAT ->
+                    `Mauve (float_of_string a,float_of_string b, float_of_string c, float_of_string d) ]
             ];
         genome_argument:
             [
@@ -1602,13 +1616,13 @@ let create_expr () =
                 [ LIDENT "normal_do"        -> `Normal ] |
                 [ LIDENT "normal_do_plus"   -> `Normal_plus_Vitamines ] |
                 [ LIDENT "opt"; ":"; x = opt_level   -> `Optimization x ] |
-                [ LIDENT "codon_partition"; ":";
+                [ LIDENT "codon_partition"; ":"; 
                     left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
                         `Alias (n,`Codon x) ] |
                 [ LIDENT "partition"; ":"; 
                     left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
                         `Alias (n,`Chars x) ]|
-                [ LIDENT "space_saving_alignment" -> `Algn_Newkk ] |
+                [ LIDENT "space_saving_alignment" -> `Algn_Newkk ]|
                 [ LIDENT "normal_alignment" -> `Algn_Normal ]
             ];
         neg_integer:
@@ -2299,48 +2313,40 @@ let create_expr () =
         support_method:
             [
                 [ LIDENT "bremer" -> `Bremer ] |
-                [ LIDENT "jackknife"; x = OPT list_of_jackknifea ->
-                    match x with
+                [ LIDENT "jackknife"; x = OPT list_of_jackknifea -> match x with
                     | None -> `Jackknife []
                     | Some v -> `Jackknife v ] |
                 [ LIDENT "bootstrap"; x = OPT integer -> `Bootstrap x ]
             ];
         opt_support_names:
-            [
-                [ ":"; y = support_names -> y ]
-            ];
+            [ [ ":"; y = support_names -> y ] ];
         support_names:
             [
                 [ LIDENT "bremer"; ":"; x = STRING -> `Bremer (Some [(`Local x)]) ] |
-                [ LIDENT "bremer"; ":"; left_parenthesis; x = LIST1 [ y = STRING
-                -> y] SEP ",";
-                    right_parenthesis -> 
+                [ LIDENT "bremer"; ":"; left_parenthesis; x = LIST1 [ y = STRING -> y] SEP ",";
+                    right_parenthesis ->
                         `Bremer (Some (List.map (fun x -> `Local x) x))] |
                 [ LIDENT "bremer" -> `Bremer None ] |
-                [ LIDENT "jackknife"; y = OPT [ x = summary_class -> x ] -> 
-                    match y with
+                [ LIDENT "jackknife"; y = OPT [ x = summary_class -> x ] -> match y with
                     | None -> `Jackknife `Individual
                     | Some y -> `Jackknife y] |
-                [ LIDENT "bootstrap"; y = OPT [ x = summary_class -> x ] -> 
-                    match y with
+                [ LIDENT "bootstrap"; y = OPT [ x = summary_class -> x ] -> match y with
                     | None -> `Bootstrap `Individual
                     | Some y -> `Bootstrap y]
             ];
         summary_class:
-            [ 
-                [ ":"; LIDENT "individual" -> `Individual ] | 
+            [
+                [ ":"; LIDENT "individual" -> `Individual ] |
                 [ ":"; LIDENT "consensus" -> `Consensus ] |
                 [ ":"; x = STRING -> `InputFile x ]
             ];
         list_of_jackknifea:
             [
-                [ ":"; left_parenthesis; x = LIST0 [x = jackknifea -> x] SEP ","; 
-                    right_parenthesis -> x ]
+                [ ":"; left_parenthesis; x = LIST0 [x = jackknifea -> x] SEP ","; right_parenthesis -> x ]
             ];
         jackknifea:
             [
-                [ LIDENT "remove"; ":"; x = integer_or_float -> `Select
-                (float_of_string x) ] |
+                [ LIDENT "remove"; ":"; x = integer_or_float -> `Select (float_of_string x) ] |
                 [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ]
             ];
         (* Shared items *)

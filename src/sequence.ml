@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2880 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 3023 $"
 
 external register : unit -> unit = "seq_CAML_register"
 let () = register ()
@@ -944,12 +944,12 @@ module Align = struct
     (*pass different cost matrix(m1) here*)
     let cost_2 ?deltaw s1 s2 m1 m2 =
         match Cost_matrix.Two_D.affine m1 with
-        | Cost_matrix.Affine _ ->
-                cost_2_affine s1 s2 m1 m2
-        | _ -> 
-                match deltaw with 
-                | None -> cost_2 s1 s2 m1 m2
-                | Some deltaw -> cost_2 ~deltaw s1 s2 m1 m2
+        | Cost_matrix.Affine _ -> cost_2_affine s1 s2 m1 m2
+        | Cost_matrix.Linnear | Cost_matrix.No_Alignment ->
+            begin match deltaw with 
+                    | None        -> cost_2 s1 s2 m1 m2
+                    | Some deltaw -> cost_2 ~deltaw s1 s2 m1 m2
+                end
 
     external myers : s -> s -> int = "algn_CAML_myers"
 
@@ -1000,10 +1000,10 @@ module Align = struct
         let comparison = la <= lb in
         let matrix = 
             if comparison then Array.make_matrix la lb 0 
-            else Array.make_matrix lb la 0 
+                          else Array.make_matrix lb la 0 
         in
         if comparison then c_create_backtrack la lb m matrix
-        else c_create_backtrack lb la m matrix;
+                      else c_create_backtrack lb la m matrix;
         matrix
 
     let rec check_one x y v mtx =
@@ -1075,55 +1075,28 @@ module Align = struct
 
 
     let align_2 ?(first_gap=true) s1 s2 c m =
-        let debug = false in
-        let debug2 = false in
-        if debug then begin
-            Printf.printf "Sequence.Align.align_2,\n%!";
-            if debug2 then begin
-                printseqcode s1; 
-                printseqcode s2;
-            end;
-        end;
-        let cmp s1 s2 =
-            match Cost_matrix.Two_D.affine c with
+        let cmp s1 s2 = match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
-                    let _, s1p, s2p, tc, _ = align_affine_3 s1 s2 c in
-                    s1p, s2p, tc
-            | _ ->
-                    let tc = cost_2 s1 s2 c m in   
-                    let s1p, s2p = create_edited_2 s1 s2 m c in
-                    s1p, s2p, tc   
+                let _, s1p, s2p, tc, _ = align_affine_3 s1 s2 c in
+                s1p, s2p, tc
+            | Cost_matrix.Linnear | Cost_matrix.No_Alignment ->
+                let tc = cost_2 s1 s2 c m in
+                let s1p, s2p = create_edited_2 s1 s2 m c in
+                s1p, s2p, tc
         in 
-        let res_s1,res_s2,res_c = 
-        match first_gap with
-        | true -> cmp s1 s2 
-        | false ->              
-              let gap = Cost_matrix.Two_D.gap c in 
-              let s1 = prepend_char s1 gap in 
-              let s2 = prepend_char s2 gap in 
-              let s1p, s2p, tc = cmp s1 s2 in
-              let s1p = del_first_char s1p in 
-              let s2p = del_first_char s2p in 
-              s1p, s2p, tc
+        let res_s1,res_s2,res_c = match first_gap with
+            | true  -> cmp s1 s2
+            | false ->
+                let gap = Cost_matrix.Two_D.gap c in
+                let s1 = prepend_char s1 gap in
+                let s2 = prepend_char s2 gap in
+                let s1p, s2p, tc = cmp s1 s2 in
+                let s1p = del_first_char s1p in
+                let s2p = del_first_char s2p in
+                s1p, s2p, tc
         in
-        if debug then begin
-           Printf.printf "cost = %d,s1p,s2p(len=%d)=\n%!" res_c (length res_s1);
-           if debug2 then begin
-            printseqcode  res_s1;
-            printseqcode  res_s2; 
-           end;
-        end;
-        (*cost compare test
-                let oc1 =  open_out "normal.cost" in
-                Printf.fprintf oc1 "%d%!" res_c;
-                close_out oc1;
-                let oc =  open_out_gen [Open_append;Open_creat] 0o777 "normal.alignment" in
-                print oc res_s1 Alphabet.nucleotides;
-                print oc res_s2 Alphabet.nucleotides;
-                Printf.fprintf oc "\n";
-                close_out oc;
-        cost compare test*)
         res_s1,res_s2,res_c
+
 
     let align_3 ?(first_gap = true) s1 s2 s3 c m =
         let align s1 s2 s3 =
@@ -1138,69 +1111,51 @@ module Align = struct
             s1p, s2p, s3p, c
         in 
         match first_gap with
-        | true -> align s1 s2 s3
+        | true  -> align s1 s2 s3
         | false ->
-              let gap = Cost_matrix.Three_D.gap c in 
-              let s1 = prepend_char s1 gap in 
-              let s2 = prepend_char s2 gap in 
-              let s3 = prepend_char s3 gap in 
-              let s1p, s2p, s3p, tc = align s1 s2 s3 in 
-              let s1p = del_first_char s1p in 
-              let s2p = del_first_char s2p in 
-              let s3p = del_first_char s3p in 
+              let gap = Cost_matrix.Three_D.gap c in
+              let s1 = prepend_char s1 gap in
+              let s2 = prepend_char s2 gap in
+              let s3 = prepend_char s3 gap in
+              let s1p, s2p, s3p, tc = align s1 s2 s3 in
+              let s1p = del_first_char s1p in
+              let s2p = del_first_char s2p in
+              let s3p = del_first_char s3p in
               s1p, s2p, s3p, tc
 
 
-    
-
-    external c_ancestor_2 : 
-        s -> s -> Cost_matrix.Two_D.m -> s -> unit = "algn_CAML_ancestor_2" 
+    external c_ancestor_2 :
+        s -> s -> Cost_matrix.Two_D.m -> s -> unit = "algn_CAML_ancestor_2"
 
     let ancestor_2 s1 s2 c =
-        let debug = false in
-        let sz1 = length s1 
+        let sz1 = length s1
         and sz2 = length s2 in
         if (sz1 = sz2) then begin
-            if debug then begin
-                Printf.printf "sequence.ancestor_2 on s1 & s2 (len=%d)\n%!" sz1;
-                printseqcode s1;
-                printseqcode s2;
-                Printf.printf "call algn_ancestor_2 on cside\n%!";
-            end;
             let sp = create (sz2 + 1) in
             c_ancestor_2 s1 s2 c sp;
-            if debug then begin
-                Printf.printf "return ancestor(len=%d) = %!"
-                (length sp);
-                printseqcode sp;
-            end;
             sp
-        end else 
-            raise 
-            (Invalid_Argument "The size of the sequences is not the same.")
+        end else
+            raise (Invalid_Argument "The size of the sequences is not the same.")
 
     let median_3 s1 s2 s3 c =
         let sz1 = length s1
-        and sz2 = length s2 
-        and sz3 = length s3 in 
+        and sz2 = length s2
+        and sz3 = length s3 in
         if (sz1 = sz2) && (sz2 = sz3) then begin
             (* Leave space for the initial gap *)
-            let sp = create (sz1 + 1) in 
+            let sp = create (sz1 + 1) in
             c_median_3 s1 s2 s3 c sp;
             sp;
-        end else 
-            raise 
-            (Invalid_Argument "The size of the sequences is not the same.")
+        end else
+            raise (Invalid_Argument "The size of the sequences is not the same.")
 
-    let full_median_2 a b cm m = 
-        Printf.printf "Sequence.Align.full_median_2\n%!";
+    let full_median_2 a b cm m =
         match Cost_matrix.Two_D.affine cm with
         | Cost_matrix.Affine _ ->
-                let m, _, _, _, _ = align_affine_3 a b cm in
-                m
+            let m, _, _, _, _ = align_affine_3 a b cm in m
         | _ ->
-                let a, b, _ = align_2 a b cm m in
-                median_2 a b cm
+            let a, b, _ = align_2 a b cm m in
+            median_2 a b cm
 
     let full_median_3 a b c cm m =
         let a, b, c, _ = align_3 a b c cm m in
@@ -1215,9 +1170,7 @@ module Align = struct
         let res = create (len + 1) in
         let level = get_level cm in
         if (check_level cm) then begin
-            let break_union newlist listitem =
-            (code2list listitem cm) @ newlist
-            in
+            let break_union newlist listitem = (code2list listitem cm) @ newlist in
             for i = len-1 downto 0 do
                 let ai = get a i and bi = get b i in
                 let alst = code2list ai cm and blst = code2list bi cm in
@@ -1231,17 +1184,12 @@ module Align = struct
                         list2code ([ai]@[bi]) cm
                     else
                         ai
-                    (*if(alstlen+blstlen)<=level then
-                        list2code ([ai]@[bi]) cm 
-                    else
-                        ai*)
                 in
                 prepend res union_ai_bi
             done;
-        end
-        else 
+        end else begin
             c_union a b res
-        ;
+        end;
         res
         
 (*Sequence.Align.closest parent mine.sequence h.c2 Matrix.default*)
@@ -1927,11 +1875,7 @@ module NewkkAlign = struct
     
     type ukkm
     external create_ukkm : unit -> ukkm = "newkkonen_CAML_create_general"
-    (*
-    external print_2d : m -> int -> int -> unit = "mat_CAML_print_algn_2d"
-    external print_3d : m -> int -> int -> int -> unit = "mat_CAML_print_algn_3d"
-    external get_dir : m -> int -> int -> int -> int -> int = "mat_CAML_get_value"
-    *)
+
     (*c side function*)
     external init : unit -> unit = "newkkonen_CAML_initialize"
     external newkk_cost2 : s -> s -> Cost_matrix.Two_D.m -> ukkm -> int -> int =
