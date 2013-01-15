@@ -628,6 +628,7 @@ OCAMLC
 OCAML
 CC_VERSION
 POY_VERSION_NUMBER
+USE_RTL
 USE_UNSAFE
 USE_VERIFY_COSTS
 USE_SSE
@@ -726,6 +727,7 @@ enable_interface
 with_extras
 with_version_number
 with_ocaml_flags
+enable_rtlout
 enable_unsafe
 enable_mpi
 enable_large_messages
@@ -1366,6 +1368,9 @@ Optional Features:
                           if ncurses is not found, then the readline interface
                           is used, if readline is not present either, then
                           choose the flat interface.
+  --enable-rtlout         Used to generate RTL output that can be used for
+                          egypt to create graphviz of C routines (in _build
+                          directory). (debug use only).
   --enable-unsafe         When set, we increase inline level, compile with
                           unsafe, and turn off assertions. Used for final
                           releases to increase speed.
@@ -2951,6 +2956,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
@@ -3032,6 +3038,17 @@ if test "${with_ocaml_flags+set}" = set; then :
   withval=$with_ocaml_flags; OCAMLFLAGS=$withval
 fi
 
+
+# Check whether --enable-rtlout was given.
+if test "${enable_rtlout+set}" = set; then :
+  enableval=$enable_rtlout; if test x"$enableval" = x"no"; then
+                    USE_RTL="false"
+                else
+                    USE_RTL="true"
+                fi
+else
+  USE_RTL="false"
+fi
 
 
 # Check whether --enable-unsafe was given.

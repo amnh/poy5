@@ -522,6 +522,15 @@ dispatch begin function
         flag [    "c"; "compile"] (S [A"-ccopt";A"-finline-limit=1000"]);
     end;
 
+    if @USE_RTL@ then begin
+        flag ["c"; "compile"] (S [A"-ccopt";A"-fdump-rtl-expand"]);
+        flag ["c"; "compile"] (S [A"-ccopt";A"-fno-inline-functions"]);
+        flag ["c"; "compile"] (S [A"-ccopt";A"-finline-limit=0"]);
+        flag ["c"; "link"]    (S [A"-ccopt";A"-fdump-rtl-expand"]);
+        flag ["c"; "link"]    (S [A"-ccopt";A"-fno-inline-functions"]);
+        flag ["c"; "link"]    (S [A"-ccopt";A"-finline-limit=0"]);
+    end;
+
     flag ["shared"; "link"]
         (S [A"-ccopt";A"-shared"]);
 

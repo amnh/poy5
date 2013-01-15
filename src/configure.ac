@@ -60,6 +60,7 @@ AC_SUBST(USE_CONCORDE)
 AC_SUBST(USE_SSE)
 AC_SUBST(USE_VERIFY_COSTS)
 AC_SUBST(USE_UNSAFE)
+AC_SUBST(USE_RTL)
 
 AC_SUBST(POY_VERSION_NUMBER)
 AC_SUBST(CC_VERSION)
@@ -116,6 +117,14 @@ AC_ARG_WITH([ocaml-flags],
             [AS_HELP_STRING([--with-ocaml-flags], [Add the following flags to the ocaml compiler.])],
             [OCAMLFLAGS=$withval],[])
 
+AC_ARG_ENABLE([rtlout], [AS_HELP_STRING([--enable-rtlout],
+              [Used to generate RTL output that can be used for egypt to create graphviz of C routines (in _build directory). (debug use only).])],
+              [if test x"$enableval" = x"no"; then
+                    USE_RTL="false"
+                else
+                    USE_RTL="true"
+                fi],
+              [USE_RTL="false"])
 
 AC_ARG_ENABLE([unsafe], [AS_HELP_STRING([--enable-unsafe],
               [When set, we increase inline level, compile with unsafe, and turn off assertions. Used for final releases to increase speed.])],
