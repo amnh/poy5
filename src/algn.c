@@ -1634,6 +1634,97 @@ void choose_dir (int has_diag,int has_algn,int has_vert, int has_hrzn, int swape
     }
 }
 
+#ifdef _WIN32
+__inline void 
+#else
+inline void 
+#endif
+update_mode(enum MODE* mode, DIRECTION_MATRIX *direction_matrix)
+{
+    if ( has_doflag(direction_matrix,DO_VERTICAL) ){
+        *mode = m_vertical;
+    } else if ( has_doflag(direction_matrix,DO_HORIZONTAL) ){
+        *mode = m_horizontal;
+    } else if ( has_doflag(direction_matrix,DO_DIAGONAL) ){
+        *mode = m_diagonal;
+    } else {
+        assert( has_doflag(direction_matrix,DO_ALIGN) );
+        *mode = m_align;
+    }
+}
+
+/** Returns the greater number of gaps in the aligned s1 and s2; used to test
+ * the ending conditions for the ukkonen barrier. Variation of the function,
+ * backtrace_2d; look their for further details. */
+int
+backtrace_aff_gaps (DIRECTION_MATRIX *direction_matrix, const seqt si, const seqt sj)
+{
+    int gaps_i, gaps_j;
+    enum MODE mode;
+    int i, j, offset;
+    //offset is the length of each row
+    offset = seq_get_len(sj) + 1;
+    gaps_i = gaps_j = 0;
+    //these '-1' is really unconvenient
+    i = seq_get_len(si) - 1;
+    j = seq_get_len(sj) - 1;
+    //move pointer to the right bottom of dir matrix
+    //we allocate len1+1 * len2+1 for direction matrix in matrices.c, last cell
+    //of each line is not in use in this case. 
+    direction_matrix = direction_matrix + (((seq_get_len(si) ) * (seq_get_len(sj) + 1)) - 2);
+    mode = m_todo;
+    while ((i != 0) && (j != 0)) {
+        //start of new code
+        if (mode == m_vertical ){
+            if (has_doflag(direction_matrix,END_VERTICAL)||has_doflag(direction_matrix,HORIZONTAL_EQ_VERTICAL)){
+                direction_matrix -= offset;
+                update_mode(&mode,direction_matrix);
+            } else {
+                direction_matrix -= offset;
+            }
+            i--;
+            gaps_j++;
+        } else if (mode == m_horizontal) {
+            if (has_doflag(direction_matrix,END_HORIZONTAL)||has_doflag(direction_matrix,HORIZONTAL_EQ_VERTICAL)){
+                direction_matrix -= 1;
+                update_mode(&mode,direction_matrix);
+            } else {
+                direction_matrix -= 1;
+            }
+            j--;
+            gaps_i++;
+        } else if (mode == m_diagonal){
+            if (has_doflag(direction_matrix,END_BLOCK)){
+                direction_matrix -= offset+1;
+                update_mode(&mode,direction_matrix);
+            } else {
+                direction_matrix -= offset+1;
+            }
+            gaps_i++;
+            gaps_j++;
+            i--;
+            j--;
+        } else {
+            assert (mode == m_align);
+            if ( has_doflag(direction_matrix,ALIGN_TO_VERTICAL) ){
+                mode = m_vertical;
+            } else if ( has_doflag(direction_matrix,ALIGN_TO_HORIZONTAL) ){
+                mode = m_horizontal;
+            } else if ( has_doflag(direction_matrix,ALIGN_TO_DIAGONAL) ){
+                mode = m_diagonal;
+            } else {
+                assert( has_doflag(direction_matrix,ALIGN_TO_ALIGN) );
+                mode = m_align;
+            }
+            i--; 
+            j--;
+            direction_matrix -= offset+1;
+        }
+    }
+    return (MAX(gaps_j,gaps_i));
+}
+
+
 void
 backtrace_aff (DIRECTION_MATRIX *direction_matrix, const seqt si, const seqt sj,
         seqt median, seqt medianwg, seqt resi, seqt resj, const cmt c,int swaped)
@@ -1642,24 +1733,19 @@ backtrace_aff (DIRECTION_MATRIX *direction_matrix, const seqt si, const seqt sj,
     int flag_vert, flag_hrzn, flag_diag, flag_algn;
     int flag_algn2vert, flag_algn2hrzn, flag_algn2diag, flag_algn2algn;
     enum MODE mode = m_todo;
-    int i, j, leni, lenj;
+    int i, j;
     SEQT ic, jc, prep;
-    DIRECTION_MATRIX *initial_direction_matrix;
     //offset is the length of each row
     int offset = seq_get_len(sj) + 1;
     //these '-1' is really unconvenient
     i = seq_get_len(si) - 1;
     j = seq_get_len(sj) - 1;
-    leni = i;
-    lenj = j;
-    assert (leni <= lenj);
+    assert (i <= j);
     ic = seq_get(si,i);
     jc = seq_get(sj,j);
-    initial_direction_matrix = direction_matrix;
     //move pointer to the right bottom of dir matrix
     //we allocate len1+1 * len2+1 for direction matrix in matrices.c, last cell
     //of each line is not in use in this case. 
-    //printf("move to last pos of dir mat :(%d*%d-1)\n",seq_get_len(si),seq_get_len(sj) + 1);
     direction_matrix = direction_matrix + (((seq_get_len(si) ) * (seq_get_len(sj) + 1)) - 2);
     while ((i != 0) && (j != 0)) {
         if (0 && DEBUG_AFFINE) {
@@ -1709,40 +1795,11 @@ backtrace_aff (DIRECTION_MATRIX *direction_matrix, const seqt si, const seqt sj,
         } 
         //end of new code
     }
-    while (i != 0) {
-        assert (initial_direction_matrix < direction_matrix);
-        if (!(ic & TMPGAP)) {
-            seq_prepend (median, (ic | TMPGAP));
-            seq_prepend (medianwg, (ic | TMPGAP));
-        } else {
-            seq_prepend (medianwg, TMPGAP);
-        }
-        seq_prepend(resi, ic);
-        seq_prepend(resj, TMPGAP);
-        //move pointer one line up
-        direction_matrix -= (offset);
-        i--;
-        ic = seq_get(si, i);
-    }
-    while (j != 0) {
-        assert (initial_direction_matrix < direction_matrix);
-        if (!(jc & TMPGAP)) {
-            seq_prepend (median, (jc | TMPGAP));
-            seq_prepend (medianwg, (jc | TMPGAP));
-        } else {
-            seq_prepend (medianwg, TMPGAP);
-        }
-        seq_prepend (resi, TMPGAP);
-        seq_prepend (resj, jc);
-        j--;
-        //move pointer one cell left
-        direction_matrix -= 1;
-        jc = seq_get(sj, j);
-    }
     seq_prepend(resi, TMPGAP);
     seq_prepend(resj, TMPGAP);
     seq_prepend(medianwg,TMPGAP);
-    if (TMPGAP != seq_get(median,0)) seq_prepend(median,TMPGAP);
+    if (TMPGAP != seq_get(median,0))
+        seq_prepend(median,TMPGAP);
     return;
 
 }
@@ -1790,7 +1847,6 @@ initialize_matrices_affine_nobt (int go, const seqt si, const seqt sj, const cmt
     }
     return;
 }
-
 
 void
 initialize_matrices_affine (int go, const seqt si, const seqt sj, const cmt c, 
@@ -2147,7 +2203,7 @@ algn_newkk_test_aff (int * res_cost, int p, const seqt si, const seqt sj, int le
     gap_startNO = c->gap_startNO;
     //make sure seq1 is not longer than seq2
     assert (lenj >= leni);
-//set prev_xxx_xxx
+    //set prev_xxx_xxx
     int offset = lenj+2;
     prev_extend_horizontal = extend_horizontal+offset;
     prev_extend_vertical = extend_vertical+offset;
@@ -2238,8 +2294,8 @@ algn_newkk_test_aff (int * res_cost, int p, const seqt si, const seqt sj, int le
         }
     }//end of for (i=1;i<=leni;i++)
     *res_cost = final_cost_matrix[lenj];
-    //return final_cost_matrix[lenj];
-    ///TODO -- DO UKKONEN BACKTRACE HERE
+    // this was found to be slightly slower...
+    // return (backtrace_aff_gaps( direction_matrix, si, sj ));
     return (MAX(next_gm1[lenj],next_gm2[lenj]));
 }
 
