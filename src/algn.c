@@ -1721,6 +1721,8 @@ backtrace_aff_gaps (DIRECTION_MATRIX *direction_matrix, const seqt si, const seq
             direction_matrix -= offset+1;
         }
     }
+    gaps_i += j;
+    gaps_j += i;
     return (MAX(gaps_j,gaps_i));
 }
 
@@ -1794,6 +1796,34 @@ backtrace_aff (DIRECTION_MATRIX *direction_matrix, const seqt si, const seqt sj,
             ic = seq_get(si, i);
         } 
         //end of new code
+    }
+    while (i != 0) {
+        assert (initial_direction_matrix < direction_matrix);
+        if (!(ic & TMPGAP)) {
+            seq_prepend (median, (ic | TMPGAP));
+            seq_prepend (medianwg, (ic | TMPGAP));
+        }
+        else seq_prepend (medianwg, TMPGAP);
+        seq_prepend(resi, ic);
+        seq_prepend(resj, TMPGAP);
+        //move pointer one line up
+        direction_matrix -= (offset);
+        i--;
+        ic = seq_get(si, i);
+    }
+    while (j != 0) {
+        assert (initial_direction_matrix < direction_matrix);
+        if (!(jc & TMPGAP)) {
+            seq_prepend (median, (jc | TMPGAP));
+            seq_prepend (medianwg, (jc | TMPGAP));
+        }
+        else seq_prepend (medianwg, TMPGAP);
+        seq_prepend (resi, TMPGAP);
+        seq_prepend (resj, jc);
+        j--;
+        //move pointer one cell left
+        direction_matrix -= 1;
+        jc = seq_get(sj, j);
     }
     seq_prepend(resi, TMPGAP);
     seq_prepend(resj, TMPGAP);
