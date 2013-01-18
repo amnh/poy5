@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Support" "$Revision: 2673 $"
+let () = SadmanOutput.register "Support" "$Revision: 3030 $"
 
 let infinity = float_of_int (max_int / 4)
 
@@ -62,7 +62,7 @@ module type S = sig
         their associated bremer support values, as inferred from the input trees
         in [f]. *)
     val bremer_of_input_file :
-        (Tree.u_tree -> string -> int) -> int ->
+        (Tree.u_tree -> string -> float) -> int ->
             (int -> string) -> Data.d -> Methods.filename list -> 
                 (a, b) Ptree.p_tree Sexpr.t -> Tree.Parse.tree_types Sexpr.t
 
@@ -590,19 +590,21 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n)
         Sexpr.of_list for_brem
 
 
-    let bremer_of_input_file process_cost root to_string data file
-                             (trees : (a, b) Ptree.p_tree Sexpr.t) =
+    let bremer_of_input_file process_cost root to_string data (file:Methods.filename list) (trees: (a,b) Ptree.p_tree Sexpr.t) =
         let process_one_tree tree : Tree.Parse.tree_types =
-            Ptree.bremer to_string
-                (int_of_float (Ptree.get_cost `Adjusted tree))
-                tree.Ptree.tree (generate_sets process_cost data root) file
+            Ptree.bremer
+                (to_string)
+                (Ptree.get_cost `Adjusted tree)
+                (tree.Ptree.tree)
+                (generate_sets process_cost data root)
+                (file)
         in
         Sexpr.map_status "Bremer@ of@ input@ tree" ~eta:true process_one_tree trees
 
 
     let bremer_of_input_file_but_trust_input_cost =
         bremer_of_input_file
-            (fun _ b -> try int_of_float (float_of_string b) with _ -> max_int)
+            (fun _ b -> float_of_string b)
 
 end
 

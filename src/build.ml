@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 2709 $"
+let () = SadmanOutput.register "Build" "$Revision: 3030 $"
 
 let debug_profile_memory = false
 
@@ -759,31 +759,29 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             in
             builder acc trees
         in
-        let do_constraint file =
-            match file with
+        let do_constraint file = match file with
             | None -> 
-                let hd, tree_list = 
-                    match Sexpr.to_list trees with
+                let hd, tree_list = match Sexpr.to_list trees with
                     | (h :: _) as t -> h, t
                     | [] -> failwith "No trees for constraint"
                 in
-                let maj = List.length tree_list in
+                let maj = float_of_int (List.length tree_list) in
                 Ptree.consensus PtreeSearch.never_collapse 
                     (fun code -> Data.code_taxon code data)
                     (maj)
-                    (Sexpr.to_list trees) 
+                    (Sexpr.to_list trees)
                     (match data.Data.root_at with
                         | Some v -> v
                         | None ->
                             let f = Sexpr.first trees in
                             Ptree.choose_leaf f)
             | Some file ->
-                    match (Data.process_trees data file).Data.trees with
+                begin match (Data.process_trees data file).Data.trees with
                     | [((_,[t]), _, _) as one] -> Data.verify_trees data one; t
                     | _ -> failwith "Illegal input constraint file"
+                end
         in
-        let perform_build () =
-            match meth with
+        let perform_build () = match meth with
             | `Branch_and_Bound ((bound, threshold, keep_method, max_trees, _),adj_meth) ->
                 let threshold = match threshold with
                     | None -> 0.
@@ -807,25 +805,24 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 if n < 1 then trees
                 else
                     begin match build_meth with
-                    | `Constraint (_, threshold, file, _) ->
+                        | `Constraint (_, threshold, file, _) ->
                             let constraint_tree = do_constraint file in
                             constrained_build cg data n constraint_tree nodes adj_mgr
-                    | `Branch_and_Bound 
-                        ((bound, threshold, keep_method, max_trees, _),_) ->
+                        | `Branch_and_Bound ((bound, threshold, keep_method, max_trees, _),_) ->
                             let threshold = 
                                 match threshold with
                                 | None -> 0.
                                 | Some x -> x
                             in
                             branch_and_bound keep_method (n * max_trees) threshold data nodes bound adj_mgr
-                    | `Wagner_Rnd (max_n, threshold, _, lst, tabu_mgr) ->
+                        | `Wagner_Rnd (max_n, threshold, _, lst, tabu_mgr) ->
                             let tabu_mgr = pick_tabu_manager tabu_mgr in
                             let res = 
                                 max_n_randomized_p_wagner data threshold 
                                         tabu_mgr cg new_nodes max_n n adj_mgr
                             in
                             Sexpr.of_list (Sexpr.to_list res)
-                    | `Wagner_Ordered (max_n, threshold, keep_method, lst, tabu_mgr) ->
+                        | `Wagner_Ordered (max_n, threshold, keep_method, lst, tabu_mgr) ->
                             let tabu_mgr = pick_tabu_manager tabu_mgr in
                             let status = Status.create "Wagner ordered build" None "" in
                             let () =
@@ -844,7 +841,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             in
                             let () = Status.finished status in
                             Sexpr.of_list (Sexpr.to_list (`Set [hd; tl]))
-                    | `Wagner_Distances (max_n, threshold, keep_method, lst, tabu_mgr) ->
+                        | `Wagner_Distances (max_n, threshold, keep_method, lst, tabu_mgr) ->
                             let tabu_mgr = pick_tabu_manager tabu_mgr in
                             let status = 
                                 Status.create "Wagner Distances-ordered build" 
@@ -859,7 +856,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             in
                             let () = Status.finished status in
                             Sexpr.of_list (Sexpr.to_list lst)
-                    | `Wagner_Mst (max_n, threshold, keep_method, lst, tabu_mgr) ->
+                        | `Wagner_Mst (max_n, threshold, keep_method, lst, tabu_mgr) ->
                             let tabu_mgr = pick_tabu_manager tabu_mgr in
                             let status = 
                                 Status.create "Wagner MST-ordered build" 
@@ -874,9 +871,9 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             in
                             let () = Status.finished status in
                             Sexpr.of_list (Sexpr.to_list lst)
-                    | `Nj
-                    | (`Prebuilt _) as x -> build_initial_trees trees data nodes x
-                    | `Build_Random _ ->
+                        | `Nj
+                        | (`Prebuilt _) as x -> build_initial_trees trees data nodes x
+                        | `Build_Random _ ->
                             let st = Status.create "Random Trees build" (Some n) "" in
                             let arr = 
                                 Array.init n 

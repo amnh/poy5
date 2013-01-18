@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3019 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3030 $"
 
 module IntSet = All_sets.Integers
 
@@ -2046,13 +2046,13 @@ let get_trees_for_support support_class run =
     let do_support support_set x = match support_set with
         | None -> `Empty
         | Some (iterations, fs) ->
-                match x with
+            begin match x with
                 | `Individual ->
                     Sexpr.map 
                         (fun tree ->
                             Ptree.supports 
                                 (fun x -> Data.code_taxon x run.data)
-                                0 (float_of_int iterations) tree.Ptree.tree fs)
+                                0.0 (float_of_int iterations) tree.Ptree.tree fs)
                         run.trees
                 | `InputFile x ->
                     let trees = Tree.Parse.of_file (`Local x) in
@@ -2061,15 +2061,16 @@ let get_trees_for_support support_class run =
                             (fun tree ->
                                 Ptree.support_of_input
                                     (fun x -> Data.code_taxon x run.data)
-                                    0 (float_of_int iterations) tree run.data fs)
+                                    0.0 (float_of_int iterations) tree run.data fs)
                             trees)
                 | `Consensus ->
                     `Single 
                         (Ptree.preprocessed_consensus 
                             (fun code -> Data.code_taxon code run.data) 
-                            (iterations / 2)
+                            ((float_of_int iterations) /. 2.0)
                             iterations
                             fs)
+            end
     in
     match support_class with
     | `Bremer (Some input_files) ->

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3014 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3030 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -2387,18 +2387,22 @@ let make_tree_counters code_generator counters gen_tree =
 
 let add_consensus_to_counters counters trees = 
     let new_counter = 
-        List.fold_left (fun acc (is_collapsable, b) -> 
-            add_tree_to_counters is_collapsable acc b)
-        Tree.CladeFPMap.empty trees
+        List.fold_left
+            (fun acc (is_collapsable, b) ->
+                add_tree_to_counters is_collapsable acc b)
+            Tree.CladeFPMap.empty trees
     in
     let len = List.length trees in
     (* We proceed to add those clades that appear in all of the trees *)
-    Tree.CladeFPMap.fold (fun set count acc ->
-        if count = len then let _, acc = add_or_not false set acc in acc
-        else acc) new_counter counters 
+    Tree.CladeFPMap.fold
+        (fun set count acc ->
+            if count = len
+                then snd (add_or_not false set acc)
+                else acc)
+        new_counter counters
 
 
-let build_a_tree to_string denominator print_frequency coder trees (set, cnt) = 
+let build_a_tree to_string denominator print_frequency coder trees ((set,cnt) : Tree.CladeFPMap.key * float) =
     let module CladeFPSet = Set.Make (Tree.CladeFP.Ordered) in
     let all_trees, _, trees = 
         All_sets.Integers.fold 
@@ -2426,12 +2430,11 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
     let tree = match all_trees with
         | [] -> failwith "Tree.consensus2"
         | [all_trees] -> all_trees
-        | all_trees ->
-            let cnt = float_of_int cnt in
-            let msg = 
-                if print_frequency then
-                    Printf.sprintf "%.2f" (cnt /. denominator)
-                else ""
+        |  all_trees  ->
+            let msg =
+                if print_frequency
+                    then Printf.sprintf "%0.4F" (cnt /. denominator)
+                    else ""
             in
             let all_trees = List.map (Tree.Parse.strip_tree) all_trees in
             Tree.Parse.Flat (Tree.Parse.Nodep (all_trees, msg))
@@ -2442,8 +2445,9 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
         set
         trees
 
-
-let make_tree majority_cutoff coder builder map = 
+let make_tree (majority_cutoff : 'a) (coder : All_sets.IntegerMap.key ref)
+              (builder : ('b * 'c) All_sets.IntegerMap.t -> Tree.CladeFPMap.key * 'a -> ('b * 'c) All_sets.IntegerMap.t)
+              (map : 'a Tree.CladeFPMap.t) : 'b =
     let sets =
         Tree.CladeFPMap.fold
             (fun set cnt lst ->
@@ -2463,25 +2467,25 @@ let make_tree majority_cutoff coder builder map =
     tree
 
 let consensus is_collapsable to_string maj trees root =
-    let number_of_trees = List.length trees in
+    let number_of_trees = float_of_int (List.length trees) in
     let print_frequency = maj <> number_of_trees 
-    and number_of_trees = float_of_int number_of_trees 
     and coder = ref 0 in
     let tree_builder = build_a_tree to_string number_of_trees print_frequency coder in
-    trees
-        --> List.map (fun x ->
-                        let y = get_parent root x in
-                        Tree.reroot (root, y) x.tree, is_collapsable x)
-        --> List.fold_left (fun acc (x, y) -> add_tree_to_counters y acc x)
-                           Tree.CladeFPMap.empty
-        --> make_tree maj coder tree_builder
+    trees --> List.map 
+                (fun x ->
+                    let y = get_parent root x in
+                    Tree.reroot (root, y) x.tree, is_collapsable x)
+          --> List.fold_left
+                (fun acc (x, y) -> add_tree_to_counters y acc x)
+                Tree.CladeFPMap.empty
+          --> Tree.CladeFPMap.map (float_of_int)
+          --> make_tree maj coder tree_builder
 
 
-let preprocessed_consensus to_string maj num_trees map =
+let preprocessed_consensus to_string (maj : float) num_trees map =
     let coder = ref 0 in
-    let tree_builder = 
-        build_a_tree to_string (float_of_int num_trees) true coder 
-    in
+    let tree_builder = build_a_tree to_string (float_of_int num_trees) true coder in
+    let map = Tree.CladeFPMap.map (float_of_int) map in
     make_tree maj coder tree_builder map
 
 let extract_counters sets set =
@@ -2501,6 +2505,7 @@ let generic_supports generate_tree_sets to_string maj number_of_samples tree set
     in
     tree --> generate_tree_sets
          --> extract_counters sets
+         --> Tree.CladeFPMap.map (float_of_int)
          --> make_tree maj coder tree_builder
 
 let supports to_string maj number_of_samples tree sets =
@@ -2515,17 +2520,10 @@ let support_of_input to_string maj number_of_samples tree data sets =
     in
     generic_supports creating_counters to_string maj number_of_samples tree sets
 
-let extract_bremer to_string sets =
-    let coder = ref 0 in
-    let tree_builder = build_a_tree to_string 1. true coder in
-    make_tree min_int coder tree_builder sets
-
 (* A function that returns the bremer support tree based on the set of (costs, 
 * tree) of sets, for the input tree *)
-let bremer to_string cost tree generator files =
-    let tree_file_handlers = 
-        ref (List.map (Tree.Parse.stream_of_file true) files) 
-    in
+let bremer to_string (cost : float) tree generator files =
+    let tree_file_handlers = ref (List.map (Tree.Parse.stream_of_file true) files) in
     (* We first create a function that takes a map of clades and best cost found
     * for a tree _not_ containing the set, and a set of clades belonging to a
     * tree, with it's associated cost, and update the map according to the cost
@@ -2534,56 +2532,49 @@ let bremer to_string cost tree generator files =
     let replace_when_smaller map =
         let map = ref map in
         let cntr = ref 1 in
-        let status = 
-            Status.create "Bremer Estimation" None 
-            "Comparing tree with trees in file" 
-        in
+        let status = Status.create "Bremer Estimation" None "Comparing tree with trees in file" in
         while [] <> !tree_file_handlers do
             match !tree_file_handlers with
             | (tree_generator, close_tree_generator) :: t ->
-                    tree_file_handlers := t;
-                    (try while true do
-                                try 
-                                    Status.full_report ~adv:!cntr status;
-                                    let input_tree = tree_generator () in
-                                    let new_cost, sets = generator input_tree in
-                                    map :=
-                                        Tree.CladeFPMap.fold (fun my_clade best_cost acc ->
-                                        let len =  All_sets.Integers.cardinal my_clade in
-                                        if len < 2 || len = number_of_leaves then acc
-                                        else if (not (Tree.CladeFP.CladeSet.mem my_clade sets)) &&
-                                            ((new_cost - cost) < best_cost) then
-                                            Tree.CladeFPMap.add my_clade (new_cost - cost) acc
-                                        else acc) !map !map;
-                                    incr cntr;
-                                with
-                                | End_of_file as err -> raise err 
-                                | _ -> ()
-                            done;
-                            close_tree_generator ();
-                    with
-                    | End_of_file -> 
-                            close_tree_generator ();
-                            Status.finished status)
+                tree_file_handlers := t;
+                (try while true do
+                    try Status.full_report ~adv:!cntr status;
+                        let input_tree = tree_generator () in
+                        let new_cost, sets = generator input_tree in
+                        map :=
+                            Tree.CladeFPMap.fold
+                                (fun my_clade best_cost acc ->
+                                    let len =  All_sets.Integers.cardinal my_clade in
+                                    if len < 2 || len = number_of_leaves then
+                                        acc
+                                    else if (not (Tree.CladeFP.CladeSet.mem my_clade sets)) &&
+                                            ((new_cost -. cost) < best_cost) then
+                                        Tree.CladeFPMap.add my_clade (new_cost -. cost) acc
+                                    else
+                                        acc)
+                                !map
+                                !map;
+                        incr cntr;
+                    with | End_of_file as err -> raise err 
+                         | _ -> ()
+                    done;
+                    close_tree_generator ();
+                with | End_of_file -> 
+                    close_tree_generator ();
+                    Status.finished status)
             | [] -> ()
         done;
         !map
     in
     (** We create a map with all the sets of clades in the input tree *)
-    let map : int Tree.CladeFPMap.t = 
-        let map = 
-            add_tree_to_counters (fun _ _ -> false) Tree.CladeFPMap.empty
-            tree
-        in
-        Tree.CladeFPMap.map
-        (fun _ -> max_int) map 
+    let map : float Tree.CladeFPMap.t =
+        let map = add_tree_to_counters (fun _ _ -> false) Tree.CladeFPMap.empty tree in
+        Tree.CladeFPMap.map (fun _ -> infinity) map
     in
     (* We now update that map with the best length found for each tree not
     * having the clade *)
     let coder = ref 0 in
-    let tree_builder =
-        build_a_tree to_string 1. true coder
-    in
-    map
-    --> replace_when_smaller
-    --> make_tree min_int coder tree_builder
+    let res = replace_when_smaller map in
+    let tree_builder = build_a_tree to_string 1. true coder in
+    let res = make_tree neg_infinity coder tree_builder res in
+    res

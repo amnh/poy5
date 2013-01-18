@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2976 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 3030 $"
 
 let debug_find_local_optimum = false
 
@@ -835,7 +835,8 @@ let forest_search data queue origin_cost search trees =
         let ntrees = Sexpr.length trees in
         let majority, majority_text = 
             match v with
-            | None -> ntrees, "Strict"
+            | None ->
+                (float_of_int ntrees), "Strict"
             | Some v when v > 100.0 -> 
                 Status.user_message Status.Error 
                     ("You@ have@ requested@ a@ consensus@ with@ majority@ "
@@ -851,12 +852,10 @@ let forest_search data queue origin_cost search trees =
                     ^"reconsider@ your@ parameter@ selection.");
                 failwith "Illegal Consensus Parameter";
             | Some v -> 
-                int_of_float (ceil ((v *. (float_of_int ntrees) /.  100.0))),
-                ((string_of_float v) ^ " percent")
+                (ceil ((v *. (float_of_int ntrees) /. 100.0))), ((string_of_float v) ^ " percent")
         in
         let lst_trees = Sexpr.to_list trees in
-        let rooting_leaf, tree = 
-            match data.Data.root_at with
+        let rooting_leaf, tree = match data.Data.root_at with
             | Some v -> 
                 begin match lst_trees with
                     | hd :: _ -> v, hd
@@ -868,39 +867,39 @@ let forest_search data queue origin_cost search trees =
                     | _ -> failwith "No trees in memory"
                 end
         in
-        let res = Ptree.consensus PtreeSearch.collapse_as_needed (fun code ->
-            Data.code_taxon code data) majority 
-            (Sexpr.to_list trees) rooting_leaf
+        let res =
+            Ptree.consensus
+                PtreeSearch.collapse_as_needed
+                (fun code -> Data.code_taxon code data)
+                majority
+                (Sexpr.to_list trees) rooting_leaf
         in
         let fo = Status.Output (filename, false, []) in
         if not graphic then begin
             Status.user_message fo "@[<v>";
-            Status.user_message fo 
-            ("@[" ^ majority_text ^ "@ Majority@ Consensus Tree@]@,@[");
-            Status.user_message fo (AsciiTree.for_formatter false true false 
-            res);
+            Status.user_message fo
+                ("@[" ^ majority_text ^ "@ Majority@ Consensus Tree@]@,@[");
+            Status.user_message fo (AsciiTree.for_formatter false true false res);
             Status.user_message fo "@]@]\n%!";
         end else
             match filename with
-            | Some filename -> 
-                    let title = majority_text ^ " Majority Consensus Tree" in
-                    GraphicsPs.display title filename [|(0.0, res)|]
+            | Some filename ->
+                let title = majority_text ^ " Majority Consensus Tree" in
+                GraphicsPs.display title filename [|(0.0, res)|]
             | None -> 
-                    let r = AsciiTree.to_string ~sep:2 ~bd:2 true res in
-                    Status.user_message fo 
+                let r = AsciiTree.to_string ~sep:2 ~bd:2 true res in
+                Status.user_message fo 
                     ("@[@[<v>@[" ^ majority_text ^ "@ Majority@ Consensus Tree@]@,@[");
-                    Status.user_message (Status.Output (filename,false, [])) r;
-                    Status.user_message (Status.Output (filename, false, [])) "@]@]@]%!";
-
+                Status.user_message (Status.Output (filename,false, [])) r;
+                Status.user_message (Status.Output (filename, false, [])) "@]@]@]%!";
 end
 
 module Make
     (NodeH : NodeSig.S with type other_n = Node.Standard.n) 
     (EdgeH : Edge.EdgeSig with type n = NodeH.n) 
-    (TreeOpsH : 
-            Ptree.Tree_Operations with 
-            type a = NodeH.n with type b = EdgeH.e)
-     = struct
+    (TreeOpsH : Ptree.Tree_Operations with type a = NodeH.n with type b = EdgeH.e)
+     =
+struct
 
     module NodeS = Node.Standard
     module EdgeS = Edge.SelfEdge

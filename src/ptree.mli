@@ -545,7 +545,7 @@ val get_parent_or_root_data :
 val choose_leaf : ('a, 'b) p_tree -> int
 
 val consensus :
-    (('a, 'b) p_tree -> int -> int -> bool) -> (int -> string) -> int ->
+    (('a, 'b) p_tree -> int -> int -> bool) -> (int -> string) -> float ->
         ('a, 'b) p_tree list -> int -> Tree.Parse.tree_types
 
 val add_tree_to_counters :
@@ -557,15 +557,12 @@ val add_consensus_to_counters :
         int Tree.CladeFPMap.t
 
 val supports :
-    (int -> string) -> int -> float -> Tree.u_tree -> int Tree.CladeFPMap.t ->
+    (int -> string) -> float -> float -> Tree.u_tree -> int Tree.CladeFPMap.t ->
         Tree.Parse.tree_types
 
 val support_of_input :
-    (int -> string) -> int -> float -> Tree.Parse.tree_types list -> Data.d ->
+    (int -> string) -> float -> float -> Tree.Parse.tree_types list -> Data.d ->
         int Tree.CladeFPMap.t -> Tree.Parse.tree_types
-
-val extract_bremer :
-    (All_sets.Integers.elt -> string) -> int Tree.CladeFPMap.t -> Tree.Parse.tree_types  
 
 (** [bremer to_string cost t conversion file] calculates a bremer support tree
     (for printing purposes) of the tree [t] (which must be properly rooted)
@@ -581,11 +578,11 @@ val extract_bremer :
     The resulting tree assigns to each branch the minimum cost found for a tree
     not containing the child clade of the branch within [sets]. *)
 val bremer :
-    (int -> string) -> int -> Tree.u_tree -> 
-        ((Tree.Parse.tree_types) -> (int * Tree.CladeFP.CladeSet.t)) ->
+    (int -> string) -> float -> Tree.u_tree -> 
+        ((Tree.Parse.tree_types) -> (float * Tree.CladeFP.CladeSet.t)) ->
             FileStream.f list -> Tree.Parse.tree_types
               
 val preprocessed_consensus :
     (All_sets.Integers.elt -> string) ->
-        int -> int -> int Tree.CladeFPMap.t -> Tree.Parse.tree_types
+        float -> int -> int Tree.CladeFPMap.t -> Tree.Parse.tree_types
 

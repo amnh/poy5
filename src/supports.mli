@@ -52,7 +52,7 @@ module type S = sig
         their associated bremer support values, as inferred from the input trees
         in [f]. *)
     val bremer_of_input_file :
-        (Tree.u_tree -> string -> int) -> int ->
+        (Tree.u_tree -> string -> float) -> int ->
             (int -> string) -> Data.d -> Methods.filename list -> 
                 (a, b) Ptree.p_tree Sexpr.t -> Tree.Parse.tree_types Sexpr.t
 
