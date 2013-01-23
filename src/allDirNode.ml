@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 2985 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3035 $"
 
 let eager        = false
 let uppass_debug = false
@@ -947,13 +947,8 @@ struct
         |  _  -> assert false
 
     let to_string nodes =
-        let adj_data = get_adjusted_nodedata nodes "allDirNode,to_string no adj-data" in
         let res =
-            List.map 
-                (fun x -> OneDirF.to_string x.lazy_node)
-                nodes.unadjusted
-            @
-            [OneDirF.to_string adj_data.lazy_node]
+            List.map (fun x -> OneDirF.to_string x.lazy_node) nodes.unadjusted
         in
         String.concat "\n" res
 

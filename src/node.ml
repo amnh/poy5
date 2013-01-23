@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3021 $"
+let () = SadmanOutput.register "Node" "$Revision: 3035 $"
 
 let infinity = float_of_int max_int
 
@@ -424,11 +424,9 @@ let print nd =
     Printf.printf " }\n%!"
     
 let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
-    ("[[NODE tax_code=" ^ string_of_int tax_code
-     ^ " total cost=" ^ string_of_float cost
-     ^ " elts: "
-     ^ (String.concat "; " (List.map to_string_ch chs))
-     ^ "]]")
+    Printf.sprintf
+        "@[Node@ tax_code=%d@ total_cost=%f@ elts:%s@]@."
+        tax_code cost (String.concat ";@ "(List.map to_string_ch chs))
 
 (*** Helper functions for node data ***)
 let cs_prelim_to_final a =
