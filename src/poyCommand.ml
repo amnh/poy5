@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3025 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3034 $"
 
 let debug = false 
 
@@ -486,9 +486,9 @@ let modify_acc acc c = function
     | [] -> acc
     | files -> (`Other (files, c)) :: acc
 
-let console_script = ref [] 
-let add_command_to_console_script str : string = 
-    console_script := str :: !console_script; str
+(*let console_script = ref [] *)
+(*let add_command_to_console_script str : char Stream.t =*)
+(*    console_script := str :: !console_script; str*)
 
 let iter_default =  `Always, `AllBranches
 
@@ -1707,9 +1707,9 @@ let create_expr () =
                 [ LIDENT "lkmodel" -> `Model `All ] | 
                 [ LIDENT "lksites"; ":"; x = old_identifiers -> `LKSites x ] | 
                 [ LIDENT "lksites" -> `LKSites `All ] | 
-                [ LIDENT "script" -> `Script (!console_script) ] |
-                [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |
-                [ LIDENT "pairwise" -> `Pairwise `All ] |
+(*                [ LIDENT "script" -> `Script (!console_script) ] |*)
+(*                [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |*)
+(*                [ LIDENT "pairwise" -> `Pairwise `All ] |*)
                 [ LIDENT "seq_stats"; ":"; ch = old_identifiers -> `SequenceStats ch ] |
                 [ LIDENT "seq_stats" -> `SequenceStats `All ] |
                 [ LIDENT "ci"; ":"; ch = old_identifiers -> `Ci (Some ch) ] |
@@ -2493,7 +2493,7 @@ and of_parsed optimize lst =
 
 and of_stream optimize str =
     if debug then
-    Printf.printf "poyCommand.of_stream start,\n%!";
+        Printf.printf "poyCommand.of_stream start,\n%!";
     let cur_directory = Sys.getcwd () in
     let expr = create_expr () in
     let res = 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3030 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3034 $"
 
 module IntSet = All_sets.Integers
 
@@ -4184,7 +4184,7 @@ END
                 Status.user_message (Status.Output (filename, false, [])) (Buffer.contents res);
                 run
             | `TreesStats filename ->
-              let fo = Status.Output (filename, false, []) in
+                let fo = Status.Output (filename, false, []) in
                 let htbl = Hashtbl.create 19 in
                 let adder tree = 
                     let cost = Ptree.get_cost `Adjusted tree in
@@ -4339,30 +4339,49 @@ END
                     run
                 end
             | `Root where ->
-                let tres = 
-                    Sexpr.map
-                        (fun t -> 
-                            {t with
-                                Ptree.data = {t.Ptree.data with 
-                                                Data.root_at = where;}})
-                        run.trees
+                let set_root_at run code_opt =
+                    let tres = 
+                        Sexpr.map
+                            (fun t -> 
+                                {t with
+                                    Ptree.data = {t.Ptree.data with 
+                                                    Data.root_at = where;}})
+                            run.trees
+                    in
+                    { run with  data = { run.data with Data.root_at = where };
+                                trees = tres; }
                 in
-                { run with  data = { run.data with Data.root_at = where };
-                            trees = tres; }
+                (* we test that the where root is a taxon; why not an internal
+                   node? The tree search can be derived from a search, thus
+                   internal nodes are not consistent in each tree; except for
+                   leaves. *)
+                begin match where with
+                    | None   -> set_root_at run where
+                    | Some x ->
+                        if All_sets.IntegerMap.mem x run.data.Data.taxon_codes then
+                            set_root_at run where
+                        else
+                            let msg =
+                                "Terminal@ "^StatusCommon.escape (string_of_int x)^
+                                "@ not@ found.@ To@ set@ the@ root@ I@ must@ have"^
+                                "@ loaded@ some@ data@ for@ it.@ The@ assigned"^
+                                "@ root@ will@ remain@ unchanged."
+                            in
+                            let () = Status.user_message Status.Error msg in
+                            run
+                end
             | `RootName name ->
-                    if All_sets.StringMap.mem name run.data.Data.taxon_names then
-                        folder run 
-                        (`Root (Some (Data.taxon_code name run.data)))
-                    else
-                        let msg = 
-                            "Terminal@ " ^ StatusCommon.escape name ^ 
-                            "@ not@ found.@ To@ set@ the@ root@ I@ "
-                            ^ "must@ have@ loaded@ some@ data@ for@ it.@ "
-                            ^ "The@ assigned@ root@ " ^ 
-                            "will@ remain@ unchanged."
-                        in
-                        let () = Status.user_message Status.Error msg in
-                        run
+                if All_sets.StringMap.mem name run.data.Data.taxon_names then
+                    folder run (`Root (Some (Data.taxon_code name run.data)))
+                else
+                    let msg =
+                        "Terminal@ " ^ StatusCommon.escape name ^ "@ not@ "^
+                        "found.@ To@ set@ the@ root@ I@ must@ have@ loaded"^
+                        "@ some@ data@ for@ it.@ The@ assigned@ root@ will"^
+                        "@ remain@ unchanged."
+                    in
+                    let () = Status.user_message Status.Error msg in
+                    run
     in
     StatusCommon.Files.flush (); (* flush all open files *)
     res
@@ -4822,8 +4841,7 @@ module DNA = struct
     module Align = struct
         let algn s1 s2 cm =
             let s1', s2', c = 
-                Sequence.Align.align_2 ~first_gap:true s1 s2 cm
-                Matrix.default
+                Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
             in
             let median = Sequence.median_2 s1' s2' cm in
             s1', s2', c, median
@@ -4841,7 +4859,6 @@ module DNA = struct
         let algn_all = gen_algn_all algn 
 
         let algn_all_and_print = gen_algn_all algn_and_print
-
 
     end
 
