@@ -30,6 +30,8 @@ val epsilon   : float
 val minimum   : float
 (** [Minimum] Minimum for numerical calculations (2.0 * tolerance). *)
 
+val pi : float
+(** [pi] IEEE float closest to the true value of pi; (defined, 4.0 * atan 1.0) *)
 
 (** {6 Types} *)
 
@@ -78,9 +80,9 @@ val lngamma : float -> float
 val gamma_rates:
     float -> float -> int -> 
         (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t
-(** [gamma_rates alpha beta cats] -> rates takes alpha, beta gamma parameters
-    and number of categories to cut the gamma function into, and returns the mean
-    rates in those cuts of 1/cats parts. *)
+(** [gamma_rates alpha beta cats] -> rates takes alpha and beta parameters of
+    gamma and number of categories to cut the gamma function into, and returns
+    the mean rates in those cuts of 1/cats parts. *)
 
 val rand_normal : float -> float -> float
 (** [rand_normal m stdev] generate a random variable with a normal distribution
@@ -93,6 +95,16 @@ val rand_exp : float -> float
 val rand_gamma : float -> float -> float
 (** [rand_gamma shape scale] Generates a random variable with a gamma
     distribuation of the shape and scale parameters passed. *)
+
+val pnorm : ?mean:float -> ?sd:float -> float -> float
+(** Cumulative distribution function of the normal distribution; \Phi *)
+
+val dnorm : ?mean:float -> ?sd:float -> float -> float
+(** Density function for normal distribution function; \phi *)
+
+val qnorm : ?mean:float -> ?sd:float -> float -> float
+(** Quantile function for the normal distribution function; \Phi^{-1} *)
+
 
 (** {6 Statisical Objects *)
 
@@ -206,6 +218,7 @@ type opt_modes =
     | `Custom of optimization_strategy list ]
 
 val compare_opt_mode : opt_modes -> opt_modes -> int 
+(** Provides an ordering of optimization modes from least intense to more intense *)
 
 val default_numerical_optimization_strategy :
     opt_modes -> int -> optimization_strategy list

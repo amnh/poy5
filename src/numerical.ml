@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 2964 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 3033 $"
 
 let (-->) b a = a b
 
@@ -45,9 +45,12 @@ and pp_iarray xs =
 (** {6 Constants} *)
 
 let tolerance = 1e-6
+
 let epsilon   = 1e-10
+
 let minimum   = tolerance *. 2.0
 
+let pi = 4. *. atan 1.0
 
 (** {6 Floating Point Functions} *)
 
@@ -75,7 +78,7 @@ external gamma : float -> float = "gamma_CAML_gamma"
 external lngamma : float -> float = "gamma_CAML_lngamma"
 
 external gamma_rates: float -> float -> int ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t = 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t =
         "gamma_CAML_rates"
 
 external rand_normal : float -> float -> float = "gamma_CAML_randnormal"
@@ -83,6 +86,22 @@ external rand_normal : float -> float -> float = "gamma_CAML_randnormal"
 external rand_exp    : float -> float = "gamma_CAML_randexp"
 
 external rand_gamma  : float -> float -> float = "gamma_CAML_randgamma"
+
+(** Cumulative distribution function of the normal distribution; cdf; \Phi *)
+external pnorm : float -> float -> float -> float = "gamma_CAML_qnorm"
+let pnorm ?(mean=0.0) ?(sd=1.0) x =
+    pnorm x mean sd
+
+(** Density function for normal distribution function; pdf; \phi *)
+let dnorm ?(mean=0.0) ?(sd=1.0) x =
+    let x = ((x -. mean) /. sd)**2.0 in
+    1.0 /. (mean *. (sqrt (2.0 *. pi))) *. (exp x)
+
+(** Quantile function for the normal distribution function; invcdf; \Phi^{-1} *)
+external qnorm : float -> float = "gamma_CAML_qnorm"
+let qnorm ?(mean=0.0) ?(sd=1.0) p =
+    mean +. (sd *. (qnorm p))
+
 
 (** {6 Statistics Object} *)
 
