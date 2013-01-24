@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3034 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3038 $"
 
 module IntSet = All_sets.Integers
 
@@ -2161,7 +2161,7 @@ let rec handle_support_output run meth = match meth with
                 else begin
                     let trees = Array.map (fun x -> 0.0, x) trees in
                     match filename with
-                        | Some f -> GraphicsPs.display "" f trees
+                        | Some f -> GraphicsPs.display title f trees
                         | None   ->
                             let fo = Status.Output (filename,false, []) in
                             Array.iter
