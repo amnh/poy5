@@ -691,7 +691,7 @@ module CharacterSelection = struct
             let message, _ = 
                 All_sets.Strings.fold 
                     (fun item (str, cnt) ->
-                        if cnt = 0 then str ^ item, 1 else str ^ ",@ " ^ item, 1) 
+                        if cnt = 0 then str ^ item, 1 else str ^ ",@ " ^ item, 1)
                     (repeated)
                     (("The@ following@ items@ are@ duplicated@ in@ the@ " ^
                       StatusCommon.escape str ^ "@ " ^ StatusCommon.escape file ^":@ "), 0)
@@ -858,7 +858,7 @@ module CharacterSelection = struct
         | `Range (file,x,y) -> get_chars_codes data (transform_range_to_codes file x y)
         | `Names names ->
                 let names = 
-                    warn_if_repeated_and_choose_uniquely names "selected@ characters@ " ""
+                    warn_if_repeated_and_choose_uniquely names "selected characters " ""
                 in
                 let get_code acc name =
                     try (Hashtbl.find data.character_names name) :: acc 
@@ -1746,7 +1746,7 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
     let leafs = List.fold_left ~f:leaves ~init:[] tree in
     ignore
         (warn_if_repeated_and_choose_uniquely leafs 
-            ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ") file);
+            ("input tree " ^ string_of_int position ^ " of file ") file);
     let res = 
         List.fold_left ~f:(stop_if_not_all_terminals_in_tree)
                        ~init:data.taxon_names
@@ -3037,12 +3037,11 @@ let rec process_analyze_only_taxa meth data = match meth with
             res
     | `Names (dont_complement, taxa) ->
             let taxa = 
-                warn_if_repeated_and_choose_uniquely taxa 
-                "selected@ names" ""
+                warn_if_repeated_and_choose_uniquely taxa "selected names" ""
             in
-            let taxa = 
+            let taxa =
                 if not dont_complement then taxa
-                else complement_taxa data taxa 
+                else complement_taxa data taxa
             in
             let res = List.fold_left ~f:process_ignore_taxon ~init:data taxa in
             res
@@ -4856,7 +4855,7 @@ let process_analyze_only_characters_file report dont_complement data files =
                 let items = Parser.IgnoreList.of_channel ch in
                 close_in ch;
                 let items =
-                    warn_if_repeated_and_choose_uniquely items "characters@ file@ " x
+                    warn_if_repeated_and_choose_uniquely items "characters file " x
                 in
                 let codes = get_chars_codes data (`Names items) in
                 acc @ codes)
