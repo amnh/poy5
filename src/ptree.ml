@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3030 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3041 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -2256,14 +2256,14 @@ let get_handle_cost adjusted ptree handle_id =
     | `Unadjusted -> res.component_cost
     | `Adjusted -> res.adjusted_component_cost
 
-let get_leaves_ids ?(init=[]) root t =
-    pre_order_node_visit
-        (fun parent node_id acc -> match get_node node_id t with
-             | Tree.Leaf _ -> (Tree.Continue, node_id :: acc)
-             | _ -> (Tree.Continue, acc))
-        root t init
-
 let get_all_leaves_ids t =
+    let get_leaves_ids ?(init=[]) root t =
+        pre_order_node_visit
+            (fun parent node_id acc -> match get_node node_id t with
+                 | Tree.Single _ | Tree.Leaf _ -> (Tree.Continue, node_id :: acc)
+                 | _ -> (Tree.Continue, acc))
+            root t init
+    in
     All_sets.Integers.fold
         (fun h init -> get_leaves_ids ~init h t)
         t.tree.Tree.handles

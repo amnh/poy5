@@ -25,6 +25,8 @@
 * be taken to ensure that the data gets updated when handles move around in the
 * underlying rooted tree. *)
 
+(** {2 Types to define data attached to a tree topology **)
+
 type id = Tree.id
 (** polymorphic variant to distinguish handles from ids. *)
 
@@ -39,21 +41,27 @@ type clade_cost = NoCost | Cost of float
 (** The cost of pruning a clade. *)
 
 type node = Tree.node
+(** Define a node in a tree *)
 
 type edge = Tree.edge
 (** The tree node and tree edge which are the node and edge types of the
-* underlying unrooted tree. *)
+    underlying unrooted tree. *)
 
 type t_status = Tree.t_status
 (** The traversal status. See Tree.t_status *)
 
 type 'a root_node = ([ `Edge of (int * int) | `Single of int ] * 'a) option
+(** define a root node and data attached to it *)
 
 type 'a root = {
     root_median : 'a root_node;
+    (** defines where in the tree and the data attached to the root *)
     component_cost : float;
+    (** Unadjusted/Adjusted Cost of the root *)
     adjusted_component_cost : float;
+    (** Adjusted Cost of the root for the tree *)
 }
+(** Defines aspects of a root; the cost, data attached to the tree and location *)
 
 type ('a, 'b) p_tree = {
     data : Data.d;
@@ -67,6 +75,7 @@ type ('a, 'b) p_tree = {
 type cost_type = [ `Adjusted | `Unadjusted ]
 
 val get_cost : cost_type -> ('a, 'b) p_tree -> float
+(** return the adjusted or unadjusted cost of the tree *)
 
 val get_data : ('a, 'b) p_tree -> Data.d
 (** Get the data of the tree *)
@@ -76,6 +85,7 @@ val set_data : ('a, 'b) p_tree -> Data.d -> ('a, 'b) p_tree
     further need a full downpass-uppass *)
 
 val set_origin_cost : float -> ('a, 'b) p_tree -> ('a, 'b) p_tree
+(** set the origin cost in the tree *)
 
 type phylogeny = (Node.node_data, unit) p_tree
 (** The phylogentic tree (p_tree). 'a and 'b are node and edge data types. *)
@@ -120,12 +130,8 @@ type ('a, 'b) break_fn =
     and finally the node that was the root of the clade. *)
     
 type ('a, 'b) join_fn =   
-    ('a, 'b ) nodes_manager option -> 
-    incremental list ->
-    Tree.join_jxn ->
-    Tree.join_jxn ->
-    ('a, 'b) p_tree ->
-    (('a, 'b) p_tree * Tree.join_delta)
+    ('a, 'b ) nodes_manager option -> incremental list -> Tree.join_jxn ->
+        Tree.join_jxn -> ('a, 'b) p_tree -> (('a, 'b) p_tree * Tree.join_delta)
 (** type of function that performs a join of the clade and the tree. It takes as
     input the join jxns in the tree and the clade, the change in tree topology due
     to the pruning of the clade from the tree and returns the tree with the clade
@@ -193,28 +199,24 @@ class type ['a, 'b] wagner_edges_mgr = object
     method exclude : Tree.edge list -> unit
 end
 
-  class type ['a, 'b] wagner_mgr =
-    object
-        method any_trees : bool
-        method clone : ('a, 'b) wagner_mgr
-        method init : 
-            (('a, 'b) p_tree * float * clade_cost * 
-                ('a, 'b) wagner_edges_mgr) list -> unit
-        method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
-        method process :
-            ('a, 'b) cost_fn -> ('a,'b) nodes_manager option -> float -> 'a ->
-                ('a, 'b) join_fn -> Tree.join_jxn -> Tree.join_jxn ->
-                    ('a, 'b) p_tree -> ('a, 'b) wagner_edges_mgr -> t_status
-        method evaluate : unit
-        method results : (('a, 'b) p_tree * float) list
-    end
-
+class type ['a, 'b] wagner_mgr = object
+    method any_trees : bool
+    method clone : ('a, 'b) wagner_mgr
+    method init :
+        (('a, 'b) p_tree * float * clade_cost * ('a, 'b) wagner_edges_mgr) list
+            -> unit
+    method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
+    method process :
+        ('a, 'b) cost_fn -> ('a,'b) nodes_manager option -> float -> 'a ->
+            ('a, 'b) join_fn -> Tree.join_jxn -> Tree.join_jxn ->
+                ('a, 'b) p_tree -> ('a, 'b) wagner_edges_mgr -> t_status
+    method evaluate : unit
+    method results : (('a, 'b) p_tree * float) list
+end
 
 class type ['a, 'b] tabu_mgr = object
-
     method clone : ('a, 'b) tabu_mgr
     (** Function to create a deep-copy of the tabu. *)
-        
     method break_edge : Tree.edge option
     method break_distance : float -> unit
     method features : (string * string) list -> (string * string) list
@@ -225,7 +227,6 @@ class type ['a, 'b] tabu_mgr = object
     method update_join : ('a, 'b) p_tree -> Tree.join_delta -> unit
     method break_edges : Tree.edge list
     method get_node_manager : ('a, 'b) nodes_manager option
-
 end 
 
 (** The search manager object that parameterizes the search. This
@@ -414,8 +415,6 @@ module type SEARCH = sig
 
 end
     
-val int_of_id : Tree.id -> int
-val get_id : Tree.node -> int
 val is_handle : int -> ('a, 'b) p_tree -> bool
 val is_edge : Tree.edge -> ('a, 'b) p_tree -> bool
 val get_node_id : int -> ('a, 'b) p_tree -> Tree.id
@@ -431,16 +430,34 @@ val get_parent : int -> ('a, 'b) p_tree -> int
 val other_two_nbrs : int -> Tree.node -> int * int
 val get_nodes : ('a, 'b) p_tree -> Tree.node list
 val get_pre_order_edges : int -> ('a, 'b) p_tree -> edge list
+
+(** [get_edges_tree t] return all the edges of the tree *)
 val get_edges_tree : ('a, 'b) p_tree -> edge list
+
+(** [get_node_ids t] return all the nodes in the tree; single, interior, leaf *)
 val get_node_ids : ('a, 'b) p_tree -> int list
-val add_node_data : int -> 'a -> ('a, 'b) p_tree -> ('a, 'b) p_tree
-val add_edge_data : Tree.EdgeMap.key -> 'a -> ('b, 'a) p_tree -> ('b, 'a) p_tree
+
+(** [add_node_data i d t] attach data to a tree node *)
+val add_node_data : id -> 'a -> ('a, 'b) p_tree -> ('a, 'b) p_tree
+
+(** [add_edge_data e d t] attach data to a tree edge *)
+val add_edge_data : edge -> 'a -> ('b, 'a) p_tree -> ('b, 'a) p_tree
+
+(** [remove_node_data i t] remove the data attached to a node *)
 val remove_node_data : int -> ('a, 'b) p_tree -> ('a, 'b) p_tree
-val print_node_data_keys : ('a, 'b) p_tree -> unit
-val remove_edge_data : Tree.EdgeMap.key -> ('a, 'b) p_tree -> ('a, 'b) p_tree
-val get_node_data : int -> ('a, 'b) p_tree -> 'a
-val get_edge_data : Tree.EdgeMap.key -> ('a, 'b) p_tree -> 'b
+
+(** [remove_edge_data e t] remove the data attached to the edge *)
+val remove_edge_data : edge -> ('a, 'b) p_tree -> ('a, 'b) p_tree
+
+(** [get_node_data i t] return the data attached to the node *)
+val get_node_data : id -> ('a, 'b) p_tree -> 'a
+
+(** [get_edge_data e t] return the data attached to the passed edge *)
+val get_edge_data : edge -> ('a, 'b) p_tree -> 'b
+
+(** [handle_of i] return the handle that deals with this passed node *)
 val handle_of : id -> ('a, 'b) p_tree -> id
+
 val create_partition : ('a, 'b) p_tree -> Tree.edge -> All_sets.Integers.t * All_sets.Integers.t
 
 (* return the robinson foulds distance between two trees *)
@@ -455,9 +472,20 @@ val get_all_leaves : ('a, 'b) p_tree -> 'a list
 (** [get_all_leaves tree] returns a list of all the leaves in [tree] *)
 val get_all_leaves_ids : ('a, 'b) p_tree -> int list
 
-val move_handle : int -> ('a, 'b) p_tree -> ('a, 'b) p_tree * int list
+(** [move_handle i t] moves the handle to i, the handle already of i is removed
+    and a 'delta' (path) is returned along with the tree *)
+val move_handle : id -> ('a, 'b) p_tree -> ('a, 'b) p_tree * int list
+
+
+(** {6 Traversal Function *)
+
+(** [pre-order-node-visit f i t] traverse the tree in a pre-order fashion via a
+    node visiting function that takes a parent, node, and accumulator *)
 val pre_order_node_visit :
   (int option -> int -> 'a -> Tree.t_status * 'a) -> int -> ('b, 'c) p_tree -> 'a -> 'a
+
+(** [post-order-node-visit f i t] traverse the tree in a post-order fashion via
+    a node visiting function that takes a parent, node, and accumulator *)
 val post_order_node_visit :
   (int option -> int -> 'a -> Tree.t_status * 'a) -> int -> ('b, 'c) p_tree -> 'a -> 'a
 
