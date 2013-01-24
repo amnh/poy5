@@ -1173,57 +1173,39 @@ elt_return_shared_states(elt_p ep1, elt_p ep2, int * samestates) {
 
 //return the extra cost by adding a root if the root share states with its
 //left/right child, but cost between same states is non-zero.
-#ifdef _win32
-__inline int
-#else
-inline int
-#endif
+int
 sankoff_elt_get_extra_cost_for_root(elt_p eproot,int * tcm) {
-    int debug = 0;
     int * leftchildstates = eproot->leftstates;
     int * rightchildstates = eproot->rightstates;
     int cost=0, beststate=0;
     int num_states = eproot->num_states;
     sankoff_get_min_state(eproot,&cost,&beststate);
     assert(beststate<num_states);
+
     int beststateleft = leftchildstates[beststate];
     int beststateright = rightchildstates[beststate];
-    int extra_cost_left=0, extra_cost_right=0;
+
+    int extra_cost=0;
     if (beststateleft==beststate) {
-        extra_cost_left = sankoff_return_value(tcm,num_states,num_states,beststate,beststateleft);
+        extra_cost = sankoff_return_value(tcm,num_states,num_states,beststate,beststateleft);
+    } else if (beststateright==beststate) {
+        extra_cost = sankoff_return_value(tcm,num_states,num_states,beststate,beststateright);
     }
-    if (beststateright==beststate) {
-        extra_cost_right = sankoff_return_value(tcm,num_states,num_states,beststate,beststateright);
-    }
-    if (debug) {
-        printf("sankoff_elt_get_extra_cost_for_root,beststate = Root:%d,Left:%d,Right:%d\n",
-                beststate,beststateleft,beststateright); }
-    return (extra_cost_right + extra_cost_left);
+    return (extra_cost);
 }
 
-#ifdef _win32
-__inline int
-#else
-inline int
-#endif
+int
 sankoff_get_extra_cost_for_root(eltarr_p eapRoot) {
-    int debug = 0;
-    if (debug) { printf("sankoff_get_extra_cost_for_root,nodeRoot:\n"); }
     int acc=0;
     int i;
     int num_elts = eapRoot->num_elts;
     int iside = eapRoot->is_identity;
-    if (iside==1){
-        if (debug) { printf("\tis_identity, 0.0 cost\n"); }  
-        return 0;
-    } else {
+    if (!(iside==1)){
         for (i=0;i<num_elts;i++) {
             acc = acc + sankoff_elt_get_extra_cost_for_root(&((eapRoot->elts)[i]),eapRoot->tcm);
-            if(debug){ printf("\tacc += %d,\n",acc); }
         }
-        if (debug) { printf("return extra cost for root = %d\n",acc); }
-        return acc;
     }
+    return acc;
 }
 
 //Calculates array m -- the extra cost when joining a new branch/node R to existing
