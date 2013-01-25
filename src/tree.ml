@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 2710 $"
+let () = SadmanOutput.register "Tree" "$Revision: 3042 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -2320,19 +2320,20 @@ let fuse_locations ?(filter=fun _ -> true) sources (taux, target) =
     let source_fps =
         let folder map tree = tree_fps_map_withaux ~map tree in
         List.fold_left folder CladeFPMap.empty sources in
-    let locations = CladeFPMap.fold
-        (fun key value sexpr ->
-             try
-                 let _, tedge = match value with
-                 | [e] -> e
-                 | _ -> failwith "Tree.fuse_locations.locations" in
-
-                 let value = CladeFPMap.find key source_fps in
-                 if filter (key, CladeFP.num_leaves key)
-                 then (`Single ((taux, target, tedge)
-                                :: value)) :: sexpr
-                 else sexpr
-             with Not_found -> sexpr) target_fps [] in
+    let locations =
+        CladeFPMap.fold
+            (fun key value sexpr ->
+                try let _, tedge = match value with
+                        | [e] -> e
+                        | _ -> failwith "Tree.fuse_locations.locations"
+                    in
+                    let value = CladeFPMap.find key source_fps in
+                    if filter (key, CladeFP.num_leaves key)
+                        then (`Single ((taux, target, tedge) :: value)) :: sexpr
+                        else sexpr
+                with Not_found -> sexpr)
+            target_fps []
+    in
     match locations with
     | [] -> `Empty
     | l -> `Set l
@@ -2357,34 +2358,24 @@ let exchange_codes a b tree =
             add_edge (Edge (a, next)) tree
     in
     let map_quadruple (u, v, w, x) a b =
-        if debug_fusing then
-            Printf.fprintf stderr "Started with %d, %d, %d, %d\n%!" u v w x;
-        let exchange x = 
-            if x = b then a
-            else if x = a then b
-            else x
-        in
-        let u = exchange u 
-        and v = exchange v 
-        and w = exchange w
-        and x = exchange x in
-        if debug_fusing then
-            Printf.fprintf stderr "Ended with %d, %d, %d, %d\n%!" u v w x;
+        let exchange x = if x = b then a else if x = a then b else x in
+        let u = exchange u and v = exchange v 
+        and w = exchange w and x = exchange x in
         (u, v, w, x)
     in
     let replace_neighbor org_tree node prev next tree =
         assert (prev <> node);
         match get_node node org_tree with
-        | Leaf (x, y) -> 
-                assert (x = node);
-                assert (y = prev);
-                tree 
+        | Leaf (x, y) ->
+            assert (x = node);
+            assert (y = prev);
+            tree
                 --> remove_node node
                 --> replace_edge org_tree node prev next
                 --> add_node (Leaf (x, next))
         | Single _ -> assert false
         | Interior (u, v, w, x) ->
-                tree 
+            tree
                 --> remove_node node
                 --> replace_edge org_tree node prev next
                 --> add_node (Interior (map_quadruple (u, v, w, x) prev next))
@@ -2392,104 +2383,99 @@ let exchange_codes a b tree =
     let replace_handles a b tree =
         if is_handle a tree || is_handle b tree then
             if not (is_handle a tree && is_handle b tree) then
-                let proc_handle x y = 
-                    tree --> remove_handle x --> add_handle y
-                in
-                if is_handle a tree then proc_handle a b
-                else proc_handle b a
+                let proc_handle x y = tree --> remove_handle x --> add_handle y in
+                if is_handle a tree
+                    then proc_handle a b
+                    else proc_handle b a
             else tree
         else tree
     in
     if a = b then tree
     else
         let pick_to_do f ow c t = if c then f t else ow t in
-        let verify_shared_neighs a b c x = 
+        let verify_shared_neighs a b c x =
             Printf.fprintf stderr "Verifying %d %d %d %d\n%!" a b c x;
-            x <> a && x <> b && x <> c 
+            x <> a && x <> b && x <> c
         in
         let an = get_node a tree in
         if All_sets.IntegerMap.mem b tree.u_topo then
             let bn = get_node b tree in
-            (* Both are valid codes and we must exchange their respective codes
-            * *)
+            (* Both are valid codes and we must exchange their respective codes *)
             match an, bn with
             | Single _, _
             | _, Single _
             | Leaf _, _
             | _, Leaf _ -> failwith "Illegal argument"
             | Interior ((_, n, o, p) as h), Interior ((_, r, s, t) as i) ->
-                    (* We have to first check if the two vertices are neighbors, if yes
-                    * we better do something different or things will be just incorrect *)
-                    assert (a <> b);
-                    assert (a <> n);
-                    assert (a <> o);
-                    assert (a <> p);
-                    assert (b <> r);
-                    assert (b <> s);
-                    assert (b <> t);
-                    assert (verify_edge (Edge (b, r)) tree);  
-                    assert (verify_edge (Edge (b, s)) tree);  
-                    assert (verify_edge (Edge (b, t)) tree);  
-                    assert (verify_edge (Edge (a, n)) tree);  
-                    assert (verify_edge (Edge (a, o)) tree);  
-                    assert (verify_edge (Edge (a, p)) tree);  
-                    let res =
-                    try
-                        let (Edge (x, y)) as e = normalize_edge (Edge (a, b)) tree in
-                        let a_n1, a_n2 = other_two_nbrs b an in
-                        let b_n1, b_n2 = other_two_nbrs a bn in
-                        tree
+                (* We have to first check if the two vertices are neighbors, if yes
+                * we better do something different or things will be just incorrect *)
+                assert (a <> b);
+                assert (a <> n);
+                assert (a <> o);
+                assert (a <> p);
+                assert (b <> r);
+                assert (b <> s);
+                assert (b <> t);
+                assert (verify_edge (Edge (b, r)) tree);  
+                assert (verify_edge (Edge (b, s)) tree);  
+                assert (verify_edge (Edge (b, t)) tree);  
+                assert (verify_edge (Edge (a, n)) tree);  
+                assert (verify_edge (Edge (a, o)) tree);  
+                assert (verify_edge (Edge (a, p)) tree);  
+                try
+                    let (Edge (x, y)) as e = normalize_edge (Edge (a, b)) tree in
+                    let a_n1, a_n2 = other_two_nbrs b an in
+                    let b_n1, b_n2 = other_two_nbrs a bn in
+                    tree
                         --> remove_edge e
                         --> remove_node a
-                        --> remove_node b 
+                        --> remove_node b
                         --> replace_neighbor tree a_n1 a b
                         --> replace_neighbor tree a_n2 a b
                         --> replace_neighbor tree b_n1 b a
                         --> replace_neighbor tree b_n2 b a
                         --> add_node (Interior (map_quadruple h a b))
                         --> add_node (Interior (map_quadruple i a b))
-                        --> add_edge ~force:true (Edge (y, x)) 
+                        --> add_edge ~force:true (Edge (y, x))
                         --> replace_handles a b
-                    with Invalid_Edge ->
-                        (* OK they are not neighbors, let's keep going with the standard
-                        * replacement *)
-                        tree 
-                        --> remove_node b 
+                with Invalid_Edge ->
+                    (* OK they are not neighbors, let's keep going with the standard
+                    * replacement *)
+                    tree
+                        --> remove_node b
                         --> remove_node a
                         --> remove_edge (Edge (n, a))
                         --> remove_edge (Edge (r, b))
-                        --> add_node (Interior (map_quadruple h a b)) 
+                        --> add_node (Interior (map_quadruple h a b))
                         --> add_node (Interior (map_quadruple i a b))
-                        --> replace_neighbor tree n a b 
+                        --> replace_neighbor tree n a b
                         --> replace_neighbor tree o a b
                         --> replace_neighbor tree p a b
-                        --> pick_to_do (replace_neighbor tree r b a) 
-                            (fun x -> x)
-                            (verify_shared_neighs n o p r)
+                        --> pick_to_do (replace_neighbor tree r b a)
+                                       (fun x -> x)
+                                       (verify_shared_neighs n o p r)
                         --> pick_to_do (replace_neighbor tree s b a)
-                            (add_edge (Edge (a, s)))
-                            (verify_shared_neighs n o p s)
+                                       (add_edge (Edge (a, s)))
+                                       (verify_shared_neighs n o p s)
                         --> pick_to_do (replace_neighbor tree t b a)
-                            (add_edge (Edge (a, t)))
-                            (verify_shared_neighs n o p t)
+                                       (add_edge (Edge (a, t)))
+                                       (verify_shared_neighs n o p t)
                         --> add_edge (Edge (r, a))
                         --> add_edge (Edge (n, b))
                         --> replace_handles a b
-                    in
-                    res
         else
             match an with
             | Single _
             | Leaf _ -> failwith "Illegal argument"
             | Interior ((_, x, y, z) as h) ->
-                    tree 
+                tree
                     --> remove_node a
                     --> remove_edge (Edge (x, a))
                     --> remove_edge (Edge (a, x))
                     --> add_node (Interior (map_quadruple h a b))
                     --> replace_neighbor tree x a b
                     --> replace_neighbor tree y a b
-                    --> replace_neighbor tree z a b 
+                    --> replace_neighbor tree z a b
                     --> replace_handles a b
 
 let exchange_codes a b tree = 
