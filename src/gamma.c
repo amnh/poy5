@@ -655,20 +655,24 @@ double point_normal( double p ){
     };
   
     q = p - 0.5;
-    if (fabs(q) <= 0.425)
-        return point_normal_eq( a, b, (0.180625-q*q), q);
+    if (fabs(q) <= 0.425){
+        // p=0.25 --> -0.6744897501960817
+        ppnd = point_normal_eq(a, b, (0.180625-q*q), q);
+    } else {
+        r = (q < 0.0)? p : 1.0 - p;
+        printf("R: %f\tP: %f\tQ: %f\n", r, p, q);
+        assert(r >= 0.0);
+        r = sqrt(-log(r));
+        if (r <= 5.0){
+            //p=0.001 --> -3.090232306167814
+            ppnd = point_normal_eq( c, d, (r-1.6), 1.0);
+        } else {
+            //p=1e-20 --> -9.26234008979840517
+            ppnd = point_normal_eq( e, f, (r-5.0), 1.0);
+        }
 
-    r = p;
-    if (q >= 0.0) r = 1.0 - r;
-    if (r <= 0.0) return 0.0;
-
-    r = sqrt(-log(r));
-    if (r <= 0.5)
-        ppnd = point_normal_eq( c, d, (r-1.6), 1.0);
-    else
-        ppnd = point_normal_eq( e, f, (r-0.5), 1.0);
-
-    if (q < 0.0) ppnd = -ppnd;
+        if (q < 0.0) ppnd = -ppnd;
+    }
     return ppnd;
 }
 
