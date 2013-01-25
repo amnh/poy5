@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "GraphicsPs" "$Revision: 2684 $"
+let () = SadmanOutput.register "GraphicsPs" "$Revision: 3040 $"
 
 module Pdf : GraphTree.GRAPHICS_TYPE with type display = Graphicpdf.display = struct
     type display = Graphicpdf.display
@@ -79,29 +79,30 @@ let draw_diagnosis prefix display title t =
 let display title filename all_trees = 
     (* A function to concatenate files, appending the contents of inch
     * to outch *)
-    Array.iter (fun (_, t) ->
-        d := 0;
-        let max_leaves = !num_leaves in
-        num_leaves := 0;
-        GraphTreePs.calc_depth_leaves t d max_depth num_leaves longest_name;
-        if !num_leaves < max_leaves then num_leaves := max_leaves;
-    )
-    all_trees;
+    Array.iter
+        (fun (_, t) ->
+            d := 0;
+            let max_leaves = !num_leaves in
+            num_leaves := 0;
+            GraphTreePs.calc_depth_leaves t d max_depth num_leaves longest_name;
+            if !num_leaves < max_leaves then num_leaves := max_leaves;)
+        all_trees;
     (* Print each tree in a temporary file *)
-    let filename = 
-        (try Filename.chop_extension filename with
-        | _ -> filename) ^ ".pdf"
+    let filename =
+        (try Filename.chop_extension filename with | _ -> filename) ^ ".pdf"
     in
     let display = ref (Ps.open_file filename) in
     let len = Array.length all_trees in
-    Array.iteri (fun pos (cost, t) ->
-        let title = 
-            if "" = title then Printf.sprintf "Tree Cost: %.3f" cost
-            else title
-        in
-        display := draw_file !display title t;
-        if pos < len - 1 then 
-            display := Ps.add_page !display) all_trees;
+    Array.iteri
+        (fun pos (cost, t) ->
+            let title = 
+                if "" = title then Printf.sprintf "Tree Cost: %.3f" cost
+                else title
+            in
+            display := draw_file !display title t;
+            if pos < len - 1 then 
+                display := Ps.add_page !display)
+        all_trees;
     Ps.close_graph !display;
     reset ()
 
@@ -148,30 +149,32 @@ let display_node prefix display node =
     in
     let one_attribute (name, contents) =
         if name = "Name" && None = !node_name then
-            node_name := Some (Xml.value_to_string contents)
-        else ();
+            node_name := Some (Xml.value_to_string contents);
         name ^ " = \"" ^ Xml.value_to_string contents ^ "\" "
     in
-    let make_attributes attributes = 
+    let make_attributes attributes =
         String.concat " " (List.map one_attribute attributes)
     in
     let add_contents = add_name (0., 0.) in
     let rec aux_print_it_all acc (name, attributes, children) =
         let acc = add_name (10., -10.) acc name in
         let acc = translate curr_width height width acc (10., -.10.) in
-        let acc = add_name (0., 0.) acc (make_attributes attributes)  in
+        let acc = add_name (0., 0.) acc (make_attributes attributes) in
         let acc = translate curr_width height width acc (0., -.10.) in
-        let acc =
-            match children with
+        let acc = match children with
             | #Xml.unstructured as v -> add_contents acc (Xml.value_to_string v)
             | #Xml.structured as v ->
-                    (match v with
+                begin match v with
                     | `Empty -> acc
                     | `Single x -> aux_print_it_all acc x
-                    | `Set x -> List.fold_left (fun acc x -> 
-                            Sexpr.fold_left (aux_print_it_all) acc x) acc x
+                    | `Set x ->
+                        List.fold_left
+                            (fun acc x ->
+                                Sexpr.fold_left (aux_print_it_all) acc x)
+                            acc x
                     | `Delayed x ->
-                            Sexpr.fold_left (aux_print_it_all) acc (x ()))
+                        Sexpr.fold_left (aux_print_it_all) acc (x ())
+                end
             | `CDATA _ -> failwith "GraphPS can't handle CDATA yet"
         in
         translate curr_width height width acc (-.20., 0.)
@@ -179,40 +182,44 @@ let display_node prefix display node =
     let trans = (0., (-1.) *. (!height +. 20.) ) in
     let ops = aux_print_it_all [] node in
     let ops = translate curr_width height width (List.rev ops) trans in
-    let display = 
-        { display with Graphicpdf.page_text = ops; max_x = !width; 
-        max_y = (!height); current_x = !width; current_y = !height} in
+    let display =
+        { display with
+            Graphicpdf.page_text = ops;
+            max_x = !width;
+            max_y = !height;
+            current_x = !width;
+            current_y = !height; }
+    in
     match !node_name with
-    | None -> display 
-    | Some name ->
-            Graphicpdf.add_reference display (0., (-.1.) *. !height) (prefix ^ ":"
-            ^ name)
+    | None -> display
+    | Some name -> Graphicpdf.add_reference display (0., (-.1.) *. !height)
+                                            (prefix ^ ":" ^ name)
 
 
 let display_diagnosis title filename all_trees = 
     (* A function to concatenate files, appending the contents of inch
     * to outch *)
     let all_trees = Array.of_list (Sexpr.to_list all_trees) in
-    Array.iter (fun t ->
-        d := 0;
-        let max_leaves = !num_leaves in
-        num_leaves := 0;
-        GraphTreePs.calc_depth_leaves_diag t d max_depth num_leaves longest_name;
-        if !num_leaves < max_leaves then num_leaves := max_leaves;
-    )
-    all_trees;
+    Array.iter
+        (fun t ->
+            d := 0;
+            let max_leaves = !num_leaves in
+            num_leaves := 0;
+            GraphTreePs.calc_depth_leaves_diag t d max_depth num_leaves longest_name;
+            if !num_leaves < max_leaves then num_leaves := max_leaves;)
+        all_trees;
     (* Print each tree in a temporary file *)
-    let filename = 
-        (try Filename.chop_extension filename with
-        | _ -> filename) ^ ".pdf"
+    let filename =
+        (try Filename.chop_extension filename with | _ -> filename) ^ ".pdf"
     in
     let display = ref (Ps.open_file filename) in
     let len = Array.length all_trees in
-    Array.iteri (fun pos t ->
-        let prefix = "tree" ^ (string_of_int pos) in
-        let new_display, nodes = draw_diagnosis prefix !display "" t in
-        display := List.fold_left (display_node prefix) new_display nodes;
-        if pos < len - 1 then 
-            display := Ps.add_page !display) all_trees;
+    Array.iteri
+        (fun pos t ->
+            let prefix = "tree" ^ (string_of_int pos) in
+            let new_display, nodes = draw_diagnosis prefix !display "" t in
+            display := List.fold_left (display_node prefix) new_display nodes;
+            if pos < len - 1 then display := Ps.add_page !display)
+        all_trees;
     Ps.close_graph !display;
     reset ()
