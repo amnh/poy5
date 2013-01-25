@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3030 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3042 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -1761,8 +1761,7 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
         done; 
         !trees 
     in
-    let keeper new_trees source target trees' = 
-        match tree_keep with
+    let keeper new_trees source target trees' = match tree_keep with
         | `Best ->
             let old_trees = source :: target :: trees' in
             limit_num (List.rev_append new_trees old_trees)
@@ -1809,8 +1808,8 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
             List.hd items, 1, List.tl weights, List.tl items
     in
     let module FPSet = Set.Make (Tree.Fingerprint) in
-    let rec gen fp trees iter = 
-        if iter > iterations then trees 
+    let rec gen fp trees iter =
+        if iter > iterations then trees
         else begin
             let trees = limit_num trees in
             Status.full_report ~adv:iter status;
@@ -1821,11 +1820,11 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
             let wsum = List.fold_left (+.) 0. weights in
             let target, tnum, weights, trees' =
                 choose_remove (Random.float wsum) weights trees' in
-(*            let msg =*)
-(*                Printf.sprintf "tree #%d [%f] -> tree #%d [%f]"*)
-(*                               snum (get_cost `Adjusted (fst source))*)
-(*                               tnum (get_cost `Adjusted (fst target))*)
-(*            in*)
+            let msg =
+                Printf.sprintf "tree #%d [%f] -> tree #%d [%f]"
+                               snum (get_cost `Adjusted (fst source))
+                               tnum (get_cost `Adjusted (fst target))
+            in
             let locations = fuse_all_locations ~min:cmin ~max:cmax [source; target] in
             (* let location = Sexpr.choose_random locations in *)
             let process_location location = match location with
@@ -1835,15 +1834,15 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
                         | ((tree,_), _, _) when tree == (fst target) -> t1, t2
                         | _ -> assert false in
                     let new_tree,a3 = fuse t1 t2 terminals in
-(*                    Status.full_report *)
-(*                        ~msg:(msg ^ ": tree with cost " ^ string_of_float (get_cost `Adjusted new_tree))*)
-(*                        status;*)
+                    Status.full_report 
+                        ~msg:(msg ^ ": tree with cost " ^ string_of_float (get_cost `Adjusted new_tree))
+                        status;
                     (new_tree,a3)
                 | _ -> assert false
             in
             let new_tree, _ =
-                Sexpr.fold_left 
-                    (fun ((res,cost) as acc) x -> 
+                Sexpr.fold_left
+                    (fun ((res,cost) as acc) x ->
                         let new_tree = process_location x in
                         let new_cost = get_cost `Adjusted (fst new_tree) in
                         if new_cost <  cost then Some new_tree, new_cost
@@ -2256,14 +2255,14 @@ let get_handle_cost adjusted ptree handle_id =
     | `Unadjusted -> res.component_cost
     | `Adjusted -> res.adjusted_component_cost
 
-let get_leaves_ids ?(init=[]) root t =
-    pre_order_node_visit
-        (fun parent node_id acc -> match get_node node_id t with
-             | Tree.Leaf _ -> (Tree.Continue, node_id :: acc)
-             | _ -> (Tree.Continue, acc))
-        root t init
-
 let get_all_leaves_ids t =
+    let get_leaves_ids ?(init=[]) root t =
+        pre_order_node_visit
+            (fun parent node_id acc -> match get_node node_id t with
+                 | Tree.Single _ | Tree.Leaf _ -> (Tree.Continue, node_id :: acc)
+                 | _ -> (Tree.Continue, acc))
+            root t init
+    in
     All_sets.Integers.fold
         (fun h init -> get_leaves_ids ~init h t)
         t.tree.Tree.handles
@@ -2431,9 +2430,14 @@ let build_a_tree to_string denominator print_frequency coder trees ((set,cnt) : 
         | [] -> failwith "Tree.consensus2"
         | [all_trees] -> all_trees
         |  all_trees  ->
+            let x = cnt /. denominator in
+            let prec = Str.string_match (Str.regexp ".*\\.[0-9]+")
+                                        (Printf.sprintf "%F" x) 0 in
             let msg =
-                if print_frequency
-                    then Printf.sprintf "%0.4F" (cnt /. denominator)
+                if print_frequency && prec
+                    then Printf.sprintf "%0.4f" x
+                else if print_frequency
+                    then Printf.sprintf "%0.F" x
                     else ""
             in
             let all_trees = List.map (Tree.Parse.strip_tree) all_trees in

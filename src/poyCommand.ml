@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3034 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3041 $"
 
 let debug = false 
 
@@ -1676,25 +1676,24 @@ let create_expr () =
                     match y with
                     | Some (`Collapse y) -> `Ascii y
                     | None -> `Ascii true ] |
-                [ LIDENT "memory" -> `Memory ] | 
-                [ LIDENT "graphtrees"; y = OPT optional_collapse -> 
+                [ LIDENT "memory" -> `Memory ] |
+                [ LIDENT "graphtrees"; y = OPT optional_collapse ->
                     match y with
-                    | Some (`Collapse y) -> `Graph y
-                    | None -> `Graph true ] |
-                [ LIDENT "trees"; x = OPT tree_information_list -> 
-                    match x with
-                    | Some x -> `Trees x | None -> `Trees [] ] |
+                        | Some (`Collapse y) -> `Graph y
+                        | None -> `Graph true ] |
+                [ LIDENT "trees"; x = OPT tree_information_list ->
+                    match x with | Some x -> `Trees x | None -> `Trees [] ] |
                 [ LIDENT "treestats" -> `TreesStats ] |
                 [ LIDENT "searchstats" -> `SearchStats ] |
                 [ LIDENT "treecosts" -> `TreeCosts ] |
 (*                [ LIDENT "kolmo_machine" -> `KolmoMachine ] |*)
                 [ LIDENT "timer"; ":"; x = STRING -> `TimeDelta x ] |
-                [ LIDENT "_mst" -> `MstR ] | 
-                [ LIDENT "consensus"; x = OPT optional_integer_or_float -> 
-                    `Consensus 
-                    (match x with
-                    | None -> None 
-                    | Some x -> Some (float_of_string x)) ] | 
+                [ LIDENT "_mst" -> `MstR ] |
+                [ LIDENT "consensus"; x = OPT optional_integer_or_float ->
+                    `Consensus
+                        (match x with
+                            | None -> None
+                            | Some x -> Some (float_of_string x)) ] |
                 [ LIDENT "graphconsensus"; x = OPT optional_integer_or_float -> 
                     `GraphicConsensus 
                     (match x with
@@ -1718,18 +1717,14 @@ let create_expr () =
                 [ LIDENT "ri" -> `Ri None ] |
                 [ LIDENT "compare"; ":"; left_parenthesis; complement = boolean;
                     ","; ch1 = old_identifiers; ","; ch2 = old_identifiers;
-                    right_parenthesis ->
-                        `CompareSequences (complement, ch1, ch2) ] |
+                    right_parenthesis -> `CompareSequences (complement, ch1, ch2) ] |
                 [ LIDENT "script_analysis"; ":"; x = STRING -> `ExplainScript x ] |
                 [ LIDENT "supports"; y = OPT opt_support_names -> `Supports y ] |
-                [ LIDENT "graphsupports"; y = OPT opt_support_names -> 
-                    `GraphicSupports y ] |
-                [ LIDENT "diagnosis"; y = OPT opt_report_type ->
-                    match y with 
+                [ LIDENT "graphsupports"; y = OPT opt_support_names -> `GraphicSupports y ] |
+                [ LIDENT "diagnosis"; y = OPT opt_report_type -> match y with 
                     | None -> `Diagnosis `Normal
                     | Some x -> `Diagnosis x] |
-                [ LIDENT "graphdiagnosis";  y = OPT opt_report_type ->
-                    match y with
+                [ LIDENT "graphdiagnosis";  y = OPT opt_report_type -> match y with
                     | None -> `GraphicDiagnosis `Normal
                     | Some x -> `GraphicDiagnosis x ] |
                 [ LIDENT "data" -> `Data ] |
