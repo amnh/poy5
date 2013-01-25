@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 3030 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 3040 $"
 
 let debug_find_local_optimum = false
 
@@ -749,12 +749,10 @@ let forest_search data queue origin_cost search trees =
        forest of trees.  We then attempt to TBR join to improve our overall
        score... *)
     let adj_mgr = Some (create_adjust_manager search) in
-
     let trees =
         Sexpr.map_status "Breaking trees"
             (forest_break_search_tree adj_mgr origin_cost)
             trees in
-
     let trees = 
         let `LocalOptimum s = search in
         find_local_optimum data queue trees 
@@ -762,21 +760,17 @@ let forest_search data queue origin_cost search trees =
     in 
     (* TBR joins *)
     let trees = Sexpr.map_status "TBR joining trees" forest_joins trees in
-
     Sexpr.leaf_iter
         (fun trees ->
-    let cost = Ptree.get_cost `Adjusted trees in
-    Status.user_message Status.Information ("Forest search found forest with "
-                                            ^ string_of_int (Ptree.components
-                                                                 trees)
-                                            ^ " components and cost "
-                                            ^ string_of_float cost)
-        ) trees;
-
-    let trees = Sexpr.map
-        (Ptree.set_origin_cost 0.) trees in
-
+            let cost = Ptree.get_cost `Adjusted trees in
+            Status.user_message Status.Information
+                ("Forest search found forest with "
+                ^ string_of_int (Ptree.components trees)
+                ^ " components and cost " ^ string_of_float cost))
+        trees;
+    let trees = Sexpr.map (Ptree.set_origin_cost 0.) trees in 
     trees
+
 
     (** [fusing trees params] performs tree fusing with the given parameters *)
     let fusing data queue trees

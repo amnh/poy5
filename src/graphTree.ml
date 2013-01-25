@@ -128,243 +128,226 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
     *   size - takes a string of format " 800x600" - notice must start with space
     *   leafColor - takes a G color constant use as G.red 
     *   choices are:
-    *   black, red , blue, green, yellow, cyan, magenta
-    *   *)    
+    *   black, red , blue, green, yellow, cyan, magenta *)
     let draw ?(size="") ?(leafColor=G.black) display t =
         (* TODO:: with branch lengths *)
-       let t = AsciiTree.sort_tree t in
-       let display = ref display in
-       let d = ref 0 and
-       max_depth = ref 0 and
-       num_leaves = ref 0 and
-       longest_name = ref 0 in
-       calc_depth_leaves t d max_depth num_leaves longest_name;
-       let fontWidth, fontHeight = G.text_size "m" in
-       let deltaY = leaf_distance and
-       deltaX = depth_distance in
-       let total_height = leaf_distance * !num_leaves in
-       let update_counter =
+        let t = AsciiTree.sort_tree t in
+        let display = ref display in
+        let d = ref 0
+        and max_depth = ref 0
+        and num_leaves = ref 0
+        and longest_name = ref 0 in
+        calc_depth_leaves t d max_depth num_leaves longest_name;
+        let fontWidth, fontHeight = G.text_size "m" in
+        let deltaY = leaf_distance
+        and deltaX = depth_distance in
+        let total_height = leaf_distance * !num_leaves in
+        let update_counter =
             let counter = ref 0 in
-            fun () -> 
-                incr counter;
-                !counter
-       in        
-       let rec coord depth deltaX deltaY tree =
-           match tree with
-           | Tree.Parse.Leafp name ->
-                   let row = update_counter () in
-                   let y = total_height - ((row - 1) * deltaY)  and
-                   x = (!max_depth * deltaX + 10) in
-                   display := 
-                       G.moveto !display 
-                       (x + fontWidth) (y - fontHeight / 2);
-                   let prev_color = G.foreground in
-                   display := G.set_color !display leafColor;
-                   let tag = name in
-                   display := G.draw_string ~tag !display name;
-                   display := G.set_color !display prev_color;
-                   (x, y)
-           | Tree.Parse.Nodep (children, name) ->
-                   let coord_children =
-                       List.map (coord (depth+1) deltaX deltaY) children
-                   in
-                   let xTemp , avg = average coord_children in
-                   let x = !xTemp - deltaX in
-                   let prev_color = G.foreground in
-                   display := G.set_color !display leafColor;
-                   display := G.plot !display x avg;
-                   let name_len = String.length name in
-                   let name = 
-                       if name_len = 0 then name
-                       else if name.[name_len - 1] = '.' then 
-                           String.sub name 0 (name_len - 1) 
-                       else name
-                   in
-                   display := 
-                       G.moveto !display (x - (fontWidth * (name_len)) - 3)
-                   (avg + fontHeight/2);
-                   display := G.draw_string !display name;
-                   display := G.set_color !display prev_color;
-                   let () =
-                       match coord_children with
-                       | [_] | [] -> failwith "I need at least two children"
-                       | (a, b) :: tl ->
-                               match List.rev tl with 
-                               | (c, d) :: tl ->
-                                       display := 
-                                           G.polyline 
-                                           !display
-                                           [(a, b, None, None); (x, b, None,
-                                           None); (x, d, None, None); (c, d,
-                                           None, None)];
-                                       List.iter (fun (c, d) -> 
-                                           display := 
-                                               G.polyline 
-                                               !display
-                                               [(x, d, None, None); 
-                                               (c, d, None, None)]) tl
-                               | _ -> assert false 
-                   in
-                   display := G.plot !display x avg;
-                   (x, avg)
-       in
-       let _ = coord 1 deltaX deltaY (Tree.Parse.strip_tree t) in 
-       !display
+            fun () -> incr counter; !counter
+        in        
+        let rec coord depth deltaX deltaY tree = match tree with
+            | Tree.Parse.Leafp name ->
+                let row = update_counter () in
+                let y = total_height - ((row - 1) * deltaY)  and
+                x = (!max_depth * deltaX + 10) in
+                display := G.moveto !display (x+fontWidth) (y-fontHeight/2);
+                let prev_color = G.foreground in
+                display := G.set_color !display leafColor;
+                let tag = name in
+                display := G.draw_string ~tag !display name;
+                display := G.set_color !display prev_color;
+                (x, y)
+            | Tree.Parse.Nodep (children, name) ->
+                let coord_children =
+                    List.map (coord (depth+1) deltaX deltaY) children
+                in
+                let xTemp , avg = average coord_children in
+                let x = !xTemp - deltaX in
+                let prev_color = G.foreground in
+                display := G.set_color !display leafColor;
+                display := G.plot !display x avg;
+                let name_len = String.length name in
+                let name =
+                    if name_len = 0 then
+                        name
+                    else if name.[name_len - 1] = '.' then
+                       String.sub name 0 (name_len - 1)
+                    else
+                        name
+                in
+                display := G.moveto !display (x-(fontWidth*(name_len))-3) (avg+fontHeight/2);
+                display := G.draw_string !display name;
+                display := G.set_color !display prev_color;
+                let () = match coord_children with
+                    | [_] | [] -> failwith "I need at least two children"
+                    | (a, b) :: tl ->
+                        begin match List.rev tl with
+                            | (c, d) :: tl ->
+                                display :=
+                                    G.polyline !display [(a, b, None, None);
+                                                         (x, b, None, None);
+                                                         (x, d, None, None);
+                                                         (c, d, None, None) ];
+                                List.iter
+                                    (fun (c, d) ->
+                                        display := G.polyline !display
+                                            [(x, d, None, None); (c, d, None, None)])
+                                    tl
+                            | _ -> assert false
+                        end
+               in
+               display := G.plot !display x avg;
+               (x, avg)
+        in
+        let _ = coord 1 deltaX deltaY (Tree.Parse.strip_tree t) in 
+        !display
 
-       let rec get_children tree =
-           match tree with
-           | ("Forest", _, `Set lst) 
-           | ("Tree", _, `Set lst) ->
-                   List.fold_left (fun acc sexpr ->
-                       Sexpr.fold_left (fun acc ((name, _, _) as t) ->
-                           if name = "Tree" then t :: acc
-                           else acc) acc sexpr) [] lst
-           | ("Tree", _, `Single item) 
-           | ("Forest", _, `Single item) -> get_children item
-           | ("Tree", _, `Delayed item) 
-           | ("Forest", _, `Delayed item) -> 
-                   get_children (Sexpr.first (item ()))
-           | (x, _, _) -> []
+        let rec get_children tree = match tree with
+            | ("Forest", _, `Set lst)
+            | ("Tree", _, `Set lst) ->
+                List.fold_left
+                    (fun acc sexpr ->
+                        Sexpr.fold_left
+                            (fun acc ((name, _, _) as t) ->
+                                if name = "Tree" then t :: acc else acc)
+                            acc sexpr)
+                    [] lst
+            | ("Tree", _, `Single item)
+            | ("Forest", _, `Single item) -> get_children item
+            | ("Tree", _, `Delayed item)
+            | ("Forest", _, `Delayed item) ->
+                get_children (Sexpr.first (item ()))
+            | (x, _, _) -> []
 
-       let get_name (_, x, _) =
-           Xml.value_to_string (List.assoc "Name" x) 
+        let get_name (_, x, _) =
+            Xml.value_to_string (List.assoc "Name" x) 
 
-       let get_node (_, _, x) =
-           let res = 
-               match x with
-               | `Set lst ->
-                       List.fold_left (fun acc sexpr ->
-                           Sexpr.fold_left (fun acc ((name, _, _) as t) ->
-                               if name = "Node" then Some t 
-                               else acc) acc sexpr) None lst
-               | `Delayed f ->
-                       Sexpr.fold_left (fun acc ((name, _, _) as t) ->
-                           if name = "Node" then Some t 
-                           else acc) None (f ())
-               | `Single x -> Some x
-               | _ -> assert false
+        let get_node (_, _, x) =
+            let res = match x with
+                | `Set lst ->
+                    List.fold_left
+                        (fun acc sexpr ->
+                            Sexpr.fold_left
+                                (fun acc ((name, _, _) as t) ->
+                                    if name = "Node" then Some t else acc)
+                                acc sexpr)
+                        None lst
+                | `Delayed f ->
+                    Sexpr.fold_left
+                        (fun acc ((name, _, _) as t) ->
+                            if name = "Node" then Some t else acc)
+                        None (f ())
+                | `Single x -> Some x
+                | _ -> assert false
            in
            match res with
            | None -> assert false 
            | Some x -> x
 
-       let rec calc_depth_leaves_diag t depth max_depth num_leaves longest_name =
-           match get_children t with
-           | [] ->
-                   let y = 
-                       let t = get_node t in
-                       get_name t 
-                    in
-                   incr depth;
-                   if !depth > !max_depth then max_depth := !depth;
-                   decr depth;
-                   let strLength = String.length y in
-                   if strLength > !longest_name then
-                       longest_name := strLength;
-                   incr num_leaves
-           | y ->
-                   incr depth;
-                   List.iter (fun t ->
-                       calc_depth_leaves_diag t depth max_depth num_leaves
-                       longest_name) y;
-                   decr depth
+        let rec calc_depth_leaves_diag t depth max_depth num_leaves longest_name =
+            match get_children t with
+            | [] ->
+                let y = let t = get_node t in get_name t in
+                incr depth;
+                if !depth > !max_depth then max_depth := !depth;
+                decr depth;
+                let strLength = String.length y in
+                if strLength > !longest_name then
+                    longest_name := strLength;
+                incr num_leaves
+            | y ->
+                incr depth;
+                List.iter 
+                    (fun t ->
+                       calc_depth_leaves_diag t depth max_depth num_leaves longest_name)
+                    y;
+                decr depth
 
     (** draw_diagnosis *)    
-    let draw_diagnosis ?(prefix="") ?(size="") ?(leafColor=G.black) 
-    display (t : Xml.xml) =
+    let draw_diagnosis ?(prefix="") ?(size="") ?(leafColor=G.black) display (t : Xml.xml) =
         let nodes = ref [] in
-        let t =
-            match t with
+        let t = match t with
             | ("Forest", _, `Set [t]) -> Sexpr.first t
             | _ -> assert false
         in
-       let display = ref display in
-       let d = ref 0 and
-       max_depth = ref 0 and
-       num_leaves = ref 0 and
-       longest_name = ref 0 in
-       calc_depth_leaves_diag t d max_depth num_leaves longest_name;
-       let fontWidth, fontHeight = G.text_size "m" in
-       let deltaY = leaf_distance and
-       deltaX = depth_distance in
-       let total_height = leaf_distance * !num_leaves in
-       let update_counter =
+        let display = ref display in
+        let d = ref 0
+        and max_depth = ref 0
+        and num_leaves = ref 0
+        and longest_name = ref 0 in
+        calc_depth_leaves_diag t d max_depth num_leaves longest_name;
+        let fontWidth, fontHeight = G.text_size "m" in
+        let deltaY = leaf_distance
+        and deltaX = depth_distance in
+        let total_height = leaf_distance * !num_leaves in
+        let update_counter =
             let counter = ref 0 in
-            fun () -> 
-                incr counter;
-                !counter
-       in        
-       let rec coord depth deltaX deltaY tree =
-           let node = get_node tree in
-           nodes := node :: !nodes;
-           let name = get_name node in
-           match get_children tree with
-           | [] ->
-                   let row = update_counter () in
-                   let y = total_height - ((row - 1) * deltaY)  and
-                   x = (!max_depth * deltaX + 10) in
-                   display := 
+            fun () -> incr counter; !counter
+        in        
+        let rec coord depth deltaX deltaY tree =
+            let node = get_node tree in
+            nodes := node :: !nodes;
+            let name = get_name node in
+            match get_children tree with
+            | [] ->
+                let row = update_counter () in
+                let y = total_height - ((row - 1) * deltaY)
+                and x = (!max_depth * deltaX + 10) in
+                display := 
                        G.moveto !display 
                        (x + fontWidth) (y - fontHeight / 2);
-                   let prev_color = G.foreground in
-                   display := G.set_color !display leafColor;
-                   let link = prefix ^ ":" ^ name in
-                   display := G.draw_string ~link !display name;
-                   display := G.set_color !display prev_color;
-                   (x, y)
-           | children ->
-                   let coord_children =
-                       List.map (coord (depth+1) deltaX deltaY) children
-                   in
-                   let xTemp , avg = average coord_children in
-                   let x = !xTemp - deltaX in
-                   let prev_color = G.foreground in
-                   display := G.set_color !display leafColor;
-                   display := G.plot !display x avg;
-                   let name_len = String.length name in
-                   let link = prefix ^ ":" ^ name in
-                   display := 
-                       G.moveto !display (x - (fontWidth * (name_len)) - 3)
-                   (avg + fontHeight/2);
-                   display := G.draw_string ~link !display name;
-                   display := G.set_color !display prev_color;
-                   let () =
-                       match coord_children with
-                       | [_] | [] -> failwith "I need at least two children"
-                       | (a, b) :: tl ->
-                               match List.rev tl with 
-                               | (c, d) :: tl ->
-                                       display := 
-                                           G.polyline 
-                                           !display
-                                           [(a, b, None, None); (x, b, None,
-                                           None); (x, d, None, None); (c, d,
-                                           None, None)];
-                                       List.iter (fun (c, d) -> 
-                                           display := 
-                                               G.polyline 
-                                               !display
-                                               [(x, d, None, None); 
-                                               (c, d, None, None)]) tl
-                               | _ -> assert false 
-                   in
-                   display := G.plot !display x avg;
-                   (x, avg)
-       in
-       let _ = coord 1 deltaX deltaY t in 
-       !display, !nodes
+                let prev_color = G.foreground in
+                display := G.set_color !display leafColor;
+                let link = prefix ^ ":" ^ name in
+                display := G.draw_string ~link !display name;
+                display := G.set_color !display prev_color;
+                (x, y)
+            | children ->
+                let coord_children = List.map (coord (depth+1) deltaX deltaY) children in
+                let xTemp , avg = average coord_children in
+                let x = !xTemp - deltaX in
+                let prev_color = G.foreground in
+                display := G.set_color !display leafColor;
+                display := G.plot !display x avg;
+                let name_len = String.length name in
+                let link = prefix ^ ":" ^ name in
+                display := G.moveto !display (x - (fontWidth * (name_len)) - 3) (avg + fontHeight/2);
+                display := G.draw_string ~link !display name;
+                display := G.set_color !display prev_color;
+                let () = match coord_children with
+                    | [_] | [] -> failwith "I need at least two children"
+                    | (a, b) :: tl ->
+                        begin match List.rev tl with 
+                            | (c, d) :: tl ->
+                                display := G.polyline !display [(a, b, None, None);
+                                                                (x, b, None, None);
+                                                                (x, d, None, None);
+                                                                (c, d, None, None)];
+                                List.iter
+                                    (fun (c, d) -> 
+                                        display := G.polyline !display [(x, d, None, None);
+                                                                        (c, d, None, None)])
+                                    tl
+                               | _ -> assert false
+                        end
+                in
+                display := G.plot !display x avg;
+                (x, avg)
+        in
+        let _ = coord 1 deltaX deltaY t in 
+        !display, !nodes
 
-       let disp_tree display str tree =
-           try
-               try draw ~size:" 800x800" display tree with 
-               | _ -> begin
-                   if str <> ""
-                   then print_endline str;
-                   AsciiTree.draw false stdout tree;
-                   display
-               end
-           with
-           | e -> display
+        let disp_tree display str tree =
+            try
+                try draw ~size:" 800x800" display tree
+                with | _ ->
+                    begin
+                        if str <> "" then print_endline str;
+                        AsciiTree.draw false stdout tree;
+                        display
+                    end
+            with | e -> display
 
 end
 
