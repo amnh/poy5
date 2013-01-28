@@ -17,16 +17,17 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3049 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3055 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
 
 let debug_cdf = false
 and debug_boot= false
+
+and debug_kh  = false
 and debug_sh  = false
 and debug_au  = false
-and debug     = false
 
 let failwithf format = Printf.ksprintf failwith format
 
@@ -50,30 +51,33 @@ module type S = sig
 
     type tree = (a,b) Ptree.p_tree
     type replicate = { m:bool; b:bool }
+    type wtree = { t : tree; slk : float array; root : MlStaticCS.t; }
 
     val rell : replicate
     val full : replicate
 
+    val create_wrapped_tree : tree -> wtree
     val can_perform_stat_tests : tree -> bool
     val analyze_tree : tree -> (float * float) * (float * float)
     val analyze_pair : tree -> tree -> float * float
 
-    val bootstrap_data : ?n:int -> replicate -> float array -> float array
-    val get_cdf : float array -> float array
+    val bootstrap_weights : ?n:int -> float array -> float array
+    val replicate_cost : replicate -> wtree -> float array -> float
+    val get_cdf : wtree -> float array
 
-    val kh : ?n:int -> ?p_star:float -> ?rep:replicate -> tree -> tree -> ()
-    val sh : ?n:int -> ?p_star:float -> ?rep:replicate -> tree list -> ()
-    val au : ?n:int -> ?p_star:float -> ?rep:replicate -> tree list -> ()
+    val kh : ?n:int -> ?p:float -> ?rep:replicate -> tree -> tree -> unit
+    val sh : ?n:int -> ?p:float -> ?rep:replicate -> tree list -> unit
+    val au : ?n:int -> ?rep:replicate -> ?k:int -> tree list -> unit
 
-    val analyze : tree list -> unit
+    val analyze : tree array -> unit
 end
 
-module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
-            (Edge : Edge.EdgeSig with type n = Node.n) 
-            (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) =
+module Make (NodeF : NodeSig.S with type other_n = Node.Standard.n)
+            (Edge : Edge.EdgeSig with type n = NodeF.n) 
+            (TreeOps : Ptree.Tree_Operations with type a = NodeF.n with type b = Edge.e) =
 struct
 
-    type a = Node.n
+    type a = NodeF.n
     type b = Edge.e
     type tree = (a, b) Ptree.p_tree 
 
@@ -82,41 +86,53 @@ struct
     let rell = {m=false;b=false;}
     let full = {m=true; b=true; }
 
-    let can_perform_stat_tests tree = match (Ptree.get_roots tree) with
-        | [x] ->
-            let root = match x.Ptree.root_median with
-                | Some (`Edge _,n)   -> n
-                | Some (`Single _,n) -> n
-                | None               -> assert false
-            in
-            root --> (fun x -> List.hd x.AllDirNode.unadjusted)
-                 --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
-                 --> (fun x -> List.hd x.Node.characters)
-                 --> (fun x -> match x with
-                        | Node.StaticMl _ -> true
-                        | _               -> false)
-        | []  -> false
-        |  _  -> false
+    type wtree = { t : tree; slk : float array; root : MlStaticCS.t; }
 
+    let get_default_reps n rep = match n with
+        | Some x -> x
+        | None when rep.m || rep.b -> 50
+        | None -> 10_000
+
+    let can_perform_stat_tests tree : bool = assert false
+(*        match (Ptree.get_roots tree) with*)
+(*        | [x] ->*)
+(*            let root = match x.Ptree.root_median with*)
+(*                | Some (`Edge _,n)   -> n*)
+(*                | Some (`Single _,n) -> n*)
+(*                | None               -> assert false*)
+(*            in*)
+(*            root --> (fun x -> List.hd x.AllDirNode.unadjusted)*)
+(*                 --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)*)
+(*                 --> (fun x -> List.hd x.Node.characters)*)
+(*                 --> (fun x -> match x with*)
+(*                        | Node.StaticMl _ -> true*)
+(*                        | _               -> false)*)
+(*        | []  -> false*)
+(*        |  _  -> false*)
 
     (* return the singular characters mlstatic data of a tree *)
-    let get_ml_root_data tree =
-        let root = match (List.hd (Ptree.get_roots tree)).Ptree.root_median with
-            | Some (`Edge _,n)   -> n
-            | Some (`Single _,n) -> n
-            | None               -> assert false
-        in
-        root --> (fun x -> List.hd x.AllDirNode.unadjusted)
-             --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
-             --> (fun x -> List.hd x.Node.characters)
-             --> (fun x -> match x with
-                    | Node.StaticMl x -> x.Node.preliminary
-                    | _ -> assert false)
+    let get_ml_root_data tree : MlStaticCS.t = assert false 
+(*        let root = match (List.hd (Ptree.get_roots tree)).Ptree.root_median with*)
+(*            | Some (`Edge _,n)   -> n*)
+(*            | Some (`Single _,n) -> n*)
+(*            | None               -> assert false*)
+(*        in*)
+(*        root --> (fun x -> List.hd x.AllDirNode.unadjusted)*)
+(*             --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)*)
+(*             --> (fun x -> List.hd x.Node.characters)*)
+(*             --> (fun x -> match x with*)
+(*                    | Node.StaticMl x -> x.Node.preliminary*)
+(*                    | _ -> assert false)*)
+
+    let create_wrapped_tree t : wtree =
+        let t_root = get_ml_root_data t in
+        let t_slk  = Array.map (snd) (MlStaticCS.site_likelihood t_root) in
+        { t = t; slk = t_slk; root=t_root; }
 
     (* general helper function to return cost; all these methods assume no
       negation of loglikelihood, so we transform to that standard temporarily *)
     let get_ml_cost x =
-        ~-. (MlStaticCS.median_cost x)
+        ~-. (MlStaticCS.median_cost x.root)
 
     (* output the rell and tree variance and mean *)
     let analyze_tree tree =
@@ -143,13 +159,16 @@ struct
                     else
                         Array.init (n+1)
                             (fun j ->
-                                if j = 0 then string_of_int (i-1)
-                                         else analyze_pair x.(i-1) x.(j-1)))
+                                if j = 0 then
+                                    string_of_int (i-1)
+                                else
+                                    let a,b = analyze_pair x.(i-1) x.(j-1) in
+                                    Printf.sprintf "(%f,%f)" a b))
         in
         outputt m
 
-(*
-    let rell_bootstrap_data =
+    (* return a set of weights for replicated data *)
+    let bootstrap_weights =
         let rec idx_of_cdf (cdf:float array) (g:float) (il:int) (ih:int) : int =
             let ig = (il + ih) / 2 in
             if debug_cdf then
@@ -178,7 +197,8 @@ struct
         in
         bootstrap_data
 
-    and get_cdf t_lks =
+    let get_cdf wt =
+        let t_lks = MlStaticCS.site_likelihood wt.root in
         let cdf = Array.make (Array.length t_lks) 0.0 in
         let sum = ref 0.0 in
         for i = 0 to (Array.length t_lks)-1 do
@@ -191,49 +211,54 @@ struct
         end;
         cdf
 
-    and cost_of_rell_bootstrap t_lks boot_weights : float =
-        assert( (Array.length t_lks) = (Array.length boot_weights) );
-        let t_cost = ref 0.0 in
-        for i = 0 to (Array.length boot_weights)-1 do
-            t_cost := !t_cost +. (t_lks.(i) *. boot_weights.(i));
-        done;
-        ~-. !t_cost
+    let replicate_cost rep t w =
+        let cost_of_rell_bootstrap t_lks boot_weights : float =
+            assert( (Array.length t_lks) = (Array.length boot_weights) );
+            let t_cost = ref 0.0 in
+            for i = 0 to (Array.length boot_weights)-1 do
+                t_cost := !t_cost +. (t_lks.(i) *. boot_weights.(i));
+            done;
+            ~-. !t_cost
+        and cost_of_full_bootstrap model branch tree boot_weights : float =
+            assert false
+        in
+        match rep.m,rep.b with
+        | false, false -> cost_of_rell_bootstrap t.slk w
+        | _    , _     -> cost_of_full_bootstrap rep.m rep.b t.t w
 
-    let rell_kh ?(alpha=0.05) t1 t2 n =
+
+
+    (** {6 Testing Methods *)
+
+    let kh ?n ?(p=0.05) ?(rep=rell) t1 t2 =
+        let n = get_default_reps n rep in
         (** Calculate the cost of each tree from rell re-sampling *)
         let get_cost_of_bootstrap t1 t2 boot_weights : float =
-            let t1_cost = get_cost_of_bootstrap t1 boot_weights
-            and t2_cost = get_cost_of_bootstrap t2 boot_weights in
+            let t1_cost = replicate_cost rep t1 boot_weights
+            and t2_cost = replicate_cost rep t2 boot_weights in
             t1_cost -. t2_cost
-        (** Calculate the CDF and Site likelihoods for both trees; compression is
-            data dependent, and are the same in each tree, assertion follows. *)
-        and get_cdf_lks t1_root t2_root =
-            let t1_lks = MlStaticCS.site_likelihood t1_root
-            and t2_lks = MlStaticCS.site_likelihood t2_root in
-            let cdf = get_cdf t1_lks in
-            let t1_lks = Array.map snd t1_lks and t2_lks = Array.map snd t2_lks in
-            cdf, t1_lks, t2_lks
         in
         (** Main Components of the algorithm.. *)
         (* 0. initial variables for computation *)
-        let t1_root = get_ml_root_data t1
-        and t2_root = get_ml_root_data t2 in
-        let cdf, t1_lks, t2_lks = get_cdf_lks t1_root t2_root in
+        let t1  = create_wrapped_tree t1
+        and t2  = create_wrapped_tree t2 in
+        let cdf = get_cdf t1 in
         (* 1. determine the test statistic *)
-        let d_0 = (get_ml_cost t1_root) -. (get_ml_cost t2_root) in
+        let d_0 = (get_ml_cost t1) -. (get_ml_cost t2) in
         (* 2. test statistic of bootstrap replicates *)
         let d_i =
             Array.init n
-                (fun _ -> get_cost_of_bootstrap t1_lks t2_lks (bootstrap_data cdf))
+                (fun _ -> get_cost_of_bootstrap t1 t2 (bootstrap_weights cdf))
         in
         if debug_kh then begin
-            Printf.printf "BOOTSTRAP STATISTICS: %f" d_0;
+            Printf.printf "BOOTSTRAP STATISTICS: [%f]" d_0;
             Array.iter (fun x -> Printf.printf ", %f" x) d_i;
             print_newline ()
         end;
         (* 3. centered test-statistic for bootstrap replicates *)
         let dc_i =
-            let avg = (Array.fold_left (fun a x -> a+.x) 0.0 d_i) /. (float_of_int n) in
+            let f_n = float_of_int n in
+            let avg = (Array.fold_left (fun a x -> a+.x) 0.0 d_i) /. f_n in
             (Array.map (fun x -> x -. avg) d_i)
         in
         if debug_kh then begin
@@ -245,27 +270,26 @@ struct
         ()
             
 
-    let rell_sh ?(replicates=10000) ?(p_star:0.05) ts =
+    let sh ?n ?(p=0.05) ?(rep=rell) ts =
         (** STEP 0: Setup Structures and variables necessary *)
+        let replicates = get_default_reps n rep in
         let ts =
-            ts --> List.map get_ml_root_data
+            ts --> List.map create_wrapped_tree
                --> Array.of_list
                -|> Array.sort
                     (fun x y -> Pervasives.compare (get_ml_cost y) (get_ml_cost x))
         in
-        let l = Array.map (fun x -> x, MlStaticCS.site_likelihood x) ts in
-        let m = Array.length l in
+        let m = Array.length ts in
         assert( m > 1 );
-        let cdf = get_cdf (snd l.(0)) in
-        let l = Array.map (fun (a,b) -> a,(Array.map snd b)) l in
+        let cdf = get_cdf ts.(0) in
         if debug_sh then begin
             Printf.printf "Initial Costs\n\t%!";
-            Array.iter (fun (x,_) -> Printf.printf "%f, " (get_ml_cost x)) l;
+            Array.iter (fun x -> Printf.printf "%f, " (get_ml_cost x)) ts;
             print_newline ()
         end;
         (** STEP 1: Calculate test statistic *)
         let t =
-            Array.map (fun (x,_) -> (get_ml_cost (fst l.(0))) -. (get_ml_cost x)) l
+            Array.map (fun x -> (get_ml_cost ts.(0)) -. (get_ml_cost x)) ts
         in
         if debug_sh then begin
             Printf.printf "Test Statistics\n\t%!";
@@ -276,34 +300,30 @@ struct
         let b = 
             let res = Array.make_matrix m replicates 0.0 in
             for i = 0 to replicates-1 do
-                let weights = bootstrap_data cdf in
+                let weights = bootstrap_weights cdf in
                 for alpha = 0 to m-1 do
-                    res.(alpha).(i) <- get_cost_of_bootstrap (snd l.(alpha)) weights
+                    res.(alpha).(i) <- replicate_cost rep ts.(alpha) weights
                 done;
             done;
             res
         in
         if debug_sh then begin
             Printf.printf "B Matrix - Bootstrap Replicates\n%!";
+            let f_n = float_of_int replicates in
             Array.iteri
                 (fun alpha ib ->
                     Printf.printf "%d\t" alpha;
                     Array.iter (fun x -> Printf.printf "%f\t" x) ib;
-                    let avg =
-                        (Array.fold_left (fun x h -> x+.h) 0.0 ib)
-                            /. (float_of_int replicates)
-                    in
+                    let avg = (Array.fold_left (fun x h -> x+.h) 0.0 ib) /. f_n in
                     Printf.printf "\t= %f\n%!" avg)
                 b
         end;
         (** STEP 3: Centering *)
         let r =
+            let f_n = float_of_int replicates in
             Array.init m
                 (fun alpha ->
-                    let avg =
-                        let s = Array.fold_left (fun x h -> x +. h) 0.0 b.(alpha) in
-                        s /. (float_of_int n)
-                    in
+                    let avg = (Array.fold_left (fun x h -> x +. h) 0.0 b.(alpha)) /. f_n in
                     Array.map (fun x -> x -. avg) b.(alpha))
         in
         if debug_sh then begin
@@ -317,7 +337,7 @@ struct
         end;
         (** STEP 4: Create Replicate of test-statistic (t) *)
         let s =
-            let res = Array.make_matrix m n 0.0 in
+            let res = Array.make_matrix m replicates 0.0 in
             for i = 0 to replicates-1 do
                 let alpha_hat =
                     let best = ref 0 in
@@ -356,30 +376,29 @@ struct
             Array.iteri
                 (fun i _ ->
                     Printf.printf "%d\t%f\t%f\t%f\n%!"
-                                  i (get_ml_cost (fst l.(i))) t.(i) p.(i))
+                                  i (get_ml_cost ts.(i)) t.(i) p.(i))
                 p;
         end;
         (** STEP 6: Return set such that, P_star < P_i *)
-        Array.mapi (fun i _ -> ts.(i),t.(i),p.(i)) p
-        
+(*        Array.mapi (fun i _ -> ts.(i),t.(i),p.(i)) p*)
+        ()
 
-    let au ts k b =
+    let au ?n ?(rep=rell) ?(k=5) ts =
         (** STEP 0 : Basic setup for every one of these algorithms *)
         let ts =
-            ts --> List.map get_ml_root_data
+            ts --> List.map create_wrapped_tree
                --> Array.of_list
                -|> Array.sort
                     (fun x y -> Pervasives.compare (get_ml_cost y) (get_ml_cost x))
         in
-        let l = Array.map (fun x -> x, MlStaticCS.site_likelihood x) ts in
-        let m = Array.length l in
+        let b = get_default_reps n rep in
+        let m = Array.length ts in
         assert( m > 1 );
-        let cdf = get_cdf (snd l.(0)) in
+        let cdf = get_cdf ts.(0) in
         let n   = cdf.((Array.length cdf)-1) in
-        let l = Array.map (fun (a,b) -> a,(Array.map snd b)) l in
         if debug_au then begin
             Printf.printf "Initial Costs\n\t%!";
-            Array.iter (fun (x,_) -> Printf.printf "%f, " (get_ml_cost x)) l;
+            Array.iter (fun x -> Printf.printf "%f, " (get_ml_cost x)) ts;
             print_newline ()
         end;
         (** STEP 1 : Define r_k and B_k; the scale factor is uniformly distributed
@@ -395,9 +414,9 @@ struct
                     let scale : float = n /. (float_of_int n') in
                     Array.init b.(i)
                         (fun _ ->
-                            let w = bootstrap_data ~n:n' cdf in
+                            let w = bootstrap_weights ~n:n' cdf in
                             Array.map
-                                (fun (_,t) -> (get_cost_of_bootstrap t w) *. scale) l))
+                                (fun t -> (replicate_cost rep t w) *. scale) ts))
         in
         if debug_au then begin
             for i = 0 to k-1 do
@@ -464,9 +483,8 @@ struct
         let p = Numerical.pnorm (d -. c) in
         if debug_au then
             Printf.printf "P-Value:%f\n" p;
-        p
+        ()
 
-*)
 end
 
 (** Here are some tests; for these to work, we need to relax the dependencies

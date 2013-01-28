@@ -30,6 +30,10 @@ module type S = sig
     (** tree composed of a and b *)
     type tree = (a,b) Ptree.p_tree
 
+    (** wrapped tree; this is so we don't call the site_likelihood command for
+        higher-efficency. *)
+    type wtree = { t : tree; slk : float array; root : MlStaticCS.t; }
+
     (** Define a type to determine the way to optimize the tree to obtain
         likelihood scores for replicates of the tree. *)
     type replicate = { m:bool; b:bool }
@@ -43,8 +47,11 @@ module type S = sig
 
     (** {6 Helper Functions *)
 
+    (** [generate_wrapped_tree] create the wtree type from a tree. *)
+    val create_wrapped_tree : tree -> wtree
+
     (** [can_perform_stat_tests t] test if we are using mlstatic data and that
-        the tree is not disjoint *)
+        the tree is not disjoint. *)
     val can_perform_stat_tests : tree -> bool
 
     (** [analyze_tree] return RELL mean/variance and Site mean/variance *)
@@ -56,35 +63,39 @@ module type S = sig
 
     (** {6 Replicate Procedures *)
 
-    (** [bootstrap_data] generate a site-wise set of weights for characters
-        based on a generated CDF, see get_cdf *)
-    val bootstrap_data : ?n:int -> replicate -> float array -> float array
-        
-    (** [return a cdf from an array of floats that represent weights *)
-    val get_cdf : float array -> float array
+    (** [bootstrap_rep] generate a bootstrap replicate and return the weights
+    * for each of the characters defined in n or the size of the cdf. *)
+    val bootstrap_weights : ?n:int -> float array -> float array
+    
+    (** [replicate_cost] generate the cost of a replicate *)
+    val replicate_cost : replicate -> wtree -> float array -> float
+
+    (** [return a cdf from a tree that represent weights *)
+    val get_cdf : wtree -> float array
 
     
     (** {6 Test statistics on trees *)
 
     (** Return the two-tailed P-Value for the KH test. It should not be used
         against the ML tree, the intention is a priori trees. *)
-    val kh : ?n:int -> ?p_star:float -> ?rep:replicate -> tree -> tree -> ()
+    val kh : ?n:int -> ?p:float -> ?rep:replicate -> tree -> tree -> unit
  
     (** Return the P-Values and Trees for a candidate set of trees *) 
-    val sh : ?n:int -> ?p_star:float -> ?rep:replicate -> tree list -> ()
+    val sh : ?n:int -> ?p:float -> ?rep:replicate -> tree list -> unit
 
     (** Return the P-Value to support the best tree passed *)
-    val au : ?n:int -> ?p_star:float -> ?rep:replicate -> tree list -> ()
+    val au : ?n:int -> ?rep:replicate -> ?k:int -> tree list -> unit
 
 
     (** {6 Testing Functions *)
 
-    val analyze : tree list -> unit
+    val analyze : tree array -> unit
 
 end
 
 module Make :
-    functor (Node : NodeSig.S with type other_n = Node.Standard.n) ->
-        functor (Edge : Edge.EdgeSig with type n = Node.n) ->
-            functor (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) ->
-                S with type a = Node.n with type b = Edge.e
+    functor (NodeF : NodeSig.S with type other_n = Node.Standard.n) ->
+        functor (Edge : Edge.EdgeSig with type n = NodeF.n) ->
+            functor (TreeOps : Ptree.Tree_Operations with type a = NodeF.n with type b = Edge.e) ->
+                S with type a = NodeF.n with type b = Edge.e
+
