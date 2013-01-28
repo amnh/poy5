@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3038 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3048 $"
 
 module IntSet = All_sets.Integers
 
@@ -4165,9 +4165,10 @@ END
                 let prev_time = !range_timer in
                 range_timer := Timer.start ();
                 let total_time = Timer.get_user prev_time in
+                let title = StatusCommon.escape title in
                 Status.user_message
                     (Status.Output (filename, false, []))
-                    ("@[" ^ StatusCommon.escape title ^ " " ^ string_of_float total_time ^ "@]@,%!");
+                    (Printf.sprintf "@[%s : %.3f s@]@,%!" title total_time);
                 run
             | `MstR filename ->
                 Build.report_mst run.data run.nodes filename;
