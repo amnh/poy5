@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3055 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3056 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
@@ -25,9 +25,9 @@ let (-|>) a b = let () = b a in a
 let debug_cdf = false
 and debug_boot= false
 
-and debug_kh  = false
-and debug_sh  = false
-and debug_au  = false
+and debug_kh  = true
+and debug_sh  = true
+and debug_au  = true
 
 let failwithf format = Printf.ksprintf failwith format
 
@@ -56,20 +56,17 @@ module type S = sig
     val rell : replicate
     val full : replicate
 
-    val create_wrapped_tree : tree -> wtree
-    val can_perform_stat_tests : tree -> bool
-    val analyze_tree : tree -> (float * float) * (float * float)
-    val analyze_pair : tree -> tree -> float * float
+    val create_wrapped_tree : Data.bool_characters -> tree -> wtree
+    val can_perform_stat_tests : Data.bool_characters -> tree -> bool
 
     val bootstrap_weights : ?n:int -> float array -> float array
     val replicate_cost : replicate -> wtree -> float array -> float
     val get_cdf : wtree -> float array
 
-    val kh : ?n:int -> ?p:float -> ?rep:replicate -> tree -> tree -> unit
-    val sh : ?n:int -> ?p:float -> ?rep:replicate -> tree list -> unit
-    val au : ?n:int -> ?rep:replicate -> ?k:int -> tree list -> unit
+    val kh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree -> tree -> unit
+    val sh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree list -> unit
+    val au : ?n:int -> ?rep:replicate -> ?k:int -> ?chars:Data.bool_characters -> tree list -> unit
 
-    val analyze : tree array -> unit
 end
 
 module Make (NodeF : NodeSig.S with type other_n = Node.Standard.n)
@@ -83,89 +80,75 @@ struct
 
     type replicate = { m:bool; b:bool }
 
-    let rell = {m=false;b=false;}
-    let full = {m=true; b=true; }
-
     type wtree = { t : tree; slk : float array; root : MlStaticCS.t; }
 
+    (* RELL method; called Relative Estimated Log-Likelihood *)
+    let rell = {m=false;b=false;}
+
+    (* Full optimization; model and branches *)
+    let full = {m=true; b=true; }
+
+    (* Return the number of replicates to perform; this is based on the
+       replicate optimization level; 10000 with full optimization would take an
+       extremely long time; these numbers are based on papers on these subjects *)
     let get_default_reps n rep = match n with
         | Some x -> x
         | None when rep.m || rep.b -> 50
         | None -> 10_000
 
-    let can_perform_stat_tests tree : bool = assert false
-(*        match (Ptree.get_roots tree) with*)
-(*        | [x] ->*)
-(*            let root = match x.Ptree.root_median with*)
-(*                | Some (`Edge _,n)   -> n*)
-(*                | Some (`Single _,n) -> n*)
-(*                | None               -> assert false*)
-(*            in*)
-(*            root --> (fun x -> List.hd x.AllDirNode.unadjusted)*)
-(*                 --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)*)
-(*                 --> (fun x -> List.hd x.Node.characters)*)
-(*                 --> (fun x -> match x with*)
-(*                        | Node.StaticMl _ -> true*)
-(*                        | _               -> false)*)
-(*        | []  -> false*)
-(*        |  _  -> false*)
+    (* from a list of characters, select the ONE data-set applicable; raise
+       Not_found if the dataset is not contained in the list. opps! *)
+    let get_matching_dataset t char roots : MlStaticCS.t =
+        let chars = Data.get_chars_codes_comp (Ptree.get_data t) char in
+        let (r,_) =
+            List.find
+                (fun (r,_) ->
+                    let codes = MlStaticCS.get_codes r in
+                    assert( Array.fold_left (fun a x -> a && (List.mem x chars)) true codes);
+                    List.mem codes.(0) chars)
+                roots
+        in
+        r
 
+    (* Return if we can perform these tests on the tree; these requrements are
+       that it is mlstatic data, of a complete (non-disjoint) tree (one root). *)
+    let can_perform_stat_tests chars tree : bool =
+        match Ptree.get_roots tree with
+        | [x] ->
+            begin match x.Ptree.root_median with
+                | Some (`Edge _,n)
+                | Some (`Single _,n) ->
+                    let ml_chars = NodeF.get_mlstatic None n in
+                    begin
+                        try ignore (get_matching_dataset tree chars ml_chars);
+                            true
+                        with | Not_found -> false
+                    end
+                | None -> false
+            end
+        | _ -> false
+    
     (* return the singular characters mlstatic data of a tree *)
-    let get_ml_root_data tree : MlStaticCS.t = assert false 
-(*        let root = match (List.hd (Ptree.get_roots tree)).Ptree.root_median with*)
-(*            | Some (`Edge _,n)   -> n*)
-(*            | Some (`Single _,n) -> n*)
-(*            | None               -> assert false*)
-(*        in*)
-(*        root --> (fun x -> List.hd x.AllDirNode.unadjusted)*)
-(*             --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)*)
-(*             --> (fun x -> List.hd x.Node.characters)*)
-(*             --> (fun x -> match x with*)
-(*                    | Node.StaticMl x -> x.Node.preliminary*)
-(*                    | _ -> assert false)*)
+    let get_ml_root_data chars tree : MlStaticCS.t =
+        assert( can_perform_stat_tests chars tree );
+        match (List.hd (Ptree.get_roots tree)).Ptree.root_median with
+        | Some (`Edge _,n)
+            (* preliminary = final in mlstatic data; fst or snd is fine below *)
+        | Some (`Single _,n) ->
+            get_matching_dataset tree chars (NodeF.get_mlstatic None n)
+        | None               -> assert false
 
-    let create_wrapped_tree t : wtree =
-        let t_root = get_ml_root_data t in
+    (* create a structure with the necessary parts for test statistics; reduces
+       cost of queries to this data, which would happen regularly.*)
+    let create_wrapped_tree chars tree : wtree =
+        let t_root = get_ml_root_data chars tree in
         let t_slk  = Array.map (snd) (MlStaticCS.site_likelihood t_root) in
-        { t = t; slk = t_slk; root=t_root; }
+        { t = tree; slk = t_slk; root=t_root; }
 
     (* general helper function to return cost; all these methods assume no
       negation of loglikelihood, so we transform to that standard temporarily *)
     let get_ml_cost x =
         ~-. (MlStaticCS.median_cost x.root)
-
-    (* output the rell and tree variance and mean *)
-    let analyze_tree tree =
-        let root  = get_ml_root_data tree in
-        let sm,sv = MlStaticCS.variance root in
-        let rm,rv = MlStaticCS.rell_bootstrap root 10 in
-        (rm,rv),(sm,sv)
-
-    (* calculate the pair; and return string to format output later *)
-    and analyze_pair r1 r2 =
-        let r1 = get_ml_root_data r1 in
-        let r2 = get_ml_root_data r2 in
-        MlStaticCS.variance_ratio r1 r2
-
-    (* print matrix of mean/variance information for a list of trees *)
-    let analyze x =
-        let n  = Array.length x in
-        let m  =
-            Array.init (n+1)
-                (fun i ->
-                    if i = 0 then
-                        Array.init (n+1) 
-                            (fun x -> if x = 0 then "" else string_of_int (x-1))
-                    else
-                        Array.init (n+1)
-                            (fun j ->
-                                if j = 0 then
-                                    string_of_int (i-1)
-                                else
-                                    let a,b = analyze_pair x.(i-1) x.(j-1) in
-                                    Printf.sprintf "(%f,%f)" a b))
-        in
-        outputt m
 
     (* return a set of weights for replicated data *)
     let bootstrap_weights =
@@ -197,6 +180,9 @@ struct
         in
         bootstrap_data
 
+    (* return the cumulative distribution function; paired with a bisect to
+       lookup randomly uniform data that was compressed and have weights
+       associated to each column in the data-set. *)
     let get_cdf wt =
         let t_lks = MlStaticCS.site_likelihood wt.root in
         let cdf = Array.make (Array.length t_lks) 0.0 in
@@ -211,6 +197,7 @@ struct
         end;
         cdf
 
+    (* return the cost of a replicate; apply the replicate optimization level *)
     let replicate_cost rep t w =
         let cost_of_rell_bootstrap t_lks boot_weights : float =
             assert( (Array.length t_lks) = (Array.length boot_weights) );
@@ -227,10 +214,8 @@ struct
         | _    , _     -> cost_of_full_bootstrap rep.m rep.b t.t w
 
 
-
-    (** {6 Testing Methods *)
-
-    let kh ?n ?(p=0.05) ?(rep=rell) t1 t2 =
+    (* KH test of a priori trees *)
+    let kh ?n ?(p=0.05) ?(rep=rell) ?(chars=`All) t1 t2 =
         let n = get_default_reps n rep in
         (** Calculate the cost of each tree from rell re-sampling *)
         let get_cost_of_bootstrap t1 t2 boot_weights : float =
@@ -240,8 +225,8 @@ struct
         in
         (** Main Components of the algorithm.. *)
         (* 0. initial variables for computation *)
-        let t1  = create_wrapped_tree t1
-        and t2  = create_wrapped_tree t2 in
+        let t1  = create_wrapped_tree chars t1
+        and t2  = create_wrapped_tree chars t2 in
         let cdf = get_cdf t1 in
         (* 1. determine the test statistic *)
         let d_0 = (get_ml_cost t1) -. (get_ml_cost t2) in
@@ -270,11 +255,11 @@ struct
         ()
             
 
-    let sh ?n ?(p=0.05) ?(rep=rell) ts =
+    let sh ?n ?(p=0.05) ?(rep=rell) ?(chars=`All) ts =
         (** STEP 0: Setup Structures and variables necessary *)
         let replicates = get_default_reps n rep in
         let ts =
-            ts --> List.map create_wrapped_tree
+            ts --> List.map (create_wrapped_tree chars)
                --> Array.of_list
                -|> Array.sort
                     (fun x y -> Pervasives.compare (get_ml_cost y) (get_ml_cost x))
@@ -383,10 +368,11 @@ struct
 (*        Array.mapi (fun i _ -> ts.(i),t.(i),p.(i)) p*)
         ()
 
-    let au ?n ?(rep=rell) ?(k=5) ts =
+
+    let au ?n ?(rep=rell) ?(k=5) ?(chars=`All) ts =
         (** STEP 0 : Basic setup for every one of these algorithms *)
         let ts =
-            ts --> List.map create_wrapped_tree
+            ts --> List.map (create_wrapped_tree chars)
                --> Array.of_list
                -|> Array.sort
                     (fun x y -> Pervasives.compare (get_ml_cost y) (get_ml_cost x))
@@ -472,7 +458,7 @@ struct
                 (),!sum
             in
             (* the starting position below seems to be popular with the ladies *)
-            let i = [| 1.0; 0.0 |],opt_function [| 1.0; 0.0 |] in
+            let i = [| 1.0; 1.0 |],opt_function [| 1.0; 1.0 |] in
             (* below; tested brent_multi but couldn't bracket region *)
             let a,((),_) = Numerical.bfgs_method opt_function i in
             a.(0),a.(1)
@@ -487,33 +473,23 @@ struct
 
 end
 
-(** Here are some tests; for these to work, we need to relax the dependencies
-    and remove them from 'scripting.ml'
-module IC = Make (AllDirNode.AllDirF) (Edge.LazyEdge) (AllDirChar.F)
 
-let testing_0 () =
-    POY run("test.script")
-    
-let testing_0_1 () =
-    POY run("test2.script")
+(** This is a little test application for the module. Uncomment and compile, the
+    camlp4 tags need to be set (modify _tags file and add, 
+        "mlTestStat.ml" : pp(camlp4orf), use_camlp4o, use_extensions
+    usage: ./mlTestStat.native <LOAD SCRIPT> <STAT TYPE> <REPLICATES>    *)
 
-let testing_1 () =
-    IC.analyze ()
-
-let testing_2 () =
-    let ts = Array.of_list (Phylo.Runtime.trees ()) in
-    let res= Array.make_matrix (Array.length ts) (Array.length ts) () in
-    for i = 0 to (Array.length ts)-1 do
-        for j = 0 to (Array.length ts)-1 do
-            if i = j then ()
-                     else res.(i).(j) <- IC.rell_kh ts.(i) ts.(j) 100
-        done;
-    done;
+module MLTest = Make (AllDirNode.AllDirF) (Edge.LazyEdge) (AllDirChar.F)
+let test file s_type n =
+    let phylo_to_mltest : (Phylo.a, Phylo.b) Ptree.p_tree -> (MLTest.a, MLTest.b) Ptree.p_tree = Obj.magic in
+    Status.set_verbosity `None;
+    let ()    = (POY run ([file])) in
+    let ts = List.map phylo_to_mltest (Phylo.Runtime.trees ()) in
+    let () = match s_type,ts with
+        | "kh",x::y::_ -> MLTest.kh ~n x y
+        | "sh", ts     -> MLTest.sh ~n ts
+        | "au", ts     -> MLTest.au ~n ts
+    in
     ()
-
-let testing_3 n =
-    ignore (IC.sh (Phylo.Runtime.trees ()) n)
-
-let testing_4 r n =
-    ignore(IC.au (Phylo.Runtime.trees ()) r n)
-*)
+let () =
+    test Sys.argv.(1) Sys.argv.(2) (int_of_string Sys.argv.(3))

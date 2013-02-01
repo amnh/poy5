@@ -660,7 +660,6 @@ double point_normal( double p ){
         ppnd = point_normal_eq(a, b, (0.180625-q*q), q);
     } else {
         r = (q < 0.0)? p : 1.0 - p;
-        printf("R: %f\tP: %f\tQ: %f\n", r, p, q);
         assert(r >= 0.0);
         r = sqrt(-log(r));
         if (r <= 5.0){

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "NodeSig" "$Revision: 2971 $"
+let () = SadmanOutput.register "NodeSig" "$Revision: 3056 $"
 
 type direction = Without of int | Median of (int * int)
 
@@ -121,33 +121,29 @@ module type S = sig
     val taxon_code : n -> int
 
     (** [union_distance m n] calculates the distance between the unions
-    * contained in [m] and [n]. 
-    *
-    * TODO: This function should be removed from this module *)
+        contained in [m] and [n]. *)
     val union_distance : n -> n -> float
 
     (** [is_collapsable m n] returns true if the edge defined by [m] and [n] can
-    * be collapsed in a tree safely (for I/O purposes). *)
+        be collapsed in a tree safely (for I/O purposes). *)
     val is_collapsable : [ `Dynamic | `Static | `Any ] -> n -> n -> bool
 
     (** [to_xml d chan n] outputs in an (obscure) XML format the contents of the
-    * ndoe. This functionality is not currently used, and should be removed from
-    * the source code. 
-    *
-    * TODO: This function should be removed from this module *)
+        node. This functionality is not currently used, and should be removed
+        from the source code. *)
     val to_xml : Data.d -> Pervasives.out_channel -> n -> unit
 
     (** [num_height n] calculates the maximum depth of the vertex from which
-    * information is being requested. *)
+        information is being requested. *)
     val num_height : int option -> n -> int
 
     (** [num_otus n] calculates the number of leaves contained in the tree
-    * rooted by [n]. *)
+        rooted by [n]. *)
     val num_otus : int option -> n -> int
 
     (** return all the sequence information contained in the node (including
-    * the unions right now). This function is used in the auto sequence partition 
-    * functions. Watch out! *)
+        the unions right now). This function is used in the auto sequence
+        partition functions. Watch out! *)
     val get_sequences : 
 	    int option -> n -> 
     (int * Sequence.s * Cost_matrix.Two_D.m * Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a) list
@@ -308,8 +304,7 @@ module type S = sig
     val get_addgen : int option -> n -> (AddCS.General.t * AddCS.General.t) list
     val get_addvec : int option -> n -> (AddCS.Vector.t * AddCS.Vector.t) list
     val get_sank : int option -> n -> (SankCS.t * SankCS.t) list
-    val get_fixedstates : int option -> n -> (Fixed_states.t_w_seqtbl *
-    Fixed_states.t_w_seqtbl) list
+    val get_fixedstates : int option -> n -> (Fixed_states.t_w_seqtbl * Fixed_states.t_w_seqtbl) list
     val get_dynamic : int option -> n -> (DynamicCS.t * DynamicCS.t) list
     val get_mlstatic : int option -> n -> (MlStaticCS.t * MlStaticCS.t) list
 

@@ -48,17 +48,11 @@ module type S = sig
     (** {6 Helper Functions *)
 
     (** [generate_wrapped_tree] create the wtree type from a tree. *)
-    val create_wrapped_tree : tree -> wtree
+    val create_wrapped_tree : Data.bool_characters -> tree -> wtree
 
     (** [can_perform_stat_tests t] test if we are using mlstatic data and that
         the tree is not disjoint. *)
-    val can_perform_stat_tests : tree -> bool
-
-    (** [analyze_tree] return RELL mean/variance and Site mean/variance *)
-    val analyze_tree : tree -> (float * float) * (float * float)
-
-    (** [analyze_pair] return the sitewise likelihood ratio variance and mean *)
-    val analyze_pair : tree -> tree -> float * float
+    val can_perform_stat_tests : Data.bool_characters -> tree -> bool
 
 
     (** {6 Replicate Procedures *)
@@ -78,18 +72,13 @@ module type S = sig
 
     (** Return the two-tailed P-Value for the KH test. It should not be used
         against the ML tree, the intention is a priori trees. *)
-    val kh : ?n:int -> ?p:float -> ?rep:replicate -> tree -> tree -> unit
+    val kh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree -> tree -> unit
  
     (** Return the P-Values and Trees for a candidate set of trees *) 
-    val sh : ?n:int -> ?p:float -> ?rep:replicate -> tree list -> unit
+    val sh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree list -> unit
 
     (** Return the P-Value to support the best tree passed *)
-    val au : ?n:int -> ?rep:replicate -> ?k:int -> tree list -> unit
-
-
-    (** {6 Testing Functions *)
-
-    val analyze : tree array -> unit
+    val au : ?n:int -> ?rep:replicate -> ?k:int -> ?chars:Data.bool_characters -> tree list -> unit
 
 end
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3036 $"
+let () = SadmanOutput.register "Node" "$Revision: 3056 $"
 
 let infinity = float_of_int max_int
 
@@ -1352,8 +1352,9 @@ IFDEF USE_LIKELIHOOD THEN
             `StaticML
 
     and get_mldynamic = 
+        let dynlk x = match x.preliminary with | DynamicCS.MlCS _ -> true | _ -> false in
         get_characters_of_type 
-            (function Dynamic x -> x.preliminary, x.final | _ -> assert false)
+            (function Dynamic x when dynlk x -> x.preliminary, x.final | _ -> assert false)
             `Ml
 ELSE
     let get_mlstatic x = []
