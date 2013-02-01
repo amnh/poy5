@@ -5268,56 +5268,52 @@ let assign_tcm_to_characters data chars foname tcm newalph =
     * This allows simpler specifications by the users, for example, even though
     * morphological characters are loaded, an (all, create_tcm:(1,1)) will
     * operate properly in all the characters that are valid in the context. *)
-    let per_size = Hashtbl.create 97 in
     let data = duplicate data in
-    let chars =  
+    let per_size = Hashtbl.create 97 in
+    let chars =
         List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
                     (get_chars_codes_comp data chars)
     in
     let chars_specs =
-        List.fold_left 
-        ~f:(fun acc x -> 
-            let res = Hashtbl.find data.character_specs x in
-            let acc = (res, x) :: acc in
-            Hashtbl.remove data.character_specs x;
-            acc) 
-        ~init:[] chars
+        List.fold_left
+            ~f:(fun acc x ->
+                let res = Hashtbl.find data.character_specs x in
+                let acc = (res, x) :: acc in
+                Hashtbl.remove data.character_specs x;
+                acc)
+            ~init:[] chars
     in
     let ref_tcmfile = ref None in
-    let new_charspecs = 
-        List.map 
-            (function 
+    let new_charspecs =
+        List.map
+            (function
                 | ((Dynamic dspec), code) ->
                     let tcm_full,tcm_original, tcm3, tcmfile =
-                        if Hashtbl.mem per_size dspec.alph then 
+                        if Hashtbl.mem per_size dspec.alph then
                             Hashtbl.find per_size dspec.alph
-                        else 
-                            let all_elements = 
+                        else begin
+                            let all_elements =
                                 if dspec.alph = Alphabet.nucleotides then 31
                                 else if (Alphabet.is_aminoacids dspec.alph) then 21
                                 else (-1)
                             in
                             let tcm_full, tcm_original, tcmfile = tcm all_elements in
                             ref_tcmfile := Some tcmfile;
-                            if debug_level then 
-                                Printf.printf "Data.assign_tcm_to_characters,calc tcm3d if init3D=true\n%!";
                             let tcm3d =
-                                if (Alphabet.use_3d dspec.alph) then
-                                    Cost_matrix.Three_D.of_two_dim tcm_full
-                                else
-                                    dspec.tcm3d
+                                if (Alphabet.use_3d dspec.alph)
+                                    then Cost_matrix.Three_D.of_two_dim tcm_full
+                                    else dspec.tcm3d
                             in
-                            tcm_full, tcm_original, tcm3d, tcmfile
+                            let res = tcm_full, tcm_original, tcm3d, tcmfile in
+                            Hashtbl.add per_size dspec.alph res;
+                            res
+                        end
                     in
                     let newdespec = match newalph with 
                         | None ->
-                            if debug_level then
-                                Printf.printf "replace dspec with new tcm, keep old alphabet\n%!";
                             Dynamic { dspec with tcm = tcmfile; tcm2d_full = tcm_full;
                                                  tcm2d_original = tcm_original; tcm3d = tcm3 }
                         | Some newa ->
-                            if debug_level then
-                                Printf.printf "replace dspec with new tcm and new alphabet:\n%!";
                             Dynamic { dspec with tcm = tcmfile; tcm2d_full = tcm_full;
                                                  tcm2d_original = tcm_original; tcm3d = tcm3; alph = newa}
                     in
@@ -5419,17 +5415,15 @@ let assign_tcm_to_characters_from_file data chars file =
                         else
                             oldlevel,tb,false,false
                 in
-                (*new create function [tcm x], x is all_elemetns*)
-                (fun x -> 
-                    if debug_level then Printf.printf "assign_tcm_to_characters_from_file,ori_sz=%d,oldlevel=%d,newlevel=%d,use_comb=%b,is_dna?%b,is_ami?%b,is_nucl?%b\n%!" ori_sz oldlevel level use_comb is_dna is_aminoacids is_nucleotides;
+                (*new create function [tcm x], x is all_elements*)
+                (fun x ->
                     (*we still need to refill costmatrix because we have a new cost matrix file*)
                     let tcm_full, tcm_original, mat = 
                             Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker
                             ~orientation:orientation ~use_comb:use_comb 
                             ~level:level f x is_dna_or_ami_or_nucleotides 
                     in
-                    tcm_full, tcm_original, Input_file ((FileStream.filename f), mat)
-                ),
+                    tcm_full, tcm_original, Input_file ((FileStream.filename f), mat)),
                 (*create new alphabet*)
                 if change_alphabet then (*create new alphabet*)
                     Alphabet.create_alph_by_level old_alphabet level oldlevel
@@ -5442,10 +5436,6 @@ let assign_tcm_to_characters_from_file data chars file =
                     in
                     old_alphabet
         in
-        if debug_level then begin 
-            Printf.printf "new alphabet is :%!"; 
-            Alphabet.print newalph; 
-        end;
         assign_tcm_to_characters old_data chars None newtcm_function (Some newalph)
     in
     let new_data =

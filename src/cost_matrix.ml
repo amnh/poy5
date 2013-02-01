@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3023 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3058 $"
 
 
 exception Illegal_Cm_Format;;
@@ -1167,8 +1167,9 @@ module Two_D = struct
            end;
         res, iside
 
-    let fill_cost_matrix ?(create_original=false) ?(tie_breaker=`First) ?(use_comb=true) ?(level = 0) ?(suppress=false) 
-                            l a_sz all_elements =
+    let fill_cost_matrix ?(create_original=false) ?(tie_breaker=`First)
+                         ?(use_comb=true) ?(level = 0) ?(suppress=false)
+                         l a_sz all_elements =
         let debug = false in
         let pure_a_sz = 
             if all_elements=(a_sz-1) && level>1 && level<a_sz
@@ -1176,9 +1177,9 @@ module Two_D = struct
                 else a_sz 
         in
         let num_comb = calc_number_of_combinations_by_level pure_a_sz level in
-        if not suppress then
+        (* if not suppress then
             Status.user_message Status.Warning 
-                ("This@ operation@ may@ require@ large@ amounts@ of@ memory");
+                ("This@ operation@ may@ require@ large@ amounts@ of@ memory"); *)
         assert(num_comb>0);
         let num_withgap = calc_num_of_comb_with_gap pure_a_sz level in
         let num_comb,num_withgap = 

@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2710 $"
+let () = SadmanOutput.register "" "$Revision: 3060 $"
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 2710 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 3060 $"
 
 type tab_state = Begin | First | Continue
 
@@ -422,7 +422,7 @@ let create_formatter ?win ?sb w =
     StatusCommon.Format.pp_set_margin f (!columns - 3);
     f, w
 
-let info_scrollback = make_sbbuffer 400 information
+let info_scrollback = make_sbbuffer 5000 information
 
 let make_info_fmt () = 
     let info_fmt, _ = create_formatter ~sb:info_scrollback Information in
