@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3048 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3069 $"
 
 module IntSet = All_sets.Integers
 
@@ -1238,6 +1238,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     module PTS = TreeSearch.Make (Node) (Edge) (TreeOps)
     module D = Diagnosis.Make (Node) (Edge) (TreeOps)
     module S = Supports.Make (Node) (Edge) (TreeOps)
+
+    module MLT = MlTestStat.Make (Node) (Edge) (TreeOps)
 
     type r = (a, b) run
 
@@ -4018,6 +4020,29 @@ let rec folder (run : r) meth =
                 run
             | `Pairwise (filename,chars) ->
                 failwith "NOT DONE"
+
+            | `Topo_Selection (filename,x) ->
+                let (t,chars,n,k,rep) = MlTestStat.process_methods_arguments x in
+                begin try match t, Sexpr.to_list run.trees with
+                        |   _,[] ->
+                            let msg = "The@ topology@ selection@ command@ requires"
+                                     ^"@ at@ least@ two@ trees@ in@ memory."
+                            in
+                            Status.user_message Status.Error msg
+                        | `AU,ts -> MLT.au ?n ?k ~rep ~chars ts
+                        | `SH,ts -> MLT.sh ?n ~rep ~chars ts
+                        | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
+                        | `KH,ts ->
+                            let msg = "The@ topology@ selection@ KH@ requires"
+                                     ^"@ only@ two@ trees@ in@ memory."
+                            in
+                            Status.user_message Status.Error msg
+                        |   _,_ -> assert false
+                    with MLT.Incorrect_Data ->
+                        Status.user_message Status.Error
+                            "Cannot@ use@ topology@ tests@ on@ this@ data."
+                end;
+                run
             | `LKSites (filename,chars) ->
                 let ft = Status.output_table (Status.Output (filename, false, [])) in
                 let items = Sexpr.length run.trees in

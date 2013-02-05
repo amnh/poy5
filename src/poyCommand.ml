@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3041 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3069 $"
 
 let debug = false 
 
@@ -358,6 +358,7 @@ type reporta = [
     | `GraphicSupports of Methods.support_output option
     | `AllRootsCost
     | `Implied_Alignments of identifiers * bool
+    | `Topo_Selection of Methods.ml_topo_test list
     | `GraphicDiagnosis of Methods.diagnosis_report_type
     | `Diagnosis of Methods.diagnosis_report_type 
     | `Nodes
@@ -900,7 +901,7 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `Consensus v       -> (`Consensus (file, v)) :: acc, file
     | `GraphicConsensus v-> (`GraphicConsensus (file, v)) :: acc, file
     | `SequenceStats c   -> (`SequenceStats (file, c)) :: acc, file
-    | `Ci c              -> (`Ci (file, c)) :: acc, file 
+    | `Ci c              -> (`Ci (file, c)) :: acc, file
     | `Ri c              -> (`Ri (file, c)) :: acc, file
     | `CompareSequences (a,b,c)
                          -> (`CompareSequences (file, a, b, c)) :: acc, file
@@ -908,6 +909,8 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `Nexus             -> (`Nexus (file)) :: acc, file
     | `Pairwise x        -> (`Pairwise (file,x)) :: acc, file
     | `LKSites x         -> (`LKSites (file,x)) :: acc, file
+    | `Topo_Selection x  ->
+        (`Topo_Selection (file,x)) :: acc, file
     | `Model x           -> (`Model (file,x)) :: acc, file
     | `Script lst        -> (`Script (file,lst)) :: acc, file
     | `ExplainScript scr -> (`ExplainScript (scr, file)) :: acc, file
@@ -1662,6 +1665,22 @@ let create_expr () =
                     left_parenthesis; a = LIST0 [x = report_argument -> x] SEP ","; 
                     right_parenthesis -> `Report a ]
             ];
+        topology_test_params : 
+            [   [ LIDENT "au" -> `AU ] |
+                [ LIDENT "sh" -> `SH ] |
+                [ LIDENT "kh" -> `KH ] |
+                [ LIDENT "n"; ":"; x = INT -> `Replicates (int_of_string x) ] |
+                [ LIDENT "k"; ":"; x = INT -> `ScaleFactors (int_of_string x) ] |
+                [ LIDENT "rell" -> `ReplicateOpt (false, false) ] |
+                [ LIDENT "full" -> `ReplicateOpt (true, true) ] |
+                [ LIDENT "part" -> `ReplicateOpt (false, true) ] |
+                [ x = old_identifiers -> `Characters x]
+            ];
+        topology_tests:
+            [ [ left_parenthesis;
+                    x = LIST0 [x = topology_test_params -> x] SEP ",";
+                right_parenthesis -> x ]
+            ];
         report_argument:
             [
                 [ x = STRING -> `File x ] |
@@ -1690,16 +1709,13 @@ let create_expr () =
                 [ LIDENT "timer"; ":"; x = STRING -> `TimeDelta x ] |
                 [ LIDENT "_mst" -> `MstR ] |
                 [ LIDENT "consensus"; x = OPT optional_integer_or_float ->
-                    `Consensus
-                        (match x with
-                            | None -> None
-                            | Some x -> Some (float_of_string x)) ] |
-                [ LIDENT "graphconsensus"; x = OPT optional_integer_or_float -> 
-                    `GraphicConsensus 
-                    (match x with
-                    | None -> None 
-                    | Some x -> Some (float_of_string x)) ] | 
-                [ LIDENT "clades" -> `Clades ] |
+                    match x with
+                        | None -> `Consensus None
+                        | Some x -> `Consensus (Some (float_of_string x)) ] |
+                [ LIDENT "graphconsensus"; x = OPT optional_integer_or_float ->
+                    match x with
+                        | None -> `GraphicConsensus None
+                        | Some x -> `GraphicConsensus (Some (float_of_string x))] |
                 [ LIDENT "phastwinclad" -> `FasWinClad ] | 
                 [ LIDENT "nexus" -> `Nexus ] | 
                 [ LIDENT "lkmodel"; ":"; x = old_identifiers -> `Model x ] | 
@@ -1720,6 +1736,7 @@ let create_expr () =
                     right_parenthesis -> `CompareSequences (complement, ch1, ch2) ] |
                 [ LIDENT "script_analysis"; ":"; x = STRING -> `ExplainScript x ] |
                 [ LIDENT "supports"; y = OPT opt_support_names -> `Supports y ] |
+                [ LIDENT "topologytest"; ":"; y = topology_tests -> `Topo_Selection y] |
                 [ LIDENT "graphsupports"; y = OPT opt_support_names -> `GraphicSupports y ] |
                 [ LIDENT "diagnosis"; y = OPT opt_report_type -> match y with 
                     | None -> `Diagnosis `Normal

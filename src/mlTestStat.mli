@@ -17,6 +17,26 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+(** {6 Outside Types --irrespective of the functorization. This is allow modules
+       to process arguments as soon as they come in *)
+
+(** Define a type to determine the way to optimize the tree to obtain
+    likelihood scores for replicates of the tree. *)
+type replicate = { m:bool; b:bool }
+
+(** The RELL - relative estimated log-likelihood - no optimizations *)
+val rell : replicate
+
+(** Full optimizations for each replicate --very long time to optimize *)
+val full : replicate
+
+(** Partial optimization; this would only optimize branch lengths *)
+val part : replicate
+
+(** process methods.ml_topo_test args; we do this here to keep things clean *)
+val process_methods_arguments : Methods.ml_topo_test list ->
+    Methods.ml_topo_test * Methods.characters * int option * int option * replicate 
+
 module type S = sig
 
     (** {6 Types *)
@@ -29,20 +49,14 @@ module type S = sig
 
     (** tree composed of a and b *)
     type tree = (a,b) Ptree.p_tree
+    
+    (** exception to be raised if we cannot perform the test statistics *)
+    exception Incorrect_Data
 
     (** wrapped tree; this is so we don't call the site_likelihood command for
         higher-efficency. *)
-    type wtree = { t : tree; slk : float array; root : MlStaticCS.t; }
-
-    (** Define a type to determine the way to optimize the tree to obtain
-        likelihood scores for replicates of the tree. *)
-    type replicate = { m:bool; b:bool }
-
-    (** The RELL - relative estimated log-likelihood - no optimizations *)
-    val rell : replicate
-
-    (** Full optimizations for each replicate --very long time to optimize *)
-    val full : replicate
+    type wtree =
+        { t : tree; slk : float array; root : MlStaticCS.t; chars : Data.bool_characters; }
 
 
     (** {6 Helper Functions *)
