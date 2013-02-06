@@ -23,8 +23,6 @@ open StdLabels
 
 exception Illegal_argument
 
-exception Illegal_Taxa of string
-
 type filename = string 
 
 module FullTupleMap = All_sets.FullTupleMap
@@ -2984,15 +2982,21 @@ let process_ignore_file data file =
 let code_taxon code data = 
     All_sets.IntegerMap.find code data.taxon_codes
 
-let report d included excluded =
-    let rec included_in_data = function
-        | []      -> ()
+let report_inc_exc ?(suppress=false) d included excluded =
+    let rec included_in_data acc = function
+        | []      -> acc
         | x :: xs ->
             try let () = ignore (taxon_code x d) in
-                included_in_data xs
-            with (Failure _) -> raise (Illegal_Taxa x)
+                included_in_data acc xs
+            with (Failure _) ->
+                included_in_data (acc^x^",@ ") xs
     in
-    let () = included_in_data included in
+    let not_included = included_in_data "" included in
+    if (not suppress) && not_included <> "" then
+        let chop n str = String.sub str 0 ((String.length str)-n) in
+        Status.user_message Status.Warning
+            ("Taxa@ "^ (chop 3 not_included) ^"@ are@ included@ in@ terminals@ "
+            ^"files@ but@ is@ not@ loaded@ in@ data.");
     let len1 = List.length included
     and len2 = List.length excluded in
     let total = max len1 len2 in
@@ -3080,7 +3084,7 @@ let rec process_analyze_only_taxa meth data = match meth with
                 if dont_complement then included, excluded
                 else excluded, included
             in
-            report data included excluded;
+            report_inc_exc data included excluded;
             process_analyze_only_taxa (`Names (false, excluded)) data
 
 let process_analyze_only_file dont_complement data files =
@@ -3105,17 +3109,12 @@ let process_analyze_only_file dont_complement data files =
                 then complement_taxa data taxa, taxa
                 else taxa, complement_taxa data taxa
         in
-        report data taxa ignored;
+        report_inc_exc data taxa ignored;
         List.fold_left ~f:process_ignore_taxon ~init:data ignored
     with 
     | Failure msg ->
         Status.user_message Status.Error msg;
         data
-    | (Illegal_Taxa i) as exp ->
-        Status.user_message Status.Error
-           ("Taxa@ "^ i ^"@ is@ included@ in@ terminals@ files@ but@ is@ not@ "^
-            "loaded@ in@ data.@ Please@ remove@ taxa@ from@ file.");
-        raise exp
 
 
 let remove_taxa_to_ignore data = 
@@ -4832,10 +4831,7 @@ let process_ignore_character report data code_set =
             static_ml = static_ml;
         }
     with | Not_found -> 
-        let msg = 
-            "Could not find a character. " ^
-            "I will ignore it and continue without processing it." 
-        in
+        let msg = "Could@ not@ find@ a@ character.@ I@ will@ ignore@ it@ and@ continue@ without@ processing@ it." in
         Status.user_message Status.Error msg;
         data
 
