@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 2968 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3069 $"
 
 exception TimedOut
 
@@ -213,6 +213,14 @@ type terminal_transform = [
     | `AlphabeticTerminals
 ]
 
+type ml_topo_test = [
+    | `AU | `SH | `KH
+    | `ReplicateOpt of bool * bool
+    | `ScaleFactors of int
+    | `Replicates of int
+    | `Characters of characters
+]
+
 type ml_optimization= [
     | `AIC of string option
     | `BIC of string option
@@ -332,6 +340,7 @@ type report = [
     | `Nexus of string option
     | `Model of (string option * characters)
     | `LKSites of (string option * characters)
+    | `Topo_Selection of (string option * ml_topo_test list)
     | `Pairwise of (string option * characters)
     | `Script of string option * string list
     | `SequenceStats of (string option * characters)

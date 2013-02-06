@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 2968 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3069 $"
 
 let debug = false
 
@@ -403,20 +403,20 @@ let dependency_relations (init : Methods.script) =
                         let filename = Some filename in
                         let fn = filename_to_list filename in
                         [(data @ fn, fn, init, Invariant)], filename, false
+                | `Topo_Selection (filename,_) ->
+                    let fn = filename_to_list filename in
+                    [(Data :: fn, fn, init, Invariant)], filename, false
                 | `GraphicSupports (suppoutput, filename)
                 | `Supports (suppoutput, filename) ->
                         let fn = filename_to_list filename in
-                        let res = 
-                            match suppoutput with
-                            | None -> [([JackBoot; Bremer; Trees; Data] @ fn, fn, init,
-                            NonComposable)]
+                        let res = match suppoutput with
+                            | None              ->
+                                [([JackBoot; Bremer; Trees; Data] @ fn, fn, init, NonComposable)]
                             | Some `Jackknife _
                             | Some `Bootstrap _ ->
-                                    [([JackBoot; Trees; Data] @ fn, fn, init,
-                                    Linnearizable)]
-                            | Some (`Bremer _)->
-                                    [([Bremer; Trees; Data] @ fn, fn, init,
-                                    Linnearizable)]
+                                [([JackBoot; Trees; Data] @ fn, fn, init, Linnearizable)]
+                            | Some (`Bremer _)  ->
+                                [([Bremer; Trees; Data] @ fn, fn, init, Linnearizable)]
                         in
                         res, filename, false
                 | `Consensus (filename, _)
@@ -1786,7 +1786,9 @@ let script_to_string (init : Methods.script) =
                 | `Xslt _ ->
                         "@[report the current data and trees under analysis@]"
                 | `Nodes _ ->
-                        ""
+                        "@[report all unadjusted data in tree@]"
+                | `Topo_Selection _ -> 
+                        "@[report the tree selection p-values@]"
                 | `TerminalsFiles _ ->
                         "@[report the terminals per file@]"
                 | `CrossReferences (_, _) ->
@@ -1989,8 +1991,7 @@ let my_part mine n a =
         a / n
     else 1 + (a / n)
 
-let is_master_only (init : Methods.script) =
-    match init with
+let is_master_only (init : Methods.script) = match init with
     | `Algn_Newkk
     | `Algn_Normal
     | `Barrier 
@@ -2042,8 +2043,8 @@ let is_master_only (init : Methods.script) =
     | `Repeat _ 
     | `TimerInterval _
     | #Methods.taxa_handling -> false
-    | `Graph (_, _)
-    | `Ascii (_, _)
+    | `Graph _
+    | `Ascii _
     | `InspectFile _
     | `SequenceStats _
     | `Ci _
@@ -2070,13 +2071,14 @@ let is_master_only (init : Methods.script) =
     | `Xslt _
     | `Nodes _
     | `TerminalsFiles _
-    | `CrossReferences (_, _)
-    | `GraphicSupports (_, _)
-    | `Supports (_, _)
-    | `Consensus (_, _)
-    | `GraphicConsensus (_, _)
-    | `GraphicDiagnosis (_,_)
-    | `Diagnosis (_,_)
+    | `CrossReferences _
+    | `GraphicSupports _
+    | `Topo_Selection _
+    | `Supports _
+    | `Consensus _ 
+    | `GraphicConsensus _
+    | `GraphicDiagnosis _
+    | `Diagnosis _
     | `AllRootsCost _
     | `Trees _
     | `Implied_Alignment _
@@ -2086,7 +2088,7 @@ let is_master_only (init : Methods.script) =
     | `TreesStats _
     | `SearchStats _
     | `Clades _
-    | `Save (_, _)
+    | `Save _
     | `MstR _
     | `Plugin _ 
     | `Version -> true
