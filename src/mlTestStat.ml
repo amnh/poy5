@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3069 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3075 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
@@ -122,6 +122,16 @@ struct
     type wtree =
         { t : tree; slk : float array; root : MlStaticCS.t; chars : Data.bool_characters; }
 
+    IFDEF USE_LIKELIHOOD THEN
+        let get_ml_codes = MlStaticCS.get_codes
+        let get_ml_cost x = ~-. (MlStaticCS.median_cost x.root)
+        let ml_site_likelihood = MlStaticCS.site_likelihood
+    ELSE
+        let get_ml_codes _ = assert false
+        let get_ml_cost _  = assert false
+        let ml_site_likelihood _ = assert false
+    END
+
     (* from a list of characters, select the ONE data-set applicable; raise
        Not_found if the dataset is not contained in the list. opps! *)
     let get_matching_dataset t char roots : MlStaticCS.t =
@@ -129,7 +139,7 @@ struct
         let (r,_) =
             List.find
                 (fun (r,_) ->
-                    let codes = MlStaticCS.get_codes r in
+                    let codes = get_ml_codes r in
                     assert( Array.fold_left (fun a x -> a && (List.mem x chars)) true codes);
                     List.mem codes.(0) chars)
                 roots
@@ -168,13 +178,8 @@ struct
        cost of queries to this data, which would happen regularly.*)
     let create_wrapped_tree chars tree : wtree =
         let t_root = get_ml_root_data chars tree in
-        let t_slk  = Array.map (snd) (MlStaticCS.site_likelihood t_root) in
+        let t_slk  = Array.map (snd) (ml_site_likelihood t_root) in
         { t = tree; slk = t_slk; root=t_root; chars = chars; }
-
-    (* general helper function to return cost; all these methods assume no
-      negation of loglikelihood, so we transform to that standard temporarily *)
-    let get_ml_cost x =
-        ~-. (MlStaticCS.median_cost x.root)
 
     (* return a set of weights for replicated data *)
     let bootstrap_weights =
@@ -210,7 +215,7 @@ struct
        lookup randomly uniform data that was compressed and have weights
        associated to each column in the data-set. *)
     let get_cdf wt =
-        let t_lks = MlStaticCS.site_likelihood wt.root in
+        let t_lks = ml_site_likelihood wt.root in
         let cdf = Array.make (Array.length t_lks) 0.0 in
         let sum = ref 0.0 in
         for i = 0 to (Array.length t_lks)-1 do
