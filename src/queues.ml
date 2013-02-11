@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 2777 $"
+let () = SadmanOutput.register "Queues" "$Revision: 3077 $"
 
 (** {1 Types} *)
 
@@ -748,33 +748,32 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         (** [insert tree] is a private method that inserts a new tree in the proper
             place. *)    
         method private insert tree = match strategy with
-        | `First ->
-              if ins_index < n
-              then begin
-                      results.(ins_index) <- tree;
-                      ins_index <- ins_index + 1
-                  end
-        | `Last ->
-              results.(ins_index) <- tree;
-              ins_index <- (ins_index + 1) mod n;
-              if ins_index = 0 then all_stored <- true
-        | `Keep_Random ->
-              if ins_index < n
-              then begin
-                      results.(ins_index) <- tree;
-                      ins_index <- ins_index + 1
-                  end
-              else begin
-                      ins_index <- ins_index + 1;
-                      let outside = ins_index - n in
-                      let rand = Random.int ins_index in
-                      if rand < outside
-                      then ()
-                      else begin
-                              let rand = Random.int n in
-                              results.(rand) <- tree
-                          end
-                  end
+            | `First ->
+                if ins_index < n
+                then begin
+                    results.(ins_index) <- tree;
+                    ins_index <- ins_index + 1
+                end
+            | `Last ->
+                results.(ins_index) <- tree;
+                ins_index <- (ins_index + 1) mod n;
+                if ins_index = 0 then all_stored <- true
+            | `Keep_Random ->
+                if ins_index < n
+                then begin
+                    results.(ins_index) <- tree;
+                    ins_index <- ins_index + 1
+                end else begin
+                    ins_index <- ins_index + 1;
+                    let outside = ins_index - n in
+                    let rand = Random.int ins_index in
+                    if rand < outside then
+                        ()
+                    else begin
+                        let rand = Random.int n in
+                        results.(rand) <- tree
+                    end
+                end
 
         method private clear =
             ins_index <- 0;

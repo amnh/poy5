@@ -112,6 +112,7 @@ type tcm_definition =
     | Level of (tcm_definition * int)
 
 let default_tcm = Substitution_Indel (1,1)
+let default_tcm_parser = `Create_Transformation_Cost_Matrix (1,1)
 
 type dynamic_hom_spec = {
     filename : string;
@@ -2992,11 +2993,12 @@ let report_inc_exc ?(suppress=false) d included excluded =
                 included_in_data (acc^x^",@ ") xs
     in
     let not_included = included_in_data "" included in
-    if (not suppress) && not_included <> "" then
+    if (not suppress) && not_included <> "" then begin
         let chop n str = String.sub str 0 ((String.length str)-n) in
         Status.user_message Status.Warning
             ("Taxa@ "^ (chop 3 not_included) ^"@ are@ included@ in@ terminals@ "
-            ^"files@ but@ is@ not@ loaded@ in@ data.");
+            ^"files@ but@ is@ not@ loaded@ in@ data.")
+    end;
     let len1 = List.length included
     and len2 = List.length excluded in
     let total = max len1 len2 in

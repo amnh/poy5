@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3075 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3077 $"
 
 module IntSet = All_sets.Integers
 
@@ -1538,8 +1538,13 @@ let load_data (meth : Methods.input) data nodes =
                         (Lazy.force Cost_matrix.Three_D.default_aminoacids)
                         annotated alpha default_mode is_prealigned dynastate d f)
                 data files
-        | `GeneralAlphabetSeq (f, alph, read_options) ->
-            let data = Data.add_file data [Data.Characters] f in
+        | `GeneralAlphabetSeq (files, alph, read_options) ->
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
             let orientation = List.mem (`Orientation false) read_options in
             let init3D = List.mem (`Init3D true) read_options in
             let is_prealigned = List.mem (`Prealigned) read_options in
@@ -1558,32 +1563,48 @@ let load_data (meth : Methods.input) data nodes =
                 Alphabet.of_file alph orientation init3D level respect_case tb
             in
             if is_prealigned then
-                prealigned_files := [f] :: !prealigned_files;
+                prealigned_files := files :: !prealigned_files;
             let dynastate,default_mode =
                 if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
                                  else `CustomAlphabet,`DO
             in
             let tcmfile = FileStream.filename alph in
-            Data.process_molecular_file ~respect_case:respect_case
-                    (Data.Input_file (tcmfile,matrix)) twod_full twod_original
-                    threed annotated alphabet default_mode is_prealigned dynastate data f
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file ~respect_case
+                        (Data.Input_file (tcmfile,matrix)) twod_full twod_original
+                        threed annotated alphabet default_mode is_prealigned dynastate d f)
+                data files
         (** read breakinv data from files each breakinv is presented as a
             sequence of general alphabets *)
-        | `Breakinv (seq, alph, read_options) ->
-            let data = Data.add_file data [Data.Characters] seq in
+        | `Breakinv (files, alph, read_options) ->
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
             let orientation = not (List.mem (`Orientation false) read_options) in
             let init3D = (List.mem (`Init3D true) read_options) in
-            let data = Data.add_file data [Data.Characters] seq in
             let respect_case = true in
             let alphabet, (twod,twod_ori,matrix), threed =
                 Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
             and tcmfile = FileStream.filename alph in
-            Data.process_molecular_file (Data.Input_file (tcmfile,matrix)) twod
-                    twod_ori threed annotated alphabet `DO is_prealigned
-                    `Breakinv data seq
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file (Data.Input_file (tcmfile,matrix))
+                        twod twod_ori threed annotated alphabet `DO
+                        is_prealigned `Breakinv d f)
+                data files
         | `ComplexTerminals files ->
-            List.fold_left Data.process_complex_terminals data
-                           (explode_filenames files)
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
+            List.fold_left Data.process_complex_terminals data (explode_filenames files)
+
 
     and annotated_reader data (meth : Methods.input) =
         match meth with
