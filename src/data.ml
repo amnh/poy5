@@ -2991,8 +2991,16 @@ let report_inc_exc ?(suppress=false) d included excluded =
                 included_in_data acc xs
             with (Failure _) ->
                 included_in_data (acc^x^",@ ") xs
+    and process_included acc = function
+        | []      -> acc
+        | x :: xs ->
+            try let () = ignore (taxon_code x d) in
+                process_included (x::acc) xs
+            with (Failure _) ->
+                process_included acc xs
     in
     let not_included = included_in_data "" included in
+    let     included = process_included [] included in
     if (not suppress) && not_included <> "" then begin
         let chop n str = String.sub str 0 ((String.length str)-n) in
         Status.user_message Status.Warning
