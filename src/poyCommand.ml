@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3079 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3081 $"
 
 let debug = false 
 
@@ -1285,17 +1285,13 @@ type transform_method = [
                 ];
             ml_properties:
                 [
-                    [ x = ml_substitution
-                                    -> `ML_subst x ] |
-                    [ LIDENT "alphabet"; ":"; x = ml_alphabet
-                                    -> `ML_alph  x ] |
-                    [ LIDENT "rates";":"; left_parenthesis; x = ml_rates; right_parenthesis
-                                    -> `ML_vars  x ] |
+                    [ x = ml_substitution -> `ML_subst x ] |
+                    [ LIDENT "alphabet"; ":"; x = ml_alphabet -> `ML_alph  x ] |
+                    [ LIDENT "rates";":"; x = ml_rates -> `ML_vars  x ] |
+                    [ x = ml_costfn -> `ML_cost  x ] |
                     [ LIDENT "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
                                     -> `ML_prior x ] |
-                    [ LIDENT "gap"; ":"; left_parenthesis; x = ml_gap; right_parenthesis
-                                    -> `ML_gaps  x ] |
-                    [ x = ml_costfn -> `ML_cost  x ]
+                    [ LIDENT "gap"; ":"; x = ml_gap -> `ML_gaps  x ]
                 ];
             optional_poly :
                 [
