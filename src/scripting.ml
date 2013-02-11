@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3077 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3079 $"
 
 module IntSet = All_sets.Integers
 
@@ -1548,14 +1548,13 @@ let load_data (meth : Methods.input) data nodes =
             let orientation = List.mem (`Orientation false) read_options in
             let init3D = List.mem (`Init3D true) read_options in
             let is_prealigned = List.mem (`Prealigned) read_options in
-            let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
-            let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
-            let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
-            let tb = (*we use First as custom alphabet's tie breaker*)
-                if tie_breaker_first then `First
-                else if tie_breaker_last then `Last
-                else if tie_breaker_random then `Keep_Random
-                else `First
+            let tb =
+                try match List.find
+                        (function | `TieBreaker _ -> true | _ -> false)
+                        read_options with
+                    | `TieBreaker x -> x
+                    | _             -> assert false
+                with | Not_found    -> `First
             in
             let level = 2 in
             let respect_case = true in
@@ -1587,8 +1586,16 @@ let load_data (meth : Methods.input) data nodes =
             let orientation = not (List.mem (`Orientation false) read_options) in
             let init3D = (List.mem (`Init3D true) read_options) in
             let respect_case = true in
+            let tb =
+                try match List.find
+                        (function | `TieBreaker _ -> true | _ -> false)
+                        read_options with
+                    | `TieBreaker x -> x
+                    | _             -> assert false
+                with | Not_found    -> `First
+            in
             let alphabet, (twod,twod_ori,matrix), threed =
-                Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
+                Alphabet.of_file alph orientation init3D 0 respect_case tb
             and tcmfile = FileStream.filename alph in
             List.fold_left
                 (fun d f ->

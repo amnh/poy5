@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3077 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3079 $"
 
 let debug = false 
 
@@ -2054,7 +2054,7 @@ type transform_method = [
                                 `Prealigned (a, b, c) ] |
                     [ x = otherfiles -> (x :> Methods.input) ]
                 ];
-            otherfiles_pre:
+            otherfiles_pre: (** subset of characters that are prealigned **)
                 [[LIDENT "nucleotide"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
@@ -2069,7 +2069,8 @@ type transform_method = [
                         `Aminoacids (to_local a,[`Prealigned]) ] |
                 [ LIDENT "aminoacids"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
-                        `Aminoacids (to_local a,[`Prealigned]) ]
+                        `Aminoacids (to_local a,[`Prealigned]) ] |
+                [ f = STRING -> `AutoDetect [`Local f] ]
                 ];
         otherfiles:
             [
