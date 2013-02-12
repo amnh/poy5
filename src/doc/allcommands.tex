@@ -1164,7 +1164,7 @@
             (For a sample script using this data type see tutorial \texttt{5.7}.} 
             {}
 
-        \argumentdefinition{breakinv}{\obligatory{(STRING, STRING, {\optionall {orientation:\poybool})}}}
+       \argumentdefinition{breakinv}{\obligatory{(STRING, STRING, {\optionall {orientation:\poybool})}}}
             {An enhancement \\ of the data file type \poyargument{custom\_alphabet} allowing
             rearrangement events. Syntactically, \poyargument{breakinv} data type is identical to 
             \poyargument{custom\_alphabet} data type.
@@ -1191,11 +1191,11 @@
             \nccross{transform}{transformcommand}.} 
             {}
             
-            \argumentdefinition{custom\_alphabet}{\obligatory \poystring list,cm\obligatory \poystring,{\optionall {{init3d{\obligatory \poystring},tiebreaker{\obligatory \poystring},orientation:\poybool})}}}
+ \argumentdefinition{custom\_alphabet}{\obligatory\poystring list,cm\obligatory \poystring,{\optionall {{init3d{\obligatory \poybool},tiebreaker{\obligatory \poylident},orientation:\poybool})}}}
             {Reads the data in the user-defined alphabet format. The first string argument is
             the name of a data file that contains custom-alphabet sequences in FASTA format. 
             The characters can be (but are not required to be) separated by spaces.
-            The second string argument is the name of a custom-alphabet input file that contains two parts:
+            The \texttt{cm} refers to the custom-alphabet matrix that contains two parts:
             an alphabet itself, where the alphabet elements are separated by spaces, and a
             transformation cost matrix. The elements in an alphabet can be letters, digits, or
             both, as long as one element is not a prefix of another  (``prefix-free''). For
@@ -1233,12 +1233,13 @@
 	alphabetabetadelta}
 	
 	\smallskip
-	An optional argument of \poyargument{custom\_alphabet} is \poyargument{orientation}
-	which requires an obligatory boolean value. The argument
-	\poyargument{orientation} allows the user to specify the orientation of custom-defined alphabet
+	Three optional arguments of \poyargument{custom\_alphabet} are possible: \poyargument{init3d}; 
+	\poyargument{tiebreaker}; and \poyargument{orientation}.  Both \poyargument{init3d} and 
+	\poyargument{orientation} require an obligatory boolean value, namely \texttt{true} or \texttt{false}.
+	Both these arguments allow the user to specify the orientation of custom-defined alphabet
 	characters. The tilde (``$\sim$'') symbol preceding an alphabet character indicates
-	the negative orientation. The options are \poyargument{orientation:true}
-	or \poycommand{orientation:false}. The default option is \texttt{true}. 
+	the negative orientation. The default option is \texttt{true}. \poyargument{init3d} initiates a 3D matrix
+	that can lead to a lot of memory consumption.  \poyargument{tiebreaker} 
 	
 	\poycommand{custom\_alphabet} can be transformed into \poycommand{breakinv} using \poycommand{transform}.}
 	 {customalphabet}

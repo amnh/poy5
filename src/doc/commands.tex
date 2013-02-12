@@ -167,6 +167,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \newcommand{\poyargument}[1]{\commandstyle{#1}}
 \newcommand{\obligatory}[1]{\commandstyle{\argprefix#1}}
 \newcommand{\optional}[1]{\commandstyle{[\argprefix#1]}}
+\newcommand{\optionall}[1]{\commandstyle{[#1]}}
 \newenvironment{arguments} {\subsubsection{Arguments}}{ \finishdescription }
 \newenvironment{argumentgroup}[2]{\paragraph{#1} #2}{ \finishdescription }
 \renewcommand{\labelitemi}{$\bullet$}
@@ -211,8 +212,8 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 % The primitive types of a POY script.
 \newcommand{\poystring}{\commandstyle{STRING}\xspace}
 \newcommand{\poyfloat}{\commandstyle{FLOAT}\xspace}
-\newcommand{\poyint}{\commandstyle{INTEGER}\xspace}
-\newcommand{\poybool}{\commandstyle{BOOL}\xspace}
+\newcommand{\poyint}{\commandstyle{INTEGER}}
+\newcommand{\poybool}{\commandstyle{BOOL}}
 \newcommand{\poylident}{\commandstyle{LIDENT}\xspace}
 
 \newcommand{\poydefaults}[2]{\subsubsection{Defaults} \commandstyle{\@commandname(#1)} #2}
