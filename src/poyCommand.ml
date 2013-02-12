@@ -19,16 +19,17 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3081 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3088 $"
 
 let debug = false 
 
 type read_option_t = [
     | `Init3D of bool
     | `Orientation of bool
-    | `TieBreaker of Methods.keep_method
     | `InputFile of Methods.filename
     | `CostMatrix of Methods.filename
+    | `Level of int * Methods.keep_method
+    | `Tie_Breaker of Methods.keep_method
 ]
 
 type otherfiles = [
@@ -219,17 +220,19 @@ type transform_method = [
     ]
 
     type swap_strategy = [
-    | `SingleNeighborhood of swap_neighborhood
-    | `ChainNeighborhoods of swap_neighborhood
-    | `Alternate of (swap_neighborhood * swap_neighborhood)
-    | `None ]
+        | `SingleNeighborhood of swap_neighborhood
+        | `ChainNeighborhoods of swap_neighborhood
+        | `Alternate of (swap_neighborhood * swap_neighborhood)
+        | `None
+    ]
 
     type swap_trajectory = [
-    | `AllAround of string option
-    | `AllThenChoose
-    | `BestFirst
-    | `PoyDrifting of (float * float)
-    | `Annealing of (float * float) ]
+        | `AllAround of string option
+        | `AllThenChoose
+        | `BestFirst
+        | `PoyDrifting of (float * float)
+        | `Annealing of (float * float)
+    ]
 
     type swapa = [
         | `IterationS of iteration_strategy list
@@ -1089,8 +1092,9 @@ type transform_method = [
 
     let organize_read_options lst = 
         let rec organize_data (ss,cm,ro) = function
-            | (`TieBreaker _)
+            | (`Level _)
             | (`Init3D _)
+            | (`Tie_Breaker _)
             | (`Orientation _) as a -> (ss,cm,a::ro)
             | (`CostMatrix x) ->
                 begin match cm with
@@ -2086,7 +2090,6 @@ type transform_method = [
                 [ LIDENT "genome"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Genome (to_local a) ] |
-
                 [ LIDENT "aminoacid"; ":"; left_parenthesis; 
                     a = LIST1 [x = read_optiona -> x] SEP ","; right_parenthesis ->
                         let files,options : read_option_t list * read_option_t list = 
@@ -2096,7 +2099,6 @@ type transform_method = [
                             List.map (function `InputFile x -> x | _ -> assert false) files
                         in
                         (`Aminoacids (files,options) :> Methods.simple_input)] |
-
                 [ LIDENT "aminoacids"; ":"; left_parenthesis; 
                     a = LIST1 [x = read_optiona -> x] SEP ","; right_parenthesis ->
                         let files,options : read_option_t list * read_option_t list = 
@@ -2121,16 +2123,17 @@ type transform_method = [
                             | Some x -> `Breakinv (files, x, ros)
                             | None   -> failwith "I require a cost matrix in the read command"
                         end ] |
-                [ LIDENT "complex"; left_parenthesis; a = LIST1 [x = STRING ->
-                    x] SEP ","; 
-                    right_parenthesis -> `ComplexTerminals (to_local a) ] 
+                [ LIDENT "complex"; left_parenthesis;
+                    a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
+                        `ComplexTerminals (to_local a) ] 
             ];
         read_optiona:
             [
-                [LIDENT "tie_breaker"; ":"; tb = keep_method -> `TieBreaker tb ] |
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
                 [LIDENT "cm"; ":"; cm = STRING -> `CostMatrix (`Local cm) ] |
+                [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
+                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
                 [ x = STRING -> `InputFile (`Local x)]
             ];
         tree_information_list:
@@ -2305,15 +2308,12 @@ type transform_method = [
             ];
         swap_method:
             [
-                [ LIDENT "spr"; y = OPT single_option -> 
-                    match y with
-                    | None -> `ChainNeighborhoods `Spr 
-                    | Some _ -> `SingleNeighborhood `Spr
-                ] |
-                [ LIDENT "tbr"; y = OPT single_option -> 
-                    match y with
-                    | None -> `ChainNeighborhoods `Tbr 
-                    | Some _ -> `SingleNeighborhood `Tbr] |
+                [ LIDENT "spr"; y = OPT single_option -> match y with
+                    | None -> `ChainNeighborhoods `Spr
+                    | Some _ -> `SingleNeighborhood `Spr ] |
+                [ LIDENT "tbr"; y = OPT single_option -> match y with
+                    | None -> `ChainNeighborhoods `Tbr
+                    | Some _ -> `SingleNeighborhood `Tbr ] |
                 [ LIDENT "alternate" -> `Alternate (`Spr, `Tbr) ]
             ];
         single_option:
@@ -2323,8 +2323,7 @@ type transform_method = [
         break_method:
             [
                 [ LIDENT "randomized" -> `Randomized ] |
-                [ LIDENT "distance"; x = OPT optional_boolean -> 
-                    match x with
+                [ LIDENT "distance"; x = OPT optional_boolean -> match x with
                     | None -> `DistanceSorted false
                     | Some x -> `DistanceSorted x] |
                 [ LIDENT "once" -> `OnlyOnce ]

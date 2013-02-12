@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3079 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3088 $"
 
 module IntSet = All_sets.Integers
 
@@ -1527,16 +1527,28 @@ let load_data (meth : Methods.input) data nodes =
                 if init3D then Alphabet.aminoacids_use_3d
                           else Alphabet.aminoacids
             in
+            let alphabet, (twod_full,twod_original,matrix),threed =
+                try match List.find
+                        (function | `Level _ -> true | _ -> false)
+                        read_options with
+                    | `Level (x,y) ->
+                        Status.user_message Status.Error "I@ am@ ignoring@ the@ Level@ argument";
+                        raise Not_found
+                    | _            -> assert false
+                with | Not_found   ->
+                    alpha,(Cost_matrix.Two_D.default_aminoacids,
+                            Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
+                        (Lazy.force Cost_matrix.Three_D.default_aminoacids)
+            in
             let dynastate,default_mode =
                 if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
                                  else `CustomAlphabet,`DO
             in
             List.fold_left
                 (fun d f ->
-                    Data.process_molecular_file Data.default_tcm
-                        Cost_matrix.Two_D.default_aminoacids Cost_matrix.Two_D.default_aminoacids
-                        (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                        annotated alpha default_mode is_prealigned dynastate d f)
+                    Data.process_molecular_file matrix twod_full twod_original 
+                            threed annotated alpha default_mode is_prealigned
+                            dynastate d f)
                 data files
         | `GeneralAlphabetSeq (files, alph, read_options) ->
             let files = explode_filenames files in
@@ -1550,13 +1562,20 @@ let load_data (meth : Methods.input) data nodes =
             let is_prealigned = List.mem (`Prealigned) read_options in
             let tb =
                 try match List.find
-                        (function | `TieBreaker _ -> true | _ -> false)
+                        (function | `Tie_Breaker _ -> true | _ -> false)
                         read_options with
-                    | `TieBreaker x -> x
+                    | `Tie_Breaker x -> x
                     | _             -> assert false
                 with | Not_found    -> `First
             in
-            let level = 2 in
+            let level,tb =
+                try match List.find
+                        (function | `Level _ -> true | _ -> false)
+                        read_options with
+                    | `Level (x,y) -> x,y
+                    | _            -> assert false
+                with | Not_found   -> 2,tb
+            in
             let respect_case = true in
             let alphabet, (twod_full,twod_original,matrix), threed =
                 Alphabet.of_file alph orientation init3D level respect_case tb
@@ -1587,10 +1606,11 @@ let load_data (meth : Methods.input) data nodes =
             let init3D = (List.mem (`Init3D true) read_options) in
             let respect_case = true in
             let tb =
-                try match List.find
-                        (function | `TieBreaker _ -> true | _ -> false)
+                try match
+                    List.find
+                        (function | `Tie_Breaker _ -> true | _ -> false)
                         read_options with
-                    | `TieBreaker x -> x
+                    | `Tie_Breaker x -> x
                     | _             -> assert false
                 with | Not_found    -> `First
             in
