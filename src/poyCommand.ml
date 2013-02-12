@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3088 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3092 $"
 
 let debug = false 
 
@@ -1753,21 +1753,16 @@ type transform_method = [
                         | None -> `GraphicDiagnosis `Normal
                         | Some x -> `GraphicDiagnosis x ] |
                     [ LIDENT "data" -> `Data ] |
-                    [ LIDENT "xslt"; ":"; "("; a = STRING; ","; b = STRING; ")" ->
-                        `Xslt (a, b) ] |
-                    [ LIDENT "implied_alignments"; ":"; x = identifiers ->
-                        `Implied_Alignments (x, true) ] |
-                    [ LIDENT "fasta"; ":"; x = identifiers ->
-                        `Implied_Alignments (x, false) ] |
+                    [ LIDENT "xslt"; ":"; "("; a = STRING; ","; b = STRING; ")" -> `Xslt (a, b) ] |
+                    [ LIDENT "implied_alignments"; ":"; x = identifiers -> `Implied_Alignments (x, true) ] |
+                    [ LIDENT "fasta"; ":"; x = identifiers -> `Implied_Alignments (x, false) ] |
+                    [ LIDENT "fasta" -> `Implied_Alignments (`All, false) ] |
                     [ LIDENT "all_roots" -> `AllRootsCost ] |
-                    [ LIDENT "implied_alignments" -> 
-                        `Implied_Alignments (`All, true)] |
-                    [ LIDENT "ia"; ":"; x = identifiers -> 
-                        `Implied_Alignments (x, true) ] | 
+                    [ LIDENT "implied_alignments" -> `Implied_Alignments (`All, true)] |
+                    [ LIDENT "ia"; ":"; x = identifiers -> `Implied_Alignments (x, true) ] | 
                     [ LIDENT "ia" -> `Implied_Alignments (`All, true) ] |
                     [ LIDENT "nodes" -> `Nodes ] |
-                    [ LIDENT "cross_references"; ":"; x = old_identifiers -> 
-                        `CrossReferences (Some x) ] |
+                    [ LIDENT "cross_references"; ":"; x = old_identifiers -> `CrossReferences (Some x) ] |
                     [ LIDENT "terminals" -> `TerminalsFiles ] | 
                     [ LIDENT "cross_references" -> `CrossReferences None ]
                 ];
