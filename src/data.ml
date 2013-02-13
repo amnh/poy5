@@ -6329,16 +6329,15 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         else find_end acc pos (pos + 1) mark
     in
     (* A function to compute the cost of an indel block *)
-    let compute_cost = 
-        match tcm_case with
+    let compute_cost = match tcm_case with
         | `AllSankoff None
         | `AllOne  _
         | `AllOneGapSame _ -> (fun _ -> 0)
         | `AllSankoff (Some f) -> 
-                (fun len -> 
-                    f (String.make len 'A'))
+            (fun len -> f (String.make len 'A'))
         | `AffinePartition (_, gapcost, gapopening) ->
-                (fun len -> gapopening + (len * gapcost))
+            raise Illegal_argument
+            (* (fun len -> gapopening + (len * gapcost)) *)
     in
     let encoding len = 
         Alphabet.present_absent, Parser.OldHennig.Encoding.gap_encoding (compute_cost len)
