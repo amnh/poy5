@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3092 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3094 $"
 
 let debug = false 
 
@@ -2050,7 +2050,8 @@ type transform_method = [
                     [ x = otherfiles -> (x :> Methods.input) ]
                 ];
             otherfiles_pre: (** subset of characters that are prealigned **)
-                [[LIDENT "nucleotide"; ":"; left_parenthesis;
+              [ [ f = STRING -> `AutoDetect [`Local f] ] |
+                [LIDENT "nucleotide"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
                 [ LIDENT "nucleotide"; ":"; left_parenthesis;
@@ -2064,8 +2065,7 @@ type transform_method = [
                         `Aminoacids (to_local a,[`Prealigned]) ] |
                 [ LIDENT "aminoacids"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
-                        `Aminoacids (to_local a,[`Prealigned]) ] |
-                [ f = STRING -> `AutoDetect [`Local f] ]
+                        `Aminoacids (to_local a,[`Prealigned]) ]
                 ];
         otherfiles:
             [
@@ -2124,12 +2124,12 @@ type transform_method = [
             ];
         read_optiona:
             [
+                [ x = STRING -> `InputFile (`Local x) ] |
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
                 [LIDENT "cm"; ":"; cm = STRING -> `CostMatrix (`Local cm) ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
-                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
-                [ x = STRING -> `InputFile (`Local x)]
+                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x]
             ];
         tree_information_list:
             [   
