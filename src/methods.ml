@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3069 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3088 $"
 
 exception TimedOut
 
@@ -82,7 +82,10 @@ type read_option_t = [
     | `Init3D of bool
     | `Orientation of bool
     | `Prealigned
-    | `TieBreaker of keep_method
+    | `InputFile of filename
+    | `CostMatrix of filename
+    | `Level of int * keep_method
+    | `Tie_Breaker of keep_method
 ]
 
 type prealigned_costs = [
@@ -95,8 +98,8 @@ type simple_input = [
     | `Nucleotides of filename list
     | `PartitionedFile of filename list
     | `Aminoacids of (filename list * read_option_t list)
-    | `GeneralAlphabetSeq of (filename * filename * read_option_t list)
-    | `Breakinv of filename * filename * read_option_t list
+    | `GeneralAlphabetSeq of (filename list * filename * read_option_t list)
+    | `Breakinv of filename list * filename * read_option_t list
     | `Chromosome of filename list
     | `Genome of filename list
     | `ComplexTerminals of filename list

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3078 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3098 $"
 
 module IntSet = All_sets.Integers
 
@@ -1527,63 +1527,111 @@ let load_data (meth : Methods.input) data nodes =
                 if init3D then Alphabet.aminoacids_use_3d
                           else Alphabet.aminoacids
             in
+            let alphabet, (twod_full,twod_original,matrix),threed =
+                try match List.find
+                        (function | `Level _ -> true | _ -> false)
+                        read_options with
+                    | `Level (x,y) ->
+                        Status.user_message Status.Error "I@ am@ ignoring@ the@ Level@ argument";
+                        raise Not_found
+                    | _            -> assert false
+                with | Not_found   ->
+                    alpha,(Cost_matrix.Two_D.default_aminoacids,
+                            Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
+                        (Lazy.force Cost_matrix.Three_D.default_aminoacids)
+            in
             let dynastate,default_mode =
                 if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
                                  else `CustomAlphabet,`DO
             in
             List.fold_left
                 (fun d f ->
-                    Data.process_molecular_file Data.default_tcm
-                        Cost_matrix.Two_D.default_aminoacids Cost_matrix.Two_D.default_aminoacids
-                        (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                        annotated alpha default_mode is_prealigned dynastate d f)
+                    Data.process_molecular_file matrix twod_full twod_original 
+                            threed annotated alpha default_mode is_prealigned
+                            dynastate d f)
                 data files
-        | `GeneralAlphabetSeq (f, alph, read_options) ->
-            let data = Data.add_file data [Data.Characters] f in
+        | `GeneralAlphabetSeq (files, alph, read_options) ->
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
             let orientation = List.mem (`Orientation false) read_options in
             let init3D = List.mem (`Init3D true) read_options in
             let is_prealigned = List.mem (`Prealigned) read_options in
-            let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
-            let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
-            let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
-            let tb = (*we use First as custom alphabet's tie breaker*)
-                if tie_breaker_first then `First
-                else if tie_breaker_last then `Last
-                else if tie_breaker_random then `Keep_Random
-                else `First
+            let tb =
+                try match List.find
+                        (function | `Tie_Breaker _ -> true | _ -> false)
+                        read_options with
+                    | `Tie_Breaker x -> x
+                    | _             -> assert false
+                with | Not_found    -> `First
             in
-            let level = 2 in
+            let level,tb =
+                try match List.find
+                        (function | `Level _ -> true | _ -> false)
+                        read_options with
+                    | `Level (x,y) -> x,y
+                    | _            -> assert false
+                with | Not_found   -> 2,tb
+            in
             let respect_case = true in
             let alphabet, (twod_full,twod_original,matrix), threed =
                 Alphabet.of_file alph orientation init3D level respect_case tb
             in
             if is_prealigned then
-                prealigned_files := [f] :: !prealigned_files;
+                prealigned_files := files :: !prealigned_files;
             let dynastate,default_mode =
                 if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
                                  else `CustomAlphabet,`DO
             in
             let tcmfile = FileStream.filename alph in
-            Data.process_molecular_file ~respect_case:respect_case
-                    (Data.Input_file (tcmfile,matrix)) twod_full twod_original
-                    threed annotated alphabet default_mode is_prealigned dynastate data f
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file ~respect_case
+                        (Data.Input_file (tcmfile,matrix)) twod_full twod_original
+                        threed annotated alphabet default_mode is_prealigned dynastate d f)
+                data files
         (** read breakinv data from files each breakinv is presented as a
             sequence of general alphabets *)
-        | `Breakinv (seq, alph, read_options) ->
-            let data = Data.add_file data [Data.Characters] seq in
+        | `Breakinv (files, alph, read_options) ->
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
             let orientation = not (List.mem (`Orientation false) read_options) in
             let init3D = (List.mem (`Init3D true) read_options) in
-            let data = Data.add_file data [Data.Characters] seq in
             let respect_case = true in
+            let tb =
+                try match
+                    List.find
+                        (function | `Tie_Breaker _ -> true | _ -> false)
+                        read_options with
+                    | `Tie_Breaker x -> x
+                    | _             -> assert false
+                with | Not_found    -> `First
+            in
             let alphabet, (twod,twod_ori,matrix), threed =
-                Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
+                Alphabet.of_file alph orientation init3D 0 respect_case tb
             and tcmfile = FileStream.filename alph in
-            Data.process_molecular_file (Data.Input_file (tcmfile,matrix)) twod
-                    twod_ori threed annotated alphabet `DO is_prealigned
-                    `Breakinv data seq
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file (Data.Input_file (tcmfile,matrix))
+                        twod twod_ori threed annotated alphabet `DO
+                        is_prealigned `Breakinv d f)
+                data files
         | `ComplexTerminals files ->
-            List.fold_left Data.process_complex_terminals data
-                           (explode_filenames files)
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
+            List.fold_left Data.process_complex_terminals data (explode_filenames files)
+
 
     and annotated_reader data (meth : Methods.input) =
         match meth with

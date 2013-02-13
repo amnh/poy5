@@ -4,19 +4,21 @@ by detailed commentaries explaining the rationale behind each step of the analys
 can be conducted interactively using the \emph{Interactive Console} or running separate sequential analyses
  using the \emph{Graphical User Interface}, the most practical way to do this is to use \poy scripts (see 
  \emph{ POY5 Quick Start} for more information on \poy scripts).\\
-
-{\bf It is important to remember that the numerical values for most command arguments will differ substantially 
+\indent {\bf It is important to remember that the numerical values for most command arguments will differ substantially 
 depending on type, complexity, and size of the data. Therefore, the values used here should not be taken as 
 optimal parameters.}\\
-
-The tutorials use sample datasets that are provided with \poy installation but can also be downloaded from 
-the \poy site at
+\indent The tutorials use sample datasets that are provided with \poy installation but can also be downloaded from 
+the \poy site at:
 \begin{center}
 \url{http://research.amnh.org/scicomp/projects/poy.php}
 \end{center}
 The minimally required items to run the tutorial analyses are the \poy application and the sample data files. 
 Running these analyses requires some familiarity with the \poy interface and command structure that can be 
 found in the preceding chapters.
+
+%%%%%%%%%%%%%%%
+%Combining  search strategies
+%%%%%%%%%%%%%%%
 
 \section{Combining  search strategies}{\label{tutorial1}}
 The following script implements a strategy for a thorough search. This is accomplished by generating a large 
@@ -27,10 +29,9 @@ traversing the tree space. In addition, this script shows how to output the stat
 
 \begin{verbatim}
 (* search using all data *)
-read("9.fas","31.ss", aminoacids:("41.aa"))
-(* We select as root the taxon with name t1. If we wanted
-the taxon Locusta_migratoria, we would write:
-root:"Locusta_migratoria" *)
+read("9.fas","31.ss")
+read(prealigned:(amino acids:("41.aa), tcm:("sg1t1.mat")))
+(* Taxon "t1" selected as the root *)
 set(seed:1,log:"all_data_search.log",root:"t1")
 report(timer:"search start")
 transform(tcm:(1,2),gap_opening:1)
@@ -51,9 +52,9 @@ exit()
 \begin{itemize}
 \item \texttt{(* search using all data *)} This first line of the script is a comment. While comments are optional 
 and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read("9.fas","31.ss", aminoacids:("41.aa"))}
-This command imports all the nucleotide sequence data files (all files with the extension \texttt{.seq}), a 
+\item \texttt{read("9.fas","31.ss")} This command imports all the nucleotide sequence data files (all files with the extension \texttt{.seq}), a 
 morphological data file \texttt{morph.ss} in Hennig86 format, and an aminoacid data file \texttt{myosin.aa}.
+\item \texttt{read(prealigned:(amino acids:("41.aa), tcm:("sg1t1.mat")))}
 \item \texttt{set(seed:1,log:"all\_data\_search.log",root:"t1")} The \poycommand{set} command specifies 
 conditions prior to tree searching. The \poyargument{seed} is used to ensure that the subsequent 
 randomization procedures (such as tree building and selecting) are reproducible. Specifying the log 
@@ -101,7 +102,94 @@ command \texttt{report(timer:"search start")}.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Searching under iterative pass}{\label{tutorial2}}
+%%%%%%%%%%%%%%%
+%Search using a timed search
+%%%%%%%%%%%%%%%
+
+\section {Search using a timed search}{\label {tutorial2}}
+The following script implements a strategy for a thorough search using the timed search option.
+The timed search option applies a default strategy that performs as many rounds of tree building, 
+followed by TBR branch swapping, parsimony ratchet and tree fusing. 
+
+\begin{verbatim}
+(* search using a Timed Search *)
+read("9.fas","31.ss")
+transform (tcm: ("sg1t1.mat"))
+read("inter_tree.tre")
+set(root:"t1")
+search (max_time:00:48:00)
+select(unique)
+report("Run1_1.tre", trees:(total))
+search (max_time:00:48:00)
+select(unique)
+report("Run1_2.tre", trees:(total))
+fuse(iterations:250)
+select()
+swap(trees:100)
+select()
+report("Run1_final_stats.txt", treestats)
+report("Run1_final.tre",trees:(total),"Run1_final_H86.tre",trees:(hennig))
+report("Run1_final_cs.tre", consensus,"Run1_final.ps",graphconsensus)
+quit()
+\end {verbatim}
+
+\begin{itemize}
+\item \texttt{(* search using a Timed Search *)} This first line of the script is a comment. While comments are 
+optional and do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read("9.fas","31.ss")}
+\item \texttt{transform(tcm:("sg1t1.mat")}
+\item \texttt{read(prealigned:("41.aa", tcm:("sg1t1.mat")))}
+\item \texttt{read("inter\_tree.tre")}
+\item \texttt{set(root:"t1")}
+\item \texttt{search(max\_time:00:48:00)}The amount of time set for the search is clearly 
+data dependent.   It is crucial to set the maximum time such that the program has a reasonable 
+amount of time to perform a search.  Thus, it is important to have some approximation as to 
+the length of time it would take to perform a single round of searching (e.g. build (1), followed 
+by TBR, ratchet and fusing in the case of a parsimony analysis of DNA sequence data).  With 
+this information, the user can then estimate the amount of time necessary to perform a thorough search. 
+\item \texttt{select(unique)}
+\item \texttt{report("Run1\_1.tre", trees:(total))}
+\item \texttt{search(max\_time:00:48:00)}
+\item \texttt{select(unique)}
+\item \texttt{report("Run1\_2.tre", trees:(total))}
+\item \texttt{fuse(iterations:250)}
+\item \texttt{select()}
+\item \texttt{swap(trees:100)}
+\item \texttt{select()}
+\item \texttt{report("Run1\_final\_stats.txt", treestats)}
+\item \texttt{report("Run1\_final.tre", trees:(total),"Run1\_final\_H86.tre", trees: (hennig))}
+\item \texttt{report("Run1\_final\_cs.tre", consensus,"Run1\_final.ps", graphconsensus)}
+\item \texttt{quit()} This commands ends the \poy session.
+\end{itemize}
+
+%\item \texttt{read("9.fas","31.ss",aminoacids:("41.aa"))} This command imports all the nucleotide sequence 
+%data files (all files with the extension \texttt{.seq}), a morphological data file \texttt{morph.ss} in Hennig86 format, 
+%and an aminoacid data file \texttt{myosin.aa}.
+%\item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most 
+%optimal tree from prior analyses. 
+%\item \texttt{transform(tcm:(1,2),gap\_opening:1)} This command sets the transformation cost matrix for molecular 
+%data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the 
+%\poycommand{transform} specifies the cost for gap opening.
+%\item \texttt{set(iterative:approximate:2)} This command sets the optimization procedure
+%    to iterative pass such that approximated three dimensional alignments generated using pairwise alignments 
+%    will be considered.  The program will iterate either two times, or until no further tress cost improvements can 
+%    be made.
+%\item \texttt{swap(around)} This commands specifies that the the imported tree is subjected to alternating SPR 
+%and TBR branch swapping routine (the default of \poy) following the trajectory of search that completely 
+%evaluates the neighborhood of the tree (by using \poyargument{around}).
+%\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
+%unique trees; all other trees are discarded from memory.
+%\item \texttt{report("all\_trees",trees:(total),"constree",\\graphconsensus,"diagnosis",diagnosis)} This command 
+%produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical 
+%notation and their costs (\texttt{all\_trees}), a graphical representation (in PostScript format) of the strict 
+%consensus (\texttt{constree}), and the diagnoses for all best trees (\texttt{diagnosis}).
+%\end{itemize}
+
+%%%%%%%%%%%%%%%
+%Searching under iterative pass
+%%%%%%%%%%%%%%%
+
+\section{Searching under iterative pass}{\label{tutorial3}}
 The following script implements a strategy for a thorough search under iterative pass optimization. The iterative
  pass optimization is a very time consuming procedure that makes it impractical to conduct under this kind of 
 optimization (save for very small datasets that can be analyzed within reasonable time). The iterative pass, 
@@ -126,9 +214,9 @@ exit()
 \begin{itemize}
 \item \texttt{(* search using all data under ip *)} This first line of the script is a comment. While comments are 
 optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read("9.fas","31.ss",aminoacids:("41.aa"))} This command imports all the nucleotide sequence 
-data files (all files with the extension \texttt{.seq}), a morphological data file \texttt{morph.ss} in Hennig86 format, 
-and an aminoacid data file \texttt{myosin.aa}.
+\item \texttt{read("9.fas","31.ss",aminoacids:("41.aa"))} This command imports the nucleotide sequence 
+data file \texttt{9.fas}, a morphological data file \texttt{31.ss} in Hennig86 format, 
+and an aminoacid data file \texttt{41.aa}.
 \item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most 
 optimal tree from prior analyses. 
 \item \texttt{transform(tcm:(1,2),gap\_opening:1)} This command sets the transformation cost matrix for molecular 
@@ -150,7 +238,18 @@ consensus (\texttt{constree}), and the diagnoses for all best trees (\texttt{dia
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Bremer support}{\label{tutorial 3}}
+%%%%%%%%%%%%%%%
+%Search Based
+%%%%%%%%%%%%%%%
+
+
+
+
+%%%%%%%%%%%%%%%
+%Bremer Support
+%%%%%%%%%%%%%%%
+
+\section{Bremer support}{\label{tutorial4}}
 
 This tutorial builds on the previous tutorials to illustrate Bremer support 
 calculation on trees constructed using dynamic homology characters
@@ -207,12 +306,17 @@ using the \\ \poyargument{graphsupports} defaults.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Jackknife support}{\label{tutorial 4}}
+%%%%%%%%%%
+%Jackknife support
+%%%%%%%%%%
+
+\section{Jackknife support}{\label{tutorial5}}
 
 This tutorial illustrates calculating Jackknife support values for trees constructed with static homology characters.  
-Although it is possible to calculate Jackknife and Bootstrap support values 
-for trees constructed using dynamic homology characters, it is not recommended because resampling of 
-dynamic characters occurs at the fragment (rather than nucleotide) level. Alternately dynamic homology 
+Although it is possible to calculate Jackknife support values 
+for trees constructed using dynamic homology characters, it is highly recommended against doing so as resampling of 
+dynamic characters occurs at the fragment (rather than nucleotide) level. Consider a nucleotide sequence file with a 
+single fragment; trying to calculate jackknife support values on this \hl{...}.  Alternately dynamic homology 
 characters can be converted to static characters using the transform argument \poyargument{static\_approx}.  
 Character transformation, however, may result in a discrepancy between tree costs generated using dynamic 
 homology characters and those generated using static homology characters. Therefore after such a data 
@@ -257,7 +361,66 @@ name specified (\emph{i.e.} \texttt{jacktree}).
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Sensitivity analysis}{\label{tutorial 5}}
+%%%%%%%%%%
+%Bootstrap support
+%%%%%%%%%%
+
+\section{Bootstrap support}{\label{tutorial6}}
+
+This tutorial illustrates calculating Bootstrap support values for trees constructed with static homology characters.  
+Although it is possible to calculate Bootstrap support values for trees constructed using dynamic homology 
+characters, it is not recommended because resampling of 
+dynamic characters occurs at the fragment (rather than nucleotide) level. Alternately dynamic homology 
+characters can be converted to static characters using the transform argument \poyargument{static\_approx}.  
+Character transformation, however, may result in a discrepancy between tree costs generated using dynamic 
+homology characters and those generated using static homology characters. Therefore after such a data 
+transformation is performed, an extra round of swapping is recommended to insure that the local minimum tree 
+length is reached for the static homology characters prior to calculating support values  support values.
+
+%\begin{verbatim}
+%(* Jackknife support for static homology trees *)
+%read(prealigned:("28s.aln",tcm:(1,2)))
+%set( root:"Americhernus")
+%build()
+%swap()
+%select()
+%calculate_support(jackknife:(remove:0.50,resample:1000), 
+%build(5),swap(tbr,trees:3))
+%report("jacktree",graphsupports)
+%exit()
+%\end{verbatim}
+%
+%\begin{itemize}
+%\item \texttt{(* Jackknife support for static homology trees *)} This first line of the script is a comment. While
+% comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+%\item \texttt{read(prealigned:("28s.aln",tcm:(1,2)))} This command imports the prealigned nucleotide sequence 
+%file \texttt{28s.aln}, and treats the characters as static with the prescribed transformation cost matrix.
+%\item \texttt{set(root:"Americhernus")} The \poycommand{set} command specifies conditions prior to tree 
+%searching. The outgroup (\texttt{Americhernus}) is designated by the \poyargument{root}, so that all the reported 
+%trees have the desired polarity.     
+%\item \texttt{build()} This command begins the tree-building step of the search that generates by default 10 
+%random-addition trees. It is essential that trees are either specified from a file or that trees are built and loaded in 
+%memory before attempting to calculate support values.
+%\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an 
+%alternating SPR and TBR branch swapping routine (the default of \poy).
+%\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
+%unique trees; all other trees are discarded from memory. 
+%\item \texttt{calculate\_support(jackknife,(remove:0.50,resample:1000)} The \poycommand{calculate\_support} 
+%command generates support values as specified by the \poyargument{jackknife} argument for each tree held in 
+%memory. During each pseudoreplicate half of the characters will be deleted as specified in the argument
+%\poyargument{remove:0.50}. 
+%\item \texttt{report("jacktree",graphsupports:jackknife)}  The \poycommand{report} command in combination with 
+%a file name and the \poyargument{graphsupports} generates a pdf file with jackknife values designated by the 
+%name specified (\emph{i.e.} \texttt{jacktree}). 
+%\item \texttt{exit()} This commands ends the \poy session.
+%\end{itemize}
+
+
+%%%%%%%%%%
+%Sensitivity analysis
+%%%%%%%%%%
+
+\section{Sensitivity analysis}{\label{tutorial7}}
 
 This tutorial demonstrates how data for parameter sensitivity analysis is generated. Sensitivity analysis 
 \cite{wheeler1995} is a method of exploring the effect of relative costs of substitutions (transitions and 
@@ -344,7 +507,11 @@ regime.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Chromosome analysis: unannotated sequences}{\label{tutorial 6}}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%Chromosome analysis: unannotated sequences
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Chromosome analysis: unannotated sequences}{\label{tutorial8}}
 
 This tutorial illustrates the analysis of chromosome-level transformations using 
 unannotated sequences, i.e., contiguous strings of sequences without prior 
@@ -355,8 +522,7 @@ identification of independent regions.
 read(chromosome:("mit5.txt"))
 transform(chromosome:(locus_inversion:15,locus_indel:(10,0.9)))
 transform(chromosome:(annotate:(mauve,25.0,0.3,0.01,0.08)))
-transform(fixed_states:("mauveout",
-_polymorphism))
+transform(fixed_states:("mauveout", ignore_polymorphism))
 build()
 swap()
 select()
@@ -413,7 +579,11 @@ Sequence ambiguities will not be resolved to generate additional medians beyond 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Chromosome analysis: annotated sequences}{\label{tutorial 7}}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%Chromosome analysis: annotated sequences
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Chromosome analysis: annotated sequences}{\label{tutorial9}}
 
 This tutorial illustrates the analysis of chromosome-level transformations using 
 annotated sequences, i.e., contiguous strings of sequences with prior 
@@ -514,7 +684,7 @@ the \poyargument{diagnosis} outputs the optimal median states and edge values to
 %\item \texttt{exit()} This commands ends the \poy session.
 %\end{itemize}
 
-\section{Genome analysis: multiple chromosomes}{\label{tutorial 8}}
+\section{Genome analysis: multiple chromosomes}{\label{tutorial10}}
 
 This tutorial illustrates the analysis of genome-level transformations using data from multiple chromosomes. 
 
@@ -580,20 +750,17 @@ name and the \poyargument{graphconsensus} generates a pdf strict consensus file 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%LIKELIHOOD TUTORIALS
+%%%%%%%%%%%%%%%%%%%
+%Maximum likelihood analysis: Static
+%%%%%%%%%%%%%%%%%%%
 
-%TUTORIAL STATIC
-\section{Maximum likelihood analysis: Static}{\label{tutorial 9}}
+\section{Maximum likelihood analysis: Static}{\label{tutorial11}}
 This tutorial illustrates the analysis of static characters under the maximum likelihood criterion.  This analysis is of similar 
 intensity to that of a search using the \emph{GTR} model in PhyML.  Maximum likelihood analyses can be 
 computationally intensive, therefore parsimony alternatives to RAS under likelihood are provided.  
-%Additionally, %throughout the tutorial, some familiarity with the terminology of likelihood analyses is assumed. 
-%--removed by LC as this is assumed for all analyses, not just LK
 
 \begin{verbatim}
-(* Read in the data, specifying static characters and conduct a 
-  parsimony search under direct optimization to generate a pool 
-  of trees to be transformed to likelihood *)
+(* Maximum likelihood analysis of static data *)
 read(prealigned:("9.fas",tcm:(1,0)))
 build(100)
 swap()
@@ -663,9 +830,11 @@ the rate variation shape parameter.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%TUTORIAL DYNAMIC
+%%%%%%%%%%%%%%%%%%%
+%Maximum likelihood analysis: Dynamic
+%%%%%%%%%%%%%%%%%%%
 
-\section{Maximum likelihood analysis: Dynamic}{\label{tutorial10}}
+\section{Maximum likelihood analysis: Dynamic}{\label{tutorial12}}
 The following script covers an analysis using dynamic Maximum Parsimonious Likelihood (MPL), and assumes 
 that the reader has covered the previous tutorial, ``Maximum likelihood analysis: Static'' and is 
 familiar with the intensity of the search strategy employed therein. 
@@ -807,9 +976,11 @@ with branch lengths, in \texttt{.tre} format.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-%TUTORIAL HEURISTICS
+%%%%%%%%%%%%%%%%%%%
+%Maximum likelihood analyses: Heuristics
+%%%%%%%%%%%%%%%%%%%
 
-\section{Maximum likelihood analyses: Heuristics}{\label{tutorial11}}
+\section{Maximum likelihood analyses: Heuristics}{\label{tutorial13}}
 The following scripts cover analyses under the maximum likelihood criterion that employ heuristics of various intensities
 and are of varying speed. The first section of this tutorial covers the analysis of static or prealigned data, the second, 
 dynamic data. %Additionally, throughout the tutorial, some familiarity with the terminology of likelihood analyses is assumed.

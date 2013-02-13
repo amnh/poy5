@@ -17,13 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 3043 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 3080 $"
 
 let (-->) b a = a b
 
 let debug = false
 
-let coarse_debug = true
+let coarse_debug = false
 
 let failwithf format = Printf.ksprintf failwith format
 

@@ -44,7 +44,6 @@ let output_infof format =
     Printf.ksprintf (Status.user_message Status.Information) format
 
 let debug_kolmo = false
-let debug_level = false
 let debug_search_base = false
 let debug_parsed_seq = false
 
@@ -112,6 +111,7 @@ type tcm_definition =
     | Level of (tcm_definition * int)
 
 let default_tcm = Substitution_Indel (1,1)
+let default_tcm_parser = `Create_Transformation_Cost_Matrix (1,1)
 
 type dynamic_hom_spec = {
     filename : string;
@@ -2990,13 +2990,22 @@ let report_inc_exc ?(suppress=false) d included excluded =
                 included_in_data acc xs
             with (Failure _) ->
                 included_in_data (acc^x^",@ ") xs
+    and process_included acc = function
+        | []      -> acc
+        | x :: xs ->
+            try let () = ignore (taxon_code x d) in
+                process_included (x::acc) xs
+            with (Failure _) ->
+                process_included acc xs
     in
     let not_included = included_in_data "" included in
-    if (not suppress) && not_included <> "" then
+    let     included = process_included [] included in
+    if (not suppress) && not_included <> "" then begin
         let chop n str = String.sub str 0 ((String.length str)-n) in
         Status.user_message Status.Warning
             ("Taxa@ "^ (chop 3 not_included) ^"@ are@ included@ in@ terminals@ "
-            ^"files@ but@ is@ not@ loaded@ in@ data.");
+            ^"files@ but@ is@ not@ loaded@ in@ data.")
+    end;
     let len1 = List.length included
     and len2 = List.length excluded in
     let total = max len1 len2 in
@@ -5340,7 +5349,6 @@ let assign_tcm_to_characters data chars foname tcm newalph =
 
 
 let assign_tcm_to_characters_from_file data chars file =
-    if debug_level then Printf.printf "assign_tcm_to_characters_from_file begin\n%!";
     let default_km = `Keep_Random in
     let transform_characters old_data old_alphabet old_state old_tcm = 
         let orientation =  match old_state with
@@ -5368,7 +5376,6 @@ let assign_tcm_to_characters_from_file data chars file =
                     | None -> 
                         (*when there is no new level and tiebreaker,tie breaker is set to
                         * default -- do we want to keep the old tie breaker?*)
-                        if debug_level then Printf.printf "no new tie_breaker value\n%!";
                         (*we do full combination for dna and nucleotides*)
                         if is_dna||is_nucleotides then   0,default_km,true,false
                         (*old level is > 1 and <= size, we keep the old level,
@@ -5381,10 +5388,6 @@ let assign_tcm_to_characters_from_file data chars file =
                         else 0,`Keep_Random,false,false
                     | Some (l,tb) ->
                         (*when there is a new level value and tie breaker*)
-                        if debug_level then begin 
-                            Printf.printf "new level=%d,new tie_breaker=%!" l; 
-                            Methods.print_keep_method tb; 
-                        end;
                         (*do full combination for dna and nucleotides *)
                         if is_dna then 0,tb,true,false
                         (*set level to 1 if input level <= 1, 
@@ -5442,7 +5445,6 @@ let assign_tcm_to_characters_from_file data chars file =
             ~init:data
             (get_code_from_characters_restricted_comp `Dynamic data chars)
     in
-    if debug_level then Printf.printf "assign_tcm_to_characters_from_file done\n%!"; 
     new_data
 
 
@@ -5729,55 +5731,48 @@ let codes_with_same_tcm codes data =
 (**[assign_level] update cost matrix with new level value, which leads to
 * different number of combinations. *)
 let assign_level data chars tie_breaker level =
-    if debug_level then Printf.printf "Data.assign_level,level=%d\n%!" level;
     let make_level level = function
         | Level (otcm,_) -> Level (otcm,level)
         | x -> Level (x, level)
     in
     let codes = get_chars_codes_comp data chars in
     let codes =
-        List.map (fun (a, cm_full, cm_ori, alph, tcmfile) ->
-            (*we only apply change to level on custom alphabet and aminoacids.*)
-            if (Alphabet.is_combination_by_level alph)||(Alphabet.is_aminoacids alph) then begin  
-                if debug_level then
-                    Printf.printf "before assigning:%!"; Alphabet.print alph;
-                let name = make_level level tcmfile in
-                (*get new cost matrix based on new level*)
-                let rescm,resalph =
-                    let all_elements = Cost_matrix.Two_D.get_all_elements cm_full in
-                    let oldlevel = Cost_matrix.Two_D.get_level cm_full in
-                    let ori_sz = Cost_matrix.Two_D.get_ori_a_sz cm_full in
-                    let pure_sz = if all_elements>0 then ori_sz-1 else ori_sz in
-                    let combnum =
-                        if level > 1 then
-                            Cost_matrix.Two_D.calc_number_of_combinations_by_level pure_sz level 
-                        else
-                            ori_sz
+        List.map
+            (fun (a, cm_full, cm_ori, alph, tcmfile) ->
+                (*we only apply change to level on custom alphabet and aminoacids.*)
+                if (Alphabet.is_combination_by_level alph)||(Alphabet.is_aminoacids alph) then begin  
+                    let name = make_level level tcmfile in
+                    (*get new cost matrix based on new level*)
+                    let rescm,resalph =
+                        let all_elements = Cost_matrix.Two_D.get_all_elements cm_full in
+                        let oldlevel = Cost_matrix.Two_D.get_level cm_full in
+                        let ori_sz = Cost_matrix.Two_D.get_ori_a_sz cm_full in
+                        let pure_sz = if all_elements>0 then ori_sz-1 else ori_sz in
+                        let combnum =
+                            if level > 1 then
+                                Cost_matrix.Two_D.calc_number_of_combinations_by_level pure_sz level 
+                            else
+                                ori_sz
+                        in
+                        if combnum <= 0 then begin
+                            output_info ("The alphabet size based on the new level is"^
+                                     " too large. I will NOT apply any changes to this one.\n%!");
+                            cm_full, alph
+                        end else begin
+                            let cm_full = Cost_matrix.Two_D.clone cm_full in
+                            let cm_full = Cost_matrix.Two_D.create_cm_by_level cm_full level
+                            oldlevel all_elements tie_breaker in
+                            cm_full, Alphabet.create_alph_by_level alph level oldlevel
+                        end;
                     in
-                    if combnum <= 0 then begin
-                        output_info ("The alphabet size based on the new level is"^
-                                 " too large. I will NOT apply any changes to this one.\n%!");
-                        cm_full, alph
-                    end else begin
-                        if debug_level then Printf.printf "clone old cost matrix\n%!";
-                        let cm_full = Cost_matrix.Two_D.clone cm_full in
-                        if debug_level then 
-                            Printf.printf "create new cost matrix by level\n%!";
-                        let cm_full = Cost_matrix.Two_D.create_cm_by_level cm_full level
-                        oldlevel all_elements tie_breaker in
-                        cm_full, Alphabet.create_alph_by_level alph level oldlevel
-                    end;
-                in
-                if debug_level then begin
-                    Printf.printf "End of Data.assign_level,check new alph %!"; Alphabet.print resalph;
-                end;
-                (true, a),(fun _ -> rescm, cm_ori, name),resalph
-            end else begin
-                output_info ("we don't do combination by level on this \
-                    kind of alphabet, I will NOT apply any changes to this one.");
-                (true,a),(fun _ -> cm_full, cm_ori, tcmfile),alph 
-            end)
-        (codes_with_same_tcm codes data)
+                    (true, a),(fun _ -> rescm, cm_ori, name),resalph
+                end else begin
+                    output_info ("we@ don't@ do@ combination@ by@ level@ on@ this@ "
+                                ^"kind@ of@ alphabet,@ I@ will@ NOT@ apply@ any@ "
+                                ^"changes@ to@ this@ one.");
+                    (true,a),(fun _ -> cm_full, cm_ori, tcmfile),alph
+                end)
+            (codes_with_same_tcm codes data)
     in
     List.fold_left 
         ~f:(fun acc (a, tcm, newalph) ->

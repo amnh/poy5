@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3069 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3077 $"
 
 let debug = false
 
@@ -256,16 +256,14 @@ let dependency_relations (init : Methods.script) =
                 | `Aminoacids (files,_)
                 | `Chromosome files
                 | `Genome files
+                | `GeneralAlphabetSeq (files, _, _)
+                | `Breakinv (files, _, _)
                 | `ComplexTerminals files ->
-                        let files = List.map FileStream.filename files in
-                        [(Data :: Trees :: input files, 
-                        [Data; Trees; Bremer; JackBoot], (meth :>
-                        Methods.script), NonComposable)]
-                | `GeneralAlphabetSeq (file, _, _)
-                | `Breakinv (file, _, _) ->
-                        let file = FileStream.filename file in
-                        [(Data :: Trees :: input [file], [Data; Trees; Bremer; JackBoot], 
-                        (meth :> Methods.script), NonComposable)]
+                    let files = List.map FileStream.filename files in
+                    [ (Data :: Trees :: input files, 
+                      [Data; Trees; Bremer; JackBoot],
+                      (meth :> Methods.script),
+                      NonComposable) ]
             in
             processor meth
     | #Methods.transform as meth ->
@@ -2093,6 +2091,7 @@ let is_master_only (init : Methods.script) = match init with
     | `Plugin _ 
     | `Version -> true
 
+    (** TODO CHECK ALL SCRIPTS FOR LOCAL/REMOTE FILE ISSUES *)
 let rec make_remote_files (init : Methods.script) =
     let mr = function
         | `Local x | `Remote x -> `Remote x
@@ -2123,56 +2122,44 @@ let rec make_remote_files (init : Methods.script) =
         item
     and recursive = List.map make_remote_files in
     match init with
-    | `ParallelPipeline (a, b, c, d) ->
-            `ParallelPipeline (a, recursive b, recursive c, recursive d) 
-    | `OnEachTree (a, b) ->
-            `OnEachTree (recursive a, recursive b)
-    | `Repeat (a, b) ->
-            `Repeat (a, recursive b)
-    | `GatherTrees (a, b) ->
-            `GatherTrees (recursive a, recursive b)
-    | `AnalyzeOnlyCharacterFiles (b, files) ->
-            `AnalyzeOnlyCharacterFiles (b, mrl files)
+    | `ParallelPipeline (a, b, c, d) -> `ParallelPipeline (a, recursive b, recursive c, recursive d) 
+    | `OnEachTree (a, b) -> `OnEachTree (recursive a, recursive b)
+    | `Repeat (a, b) -> `Repeat (a, recursive b)
+    | `GatherTrees (a, b) -> `GatherTrees (recursive a, recursive b)
+    | `AnalyzeOnlyCharacterFiles (b, files) -> `AnalyzeOnlyCharacterFiles (b, mrl files)
     | `Poyfile files -> `Poyfile (mrl files)
     | `AutoDetect files -> `AutoDetect (mrl files)
     | `PartitionedFile files -> `PartitionedFile (mrl files)
     | `Nucleotides files -> `Nucleotides (mrl files)
     | `Aminoacids (files,opt) -> `Aminoacids (mrl files,opt)
-    | `GeneralAlphabetSeq (a, b, c) ->
-            `GeneralAlphabetSeq (mr a, mr b, c)
-    | `Breakinv (a, b, c) -> `Breakinv (mr a, mr b, c)
+    | `GeneralAlphabetSeq (a, b, c) -> `GeneralAlphabetSeq (mrl a, mr b, c)
+    | `Breakinv (a, b, c) -> `Breakinv (mrl a, mr b, c)
     | `Chromosome files -> `Chromosome (mrl files)
     | `Genome files -> `Genome (mrl files)
     | `Prealigned (meth, cost, gap_opening) ->
-            let cost = 
-                match cost with
+            let cost = match cost with
                 | `Assign_Transformation_Cost_Matrix (file,level) -> 
-                        `Assign_Transformation_Cost_Matrix ((mr file),level)
+                    `Assign_Transformation_Cost_Matrix ((mr file),level)
                 | `Create_Transformation_Cost_Matrix _ -> cost
             in
-            let meth = 
-                match meth with
+            let meth = match meth with
                 | `Poyfile files -> `Poyfile (mrl files)
                 | `AutoDetect files -> `AutoDetect (mrl files)
                 | `Nucleotides files -> `Nucleotides (mrl files)
                 | `PartitionedFile files -> `PartitionedFile (mrl files)
                 | `Aminoacids (files,opt) -> `Aminoacids (mrl files,opt)
-                | `GeneralAlphabetSeq (a, b, c) ->
-                        `GeneralAlphabetSeq (mr a, mr b, c)
-                | `Breakinv (a, b, c) -> `Breakinv (mr a, mr b, c)
+                | `GeneralAlphabetSeq (a, b, c) -> `GeneralAlphabetSeq (mrl a, mr b, c)
+                | `Breakinv (a, b, c) -> `Breakinv (mrl a, mr b, c)
                 | `Chromosome files -> `Chromosome (mrl files)
                 | `Genome files -> `Genome (mrl files)
-                | `ComplexTerminals files -> 
-                        let files = mrl files in
-                        `ComplexTerminals files
+                | `ComplexTerminals files -> `ComplexTerminals (mrl files)
             in
             `Prealigned (meth, cost, gap_opening)
     | `AnnotatedFiles files ->
             let files = handle_simple_input_list files in
             `AnnotatedFiles files
     | `Assign_Transformation_Cost_Matrix (a, b) ->
-            let a =
-                match a with
+            let a = match a with
                 | Some (a,l) -> Some ((mr a),l)
                 | None -> None
             in
@@ -2182,18 +2169,20 @@ let rec make_remote_files (init : Methods.script) =
     | `Assign_Prep_Cost ((`File a), b) ->
             `Assign_Prep_Cost ((`File (mr a)), b)
     | `LocalOptimum (l_opt) ->
-        (match l_opt.Methods.tabu_join with
-        | `Partition files ->
+        begin match l_opt.Methods.tabu_join with
+            | `Partition files ->
                 let files = 
                     List.map 
                         (function 
-                            `ConstraintFile file -> 
+                            | `ConstraintFile file -> 
                                 `ConstraintFile (mr file)
-                            | x -> x) files 
+                            | x -> x)
+                        files 
                 in
                 let tabu = `Partition files in
                  `LocalOptimum { l_opt with Methods.tabu_join = tabu }
-        | _ ->  init) 
+            | _ ->  init
+        end
     | `PerturbateNSearch (tl, pm, lo, v, timer) ->
             let tl = 
                 handle_subtypes 
@@ -2216,10 +2205,8 @@ let rec make_remote_files (init : Methods.script) =
             let lo = handle_lo lo
             and bu = handle_bu bu in
             `Bremer (lo, bu, a, b)
-    | `SynonymsFile files ->
-            `SynonymsFile (mrl files)
-    | `AnalyzeOnlyFiles (a, b) ->
-            `AnalyzeOnlyFiles (a, mrl b)
+    | `SynonymsFile files -> `SynonymsFile (mrl files)
+    | `AnalyzeOnlyFiles (a, b) -> `AnalyzeOnlyFiles (a, mrl b)
     | x -> x
 
 let rec cleanup_non_master script =

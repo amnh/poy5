@@ -1,6 +1,6 @@
 \documentclass[11pt]{book}
 
-\usepackage[htt]{hyphenat}
+
 \usepackage{multind}
 \usepackage[pdftitle={POY 5.0 Documentation},pdfauthor={Andres Varon et. al.},
 pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, linkcolor=blue, urlcolor=blue]{hyperref}
@@ -12,8 +12,10 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \usepackage{framed}
 \usepackage{lipsum}
 \usepackage{graphicx}
-%\usepackage{microtype}
+\usepackage{microtype}
+\usepackage[htt]{hyphenat}
 \usepackage[T1]{fontenc}
+\usepackage {marvosym}
 \usepackage{tabularx}
 \usepackage{verbatim}
 \usepackage{amssymb,amsmath}
@@ -36,6 +38,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \sethlcolor{yellow}
 \setcounter{secnumdepth}{2}
 \setcounter{tocdepth}{2}
+
 
 \definecolor{exampleborder}{rgb}{0,0,.7}
 \definecolor{examplebg}{rgb}{.9,.9,1}
@@ -167,6 +170,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \newcommand{\poyargument}[1]{\commandstyle{#1}}
 \newcommand{\obligatory}[1]{\commandstyle{\argprefix#1}}
 \newcommand{\optional}[1]{\commandstyle{[\argprefix#1]}}
+\newcommand{\optionall}[1]{\commandstyle{[#1]}}
 \newenvironment{arguments} {\subsubsection{Arguments}}{ \finishdescription }
 \newenvironment{argumentgroup}[2]{\paragraph{#1} #2}{ \finishdescription }
 \renewcommand{\labelitemi}{$\bullet$}
@@ -212,7 +216,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \newcommand{\poystring}{\commandstyle{STRING}\xspace}
 \newcommand{\poyfloat}{\commandstyle{FLOAT}\xspace}
 \newcommand{\poyint}{\commandstyle{INTEGER}\xspace}
-\newcommand{\poybool}{\commandstyle{BOOL}\xspace}
+\newcommand{\poybool}{\commandstyle{BOOL}}
 \newcommand{\poylident}{\commandstyle{LIDENT}\xspace}
 
 \newcommand{\poydefaults}[2]{\subsubsection{Defaults} \commandstyle{\@commandname(#1)} #2}
@@ -281,7 +285,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 
 \include{version}
 \author{\textbf {Program and Documentation} \\ Andr\'es Var\'on \\ Nicholas Lucaroni \\Lin Hong \\Ward C. Wheeler \\ \bigskip 
-\textbf{Documentation} \\ Louise M. Crowley \\ John S. S. Denton \\ Megan Cevasco}
+\textbf{Documentation} \\ Louise M. Crowley \\ Megan Cevasco \\ John S. S. Denton}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %	BODY TEXT OF THE DOCUMENT     
@@ -328,7 +332,7 @@ Coastal Carolina University, Department of Biology, Conway, SC, U.S.A. \\
 
 {\it
 Illya Bomash}\\
-Department of Physiology And Biophysics, Weill Medical College of Cornell University, New York, NY, U.S.A.\\
+Department of Physiology and Biophysics, Weill Medical College of Cornell University, New York, NY, U.S.A.\\
 \smallskip
 {\it
 Juli\'an Faivovich}\\
@@ -355,14 +359,14 @@ Northern Virginia Community College, Annandale Campus, VA, U.S.A. \\
 Le Sy Vinh}\\
 College of Technology and Information Technology Institute, Vietnam National University, Hanoi, Vietnam.  \\
 
-\vspace*{1.00cm}
+\vspace*{0.25cm}
 The American Museum of Natural History\\
-\copyright 2011 by The American Museum of Natural History, \\
+\copyright  2011 by The American Museum of Natural History, \\
 All rights reserved. Published 2011.
 
 \vspace*{0.25cm}
-\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} 2011. \texttt{POY} 5.0.\buildnumber\ R.C. New York, 
-American Museum of Natural History. L. M. Crowley, M. Cevasco, J. S. S. Denton. 
+\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} \hl{2011}. \texttt{POY} 5.0.\buildnumber\ R.C. New York, 
+American Museum of Natural History. Documentation by L. M. Crowley, M. Cevasco, J. S. S. Denton. 
 \url{http://research.amnh.org/scicomp/projects/poy.php}
 
 \vspace*{0.25cm}
@@ -370,9 +374,9 @@ American Museum of Natural History. L. M. Crowley, M. Cevasco, J. S. S. Denton.
 Available online at
 \url{http://research.amnh.org/scicomp/projects/poy.php}
 and
-\url{http://code.google.com/p/poy5/} 
+\url{http://code.google.com/p/poy/} 
 
-
+Comments or queries relating to the documentation should be sent to \href{mailto:crowley@amnh.org}{crowley@amnh.org}
 \end{flushleft}
 
 \tableofcontents
@@ -384,27 +388,44 @@ and
 \chapter{What is \poy}
 
 \poy is a flexible, multi-platform program for the phylogenetic analysis of a diversity of data types. %under various optimality criteria.
-An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} allowing optimization of unaligned sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, support values and implied alignments.  In addition, \poy can also output synteny block maps from the analysis of both chromosomal and genomic data. \poy provides a unified approach to co-optimizing different types of data, such as morphological and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale genomic events (translocations, inversions, and duplications).
+An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} allowing 
+optimization of   {\bf \emph{unaligned}} sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of 
+algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy 
+generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, 
+support values and implied alignments.  In addition, \poy can also output synteny block maps from the analysis of both 
+chromosomal and genomic data. \poy provides a unified approach to co-optimizing different types of data, such as morphological 
+and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale 
+genomic events (translocations, inversions, and duplications).
 
 \section{The structure of \poy documentation}
-Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to two of the program's working environments, the \emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The following chapter, \emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their understanding helps creating building efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
+Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed 
+instructions on how to obtain and install \poy, introduce the user to two of the program's working environments, the 
+\emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy 
+session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and 
+give step-by-step examples on how to conduct a basic analysis and visualize the results. The following chapter, 
+\emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations 
+for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their understanding helps creating building 
+efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. In addition 
+to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link 
+between the commands used in \texttt{POY3} and the commands used in \poy. 
 
 \section{What's new in \poy}
 There are myriad new features and options in \poy.  These are described and documented in full in the pages that follow.  
 \begin{itemize}
-\item{New optimality criterion--likelihood.  Maximum Average Likelihood (MAL) analysis
-can now be performed on qualitative data of any alphabet size and aligned sequence data 
-(including gaps as missing, independent, or coupled in 5-state models).  Most Parsimonious Likelihood (MPL)
-can also be employed on these data types as well as unaligned sequences under an MPL-DO heuristic.  
-Multiple models are available and different models can be assigned to partitions within a combined analysis. 
-}
+\item{New optimality criterion--likelihood:\\
+	-- Maximum Average Likelihood (MAL) analysis can now be performed on qualitative data of any alphabet size 
+	and aligned sequence data (including gaps as missing, independent, or coupled in 5-state models).\\  
+	-- Most Parsimonious Likelihood (MPL) can also be employed on these data types as well 
+	as unaligned sequences under an MPL-DO heuristic.\\
+	-- Multiple models are available and different models can be assigned to partitions within a combined analysis.\\
+	-- Model selection (AIC, AICc and BIC) improved.}
 \item{The MAUVE genome aligner algorithm has been implemented as an annotation option
-for unnannotated chromosomal and genomic (mutli-chromosomal) data.}
+for unannotated chromosomal and genomic (multi-chromosomal) data.}
 \item{The transform option \texttt{level} has been added to increase control and heuristic effectiveness 
-for amino acid and custom\_alphabet sequence character types.}
+for amino acid and custom alphabet sequence character types.}
 \item{Search-Based sequence optimization has been added through the \texttt{transform} command.}
-\item{Additional median solvers implemented for rearrangement analysis in break\_inv, chromosome, and genome 
-sequence characters.}
+\item{Additional median solvers implemented for rearrangement analysis in \texttt{break\_inv}, \texttt{chromosome}, 
+and \texttt{genome} sequence characters.}
 \item{XML-based output for easy parsing of diagnostic information.}
 \item{A change in the default indel cost from 2 to 1.  After over 20 years (MALIGN to POY), time for a change.}
 \item{New required packages for compilation to support likelihood and median solvers.}
@@ -427,7 +448,7 @@ sequence characters.}
 \subsection{Brief description} \label{commands}
 
 \poy interprets and executes \emph{scripts} issued by the end user.  These can
-come from \emph{Graphical User Interface} and the command line in the \emph{Interactive Console} 
+come from the \emph{Graphical User Interface} and the command line in the \emph{Interactive Console} 
 of the program, or from an input file. A script is a list of \emph{commands}, separated by any number of 
 whitespace characters (spaces, tabs, or newlines). Each command consists of a name in lower case 
 (\poylident), followed by a list of arguments separated by commas and enclosed in parentheses. 
@@ -440,16 +461,16 @@ In \poy, we recognize four types of command arguments: \emph{primitive values},
 (\poyfloat), a string (\poystring), or a boolean (\poybool).
 
 \paragraph{Labeled values} are lowercase identifiers (which are referred to as
-\emph{label}), and an argument, separated by the colon character, ``:''.
+\emph{label}), and an argument, separated by the colon character (``:'').
 
 \paragraph{List of arguments} are several arguments enclosed in parenthesis and
-separated by commas, ``,''.
+separated by commas (``,'').
 
 \paragraph{Commands} are standard commands that can affect the behavior of
 another command when included in its list of arguments.
 
 Thus, certain commands can function as arguments of other commands. Moreover,
-some commands share arguments. Although such compositive use of commands
+some commands share arguments. Although such compositional use of commands
 might seem complex, this structure provides much more intuitive
 control and greater flexibility. The fact that the same logical operation that functions
 in different contexts maintains
@@ -504,7 +525,10 @@ FLOAT: = | INTEGER
 
 STRING: = """ [^"]* """
 
+
 \end{verbatim}
+
+
 
 The following examples graphically show a typical structure of valid \poy commands
 formally defined above. The Figure \ref{simplecommand} illustrates
@@ -524,14 +548,26 @@ separated by a colon.
    \label{simplecommand}
 \end{figure}
 
-Figure \ref{compositecommand} shows a more complex command structure, using the command \poycommand{perturb} as an example. This is a compound command because the list of its arguments contains another command, \poycommand{swap}. This means that executing \poycommand{perturb} performs a set of specified operations that contains a nested set of operations specified by \poycommand{swap}. Note also, that in contrast to the first labeled-values argument \poyargument{iterations}, the second labeled-values argument \poyargument{ratchet} has multiple values (a float and an integer). When multiple values are specified, they must be enclosed in parentheses and separated by a comma. The third argument is a command (\poycommand{swap}), therefore it is syntactically distinguished from other arguments, labeled and unlabeled alike, by having parentheses following the command name. It must be emphasized that the parentheses always follow the command name even if no arguments are specified. (If no arguments are specified, a command is executed under its default settings.)
+Figure \ref{compositecommand} shows a more complex command structure, using the command 
+\poycommand{perturb} as an example. This is a compound command because the list of its arguments 
+contains another command, \poycommand{swap}. This means that executing \poycommand{perturb} 
+performs a set of specified operations that contains a nested set of operations specified by \poycommand{swap}. 
+Note also, that in contrast to the first labeled-values argument \poyargument{iterations}, the second 
+labeled-values argument \poyargument{ratchet} has multiple values (a float and an integer). When 
+multiple values are specified, they must be enclosed in parentheses and separated by a comma. The 
+third argument is a command (\poycommand{swap}), therefore it is syntactically distinguished from 
+other arguments, labeled and unlabeled alike, by having parentheses following the command name. It 
+must be emphasized that the parentheses always follow the command name even if no arguments are 
+specified. If no arguments are specified, a command is executed under its default settings provided it 
+has default settings.  If a command has no default settings \emph{e.g.} \poycommand {transform}, then 
+typing \poycommand{transform ()} does nothing. 
 
 \begin{figure}[htbp]
    \centering
    \includegraphics[width=1.0\textwidth]{doc/figures/fig-poycommand2.jpg}
    \caption{A structure of a compound \poy command. Note that the list of arguments
    (enclosed in red box) includes a command (highlighted in blue). Also, note that
-   \poyargument{ratchet} accepts multiple values, a float and an integer, that are inclosed in
+   \poyargument{ratchet} accepts multiple values, a float and an integer, that are inclosed int
    parentheses and separated by a comma. See text for details.}
    \label{compositecommand}
 \end{figure}
@@ -540,9 +576,9 @@ Figure \ref{compositecommand} shows a more complex command structure, using the 
 
 Some arguments are obligatory, whereas others are not; some commands accept an
 empty list of arguments, but others do not; some argument labels have
-obligatory values, some have optional values. The \poy commands are listed alphabetically in the next section. In the descriptions of
-\poy commands below, the elements of \poy grammar are defined in
-the text using the following conventions:
+obligatory values, some have optional values. The \poy commands and arguments are listed alphabetically 
+in the next section. In the descriptions of \poy commands below, the elements of \poy 
+grammar are defined in the text using the following conventions:
 
 \begin{itemize}
     \item A command that could be included in a \poy script (that is can be entered in the
@@ -550,7 +586,7 @@ the text using the following conventions:
     \item Optional items are inclosed in \poycommand{[square brackets]}.
     \item Primitive values are shown in \poycommand{UPPERCASE}.
 \end{itemize}
-
+\bigskip
 Each command description entry contains the following sections:
 
 \begin{itemize}
@@ -564,12 +600,19 @@ Each command description entry contains the following sections:
 \end{itemize}
 
 \begin{statement}
-\textbf{Default syntax}. The default syntax for all commands is the same: it includes the command name followed by empty parentheses, e.g. \poycommand{swap()}. However, within the descriptions of each command the default settings include the entire argument list for illustrative purposes only (i.e. in the case of \poycommand{swap()} the entire argument list appears as \poycommand{swap(trees:1, TBR, threshold:0, bfs)}).
+\textbf{Default syntax}. The default syntax for all commands is the same: it includes the command name 
+followed by empty parentheses, e.g. \poycommand{swap()}. However, within the descriptions of each 
+command the default settings include the entire argument list for illustrative purposes only (i.e. in the case 
+of \poycommand{swap()} the entire argument list appears as \poycommand{swap(trees:1, TBR, threshold:0, bfs)}).
 \end{statement}
 
 \begin{statement} \label{commandorder}
      \textbf{Command order}. The effect of the order of arguments in a command depends on the context. 
-    If arguments are not logically interconnected, their order is not important. For example, the commands \poycommand{build(10,randomized)} and \poycommand{build(randomized,10)} are equivalent. However, executing the commands \poycommand{transform(tcm:(1,1),gap\_opening:4)} and \poycommand{transform(gap\_opening:4,tcm:(1,1))} will produce different results because \poycommand{gap\_opening} \emph{modifies} the values set by
+    If arguments are not logically interconnected, their order is not important. For example, the commands 
+    \poycommand{build(10,randomized)} and \poycommand{build(randomized,10)} are equivalent. However, 
+    executing the commands \poycommand{transform(tcm:(1,1),gap\_opening:4)} and 
+    \poycommand{transform(gap\_opening:4,tcm:(1,1))} will produce different results because 
+    \poycommand{gap\_opening} \emph{modifies} the values set by
     \poyargument{tcm}, while \poyargument{tcm} \emph{overrides} the values set by \poyargument{gap\_opening}.
 \end{statement} 
 

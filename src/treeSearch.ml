@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 3040 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 3077 $"
 
 let debug_find_local_optimum = false
 
@@ -145,7 +145,7 @@ let sets meth data trees =
             | Some filename ->
                 try match Tree.Parse.of_file filename with
                 | [[tree]] -> lazy (sets_of_parser data tree)
-                | _ -> 
+                | _ ->
                     Status.user_message Status.Error
                         ("To@ use@ constraint@ files@ you@ must@ provide@ a@ " ^
                          "single@ tree,@ not@ more,@ no@ forests@ are@ allowed.");
@@ -158,8 +158,7 @@ let sets meth data trees =
     | _ -> lazy (All_sets.IntSet.empty)
 
 let search_time_and_trees_considered a b = 
-    [ ("search-time", string_of_float a) ; 
-    ("trees-considered", string_of_int b)]
+    [ ("search-time", string_of_float a); ("trees-considered", string_of_int b)]
 
 module MakeNormal
     (Node : NodeSig.S) 
