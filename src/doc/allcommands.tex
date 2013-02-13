@@ -1048,7 +1048,7 @@
         filenames are specified, they must be separated by commas. All filenames 
         read into \poy must include the appropriate suffix (e.g. .aln, .fas, 
         .fasta, .ss, .tre). The exclusion of these suffixes will result in an error such as 
-        ``Sys\_error(``No such file or directory'')''.  \poycommand{read} automatically detects the type of the 
+        ``Sys\_error (``No such file or directory'')''.  \poycommand{read} automatically detects the type of the 
         input file. This command can also use wildcard expressions (such as *) to
         refer to multiple files in a single step. For example, \poycommand{read("*.fas*")} 
         imports all files of the FASTA format in the current directory (in this case 
@@ -1164,7 +1164,7 @@
             (For a sample script using this data type see tutorial \texttt{5.7}.} 
             {}
 
-       \argumentdefinition{breakinv}{\obligatory{(STRING, STRING, {\optionall {orientation:\poybool})}}}
+       \argumentdefinition{breakinv}{\obligatory{(\poystring, \poystring, {\optionall {orientation:\poybool})}}}
             {An enhancement \\ of the data file type \poyargument{custom\_alphabet} allowing
             rearrangement events. Syntactically, \poyargument{breakinv} data type is identical to 
             \poyargument{custom\_alphabet} data type.
@@ -1191,10 +1191,12 @@
             \nccross{transform}{transformcommand}.} 
             {}
             
- \argumentdefinition{custom\_alphabet}{\obligatory\poystring list,cm\obligatory \poystring,{\optionall {{init3d{\obligatory \poybool},tiebreaker{\obligatory \poylident},orientation:\poybool})}}}
+ \argumentdefinition{custom\_alphabet}{\obligatory\poystring list,cm\obligatory \poystring,{\optionall 
+ {{level{\obligatory (\poyint, \poylident)}, init3d{\obligatory \poybool},tiebreaker{\obligatory \poylident},orientation:\poybool})}}}
             {Reads the data in the user-defined alphabet format. The first string argument is
             the name of a data file that contains custom-alphabet sequences in FASTA format. 
             The characters can be (but are not required to be) separated by spaces.
+            
             The \texttt{cm} refers to the custom-alphabet matrix that contains two parts:
             an alphabet itself, where the alphabet elements are separated by spaces, and a
             transformation cost matrix. The elements in an alphabet can be letters, digits, or
@@ -1233,15 +1235,22 @@
 	alphabetabetadelta}
 	
 	\smallskip
-	Three optional arguments of \poyargument{custom\_alphabet} are possible: \poyargument{init3d}; 
-	\poyargument{tiebreaker}; and \poyargument{orientation}.  Both \poyargument{init3d} and 
+	Four optional arguments of \poyargument{custom\_alphabet} are possible: \poyargument {level}; \poyargument{init3d}; 
+	\poyargument{tiebreaker}; and \poyargument{orientation}.  \poyargument {level} determines the heuristic 
+	level of the median sequence calculation.  For this optional argument, the user must define the level itself, 
+	as specified by the \poyint, and the keep method, as specified by the \poylident (\texttt{first}, \texttt{last}, or 
+	\texttt{at\_random}.  The default \poyargument{level} is \texttt{2} and keep method is \texttt{first}.  Both \poyargument{init3d} and 
 	\poyargument{orientation} require an obligatory boolean value, namely \texttt{true} or \texttt{false}.
 	Both these arguments allow the user to specify the orientation of custom-defined alphabet
 	characters. The tilde (``$\sim$'') symbol preceding an alphabet character indicates
-	the negative orientation. The default option is \texttt{true}. \poyargument{init3d} initiates a 3D matrix
-	that can lead to a lot of memory consumption.  \poyargument{tiebreaker} 
-	
-	\poycommand{custom\_alphabet} can be transformed into \poycommand{breakinv} using \poycommand{transform}.}
+	the negative orientation. The default option is \texttt{true}. \poyargument{init3d} initiates a 3D matrix, 
+	but the user should be aware that this option can consume a lot of memory.  The \poylident values for
+	\poyargument{tiebreaker} are \texttt{first}, \texttt{last}, and \texttt{at\_random}.  If \texttt{first} is chosen, 
+	then the ties are broken (if the number of equally costly states is greater than the level number) by 
+	choosing the first median state examined; if \texttt{last}, the last state, and if \texttt{at\_random} then at random.
+          The default choice method is \texttt{first}.
+
+	\poycommand{custom\_alphabet} can be transformed into \poycommand{breakinv} using ~\ccross{transform}.}
 	 {customalphabet}
         
         \argumentdefinition{genome}{\obligatory{(\poystring list)}}
@@ -1336,13 +1345,12 @@
             containing nucleotide sequences, and the amino acid
             sequence file \\ \texttt{a.FASTA}.}
             
-        \poyexample{read(custom\_alphabet:("my\_data", "alphabet"))}
+        \poyexample{read(custom\_alphabet:("my\_data",cm:"alphabet",tiebreaker:last, orientation:false))}
         {Reads the first file, \texttt{my\_data}, containing data in the format of a custom
-        alphabet, which is defined in the second input file, \texttt{alphabet}. By default, the
+        alphabet, which is defined in the \texttt{cm} file, \texttt{alphabet}. By default, the
         forward and reverse orientation (\texttt{orientation:true}).} 
         
-            
-           \poyexample{read(annotated:("filea.txt", "fileb.txt"), chromosome: \\ ("filec.txt"))}
+            \poyexample{read(annotated:("filea.txt", "fileb.txt"), chromosome: \\ ("filec.txt"))}
            {Reads three files containing chromosome-type sequence data.
            The sequences in two files,
             \texttt{filea.txt} and \texttt{fileb.txt}, contain pipes (``~$\vline$~'') separating
@@ -3172,9 +3180,9 @@
                         {swapjoindelta}
 
                 \end{description} 
-		}
+		 }  {swapoptimize}
                 }
-                {swapoptimize}
+             
 
         \end{argumentgroup}
 
