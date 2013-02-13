@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3075 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3078 $"
 
 module IntSet = All_sets.Integers
 
@@ -4025,23 +4025,23 @@ let rec folder (run : r) meth =
                 IFDEF USE_LIKELIHOOD THEN
                     let (t,chars,n,k,rep) = MlTestStat.process_methods_arguments x in
                     begin try match t, Sexpr.to_list run.trees with
-                            |   _,[] ->
-                                let msg = "The@ topology@ selection@ command@ requires"
-                                         ^"@ at@ least@ two@ trees@ in@ memory."
-                                in
-                                Status.user_message Status.Error msg
-                            | `AU,ts -> MLT.au ?n ?k ~rep ~chars ts
-                            | `SH,ts -> MLT.sh ?n ~rep ~chars ts
-                            | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
-                            | `KH,ts ->
-                                let msg = "The@ topology@ selection@ KH@ requires"
-                                         ^"@ only@ two@ trees@ in@ memory."
-                                in
-                                Status.user_message Status.Error msg
-                            |   _,_ -> assert false
-                        with MLT.Incorrect_Data ->
-                            Status.user_message Status.Error
-                                "Cannot@ use@ topology@ tests@ on@ this@ data."
+                        |   _,[] ->
+                            let msg = "The@ topology@ selection@ command@ requires"
+                                     ^"@ at@ least@ two@ trees@ in@ memory."
+                            in
+                            Status.user_message Status.Error msg
+                        | `AU,ts -> MLT.au ?n ?k ~rep ~chars ts
+                        | `SH,ts -> MLT.sh ?n ~rep ~chars ts
+                        | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
+                        | `KH,ts ->
+                            let msg = "The@ topology@ selection@ KH@ requires"
+                                     ^"@ only@ two@ trees@ in@ memory."
+                            in
+                            Status.user_message Status.Error msg
+                        |   _,_ -> assert false
+                    with MLT.Incorrect_Data ->
+                        Status.user_message Status.Error
+                            "Cannot@ use@ topology@ tests@ on@ this@ data."
                     end;
                     run
                 ELSE
