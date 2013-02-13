@@ -101,7 +101,7 @@ let bool_to_string x = if x then "true" else "false"
 let to_string s =
     let separator = " -- " in
     s.st_filesource ^ separator ^ s.st_name ^ separator ^ 
-    (* TODO Alphabet.to_string s.st_alph)*) " alphabet goes here " ^ separator ^ 
+    (Alphabet.to_string s.st_alph) ^ separator ^ 
     (String.concat " " (List.map string_of_int s.st_observed)) ^ separator ^
     (String.concat " " s.st_labels) ^ separator ^ string_of_float s.st_weight ^
     st_type_to_string s.st_type ^ separator ^ 
