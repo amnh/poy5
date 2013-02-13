@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3088 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3099 $"
 
 module IntSet = All_sets.Integers
 
@@ -4096,6 +4096,9 @@ let rec folder (run : r) meth =
                     Status.user_message Status.Error MlModel.likelihood_not_enabled;
                     run
                 END
+            | `DebugData ->
+                    Data.print run.data;
+                    run
             | `LKSites (filename,chars) ->
                 let ft = Status.output_table (Status.Output (filename, false, [])) in
                 let items = Sexpr.length run.trees in

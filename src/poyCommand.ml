@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3094 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3099 $"
 
 let debug = false 
 
@@ -348,6 +348,7 @@ type transform_method = [
         | `Nexus
         | `Model of old_identifiers
         | `LKSites of old_identifiers
+        | `DebugData
         | `Pairwise of old_identifiers
         | `Script of string list
         | `ExplainScript of string
@@ -907,6 +908,7 @@ type transform_method = [
         | `Nexus             -> (`Nexus (file)) :: acc, file
         | `Pairwise x        -> (`Pairwise (file,x)) :: acc, file
         | `LKSites x         -> (`LKSites (file,x)) :: acc, file
+        | `DebugData         -> `DebugData :: acc, file
         | `Topo_Selection x  ->
             (`Topo_Selection (file,x)) :: acc, file
         | `Model x           -> (`Model (file,x)) :: acc, file
@@ -1730,6 +1732,7 @@ type transform_method = [
                     [ LIDENT "lkmodel" -> `Model `All ] | 
                     [ LIDENT "lksites"; ":"; x = old_identifiers -> `LKSites x ] | 
                     [ LIDENT "lksites" -> `LKSites `All ] | 
+                    [ LIDENT "debug_data" -> `DebugData ] | 
     (*                [ LIDENT "script" -> `Script (!console_script) ] |*)
     (*                [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |*)
     (*                [ LIDENT "pairwise" -> `Pairwise `All ] |*)
