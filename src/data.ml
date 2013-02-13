@@ -2991,7 +2991,7 @@ let report_inc_exc ?(suppress=false) d included excluded =
             with (Failure _) ->
                 included_in_data (acc^x^",@ ") xs
     and process_included acc = function
-        | []      -> acc
+        | []      -> List.rev acc
         | x :: xs ->
             try let () = ignore (taxon_code x d) in
                 process_included (x::acc) xs
