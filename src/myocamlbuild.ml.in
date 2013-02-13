@@ -223,6 +223,7 @@ dispatch begin function
         "doc/figures/jackknife_menu.jpg";
         "doc/figures/jackknife_window.jpg";
         "doc/figures/menu_launcher_window.jpg";
+        "doc/figures/mpiexec_script.jpg";
         "doc/figures/openpoylauncher_menu.jpg";
         "doc/figures/output_window.jpg";
         "doc/figures/pstree.jpg";
