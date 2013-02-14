@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3104 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3108 $"
 
 let (-->) a b = b a
 
@@ -4370,9 +4370,24 @@ END
                 run
             | `Nodes filename ->
                 let fo = Status.Output (filename, false, []) in
-                let nodes = List.map Node.to_string run.nodes in
-                List.iter (Status.user_message fo) nodes;
-                Status.user_message fo "%!";
+                begin match (Sexpr.to_list run.trees) with
+                    | [] -> 
+                        let nodes = List.map Node.to_string run.nodes in
+                        List.iter (Status.user_message fo) nodes;
+                        Status.user_message fo "%!"
+                    | xs ->
+                        List.iter
+                            (fun t ->
+                                let nodes =
+                                    All_sets.IntegerMap.fold
+                                        (fun _ v acc -> (Node.to_string v) :: acc)
+                                        t.Ptree.node_data
+                                        []
+                                in
+                                List.iter (Status.user_message fo) nodes;
+                                Status.user_message fo "%!")
+                            xs
+                end;
                 run
             | `Supports _ 
             | `GraphicSupports _ as meth ->
