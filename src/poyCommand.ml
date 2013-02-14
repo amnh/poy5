@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3099 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3105 $"
 
 let debug = false 
 
@@ -2130,7 +2130,7 @@ type transform_method = [
                 [ x = STRING -> `InputFile (`Local x) ] |
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
-                [LIDENT "cm"; ":"; cm = STRING -> `CostMatrix (`Local cm) ] |
+                [LIDENT "tcm"; ":"; cm = STRING -> `CostMatrix (`Local cm) ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
                 [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x]
             ];
@@ -2270,8 +2270,7 @@ type transform_method = [
                 [ LIDENT "drifting"; ":"; left_parenthesis;
                     equalprob = integer_or_float; ","; 
                     worstfactor = integer_or_float; right_parenthesis ->
-                        `PoyDrifting (float_of_string equalprob, float_of_string
-                        worstfactor) ] |
+                        `PoyDrifting (float_of_string equalprob, float_of_string worstfactor) ] |
                 [ LIDENT "current_neighborhood"; f = OPT string_arg -> 
                     `AllAround f ] |
                 [ LIDENT "around" -> `AllThenChoose ]
