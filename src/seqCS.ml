@@ -19,9 +19,9 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3023 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3106 $"
 
-let debug = false
+let debug = true
 let debug_distance = false
 
 let (-->) a b = b a
@@ -771,8 +771,6 @@ ELSE
                     in
                     cost_from_costfn
             in
-            if debug then
-                Printf.printf "return %d, end of seqCS.DOS.distance\n%!" res;
             res
 END
 
@@ -821,24 +819,22 @@ END
     * to do: this function and [readjust] share a big part of code, maybe we
     * should merge them*)
     let readjust alph mode h ch1 ch2 parent mine use_ukk is_custom =
-        let debug = false in
         let gap = Cost_matrix.Two_D.gap h.c2_full in
         let empty1 = Sequence.is_empty ch1.sequence gap 
         and empty2 = Sequence.is_empty ch2.sequence gap 
         and emptypar = Sequence.is_empty parent.sequence gap in
-        if debug then begin
-            Printf.printf "DOS.readjust start\n%!";
-            Printf.printf "\tC1-"; Sequence.printseqcode ch1.sequence;
-            Printf.printf "\tC2-"; Sequence.printseqcode ch2.sequence;
-            Printf.printf "\tM -"; Sequence.printseqcode mine.sequence;
-            Printf.printf "\tPA-"; Sequence.printseqcode parent.sequence;
-        end;
+(*            Printf.printf "DOS.readjust start\n%!";*)
+(*            Printf.printf "\tC1-"; Sequence.printseqcode ch1.sequence;*)
+(*            Printf.printf "\tC2-"; Sequence.printseqcode ch2.sequence;*)
+(*            Printf.printf "\tM -"; Sequence.printseqcode mine.sequence;*)
+(*            Printf.printf "\tPA-"; Sequence.printseqcode parent.sequence;*)
         let minecost2    = int_of_float mine.costs.cost2 in
         let minesumcost  = int_of_float mine.costs.sum_cost in
         let minecost3    = int_of_float mine.costs.cost3 in
         let sumcost_ch12 = int_of_float (ch1.costs.sum_cost +. ch2.costs.sum_cost) in
-        match empty1, empty2, emptypar with
-        | false, false, false ->
+(*        Printf.printf "\tc1:%B c2:%B par:%B\n%!" empty1 empty2 emptypar;*)
+        match (empty1,ch1), (empty2,ch2), (emptypar,parent) with
+        | (false,_), (false,_), (false,_) ->
             let newcost3, newcost2, newseqm, newaliedch1, newaliedch2, newseqmWgap =  
                 match mode with
                 | `ThreeD _ ->
@@ -876,9 +872,6 @@ END
                 (newsumcost<>minesumcost) || (newcost3<>minecost3) ||
                 (newcost2<>minecost2) || (0<>compare mine.sequence newseqm)
             in
-            if debug then
-                Printf.printf "COSTS: sumcosts(%d,%d), cost3(%d,%d), cost2(%d,%d)\n%!"
-                        newsumcost minesumcost newcost3 minecost3 newcost2 minecost2;
             let rescosts = make_cost newcost2 newcost2 newcost3 newsumcost in
             let mine =
                 {mine with
@@ -887,25 +880,19 @@ END
                     costs = rescosts;}
             in
             anything_changed, mine, newcost3, newcost2, newsumcost
-        | true, true, _ -> 
+        | (true,_), (true,_),(_, r)
+        | (true,_), (_,r), (true,_)
+        | (_,r), (true,_), (true,_) -> 
             let changed =
                 (sumcost_ch12<>minesumcost) || (0<>minecost3) || 
-                (0<>minecost2) || (0<>compare ch1.sequence mine.sequence)
+                (0<>minecost2) || (0<>compare r.sequence mine.sequence)
+            and r =
+                { r with
+                    costs = { r.costs with
+                                    sum_cost = float_of_int sumcost_ch12; };}
             in
-            changed,ch1, 0, 0, sumcost_ch12
-        | true, _, true -> 
-            let changed = 
-                (sumcost_ch12<>minesumcost) || (0<>minecost3) ||
-                (0<>minecost2) || (0<>compare ch1.sequence mine.sequence)
-            in
-            changed, ch1, 0, 0, sumcost_ch12
-        | _, true, true -> 
-            let changed =
-                (sumcost_ch12<>minesumcost) || (0<>minecost3) ||
-                (0<>minecost2) || (0<>compare ch2.sequence mine.sequence)
-            in
-            changed, ch2, 0, 0, sumcost_ch12
-        | false, false, true ->
+            changed, r, 0, 0, sumcost_ch12
+        | (false,_),(false,_),(true,_) ->
             let newmed, newcost2 = 
                 readjust_algn_two_child ch1.sequence ch2.sequence h.c2_full
                     sumcost_ch12 use_ukk minesumcost minecost3 minecost2 mine.sequence
@@ -919,7 +906,7 @@ END
             in
             let mine = {newmed with costs = rescosts} in
             changed, mine, newcost3, newcost2, newsumcost
-        | false, true, false ->
+        | (false,_), (true,_), (false,_) ->
             let newmed, _ =
                 readjust_algn_two_child ch1.sequence parent.sequence h.c2_full
                     sumcost_ch12 use_ukk minesumcost minecost3 minecost2 mine.sequence
@@ -935,7 +922,7 @@ END
             in
             let mine = {newmed with costs = rescosts} in
             changed, mine, newcost3, newcost2, newsumcost
-        | _, false, false ->
+        | (true,_), (false,_), (false,_) ->
             let newmed, _ =
                 readjust_algn_two_child ch2.sequence parent.sequence h.c2_full
                     sumcost_ch12 use_ukk minesumcost minecost3 minecost2 mine.sequence
@@ -2056,67 +2043,19 @@ let of_list spec lst code = of_array spec (Array.of_list lst) code
 let same_codes a b =
     Array_ops.fold_right_2 (fun acc a b -> acc && (a = b)) true a.codes b.codes
 
-(** median 3 function for custom alphabet *)
-(*any change here must also go to [readjust]*)
-let readjust_custom_alphabet alph mode modified ch1 ch2 parent mine =
-    let debug = false in
-    if debug then Printf.printf "seqCS.readjust_custom_alphabet\n%!";
+(** [readjust_custom_alphabet ch1 ch2 par mine] returns a tuple [(a, b)], where
+    [b] is the set of sequences generated from (heuristically) readjusting [mine]
+    to somewhere in between [ch1], [ch2], and [par] (the two children and parent
+    of [mine] respectively, and [a] is the new cost of [b] as parent of [ch1] and
+    [ch2].
+    Note: Any change here must also go to [readjust] *)
+let readjust_custom_alphabet alph mode to_adjust modified ch1 ch2 parent mine =
     let use_ukk = false in (*we don't call ukkonen alignment for custom alphabet now*)
     (*list of character code that being modified in DOS.[readjust_custom_alphabet] *)
     let new_modified = ref [] in
     let total_cost = ref 0 in (*sum cost of each characters: node cost*)
     let total_sum_cost = ref 0 in (*sum sum_cost of each characters: subtree cost*)
-    let adjusted = 
-        Array_ops.map_5 (fun code a b c d ->
-        match a, b, c, d with
-                | Heuristic_Selection a, Heuristic_Selection b, 
-                    Heuristic_Selection c, Heuristic_Selection d ->
-                        let changed, res, cost3, cost2, sumcost = 
-                            DOS.readjust alph mode mine.heuristic a b c d use_ukk true
-                        in
-                        if changed then begin
-                            if debug then Printf.printf "add code = %d to modified set\n%!" code;
-                            new_modified := code :: !new_modified;
-                        end;
-                        (*even nothing changed, we still need to add up the cost
-                        * here, for we replace total_cost with this sum of cost2
-                        * at the end of this function*)
-                        total_cost := cost2 + !total_cost;
-                        total_sum_cost := sumcost + !total_sum_cost;
-                        Heuristic_Selection res
-                | _ -> assert false)
-        mine.codes ch1.characters ch2.characters parent.characters
-        mine.characters
-    in
-    if debug then 
-        Printf.printf "nodecost=%d(%f),subtree cost=%d(%f),return to node.ml\n%!"
-    !total_cost mine.total_cost !total_sum_cost mine.subtree_cost;
-    let modified = 
-        List.fold_left (fun acc x -> All_sets.Integers.add x acc)
-        modified !new_modified
-    in
-    let total_cost = float_of_int !total_cost in
-    let total_sum_cost = float_of_int !total_sum_cost in
-    modified, total_cost, total_sum_cost, 
-    { mine with characters = adjusted; total_cost = total_cost; subtree_cost = total_sum_cost; }
-
-(** [readjust ch1 ch2 par mine] returns a tuple [(a, b)], where [b] is the 
-* set of sequences generated from (heuristically) readjusting [mine] to 
-* somewhere in between [ch1], [ch2], and [par] (the two children and 
-* parent of [mine] respectively, and [a] is the new cost of [b] as 
-* parent of [ch1] and [ch2]. *)
-(*any change here must also go to [readjust_custom_alphabet]*)
-let readjust alph mode to_adjust modified ch1 ch2 parent mine =
-    if debug then Printf.printf "seqCS.readjust\n%!";
-    let use_ukk = match !Methods.algn_mode with
-        | `Algn_Newkk  -> true
-        | `Algn_Normal -> false
-    in
-    (*acc the modified character code, node cost and subtree cost*)
-    let new_modified = ref [] 
-    and total_cost = ref 0 
-    and total_sum_cost = ref 0 in
-    let adjusted = 
+    let adjusted =
         Array_ops.map_5
             (fun code a b c d ->
                 let skip_it = match to_adjust with
@@ -2124,18 +2063,83 @@ let readjust alph mode to_adjust modified ch1 ch2 parent mine =
                     | Some to_adjust -> not (All_sets.Integers.mem code to_adjust)
                 in
                 match a, b, c, d with
-                    | Heuristic_Selection a, Heuristic_Selection b, 
+                | Heuristic_Selection a, Heuristic_Selection b,
+                    Heuristic_Selection c, ((Heuristic_Selection d) as e) when skip_it ->
+                        let cost2 = int_of_float d.DOS.costs.cost2
+                        and scost = int_of_float d.DOS.costs.sum_cost in
+                        total_cost := cost2 + !total_cost;
+                        total_sum_cost := scost + !total_sum_cost;
+                        e
+                | Heuristic_Selection a, Heuristic_Selection b,
+                    Heuristic_Selection c, Heuristic_Selection d ->
+                        let changed, res, cost3, cost2, sumcost =
+                            DOS.readjust alph mode mine.heuristic a b c d use_ukk true
+                        in
+                        if changed then
+                            new_modified := code :: !new_modified;
+                        (*even nothing changed, we still need to add up the cost
+                        * here, for we replace total_cost with this sum of cost2
+                        * at the end of this function*)
+                        total_cost := cost2 + !total_cost;
+                        total_sum_cost := sumcost + !total_sum_cost;
+                        Heuristic_Selection res
+                | _ -> assert false)
+            mine.codes
+            ch1.characters
+            ch2.characters
+            parent.characters
+            mine.characters
+    in
+    if debug then
+        Printf.printf "nodecost=%d(%f),subtree cost=%d(%f),return to node.ml\n%!"
+                    !total_cost mine.total_cost !total_sum_cost mine.subtree_cost;
+    let modified =
+        List.fold_left (fun acc x -> All_sets.Integers.add x acc)
+                       modified !new_modified
+    in
+    let total_cost = float_of_int !total_cost in
+    let total_sum_cost = float_of_int !total_sum_cost in
+    modified, total_cost, total_sum_cost,
+        { mine with
+            characters = adjusted; total_cost = total_cost;
+            subtree_cost = total_sum_cost; }
+
+(** [readjust ch1 ch2 par mine] returns a tuple [(a, b)], where [b] is the 
+    set of sequences generated from (heuristically) readjusting [mine] to 
+    somewhere in between [ch1], [ch2], and [par] (the two children and parent of
+    [mine] respectively, and [a] is the new cost of [b] as parent of [ch1] and
+    [ch2].
+    Note: Any change here must also go to [readjust_custom_alphabet] *)
+let readjust alph mode to_adjust modified ch1 ch2 parent mine =
+    let use_ukk = match !Methods.algn_mode with
+        | `Algn_Newkk  -> true
+        | `Algn_Normal -> false
+    in
+    (*acc the modified character code, node cost and subtree cost*)
+    let new_modified = ref [] 
+    and total_cost = ref 0
+    and total_sum_cost = ref 0 in
+    let adjusted =
+        Array_ops.map_5
+            (fun code a b c d ->
+                let skip_it = match to_adjust with
+                    | None -> false
+                    | Some to_adjust -> not (All_sets.Integers.mem code to_adjust)
+                in
+                match a, b, c, d with
+                    | Heuristic_Selection a, Heuristic_Selection b,
                         Heuristic_Selection c, ((Heuristic_Selection d) as e) when skip_it ->
                             let cost2 = int_of_float d.DOS.costs.cost2
                             and scost = int_of_float d.DOS.costs.sum_cost in
                             total_cost := cost2 + !total_cost;
                             total_sum_cost := scost + !total_sum_cost;
                             e
-                    | Heuristic_Selection a, Heuristic_Selection b, 
+                    | Heuristic_Selection a, Heuristic_Selection b,
                         Heuristic_Selection c, Heuristic_Selection d ->
                             let changed, res, cost3, cost2, sumcost = 
                                 DOS.readjust alph mode mine.heuristic a b c d use_ukk false in
-                            if changed then new_modified := code :: !new_modified;
+                            if changed then
+                                new_modified := code :: !new_modified;
                             total_cost := cost2 + !total_cost;
                             total_sum_cost := sumcost + !total_sum_cost;
                             Heuristic_Selection res
@@ -2146,13 +2150,13 @@ let readjust alph mode to_adjust modified ch1 ch2 parent mine =
             parent.characters
             mine.characters
     in
-    let modified = 
+    let modified =
         List.fold_left (fun acc x -> All_sets.Integers.add x acc)
                        modified !new_modified
     in
     let total_cost = float_of_int !total_cost in
     let total_sum_cost = float_of_int !total_sum_cost in
-    let mine = 
+    let mine =
         { mine with characters = adjusted;
                     total_cost = total_cost;
                     subtree_cost = total_sum_cost; }
@@ -2163,7 +2167,7 @@ let readjust alph mode to_adjust modified ch1 ch2 parent mine =
 let to_single parent mine opt_root =
     let total_cost = ref 0 in
     let characters = match opt_root with 
-    | Some root -> 
+    | Some root ->
         Array_ops.map_3
             (fun a b c -> match a, b, c with
                 | General_Prealigned a, General_Prealigned b, General_Prealigned c ->
@@ -2181,7 +2185,7 @@ let to_single parent mine opt_root =
                 | Partitioned _, _, _
                 | _, Partitioned _, _
                 | General_Prealigned _, _, _ 
-                | Heuristic_Selection _, General_Prealigned _, _ 
+                | Heuristic_Selection _, General_Prealigned _, _
                 | (Heuristic_Selection _, Heuristic_Selection _,
                     (General_Prealigned _|Partitioned _)) -> assert false)
             parent.characters mine.characters root.characters 
@@ -2202,7 +2206,7 @@ let to_single parent mine opt_root =
                     Heuristic_Selection res
                 | Partitioned _, _
                 | _, Partitioned _
-                | General_Prealigned _, _ 
+                | General_Prealigned _, _
                 | Heuristic_Selection _, General_Prealigned _ -> assert false)
             parent.characters
             mine.characters
@@ -2212,8 +2216,6 @@ let to_single parent mine opt_root =
 
 
 let median code a b =
-    let debug = false in
-    if debug then Printf.printf "seqCS.median,\n%!";
     let total_cost = ref 0 in
     let h = a.heuristic in
     let alph = a.alph in
@@ -2225,17 +2227,17 @@ let median code a b =
         Array_ops.map_2
             (fun a b -> match a, b with
                 | General_Prealigned a, General_Prealigned b ->
-                    if debug then Printf.printf "General Prealigned,%!";
+                    (*Printf.printf "General Prealigned,%!"; *)
                     let res, c = GenNonAdd.median h.c2_full a b in
                     total_cost := c + !total_cost;
                     General_Prealigned res
                 | Partitioned a, Partitioned b ->
-                    if debug then Printf.printf "Partitioned,%!";
+                    (*Printf.printf "Partitioned,%!";*)
                     let res, c = PartitionedDOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
                     Partitioned res
                 | Heuristic_Selection a, Heuristic_Selection b ->
-                    if debug then Printf.printf "Heuristic Selection,%!";
+                    (*Printf.printf "Heuristic Selection,%!";*)
                     let res, c = DOS.median alph code h a b use_ukk in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
@@ -2245,13 +2247,8 @@ let median code a b =
             a.characters
             b.characters
     in
-    let res = { a with characters = characters; total_cost = float_of_int
-    !total_cost } in
-    if debug then Printf.printf "end of seqCS.median, return tocal_cost:%d\n%!" !total_cost;
-    (*
-    Status.user_message Status.Information (to_string res);
-    *)
-    res
+    { a with 
+        characters = characters; total_cost = float_of_int !total_cost }
 
 
 (*median_3 is called throught node.ml [cs_final_states], to assign final states to each internal node*)
@@ -2292,7 +2289,8 @@ let median_3 p n c1 c2 =
         let has_combinations = 1 = Cost_matrix.Two_D.combine cm2 in
         if has_combinations then median_union () else median_no_union ()
     in
-    { n with characters = characters }
+    { n with
+        characters = characters }
 
 
 let extra_cost_for_root a  =
