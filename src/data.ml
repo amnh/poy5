@@ -567,25 +567,28 @@ module Accessor = struct
             try taxon_code (All_sets.StringMap.find name data.synonyms) data
             with | Not_found -> failwithf "Cannot find Taxa %s" name
 
-    (** [get_sequences code data] outputs a stack containing all the sequences of the
-    * character [code] stored in [data]. The empty sequences (according to
-    * [Sequence.is_empy]) are not included in the stack. If the input code does not
-    * correspond to a sequence character, or the sequence contains more than one
-    * fragment, then it outputs an empty stack. *)
+    (** [get_sequences code data] outputs a stack containing all the sequences of
+        the character [code] stored in [data]. The empty sequences (according to
+        [Sequence.is_empy]) are not included in the stack. If the input code does
+        not correspond to a sequence character, or the sequence contains more than
+        one fragment, then it outputs an empty stack. *)
     let get_sequences code data = 
         let alpha = get_alphabet data code in
         let gap = Alphabet.get_gap alpha in
         let seqs = Stack.create () in
-        let process_taxon a b = match Hashtbl.find b code with
-            | (Stat _), _ -> ()
-            | (FS _), _   -> ()
-            | (Dyna (_, d)), _ ->
-                begin match d.seq_arr with
-                    | [|dv|] ->
-                        if not (Sequence.is_empty dv.seq gap) then
-                            Stack.push dv.seq seqs
-                    | _ -> ()
-                end
+        let process_taxon a b =
+            try match Hashtbl.find b code with
+                | (Stat _), _ -> ()
+                | (FS _), _   -> ()
+                | (Dyna (_, d)), _ ->
+                    begin match d.seq_arr with
+                        | [|dv|] ->
+                            if not (Sequence.is_empty dv.seq gap) then
+                                Stack.push dv.seq seqs
+                        | _ -> ()
+                    end
+            with Not_found -> (* missing, same as not is_empty above *)
+                ()
         in
         Hashtbl.iter process_taxon data.taxon_characters;
         seqs
