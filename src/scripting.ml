@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3120 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3125 $"
 
 let (-->) a b = b a
 
@@ -1633,20 +1633,15 @@ let load_data (meth : Methods.input) data nodes =
                     data files
             in
             List.fold_left Data.process_complex_terminals data (explode_filenames files)
-
-
-    and annotated_reader data (meth : Methods.input) =
-        match meth with
+    and annotated_reader data (meth : Methods.input) = match meth with
         | `AnnotatedFiles files ->
             List.fold_left (reader true false) data files
-                --> Data.remove_taxa_to_ignore
         | #Methods.simple_input as meth -> 
             reader false false data meth
-                --> Data.remove_taxa_to_ignore
         | `Prealigned (meth, tcm, 0) ->
             prealigned_files := [];
             let data = reader false true data meth in (* read data as dynamic *)
-            let data = Data.remove_taxa_to_ignore data in
+            let data = Data.categorize (Data.remove_taxa_to_ignore data) in
             let files = List.flatten !prealigned_files in
             let chars =
                 (* list of characters to filter after conversion to static *)
@@ -1660,21 +1655,19 @@ let load_data (meth : Methods.input) data nodes =
                 | `Create_Transformation_Cost_Matrix (trans, gaps) ->
                     Data.assign_transformation_gaps data chars trans gaps 
             in
-(*            let data =*)
-(*                if gap_opening > 0 then*)
-                    (* Data.assign_affine_gap_cost data chars (Cost_matrix.Affine gap_opening)*)
-(*                else *)
-(*                    data*)
+            Data.prealigned_characters ImpliedAlignment.analyze_tcm data chars
+        | `Prealigned (meth, tcm, gap_opening) ->
+(*            let data = *)
+(*                Data.assign_affine_gap_cost data chars (Cost_matrix.Affine gap_opening)*)
 (*            in*)
-            chars 
-                --> Data.prealigned_characters ImpliedAlignment.analyze_tcm data
-                --> Data.remove_taxa_to_ignore
-        | `Prealigned (_,_,_) ->
+(*            ...*)
             Status.user_message Status.Error
-                    "We@ currently@ do@ not@ support@ gap_opening@ with@ prealigned@ sequences";
+                "We@ currently@ do@ not@ support@ gap_opening@ with@ prealigned@ sequences";
             data
     in
-    Node.load_data (annotated_reader data meth)
+    let data = annotated_reader data meth in
+    let data = Data.categorize (Data.remove_taxa_to_ignore data) in
+    Node.load_data data
 
 type script = Methods.script
 
