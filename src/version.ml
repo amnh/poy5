@@ -35,7 +35,7 @@ let get_graphics str =
 
 let get_interface str =
     get_option
-        [(".*gtk", "gtk2"); (".*ncurses", "ncurses");
+        [(".*gtk", "gtk2"); (".*ncurses", "ncurses"); (".*pdcurses", "pdcurses");
          (".*readline", "readline"); (".*html", "html"); (".*flat", "flat")]
         str
 
