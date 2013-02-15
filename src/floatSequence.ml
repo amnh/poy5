@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FloatSequence" "$Revision: 2662 $"
+let () = SadmanOutput.register "FloatSequence" "$Revision: 3120 $"
 
 (* Debug variables/ combinators *)
 let (-->) a b = b a
@@ -117,15 +117,18 @@ module type A = sig
     val get_mem     : s -> s -> floatmem
     val create_mem  : int -> int -> floatmem
     val clear_mem   : floatmem -> unit
+    
     (* converting our datatypes to an external type *)
     val s_of_seq    : Sequence.s -> s
     val seq_of_s    : s -> Sequence.s
     val compare     : s -> s -> bool
+    
     (* functions for testing externally *)
     val print_mem   : floatmem -> unit
     val print_s     : s -> Alphabet.a -> unit
     val print_raw   : s -> unit
     val print_cm    : dyn_model -> float -> unit
+    val to_string   : dyn_model -> s -> string
 
     (* cost matrix/function; maps states to their cost and possible assignments *)
     val get_cf : dyn_model -> float -> float -> (int -> int -> float * int)
@@ -341,6 +344,9 @@ module CMPLAlign : A = struct
         printf "\n%!";
         ()
 
+    let to_string m s =
+        Sequence.to_string s m.alph
+
     let print_raw seq =
         for i = 0 to (Sequence.length seq)-1 do
             printf "|%d" (Sequence.get seq i);
@@ -547,6 +553,9 @@ module MPLAlign : A = struct
         done;
         printf "\n%!";
         ()
+
+    let to_string m s =
+        Sequence.to_string s m.alph
 
     let print_cm m t =
         let mat = MlModel.compose m.static t in
@@ -1206,6 +1215,9 @@ module MALAlign : A = struct
             printf "|\n%!";
         done;
         print_newline ()
+
+    let to_string m s =
+        Sequence.to_string s m.alph
 
     (* memory processing functions *)
     let mem = ref None

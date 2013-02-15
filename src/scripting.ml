@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3108 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3120 $"
 
 let (-->) a b = b a
 
@@ -4383,8 +4383,15 @@ END
                                         (fun _ v acc -> (Node.to_string v) :: acc)
                                         t.Ptree.node_data
                                         []
+                                and edges =
+                                    Tree.EdgeMap.fold
+                                        (fun (Tree.Edge (a,b)) v acc ->
+                                            (Node.to_string (Edge.to_node 0 (a,b) v))::acc)
+                                        t.Ptree.edge_data
+                                        []
                                 in
                                 List.iter (Status.user_message fo) nodes;
+                                List.iter (Status.user_message fo) edges;
                                 Status.user_message fo "%!")
                             xs
                 end;

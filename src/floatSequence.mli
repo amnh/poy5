@@ -99,6 +99,10 @@ module type A = sig
     (** [print_cm m t] Compose and print the cost matrix defined by the model
         [m] and the branch length [t]. *)
 
+    val to_string   : dyn_model -> s -> string
+    (** [to_string m s] report the data to a string, used in report(nodes) *)
+
+
 (* {6 Cost Function/Matrix functions *)
 
     val get_cf : dyn_model -> float -> float -> (int -> int -> float * int)
