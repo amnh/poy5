@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FloatSequence" "$Revision: 3120 $"
+let () = SadmanOutput.register "FloatSequence" "$Revision: 3126 $"
 
 (* Debug variables/ combinators *)
 let (-->) a b = b a
@@ -1384,6 +1384,7 @@ module Empty : A = struct
     let print_mem _                 = failwith "not implemented"
     let create_mem _ _              = failwith "not implemented"
     let clear_mem _                 = failwith "not implemented"
+    let to_string _ _               = failwith "not implemented"
     let get_mem _ _                 = failwith "not implemented"
     let print_cm _ _                = failwith "not implemented"
     let cost_2 ?deltaw _ _ _ _ _    = failwith "not implemented"
