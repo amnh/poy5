@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3105 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3121 $"
 
 let debug = false 
 
@@ -1924,18 +1924,14 @@ type transform_method = [
                     [ LIDENT "mb"; ":"; x = INT ->((int_of_string x) * 
                         1000 * 1000 / (Sys.word_size / 8)) ]
                 ];
-            model_iter2:
-                [
-                    [LIDENT "threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
-                    [LIDENT "max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
-                    [LIDENT "never" -> `NullModel] |
-                    [LIDENT "always" -> `AlwaysModel]
-                ];
             model_iter :
                 [
                     [LIDENT "never" -> `NullModel] |
                     [LIDENT "always" -> `AlwaysModel] |
-                    [left_parenthesis; x = model_iter2; right_parenthesis -> x]
+                    [LIDENT "threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
+                    [LIDENT "max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
+                    [LIDENT "never" -> `NullModel] |
+                    [LIDENT "always" -> `AlwaysModel]
                 ];
             branch_iter :
                 [
@@ -1944,12 +1940,11 @@ type transform_method = [
                     [LIDENT "all"          -> `AllBranches] |
                     [LIDENT "join_delta"   -> `JoinDeltaBranches] |
                     [LIDENT "join_region"  -> `NeighborhoodBranches 0] |
-                    [LIDENT "join_region";
-                              ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ]
+                    [LIDENT "join_region"; ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ]
                 ];
             iterate_options:
                 [
-                    [LIDENT "model"; ":"; x = model_iter -> x] |
+                    [LIDENT "model"; ":";  x = model_iter -> x] |
                     [LIDENT "branch"; ":"; x = branch_iter -> x]
                 ];
             iteration_method:
