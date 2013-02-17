@@ -178,6 +178,9 @@ val distinct_size : a -> int
 (** [print a] debug function to print the contents of an alphabet **)
 val print : a -> unit
 
+(** [to_string a] simple version of above function into a string *)
+val to_string: a -> string
+
 (** [check_level a] returns true if level>1 && level<=a_sz*)
 val check_level : a -> bool
 

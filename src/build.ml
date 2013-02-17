@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 3030 $"
+let () = SadmanOutput.register "Build" "$Revision: 3103 $"
 
 let debug_profile_memory = false
 
@@ -743,6 +743,10 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         in
         Status.finished st;
         res
+
+    let prebuilt trees sumdata = match trees with
+        | [] -> `Set []
+        | xs -> prebuilt xs sumdata
 
     let rec build_initial_trees trees data nodes (meth : Methods.build) =
         let d = (data, nodes) in

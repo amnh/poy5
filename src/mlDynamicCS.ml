@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 2689 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3120 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -120,7 +120,20 @@ let compare a b =
 
 let pp_seq model chan seq = Sequence.print chan seq model.alph
 
-let to_string t = failwith_todo "to_string"
+let to_string t = match t.data with
+    | MPLAlign x  ->
+        Array.fold_left
+            (fun acc x -> acc^(MPLAlign.to_string t.model x))
+            "" x.ss
+    | CMPLAlign x ->
+        Array.fold_left
+            (fun acc x -> acc^(CMPLAlign.to_string t.model x))
+            "" x.ss
+    | Verify x    ->
+        Array.fold_left
+            (fun acc x -> acc^(CMPLAlign.to_string t.model (fst x)))
+            "" x.ss
+    
 
 let alph t = t.model.alph
 

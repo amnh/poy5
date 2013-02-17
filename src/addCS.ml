@@ -17,9 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AddCS" "$Revision: 2819 $"
+let () = SadmanOutput.register "AddCS" "$Revision: 3127 $"
 
-let debug = true
 let tests = false (* run additive self tests *)
 
 let ( --> ) a b = b a

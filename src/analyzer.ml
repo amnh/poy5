@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 2968 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3099 $"
 
 let debug = false
 
@@ -256,16 +256,14 @@ let dependency_relations (init : Methods.script) =
                 | `Aminoacids (files,_)
                 | `Chromosome files
                 | `Genome files
+                | `GeneralAlphabetSeq (files, _, _)
+                | `Breakinv (files, _, _)
                 | `ComplexTerminals files ->
-                        let files = List.map FileStream.filename files in
-                        [(Data :: Trees :: input files, 
-                        [Data; Trees; Bremer; JackBoot], (meth :>
-                        Methods.script), NonComposable)]
-                | `GeneralAlphabetSeq (file, _, _)
-                | `Breakinv (file, _, _) ->
-                        let file = FileStream.filename file in
-                        [(Data :: Trees :: input [file], [Data; Trees; Bremer; JackBoot], 
-                        (meth :> Methods.script), NonComposable)]
+                    let files = List.map FileStream.filename files in
+                    [ (Data :: Trees :: input files, 
+                      [Data; Trees; Bremer; JackBoot],
+                      (meth :> Methods.script),
+                      NonComposable) ]
             in
             processor meth
     | #Methods.transform as meth ->
@@ -382,6 +380,9 @@ let dependency_relations (init : Methods.script) =
     | #Methods.report as meth ->
             let res, files, isload = 
                 match meth with
+                | `DebugData ->
+                    let fn = filename_to_list None in
+                    [(Data :: fn, fn, init, Invariant)], None, false
                 | `ExplainScript (_, filename)
                 | `SequenceStats (filename, _)
                 | `Ci (filename, _)
@@ -403,20 +404,20 @@ let dependency_relations (init : Methods.script) =
                         let filename = Some filename in
                         let fn = filename_to_list filename in
                         [(data @ fn, fn, init, Invariant)], filename, false
+                | `Topo_Selection (filename,_) ->
+                    let fn = filename_to_list filename in
+                    [(Data :: fn, fn, init, Invariant)], filename, false
                 | `GraphicSupports (suppoutput, filename)
                 | `Supports (suppoutput, filename) ->
                         let fn = filename_to_list filename in
-                        let res = 
-                            match suppoutput with
-                            | None -> [([JackBoot; Bremer; Trees; Data] @ fn, fn, init,
-                            NonComposable)]
+                        let res = match suppoutput with
+                            | None              ->
+                                [([JackBoot; Bremer; Trees; Data] @ fn, fn, init, NonComposable)]
                             | Some `Jackknife _
                             | Some `Bootstrap _ ->
-                                    [([JackBoot; Trees; Data] @ fn, fn, init,
-                                    Linnearizable)]
-                            | Some (`Bremer _)->
-                                    [([Bremer; Trees; Data] @ fn, fn, init,
-                                    Linnearizable)]
+                                [([JackBoot; Trees; Data] @ fn, fn, init, Linnearizable)]
+                            | Some (`Bremer _)  ->
+                                [([Bremer; Trees; Data] @ fn, fn, init, Linnearizable)]
                         in
                         res, filename, false
                 | `Consensus (filename, _)
@@ -1775,6 +1776,8 @@ let script_to_string (init : Methods.script) =
                         "@[report the nexus file@]"
                 | `Pairwise _ -> 
                         "@[report the pairwise distance matrix for characters@]"
+                | `DebugData -> 
+                        "@[report global data to screen (debug)@]"
                 | `LKSites _ -> 
                         "@[report the site loglikelihood of trees@]"
                 | `Model _ -> 
@@ -1786,7 +1789,9 @@ let script_to_string (init : Methods.script) =
                 | `Xslt _ ->
                         "@[report the current data and trees under analysis@]"
                 | `Nodes _ ->
-                        ""
+                        "@[report all unadjusted data in tree@]"
+                | `Topo_Selection _ -> 
+                        "@[report the tree selection p-values@]"
                 | `TerminalsFiles _ ->
                         "@[report the terminals per file@]"
                 | `CrossReferences (_, _) ->
@@ -1989,8 +1994,7 @@ let my_part mine n a =
         a / n
     else 1 + (a / n)
 
-let is_master_only (init : Methods.script) =
-    match init with
+let is_master_only (init : Methods.script) = match init with
     | `Algn_Newkk
     | `Algn_Normal
     | `Barrier 
@@ -2042,8 +2046,8 @@ let is_master_only (init : Methods.script) =
     | `Repeat _ 
     | `TimerInterval _
     | #Methods.taxa_handling -> false
-    | `Graph (_, _)
-    | `Ascii (_, _)
+    | `Graph _
+    | `Ascii _
     | `InspectFile _
     | `SequenceStats _
     | `Ci _
@@ -2070,13 +2074,14 @@ let is_master_only (init : Methods.script) =
     | `Xslt _
     | `Nodes _
     | `TerminalsFiles _
-    | `CrossReferences (_, _)
-    | `GraphicSupports (_, _)
-    | `Supports (_, _)
-    | `Consensus (_, _)
-    | `GraphicConsensus (_, _)
-    | `GraphicDiagnosis (_,_)
-    | `Diagnosis (_,_)
+    | `CrossReferences _
+    | `GraphicSupports _
+    | `Topo_Selection _
+    | `Supports _
+    | `Consensus _ 
+    | `GraphicConsensus _
+    | `GraphicDiagnosis _
+    | `Diagnosis _
     | `AllRootsCost _
     | `Trees _
     | `Implied_Alignment _
@@ -2086,11 +2091,13 @@ let is_master_only (init : Methods.script) =
     | `TreesStats _
     | `SearchStats _
     | `Clades _
-    | `Save (_, _)
+    | `Save _
     | `MstR _
+    | `DebugData
     | `Plugin _ 
     | `Version -> true
 
+    (** TODO CHECK ALL SCRIPTS FOR LOCAL/REMOTE FILE ISSUES *)
 let rec make_remote_files (init : Methods.script) =
     let mr = function
         | `Local x | `Remote x -> `Remote x
@@ -2121,56 +2128,44 @@ let rec make_remote_files (init : Methods.script) =
         item
     and recursive = List.map make_remote_files in
     match init with
-    | `ParallelPipeline (a, b, c, d) ->
-            `ParallelPipeline (a, recursive b, recursive c, recursive d) 
-    | `OnEachTree (a, b) ->
-            `OnEachTree (recursive a, recursive b)
-    | `Repeat (a, b) ->
-            `Repeat (a, recursive b)
-    | `GatherTrees (a, b) ->
-            `GatherTrees (recursive a, recursive b)
-    | `AnalyzeOnlyCharacterFiles (b, files) ->
-            `AnalyzeOnlyCharacterFiles (b, mrl files)
+    | `ParallelPipeline (a, b, c, d) -> `ParallelPipeline (a, recursive b, recursive c, recursive d) 
+    | `OnEachTree (a, b) -> `OnEachTree (recursive a, recursive b)
+    | `Repeat (a, b) -> `Repeat (a, recursive b)
+    | `GatherTrees (a, b) -> `GatherTrees (recursive a, recursive b)
+    | `AnalyzeOnlyCharacterFiles (b, files) -> `AnalyzeOnlyCharacterFiles (b, mrl files)
     | `Poyfile files -> `Poyfile (mrl files)
     | `AutoDetect files -> `AutoDetect (mrl files)
     | `PartitionedFile files -> `PartitionedFile (mrl files)
     | `Nucleotides files -> `Nucleotides (mrl files)
     | `Aminoacids (files,opt) -> `Aminoacids (mrl files,opt)
-    | `GeneralAlphabetSeq (a, b, c) ->
-            `GeneralAlphabetSeq (mr a, mr b, c)
-    | `Breakinv (a, b, c) -> `Breakinv (mr a, mr b, c)
+    | `GeneralAlphabetSeq (a, b, c) -> `GeneralAlphabetSeq (mrl a, mr b, c)
+    | `Breakinv (a, b, c) -> `Breakinv (mrl a, mr b, c)
     | `Chromosome files -> `Chromosome (mrl files)
     | `Genome files -> `Genome (mrl files)
     | `Prealigned (meth, cost, gap_opening) ->
-            let cost = 
-                match cost with
+            let cost = match cost with
                 | `Assign_Transformation_Cost_Matrix (file,level) -> 
-                        `Assign_Transformation_Cost_Matrix ((mr file),level)
+                    `Assign_Transformation_Cost_Matrix ((mr file),level)
                 | `Create_Transformation_Cost_Matrix _ -> cost
             in
-            let meth = 
-                match meth with
+            let meth = match meth with
                 | `Poyfile files -> `Poyfile (mrl files)
                 | `AutoDetect files -> `AutoDetect (mrl files)
                 | `Nucleotides files -> `Nucleotides (mrl files)
                 | `PartitionedFile files -> `PartitionedFile (mrl files)
                 | `Aminoacids (files,opt) -> `Aminoacids (mrl files,opt)
-                | `GeneralAlphabetSeq (a, b, c) ->
-                        `GeneralAlphabetSeq (mr a, mr b, c)
-                | `Breakinv (a, b, c) -> `Breakinv (mr a, mr b, c)
+                | `GeneralAlphabetSeq (a, b, c) -> `GeneralAlphabetSeq (mrl a, mr b, c)
+                | `Breakinv (a, b, c) -> `Breakinv (mrl a, mr b, c)
                 | `Chromosome files -> `Chromosome (mrl files)
                 | `Genome files -> `Genome (mrl files)
-                | `ComplexTerminals files -> 
-                        let files = mrl files in
-                        `ComplexTerminals files
+                | `ComplexTerminals files -> `ComplexTerminals (mrl files)
             in
             `Prealigned (meth, cost, gap_opening)
     | `AnnotatedFiles files ->
             let files = handle_simple_input_list files in
             `AnnotatedFiles files
     | `Assign_Transformation_Cost_Matrix (a, b) ->
-            let a =
-                match a with
+            let a = match a with
                 | Some (a,l) -> Some ((mr a),l)
                 | None -> None
             in
@@ -2180,18 +2175,20 @@ let rec make_remote_files (init : Methods.script) =
     | `Assign_Prep_Cost ((`File a), b) ->
             `Assign_Prep_Cost ((`File (mr a)), b)
     | `LocalOptimum (l_opt) ->
-        (match l_opt.Methods.tabu_join with
-        | `Partition files ->
+        begin match l_opt.Methods.tabu_join with
+            | `Partition files ->
                 let files = 
                     List.map 
                         (function 
-                            `ConstraintFile file -> 
+                            | `ConstraintFile file -> 
                                 `ConstraintFile (mr file)
-                            | x -> x) files 
+                            | x -> x)
+                        files 
                 in
                 let tabu = `Partition files in
                  `LocalOptimum { l_opt with Methods.tabu_join = tabu }
-        | _ ->  init) 
+            | _ ->  init
+        end
     | `PerturbateNSearch (tl, pm, lo, v, timer) ->
             let tl = 
                 handle_subtypes 
@@ -2214,10 +2211,8 @@ let rec make_remote_files (init : Methods.script) =
             let lo = handle_lo lo
             and bu = handle_bu bu in
             `Bremer (lo, bu, a, b)
-    | `SynonymsFile files ->
-            `SynonymsFile (mrl files)
-    | `AnalyzeOnlyFiles (a, b) ->
-            `AnalyzeOnlyFiles (a, mrl b)
+    | `SynonymsFile files -> `SynonymsFile (mrl files)
+    | `AnalyzeOnlyFiles (a, b) -> `AnalyzeOnlyFiles (a, mrl b)
     | x -> x
 
 let rec cleanup_non_master script =

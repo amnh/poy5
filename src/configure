@@ -1364,10 +1364,10 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-interface      Force POYs user interface. Valid options are flat,
-                          ncurses, readline, and html. The default is ncurses,
-                          if ncurses is not found, then the readline interface
-                          is used, if readline is not present either, then
-                          choose the flat interface.
+                          ncurses, pdcurses, readline, and html. The default
+                          is ncurses, if ncurses is not found, then the
+                          readline interface is used, if readline is not
+                          present either, then choose the flat interface.
   --enable-rtlout         Used to generate RTL output that can be used for
                           egypt to create graphviz of C routines (in _build
                           directory). (debug use only).
@@ -2965,8 +2965,14 @@ OS_INFORMATION=`../gnu/config.guess`
 case ${OS_INFORMATION} in
     *-apple-*)
         PATH_PREFIX="/"
+        USEINTERFACE="ncurses"
+        ;;
+    *-cygwin*)
+        USEINTERFACE="pdcurses"
+        PATH_PREFIX="/usr"
         ;;
     *)
+        USEINTERFACE="ncurses"
         PATH_PREFIX="/usr"
         ;;
 esac
@@ -2975,7 +2981,7 @@ esac
 if test "${enable_interface+set}" = set; then :
   enableval=$enable_interface; USEINTERFACE=$enableval;INTERFACE_SELECTED="true"
 else
-  USEINTERFACE="ncurses"; INTERFACE_SELECTED="false"; DUSENCURSES="-DUSENCURSES"; OUSENCURSES=",use_ncurses"
+  INTERFACE_SELECTED="false"; DUSENCURSES="-DUSENCURSES"; OUSENCURSES=",use_ncurses"
 fi
 
 
@@ -3543,6 +3549,52 @@ else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "The ncurses interface requires the ncurses library. See ./configure --help for more information.
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  USEINTERFACE="readline"
+fi
+fi
+
+fi
+if test $USEINTERFACE = "pdcurses"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lpdcurses" >&5
+$as_echo_n "checking for main in -lpdcurses... " >&6; }
+if ${ac_cv_lib_pdcurses_main+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lpdcurses  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_pdcurses_main=yes
+else
+  ac_cv_lib_pdcurses_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_pdcurses_main" >&5
+$as_echo "$ac_cv_lib_pdcurses_main" >&6; }
+if test "x$ac_cv_lib_pdcurses_main" = xyes; then :
+  LIBS="-lpdcurses $LIBS";USEINTERFACE="ncurses";DUSENCURSES="-DUSENCURSES";INTERFACETOP="NcursesML";OUSENCURSES=",use_ncurses";$as_echo "#define HAVE_LIBNCURSES 1" >>confdefs.h
+
+else
+  if test $INTERFACE_SELECTED = "true"; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "The pdcurses interface requires the pdcurses library. See ./configure --help for more information.
 See \`config.log' for more details" "$LINENO" 5; }
 else
   USEINTERFACE="readline"

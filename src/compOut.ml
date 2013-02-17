@@ -102,7 +102,6 @@ let static_character_to_string sep ambig_open ambig_close fo resolve alph charse
     in
     fo sep
 
-
 let create_set_data_pairs (fo : string -> unit) data code_char_pairs =
     (* associate data to each category; right now associated with likelihood *)
     let add_data charset = match charset with
@@ -111,16 +110,17 @@ let create_set_data_pairs (fo : string -> unit) data code_char_pairs =
             let setname = Data.get_set_of_character data hd in
             begin match Hashtbl.find data.Data.character_specs hd with
                 | Data.Static x ->
-                        (match x with 
-                            | Data.NexusFile spec ->
-                                begin match spec.Nexus.File.st_type with
-                                    | Nexus.File.STLikelihood m -> (setname,charset,Some m)
-                                    | Nexus.File.STNCM _
-                                    | Nexus.File.STOrdered
-                                    | Nexus.File.STUnordered
-                                    | Nexus.File.STSankoff _ -> (setname,charset,None)
-                                end
-                            | _ -> failwith "CompOut.create_set_data_pairs is not for fixedstates" )
+                    begin match x with 
+                        | Data.NexusFile spec ->
+                            begin match spec.Nexus.File.st_type with
+                                | Nexus.File.STLikelihood m -> (setname,charset,Some m)
+                                | Nexus.File.STNCM _
+                                | Nexus.File.STOrdered
+                                | Nexus.File.STUnordered
+                                | Nexus.File.STSankoff _ -> (setname,charset,None)
+                            end
+                        | _ -> failwith "CompOut.create_set_data_pairs is not for fixedstates"
+                    end
                 | Data.Dynamic x -> (setname,charset,x.Data.lk_model)
                 | Data.Kolmogorov _
                 | Data.Set -> (setname,charset,None)
@@ -134,21 +134,29 @@ let create_set_data_pairs (fo : string -> unit) data code_char_pairs =
                     fo (" "^(string_of_int assoc)) )
                 xs
     in
-    let set_pairs = List.map add_data (Data.categorize_characters_comp data `All) in
+    let set_pairs =
+        List.map
+            (fun xs ->
+                try Data.categorize_likelihood_chars_by_model data (`Some xs)
+                with _ -> [xs])
+            (Data.categorize_characters_comp data `All)
+        --> List.flatten
+        --> List.map add_data
+    in
     fo "@[BEGIN SETS;@\n";
     let count = ref ~-1 in
     let set_pairs =
         List.map
             (fun (n,s,m) ->
-                    let set = Buffer.create 1000 in
-                    let foset = Buffer.add_string set in
-                    let n = match n with
-                        | None   -> incr count; "poy_"^(string_of_int !count) 
-                        | Some n -> n
-                    in
-                    try foset "@[charset "; foset n; foset "= "; print_set foset s; foset ";@]@,"; 
-                        fo (Buffer.contents set); (n,s,m)
-                    with | Not_found -> (n,s,m))
+                let set = Buffer.create 1000 in
+                let foset = Buffer.add_string set in
+                let n = match n with
+                    | None   -> incr count; "poy_"^(string_of_int !count) 
+                    | Some n -> n
+                in
+                try foset "@[charset "; foset n; foset "= "; print_set foset s; foset ";@]@,"; 
+                    fo (Buffer.contents set); (n,s,m)
+                with | Not_found -> (n,s,m))
             set_pairs
     in
     if !count > 0 then fo ";@]@,END;@]@\n" else fo "END;@]@\n";
@@ -707,19 +715,20 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                 fo ";@]@[END;@]@\n"
         in
         let output_likelihood_symbols fo data codes =
-            let alph,inc_gap = 
-                let rep,_ = List.hd (List.tl codes) in
+            let alph,inc_gap =
+                let rep = List.hd (List.tl codes) in
                 try match Hashtbl.find data.Data.character_specs rep with
                     | Data.Static y ->
-                            (match y with 
+                        begin match y with
                             | Data.NexusFile x ->
                                 let inc_gap = match x.Nexus.File.st_type with
                                     | Nexus.File.STLikelihood m ->
                                         m.MlModel.spec.MlModel.use_gap
                                     | _ -> failwith "Impossible"
                                 in
-                                x.Nexus.File.st_alph,inc_gap 
-                            | _ -> failwith "compOut.output_likelihood_symbols is not for fixedstates" )
+                                x.Nexus.File.st_alph,inc_gap
+                            | _ -> failwith "compOut.output_likelihood_symbols is not for fixedstates"
+                        end
                     | _ -> failwith "Impossible"
                 with | _ ->
                     Printf.printf "Codes: ";
@@ -739,7 +748,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                                                   -> "PROTEIN",    []
                 | x when x = Alphabet.aminoacids  -> "PROTEIN",    []
                 | x ->
-                    let f = 
+                    let f =
                         if resolve_a then (fun x-> fst x)
                                      else (fun x-> string_of_int (snd x))
                     in
@@ -772,7 +781,7 @@ let to_nexus (data:Data.d) (trees:(string option * Tree.Parse.tree_types) list)
                 fo ";@]@,";
                 let () =
                     if Data.has_static_likelihood data then
-                        output_likelihood_symbols fo data terminals_sorted
+                        output_likelihood_symbols fo data all_of_static
                     else begin
                         fo "@[FORMAT ";
                         fo "@[SYMBOLS=\"0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L";

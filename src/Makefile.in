@@ -73,10 +73,11 @@ all: poy.byte poy.top VERSION poy.native
 
 commands.pdf:
 	$(OCAMLBUILD) $@
+	cp _build/commands.pdf ./commands.pdf
 
 doc: 
 	$(OCAMLBUILD) commands.pdf
-	cp _build/commands.pdf ./manual.pdf
+	cp _build/commands.pdf ./commands.pdf
 
 ##################################
 # Cleaning / Removing POY

@@ -17,7 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3048 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3128 $"
+
+let (-->) a b = b a
 
 module IntSet = All_sets.Integers
 
@@ -1239,6 +1241,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     module D = Diagnosis.Make (Node) (Edge) (TreeOps)
     module S = Supports.Make (Node) (Edge) (TreeOps)
 
+    module MLT = MlTestStat.Make (Node) (Edge) (TreeOps)
+
     type r = (a, b) run
 
     let args = 
@@ -1525,71 +1529,114 @@ let load_data (meth : Methods.input) data nodes =
                 if init3D then Alphabet.aminoacids_use_3d
                           else Alphabet.aminoacids
             in
+            let alphabet, (twod_full,twod_original,matrix),threed =
+                try match List.find (function | `Level _ -> true | _ -> false) read_options with
+                    | `Level (x,y) ->
+                        Status.user_message Status.Error "I@ am@ ignoring@ the@ Level@ argument";
+                        raise Not_found
+                    | _            -> assert false
+                with | Not_found   ->
+                    alpha,(Cost_matrix.Two_D.default_aminoacids,
+                            Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
+                        (Lazy.force Cost_matrix.Three_D.default_aminoacids)
+            in
             let dynastate,default_mode =
                 if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
                                  else `CustomAlphabet,`DO
             in
             List.fold_left
                 (fun d f ->
-                    Data.process_molecular_file Data.default_tcm
-                        Cost_matrix.Two_D.default_aminoacids Cost_matrix.Two_D.default_aminoacids
-                        (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                        annotated alpha default_mode is_prealigned dynastate d f)
+                    Data.process_molecular_file matrix twod_full twod_original 
+                            threed annotated alpha default_mode is_prealigned
+                            dynastate d f)
                 data files
-        | `GeneralAlphabetSeq (f, alph, read_options) ->
-            let data = Data.add_file data [Data.Characters] f in
+        | `GeneralAlphabetSeq (files, alph, read_options) ->
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
             let orientation = List.mem (`Orientation false) read_options in
             let init3D = List.mem (`Init3D true) read_options in
             let is_prealigned = List.mem (`Prealigned) read_options in
-            let tie_breaker_first = List.mem (`TieBreaker `First) read_options in
-            let tie_breaker_last = List.mem (`TieBreaker `Last) read_options in
-            let tie_breaker_random = List.mem (`TieBreaker `Keep_Random) read_options in
-            let tb = (*we use First as custom alphabet's tie breaker*)
-                if tie_breaker_first then `First
-                else if tie_breaker_last then `Last
-                else if tie_breaker_random then `Keep_Random
-                else `First
+            let tb =
+                try match List.find
+                        (function | `Tie_Breaker _ -> true | _ -> false)
+                        read_options with
+                    | `Tie_Breaker x -> x
+                    | _             -> assert false
+                with | Not_found    -> `First
             in
-            let level = 2 in
+            let level,tb =
+                try match List.find
+                        (function | `Level _ -> true | _ -> false)
+                        read_options with
+                    | `Level (x,y) -> x,y
+                    | _            -> assert false
+                with | Not_found   -> 2,tb
+            in
             let respect_case = true in
             let alphabet, (twod_full,twod_original,matrix), threed =
                 Alphabet.of_file alph orientation init3D level respect_case tb
             in
             if is_prealigned then
-                prealigned_files := [f] :: !prealigned_files;
+                prealigned_files := files :: !prealigned_files;
             let dynastate,default_mode =
                 if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
                                  else `CustomAlphabet,`DO
             in
             let tcmfile = FileStream.filename alph in
-            Data.process_molecular_file ~respect_case:respect_case
-                    (Data.Input_file (tcmfile,matrix)) twod_full twod_original
-                    threed annotated alphabet default_mode is_prealigned dynastate data f
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file ~respect_case
+                        (Data.Input_file (tcmfile,matrix)) twod_full twod_original
+                        threed annotated alphabet default_mode is_prealigned dynastate d f)
+                data files
         (** read breakinv data from files each breakinv is presented as a
             sequence of general alphabets *)
-        | `Breakinv (seq, alph, read_options) ->
-            let data = Data.add_file data [Data.Characters] seq in
+        | `Breakinv (files, alph, read_options) ->
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
             let orientation = not (List.mem (`Orientation false) read_options) in
             let init3D = (List.mem (`Init3D true) read_options) in
-            let data = Data.add_file data [Data.Characters] seq in
             let respect_case = true in
+            let tb =
+                try match
+                    List.find
+                        (function | `Tie_Breaker _ -> true | _ -> false)
+                        read_options with
+                    | `Tie_Breaker x -> x
+                    | _             -> assert false
+                with | Not_found    -> `First
+            in
             let alphabet, (twod,twod_ori,matrix), threed =
-                Alphabet.of_file alph orientation init3D 0 respect_case `Keep_Random
+                Alphabet.of_file alph orientation init3D 0 respect_case tb
             and tcmfile = FileStream.filename alph in
-            Data.process_molecular_file (Data.Input_file (tcmfile,matrix)) twod
-                    twod_ori threed annotated alphabet `DO is_prealigned
-                    `Breakinv data seq
+            List.fold_left
+                (fun d f ->
+                    Data.process_molecular_file (Data.Input_file (tcmfile,matrix))
+                        twod twod_ori threed annotated alphabet `DO
+                        is_prealigned `Breakinv d f)
+                data files
         | `ComplexTerminals files ->
-            List.fold_left Data.process_complex_terminals data
-                           (explode_filenames files)
-
-    and annotated_reader data (meth : Methods.input) =
-        match meth with
+            let files = explode_filenames files in
+            let data =
+                List.fold_left
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+            in
+            List.fold_left Data.process_complex_terminals data (explode_filenames files)
+    and annotated_reader data (meth : Methods.input) = match meth with
         | `AnnotatedFiles files ->
             List.fold_left (reader true false) data files
         | #Methods.simple_input as meth -> 
             reader false false data meth
-        | `Prealigned (meth, tcm, gap_opening) ->
+        | `Prealigned (meth, tcm, 0) ->
             prealigned_files := [];
             let data = reader false true data meth in (* read data as dynamic *)
             let data = Data.categorize (Data.remove_taxa_to_ignore data) in
@@ -1606,16 +1653,18 @@ let load_data (meth : Methods.input) data nodes =
                 | `Create_Transformation_Cost_Matrix (trans, gaps) ->
                     Data.assign_transformation_gaps data chars trans gaps 
             in
-            let data =
-                if gap_opening > 0 then
-                    Data.assign_affine_gap_cost data chars
-                        (Cost_matrix.Affine gap_opening)
-                else data
-            in
-            Data.prealigned_characters ImpliedAlignment.analyze_tcm data chars 
+            Data.prealigned_characters ImpliedAlignment.analyze_tcm data chars
+        | `Prealigned (meth, tcm, gap_opening) ->
+(*            let data = *)
+(*                Data.assign_affine_gap_cost data chars (Cost_matrix.Affine gap_opening)*)
+(*            in*)
+(*            ...*)
+            Status.user_message Status.Error
+                "We@ currently@ do@ not@ support@ gap_opening@ with@ prealigned@ sequences";
+            data
     in
-    let data = annotated_reader data meth in   
-    let data = Data.categorize (Data.remove_taxa_to_ignore data) in 
+    let data = annotated_reader data meth in
+    let data = Data.categorize (Data.remove_taxa_to_ignore data) in
     Node.load_data data
 
 type script = Methods.script
@@ -4018,6 +4067,37 @@ let rec folder (run : r) meth =
                 run
             | `Pairwise (filename,chars) ->
                 failwith "NOT DONE"
+
+            | `Topo_Selection (filename,x) ->
+                IFDEF USE_LIKELIHOOD THEN
+                    let (t,chars,n,k,rep) = MlTestStat.process_methods_arguments x in
+                    begin try match t, Sexpr.to_list run.trees with
+                        |   _,[] ->
+                            let msg = "The@ topology@ selection@ command@ requires"
+                                     ^"@ at@ least@ two@ trees@ in@ memory."
+                            in
+                            Status.user_message Status.Error msg
+                        | `AU,ts -> MLT.au ?n ?k ~rep ~chars ts
+                        | `SH,ts -> MLT.sh ?n ~rep ~chars ts
+                        | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
+                        | `KH,ts ->
+                            let msg = "The@ topology@ selection@ KH@ requires"
+                                     ^"@ only@ two@ trees@ in@ memory."
+                            in
+                            Status.user_message Status.Error msg
+                        |   _,_ -> assert false
+                    with MLT.Incorrect_Data ->
+                        Status.user_message Status.Error
+                            "Cannot@ use@ topology@ tests@ on@ this@ data."
+                    end;
+                    run
+                ELSE
+                    Status.user_message Status.Error MlModel.likelihood_not_enabled;
+                    run
+                END
+            | `DebugData ->
+                    Data.print run.data;
+                    run
             | `LKSites (filename,chars) ->
                 let ft = Status.output_table (Status.Output (filename, false, [])) in
                 let items = Sexpr.length run.trees in
@@ -4281,9 +4361,31 @@ END
                 run
             | `Nodes filename ->
                 let fo = Status.Output (filename, false, []) in
-                let nodes = List.map Node.to_string run.nodes in
-                List.iter (Status.user_message fo) nodes;
-                Status.user_message fo "%!";
+                begin match (Sexpr.to_list run.trees) with
+                    | [] -> 
+                        let nodes = List.map Node.to_string run.nodes in
+                        List.iter (Status.user_message fo) nodes;
+                        Status.user_message fo "%!"
+                    | xs ->
+                        List.iter
+                            (fun t ->
+                                let nodes =
+                                    All_sets.IntegerMap.fold
+                                        (fun _ v acc -> (Node.to_string v) :: acc)
+                                        t.Ptree.node_data
+                                        []
+                                and edges =
+                                    Tree.EdgeMap.fold
+                                        (fun (Tree.Edge (a,b)) v acc ->
+                                            (Node.to_string (Edge.to_node 0 (a,b) v))::acc)
+                                        t.Ptree.edge_data
+                                        []
+                                in
+                                List.iter (Status.user_message fo) nodes;
+                                List.iter (Status.user_message fo) edges;
+                                Status.user_message fo "%!")
+                            xs
+                end;
                 run
             | `Supports _ 
             | `GraphicSupports _ as meth ->

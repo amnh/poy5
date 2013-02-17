@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2830 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 3097 $"
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -93,6 +93,22 @@ let print alpha =
         alpha.code_to_string;
     Printf.printf "end of print alph\n%!"
 
+let to_string alpha = 
+    let str = match alpha.kind with
+        | Simple_Bit_Flags -> Printf.sprintf "alph kind:Simple_Bit_Flags"
+        | Sequential -> Printf.sprintf "alph kind:Sequential"
+        | Extended_Bit_Flags -> Printf.sprintf "alph kind:Extended_Bit_Flags"
+        | Continuous -> Printf.sprintf "alph kind:Continuous"
+        | Combination_By_Level -> Printf.sprintf "alph kind:Combination_By_Level"
+    and astr =
+        All_sets.IntegerMap.fold
+            (fun code char acc -> Printf.sprintf "%s, %i %s" acc code char)
+            alpha.code_to_string
+            ""
+    in
+    str ^ astr
+
+
 let to_formatter alph : Xml.xml =
     let element_to_tags string code acc =
         (`Single (Xml.Alphabet.element, [(Xml.Alphabet.value, `String string);
@@ -102,7 +118,6 @@ let to_formatter alph : Xml.xml =
         `Set (All_sets.StringMap.fold element_to_tags alph.string_to_code [])
     in
     Xml.Characters.alphabet, [], res
-
 
 (* The alphabet type *)
 
@@ -926,11 +941,7 @@ let n_to_the_powers_of_m n m =
     func m 1
 
 let create_alph_by_level alph level oldlevel =
-    let debug = false in
     let ori_a_size = get_ori_size alph in
-    if debug then 
-        Printf.printf "Alphabet.create new alph: ori_size=%d,old_level/newlevel=%d/%d\n%!"
-                        ori_a_size oldlevel level; 
     let orientation= get_orientation alph in
     let get_ori_alst  = 
         let res = ref [] in
@@ -938,52 +949,33 @@ let create_alph_by_level alph level oldlevel =
             let pos = (i+1) in
             let str = 
                 try All_sets.IntegerMap.find pos alph.code_to_string 
-                with
-                | Not_found -> raise (Illegal_Code pos)
+                with | Not_found -> raise (Illegal_Code pos)
             in
             res := (!res)@[str]
         done;
         (!res)
     in
-    let (ori_alst:string list) =   get_ori_alst  in
+    let (ori_alst:string list) = get_ori_alst in
     let default_gap = gap_repr in
-    let orialph = of_string ~orientation:orientation ori_alst default_gap None in
-    let newalph = 
-        if (level > ori_a_size) then 
-            explote orialph ori_a_size ori_a_size 
+    let orialph = of_string ~orientation ori_alst default_gap None in
+    let newalph =
+        if (level > ori_a_size) then
+            explote orialph ori_a_size ori_a_size
         else if (level <1 ) then
             orialph
         else (*we need to do this even level=1*)
             explote orialph level ori_a_size
     in
-    if debug then begin
-        Printf.printf "end of Alphabet.create_alph_by_level, print newalph\n%!";
-        print newalph;
-    end;
     newalph
             
 let distinct_size alph =
     All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1) alph.code_to_string 0
 
-let complement c alph =
-    try 
-    All_sets.IntegerMap.find c alph.complement
-    with | Not_found ->
-        Printf.printf  "cannot find complement of %d in alphabet" c;
-        assert(false)
+let complement c alph = All_sets.IntegerMap.find c alph.complement
 
-let complement2 c alph =
-    let res = 
-    try 
-    All_sets.IntegerMap.find c alph.complement
-    with | Not_found ->
-        Printf.printf  "cannot find complement of %d in alphabet" c;
-        assert(false)
-    in
-     match res with 
+let complement2 c alph = match All_sets.IntegerMap.find c alph.complement with
     | Some y -> y
-    | None -> failwith "we are not expecting NONE complement"
-
+    | None   -> assert false
 
 (*NOTE: rev_comp_lst just give us the complement seq, not reverse, use List.rev to do that*)
 let rev_comp_lst seqlst alph =
@@ -996,17 +988,12 @@ let rev_comp_arr seqarr alph =
 
 (*[of_file] is only called by scripting.ml, when reading in custom alphabet and breakinversion file*)
 let of_file fn orientation init3D level respect_case tie_breaker =
-    let debug = false in
-    if debug then Printf.printf
-    "Alphabet.of_file,orientation=%b,level=%d,init3D=%b,respect_case=%b\n%!"
-    orientation level init3D respect_case;
     let file = FileStream.Pervasives.open_in fn in
     let alph = FileStream.Pervasives.input_line file in
     let default_gap = gap_repr in
     let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
     (*all_element is None for custom alphabet and breakinv*)
-    let alph = of_string ~respect_case:respect_case ~orientation:orientation ~init3D:init3D
-    elts default_gap None in 
+    let alph = of_string ~respect_case ~orientation ~init3D elts default_gap None in 
     (*at this point, alph is a plain alphabet with only orientation but no
     * combination, size set to original size, level set to 0, two maps set to empty, *)
     let size = size alph in(*size here is still the original size without combination*)
@@ -1019,20 +1006,13 @@ let of_file fn orientation init3D level respect_case tie_breaker =
     let tcm_full,tcm_original, matrix = 
         let all_elements = -1 (* breakinv and customalphabet don't have all_elements *) in
         if do_comb then
-            Cost_matrix.Two_D.of_channel 
-                ~tie_breaker:tie_breaker ~orientation:orientation ~level:level all_elements file 
+            Cost_matrix.Two_D.of_channel ~tie_breaker ~orientation ~level all_elements file 
         else
-            Cost_matrix.Two_D.of_channel_nocomb
-                ~orientation all_elements file
+            Cost_matrix.Two_D.of_channel_nocomb ~orientation all_elements file
     in
     let tcm3 = match init3D with
         | true -> Cost_matrix.Three_D.of_two_dim tcm_full
         | false  ->  Cost_matrix.Three_D.default_nucleotides 
     in 
     file#close_in;
-    if debug then Printf.printf "end of of_file, return alph and tcm\n%!";
-    if debug then print alph;
     alph, (tcm_full,tcm_original,matrix), tcm3
-
-(*    code_to_string : string All_sets.IntegerMap.t;    *)
-(* vim: set et sw=4 tw=80: *)

@@ -15,6 +15,7 @@ LINUX_DIRECTORY=linux
 rm -rf linux
 mkdir  linux
 
+cd src/
 # Build the version to be paired with the GUI
 if ! ./configure --with-version-number=$1 --enable-interface=html CFLAGS="${FLAGS}" ; then
     echo "Failure in html interface configuration"
@@ -29,7 +30,7 @@ if ! make poy.native; then
     echo "Failure in make step"
     exit 1
 fi
-cp ./src/_build/poy.native ./$LINUX_DIRECTORY/seq_poy.command
+cp _build/poy.native ../$LINUX_DIRECTORY/seq_poy.command
 
 # Now we make the ncurses interface
 if ! ./configure --with-version-number=$1 --enable-interface=ncurses CFLAGS="${FLAGS}" ; then
@@ -44,11 +45,12 @@ if ! make poy.native; then
     echo "Failure in make step"
     exit 1
 fi
+cp _build/poy.native ../$LINUX_DIRECTORY/ncurses_poy
 
-cp ./src/poy.native ./$LINUX_DIRECTORY/ncurses_poy
 #package ncurses around xterm call
-cat > ./${LINUX_DIRECTORY}/ncurses_poy.command <<EOF
+cat > ../${LINUX_DIRECTORY}/ncurses_poy.command <<EOF
 #!/bin/bash
-xterm -e ../Resources/ncurses_poy
+xterm -e ../${LINUX_DIRECTORY}/ncurses_poy
 EOF
-chmod a+x ./${LINUX_DIRECTORY}/ncurses_poy.command
+chmod a+x ../${LINUX_DIRECTORY}/ncurses_poy.command
+cd ..

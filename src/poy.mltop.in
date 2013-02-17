@@ -76,6 +76,7 @@ Methods
 MlModel
 MlDynamicCS
 MlStaticCS
+MlTestStat
 ModelSelection
 Mst
 @INTERFACETOP@

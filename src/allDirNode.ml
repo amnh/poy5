@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3035 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3120 $"
 
 let eager        = false
 let uppass_debug = false
@@ -950,7 +950,7 @@ struct
         let res =
             List.map (fun x -> OneDirF.to_string x.lazy_node) nodes.unadjusted
         in
-        String.concat "\n" res
+        String.concat "" res
 
     let total_cost par n = match par with
         | Some code ->

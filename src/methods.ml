@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 2968 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3099 $"
 
 exception TimedOut
 
@@ -82,7 +82,10 @@ type read_option_t = [
     | `Init3D of bool
     | `Orientation of bool
     | `Prealigned
-    | `TieBreaker of keep_method
+    | `InputFile of filename
+    | `CostMatrix of filename
+    | `Level of int * keep_method
+    | `Tie_Breaker of keep_method
 ]
 
 type prealigned_costs = [
@@ -95,8 +98,8 @@ type simple_input = [
     | `Nucleotides of filename list
     | `PartitionedFile of filename list
     | `Aminoacids of (filename list * read_option_t list)
-    | `GeneralAlphabetSeq of (filename * filename * read_option_t list)
-    | `Breakinv of filename * filename * read_option_t list
+    | `GeneralAlphabetSeq of (filename list * filename * read_option_t list)
+    | `Breakinv of filename list * filename * read_option_t list
     | `Chromosome of filename list
     | `Genome of filename list
     | `ComplexTerminals of filename list
@@ -211,6 +214,14 @@ type dynamic_char_transform = [
 type terminal_transform = [
     | `RandomizedTerminals
     | `AlphabeticTerminals
+]
+
+type ml_topo_test = [
+    | `AU | `SH | `KH
+    | `ReplicateOpt of bool * bool
+    | `ScaleFactors of int
+    | `Replicates of int
+    | `Characters of characters
 ]
 
 type ml_optimization= [
@@ -332,6 +343,8 @@ type report = [
     | `Nexus of string option
     | `Model of (string option * characters)
     | `LKSites of (string option * characters)
+    | `DebugData 
+    | `Topo_Selection of (string option * ml_topo_test list)
     | `Pairwise of (string option * characters)
     | `Script of string option * string list
     | `SequenceStats of (string option * characters)

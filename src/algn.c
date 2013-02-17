@@ -1169,33 +1169,32 @@ algn_fill_plane_2 (const seqt s1, int *prec, int s1_len, int s2_len,
     delta = cm_get_min_non0_cost(c);
     iniT = (s2_len-s1_len+1) * delta;
 
-    return algn_newkk_increaseT (s1,prec,s1_len,s2_len,m,c,gap_row,iniT);
     /* We have to consider three cases in this new alignment procedure (much
      * cleaner than the previous): 
      *
      * Case 1:
      *  If s1 is much longer than s2, then there is no point on using the
      * barriers, we rather fill the full matrix in one shot */
-/*    if (((float) s1_len) >= (1.5 * (float)s2_len)){*/
-/*        return (algn_fill_plane (s1, prec, s1_len, s2_len,*/
-/*                    mat_get_2d_matrix(m), mat_get_2d_direct(m), c));*/
+    if (((float) s1_len) >= (1.5 * (float)s2_len)){
+        return (algn_fill_plane (s1, prec, s1_len, s2_len,
+                    mat_get_2d_matrix(m), mat_get_2d_direct(m), c));
     /* Case 2:
      *  There are no full rows to be filled, therefore we have to break the
      * procedure in three different subsets */
-/*    } else if ((2 * height) < s1_len) {*/
-/*        return algn_newkk_increaseT (s1,prec,s1_len,s2_len,m,c,gap_row,iniT);*/
+    } else if ((2 * height) < s1_len) {
+        return algn_newkk_increaseT (s1,prec,s1_len,s2_len,m,c,gap_row,iniT);
     /* Case 3: (final case)
      * There is a block in the middle of with full rows that have to be filled */
         /* We will simplify this case even further, if the size of the leftover
          * is too small, don't use the barriers at all, just fill it up all */
-/*    } else {*/
-/*        if (8 >= (s1_len - height)) {*/
-/*            return (algn_fill_plane (s1, prec, s1_len, s2_len,*/
-/*                        mat_get_2d_matrix(m), mat_get_2d_direct(m), c));*/
-/*        } else { */
-/*            return algn_newkk_increaseT(s1,prec,s1_len,s2_len,m,c,gap_row,iniT);*/
-/*        }*/
-/*    }*/
+    } else {
+        if (8 >= (s1_len - height)) {
+            return (algn_fill_plane (s1, prec, s1_len, s2_len,
+                        mat_get_2d_matrix(m), mat_get_2d_direct(m), c));
+        } else { 
+            return algn_newkk_increaseT(s1,prec,s1_len,s2_len,m,c,gap_row,iniT);
+        }
+    }
 }
 /******************************************************************************/
 

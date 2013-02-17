@@ -29,6 +29,20 @@ type parsed =
 
 let channel = ref stdout
 
+let failwithf format = Printf.ksprintf (failwith) format
+
+let rec string_of_parsed = function
+    | Word x        -> Printf.sprintf "Word:%s" x
+    | WordNoSpace x -> Printf.sprintf "Word:%s" x
+    | Blank         -> Printf.sprintf "' '";
+    | Text l        ->
+        (List.fold_left (fun acc x -> acc^", "^string_of_parsed x) "[" l)^"]"
+    | Command (x,l) ->
+        let init = Printf.sprintf "CMD:%s[" x in
+        (List.fold_left (fun acc x -> acc^", "^string_of_parsed x) init l)^"]"
+    | Comment x     -> Printf.sprintf "Comment:%s\n" x
+
+
 let print_parsed l =
     let rec print_parsed d x = 
         let () = print_depth d in match x with
@@ -48,6 +62,9 @@ let print_parsed l =
             end
     in
     print_parsed 0 l
+
+let string_of_parsed ?(sep=", ") lst =
+    List.fold_left (fun acc x -> (string_of_parsed x)^sep^acc) "" lst
 
 let rec produce_latex channel data =
     let o str = output_string channel str in
@@ -76,8 +93,9 @@ let rec produce_latex channel data =
                             o "@,@[<v 2>@{<c:cyan>@[";
                             produce_latex title;
                             o "@]@}@,@["
-                        | _ -> 
-                            failwith "argumentgroup without the necessary args?"
+                        | x ->
+                            failwithf "I found argument group with %d args, %s"
+                                        (List.length x) (string_of_parsed tl)
                     end
                 | "statement" -> o "@,@[@,@["
                 | "poyexamples" -> o "@,@[<v 2>@{<c:cyan>Examples@}@,@,@[<v>"
@@ -165,8 +183,10 @@ let rec produce_troff channel data =
                             o "\n.SS \"";
                             produce_troff title;
                             o "\"\n.P\n"
-                        | _ ->
-                            failwith "argumentgroup without the necessary args?"
+                        | x ->
+                            failwithf "I found argument group with %d args, %s"
+                                        (List.length x) (string_of_parsed tl)
+
                     end
                 | "statement" -> o "\n.P\n"
                 | "poyexamples" -> 

@@ -93,16 +93,22 @@ OS_INFORMATION=`../gnu/config.guess`
 case ${OS_INFORMATION} in
     *-apple-*)
         PATH_PREFIX="/"
+        USEINTERFACE="ncurses"
+        ;;
+    *-cygwin*)
+        USEINTERFACE="pdcurses"
+        PATH_PREFIX="/usr"
         ;;
     *)
+        USEINTERFACE="ncurses"
         PATH_PREFIX="/usr"
         ;;
 esac
 
 AC_ARG_ENABLE([interface], [AS_HELP_STRING([--enable-interface],
-              [Force POYs user interface. Valid options are flat, ncurses, readline, and html. The default is ncurses, if ncurses is not found, then the readline interface is used, if readline is not present either, then choose the flat interface.])],
+              [Force POYs user interface. Valid options are flat, ncurses, pdcurses, readline, and html. The default is ncurses, if ncurses is not found, then the readline interface is used, if readline is not present either, then choose the flat interface.])],
               [USEINTERFACE=$enableval;INTERFACE_SELECTED="true"],
-              [USEINTERFACE="ncurses"; INTERFACE_SELECTED="false"; DUSENCURSES="-DUSENCURSES"; OUSENCURSES=",use_ncurses"])
+              [INTERFACE_SELECTED="false"; DUSENCURSES="-DUSENCURSES"; OUSENCURSES=",use_ncurses"])
 
 AC_ARG_WITH([extras], [AS_HELP_STRING([--with-extras], 
             [Add the following object files to the final linking rules.])],
@@ -356,6 +362,13 @@ AS_IF([test $USEINTERFACE = "ncurses"],
             [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";INTERFACETOP="NcursesML";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
             [AS_IF([test $INTERFACE_SELECTED = "true"],
                 [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. See ./configure --help for more information.])],
+                [USEINTERFACE="readline"])])],
+      [])
+AS_IF([test $USEINTERFACE = "pdcurses"],
+      [AC_CHECK_LIB([pdcurses], [main],
+            [LIBS="-lpdcurses $LIBS";USEINTERFACE="ncurses";DUSENCURSES="-DUSENCURSES";INTERFACETOP="NcursesML";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
+            [AS_IF([test $INTERFACE_SELECTED = "true"],
+                [AC_MSG_FAILURE([The pdcurses interface requires the pdcurses library. See ./configure --help for more information.])],
                 [USEINTERFACE="readline"])])],
       [])
 AS_IF([test $USEINTERFACE = "readline"],
