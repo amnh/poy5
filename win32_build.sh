@@ -56,7 +56,7 @@ while getopts 'uspnm' OPTION; do
 done
 
 function compile_executable {
-    bash clean.sh # delete crap because ocamlbuild on windows is STUPID
+    make clean # delete crap because ocamlbuild on windows is STUPID
     if ! ocamlbuild poy.native -lflags "-nodynlink -cclib -link -cclib -static" -ocamlopt "ocamlopt.opt -verbose"; then
         echo "I could not make poy!!! ..."
         exit 1
