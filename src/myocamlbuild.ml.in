@@ -27,10 +27,10 @@ let concordelib= "@CONCORDE_LIB@"
 let cc = "@CC@"
 let cflags = "-Wall @CFLAGS@"
 let clibs = "@LIBS@"
-let interface = 
-    if "@USEINTERFACE@" = "readline" then 
+let interface =
+    if "@USEINTERFACE@" = "readline" then
         "status_flat.ml"
-    else 
+    else
         "status_@USEINTERFACE@.ml"
 
 (** Prefix / Root Options **)
@@ -348,6 +348,14 @@ dispatch begin function
             Cmd (A "./latex.native")
         end;
 
+    let zlibpath = "/usr/i686-w64-mingw32/sys-root/mingw/lib/libz.a" in
+    rule "CLUDGE TO COPY LIBZ INTO LOCAL DIRECTORY"
+        ~prod:"libz.a"
+        ~deps:[]
+        begin fun env _build ->
+            Cmd (S[A "cp"; A zlibpath; A".";])
+        end;
+
     rule "poy.1 man page generation"
         ~prod:"poy.1"
         ~deps:["latex.native"; "doc/allcommands.tex"]
@@ -462,6 +470,13 @@ dispatch begin function
     flag ["link"; "library"; "ocaml"; "native"; "use_gzcaml"]
         (S [A"-cclib"; A"-lzlibstubs"; A"-cclib"; A"-lgzcaml"]);
 
+    if @USEWIN32@ then
+        dep ["link"; "ocaml"; "use_gzcaml"]
+            ["libgzcaml.a";"libz.a"; "libzlibstubs.a"]
+    else
+        dep ["link"; "ocaml"; "use_gzcaml"]
+            ["libgzcaml.a";"libzlibstubs.a"];
+
     flag ["c"; "compile"; "use_nativedynlink"]
         (S [A"-ccopt"; A"-DUSE_NATIVEDYNLINK"]);
 
@@ -488,6 +503,12 @@ dispatch begin function
 
     flag ["link"; "ocaml"; "use_parallel"]
         (S[A"-cclib"; A"-lmpicaml"]);
+
+    flag ["link"; "ocaml"; "use_parallel"]
+        (S[A"-cclib"; A"-lmpi"]);
+
+    dep ["link"; "ocaml"; "use_parallel"]
+        ["libmpicaml.a";];
 
     flag ["c"; "compile"; "use_nosharedhd"]
         (S[A"-ccopt"; A"-DUSENOSHAREDHD"]);
@@ -553,14 +574,10 @@ dispatch begin function
     flag ["ocaml"; "link"]
         (S clinkflags);
 
-    dep ["link"; "ocaml"; "use_gzcaml"]
-        ["libgzcaml.a"; "libzlibstubs.a"];
-
-    dep ["link"; "ocaml"; "use_parallel"]
-        ["libmpicaml.a"];
-
     dep ["compile"; "c"]
         headers;
+
+    ()
 
 | _ -> ()
 
