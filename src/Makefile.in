@@ -95,7 +95,8 @@ uninstall:
 	rm -f $(mandir)/poy.1
 
 clean:
-	rm -f poy.native poy.d.byte poy.top poy.byte
+	rm -f *.native *.byte *.top
+	rm -rf _build
 	$(OCAMLBUILD) -clean
 
 distclean: clean
