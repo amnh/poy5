@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3125 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3128 $"
 
 let (-->) a b = b a
 
@@ -1530,9 +1530,7 @@ let load_data (meth : Methods.input) data nodes =
                           else Alphabet.aminoacids
             in
             let alphabet, (twod_full,twod_original,matrix),threed =
-                try match List.find
-                        (function | `Level _ -> true | _ -> false)
-                        read_options with
+                try match List.find (function | `Level _ -> true | _ -> false) read_options with
                     | `Level (x,y) ->
                         Status.user_message Status.Error "I@ am@ ignoring@ the@ Level@ argument";
                         raise Not_found

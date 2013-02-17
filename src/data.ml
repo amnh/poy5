@@ -5770,7 +5770,7 @@ let assign_level data chars tie_breaker level =
                     in
                     (true, a),(fun _ -> rescm, cm_ori, name),resalph
                 end else begin
-                    output_info ("we@ don't@ do@ combination@ by@ level@ on@ this@ "
+                    output_info ("I@ don't@ do@ combination@ by@ level@ on@ this@ "
                                 ^"kind@ of@ alphabet,@ I@ will@ NOT@ apply@ any@ "
                                 ^"changes@ to@ this@ one.");
                     (true,a),(fun _ -> cm_full, cm_ori, tcmfile),alph

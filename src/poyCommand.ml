@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3121 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3128 $"
 
 let debug = false 
 
@@ -126,311 +126,311 @@ type transform_method = [
         ( Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_model * 
           Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `Level of (int * Methods.keep_method)
-        | `Tcm of (string * (int * Methods.keep_method) option)
-        | `Gap of (int * int)
-        | `AffGap of int
-        | `TailInput of int array
-        | `TailFile of string
-        | `PrepInput of int array
-        | `PrepFile of string
-        | `StaticApproximation of bool
-        | `MultiStaticApproximation of bool
-        | `Automatic_Static_Aprox of bool
-        | `ReWeight of float
-        | `WeightFactor of float
-        | `Automatic_Sequence_Partition of (bool * int option)
-        | `Prioritize
-        | `SearchBased of (string * string) list
-        | `Fixed_States of (string option * polymorphism_arg option) 
-        | `Partitioned of [`Clip | `NoClip]
-        | `Direct_Optimization
-        | `SeqToChrom of chromosome_args list
-        | `ChangeDynPam of chromosome_args list
-        | `CustomToBreakinv of chromosome_args list
-        | `AnnchromToBreakinv of chromosome_args list
-        | `ChromToSeq of chromosome_args list
-        | `BreakinvToSeq of chromosome_args list
-    (*    | `Seq_to_Kolmogorov of Methods.kolmo_model*)
-        | `OriginCost of float
-    ]
+    | `Tcm of (string * (int * Methods.keep_method) option)
+    | `Gap of (int * int)
+    | `AffGap of int
+    | `TailInput of int array
+    | `TailFile of string
+    | `PrepInput of int array
+    | `PrepFile of string
+    | `StaticApproximation of bool
+    | `MultiStaticApproximation of bool
+    | `Automatic_Static_Aprox of bool
+    | `ReWeight of float
+    | `WeightFactor of float
+    | `Automatic_Sequence_Partition of (bool * int option)
+    | `Prioritize
+    | `SearchBased of (string * string) list
+    | `Fixed_States of (string option * polymorphism_arg option) 
+    | `Partitioned of [`Clip | `NoClip]
+    | `Direct_Optimization
+    | `SeqToChrom of chromosome_args list
+    | `ChangeDynPam of chromosome_args list
+    | `CustomToBreakinv of chromosome_args list
+    | `AnnchromToBreakinv of chromosome_args list
+    | `ChromToSeq of chromosome_args list
+    | `BreakinvToSeq of chromosome_args list
+    | `OriginCost of float
+(*    | `Seq_to_Kolmogorov of Methods.kolmo_model*)
+]
 
-    type transforma = (identifiers * transform_method)
+type transforma = (identifiers * transform_method)
 
-    type transform = [
-        | `Transform of transforma list
-    ]
+type transform = [
+    | `Transform of transforma list
+]
 
-    type cost_calculation = [
-        | `Exhaustive_Weak
-        | `Exhaustive_Strong
-        | `Iterative of [ `ThreeD of int option | `ApproxD of int option ] 
-        | `Normal_plus_Vitamines
-        | `Normal
-    ]
+type cost_calculation = [
+    | `Exhaustive_Weak
+    | `Exhaustive_Strong
+    | `Iterative of [ `ThreeD of int option | `ApproxD of int option ] 
+    | `Normal_plus_Vitamines
+    | `Normal
+]
 
-    type alignment_mode = [
-        | `Algn_Newkk
-        | `Algn_Normal
-    ]
+type alignment_mode = [
+    | `Algn_Newkk
+    | `Algn_Normal
+]
 
-    type keep_method = [
-        | `Last
-        | `First
-        | `Keep_Random
-    ]
+type keep_method = [
+    | `Last
+    | `First
+    | `Keep_Random
+]
 
-    type thresh_trees = [
-        | `Threshold of float
-        | `Trees of int
-    ]
+type thresh_trees = [
+    | `Threshold of float
+    | `Trees of int
+]
 
-    type iteration_strategy = [
-        | `NullModel
-        | `AlwaysModel
-        | `ThresholdModel of float
-        | `MaxCountModel of int
-        | `BothModel of float * int
-        | `NullBranches
-        | `AllBranches
-        | `JoinDeltaBranches
-        | `NeighborhoodBranches of int
-    ]
+type iteration_strategy = [
+    | `NullModel
+    | `AlwaysModel
+    | `ThresholdModel of float
+    | `MaxCountModel of int
+    | `BothModel of float * int
+    | `NullBranches
+    | `AllBranches
+    | `JoinDeltaBranches
+    | `NeighborhoodBranches of int
+]
 
-    type builda = [
-        | thresh_trees
-        | `Lookahead of int
-        | `Nj
-        | `Prebuilt of Methods.filename
-        | `Mst
-        | `DistancesRnd
-        | `Branch_and_Bound of float option
-        | `Constraint of string option
-        | `Random
-        | `RandomTree
-        | `Ordered
-        | keep_method
-        | transform
-        | Methods.tabu_join_strategy
-        | `IterationB of iteration_strategy list
-    ]
+type builda = [
+    | thresh_trees
+    | `Lookahead of int
+    | `Nj
+    | `Prebuilt of Methods.filename
+    | `Mst
+    | `DistancesRnd
+    | `Branch_and_Bound of float option
+    | `Constraint of string option
+    | `Random
+    | `RandomTree
+    | `Ordered
+    | keep_method
+    | transform
+    | Methods.tabu_join_strategy
+    | `IterationB of iteration_strategy list
+]
 
-    type swap_neighborhood = [
-        | `Spr
-        | `Tbr
-    ]
+type swap_neighborhood = [
+    | `Spr
+    | `Tbr
+]
 
-    type swap_strategy = [
-        | `SingleNeighborhood of swap_neighborhood
-        | `ChainNeighborhoods of swap_neighborhood
-        | `Alternate of (swap_neighborhood * swap_neighborhood)
-        | `None
-    ]
+type swap_strategy = [
+    | `SingleNeighborhood of swap_neighborhood
+    | `ChainNeighborhoods of swap_neighborhood
+    | `Alternate of (swap_neighborhood * swap_neighborhood)
+    | `None
+]
 
-    type swap_trajectory = [
-        | `AllAround of string option
-        | `AllThenChoose
-        | `BestFirst
-        | `PoyDrifting of (float * float)
-        | `Annealing of (float * float)
-    ]
+type swap_trajectory = [
+    | `AllAround of string option
+    | `AllThenChoose
+    | `BestFirst
+    | `PoyDrifting of (float * float)
+    | `Annealing of (float * float)
+]
 
-    type swapa = [
-        | `IterationS of iteration_strategy list
-        | `Forest of float
-        | thresh_trees
-        | keep_method
-        | swap_strategy
-        | transform
-        | swap_trajectory
-        | Methods.tabu_break_strategy
-        | Methods.tabu_join_strategy
-        | Methods.tabu_reroot_strategy
-        | Methods.samples
-    ]
+type swapa = [
+    | `IterationS of iteration_strategy list
+    | `Forest of float
+    | thresh_trees
+    | keep_method
+    | swap_strategy
+    | transform
+    | swap_trajectory
+    | Methods.tabu_break_strategy
+    | Methods.tabu_join_strategy
+    | Methods.tabu_reroot_strategy
+    | Methods.samples
+]
 
-    type swap = [
-        | `Swap of swapa list
-    ]
+type swap = [
+    | `Swap of swapa list
+]
 
-    type build = [ `Build of builda list ]
+type build = [ `Build of builda list ]
 
-    type supporta = [
-        | build
-        | swap
-        | `Bremer
-        | `Jackknife of [ `Select of float | `Resample of int ] list
-        | `Bootstrap of int option
-    ]
+type supporta = [
+    | build
+    | swap
+    | `Bremer
+    | `Jackknife of [ `Select of float | `Resample of int ] list
+    | `Bootstrap of int option
+]
 
-    type poy_file_commands = [
-        | `Load of string
-        | `Save of (string * string option)
-        | `InspectFile of string
-    ]
+type poy_file_commands = [
+    | `Load of string
+    | `Save of (string * string option)
+    | `InspectFile of string
+]
 
-    type internal_memory = [
-        | `Store of (Methods.store_class list * string)
-        | `Use of (Methods.store_class list * string)
-        | `Discard of (Methods.store_class list * string)
-    ]
+type internal_memory = [
+    | `Store of (Methods.store_class list * string)
+    | `Use of (Methods.store_class list * string)
+    | `Discard of (Methods.store_class list * string)
+]
 
-    type settings = [
-        | `TimerInterval of int
-        | `HistorySize of int
-        | `Logfile of string option
-        | cost_calculation
-        | `SetSeed of int
-        | `Root of int option
-        | `RootName of string
-        | `Alias of string * [ `Codon of old_identifiers | `Chars of old_identifiers ]
-        | alignment_mode
-        | `Optimization of Numerical.opt_modes
-    ]
+type settings = [
+    | `TimerInterval of int
+    | `HistorySize of int
+    | `Logfile of string option
+    | cost_calculation
+    | `SetSeed of int
+    | `Root of int option
+    | `RootName of string
+    | `Alias of string * [ `Codon of old_identifiers | `Chars of old_identifiers ]
+    | alignment_mode
+    | `Optimization of Numerical.opt_modes
+]
 
-    type output_class = [
-        | `Information
-        | `Error
-        | `Output of string option
-    ]
+type output_class = [
+    | `Information
+    | `Error
+    | `Output of string option
+]
 
-    type application = [
-        | `Version
-        | `ChangeWDir of string
-        | `PrintWDir
-        | `Exit
-        | `Recover
-        | `ClearRecovered
-        | `Echo of (string * output_class list)
-        | `Help of string option
-        | `Set of settings list
-        | `Redraw
-        | `Wipe 
-        | `ReDiagnose
-        | `ReDiagnoseTrees
-        | `ClearMemory of Methods.clear_item list
-        | `ReadScript of string list
-        | poy_file_commands
-        | internal_memory
-    ]
+type application = [
+    | `Version
+    | `ChangeWDir of string
+    | `PrintWDir
+    | `Exit
+    | `Recover
+    | `ClearRecovered
+    | `Echo of (string * output_class list)
+    | `Help of string option
+    | `Set of settings list
+    | `Redraw
+    | `Wipe 
+    | `ReDiagnose
+    | `ReDiagnoseTrees
+    | `ClearMemory of Methods.clear_item list
+    | `ReadScript of string list
+    | poy_file_commands
+    | internal_memory
+]
 
-    type charortax = [
-        | `Characters
-        | `Taxa
-    ]
+type charortax = [
+    | `Characters
+    | `Taxa
+]
 
-    type charoper = [
-        | `Distance
-        | `Median
-        | `Taxa of identifiers
-        | `Characters of identifiers
-    ]
+type charoper = [
+    | `Distance
+    | `Median
+    | `Taxa of identifiers
+    | `Characters of identifiers
+]
 
-    type reporta = [
-        | `File of string
-        | `Data
-        | `Xslt of (string * string)
-        | `KML of (string * string)
-        | `Ascii of bool
-        | `Memory
-        | `Graph of bool
-        | `Trees of Methods.information_contained list
-        | `MstR
-        | `TreeCosts
-        | `KolmoMachine
-        | `TreesStats
-        | `SearchStats 
-        | `TimeDelta of string
-        | `SequenceStats of old_identifiers
-        | `Ci of old_identifiers option
-        | `Ri of old_identifiers option
-        | `CompareSequences of (bool * old_identifiers * old_identifiers)
-        | `FasWinClad
-        | `Nexus
-        | `Model of old_identifiers
-        | `LKSites of old_identifiers
-        | `DebugData
-        | `Pairwise of old_identifiers
-        | `Script of string list
-        | `ExplainScript of string
-        | `Consensus of float option
-        | `GraphicConsensus of float option
-        | `Clades
-        | `CrossReferences of old_identifiers option
-        | `TerminalsFiles
-        | `Supports of Methods.support_output option
-        | `GraphicSupports of Methods.support_output option
-        | `AllRootsCost
-        | `Implied_Alignments of identifiers * bool
-        | `Topo_Selection of Methods.ml_topo_test list
-        | `GraphicDiagnosis of Methods.diagnosis_report_type
-        | `Diagnosis of Methods.diagnosis_report_type 
-        | `Nodes
-    ]
+type reporta = [
+    | `File of string
+    | `Data
+    | `Xslt of (string * string)
+    | `KML of (string * string)
+    | `Ascii of bool
+    | `Memory
+    | `Graph of bool
+    | `Trees of Methods.information_contained list
+    | `MstR
+    | `TreeCosts
+    | `KolmoMachine
+    | `TreesStats
+    | `SearchStats 
+    | `TimeDelta of string
+    | `SequenceStats of old_identifiers
+    | `Ci of old_identifiers option
+    | `Ri of old_identifiers option
+    | `CompareSequences of (bool * old_identifiers * old_identifiers)
+    | `FasWinClad
+    | `Nexus
+    | `Model of old_identifiers
+    | `LKSites of old_identifiers
+    | `DebugData
+    | `Pairwise of old_identifiers
+    | `Script of string list
+    | `ExplainScript of string
+    | `Consensus of float option
+    | `GraphicConsensus of float option
+    | `Clades
+    | `CrossReferences of old_identifiers option
+    | `TerminalsFiles
+    | `Supports of Methods.support_output option
+    | `GraphicSupports of Methods.support_output option
+    | `AllRootsCost
+    | `Implied_Alignments of identifiers * bool
+    | `Topo_Selection of Methods.ml_topo_test list
+    | `GraphicDiagnosis of Methods.diagnosis_report_type
+    | `Diagnosis of Methods.diagnosis_report_type 
+    | `Nodes
+]
 
-    type perturba = [
-        | `Ratchet of (float * int)
-        | `Resample of int
-        | `Iterations of int
-        | `TimeOut of Methods.timer
-        | swap
-        | transform
-    ]
+type perturba = [
+    | `Ratchet of (float * int)
+    | `Resample of int
+    | `Iterations of int
+    | `TimeOut of Methods.timer
+    | swap
+    | transform
+]
 
-    type selecta = [
-        | charortax
-        | identifiers
-        | Methods.tree_handling
-    ]
+type selecta = [
+    | charortax
+    | identifiers
+    | Methods.tree_handling
+]
 
-    type renamea = [
-        | charortax
-        | `File of string
-        | `Syn of (string * string)
-    ]
+type renamea = [
+    | charortax
+    | `File of string
+    | `Syn of (string * string)
+]
 
-    type fusea = [
-        | `Keep of int
-        | `Iterations of int
-        | `Replace of [`Better | `Best]
-        | `Swap of swapa list
-        | `Weighting of [`Uniform]
-        | `Clades of int * int option
-        | `IterationF of iteration_strategy list
-    ]
+type fusea = [
+    | `Keep of int
+    | `Iterations of int
+    | `Replace of [`Better | `Best]
+    | `Swap of swapa list
+    | `Weighting of [`Uniform]
+    | `Clades of int * int option
+    | `IterationF of iteration_strategy list
+]
 
-    type searcha = [
-        | `Build of bool
-        | `Transform of bool
-    ]
+type searcha = [
+    | `Build of bool
+    | `Transform of bool
+]
 
-    type std_searcha = [
-        | `MaxRam of int
-        | `MinHits of int
-        | `MaxTime of float
-        | `MinTime of float
-        | `Target of float
-        | `Visited of string option
-        | `ConstraintFile of string 
-    ]
+type std_searcha = [
+    | `MaxRam of int
+    | `MinHits of int
+    | `MaxTime of float
+    | `MinTime of float
+    | `Target of float
+    | `Visited of string option
+    | `ConstraintFile of string 
+]
 
-    type command = [
-        | `Read of reada list 
-        | build
-        | swap
-        | `Fuse of fusea list
-        | `Support of supporta list
-        | `Calculate of charoper list
-        | `Report of reporta list
-        | `Plugin of (string * command Methods.plugin_arguments)
-        | `Select of selecta list
-        | `Rename of renamea list
-        | `Search of searcha list
-        | `StandardSearch of std_searcha list
-        | transform
-        | `Perturb of perturba list
-        | `Repeat of (int * command list)
-        | application
-    ]
+type command = [
+    | `Read of reada list 
+    | build
+    | swap
+    | `Fuse of fusea list
+    | `Support of supporta list
+    | `Calculate of charoper list
+    | `Report of reporta list
+    | `Plugin of (string * command Methods.plugin_arguments)
+    | `Select of selecta list
+    | `Rename of renamea list
+    | `Search of searcha list
+    | `StandardSearch of std_searcha list
+    | transform
+    | `Perturb of perturba list
+    | `Repeat of (int * command list)
+    | application
+]
 
     let all_store_types = [ `Bremer; `Jackknife; `Bootstrap; `Data; `Trees ]
     (* Transform *)
