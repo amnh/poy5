@@ -505,8 +505,9 @@ dispatch begin function
     flag ["link"; "ocaml"; "use_parallel"]
         (S[A"-cclib"; A"-lmpicaml"]);
 
-    flag ["link"; "ocaml"; "use_parallel"]
-        (S[A"-cclib"; A"-lmpi"]);
+    if @USEWIN32@ then
+        flag ["link"; "ocaml"; "use_parallel"]
+            (S[A"-cclib"; A"-lmpi"]);
 
     dep ["link"; "ocaml"; "use_parallel"]
         ["libmpicaml.a";];
