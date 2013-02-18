@@ -6488,7 +6488,7 @@ type tcm_class =
     | `AllSankoff of (string -> int) option]
 
 let prealigned_characters analyze_tcm data chars =
-    let codes = get_chars_codes_comp data chars in
+    let codes = get_code_from_characters_restricted_comp `AllDynamic data chars in
     let names = List.map (fun x -> Hashtbl.find data.character_codes x) codes in
     let res = List.rev_map (process_prealigned analyze_tcm data) codes in
     let d =

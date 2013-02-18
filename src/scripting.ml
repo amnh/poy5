@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3128 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3141 $"
 
 let (-->) a b = b a
 
@@ -1429,7 +1429,7 @@ let process_transform (run : r) (meth : Methods.transform) =
         {run with trees = trees; nodes = nodes; data = data;}
     | #Methods.char_transform as meth ->
         let data, nodes =
-            CT.transform_nodes run.trees run.data run.nodes [meth] 
+            CT.transform_nodes run.trees run.data run.nodes [meth]
         in
         update_trees_to_data false false {run with nodes = nodes; data = data}
     | #Methods.terminal_transform as meth ->
