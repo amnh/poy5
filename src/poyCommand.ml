@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3154 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3156 $"
 
 let debug = false 
 
@@ -1795,7 +1795,7 @@ type command = [
                 ];
             resample:
                 [
-                    [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ] |
+                    [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ]
                 ];
             charortax:
                 [
