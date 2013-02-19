@@ -1,7 +1,101 @@
-CHANGES BETWEEN 5.0.rc2 and 5.0.rc3
+CHANGES BETWEEN 5.0 alpha3 and 5.0 beta
 
 New Features:
+    - Consistency in alignment procedures across the application. Trace-back
+      procedures produce the same result in affine (with gap opening equal to 0)
+      as normal alignment procedures, as well as alignment procedures with speed
+      increases (newkkonen), and space saving algorithm.
+    - Continuous characters are fully supported outside the range of 255.
+      Although slightly slower characters that do fit in the 255 range are
+      vectorized as previously implemented.
+    - build(N,random) does not do a random wagner any more, but generates and
+      diagnoses a random topology.
+    - Sankoff characters with matrices of non-0 diagonal have been implemented.
+    - Information theoretic model selection procedures have been designed under
+      static and dynamic likelihood (see new command below). This command can be
+      used on multiple character sets and types of data in which case the model
+      selected for each data-set are combined to the final tree(s).
+    - Updated build/compile procedures for different environments.
+    - Implemented No Common Mechanism likelihood model (see new command below).
+    - Bootstrap Probabilities under likelihood has been implemented. We use the
+      same command as BP for other characters.
+    - Better memory usage when loading multiple files of the same TCM.
+    - Speed increases in the diagnosis of normal and affine sequence alignment.
+    - Changed most (all found/possible) functions to tail-recursion to avoid
+      stack-overflows, should also increase speeds.
 
+Bug Fixed:
+    - Character Selection procedures (through the IDENTIFIERS in the command
+      structure) have been verified and implement special cases of each-other
+      when necessary for lower chances of future bugs.
+    - Bugfix with partitioned dynamic likelihood characters with multiple models
+      and in combination with static characters causing failures.
+    - Error in transform(prealigned) on static characters --command only works
+      on dynamic characters. These characters should have been filtered out from
+      the function.
+    - Likelihood model optimization routine returning matrix of NAN when branch
+      lengths were sub-normal; minimum value has been used to avoid this.
+    - Error in report(seq_stats) when missing data is present.
+    - Proper usage of missing data in iterative:exact and iterative:approx.
+      Previously missing data could be assigned in the median nodes of
+      characters in certain situations, resulting in 0 costs assignments in
+      subtrees, as well as errors in the median assignment functions.
+    - elikelihood for static likelihood characters had a bug in counting
+      uninformative data in estimating transition probabilities.
+    - Single assignment functions for the newkkonen alignment procedure were not
+      calling the proper median function.
+    - Static likelihood takes '?' into account correctly under fifth state (gap
+      as an additional state) models. Previously it was interpreted as a gap,
+      now it is interpreted as missing, like gaps in four-state models.
+    - Static likelihood was not taking into account missing data correctly.
+    - Correction for tree diagnosis in non-0 diagonal tcm matrix.
+    - selecting unique topologies may choose suboptimal likelihood trees if the
+      models/branches are different, we now accept the lower of the two.
+    - transform(likelihood(...) -> transform(parsimony) resulted in an unusable
+      data structure and incorrect cost from before the likelihood transform was
+      done, now the transform can be done to recover the parsimony costs or
+      vice versa.
+    - Join caused a failure in fuse, causing failure in diagnosis of tree.
+
+
+New Commands (see manual for full explanations) :
+    - Command to set the optimization thoroughness for the likelihood procedures
+      has been added. The command,
+        set(opt:coarse)
+        set(opt:exhaustive)
+        set(opt:no_opt)
+      determines the number of passes for the optimization algorithm, and the
+      convergence factors for the numerical routines.
+    - Information theoretic model selection for likelihood uses the same
+      transform command as likelihood, but replaces the model (ie, jc69, gtr)
+      with an information theoretic criteria, aic, aicc, or bic. A tree must be
+      in memory when the command is executed.
+    - No Common Mechanism has been added as an additional model under likelihood
+      (ncm), this is for static characters only.
+
+
+Changed Commands :
+    - reading prealigned characters (outside of nucleotides) have been unified
+      with the normal command structure. Was, 
+        read( custom_alphabet:("FILE", "FILE"; init3D:true) )
+      now is,
+        read( prealigned:( custom_alphabet:("FILE", tcm:"FILE", init3D:true) ))
+      The previous command structure was only briefly implemented in an alpha.
+
+
+Known Issues :
+    - prealigned affine data reports an incorrect cost. This option for
+      analysis has been turned off and an error is reported.
+    - diagnosis on level over 5 creates a segfault. This is probably a memory
+      issue as the function would exceed many computers limits.
+    - newkkonen space saving (set(space_saving_alignment)) command has been
+      de-activated due to segfault.
+
+
+
+CHANGES BETWEEN 5.0 alpha2 and 5.0 beta
+
+New Features:
 
 Bugx Fixed:
     - Continuous characters are fully supported from Hennig86/Nona files. The
@@ -19,7 +113,7 @@ Changed Commands:
 
 
 
-CHANGES BETWEEN 5.0.rc1 and 5.0.rc2
+CHANGES BETWEEN 5.0 alpha1 and 5.0 alpha2
 
 New Features:
     - orientation set to true by default for breakinversion data-type.
@@ -71,7 +165,8 @@ Changed Commands:
           procedure mentioned above.
 
 
-CHANGES BETWEEN 4.1.2.1 and 5.0.rc1
+
+CHANGES BETWEEN 4.1.2.1 and 5.0 alpha1
 
 New Features
     - Added likelihood criterion for diagnosing trees.
@@ -151,6 +246,7 @@ Changed Commands:
     - read( custom_alphabet:([datafile],[costmatrix],[prealigned]))
 
 
+
 CHANGES BETWEEN 4.1.2 and 4.1.2.1
 
 New Features:
@@ -161,6 +257,7 @@ Bugs Fixed:
       or dynamic homology characters are not present could 
       produce errors or a file that POY itself could not 
       read (Felipe G. Grazziotin).
+
 
 
 CHANGES BETWEEN 4.1.1. and 4.1.2
@@ -233,6 +330,8 @@ Bugs Fixed:
     - The total rearrangement cost included indels for rearranged
       elements.
 
+
+
 CHANGES BETWEEN 4.1 and 4.1.1
 
 Improvements:
@@ -250,6 +349,8 @@ Bugs Fixed:
     - search () used too much memory in some cost regimes, causing a
       dramatic drop in the application performance when searching
       those costs.
+
+
 
 CHANGES BETWEEN 4.0.2911 AND 4.1
 
@@ -298,6 +399,8 @@ New Compilation Requirements:
       bugs).
     - POY now needs the zlib library.
 
+
+
 CHANGES BETWEEN 2885 AND 2911
     BUGS FIXED:
     - Printing long trees in parenthetical notation could cause a crash.
@@ -333,6 +436,8 @@ CHANGES BETWEEN 2885 AND 2911
       message.
     - Added XML file for SWAMI bioinformatics portals, and the companion
       poy_server program.
+
+
 
 CHANGES BETWEEN 2880 AND 2885:
     - Bugfix: Reading some very large files could cause a stack
@@ -415,6 +520,8 @@ CHANGES BETWEEN 2870 AND 2880:
     - Improved 3D-chromosome and genome alignments
     - Fixed bug in build with internal transform.
     - Fixed bug in analyzer for expressions like build (10, transform (static_approx))
+
+
 
 CHANGES BETWEEN 2635 AND 2870:
 
@@ -704,6 +811,7 @@ Bugs Fixed:
         the slaves.
 
 
+
 CHANGES BETWEEN 2602 AND 2635:
 
 Bugfixes:
@@ -747,6 +855,8 @@ Improvements:
     - Reduced the number of tree diagnosis during OnEachTree
       operations and after reading an input file. This should reduce
       considerably the execution time for non-trivial tree sizes.
+
+
 
 CHANGES BETWEEN 2398 AND 2602:
 ------------------------------------------------------------------------
@@ -1811,6 +1921,8 @@ Bugfix:
     Solution: 
         Do it!
 
+
+
 CHANGES BETWEEN 2318 AND 2398:
 
 Overview:
@@ -2701,6 +2813,7 @@ Changed to default value of chrom_hom from 2.0 to 0.71 as described
 in the documentation
 
 
+
 CHANGES BETWEEN 1983 AND 2205:
 
 Overview:
@@ -3438,6 +3551,8 @@ Bugfix:
 Improvements:
     Changed the color and welcome message to match the GUI icon and the new status
     of the binaries (Release Candidate).
+
+
 
 CHANGES BETWEEN BUILD 1908 AND 1983
 

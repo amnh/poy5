@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3141 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3154 $"
 
 let (-->) a b = b a
 
@@ -2617,8 +2617,7 @@ let automated_search folder max_time min_time max_memory min_hits target_cost vi
                 else ()
             END
         in
-        let fraction =
-            match state with
+        let fraction = match state with
             | `Initial when not !did_initial -> 0.66
             | `Perturb -> 
                     did_initial := true;
