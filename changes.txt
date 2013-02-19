@@ -1,38 +1,42 @@
 CHANGES BETWEEN 5.0 alpha3 and 5.0 beta
 
 New Features:
-    - Consistency in alignment procedures across the application. Trace-back
+    - Consistency in alignment procedures across the application. The trace-back
       procedures produce the same result in affine (with gap opening equal to 0)
       as normal alignment procedures, as well as alignment procedures with speed
-      increases (newkkonen), and space saving algorithm.
-    - Continuous characters are fully supported outside the range of 255.
-      Although slightly slower characters that do fit in the 255 range are
-      vectorized as previously implemented.
-    - build(N,random) does not do a random wagner any more, but generates and
+      increases (newkkonen), and the space saving algorithm.
+    - Continuous characters are fully supported above the range of 0-255, now
+      0 to the maximum size of integers on the machine. Although this change is
+      slightly slower, characters that do fit in the 255 range are vectorized as
+      previously implemented.
+    - build(N,random) does not do a random Wagner build, but generates and
       diagnoses a random topology.
-    - Sankoff characters with matrices of non-0 diagonal have been implemented.
+    - Sankoff and Sequence characters with matrices of non-0 diagonal elements
+      have been implemented.
     - Information theoretic model selection procedures have been designed under
       static and dynamic likelihood (see new command below). This command can be
       used on multiple character sets and types of data in which case the model
-      selected for each data-set are combined to the final tree(s).
+      selected for each data-set are combined on the final tree(s). A tree must
+      be in memory when the command is executed. The command analises all the
+      models possible for each tree and selects the best based on the
+      information criteria selected.
     - Updated build/compile procedures for different environments.
     - Implemented No Common Mechanism likelihood model (see new command below).
-    - Bootstrap Probabilities under likelihood has been implemented. We use the
-      same command as BP for other characters.
+    - Bootstrap Probabilities under likelihood have been implemented. We use the
+      same command as BP for other characters previously.
     - Better memory usage when loading multiple files of the same TCM.
     - Speed increases in the diagnosis of normal and affine sequence alignment.
     - Changed most (all found/possible) functions to tail-recursion to avoid
       stack-overflows, should also increase speeds.
 
-Bug Fixed:
+Bugs Fixed:
     - Character Selection procedures (through the IDENTIFIERS in the command
       structure) have been verified and implement special cases of each-other
       when necessary for lower chances of future bugs.
-    - Bugfix with partitioned dynamic likelihood characters with multiple models
-      and in combination with static characters causing failures.
+    - Bug-fix with partitioned dynamic likelihood characters of multiple models
+      or in combination with static characters causing optimization failures.
     - Error in transform(prealigned) on static characters --command only works
-      on dynamic characters. These characters should have been filtered out from
-      the function.
+      on dynamic characters. These characters should have been ignored.
     - Likelihood model optimization routine returning matrix of NAN when branch
       lengths were sub-normal; minimum value has been used to avoid this.
     - Error in report(seq_stats) when missing data is present.
@@ -41,7 +45,7 @@ Bug Fixed:
       characters in certain situations, resulting in 0 costs assignments in
       subtrees, as well as errors in the median assignment functions.
     - elikelihood for static likelihood characters had a bug in counting
-      uninformative data in estimating transition probabilities.
+      'uninformative' data in estimating transition probabilities.
     - Single assignment functions for the newkkonen alignment procedure were not
       calling the proper median function.
     - Static likelihood takes '?' into account correctly under fifth state (gap
@@ -51,12 +55,11 @@ Bug Fixed:
     - Correction for tree diagnosis in non-0 diagonal tcm matrix.
     - selecting unique topologies may choose suboptimal likelihood trees if the
       models/branches are different, we now accept the lower of the two.
-    - transform(likelihood(...) -> transform(parsimony) resulted in an unusable
-      data structure and incorrect cost from before the likelihood transform was
-      done, now the transform can be done to recover the parsimony costs or
-      vice versa.
+    - transform(likelihood(...) -> transform(parsimony) resulted in an error
+      state of the application and incorrect costs from before the likelihood
+      transform command. Now the transform can be done to recover the parsimony
+      costs or vice versa.
     - Join caused a failure in fuse, causing failure in diagnosis of tree.
-
 
 New Commands (see manual for full explanations) :
     - Command to set the optimization thoroughness for the likelihood procedures
@@ -67,33 +70,33 @@ New Commands (see manual for full explanations) :
       determines the number of passes for the optimization algorithm, and the
       convergence factors for the numerical routines.
     - Information theoretic model selection for likelihood uses the same
-      transform command as likelihood, but replaces the model (ie, jc69, gtr)
-      with an information theoretic criteria, aic, aicc, or bic. A tree must be
-      in memory when the command is executed.
-    - No Common Mechanism has been added as an additional model under likelihood
-      (ncm), this is for static characters only.
+      transform command as (e)likelihood, but replaces the model (ie. jc69, gtr)
+      with an information theoretic criteria --aic, aicc, or bic. ie,
+        transform(likelihood:(aic,rates:gamma:(4)))
+    - No Common Mechanism (ncm) has been added as an additional model under
+      likelihood. This is for static characters only. ie,
+        transform(likelihood:(ncm))
 
-
-Changed Commands :
+Changed Commands (see manual for full explanations) :
     - reading prealigned characters (outside of nucleotides) have been unified
-      with the normal command structure. Was, 
-        read( custom_alphabet:("FILE", "FILE"; init3D:true) )
+      with the normal command structure. For example,
+        read( custom_alphabet:("DATAFILE", "MATRIXFILE"; init3D:true) )
       now is,
-        read( prealigned:( custom_alphabet:("FILE", tcm:"FILE", init3D:true) ))
+        read( prealigned:( custom_alphabet:("DATAFILE"), tcm:("MATRIXFILE")) )
       The previous command structure was only briefly implemented in an alpha.
 
-
 Known Issues :
-    - prealigned affine data reports an incorrect cost. This option for
+    - Pre-aligned affine data reports an incorrect cost. This option for
       analysis has been turned off and an error is reported.
-    - diagnosis on level over 5 creates a segfault. This is probably a memory
+    - Diagnosis on level over 5 creates a seg-fault. This is probably a memory
       issue as the function would exceed many computers limits.
-    - newkkonen space saving (set(space_saving_alignment)) command has been
+    - Newkkonen space saving (set(space_saving_alignment)) command has been
       de-activated due to segfault.
+    - 'help' commands generated from latex docs are a mess.
 
 
 
-CHANGES BETWEEN 5.0 alpha2 and 5.0 beta
+CHANGES BETWEEN 5.0 alpha2 and 5.0 alpha3
 
 New Features:
 
