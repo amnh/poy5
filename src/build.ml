@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 3030 $"
+let () = SadmanOutput.register "Build" "$Revision: 3160 $"
 
 let debug_profile_memory = false
 
@@ -743,6 +743,10 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         in
         Status.finished st;
         res
+
+    let prebuilt trees sumdata = match trees with
+        | [] -> `Set []
+        | xs -> prebuilt xs sumdata
 
     let rec build_initial_trees trees data nodes (meth : Methods.build) =
         let d = (data, nodes) in

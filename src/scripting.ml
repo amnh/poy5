@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -17,7 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3088 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3160 $"
+
+let (-->) a b = b a
 
 module IntSet = All_sets.Integers
 
@@ -1427,7 +1429,7 @@ let process_transform (run : r) (meth : Methods.transform) =
         {run with trees = trees; nodes = nodes; data = data;}
     | #Methods.char_transform as meth ->
         let data, nodes =
-            CT.transform_nodes run.trees run.data run.nodes [meth] 
+            CT.transform_nodes run.trees run.data run.nodes [meth]
         in
         update_trees_to_data false false {run with nodes = nodes; data = data}
     | #Methods.terminal_transform as meth ->
@@ -1528,9 +1530,7 @@ let load_data (meth : Methods.input) data nodes =
                           else Alphabet.aminoacids
             in
             let alphabet, (twod_full,twod_original,matrix),threed =
-                try match List.find
-                        (function | `Level _ -> true | _ -> false)
-                        read_options with
+                try match List.find (function | `Level _ -> true | _ -> false) read_options with
                     | `Level (x,y) ->
                         Status.user_message Status.Error "I@ am@ ignoring@ the@ Level@ argument";
                         raise Not_found
@@ -1631,15 +1631,12 @@ let load_data (meth : Methods.input) data nodes =
                     data files
             in
             List.fold_left Data.process_complex_terminals data (explode_filenames files)
-
-
-    and annotated_reader data (meth : Methods.input) =
-        match meth with
+    and annotated_reader data (meth : Methods.input) = match meth with
         | `AnnotatedFiles files ->
             List.fold_left (reader true false) data files
         | #Methods.simple_input as meth -> 
             reader false false data meth
-        | `Prealigned (meth, tcm, gap_opening) ->
+        | `Prealigned (meth, tcm, 0) ->
             prealigned_files := [];
             let data = reader false true data meth in (* read data as dynamic *)
             let data = Data.categorize (Data.remove_taxa_to_ignore data) in
@@ -1656,16 +1653,18 @@ let load_data (meth : Methods.input) data nodes =
                 | `Create_Transformation_Cost_Matrix (trans, gaps) ->
                     Data.assign_transformation_gaps data chars trans gaps 
             in
-            let data =
-                if gap_opening > 0 then
-                    Data.assign_affine_gap_cost data chars
-                        (Cost_matrix.Affine gap_opening)
-                else data
-            in
-            Data.prealigned_characters ImpliedAlignment.analyze_tcm data chars 
+            Data.prealigned_characters ImpliedAlignment.analyze_tcm data chars
+        | `Prealigned (meth, tcm, gap_opening) ->
+(*            let data = *)
+(*                Data.assign_affine_gap_cost data chars (Cost_matrix.Affine gap_opening)*)
+(*            in*)
+(*            ...*)
+            Status.user_message Status.Error
+                "We@ currently@ do@ not@ support@ gap_opening@ with@ prealigned@ sequences";
+            data
     in
-    let data = annotated_reader data meth in   
-    let data = Data.categorize (Data.remove_taxa_to_ignore data) in 
+    let data = annotated_reader data meth in
+    let data = Data.categorize (Data.remove_taxa_to_ignore data) in
     Node.load_data data
 
 type script = Methods.script
@@ -2618,8 +2617,7 @@ let automated_search folder max_time min_time max_memory min_hits target_cost vi
                 else ()
             END
         in
-        let fraction =
-            match state with
+        let fraction = match state with
             | `Initial when not !did_initial -> 0.66
             | `Perturb -> 
                     did_initial := true;
@@ -4073,29 +4071,32 @@ let rec folder (run : r) meth =
                 IFDEF USE_LIKELIHOOD THEN
                     let (t,chars,n,k,rep) = MlTestStat.process_methods_arguments x in
                     begin try match t, Sexpr.to_list run.trees with
-                            |   _,[] ->
-                                let msg = "The@ topology@ selection@ command@ requires"
-                                         ^"@ at@ least@ two@ trees@ in@ memory."
-                                in
-                                Status.user_message Status.Error msg
-                            | `AU,ts -> MLT.au ?n ?k ~rep ~chars ts
-                            | `SH,ts -> MLT.sh ?n ~rep ~chars ts
-                            | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
-                            | `KH,ts ->
-                                let msg = "The@ topology@ selection@ KH@ requires"
-                                         ^"@ only@ two@ trees@ in@ memory."
-                                in
-                                Status.user_message Status.Error msg
-                            |   _,_ -> assert false
-                        with MLT.Incorrect_Data ->
-                            Status.user_message Status.Error
-                                "Cannot@ use@ topology@ tests@ on@ this@ data."
+                        |   _,[] ->
+                            let msg = "The@ topology@ selection@ command@ requires"
+                                     ^"@ at@ least@ two@ trees@ in@ memory."
+                            in
+                            Status.user_message Status.Error msg
+                        | `AU,ts -> MLT.au ?n ?k ~rep ~chars ts
+                        | `SH,ts -> MLT.sh ?n ~rep ~chars ts
+                        | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
+                        | `KH,ts ->
+                            let msg = "The@ topology@ selection@ KH@ requires"
+                                     ^"@ only@ two@ trees@ in@ memory."
+                            in
+                            Status.user_message Status.Error msg
+                        |   _,_ -> assert false
+                    with MLT.Incorrect_Data ->
+                        Status.user_message Status.Error
+                            "Cannot@ use@ topology@ tests@ on@ this@ data."
                     end;
                     run
                 ELSE
                     Status.user_message Status.Error MlModel.likelihood_not_enabled;
                     run
                 END
+            | `DebugData ->
+                    Data.print run.data;
+                    run
             | `LKSites (filename,chars) ->
                 let ft = Status.output_table (Status.Output (filename, false, [])) in
                 let items = Sexpr.length run.trees in
@@ -4359,9 +4360,31 @@ END
                 run
             | `Nodes filename ->
                 let fo = Status.Output (filename, false, []) in
-                let nodes = List.map Node.to_string run.nodes in
-                List.iter (Status.user_message fo) nodes;
-                Status.user_message fo "%!";
+                begin match (Sexpr.to_list run.trees) with
+                    | [] -> 
+                        let nodes = List.map Node.to_string run.nodes in
+                        List.iter (Status.user_message fo) nodes;
+                        Status.user_message fo "%!"
+                    | xs ->
+                        List.iter
+                            (fun t ->
+                                let nodes =
+                                    All_sets.IntegerMap.fold
+                                        (fun _ v acc -> (Node.to_string v) :: acc)
+                                        t.Ptree.node_data
+                                        []
+                                and edges =
+                                    Tree.EdgeMap.fold
+                                        (fun (Tree.Edge (a,b)) v acc ->
+                                            (Node.to_string (Edge.to_node 0 (a,b) v))::acc)
+                                        t.Ptree.edge_data
+                                        []
+                                in
+                                List.iter (Status.user_message fo) nodes;
+                                List.iter (Status.user_message fo) edges;
+                                Status.user_message fo "%!")
+                            xs
+                end;
                 run
             | `Supports _ 
             | `GraphicSupports _ as meth ->

@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -98,6 +98,10 @@ module type A = sig
     val print_cm    : dyn_model -> float -> unit
     (** [print_cm m t] Compose and print the cost matrix defined by the model
         [m] and the branch length [t]. *)
+
+    val to_string   : dyn_model -> s -> string
+    (** [to_string m s] report the data to a string, used in report(nodes) *)
+
 
 (* {6 Cost Function/Matrix functions *)
 

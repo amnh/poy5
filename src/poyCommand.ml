@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3092 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3160 $"
 
 let debug = false 
 
@@ -126,310 +126,311 @@ type transform_method = [
         ( Methods.ml_alphabet * Methods.ml_costfn * Methods.ml_model * 
           Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `Level of (int * Methods.keep_method)
-        | `Tcm of (string * (int * Methods.keep_method) option)
-        | `Gap of (int * int)
-        | `AffGap of int
-        | `TailInput of int array
-        | `TailFile of string
-        | `PrepInput of int array
-        | `PrepFile of string
-        | `StaticApproximation of bool
-        | `MultiStaticApproximation of bool
-        | `Automatic_Static_Aprox of bool
-        | `ReWeight of float
-        | `WeightFactor of float
-        | `Automatic_Sequence_Partition of (bool * int option)
-        | `Prioritize
-        | `SearchBased of (string * string) list
-        | `Fixed_States of (string option * polymorphism_arg option) 
-        | `Partitioned of [`Clip | `NoClip]
-        | `Direct_Optimization
-        | `SeqToChrom of chromosome_args list
-        | `ChangeDynPam of chromosome_args list
-        | `CustomToBreakinv of chromosome_args list
-        | `AnnchromToBreakinv of chromosome_args list
-        | `ChromToSeq of chromosome_args list
-        | `BreakinvToSeq of chromosome_args list
-    (*    | `Seq_to_Kolmogorov of Methods.kolmo_model*)
-        | `OriginCost of float
-    ]
+    | `Tcm of (string * (int * Methods.keep_method) option)
+    | `Gap of (int * int)
+    | `AffGap of int
+    | `TailInput of int array
+    | `TailFile of string
+    | `PrepInput of int array
+    | `PrepFile of string
+    | `StaticApproximation of bool
+    | `MultiStaticApproximation of bool
+    | `Automatic_Static_Aprox of bool
+    | `ReWeight of float
+    | `WeightFactor of float
+    | `Automatic_Sequence_Partition of (bool * int option)
+    | `Prioritize
+    | `SearchBased of (string * string) list
+    | `Fixed_States of (string option * polymorphism_arg option) 
+    | `Partitioned of [`Clip | `NoClip]
+    | `Direct_Optimization
+    | `SeqToChrom of chromosome_args list
+    | `ChangeDynPam of chromosome_args list
+    | `CustomToBreakinv of chromosome_args list
+    | `AnnchromToBreakinv of chromosome_args list
+    | `ChromToSeq of chromosome_args list
+    | `BreakinvToSeq of chromosome_args list
+    | `OriginCost of float
+(*    | `Seq_to_Kolmogorov of Methods.kolmo_model*)
+]
 
-    type transforma = (identifiers * transform_method)
+type transforma = (identifiers * transform_method)
 
-    type transform = [
-        | `Transform of transforma list
-    ]
+type transform = [
+    | `Transform of transforma list
+]
 
-    type cost_calculation = [
-        | `Exhaustive_Weak
-        | `Exhaustive_Strong
-        | `Iterative of [ `ThreeD of int option | `ApproxD of int option ] 
-        | `Normal_plus_Vitamines
-        | `Normal
-    ]
+type cost_calculation = [
+    | `Exhaustive_Weak
+    | `Exhaustive_Strong
+    | `Iterative of [ `ThreeD of int option | `ApproxD of int option ] 
+    | `Normal_plus_Vitamines
+    | `Normal
+]
 
-    type alignment_mode = [
-        | `Algn_Newkk
-        | `Algn_Normal
-    ]
+type alignment_mode = [
+    | `Algn_Newkk
+    | `Algn_Normal
+]
 
-    type keep_method = [
-        | `Last
-        | `First
-        | `Keep_Random
-    ]
+type keep_method = [
+    | `Last
+    | `First
+    | `Keep_Random
+]
 
-    type thresh_trees = [
-        | `Threshold of float
-        | `Trees of int
-    ]
+type thresh_trees = [
+    | `Threshold of float
+    | `Trees of int
+]
 
-    type iteration_strategy = [
-        | `NullModel
-        | `AlwaysModel
-        | `ThresholdModel of float
-        | `MaxCountModel of int
-        | `BothModel of float * int
-        | `NullBranches
-        | `AllBranches
-        | `JoinDeltaBranches
-        | `NeighborhoodBranches of int
-    ]
+type iteration_strategy = [
+    | `NullModel
+    | `AlwaysModel
+    | `ThresholdModel of float
+    | `MaxCountModel of int
+    | `BothModel of float * int
+    | `NullBranches
+    | `AllBranches
+    | `JoinDeltaBranches
+    | `NeighborhoodBranches of int
+]
 
-    type builda = [
-        | thresh_trees
-        | `Lookahead of int
-        | `Nj
-        | `Prebuilt of Methods.filename
-        | `Mst
-        | `DistancesRnd
-        | `Branch_and_Bound of float option
-        | `Constraint of string option
-        | `Random
-        | `RandomTree
-        | `Ordered
-        | keep_method
-        | transform
-        | Methods.tabu_join_strategy
-        | `IterationB of iteration_strategy list
-    ]
+type builda = [
+    | thresh_trees
+    | `Lookahead of int
+    | `Nj
+    | `Prebuilt of Methods.filename
+    | `Mst
+    | `DistancesRnd
+    | `Branch_and_Bound of float option
+    | `Constraint of string option
+    | `Random
+    | `RandomTree
+    | `Ordered
+    | keep_method
+    | transform
+    | Methods.tabu_join_strategy
+    | `IterationB of iteration_strategy list
+]
 
-    type swap_neighborhood = [
-        | `Spr
-        | `Tbr
-    ]
+type swap_neighborhood = [
+    | `Spr
+    | `Tbr
+]
 
-    type swap_strategy = [
-        | `SingleNeighborhood of swap_neighborhood
-        | `ChainNeighborhoods of swap_neighborhood
-        | `Alternate of (swap_neighborhood * swap_neighborhood)
-        | `None
-    ]
+type swap_strategy = [
+    | `SingleNeighborhood of swap_neighborhood
+    | `ChainNeighborhoods of swap_neighborhood
+    | `Alternate of (swap_neighborhood * swap_neighborhood)
+    | `None
+]
 
-    type swap_trajectory = [
-        | `AllAround of string option
-        | `AllThenChoose
-        | `BestFirst
-        | `PoyDrifting of (float * float)
-        | `Annealing of (float * float)
-    ]
+type swap_trajectory = [
+    | `AllAround of string option
+    | `AllThenChoose
+    | `BestFirst
+    | `PoyDrifting of (float * float)
+    | `Annealing of (float * float)
+]
 
-    type swapa = [
-        | `IterationS of iteration_strategy list
-        | `Forest of float
-        | thresh_trees
-        | keep_method
-        | swap_strategy
-        | transform
-        | swap_trajectory
-        | Methods.tabu_break_strategy
-        | Methods.tabu_join_strategy
-        | Methods.tabu_reroot_strategy
-        | Methods.samples
-    ]
+type swapa = [
+    | `IterationS of iteration_strategy list
+    | `Forest of float
+    | thresh_trees
+    | keep_method
+    | swap_strategy
+    | transform
+    | swap_trajectory
+    | Methods.tabu_break_strategy
+    | Methods.tabu_join_strategy
+    | Methods.tabu_reroot_strategy
+    | Methods.samples
+]
 
-    type swap = [
-        | `Swap of swapa list
-    ]
+type swap = [
+    | `Swap of swapa list
+]
 
-    type build = [ `Build of builda list ]
+type build = [ `Build of builda list ]
 
-    type supporta = [
-        | build
-        | swap
-        | `Bremer
-        | `Jackknife of [ `Select of float | `Resample of int ] list
-        | `Bootstrap of int option
-    ]
+type supporta = [
+    | build
+    | swap
+    | `Bremer
+    | `Jackknife of [ `Select of float | `Resample of int ] list
+    | `Bootstrap of int option
+]
 
-    type poy_file_commands = [
-        | `Load of string
-        | `Save of (string * string option)
-        | `InspectFile of string
-    ]
+type poy_file_commands = [
+    | `Load of string
+    | `Save of (string * string option)
+    | `InspectFile of string
+]
 
-    type internal_memory = [
-        | `Store of (Methods.store_class list * string)
-        | `Use of (Methods.store_class list * string)
-        | `Discard of (Methods.store_class list * string)
-    ]
+type internal_memory = [
+    | `Store of (Methods.store_class list * string)
+    | `Use of (Methods.store_class list * string)
+    | `Discard of (Methods.store_class list * string)
+]
 
-    type settings = [
-        | `TimerInterval of int
-        | `HistorySize of int
-        | `Logfile of string option
-        | cost_calculation
-        | `SetSeed of int
-        | `Root of int option
-        | `RootName of string
-        | `Alias of string * [ `Codon of old_identifiers | `Chars of old_identifiers ]
-        | alignment_mode
-        | `Optimization of Numerical.opt_modes
-    ]
+type settings = [
+    | `TimerInterval of int
+    | `HistorySize of int
+    | `Logfile of string option
+    | cost_calculation
+    | `SetSeed of int
+    | `Root of int option
+    | `RootName of string
+    | `Alias of string * [ `Codon of old_identifiers | `Chars of old_identifiers ]
+    | alignment_mode
+    | `Optimization of Numerical.opt_modes
+]
 
-    type output_class = [
-        | `Information
-        | `Error
-        | `Output of string option
-    ]
+type output_class = [
+    | `Information
+    | `Error
+    | `Output of string option
+]
 
-    type application = [
-        | `Version
-        | `ChangeWDir of string
-        | `PrintWDir
-        | `Exit
-        | `Recover
-        | `ClearRecovered
-        | `Echo of (string * output_class list)
-        | `Help of string option
-        | `Set of settings list
-        | `Redraw
-        | `Wipe 
-        | `ReDiagnose
-        | `ReDiagnoseTrees
-        | `ClearMemory of Methods.clear_item list
-        | `ReadScript of string list
-        | poy_file_commands
-        | internal_memory
-    ]
+type application = [
+    | `Version
+    | `ChangeWDir of string
+    | `PrintWDir
+    | `Exit
+    | `Recover
+    | `ClearRecovered
+    | `Echo of (string * output_class list)
+    | `Help of string option
+    | `Set of settings list
+    | `Redraw
+    | `Wipe 
+    | `ReDiagnose
+    | `ReDiagnoseTrees
+    | `ClearMemory of Methods.clear_item list
+    | `ReadScript of string list
+    | poy_file_commands
+    | internal_memory
+]
 
-    type charortax = [
-        | `Characters
-        | `Taxa
-    ]
+type charortax = [
+    | `Characters
+    | `Taxa
+]
 
-    type charoper = [
-        | `Distance
-        | `Median
-        | `Taxa of identifiers
-        | `Characters of identifiers
-    ]
+type charoper = [
+    | `Distance
+    | `Median
+    | `Taxa of identifiers
+    | `Characters of identifiers
+]
 
-    type reporta = [
-        | `File of string
-        | `Data
-        | `Xslt of (string * string)
-        | `KML of (string * string)
-        | `Ascii of bool
-        | `Memory
-        | `Graph of bool
-        | `Trees of Methods.information_contained list
-        | `MstR
-        | `TreeCosts
-        | `KolmoMachine
-        | `TreesStats
-        | `SearchStats 
-        | `TimeDelta of string
-        | `SequenceStats of old_identifiers
-        | `Ci of old_identifiers option
-        | `Ri of old_identifiers option
-        | `CompareSequences of (bool * old_identifiers * old_identifiers)
-        | `FasWinClad
-        | `Nexus
-        | `Model of old_identifiers
-        | `LKSites of old_identifiers
-        | `Pairwise of old_identifiers
-        | `Script of string list
-        | `ExplainScript of string
-        | `Consensus of float option
-        | `GraphicConsensus of float option
-        | `Clades
-        | `CrossReferences of old_identifiers option
-        | `TerminalsFiles
-        | `Supports of Methods.support_output option
-        | `GraphicSupports of Methods.support_output option
-        | `AllRootsCost
-        | `Implied_Alignments of identifiers * bool
-        | `Topo_Selection of Methods.ml_topo_test list
-        | `GraphicDiagnosis of Methods.diagnosis_report_type
-        | `Diagnosis of Methods.diagnosis_report_type 
-        | `Nodes
-    ]
+type reporta = [
+    | `File of string
+    | `Data
+    | `Xslt of (string * string)
+    | `KML of (string * string)
+    | `Ascii of bool
+    | `Memory
+    | `Graph of bool
+    | `Trees of Methods.information_contained list
+    | `MstR
+    | `TreeCosts
+    | `KolmoMachine
+    | `TreesStats
+    | `SearchStats 
+    | `TimeDelta of string
+    | `SequenceStats of old_identifiers
+    | `Ci of old_identifiers option
+    | `Ri of old_identifiers option
+    | `CompareSequences of (bool * old_identifiers * old_identifiers)
+    | `FasWinClad
+    | `Nexus
+    | `Model of old_identifiers
+    | `LKSites of old_identifiers
+    | `DebugData
+    | `Pairwise of old_identifiers
+    | `Script of string list
+    | `ExplainScript of string
+    | `Consensus of float option
+    | `GraphicConsensus of float option
+    | `Clades
+    | `CrossReferences of old_identifiers option
+    | `TerminalsFiles
+    | `Supports of Methods.support_output option
+    | `GraphicSupports of Methods.support_output option
+    | `AllRootsCost
+    | `Implied_Alignments of identifiers * bool
+    | `Topo_Selection of Methods.ml_topo_test list
+    | `GraphicDiagnosis of Methods.diagnosis_report_type
+    | `Diagnosis of Methods.diagnosis_report_type 
+    | `Nodes
+]
 
-    type perturba = [
-        | `Ratchet of (float * int)
-        | `Resample of int
-        | `Iterations of int
-        | `TimeOut of Methods.timer
-        | swap
-        | transform
-    ]
+type perturba = [
+    | `Ratchet of (float * int)
+    | `Resample of int
+    | `Iterations of int
+    | `TimeOut of Methods.timer
+    | swap
+    | transform
+]
 
-    type selecta = [
-        | charortax
-        | identifiers
-        | Methods.tree_handling
-    ]
+type selecta = [
+    | charortax
+    | identifiers
+    | Methods.tree_handling
+]
 
-    type renamea = [
-        | charortax
-        | `File of string
-        | `Syn of (string * string)
-    ]
+type renamea = [
+    | charortax
+    | `File of string
+    | `Syn of (string * string)
+]
 
-    type fusea = [
-        | `Keep of int
-        | `Iterations of int
-        | `Replace of [`Better | `Best]
-        | `Swap of swapa list
-        | `Weighting of [`Uniform]
-        | `Clades of int * int option
-        | `IterationF of iteration_strategy list
-    ]
+type fusea = [
+    | `Keep of int
+    | `Iterations of int
+    | `Replace of [`Better | `Best]
+    | `Swap of swapa list
+    | `Weighting of [`Uniform]
+    | `Clades of int * int option
+    | `IterationF of iteration_strategy list
+]
 
-    type searcha = [
-        | `Build of bool
-        | `Transform of bool
-    ]
+type searcha = [
+    | `Build of bool
+    | `Transform of bool
+]
 
-    type std_searcha = [
-        | `MaxRam of int
-        | `MinHits of int
-        | `MaxTime of float
-        | `MinTime of float
-        | `Target of float
-        | `Visited of string option
-        | `ConstraintFile of string 
-    ]
+type std_searcha = [
+    | `MaxRam of int
+    | `MinHits of int
+    | `MaxTime of float
+    | `MinTime of float
+    | `Target of float
+    | `Visited of string option
+    | `ConstraintFile of string 
+]
 
-    type command = [
-        | `Read of reada list 
-        | build
-        | swap
-        | `Fuse of fusea list
-        | `Support of supporta list
-        | `Calculate of charoper list
-        | `Report of reporta list
-        | `Plugin of (string * command Methods.plugin_arguments)
-        | `Select of selecta list
-        | `Rename of renamea list
-        | `Search of searcha list
-        | `StandardSearch of std_searcha list
-        | transform
-        | `Perturb of perturba list
-        | `Repeat of (int * command list)
-        | application
-    ]
+type command = [
+    | `Read of reada list 
+    | build
+    | swap
+    | `Fuse of fusea list
+    | `Support of supporta list
+    | `Calculate of charoper list
+    | `Report of reporta list
+    | `Plugin of (string * command Methods.plugin_arguments)
+    | `Select of selecta list
+    | `Rename of renamea list
+    | `Search of searcha list
+    | `StandardSearch of std_searcha list
+    | transform
+    | `Perturb of perturba list
+    | `Repeat of (int * command list)
+    | application
+]
 
     let all_store_types = [ `Bremer; `Jackknife; `Bootstrap; `Data; `Trees ]
     (* Transform *)
@@ -907,6 +908,7 @@ type transform_method = [
         | `Nexus             -> (`Nexus (file)) :: acc, file
         | `Pairwise x        -> (`Pairwise (file,x)) :: acc, file
         | `LKSites x         -> (`LKSites (file,x)) :: acc, file
+        | `DebugData         -> `DebugData :: acc, file
         | `Topo_Selection x  ->
             (`Topo_Selection (file,x)) :: acc, file
         | `Model x           -> (`Model (file,x)) :: acc, file
@@ -1730,6 +1732,7 @@ type transform_method = [
                     [ LIDENT "lkmodel" -> `Model `All ] | 
                     [ LIDENT "lksites"; ":"; x = old_identifiers -> `LKSites x ] | 
                     [ LIDENT "lksites" -> `LKSites `All ] | 
+                    [ LIDENT "debug_data" -> `DebugData ] | 
     (*                [ LIDENT "script" -> `Script (!console_script) ] |*)
     (*                [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |*)
     (*                [ LIDENT "pairwise" -> `Pairwise `All ] |*)
@@ -1792,10 +1795,7 @@ type transform_method = [
                 ];
             resample:
                 [
-
-                    [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ] |
-                    [ LIDENT "resample"; ":"; left_parenthesis; x = INT; right_parenthesis
-                        -> `Resample (int_of_string x) ]
+                    [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ]
                 ];
             charortax:
                 [
@@ -1921,18 +1921,14 @@ type transform_method = [
                     [ LIDENT "mb"; ":"; x = INT ->((int_of_string x) * 
                         1000 * 1000 / (Sys.word_size / 8)) ]
                 ];
-            model_iter2:
-                [
-                    [LIDENT "threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
-                    [LIDENT "max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
-                    [LIDENT "never" -> `NullModel] |
-                    [LIDENT "always" -> `AlwaysModel]
-                ];
             model_iter :
                 [
                     [LIDENT "never" -> `NullModel] |
                     [LIDENT "always" -> `AlwaysModel] |
-                    [left_parenthesis; x = model_iter2; right_parenthesis -> x]
+                    [LIDENT "threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
+                    [LIDENT "max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
+                    [LIDENT "never" -> `NullModel] |
+                    [LIDENT "always" -> `AlwaysModel]
                 ];
             branch_iter :
                 [
@@ -1941,12 +1937,11 @@ type transform_method = [
                     [LIDENT "all"          -> `AllBranches] |
                     [LIDENT "join_delta"   -> `JoinDeltaBranches] |
                     [LIDENT "join_region"  -> `NeighborhoodBranches 0] |
-                    [LIDENT "join_region";
-                              ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ]
+                    [LIDENT "join_region"; ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ]
                 ];
             iterate_options:
                 [
-                    [LIDENT "model"; ":"; x = model_iter -> x] |
+                    [LIDENT "model"; ":";  x = model_iter -> x] |
                     [LIDENT "branch"; ":"; x = branch_iter -> x]
                 ];
             iteration_method:
@@ -2050,7 +2045,8 @@ type transform_method = [
                     [ x = otherfiles -> (x :> Methods.input) ]
                 ];
             otherfiles_pre: (** subset of characters that are prealigned **)
-                [[LIDENT "nucleotide"; ":"; left_parenthesis;
+              [ [ f = STRING -> `AutoDetect [`Local f] ] |
+                [LIDENT "nucleotide"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
                 [ LIDENT "nucleotide"; ":"; left_parenthesis;
@@ -2064,8 +2060,7 @@ type transform_method = [
                         `Aminoacids (to_local a,[`Prealigned]) ] |
                 [ LIDENT "aminoacids"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
-                        `Aminoacids (to_local a,[`Prealigned]) ] |
-                [ f = STRING -> `AutoDetect [`Local f] ]
+                        `Aminoacids (to_local a,[`Prealigned]) ]
                 ];
         otherfiles:
             [
@@ -2124,12 +2119,12 @@ type transform_method = [
             ];
         read_optiona:
             [
+                [ x = STRING -> `InputFile (`Local x) ] |
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
-                [LIDENT "cm"; ":"; cm = STRING -> `CostMatrix (`Local cm) ] |
+                [LIDENT "tcm"; ":"; left_parenthesis; cm = STRING; right_parenthesis -> `CostMatrix (`Local cm) ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
-                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
-                [ x = STRING -> `InputFile (`Local x)]
+                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x]
             ];
         tree_information_list:
             [   
@@ -2267,8 +2262,7 @@ type transform_method = [
                 [ LIDENT "drifting"; ":"; left_parenthesis;
                     equalprob = integer_or_float; ","; 
                     worstfactor = integer_or_float; right_parenthesis ->
-                        `PoyDrifting (float_of_string equalprob, float_of_string
-                        worstfactor) ] |
+                        `PoyDrifting (float_of_string equalprob, float_of_string worstfactor) ] |
                 [ LIDENT "current_neighborhood"; f = OPT string_arg -> 
                     `AllAround f ] |
                 [ LIDENT "around" -> `AllThenChoose ]

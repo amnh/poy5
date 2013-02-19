@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -35,7 +35,7 @@ let get_graphics str =
 
 let get_interface str =
     get_option
-        [(".*gtk", "gtk2"); (".*ncurses", "ncurses");
+        [(".*gtk", "gtk2"); (".*ncurses", "ncurses"); (".*pdcurses", "pdcurses");
          (".*readline", "readline"); (".*html", "html"); (".*flat", "flat")]
         str
 

@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -21,9 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 2831 $"
-
-let debug = false
+let () = SadmanOutput.register "DynamicCS" "$Revision: 3160 $"
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
@@ -628,8 +626,6 @@ let single_to_multi single_t =
 * readjusts the current median [mine] of three medians [ch1],
 * [ch2], and [parent] using three dimentional alignments*)
 let readjust mode to_adjust modified ch1 ch2 parent mine =
-    let debug = false in
-    if debug then  Printf.printf "DynamicCS.readjust\n%!";
     let no_iterative_other_than_for_seqs = false in
     match ch1, ch2, parent, mine with
     | SeqCS ch1, SeqCS ch2, SeqCS parent, SeqCS mine ->
@@ -638,7 +634,8 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
             if ch1.SeqCS.alph = Alphabet.nucleotides then  
                 SeqCS.readjust ch1.SeqCS.alph mode to_adjust modified ch1 ch2 parent mine 
             else 
-                SeqCS.readjust_custom_alphabet ch1.SeqCS.alph mode modified ch1 ch2 parent mine in
+                SeqCS.readjust_custom_alphabet ch1.SeqCS.alph mode to_adjust modified ch1 ch2 parent mine
+        in
 	    modified,  new_cost, new_sumcost, (SeqCS nc)    
     | _, _, _, mine when no_iterative_other_than_for_seqs ->  
             let prev_cost = total_cost mine in

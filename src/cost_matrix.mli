@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -81,6 +81,7 @@ module Two_D : sig
     (** [default] is the default cost matrix in POY for pairwise, nucleotide
     * sequence alignments. *)
     val default : m
+
     val default_nucleotides : m
 
     val default_aminoacids : m
@@ -105,21 +106,16 @@ module Two_D : sig
 
     (** {2 Setting Values} *)
 
-    (** [set_gap cm v] sets the gap representation value to v in the cost matrix
-    * cm. *)
+    (** [set_gap cm v] sets the gap representation value to v in the cost matrix cm. *)
     external set_gap : m -> int -> unit = "cm_CAML_set_gap"
 
-    (*
-    * [set_level m v] sets the level value of cost matrix
-    * *)
+    (* [set_level m v] sets the level value of cost matrix *)
     external set_level : m -> int -> unit = "cm_CAML_set_level"
 
-    (** [set_alphabet_size cm v] sets the alphabet size of the cost matrix cm to
-    * v.  *)
+    (** [set_alphabet_size cm v] sets the alphabet size of the cost matrix cm to v.  *)
     external set_alphabet_size : int -> m -> unit = "cm_CAML_set_a_sz"
 
-    (** [set_lcm cm v] sets the log2 of the alphabet size in the cost matrix cm to
-    * v. *)
+    (** [set_lcm cm v] sets the log2 of the alphabet size in the cost matrix cm to v. *)
     external set_lcm : m -> int -> unit = "cm_CAML_set_lcm"
 
     (** [set_affine cm v] sets the cost model to the appropriate value. *)
@@ -130,7 +126,7 @@ module Two_D : sig
     val create_cm_by_level : m -> int -> int -> int -> Methods.keep_method -> m
 
     (** [set_cost x y cm v] sets the cost of transforming element x into y in cost
-    * matrix cm to v*)
+        matrix cm to v*)
     external set_cost : int -> int -> m -> int -> unit = "cm_CAML_set_cost"
 
     (** [set_median x y z u] sets the value of the median of states x and y to u

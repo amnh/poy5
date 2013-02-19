@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -567,25 +567,28 @@ module Accessor = struct
             try taxon_code (All_sets.StringMap.find name data.synonyms) data
             with | Not_found -> failwithf "Cannot find Taxa %s" name
 
-    (** [get_sequences code data] outputs a stack containing all the sequences of the
-    * character [code] stored in [data]. The empty sequences (according to
-    * [Sequence.is_empy]) are not included in the stack. If the input code does not
-    * correspond to a sequence character, or the sequence contains more than one
-    * fragment, then it outputs an empty stack. *)
+    (** [get_sequences code data] outputs a stack containing all the sequences of
+        the character [code] stored in [data]. The empty sequences (according to
+        [Sequence.is_empy]) are not included in the stack. If the input code does
+        not correspond to a sequence character, or the sequence contains more than
+        one fragment, then it outputs an empty stack. *)
     let get_sequences code data = 
         let alpha = get_alphabet data code in
         let gap = Alphabet.get_gap alpha in
         let seqs = Stack.create () in
-        let process_taxon a b = match Hashtbl.find b code with
-            | (Stat _), _ -> ()
-            | (FS _), _   -> ()
-            | (Dyna (_, d)), _ ->
-                begin match d.seq_arr with
-                    | [|dv|] ->
-                        if not (Sequence.is_empty dv.seq gap) then
-                            Stack.push dv.seq seqs
-                    | _ -> ()
-                end
+        let process_taxon a b =
+            try match Hashtbl.find b code with
+                | (Stat _), _ -> ()
+                | (FS _), _   -> ()
+                | (Dyna (_, d)), _ ->
+                    begin match d.seq_arr with
+                        | [|dv|] ->
+                            if not (Sequence.is_empty dv.seq gap) then
+                                Stack.push dv.seq seqs
+                        | _ -> ()
+                    end
+            with Not_found -> (* missing, same as not is_empty above *)
+                ()
         in
         Hashtbl.iter process_taxon data.taxon_characters;
         seqs
@@ -2991,7 +2994,7 @@ let report_inc_exc ?(suppress=false) d included excluded =
             with (Failure _) ->
                 included_in_data (acc^x^",@ ") xs
     and process_included acc = function
-        | []      -> acc
+        | []      -> List.rev acc
         | x :: xs ->
             try let () = ignore (taxon_code x d) in
                 process_included (x::acc) xs
@@ -5767,7 +5770,7 @@ let assign_level data chars tie_breaker level =
                     in
                     (true, a),(fun _ -> rescm, cm_ori, name),resalph
                 end else begin
-                    output_info ("we@ don't@ do@ combination@ by@ level@ on@ this@ "
+                    output_info ("I@ don't@ do@ combination@ by@ level@ on@ this@ "
                                 ^"kind@ of@ alphabet,@ I@ will@ NOT@ apply@ any@ "
                                 ^"changes@ to@ this@ one.");
                     (true,a),(fun _ -> cm_full, cm_ori, tcmfile),alph
@@ -6329,16 +6332,15 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         else find_end acc pos (pos + 1) mark
     in
     (* A function to compute the cost of an indel block *)
-    let compute_cost = 
-        match tcm_case with
+    let compute_cost = match tcm_case with
         | `AllSankoff None
         | `AllOne  _
         | `AllOneGapSame _ -> (fun _ -> 0)
         | `AllSankoff (Some f) -> 
-                (fun len -> 
-                    f (String.make len 'A'))
+            (fun len -> f (String.make len 'A'))
         | `AffinePartition (_, gapcost, gapopening) ->
-                (fun len -> gapopening + (len * gapcost))
+            raise Illegal_argument
+            (* (fun len -> gapopening + (len * gapcost)) *)
     in
     let encoding len = 
         Alphabet.present_absent, Parser.OldHennig.Encoding.gap_encoding (compute_cost len)
@@ -6486,7 +6488,7 @@ type tcm_class =
     | `AllSankoff of (string -> int) option]
 
 let prealigned_characters analyze_tcm data chars =
-    let codes = get_chars_codes_comp data chars in
+    let codes = get_code_from_characters_restricted_comp `AllDynamic data chars in
     let names = List.map (fun x -> Hashtbl.find data.character_codes x) codes in
     let res = List.rev_map (process_prealigned analyze_tcm data) codes in
     let d =

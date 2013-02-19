@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -26,9 +26,7 @@
 
 let debug = true
 
-
 let do_html = ref false
-
 
 let () =
     Arg.parse
@@ -43,22 +41,15 @@ module OrderedString = struct
 end
 module Strings = Set.Make (OrderedString)
 
-
 let build_cross_ref prev item =
     prev ^ "@ " ^ "@{<u>@{<help-xref:" ^ item ^ ">" ^ item ^ "@}@}"
 
+let (-->) a b = b a
 
-let replace str = Str.global_replace (Str.regexp " ") "@ " str
-
-
-let another_replace str = Str.global_replace (Str.regexp "<v@ 2>") "<v 2>" str
-
-
-let yet_another_replace str = Str.global_replace (Str.regexp "%@") "%" str
-
-
-let replace str = yet_another_replace (another_replace (replace str))
-
+let replace str =
+    str --> Str.global_replace (Str.regexp " ") "@ "
+        --> Str.global_replace (Str.regexp "<v@ 2>") "<v 2>"
+        --> Str.global_replace (Str.regexp "%@") "%"
 
 let make_help_line title usage description cross_ref =
     let oth = match cross_ref with 
@@ -142,12 +133,9 @@ let read_help_file file =
     end;
     List.map map structure
 
-
 let helpfile = open_in "help.txt"
 
-
 let index : (string * string) list = List.rev (read_help_file helpfile)
-
 
 let () = close_in helpfile
 

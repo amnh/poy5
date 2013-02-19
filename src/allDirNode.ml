@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3035 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3160 $"
 
 let eager        = false
 let uppass_debug = false
@@ -950,7 +950,7 @@ struct
         let res =
             List.map (fun x -> OneDirF.to_string x.lazy_node) nodes.unadjusted
         in
-        String.concat "\n" res
+        String.concat "" res
 
     let total_cost par n = match par with
         | Some code ->

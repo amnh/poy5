@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 2689 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3160 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -120,7 +120,20 @@ let compare a b =
 
 let pp_seq model chan seq = Sequence.print chan seq model.alph
 
-let to_string t = failwith_todo "to_string"
+let to_string t = match t.data with
+    | MPLAlign x  ->
+        Array.fold_left
+            (fun acc x -> acc^(MPLAlign.to_string t.model x))
+            "" x.ss
+    | CMPLAlign x ->
+        Array.fold_left
+            (fun acc x -> acc^(CMPLAlign.to_string t.model x))
+            "" x.ss
+    | Verify x    ->
+        Array.fold_left
+            (fun acc x -> acc^(CMPLAlign.to_string t.model (fst x)))
+            "" x.ss
+    
 
 let alph t = t.model.alph
 

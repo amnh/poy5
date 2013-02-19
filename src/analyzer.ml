@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3077 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3160 $"
 
 let debug = false
 
@@ -380,6 +380,9 @@ let dependency_relations (init : Methods.script) =
     | #Methods.report as meth ->
             let res, files, isload = 
                 match meth with
+                | `DebugData ->
+                    let fn = filename_to_list None in
+                    [(Data :: fn, fn, init, Invariant)], None, false
                 | `ExplainScript (_, filename)
                 | `SequenceStats (filename, _)
                 | `Ci (filename, _)
@@ -1773,6 +1776,8 @@ let script_to_string (init : Methods.script) =
                         "@[report the nexus file@]"
                 | `Pairwise _ -> 
                         "@[report the pairwise distance matrix for characters@]"
+                | `DebugData -> 
+                        "@[report global data to screen (debug)@]"
                 | `LKSites _ -> 
                         "@[report the site loglikelihood of trees@]"
                 | `Model _ -> 
@@ -2088,6 +2093,7 @@ let is_master_only (init : Methods.script) = match init with
     | `Clades _
     | `Save _
     | `MstR _
+    | `DebugData
     | `Plugin _ 
     | `Version -> true
 

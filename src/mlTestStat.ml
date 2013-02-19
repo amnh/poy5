@@ -1,5 +1,5 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
-(* Copyright (C) 2011 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3075 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3160 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
@@ -26,7 +26,7 @@ let debug_cdf = false
 and debug_boot= false
 
 and debug_kh  = true
-and debug_sh  = true
+and debug_sh  = false
 and debug_au  = true
 
 let failwithf format = Printf.ksprintf failwith format
@@ -408,16 +408,22 @@ struct
                     done;
                     (float_of_int !p_alpha) /. (float_of_int replicates))
         in
-        if debug_sh then begin
-            Printf.printf "P-Values\n%!";
-            Array.iteri
-                (fun i _ ->
-                    Printf.printf "%d\t%f\t%f\t%f\n%!"
-                                  i (get_ml_cost ts.(i)) t.(i) p.(i))
-                p;
-        end;
-        (** STEP 6: Return set such that, P_star < P_i *)
-(*        Array.mapi (fun i _ -> ts.(i),t.(i),p.(i)) p*)
+        (** STEP 6: Output information *)
+        let matrix =
+            Array.init ((Array.length p)+1)
+                (fun i ->
+                    if i = 0 then
+                        [| "Tree"; "loglk"; "p-value" |]
+                    else
+                        let i = i-1 in
+                        [| Printf.sprintf "%d" i;
+                           Printf.sprintf "%f" (get_ml_cost ts.(i));
+                           Printf.sprintf "%f" p.(i); |])
+        in
+        info_user_message
+            "@[<4>@[SH@ test@ P-Values@ from@ %d@ replicates@]" replicates;
+        outputt matrix;
+        info_user_message "@]";
         ()
 
 
