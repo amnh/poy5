@@ -24,7 +24,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 
 %Indexes
 \makeindex{general}
-\makeindex{poy3}
+%\makeindex{poy3}
 
 \newlength\sidebar
 \newlength\envrule
@@ -38,7 +38,6 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \sethlcolor{yellow}
 \setcounter{secnumdepth}{2}
 \setcounter{tocdepth}{2}
-
 
 \definecolor{exampleborder}{rgb}{0,0,.7}
 \definecolor{examplebg}{rgb}{.9,.9,1}
@@ -361,11 +360,11 @@ College of Technology and Information Technology Institute, Vietnam National Uni
 
 \vspace*{0.25cm}
 The American Museum of Natural History\\
-\copyright  2011 by The American Museum of Natural History, \\
-All rights reserved. Published 2011.
+\copyright  2013 by The American Museum of Natural History, \\
+All rights reserved. Published 2013.
 
 \vspace*{0.25cm}
-\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} \hl{2011}. \texttt{POY} 5.0.\buildnumber\ R.C. New York, 
+\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} 2013. \texttt{POY} 5.0. \buildnumber\ R.C. New York, 
 American Museum of Natural History. Documentation by L. M. Crowley, M. Cevasco, J. S. S. Denton. 
 \url{http://research.amnh.org/scicomp/projects/poy.php}
 
@@ -387,7 +386,8 @@ Comments or queries relating to the documentation should be sent to \href{mailto
 
 \chapter{What is \poy}
 
-\poy is a flexible, multi-platform program for the phylogenetic analysis of a diversity of data types. %under various optimality criteria.
+\poy is a flexible, multi-platform program for the phylogenetic analysis of a diversity of data types under different optimality criteria ---
+parsimony and likelihood.
 An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} allowing 
 optimization of   {\bf \emph{unaligned}} sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of 
 algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy 
@@ -405,9 +405,9 @@ session and point to the various resources to obtain further assistance. Subsequ
 give step-by-step examples on how to conduct a basic analysis and visualize the results. The following chapter, 
 \emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations 
 for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their understanding helps creating building 
-efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. In addition 
-to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link 
-between the commands used in \texttt{POY3} and the commands used in \poy. 
+efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. 
+% In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link 
+%between the commands used in \texttt{POY3} and the commands used in \poy. 
 
 \section{What's new in \poy}
 There are myriad new features and options in \poy.  These are described and documented in full in the pages that follow.  
@@ -603,7 +603,7 @@ Each command description entry contains the following sections:
 \textbf{Default syntax}. The default syntax for all commands is the same: it includes the command name 
 followed by empty parentheses, e.g. \poycommand{swap()}. However, within the descriptions of each 
 command the default settings include the entire argument list for illustrative purposes only (i.e. in the case 
-of \poycommand{swap()} the entire argument list appears as \poycommand{swap(trees:1, TBR, threshold:0, bfs)}).
+of \poycommand{swap()} the entire argument list appears as \poycommand{swap(trees:1, alternate, threshold:0, bfs)}).
 \end{statement}
 
 \begin{statement} \label{commandorder}
@@ -651,7 +651,7 @@ of \poycommand{swap()} the entire argument list appears as \poycommand{swap(tree
 
 %\addtocontents{toc}{General Index}%%
 \printindex{general}{General Index}
-\printindex{poy3}{POY 3.0 Commands Index}
-\input{doc/poy3commands}%%
+%\printindex{poy3}{POY 3.0 Commands Index}
+%\input{doc/poy3commands}%%
 
 \end{document}

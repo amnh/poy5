@@ -1,4 +1,4 @@
-(* POY 5.0 Alpha. A phylogenetic analysis program using Dynamic Homologies.   *)
+(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
 (* Copyright (C) 2011  Andr�s Var�n, Lin Hong, Nicholas Lucaroni, Ward Wheeler*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 3077 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 3160 $"
 
 let debug_find_local_optimum = false
 
