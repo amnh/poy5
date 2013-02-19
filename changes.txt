@@ -32,7 +32,8 @@ New Features:
 Bugs Fixed:
     - Character Selection procedures (through the IDENTIFIERS in the command
       structure) have been verified and implement special cases of each-other
-      when necessary for lower chances of future bugs.
+      when necessary for lower chances of future bugs. (Thanks to Fernando
+      Marques).
     - Bug-fix with partitioned dynamic likelihood characters of multiple models
       or in combination with static characters causing optimization failures.
     - Error in transform(prealigned) on static characters --command only works
@@ -43,7 +44,8 @@ Bugs Fixed:
     - Proper usage of missing data in iterative:exact and iterative:approx.
       Previously missing data could be assigned in the median nodes of
       characters in certain situations, resulting in 0 costs assignments in
-      subtrees, as well as errors in the median assignment functions.
+      subtrees, as well as errors in the median assignment functions. (Thanks to
+      Denis Jacob Machado)
     - elikelihood for static likelihood characters had a bug in counting
       'uninformative' data in estimating transition probabilities.
     - Single assignment functions for the newkkonen alignment procedure were not
@@ -54,7 +56,7 @@ Bugs Fixed:
     - Static likelihood was not taking into account missing data correctly.
     - Correction for tree diagnosis in non-0 diagonal tcm matrix.
     - selecting unique topologies may choose suboptimal likelihood trees if the
-      models/branches are different, we now accept the lower of the two.
+      models/branches are different, we now select the lower of the two.
     - transform(likelihood(...) -> transform(parsimony) resulted in an error
       state of the application and incorrect costs from before the likelihood
       transform command. Now the transform can be done to recover the parsimony
