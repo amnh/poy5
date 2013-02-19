@@ -49,15 +49,13 @@ The following detailed step-by-step instructions will guide you through download
                 selecting the \emph{Windows} download link.
 
 			\item 
-           Open the \emph{POY\_Installer.exe} from the \emph{poy5} folder and follow the installation instructions. 
-           You will need Administrator privileges to install the application. 
-           By default, the Windows version of \poy is installed without parallel execution support. If you have 
+           Open the \emph{POY\_version.zip}.  You will need Administrator privileges to install the application. 
+           Extract the zip file to install in the desired location and execute the \emph{poy.exe} file.  If you have 
            Windows XP SP2, Windows Vista or Windows 7 and possess more than one core or processor, you 
            can take advantage of this processing power \ by installing the parallel components 
            \href{http://www-unix.mcs.anl.gov/mpi/}{MPICH2}. 
            
-           [Note: The \poy developers encountered problems when using MPICH2 1.4.1.p1, therefore it is advised that the 
-           user install MPICH2 1.4.]
+           [Note: The \poy developers encountered no problems when using MPICH2 3.0.2.]
           \end{itemize}
 
 	\begin{minipage}[c]{0.074\textwidth}
@@ -126,20 +124,22 @@ In order to compile \poy the following tools are required:
 \end{enumerate}
 Download, ungzip and untar the \href{http://research.amnh.org/scicomp/projects/poy.php}{\poy source code}.  
 In a terminal window, change directories to the path of this uncompressed directory.  
-In order to compile under default setting, working in the source directory, type:
+In order to compile under default setting, working in the source directory (\texttt{src}), type:
 \begin{verbatim}
 	./configure
 	make
 	make install
 \end{verbatim}
 
-This script will compile the \emph{Interactive Console} or \emph{ncurses} interface.  
+To \texttt{make install}, it may be necessary to do this as the root user using \texttt{sudo}.
+ This script will compile the \emph{Interactive Console} or \emph{ncurses} interface that will be found in 
+\commandstyle{/src/\_build}.
 Another configuration option includes a \emph{readline} interface.  Similar to the \emph{ncurses} interface, 
-this allows for the use of arrow keys to modify commands and browse command history.  An \emph{html} interface is  
-available. A \emph{flat} interface is also available that supports the running of the program in parallel irrespective of 
-the operating system. This version is run through a terminal window or invoked in a script (see Section~\ref{sec: Executing a Script}). 
+this allows for the use of arrow keys to modify commands and browse command history.  %An \emph{html} interface is available.
+A \emph{flat} interface is also available that supports the running of the program in parallel, irrespective of 
+the operating system. This version is run through a terminal window and invoked in a script (see Section~\ref{sec: ExecutingScript}). 
 In order to run \poy in parallel environments, \href{http://www-unix.mcs.anl.gov/mpi/}{Message Passing Interface} 
-or \href {https://www.osc.edu/~djohnson/mpiexec/} {Mpiexec} must be invoked. 
+(invoked by \texttt{mpiexec} or \texttt{mpirun}, depending on your implementation) must be invoked. 
 More than likely, your system administrator already has one installed and should be able to provide you with the 
 proper paths to set your config file. In order to compile this \emph{flat} version with parallel support type: 
 	\begin{verbatim}
@@ -153,18 +153,18 @@ component in the compiling script.]
 Table \ref{InterfaceGuide} should be used as a guide as to the type of interface that should be 
 employed depending on the type of data (`standard' or `long').
 
-\begin{table}[t] 
+\begin{table}[th!]
 \small
-\caption{Interface Guide. `Standard' data equates to a molecular sequence or single partition that is less than 16383 
-nucleotides in length or 255 elements long, while `long' data partitions reach lengths greater than these values. The field 
-`config+' indicates that the options long-sequences and/or large-alphabets must be enabled during compiling for these 
+\caption{Interface Guide. `Standard' data equates to a molecular sequence or single partition that is fewer than 16383 
+nucleotides in length or contain fewer than 255 elements, while `long' data partitions accomodate lengths greater than these values. The field 
+`config+' indicates that the options long-sequences and/or large-alphabets must be enabled during compilation for these 
 datatypes to be analyzed. A distinction is made between the \emph{Interactive Console} or \emph{ncurses} that is downloaded as binaries 
 (bins) from the website and that which is compiled from the source (src). [Note: It is not possible to analyze either long sequences or
 large alphabets using the \emph{GUI} or the \emph{Interactive Console} when downloaded from the \poy website.]}
 \label{InterfaceGuide} 
 \begin{center}
 \renewcommand{\arraystretch}{1.5}
-\begin{tabular}{p{2.0cm}  p{0.75cm}  p{2.4cm}  p{2.4cm}  p{1.0cm}} 
+\begin{tabular}{p{2.0cm}  p{0.75cm}  p{3.0cm}  p{3.0cm}  p{1.0cm}} 
 \hline
 	Data type & GUI & Interactive Console (bins) & Interactive Console (src) & Flat \\
 \hline
@@ -176,8 +176,8 @@ large alphabets using the \emph{GUI} or the \emph{Interactive Console} when down
 \end{table}
 
 \section {Executing a Script}
-\label {sec: Executing a Script}
-A number of start up options are available when executing a script through the command line in a 
+\label {sec: ExecutingScript}
+A number of startup options are available when executing a script through the command line in a 
 terminal window. The options below, can be viewed by typing \texttt{poy -help} in a terminal window.\\
 \\
   \texttt{-w} \hspace{0.25 cm} Run poy in the specified working directory\\
@@ -209,12 +209,14 @@ or \href {https://www.osc.edu/~djohnson/mpiexec/} {Mpiexec} must be used to init
 from within a PBS batch or interactive environment.  For example typing
 
 \begin{quote}
-\commandstyle{mpirun -np 8 /POY\_bins/poy5a-mpi mol.poy}\\
+\commandstyle{mpirun -np 8 $\sim$/POY\_bins/poy5a-mpi mol.poy}\\
 \end{quote}
 in the terminal window will invoke \poy to run the script \texttt{mol.poy}, utilizing 8 processors 
-(Figure~\ref{fig:mpiexecscript}).  This parallel version of \poy was compiled in the directory 
-\texttt{POY\_bins} in the home directory.  With the flat interface, it is not possible to run the 
-program interactively, therefore a script \textbf {\emph{must}} be included in the command, so that it can 
+(Figure~\ref{fig:mpiexecscript}).  The file \texttt{mol.poy} resides in the directory \commandstyle{POY\_analyses}, 
+which is found in the desktop of the home directory.
+This parallel version of \poy was compiled in the directory 
+\texttt{POY\_bins} in the home directory.  With the flat interface, it is not possible to run parallel jobs
+interactively, therefore a script \textbf {\emph{must}} be included in the command, so that it can 
 be passed to the application.  
 
 \begin{figure}
@@ -239,7 +241,9 @@ Interface} has a user-friendly appearance like other native stand-alone applicat
 functions are accessible through menus and windows. Thus, the entire analysis can be 
 carried out by clicking on appropriate selections and, where necessary, typing specifications in 
 designated fields. Currently, the \emph{Graphical User Interface} is appropriate for the analysis of 
-data with parsimony or likelihood (with minimal model selection) as the optimality criterion.  
+data with parsimony or likelihood (with minimal model selection) as the optimality criterion.  Unlike the 
+\emph{Interactive Console}, it is not possible to specify all options with the \emph{Graphical User Interface}.
+The minimum screen size for the \emph{Graphical User Interface} is 1024 x 768 pixels.
 
 On the other hand, the \emph{Interactive Console} requires a detailed knowledge of \poy commands, 
 their arguments, and the conventions of \poy scripting. All these features are described in the 
@@ -247,7 +251,7 @@ their arguments, and the conventions of \poy scripting. All these features are d
 
 Even though the Mac OSX version of the \emph{Graphical User Interface} is used for screen 
 shots throughout this chapter, the Windows version contains the same items and 
-functionality, differing only in the generic window format specific to each platform.
+functionality, differing only in the generic window format specific to the platform.
 
 When \poy is first opened, two items appear on the screen: the \poy menu bar across the top and the 
 \emph{POY Launcher} window (Figure~\ref{fig:menu_launcher_window}). 
@@ -267,7 +271,7 @@ The menu bar contains the following drop-down menus:
 \begin{description}
 \item[POY] (Mac OSX only) Contains generic items as with other Mac OSX applications. This pull down 
 menu allows selection of the \emph{About POY} window (Figure~\ref{fig:about_window}) that lists the 
-current version of \poy, a copy right statement, and the address of the \poy website. In addition, it includes 
+current version of \poy, a copyright statement, and the address of the \poy website. In addition, it includes 
 a \emph{Quit POY} tab that closes the program. 
 \item[Analyses]    Contains options for different types of tree searches, calculation of support values, tree 
 diagnosis, and their respective outputs. Other items in this menu open the \emph{POY Launcher} 
@@ -321,7 +325,7 @@ distinction is made between the \emph{Interactive Console} or \emph{ncurses} tha
 \label{ParallelizationGuide} 
 \begin{center}
 \renewcommand{\arraystretch}{1.5}
-\begin{tabular}{p{3.0cm}  p{1.4cm}  p{2.40cm}  p{2.40cm}  p{0.75cm}} 
+\begin{tabular}{p{2.7cm}  p{1.1cm}  p{3.0cm}  p{3.0cm}  p{0.75cm}} 
 \hline
 	Operating System & GUI & Interactive Console (bins) & Interactive Console (src) & Flat \\
 \hline
@@ -362,7 +366,7 @@ These include a \emph{Simple Search}, \emph{Timed Search}, \emph{Search with Rat
 The \emph{Simple Search} window permits the analysis of a number of different data types, 
 including a range of molecular characters (from DNA sequences to complete genomes), custom alphabet 
 characters, and qualitative characters, under parsimony.  It is also possible to carry out a likelihood 
-analysis of DNA sequence, morphological (both discrete and continuous) and qualitative data 
+analysis of DNA sequence, morphological and qualitative data 
 under a number of different models.  In the simplest sense, a typical search involves a series of steps. 
 First, initial trees are generated by random addition sequence from the imported character data. 
 These trees are then subjected to branch swapping, after which trees are selected to report. 
@@ -379,7 +383,7 @@ otherwise the default values will be used. The window is subdivided into five se
 \end{minipage}
 \,
 \begin{minipage}[c]{0.52\textwidth}
-	   	\includegraphics[width=\textwidth]{doc/figures/simplesearch_window.jpg}
+	   	\includegraphics[width=\textwidth]{doc/figures/simplesearch_window_filled.jpg}
    	\end{minipage}
 	
 \caption{The \emph{Simple Search} window. Selecting \emph{Simple Search} from the \emph{Analysis} 
@@ -405,13 +409,14 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 	as the optimality criterion, it is possible to select different datatypes (sequence, chromosome, genome, 
 	custom alphabet, break inversion or qualitative) and allows the user to select whether these data 
 	should be treated as prealigned (if possible). Selection of different datatypes will invoke an additional 
-	subsection (see below).
+	subsection (see below).  Currently, it is only possible to analysis sequence and qualitative data with 
+	the maximum likelihood criterion.
 \end{description}   
 
        \hangindent=1cm	\emph{Parsimony Optimality Criterion}
         The parameters in this section are dependent on the data types selected 
         in \emph{Input Parameters}. More detailed explanations of the different data types can be found 
-        below and in the \emph{Chromosome and genome transformation methods} section of  ~\ccross{transform}.
+        below and  in the difference character types sections of both~\ccross{read} and ~\ccross{transform}.
 
  
 \begin{description}
@@ -428,38 +433,33 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 
 	\item [Chromosome and Mauve Parameters] \emph{Chromosome} characters are multi-locus 
 		nucleotide sequences and can include nuclear chromosomes, as well as, mitochondrial 
-		and viral genomes.  Descriptions of all these parameters can be found under within 
-		the \emph{Chromosome and genome transformation methods} of the command \poycommand{transform}, 
-		see ~\nccross{transform}{transform}.  It is possible to submit either \emph{Annotated} (by selection of the 
+		and viral genomes.  It is possible to submit either \poyargument{annotated} (by selection of the 
 		\emph{Annotated} box) or \emph{Unannotated} chromosomes. Within \emph{Annotated} 
-		chromosomes,  homologous regions, such as loci, are separated with the pipe symbol
+		chromosomes, homologous regions, such as loci, are separated with the pipe symbol
 		(``$\vert$'').  \emph{Unannotated} chromosomes are entirely 
 		without delimiters. For \emph{Unannotated} chromosomes, the Mauve Parameters, must be set
 		by the user.  These parameters (\emph{Max. Match, Min. Match, Match Quality} and \emph {Match 
 		Coverage}) are employed by the Mauve aligner to find regions of homology or synteny blocks 
-		 between chromosomes (see the argument~\nccross{annotate}{chromosomeannotate} 
-		 within the chromosomal transformation methods of the command \poycommand{transform}). 
-		 Default values for these parameters are provided in the \emph{GUI}.
-		            	
+		 between chromosomes (see~\nccross{annotate}{chromosomeannotate} within the 
+		 command \poycommand{read}). Default values for these parameters are provided in the \emph{GUI}.
+		    	
 		\indent Within this subsection it is necessary to specify both \emph{Locus Indel} and rearrangement 
 		(\emph{Locus Breakpoint} or \emph{Locus Inversion}) costs.  The cost of a \emph{Locus Indel} 
-		is by default set to 10 plus 0.9 times the length of the locus (see the argument~\nccross{locus\_indel}
-		{chromosomelocusindel}  within the chromosomal transformation methods of the command 
-		\poycommand{transform}). Rearrangements of homologous regions (as defined by the user in 
-		the case of \emph{Annotated} chromosomes or as determined by the Mauve aligner as in 
-		\emph{Unannotated} chromosomes) are then optimized using either \emph{Locus Breakpoint} 
-		or \emph{Locus Inversion} costs (see the arguments~\nccross{locus\_breakpoint}
-		{chromosomelocusbreakpoint} and~\nccross{locus\_inversion}{chromosomelocusinversion}
-		 within the chromosomal transformation methods of the command \poycommand{transform}). 
-		 The default cost for both is set to 10. The user must also specify the 
+		is by default set to 10 plus 0.9 times the length of the locus (see~\nccross{locus\_indel}
+		{chromosomelocusindel}  within the command \poycommand{transform}). Rearrangements of 
+		homologous regions (as defined by the user in the case of \emph{Annotated} chromosomes 
+		or as determined by the Mauve aligner as in \emph{Unannotated} chromosomes) are 
+		then optimized using either \emph{Locus Breakpoint} or \emph{Locus Inversion} costs 
+		(see~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} and
+		~\nccross{locus\_inversion}{chromosomelocusinversion} within the command 
+		\poycommand{transform}).  The default cost for both is set to 10. The user must also specify the 
 		\emph{Median solver} for the optimization of rearrangements. The default median solver is 
-		\emph{Caprara}, but the user can alternatively choose \emph{BBTSP, Coaletsp, 
-		Chainlk, Siepel, Simpllk} and \emph{Vinh} (see the argument~\nccross{median\_solver}
-		{chromosomemediansolver} within the chromosomal transformation methods of the command 
-		\poycommand{transform}).
+		\emph{Caprara}, but the user can alternatively choose \emph{BBTSP, Coaletsp, Chainlk, 
+		Siepel, Simpllk} and \emph{Vinh} (see~\nccross{median\_solver}{chromosomemediansolver} 
+		within the command 	\poycommand{transform}).
 		
 		\indent The user must also specify whether the chromosome is \emph{Circular} (true) or linear (false).
-		It is not possible to submit pre-aligned data files for both \emph{Annotated} or \emph{Unannotated} 
+		It is not possible to submit pre-aligned data files for either \emph{Annotated} or \emph{Unannotated} 
 		chromosomes. 
 			
 \begin{statement}
@@ -470,7 +470,7 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 	segment of a sequence.
 \end{statement}
 	
-	\item [Genome and Mauve Parameters] \emph{Genome} characters are multi-locus, multi-chro-mosomal nucleotide 
+	\item [Genome and Mauve Parameters] \emph{Genome} characters are multi- \\locus, multi-chromosomal nucleotide 
 		sequences, wherein transformations (i.e. indels, substitutions, and rearrangements) are optimized 
 		at the sequence, locus \emph{and} chromosomal level.  Within the genome data file, individual 
 		chromosomes are separated by the at symbol (``$@$'') and the individual chromosomes remain 
@@ -480,30 +480,30 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		using the Mauve parameters \emph{Max. Match, Min. Match, Match Quality} and 
 		\emph {Match Coverage}. Default values for these parameters are provided in the \emph{GUI}.
 		The \emph{Locus Indel} and rearrangement (\emph{Locus Breakpoint} or \emph{Locus Inversion}) 
-		costs are set by the user. The cost of a \emph{Locus Indel} is by default set to 10 plus 0.9 times 
+		costs are set by the user. By default, the cost of a \emph{Locus Indel} is  set to 10 plus 0.9 times 
 		the length of the locus (see the argument~\nccross{locus\_indel} {chromosomelocusindel}  
-		within the 	chromosomal transformation methods of the command \poycommand{transform}). 
-		Rearrangements of homologous regions, as determined  by the Mauve aligner, are then 
-		optimized using either \emph{Locus Breakpoint} or \emph{Locus Inversion} costs 
-		(see the arguments~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} 
-		and~\nccross{locus\_inversion}{chromosomelocusinversion} within the chromosomal 
-		transformation methods of the command \poycommand{transform}). 
+		within the \emph{Chromosome and genome transformation methods} of the command 
+		\poycommand{transform}).  Rearrangements of homologous regions, as determined  
+		by the Mauve aligner, are then optimized using either \emph{Locus Breakpoint} or 
+		\emph{Locus Inversion} costs  (see the arguments~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} 
+		and~\nccross{locus\_inversion}{chromosomelocusinversion} within the \emph{Chromosome 
+		and genome transformation methods} of the command \poycommand{transform}). 
 		The default cost for both is set to 10. A \emph{Median solver} must also be specified for the 
 		optimization of rearrangements. The default median solver is \emph{Caprara}, 
 		but the user can alternatively choose \emph{BBTSP, Coaletsp, 
 		Chainlk, Siepel, Simpllk} and \emph{Vinh} (see the argument~\nccross{median\_solver}
-		{chromosomemediansolver} within the chromosomal transformation methods of the command 
-		\poycommand{transform}).
+		{chromosomemediansolver} within the \emph{Chromosome and genome transformation 
+		methods} of the command \poycommand{transform}).
 		
 		\indent Two other costs must be set for the analysis of this data type--\emph{Translocation} 
 		events and \emph{Chromosome Indel}. The cost of the \emph{Translocation} of a region of one 
-		chromosome to another chromosome is set by default to 10.  The cost of the insertion or deletion
+		chromosome to another chromosome is set to 10 by default.  The cost of the insertion or deletion
 		of an entire chromosome is by default set to 10 plus 0.9 times the length of the chromosome.
 				
 		As with \emph{Chromosome} characters, it is not possible to input pre-aligned data files. 
 		
 	\item [Custom Alphabet Parameters] \emph{Custom Alphabet} characters are \\those that employ
-		a user-specified alphabet. With this data type, only insertion-deletion and transformation
+		a user-specified alphabet. With this data type, only insertion-deletion and substitution
 		events are allowed. \emph{Custom Alphabet} characters can be input as prealigned. Within this 
 		subsection, the user must specify the heuristic \emph{Level} of the median sequence calculation.
 		\emph{Direct Optimization} is employed in median sequence calculation. Because calculating 
@@ -519,50 +519,51 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		argument~\nccross{custom\_alphabet}{customalphabet} within the command 	\poycommand{read}.
 
 	\item [Break Inversion Parameters] \emph{Break Inversion} characters are an enhancement of 				
-		\emph{Custom Alphabet} characters, in which element rearrangements are optimized, as well as
-		 substitutions and indels. The median solvers provided restrict the analysis of prealigned data. 
+		\emph{Custom Alphabet} characters. In addition to allowing substitution and insertion deletion events, 
+		element rearrangements, as well as orientation information can also be optimized.
+		The median solvers provided restrict the analysis of prealigned data. 
 		 The rearrangement costs for \emph{Break Inversion} characters can be optimized using 
 		 either \emph{Breakpoint} or \emph{Locus Inversion} approaches (see the 
 		 arguments~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} and~\nccross{locus\_inversion}
-		 {chromosomelocusinversion} within the chromosomal transformation methods of the command 
+		 {chromosomelocusinversion} within the \emph{Chromosome and genome transformation methods} of the command 
 		 \poycommand{transform}). The default cost for both is set to 10. A \emph{Median solver} must also be 
 		 specified for the optimization of rearrangements. The default median solver is \emph{Caprara}, 
 		 but the user can alternatively choose \emph{BBTSP, Coaletsp, Chainlk, Siepel, Simpllk} and 
-		 \emph{Vinh} (see the argument~\nccross{median\_solver}{chromosomemediansolver} within the 
-		 chromosomal transformation methods of the command \poycommand{transform}).  
+		 \emph{Vinh} (see the argument~\nccross{median\_solver}{chromosomemediansolver}.  
 		 The calculation of median states between 
 		 \emph {Break Inversion} strings becomes more computationally intensive (and time consuming) 
-		 as the number of elements in the alphabet increases, the user should select a heuristic level 
-		 of median calculation appropriate for their data.  The default level is 2.
+		 as the number of elements in the alphabet increases, therefore a single heuristic level 
+		 of median calculation can only be employed for these character types--this default level is 1.
 		 
 		\indent The requirements for \emph{Break Inversion} character types are identical to those for 
 		 \emph{Custom Alphabet} characters, with respect to substitution and indel transformation costs. 
-		 By selecting the Cost Matrix button within this subsection, the user can upload a 
+		 By selecting the  \emph{Cost Matrix} button within this subsection, the user can upload a 
 		 cost matrix to specify these costs. The user should see the argument~\nccross{custom\_alphabet}
 		 {customalphabet} within the command \poycommand{read} for details on the format requirements 
 		 for these cost matrices, which are identical in form to those for \emph{Custom Alphabet} characters.
  	
 	\item [Qualitative Parameters] \emph{Qualitative} data are any non-sequence, prealigned 
-		data type (e.g. morphological, behavioral). These character types are optimized as additive, 
+		data type (e.g. morphology, behavior). These character types are optimized as additive, 
 		non-additive or Sankoff characters and this information must be included in the data file when 
 		using the \emph{Graphical User Interface}.
 
 	\end{description}
 		
 	\hangindent=1cm  \emph{Likelihood Optimality Criterion} Currently, it is only possible to perform 
-	 	a likelihood analysis of DNA sequences (prealigned being permitted), morphology and qualitative 
-		character types. Using the \emph{GUI}, these data can be analyzed with 
-		\texttt{likelihood} only (currently, transformation of the data to \texttt{elikelihood} can not be performed 
+	 	a likelihood analysis of DNA sequences (prealigned being permitted), %morphology 
+		and qualitative 	character types. Using the \emph{GUI}, these data can be analyzed with 
+		\texttt{likelihood} only (currently, transformation of the data to \texttt{elikelihood} cannot be performed 
 		using the \emph{GUI}). More detailed explanations of these options can be found below and in the 
 		\emph{Likelihood transformation methods} section of  ~\ccross{transform}.
 		 In this section the user can specify the \emph{likelihood model} of character 
-		substitution under which the analysis will be performed.  Available models include JC69/Neyman, 
-		F81, K2P/K80, F84, HKY85, TN93, GTR, NCM, AIC, AICc and BIC.  Within this section it is possible to specifies 
+		substitution under which the analysis will be performed.  Available substitution models include JC69/Neyman, 
+		F81, K2P/K80, F84, HKY85, TN93, GTR, and NCM.  Users can also perform phylogenetic model 
+		selection using AIC, AICc and BIC.  Within this section it is possible to specifies 
 		the nature of among-site variation under \emph{Rate Distribution}.  Rate variation distributions allow 
 		multipliers to be applied to separate groups of characters. 
 		   These distributions can be set to \emph{Constant}, \emph{Gamma} (for non-zero 
 		   rate variation) or  \emph{Theta} (for parameterization of invariant sites).  These distribution
-		   values can be specified for all of the provided models. In addition, \emph{Rate Classes} enables the user to 
+		   values can be specified for all of the available models. In addition, \emph{Rate Classes} enables the user to 
 		   specify the number of rate classes for the discrete \emph{Gamma} rate distribution. 
 		   The user can choose between 8 rate classes for either \emph{Gamma} or \emph{Theta}
 		   models (the default is 4).  \emph{Gap Treatment}  specifies the treatment of indels.  There are 
@@ -579,7 +580,6 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		   \emph{estimated}, where the priors are set by their frequency in the data set.  Priors for gaps are estimated 
 		   by the maximum difference in length between input sequences.
 
-
 \begin{description}
 \setlength{\parindent}{0.5cm}	   
         \item[Output Files]
@@ -587,22 +587,26 @@ menu (left) opens the \emph{Simple Search} window options (right).}
         		By default, all of these output options are generated with default names applied.  The names can 
       		then be changed in the generated script or the option can be removed entirely.  As implied by their 
         		respective titles, the \emph{tree} buttons output trees in both parenthetical (best and 
-        		consensus trees) and postscript form (although this button only outputs a postscript file of the optimal trees
+        		consensus trees) and postscript form (although this button only outputs a PDF file of the optimal trees
 		found, a useful commands that the user can include in the generated script is to output 
-		a postscript file of the consensus tree (see the argument~\nccross{graphconsensus}{graphconsensus} 
+		a PDF file of the consensus tree (see the argument~\nccross{graphconsensus}{graphconsensus} 
 		within the command \poycommand{report})). 
         
         		\indent A diagnosis file provides information relating to the analysis. Information in this file includes 
 		the cost of the tree, the rearrangement costs (in the case of the analysis of chromosome, genome and 
 		break inversion data types), as well as information about each resulting node in the tree.  At each node, 
-		the user is provided with a cost of the tree down to that node, a rearrangement cost (if applicable), the ``children'' 
+		the user is provided with a cost of the tree down to that node, a rearrangement cost (if applicable), the ``descendant nodes'' 
 		coming from this node and information concerning individual characters at these nodes.
 		
 		\indent The \emph{Analyzed data information} outputs a summary of the input data. Specifically, 
 		the number of terminals to be analyzed, a list of included terminals with numerical identifications, 
 		list of synonyms (if specified), a list of excluded terminals, the number of included characters in each 
-		character-type category (additive, non-additive, Sankoff and molecular) with the corresponding cost 
+		character-type category (additive, non-additive, Sankoff and sequence) with the corresponding cost 
 		regimes, a list of excluded characters, and a list of input files.    
+		
+		\indent The \emph{Outgroup} field allows the the user to specify the outgroup taxon.  The name of the taxon
+		should reflect the name as interpreted by \poy.  Therefore, the name should take into account synonymy files, 
+		and taxon names that contain commented information via use of a \$ sign (see the argument~\nccross{rename}{rename}).
 \end{description}
 
 \begin{figure}
@@ -628,6 +632,8 @@ The script can be edited by typing in the commands directly in the \emph{Script 
  \emph{Script Editor} window. When the \emph{Run} button is clicked, \poy will issue a
  request to save the script. Thus, not only does \poy execute the script but
  it also creates the record of the type of analysis (including all user-defined specifications) that was performed.
+ Moreover, these scripts can later be executed manually in the \emph{ncurses} or \emph{flat} interfaces, or
+ selected as a script to run in the \emph{Graphical User Interface}.
  
 \subsubsection*{\emph{Timed Search}}
 
@@ -667,17 +673,16 @@ set the maximum time such that the program has a reasonable amount of time to pe
 to have some approximation as to the length of time it would take to perform a single round of searching (e.g. build (1), 
 followed by TBR, ratchet and fusing in the case of a parsimony analysis of DNA sequence data).  Clearly, this is data 
 and optimality criterion dependent.  With this information, the user can then estimate the amount of time necessary to 
-perform a thorough search.  
-
-[Note: The user should also allow some time for the program to collate and write the results to 
-files.  If the user has opted to run this analysis in parallel, this can take some time.]
+perform a thorough search (perhaps 10 times the amount of time it took to perform this single round of build, swap, ratchet
+and fusing).  The user should also allow some time for the program to collate and write the results to 
+files.  If the user has opted to run this analysis in parallel, this can take some time.
 
 \subsubsection*{\emph{Search with Ratchet}}
 
 The parsimony ratchet is a heuristic strategy to escape  local optima during tree searching~\cite{Nixon1999}. The 
 ratchet reweights a given percentage of characters for a specified number of iterations of a search. An analysis is 
-then performed and the resulting tree topology is evaluated using the original data matrix with all characters equally 
-weighted to determine the length of the tree. The \emph{Search with Ratchet} (Figure~\ref{fig:search_with_ratchet_window}) 
+then performed and the resulting tree topology is evaluated using the original data matrix with all characters (with original 
+weights) to determine the length of the tree. The \emph{Search with Ratchet} (Figure~\ref{fig:search_with_ratchet_window}) 
 follows the same basic steps of a simple search but includes the ratchet step after the swap. In addition to the same sequence 
 alignment and search parameters as described for the \emph{Simple Search} window, the \emph{Search Parameters} section 
 provides the following ratchet parameters fields:
@@ -708,8 +713,8 @@ menu (left) and viewing the \emph{Search with Ratchet} window options (right).}
 \subsubsection*{\emph{Search with Perturb}}
 
 \emph{Search with Perturb} (Figure~\ref{fig:search_with_perturb_window}) provides an alternative means to escape local 
-optima by changing the transformation cost matrix of the molecular characters, a procedure similar in spirit to the parsimony 
-ratchet. In addition to the same sequence alignment and search parameters as described for the \emph{Simple Search} 
+optima by changing the transformation cost matrix of the sequence characters, a procedure similar in spirit to the parsimony 
+ratchet. In addition to the same sequence optimization and search parameters as described for the \emph{Simple Search} 
 window, the \emph{Search with Perturb} window provides three extra fields with the parameters for the
 transformation cost matrix perturbation as follows:
 
@@ -741,18 +746,18 @@ i.e. 25\% probability, 2 severity).
 
 \subsubsection{Support calculation options}
 
-It is possible to calculate different support values using this interface.  Two of these measures, Bootstrap and 
+It is possible to calculate several support values using this interface.  Two of these measures, Bootstrap and 
 Jackknife, involve resampling techniques, while the third, Bremer support, is an optimality-based measure based 
 on the cost of the tree. 
 
-Although it is 
-possible to calculate Jackknife and Bootstrap support values for trees constructed using dynamic homology 
-characters, it is highly recommended against doing so as resampling of dynamic characters occurs at the 
-fragment (rather than nucleotide) level.  Consequently, the bootstrap and jackknife support values
+Although it is possible to calculate Jackknife and Bootstrap support values for trees constructed using dynamic homology 
+characters, it is recommended against doing so as resampling of dynamic characters occurs at the 
+fragment, rather than nucleotide, level. Consequently, the bootstrap and jackknife support values
 calculated for dynamic characters are not directly comparable to those calculated based on static 
 character matrices. If it is desired to perform character sampling at the level of individual nucleotides, 
 the dynamic characters must be transformed into static characters using \poyargument{static\_approx}
 argument of the command~\ccross{transform} prior to executing \poycommand{calculate\_support}.
+Of course, if the dataset of dynamic characters contains a large number of fragments, this caveat may not be warranted.
 
 For chromosome and genome character types, only the calculation of Bremer support values is recommended.
 
@@ -764,7 +769,7 @@ input files must contain trees for which support values are going to be calculat
 As a resampling technique, the non-parametric \emph{Bootstrap} resamples the original data (with replacement), 
 creating a simulated dataset equal to the size of the original dataset. The \emph{Bootstrap} window 
 (Figure~\ref{fig:bootstrap}) specifies parameters for estimating the Bootstrap support values. In addition to the 
-\emph{Simple Search} window fields, it contains a a field for the bootstrap parameters, in this case a 
+\emph{Simple Search} window fields, it contains a field for the bootstrap parameters, in this case a 
 \emph{Pseudoreplicates} field, to specify the number of bootstrap pseudoreplicates.
 
 \begin{description}
@@ -815,9 +820,10 @@ viewing the \emph{Jackknife} window options (right).}
 \subsubsection*{\emph{Bremer}}
 
 As an optimality-based measure of calculating tree support, Bremer values are the number of extra steps required before a clade is lost 
-in the most parsimonious or strict consensus of the most parsimonious trees.  There are two ways to determine Bremer support values in \poy.  
-The first way involves performing a series of searches, where each group supported on the examined cladogram is constrained not to occur in 
-the result.  The second way does not involve constraining the tree but collects information for all the clades not present in the visited trees.
+in the most parsimonious or strict consensus of the most parsimonious trees.  Bremer support under likelihood is equivalent 
+to the log of the likelihood ratios for each branch~\cite{Wheeler2006}.  There are two ways to determine Bremer support values in \poy.  
+The first involves performing a series of searches, where each group supported on the examined cladogram is constrained not to occur in 
+the result.  The second does not involve constraining the tree but collects information for all the clades not present in the set visited trees.
 Currently, calculating support via "visited" trees can only be done sequentially and not parallel.
 
 The \emph{Bremer} option (Figure~\ref{fig:search_for_bremer_menu}) is divided into two windows: the \emph{Search for Bremer} 
@@ -961,13 +967,13 @@ This section will illustrate how to input data files, check the data you are ana
 swapping to find a local optimum, and, finally, produce and visualize the resultant trees, their strict consensus, and generate support 
 values in a command-line environment rather than using a \emph{Graphical User Interface}. 
 
-For the purpose of this exercise, three data files are used available at \\
+For the purpose of this exercise, two data files are used available at \\
 \begin{center}
 \url{http://research.amnh.org/scicomp/projects/poy.php}
 \end{center}
 
 \begin{itemize}
-	\item {\texttt{18s.fas} and \texttt{28s.fas} contain unaligned DNA sequences (partial 18S and 28S ribosomal RNA) 
+	\item {\texttt{28s.fas} contains unaligned DNA sequences (partial 28S ribosomal RNA) 
 	in FASTA format.~\cite{pearson1988}}
 	\item {\texttt{morpho.ss} contains a morphological data matrix in Hennig86 format.~\cite{farris1988}}
 \end{itemize}
@@ -979,7 +985,7 @@ the command \commandstyle{help} (see Section~\ref{sec:help} to learn more about 
 \subsection{The interface}
 
 The \emph{Interactive Console} provides a terminal environment with enhanced ability to display the results and the state 
-of the analysis. It is recommended to use the console to explore and verify the data in the early steps of the analysis, and 
+of the analysis. We recommend the use of the console to explore and verify the data in the early steps of the analysis, and 
 to learn the scripting language. Using the console requires familiarity with \poy commands, their arguments, and the 
 conventions of \poy scripting (which are discussed in the \emph{POY Commands} chapter). It has four windows: 
 \emph{POY Output}, \emph{Interactive Console}, \emph{State of Stored Search}, and \emph{Current Job} (Figure \ref{fig:figinterface}):
@@ -1056,14 +1062,14 @@ is completed, the box is blank.
 	   	\subsubsection*{Linux}
 	\end{minipage}
 	\begin{itemize}
-    		\item Add \texttt{/opt/poy5/Resources/} to your \texttt{PATH} and run
+    		\item Add \texttt{/opt/poy5/Resources/} (or the location you plan to install) to your \texttt{PATH} and run
     \texttt{ncurses\_poy} from a terminal.
     	\end{itemize}
 \end{flushleft}
 
 \subsection{Entering commands}
 Once this \poy interface is opened, the cursor appears in the \emph{Interactive Console} portion of the window 
-and is ready to accept commands. The \emph{Interactive Console} does not support using the mouse and, as true for most 
+and is ready to accept commands. The \emph{Interactive Console} does not support using the mouse and, as is true for most 
 command-line applications, the cursor can be moved using the left and right arrow keys, and the Backspace (in Windows) 
 or Delete (in Mac) keys are used to erase individual characters to the left of the current cursor position. To eliminate 
 the need of retyping commands anew during a \poy session, keyboard shortcuts can be used: control-P (``previous'') 
@@ -1074,7 +1080,7 @@ repeatedly pressing the TAB key scrolls through the list of command, argument, a
 letter or phrase. Autocomplete speeds up interaction with the program.
 
 \subsection{Browsing the output}
-As more output is reported in the \emph{POY Output} window, only the most recent reports will be seen in the window. 
+As output is reported in the \emph{POY Output} window, only the most recent reports will be seen in the window. 
 Using the Up and Down keys allows the user to scroll up and down the \emph{POY Output} window to see the welcome 
 line, and previously printed reports and help descriptions. Pressing Up and Down keys automatically places the cursor in 
 the lower left corner of the \emph{POY Output} window indicating that you are interacting with that window. Only 1000 
@@ -1117,7 +1123,7 @@ in this case \commandstyle{read}, followed by an optional list of arguments sepa
 parentheses. All filenames read into \poy should include the appropriate suffix for the file type (e.g. .fas, .ss, .aln, .tre etc:).  
 Typically, the arguments of the command \commandstyle{read()} are names of data files, each being enclosed in double 
 quotes (as shown in the example above). Even though there might be only one argument or none in some commands, 
-parentheses (e.g. \poycommand{read()}) always follow the command name. An exhaustive discussion of \poy command 
+parentheses (e.g. \poycommand{pwd()}) always follow the command name. An exhaustive discussion of \poy command 
 structure and detailed descriptions of all commands with examples of their usage are provided in the \emph{POY Commands} 
 chapter (\ref{commands}).
 
@@ -1185,14 +1191,14 @@ memory using use the command \commandstyle{wipe()}.
 
 Valid input files include nucleotide and amino acid sequence files in many formats,
 and morphological data in Hennig86 and Nexus formats. (For information on specific formats supported by \poy and 
-other types of input files see \commandstyle{help(read)}.)
+other types of input files see ~\ccross{read}.)
 
 \subsection{Inspecting data}
 
 Once a dataset (or multiple datasets) is imported, \poy automatically reports a brief description of contents for each loaded 
 file in the \emph{POY Output} (Figure ~\ref{fig:readingexample}). However, it may be desirable to inspect the imported 
 data in greater detail to ensure that the format and contents of the files have been interpreted correctly. This practice helps 
-to avoid common errors, such as inconsistently spelled terminal names, which may result in bogus results, produce error 
+avoid common errors, such as inconsistently spelled terminal names, which may result in bogus results, produce error 
 messages, and aborted jobs.
 
 The basic command for outputting information is \commandstyle{report()}. One of its arguments, \commandstyle{data}, 
@@ -1254,22 +1260,22 @@ sequence of commands:
     \label{fig:crossref}
 \end{figure}
 
-A typical output of \commandstyle{cross\_references} command is shown in Figure ~\ref{fig:crossref}. The reported cross 
-references Performing a
-cross references of all the imported data files is an extremely useful tool
+A typical output of \commandstyle{cross\_references} command is shown in Figure ~\ref{fig:crossref}. This argument 
+is a very useful tool for visual representation of missing data. Moreover, reporting all the data to a cross references file 
+can also highlight inconsistencies in the spelling of taxon names in different data files.
 
 
 \subsection{Building the initial trees}
 
 The command to build trees is \commandstyle{build()} (already mentioned in Section~\ref{sec:import}). After 
 importing \texttt{morpho.ss} and \texttt{28s.fas}, executing the command \commandstyle{build()} without specifying 
-any arguments (default settings) generates 10 trees by random addition sequence.
+any arguments (default settings) generates 10 Wagner trees by random addition sequence.
 
 Many \poy commands operate under default settings when executed without arguments. To learn what the default settings 
-are for a particular command, use either \commandstyle{help()} command with the command name of interest inserted in 
-parentheses or consult the \emph{POY Commands} chapter (\ref{commands}).
+are for a particular command use either \commandstyle{help()} command with the command name of interest inserted in parentheses or 
+consult the \emph{POY Commands} chapter (\ref{commands}).
 
-If the user would like to specify a number of tree building replicates different from the default value of 10, an argument 
+If the user would like to specify a number of tree building replicates different from the default value of 10, the argument 
 \commandstyle{trees} followed by a colon (``:'') and an integer specifying the number of trees must be included in the 
 argument list of the \commandstyle{build} command: \commandstyle{build(trees:100)}. This command has a shortcut 
 that omits the argument \commandstyle{trees}. Thus, \commandstyle{build(trees:100)} is equivalent to \commandstyle{build(100)}. 
@@ -1298,7 +1304,7 @@ This window shows how many Wagner builds have been performed out of the total nu
    	\end{minipage}
 \caption{Generating Wagner trees. During the process of tree building (left panel), the \emph{Current Job} window 
 displays how many builds have been performed so far (\texttt{57 of 100}), the number of terminals added in the current 
-build (\texttt{13 of 17}), a cost of a current tree recalculated after each terminal addition (\texttt{362}), and the estimated
+build (\texttt{13 of 17}), the cost of a current tree recalculated after each terminal addition (\texttt{362}), and the estimated
  time (in seconds) for the completion of the operation (\texttt{4 s}). Because the process is not complete, the 
  \emph{State of Stored Search} window contains no trees. Once tree building is complete, the \emph{State of Stored Search} 
  window displays the best (\texttt{451}) and worst (\texttt{472}) costs, the number of trees stored in memory (\texttt{100}), 
@@ -1324,7 +1330,7 @@ Branch swapping is performed sequentially on all trees stored in memory. During 
 window reports the number of the tree that is currently being analyzed, the method of branch swapping, the specific 
 routine being currently performed, and the cost of the current tree (Figure~\ref{fig:swapping}). When the process is 
 complete, the \emph{State of Stored Search} window displays the range of tree costs (the best and worst costs), the 
-number of trees stored in memory, and the number of trees of the best cost (Figure~\ref{fig:swapping}). Notice that the 
+number of trees stored in memory, and the number of trees with the best cost (Figure~\ref{fig:swapping}). Notice that the 
 local search had reduced the costs of the initial best (from 451 to 446) and narrowed the range of tree costs.
 
 \begin{figure}
@@ -1341,12 +1347,12 @@ of the tree that is currently being analyzed (\texttt{73 of 100}), a method of b
 function being currently performed (\texttt{SPR search}), and a cost of the current tree (\texttt{456}). When the 
 searching is finished (right panel), the \emph{State of Stored Search} window displays the best (\texttt{446}) and 
 worst (\texttt{463}) costs, the number of trees stored in memory (\texttt{100}), and the number of trees of the best 
-cost cost (\texttt{9}) recovered from independent tree builds. Notice that these trees may not necessarily have unique topologies.} 
+cost (\texttt{9}) recovered from independent tree builds. Notice that these trees may not necessarily have unique topologies.} 
 \label{fig:swapping}
 \end{figure}
 
-Using different combinations of \commandstyle{swap()} arguments allows designing a  large number of search 
-strategies of different levels of complexity. Some simple options allow the choice between SPR and TBR. More 
+Using different combinations of \commandstyle{swap()} arguments allow the designation of a  large number of search 
+strategies with different levels of complexity. Some simple options allow the choice between SPR and TBR. More 
 complex strategies allow keeping a specific number of best trees per single initial tree (generated during the building step). 
 For example, the command \commandstyle{swap(trees:10)} will keep up to 10 best trees generated during branch swapping 
 on a single initial tree. Consequently, if 100 trees were built initially, this command will produce up to 1,000 trees. The 
@@ -1371,7 +1377,7 @@ Adding \commandstyle{select()} to our example of command sequence for the basic 
 selects only unique trees of best cost. The remaining trees are deleted from memory. The \emph{State of Stored Search} 
 window reports the number and the cost of the best tree(s) (Figure~\ref{fig:select}).
 
-As an alternative, the user may use to select topologically unique trees, regardless of the cost, using 
+As an alternative, the user may choose to select topologically unique trees, regardless of the cost, using 
 \texttt{select(unique)}.  This may ensure that a larger tree space is explored.  If this is used as an option during the 
 search, the user should remember to  \commandstyle{select()} at the end of the run, prior to reporting the results.
 
@@ -1384,7 +1390,7 @@ search, the user should remember to  \commandstyle{select()} at the end of the r
     \label{fig:select}
 \end{figure}
 
-This command \commandstyle{select()}, is another multifunctional command the arguments of which are also used to 
+The command \commandstyle{select()}, is another multifunctional command the arguments of which are also used to 
 select (include or exclude) specific terminals, characters, and trees.) Comparing the output reported in the 
 \emph{State of Stored Search} before (Figure~\ref{fig:swapping}) and after (Figure~\ref{fig:select}) executing 
 \commandstyle{select()} shows that swapping on 9 of 100 initial trees produced the trees of best cost (\texttt{446}), 
@@ -1392,10 +1398,10 @@ but these trees are identical, because only one was retained when filtered using
 
 \subsection{Visualizing the results}
 
-There are several options for visualizing results in \poy (see Section \ref{report}). The command
+There are several options for visualizing results in \poy (see~\ccross{report}). The command
 \commandstyle{report("my\_first\_tree", graphtrees)} outputs a cladogram in PDF format (Figure~\ref{fig:trees}), 
 which can be displayed, edited, and printed using graphics software (such as Adobe Illustrator or Corel Draw). 
-\poy also appends the ``ps'' extension when generating graphic output to a file. A quick way to see the tree(s) on screen 
+\poy also appends the ``pdf'' extension when generating graphic output to a file. A quick way to see the tree(s) on screen 
 is to use the command \commandstyle{report(asciitrees)} that draws a cladogram in the \emph{POY Output} window 
 (Figure~\ref{fig:trees}). The ascii tree(s) can also be reported to a file, if an output file name is specified within the 
 command (\commandstyle{report("my\_first\_trees", asciitrees)}).  These trees will be saved to a text file.
@@ -1434,7 +1440,7 @@ and
 
 \begin{quote}
  	\commandstyle{read("morpho.ss") <ENTER>} \\
-	\commandstyle{read("28s.fas", "18s.fas") <CONTROL-C>} \\
+	\commandstyle{read("28s.fas") <CONTROL-C>} \\
 \end{quote}
 
 In both of these sessions, only the morphological dataset \texttt{``morpho.ss''} is read into \poy.
@@ -1555,9 +1561,9 @@ To obtain help on a particular command, the name of the command must be specifie
 communicate with \poy developers on specific issues (see \emph{WWW resources} below). The website is 
 located at \url{http://groups.google.com/group/poy5}. 
 \item[POY Book] (Wheeler et al., 2006 \emph{Dynamic Homology and Phylogenetic Systematics: A Unified 
-Approach Using POY \cite{wheeleretal2006}}) provides a review of the theory behind \texttt{POY4} and by extension \poy, and contains 
+Approach Using POY} \cite{wheeleretal2006}) provides a review of the theory behind \texttt{POY4} and by extension \poy, and contains 
 formal descriptions of many algorithms implemented in the program and the descriptions of commands of the earlier version, \texttt{POY3}.
-\item[POY Paper] (Var\'on et al., 2010. \emph{POY version 4: Phylogenetic analysis using dynamic homologies \cite{Varonetal2010}} 
+\item[POY Paper] (Var\'on et al., 2010. \emph{POY version 4: Phylogenetic analysis using dynamic homologies} \cite{Varonetal2010} 
 provides a description of the overall goals, implementation and philosophy of POY.
 
 \begin{figure}[htbp]
