@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let debug = false
+let debug = true
 
 type parsed = 
     | Word of string
@@ -68,38 +68,38 @@ let string_of_parsed ?(sep=", ") lst =
 
 let rec produce_latex channel data =
     let o str = output_string channel str in
-    let rec produce_latex = function
+    let rec produce_latex x = match x with
         | (Command ("begin", (Word h :: tl))) as command ->
             begin match h with
                 | "command" ->
-                    if debug then print_parsed command;
                     begin match tl with
                         | h::_ -> o "@]\n\n.\n"; produce_latex h; o "\n@[<v 2>"
                         | []   -> failwith "command with no args?"
                     end
-                | "description" -> o "@,@[<v 2>@,@["
+                | "description" ->
+                    o "@,@[<v 2>@,@["
                 | "poydescription" ->
                     o "@,@[<v 2>@{<c:cyan>Description@}@,@,@["
-                | "arguments" ->
-                    o "@,@,@[<v 2>@{<c:cyan>Arguments@}@,@,@[<v>"
-                | "argumentgroup" ->
-                    begin match tl with
-                        | [title ; description] ->
-                            o "@,@[<v 2>@{<c:cyan>@[";
-                            produce_latex title;
-                            o "@]@}@,@[";
-                            produce_latex description
-                        | [title] ->
-                            o "@,@[<v 2>@{<c:cyan>@[";
-                            produce_latex title;
-                            o "@]@}@,@["
-                        | x ->
-                            failwithf "I found argument group with %d args, %s"
-                                        (List.length x) (string_of_parsed tl)
-                    end
-                | "statement" -> o "@,@[@,@["
-                | "poyexamples" -> o "@,@[<v 2>@{<c:cyan>Examples@}@,@,@[<v>"
-                | "poyalso" -> o "@,@[<v 2>@[@{<c:cyan>See Also@}@]@,@,@[<v>"
+(*                | "arguments" ->*)
+(*                    o "@,@,@[<v 2>@{<c:cyan>Arguments@}@,@,@[<v>"*)
+(*                | "argumentgroup" ->*)
+(*                    begin match tl with*)
+(*                        | [title ; description] ->*)
+(*                            o "@,@[<v 2>@{<c:cyan>@[";*)
+(*                            produce_latex title;*)
+(*                            o "@]@}@,@[";*)
+(*                            produce_latex description*)
+(*                        | [title] ->*)
+(*                            o "@,@[<v 2>@{<c:cyan>@[";*)
+(*                            produce_latex title;*)
+(*                            o "@]@}@,@["*)
+(*                        | x ->*)
+(*                            failwithf "I found argument group with %d args, %s"*)
+(*                                        (List.length x) (string_of_parsed tl)*)
+(*                    end*)
+(*                | "statement" -> o "@,@[@,@["*)
+(*                | "poyexamples" -> o "@,@[<v 2>@{<c:cyan>Examples@}@,@,@[<v>"*)
+(*                | "poyalso" -> o "@,@[<v 2>@[@{<c:cyan>See Also@}@]@,@,@[<v>"*)
                 | "flushleft"
                 | "center" -> o "@[<v 2>@,@[" 
                 | "atsymbol" -> o "@@"
@@ -109,19 +109,19 @@ let rec produce_latex channel data =
         | Command (h, []) when h = "" -> ()
         | Command (h, []) when h.[0] = '_' -> o h
         | Command ("end", [Word h]) -> o "@]@]@,"
-        | Command ("argumentdefinition", [com ; args ; definition ; cross_reference]) ->
-            o "@[<v 2>@,@[@{<c:yellow>";
-            produce_latex com;
-            produce_latex args;
-            o "@}@]@,@[";
-            produce_latex definition;
-            o "@]@]@,"
-        | Command ("poydefaults", [args; descr]) ->
-            o "@,@,@[<v 2>@{<c:cyan>Defaults@}@,@,@[";
-            produce_latex args;
-            o "@]@,@[";
-            produce_latex descr;
-            o "@]@]@,"
+(*        | Command ("argumentdefinition", [com ; args ; definition ; cross_reference]) ->*)
+(*            o "@[<v 2>@,@[@{<c:yellow>";*)
+(*            produce_latex com;*)
+(*            produce_latex args;*)
+(*            o "@}@]@,@[";*)
+(*            produce_latex definition;*)
+(*            o "@]@]@,"*)
+(*        | Command ("poydefaults", [args; descr]) ->*)
+(*            o "@,@,@[<v 2>@{<c:cyan>Defaults@}@,@,@[";*)
+(*            produce_latex args;*)
+(*            o "@]@,@[";*)
+(*            produce_latex descr;*)
+(*            o "@]@]@,"*)
         | Command ("obligatory", [arg]) -> 
             o ": ";
             produce_latex arg
@@ -129,22 +129,22 @@ let rec produce_latex channel data =
             o "[: ";
             produce_latex arg;
             o "]";
-        | Command ("poyexample", [example; explanation]) ->
-            o "@[<v 2>@[@{<c:green>";
-            produce_latex example;
-            o "@}@]@,@[";
-            produce_latex explanation;
-            o " @]@]@,@,@?"
-        | Command ("ncross", [arg; _])
-        | Command ("cross", [arg]) ->
-            o "@["; produce_latex arg; o "@]@,"
+(*        | Command ("poyexample", [example; explanation]) ->*)
+(*            o "@[<v 2>@[@{<c:green>";*)
+(*            produce_latex example;*)
+(*            o "@}@]@,@[";*)
+(*            produce_latex explanation;*)
+(*            o " @]@]@,@,@?"*)
+(*        | Command ("ncross", [arg; _])*)
+(*        | Command ("cross", [arg]) ->*)
+(*            o "@["; produce_latex arg; o "@]@,"*)
         | Command ("poycommand", arg) ->
             o "@[<h>"; List.iter produce_latex arg; o " @]"
-        | Command ("ccross", [Word arg])
-        | Command ("nccross", [Word arg; _]) ->
-            o (arg ^ " (see help (" ^ arg ^ ")) ");
+(*        | Command ("ccross", [Word arg])*)
+(*        | Command ("nccross", [Word arg; _]) ->*)
+(*            o (arg ^ " (see help (" ^ arg ^ ")) ");*)
         | Command _ -> ()
-        | Text lst -> 
+        | Text lst ->
             List.iter produce_latex lst
         | Word x -> 
             if x <> "~" then o x
@@ -441,13 +441,13 @@ let process_file parsed mode output_file =
             Taran Grant, and William Leo Smith.\n.RS\n\n"
     | `OnlineHelp ->
         o (".\nauthors\n@[<v 2> POY was written by Andres Varon, Lin Hong, \
-            Nicholas LUcaroni, and Ward Wheeler.This manual page was written \
+            Nicholas Lucaroni, and Ward Wheeler.This manual page was written \
             by Andres Varon, Lin Hong, Nicholas Lucaroni, Ward Wheeler\
             Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
             Taran Grant, and William Leo Smith.@]\n\n");
-        o (".\ncopyright\n@[<v 2>"^ Version.copyright_authors ^ Version.warrenty_information  ^"@]");
+        o (".\ncopyright\n@[<v 2>"^ Version.copyright_authors ^ Version.warrenty_information  ^"@]\n\n");
+        o (".\nversion\n@[<v 2> "^ Version.copyright_authors ^ Version.compile_information ^ "@]\n\n");
         process parsed mode channel;
-        o ("\n\n.\nversion\n@[<v 2> "^ Version.copyright_authors ^ Version.compile_information ^ "@]");
         ()
 
 let () = 
