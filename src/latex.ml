@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let debug = true
+let debug = false
 
 type parsed = 
     | Word of string
@@ -69,37 +69,39 @@ let string_of_parsed ?(sep=", ") lst =
 let rec produce_latex channel data =
     let o str = output_string channel str in
     let rec produce_latex x = match x with
-        | (Command ("begin", (Word h :: tl))) as command ->
+        | (Command ("begin", (Word h :: tl))) ->
             begin match h with
                 | "command" ->
                     begin match tl with
                         | h::_ -> o "@]\n\n.\n"; produce_latex h; o "\n@[<v 2>"
                         | []   -> failwith "command with no args?"
                     end
+                | "syntax" ->
+                    o "@,@,@[<v 2>@{<c:cyan>Syntax@}@,@,@[<v>"
                 | "description" ->
                     o "@,@[<v 2>@,@["
                 | "poydescription" ->
                     o "@,@[<v 2>@{<c:cyan>Description@}@,@,@["
-(*                | "arguments" ->*)
-(*                    o "@,@,@[<v 2>@{<c:cyan>Arguments@}@,@,@[<v>"*)
-(*                | "argumentgroup" ->*)
-(*                    begin match tl with*)
-(*                        | [title ; description] ->*)
-(*                            o "@,@[<v 2>@{<c:cyan>@[";*)
-(*                            produce_latex title;*)
-(*                            o "@]@}@,@[";*)
-(*                            produce_latex description*)
-(*                        | [title] ->*)
-(*                            o "@,@[<v 2>@{<c:cyan>@[";*)
-(*                            produce_latex title;*)
-(*                            o "@]@}@,@["*)
-(*                        | x ->*)
-(*                            failwithf "I found argument group with %d args, %s"*)
-(*                                        (List.length x) (string_of_parsed tl)*)
-(*                    end*)
-(*                | "statement" -> o "@,@[@,@["*)
-(*                | "poyexamples" -> o "@,@[<v 2>@{<c:cyan>Examples@}@,@,@[<v>"*)
-(*                | "poyalso" -> o "@,@[<v 2>@[@{<c:cyan>See Also@}@]@,@,@[<v>"*)
+                | "arguments" ->
+                    o "@,@,@[<v 2>@{<c:cyan>Arguments@}@,@,@[<v>"
+                | "argumentgroup" ->
+                    begin match tl with
+                        | [title ; description] ->
+                            o "@,@[<v 2>@{<c:cyan>@[";
+                            produce_latex title;
+                            o "@]@}@,@[";
+                            produce_latex description
+                        | [title] ->
+                            o "@,@[<v 2>@{<c:cyan>@[";
+                            produce_latex title;
+                            o "@]@}@,@["
+                        | x ->
+                            failwithf "I found argument group with %d args, %s"
+                                        (List.length x) (string_of_parsed tl)
+                    end
+                | "statement" -> o "@,@[@,@["
+                | "poyexamples" -> o "@,@[<v 2>@{<c:cyan>Examples@}@,@,@[<v>"
+                | "poyalso" -> o "@,@[<v 2>@[@{<c:cyan>See Also@}@]@,@,@[<v>"
                 | "flushleft"
                 | "center" -> o "@[<v 2>@,@[" 
                 | "atsymbol" -> o "@@"
@@ -109,19 +111,19 @@ let rec produce_latex channel data =
         | Command (h, []) when h = "" -> ()
         | Command (h, []) when h.[0] = '_' -> o h
         | Command ("end", [Word h]) -> o "@]@]@,"
-(*        | Command ("argumentdefinition", [com ; args ; definition ; cross_reference]) ->*)
-(*            o "@[<v 2>@,@[@{<c:yellow>";*)
-(*            produce_latex com;*)
-(*            produce_latex args;*)
-(*            o "@}@]@,@[";*)
-(*            produce_latex definition;*)
-(*            o "@]@]@,"*)
-(*        | Command ("poydefaults", [args; descr]) ->*)
-(*            o "@,@,@[<v 2>@{<c:cyan>Defaults@}@,@,@[";*)
-(*            produce_latex args;*)
-(*            o "@]@,@[";*)
-(*            produce_latex descr;*)
-(*            o "@]@]@,"*)
+        | Command ("argumentdefinition", [com ; args ; definition ; cross_reference]) ->
+            o "@[<v 2>@,@[@{<c:yellow>";
+            produce_latex com;
+            produce_latex args;
+            o "@}@]@,@[";
+            produce_latex definition;
+            o "@]@]@,"
+        | Command ("poydefaults", [args; descr]) ->
+            o "@,@,@[<v 2>@{<c:cyan>Defaults@}@,@,@[";
+            produce_latex args;
+            o "@]@,@[";
+            produce_latex descr;
+            o "@]@]@,"
         | Command ("obligatory", [arg]) -> 
             o ": ";
             produce_latex arg
@@ -129,20 +131,20 @@ let rec produce_latex channel data =
             o "[: ";
             produce_latex arg;
             o "]";
-(*        | Command ("poyexample", [example; explanation]) ->*)
-(*            o "@[<v 2>@[@{<c:green>";*)
-(*            produce_latex example;*)
-(*            o "@}@]@,@[";*)
-(*            produce_latex explanation;*)
-(*            o " @]@]@,@,@?"*)
-(*        | Command ("ncross", [arg; _])*)
-(*        | Command ("cross", [arg]) ->*)
-(*            o "@["; produce_latex arg; o "@]@,"*)
+        | Command ("poyexample", [example; explanation]) ->
+            o "@[<v 2>@[@{<c:green>";
+            produce_latex example;
+            o "@}@]@,@[";
+            produce_latex explanation;
+            o " @]@]@,@,@?"
+        | Command ("ncross", [arg; _])
+        | Command ("cross", [arg]) ->
+            o "@["; produce_latex arg; o "@]@,"
         | Command ("poycommand", arg) ->
             o "@[<h>"; List.iter produce_latex arg; o " @]"
-(*        | Command ("ccross", [Word arg])*)
-(*        | Command ("nccross", [Word arg; _]) ->*)
-(*            o (arg ^ " (see help (" ^ arg ^ ")) ");*)
+        | Command ("ccross", [Word arg])
+        | Command ("nccross", [Word arg; _]) ->
+            o (arg ^ " (see help (" ^ arg ^ ")) ");
         | Command _ -> ()
         | Text lst ->
             List.iter produce_latex lst
@@ -170,6 +172,8 @@ let rec produce_troff channel data =
                         o "\n.P\n"
                 | "poydescription" ->
                         o "\n.SS Description\n"
+                | "syntax" ->
+                        o "\n. Syntax\n"
                 | "arguments" ->
                         o "\n.SS Arguments\n"
                 | "argumentgroup" ->
@@ -275,8 +279,7 @@ let rec collapse = function
     | Command (a, b) ->
             Command (a, List.map collapse b)
 
-let rec flatten x =
-    match x with
+let rec flatten x = match x with
     | ((Comment _) as h) :: t 
     | ((WordNoSpace _) as h) :: t 
     | ((Word _) as h) :: t -> h :: (flatten t)
@@ -310,6 +313,30 @@ let rec the_parser mode fstream =
     let is_command fstream = 
         fstream#skip_ws_nl;
         fstream#match_prefix "\\"
+    in
+    let is_escape_underscore fstream =
+        fstream#skip_ws_nl;
+        if fstream#match_prefix "\\" then
+            if fstream#match_prefix "_" then
+                true
+            else begin
+                fstream#putback '\\';
+                false
+            end
+        else
+            false
+    in
+    let is_escape fstream =
+        fstream#skip_ws_nl;
+        if fstream#match_prefix "\\" then
+            if fstream#match_prefix "\\" then
+                true
+            else begin
+                fstream#putback '\\';
+                false
+            end
+        else
+            false
     in
     let is_comment fstream = 
         fstream#skip_ws_nl;
@@ -361,7 +388,7 @@ let rec the_parser mode fstream =
         Text [Word cmd]
     and get_comment fstream =
         fstream#skip_ws_nl;
-        let comment = fstream#read_excl ['%';'\n';'\013';'\010'] in
+        let comment = fstream#read_excl ['\n';'\013';'\010'] in
         Comment comment
     in
     let rec split_on_commands acc fstream = 
@@ -377,6 +404,10 @@ let rec the_parser mode fstream =
             split_on_commands ((Text [Word brstr]) :: acc) fstream
         else if is_comment fstream then
             split_on_commands ((get_comment fstream) :: acc) fstream
+        else if is_escape fstream then
+            split_on_commands acc fstream
+        else if is_escape_underscore fstream then
+            split_on_commands ((Word "_")::acc) fstream
         else if is_command fstream then
             split_on_commands ((get_comm fstream) :: acc) fstream
         else if is_enclosed fstream then
