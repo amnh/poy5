@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 3160 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 3176 $"
 
 let ndebug = true
 
@@ -482,7 +482,7 @@ struct
 
     (** [optimize_tree_and_report o t c] Report and generate the best tree by
         composing the models for each character. *)
-    let optimize_tree_and_report report_table status t ((chars,_,_,_,_,_,_) as x) =
+    let optimize_tree_and_report report_table status t ((chr,_,_,_,_,_,_) as x) =
         let replace_chars_in_spec z (_,a,b,c,d,e,f) = (z,a,b,c,d,e,f)
         and table_out = match report_table with
             | None   -> (fun _ _ -> ())
@@ -490,12 +490,12 @@ struct
         in
         (* fold over each character, optimizing it, while setting
             other-character weights to 0 *)
-        let optimize_tree weights t charss = 
+        let optimize_tree weights t charss =
             let status = status (List.length charss) in
             List.fold_left
                 (fun (i,t) ((s,c) : int * Data.bool_characters) ->
                     let x  = replace_chars_in_spec c x in
-                    let t  = set_characters_weight t weights chars c in
+                    let t  = set_characters_weight t weights chr c in
                     let s  = generate_stats t x in
                     let () = table_out s c in
                     let t  = best_model s in
@@ -507,12 +507,13 @@ struct
         in
         let data,nodes =
             let data = Data.transform_weight (`ReWeight (`All ,0.0)) (Ptree.get_data t) in
-            let c = Data.categorize_characters_by_alphabet_size_comp data chars in
             let weights = collect_character_weights t in
-            c   --> optimize_tree weights (Ptree.set_data t data)  
+            chr --> Data.categorize_characters_by_alphabet_size_comp data
+                --> List.filter (fun (_,x) -> not (Data.is_absent_present_characters_comp data x))
+                --> optimize_tree weights (Ptree.set_data t data)
                 --> reweight_characters weights `All
                 --> Ptree.get_data
-                --> Data.transform_weight (`ReWeight (chars,1.0))
+                --> Data.transform_weight (`ReWeight (chr,1.0))
                 --> Data.categorize
                 --> Node.load_data
         in

@@ -1142,9 +1142,26 @@ module CharacterSelection = struct
     
     let categorize_characters_by_alphabet_size_comp data (chars:bool_characters) =
         List.map
-            (fun (s,c) -> match c with
+            ~f:(fun (s,c) -> match c with
                 | `Some c -> (s,`Some (true,c)) | _ -> assert false)
             (character_comp_wrapper categorize_characters_by_alphabet_size data chars)
+
+    let is_absent_present_characters_comp data chars =
+        let absent_present enc =
+            try let () = ignore (Alphabet.match_base "present" enc.Nexus.File.st_alph)
+                and () = ignore (Alphabet.match_base "absent"  enc.Nexus.File.st_alph) in
+                true
+            with _ -> false
+        in
+        List.fold_left
+            ~f:(fun cc k -> match Hashtbl.find data.character_specs k with
+                | Static (NexusFile enc) when absent_present enc -> cc
+                | Static (NexusFile _)
+                | Static (FixedStates _)
+                | Dynamic _ | Set | Kolmogorov _ -> false)
+            ~init:true
+            (get_chars_codes_comp data chars)
+
 end
 include CharacterSelection
 open CharacterSelection

@@ -451,6 +451,7 @@ val categorize_characters_by_alphabet_size_comp :
 val categorize_characters_by_alphabet_size : 
     d -> characters -> (int * characters) list
 
+val is_absent_present_characters_comp : d -> bool_characters -> bool
 
 val make_set_partitions : bool -> d -> string -> Methods.characters -> d
 
