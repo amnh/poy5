@@ -6,6 +6,12 @@ New Features:
 Bugs Fixed:
     - Selecting terminals caused an error in ncurses display when writing to an
       incorrect window (Louise Crowley).
+    - Transforming to likelihood under a model selection criteria (aic,aicc,bic)
+      from a tcm under parsimony with different gap cost than substitution cost.
+      Resulted in failure with some added data that represents the cost of a gap
+      which should be filtered from the transformation, as other likelihood
+      transformations on those characters do.
+
 
 New Commands (see manual for full explanations) :
 
