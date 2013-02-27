@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3160 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3195 $"
 
 open Numerical.FPInfix
 
@@ -37,7 +37,7 @@ let lfailwith () =
 
 let dyno_likelihood_warning = 
     "Gap as an additional character is required for the dynamic "^
-    "likelihood criteria. Please add argument gap:(coupled), or gap:(character)."
+    "likelihood criteria. Please add argument gap:coupled, or gap:character."
 
 let dyno_gamma_warning = 
     "Gamma classes for dynamic MPL are un-necessary, and are being removed."
