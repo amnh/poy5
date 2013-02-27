@@ -1,3 +1,22 @@
+CHANGES BETWEEN 5.0 beta1 and 5.0 beta2
+
+New Features:
+
+
+Bugs Fixed:
+    - Selecting terminals caused an error in ncurses display when writing to an
+      incorrect window (Louise Crowley).
+
+New Commands (see manual for full explanations) :
+
+
+Changed Commands (see manual for full explanations) :
+
+
+Known Issues :
+ 
+
+
 CHANGES BETWEEN 5.0 alpha3 and 5.0 beta
 
 New Features:

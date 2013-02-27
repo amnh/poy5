@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3160 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3190 $"
 
 let (-->) a b = b a
 
@@ -1951,7 +1951,7 @@ let process_characters_handling (run : r) meth =
                 in
                 List.fold_left process run.data syns, false
         | `AnalyzeOnlyCharacterFiles (dont_complement, files) ->
-                Data.process_analyze_only_characters_file true dont_complement run.data files, 
+                Data.process_analyze_only_characters_file true dont_complement run.data files,
                 true
         | `AnalyzeOnlyCharacters c ->
                 let c = Data.get_chars_codes_comp run.data c in
@@ -1962,7 +1962,8 @@ let process_characters_handling (run : r) meth =
     if do_nodes then
         let data, nodes = Node.load_data data in
         { run with nodes = nodes; data = data }
-    else  { run with data = data }
+    else
+        { run with data = data }
 
 let ( --> ) a b = b a 
 
@@ -1998,7 +1999,7 @@ let process_taxon_filter (run : r) meth =
         let data, nodes = Node.load_data data in
         let () =
             Printf.ksprintf
-                (Status.user_message Status.Status)
+                (Status.user_message Status.Information)
                 ("Selected %d of %d terminals")
                 (List.length nodes)  (run.data.Data.number_of_taxa)
         in

@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 3160 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 3190 $"
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 3160 $"
+let failwithf format = Printf.ksprintf failwith format
 
 type tab_state = Begin | First | Continue
 
@@ -502,11 +502,11 @@ let eliminate_status_subwindow status =
 
 let use_colors = ref false
 
-let formatter_of_type = function
-    | Status -> failwith "Invalid type of message"
-    | Error 
+let formatter_of_type t = function
+    | Status -> failwithf "Invalid type of message from: %s" (string_of_format t)
+    | Error
     | Warning
-    | Information 
+    | Information
     | Output (None, _, _) -> !info_fmt, false, (fun () -> ())
     | Output ((Some filename), do_close, fo_ls) ->
           StatusCommon.Files.openf filename fo_ls, do_close, 
@@ -529,9 +529,8 @@ let print ty t =
             | SearchReport -> last_search_report_message := t
             | _ -> ()
         end;
-        let f, do_close, closer = formatter_of_type ty in
-        let t =
-            match ty with
+        let f, do_close, closer = formatter_of_type t ty in
+        let t = match ty with
             | Error -> ("@[<v 4>@{<c:red>@{<b>Error: @}@}@,@[" ^^ t ^^ "@]@]@.")
             | Warning -> ("@[<v 4>@{<c:red>@{<b>Warning: @}@}@,@[" ^^ t ^^ "@]@]@.")
             | _ -> t
@@ -630,7 +629,7 @@ let create name max lm =
 
 let do_output_table t v =
     if not !are_we_parallel || 0 = !my_rank then begin
-        let a, b, c = formatter_of_type t in
+        let a, b, c = formatter_of_type "table_output" t in
         StatusCommon.Tables.output a b c v;
         let () = 
             match StatusCommon.information_redirected () with
