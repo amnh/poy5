@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3160 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3193 $"
 
 let debug = false 
 
@@ -1385,13 +1385,6 @@ type command = [
                         right_parenthesis -> `SearchBased file_couple_lst ] |
                     [ LIDENT "seq_to_chrom"; ":"; left_parenthesis; x = LIST0
                             [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToChrom x ] | 
-                    (* transform to breakinv is not working. breakinv use different coding system
-                    * custom alphabet can have repeated code in each sequence. breakinv doesn't
-                    * custom alphabet use continuous code , like a:1, b:2, c:3 ..., breakinv will have a:1, ~a:2, b:3, ~b:4, ...
-                    * if we really want to tranform custom alphabet to that, all input data & cost matrix & each tree node data needs to be redone.
-                    [ LIDENT "custom_to_breakinv"; ":"; left_parenthesis; x = LIST0
-                            [ x = chromosome_argument -> x] SEP ",";
-                            right_parenthesis -> `CustomToBreakinv x ] | *)
                     [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                             [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] |
                     [ LIDENT "custom_alphabet"; ":"; left_parenthesis; x = LIST0 
