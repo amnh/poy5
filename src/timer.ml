@@ -101,6 +101,7 @@ let to_string time =
     full_calculation time
 
 let status_msg elapsed_wall adv n =
+    assert( adv > 0 );
     let tpi = elapsed_wall /. (float_of_int adv) in
     let remain = tpi *. (float_of_int (n - adv)) in
     let remain = to_string remain in

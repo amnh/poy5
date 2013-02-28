@@ -19,7 +19,7 @@
 
 exception Illegal_update
 
-let () = SadmanOutput.register "Status_flat" "$Revision: 3160 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 3197 $"
 
 let ndebug = true
 
@@ -109,7 +109,7 @@ let to_do_if_parallel =
                     let f = StatusCommon.Files.openf filename opt in
                     StatusCommon.Format.fprintf f msg
                 | Status, Some filename
-                | SearchReport, Some filename 
+                | SearchReport, Some filename
                 | Information, Some filename
                 | Warning, Some filename
                 | Error, Some filename ->
@@ -120,19 +120,18 @@ let to_do_if_parallel =
             in
             f ())
 
-let my_rank = ref 0 
+let my_rank = ref 0
 
 let is_parallel x what_to_do =
     parallel := true;
     my_rank := x;
-    match what_to_do with 
+    match what_to_do with
         | Some what_to_do -> to_do_if_parallel := what_to_do
         | None -> ()
 
 let rank i = my_rank := i
 
-let type_io msg rank t =
-    match t with
+let type_io msg rank t = match t with
     | SearchReport
     | Information -> `Information (msg, rank)
     | Warning -> `Warning (msg, rank)
@@ -150,14 +149,12 @@ type status = {
 
 let channels = ref [stdout]
 
-let send_output lst = 
+let send_output lst =
     channels := lst
 
 let code =
     let counter = ref 0 in
-    fun () ->
-        incr counter;
-        !counter
+    (fun () -> incr counter; !counter)
 
 let create name max message = 
     let max = match max with
@@ -181,13 +178,13 @@ let message st m =
     st.last_message <- m
 
 let single_channel_report st ch =
-    let str = 
+    let str =
         if st.max > 0 then
-            Printf.sprintf "@[%s@ :@ @[%d@ of@ %d@ -- %s@]@]" st.name 
-            st.achieved st.max st.last_message
+            Printf.sprintf "@[%s@ :@ @[%d@ of@ %d@ -- %s@]@]"
+                            st.name st.achieved st.max st.last_message
         else 
-            Printf.sprintf "@[%s@ :@ @[%d@ %s@]@]" st.name st.achieved 
-            st.last_message
+            Printf.sprintf "@[%s@ :@ @[%d@ %s@]@]"
+                            st.name st.achieved st.last_message
     in
     !to_do_if_parallel Status str
 
@@ -196,9 +193,7 @@ let report st = match !verbosity with
     |     _ -> List.iter (single_channel_report st) !channels
 
 let single_channel_finished st =
-    let s = 
-        Printf.sprintf "@[%s@ Finished@]" st.name 
-    in
+    let s = Printf.sprintf "@[%s@ Finished@]" st.name in
     !to_do_if_parallel Status s
 
 let finished st = match !verbosity with
@@ -220,8 +215,38 @@ let full_report ?msg ?adv st =
     report st
  
 
-let user_message c msg = 
-    match !verbosity,c with
+let map_status ?fmsg ?(eta=true) name lm f array =
+    let n = Array.length array in
+    let process_time =
+        let time  = Timer.start () in
+        (fun adv ->
+            if 0 = adv
+                then ""
+                else Timer.status_msg (Timer.wall time) adv n)
+    in
+    let full_report = match fmsg with
+        | None when eta ->
+            (fun s adv x ->
+                let msg = process_time adv in
+                full_report ~adv ~msg s)
+        | Some fmsg when eta ->
+            (fun s adv x ->
+                let msg1 = fmsg x in
+                let msg2 = process_time adv in
+                full_report ~msg:(msg1^" "^msg2) ~adv s)
+        | None ->
+            (fun s adv x -> full_report ~adv s)
+        | Some fmsg ->
+            (fun s adv x -> full_report ~msg:(fmsg x) ~adv s)
+    in
+    if n > 1 then
+        let status = create name (Some (Array.length array)) lm in
+        Array.mapi (fun i x -> full_report status i x; f x) array
+    else
+        Array.map f array
+
+
+let user_message c msg = match !verbosity,c with
     |    _ , Output _
     |    _ , Error -> single_user_message c msg
     | `None, _     -> ()
@@ -231,43 +256,40 @@ let init () = ()
 
 let error_location a b = ()
 
-let do_output_table t v =
-    match t with
+let do_output_table t v = match t with
     | Output (Some f, do_close, fo_ls) ->
-          let a = StatusCommon.Files.openf f fo_ls in
-         StatusCommon.Tables.output a do_close (StatusCommon.Files.closef f) v 
+        let a = StatusCommon.Files.openf f fo_ls in
+        StatusCommon.Tables.output a do_close (StatusCommon.Files.closef f) v 
     | _ ->
-            if !my_rank = 0 then begin
-                let f = stdfout in
-                let do_nothing = fun () -> () in
-                StatusCommon.Tables.output f false do_nothing v;
-                let _ = 
-                    match t, StatusCommon.information_redirected () with
-                    | Output (Some _, _, _), Some _
-                    | _, None -> ()
-                    | (Output (None, _, opt)), Some filename ->
-                            let f = StatusCommon.Files.openf filename opt in
-                            StatusCommon.Tables.output f false do_nothing v 
-                    | SearchReport, Some filename
-                    | Status, Some filename
-                    | Information, Some filename
-                    | Warning, Some filename 
-                    | Error, Some filename ->
-                            let f = StatusCommon.Files.openf filename [] in
-                            StatusCommon.Tables.output f false do_nothing v 
-                in
-                ()
-            end else ()
+        if !my_rank = 0 then begin
+            let f = stdfout in
+            let do_nothing = fun () -> () in
+            StatusCommon.Tables.output f false do_nothing v;
+            begin match t, StatusCommon.information_redirected () with
+                | Output (Some _, _, _), Some _
+                | _, None -> ()
+                | (Output (None, _, opt)), Some filename ->
+                    let f = StatusCommon.Files.openf filename opt in
+                    StatusCommon.Tables.output f false do_nothing v 
+                | SearchReport, Some filename
+                | Status, Some filename
+                | Information, Some filename
+                | Warning, Some filename 
+                | Error, Some filename ->
+                    let f = StatusCommon.Files.openf filename [] in
+                    StatusCommon.Tables.output f false do_nothing v
+            end
 
-let output_table t v =
-    match t with
+
+let output_table t v = match t with
     | Status -> ()
     | Output _ -> do_output_table t v
     | _ -> 
-            do_output_table t v;
-            StatusCommon.Format.fprintf stdferr (StatusCommon.string_to_format "@.")
+        do_output_table t v;
+        StatusCommon.Format.fprintf stdferr (StatusCommon.string_to_format "@.")
             
-
 let resize_history _ = ()
+
 let redraw_screen () = ()
+
 let clear_status_subwindows () = ()

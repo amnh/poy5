@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 3190 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 3197 $"
 
 let failwithf format = Printf.ksprintf failwith format
 
@@ -683,6 +683,37 @@ let full_report ?msg ?adv st =
     | Some v -> st.achieved := v
     end;
     report st
+
+
+let map_status ?fmsg ?(eta=true) name lm f array =
+    let n = Array.length array in
+    let process_time =
+        let time  = Timer.start () in
+        (fun adv ->
+            if 0 = adv
+                then ""
+                else Timer.status_msg (Timer.wall time) adv n)
+    in
+    let full_report = match fmsg with
+        | None when eta ->
+            (fun s adv x ->
+                let msg = process_time adv in
+                full_report ~adv ~msg s)
+        | Some fmsg when eta ->
+            (fun s adv x ->
+                let msg1 = fmsg x in
+                let msg2 = process_time adv in
+                full_report ~msg:(msg1^" "^msg2) ~adv s)
+        | None ->
+            (fun s adv x -> full_report ~adv s)
+        | Some fmsg ->
+            (fun s adv x -> full_report ~msg:(fmsg x) ~adv s)
+    in
+    if n > 1 then
+        let status = create name (Some (Array.length array)) lm in
+        Array.mapi (fun i x -> full_report status i x; f x) array
+    else
+        Array.map f array
 
 (* Some functions for input *)
 exception End_of_line 
