@@ -19,7 +19,7 @@
 
 exception Illegal_update
 
-let () = SadmanOutput.register "Status_flat" "$Revision: 3197 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 3199 $"
 
 let ndebug = true
 
@@ -279,6 +279,7 @@ let do_output_table t v = match t with
                     let f = StatusCommon.Files.openf filename [] in
                     StatusCommon.Tables.output f false do_nothing v
             end
+        end
 
 
 let output_table t v = match t with
