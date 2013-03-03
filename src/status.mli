@@ -58,6 +58,8 @@ val user_message : c -> string -> unit
 
 val full_report : ?msg:string -> ?adv:int -> status -> unit
 
+val map_status : ?fmsg:('a -> string) -> ?eta:bool -> string -> string -> ('a -> 'b) -> 'a array -> 'b array
+
 val is_parallel : int -> (c -> string -> unit) option -> unit
 
 val rank : int -> unit

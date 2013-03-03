@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 3160 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 3197 $"
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 3160 $"
+let failwithf format = Printf.ksprintf failwith format
 
 type tab_state = Begin | First | Continue
 
@@ -502,11 +502,11 @@ let eliminate_status_subwindow status =
 
 let use_colors = ref false
 
-let formatter_of_type = function
-    | Status -> failwith "Invalid type of message"
-    | Error 
+let formatter_of_type t = function
+    | Status -> failwithf "Invalid type of message from: %s" (string_of_format t)
+    | Error
     | Warning
-    | Information 
+    | Information
     | Output (None, _, _) -> !info_fmt, false, (fun () -> ())
     | Output ((Some filename), do_close, fo_ls) ->
           StatusCommon.Files.openf filename fo_ls, do_close, 
@@ -529,9 +529,8 @@ let print ty t =
             | SearchReport -> last_search_report_message := t
             | _ -> ()
         end;
-        let f, do_close, closer = formatter_of_type ty in
-        let t =
-            match ty with
+        let f, do_close, closer = formatter_of_type t ty in
+        let t = match ty with
             | Error -> ("@[<v 4>@{<c:red>@{<b>Error: @}@}@,@[" ^^ t ^^ "@]@]@.")
             | Warning -> ("@[<v 4>@{<c:red>@{<b>Warning: @}@}@,@[" ^^ t ^^ "@]@]@.")
             | _ -> t
@@ -630,7 +629,7 @@ let create name max lm =
 
 let do_output_table t v =
     if not !are_we_parallel || 0 = !my_rank then begin
-        let a, b, c = formatter_of_type t in
+        let a, b, c = formatter_of_type "table_output" t in
         StatusCommon.Tables.output a b c v;
         let () = 
             match StatusCommon.information_redirected () with
@@ -684,6 +683,37 @@ let full_report ?msg ?adv st =
     | Some v -> st.achieved := v
     end;
     report st
+
+
+let map_status ?fmsg ?(eta=true) name lm f array =
+    let n = Array.length array in
+    let process_time =
+        let time  = Timer.start () in
+        (fun adv ->
+            if 0 = adv
+                then ""
+                else Timer.status_msg (Timer.wall time) adv n)
+    in
+    let full_report = match fmsg with
+        | None when eta ->
+            (fun s adv x ->
+                let msg = process_time adv in
+                full_report ~adv ~msg s)
+        | Some fmsg when eta ->
+            (fun s adv x ->
+                let msg1 = fmsg x in
+                let msg2 = process_time adv in
+                full_report ~msg:(msg1^" "^msg2) ~adv s)
+        | None ->
+            (fun s adv x -> full_report ~adv s)
+        | Some fmsg ->
+            (fun s adv x -> full_report ~msg:(fmsg x) ~adv s)
+    in
+    if n > 1 then
+        let status = create name (Some (Array.length array)) lm in
+        Array.mapi (fun i x -> full_report status i x; f x) array
+    else
+        Array.map f array
 
 (* Some functions for input *)
 exception End_of_line 

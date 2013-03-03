@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 3176 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 3198 $"
 
 let ndebug = true
 
@@ -322,7 +322,8 @@ struct
         let warning = ref false in
         let tree_stats =
             specs --> Array.of_list
-                  --> Array.map (diagnose_tree_with_model tree chars spec)
+                  --> Status.map_status "Model Selection" "Optimizing Model"
+                                        (diagnose_tree_with_model tree chars spec)
                   --> Array.map (stats_of_tree warning ic chars)
         in
         let () =
