@@ -6356,7 +6356,11 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         (* This function needs to be modified to better realize the situation, we
            just return the gap-opening cost, regardless of length *)
         let go_cost,gap_cost = match tcm_case with
-            | `AllSankoff None | `AllOne  _ | `AllOneGapSame _ -> assert false
+            (* this is a placeholder, we add an assertion to verify that we wont
+               actually use the values we return *)
+            | `AllSankoff None | `AllOne  _ | `AllOneGapSame _ ->
+                assert ( (Array.length mask) = 0 );    
+                (0,0)
             | `AllSankoff (Some f)       -> assert false
             | `AffinePartition (_,gc,go) -> (go, gc)
         and create cost =
