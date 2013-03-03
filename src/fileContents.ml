@@ -19,15 +19,30 @@
 
 (** Type of data contained in a file (either Fasta, POY or Hennig86
  * formats *)
-type t = 
-    | Nucleic_Acids 
-    | Proteins 
+type t =
+    | Nucleic_Acids
+    | Proteins
     | Prealigned_Alphabet of Alphabet.a
     | AlphSeq of Alphabet.a
-    | Inactive_Character 
+    | Inactive_Character
     | Ordered_Character of (int * int * bool)
     | Unordered_Character of (int * bool)
     | Sankoff_Character of (int list * bool)
     | Genes of int array
 
+let to_string x =
+    let pp_ilst () x =
+        List.fold_left (fun acc x -> acc ^ "," ^ (string_of_int x)) "" x
+    and pp_iray () x =
+        Array.fold_left (fun acc x -> acc ^ "," ^ (string_of_int x)) "" x in
+    match x with
+    | Nucleic_Acids -> "dna"
+    | Proteins      -> "aa"
+    | Prealigned_Alphabet a -> "Pre"
+    | AlphSeq a             -> "Seq"
+    | Inactive_Character    -> "inactive"
+    | Ordered_Character (a,b,c) -> Printf.sprintf "ord:(%d,%d,%B)" a b c
+    | Unordered_Character (a,b) -> Printf.sprintf "unord:(%d,%B)" a b
+    | Sankoff_Character (is,b)  -> Printf.sprintf "sank:(%a,%B)" pp_ilst is b
+    | Genes ray                 -> Printf.sprintf "gene:(%a)" pp_iray ray
 
