@@ -110,6 +110,12 @@ type tcm_definition =
     | Input_file_GapOpening of (string * (int list list) * int)
     | Level of (tcm_definition * int)
 
+type tcm_class =
+    [ `AllOne of int
+    | `AllOneGapSame of (int * int)
+    | `AffinePartition of (int * int * int)
+    | `AllSankoff of (string -> int) option]
+
 let default_tcm = Substitution_Indel (1,1)
 let default_tcm_parser = `Create_Transformation_Cost_Matrix (1,1)
 
@@ -6288,7 +6294,10 @@ let lexicographic_taxon_codes data =
     change_taxon_codes (Array.stable_sort ~cmp:lexicographic_sort) data
 
 
-(* A function to produce the alignment of prealigned data *)
+(** A function to produce the alignment encoding of prealigned data sequence
+   characters. Analyze_tcm is a function that returns a triplet of the cases
+   that we use to define transformations, data is obvious, and code is the
+   dynamic-homology character code. Otherwise, error. *)
 let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
     let alph = get_alphabet data code in
     let model = get_model_opt data code in
@@ -6299,149 +6308,153 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         analyze_tcm cm model alph
     in
     (* We first define a function that collects all the limits of the gaps so
-    * that we can define the gap characters if the gap opening parameter is
-    * present. We use bitsets, 1 for starting, 2 for ending (a position could be
-    * both start and end). *)
+       that we can define the gap characters if the gap opening parameter is
+       present. We use bitsets, 1 for a gap, 2 for opening, 4 for ending. Thus,
+            ACGTAGT-----TCTAGC
+            ACC-----ACC-TCT---
+            ACC-----ACCCTCT---
+       would be, 
+            000311171117000315 *)
     let mark_gaps sequences =
         if Array.length sequences > 0 then
             let first = sequences.(0) in
             let res = Array.make (Sequence.length first) 0 in
-            res.(0) <- 0;
-            let handle_start seq pos =
-                if Sequence.get seq pos <> gap && 
-                Sequence.get seq (pos + 1) = gap then
-                    res.(pos + 1) <- res.(pos + 1) lor 1
-                else ()
+            let handle_start seq =
+                if Sequence.get seq 0 = gap then begin
+                    res.(0) <- res.(0) lor 3;
+                    if Sequence.get seq 1 <> gap then
+                        res.(0) <- res.(0) lor 4
+                end
             and handle_end seq pos =
-                if Sequence.get seq pos = gap && 
-                Sequence.get seq (pos + 1) <> gap then
-                    res.(pos) <- res.(pos) lor 1
-                else ()
+                if Sequence.get seq pos = gap then begin
+                    res.(pos) <- res.(pos) lor 5;
+                    if Sequence.get seq (pos-1) <> gap then
+                        res.(pos) <- res.(pos) lor 2
+                end
+            and handle_mid seq pos =
+                if Sequence.get seq pos = gap then begin
+                    res.(pos) <- res.(pos) lor 1;
+                    if Sequence.get seq (pos+1) <> gap then
+                        res.(pos) <- res.(pos) lor 4;
+                    if Sequence.get seq (pos-1) <> gap then
+                        res.(pos) <- res.(pos) lor 2;
+                end
             in
             for i = 0 to (Array.length sequences) - 1 do
                 let seq = sequences.(i) in
-                handle_start seq 0;
+                handle_start seq;
                 for j = 1 to (Sequence.length seq) - 2 do
-                    if gap = Sequence.get seq j then
-                        res.(j) <- res.(j) lor 2;
-                    handle_start seq j;
-                    handle_end seq j;
+                    handle_mid seq j;
                 done;
-                handle_end seq ((Sequence.length seq) - 2);
+                handle_end seq ((Sequence.length seq)-1);
             done;
             res
         else 
             [||]
     in
-    (* Now we define a function to compute the length of the indel blocks *)
-    let rec find_end acc start pos mark =
-        if pos = Array.length mark then 
-            ((start, (pos - start) + 1) :: acc)
-        else if 0 = mark.(pos) then
-            find_start ((start, (pos - start)) :: acc) pos mark
-        else if 0 <> 1 lor mark.(pos) then
-            find_end ((start, (pos - start)) :: acc) pos (pos + 1) mark
-        else find_end acc start (pos + 1) mark
-    and find_start acc pos mark = 
-        if pos = Array.length mark then acc
-        else if 0 = mark.(pos) then 
-            find_start acc (pos + 1) mark
-        else find_end acc pos (pos + 1) mark
-    in
-    (* A function to compute the cost of an indel block *)
-    let compute_cost = match tcm_case with
-        | `AllSankoff None
-        | `AllOne  _
-        | `AllOneGapSame _ -> (fun _ -> 0)
-        | `AllSankoff (Some f) -> 
-            (fun len -> f (String.make len 'A'))
-        | `AffinePartition (_, gapcost, gapopening) ->
-            raise Illegal_argument
-            (* (fun len -> gapopening + (len * gapcost)) *)
-    in
-    let encoding len = 
-        Alphabet.present_absent, Parser.OldHennig.Encoding.gap_encoding (compute_cost len)
-    in
-    let make_indel_blocks_encoding lst = 
-        let res = List.rev_map (fun (_, x) -> encoding x) lst in
-        List.rev res
-    in
-    let make_indel_blocks lst seq = 
-        let res = List.rev_map (fun (start, _) ->
-            if gap = Sequence.get seq start then
-                FileContents.Unordered_Character (2, false)
-            else
-                FileContents.Unordered_Character (1, false)) lst
+    let make_indel_blocks_encoding mask =
+        (* This function needs to be modified to better realize the situation, we
+           just return the gap-opening cost, regardless of length *)
+        let go_cost,gap_cost = match tcm_case with
+            (* this is a placeholder, we add an assertion to verify that we wont
+               actually use the values we return *)
+            | `AllSankoff None | `AllOne  _ | `AllOneGapSame _ ->
+                assert ( (Array.length mask) = 0 );    
+                (0,0)
+            | `AllSankoff (Some f)       -> assert false
+            | `AffinePartition (_,gc,go) -> (go, gc)
+        and create cost =
+            Alphabet.present_absent, Parser.OldHennig.Encoding.gap_encoding cost
         in
-        List.rev res
+        let encoding i m_i =
+            let enc = if 0 < (m_i land 1) then (create gap_cost)::[] else [] in
+            let enc = if 0 < (m_i land 2) then (create go_cost)::enc else enc in
+            enc
+        in
+        let res = Array.mapi (fun i x -> encoding i x) mask in
+        List.flatten (Array.to_list res)
+    in
+    let make_indel_blocks mask seq =
+        let state i =
+            let s = (* gap column state *)
+                if 0 < (mask.(i) land 1) then
+                    if (gap = Sequence.get seq i)
+                        then FileContents.Unordered_Character (2, false) :: []
+                        else FileContents.Unordered_Character (1, false) :: []
+                else
+                    []
+            in
+            let s = (* gap_opening column state *)
+                if (0 < (mask.(i) land 2)) then
+                    let opening = (i = 0) || (gap <> (Sequence.get seq (i-1))) in
+                    if (gap = Sequence.get seq i) && opening
+                        then FileContents.Unordered_Character (2, false) :: s
+                        else FileContents.Unordered_Character (1, false) :: s
+                else
+                    s
+            in
+            s
+        in
+        let res = Array.mapi (fun i _ -> state i) mask in
+        List.flatten (Array.to_list res)
     in
     let compute_blocks_of_indels () =
         let process_taxon a b acc =
             if Hashtbl.mem b code then
                 match Hashtbl.find b code with
-                | (Stat _), _
-                | (FS _ ) , _ 
+                | (Stat _ | FS _), _ -> assert false
                 | _, `Unknown -> acc
                 | (Dyna (_, d)), `Specified ->
                     begin match d.seq_arr with
                         | [|v|] -> v.seq :: acc
                         | _ -> assert false
                     end
-            else 
+            else
                 acc
         in
-        let sequences =
-            Hashtbl.fold process_taxon data.taxon_characters [] 
-        in
-        let sequences = Array.of_list sequences in
-        let gaps = mark_gaps sequences in
-        let blocks = find_start [] 0 gaps in
-        blocks
+        let sequences = Hashtbl.fold process_taxon data.taxon_characters [] in
+        mark_gaps (Array.of_list sequences)
     in
-    let blocks = match tcm_case with
+    let mask = match tcm_case with
         | `AllSankoff (Some _)
         | `AffinePartition _ -> compute_blocks_of_indels ()
         | `AllOneGapSame _ 
         | `AllOne _
-        | `AllSankoff None -> []
+        | `AllSankoff None   -> [||]
     in
     let process_taxon a b ((enc, names, acc) as res) =
         if Hashtbl.mem b code then
             match Hashtbl.find b code with
-            | (Stat _), _ -> res
-            | (FS _), _ -> res
-            | _, `Unknown -> res
-            | (Dyna (_, d)), _ -> 
+            | ((Stat _) | (FS _)), _ -> assert false
+            | _, `Unknown      -> res
+            | (Dyna (_, d)), _ ->
                 begin match d.seq_arr with
                 | [|v|] ->
+                    let name = code_taxon a data in
                     let enc = match enc with
-                        | [||] -> 
-                            (* We have to generate the encoding *)
-                            let initial_acc = match tcm_case with
-                                | `AllSankoff (Some _)
-                                | `AffinePartition _ -> make_indel_blocks_encoding blocks
-                                | _ -> []
-                            in
-                            let res = 
-                                Sequence.fold_right 
+                        | [||] ->
+                            (* We have to generate the encoding; it's presented
+                            * in this loop because of the complexity of
+                            * deconstructing a taxon state *)
+                            let initial_acc = make_indel_blocks_encoding mask in
+                            let res =
+                                Sequence.fold_right
                                     (fun acc base -> do_encoding base acc)
                                     initial_acc v.seq
                             in
                             Array.of_list res
                         | _ -> enc
                     and seq =
-                        let initial_acc = match tcm_case with
-                            | `AllSankoff (Some _)
-                            | `AffinePartition _ -> make_indel_blocks blocks v.seq
-                            | _ -> []
+                        let initial_acc = make_indel_blocks mask v.seq in
+                        let seq =
+                            Sequence.fold_right
+                                (fun acc base ->
+                                    let base = if base = gap then 0 else base in
+                                    do_states `Exists base acc)
+                                initial_acc v.seq
                         in
-                        Sequence.fold_right 
-                            (fun acc base ->
-                                let base = if base = gap then 0 else base in
-                                do_states `Exists base acc)
-                            initial_acc v.seq
-                    and name = code_taxon a data in
-                    let seq = Array.of_list seq in
+                        Array.of_list seq
+                    in
                     if Array.length seq <> Array.length enc then begin
                         output_errorf
                             ("The@ prealigned@ sequences@ do@ not@ have@ "^^
@@ -6455,15 +6468,15 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
                         enc, (Some name) :: names, seq :: acc
                 | _ -> assert false
             end
-        else 
+        else
             res
     in
-    let enc, names, matrix = 
+    let enc, names, matrix =
         Hashtbl.fold process_taxon data.taxon_characters ([||], [], [])
     in
-    let newenc = 
+    let newenc =
         let table = Hashtbl.create 1667 in
-        Array.iter 
+        Array.iter
             (fun ((alph, enc) as r) ->
                 if not (Hashtbl.mem table r) then
                     let alph = Alphabet.to_sequential alph in
@@ -6498,11 +6511,6 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
     Nexus.File.fill_observed res.Nexus.File.characters res.Nexus.File.matrix;
     character_name, res
 
-type tcm_class =
-    [ `AllOne of int
-    | `AllOneGapSame of (int * int)
-    | `AffinePartition of (int * int * int)
-    | `AllSankoff of (string -> int) option]
 
 let prealigned_characters analyze_tcm data chars =
     let codes = get_code_from_characters_restricted_comp `AllDynamic data chars in
