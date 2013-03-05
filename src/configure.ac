@@ -398,7 +398,7 @@ AC_CHECK_PROGS([OCAMLTOP], [ocamlmktop])
 
 # Check the version of OCaml
 AC_MSG_CHECKING([for OCaml version])
-OCAMLVERSION=`$OCAMLOPT -version`
+OCAMLVERSION=`$OCAMLOPT -vnum`
 AC_MSG_RESULT([$OCAMLVERSION])
 case $OCAMLVERSION in 
     3.10.2*)

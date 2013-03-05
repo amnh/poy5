@@ -1,4 +1,5 @@
 <*.ml>              : annot
+<*.ml>              : bin_annot
 "commandLexer.ml"   : use_camlp4o
 <kolmo/*.cmx>       : for-pack(Kolmo)
 <nexus/*.cmx>       : for-pack(Nexus)

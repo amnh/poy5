@@ -33,6 +33,20 @@ let interface =
     else
         "status_@USEINTERFACE@.ml"
 
+let major, minor =
+    (* to avoid str dependency in plugin *)
+    let rec get_until i str acc =
+        if (i >= (String.length str)) || ('.' = String.get str i) then
+            String.concat "" (List.rev_map (String.make 1) acc),(i+1)
+        else
+            get_until (i+1) str ((String.get str i)::acc)
+    in
+    let vnum = "@OCAMLVERSION@" in
+    let major,n = get_until 0 vnum [] in
+    let minor,_ = get_until n vnum [] in
+    int_of_string major, int_of_string minor
+    
+
 (** Prefix / Root Options **)
 let prefix   = "@PATH_PREFIX@"
 let path_inc = prefix^"/include/"
@@ -565,6 +579,9 @@ dispatch begin function
 
     flag ["ocaml"; "compile"]
         (S ccompileflags);
+
+    if major >= 4 then
+        flag ["ocaml"; "compile"; "bin_annot"] (A"-bin-annot");
 
     if @PROFILE_OCAML@ then begin
         flag["ocaml"; "native"; "link"] (S [A"-p"]);

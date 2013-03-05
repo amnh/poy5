@@ -4456,7 +4456,7 @@ done
 # Check the version of OCaml
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for OCaml version" >&5
 $as_echo_n "checking for OCaml version... " >&6; }
-OCAMLVERSION=`$OCAMLOPT -version`
+OCAMLVERSION=`$OCAMLOPT -vnum`
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $OCAMLVERSION" >&5
 $as_echo "$OCAMLVERSION" >&6; }
 case $OCAMLVERSION in
