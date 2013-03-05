@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3160 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3212 $"
 
 let eager        = false
 let uppass_debug = false
@@ -246,9 +246,9 @@ module OneDirF :
                 let y = force_val y in
                 Node.Standard.apply_time root x y)
             
-    let get_times_between a b = match b with
-        | Some b -> Node.Standard.get_times_between (force_val a) (Some (force_val b))
-        | None   -> Node.Standard.get_times_between (force_val a) None
+    let get_times_between ?inc_parsimony a b = match b with
+        | Some b -> Node.Standard.get_times_between ?inc_parsimony (force_val a) (Some (force_val b))
+        | None   -> Node.Standard.get_times_between ?inc_parsimony (force_val a) None
 
     let uppass_heuristic pcode ptime mine a b = mine
 
@@ -737,26 +737,26 @@ struct
      * returns the branch length between the child and parent, contained in
      * parent, although, it shouldn't matter as long as the directions are
      * available *)
-    let get_times_between (child:n) (par: n option) =
+    let get_times_between ?inc_parsimony (child:n) (par: n option) =
         match par with
         | None ->
             begin match child.unadjusted with
-                | [x] -> OneDirF.get_times_between x.lazy_node None
+                | [x] -> OneDirF.get_times_between ?inc_parsimony x.lazy_node None
                 | _   -> failwith "A direction should be specified"
             end
         | Some par ->
             (* Use the leaf if available *)
             begin match child.unadjusted, par.unadjusted with
-                | _,[x] -> OneDirF.get_times_between x.lazy_node None
-                | [x],_ -> OneDirF.get_times_between x.lazy_node None
+                | _,[x] -> OneDirF.get_times_between ?inc_parsimony x.lazy_node None
+                | [x],_ -> OneDirF.get_times_between ?inc_parsimony x.lazy_node None
                 |  _, _ ->
                     try let child = not_with (taxon_code par) child.unadjusted
                         and par = either_with (taxon_code child) par.unadjusted in
-                        OneDirF.get_times_between child.lazy_node (Some par.lazy_node)
+                        OneDirF.get_times_between ?inc_parsimony child.lazy_node (Some par.lazy_node)
                     with | _ ->
                         let child = either_with (taxon_code child) par.unadjusted
                         and par   = not_with (taxon_code par) child.unadjusted in
-                        OneDirF.get_times_between par.lazy_node (Some child.lazy_node)
+                        OneDirF.get_times_between ?inc_parsimony par.lazy_node (Some child.lazy_node)
             end
 
 

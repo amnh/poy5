@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3160 $"
+let () = SadmanOutput.register "Node" "$Revision: 3212 $"
 
 let infinity = float_of_int max_int
 
@@ -1524,42 +1524,43 @@ END
 
 let get_times_between n c = get_times_between_dir false n c
 
-
-let get_times_between_plus_codes (child:node_data) (parent:node_data option) =
-(*    Printf.printf "Finding time between: %s -- %s : %d : "*)
-(*        (string_of_int child.taxon_code)*)
-(*        (match parent with | Some x -> string_of_int x.taxon_code | None -> "none")*)
-(*        (List.length child.characters);*)
+(* used in the node interface *)
+let get_times_between_plus_codes ?(inc_parsimony=(false,None))
+        (child:node_data) (parent:node_data option) =
     let null = ([||],None) in
     let func =
 IFDEF USE_LIKELIHOOD THEN
-        let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
+        let fstt (a,_,_) = a and sndt (_,a,_) = a and thrt (_,_,a) = a in
         let f = match parent with
-            | None     -> thr
+            | None     -> thrt
             | Some par ->
                 if par.min_child_code = child.min_child_code 
-                    then fst
-                    else snd
+                    then fstt
+                    else sndt
         in
-        function
-            | StaticMl z ->
+        (fun x y -> match x,y with
+            | StaticMl x, StaticMl y ->
                 (*Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt
                                   (snd z.time) pp_fopt (thr z.time);    *)
-                MlStaticCS.get_codes z.preliminary, f z.time
-            | Dynamic z ->
+                MlStaticCS.get_codes y.preliminary, f y.time
+            | Dynamic x, Dynamic z ->
                 (*Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt
                                   (snd z.time) pp_fopt (thr z.time);    *)
                 begin match z.preliminary with
-                    | DynamicCS.MlCS x -> MlDynamicCS.get_codes x, f z.time
+                    | DynamicCS.MlCS zz -> MlDynamicCS.get_codes zz, f z.time
+                    | _ when (fst inc_parsimony) ->
+                        DynamicCS.codes z.preliminary,
+                            (DynamicCS.parsimony_branch_lengths
+                                (snd inc_parsimony) x.preliminary z.preliminary)
                     | _ -> null
                 end
-            | _ -> null
+            | _ -> null)
 ELSE
         fun _ -> null
 END
     in match parent with
-        | Some par -> List.map func par.characters
-        | None     -> List.map func child.characters
+        | Some par -> List.map2 func child.characters par.characters
+        | None     -> List.map2 func child.characters child.characters
 
 (** replace the third component of the time with the value passed *)
 let replace_parent_time node time =
@@ -4688,7 +4689,7 @@ module Standard :
         let apply_time = apply_time
         let extract_states a d _ c n = extract_states a d c n
         let min_prior = prior
-        let get_times_between = get_times_between_plus_codes 
+        let get_times_between = get_times_between_plus_codes
         let final_states _ = final_states
         let uppass_heuristic pcode ptime mine a b = mine
         let to_string = to_string

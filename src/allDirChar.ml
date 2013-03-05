@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3160 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3212 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -121,13 +121,17 @@ module F : Ptree.Tree_Operations
      * Creates a hashtable with all the branch data. The key is the pair of
      * nodes lengths and the value is either a single length or a list of
      * branch lengths in the case of multiple character sets. *)
-    let branch_table ptree =
+    let branch_table opts ptree =
         let trees_table = Hashtbl.create 13 in
+        let inc_parsimony = match opts with
+            | Some _ -> (true, opts)
+            | None   -> (false,None)
+        in
         let create_branch_table handle () =
             let rec single_node prev curr =
                 let pair = (min curr prev, max curr prev) in
                 let dat =
-                    AllDirNode.AllDirF.get_times_between
+                    AllDirNode.AllDirF.get_times_between ~inc_parsimony
                             (Ptree.get_node_data curr ptree)
                             (Some (Ptree.get_node_data prev ptree))
                 in

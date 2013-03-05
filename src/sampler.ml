@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sampler" "$Revision: 3160 $"
+let () = SadmanOutput.register "Sampler" "$Revision: 3212 $"
 
 (* The sampler module is divided in two submodules, one containing te
 * application related samplers (App), and one with research intended samplers
@@ -432,7 +432,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
     open Numerical.FPInfix
     let report_tree_and_costs tree_print tree =
-        let () = tree_print (TreeOps.branch_table tree) tree in
+        let () = tree_print (TreeOps.branch_table None tree) tree in
         List.iter
             (fun (Tree.Edge (a,b),c) -> Printf.printf "(%d,%d) -> %f\n%!" a b c)
             (TreeOps.root_costs tree);

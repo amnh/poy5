@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3160 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3212 $"
 
 exception TimedOut
 
@@ -138,9 +138,11 @@ let characters_to_string (x:characters) : string = match x with
     | `AllDynamic     -> "dynamic"
     | `Range (_,s,l,h)-> Printf.sprintf "range:%s %d-%d" s l h
 
+type report_branch = [ `Max | `Final | `Single ]
+
 type information_contained = 
-    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches  | `Newick | `Margin of int
-    | `NexusStyle | `Collapse of bool | `Chars of characters ]
+    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches of report_branch option
+    | `Newick | `Margin of int | `NexusStyle | `Collapse of bool | `Chars of characters ]
 
 type prep_tail_spec = [
     | `File of filename

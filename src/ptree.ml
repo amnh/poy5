@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3160 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3212 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -187,7 +187,7 @@ module type Tree_Operations =
         val to_formatter :  
             Methods.diagnosis_report_type -> Xml.attributes -> (a, b) p_tree -> Xml.xml
 
-        val branch_table : (a,b) p_tree -> 
+        val branch_table : Methods.report_branch option -> (a,b) p_tree -> 
                 ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
 
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
@@ -444,13 +444,14 @@ module type SEARCH =
             bool -> (a, b) p_tree -> Tree.Parse.tree_types list
 
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> string -> bool -> int array option 
-                -> Tree.Parse.tree_types list
+            bool -> (a, b) p_tree -> string -> bool * Methods.report_branch option ->
+                int array option -> Tree.Parse.tree_types list
 
         val build_forest_with_names_n_costs_n_branches :
             bool -> (a, b) p_tree -> string ->
                 (string -> int -> int -> (int array * float option) list -> string option) ->
-                    (Tree.u_tree -> int -> string) -> bool -> int array option 
+                    (Tree.u_tree -> int -> string) -> bool * Methods.report_branch option ->
+                        int array option
                 -> (string option * Tree.Parse.tree_types) list
 
 
@@ -2100,14 +2101,14 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
                 --> string_of_float
     in
     let branches = 
-        if branches
-            then Some (Tree_Ops.branch_table tree)
+        if fst branches
+            then Some (Tree_Ops.branch_table (snd branches) tree)
             else None
     in
     basic_build_trees tree.tree extract_names collapse_f branches chars (root_name tree)
 
 
-let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label gen_tree branches chars = 
+let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label gen_tree branches chars =
     let collapse_f = handle_collapse collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
@@ -2124,8 +2125,8 @@ let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label gen_
                 --> string_of_float
     in
     let branches = 
-        if branches
-            then Some (Tree_Ops.branch_table tree)
+        if fst branches
+            then Some (Tree_Ops.branch_table (snd branches) tree)
             else None
     in
     build_trees tree.tree extract_names gen_label gen_tree

@@ -306,7 +306,6 @@ val set_console_run : r -> unit
 
         (* Recomputing the contents of a tree *)
         val downpass : phylogeny -> phylogeny
-        val branch_table : phylogeny -> ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
         val uppass : phylogeny -> phylogeny
 
         (* Tree conversion for IO *)
@@ -314,6 +313,8 @@ val set_console_run : r -> unit
         val to_string : bool -> phylogeny -> Data.d -> string list
         val of_file : string -> Data.d -> a list -> phylogeny list
         val of_nodes : Data.d -> a list -> phylogeny
+        val branch_table : Methods.report_branch option -> phylogeny ->
+            ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
 
         (* Swapping a tree *)
         val build : Data.d -> a list -> phylogeny list

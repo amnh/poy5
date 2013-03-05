@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 3160 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 3212 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -1475,10 +1475,9 @@ module TreeOps = struct
     let incremental_uppass = incremental_uppass   
     let to_formatter = to_formatter
     let get_active_ref_code = get_active_ref_code
-    let branch_table _ = Hashtbl.create 1
+    let branch_table _ _ = Hashtbl.create 1
     let root_costs = root_costs
     let unadjust ptree = ptree
-    
     let refresh_all_edges = refresh_all_edges
     (* not implemented in this module *)
     let tree_size _ _ = 0.0

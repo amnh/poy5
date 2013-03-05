@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 3160 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 3212 $"
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
@@ -574,6 +574,23 @@ let classify_transformations leafa nodea leafb nodeb chars acc = match nodea,nod
     | AnnchromCS _, AnnchromCS _ -> failwith "Annchrom cannot classify transformations"
     | ChromCS    _, ChromCS    _ -> failwith "Chrom cannot classify transformations"
     | GenomeCS   _, GenomeCS   _ -> failwith "Genome cannot classify transformations"
+    | (SeqCS _ | MlCS _ | BreakinvCS _ | AnnchromCS _ | ChromCS _ | GenomeCS _), _ -> assert false
+
+
+let parsimony_branch_lengths options x y = match x, y with
+    | SeqCS a, SeqCS b ->
+        begin match options with
+            | Some `Max    -> assert false
+            | Some `Final
+            | Some `Single -> assert false
+            | None         -> None
+        end
+    (* We do not support other characters; yet? *)
+    | MlCS _, MlCS _
+    | BreakinvCS _, BreakinvCS _
+    | AnnchromCS _, AnnchromCS _
+    | ChromCS    _, ChromCS    _
+    | GenomeCS   _, GenomeCS   _ -> None
     | (SeqCS _ | MlCS _ | BreakinvCS _ | AnnchromCS _ | ChromCS _ | GenomeCS _), _ -> assert false
 
 
