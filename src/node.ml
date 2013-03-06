@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3214 $"
+let () = SadmanOutput.register "Node" "$Revision: 3218 $"
 
 let infinity = float_of_int max_int
 
@@ -1524,44 +1524,6 @@ END
 
 let get_times_between n c = get_times_between_dir false n c
 
-(* used in the node interface *)
-let get_times_between_plus_codes ?(inc_parsimony=(false,None))
-        (child:node_data) (parent:node_data option) =
-    let null = ([||],None) in
-    let func =
-        let fstt (a,_,_) = a and sndt (_,a,_) = a and thrt (_,_,a) = a in
-        let f = match parent with
-            | None     -> thrt
-            | Some par ->
-                if par.min_child_code = child.min_child_code 
-                    then fstt
-                    else sndt
-        in
-        (fun x y -> match x,y with
-            | StaticMl x, StaticMl y ->
-              IFDEF USE_LIKELIHOOD THEN
-                MlStaticCS.get_codes y.preliminary, f y.time
-              ELSE
-                null
-              END
-            | Dynamic x, Dynamic z ->
-                begin match z.preliminary with
-                    | DynamicCS.MlCS zz ->
-                      IFDEF USE_LIKELIHOOD THEN
-                        MlDynamicCS.get_codes zz, f z.time
-                      ELSE
-                        null
-                      END
-                    | _ when (fst inc_parsimony) ->
-                        DynamicCS.codes z.preliminary,
-                            (DynamicCS.parsimony_branch_lengths
-                                (snd inc_parsimony) x.final z.final)
-                    | _ -> null
-                end
-            | _ -> null)
-    in match parent with
-        | Some par -> List.map2 func child.characters par.characters
-        | None     -> List.map2 func child.characters child.characters
 
 (** replace the third component of the time with the value passed *)
 let replace_parent_time node time =
@@ -1970,55 +1932,58 @@ uppass. node.[has_to_single] won't include Sank, here, this has_sank should be f
     distance_lists chs1 chs2 (convert_2_lst nodea branches) 0.
 
 
+let rec cs_distance missing_distance nd1 nd2 ch1 ch2 = match ch1, ch2 with
+    | Nonadd8 a, Nonadd8 b ->
+          a.weight *. NonaddCS8.distance a.final b.final
+    | Nonadd16 a, Nonadd16 b ->
+          a.weight *. NonaddCS16.distance a.final b.final
+    | Nonadd32 a, Nonadd32 b ->
+          a.weight *. NonaddCS32.distance a.final b.final
+    | AddVec a, AddVec b ->
+          a.weight *. AddCS.Vector.distance a.final b.final
+    | AddGen a, AddGen b ->
+          a.weight *. AddCS.General.distance a.final b.final
+    | Sank a, Sank b ->
+          a.weight *. SankCS.distance a.final b.final
+    | FixedStates a, FixedStates b ->
+          a.weight *. Fixed_states.distance a.final b.final
+    | Dynamic a, Dynamic b ->
+          a.weight *. DynamicCS.distance missing_distance a.final b.final
+    | Kolmo a, Kolmo b ->
+          a.weight *. KolmoCS.distance a.final b.final
+    | StaticMl a, StaticMl b ->
+        IFDEF USE_LIKELIHOOD THEN
+            let x, _ (*ignore sumcost*) = cs_median 0 nd1 nd2 None None None ch1 ch2 in
+            begin match x with
+                | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
+                | _ -> assert false
+            end
+        ELSE
+            failwith MlStaticCS.likelihood_error
+        END
+    | Set a, Set b ->
+        (match a.final.smethod with
+         | `Strictly_Same ->
+            List.fold_right2
+                (fun a b x -> x +. (cs_distance missing_distance nd1 nd2 a b))
+                a.final.set b.final.set 0.0
+         | `Any_Of _ ->
+            (* unf. we just take the full median and check the distance *)
+            decr median_counter;
+            let m, _ (*ignore sumcost*) = cs_median !median_counter nd1 nd2 None None None ch1 ch2 in
+            extract_cost m)
+    | (FixedStates _ |StaticMl _ |Kolmo _ |Dynamic _ |Sank _ |AddGen _ | AddVec _
+        |Nonadd32 _ |Nonadd16 _ |Nonadd8 _ |Set _), _ -> assert false
+
+
 let distance ?(para=None) ?(parb=None) missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
-        if debug_distance then 
-            Printf.printf "\n Node.distance on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
-    let rec distance_two ch1 ch2 =
-        match ch1, ch2 with
-        | Nonadd8 a, Nonadd8 b ->
-              a.weight *. NonaddCS8.distance a.final b.final
-        | Nonadd16 a, Nonadd16 b ->
-              a.weight *. NonaddCS16.distance a.final b.final
-        | Nonadd32 a, Nonadd32 b ->
-              a.weight *. NonaddCS32.distance a.final b.final
-        | AddVec a, AddVec b ->
-              a.weight *. AddCS.Vector.distance a.final b.final
-        | AddGen a, AddGen b ->
-              a.weight *. AddCS.General.distance a.final b.final
-        | Sank a, Sank b ->
-              a.weight *. SankCS.distance a.final b.final
-        | FixedStates a, FixedStates b ->
-              a.weight *. Fixed_states.distance a.final b.final
-        | Dynamic a, Dynamic b ->
-            if debug_distance then Printf.printf "DynamicCS, weight = %f\n%!" a.weight;
-              a.weight *. DynamicCS.distance missing_distance a.final b.final
-        | Kolmo a, Kolmo b ->
-              a.weight *. KolmoCS.distance a.final b.final
-        | StaticMl a, StaticMl b ->
-            IFDEF USE_LIKELIHOOD THEN
-                let x, _ (*ignore sumcost*) = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                match x with | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
-                             | _ -> assert false
-            ELSE
-                failwith MlStaticCS.likelihood_error
-            END
-        | Set a, Set b ->
-              (match a.final.smethod with
-               | `Strictly_Same ->
-                     distance_lists a.final.set b.final.set 0.
-               | `Any_Of _ -> (* TODO:: check this is correct *)
-                     (* unf. we just take the full median and check the distance *)
-                     decr median_counter;
-                     let m, _ (*ignore sumcost*) = cs_median !median_counter nodea nodeb None None None ch1 ch2 in
-                     extract_cost m)
-        | _ -> failwith "Incompatible characters (5)"
-    and distance_lists chs1 chs2 acc =
-        match chs1, chs2 with
+    let rec distance_lists chs1 chs2 acc = match chs1, chs2 with
         | ch1 :: chs1, ch2 :: chs2 ->
-              distance_lists chs1 chs2 (acc +. distance_two ch1 ch2)
+            distance_lists chs1 chs2
+                (acc +. cs_distance missing_distance nodea nodeb ch1 ch2)
         | [], [] -> acc
-        | _ -> failwith "Incompatible characters (6)"
+        | _ -> assert false
     in
     let res = distance_lists chs1 chs2 0. in
     if debug_distance then Printf.printf "resdis=%f\n%!" res;
@@ -2158,6 +2123,71 @@ let dist_2 minimum_delta n a b =
         let res = chars 0. (n.characters, a.characters, b.characters) in
         if debug then Printf.printf "return join cost = %f\n%!" res;
         res
+
+
+(* used in the node interface to build branch tables for output and reorganizing
+   and applying branches in different directions. *)
+let get_times_between_plus_codes ?(inc_parsimony=(false,None))
+        (child:node_data) (parent:node_data option) =
+    let func =
+        let fstt (a,_,_) = a and sndt (_,a,_) = a and thrt (_,_,a) = a in
+        let f = match parent with
+            | None     -> thrt
+            | Some par ->
+                if par.min_child_code = child.min_child_code 
+                    then fstt
+                    else sndt
+        and parent = match parent with
+            | None   -> child
+            | Some x -> x
+        and combine a b c = match a,c with
+            | Some x,Some c -> Some ((x *. b) +. c)
+            | Some x,None -> Some (x *. b)
+            | None, c -> c
+        in
+        (fun ((acc1,acc2) as acc) x y -> match x,y with
+            | StaticMl x, StaticMl y ->
+              IFDEF USE_LIKELIHOOD THEN
+                (acc1,(MlStaticCS.get_codes y.preliminary, f y.time)::acc2)
+              ELSE
+                acc
+              END
+            | Dynamic x, Dynamic y ->
+                begin match y.preliminary with
+                    | DynamicCS.MlCS yy ->
+                      IFDEF USE_LIKELIHOOD THEN
+                        (acc1,(MlDynamicCS.get_codes yy, f y.time)::acc2)
+                      ELSE
+                        acc
+                      END
+                    | _ when (fst inc_parsimony) ->
+                        let acc1a = Array.append (fst acc1) (DynamicCS.codes y.final) in
+                        let acc1b =
+                            let ncost = DynamicCS.parsimony_branch_lengths (snd inc_parsimony) x.final y.final in
+                            combine ncost x.weight (snd acc1)
+                        in
+                        ((acc1a,acc1b),acc2)
+                    | _ -> acc
+                end
+            (** use general distance for everything else **)
+            | a,b when (fst inc_parsimony) ->
+                let acc1a = Array.append (fst acc1) (codes a) in
+                let acc1b =
+                    let ncost = Some (cs_distance 0.0 child parent a b) in
+                    combine ncost 1.0 (snd acc1)
+                in
+                ((acc1a,acc1b),acc2)
+            |  _ -> acc)
+    in
+    let oth,lik = match parent with
+        | Some par ->
+            List.fold_left2 func (([||],None),[]) child.characters par.characters
+        | None when (fst inc_parsimony) -> assert false
+        | None     ->
+            List.fold_left2 func (([||],None),[]) child.characters child.characters
+    in
+    oth::lik
+
 
 let extract_stat = function
     | (Data.Stat (a, b), _) -> (b, a)
@@ -3349,9 +3379,6 @@ let output_total_cost ch i =
     let between () = print_endline (string_of_float i) in
     print_item print_endline "<cost>" "</cost>" between
 
-let pre = [ (Xml.Characters.cclass, `String Xml.Nodes.preliminary) ]
-let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
-let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
 
 let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
     if debug_tosingle then begin
@@ -3420,6 +3447,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         let chars = map2 (cs_to_single (pre_ref_codes, fi_ref_codes) None ) 
                         parent.characters mine.characters in
         { mine with characters = chars; }
+
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
     if debug then
@@ -3554,6 +3582,9 @@ let get_active_ref_code node_data =
         (node_data.characters)
 
 let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs,cs_single) parent_cs = 
+    let pre = [ (Xml.Characters.cclass, `String Xml.Nodes.preliminary) ]
+    and fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
+    and sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ] in
     match cs, cs_single with
     | Nonadd8 cs, Nonadd8 _ ->
         begin match parent_cs with
