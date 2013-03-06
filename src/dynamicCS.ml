@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 3212 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 3214 $"
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
@@ -384,6 +384,7 @@ let distance_of_type t missing_distance a b len =
     | AnnchromCS a, AnnchromCS b when has_ann -> AnnchromCS.distance a b  
     | _, _ -> 0.0
 
+
 (** [distance_of_type a b] returns the distance between
 * two dynamic character sets [a] and [b] *)
 let distance missing_distance a b = match a, b with   
@@ -394,7 +395,6 @@ let distance missing_distance a b = match a, b with
     | BreakinvCS a, BreakinvCS b -> BreakinvCS.distance a b  
     | AnnchromCS a, AnnchromCS b -> AnnchromCS.distance a b  
     | _ , _ -> failwith_todo "distance"  
-
 
 
 (** [distance_union a b] returns the union distance between
@@ -577,23 +577,6 @@ let classify_transformations leafa nodea leafb nodeb chars acc = match nodea,nod
     | (SeqCS _ | MlCS _ | BreakinvCS _ | AnnchromCS _ | ChromCS _ | GenomeCS _), _ -> assert false
 
 
-let parsimony_branch_lengths options x y = match x, y with
-    | SeqCS a, SeqCS b ->
-        begin match options with
-            | Some `Max    -> assert false
-            | Some `Final
-            | Some `Single -> assert false
-            | None         -> None
-        end
-    (* We do not support other characters; yet? *)
-    | MlCS _, MlCS _
-    | BreakinvCS _, BreakinvCS _
-    | AnnchromCS _, AnnchromCS _
-    | ChromCS    _, ChromCS    _
-    | GenomeCS   _, GenomeCS   _ -> None
-    | (SeqCS _ | MlCS _ | BreakinvCS _ | AnnchromCS _ | ChromCS _ | GenomeCS _), _ -> assert false
-
-
 let flatten t_lst = match List.hd t_lst with
     | BreakinvCS _ ->
         let bkCS_t_lst =
@@ -624,7 +607,8 @@ let update_t oldt file_median_seq file_median_chrom_seqdeli =
         |_ -> failwith "dynaicCS.update_t,we don't update this datatype for multi-chromosome functions under MGR"
     in
     newt
-    
+
+
 let single_to_multi single_t =
     let tlist = match single_t with
         |BreakinvCS bk_t ->
@@ -633,6 +617,30 @@ let single_to_multi single_t =
         |_ -> failwith "we only deal with breakinv now"
     in
     tlist
+
+
+let parsimony_branch_lengths opt x y = match x, y with
+    | SeqCS a, SeqCS b ->
+        begin match opt with
+            | Some `Max    ->
+                let cost = SeqCS.worst_cost a b in
+                assert false
+            | Some `Final  ->
+                let cost = SeqCS.distance 0.0 a b in
+                Some cost
+            | Some `Single ->
+                let _,cost,_ = SeqCS.to_single a b None in
+                Some cost
+            | None         -> None
+        end
+    (* We do not support other characters; yet? *)
+    | MlCS _, MlCS _
+    | BreakinvCS _, BreakinvCS _
+    | AnnchromCS _, AnnchromCS _
+    | ChromCS    _, ChromCS    _
+    | GenomeCS   _, GenomeCS   _ -> None
+    | (SeqCS _ | MlCS _ | BreakinvCS _ | AnnchromCS _ | ChromCS _ | GenomeCS _), _ -> assert false
+
 
 (** [readjust ch1 ch2 par mine] attempts to (heuristically) readjust the character 
 * set [mine] to somewhere in between [ch1], [ch2], and [par] (the children and

@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3212 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3214 $"
 
 let debug = false 
 
@@ -2126,8 +2126,8 @@ type command = [
         report_branch :
             [
                 [LIDENT "min"    -> `Final ] |
-                [LIDENT "single" -> `Single ] |
-                [LIDENT "max"    -> `Max ]
+(*                [LIDENT "max"    -> `Max ] |*)
+                [LIDENT "single" -> `Single ]
             ];
         report_branch_opt :
             [   [ ":"; x = report_branch -> x]  ];

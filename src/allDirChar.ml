@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3212 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3214 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -127,11 +127,15 @@ module F : Ptree.Tree_Operations
             | Some _ -> (true, opts)
             | None   -> (false,None)
         in
+        let adjusted = match opts with
+            | Some `Single -> true
+            | Some (`Final | `Max) | None -> false
+        in
         let create_branch_table handle () =
             let rec single_node prev curr =
                 let pair = (min curr prev, max curr prev) in
                 let dat =
-                    AllDirNode.AllDirF.get_times_between ~inc_parsimony
+                    AllDirNode.AllDirF.get_times_between ~adjusted ~inc_parsimony
                             (Ptree.get_node_data curr ptree)
                             (Some (Ptree.get_node_data prev ptree))
                 in

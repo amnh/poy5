@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "NodeSig" "$Revision: 3212 $"
+let () = SadmanOutput.register "NodeSig" "$Revision: 3214 $"
 
 type direction = Without of int | Median of (int * int)
 
@@ -80,9 +80,8 @@ module type S = sig
 
     (** [get_times_between left right] time/branch lengths between two nodes **)
     val get_times_between :
-        ?inc_parsimony: bool * [`Final | `Max | `Single] option ->
+        ?adjusted : bool -> ?inc_parsimony : bool * [`Final | `Max | `Single] option ->
             n -> n option -> (int array * (float option)) list
-
     (** [to_string n] produces a string representation of the node. This is used
         for debugging purposes. There is no particular format requirement. *)
     val to_string : n -> string

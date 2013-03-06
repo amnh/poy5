@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3212 $"
+let () = SadmanOutput.register "Node" "$Revision: 3214 $"
 
 let infinity = float_of_int max_int
 
@@ -1529,7 +1529,6 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
         (child:node_data) (parent:node_data option) =
     let null = ([||],None) in
     let func =
-IFDEF USE_LIKELIHOOD THEN
         let fstt (a,_,_) = a and sndt (_,a,_) = a and thrt (_,_,a) = a in
         let f = match parent with
             | None     -> thrt
@@ -1540,24 +1539,26 @@ IFDEF USE_LIKELIHOOD THEN
         in
         (fun x y -> match x,y with
             | StaticMl x, StaticMl y ->
-                (*Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt
-                                  (snd z.time) pp_fopt (thr z.time);    *)
+              IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.get_codes y.preliminary, f y.time
+              ELSE
+                null
+              END
             | Dynamic x, Dynamic z ->
-                (*Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt
-                                  (snd z.time) pp_fopt (thr z.time);    *)
                 begin match z.preliminary with
-                    | DynamicCS.MlCS zz -> MlDynamicCS.get_codes zz, f z.time
+                    | DynamicCS.MlCS zz ->
+                      IFDEF USE_LIKELIHOOD THEN
+                        MlDynamicCS.get_codes zz, f z.time
+                      ELSE
+                        null
+                      END
                     | _ when (fst inc_parsimony) ->
                         DynamicCS.codes z.preliminary,
                             (DynamicCS.parsimony_branch_lengths
-                                (snd inc_parsimony) x.preliminary z.preliminary)
+                                (snd inc_parsimony) x.final z.final)
                     | _ -> null
                 end
             | _ -> null)
-ELSE
-        fun _ -> null
-END
     in match parent with
         | Some par -> List.map2 func child.characters par.characters
         | None     -> List.map2 func child.characters child.characters
@@ -4689,7 +4690,7 @@ module Standard :
         let apply_time = apply_time
         let extract_states a d _ c n = extract_states a d c n
         let min_prior = prior
-        let get_times_between = get_times_between_plus_codes
+        let get_times_between ?adjusted = get_times_between_plus_codes
         let final_states _ = final_states
         let uppass_heuristic pcode ptime mine a b = mine
         let to_string = to_string

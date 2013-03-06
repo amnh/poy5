@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3160 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3214 $"
 
 let debug = false
 let debug_distance = false
@@ -175,7 +175,6 @@ module ProtAff = struct
     let g = 4
     let t = 8
     let p = 16
-
 
     let align_sequences gap_open gap_extension substitution si sj =
         let min (a : int) (b : int) = if a <= b then a else b in
@@ -1025,8 +1024,7 @@ END
                     costs = make_cost cost cost 0 sum_cost; }
             in
             m,cost
-        end
-        else if Sequence.is_empty b.sequence gap then begin
+        end else if Sequence.is_empty b.sequence gap then begin
             let cost = 
                 if is_identity then 0
                 else Sequence.Align.recost a.sequence a.sequence h.c2_original
@@ -1079,6 +1077,7 @@ END
             { sequence = seqm; aligned_children = (ba, bb, bm); costs = rescost;
             position = 0; delimiters = a.delimiters}, tmpcost
         end
+
 
     let distance_between_two_alied_children_of_root root h use_ukk =
         let gap = Cost_matrix.Two_D.gap h.c2_original in
@@ -2033,9 +2032,6 @@ let of_array spec sc code taxon =
         alph = spec.Data.alph; code = code; heuristic = heur;
         priority = Array.to_list codes;} 
     in
-    (*
-    Status.user_message Status.Information (to_string res);
-    *)
     res
 
 let of_list spec lst code = of_array spec (Array.of_list lst) code
@@ -2396,8 +2392,6 @@ let compare_data a b =
             | Heuristic_Selection _ , _ -> assert false)
     0 a.characters b.characters
 
-let ( --> ) a b = b a 
-
 let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list = 
     let use_ukk = match !Methods.algn_mode with
         | `Algn_Newkk  -> true
@@ -2498,6 +2492,7 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                 ([T.name] = [`String ((Data.code_character code d))])
                 ([T.cost] = [costb])
                 ([T.definite] = [definite_str])
+                ([T.max] = [`Float max])
                 ([attr])
                 { `Fun seq }
             --) :: acc
@@ -2521,20 +2516,6 @@ let get_sequences (data:t) : Sequence.s array array =
                     y)
         data.characters
 
-let align_2 (one:t) (two:t) =
-    let ones = get_sequences one and twos = get_sequences two in
-    assert( (Array.length ones) = (Array.length twos));
-    if 0 = Array.length ones then [| |]
-    else begin
-        Array.mapi (fun i _ -> 
-            Array.mapi (fun j _ ->
-                let a,b,m = 
-                    Sequence.Align.align_2 ones.(i).(j) twos.(i).(j) one.heuristic.c2_full Matrix.default
-                in
-                (a,b,m))
-            ones.(i))
-        ones
-    end
 
 let tabu_distance a = 
     Array.fold_left
@@ -2542,6 +2523,17 @@ let tabu_distance a =
             | Partitioned x         -> sum +. (PartitionedDOS.tabu_distance x)
             | General_Prealigned y  -> sum +. (GenNonAdd.get_max_cost y.GenNonAdd.costs)
             | Heuristic_Selection y -> sum +. y.DOS.costs.cost2_max)
+        0.0
+        a.characters
+
+
+let worst_cost a b : float =
+    let h = a.heuristic in
+    Array.fold_left
+        (fun sum -> function
+            | Partitioned         seq -> sum (* +. (PartitionedDOS.worst_case a b) *)
+            | General_Prealigned  seq -> sum (* +. (GenNonAdd.worst_cost a b) *)
+            | Heuristic_Selection seq -> sum (* +. (DOS.worst_cost a b) *) )
         0.0
         a.characters
 
