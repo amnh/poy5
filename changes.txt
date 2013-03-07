@@ -1,7 +1,11 @@
 CHANGES BETWEEN 5.0 beta1 and 5.0 beta2
 
 New Features:
-
+    - report trees with branches would work for likelihood characters, but would
+      not report parsimony branch lengths. The new command allows printing the
+      branch lengths from three different methods (see below), these options are
+      ignored under likelihood as we always report the parameter value that
+      maximizes the log-likelihood.
 
 Bugs Fixed:
     - Selecting terminals caused an error in ncurses display when writing to an
@@ -12,9 +16,15 @@ Bugs Fixed:
       which should be filtered from the transformation, as other likelihood
       transformations on those characters do.
 
-
 New Commands (see manual for full explanations) :
-
+    - report command for parsimony branch lengths
+        report(trees:(branches:min))
+            - minimum number of changes is reported on branches
+        report(trees:(branches:max))
+            - maximum number of changes is reported on branches
+        report(trees:(branches:single))
+            - number of changes reported based on single assignment of dynamic
+              characters
 
 Changed Commands (see manual for full explanations) :
 

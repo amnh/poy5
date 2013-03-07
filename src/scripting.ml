@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3202 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3212 $"
 
 let (-->) a b = b a
 
@@ -339,12 +339,13 @@ module type S = sig
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
         val downpass : phylogeny -> phylogeny
-        val branch_table : phylogeny -> ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
         val to_string : bool -> phylogeny -> Data.d -> string list
         val of_file : string -> Data.d -> a list -> phylogeny list
         val of_nodes : Data.d -> a list -> phylogeny
+        val branch_table : Methods.report_branch option -> phylogeny ->
+            ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
         val build : Data.d -> a list -> phylogeny list
         val spr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny -> phylogeny list 
         val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny -> phylogeny list 
@@ -4168,7 +4169,7 @@ let rec folder (run : r) meth =
             | `Script (filename,script) -> 
                 run
             | `Nexus filename ->
-                let ic = [ `Branches; `NexusStyle; `Collapse false; ] in
+                let ic = [ `Branches None; `NexusStyle; `Collapse false; ] in
                 let parsed_trees,labeling = PTS.process_trees ic run.trees in
                 CompOut.to_nexus run.data parsed_trees labeling ic filename;
                 run
@@ -4602,7 +4603,8 @@ let set_console_run r = console_run_val := r
         let to_string collapse tree data = 
             let cost = string_of_float (Ptree.get_cost `Adjusted tree) in
             let res = 
-                PtreeSearch.build_forest_with_names_n_costs collapse tree cost false None
+                PtreeSearch.build_forest_with_names_n_costs collapse tree cost
+                                                            (false,None) None
             in
             List.map (AsciiTree.for_formatter false true true) res 
 

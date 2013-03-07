@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 3160 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 3212 $"
 
 let debug_find_local_optimum = false
 
@@ -251,7 +251,12 @@ module MakeNormal
 
 
     let process_trees ic trees =
-        let branches = List.exists (function `Branches -> true | _ -> false) ic in
+        let branches =
+            List.fold_left
+                (fun acc -> function | `Branches x -> true,x | _ -> acc)
+                (false,None) 
+                ic
+        in
         let collapse = List.exists (function `Collapse x -> x | _ -> false) ic in
         let labeling = Hashtbl.create 1371 in
         let node_labeling =
@@ -294,7 +299,12 @@ module MakeNormal
         let tree_len = List.exists (function `Total -> true | _ -> false) ic in
         let newline = if hennig_style then "" else "@\n" in
         let ic = if hennig_style then (`Margin (1000000010 - 1)) :: ic else ic in
-        let branches = List.exists (function `Branches -> true | _ -> false) ic in
+        let branches : bool * Methods.report_branch option =
+            List.fold_left
+                (fun acc -> function | `Branches x -> true,x | _ -> acc)
+                (false,None) 
+                ic
+        in
         let collapse = List.exists (function `Collapse x -> x | _ -> false) ic in
         let ori_margin = StatusCommon.Files.get_margin filename in
         let fo_ls = ref [] in 

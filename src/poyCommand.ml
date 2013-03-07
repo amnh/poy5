@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3193 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3219 $"
 
 let debug = false 
 
@@ -2123,6 +2123,14 @@ type command = [
             [   
                 [ ":"; "("; x = LIST0 [x = tree_information -> x] SEP ","; ")" -> x ]
             ];
+        report_branch :
+            [
+                [LIDENT "min"    -> `Final ] |
+                [LIDENT "max"    -> `Max ] |
+                [LIDENT "single" -> `Single ]
+            ];
+        report_branch_opt :
+            [   [ ":"; x = report_branch -> x]  ];
         tree_information:
             [
                 [ LIDENT "_cost" -> `Cost ] |
@@ -2130,7 +2138,10 @@ type command = [
                 [ LIDENT "nexus" -> `NexusStyle ] |
                 [ LIDENT "total" -> `Total ] |
                 [ LIDENT "newick" -> `Newick ] |
-                [ LIDENT "branches" -> `Branches ] | 
+                [ LIDENT "branches"; p = OPT report_branch_opt ->
+                    match p with
+                        | Some _ -> `Branches p
+                        | None   -> `Branches (Some `Single) ] |
                 [ LIDENT "margin"; ":"; m = INT -> `Margin (int_of_string m) ] |
                 [ LIDENT "nomargin" -> `Margin (1000000010 - 1) ] |
                 [ x = old_identifiers -> `Chars x ] |
