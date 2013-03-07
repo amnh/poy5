@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3160 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3206 $"
 
 exception NotASequence of int
 
@@ -1308,25 +1308,21 @@ let analyze_tcm tcm model alph =
             fun string -> processor 0 (String.length string) go string
     in
     let alph = Alphabet.simplify alph in
-    let single_compare (_, a) res (_, b) =
-        match res with
+    let single_compare (_, a) res (_, b) = match res with
         | None -> 
-                let cost = (Cost_matrix.Two_D.cost a b tcm) in
-                Some cost
+            let cost = (Cost_matrix.Two_D.cost a b tcm) in
+            Some cost
         | Some y ->
-                let x = Cost_matrix.Two_D.cost a b tcm in
-                if x = y then res
-                else raise IsSankoff
+            let x = Cost_matrix.Two_D.cost a b tcm in
+            if x = y then res
+            else raise IsSankoff
     in
-    let rec compare_costs l1 l2 res =
-        match l1, l2 with
-        | _, []
-        | [], _ -> res
+    let rec compare_costs l1 l2 res = match l1, l2 with
+        | _, [] | [], _     -> res
         | h1 :: t1, _ :: t2 ->
-                compare_costs t1 t2 (List.fold_left (single_compare h1) res l2)
+            compare_costs t1 t2 (List.fold_left (single_compare h1) res l2)
     in
-    let check_x x =
-        match all with
+    let check_x x = match all with
         | Some y -> y <> x
         | None -> true
     in
@@ -1337,9 +1333,10 @@ let analyze_tcm tcm model alph =
         with
         | [] -> failwith "An empty alphabet?"
         | (_ :: t) as res ->
-                match compare_costs res t None with
+            begin match compare_costs res t None with
                 | Some v -> v
                 | None -> failwith "No costs?"
+            end
     in
     let get_cost_of_gap () =
         match 
@@ -1348,18 +1345,17 @@ let analyze_tcm tcm model alph =
         with
         | [] -> failwith "An empty alphabet?"
         | res ->
-                match compare_costs [("", gap)] res None with
+            begin match compare_costs [("", gap)] res None with
                 | Some v -> v
                 | None -> failwith "No costs?"
+            end
     in
-    let get_gap_opening tcm =
-        match Cost_matrix.Two_D.affine tcm with
+    let get_gap_opening tcm = match Cost_matrix.Two_D.affine tcm with
         | Cost_matrix.No_Alignment 
         | Cost_matrix.Linnear -> failwith "not affine"
         | Cost_matrix.Affine go -> go
     in
-    let is_affine tcm =
-        match Cost_matrix.Two_D.affine tcm with
+    let is_affine tcm = match Cost_matrix.Two_D.affine tcm with
         | Cost_matrix.Affine _ -> true
         | _ -> false
     in
@@ -1372,7 +1368,7 @@ let analyze_tcm tcm model alph =
             let all_excepting_gap = get_cost_of_all_subs ()
             and all_and_gap = get_cost_of_gap () in
             match Alphabet.kind alph with
-            | Alphabet.Simple_Bit_Flags ->
+                | Alphabet.Simple_Bit_Flags ->
                     if 32 > Alphabet.distinct_size alph then
                         if all_same_affine () then
                             `AffinePartition 
@@ -1389,18 +1385,16 @@ let analyze_tcm tcm model alph =
                     else if is_affine tcm then
                         `AllSankoff (Some for_sankoff)
                     else `AllSankoff None
-            | _ -> 
+                | _ -> 
                     if is_affine tcm then 
                         `AllSankoff (Some for_sankoff)
                     else `AllSankoff None
-        with
-        | IsSankoff -> 
-                if is_affine tcm then
-                    `AllSankoff (Some for_sankoff)
-                else `AllSankoff None
+        with | IsSankoff -> 
+            if is_affine tcm then
+                `AllSankoff (Some for_sankoff)
+            else `AllSankoff None
     in
-    let extract_all all =
-        match all with
+    let extract_all all = match all with
         | Some all -> all
         | None -> assert false
     in
@@ -1416,203 +1410,180 @@ let analyze_tcm tcm model alph =
     in
     match get_case with
     | `AllOne weight ->
-            (* We assume that we have dna sequences *)
-            let all = extract_all all in
-            let encoding = 
-                alph,
-                (Parser.OldHennig.Encoding.set_likelihood_model model
-                    (Parser.OldHennig.Encoding.set_weight
-                        Parser.OldHennig.Encoding.dna_encoding weight))
-            in
-            let to_parser is_missing states acc = 
-                match is_missing, states with
-                | `Missing, _ -> (find_item all) :: acc
-                | `Exists, 0 -> (find_item gap) :: acc
-                | `Exists, x -> (find_item x) :: acc
-            and to_encoding _ acc = encoding :: acc in
-            get_case, to_parser, to_encoding
+        (* We assume that we have dna sequences *)
+        let all = extract_all all in
+        let encoding = 
+            alph,
+            (Parser.OldHennig.Encoding.set_likelihood_model model
+                (Parser.OldHennig.Encoding.set_weight
+                    Parser.OldHennig.Encoding.dna_encoding weight))
+        in
+        let to_parser is_missing states acc = 
+            match is_missing, states with
+            | `Missing, _ -> (find_item all) :: acc
+            | `Exists, 0 -> (find_item gap) :: acc
+            | `Exists, x -> (find_item x) :: acc
+        and to_encoding _ acc = encoding :: acc in
+        get_case, to_parser, to_encoding
     | `AllOneGapSame (subsc, gapcost) ->
-            let present_absent = 
-                present_absent_alph,
-                    (Parser.OldHennig.Encoding.gap_encoding gapcost)
-            and subs = 
-                alph,
-                (Parser.OldHennig.Encoding.set_likelihood_model model
-                    (Parser.OldHennig.Encoding.set_weight
-                        Parser.OldHennig.Encoding.dna_encoding subsc))
-            in
-            let notgap = lnot gap in
-            (* We assume we have dna sequences *)
-            let all = notgap land (extract_all all) in
-            let to_parser is_missing states acc =
-                match is_missing, states with
-                | `Missing, _ ->
-                        (find_item all) :: (find_item (1 lor 2)) :: acc
-                | `Exists, 0 ->
-                        (* All characters, and the gap itself, in other words,
-                        * we treat the gap as a separate character, and the
-                        * state as missing data *)
-                        (find_item all) :: (find_item 1) :: acc
-                | `Exists, x ->
-                        let r = if x = all then 3 else 2 in
-                        (find_item (x land notgap)) :: (find_item r) :: acc
-            and to_encoding _ acc = 
-                subs :: present_absent :: acc
-            in
-            get_case, to_parser, to_encoding
+        let present_absent = 
+            present_absent_alph,
+                (Parser.OldHennig.Encoding.gap_encoding gapcost)
+        and subs = 
+            alph,
+            (Parser.OldHennig.Encoding.set_likelihood_model model
+                (Parser.OldHennig.Encoding.set_weight
+                    Parser.OldHennig.Encoding.dna_encoding subsc))
+        in
+        let notgap = lnot gap in
+        (* We assume we have dna sequences *)
+        let all = notgap land (extract_all all) in
+        let to_parser is_missing states acc =
+            match is_missing, states with
+            | `Missing, _ ->
+                    (find_item all) :: (find_item (1 lor 2)) :: acc
+            | `Exists, 0 ->
+                    (* All characters, and the gap itself, in other words,
+                    * we treat the gap as a separate character, and the
+                    * state as missing data *)
+                    (find_item all) :: (find_item 1) :: acc
+            | `Exists, x ->
+                    let r = if x = all then 3 else 2 in
+                    (find_item (x land notgap)) :: (find_item r) :: acc
+        and to_encoding _ acc = 
+            subs :: present_absent :: acc
+        in
+        get_case, to_parser, to_encoding
     | `AffinePartition (subsc, gapcost, gapopening) ->
-            (* We have to partition the column in three columns, each
-            * corresponding to gap opening, gap extension, and substitution.
-            * We will have to filter out columns that are not gap opening
-            * but only extension.
-            * *)
-            let subs = 
-                alph,
-                (Parser.OldHennig.Encoding.set_likelihood_model model
-                    (Parser.OldHennig.Encoding.set_weight
-                        Parser.OldHennig.Encoding.dna_encoding
-                        subsc))
-            in
-            let notgap = lnot gap in
-            let all = notgap land (extract_all all) in
-            let to_parser is_missing states acc =
-                match is_missing, states with
-                | `Missing, _ 
-                | `Exists, 0 -> 
-                        (* We have a gap, so we assign both gap opening and
-                        * gap extension, we will later cleaunup when gap
-                        * opening is not needed *)
-                        (find_item all) :: acc
-                | `Exists, x -> (find_item (x land notgap)) :: acc
-            in 
-            let to_encoding _ acc = subs :: acc in
-            get_case, to_parser, to_encoding
+        (* We have to partition the column in three columns, each
+        * corresponding to gap opening, gap extension, and substitution.
+        * We will have to filter out columns that are not gap opening
+        * but only extension.
+        * *)
+        let subs = 
+            alph,
+            (Parser.OldHennig.Encoding.set_likelihood_model model
+                (Parser.OldHennig.Encoding.set_weight
+                    Parser.OldHennig.Encoding.dna_encoding
+                    subsc))
+        in
+        let notgap = lnot gap in
+        let all = notgap land (extract_all all) in
+        let to_parser is_missing states acc =
+            match is_missing, states with
+            | `Missing, _
+            | `Exists, 0 -> (find_item all) :: acc
+            | `Exists, x -> (find_item (x land notgap)) :: acc
+        in 
+        let to_encoding _ acc = subs :: acc in
+        get_case, to_parser, to_encoding
     | `AllSankoff gap_processing_function ->
-            let size = 
-                (* We remove one from the all elements representation *)
-                match Alphabet.get_all alph with
-                | Some _ -> (Alphabet.distinct_size alph) - 1 
-                | None -> Alphabet.distinct_size alph
-            in
-            let is_metric = Cost_matrix.Two_D.is_metric tcm in
-            let make_tcm () =
-                match Alphabet.kind alph with
-                | Alphabet.Simple_Bit_Flags ->
-                        Array.init size (fun x -> Array.init size 
-                        (fun y -> 
-                            Cost_matrix.Two_D.cost (1 lsl x) (1 lsl y) tcm)) 
-                | Alphabet.Sequential ->
-                      let tcm_size = Cost_matrix.Two_D.alphabet_size tcm in
-                      let all = 
-                          match Alphabet.get_all alph with
-                          | None -> (-1)
-                          | Some x -> x
-                      in
-                      Array.init size 
-                          (fun x -> 
-                               Array.init size 
-                                   (fun y -> 
-                                        let x = min (x + 1) tcm_size in 
-                                        let y = min (y + 1) tcm_size in
-                                        let x =
-                                            if x = all then x + 1
-                                            else x
-                                        and y =
-                                            if y = all then y + 1
-                                            else y
-                                        in
-                                        Cost_matrix.Two_D.cost x y tcm))
-                | Alphabet.Continuous ->
-                        assert false (* Static data only *)
-                | Alphabet.Extended_Bit_Flags 
-                | Alphabet.Combination_By_Level -> 
-                        failwith "Impliedalignment.make_tcm"
-            in
-            let enc = 
-                let alph = Alphabet.to_sequential alph in
-                let res = Parser.OldHennig.Encoding.default () in
-                let res = Parser.OldHennig.Encoding.set_min res 0 in
-                let res = Parser.OldHennig.Encoding.set_max res (size - 1) in
-                let res = Parser.OldHennig.Encoding.set_likelihood_model model res in
-                let set = 
-                    let rec add_consecutive_integers cur max acc = 
-                        if cur = max then acc
-                        else 
-                            add_consecutive_integers (cur + 1) max 
-                            (All_sets.Integers.add cur acc)
-                    in
-                    add_consecutive_integers 0 size All_sets.Integers.empty
+        (* We remove one from the all elements representation *)
+        let size = match Alphabet.get_all alph with
+            | Some _ -> (Alphabet.distinct_size alph) - 1 
+            | None -> Alphabet.distinct_size alph
+        in
+        let is_metric = Cost_matrix.Two_D.is_metric tcm in
+        let make_tcm () = match Alphabet.kind alph with
+            | Alphabet.Simple_Bit_Flags ->
+                Array.init size (fun x ->
+                    Array.init size (fun y ->
+                        Cost_matrix.Two_D.cost (1 lsl x) (1 lsl y) tcm))
+            | Alphabet.Sequential ->
+                let tcm_size = Cost_matrix.Two_D.alphabet_size tcm in
+                let all = match Alphabet.get_all alph with
+                    | None -> (-1)
+                    | Some x -> x
                 in
-                let res = Parser.OldHennig.Encoding.set_set res set in
-                alph, Parser.OldHennig.Encoding.set_sankoff res (make_tcm ())
-            in
-            let rec generate_all acc size = 
-                if size < 0 then acc
-                else generate_all (size :: acc) (size - 1)
-            in
-            let convert_to_list x =                
-                match Alphabet.kind alph with
-                | Alphabet.Simple_Bit_Flags ->
-                        let rec match_bit v pos mask acc = 
-                            if pos = 6 then acc
-                            else if 0 <> (v land mask) then
-                                let acc =
-                                    if is_metric || mask <> gap then
-                                        ((pos - 1) :: acc)
-                                    else acc
-                                in
-                                match_bit v (pos + 1) (mask lsl 1) acc
-                            else match_bit v (pos + 1) (mask lsl 1) acc
+                Array.init size (fun x -> 
+                    Array.init size (fun y -> 
+                        let x = min (x + 1) tcm_size in 
+                        let y = min (y + 1) tcm_size in
+                        let x =
+                            if x = all then x + 1
+                            else x
+                        and y =
+                            if y = all then y + 1
+                            else y
                         in
-                        match_bit x 1 1 []
-                | Alphabet.Sequential -> 
-                        [x - 1]
-                | Alphabet.Continuous ->
-                        assert false (* static data only *)
-                | Alphabet.Extended_Bit_Flags 
-                | Alphabet.Combination_By_Level -> 
-                        failwith "Impliedalignment.convert_to_list"
-            in
-            let all = 
-                (* The size minus 1 for the codes (starting in 0), and another
-                * one for the gap which we code separated *)
-                let sz  =
-                    match gap_processing_function with
-                    | None -> size - 1
-                    | _ -> size - 2 
+                        Cost_matrix.Two_D.cost x y tcm))
+            | Alphabet.Continuous ->
+                assert false (* Static data only *)
+            | Alphabet.Extended_Bit_Flags 
+            | Alphabet.Combination_By_Level -> 
+                failwith "Impliedalignment.make_tcm"
+        in
+        let enc =
+            let alph = Alphabet.to_sequential alph in
+            let res = Parser.OldHennig.Encoding.default () in
+            let res = Parser.OldHennig.Encoding.set_min res 0 in
+            let res = Parser.OldHennig.Encoding.set_max res (size - 1) in
+            let res = Parser.OldHennig.Encoding.set_likelihood_model model res in
+            let set =
+                let rec add_consecutive_integers cur max acc =
+                    if cur = max then
+                        acc
+                    else
+                        add_consecutive_integers (cur + 1) max
+                                                 (All_sets.Integers.add cur acc)
                 in
-                generate_all [] sz in
-            let gap_holder = 
-                (* We always use all in the gap because we code it separated for
-                * Sankoff characters 
-                if is_metric then [gap_code] else all 
-                *) 
-                match gap_processing_function with
-                | None -> [4]
-                | _ -> all
+                add_consecutive_integers 0 size All_sets.Integers.empty
             in
-            let table = Hashtbl.create 67 in
-            let find_item it =
-                if Hashtbl.mem table it then
-                    Hashtbl.find table it
-                else begin
-                    let r = FileContents.Sankoff_Character (it, false) in
-                    Hashtbl.add table it r;
-                    r
-                end
+            let res = Parser.OldHennig.Encoding.set_set res set in
+            alph, Parser.OldHennig.Encoding.set_sankoff res (make_tcm ())
+        in
+        let rec generate_all acc size =
+            if size < 0 then acc
+            else generate_all (size :: acc) (size - 1)
+        in
+        let convert_to_list x = match Alphabet.kind alph with
+            | Alphabet.Simple_Bit_Flags ->
+                let rec match_bit v pos mask acc = 
+                    if pos = 6 then acc
+                    else if 0 <> (v land mask) then
+                        let acc =
+                            if is_metric || mask <> gap then
+                                ((pos - 1) :: acc)
+                            else acc
+                        in
+                        match_bit v (pos + 1) (mask lsl 1) acc
+                    else match_bit v (pos + 1) (mask lsl 1) acc
+                in
+                match_bit x 1 1 []
+            | Alphabet.Sequential -> 
+                    [x - 1]
+            | Alphabet.Continuous ->
+                    assert false (* static data only *)
+            | Alphabet.Extended_Bit_Flags 
+            | Alphabet.Combination_By_Level -> 
+                    failwith "Impliedalignment.convert_to_list"
+        in
+        let all = 
+            (* The size minus 1 for the codes (starting in 0), and another
+            * one for the gap which we code separated *)
+            let sz  = match gap_processing_function with
+                | None -> size - 1
+                | _ -> size - 2 
             in
-            let to_parser is_missing states acc = 
-                match is_missing, states with
-                | `Missing, _ -> 
-                        (find_item all) :: acc
-                | `Exists, 0 -> 
-                        (find_item gap_holder) :: acc
-                | `Exists, x -> 
-                        (find_item (convert_to_list x)) :: acc
-            and to_encoding _ acc = 
-                enc :: acc 
-            in
-            get_case, to_parser, to_encoding
+            generate_all [] sz in
+        let table = Hashtbl.create 67 in
+        let find_item it =
+            if Hashtbl.mem table it then
+                Hashtbl.find table it
+            else begin
+                let r = FileContents.Sankoff_Character (it, false) in
+                Hashtbl.add table it r;
+                r
+            end
+        in
+        let to_encoding _ acc = enc :: acc
+        and to_parser is_missing states acc =
+            match is_missing, states with
+            | `Missing, _ -> (find_item all) :: acc
+            | `Exists, 0  -> (find_item [4]) :: acc
+            | `Exists, x  -> (find_item (convert_to_list x)) :: acc
+        in
+        get_case, to_parser, to_encoding
 
 
 module type S = sig

@@ -6361,7 +6361,7 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
             | `AllSankoff None | `AllOne  _ | `AllOneGapSame _ ->
                 assert ( (Array.length mask) = 0 );    
                 (0,0)
-            | `AllSankoff (Some f)       -> assert false
+            | `AllSankoff (Some f)       -> (f "A", 0)
             | `AffinePartition (_,gc,go) -> (go, gc)
         and create cost =
             Alphabet.present_absent, Parser.OldHennig.Encoding.gap_encoding cost
@@ -6374,22 +6374,20 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         let res = Array.mapi (fun i x -> encoding i x) mask in
         List.flatten (Array.to_list res)
     in
+    let abs = FileContents.Unordered_Character (2, false)
+    and prs = FileContents.Unordered_Character (1, false) in
     let make_indel_blocks mask seq =
         let state i =
             let s = (* gap column state *)
                 if 0 < (mask.(i) land 1) then
-                    if (gap = Sequence.get seq i)
-                        then FileContents.Unordered_Character (2, false) :: []
-                        else FileContents.Unordered_Character (1, false) :: []
+                    if (gap = Sequence.get seq i) then abs::[] else prs::[]
                 else
                     []
             in
             let s = (* gap_opening column state *)
                 if (0 < (mask.(i) land 2)) then
                     let opening = (i = 0) || (gap <> (Sequence.get seq (i-1))) in
-                    if (gap = Sequence.get seq i) && opening
-                        then FileContents.Unordered_Character (2, false) :: s
-                        else FileContents.Unordered_Character (1, false) :: s
+                    if (gap = Sequence.get seq i) && opening then abs::s else prs::s
                 else
                     s
             in
