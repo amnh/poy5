@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 3214 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 3219 $"
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
@@ -624,7 +624,7 @@ let parsimony_branch_lengths opt x y = match x, y with
         begin match opt with
             | Some `Max    ->
                 let cost = SeqCS.worst_cost a b in
-                assert false
+                Some cost
             | Some `Final  ->
                 let cost = SeqCS.distance 0.0 a b in
                 Some cost
