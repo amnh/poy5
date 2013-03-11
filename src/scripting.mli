@@ -310,7 +310,8 @@ val set_console_run : r -> unit
 
         (* Tree conversion for IO *)
         val of_string : string -> Data.d -> a list -> phylogeny list
-        val to_string : bool -> phylogeny -> Data.d -> string list
+        val to_string : 
+            Methods.report_branch option -> phylogeny -> Data.d -> string list
         val of_file : string -> Data.d -> a list -> phylogeny list
         val of_nodes : Data.d -> a list -> phylogeny
         val branch_table : Methods.report_branch option -> phylogeny ->
@@ -319,9 +320,9 @@ val set_console_run : r -> unit
         (* Swapping a tree *)
         val build : Data.d -> a list -> phylogeny list
         val spr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
-            phylogeny list 
+            phylogeny list
         val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
-            phylogeny list 
+            phylogeny list
     end
 
     module Runtime : sig
@@ -333,7 +334,7 @@ val set_console_run : r -> unit
         val set_trees : phylogeny list -> unit
         val data : unit -> Data.d
         val nodes : unit -> a list
-        val to_string : bool -> string list list 
+        val to_string : Methods.report_branch option -> string list list
         val of_string : string -> unit
     end
 

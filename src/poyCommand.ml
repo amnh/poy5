@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3219 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3221 $"
 
 let debug = false 
 
@@ -330,9 +330,9 @@ type reporta = [
     | `Data
     | `Xslt of (string * string)
     | `KML of (string * string)
-    | `Ascii of bool
+    | `Ascii of Methods.report_branch option
     | `Memory
-    | `Graph of bool
+    | `Graph of Methods.report_branch option
     | `Trees of Methods.information_contained list
     | `MstR
     | `TreeCosts
@@ -946,8 +946,8 @@ type command = [
     let transform_report_arguments x = match x with
         | [`File file] ->
                 let file = Some file in
-                [`Ascii (file, true); `Diagnosis (`Normal,file); `Trees ([], file)]
-        | [] -> [`Ascii (None, true); `Diagnosis (`Normal,None); `Trees ([], None)]
+                [`Ascii (file, Some `Single); `Diagnosis (`Normal,file); `Trees ([], file)]
+        | [] -> [`Ascii (None, Some `Single); `Diagnosis (`Normal,None); `Trees ([], None)]
         | _  -> let def = [], None in
                 let x, _ = List.fold_left transform_report def x in
                 x
@@ -1696,12 +1696,12 @@ type command = [
                     [ LIDENT "asciitrees" ; y = OPT optional_collapse -> 
                         match y with
                         | Some (`Collapse y) -> `Ascii y
-                        | None -> `Ascii true ] |
+                        | None -> `Ascii (Some `Single) ] |
                     [ LIDENT "memory" -> `Memory ] |
                     [ LIDENT "graphtrees"; y = OPT optional_collapse ->
                         match y with
                             | Some (`Collapse y) -> `Graph y
-                            | None -> `Graph true ] |
+                            | None -> `Graph (Some `Single) ] |
                     [ LIDENT "trees"; x = OPT tree_information_list ->
                         match x with | Some x -> `Trees x | None -> `Trees [] ] |
                     [ LIDENT "treestats" -> `TreesStats ] |
@@ -2150,9 +2150,9 @@ type command = [
             ];
         collapse:
             [
-                [ LIDENT "collapse"; y = OPT optional_boolean -> match y with
-                    | Some y -> `Collapse y 
-                    | None -> `Collapse true ]
+                [ LIDENT "collapse"; y = OPT report_branch_opt -> match y with
+                    | Some _ -> `Collapse y
+                    | None   -> `Collapse (Some `Single) ]
             ];
         optional_collapse:
             [ 

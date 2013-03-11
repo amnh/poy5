@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3218 $"
+let () = SadmanOutput.register "Node" "$Revision: 3221 $"
 
 let infinity = float_of_int max_int
 
@@ -2087,9 +2087,7 @@ let dist_2 minimum_delta n a b =
                              then l
                              else r in
                          List.map fn afromlist in
-                     let blist =
-                         List.map (List.nth sb.preliminary.set) blist in
-                       (* TODO: I am not updating this delta_left properly? *)
+                     let blist = List.map (List.nth sb.preliminary.set) blist in
                      List.iter
                          (fun n -> List.iter2
                               (fun a b ->

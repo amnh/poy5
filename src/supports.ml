@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Support" "$Revision: 3160 $"
+let () = SadmanOutput.register "Support" "$Revision: 3221 $"
 
 let infinity = float_of_int (max_int / 4)
 
@@ -183,7 +183,7 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n)
         let ntree =
             List.map
                 (fun tree ->
-                    (TO.collapse_as_needed tree),
+                    (TO.default_collapse_function tree),
                     let tree = tree.Ptree.tree in
                     Tree.reroot (outgroup, Tree.get_parent outgroup tree) tree)
                 tree

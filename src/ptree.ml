@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3212 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3221 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -422,33 +422,34 @@ module type SEARCH =
             (* root data     *) (int array option -> string)
                 -> (string option * Tree.Parse.tree_types)
 
-        val never_collapse :  (a, b) p_tree -> int -> int -> bool
-
-        val collapse_as_needed : (a, b) p_tree -> int -> int -> bool
+        val get_collapse_function :
+            Methods.report_branch option -> ((a, b) p_tree -> int -> int -> bool)
+    
+        val default_collapse_function : (a, b) p_tree -> int -> int -> bool
 
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-            bool -> (a, b) p_tree -> Tree.Parse.tree_types
+            Methods.report_branch option -> (a, b) p_tree -> Tree.Parse.tree_types
 
         val build_tree_with_names_n_costs :
-            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
+            Methods.report_branch option -> (a, b) p_tree -> string -> Tree.Parse.tree_types
 
         val build_forest :
-            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types list
+            Methods.report_branch option -> (a, b) p_tree -> string -> Tree.Parse.tree_types list
 
         val build_forest_as_tree :
-            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
+            Methods.report_branch option -> (a, b) p_tree -> string -> Tree.Parse.tree_types
 
         val build_forest_with_names :
-            bool -> (a, b) p_tree -> Tree.Parse.tree_types list
+            Methods.report_branch option -> (a, b) p_tree -> Tree.Parse.tree_types list
 
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> string -> bool * Methods.report_branch option ->
+            Methods.report_branch option -> (a, b) p_tree -> string -> bool * Methods.report_branch option ->
                 int array option -> Tree.Parse.tree_types list
 
         val build_forest_with_names_n_costs_n_branches :
-            bool -> (a, b) p_tree -> string ->
+            Methods.report_branch option -> (a, b) p_tree -> string ->
                 (string -> int -> int -> (int array * float option) list -> string option) ->
                     (Tree.u_tree -> int -> string) -> bool * Methods.report_branch option ->
                         int array option
@@ -790,10 +791,8 @@ let basic_tree_name t = match t.tree.Tree.tree_name with
 
 (** [build_trees tree]
     @param tree the ptree which is being converted into a Tree.Parse.t
-    @param str_gen is a function that generates a string for each vertex in the
-    tree
-    @param collapse is a function that check weather or not a branch can be
-    collapsed.
+    @param str_gen is a function that generates a string for each vertex in the tree
+    @param collapse is a function that check if a branch can be collapsed.
     @return the ptree in the form of a Tree.Parse.t *)
 let build_trees tree str_gen name_subtree name_tree collapse branches chars root_fn =
     let sortthem a b ao bo data ad bd = match String.compare ao bo with
@@ -1919,18 +1918,33 @@ let basic_build_trees tree strgen collapse branches chars root =
     in
     List.map (snd) trees
 
+
 let basic_build_tree tree strgen collapse branches chars root =
     let trees =
         basic_build_trees tree strgen collapse branches chars root
     in
     List.hd trees
 
-let never_collapse a b c = false
 
-let collapse_as_needed tree code chld = 
-    let data = get_node_data code tree in
-    let datac = get_node_data chld tree in
-    Node.is_collapsable `Any data datac
+let get_collapse_function t = match t with
+    | None   -> (fun _ _ _ -> false)
+    | Some _ ->
+        (fun tree code chld ->
+            let rec sum_branch acc = function
+                | [] -> acc
+                | (_,Some x)::tl -> sum_branch (acc+.x) tl
+                | (_,None  )::tl -> sum_branch  acc     tl
+            in
+            let a = get_node_data code tree in
+            let b = get_node_data chld tree in
+            let r =
+                let adjusted = false and inc_parsimony = (true,t) in
+                Node.get_times_between ~adjusted ~inc_parsimony a (Some b)
+            in
+            0.0 = sum_branch 0.0 r)
+
+let default_collapse_function =
+    get_collapse_function (Some `Single)
 
 let extract_names ptree code = 
     let data = get_node_data code ptree in
@@ -1941,7 +1955,7 @@ let extract_codes pd ptree code = string_of_int code
 
 let build_tree_with_codes tree pd =
     basic_build_tree tree.tree (extract_codes pd tree)
-                        (collapse_as_needed tree) None None (fun _ -> "")
+                (default_collapse_function tree) None None (fun _ -> "")
 
 let rec fold_2 f acc a b = match a, b with
     | (ha :: ta), (hb :: tb) -> fold_2 f (f acc ha hb) ta tb
@@ -1995,24 +2009,20 @@ let get_unique trees = match trees with
     | x -> x
 
 
-let handle_collapse bool = 
-    if bool then collapse_as_needed
-    else (fun _ _ _ -> false)
-
 (** [build_tree_with_names tree pd]
     @return What does this function do? *)
 let build_tree_with_names collapse tree =
-    let collapse_f = handle_collapse collapse tree in
+    let collapse_f = get_collapse_function collapse tree in
     basic_build_tree tree.tree (extract_names tree) collapse_f None None (fun _ -> "")
 
 
 let build_forest_with_names collapse tree =
-    let collapse_f = handle_collapse collapse tree in
+    let collapse_f = get_collapse_function collapse tree in
     basic_build_trees tree.tree (extract_names tree) collapse_f None None (fun _ -> "")
 
 
 let build_tree_with_names_n_costs collapse tree cost = 
-    let collapse_f = handle_collapse collapse tree in
+    let collapse_f = get_collapse_function collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
         match get_node code tree with
@@ -2032,7 +2042,7 @@ let build_tree_with_names_n_costs collapse tree cost =
 
 
 let build_forest collapse tree cost =
-    let collapse_f = handle_collapse collapse tree in
+    let collapse_f = get_collapse_function collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
         match get_node code tree with
@@ -2085,7 +2095,7 @@ let rec build_forest_as_tree collapse tree cost =
 
 
 let build_forest_with_names_n_costs collapse tree cost branches chars = 
-    let collapse_f = handle_collapse collapse tree in
+    let collapse_f = get_collapse_function collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
         match get_node code tree with
@@ -2109,7 +2119,7 @@ let build_forest_with_names_n_costs collapse tree cost branches chars =
 
 
 let build_forest_with_names_n_costs_n_branches collapse tree cost gen_label gen_tree branches chars =
-    let collapse_f = handle_collapse collapse tree in
+    let collapse_f = get_collapse_function collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
         match get_node code tree with
@@ -2147,7 +2157,7 @@ let disp_trees str tree strgen root =
     in
     let trees =
         ref (basic_build_trees tree.tree (strgen tree) 
-                (collapse_as_needed tree) None None (root_name tree))
+                (default_collapse_function tree) None None (root_name tree))
     in
     let ntrees = List.length !trees in
     let get_tree () = List.hd !trees in

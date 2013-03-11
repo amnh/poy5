@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3212 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3221 $"
 
 let (-->) a b = b a
 
@@ -341,7 +341,8 @@ module type S = sig
         val downpass : phylogeny -> phylogeny
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
-        val to_string : bool -> phylogeny -> Data.d -> string list
+        val to_string :
+            Methods.report_branch option -> phylogeny -> Data.d -> string list
         val of_file : string -> Data.d -> a list -> phylogeny list
         val of_nodes : Data.d -> a list -> phylogeny
         val branch_table : Methods.report_branch option -> phylogeny ->
@@ -360,7 +361,7 @@ module type S = sig
         val set_trees : phylogeny list -> unit
         val data : unit -> Data.d
         val nodes : unit -> a list
-        val to_string : bool -> string list list 
+        val to_string : Methods.report_branch option -> string list list
         val of_string : string -> unit
     end
 
@@ -4169,7 +4170,7 @@ let rec folder (run : r) meth =
             | `Script (filename,script) -> 
                 run
             | `Nexus filename ->
-                let ic = [ `Branches None; `NexusStyle; `Collapse false; ] in
+                let ic = [ `Branches None; `NexusStyle; `Collapse None; ] in
                 let parsed_trees,labeling = PTS.process_trees ic run.trees in
                 CompOut.to_nexus run.data parsed_trees labeling ic filename;
                 run
@@ -4679,10 +4680,10 @@ let set_console_run r = console_run_val := r
             let run = get_console_run () in
             run.nodes
 
-        let to_string bool =
+        let to_string collapse =
             let run = get_console_run () in
             let trees = trees () in
-            List.map (fun x -> PhyloTree.to_string bool x run.data) trees
+            List.map (fun x -> PhyloTree.to_string collapse x run.data) trees
 
         let of_string x = 
             let run = get_console_run () in

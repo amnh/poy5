@@ -6,6 +6,9 @@ New Features:
       branch lengths from three different methods (see below), these options are
       ignored under likelihood as we always report the parameter value that
       maximizes the log-likelihood.
+    - report graphtrees, asciitrees, and trees with collapsable property have
+      been extended to use the branch lengths mentioned above (see command
+      description below).
 
 Bugs Fixed:
     - Selecting terminals caused an error in ncurses display when writing to an
@@ -27,7 +30,13 @@ New Commands (see manual for full explanations) :
               characters
 
 Changed Commands (see manual for full explanations) :
-
+    - report command for collapsed branches has been changed. Instead of
+      collapse:true or collapse:false, we've extended the command like the
+      branch lengths above to collapse:min, collapse:max, collapse:single. The
+      branch is collapsed when the length as defined above is equal to 0.0.
+        report(trees:(collapse:single))
+        report("tree.pdf", graphtrees:collapse:min)
+        report( asciitrees:collapse:max )
 
 Known Issues :
  
