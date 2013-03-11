@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3221 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3222 $"
 
 let debug = false 
 
@@ -2127,7 +2127,8 @@ type command = [
             [
                 [LIDENT "min"    -> `Final ] |
                 [LIDENT "max"    -> `Max ] |
-                [LIDENT "single" -> `Single ]
+                [LIDENT "single" -> `Single ] |
+                [LIDENT "false"  -> `None ]
             ];
         report_branch_opt :
             [   [ ":"; x = report_branch -> x]  ];
@@ -2139,9 +2140,14 @@ type command = [
                 [ LIDENT "total" -> `Total ] |
                 [ LIDENT "newick" -> `Newick ] |
                 [ LIDENT "branches"; p = OPT report_branch_opt ->
-                    match p with
-                        | Some _ -> `Branches p
-                        | None   -> `Branches (Some `Single) ] |
+                    let x :> Methods.report_branch option = match p with
+                        | Some `None   -> None
+                        | Some `Final  -> (Some `Final)
+                        | Some `Max    -> (Some `Max)
+                        | Some `Single -> (Some `Single)
+                        | None         -> (Some `Single)
+                    in
+                    `Branches x ] |
                 [ LIDENT "margin"; ":"; m = INT -> `Margin (int_of_string m) ] |
                 [ LIDENT "nomargin" -> `Margin (1000000010 - 1) ] |
                 [ x = old_identifiers -> `Chars x ] |
@@ -2150,9 +2156,15 @@ type command = [
             ];
         collapse:
             [
-                [ LIDENT "collapse"; y = OPT report_branch_opt -> match y with
-                    | Some _ -> `Collapse y
-                    | None   -> `Collapse (Some `Single) ]
+                [ LIDENT "collapse"; y = OPT report_branch_opt ->
+                    let x :> Methods.report_branch option = match y with
+                        | Some `None   -> None
+                        | Some `Final  -> (Some `Final)
+                        | Some `Max    -> (Some `Max)
+                        | Some `Single -> (Some `Single)
+                        | None         -> (Some `Single)
+                    in
+                    `Collapse x ]
             ];
         optional_collapse:
             [ 
