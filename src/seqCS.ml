@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3219 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3228 $"
 
 let debug = false
 let debug_distance = false
@@ -2502,7 +2502,6 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                 ([T.name] = [`String ((Data.code_character code d))])
                 ([T.cost] = [costb])
                 ([T.definite] = [definite_str])
-                ([T.max] = [`Float max])
                 ([attr])
                 { `Fun seq }
             --) :: acc
