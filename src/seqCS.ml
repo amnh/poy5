@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3228 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3230 $"
 
 let debug = false
 let debug_distance = false
@@ -782,7 +782,7 @@ END
     * second case, not sure what to do*)
     let readjust_algn_two_child s1 s2 c2 sumcost_ch12 use_ukk oldsumcost 
                                 oldcost3 oldcost2 oldmineseq =
-        let newseqm, cost = match Cost_matrix.Two_D.affine c2 with
+        let newseqm, cost = match Cost_matrix.Two_D.get_cost_model c2 with
             | Cost_matrix.Affine _ ->
                 let median,cost =
                     if use_ukk then
@@ -1039,7 +1039,7 @@ END
             m, cost
         end else begin
             let seqm, tmpa, tmpb, tmpcost, seqmwg, maxcost =
-                match Cost_matrix.Two_D.affine h.c2_full with
+                match Cost_matrix.Two_D.get_cost_model h.c2_full with
                 | Cost_matrix.Affine _ ->
                     if use_ukk then
                         let tmpa,tmpb,tmpcost =
@@ -1386,7 +1386,7 @@ module PartitionedDOS = struct
                 let a, b, fixma, fixmb, fixmedian, fixa, fixb = 
                     clip_n_fix a b in
                 let seqm, tmpa, tmpb, cost, seqmwg, maxcost =
-                    match Cost_matrix.Two_D.affine h.c2_full with
+                    match Cost_matrix.Two_D.get_cost_model h.c2_full with
                     | Cost_matrix.Affine _ ->
                         if use_ukk then
                             let tmpa,tmpb,tmpcost =
@@ -1889,7 +1889,7 @@ module Union = struct
                     | `Algn_Normal -> false
                 in
                 let sub_factor = 
-                    match Cost_matrix.Two_D.affine a.u_c2 with
+                    match Cost_matrix.Two_D.get_cost_model a.u_c2 with
                     | Cost_matrix.Affine _ -> 0.8
                     | _ -> 1.0 
                 in
@@ -2011,38 +2011,36 @@ let to_string a =
 
 let of_array spec sc code taxon =
     let c3 = spec.Data.tcm3d in
-    let heur = 
-        make_default_heuristic ~c3 spec.Data.tcm2d_full spec.Data.tcm2d_original in
-    let create_item (x, _) =
-        match spec.Data.initial_assignment, x with
+    let heur = make_default_heuristic ~c3 spec.Data.tcm2d_full spec.Data.tcm2d_original in
+    let create_item (x, _) = match spec.Data.initial_assignment, x with
         | `Partitioned clip, x ->
-                Partitioned
-                (PartitionedDOS.create (`Partitioned x) clip spec.Data.alph)
+            Partitioned (PartitionedDOS.create (`Partitioned x) clip spec.Data.alph)
         | `AutoPartitioned (clip, size, table), [|x|] ->
-                Partitioned 
-                    (try
-                        let partition = Hashtbl.find table taxon in
-                        (PartitionedDOS.create (`AutoPartitioned
-                        (partition, x)) clip 
+            Partitioned 
+                (try
+                    let partition = Hashtbl.find table taxon in
+                    (PartitionedDOS.create
+                        (`AutoPartitioned (partition, x))
+                        clip 
                         spec.Data.alph)
-                    with
-                    | Not_found ->  
-                            PartitionedDOS.empty clip size spec.Data.alph)
-        | `GeneralNonAdd, [|x|] -> General_Prealigned (GenNonAdd.init_gnonadd_t x)
-        | `DO, [|x|] -> Heuristic_Selection (DOS.create x)
-        | `AutoPartitioned _, _ 
-        | `GeneralNonAdd, _ 
-        | `DO, _ -> assert false
+                with Not_found -> PartitionedDOS.empty clip size spec.Data.alph)
+        | `GeneralNonAdd, [|x|] ->
+            General_Prealigned (GenNonAdd.init_gnonadd_t x)
+        | `DO, [|x|] ->
+            Heuristic_Selection (DOS.create x)
+        | (`AutoPartitioned _ | `GeneralNonAdd | `DO), _ -> assert false
     in
     let codes = Array.map snd sc in
     let characters = Array.map create_item sc in
-    let res = 
-        { characters = characters; codes = codes; 
-        total_cost = 0.0; subtree_cost = 0.0;
-        alph = spec.Data.alph; code = code; heuristic = heur;
-        priority = Array.to_list codes;} 
-    in
-    res
+    {   characters = characters;
+        codes = codes;
+        total_cost = 0.0;
+        subtree_cost = 0.0;
+        alph = spec.Data.alph;
+        code = code;
+        heuristic = heur;
+        priority = Array.to_list codes; }
+
 
 let of_list spec lst code = of_array spec (Array.of_list lst) code
 

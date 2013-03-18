@@ -2485,42 +2485,11 @@ let process_annotated_chrom data res original_filename file tcmfile tcm_full
     
     
 
-let process_parsed_sequences prealigned weight tcmfile tcm_full tcm_original tcm3 default_mode
-                             annotated alphabet file dyna_state data res
-                             lk_model dyna_pam =
+let process_parsed_sequences prealigned weight tcmfile tcm_full tcm_original tcm3
+    default_mode annotated alphabet file dyna_state data res lk_model dyna_pam =
     let data = duplicate data in
-    (* in a file , we have a list of taxon followed by '>taxonname'
-     ['>'taxon['@'chrom['|'loci['#'frag'#']'|']'@']]
-    * *)
-    (* debug msg: this loop will print out seq from input file, by the format above  
-    let x=ref 0 and y = ref 0 and z = ref 0 and w = ref 0 in
-    Printf.printf "Data.process_parsed_sequences\n%!";
-    List.map (fun ((taxon_chrom_loci_frag_seq:Sequence.s list list list),b) ->
-        Printf.printf "taxon.%d { \n%!" !x; 
-        x:=!x+1; y :=0;
-        (*each taxon has a list of chromosome,seperated by '@'*)
-        List.map( fun (chrom_loci_frag_seq:Sequence.s list list) ->
-            Printf.printf "chrom.%d @ \n%!" !y; 
-            y:=!y+1; z := 0;
-            (*each chromosome has a list of locus, seperated by '|',[ loci0; loci1; ...,]*)
-            List.map ( fun (loci_frag_seq:Sequence.s list) ->
-                Printf.printf "loci.%d | \n%!" !z;
-                z := !z+1; w := 0;
-                (*each loci has a list of fragments, seperated by '#',each fragment is a sequence*)
-                List.map (fun (frag_seq:Sequence.s) ->
-                    Printf.printf "freg.%d # %!" !w;
-                    w := !w +1;
-                    Sequence.printseqcode frag_seq;
-                    Printf.printf " # %!";
-                ) loci_frag_seq;
-                Printf.printf "| \n%!";
-            ) chrom_loci_frag_seq;
-            Printf.printf "@ \n%!";
-        ) taxon_chrom_loci_frag_seq;
-        Printf.printf "} \n%!";
-    ) res;*)
     let original_filename = file in
-    let locus_name = 
+    let locus_name =
         let c = ref (-1) in
         ref (fun () -> incr c; file ^ ":" ^ string_of_int !c)
     in
@@ -2528,39 +2497,42 @@ let process_parsed_sequences prealigned weight tcmfile tcm_full tcm_original tcm
         | Some x -> x
         | None   -> dyna_pam_default
     in
-    let dyna_state : dyna_state_t =
-        match annotated,dyna_pam.Dyn_pam.mode with
-        | true, _    -> `Annotated
+    let dyna_state : dyna_state_t = match annotated,dyna_pam.Dyn_pam.mode with
+        | true, _ -> `Annotated
         | false,None -> dyna_state
         |  _, Some `Chromosome -> `Chromosome
         |  _, Some `Genome -> `Genome
         |  _, Some `Breakinv -> `Breakinv
     in
-
-    let file = 
-        if  annotated || (dyna_state = `Chromosome) then 
+    let file =
+        if annotated || (dyna_state = `Chromosome) then 
             original_filename
         else match default_mode with
-        | `DO | `GeneralNonAdd |`AutoPartitioned _ -> (!locus_name) () 
+        | `DO | `GeneralNonAdd |`AutoPartitioned _ -> (!locus_name) ()
         | `Partitioned _ -> original_filename
     in
-    let data = 
-        if annotated then 
-            process_annotated_chrom data res original_filename file 
-            tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight
-        else if dyna_state = `Genome then 
-            process_parsed_genome data res original_filename file 
-            tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight
+    let data =
+        if annotated then
+            process_annotated_chrom data res original_filename file tcmfile
+                tcm_full tcm_original tcm3 default_mode lk_model alphabet
+                dyna_state dyna_pam weight
+        else if dyna_state = `Genome then
+            process_parsed_genome data res original_filename file tcmfile
+                tcm_full tcm_original tcm3 default_mode lk_model alphabet
+                dyna_state dyna_pam weight
         else if dyna_state = `Breakinv then
-            process_parsed_breakinv data res original_filename file 
-            tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight
+            process_parsed_breakinv data res original_filename file tcmfile
+                tcm_full tcm_original tcm3 default_mode lk_model alphabet
+                dyna_state dyna_pam weight
         else if `DO = default_mode || `GeneralNonAdd = default_mode then
-            process_parsed_normal_sequence data res original_filename  
-            tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight prealigned false
-        else 
-            process_parsed_normal_sequence data res original_filename 
-            tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight prealigned true
-    in 
+            process_parsed_normal_sequence data res original_filename tcmfile
+                tcm_full tcm_original tcm3 default_mode lk_model alphabet
+                dyna_state dyna_pam weight prealigned false
+        else
+            process_parsed_normal_sequence data res original_filename tcmfile
+                tcm_full tcm_original tcm3 default_mode lk_model alphabet
+                dyna_state dyna_pam weight prealigned true
+    in
     data
 
 (* convert Nexus.File.file_output to Data.d *)
@@ -2673,7 +2645,7 @@ let gen_add_static_parsed_file do_duplicate data file file_out =
                     | Some v ->
                         if v=0 then tcm_full,tcm_original,name
                         else begin
-                            Cost_matrix.Two_D.set_affine tcm_full (Cost_matrix.Affine v);
+                            Cost_matrix.Two_D.set_cost_model tcm_full (Cost_matrix.Affine v);
                             let name = match name with
                                 | Substitution_Indel (a,b) -> 
                                     Substitution_Indel_GapOpening (a,b,v)
@@ -2903,12 +2875,11 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_orig
     begin try
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
-            try Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch with
-            | Fasta.Illegal_molecular_format fl ->
-                    let file = FileStream.filename file in
-                    let fl = { fl with Fasta.filename = file } in
-                    print_error_message fl;
-                    raise (Fasta.Illegal_molecular_format fl)
+            try Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch with Fasta.Illegal_molecular_format fl ->
+                let file = FileStream.filename file in
+                let fl = { fl with Fasta.filename = file } in
+                print_error_message fl;
+                raise (Fasta.Illegal_molecular_format fl)
         in
         let res = List.filter (function [[]], _ | [], _ -> false | _ -> true) res
         in
@@ -2916,18 +2887,15 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_orig
             let num_taxa = List.length res in
             let taxa_contents = 
                 let file = FileStream.filename file in
-                "@[The@ file@ " ^ StatusCommon.escape file ^ 
-                "@ contains@ sequences@ of@ " ^
-                string_of_int num_taxa ^ "@ taxa" 
+                "@[The@ file@ " ^ StatusCommon.escape file ^ "@ contains@ sequences@ of@ " ^ string_of_int num_taxa ^ "@ taxa"
             and sequence_contents = 
                 if 0 = num_taxa then ""
                 else begin
                     let lst, _ = List.hd res in
                     let add acc x = acc + (List.length (List.flatten x)) in
                     let len = List.fold_left ~f:add ~init:0 lst in
-                    ",@ each@ sequence@ holding@ " ^
-                    string_of_int len ^ "@ " ^ (if len > 1 then
-                        "fragments.@]" else "fragment.@]@.")
+                    ",@ each@ sequence@ holding@ " ^ string_of_int len ^ "@ " ^
+                        (if len > 1 then "fragments.@]" else "fragment.@]@.")
                 end
             in
             Status.user_message Status.Information (taxa_contents ^ sequence_contents);
@@ -2946,26 +2914,27 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_orig
         end
     with
     | Sys_error err ->
-            let file = FileStream.filename file in
-            let msg = "Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
-                "dna@ sequences@ file.@ @ The@ system@ error@ message@ is@ "
-                ^ err ^
-                "." in
-            output_error msg;
-            data
+        let file = FileStream.filename file in
+        let msg = "Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
+            "dna@ sequences@ file.@ @ The@ system@ error@ message@ is@ "
+            ^ err ^
+            "." in
+        output_error msg;
+        data
     end
 
-let process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_original tcm3 annotated alphabet
-                            mode is_prealigned dyna_state data file =
-    let debug = false in
-    if debug then Printf.printf "Data.process_molecular_file is_prealigned = %b\n%!" is_prealigned;
+let process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_original
+                tcm3 annotated alphabet mode is_prealigned dyna_state data file =
     let data =
-        aux_process_molecular_file ~respect_case:respect_case
-            tcmfile tcm_full tcm_original tcm3 alphabet
+        aux_process_molecular_file
+            ~respect_case:respect_case
+            tcmfile tcm_full
+            tcm_original
+            tcm3 alphabet
             (fun alph parsed -> 
                 process_parsed_sequences is_prealigned 1.0 
-                tcmfile tcm_full tcm_original tcm3 mode annotated 
-                alph (FileStream.filename file) dyna_state data parsed None None)
+                    tcmfile tcm_full tcm_original tcm3 mode annotated 
+                    alph (FileStream.filename file) dyna_state data parsed None None)
             (fun x -> 
                 if not is_prealigned then FileContents.AlphSeq x
                 else FileContents.Prealigned_Alphabet x)
@@ -4250,7 +4219,7 @@ let convert_dyna_spec data chcode spec transform_meth =
                     Cost_matrix.Two_D.fill_tail bed tcm;
                     Cost_matrix.Two_D.fill_prepend be tcm;
                     if (kolmospec.ins_opening <> 0.) then
-                        Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine
+                        Cost_matrix.Two_D.set_cost_model tcm (Cost_matrix.Affine
                         (truncate (kolmospec.ins_opening *.
                         kolmo_round_factor)))
                     else ();
@@ -5842,9 +5811,9 @@ let rec assign_affine_gap_cost data chars cost =
                 let b_full,b_ori =
                     if Alphabet.nucleotides = alph then
                         let b_full = Cost_matrix.Two_D.clone b_full in
-                        let () = Cost_matrix.Two_D.set_affine b_full cost in
+                        let () = Cost_matrix.Two_D.set_cost_model b_full cost in
                         let b_ori = Cost_matrix.Two_D.clone b_ori in
-                        let () = Cost_matrix.Two_D.set_affine b_ori cost in 
+                        let () = Cost_matrix.Two_D.set_cost_model b_ori cost in 
                         b_full,b_ori
                     else 
                         b_full,b_ori
