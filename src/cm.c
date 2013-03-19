@@ -296,12 +296,7 @@ cm_set_gap_3d (cm_3dt c, int v) {
     return;
 }
 
-#ifdef _WIN32
-static __inline void
-#else
-static inline void
-#endif
-cm_set_affine (cmt c, int do_aff, int go) {
+void cm_set_affine (cmt c, int do_aff, int go) {
     assert(c != NULL);
     c->cost_model_type = do_aff;
     c->gap_open = go;
@@ -1072,24 +1067,13 @@ cm_get_median_level (SEQT *tcm, SEQT a, SEQT b, int mapsize) {
     return (*res);
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_cost (int *tcm, int a, int b, int mapsize) {
+int cm_get_cost (int *tcm, int a, int b, int mapsize) {
     assert(mapsize>0);
     assert(a<=mapsize);
     assert(b<=mapsize);
     assert(a>=0);
     assert(b>=0);
-    int * res;
-    //if (a==b) return 0;
-    //else
-    //{
-        res = tcm + ((a)*mapsize+(b));
-        return (*res);
-    //}
+    return tcm[ (a*mapsize)+b ];
 }
 
 #ifdef _WIN32
@@ -2267,14 +2251,17 @@ cm_CAML_get_cost_3d (value a, value b, value c, value cm) {
 value
 cm_CAML_get_cost (value a, value b, value c) {
     CAMLparam3(a, b, c);
-    int *tcm;
+    CAMLlocal1( d );
+    int *tcm, res;
     cmt tmp;
     tmp = Cost_matrix_struct(c);
     tcm = tmp->cost;
-    if (cm_check_level(tmp) == 1 ) 
-         CAMLreturn(Val_int(cm_get_cost(tcm, Int_val(a), Int_val(b), (tmp->map_sz+1))));
+    if (cm_check_level(tmp) == 1 )
+        res = cm_get_cost(tcm, Int_val(a), Int_val(b), (tmp->map_sz+1));
     else
-        CAMLreturn(Val_int(cm_calc_cost(tcm, Int_val(a), Int_val(b), tmp->lcm)));
+        res = cm_calc_cost(tcm, Int_val(a), Int_val(b), tmp->lcm);
+    d = Val_int( res );
+    CAMLreturn( d );
 }
 
 value

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3221 $"
+let () = SadmanOutput.register "Node" "$Revision: 3230 $"
 
 let infinity = float_of_int max_int
 
@@ -2577,7 +2577,6 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             (Data.Stat (code, Some (`List enc.Nexus.File.st_observed)), `Unknown) 
         and gen_dynamic code =
             let alph = Data.get_alphabet !data code in
-            (* print_endline ("adding sequence with code " ^ string_of_int code); *)
             let empty_seq = Data.get_empty_seq alph in
             let chrom_data = Data.set_dyna_data [|empty_seq|] in 
             (Data.Dyna (code, chrom_data), `Unknown)
@@ -2695,13 +2694,13 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                 match ldynamic_chars with
                 | [] -> result
                 | _ ->
-                      let c = 
-                          List.map 
-                          (fun (dyna,fname) -> extract_dynamic !data dyna tcode) 
-                          ldynamic_chars 
-                      in
-                      let c : cs list = List.map (fun c -> Dynamic c) c in
-                      { result with characters = c @ result.characters } 
+                    let c = 
+                        List.map 
+                            (fun (dyna,fname) -> extract_dynamic !data dyna tcode) 
+                            ldynamic_chars 
+                    in
+                    let c : cs list = List.map (fun c -> Dynamic c) c in
+                    { result with characters = c @ result.characters } 
             in
             let result = (* FIXED STATES *)
                 match lfixedstates_chars with
@@ -2957,63 +2956,8 @@ let flatten cs_lst=
 let flatten_cslist (characters_lst: cs list list) data =
     let debug = false in
     if debug then Printf.printf "node.flatten_cslst -> %!";
-    let (seq_lstlstlst:(int * Sequence.s list list ) list)
-    = mapN flatten characters_lst in 
-    (* for BreakinvCS, seq_lstlstlst is like following ( other dynamicCS data
-    * types I know in are simpler than this):
-      {
-          (
-            [seq of 1th median of 1th chromosome of 1th node;
-             seq of 2th median of 1th chromosome of 1th node;
-             .... ];
-            [seq of 1th median of 1th chromosome of 2th node;
-             ...... 2th ..........1th ......................;
-             .....];
-            ......
-          )
-          (
-            [seq of 1th median of 2th chromosome of 1th node;
-             seq of 2th median of 2th chromosome of 1th node;
-             .... ];
-            [seq of 1th median of 2th chromosome of 2th node;
-             ...... 2th ..........2th ......................;
-             .....];
-            ......
-          )
-          ......
-          ......
-          (
-              [seq of 1th median of nth chromosome of 1th node;
-               seq of 2th ....................................;
-               ..... ];
-              [seq of 1th median of nth chromosome of 1th node;
-               seq of 2th median of ..........................
-               ..... ];
-               .......
-          )
-      }
-    *)
-    if debug then Printf.printf "before flatten_cslist seq_lstlstlst = \n%!";
+    let (seq_lstlstlst:(int * Sequence.s list list ) list) = mapN flatten characters_lst in 
     let getfilename filename_w_taxoncode =
-        (*if we have more than one chromsome in a taxon of a file
-        * fiel1.fas
-        * >t1
-        * a b c @ d e
-        * >t2
-        * a c b @ e d
-        * each chromosome become a character, with name filename^":"^"which
-        * taxon is it in"
-        * ( see data.ml
-        *   let locus_name = 
-            let c = ref (-1) in
-            ref (fun () -> incr c; file ^ ":" ^ string_of_int !c)
-            in)
-        * for the example above, we have
-        *         chmosome1 chmosome2
-        * file1   file1:0   file1:1
-        *
-        * this function get the filename out of string "filename:int"
-        * *)
         let idx = ref 0 and len = ref 0 in
         String.iter (fun chr -> 
             if chr=':' then len := !idx
@@ -3039,22 +2983,11 @@ let flatten_cslist (characters_lst: cs list list) data =
         else
             Hashtbl.add tbl filename [thischrom]
     ) seq_lstlstlst;
-    let file_chrom_node_med = Hashtbl.fold (fun filename chrom_node_med acc ->
-        acc@[(filename,chrom_node_med)]
-    ) tbl [] in
-    (*[tranpose take a matrix, return its transposed form]
-     * { 
-         * a1,a2,a3,....,an;
-         * b1,b2,b3,....,bn;
-         * ......
-         * x1,x2,x3,....,xn;
-         * ....
-         * }
-         become
-        { a1,b1,....,x1,...;
-          a2,b2,....,x2,...;
-          .....
-          an,bn,....,xn,...;}*)
+    let file_chrom_node_med =
+        Hashtbl.fold (fun filename chrom_node_med acc ->
+            acc@[(filename,chrom_node_med)]
+        ) tbl []
+    in
     let transpose in_lstlst =
         let len = List.length (List.hd in_lstlst) in
         let out_lstlst = ref [] in
@@ -3093,105 +3026,43 @@ let flatten_cslist (characters_lst: cs list list) data =
     in
     node_file_median_chrom_seq, node_file_median_chrom_seqdeli
 
+
 let single_to_multi_chromosome single_cs =
-    let dynCS_t_list:DynamicCS.t list =
-        match single_cs with
-            | Dynamic cs ->
-                    DynamicCS.single_to_multi cs.preliminary
-            | _ -> 
-                failwith ("single-chromosome to multi-chromosome :\ 
-                    we only deal with DynamicCS now")
+    let dynCS_t_list:DynamicCS.t list = match single_cs with
+        | Dynamic cs -> DynamicCS.single_to_multi cs.preliminary
+        | _ -> assert false
     in
-    let dynCS_t_r_list = 
-        List.map (fun dynCS_t -> 
-            match single_cs with 
+    let dynCS_t_r_list =
+        List.map (fun dynCS_t -> match single_cs with
             |Dynamic s_cs -> {s_cs with preliminary = dynCS_t; final = dynCS_t}
-            | _ -> failwith ("single to multichromosome : we only deal with DynamicCS now")
-            )dynCS_t_list 
+            | _ -> assert false
+        )dynCS_t_list
     in
-    List.map (fun dynCS_t_r -> Dynamic dynCS_t_r ) dynCS_t_r_list 
+    List.map (fun dynCS_t_r -> Dynamic dynCS_t_r ) dynCS_t_r_list
+
 
 let multi_to_single_chromosome node_data file_median_seq file_median_chrom_seqdeli (*newseq delimiters*) =
     let old_characters = node_data.characters in
-    let new_characters = 
-    match (List.hd old_characters) with
-    | Dynamic cs ->
-            let new_preliminary_lst = 
+    let new_characters = match (List.hd old_characters) with
+        | Dynamic cs ->
+            let new_preliminary_lst =
                 DynamicCS.update_t cs.preliminary file_median_seq file_median_chrom_seqdeli in
-            List.map (fun x -> 
-                Dynamic {cs with preliminary = x; final=x;}
-            ) new_preliminary_lst
-    | _ -> 
-    failwith ("multichromosome to singlechromosome : we only deal with DynamicCS now")
+            List.map
+                (fun x -> Dynamic {cs with preliminary = x; final=x;})
+                new_preliminary_lst
+        | _ -> assert false
     in
-    { node_data with characters = new_characters }   
+    { node_data with characters = new_characters; }
+
 
 let transform_multi_chromosome ( nodes : node_data list ) data =
-    let available = 
-        is_available (List.hd nodes).characters 
-    in
-    if (available=1) then begin
-    let characters_lst: cs list list = List.map (fun x -> x.characters) nodes in
-    let (node_file_median_chrom_seq:Sequence.s list list list list),
-    (node_file_median_chrom_seqdeli: int list list list list) = 
-        flatten_cslist characters_lst data
-    in
-        (* now the seq_lstlstlst is like this:
-          file 1:
-            {
-            (
-            [seq of 1th median of 1th chromosome of 1th node;
-             seq of 1th median of 2th chromosome of 1th node;
-             .... ];
-            [seq of 2th median of 1th chromosome of 1th node;
-             ...... 2th ..........2th ......................;
-             .....];
-            ......
-            )
-            (
-            [seq of 1th median of 1th chromosome of 2th node;
-             seq of 1th median of 2th chromosome of 2th node;
-             .... ];
-            [seq of 2th median of 1th chromosome of 2th node;
-             ...... 2th ..........2th ......................;
-             .....];
-            ......
-            )
-            .......
-            ( ... )
-          };
-          file 2:
-            {
-                ......
-            }
-        * *)
-        (*debug msg 
-        Printf.printf "check delimiters list after flatten =>\n%!";
-        List.iter (fun intlstlstlst ->
-        Printf.printf "node{\n%!";
-        List.iter(fun intlstlst -> 
-            Printf.printf "file(%!";
-            List.iter (fun intlst -> 
-                Printf.printf "median[%!";
-                List.iter (Printf.printf "%d,%!") intlst; 
-                Printf.printf "]\n%!"; )intlstlst;  
-            Printf.printf ")\n%!";
-        ) intlstlstlst;
-        Printf.printf "}\n%!";
-        )node_file_median_chrom_seqdeli;
-        Printf.printf "check seq list =>\n%!";
-        List.iter (fun seq_lstlstlst ->
-            Printf.printf "node{\n%!";
-            List.iter (fun seqlstlst ->
-            Printf.printf "file(\n%!";
-            List.iter (fun seqlst -> 
-                Printf.printf "median[%!";   List.iter (Sequence.printseqcode) seqlst; 
-                Printf.printf "]\n%!") seqlstlst; 
-            Printf.printf ")\n%!";
-            )seq_lstlstlst;
-            Printf.printf "}\n%!";
-        ) node_file_median_chrom_seq;
-         debug msg*)
+    let available = is_available (List.hd nodes).characters in
+    if available = 1 then begin
+        let characters_lst: cs list list = List.map (fun x -> x.characters) nodes in
+        let (node_file_median_chrom_seq:Sequence.s list list list list),
+                (node_file_median_chrom_seqdeli: int list list list list) = 
+            flatten_cslist characters_lst data
+        in
         let node_file_median_seq = 
             List.map ( fun file_median_chrom_seq ->
                 List.map (fun median_chrom_seq ->
@@ -3200,26 +3071,6 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
                 ) file_median_chrom_seq;
             ) node_file_median_chrom_seq;(* file_seq_lstlstlst;*)
         in
-        (* note: after concat, nodelst_medlst_seq is
-        * { ( sequence of 1th median); ( sequence of 2th median ); .... }
-        * deli_lstlst is
-        * { 
-            (delimiter lst of seqeunce of 1th median);
-            (delimiter lst of sequence of 2th median);
-            ......
-        * *)
-        (* debug msg
-        Printf.printf "after concat: %!";
-        List.iter (fun file_median_seq ->
-            Printf.printf "node{\n%!";
-            List.iter (fun seqlst ->
-                Printf.printf "file (\n%!";
-                List.iter (Sequence.printseqcode) seqlst;
-                Printf.printf ")\n%!";
-            ) file_median_seq;
-            Printf.printf "}\n%!";
-        ) node_file_median_seq;
-         debug msg*)
         let new_nodedata_lst = 
         map3 (fun old_nodedata file_median_seq file_median_chrom_seqdeli -> 
             multi_to_single_chromosome old_nodedata file_median_seq file_median_chrom_seqdeli)
@@ -3228,10 +3079,10 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
          node_file_median_chrom_seqdeli 
         in
         new_nodedata_lst
-    end
-    else 
+    end else 
         nodes
     
+
 let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
     (* classify -- Not only we make the list of characters into sets of
        characers, but we also filter those characters that have weight 0. *)

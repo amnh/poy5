@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3206 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3230 $"
 
 exception NotASequence of int
 
@@ -1289,7 +1289,7 @@ let analyze_tcm tcm model alph =
     and all = Alphabet.get_all alph in
     let for_sankoff =
         let go = 
-            match Cost_matrix.Two_D.affine tcm with
+            match Cost_matrix.Two_D.get_cost_model tcm with
             | Cost_matrix.No_Alignment 
             | Cost_matrix.Linnear -> 0
             | Cost_matrix.Affine go -> go
@@ -1339,9 +1339,9 @@ let analyze_tcm tcm model alph =
             end
     in
     let get_cost_of_gap () =
-        match 
+        match
             List.filter (fun (_, x) -> (x <> gap) && (check_x x))
-            (Alphabet.to_list alph) 
+                        (Alphabet.to_list alph)
         with
         | [] -> failwith "An empty alphabet?"
         | res ->
@@ -1350,18 +1350,18 @@ let analyze_tcm tcm model alph =
                 | None -> failwith "No costs?"
             end
     in
-    let get_gap_opening tcm = match Cost_matrix.Two_D.affine tcm with
+    let get_gap_opening tcm = match Cost_matrix.Two_D.get_cost_model tcm with
         | Cost_matrix.No_Alignment 
         | Cost_matrix.Linnear -> failwith "not affine"
         | Cost_matrix.Affine go -> go
     in
-    let is_affine tcm = match Cost_matrix.Two_D.affine tcm with
+    let is_affine tcm = match Cost_matrix.Two_D.get_cost_model tcm with
         | Cost_matrix.Affine _ -> true
         | _ -> false
     in
     let all_same_affine () =
-        try let _ = get_gap_opening tcm in true with
-        | _ -> false
+        try let () = ignore (get_gap_opening tcm) in true
+        with | _ -> false
     in
     let get_case =
         try

@@ -17,27 +17,30 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(** Cost_matrix 
-*
-* This Module handles all the operations on two-dimensional and three
-* dimensional cost matrices. Given a set of n possible states A = a1 .... an, 
-* a cost matrix keeps precaulcated costs for tuples (two dimensional cost 
-* matrix) and triples (three dimensional cost matrix) of these elements. 
-*
-* The type m in {!Two_D} and {!Three_D} are imperative.
-* *)
+(** Cost_matrix
+
+    This Module handles all the operations on two-dimensional and three
+    dimensional cost matrices. Given a set of n possible states A = a1 .... an,
+    a cost matrix keeps precaulcated costs for tuples (two dimensional cost
+    matrix) and triples (three dimensional cost matrix) of these elements.
+
+    The type m in {!Two_D} and {!Three_D} are imperative.  *)
+
 
 (** {2 Exceptions} *)
 
 exception Illegal_Cm_Format
 
+
 (** {2 Types} *)
 
 type gap_opening = int
+
 type cost_model = 
     | No_Alignment
     | Linnear
     | Affine of gap_opening 
+
 
 (** {2 Two Dimensional and Three Dimensional Matrices} *)
 
@@ -45,52 +48,52 @@ module Two_D : sig
 
     (** Two Dimensional sequence alignment cost matrices. *)
 
+
     (** {2 Types} *)
 
     (** A two dimensional cost matrix type. *)
     type m
 
+
     (** {2 Creating} *)
 
     (** [create a com aff go ge] creates a cost matrix for an alphabet of size a,
-    * claculating all the possible combinations (effective size 2^a) iff com is
-    * true, using the affine cost model aff and gap opening go and gap 
-    * extension ge.  *)
-    external create : int -> bool -> int -> int -> int -> int -> int -> int ->
-        int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
+        claculating all the possible combinations (effective size 2^a) iff com is
+        true, using the affine cost model aff and gap opening and gap extension *)
+    val create : int -> bool -> int -> int -> int -> int -> int -> int -> int -> m
     
     (** [clone x] creates a fresh copy of the cost matrix x *)
-    
-    external clone : m -> m = "cm_CAML_clone"
+    val clone : m -> m
 
     (** [perturbe x y z] perturbates the cost matrix x with severity y and
-    * probability z *)
+        probability z *)
     val perturbe : m -> int -> int -> m
 
     (** [of_list a] creates a fresh transformation cost matrix with the values
-    * contained in the squared matrix [a]. *)
+        contained in the squared matrix [a]. *)
     val of_list : ?use_comb:bool -> ?level:int -> ?suppress:bool -> 
                     int list list -> int -> m * m
 
     (** [of_transformations_and_gaps uc as t g] creates a fresh two dimensional
-    * transformation cost matrix for an alphabet of size [as], with
-    * transformation cost [t] and indel cost [g]. If [uc] is true, then all the
-    * combinations for the sequences are calculated, otherwise they are not. *)
+        transformation cost matrix for an alphabet of size [as], with
+        transformation cost [t] and indel cost [g]. If [uc] is true, then all the
+        combinations for the sequences are calculated, otherwise they are not. *)
     val of_transformations_and_gaps : bool -> int -> int -> int -> int -> m * m
 
     (** [default] is the default cost matrix in POY for pairwise, nucleotide
-    * sequence alignments. *)
+        sequence alignments. *)
     val default : m
 
     val default_nucleotides : m
 
     val default_aminoacids : m
 
-    (** {3 IO} *)
+
+    (** {2 IO} *)
 
     (** [of_channel file] parse the file containing a cost matrix and returns
-    the processed data. Raise an Illegal_Cm_Format if the format can't be
-    parsed. *)
+        the processed data. Raise an Illegal_Cm_Format if the format can't be
+        parsed. *)
     val of_channel: ?tie_breaker:Methods.keep_method -> ?orientation:bool -> ?use_comb:bool -> ?level:int -> int ->
         FileStream.greader -> m * m * int list list
 
@@ -102,42 +105,44 @@ module Two_D : sig
 
     (** [print ma] prints the matrix ma with alphabet size a in stdout. *)
     val output : out_channel -> m -> unit
+
     val output_constrained : out_channel -> int -> m -> unit
+
 
     (** {2 Setting Values} *)
 
     (** [set_gap cm v] sets the gap representation value to v in the cost matrix cm. *)
-    external set_gap : m -> int -> unit = "cm_CAML_set_gap"
+    val set_gap : m -> int -> unit
 
     (* [set_level m v] sets the level value of cost matrix *)
-    external set_level : m -> int -> unit = "cm_CAML_set_level"
+    val set_level : m -> int -> unit
 
     (** [set_alphabet_size cm v] sets the alphabet size of the cost matrix cm to v.  *)
-    external set_alphabet_size : int -> m -> unit = "cm_CAML_set_a_sz"
+    val set_alphabet_size : int -> m -> unit
 
     (** [set_lcm cm v] sets the log2 of the alphabet size in the cost matrix cm to v. *)
-    external set_lcm : m -> int -> unit = "cm_CAML_set_lcm"
+    val set_lcm : m -> int -> unit
 
-    (** [set_affine cm v] sets the cost model to the appropriate value. *)
-    val set_affine : m -> cost_model -> unit
+    (** [set_cost_model cm v] sets the cost model to the appropriate value. *)
+    val set_cost_model : m -> cost_model -> unit
 
-    (* [create_cm_by_level m level oldlevel all_elements] creates a new cost matrix based on the
-    * original matrix and new level value, returns the new matrix *)
+    (** [create_cm_by_level m level oldlevel all_elements] creates a new cost
+        matrix based on the original matrix and new level. *)
     val create_cm_by_level : m -> int -> int -> int -> Methods.keep_method -> m
 
     (** [set_cost x y cm v] sets the cost of transforming element x into y in cost
         matrix cm to v*)
-    external set_cost : int -> int -> m -> int -> unit = "cm_CAML_set_cost"
+    val set_cost : int -> int -> m -> int -> unit
 
     (** [set_median x y z u] sets the value of the median of states x and y to u
-    * in the cost matrix z *)
-    external set_median : 
-        int -> int -> m -> int -> unit = "cm_CAML_set_median"
+        in the cost matrix z *)
+    val set_median : int -> int -> m -> int -> unit
+
 
     (** {2 Getting Values} *)
-    (** [is_metric mtx] checks if the cost matrix specified by the list
-    * [lst] (which should be a valid input for [of_list]), is a metric matrix or
-    * not. *)
+
+    (** [is_metric mtx] checks if the cost matrix specified by the list [lst]
+        (which should be a valid input for [of_list]), is a metric matrix or not. *)
     val is_metric : m -> bool
     
     (*[is_idntity] return true is there is no cost between same states in matrix m*)
@@ -146,53 +151,61 @@ module Two_D : sig
     val get_all_elements : m -> int
 
     (** [alphabet_size cm] gets the total alphabet size in the cost matrix cm. *)
-    external alphabet_size : m -> int = "cm_CAML_get_a_sz"
+    val alphabet_size : m -> int
 
     (** [gap cm] retrieves the gap representation value in cm *)
-    external gap : m -> int = "cm_CAML_get_gap"
+    val gap : m -> int
 
     (* [get_ori_a_sz cm] returns the original alphabet size*)
-    external get_ori_a_sz : m -> int = "cm_CAML_get_ori_a_sz"
+    val get_ori_a_sz : m -> int
 
     (* [get_level cm] returns the level value of current alphabet *)
-    external get_level : m -> int = "cm_CAML_get_level"
+    val get_level : m -> int
 
-     (* [get_map_sz cm] returns the map size, thus the number of combiantions of current alphabet *)
-    external get_map_sz : m -> int = "cm_CAML_get_map_sz"
+     (* [get_map_sz cm] returns the map size, thus the number of combiantions of
+        current alphabet *)
+    val get_map_sz : m -> int
 
-    (** [lcm cm] retrieves the celing of the log2 of the alphabet size of the cost
-    * matrix cm. *)
-    external lcm : m -> int = "cm_CAML_get_lcm"
+    (** [lcm cm] retrieves the celing of the log2 of the alphabet size of the
+        cost matrix cm. *)
+    val lcm : m -> int
 
-    external get_tie_breaker : m -> int = "cm_CAML_get_tie_breaker"
+    val get_tie_breaker : m -> int
     
     val load_file_as_list : FileStream.greader -> int list
-    val fill_tail : int array -> m -> unit 
-    val fill_prepend : int array -> m -> unit 
+
+    val fill_tail : int array -> m -> unit
+
+    val fill_prepend : int array -> m -> unit
+
     (** [combine cm] gets the combinations flag in the cost matrix cm. The
-    * combinations flag stablishes if the median calculation will consider all
-    * or some of the possible combinations of elements in an original alphabet (1) 
-    * or not (0). *)
-    external combine : m -> int = "cm_CAML_get_combinations"
+        combinations flag stablishes if the median calculation will consider all
+        or some of the possible combinations of elements in an original alphabet
+        (1) or not (0). *)
+    val combine : m -> int
+
     (** [get_combination] return true if combine=1, false if combine=0 *)
     val get_combination : m -> bool 
 
     (** [affine cm] retrieves the cost model set in the cost matrix cm. *)
-    val affine : m -> cost_model
+    val get_cost_model : m -> cost_model
 
-    (** [gap_opening cm] retrieves the gap opening cost as set in the cost matrix
-    * cm. *)
-    external gap_opening : m -> int = "cm_CAML_get_gap_opening"
+    (** [gap_opening cm] retrieves the gap opening cost as set in the cost matrix * cm. *)
+    val gap_opening : m -> int
 
     (** [cost x y cm] retrieves the cost of transforming alphabet element x into y
-    * according to the cost matrix cm*)
-    external cost : int -> int -> m -> int = "cm_CAML_get_cost"
+        according to the cost matrix cm*)
+    val cost : int -> int -> m -> int
+
+    (** [worst_cost x y cm] retrieves the WORST cost of transforming alphabet
+        element x into y according to the cost matrix cm. *)
+    val worst_cost : int -> int -> m -> int
 
     (** [median x y cm] retrieves the median for transforming character x into y
-    * according to the cost matrix cm. *)
-    external median : int -> int -> m -> int = "cm_CAML_get_median"
+        according to the cost matrix cm. *)
+    val median : int -> int -> m -> int
 
-    external get_gap_startNO : m -> int = "cm_CAML_get_gap_startNO"
+    val get_gap_startNO : m -> int
 
     (** [states_of_code code cm] return the list of states in an alphabet from a
         state code from a median/leaf *)
@@ -217,7 +230,6 @@ module Two_D : sig
     (** [calc_number_of_combinations_by_level a_sz level] returns the number of
         combinations based on alphabet size:a_sz and level value:level *)
     val calc_number_of_combinations_by_level: int -> int -> int 
-
 
     (** [calc_num_of_comb_with_gap ori_a_sz level] returns the number of
         combination code that contains gap *)
@@ -245,7 +257,8 @@ module Two_D : sig
     val print_intlist: int list -> unit
 
     val of_file : ?tie_breaker:Methods.keep_method -> ?orientation:bool ->
-        ?use_comb:bool -> ?level:int -> FileStream.f -> int -> bool -> m * m * int list list
+        ?use_comb:bool -> ?level:int -> FileStream.f -> int -> bool ->
+            m * m * int list list
 
     (* [matrix_of_file fn file] Read a file into an array array, and map a
        function over the values; we ensure that the matrix is rectangular. *)
@@ -255,7 +268,9 @@ module Two_D : sig
     val check_level : m -> bool
 end
 
+
 module Three_D : sig
+
     (** Three Dimensional sequence alignment cost matrices. *)
 
     (** {2 Types} *)
@@ -263,103 +278,96 @@ module Three_D : sig
     (** A two dimensional cost matrix type. *)
     type m
 
+
     (** {2 Creating} *)
 
-    (** [create a_sz comb aff go ge dim] creates a new cost matrix with
-    * alphabet size a_sz, considering all the possible combinations
-    * of members of the alphabet (total efective size 2^a_sz - 1),
-    * if comb is true with affine gap cost model if aff is not 0, in
-    * which case will use gap opening cost go and extension gap ge. The
-    * gap is represented as the next available integer depending on
-    * the a_sz. IF dim is true the matrix will be three dimensional,
-    * otherwise it will be two dimensional. *)
-    external create : 
-        int -> bool -> int -> int -> int -> int -> int -> int -> int -> m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
+    (** [create a_sz comb aff go ge dim] creates a new cost matrix with alphabet
+        size a_sz, considering all the possible combinations of members of the
+        alphabet (total efective size 2^a_sz - 1), if comb is true with affine
+        gap cost model if aff is not 0, in which case will use gap opening cost
+        go and extension gap ge. The gap is represented as the next available
+        integer depending on the a_sz. IF dim is true the matrix will be three
+        dimensional, otherwise it will be two dimensional. *)
+    val create : int -> bool -> int -> int -> int -> int -> int -> int -> int -> m
 
     (** [clone x] creates a fresh copy of the cost matrix x *)
-    external clone : m -> m = "cm_CAML_clone_3d"
-
-    
+    val clone : m -> m
 
     (** [of_two_dim cm] creates a fresh three dimensional cost matrix using the
-    * values stored in the two dimensional matrix cm. This is the only way to
-    * create a three dimensional cost matrix. *)
+        values stored in the two dimensional matrix cm. This is the only way to
+        create a three dimensional cost matrix. *)
     val of_two_dim: Two_D.m -> m
 
     (** The default three dimensional cost matrix in Poy. It's equivalent to
-    * [of_two_dim Two_D.default]. *)
+        [of_two_dim Two_D.default]. *)
     val default : m
+
     val default_nucleotides : m
+
     val default_aminoacids : m Lazy.t
+
     (** [perturbe x y z] perturbates the cost matrix x with severity y and
-    * probability z *)
+        probability z *)
     val perturbe : m -> int -> int -> m
 
-    (** {3 IO } *)
 
-    (** [print ma] prints the matrix ma with alphabet size a in stdout. 
-    * *)
+    (** {2 IO } *)
+
+    (** [print ma] prints the matrix ma with alphabet size a in stdout. *)
     val output : out_channel -> m -> unit
+
 
     (** {2 Setting Values} *)
 
-    (** [set_gap cm v] sets the gap representation value to v in the cost matrix
-    * cm. *)
-    external set_gap : m -> int -> unit = "cm_CAML_set_gap_3d"
+    (** [set_gap cm v] sets the gap representation value to v in the cost matrix cm. *)
+    val set_gap : m -> int -> unit
 
-    (** [set_alphabet_size cm v] sets the alphabet size of the cost matrix cm to
-    * v. *)
-    external set_alphabet_size : int -> m -> unit = "cm_CAML_set_a_sz_3d"
+    (** [set_alphabet_size cm v] sets the alphabet size of the cost matrix cm to v. *)
+    val set_alphabet_size : int -> m -> unit
 
-    (** [set_lcm cm v] sets the log2 of the alphabet size in the cost matrix cm to
-    * v. *)
-    external set_lcm : m -> int -> unit = "cm_CAML_set_lcm_3d"
+    (** [set_lcm cm v] sets the log2 of the alphabet size in the cost matrix cm to v. *)
+    val set_lcm : m -> int -> unit
 
-    (** [set_affine cm v] sets the cost model to the appropriate value. *)
-    val set_affine : m -> cost_model -> unit
+    (** [set_cost_model cm v] sets the cost model to the appropriate value. *)
+    val set_cost_model : m -> cost_model -> unit
 
     (** [set_cost x y z cm v] sets the cost of transforming element x, y and z 
-    * in cost matrix cm to v *)
-    external set_cost :
-        int -> int -> int -> m -> int -> unit = "cm_CAML_set_cost_3d"
+        in cost matrix cm to v *)
+    val set_cost : int -> int -> int -> m -> int -> unit
 
     (** [set_median x y z u v] sets the value of the median of states x, y and z 
-    * to v in the cost matrix u *)
-    external set_median : 
-        int -> int -> int -> m -> int -> unit = "cm_CAML_set_median_3d"
+        to v in the cost matrix u *)
+    val set_median : int -> int -> int -> m -> int -> unit
 
-    (** {2 Getting Values{ *)
+
+    (** {2 Getting Values} *)
 
     (** [alphabet_size cm] gets the total alphabet size in the cost matrix cm. *)
-    external alphabet_size : m -> int = "cm_CAML_get_a_sz_3d"
+    val alphabet_size : m -> int
 
     (** [gap cm] retrieves the gap representation value in cm *)
-    external gap : m -> int = "cm_CAML_get_gap_3d"
+    val gap : m -> int
 
     (** [lcm cm] retrieves the celing of the log2 of the alphabet size of the cost
-    * matrix cm. *)
-    external lcm : m -> int = "cm_CAML_get_lcm_3d"
+        matrix cm. *)
+    val lcm : m -> int
 
     (** [combine cm] gets the combinations flag in the cost matrix cm. The
-    * combinations flag stablishes if the median calculation will consider all
-    * the possible combinations of elements in an original alphabet (1) or not
-    * (0). *)
-    external combine : m -> int = "cm_CAML_get_combinations_3d"
+        combinations flag stablishes if the median calculation will consider all
+        the possible combinations of elements in an original alphabet (1) or not *)
+    val combine : m -> int
 
     (** [affine cm] retrieves the cost model set in the cost matrix cm. *)
     val affine : m -> int
 
-    (** [gap_opening cm] retrieves the gap opening cost as set in the cost matrix
-    * cm. *)
-    external gap_opening : m -> int = "cm_CAML_get_gap_opening_3d"
+    (** [gap_opening cm] retrieves the gap opening cost as set in the cost matrix cm. *)
+    val gap_opening : m -> int
 
     (** [cost x y z cm] retrieves the cost of transforming alphabet element x, y
-    * and z simultaneusly according to the cost matrix cm. *)
-    external cost : int -> int -> int -> m -> int = "cm_CAML_get_cost_3d"
+        and z simultaneusly according to the cost matrix cm. *)
+    val cost : int -> int -> int -> m -> int
 
     (** [median x y z cm] retrieves the median for transforming character x, y and
-    * z simultaneusly according to the cost matrix cm. *)
-    external median : int -> int -> int -> m -> int = "cm_CAML_get_median_3d"
-
-
+        z simultaneusly according to the cost matrix cm. *)
+    val median : int -> int -> int -> m -> int
 end

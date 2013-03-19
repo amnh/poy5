@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3222 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3230 $"
 
 let debug = false 
 
@@ -30,6 +30,7 @@ type read_option_t = [
     | `CostMatrix of Methods.filename
     | `Level of int * Methods.keep_method
     | `Tie_Breaker of Methods.keep_method
+    | `Affine of int
 ]
 
 type otherfiles = [
@@ -1094,10 +1095,11 @@ type command = [
 
     let organize_read_options lst = 
         let rec organize_data (ss,cm,ro) = function
-            | (`Level _)
-            | (`Init3D _)
-            | (`Tie_Breaker _)
-            | (`Orientation _) as a -> (ss,cm,a::ro)
+            ( `Level _
+            | `Init3D _
+            | `Tie_Breaker _
+            | `Affine _
+            | `Orientation _) as a -> (ss,cm,a::ro)
             | (`CostMatrix x) ->
                 begin match cm with
                     | None -> (ss,Some x,ro)
@@ -2024,21 +2026,33 @@ type command = [
                             | `GeneralAlphabetSeq (a,_,_) ->
                                 begin match b with
                                     | Some (`Assign_Transformation_Cost_Matrix (f,_)) ->
-                                        `GeneralAlphabetSeq (a,f,[])
+                                        let oth = match c with
+                                            | None -> [`Prealigned]
+                                            | Some _ -> failwith "I@ cannot@ read@ custom@ alphabet@ characters@ with@ gap_opening."
+                                        in
+                                        `GeneralAlphabetSeq (a,f,oth)
                                     | Some ( `Create_Transformation_Cost_Matrix _)
-                                    | None -> failwith "I require an explicit cost matrix for custom alphabet characters"
+                                    | None -> failwith "I@ require@ an@ explicit@ cost@ matrix@ for@ custom@ alphabet@ characters."
                                 end
-                            | (`Aminoacids _) as x -> x
+                            | (`Aminoacids _) as x ->
+                                let c = match c with
+                                    | None   -> 0
+                                    | Some _ -> failwith "I@ cannot@ read@ prealigned@ characters@ with@ gap_opening."
+                                in
+                                x
                             | _ ->
                                 let b = match b with
                                     | Some b -> b
                                     | None   -> `Create_Transformation_Cost_Matrix (1,1)
-                                and c = match c with | None -> 0 | Some x -> x in
+                                and c = match c with
+                                    | None   -> 0
+                                    | Some _ -> failwith "I@ cannot@ read@ prealigned@ characters@ with@ gap_opening."
+                                in
                                 `Prealigned (a, b, c) ] |
                     [ x = otherfiles -> (x :> Methods.input) ]
                 ];
-            otherfiles_pre: (** subset of characters that are prealigned **)
-              [ [ f = STRING -> `AutoDetect [`Local f] ] |
+        otherfiles_pre: (** subset of characters that are prealigned **)
+            [   [ f = STRING -> `AutoDetect [`Local f] ] |
                 [LIDENT "nucleotide"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
@@ -2056,8 +2070,7 @@ type command = [
                         `Aminoacids (to_local a,[`Prealigned]) ]
                 ];
         otherfiles:
-            [
-                [ f = STRING -> `AutoDetect [`Local f] ] |
+            [   [ f = STRING -> `AutoDetect [`Local f] ] |
                 [ LIDENT "partitioned"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `PartitionedFile (to_local a) ] |
@@ -2117,7 +2130,8 @@ type command = [
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
                 [LIDENT "tcm"; ":"; left_parenthesis; cm = STRING; right_parenthesis -> `CostMatrix (`Local cm) ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
-                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x]
+                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
+                [LIDENT "gap_opening"; ":"; x = INT -> `Affine (int_of_string x) ]
             ];
         tree_information_list:
             [   

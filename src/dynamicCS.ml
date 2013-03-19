@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 3219 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 3230 $"
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
@@ -732,17 +732,13 @@ let final_states mine ch1 ch2 par t1 t2 t3 =
     | _,_,_,_ -> assert false
 
 
-(** [to_single  ref_codes root alied_map p n] returns a node that contains per character a single state
- * which is closest to [p] among those available in [n].  
- * we don't modify cost of node to cost_to_parent_node anymore. all we do is
- * update sequence assigned to that node.
- * when root is passed, we intend to replace the sequence, leave alied
- * children sequence unchanged.
- * when root is None, we will use mine as root back to to_single function of
- * node.ml. 
- **)
-let to_single ref_codes root parent mine time =
-    match parent, mine with
+(** [to_single  ref_codes root alied_map p n] returns a node that contains per
+    character a single state which is closest to [p] among those available in
+    [n].  we don't modify cost of node to cost_to_parent_node anymore. all we do
+    is update sequence assigned to that node.  when root is passed, we intend to
+    replace the sequence, leave alied children sequence unchanged.  when root is
+`   None, we will use mine as root back to to_single function of node.ml.  *)
+let to_single ref_codes root parent mine time = match parent, mine with
     | SeqCS parent, SeqCS mine ->
         let parent, root  = match root with
             | None           -> parent, None
@@ -759,7 +755,6 @@ let to_single ref_codes root parent mine time =
             | _             -> assert false
         and time = match time with
             | Some x -> max min_bl x
-            (* we are dealing with a single node *)
             | None when MlDynamicCS.compare parent mine -> 0.0
             | None -> assert false
         in
