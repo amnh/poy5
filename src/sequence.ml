@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sequence" "$Revision: 3230 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 3233 $"
 
 exception Invalid_Argument of string
 
@@ -1180,89 +1180,62 @@ module Align = struct
 (*Sequence.Align.closest parent mine.sequence h.c2 Matrix.default*)
     let closest s1 s2 cm m =
         let uselevel = check_level cm in
-        let debug = false in
-        if debug then begin
-            Printf.printf "Sequence.Align.[closest], uselevel = %b,use_comb=%d, parent and mine = \n%!" uselevel (Cost_matrix.Two_D.combine cm) ;
-            printseqcode s1;
-            printseqcode s2;
-        end;
         if is_empty s2 (Cost_matrix.Two_D.gap cm) then
             s2, 0
-        else
-        let (s, _) as res =
-            if 0 = Cost_matrix.Two_D.combine cm then
-                (* We always have just one sequence per type s *)
-                let s1', s2', cst = align_2 s1 s2 cm m in
-                let get_closest v i =
-                    let v' = get s1' i in
-                    let all = Cost_matrix.Two_D.get_all_elements cm in
-                    if v = all then 
-                        if v' = all then 1 (* We pick one, any will be fine *)
-                        else v'
-                    else v
-                in
-                remove_gaps2 (mapi get_closest s2') cm, cst
-            else
-                let s1', s2', comp =
-                    if 0 = compare s1 s2 then
-                        (* We remove all the gaps if we are using combinations *)
-                        if 0 = Cost_matrix.Two_D.combine cm then 
-                            s1, s2, true
-                        else
-                            if uselevel then 
-                                let gap_filter x =
-                                    gap_filter_for_combcode x cm
-                                in
-                                let news1 = map gap_filter s1 and
-                                news2 = map gap_filter s2 in 
-                                news1, news2, true
-                            else
-                                let mask = lnot (Cost_matrix.Two_D.gap cm) in
-                                mapi (fun x pos -> 
-                                    if pos > 0 then x land mask else x) s1, 
-                                mapi (fun x pos -> 
-                                    if pos > 0 then x land mask else x) s2, 
-                                true
-                    else
-                        let s1', s2', _ = align_2 s1 s2 cm m in
-                        if debug then begin
-                            Printf.printf "s1' and s2' from align parent and mine :\n%!";
-                            printseqcode s1';
-                            printseqcode s2';
-                        end;
-                        s1', s2', false
-                in
-            let s2',s2'wgap =
-                let s2' = 
+        else begin
+            let (s, _) as res =
+                if 0 = Cost_matrix.Two_D.combine cm then
+                    (* We always have just one sequence per type s *)
+                    let s1', s2', cst = align_2 s1 s2 cm m in
                     let get_closest v i =
                         let v' = get s1' i in
-                        Cost_matrix.Two_D.get_closest cm v' v 
+                        let all = Cost_matrix.Two_D.get_all_elements cm in
+                        if v = all then
+                            if v' = all then 1 (* We pick one, any will be fine *)
+                            else v'
+                        else v
                     in
-                    mapi get_closest s2' 
-                in
-                remove_gaps2 s2' cm, s2'
+                    remove_gaps2 (mapi get_closest s2') cm, cst
+                else
+                    let s1', s2', comp =
+                        if 0 = compare s1 s2 then
+                            (* We remove all the gaps if we are using combinations *)
+                            if 0 = Cost_matrix.Two_D.combine cm then
+                                s1, s2, true
+                            else
+                                if uselevel then
+                                    let gap_filter x = gap_filter_for_combcode x cm in
+                                    let news1 = map gap_filter s1
+                                    and news2 = map gap_filter s2 in
+                                    news1, news2, true
+                                else
+                                    let mask = lnot (Cost_matrix.Two_D.gap cm) in
+                                    mapi (fun x pos -> if pos > 0 then x land mask else x) s1,
+                                    mapi (fun x pos -> if pos > 0 then x land mask else x) s2,
+                                    true
+                        else
+                            let s1', s2', _ = align_2 s1 s2 cm m in
+                            s1', s2', false
+                    in
+                    let s2',s2'wgap =
+                        let s2' =
+                            let get_closest v i =
+                                let v' = get s1' i in
+                                Cost_matrix.Two_D.get_closest cm v' v
+                            in
+                            mapi get_closest s2'
+                        in
+                        remove_gaps2 s2' cm, s2'
+                    in
+                    (* We must recalculate the distance between sequences because
+                       the set distance calculation is an upper bound in the affine
+                       gap cost model *)
+                    if comp
+                        then s2', 0
+                        else s2', cost_2 s1 s2' cm m
             in
-            if debug then begin
-                Printf.printf ", s2' from get_closest based on s1' : %!"; 
-                printseqcode s2'wgap;
-            end;
-            (* We must recalculate the distance between sequences because the
-            * set ditance calculation is an upper bound in the affine gap cost
-            * model *)
-            if comp then 
-                s2', 0
-            else begin
-                let rescost = cost_2 s1 s2' cm m in
-                if debug then begin
-                    Printf.printf "call cost_2 on s1 and s2':\n%!";
-                    printseqcode s1;
-                    printseqcode s2';
-                    Printf.printf "return cost = %d\n%!" rescost;
-                end;
-                s2', rescost
-            end
-        in
-        res
+            res
+        end
 
 
     (** [recost a b cm] there was no comment for this one, anyway, to me this
