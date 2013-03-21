@@ -2871,11 +2871,14 @@ let print_error_message fl =
     Status.user_message Status.Error msg
 
 
-let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_original tcm3 alphabet processor builder dyna_state data file =
+let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full
+            tcm_original tcm3 alphabet processor builder dyna_state data file =
     begin try
         let ch = Parser.Files.molecular_to_fasta file in
         let res = 
-            try Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch with Fasta.Illegal_molecular_format fl ->
+            try
+                Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch
+            with Fasta.Illegal_molecular_format fl ->
                 let file = FileStream.filename file in
                 let fl = { fl with Fasta.filename = file } in
                 print_error_message fl;
@@ -2901,24 +2904,20 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_orig
             Status.user_message Status.Information (taxa_contents ^ sequence_contents);
         in
         close_in ch;
-        if check_if_taxa_are_ok (FileStream.filename file) 
-            (let _, names = List.split res in names) then
+        if check_if_taxa_are_ok (FileStream.filename file) (snd (List.split res)) then
                 processor alphabet res
         else begin
+            let filename = StatusCommon.escape (FileStream.filename file) in
             Status.user_message Status.Error 
-            ("Ignoring@ the@ file@ " ^ StatusCommon.escape (FileStream.filename
-            file) ^ "@ as@ it@ contains@ illegal@ characters@ in@ the@ taxon@ "
-            ^ "names@ (Andres@ is@ sure@ that@ POY@ will@ crash@ when@ you@ " ^
-            "attempt@ to@ get@ the@ results).");
+                ("Ignoring@ the@ file@ " ^ filename ^ "@ as@ it@ contains@ "^
+                 "illegal@ characters@ in@ the@ taxon@ names.")
             data
         end
-    with
-    | Sys_error err ->
+    with | Sys_error err ->
         let file = FileStream.filename file in
-        let msg = "Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
-            "dna@ sequences@ file.@ @ The@ system@ error@ message@ is@ "
-            ^ err ^
-            "." in
+        let msg = "Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ dna@ "^
+                "sequences@ file.@ @ The@ system@ error@ message@ is@ "^err^"."
+        in
         output_error msg;
         data
     end
@@ -6710,11 +6709,9 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     let data = add_file [Characters] in
                     file_type_message "input@ sequences";
                     process_molecular_file default_tcm
-                                           Cost_matrix.Two_D.default
-                                           Cost_matrix.Two_D.default
-                                           Cost_matrix.Three_D.default
-                                           annotated Alphabet.nucleotides `DO
-                                           is_prealigned `Seq data filename
+                            Cost_matrix.Two_D.default Cost_matrix.Two_D.default
+                            Cost_matrix.Three_D.default annotated
+                            Alphabet.nucleotides `DO is_prealigned `Seq data filename
             | Parser.Files.Is_Phylip->
                     file_type_message "phylip";
                     let fo = Phylip.of_file filename in

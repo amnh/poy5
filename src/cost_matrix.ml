@@ -17,20 +17,21 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3233 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3234 $"
 
+external init : unit -> unit = "cm_CAML_initialize"
+let () = init ()
 
-exception Illegal_Cm_Format;;
-exception Map_Not_Found;;
-exception Illegal_List_length;;
+exception Illegal_Cm_Format
+exception Map_Not_Found
+exception Illegal_List_length
 
-type gap_opening = int;;
+type gap_opening = int
+
 type cost_model =
     | No_Alignment
     | Linnear
     | Affine of gap_opening 
-
-external init : unit -> unit = "cm_CAML_initialize"
 
 let debug = false
 
@@ -38,12 +39,9 @@ let debug = false
 and our internal C representation of a matrix with 32 bit integers. *)
 let max_int = (Int32.to_int Int32.max_int) lsr 1
 
-let () = init ()
-
 module Two_D = struct
     type m
     external set_gap : m -> int -> unit = "cm_CAML_set_gap"
-    (* add following for level *)
     external print_matrix : int -> int -> m -> unit = "cm_CAML_print_matrix" 
     external set_ori_a_sz : m -> int -> unit = "cm_CAML_set_ori_a_sz"
     external get_ori_a_sz : m -> int = "cm_CAML_get_ori_a_sz"
@@ -60,10 +58,7 @@ module Two_D = struct
     external set_level : m -> int -> unit = "cm_CAML_set_level"
     external get_level : m -> int = "cm_CAML_get_level"
     external get_gap_startNO: m -> int = "cm_CAML_get_gap_startNO"
-    external comb2list_bigarray : m ->
-    (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t =
-         "cm_CAML_comb2list_to_bigarr"
-    (* add above for level *)
+    external comb2list_bigarray : m -> (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t = "cm_CAML_comb2list_to_bigarr"
     external set_all_elements : m -> int -> unit = "cm_CAML_set_all_elements"
     external get_all_elements : m -> int = "cm_CAML_get_all_elements"
     external alphabet_size : m -> int = "cm_CAML_get_a_sz"
@@ -80,38 +75,35 @@ module Two_D = struct
     external median : int -> int -> m -> int = "cm_CAML_get_median"
     external set_cost : int -> int -> m -> int -> unit = "cm_CAML_set_cost"
     external set_worst : int -> int -> m -> int -> unit = "cm_CAML_set_worst"
-    external set_median : 
-        int -> int -> m -> int -> unit = "cm_CAML_set_median"
+    external set_median : int -> int -> m -> int -> unit = "cm_CAML_set_median"
     external set_metric : m -> unit = "cm_CAML_set_is_metric"
     external set_identity : m -> unit = "cm_CAML_set_is_identity"
     external c_get_is_metric : m -> int = "cm_CAML_get_is_metric"
     external c_get_is_identity : m -> int = "cm_CAML_get_is_identity"
-    let is_metric m =    1 = c_get_is_metric m
-    let is_identity m =    1 = c_get_is_identity m
+    let is_metric m = 1 = c_get_is_metric m
+    let is_identity m = 1 = c_get_is_identity m
     external set_prepend : int -> int -> m -> unit = "cm_CAML_set_prepend"
     external set_tail : int -> int -> m -> unit = "cm_CAML_set_tail"
     external get_tail : int -> m -> int = "cm_CAML_get_tail"
     external get_prepend : int -> m -> int = "cm_CAML_get_prepend"
-    external create : int -> bool -> int -> int -> int -> int -> int -> int ->
-    int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
+    external create : int -> bool -> int -> int -> int -> int -> int -> int -> int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
     external clone : m -> m = "cm_CAML_clone"
 
     let get_combination m =
         let comb_code = combine m in
-        if comb_code=1 then true
-        else if comb_code=0 then false
-        else 
-            failwith ("combine code must be 0 or 1 in cost matrix")
+        assert( (comb_code = 1) || (comb_code = 0) );
+        comb_code = 1
 
     let use_combinations = true
+
     and use_cost_model = Linnear
+
     and use_gap_opening  = 0
 
     let print_intlist lst =
         Printf.printf "[ %!"; 
         List.iter (Printf.printf "%d,%!") lst;
-        Printf.printf " ] \n%!";
-    ;;
+        Printf.printf " ] \n%!"
 
     let n_to_the_powers_of_m n m =
         let rec func t acc =
@@ -778,7 +770,6 @@ module Two_D = struct
 
 
     let fill_best_cost_and_median_for_some_combinations ?(create_original=false) m a_sz level all_elements =
-        let debug = false and debug2 = false in
         let gapcode = gap m in
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
@@ -788,15 +779,7 @@ module Two_D = struct
         let comb_withgap = (numerator / denominator) in
         let comb_withgap = 
             if all_elements>0 then comb_withgap +1 else comb_withgap in
-        (*let contain_gap x = (*return true if code x contains gap*) 
-            if (a_sz-x)<comb_withgap then true 
-            else false 
-        in*)
         let cleanup = cleanup m in
-        if debug then
-            Printf.printf "fill cm for some combinations: gapcode=%d,num_of_comb =%d,\
-        combwithgap = %d,all_elements=%d a_sz=%d, create_original =%b\n%!" gapcode num_of_comb comb_withgap
-        all_elements a_sz create_original ;
         let _  = build_maps_comb_and_codelist m a_sz level all_elements in 
         for i = 1 to num_of_comb do
             let li = combcode_to_comblist i m in
@@ -813,15 +796,12 @@ module Two_D = struct
                         let _ = 
                             match li, lj with
                             | [_], [_] ->
-                                    if debug2 then Printf.printf  "median.%d.%d <- %d(cost=%d);\n%!"  i j !best !cost;
                                     set_cost i j m !cost;
                                     set_median i j m (cleanup !best)
                                     (* we should not assume median of statei and statej to be
                                     [i or j],  some cost matrix with cost.i.i >
                                     cost.gap.gap , median.i.gap will be [gap], not [i or gap]*);
                             | _, _ ->
-                                    if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
-                                    i j !cost !best;
                                     set_cost (i) (j) m !cost;
                                     set_median (i) (j) m (cleanup !best);
                         in
@@ -830,8 +810,6 @@ module Two_D = struct
                 end;(*end of if i<>all_elements && j<>all_elements*)
             done;
         done;
-        if debug2 then 
-            Printf.printf "set median and cost bwteen all_elements and other codes\n%!";
         if all_elements>0 then begin
             (*when all_elements=-1, we don't have code for "all_elements",
             * though we do have a line and column in costmatrix reserved for it,
@@ -845,21 +823,8 @@ module Two_D = struct
                 set_worst all_elements i m 0;
             done;
             set_median all_elements all_elements m all_elements;
-        end;
-        if debug then begin
-            Printf.printf "print matrix to file\n%!";
-            let oc = open_out "cm_custom_alphabet.txt" in
-            Printf.printf "check cost and median at the end:\n%!";
-            for i=1 to num_of_comb+1 do
-            for j= 1 to num_of_comb+1 do
-                  Printf.fprintf oc "cost[%d][%d]=%d, median=%d; \n %!" i j (get_cost i j
-                m) (get_median i j m)
-            done;
-            Printf.fprintf oc "\n%!";
-            done;
-            close_out oc;
-        end;
-    ;;
+        end
+
 
     let fill_best_cost_and_median_for_all_combinations m a_sz =
         let debug = false in
@@ -896,11 +861,10 @@ module Two_D = struct
                 in
                 set_worst i j m !worst;
             done;
-        done;;
+        done
+
 
     let fill_medians m a_sz =
-        let debug = false in
-        if debug then Printf.printf "cost_matrix.fill_medians,a_sz=%d,all_elements=%d\n%!" a_sz (get_all_elements m);
         let matrix = Array.make_matrix (a_sz + 1) (a_sz + 1) [] in
         let cleanup = cleanup m in
         for i = 1 to a_sz do
@@ -926,11 +890,6 @@ module Two_D = struct
                             else ()
                     done;
                 matrix.(i).(j) <- !res;
-                if debug then begin
-                Printf.printf "median.%d.%d <- %!" i j;
-                List.iter (Printf.printf "%d ") (matrix.(i).(j));
-                Printf.printf ", cost = %d;\n%!" !best;
-                end;
             done;
         done;
         (*tie_breaker,
@@ -939,7 +898,6 @@ module Two_D = struct
             * 1 : pick first
             * 2 : pick last *)
         let tie_breaker = get_tie_breaker m in
-        if debug then Printf.printf "tie_breaker for median = %d\n%!" tie_breaker;
         let matrix = 
             Array.map (fun arr ->
                 Array.map (fun x -> 
@@ -964,10 +922,10 @@ module Two_D = struct
             Array.iteri (fun b median ->
                 set_median a b m (cleanup median)) arr) matrix
 
+
     let fill_default_prepend_tail m = 
         let a_sz = alphabet_size m 
-        and gap = gap m 
-        in
+        and gap = gap m in
         for i = 1 to a_sz do
             set_tail i (cost i gap m) m;
             set_prepend i (cost gap i m) m;
