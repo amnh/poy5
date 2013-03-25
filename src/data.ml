@@ -2910,7 +2910,7 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full
             let filename = StatusCommon.escape (FileStream.filename file) in
             Status.user_message Status.Error 
                 ("Ignoring@ the@ file@ " ^ filename ^ "@ as@ it@ contains@ "^
-                 "illegal@ characters@ in@ the@ taxon@ names.")
+                 "illegal@ characters@ in@ the@ taxon@ names.");
             data
         end
     with | Sys_error err ->
