@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3230 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3235 $"
 
 exception NotASequence of int
 
@@ -1639,11 +1639,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 let code = DynamicCS.code dyn in
                 match time with
                 | None   -> assert false (* should only be called under LK *)
-                | Some t ->
-                    try let topt = List.find (fun (a,data) -> Array_ops.mem a code) t in
-                        snd topt
-                    with | Not_found ->
-                        None
+                | Some t -> snd (List.find (fun (a,data) -> Array_ops.mem a code) t)
             in
             let data =
                 List.map

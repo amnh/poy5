@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3234 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3235 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -770,8 +770,6 @@ module Two_D = struct
 
 
     let fill_best_cost_and_median_for_some_combinations ?(create_original=false) m a_sz level all_elements =
-        let gapcode = gap m in
-        let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
         let ori_size = get_ori_a_sz m in
         let numerator = Utl.p_m_n (a_sz-1) (level-1) in

@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 3212 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 3235 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -1059,8 +1059,8 @@ let join_fn incremental jxn1 jxn2 ptree =
         let tmp_tree = force_downpass ptree in
         let new_cost = Ptree.get_cost `Adjusted tmp_tree in
         if new_cost <> current_cost then 
-            (Tree.print_join_1_jxn jxn1;
-            Tree.print_join_2_jxn jxn2;
+            (Tree.print_join_jxn jxn1;
+            Tree.print_join_jxn jxn2;
             Printf.printf "The vertex for the downpass is %d and has as \
             parental the vertex %d\n. The handle of v is %d\n. The calculated cost \
             is %f but the real cost is %f\n" 

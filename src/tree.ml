@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 3160 $"
+let () = SadmanOutput.register "Tree" "$Revision: 3235 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -135,7 +135,7 @@ let string_of_node = function
 
 (** [print_join_1_jxn jxn]
     @return prints join_1_jxn. *)
-let print_join_1_jxn jxn = match jxn with
+let print_join_jxn jxn = match jxn with
     | Single_Jxn(s) ->
           print_string ("Single_1_Jxn " ^ (string_of_int s))
     | Edge_Jxn(e1, e2) ->
@@ -145,17 +145,6 @@ let print_join_1_jxn jxn = match jxn with
           and e2_s = (string_of_int e2) in
           print_string ("Edge_1_Jxn (" ^ e1_s ^ "," ^ e2_s ^ ")")
 
-(** [print_join_2_jxn jxn]
-    @return prints join_2_jxn. *)
-let print_join_2_jxn jxn = match jxn with
-    | Single_Jxn(s) ->
-          print_string ("Single_2_Jxn " ^ (string_of_int s))
-    | Edge_Jxn(e1, e2) ->
-          let e1 = (int_of_id e1)
-          and e2 = (int_of_id e2) in
-          let e1_s = (string_of_int e1)
-          and e2_s = (string_of_int e2) in
-          print_string ("Edge_2_Jxn (" ^ e1_s ^ "," ^ e2_s ^ ")")
 
 type u_tree = {
     tree_name : string option;
@@ -197,11 +186,11 @@ let replace_codes f tree =
 (** Return the next available code to apply to a tree. Check that the code is
     able to be a new node and continue. 
 
-    TODO: Although, originally the codes were never duplicated, an issue occured
-    where duplication, and these checks were failing. I'm unsure why this is
-    happening, it needs to be looked at. Although, it is not a major error and
-    is probably due to join/break/build routines or re-coding routines being
-    called in non-uniform ways. *)
+    TODO: Although, originally the codes should never be duplicated in avail_ids,
+    an issue occured where duplication, and these checks were failing. I'm unsure
+    why this is happening, it needs to be looked at. Although, it is not a major
+    error and is probably due to join/break/build routines or re-coding routines
+    being called in non-uniform ways. *)
 let rec get_available tree = match tree.avail_ids with
     | id :: ids when List.mem id ids ->
         get_available {tree with avail_ids = ids; }
@@ -213,6 +202,7 @@ let rec get_available tree = match tree.avail_ids with
         assert (not (All_sets.IntegerMap.mem (succ tree.new_ids) tree.u_topo));
         tree.new_ids, { tree with new_ids = succ tree.new_ids }
 
+
 type break_jxn = id * id
 
 (** [get_id node]
@@ -222,6 +212,7 @@ let get_id node = match node with
     | Single(id) 
     | Leaf(id, _)
     | Interior(id, _, _, _) -> id
+
 
 (** The empty unrooted tree. *)
 let empty () = 

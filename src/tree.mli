@@ -265,11 +265,8 @@ val reroot : (id * id) -> u_tree -> u_tree
 val print_break_jxn : break_jxn -> unit
 (** Debugging function for a break jxn *)
 
-val print_join_1_jxn : join_jxn -> unit
-(** Print join function labeled with a "1" *)
-
-val print_join_2_jxn : join_jxn -> unit
-(** Print join function labeled with a "2" *)
+val print_join_jxn : join_jxn -> unit
+(** Print join function labeled *)
 
 
 
