@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3221 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3237 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -33,7 +33,11 @@ let odebug = Status.user_message Status.Information
 let ( --> ) a b = b a
 let failwithf format = Printf.ksprintf (failwith) format
 
+let par_map = false
+
+
 type id = Tree.id
+
 type incremental = [
     | `Children of int
     | `No_Children of int
@@ -42,6 +46,13 @@ type incremental = [
 ]
 
 type clade_cost = NoCost | Cost of float
+
+let compare_clade_cost x y = match x,y with
+    | NoCost, NoCost -> 0
+    | Cost x, Cost y -> Pervasives.compare x y
+    | NoCost, Cost _ ->  1
+    | Cost _, NoCost -> -1
+
 type node = Tree.node
 type edge = Tree.edge
 type t_status = Tree.t_status
@@ -236,10 +247,11 @@ class type ['a, 'b] tabu_mgr = object
     
     method update_break : ('a, 'b) breakage -> unit
     (** Function to update the tabu after a break operation. This function
-     * should ensure the invariant that edges in the tabu and the edges in the tree are
-     * in sync. Note that directionality could be reversed. *)
+       should ensure the invariant that edges in the tabu and the edges in the
+       tree are in sync. Note that directionality could be reversed. *)
 
     method update_reroot  : ('a, 'b) breakage -> unit
+
     method update_join    : ('a, 'b) p_tree -> Tree.join_delta -> unit
         
     method get_node_manager : ('a, 'b) nodes_manager option
@@ -1119,6 +1131,18 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
           method results = [ptree, get_cost `Adjusted ptree]
       end
 
+
+    let best_of_list lst compare =
+        let rec until x acc = function
+            | y::ys when 0 = compare x y -> until x (y::acc) ys
+            | _ -> acc
+        in
+        match lst with
+        | [] -> []
+        | xs -> let y = List.sort compare lst in
+                let x = List.hd y in
+                until x [x] y
+
     (** [make_wagner_tree ptree join_fn cost_fn]
         @param ptree The initial ptree that is just a bunch of single nodes
                      with node data associated.
@@ -1192,14 +1216,57 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     in
                     (* Sequentially add rest of the nodes keeping the best tree/s *)
                     let srch_mgr = 
+                        (* recursive/sequential version to find costs and join
+                            all edges *)
+                    IFDEF USE_PARMAP THEN
+                        (* parallel determine all costs, then fold to select
+                            best and do a proper join. *)
+                        let par_do_all_edges srch_mgr tabu_mgr =
+                            let rec get_edges acc = match tabu_mgr#next_edge with
+                                | None   -> acc
+                                | Some (Tree.Edge (e1,e2)) ->
+                                    let h1 = (Tree.get_node_id e1 pt.tree)
+                                    and h2 = (Tree.get_node_id e2 pt.tree) in
+                                    let j1 = Tree.Edge_Jxn(h1, h2) in
+                                    get_edges (j1::acc)
+                            in
+                            match get_edges [] with
+                            | [] -> srch_mgr
+                            | xs ->
+                                let costs : (Tree.join_jxn * clade_cost) list =
+                                    Parmap.parmap
+                                        (fun j1 ->
+                                            let cst =
+                                                Tree_Ops.cost_fn None j1
+                                                    j2 infinity nd_data pt in
+                                            (j1,cst))
+                                        (Parmap.L xs)
+                                in
+                                let besties =
+                                    best_of_list costs (fun (_,x) (_,y) -> compare_clade_cost x y)
+                                in
+                                List.fold_left
+                                    (fun srch_mgr (j1,cost) ->
+                                        let status : t_status =
+                                            srch_mgr#process
+                                                (fun _ _ _ _ _ _ -> cost) i_mgr infinity
+                                                nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr
+                                        in
+                                        srch_mgr)
+                                    srch_mgr
+                                    besties
+                        in
+                        par_do_all_edges srch_mgr tabu_mgr
+                    ELSE
                         let rec do_all_edges srch_mgr tabu_mgr =
                             match tabu_mgr#next_edge with
-                            | None -> srch_mgr
-                            | Some e ->
-                                let _, mgr = add_node_to_edge e srch_mgr tabu_mgr in
-                                do_all_edges mgr tabu_mgr
+                                | None -> srch_mgr
+                                | Some e ->
+                                    let _, mgr = add_node_to_edge e srch_mgr tabu_mgr in
+                                    do_all_edges mgr tabu_mgr
                         in
                         do_all_edges srch_mgr tabu_mgr
+                    END
                     in
                     (* There has to be at least one new tree *)
                     assert(srch_mgr#any_trees);
@@ -1230,7 +1297,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         in
         List.map fst (res#results)
 
-                
+
 let trees_considered = ref 0
 
 
@@ -1242,30 +1309,33 @@ let fix_edge ptree ((Tree.Edge (e1, e2)) as edge) =
     else if (is_edge (Tree.Edge (e2, e1)) ptree) then
         Tree.Edge(e2, e1) 
     (* neither the edge nor its reverse was found in tree i.e. tabu and
-     * tree are out of sync. *)
+       tree are out of sync. *)
     else failwith "fix_edge"
+
 
 type searcher =
         (Tree_Ops.a, Tree_Ops.b) search_mgr ->
             (Tree_Ops.a, Tree_Ops.b) search_mgr
 
+
 type search_step = 
         (Tree_Ops.a, Tree_Ops.b) p_tree ->
             (Tree_Ops.a, Tree_Ops.b) tabu_mgr ->
-                searcher 
+                searcher
+
 
 let other_side = function `Left -> `Right | `Right -> `Left
+
 
 let get_side_info side break = match side with
     | `Left -> break.left
     | `Right -> break.right
 
+
 let apply_incremental breakage =
-    let ptree = 
-        Tree_Ops.incremental_uppass breakage.ptree
-        breakage.incremental
-    in
+    let ptree = Tree_Ops.incremental_uppass breakage.ptree breakage.incremental in
     { breakage with ptree = ptree; incremental = [] }
+
 
 let simplify x jxn = 
     let compare x y = match x, y with
@@ -1282,19 +1352,69 @@ let simplify x jxn =
     | `Single y -> if compare y jxn then `Same else x
     | `Same -> assert false
 
-let single_spr_round pb parent_side child_side 
-        (tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a, Tree_Ops.b) search_mgr) breakage = 
+IFDEF USE_PARMAP THEN
+let par_single_spr_round pb parent_side child_side
+        (tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a, Tree_Ops.b) search_mgr) breakage =
     let child_info = get_side_info child_side breakage in
-    let child_jxn, handle_of_child = 
-        match child_info.topology_delta with
+    let child_jxn, handle_of_child = match child_info.topology_delta with
         | `Single (a, _) -> 
-                if debug then Printf.printf "Joining to %d\n%!" a;
                 Tree.Single_Jxn a, handle_of a breakage.ptree
         | `Edge (_, a, b, _) -> 
-                if debug then Printf.printf "Joining to %d %d\n%!" a b;
-                if debug then
-                    assert (handle_of a breakage.ptree = 
-                        handle_of b breakage.ptree);
+                assert (handle_of a breakage.ptree = handle_of b breakage.ptree);
+                Tree.Edge_Jxn (a, b), handle_of a breakage.ptree
+    in
+    let npb = simplify pb child_jxn in
+    let simplifier = match npb with
+        | `Pair _ -> fun x _ -> x
+        | `Single _ -> simplify
+        | `Same -> assert false
+    in
+    let rec get_edges acc = match tabu#join_edge parent_side with
+        | None -> acc
+        | Some (Tree.Edge (a,b)) ->
+            let parent_jxn = (Tree.Edge_Jxn (a, b)) in
+            begin match simplifier npb parent_jxn with
+                | `Same -> get_edges acc
+                | _     -> get_edges (parent_jxn::acc)
+            end
+    in
+    match get_edges [] with
+    | [] -> Tree.Continue
+    | xs ->
+        let costs =
+            Parmap.parmap
+                (fun parent_jxn ->
+                    let cst =
+                        Tree_Ops.cost_fn None parent_jxn child_jxn
+                            breakage.break_delta child_info.clade_node breakage.ptree
+                    in
+                    parent_jxn,cst)
+                (Parmap.L xs)
+        in
+        let besties =
+            best_of_list costs (fun (_,x) (_,y) -> compare_clade_cost x y)
+        in
+        let status : t_status =
+            List.fold_left
+                (fun _ (parent_jxn,cost) ->
+                    search#process
+                        (fun _ _ _ _ _ _ -> cost) breakage.break_delta
+                        child_info.clade_node Tree_Ops.join_fn breakage.incremental
+                        parent_jxn child_jxn tabu breakage.ptree)
+                Tree.Continue
+                besties
+        in
+        Tree.Continue
+END
+
+let single_spr_round pb parent_side child_side 
+        (tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a, Tree_Ops.b) search_mgr) breakage =
+    let child_info = get_side_info child_side breakage in
+    let child_jxn, handle_of_child = match child_info.topology_delta with
+        | `Single (a, _) -> 
+                Tree.Single_Jxn a, handle_of a breakage.ptree
+        | `Edge (_, a, b, _) -> 
+                assert (handle_of a breakage.ptree = handle_of b breakage.ptree);
                 Tree.Edge_Jxn (a, b), handle_of a breakage.ptree
     in
     let npb = simplify pb child_jxn in
@@ -1306,13 +1426,6 @@ let single_spr_round pb parent_side child_side
     let rec do_search () = match tabu#join_edge parent_side with
         | None -> Tree.Continue
         | Some (Tree.Edge (a, b)) ->
-            if debug then
-                Printf.printf "Joining in %d %d\n%!" a b;
-            let ahandle = handle_of a breakage.ptree in
-            if debug then begin
-                assert (ahandle = handle_of b breakage.ptree);
-                assert (handle_of_child <> ahandle);
-            end;
             let parent_jxn = (Tree.Edge_Jxn (a, b)) in
             match simplifier npb parent_jxn with
             | `Same -> do_search ()
@@ -1329,11 +1442,20 @@ let single_spr_round pb parent_side child_side
     in
     do_search ()
 
+let single_spr_round a b c d e f =
+    IFDEF USE_PARMAP THEN
+        par_single_spr_round a b c d e f
+    ELSE
+        single_spr_round a b c d e f
+    END
+
+
 let spr_join pb tabu search breakage =
     match single_spr_round pb `Right `Left tabu search breakage with
     | Tree.Skip | Tree.Continue -> 
-            single_spr_round pb `Left `Right tabu search breakage
+        single_spr_round pb `Left `Right tabu search breakage
     | x -> x
+
 
 let tbr_join pb tabu search breakage =
     let reroot_on_edge tabu to_reroot edge breakage =
@@ -1388,7 +1510,9 @@ let tbr_join pb tabu search breakage =
     in
     do_search breakage
 
+
 let breakage_to_pb x = `Pair x.tree_delta
+
 
 let do_search neighborhood (tree: ('a,'b) p_tree) 
                            (tabu: ('a,'b) tabu_mgr)
@@ -1397,36 +1521,29 @@ let do_search neighborhood (tree: ('a,'b) p_tree)
         match tabu#break_edge with
         | None -> Tree.Break
         | Some (Tree.Edge ((a, b) as x)) -> 
-                if debug then Printf.printf "Breaking in %d %d\n%!" a b;
-                let breakage = Tree_Ops.break_fn (tabu#get_node_manager) x tree in
-                let breakage = apply_incremental breakage in
-                if debug then
-                    assert (
-                    let get_node = function
-                        | `Edge (_, a, _, _) | `Single (a, _) -> a
-                    in
-                    (handle_of (get_node (fst breakage.tree_delta))
-                    breakage.ptree <> handle_of (get_node (snd
-                    breakage.tree_delta)) breakage.ptree));
-                let new_tabu = tabu#clone in
-                new_tabu#update_break breakage;
-                (* We use pb to avoid evaluating again the initial tree *)
-                let pb = breakage_to_pb breakage in
-                match neighborhood pb new_tabu search breakage with
-                | Tree.Break as x -> x
-                | Tree.Skip | Tree.Continue ->
-                        do_search ()
+            let breakage = Tree_Ops.break_fn (tabu#get_node_manager) x tree in
+            let breakage = apply_incremental breakage in
+            let new_tabu = tabu#clone in
+            new_tabu#update_break breakage;
+            (* We use pb to avoid evaluating again the initial tree *)
+            let pb = breakage_to_pb breakage in
+            match neighborhood pb new_tabu search breakage with
+            | Tree.Break as x -> x
+            | Tree.Skip | Tree.Continue -> do_search ()
     in
     match do_search () with
     | Tree.Break | Tree.Skip | Tree.Continue -> ()
+
 
 let tbr_step a b c = 
     do_search tbr_join a b c;
     c
 
+
 let spr_step a b c = 
     do_search spr_join a b c;
     c
+
 
 let search (passit:bool) (searcher, name) (search : ('a,'b) search_mgr) : ('a, 'b) search_mgr =
     if debug_search_fn then Printf.printf "ptree.search,%!";
@@ -1444,14 +1561,11 @@ let search (passit:bool) (searcher, name) (search : ('a,'b) search_mgr) : ('a, '
     | Methods.TimedOut when not passit -> 
             Status.finished status;
             search
-(*    | err ->*)
-(*            Status.finished status;*)
-(*            raise err*)
 
-(* This function will not find the local optimum, it will return as soon as a
-* better tree is found. *)
-let search_local_next_best (searcher, name) (search : (Tree_Ops.a, Tree_Ops.b)
-                                                 search_mgr)
+
+(** This function will not find the local optimum, it will return as soon as a
+    better tree is found. *)
+let search_local_next_best (searcher, name) (search : (Tree_Ops.a, Tree_Ops.b) search_mgr)
         : (Tree_Ops.a, Tree_Ops.b) search_mgr =
     let status = Status.create ("Single " ^ name) None ("Searching") in
     let ptree, cost, tabu = search#next_tree in
@@ -1459,71 +1573,72 @@ let search_local_next_best (searcher, name) (search : (Tree_Ops.a, Tree_Ops.b)
         searcher ptree tabu#clone search;
         Status.finished status;
         search
-    with
-    | Methods.TimedOut -> search
+    with Methods.TimedOut -> search
 
 let spr_simple x = search x (do_search spr_join, "SPR")
+
 let tbr_simple x = search x (do_search tbr_join, "TBR")
 
 let spr_single = search_local_next_best (do_search spr_join, "SPR")
+
 let tbr_single = search_local_next_best (do_search tbr_join, "TBR")
 
 let tbr_join a b c = tbr_join (breakage_to_pb c) a b c
+
 let spr_join a b c = spr_join (breakage_to_pb c) a b c
 
 
 let alternate spr tbr search =
-    let find_best_cost lst = 
-              List.fold_left (fun best (_, cost, _) -> if best < cost then best
-              else cost) max_float lst
+    let find_best_cost lst =
+        List.fold_left
+            (fun best (_, cost, _) -> if best < cost then best else cost)
+            max_float lst
     in
     let status = Status.create "Alternate" None ("") in
     let () = Status.full_report ~msg:("Beginning search") status in
     let rec try_spr prev_best search = match search#any_trees with
-    | false -> search
-    | true ->
+      | false -> search
+      | true ->
           Status.full_report ~msg:("SPR search") status;
-          let search, timedout = 
-              try spr search, false with 
-              | Methods.TimedOut -> search, true
+          let search, timedout =
+              try spr search, false
+              with Methods.TimedOut -> search, true
           in
           if timedout then search
           else
               (* SPR is done---run TBR steps on the results *)
-              let () = Status.full_report
-                  ~msg:"Performing TBR swapping" status
-              in
+              let () = Status.full_report ~msg:"Performing TBR swapping" status in
               let results = search#results in
               let best_cost = find_best_cost results in
               let search = search#clone in
-              let () = search#init
-                  (List.map (fun (tree, cost, tabu) -> tree, cost, NoCost, tabu)
-                       results) in
-              let search, timedout = 
+              let () =
+                  search#init
+                    (List.map (fun (tree, cost, tabu) -> tree, cost, NoCost, tabu)
+                              results)
+              in
+              let search, timedout =
                   try tbr search, false with
                   | Methods.TimedOut -> search, true
               in
-              if timedout then search
+              if timedout then
+                search
               else
-    (*           let search = Sexpr.fold_status *)
-    (*               "TBR swapping" *)
-    (*               (fun search (tree, cost, tabu) -> *)
-    (*                    tbr_step tree tabu search) search (Sexpr.of_list results) in *)
                 let new_cost = find_best_cost search#results in
-                if (new_cost < best_cost && new_cost < prev_best) ||
-                search#should_repeat then 
+                if (new_cost < best_cost && new_cost < prev_best) || search#should_repeat then
                     let search = search#clone in
-                    let () = search#init
-                        (List.map (fun (tree, cost, tabu) -> tree, cost, NoCost, tabu)
-                        results) 
+                    let () =
+                        search#init
+                            (List.map (fun (tree, cost, tabu) -> tree, cost, NoCost, tabu)
+                                      results)
                     in
                     try_spr new_cost search
-                else search
-              
+                else
+                    search
     in
     let search = try_spr max_float search in
     Status.finished status;
     search
+
 
 let repeat_until_no_more tabu_creator neighborhood queue =
     Status.user_message Status.Information "Starting on tree";
@@ -1550,9 +1665,11 @@ let repeat_until_no_more tabu_creator neighborhood queue =
     (** @return Sets the number of trees considered to zero. *)
     let reset_trees_considered () = trees_considered := 0
 
+
 (** {2 Tree Fusing} *)
 type ('a, 'b) fuse_locations =
         (('a, 'b) p_tree * Tree.u_tree * Tree.edge) list Sexpr.t
+
 
 let fuse_all_locations ?min ?max trees =
     let min = match min with
@@ -1578,6 +1695,7 @@ let fuse_all_locations ?min ?max trees =
 (*        res;*)
     res
 
+
 let fuse source_arg target_arg =
     let adjust_mgr = 
 (*        let _,_,_,adj1 = source_arg and _,_,_,adj2 = target_arg in*)
@@ -1601,6 +1719,7 @@ let fuse source_arg target_arg =
     in
     let res = { target with tree = u_tree } in
     diagnosis res
+
 
 let destroy_component handle tree =
     let cleanup_node v tree =
@@ -1635,6 +1754,7 @@ let destroy_component handle tree =
         acc -->  cleanup_node a --> cleanup_node b -->
             my_remove_edge_data e) 
         tree edges
+
 
 let copy_component handle source target =
     let target = 
@@ -1735,6 +1855,7 @@ let fuse source target terminals =
     let tree, _ = Tree_Ops.join_fn (Some adj_3) [] jxn jxn2 tree in
     let tree = Tree_Ops.uppass tree in
     tree,adj_3
+
 
 (** [fuse_generations trees max_trees tree_weight tree_keep iterations process]
     runs a genetic algorithm-style search using tree fusing.  The function takes a

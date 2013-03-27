@@ -633,6 +633,7 @@ USE_UNSAFE
 USE_VERIFY_COSTS
 USE_SSE
 USE_CONCORDE
+USE_PARMAP
 USE_LIKELIHOOD
 USE_XSLT
 USE_LARGE_ALPHABETS
@@ -673,6 +674,7 @@ DUSEREADLINE
 CONCORDE_CFLAGS
 CONCORDE_LIB
 DUSE_CONCORDE
+DUSE_PARMAP
 DUSE_LIKELIHOOD
 DUSE_XSLT
 DUSE_NATIVEDYNLINK
@@ -731,6 +733,7 @@ enable_rtlout
 enable_unsafe
 enable_mpi
 enable_large_messages
+enable_parmap
 enable_shared_hd
 enable_long_sequences
 enable_profiler
@@ -1384,6 +1387,8 @@ Optional Features:
                           tremendously the message size. Use this option when
                           message size (and the memory consumed to send and
                           receive it) is not a possible bottleneck.
+  --enable-parmap         Enables parmap through ocamlfind tree level
+                          parallelism in building and swappingr.
   --enable-shared-hd      Force POY to support live broadcast of file contents
                           when running in parallel. The default is false.
   --enable-long-sequences Enable the analysis of sequences longer than 16383
@@ -2957,6 +2962,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
 CONFIG_DATE=`date`
 USEWIN32="false"
 OS_INFORMATION=`../gnu/config.guess`
@@ -3082,6 +3089,14 @@ if test "${enable_large_messages+set}" = set; then :
   enableval=$enable_large_messages; USE_LARGE_MESSAGES="true"; DUSE_LARGE_MESSAGES="-DUSE_LARGE_MESSAGES"; OUSE_LARGE_MESSAGES=",use_large_messages"
 else
   USE_LARGE_MESSAGES="false"
+fi
+
+
+# Check whether --enable-parmap was given.
+if test "${enable_parmap+set}" = set; then :
+  enableval=$enable_parmap; USE_PARMAP="true";DUSE_PARMAP="-DUSE_PARMAP"
+else
+  USE_PARMAP="false"
 fi
 
 
@@ -3506,6 +3521,15 @@ if test $USEPARALLEL = "true"; then :
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: Setting interface to flat for mpi compilation" >&5
 $as_echo "Setting interface to flat for mpi compilation" >&6; };USEINTERFACE="flat"
+fi
+fi
+
+if test $USE_PARMAP = "true"; then :
+  if test $USEINTERFACE = "ncurses"; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: Setting interface to readline for parmap compilation" >&5
+$as_echo "Setting interface to readline for parmap compilation" >&6; };USEINTERFACE="readline"
 fi
 fi
 
