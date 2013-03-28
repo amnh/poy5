@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3248 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3249 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -1215,6 +1215,13 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     let srch_mgr = 
                         (* recursive/sequential version to find costs and join
                             all edges *)
+                        let rec do_all_edges srch_mgr tabu_mgr =
+                            match tabu_mgr#next_edge with
+                                | None -> srch_mgr
+                                | Some e ->
+                                    let _, mgr = add_node_to_edge e srch_mgr tabu_mgr in
+                                    do_all_edges mgr tabu_mgr
+                        in
                     IFDEF USE_PARMAP THEN
                         (* parallel determine all costs, then fold to select
                             best and do a proper join. *)
@@ -1253,15 +1260,10 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                                     srch_mgr
                                     besties
                         in
-                        par_do_all_edges srch_mgr tabu_mgr
+                        if 1 = Parmap.get_default_ncores ()
+                            then do_all_edges srch_mgr tabu_mgr
+                            else par_do_all_edges srch_mgr tabu_mgr
                     ELSE
-                        let rec do_all_edges srch_mgr tabu_mgr =
-                            match tabu_mgr#next_edge with
-                                | None -> srch_mgr
-                                | Some e ->
-                                    let _, mgr = add_node_to_edge e srch_mgr tabu_mgr in
-                                    do_all_edges mgr tabu_mgr
-                        in
                         do_all_edges srch_mgr tabu_mgr
                     END
                     in
@@ -1441,7 +1443,9 @@ let single_spr_round pb parent_side child_side
 
 let single_spr_round a b c d e f =
     IFDEF USE_PARMAP THEN
-        par_single_spr_round a b c d e f
+        if 1 = Parmap.get_default_ncores ()
+            then     single_spr_round a b c d e f
+            else par_single_spr_round a b c d e f
     ELSE
         single_spr_round a b c d e f
     END
