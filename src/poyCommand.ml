@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3230 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3248 $"
 
 let debug = false 
 
@@ -277,6 +277,7 @@ type internal_memory = [
 
 type settings = [
     | `TimerInterval of int
+    | `Parmap of int
     | `HistorySize of int
     | `Logfile of string option
     | cost_calculation
@@ -1628,7 +1629,8 @@ type command = [
                             `Alias (n,`Codon x) ] |
                     [ LIDENT "partition"; ":"; 
                         left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
-                            `Alias (n,`Chars x) ]
+                            `Alias (n,`Chars x) ] |
+                    [ LIDENT "parmap"; ":"; x = INT -> `Parmap (int_of_string x) ]
     (*                [ LIDENT "space_saving_alignment" -> `Algn_Newkk ]|*)
     (*                [ LIDENT "normal_alignment" -> `Algn_Normal ]*)
                 ];

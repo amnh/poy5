@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3237 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3248 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -31,10 +31,8 @@ let debug_search_fn = false
 let odebug = Status.user_message Status.Information
 
 let ( --> ) a b = b a
+
 let failwithf format = Printf.ksprintf (failwith) format
-
-let par_map = false
-
 
 type id = Tree.id
 
@@ -73,7 +71,6 @@ type ('a, 'b) p_tree = {
     component_root : 'a root All_sets.IntegerMap.t;
     origin_cost : float;
 }
-
 
 type phylogeny = (Node.node_data, unit) p_tree
 

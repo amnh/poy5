@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3160 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3248 $"
 
 let debug = false
 
@@ -190,6 +190,7 @@ let dependency_relations (init : Methods.script) =
                         [([Data; Trees; JackBoot; Bremer], files, init,
                         NonComposable)]
                 | `TimerInterval _
+                | `Parmap _
                 | `HistorySize _
                 | `Redraw -> [([Data], [Data], init, Linnearizable)]
                 | `Echo _ 
@@ -461,6 +462,7 @@ let dependency_relations (init : Methods.script) =
                         NonComposable)], 
                         Some filename, true
                 | `TimerInterval _
+                | `Parmap _
                 | `RootName _
                 | `Root _ -> 
                         [([Data; Trees], all !input_files !output_files, init,
@@ -1610,6 +1612,8 @@ let script_to_string (init : Methods.script) =
                         "@[produce a KML file@]"
                 | `TimerInterval _ ->
                         "@[change the timer interval@]"
+                | `Parmap _ ->
+                        "@[change the number of cores for parmap@]"
                 | `HistorySize _ ->
                         "@[change my history size@]"
                 | `Redraw -> 
@@ -2045,6 +2049,7 @@ let is_master_only (init : Methods.script) = match init with
     | `ReadScript _ 
     | `Repeat _ 
     | `TimerInterval _
+    | `Parmap _
     | #Methods.taxa_handling -> false
     | `Graph _
     | `Ascii _

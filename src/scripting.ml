@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3230 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3248 $"
 
 let (-->) a b = b a
 
@@ -3024,6 +3024,13 @@ let rec process_application run item =
             Gc.full_major (); 
             run
     | `TimerInterval x -> Tabus.timer_interval := x; run
+    | `Parmap x ->
+        IFDEF USE_PARMAP THEN
+            Parmap.set_default_ncores x; run
+        ELSE
+            Status.user_message Status.Warning ("Parmap@ is@ not@ enabled@ in@ this@ build.");
+            run
+        END
     | `HistorySize len -> Status.resize_history len; run
     | `Logfile file -> StatusCommon.set_information_output file; run
     | `Redraw -> Status.redraw_screen (); run
