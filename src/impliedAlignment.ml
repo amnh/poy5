@@ -17,11 +17,14 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3235 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3251 $"
 
 exception NotASequence of int
 
 let debug = false
+let print_algn_debug = false
+let print_anc_debug = false
+
 
 module Codes = All_sets.IntegerMap
 module Handles = All_sets.Integers
@@ -31,41 +34,48 @@ let (-->) a b = b a
 
 type dyna_state_t = Data.dyna_state_t
 
-(* An implied alignment of raw sequences *)
+(** The location and contents of an insertion block (p * s * l * t * c) where
+        p: start indel position
+        s: content of this indel block
+        l: indel block length
+        t: block type either insertion or deletion or missing, which implies
+            that start=0 and length is the entire sequence.
+        c: children of this indel (subtree indels) *)
+type indel =
+    (int * string * int * [ `Insertion | `Deletion | `Missing ] * int Sexpr.t)
+
+(** Defines an implied alignment of raw sequences *)
 type ias = {
     seq : Sequence.Clip.s;
-    codes : (int, int) Hashtbl.t; (* (key=pos -> code) Hashtble *)
-    homologous: (int, int Sexpr.t) Hashtbl.t; (* (code, hom_code list) Hashtbl *)
-    indels: (int * string * int * [ `Insertion | `Deletion | `Missing ] * int Sexpr.t) Sexpr.t; 
-         (** The location and contents of an insertion block 
-          * (p * s * l * t * c) Sexpr.t where
-          *  p: start indel position 
-          *  s: content of this indel block
-          *  l: indel block length 
-          *  t: block type either insertion or deletion
-          *  c: children of this subtree *)
-          
+    codes : (int, int) Hashtbl.t;
+        (** (key=pos -> code) Hashtble *)
+    homologous: (int, int Sexpr.t) Hashtbl.t;
+        (** (code, hom_code list) Hashtbl *)
+    indels: indel Sexpr.t;
+        (** indels for this implied alignment *)
     dum_chars : (int * int Sexpr.t) Sexpr.t;
-              (** (c * children) where 
-               * c: the dummy character cost
-               * children: children of this subtree  *)
-
-    order : int list; (* codes list in reverse order *)
-
-    dir : int; (* dir indicates the orientation of this ias. 
-                * dir = 1 if positive, dir = -1 if negative *)
+        (** (c * children) where c: the dummy character cost, children: children of this subtree *)
+    order : int list;
+        (** codes list in reverse order *)
+    dir : int;
+        (** dir indicates the orientation of this ias. 1 if positive, -1 if negative *)
 }
 
-
-(* t is the presentation of a dynamic set (DynamicCS) in order to create implied
-   alignments.
-   Note: 'sequences : ias_arr Codes.t' where isa_arr is an array of ias in the
-   case of annotated chromosomes (ach ias presents a locus)
-*)
+(** Definition of the cost model for the sequences. For most data we are dealing
+    with the a 2D cost matrix, for likelihood we require branch lengths (w/
+    parent code) and a rate matrix to compose a proper cost. *)
 type cost_matrix = 
     | CM of Cost_matrix.Two_D.m 
-    | Model of FloatSequence.dyn_model * (float option * int option) (* model, branch length to parent code *)
+    | Model of FloatSequence.dyn_model * (float option * int option)
 
+(** Types of sequences that support missing data *)
+let type_support_missing state =
+    ((state = `Seq) || (state = `CustomAlphabet) || (state = `Ml))
+
+(** t is the presentation of a dynamic set (DynamicCS) in order to create implied
+   alignments.
+   Note: 'sequences : ias_arr Codes.t' where isa_arr is an array of ias in the
+   case of annotated chromosomes (ach ias presents a locus) *)
 type t = {
     sequences : ias array Codes.t;
     c2 : cost_matrix;
@@ -77,7 +87,8 @@ type t = {
     alpha : Alphabet.a
 }
 
-type pairs = int * t list (* taxon_id * character list *)
+(** Pairs represent the taxon ID's and Character list *)
+type pairs = int * t list
 
 module OrderedTuple = struct
     type t = pairs
@@ -86,31 +97,82 @@ end
 
 module AssocList = Set.Make (OrderedTuple)
 
+type ancestor_fn = 
+        bool ->             (* prealigned?       *)
+        bool ->             (* calculate_median? *)
+        (int -> int) ->     (* process a character to mask all characters, except gap *)
+        int -> int ->       (* code for children, [a] and [b] *)
+        int Sexpr.t ->      (* set of children for [a] *)
+        int Sexpr.t ->      (* set of children for [b] *)
+        ias array ->        (* ias information for [a] *)
+        ias array ->        (* ias information for [b] *)
+        cost_matrix ->      (* cost matrix of data *)
+        Alphabet.a ->       (* alphabet for characters *)
+        Data.dyna_pam_t     (* dynamic-pam model for characters; chrom+genome *)
+    -> ias array                (* RESULT: combined ia *)
+
+(** CodeGeneration function for labelings *)
 type cg = (unit -> int)
-
-
-let fprintf = Printf.fprintf
 
 (** [code_generator] returns an unique code for a position in a
 * sequence. Thus, codes created by [code_genrator] function
 * are all different *)
-let code_generator () =
+let code_generator () : cg =
     let counter = ref (-1) in
     fun () ->
         incr counter;
         !counter
 
-(** [create_ias state s code cg] returns an initiated 
-* implied alignment for raw sequence [s] where [cg] is 
-* code generator function, [state] indicates if sequence [s] 
-* is a sequence or a chromosome character.
-* The parameter [code] is redundant for now *)
+
+let print_seq (seq : int * Methods.ia_seq array All_sets.IntegerMap.t list) : unit = 
+    let single (xxx:Methods.ia_seq) : unit = match xxx with
+        | `DO x | `First x | `Last x ->
+            output_string stdout "[";
+            Array.iter (fun y -> Printf.printf "[%d]" y) x;
+            output_string stdout "]"
+    in
+    (fun (d,seq) ->
+        Printf.printf "%d --" d;
+        List.iter
+            (fun each ->
+                All_sets.IntegerMap.iter
+                    (fun k v ->
+                        Printf.printf "%d --" k;
+                        Array.iter (fun v -> single v) v;
+                        print_newline ())
+                    each)
+            seq)
+        seq
+
+
+let print_indel (indels : indel Sexpr.t) : unit =
+    let codes c =
+        List.fold_left
+            (fun a d -> a^", "^(string_of_int d)) "" (Sexpr.to_list c)
+    in
+    Sexpr.iter
+        (function
+            | `Single (s,chars,l,di,cs) ->
+                Printf.printf "%s in %s: starting at %d of length %d with %s\n%!"
+                    (match di with | `Deletion  -> "Deletion"
+                                   | `Insertion -> "Insertion"
+                                   | `Missing   -> "Missing")
+                    (codes cs) s l chars 
+            | `Empty | `Set _ -> ())
+        indels
+
+
+(** [create_ias state s code cg] returns an initiated implied alignment for raw
+    sequence [s] where [cg] is code generator function, [state] indicates if
+    sequence [s] is a sequence or a chromosome character. The parameter [code]
+    is redundant for now *)
 let create_ias (state : dyna_state_t) s code cg =
     let code_acc = Hashtbl.create 1667
     and hom_acc = Hashtbl.create 1667 in
     let order_lst = ref [] in
     let add_codes pos =
-        if (pos = 0) && ((state = `Seq) || (state = `CustomAlphabet) || (state = `Ml)) then ()
+        if (pos = 0) && type_support_missing state then
+            ()
         else begin
             let code = cg () in
             Hashtbl.add code_acc pos code;
@@ -122,108 +184,53 @@ let create_ias (state : dyna_state_t) s code cg =
     let () =
         let len = Sequence.Clip.length s in
         match s with
-        | `DO s
-        | `First s
-        | `Last s ->
-                for i = 0 to len - 1 do
-                    add_codes i;
-                done;
+        | `DO s | `First s | `Last s ->
+            for i = 0 to len - 1 do
+                add_codes i;
+            done;
     in
-    (*Printf.printf "\n In Create_ias, s = ";
-    Array.iter (Printf.printf "%d, ") (Sequence.Clip.to_array s);
-    print_newline ();
-    Hashtbl.iter (Printf.printf "Hashtbl code_acc= key: %d, pos:%d\n%!") code_acc;
-    List.iter (Printf.printf " %d , ") !order_lst;
-    Printf.printf " is the order_lst \n %!";*)
-    { seq = s; codes = code_acc; homologous = hom_acc; 
-        indels = `Empty; dum_chars = `Empty; 
-        order = !order_lst; dir = 1 }
+    {   seq = s;
+        codes = code_acc;
+        homologous = hom_acc; 
+        indels = `Empty;
+        dum_chars = `Empty; 
+        order = !order_lst;
+        dir = 1;    }
 
-let rec prepend_until_shared tgt src it = 
-    match src with
+
+(** prepend [tgt] with elements of [src] until [List.head src] = [it] *)
+let rec prepend_until_shared tgt src it = match src with
     | h :: t when h = it -> tgt, t
     | h :: t -> prepend_until_shared (h :: tgt) t it
     | [] -> failwith "prepend_until_shared"
 
+
+(** prepend all [tgt] with [src] = List.rev src @ tgt *)
 let rec prepend_all tgt = function
     | h :: t -> prepend_all (h :: tgt) t
     | [] -> tgt
 
-let print_debug a' b' a b m =
-    let printem = Status.user_message (Status.Output (Some "ia_dia", false, [])) in
-    printem "For implied alignment:\n";
-    printem (Sequence.Clip.to_formater a' Alphabet.nucleotides );
-    printem "\n";
-    printem (Sequence.Clip.to_formater b' Alphabet.nucleotides);
-    printem "\n";
-    printem "This is the alignment matrix\n";
-    (*
-    Sequence.Clip.Align.print_backtrack a.seq b.seq m;
-    *)
-    printem "\n"
 
-(* print seq *)
-let print_seq seq = 
-    let single (xxx:Methods.ia_seq) : unit = 
-        match xxx with
-            | `DO x | `First x | `Last x ->
-                output_string stdout "[";
-                Array.iter (fun y -> Printf.printf "[%d]" y) x;
-                output_string stdout "]"
-    in
-    List.iter
-    (fun (d,seq) ->
-        Printf.printf "%d --" d;
-        List.iter
-            (fun each -> 
-                All_sets.IntegerMap.iter
-                    (fun k v -> 
-                        Printf.printf "%d --" k;
-                        Array.iter (fun v -> single v) v;
-                        print_newline ()) 
-                    each)
-            seq)
-    seq
+let find_branch_length dyn time =
+    let code = DynamicCS.code dyn in
+    match time with
+    | None   -> assert false (* should only be called under LK *)
+    | Some t -> snd (List.find (fun (a,data) -> Array_ops.mem a code) t)
 
-let print_indel indels = 
-    let codes c =
-        List.fold_left 
-            (fun a d -> a^", "^(string_of_int d))
-            "" (Sexpr.to_list c)
-    in
-    List.iter
-      (fun y -> 
-        List.iter
-          (fun x ->
-            Sexpr.iter
-              (function
-                | `Single (s,chars,l,di,cs) ->
-                    Printf.printf "%s in %s: starting at %d of length %d with %s\n%!"
-                        (match di with | `Deletion -> "Deletion" 
-                                       | `Insertion -> "Insertion"
-                                       | `Missing -> "Missing")
-                        (codes cs) s l chars 
-                | `Empty | `Set _ -> ())
-              x)
-          y)
-      indels
 
-let print_algn_debug = false
-let print_anc_debug = false
-
+(** Create a list with all the starting and ending positions of indels, and
+    the indel string, with their homologous beginning and ending base codes. *)
 let calculate_indels a b alph b_children = 
-    (* Create a list with all the starting and ending positions of indels, and
-    * the indel string, with their homologous beginning and ending base
-    * codes *)
     let in_indel_row = ref `None
     and result_list = ref [] in
     let gap = Alphabet.get_gap alph in
-    assert ( (Sequence.Clip.length a > 1) || (Sequence.Clip.get a 0 != gap) ||
-                 (Sequence.Clip.get b 0 != gap) );
+    (* check opening gap has been removed *)
+    assert ( (Sequence.Clip.length a > 1) || (Sequence.Clip.get a 0 != gap) || (Sequence.Clip.get b 0 != gap) );
+    (* check that the sequences are aligned *)
     assert (Sequence.Clip.length b = Sequence.Clip.length a);
     let len = Sequence.Clip.length a in
+    (* Locate an indel *)
     let assign_in_indel_row i a_gap b_gap =
-        (* Is any of them a gap? *)
         if a_gap && b_gap then 
             in_indel_row := `None
         else if b_gap then 
@@ -263,69 +270,100 @@ let calculate_indels a b alph b_children =
                     assign_in_indel_row i a_gap b_gap;
                 end else ()
     done;
-    let _ = 
-        match !in_indel_row with
+    let () = match !in_indel_row with
         | `None -> ()
         | `A pos ->
-                let len = len - pos in
-                let seq = 
-                    let seq = Sequence.Clip.sub b pos len in
-                    Sequence.Clip.to_string seq alph 
-                    in
-                    result_list :=
-                        (`Single (pos, seq, len, `Insertion, b_children)) :: 
-                            !result_list;
+            let len = len - pos in
+            let seq = 
+                let seq = Sequence.Clip.sub b pos len in
+                Sequence.Clip.to_string seq alph 
+            in
+            let next = (`Single (pos, seq, len, `Insertion, b_children)) in 
+            result_list := next :: !result_list
         | `B pos ->
-                let len = len - pos in
-                let seq = 
-                    let seq = Sequence.Clip.sub a pos len in
-                    Sequence.Clip.to_string seq alph 
-                in
-                result_list :=
-                    (`Single (pos, seq, len, `Deletion, b_children)) :: 
-                        !result_list;
+            let len = len - pos in
+            let seq = 
+                let seq = Sequence.Clip.sub a pos len in
+                Sequence.Clip.to_string seq alph 
+            in
+            let next = (`Single (pos, seq, len, `Deletion, b_children)) in
+            result_list := next :: !result_list;
     in
     match !result_list with
-    | [] -> `Empty
-    | x -> `Set x
+        | [] -> `Empty
+        | x  -> `Set x
 
 
-(** [ancestor calc_m a b cm m] creates a common ancestor for sequences [a] and [b]
- * using the cost matrix [cm] and the alignment matrix [m] 
- * The resulting common ancestor holds the homology
- * relationships of the codes assigned in [a] and [b]. 
- * state indicates the type of sequence, i.e., Sequence, Chromosome, Annotated,
- * Genome, Breakinv....
- * [calc_m] if true, will ask the function to automatically calculate the median
- * between the two input sequences as the ancestor, otherwise, it will assume
- * that [a] is the ancestor of [b].
-*)
-(* TODO CHILDREN *)
-let ancestor calculate_median state prealigned all_minus_gap a b 
-            codea codeb cm alph achld bchld = 
+(** Based on a [cost-matrix] what is the median of states [a] and [b]. *)
+let median_fn = function
+    | CM cm ->
+        fun a b _ -> Cost_matrix.Two_D.median a b cm
+    | Model (_,(None,_))   -> assert false
+    | Model (m,(Some t,_)) ->
+        begin match FloatSequence.cost_fn m with
+            | `MPL ->
+                let gc = FloatSequence.MPLAlign.get_closest m t in
+                (fun a b i -> fst (gc i a b))
+            | `MAL -> assert false
+        end
+
+(** Return the a aligned clips of [a] and [b] based on cost matrix; return the
+    sequences, lengths, and aligned sequences. *)
+and align_2 a b = function
+    | CM cm ->
+        let aseq,bseq,x,clip_len,anoclip,bnoclip = 
+            Sequence.Clip.Align.align_2 a.seq b.seq cm Matrix.default in
+        aseq,bseq,float_of_int x,clip_len,anoclip,bnoclip
+    | Model (m,(Some t,p)) ->
+        begin match FloatSequence.cost_fn m with
+            | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
+            | `MAL -> assert false (* does not exist yet  *)
+        end
+    | Model (m,(None,p)) -> assert false
+
+(** Based on a [cost-matrix] what is the cost of alignment of [a] and [b]. *)
+and cost_fn = function
+    | CM cm ->
+        fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
+    | Model (_,(None,_))   -> assert false
+    | Model (m,(Some t,_)) ->
+        begin match FloatSequence.cost_fn m with
+            | `MPL ->
+                let gc = FloatSequence.MPLAlign.get_closest m t in
+                (fun a b i -> snd (gc i a b))
+            | `MAL -> assert false
+        end
+
+(** [ancestor calc_m a b cm m] creates a common ancestor for seq [a] and [b]
+    using the cost matrix [cm] and the alignment matrix [m]. The resulting
+    common ancestor holds the homology relationships of the codes assigned in
+    [a] and [b]. State indicates the type of sequence, i.e., Sequence, Chromosome,
+    Annotated, Genome, Breakinv... [calc_m] if true, will ask the function to
+    automatically calculate the median between the two input sequences as the
+    ancestor, otherwise, it will assume that [a] is the ancestor of [b].  *)
+let ancestor calc_m state prealigned all_minus_gap a b codea codeb cm alph achld bchld = 
    if print_anc_debug then
-        Status.user_message Status.Information
-        ("The ancestors of " ^ string_of_int codea ^ " and " ^ string_of_int codeb);
-    let a, b, mincode = 
-        if calculate_median then
-            if codea < codeb then a, b, codea
-            else b, a, codeb
-        else a, b, codea
+        Status.user_message Status.Information ("The ancestors of " ^ string_of_int codea ^ " and " ^ string_of_int codeb);
+    let a, b, mincode =
+        if calc_m then
+            if codea < codeb then a, b, codea else b, a, codeb
+        else
+            a, b, codea
     in
     let lena = Sequence.Clip.length a.seq
-    and lenb = Sequence.Clip.length b.seq 
+    and lenb = Sequence.Clip.length b.seq
     and gap = match cm with
-        | CM cm -> Cost_matrix.Two_D.gap cm 
+        | CM cm       -> Cost_matrix.Two_D.gap cm
         | Model (m,_) -> Alphabet.get_gap alph
     in
     let kind = match a.seq with
-        | `DO _ -> `DO
+        | `DO _    -> `DO
         | `First _ -> `First
-        | `Last _ -> `Last
+        | `Last _  -> `Last
     in
     let create_gaps len = Sequence.Clip.init kind (fun _ -> gap) len
-    and aempty = (Sequence.Clip.is_empty a.seq gap) && ((state = `Seq) || (state = `CustomAlphabet) || (state = `Ml))
-    and bempty = (Sequence.Clip.is_empty b.seq gap) && ((state = `Seq) || (state = `CustomAlphabet) || (state = `Ml)) in
+    and aempty = (Sequence.Clip.is_empty a.seq gap) && (type_support_missing state)
+    and bempty = (Sequence.Clip.is_empty b.seq gap) && (type_support_missing state) in
     let a', b', nogap, indels, clip_length =
         let anb_indels = `Set [a.indels; b.indels] in
         let a', b', nogap, indels, clip_length =
@@ -336,10 +374,10 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                 if lena > lenb then a.seq, a.seq, `A, anb_indels, 0
                                else b.seq, b.seq, `B, anb_indels, 0
             else if aempty then
-                let anb_indels = `Set [`Single (0,"",lena,`Missing,achld);anb_indels] in
+                let anb_indels = `Set [`Single (0,"",lena,`Missing,achld); anb_indels] in
                 (create_gaps lenb), b.seq, `A, anb_indels, 0
             else if bempty then
-                let anb_indels = `Set [`Single (0,"",lenb,`Missing,bchld);anb_indels] in
+                let anb_indels = `Set [`Single (0,"",lenb,`Missing,bchld); anb_indels] in
                 a.seq, (create_gaps lena), `B, anb_indels, 0
             else begin
                 if prealigned then  begin
@@ -348,38 +386,21 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         | _ -> calculate_indels a.seq b.seq alph bchld
                     in
                     a.seq, b.seq, `Both, `Set [inds; anb_indels], 0
-                end else begin match cm with
-                    | CM cm ->
-                        let aseq,bseq,_,clip_len,anoclip,bnoclip =
-                            Sequence.Clip.Align.align_2 a.seq b.seq cm Matrix.default
-                        in
-                        let inds = calculate_indels anoclip bnoclip alph bchld in
-                        aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
-                    | Model (m,(Some t,p)) ->
-                        let aseq,bseq,_,clip_len,anoclip,bnoclip =
-                            match FloatSequence.cost_fn m with
-                            | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
-                            | `MAL -> assert false (* does not exist yet  *)
-                        in
-                        let inds = calculate_indels anoclip bnoclip alph bchld in
-                        aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
-                    | Model (m,(None,p)) ->
-                        assert false (** no branch length / empty character *)
+                end else begin
+                    let aseq,bseq,_,clip_len,anoclip,bnoclip = align_2 a b cm in
+                    let inds = calculate_indels anoclip bnoclip alph bchld in
+                    aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
                 end
             end
         in
-        let nogap = 
-            (* if we are not calculating the median, we better always
-               pick whatever is assigned to the true ancestor *)
-            if calculate_median then nogap
-            else `B 
-        in
+        (* if we are not calculating the median, we better always pick whatever
+           is assigned to the true ancestor *)
+        let nogap = if calc_m then nogap else `B in
         a', b', nogap, indels, clip_length
     in
-    if print_algn_debug then print_debug a' b' a b Matrix.default;
     let lena' = Sequence.Clip.length a' in
     let maxlenab' = max (Sequence.Clip.length b') lena' in
-    let anc = Sequence.Clip.create kind (lena' + 1) 
+    let anc = Sequence.Clip.create kind (lena'+1)
     and a_ord = a.order
     and b_ord = b.order in
     let correct_gaps_in_sequences a =
@@ -391,42 +412,36 @@ let ancestor calculate_median state prealigned all_minus_gap a b
             { a with seq = gapless_seqa }, Sequence.Clip.length gapless_seqa
         | _ -> a, Sequence.Clip.length a.seq
     in 
-    let median_fn = match cm with
-        | CM cm -> 
-            fun a b _ -> Cost_matrix.Two_D.median a b cm
-        | Model (_,(None,_))   -> assert false
-        | Model (m,(Some t,_)) ->
-            begin match FloatSequence.cost_fn m with
-                | `MPL -> 
-                    let gc = FloatSequence.MPLAlign.get_closest m t in
-                    (fun a b i -> fst (gc i a b))
-                | `MAL -> assert false
-            end
-    and cost_fn = match cm with
-        | CM cm -> 
-            fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
-        | Model (_,(None,_))   -> assert false
-        | Model (m,(Some t,_)) ->
-            begin match FloatSequence.cost_fn m with
-                | `MPL -> 
-                    let gc = FloatSequence.MPLAlign.get_closest m t in
-                    (fun a b i -> snd (gc i a b))
-                | `MAL -> assert false
-            end
-    in
     let a, lena = correct_gaps_in_sequences a in
     let b, lenb = correct_gaps_in_sequences b in
-    let rec builder = 
-        fun position a_pos b_pos anc_pos codes hom a_hom b_hom a_or b_or res_or ->
-        if position > (-1) then begin
+    let rec builder position a_pos b_pos anc_pos codes hom a_hom b_hom a_or b_or res_or =
+        if position < 0 then begin
+            (* We have to prepend a gap to the ancestor, though we don't include
+               it in the set of homologies. *)
+            Sequence.Clip.prepend anc gap; 
+            (* The codes of the ancestor positions are shifted and are wrong,
+               depending on weather or not the median in a particular position
+               is a gap. And so, we fix the codes *)
+            let codes =
+                let res = Hashtbl.create 1667 in
+                Hashtbl.iter (fun k c -> Hashtbl.add res (anc_pos - k) c) codes;
+                res
+            in
+            (* Now we add the homologies that are in the tree above us, after
+               the current sequence. *)
+            Hashtbl.iter (Hashtbl.replace a_hom) hom;
+            Hashtbl.iter (Hashtbl.replace a_hom) b_hom;
+            let new_res_or = prepend_all res_or a_or in
+            let new_res_or = prepend_all new_res_or b_or in
+            codes, a_hom, new_res_or
+        end else begin
             let it_a = Sequence.Clip.get a' position
             and it_b = Sequence.Clip.get b' position in
-            let med = 
-                match nogap with
+            let med = match nogap with
                 | `A -> it_b
                 | `B -> it_a
-                | `Both -> 
-                    match state with 
+                | `Both ->
+                    begin match state with 
                     | `Breakinv -> it_b
                     | _ -> 
                         if ((kind = `First) && (position < clip_length)) || 
@@ -436,49 +451,39 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                                 else let () = assert (it_b = gap) in
                                      it_a
                         else 
-                           median_fn it_a it_b position
+                           median_fn cm it_a it_b position
+                    end
             in
             let is_gap_median =
-                let cost,gcost =
-                    cost_fn it_a it_b position,
-                    cost_fn (all_minus_gap it_a) (all_minus_gap it_b) position
+                let cost, ngcost =
+                    cost_fn cm it_a it_b position,
+                        cost_fn cm (all_minus_gap it_a) (all_minus_gap it_b) position
                 in
                 if it_a <> gap && it_b <> gap then
-                    (cost < gcost || (med = gap))
+                    (cost < ngcost || (med = gap))
                 else 
                     (med = gap)
             in
             let code, hom, n_a_pos, n_b_pos, na_hom, nb_hom, a_or, b_or, res_or =
                 match is_gap_median, it_a = gap, it_b = gap with
                 | false, false, false ->
-                        let codea = 
-                            try Hashtbl.find a.codes a_pos with
-                            | Not_found ->
-                                  failwith 
-                                      (Printf.sprintf "Could not find %d with gap
-                                       %d and it_a %d and it_b %d\n" a_pos gap it_a it_b)
-                        in
-                        let codeb = Hashtbl.find b.codes b_pos in
+                        let codea = Hashtbl.find a.codes a_pos
+                        and codeb = Hashtbl.find b.codes b_pos in
                         let hom_a = Hashtbl.find a_hom codea 
                         and hom_b = Hashtbl.find b_hom codeb in
                         Hashtbl.remove a_hom codea;
                         Hashtbl.remove b_hom codeb;
                         let hom_b = Sexpr.map (fun code -> code * b.dir) hom_b in
-                        let new_ab = `Set [hom_a; hom_b] in
                         let new_res_or, new_a_or = 
                             prepend_until_shared res_or a_or codea in
                         let new_res_or, new_b_or = 
                             prepend_until_shared new_res_or b_or codeb in
-                        Hashtbl.replace hom codea new_ab;
-                        codea, hom, a_pos - 1, b_pos - 1, a_hom, 
-                        b_hom, new_a_or, new_b_or, (codea :: new_res_or)
+                        Hashtbl.replace hom codea (`Set [hom_a; hom_b]);
+                        codea, hom, a_pos-1, b_pos - 1, a_hom, 
+                            b_hom, new_a_or, new_b_or, (codea :: new_res_or)
                 | true, false, false ->
-                        let codeb = 
-                            try Hashtbl.find b.codes b_pos 
-                            with | Not_found ->
-                                failwith (Printf.sprintf "cannot find %d  %!" b_pos)
-                        in
-                        let codea = Hashtbl.find a.codes a_pos in
+                        let codeb = Hashtbl.find b.codes b_pos
+                        and codea = Hashtbl.find a.codes a_pos in
                         let hom_b = Hashtbl.find b_hom codeb 
                         and hom_a = Hashtbl.find a_hom codea in
                         Hashtbl.remove b_hom codeb;
@@ -495,14 +500,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         codea, hom, a_pos - 1, b_pos - 1, a_hom, b_hom,
                         new_a_or, new_b_or, new_res_or
                 | _, true, false ->
-                        let codeb = 
-                            try 
-                                Hashtbl.find b.codes b_pos 
-                            with
-                            | Not_found ->
-                                    failwith(
-                                Printf.sprintf "cannot find %d  %!" b_pos)
-                        in
+                        let codeb = Hashtbl.find b.codes b_pos in
                         let hom_b = Hashtbl.find b_hom codeb in
                         Hashtbl.remove b_hom codeb;
                         Hashtbl.replace hom codeb hom_b;
@@ -520,8 +518,6 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         codea, hom, a_pos - 1, b_pos, a_hom, b_hom,
                         new_a_or, b_or, (codea :: new_res_or)
                 | _, true, true ->
-(*                        assert (a_pos = 0);*)
-(*                        assert (b_pos = 0);*)
                         (-1), hom, a_pos, b_pos, a_hom, b_hom, a_or, b_or, res_or
             in
             let n_anc_pos = 
@@ -531,41 +527,23 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                     anc_pos + 1
                 end else anc_pos
             in
-            
-(*            List.iter (fun ord -> fprintf stdout "%i " ord) res_or;
-            print_newline (); *)
-            builder (position - 1) n_a_pos n_b_pos n_anc_pos codes hom na_hom
-            nb_hom a_or b_or res_or 
-        end else begin
-            (* We have to prepend a gap to the
-            *  ancestor, though we don't include it in the set of homologies. *)
-            Sequence.Clip.prepend anc gap; 
-            (* The codes of the ancestor positions are shifted and are wrong,
-            * depending on weather or not the median in a particular position is
-            * a gap. And so, we fix the codes *)
-            let codes =
-                let res = Hashtbl.create 1667 in
-                Hashtbl.iter 
-                (fun k c -> Hashtbl.add res (anc_pos - k) c) codes;
-                res
-            in
-            (* Now we add the homologies that are in the tree above us, after
-            * the current sequence. *)
-            Hashtbl.iter (Hashtbl.replace a_hom) hom;
-            Hashtbl.iter (Hashtbl.replace a_hom) b_hom;
-            let new_res_or = prepend_all res_or a_or in
-            let new_res_or = prepend_all new_res_or b_or in
-            codes, a_hom, new_res_or
+            builder (position - 1) n_a_pos n_b_pos n_anc_pos codes hom na_hom nb_hom a_or b_or res_or 
         end
     in
     let initial_codes = Hashtbl.create 1667
     and initial_hom = Hashtbl.create 1667 in
     let codes, hom, order = 
-        builder (lena' - 1) (lena - 1) (lenb - 1) 0 initial_codes
-        initial_hom a.homologous b.homologous a_ord b_ord []
+        builder (lena'-1) (lena-1) (lenb-1) 0 initial_codes initial_hom
+                a.homologous b.homologous a_ord b_ord []
     in
     let order = List.rev order in
-    { seq = anc; codes = codes; homologous = hom; indels = indels; dum_chars = `Empty; order = order; dir = 1 }
+    {   seq = anc;
+        codes = codes;
+        homologous = hom;
+        indels = indels;
+        dum_chars = `Empty;
+        order = order;
+        dir = 1; }
 
 
 let assign_act_order sta en codes ord_arr act_ord_arr =
@@ -612,20 +590,18 @@ let ancestor_sequence prealigned calculate_median all_minus_gap
         a_ls
         b_ls
 
-let ancestor_likelihood prealigned calculate_median
-                        all_minus_gap acode bcode achld bchld a_ls b_ls cm
-                        alpha chrom_pam =
+let ancestor_likelihood prealigned calculate_median all_minus_gap acode bcode
+        achld bchld a_ls b_ls cm alpha chrom_pam =
     Array_ops.map_2
         (fun a_seq b_seq ->
-            ancestor calculate_median `Ml prealigned all_minus_gap
-                     a_seq b_seq acode bcode cm alpha achld bchld)
-        a_ls 
-        b_ls
+            ancestor calculate_median `Ml prealigned all_minus_gap a_seq
+                        b_seq acode bcode cm alpha achld bchld)
+        a_ls b_ls
 
-(* [ancestor_chrom prealigned calculate_median all_minus_gap acode bcode 
-*  achld bchld a b cm alpha chrom_pam] merges the implied alignments of two clades and 
-* their respective roots into one common ancestor. This is similar to [ancestor]
-* function, but for chromosome characters  *)
+(** [ancestor_chrom prealigned calculate_median all_minus_gap acode bcode achld
+    bchld a b cm alpha chrom_pam] merges the implied alignments of two clades and 
+    their respective roots into one common ancestor. This is similar to [ancestor]
+    function, but for chromosome characters. *)
 let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode 
         achld bchld a b boxed_cm alpha chrom_pam = 
     (* we know this isn't likelihood; so unwrap the cost matrix *)
@@ -1288,8 +1264,7 @@ let analyze_tcm tcm model alph =
     let gap = Alphabet.get_gap alph 
     and all = Alphabet.get_all alph in
     let for_sankoff =
-        let go = 
-            match Cost_matrix.Two_D.get_cost_model tcm with
+        let go = match Cost_matrix.Two_D.get_cost_model tcm with
             | Cost_matrix.No_Alignment 
             | Cost_matrix.Linnear -> 0
             | Cost_matrix.Affine go -> go
@@ -1299,8 +1274,7 @@ let analyze_tcm tcm model alph =
             if max = pos then cost
             else 
                 let base = Alphabet.find_base (to_string string pos) alph in
-                processor (pos + 1) max 
-                ((Cost_matrix.Two_D.cost gap base tcm) + cost) string
+                processor (pos + 1) max ((Cost_matrix.Two_D.cost gap base tcm) + cost) string
         in
         if Cost_matrix.Two_D.is_metric tcm then
             fun _ -> go
@@ -1635,12 +1609,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         let st = Status.create "Implied Alignments" vertices "vertices calculated" in
         let convert_data tree parent self taxon_id data time =
-            let find_branch_length dyn time =
-                let code = DynamicCS.code dyn in
-                match time with
-                | None   -> assert false (* should only be called under LK *)
-                | Some t -> snd (List.find (fun (a,data) -> Array_ops.mem a code) t)
-            in
             let data =
                 List.map
                     (fun dyn ->
@@ -1696,8 +1664,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     and adj = Node.get_dynamic_adjusted par data in
                     List.map2
                         (fun pre adj ->
-                            try if 0 = Cost_matrix.Two_D.combine
-                            (DynamicCS.c2_full pre)
+                            try if 0 = Cost_matrix.Two_D.combine (DynamicCS.c2_full pre)
                                 then adj
                                 else pre
                             with | _ -> adj (* likelihood *) )
@@ -1711,7 +1678,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         let join_2_nodes _ _ (ac, a) (bc, b) =
             let t_ancestor x y =    
-                let ancestor_f =
+                let ancestor_fn =
                     assert (x.state = y.state);
                     match x.state with
                     | `Ml -> ancestor_likelihood false
@@ -1726,9 +1693,9 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     (fun u v acc ->
                         let homs = Codes.find u y.sequences in
                         let ancestor = 
-                            ancestor_f calculate_median all_minus_gap
-                                       x.cannonic_code y.cannonic_code x.children
-                                       y.children v homs x.c2 x.alpha x.chrom_pam
+                            ancestor_fn calculate_median all_minus_gap
+                                        x.cannonic_code y.cannonic_code x.children
+                                        y.children v homs x.c2 x.alpha x.chrom_pam
                         in
                         Codes.add u ancestor acc)
                     x.sequences
@@ -1745,19 +1712,19 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             unionresult, map2result
         in
         match Tree.get_node handle ptree.Ptree.tree with
-        | Tree.Single self ->
+            | Tree.Single self ->
                 let a, b = convert_node None ptree () self ([], []) in
                 Status.finished st;
                 AssocList.elements a, b
-        | _ ->
-              let self, other, root  =      
-                  let root = Ptree.get_component_root handle ptree in  
-                  match root.Ptree.root_median with
-                  | Some ((`Edge (a, b)), the_root) -> a, b, the_root
-                  | _ -> failwith "no root?"
-              in
-              let x, y =
-                  if calculate_median then begin
+            | _ ->
+                let self, other, root  =      
+                    let root = Ptree.get_component_root handle ptree in  
+                    match root.Ptree.root_median with
+                    | Some ((`Edge (a, b)), the_root) -> a, b, the_root
+                    | _ -> failwith "no root?"
+                in
+                let x, y =
+                    if calculate_median then begin
                         let a, b = 
                             Ptree.post_order_node_with_edge_visit 
                                 (convert_node None ptree) join_2_nodes 
@@ -1846,6 +1813,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                       (AssocList.elements x)
               in
               cleanedup, y
+
 
     (** t is a final ias for a character set   
         =>
@@ -2562,30 +2530,30 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             let filtered_trees =
                 List.map
                     (fun x ->
-                         let alph = Data.get_alphabet data x in
-                         let gap = Alphabet.get_gap alph in
-                         let tcm,_ = Data.get_tcm2d data x in
-                         let kind =
-                             match Hashtbl.find data.Data.character_specs x with
-                             | Data.Dynamic x ->
-                                     x.Data.state,
-                                     x.Data.initial_assignment
-                             | _ -> assert false
-                         in
-                         let all =
-                             if 1 = Cost_matrix.Two_D.combine tcm then
-                                 match Alphabet.get_all alph with
-                                 | Some all -> all
-                                 (*this is a tmp fix. we should get rid of
-                                 * combine of cost_matrix.two_d, we are using
-                                 * level now.*)
-                                 | None -> (-1) (*assert false*)
-                             else (-1) (* we won't use it anyway *)
-                         in
-                         kind,
-                         (if 1 = Cost_matrix.Two_D.combine tcm
+                        let alph  = Data.get_alphabet data x in
+                        let tcm,_ = Data.get_tcm2d data x in
+                        let gap   = Cost_matrix.Two_D.gap tcm in
+                        let kind = match Hashtbl.find data.Data.character_specs x with
+                            | Data.Dynamic x ->
+                                x.Data.state, x.Data.initial_assignment
+                            | _ -> assert false
+                        in
+                        let all =
+                            if 1 = Cost_matrix.Two_D.combine tcm then
+                                match Alphabet.get_all alph with
+                                | Some all -> all
+                                | None     -> gap
+                            else 
+                                (-1) (* we won't use it anyway *)
+                        in
+                        kind,
+                        (if 1 = Cost_matrix.Two_D.combine tcm
                             then fun x -> x land ((lnot gap) land all)
-                            else fun x -> x),
+                            else fun x ->
+                                tcm --> Cost_matrix.Two_D.states_of_code x
+                                    --> List.filter (fun x -> x <> gap)
+                                    --> (fun x ->
+                                            Cost_matrix.Two_D.code_of_states x tcm)),
                         filter_fn tree [x])
                     codes
             in
@@ -2604,10 +2572,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     if (List.exists (fun y -> x = y) data.Data.dynamics) then true
                     else begin
                         Status.user_message Status.Error
-                        ("The character with code " ^ string_of_int x
-                        ^" is not a sequence character. You have requested an "
-                        ^"implied alignment of such thing, I will ignore that "
-                        ^"character for the implied alignment.");
+                            ("The character with code " ^ string_of_int x
+                            ^" is not a sequence character. You have requested an "
+                            ^"implied alignment of such thing, I will ignore that "
+                            ^"character for the implied alignment.");
                         false
                     end)
                 codes
