@@ -3526,8 +3526,6 @@ fi
 
 if test $USE_PARMAP = "true"; then :
   if test $USEINTERFACE = "ncurses"; then :
-
-else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: Setting interface to readline for parmap compilation" >&5
 $as_echo "Setting interface to readline for parmap compilation" >&6; };USEINTERFACE="readline"
 fi
@@ -3580,6 +3578,7 @@ fi
 fi
 
 fi
+
 if test $USEINTERFACE = "pdcurses"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lpdcurses" >&5
 $as_echo_n "checking for main in -lpdcurses... " >&6; }
@@ -3626,6 +3625,7 @@ fi
 fi
 
 fi
+
 if test $USEINTERFACE = "readline"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for readline in -lreadline" >&5
 $as_echo_n "checking for readline in -lreadline... " >&6; }

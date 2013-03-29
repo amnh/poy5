@@ -364,7 +364,7 @@ AS_IF( [test $USEPARALLEL = "true"],
               AC_MSG_RESULT([Setting interface to flat for mpi compilation]);USEINTERFACE="flat"))
 
 AS_IF( [test $USE_PARMAP = "true"],
-       AS_IF( [test $USEINTERFACE = "ncurses"], [],
+       AS_IF( [test $USEINTERFACE = "ncurses"],
               AC_MSG_RESULT([Setting interface to readline for parmap compilation]);USEINTERFACE="readline"))
 
 # Checking for libraries according to the user's options.
@@ -375,6 +375,7 @@ AS_IF([test $USEINTERFACE = "ncurses"],
                 [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. See ./configure --help for more information.])],
                 [USEINTERFACE="readline"])])],
       [])
+
 AS_IF([test $USEINTERFACE = "pdcurses"],
       [AC_CHECK_LIB([pdcurses], [main],
             [LIBS="-lpdcurses $LIBS";USEINTERFACE="ncurses";DUSENCURSES="-DUSENCURSES";INTERFACETOP="NcursesML";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
@@ -382,6 +383,7 @@ AS_IF([test $USEINTERFACE = "pdcurses"],
                 [AC_MSG_FAILURE([The pdcurses interface requires the pdcurses library. See ./configure --help for more information.])],
                 [USEINTERFACE="readline"])])],
       [])
+
 AS_IF([test $USEINTERFACE = "readline"],
         [AC_CHECK_LIB([readline], [readline],
             [LIBS="-lreadline $LIBS";AC_DEFINE(HAVE_LIBREADLINE)
