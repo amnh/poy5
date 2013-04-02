@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sequence" "$Revision: 3233 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 3252 $"
 
 exception Invalid_Argument of string
 
@@ -3412,40 +3412,30 @@ let map f s =
 * of sequence [seq] *)        
 let get_single_seq seq c2 = select_one seq c2
 
-(** [cmp_locus_indel_cost s c2 locus_indel]
-* returns the locus indel cost of locus [s] *)
+(** [cmp_locus_indel_cost s c2 locus_indel] returns the locus indel cost of locus *)
 let cmp_locus_indel_cost s c2 locus_indel =
     let locus_open, locus_ext = locus_indel in
-    let gap_open = 
-        match Cost_matrix.Two_D.get_cost_model c2 with
+    let gap_open = match Cost_matrix.Two_D.get_cost_model c2 with
         | Cost_matrix.Affine o -> o
         | _ -> 0
-    in 
-    let gap = Cost_matrix.Two_D.gap c2 in 
+    in
+    let gap = Cost_matrix.Two_D.gap c2 in
     let seq_len = length s in
-
-
-    let cmp_indel_cost p = 
+    let cmp_indel_cost p =
         let dna = get s p in
         if (dna land gap) = gap then 0
-        else Cost_matrix.Two_D.cost dna gap c2 
-    in 
-
-    let f1 = locus_open + locus_ext in 
-    let f2 = locus_open + gap_open + 
-             (cmp_indel_cost 0)
-    in  
-
+        else Cost_matrix.Two_D.cost dna gap c2
+    in
+    let f1 = locus_open + locus_ext in
+    let f2 = locus_open + gap_open + (cmp_indel_cost 0) in
     let rec cmp p f1 f2 =
         if p = seq_len then min f1 f2
         else begin
-            let new_f1 = (min f1 f2) + locus_ext in 
-            let indel_cost = cmp_indel_cost p in 
-            let new_f2 = min (f1 + gap_open + indel_cost)
-                             (f2 + indel_cost)
-            in 
+            let new_f1 = (min f1 f2) + locus_ext in
+            let indel_cost = cmp_indel_cost p in
+            let new_f2 = min (f1 + gap_open + indel_cost) (f2 + indel_cost) in
             cmp (p + 1) new_f1 new_f2
-        end 
+        end
     in
     cmp 1 f1 f2
 
@@ -3493,9 +3483,7 @@ module Clip = struct
     type old_s = s
     type s = [ `DO of old_s | `First of old_s | `Last of old_s ]
 
-    let extract_s s = 
-        match s with
-        | `DO x | `First x | `Last x -> x
+    let extract_s s = match s with | `DO x | `First x | `Last x -> x
 
     let fraction = 1.00
 
@@ -3604,39 +3592,47 @@ module Clip = struct
         | `Last -> `Last s
         | `First -> `First s
 
-    let delete_gap ?(gap_code = dna_gap) s = 
-        match s with
+    let delete_gap ?(gap_code = dna_gap) s = match s with
         | `DO s -> `DO (delete_gap ~gap_code s)
         | `Last s -> `Last (delete_gap ~gap_code s)
         | `First s -> `First (delete_gap ~gap_code s)
+
     let foldi f acc s = foldi f acc (extract_s s)
+
     let get s i = get (extract_s s) i
+
     let get_empty_seq kind = 
         let empty = get_empty_seq () in
         match kind with
         | `DO -> `DO empty
         | `First -> `First empty
         | `Last -> `Last empty
+
     let init kind f l = 
         let s = init f l in
         match kind with
         | `DO -> `DO s
         | `First -> `First s
         | `Last -> `Last s
+
     let is_empty s gap = is_empty (extract_s s) gap
+
     let length s = length (extract_s s)
+
     let prepend s i = prepend (extract_s s) i
-    let sub s a b = 
-        match s with
+
+    let sub s a b = match s with
         | `DO s -> `DO (sub s a b)
         | `First s -> `First (sub s a b)
         | `Last s -> `Last (sub s a b)
 
     let to_array s = to_array (extract_s s)
+
     let to_formater s alph = to_formater (extract_s s) alph
+
     let to_string s alph = to_string (extract_s s) alph
-    let safe_reverse s =
-        match s with
+
+    let safe_reverse s = match s with
         | `DO s -> `DO (safe_reverse s)
         | `First s -> `First (safe_reverse s)
         | `Last s -> `Last (safe_reverse s)

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3251 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3252 $"
 
 exception NotASequence of int
 
@@ -289,9 +289,11 @@ let calculate_indels a b alph b_children =
             let next = (`Single (pos, seq, len, `Deletion, b_children)) in
             result_list := next :: !result_list;
     in
-    match !result_list with
+    let res = match !result_list with
         | [] -> `Empty
         | x  -> `Set x
+    in
+    res
 
 
 (** Based on a [cost-matrix] what is the median of states [a] and [b]. *)
@@ -455,11 +457,11 @@ let ancestor calc_m state prealigned all_minus_gap a b codea codeb cm alph achld
                     end
             in
             let is_gap_median =
-                let cost, ngcost =
-                    cost_fn cm it_a it_b position,
-                        cost_fn cm (all_minus_gap it_a) (all_minus_gap it_b) position
-                in
                 if it_a <> gap && it_b <> gap then
+                    let cost, ngcost =
+                        cost_fn cm it_a it_b position,
+                            cost_fn cm (all_minus_gap it_a) (all_minus_gap it_b) position
+                    in
                     (cost < ngcost || (med = gap))
                 else 
                     (med = gap)
@@ -2523,6 +2525,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         Status.finished st;
         character, res
 
+
    (** (sequence code list), ( (taxon_id * (aligned_code arrays for each character
        set) list (of characters) ) list (of taxa) ) of list (of trees) *)
     let aux_create_implied_alignment filter_fn codes data tree =
@@ -2538,17 +2541,17 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 x.Data.state, x.Data.initial_assignment
                             | _ -> assert false
                         in
-                        let all =
-                            if 1 = Cost_matrix.Two_D.combine tcm then
-                                match Alphabet.get_all alph with
-                                | Some all -> all
-                                | None     -> gap
-                            else 
-                                (-1) (* we won't use it anyway *)
-                        in
                         kind,
                         (if 1 = Cost_matrix.Two_D.combine tcm
-                            then fun x -> x land ((lnot gap) land all)
+                            then
+                                match Alphabet.get_all alph with
+                                | Some all ->
+                                    fun x -> x land ((lnot gap) land all)
+                                | None     ->
+                                    fun x ->
+                                        tcm --> Cost_matrix.Two_D.states_of_code x
+                                            --> List.filter (fun x -> x <> gap)
+                                            --> (fun x -> Cost_matrix.Two_D.code_of_states x tcm)
                             else fun x ->
                                 tcm --> Cost_matrix.Two_D.states_of_code x
                                     --> List.filter (fun x -> x <> gap)
@@ -2632,7 +2635,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     let _, ia =
                         aux_create_implied_alignment filter_fn [code] data tree 
                     in
-                    (*List.iter (List.iter (fun ((s,i),_) -> print_seq s;print_indel i)) ia;*)
                     let ia = match ia with | [x] -> x |  _  -> assert false in
                     let separator = ":ia:" in
                     let res = 
