@@ -18,6 +18,9 @@ Bugs Fixed:
       resulted in failure with some added data that represents the cost of a gap
       which should be filtered from the transformation, as other likelihood
       transformations on those characters do.
+    - Custom-alphabet implied alignment produced an alignment with extra indels.
+      This was due to an encoding issue that became relevent when mixing custom
+      alphabet characters and levels.
 
 New Commands (see manual for full explanations) :
     - report command for parsimony branch lengths
