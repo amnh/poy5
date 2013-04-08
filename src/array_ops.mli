@@ -82,4 +82,7 @@ val split : int -> 'a array -> 'a array array
 val is_identical2 : int array -> int array -> int
 
 val is_identical3 : int array -> int array -> int array -> int
-(* vim:sw=4 et tw=80 : *)
+
+val fill_symmetric_square_matrix :
+    (int -> int -> 'a -> 'a -> float) -> 'a array -> float array array -> unit
+

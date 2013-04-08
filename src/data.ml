@@ -1095,7 +1095,9 @@ module CharacterSelection = struct
             let is_zero_weight enc = enc.Nexus.File.st_weight = 0.0 in
             begin match st_type with
                 | _ when is_zero_weight enc -> data
-                | Nexus.File.STSankoff _    -> classify_sankoff code data
+                | Nexus.File.STSankoff _    ->
+                    let () = Printf.printf "ADDING SANK-- %d/??\n%!" code in
+                    classify_sankoff code data
                 | Nexus.File.STOrdered when observed > 1 ->
                     {data with additive = code :: data.additive }
                 | Nexus.File.STOrdered      -> data
@@ -1797,8 +1799,7 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
         Status.user_message Status.Warning msg
 
 let process_trees data file =
-    try
-        let ch, file = FileStream.channel_n_filename file in
+    try let ch, file = FileStream.channel_n_filename file in
         let trees = Tree.Parse.of_channel ch in
         let () = close_in ch in
         let cnt = ref 0 in
@@ -1808,10 +1809,9 @@ let process_trees data file =
                             (List.map (fun (x,_,_) -> x) trees) in
             if found then Some branches else None
         in
-        { data with trees = data.trees @ trees;
-                    branches = branches; }
-    with
-    | Sys_error err ->
+        {data with trees = data.trees @ trees;
+                   branches = branches; }
+    with | Sys_error err ->
         let file = FileStream.filename file in
         let msg = "@[Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
                   "trees.@ @ The@ system@ error@ message@ is@ " ^ err ^ ".@]" in
@@ -1823,9 +1823,8 @@ let process_fixed_states data = function
     | Some file ->
         begin try
             let ch, file = FileStream.channel_n_filename file in
-            let fs = 
-                Parser.FixedStatesDict.of_channel 
-                FileContents.Nucleic_Acids ch 
+            let fs =
+                Parser.FixedStatesDict.of_channel FileContents.Nucleic_Acids ch
             in
             close_in ch;
             let len = List.length fs in
@@ -1834,10 +1833,10 @@ let process_fixed_states data = function
                                 (StatusCommon.escape file) len
             in
             Status.user_message Status.Information msg;
-            { 
-                data with do_fs = true;
+            { data with
+                do_fs = true;
                 current_fs = fs;
-                current_fs_file = file; 
+                current_fs_file = file;
             }
         with | Sys_error err ->
             let file = FileStream.filename file in
@@ -5064,38 +5063,28 @@ let compute_fixed_states filename data code polymph =
        states that can be placed on the internal nodes of the tree.
        this process resolves polymorphism of input sequences.
        NOTE: this process cost n-square(n=number of taxons),it might take long time.*)
-    let () = 
+    let () =
         for x = 0 to (Array.length taxa) - 1 do
             for y = 0 to (Array.length taxa) - 1 do
-                let a,b = 
-                match polymph with
-                | `Do_All -> if debug then Printf.printf "polymorphism=do all\n%!";
-                let yclose, _ = 
-                    if use_ukk then
-                        Sequence.NewkkAlign.closest initial_sequences.(x)
-                        initial_sequences.(y) dhs.tcm2d_full Sequence.NewkkAlign.default_ukkm
-                    else
-                    Sequence.Align.closest 
-                        initial_sequences.(x) initial_sequences.(y)
-                        dhs.tcm2d_full Matrix.default 
-                in
-                let xclose, cost =
-                    if use_ukk then
-                        Sequence.NewkkAlign.closest yclose initial_sequences.(x)
-                        dhs.tcm2d_full Sequence.NewkkAlign.default_ukkm
-                    else
-                        Sequence.Align.closest yclose initial_sequences.(x)
-                        dhs.tcm2d_full Matrix.default
-                in
-                xclose,yclose
-                | `Pick_One ->
-                        if debug then Printf.printf "polymorphism=pick_one\n%!";
-                        Sequence.to_single_seq initial_sequences.(x)
-                        dhs.tcm2d_full,
-                        Sequence.to_single_seq initial_sequences.(y)
-                        dhs.tcm2d_full
-                | `Do_Nothing ->
-                        if debug then Printf.printf "polymorphism=do_nothing\n%!";
+                let a,b = match polymph with
+                    | `Do_All ->
+                        let yclose, _ = 
+                            if use_ukk then
+                                Sequence.NewkkAlign.closest initial_sequences.(x) initial_sequences.(y) dhs.tcm2d_full Sequence.NewkkAlign.default_ukkm
+                            else
+                                Sequence.Align.closest initial_sequences.(x) initial_sequences.(y) dhs.tcm2d_full Matrix.default 
+                        in
+                        let xclose, _ =
+                            if use_ukk then
+                                Sequence.NewkkAlign.closest yclose initial_sequences.(x) dhs.tcm2d_full Sequence.NewkkAlign.default_ukkm
+                            else
+                                Sequence.Align.closest yclose initial_sequences.(x) dhs.tcm2d_full Matrix.default
+                        in
+                        xclose,yclose
+                    | `Pick_One ->
+                        Sequence.to_single_seq initial_sequences.(x) dhs.tcm2d_full,
+                        Sequence.to_single_seq initial_sequences.(y) dhs.tcm2d_full
+                    | `Do_Nothing ->
                         initial_sequences.(x),initial_sequences.(y)
                 in
                 (*we add more states through extra sequence file -- check out
@@ -5103,8 +5092,8 @@ let compute_fixed_states filename data code polymph =
                 * we cannot assign them to leaf nodes. that's why we don't
                 * add them to hashtbl taxon_sequences.*)
                 if x<taxalen && y<taxalen then begin
-                Hashtbl.replace taxon_sequences taxa.(y) b;
-                Hashtbl.replace taxon_sequences taxa.(x) a;
+                    Hashtbl.replace taxon_sequences taxa.(y) b;
+                    Hashtbl.replace taxon_sequences taxa.(x) a;
                 end;
                 if not (Hashtbl.mem sequences_taxon b) then begin
                     Hashtbl.replace sequences_taxon b !states;
@@ -5118,116 +5107,93 @@ let compute_fixed_states filename data code polymph =
         done;
     in
     let states = !states in
-    if debug then Printf.printf "states num = %d\n%!" states;
     let sequences = Array.init states (fun _ -> Sequence.create 1) in
     let distances = Array.make_matrix states states 0. in
     let branches = ref None in
     Hashtbl.iter (fun seq pos -> sequences.(pos) <- seq) sequences_taxon;
+    (** define functions finding the costs *)
+    let mauve_annotation x y x_seq y_seq =
+        let min_lcb_ratio,min_cover_ratio,min_lcb_len,max_lcb_len =
+            match dhs.pam.annotate_tool with
+            | Some (`Mauve (a,b,c,d)) -> a,b,c,d
+            | _ -> assert(false)
+        in
+        let l_i_c = match dhs.pam.locus_indel_cost with
+            | Some cost -> cost
+            | None -> (10,100)
+        in
+        let seqx,seqy = Sequence.del_first_char x_seq,
+                        Sequence.del_first_char y_seq
+        in
+        (*we don't call AliMap.create_general_ali_mauve directly here,
+        * because parameter of that function is with low level module
+        * type, like "Block.pairChromPam_t". Data.ml is suppose to
+        * be on top of those modules -- including aliMap. To avoid 
+        * circular denpendency, we call get_matcharr_and_costmatrix and
+        * output2mauvefile seperately.*)
+        let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
+                edit_cost,indel_cost,full_code_lstlst =
+            Block_mauve.get_matcharr_and_costmatrix
+                    seqx seqy min_lcb_ratio min_cover_ratio min_lcb_len
+                    max_lcb_len l_i_c dhs.tcm2d_original use_ukk
+        in
+        let re_meth = match dhs.pam.re_meth with
+            | Some value -> value
+            | None -> `Locus_Breakpoint 10
+        and circular = match dhs.pam.circular with
+            | Some value -> value
+            | None -> 0
+        in
+        let cost, rc, alied_gen_seq1, alied_gen_seq2 =
+            GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat
+                                    gen_gap_code re_meth circular false
+        in
+        (*remember the editing cost between lcbs is not included in
+        * the gen_cost_mat, we set cost between matching lcb to 0 in
+        * block_mauve, just to make sure they are aligned to each other*)
+        let cost = cost + edit_cost in
+        let xname,yname = string_of_int x,string_of_int y in
+        let fullname = match filename with
+            | None -> ""
+            | Some fname -> (fname^"_"^xname^"_"^yname^".alignment")
+        in
+        Block_mauve.output2mauvefile fullname cost None alied_gen_seq1
+            alied_gen_seq2 full_code_lstlst ali_mat gen_gap_code
+            (Sequence.length seqx) (Sequence.length seqy);
+        float_of_int cost 
+    and likelihood_costs x y x_seq y_seq = 
+        let model = match dhs.lk_model with Some x -> x | None -> assert false in
+        let bl,cst =
+            FloatSequence.pair_distance
+                (FloatSequence.make_model dhs.alph model) x_seq y_seq
+        in
+        let () = match !branches with
+            | Some z ->
+                z.(x).(y) <- bl; z.(y).(x) <- bl
+            | None ->
+                let z = Array.make_matrix states states 0.0 in
+                z.(x).(y) <- bl; z.(y).(x) <- bl; 
+                branches := Some z
+        in
+        cst
+    and sequence_costs _ _ x_seq y_seq =
+        let cost =
+            if use_ukk then
+                Sequence.NewkkAlign.cost_2 x_seq y_seq dhs.tcm2d_original Sequence.NewkkAlign.default_ukkm
+            else
+                Sequence.Align.cost_2 x_seq y_seq dhs.tcm2d_original Matrix.default
+        in
+        float_of_int cost
+    in
     (* Fill the costs for all pairs of the single assignment sequences *)
-    for x = 0 to states - 1 do
-        for y = x to states - 1 do
-            if debug then begin
-                        Printf.printf "work on seq#.%d,seq#.%d=\n%!" x y;
-                        if debug2 then begin
-                            Sequence.printseqcode sequences.(x);
-                            Sequence.printseqcode  sequences.(y);
-                        end;
-                    end;
-            let cost =
-                if annotate_with_mauve then
-                    let min_lcb_ratio,min_cover_ratio,min_lcb_len,max_lcb_len = 
-                        match dhs.pam.annotate_tool with
-                        | Some (`Mauve (a,b,c,d)) -> a,b,c,d
-                        | _ -> assert(false)                        
-                    in
-                    let l_i_c = match dhs.pam.locus_indel_cost with
-                        | Some cost -> cost
-                        | None -> (10,100)
-                    in
-                    (*why delete first char?*)
-                    let seqx,seqy = Sequence.del_first_char sequences.(x),
-                    Sequence.del_first_char sequences.(y) in 
-                    (*we don't call AliMap.create_general_ali_mauve directly here,
-                    * because parameter of that function is with low level module
-                    * type, like "Block.pairChromPam_t". Data.ml is suppose to
-                    * be on top of those modules -- including aliMap. To avoid 
-                    * circular denpendency, we call get_matcharr_and_costmatrix and
-                    * output2mauvefile seperately.*)
-                    let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
-                            edit_cost,indel_cost,full_code_lstlst =
-                        Block_mauve.get_matcharr_and_costmatrix seqx seqy
-                                min_lcb_ratio min_cover_ratio min_lcb_len
-                                max_lcb_len l_i_c dhs.tcm2d_original use_ukk
-                    in
-                    if debug then begin 
-                        Printf.printf "code1/code2 arr from block_mauve:\n%!";
-                    Utl.printIntArr code1_arr; 
-                    Utl.printIntArr code2_arr; 
-                    end;
-                    let re_meth = match dhs.pam.re_meth with
-                        | Some value -> value
-                        | None -> `Locus_Breakpoint 10
-                    and circular = match dhs.pam.circular with
-                        | Some value -> value 
-                        | None -> 0 
-                    in                    
-                    let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
-                    GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat 
-                    gen_gap_code re_meth circular false in
-                    (*remember the editing cost between lcbs is not included in
-                    * the gen_cost_mat, we set cost between matching lcb to 0 in
-                    * block_mauve, just to make sure they are aligned to each other*)
-                    if debug then begin
-                        Printf.printf "cost=%d(rc=%d,edit_cost=%d)\
-                        alied_code1/code2=\n%!" cost rc edit_cost;
-                        Utl.printIntArr alied_gen_seq1;
-                        Utl.printIntArr alied_gen_seq2;
-                    end;
-                    let cost = cost + edit_cost in 
-                    let xname,yname = string_of_int x,string_of_int y in
-                    let fullname = match filename with 
-                        | None -> ""
-                        | Some fname -> (fname^"_"^xname^"_"^yname^".alignment")
-                    in
-                    Block_mauve.output2mauvefile fullname cost None 
-                        alied_gen_seq1 alied_gen_seq2 full_code_lstlst ali_mat
-                        gen_gap_code (Sequence.length seqx) (Sequence.length seqy);
-                    float_of_int cost 
-                else if using_likelihood then
-                    let model =
-                        match dhs.lk_model with | Some x -> x | None -> assert false
-                    in
-                    let bl,cst =
-                        FloatSequence.pair_distance
-                            (FloatSequence.make_model dhs.alph model)
-                            sequences.(x) sequences.(y)
-                    in
-                    let () = match !branches with
-                        | Some z ->
-                            z.(x).(y) <- bl; z.(y).(x) <- bl
-                        | None ->
-                            let z = Array.make_matrix states states 0.0 in
-                            z.(x).(y) <- bl; z.(y).(x) <- bl; 
-                            branches := Some z
-                    in
-                    cst
-                else
-                    let cost = 
-                    if use_ukk then
-                    Sequence.NewkkAlign.cost_2 sequences.(x) sequences.(y)
-                    dhs.tcm2d_original Sequence.NewkkAlign.default_ukkm
-                    else
-                    Sequence.Align.cost_2 sequences.(x) 
-                    sequences.(y) dhs.tcm2d_original Matrix.default
-                    in
-                    float_of_int cost
-            in
-            if debug then 
-                Printf.printf "set dis.%d.%d with cost %f\n%!" x y cost;
-            distances.(x).(y) <- cost;
-            distances.(y).(x) <- cost;
-        done;
-    done;
+    let f = 
+        if annotate_with_mauve
+            then mauve_annotation
+        else if using_likelihood
+            then likelihood_costs
+            else sequence_costs
+    in
+    Array_ops.fill_symmetric_square_matrix f sequences distances;
     let taxon_codes = Hashtbl.create 97 in
     Hashtbl.iter
         (fun code seq ->
@@ -6122,7 +6088,6 @@ let has_dynamic d = match d.dynamics, d.kolmogorov with
     | [], [] -> false
     | _      -> true
 
-
 let can_do_static_approx_code d x =
     let appropriate_alphabet_size ds =
             10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
@@ -6136,7 +6101,6 @@ let can_do_static_approx_code d x =
         (* only dynamics with alphabet < 10 *)
         | Dynamic d     -> false | Static _      -> false
         | Set           -> false | Kolmogorov _  -> false
-
 
 let can_all_chars_do_static_approx d xs =
     List.fold_left ~f:(fun acc x -> acc && (can_do_static_approx_code d x)) ~init:true xs
