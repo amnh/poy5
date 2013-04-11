@@ -1096,7 +1096,6 @@ module CharacterSelection = struct
             begin match st_type with
                 | _ when is_zero_weight enc -> data
                 | Nexus.File.STSankoff _    ->
-                    let () = Printf.printf "ADDING SANK-- %d/??\n%!" code in
                     classify_sankoff code data
                 | Nexus.File.STOrdered when observed > 1 ->
                     {data with additive = code :: data.additive }
@@ -6088,19 +6087,16 @@ let has_dynamic d = match d.dynamics, d.kolmogorov with
     | [], [] -> false
     | _      -> true
 
+
 let can_do_static_approx_code d x =
-    let appropriate_alphabet_size ds =
-            10 > (Alphabet.distinct_size (Alphabet.to_sequential ds.alph))
-    in
     match Hashtbl.find d.character_specs x with
-        | Dynamic d when (appropriate_alphabet_size d) ->
+        | Dynamic d ->
             begin match d.state with
-                | `Seq  | `Annotated  | `Ml -> true
-                | `CustomAlphabet | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
+                | `CustomAlphabet | `Seq  | `Annotated  | `Ml -> true
+                | `Breakinv | `Chromosome | `Genome | `SeqPrealigned -> false
             end
-        (* only dynamics with alphabet < 10 *)
-        | Dynamic d     -> false | Static _      -> false
-        | Set           -> false | Kolmogorov _  -> false
+        | (Static _ | Set | Kolmogorov _) -> false
+
 
 let can_all_chars_do_static_approx d xs =
     List.fold_left ~f:(fun acc x -> acc && (can_do_static_approx_code d x)) ~init:true xs
