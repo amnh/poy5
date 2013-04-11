@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3235 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3261 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -1094,12 +1094,6 @@ module Two_D = struct
             | `First -> 1
             | `Last -> 2 
         in
-        if debug then
-            Printf.printf ("cost_matrix.ml fill cost matrix : a_sz = %d(pure "^^
-                           "a_sz=%d), use_comb=%b,level=%d,num_comb=%d(%d), "^^
-                           "all_elements=%d (list len=%d), tie breaker = %d\n%!")
-                        a_sz pure_a_sz use_comb level num_comb num_withgap
-                        all_elements (List.length l) tb;
         let m =  (*Note: use_comb is 'int' in cm.c*)
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
                    use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
@@ -1108,9 +1102,8 @@ module Two_D = struct
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
         let ismetric, iside = input_is_metric l a_sz in
         if iside then set_identity m;
-        if debug then Printf.printf "uselevel=%b,ismetric=%b, call fill_best_cost_and_median_XXX \n%!" uselevel ismetric;
         if use_comb then 
-            if suppress || ismetric then
+            if ismetric then
                let () = set_metric m in
                 if uselevel then
                     fill_best_cost_and_median_for_some_combinations m a_sz level all_elements
@@ -1119,11 +1112,9 @@ module Two_D = struct
             else
                 let () = Status.user_message Status.Warning "You@ are@ loading@ a@ non-metric@ TCM" in
                 if uselevel then
-                    fill_best_cost_and_median_for_some_combinations ~create_original:create_original 
-                    m a_sz level all_elements
+                    fill_best_cost_and_median_for_some_combinations ~create_original m a_sz level all_elements
                 else
-                    fill_best_cost_and_median_for_all_combinations_bitwise
-                    ~create_original:create_original m a_sz
+                    fill_best_cost_and_median_for_all_combinations_bitwise ~create_original m a_sz
         (*end of if use_comb*)
         else
             fill_medians m a_sz;
@@ -1205,7 +1196,7 @@ module Two_D = struct
         if debug then Printf.printf "cost_matrix of_list,w=%d\n" w;
         fill_cost_matrix ~use_comb:use_comb ~level:level ~suppress l w all_elements
         ,
-        fill_cost_matrix ~create_original:true ~use_comb:use_comb ~level:level ~suppress l w all_elements
+        fill_cost_matrix ~create_original:true ~use_comb ~level ~suppress l w all_elements
 
     let of_channel_nocomb ?(orientation=false) ch =
         if debug then Printf.printf "cost_matrix.ml of_channel_nocomb\n %!";
@@ -1221,28 +1212,17 @@ module Two_D = struct
 
     let create_cm_by_level m level oldlevel all_elements tie_breaker =
         let ori_sz = get_ori_a_sz m in
-        let debug = false in
-        if debug then Printf.printf "create cm by level=%d, oldlevel=%d,ori_sz=%d,all_elements=%d\n%!"
-        level oldlevel ori_sz all_elements;
         let ori_list = ori_cm_to_list m in
-        if debug then begin
-            Printf.printf "call fill cost matrix with cost list = \n%!";
-            List.iter (fun x->Printf.printf "%d," x) ori_list;
-            Printf.printf "\n%!";
-        end;
         let newm =
             if level=1 then
-                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:1 ori_list ori_sz
-                all_elements
+                fill_cost_matrix ~tie_breaker ~use_comb:false ~level:1 ori_list ori_sz all_elements
             else if (level < 1) then
-                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:0 ori_list ori_sz
-                all_elements  
+                fill_cost_matrix ~tie_breaker ~use_comb:false ~level:0 ori_list ori_sz all_elements  
             (*we don't have tie_breaker for level=2~a_sz-1 yet*)
             else if (level>ori_sz) then
-                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
+                fill_cost_matrix ~tie_breaker ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
             else
-                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:true ~level:level ori_list ori_sz
-                all_elements
+                fill_cost_matrix ~tie_breaker ~use_comb:true ~level:level ori_list ori_sz all_elements
         in
         newm
 
