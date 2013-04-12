@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3252 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3266 $"
 
 exception NotASequence of int
 
@@ -1273,7 +1273,8 @@ let analyze_tcm tcm model alph =
         in
         let to_string string pos = String.make 1 string.[pos] in
         let rec processor pos max cost string =
-            if max = pos then cost
+            if max = pos then
+                cost
             else 
                 let base = Alphabet.find_base (to_string string pos) alph in
                 processor (pos + 1) max ((Cost_matrix.Two_D.cost gap base tcm) + cost) string
@@ -1553,10 +1554,9 @@ let analyze_tcm tcm model alph =
             end
         in
         let to_encoding _ acc = enc :: acc
-        and to_parser is_missing states acc =
-            match is_missing, states with
+        and to_parser is_missing states acc = match is_missing, states with
             | `Missing, _ -> (find_item all) :: acc
-            | `Exists, 0  -> (find_item [4]) :: acc
+            | `Exists, 0  -> (find_item [gap]) :: acc
             | `Exists, x  -> (find_item (convert_to_list x)) :: acc
         in
         get_case, to_parser, to_encoding
@@ -2204,31 +2204,28 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
 
     let ia_to_parser_compatible (data:Data.d) (imtx:Methods.implied_alignment) =
         let single_ia_to_parser main_acc ((all_taxa, all_blocks), dum_chars) =
-              let process_each = fun (acc, enc, clas) (taxcode, sequence) ->
-                    let preprocess_sequence alph x =
-                        let res = ref `Missing in
-                        for j = 0 to (Array.length x) - 1 do
-                            let x = 
-                                match x.(j) with
-                                | `DO x | `First x | `Last x -> x
-                            in
-                            for i = 0 to (Array.length x) - 1 do
-                                if x.(i) <> 0 then res := `Exists
-                            done;
+            let process_each = fun (acc, enc, clas) (taxcode, sequence) ->
+                let preprocess_sequence alph x =
+                    let res = ref `Missing in
+                    for j = 0 to (Array.length x) - 1 do
+                        let x = match x.(j) with `DO x | `First x | `Last x -> x in
+                        for i = 0 to (Array.length x) - 1 do
+                            if x.(i) <> 0 then res := `Exists
                         done;
-                        !res
-                    in
-                    (* Fold over every sequence, and return a list containing all of
-                    * them in a tuple with their code and the sequence itself in a
-                    * preprocessed way (if the sequence is missing data, then all
-                    * the states are on), and a map of the sequence code to the
-                    * function that will convert an observed state into it's
-                    * appropriate Parser.t *)
-                    let sequence, transform_functions = 
-                        List.fold_left 
-                            (fun acc s ->
-                              All_sets.IntegerMap.fold
-                                (fun c s_arr (acc, funs) -> 
+                    done;
+                    !res
+                in
+                (* Fold over every sequence, and return a list containing all of
+                * them in a tuple with their code and the sequence itself in a
+                * preprocessed way (if the sequence is missing data, then all
+                * the states are on), and a map of the sequence code to the
+                * function that will convert an observed state into it's
+                * appropriate Parser.t *)
+                let sequence, transform_functions =
+                    List.fold_left
+                        (fun acc s ->
+                            All_sets.IntegerMap.fold
+                                (fun c s_arr (acc, funs) ->
                                     let alph = Data.get_alphabet data c in
                                     let model = Data.get_model_opt data c in
                                     let funs =
@@ -2237,78 +2234,59 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                             let tcm,_ = Data.get_tcm2d data c in
                                             let mc, f, g = analyze_tcm tcm model alph in
                                             All_sets.IntegerMap.add c (mc, f, g) funs
-                                        end 
+                                        end
                                     in
                                     let mis_sta = preprocess_sequence alph s_arr in
-                                    let s_arr' = 
-                                        Array.map (fun s ->                                            
-                                            c, (mis_sta, s)) 
-                                        s_arr 
-                                    in 
+                                    let s_arr' =
+                                        Array.map (fun s -> c, (mis_sta, s)) s_arr
+                                    in
                                     List.rev_append (Array.to_list s_arr') acc, funs)
                                 s acc)
                             ([], All_sets.IntegerMap.empty)
-                            sequence 
-                    in
-                    let (clas: matrix_class), 
-                        (res: FileContents.t list), 
-                        (encf:(Alphabet.a * Parser.OldHennig.Encoding.s) list)  = 
-                        List.fold_left 
-                        (fun (_, acc, acc2) (code, (is_missing, s)) -> 
-                            let clas, to_parser, to_encoding = 
-                                All_sets.IntegerMap.find code transform_functions 
+                            sequence
+                in
+                let (clas: matrix_class),
+                    (res: FileContents.t list),
+                    (encf:(Alphabet.a * Parser.OldHennig.Encoding.s) list) =
+                    List.fold_left
+                        (fun (_, acc, acc2) (code, (is_missing, s)) ->
+                            let clas, to_parser, to_encoding =
+                                All_sets.IntegerMap.find code transform_functions
                             in
+                            let alph = Data.get_alphabet data code in
+                            let gap  = Alphabet.get_gap alph in
                             let is_missing = match is_missing with 
-                                | `Exists -> 
+                                | `Exists ->
                                     let () = match s with
                                         | `DO _ -> ()
                                         | `First _ | `Last _ as x ->
                                             let rec fix_one next pos x =
                                                 if 0 > pos || (Array.length x) <= pos then
                                                     ()
-                                                else if x.(pos) = 0 then
-                                                    begin
-                                                        (* WARNING: This
-                                                        * only work for
-                                                        * DNA sequences,
-                                                        * 15 is all
-                                                        * minus gap
-                                                        * *)
-                                                        x.(pos) <- 31;
-                                                        fix_one next (next pos) x
-                                                end else ()
+                                                else if x.(pos) = 0 then begin
+                                                    x.(pos) <- gap;
+                                                    fix_one next (next pos) x
+                                                end
                                             in
                                             match x with
                                             | `First x -> fix_one succ 0 x
                                             | `Last x  -> fix_one pred ((Array.length x) - 1) x
                                     in
                                     `Exists
-                                | `Missing -> begin
-                                    let state = Data.get_dyn_state data code in 
-                                    match state with 
+                                | `Missing -> 
+                                    begin match Data.get_dyn_state data code with
                                     | `Chromosome | `Annotated ->
-                                        let s = match s with
-                                              | `DO s | `First s 
-                                              | `Last s -> s
+                                        let s = match s with 
+                                            | `DO s | `First s | `Last s -> s
                                         in
                                         let seq_len = Array.length s in
                                         let seq_op, seq_ex = match clas with
                                             | `AllOne gapc -> 0, gapc
                                             | `AllOneGapSame (_, gapc) ->  0, gapc
                                             | `AffinePartition (_, ex, op) -> op, ex
-                                            | `AllSankoff _ -> 
-                                                    (* This is an error, but
-                                                    * I am confused with the
-                                                    * handling of seq_ex
-                                                    * below. Somehow it
-                                                    * assumes that
-                                                    * ex = seq_ex? And if
-                                                    * sankoff is used this
-                                                    * should raise an error
-                                                    * ... *)
-                                                    0, 0
-                                        in 
-                                        let pam = Data.get_pam data code in 
+                                            | `AllSankoff _ -> 0,0
+                                        in
+                                        let pam = Data.get_pam data code in
                                         let op, ex = match pam.Data.locus_indel_cost with
                                             | Some (op, ex) -> op, ex 
                                             | None -> ChromPam.locus_indel_cost_default 
@@ -2322,10 +2300,9 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                         done;
                                         `Exists
                                     | _ -> `Missing
-                                  end 
+                                    end
                             in
-                            let s = 
-                                match s with
+                            let s = match s with
                                 | `DO x | `First x | `Last x -> x
                             in
                             clas,
@@ -2333,10 +2310,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             (Array.fold_right to_encoding s acc2))
                         (`AllSankoff None, [], []) sequence 
                     in
-                    let name = 
-                        try Data.code_taxon taxcode data with
-                        | Not_found -> (string_of_int taxcode) 
-                    in
+                    let name = Data.code_taxon taxcode data in
                     match enc with
                     | Some _ -> (res, name) :: acc, enc, clas
                     | None ->
@@ -2350,46 +2324,43 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 in
                                 Some encf), clas
                 in
-                (match List.fold_left process_each main_acc all_taxa with
+                match List.fold_left process_each main_acc all_taxa with
                 | r, Some enc, clas -> 
-                        let arr = 
-                            Array.of_list enc, (List.map (fun (x, y) ->
-                                Array.of_list x, y) r)
-                        in
-                        let (a, b) = 
-                            match clas with
-                            | `AffinePartition (subs, gapcost, gapopening) ->
-                                    (* We have to postprocess and check by
-                                    * groups of three whether or not we have a
-                                    * gap opening indeed *)
-                                    let f string =
-                                        (gapopening + (gapcost * (String.length string))) 
-                                    in
-                                    List.fold_left
-                                    (post_process_affine_gap_cost f data) arr all_blocks
-                            | `AllSankoff (Some f) -> 
-                                    List.fold_left 
-                                    (post_process_affine_gap_cost f data) arr
-                                    all_blocks
-                            | _ -> arr
-                        in
-                        let (a,b) = List.fold_left
-                                    (post_process_dum_cost data) (a,b) dum_chars
-                        in
-                        a, b, []
+                    let arr = 
+                        (Array.of_list enc),
+                        (List.map (fun (x, y) -> Array.of_list x, y) r)
+                    in
+                    let (a, b) = match clas with
+                        | `AffinePartition (subs, gapcost, gapopening) ->
+                            (* We have to postprocess and check by
+                            * groups of three whether or not we have a
+                            * gap opening indeed *)
+                            let f string =
+                                (gapopening + (gapcost * (String.length string))) 
+                            in
+                            List.fold_left
+                            (post_process_affine_gap_cost f data) arr all_blocks
+                        | `AllSankoff (Some f) -> 
+                            List.fold_left 
+                                (post_process_affine_gap_cost f data) arr
+                                all_blocks
+                        | _ -> arr
+                    in
+                    let (a,b) =
+                        List.fold_left (post_process_dum_cost data) (a,b) dum_chars
+                    in
+                    a, b, []
                 | [], _, _ -> [||], [], []
-                | _, None, _ -> failwith "How is this possible?")
+                | _, None, _ -> failwith "How is this possible?"
         in
-        let all = 
-            List.map (single_ia_to_parser ([], None, `AllSankoff None))
-                     (imtx)
-        in
-        all
+        List.map (single_ia_to_parser ([], None, `AllSankoff None)) (imtx)
 
 
     let print_contents_of_parser_compatible (enc_array,cont_lst,_) : unit = 
         let file_contents_to_state = function
             | FileContents.Unordered_Character (one,b) -> one
+            | FileContents.Sankoff_Character ([x],b)   -> x
+
             | _ -> failwith "unsupported output"
         in
         print_string "\t\t";
@@ -2464,26 +2435,26 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
 
 
     let update_ia_encodings (encs, species, trees) =
-        let add_states int acc =
-            match int with
+        let add_states int acc = match int with
             | FileContents.Unordered_Character (int, _) ->
-                    let a = 1 land int
-                    and b = 2 land int 
-                    and c = 4 land int 
-                    and d = 8 land int 
-                    and e = 16 land int in
-                    let addit acc x =
-                        if x <> 0 then All_sets.Integers.add x acc
-                        else acc
-                    in
-                    addit (addit (addit (addit (addit acc a) b) c) d) e
+                let a = 1 land int
+                and b = 2 land int 
+                and c = 4 land int 
+                and d = 8 land int 
+                and e = 16 land int in
+                let addit acc x =
+                    if x <> 0 then All_sets.Integers.add x acc
+                    else acc
+                in
+                addit (addit (addit (addit (addit acc a) b) c) d) e
             | _ -> failwith "Unordered here?"
         in
         let arr = Array.of_list species in
         let arr = Array.map (fun (a, _) -> a) arr in
         let updater pos (alph, enc) = 
             if Parser.OldHennig.Encoding.is_sankoff enc ||
-                Parser.OldHennig.Encoding.is_ordered enc then alph, enc
+                Parser.OldHennig.Encoding.is_ordered enc then
+                    alph, enc
             else 
                 let ns = Array.fold_left (fun acc taxon ->
                     add_states taxon.(pos) acc) All_sets.Integers.empty 
@@ -2496,21 +2467,19 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
 
     (* create an Parser.OldHennig.encoding_spec, then produce static_spec *)
     let to_static_character ?(separator=":") disjoint remove_non_informative
-                                character (iamtxs:Methods.implied_alignment) (data:Data.d) =
-        let st = 
-            Status.create "Static Approximation" None 
-            "Converting implied alignments to static characters"
+                    character (iamtxs:Methods.implied_alignment) (data:Data.d) =
+        let st =
+            Status.create "Static Approximation" None
+                          "Converting implied alignments to static characters"
         in
-        let res = 
+        let res =
             let encodings = ia_to_parser_compatible data iamtxs in
-            if disjoint then 
+            if disjoint then
                 combine_parser_compatible encodings
-            else 
-                match encodings with
+            else match encodings with
                 | [single] -> single
                 |    _     -> failwith "Disjoint tree in static approx"
         in
-(* TODO       let res = remove_opening_gap res in*)
         let (a, b, c) =
             if remove_non_informative then update_ia_encodings res
             else res
@@ -2518,9 +2487,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         (* print_contents_of_parser_compatible res;*)
         let alphabets = Array.map fst a
         and encodings = Array.map snd a in
-        let res = 
-            Parser.OldHennig.to_new_parser ~separator character
-                                            (Some alphabets) (encodings, b, c)
+        let res = Parser.OldHennig.to_new_parser
+                        ~separator character (Some alphabets) (encodings, b, c)
         in
         Status.finished st;
         character, res
