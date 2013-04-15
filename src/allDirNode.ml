@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3218 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3267 $"
 
 let eager        = false
 let uppass_debug = false
@@ -1203,15 +1203,6 @@ struct
         let ec = extra_cost_from_root b tc in
         tc -. ec
 
-end
-
-type 'a node_hybrid = {
-    st : Node.Standard.n option;
-    dy : 'a;
-}
-
-module HybridF = struct
-    let get_dynamic x = x.dy
 end
 
 let create_root_from_child_branch child parent : AllDirF.n =
