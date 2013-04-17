@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: nonaddCS.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "NonaddCS.nonadd_v" "$Revision: 3160 $"
+let () = SadmanOutput.register "NonaddCS.nonadd_v" "$Revision: 3228 $"
 
 
 (** char_nonadd_c.ml implements sets of equally-weighted non-additive characters
@@ -48,6 +48,7 @@ type t = {
     codes : int array;
     data : ct;
 }
+
 type cu = ct
 
 (* The custom block for unions of characters *)

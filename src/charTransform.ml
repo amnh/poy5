@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 3160 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 3260 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -893,8 +893,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         let char_codes = Data.get_chars_codes_comp tree.Ptree.data chars in
         if not (Data.can_all_chars_do_static_approx tree.Ptree.data char_codes) then
             begin
-                let m = "Data contains characters that do not support static \
-                    approx. I will skip over these and do the best that I can."
+                let m = "Data@ contains@ characters@ that@ do@ not@ support@ "^
+                        "static@ approx.@ I@ will@ skip@ over@ these@ and@ do"^
+                        "@ the@ best@ that@ I@ can."
                 in
                 Status.user_message Status.Warning m
             end;

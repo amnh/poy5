@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3160 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3264 $"
 
 let (-->) a b = b a
 
@@ -339,12 +339,14 @@ module type S = sig
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
         val downpass : phylogeny -> phylogeny
-        val branch_table : phylogeny -> ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
-        val to_string : bool -> phylogeny -> Data.d -> string list
+        val to_string :
+            Methods.report_branch option -> phylogeny -> Data.d -> string list
         val of_file : string -> Data.d -> a list -> phylogeny list
         val of_nodes : Data.d -> a list -> phylogeny
+        val branch_table : Methods.report_branch option -> phylogeny ->
+            ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
         val build : Data.d -> a list -> phylogeny list
         val spr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny -> phylogeny list 
         val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny -> phylogeny list 
@@ -359,7 +361,7 @@ module type S = sig
         val set_trees : phylogeny list -> unit
         val data : unit -> Data.d
         val nodes : unit -> a list
-        val to_string : bool -> string list list 
+        val to_string : Methods.report_branch option -> string list list
         val of_string : string -> unit
     end
 
@@ -1580,6 +1582,18 @@ let load_data (meth : Methods.input) data nodes =
             let alphabet, (twod_full,twod_original,matrix), threed =
                 Alphabet.of_file alph orientation init3D level respect_case tb
             in
+            let () =
+                try match List.find (function `Affine _ -> true | _ -> false)
+                                    read_options with
+                        | `Affine go ->
+                            let cmodel = Cost_matrix.Affine go in
+                            Cost_matrix.Two_D.set_cost_model twod_original cmodel;
+                            Cost_matrix.Two_D.set_cost_model twod_full cmodel;
+                            Cost_matrix.Three_D.set_cost_model threed cmodel;
+                            ()
+                        | _ -> assert false
+                with Not_found -> ()
+            in
             if is_prealigned then
                 prealigned_files := files :: !prealigned_files;
             let dynastate,default_mode =
@@ -1602,7 +1616,7 @@ let load_data (meth : Methods.input) data nodes =
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
             in
-            let orientation = not (List.mem (`Orientation false) read_options) in
+            let orientation = List.mem (`Orientation false) read_options in
             let init3D = (List.mem (`Init3D true) read_options) in
             let respect_case = true in
             let tb =
@@ -1636,7 +1650,7 @@ let load_data (meth : Methods.input) data nodes =
             List.fold_left (reader true false) data files
         | #Methods.simple_input as meth -> 
             reader false false data meth
-        | `Prealigned (meth, tcm, 0) ->
+        | `Prealigned (meth, tcm, go0) ->
             prealigned_files := [];
             let data = reader false true data meth in (* read data as dynamic *)
             let data = Data.categorize (Data.remove_taxa_to_ignore data) in
@@ -1653,15 +1667,13 @@ let load_data (meth : Methods.input) data nodes =
                 | `Create_Transformation_Cost_Matrix (trans, gaps) ->
                     Data.assign_transformation_gaps data chars trans gaps 
             in
+            let data =
+                if go0 > 0 then
+                    Data.assign_affine_gap_cost data chars (Cost_matrix.Affine go0)
+                else
+                    data
+            in
             Data.prealigned_characters ImpliedAlignment.analyze_tcm data chars
-        | `Prealigned (meth, tcm, gap_opening) ->
-(*            let data = *)
-(*                Data.assign_affine_gap_cost data chars (Cost_matrix.Affine gap_opening)*)
-(*            in*)
-(*            ...*)
-            Status.user_message Status.Error
-                "We@ currently@ do@ not@ support@ gap_opening@ with@ prealigned@ sequences";
-            data
     in
     let data = annotated_reader data meth in
     let data = Data.categorize (Data.remove_taxa_to_ignore data) in
@@ -1951,7 +1963,7 @@ let process_characters_handling (run : r) meth =
                 in
                 List.fold_left process run.data syns, false
         | `AnalyzeOnlyCharacterFiles (dont_complement, files) ->
-                Data.process_analyze_only_characters_file true dont_complement run.data files, 
+                Data.process_analyze_only_characters_file true dont_complement run.data files,
                 true
         | `AnalyzeOnlyCharacters c ->
                 let c = Data.get_chars_codes_comp run.data c in
@@ -1962,7 +1974,8 @@ let process_characters_handling (run : r) meth =
     if do_nodes then
         let data, nodes = Node.load_data data in
         { run with nodes = nodes; data = data }
-    else  { run with data = data }
+    else
+        { run with data = data }
 
 let ( --> ) a b = b a 
 
@@ -1998,7 +2011,7 @@ let process_taxon_filter (run : r) meth =
         let data, nodes = Node.load_data data in
         let () =
             Printf.ksprintf
-                (Status.user_message Status.Status)
+                (Status.user_message Status.Information)
                 ("Selected %d of %d terminals")
                 (List.length nodes)  (run.data.Data.number_of_taxa)
         in
@@ -3011,6 +3024,14 @@ let rec process_application run item =
             Gc.full_major (); 
             run
     | `TimerInterval x -> Tabus.timer_interval := x; run
+    | `Parmap x ->
+        IFDEF USE_PARMAP THEN
+            assert( x > 0 );
+            Parmap.set_default_ncores x; run
+        ELSE
+            Status.user_message Status.Warning ("Parmap@ is@ not@ enabled@ in@ this@ build.");
+            run
+        END
     | `HistorySize len -> Status.resize_history len; run
     | `Logfile file -> StatusCommon.set_information_output file; run
     | `Redraw -> Status.redraw_screen (); run
@@ -4169,7 +4190,7 @@ let rec folder (run : r) meth =
             | `Script (filename,script) -> 
                 run
             | `Nexus filename ->
-                let ic = [ `Branches; `NexusStyle; `Collapse false; ] in
+                let ic = [ `Branches None; `NexusStyle; `Collapse None; ] in
                 let parsed_trees,labeling = PTS.process_trees ic run.trees in
                 CompOut.to_nexus run.data parsed_trees labeling ic filename;
                 run
@@ -4603,7 +4624,8 @@ let set_console_run r = console_run_val := r
         let to_string collapse tree data = 
             let cost = string_of_float (Ptree.get_cost `Adjusted tree) in
             let res = 
-                PtreeSearch.build_forest_with_names_n_costs collapse tree cost false None
+                PtreeSearch.build_forest_with_names_n_costs collapse tree cost
+                                                            (false,None) None
             in
             List.map (AsciiTree.for_formatter false true true) res 
 
@@ -4678,10 +4700,10 @@ let set_console_run r = console_run_val := r
             let run = get_console_run () in
             run.nodes
 
-        let to_string bool =
+        let to_string collapse =
             let run = get_console_run () in
             let trees = trees () in
-            List.map (fun x -> PhyloTree.to_string bool x run.data) trees
+            List.map (fun x -> PhyloTree.to_string collapse x run.data) trees
 
         let of_string x = 
             let run = get_console_run () in
@@ -4691,277 +4713,5 @@ let set_console_run r = console_run_val := r
     end
 
     module Node = Node
-end
-
-module FILES = struct
-
-    let explode str = Parser.Wildcard.explode_filenames [(`Local str)]
-
-    let do_ch f str = str, (f str)
-
-    let open_all_in str = List.map (do_ch open_in) (explode str)
-
-    let open_all_out str = List.map (do_ch open_out) (explode str)
-
-    let run_n_close file f =
-        let ch = open_in file in
-        try
-            let res = f ch in
-            close_in ch;
-            res
-        with
-        | err ->
-                close_in ch;
-                raise err
-end
-
-module DNA = struct
-
-    let alph = Alphabet.nucleotides
-
-    module CM = struct
-        type cm2 = Cost_matrix.Two_D.m
-        let of_list l = Cost_matrix.Two_D.of_list ~use_comb:true l 31
-        let of_array arr = 
-            let lst = Array.map (Array.to_list) arr in
-            let lst = Array.to_list lst in
-            of_list lst
-
-        let of_sub_indel s i = 
-            Cost_matrix.Two_D.of_transformations_and_gaps true 5 s i 31
-
-        let of_sub_indel_affine a b c = 
-            let mt,_ = of_sub_indel a b in
-            Cost_matrix.Two_D.set_affine mt (Cost_matrix.Affine c);
-            mt
-
-        let of_file file = 
-            let ch = new FileStream.file_reader (`Local file) in
-            try 
-                let res, _, _  = 
-                    Cost_matrix.Two_D.of_channel 
-                        ~orientation:false ~use_comb:true 31 ch
-                in
-                ch#close_in;
-                res
-            with 
-            | err -> 
-                    ch#close_in;
-                    raise err
-        let all_ones () = of_sub_indel 1 1
-
-        let char_to_base a = 
-            Alphabet.match_base (Char.escaped a) Alphabet.nucleotides 
-
-        let median a b cm =
-            let a = char_to_base a
-            and b = char_to_base b in
-            let m = Cost_matrix.Two_D.median a b cm in
-            (Alphabet.find_code m Alphabet.nucleotides).[0]
-
-        let cost a b cm =
-            let a = char_to_base a
-            and b = char_to_base b in
-            Cost_matrix.Two_D.cost a b cm
-    end
-
-    module Seq = struct
-        type s = Sequence.s
-        type base = char
-        let gap = '_'
-        let of_string str = 
-            Sequence.of_string str alph
-        let to_string s =
-            Sequence.to_string s alph
-        let length = Sequence.length
-
-        let check_bounds s pos =
-            if pos >= 0 && pos < Sequence.length s then ()
-            else failwith "index out of bounds"
-
-
-        let get a pos =
-            check_bounds a pos;
-            (Alphabet.find_code (Sequence.get a pos) alph).[0]
-
-        let set a b pos =
-            check_bounds a pos;
-            let pb = Sequence.get a pos 
-            and code = Alphabet.match_base (Char.escaped b) alph in
-            if pb = code then a
-            else 
-                let ns = Sequence.clone a in
-                let _ = Sequence.set ns pos code in
-                ns
-        let prepend s c = 
-            let code = Alphabet.match_base (Char.escaped c) alph 
-            and cap = Sequence.capacity s in
-            let new_cap =
-                if cap > Sequence.length s then cap
-                else 2 * cap
-            in
-            let ns = Sequence.create new_cap in
-            let _ = 
-                for i = cap - 1 downto 0 do
-                    Sequence.prepend ns (Sequence.get s i);
-                done
-            in
-            Sequence.prepend ns code;
-            ns
-
-        let merge a b = 
-            let la = length a 
-            and lb = length b in
-            let ns = Sequence.create (la + lb) in
-            for i = la - 1 downto 0 do
-                Sequence.prepend ns (Sequence.get a i);
-            done;
-            for i = lb - 1 downto 0 do
-                Sequence.prepend ns (Sequence.get b i);
-            done;
-            ns
-
-        let delete a pos =
-            check_bounds a pos;
-            let la = Sequence.length a in
-            let ns = Sequence.create la in
-            for i = la - 1 downto 0 do
-                if i <> pos then Sequence.prepend ns (Sequence.get a i)
-                else ()
-            done;
-            ns
-
-        let slice s a b =
-            check_bounds s a;
-            check_bounds s b;
-            if a <= b then
-                let ns = Sequence.create (1 + b - a) in
-                let _ =
-                    for i = b downto a do
-                        Sequence.prepend ns (Sequence.get s i);
-                    done
-                in
-                ns
-            else failwith "Illegal slice"
-
-        let reverse a = Sequence.safe_reverse a
-
-        let complement a = Sequence.complement Alphabet.nucleotides a
-    end
-
-    module Fasta = struct
-        type seqs = (string * Sequence.s) list
-        type multi_seqs = seqs list
-
-        let of_channel ?(respect_case = false) prealigned ch = 
-            let filter (lst, txn) =
-                let lst = List.flatten (List.flatten lst) in
-                match lst with
-                | [] -> false
-                | _ -> true
-            in
-            let converter (lst, txn) =
-                let lst = List.flatten (List.flatten lst) in
-                match lst with
-                | [seq] -> txn, seq
-                | _ -> failwith "Illegal FASTA format"
-            in
-            let alph = 
-                if prealigned then 
-                    FileContents.Prealigned_Alphabet (Alphabet.nucleotides)
-                else FileContents.Nucleic_Acids
-            in
-            let res = Fasta.of_channel ~respect_case:respect_case alph ch in
-            List.map converter (List.filter filter res)
-
-        let multi_of_channel ch = 
-            let rec merger name lst1 lst2 =
-                match lst1, lst2 with
-                | h1 :: t1, h2 :: t2 -> 
-                        ((name, h2) :: h1) :: (merger name t1 t2)
-                | [], _ :: _ -> 
-                        List.map (fun x -> [name, x]) lst2
-                | [], [] -> []
-                | _ -> failwith "Illegal multi-sequence file."
-            in
-            let converter acc (lst, txn) =
-                List.fold_left (merger txn) acc (List.flatten lst)
-            in
-            let res = Fasta.of_channel FileContents.Nucleic_Acids ch in
-            List.fold_left converter [] res
-
-        let to_channel ch seqs =
-            let converter (lst, txn) = (txn, lst) in
-            Fasta.to_channel ch (List.map converter seqs) alph
-
-        let of_file prealigned str = 
-            FILES.run_n_close str (of_channel prealigned)
-
-        let multi_of_file str =
-            FILES.run_n_close str multi_of_channel
-
-        let to_file str seqs = 
-            let ch = open_out str in
-            try 
-                to_channel ch seqs;
-                close_out ch;
-            with
-            | err ->
-                    close_out ch;
-                    raise err
-
-        let random_sample seqs name_f samples samplesize =
-            let seqs = Array.of_list seqs in
-            if Array.length seqs < samplesize then 
-                failwith "Not enough sequences"
-            else
-                for i = 1 to samples do
-                    let res = ref [] in
-                    Array_ops.randomize seqs;
-                    for i = samplesize - 1 downto 0 do
-                        res := seqs.(i) :: !res;
-                    done;
-                    to_file (name_f ()) !res;
-                done
-
-        let multi_sample seqs which name_f samples samplesize =
-            let seqs = List.nth seqs which in
-            random_sample seqs name_f samples samplesize
-
-
-        let print_sequence s =
-            Printf.printf "%s\n%!" (Seq.to_string s)
-
-        let _ = Callback.register "print failed alignment" print_sequence
-    end
-
-    module Generic = struct
-        let molecular file =
-            Fasta.of_channel false (Parser.Files.molecular_to_fasta (`Local file))
-    end
-
-    module Align = struct
-        let algn s1 s2 cm =
-            let s1', s2', c = 
-                Sequence.Align.align_2 ~first_gap:true s1 s2 cm Matrix.default
-            in
-            let median = Sequence.median_2 s1' s2' cm in
-            s1', s2', c, median
-
-        let gen_algn_all f seqs cm =
-            List.map (fun (t1, s1) ->
-                List.map (fun (t2, s2) -> 
-                    let s1', s2', c, al = f s1 s2 cm in
-                    (t1, s1'), (t2, s2'), c, al) seqs) seqs
-
-        let algn_and_print s1 s2 cm =
-            let s1', s2', c, m = algn s1 s2 cm in
-            (Seq.to_string s1'), (Seq.to_string s2'), c, (Seq.to_string m)
-
-        let algn_all = gen_algn_all algn 
-
-        let algn_all_and_print = gen_algn_all algn_and_print
-
-    end
 
 end

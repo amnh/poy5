@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: array_ops.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Array_ops" "$Revision: 3160 $"
+let () = SadmanOutput.register "Array_ops" "$Revision: 3257 $"
 
 
 exception Empty
@@ -45,11 +45,9 @@ let array_append a1 a2 =
 
 
 
-let rec _calculate_size a len lst sum =
-    match len with 
+let rec _calculate_size a len lst sum = match len with 
     | (-1) -> sum, lst
-    | _ ->
-            let s = Array.length (a.(len)) in
+    | _ -> let s = Array.length (a.(len)) in
             _calculate_size a (len - 1) (s :: lst) (sum + s)
 
 let rec _transfer_cont a tgt lst cura curtgt =
@@ -231,24 +229,26 @@ let fold_righti f init ray =
 
 let is_identical2 arr1 arr2 =
     let len1 = Array.length arr1 and len2 = Array.length arr2 in
-    if (len1<>len2) then 0
-    else 
+    if (len1<>len2) then
+        0
+    else begin
         let sign = ref 1 in 
         let idx = ref (len1-1) in
         while (!sign = 1)&&( !idx > 0) do
             sign := 
                 if (arr1.(!idx) = arr2.(!idx)) then 1
                 else 0 ;
-            idx := !idx -1 ;
+            idx := !idx -1;
         done;
         !sign
+    end
 
 let is_identical3 arr1 arr2 arr3 =
     let len1 = Array.length arr1 and len2 = Array.length arr2 
     and len3 = Array.length arr3 in
-    if ((len1<>len2)||(len2<>len3)) then
+    if ((len1<>len2)||(len2<>len3)) then begin
         0
-    else
+    end else begin
         let sign = ref 1 in 
         let idx = ref (len1-1) in
         while (!sign = 1)&&( !idx > 0) do
@@ -258,6 +258,43 @@ let is_identical3 arr1 arr2 arr3 =
             idx := !idx -1 ;
         done;
         !sign
+    end
 
 
-(* vim: set sw=4 ts=4 et tw=80 : *)
+IFDEF USE_PARMAP THEN
+    let fill_symmetric_square_matrix f src des =
+        let states = Array.length des in
+        assert( (states > 0) && (states = (Array.length des.(0))) );
+        let xy_of_i i =
+            let rec xy_of_i s y i =
+                if i > s
+                    then xy_of_i (s+1) (y+1) (i-(s+1))
+                    else (i,y)
+            in
+            xy_of_i 0 0 i
+        in
+        let tmp_array = Array.make ((states * (states+1))/2) des.(0).(0) in
+        let tmp_array =
+            Parmap.array_float_parmapi
+                (fun i _ -> let x,y = xy_of_i i in f x y src.(x) src.(y))
+                tmp_array
+        in
+        Array.iteri
+            (fun i c -> let x,y = xy_of_i i in des.(x).(y) <- c; des.(y).(x) <- c)
+            tmp_array;
+        ()
+
+ELSE
+    let fill_symmetric_square_matrix f src des =
+        let states = Array.length des in
+        assert( states = (Array.length des.(0)) );
+        assert( states = (Array.length src) );
+        for x = 0 to states-1 do
+            for y = x to states-1 do
+                let res = f x y src.(x) src.(y) in
+                des.(x).(y) <- res;
+                des.(y).(x) <- res;
+            done;
+        done;
+        ()
+END

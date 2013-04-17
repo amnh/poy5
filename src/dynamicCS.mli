@@ -91,6 +91,12 @@ val classify_transformations :
         (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->
             (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)
 
+(** [parsimony_branch_lengths o x y] generate the parsimony branch lengths
+    between node x and y, using options in o to define how to determine the
+    distance *)
+val parsimony_branch_lengths :
+    [ `Max | `Single | `Final ] option -> t -> t -> float option
+
 (** [total_cost a] returns the total cost to create
 *  dynamic character set [a]*)
 val total_cost : t -> float

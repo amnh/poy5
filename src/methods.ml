@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3160 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3248 $"
 
 exception TimedOut
 
@@ -86,6 +86,7 @@ type read_option_t = [
     | `CostMatrix of filename
     | `Level of int * keep_method
     | `Tie_Breaker of keep_method
+    | `Affine of int
 ]
 
 type prealigned_costs = [
@@ -138,9 +139,12 @@ let characters_to_string (x:characters) : string = match x with
     | `AllDynamic     -> "dynamic"
     | `Range (_,s,l,h)-> Printf.sprintf "range:%s %d-%d" s l h
 
+type report_branch = [ `Max | `Final | `Single ]
+
 type information_contained = 
-    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches  | `Newick | `Margin of int
-    | `NexusStyle | `Collapse of bool | `Chars of characters ]
+    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches of report_branch option
+        | `Newick | `Margin of int | `NexusStyle | `Collapse of report_branch option
+        | `Chars of characters ]
 
 type prep_tail_spec = [
     | `File of filename
@@ -790,11 +794,12 @@ type application = [
     | `Redraw
     | `Help of string option
     | `Wipe
-    | `Graph of (string option * bool)
-    | `Ascii of (string option * bool)
+    | `Graph of (string option * report_branch option)
+    | `Ascii of (string option * report_branch option)
     | `Memory of string option
     | `KML of (string option * filename * string)
     | `TimerInterval of int
+    | `Parmap of int
     | `HistorySize of int
     | `Logfile of string option
     | `Normal

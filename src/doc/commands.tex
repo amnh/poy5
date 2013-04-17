@@ -14,7 +14,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \usepackage{graphicx}
 \usepackage{microtype}
 \usepackage[htt]{hyphenat}
-\usepackage[T1]{fontenc}
+%\usepackage[T1]{fontenc}
 \usepackage {marvosym}
 \usepackage{tabularx}
 \usepackage{verbatim}
@@ -24,7 +24,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 
 %Indexes
 \makeindex{general}
-%\makeindex{poy3}
+\makeindex{poy3}
 
 \newlength\sidebar
 \newlength\envrule
@@ -654,7 +654,7 @@ of \poycommand{swap()} the entire argument list appears as \poycommand{swap(tree
 
 %\addtocontents{toc}{General Index}%%
 \printindex{general}{General Index}
-%\printindex{poy3}{POY 3.0 Commands Index}
-%\input{doc/poy3commands}%%
+\printindex{poy3}{POY 3.0 Commands Index}
+\input{doc/poy3commands}%%
 
 \end{document}

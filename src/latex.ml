@@ -68,16 +68,18 @@ let string_of_parsed ?(sep=", ") lst =
 
 let rec produce_latex channel data =
     let o str = output_string channel str in
-    let rec produce_latex = function
-        | (Command ("begin", (Word h :: tl))) as command ->
+    let rec produce_latex x = match x with
+        | (Command ("begin", (Word h :: tl))) ->
             begin match h with
                 | "command" ->
-                    if debug then print_parsed command;
                     begin match tl with
                         | h::_ -> o "@]\n\n.\n"; produce_latex h; o "\n@[<v 2>"
                         | []   -> failwith "command with no args?"
                     end
-                | "description" -> o "@,@[<v 2>@,@["
+                | "syntax" ->
+                    o "@,@,@[<v 2>@{<c:cyan>Syntax@}@,@,@[<v>"
+                | "description" ->
+                    o "@,@[<v 2>@,@["
                 | "poydescription" ->
                     o "@,@[<v 2>@{<c:cyan>Description@}@,@,@["
                 | "arguments" ->
@@ -144,7 +146,7 @@ let rec produce_latex channel data =
         | Command ("nccross", [Word arg; _]) ->
             o (arg ^ " (see help (" ^ arg ^ ")) ");
         | Command _ -> ()
-        | Text lst -> 
+        | Text lst ->
             List.iter produce_latex lst
         | Word x -> 
             if x <> "~" then o x
@@ -170,6 +172,8 @@ let rec produce_troff channel data =
                         o "\n.P\n"
                 | "poydescription" ->
                         o "\n.SS Description\n"
+                | "syntax" ->
+                        o "\n. Syntax\n"
                 | "arguments" ->
                         o "\n.SS Arguments\n"
                 | "argumentgroup" ->
@@ -275,8 +279,7 @@ let rec collapse = function
     | Command (a, b) ->
             Command (a, List.map collapse b)
 
-let rec flatten x =
-    match x with
+let rec flatten x = match x with
     | ((Comment _) as h) :: t 
     | ((WordNoSpace _) as h) :: t 
     | ((Word _) as h) :: t -> h :: (flatten t)
@@ -310,6 +313,30 @@ let rec the_parser mode fstream =
     let is_command fstream = 
         fstream#skip_ws_nl;
         fstream#match_prefix "\\"
+    in
+    let is_escape_underscore fstream =
+        fstream#skip_ws_nl;
+        if fstream#match_prefix "\\" then
+            if fstream#match_prefix "_" then
+                true
+            else begin
+                fstream#putback '\\';
+                false
+            end
+        else
+            false
+    in
+    let is_escape fstream =
+        fstream#skip_ws_nl;
+        if fstream#match_prefix "\\" then
+            if fstream#match_prefix "\\" then
+                true
+            else begin
+                fstream#putback '\\';
+                false
+            end
+        else
+            false
     in
     let is_comment fstream = 
         fstream#skip_ws_nl;
@@ -361,7 +388,7 @@ let rec the_parser mode fstream =
         Text [Word cmd]
     and get_comment fstream =
         fstream#skip_ws_nl;
-        let comment = fstream#read_excl ['%';'\n';'\013';'\010'] in
+        let comment = fstream#read_excl ['\n';'\013';'\010'] in
         Comment comment
     in
     let rec split_on_commands acc fstream = 
@@ -377,6 +404,10 @@ let rec the_parser mode fstream =
             split_on_commands ((Text [Word brstr]) :: acc) fstream
         else if is_comment fstream then
             split_on_commands ((get_comment fstream) :: acc) fstream
+        else if is_escape fstream then
+            split_on_commands acc fstream
+        else if is_escape_underscore fstream then
+            split_on_commands ((Word "_")::acc) fstream
         else if is_command fstream then
             split_on_commands ((get_comm fstream) :: acc) fstream
         else if is_enclosed fstream then
@@ -441,13 +472,13 @@ let process_file parsed mode output_file =
             Taran Grant, and William Leo Smith.\n.RS\n\n"
     | `OnlineHelp ->
         o (".\nauthors\n@[<v 2> POY was written by Andres Varon, Lin Hong, \
-            Nicholas LUcaroni, and Ward Wheeler.This manual page was written \
+            Nicholas Lucaroni, and Ward Wheeler.This manual page was written \
             by Andres Varon, Lin Hong, Nicholas Lucaroni, Ward Wheeler\
             Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
             Taran Grant, and William Leo Smith.@]\n\n");
-        o (".\ncopyright\n@[<v 2>"^ Version.copyright_authors ^ Version.warrenty_information  ^"@]");
+        o (".\ncopyright\n@[<v 2>"^ Version.copyright_authors ^ Version.warrenty_information  ^"@]\n\n");
+        o (".\nversion\n@[<v 2> "^ Version.copyright_authors ^ Version.compile_information ^ "@]\n\n");
         process parsed mode channel;
-        o ("\n\n.\nversion\n@[<v 2> "^ Version.copyright_authors ^ Version.compile_information ^ "@]");
         ()
 
 let () = 

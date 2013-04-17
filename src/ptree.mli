@@ -179,7 +179,7 @@ module type Tree_Operations =
     val uppass : (a, b) p_tree -> (a, b) p_tree
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree
     val to_formatter :  Methods.diagnosis_report_type -> Xml.attributes -> (a, b) p_tree -> Xml.xml 
-    val branch_table : (a,b) p_tree -> 
+    val branch_table : Methods.report_branch option -> (a,b) p_tree -> 
         ((int * int),[ `Name of (int array * float option) list | `Single of float ]) Hashtbl.t
     val root_costs : (a, b) p_tree -> (Tree.edge * float) list
     val total_cost : (a, b) p_tree -> [`Adjusted | `Unadjusted] -> int list option -> float
@@ -378,34 +378,37 @@ module type SEARCH = sig
         (* root data     *) (int array option -> string)
             -> (string option * Tree.Parse.tree_types)
 
-    val never_collapse :  (a, b) p_tree -> int -> int -> bool
+    val get_collapse_function :
+        Methods.report_branch option -> ((a, b) p_tree -> int -> int -> bool)
 
-    val collapse_as_needed : (a, b) p_tree -> int -> int -> bool
+    val default_collapse_function : (a, b) p_tree -> int -> int -> bool
 
     val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
     val build_tree_with_names :
-        bool -> (a, b) p_tree -> Tree.Parse.tree_types
+        Methods.report_branch option -> (a, b) p_tree -> Tree.Parse.tree_types
 
     val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
+        Methods.report_branch option -> (a, b) p_tree -> string -> Tree.Parse.tree_types
 
     val build_forest :
-        bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types list
+        Methods.report_branch option -> (a, b) p_tree -> string -> Tree.Parse.tree_types list
 
     val build_forest_as_tree :
-        bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
+        Methods.report_branch option -> (a, b) p_tree -> string -> Tree.Parse.tree_types
 
     val build_forest_with_names :
-        bool -> (a, b) p_tree -> Tree.Parse.tree_types list
+        Methods.report_branch option -> (a, b) p_tree -> Tree.Parse.tree_types list
 
     val build_forest_with_names_n_costs :
-        bool -> (a, b) p_tree -> string -> bool -> int array option -> Tree.Parse.tree_types list
+        Methods.report_branch option -> (a, b) p_tree -> string -> bool * Methods.report_branch option ->
+            int array option -> Tree.Parse.tree_types list
 
     val build_forest_with_names_n_costs_n_branches :
-        bool -> (a, b) p_tree -> string ->
+        Methods.report_branch option -> (a, b) p_tree -> string ->
             (string -> int -> int -> (int array * float option) list -> string option) ->
-                (Tree.u_tree -> int -> string) -> bool -> int array option 
+                (Tree.u_tree -> int -> string) -> bool * Methods.report_branch option ->
+                    int array option 
             -> (string option * Tree.Parse.tree_types) list
 
     val to_xml : Pervasives.out_channel -> (a, b) p_tree -> unit

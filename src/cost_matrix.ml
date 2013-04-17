@@ -17,20 +17,21 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3160 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3261 $"
 
+external init : unit -> unit = "cm_CAML_initialize"
+let () = init ()
 
-exception Illegal_Cm_Format;;
-exception Map_Not_Found;;
-exception Illegal_List_length;;
+exception Illegal_Cm_Format
+exception Map_Not_Found
+exception Illegal_List_length
 
-type gap_opening = int;;
+type gap_opening = int
+
 type cost_model =
     | No_Alignment
     | Linnear
     | Affine of gap_opening 
-
-external init : unit -> unit = "cm_CAML_initialize"
 
 let debug = false
 
@@ -38,12 +39,9 @@ let debug = false
 and our internal C representation of a matrix with 32 bit integers. *)
 let max_int = (Int32.to_int Int32.max_int) lsr 1
 
-let () = init ()
-
 module Two_D = struct
     type m
     external set_gap : m -> int -> unit = "cm_CAML_set_gap"
-    (* add following for level *)
     external print_matrix : int -> int -> m -> unit = "cm_CAML_print_matrix" 
     external set_ori_a_sz : m -> int -> unit = "cm_CAML_set_ori_a_sz"
     external get_ori_a_sz : m -> int = "cm_CAML_get_ori_a_sz"
@@ -60,10 +58,7 @@ module Two_D = struct
     external set_level : m -> int -> unit = "cm_CAML_set_level"
     external get_level : m -> int = "cm_CAML_get_level"
     external get_gap_startNO: m -> int = "cm_CAML_get_gap_startNO"
-    external comb2list_bigarray : m ->
-    (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t =
-         "cm_CAML_comb2list_to_bigarr"
-    (* add above for level *)
+    external comb2list_bigarray : m -> (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t = "cm_CAML_comb2list_to_bigarr"
     external set_all_elements : m -> int -> unit = "cm_CAML_set_all_elements"
     external get_all_elements : m -> int = "cm_CAML_get_all_elements"
     external alphabet_size : m -> int = "cm_CAML_get_a_sz"
@@ -80,38 +75,35 @@ module Two_D = struct
     external median : int -> int -> m -> int = "cm_CAML_get_median"
     external set_cost : int -> int -> m -> int -> unit = "cm_CAML_set_cost"
     external set_worst : int -> int -> m -> int -> unit = "cm_CAML_set_worst"
-    external set_median : 
-        int -> int -> m -> int -> unit = "cm_CAML_set_median"
+    external set_median : int -> int -> m -> int -> unit = "cm_CAML_set_median"
     external set_metric : m -> unit = "cm_CAML_set_is_metric"
     external set_identity : m -> unit = "cm_CAML_set_is_identity"
     external c_get_is_metric : m -> int = "cm_CAML_get_is_metric"
     external c_get_is_identity : m -> int = "cm_CAML_get_is_identity"
-    let is_metric m =    1 = c_get_is_metric m
-    let is_identity m =    1 = c_get_is_identity m
+    let is_metric m = 1 = c_get_is_metric m
+    let is_identity m = 1 = c_get_is_identity m
     external set_prepend : int -> int -> m -> unit = "cm_CAML_set_prepend"
     external set_tail : int -> int -> m -> unit = "cm_CAML_set_tail"
     external get_tail : int -> m -> int = "cm_CAML_get_tail"
     external get_prepend : int -> m -> int = "cm_CAML_get_prepend"
-    external create : int -> bool -> int -> int -> int -> int -> int -> int ->
-    int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
+    external create : int -> bool -> int -> int -> int -> int -> int -> int -> int -> m = "cm_CAML_create_bytecode" "cm_CAML_create"
     external clone : m -> m = "cm_CAML_clone"
 
     let get_combination m =
         let comb_code = combine m in
-        if comb_code=1 then true
-        else if comb_code=0 then false
-        else 
-            failwith ("combine code must be 0 or 1 in cost matrix")
+        assert( (comb_code = 1) || (comb_code = 0) );
+        comb_code = 1
 
     let use_combinations = true
+
     and use_cost_model = Linnear
+
     and use_gap_opening  = 0
 
     let print_intlist lst =
         Printf.printf "[ %!"; 
         List.iter (Printf.printf "%d,%!") lst;
-        Printf.printf " ] \n%!";
-    ;;
+        Printf.printf " ] \n%!"
 
     let n_to_the_powers_of_m n m =
         let rec func t acc =
@@ -137,29 +129,19 @@ module Two_D = struct
             else ()
         done;
         List.rev (!newlist)
-    ;;
 
 
 
     let combcode_to_comblist code m =
-        (*Printf.printf "code to list:%!";*)
         let ori_a_sz = get_ori_a_sz m in
         let map_sz = get_map_sz m in
-        assert(code<=map_sz);
-        (*
-        let c2lmatrix = bigarray_matrix (comb2list_bigarray m) in 
-        *)
+        assert(code <= map_sz);
         let rec fillinlist code m acclist =
-            if (code<=ori_a_sz) then [code] @ acclist
+            if (code<=ori_a_sz) then
+                [code] @ acclist
             else begin
                let code1 = get_comblist code 1 m 
                and code2 = get_comblist code 2 m in
-                (*Printf.printf "get code=%d,code1=%d,code2=%d;\n%!"code code1
-                code2;*)
-           (*
-                let code1 = c2lmatrix.(code).(1) and
-                code2 = c2lmatrix.(code).(2) in
-           *)
                 assert(code1<=map_sz); assert(code2<=map_sz);
                 let addlist1 = fillinlist code1 m acclist in
                 let addlist2 = fillinlist code2 m acclist in
@@ -168,7 +150,6 @@ module Two_D = struct
         in
         let comblist = fillinlist code m [] in
         clear_duplication_in_list comblist
-    ;;
 
 
     let get_pure_cost_mat cost_mat = 
@@ -181,7 +162,7 @@ module Two_D = struct
                 pure_cost_mat.(c1).(c2) <- cost c1 c2 cost_mat
             done 
         done;
-        pure_cost_mat;;
+        pure_cost_mat
 
     (**[ori_cm_to_list cost_mat] return the original cost matrix without
     * combination*)
@@ -269,7 +250,7 @@ module Two_D = struct
         end
         else a_sz;;
 
-    let affine m = match c_affine m with
+    let get_cost_model m = match c_affine m with
         | 0 -> Linnear
         | 1 -> Affine (gap_opening m)
         | _ -> No_Alignment
@@ -342,69 +323,53 @@ module Two_D = struct
         if ((el1 > a_sz) || (el2 > a_sz)) then begin
             if (el2 > a_sz) && (el1 <= a_sz) then 
                 store_input_list_in_cost_matrix_all_combinations m l (el1 + 1) 1 a_sz 
-            else ()
+            else
+                ()
         end else begin
             match l with
             | h :: t -> 
-                    let elt1 = 1 lsl (el1 - 1)
-                    and elt2 = 1 lsl (el2 - 1) in
-                    if debug then 
-                            Printf.printf "Storing the cost %d %d is %d\n" elt1
-                            elt2 h;
-                    set_cost elt1 elt2 m h;
-                    store_input_list_in_cost_matrix_all_combinations m t el1 (el2 + 1) a_sz;
+                let elt1 = 1 lsl (el1 - 1)
+                and elt2 = 1 lsl (el2 - 1) in
+                set_cost elt1 elt2 m h;
+                store_input_list_in_cost_matrix_all_combinations m t el1 (el2 + 1) a_sz
             | [] -> raise Illegal_Cm_Format;
         end
 
+
     let rec store_input_list_in_cost_matrix_no_comb m l el1 el2 a_sz all_elements =
-    let debug = false in
-    if debug then Printf.printf
-    "store_input_list_in_cost_matrix_no_comb,a_sz=%d,all_elements=%d\n%!"
-    a_sz all_elements;
         if ((el1 > a_sz) || (el2 > a_sz)) then 
             if (el1 <= a_sz) then
-                store_input_list_in_cost_matrix_no_comb m l (el1 + 1) 1 a_sz
-                all_elements
-            else ()
-        else 
+                store_input_list_in_cost_matrix_no_comb m l (el1 + 1) 1 a_sz all_elements
+            else
+                ()
+        else begin
             match l with
             | h :: t ->
-                    let h =
-                        if el1 = all_elements || el2 = all_elements then 0
-                        else h
-                    in
-                    if debug then
-                        let m = "Setting " ^ string_of_int el1 ^ " and " ^
-                        string_of_int el2 ^ " to " ^ string_of_int h in
-                        Status.user_message Status.Error m
-                    else ();
-                    set_cost el1 el2 m h;
-                    set_worst el1 el2 m h;
-                    store_input_list_in_cost_matrix_no_comb m t el1 (el2 + 1)
-                    a_sz all_elements
+                let h =
+                    if el1 = all_elements || el2 = all_elements then 0 else h
+                in
+                set_cost el1 el2 m h;
+                set_worst el1 el2 m h;
+                store_input_list_in_cost_matrix_no_comb m t el1 (el2 + 1) a_sz all_elements
             | [] -> raise Illegal_Cm_Format
+        end
+
 
     let store_input_list_in_cost_matrix use_comb m l a_sz all_elements =
-        if debug then
-        Printf.printf
-        "store_input_list_in_cost_matrix,all_elements=%d,a_sz=%d,use_comb=%b\n%!"
-        all_elements a_sz use_comb;
-        if use_comb then 
+        if use_comb then
             if (check_level m) then
                 store_input_list_in_cost_matrix_some_combinations m l 1 1 a_sz all_elements
             else
-            store_input_list_in_cost_matrix_all_combinations m l 1 1 a_sz
-        else 
+                store_input_list_in_cost_matrix_all_combinations m l 1 1 a_sz
+        else
             store_input_list_in_cost_matrix_no_comb m l 1 1 a_sz all_elements
 
-     
 
-   
    let calc_number_of_combinations_by_level a_sz level =
         let sum = ref 0 in
-        let level = 
+        let level =
             if level>a_sz then a_sz
-            else if level<1 then 1 
+            else if level<1 then 1
             else level
         in
         for i = 1 to level do
@@ -415,32 +380,29 @@ module Two_D = struct
         done;
         !sum
 
-   let calc_num_of_comb_with_gap ori_a_sz level =
+    let calc_num_of_comb_with_gap ori_a_sz level =
        let sum = ref 0 in
        for i = 1 to (level-1) do
             let numerator = Utl.p_m_n (ori_a_sz-1) i in
             let denominator = Utl.factorial i in
-            sum := (!sum) + (numerator / denominator) 
+            sum := (!sum) + (numerator / denominator)
        done;
        (!sum)
 
+
     let combcode_includes_gap combcode ori_a_sz level totalnum =
         let num_comb_with_gap = calc_num_of_comb_with_gap ori_a_sz level in
-        if ( (totalnum - combcode) < num_comb_with_gap ) then true
-        else false
+        ((totalnum - combcode) < num_comb_with_gap)
 
 
-
-    (*
-* given a combination codelist, [a,b,c,...] return the combination code for this
-* list, thus, code = a/b/c/...
-* During the calculation of combination map, we don't reach every combination.
-* for example, [1,2,3] is the comblist, we have [1,2]=6 and [6,3] = 9 in the
-* matrix, so we know [1,2,3] is 9. Though we do know [2,3] is 8, we don't have
-* [8,1] stored in the matrix. Also, we use fold_right to deal with the list. 
-* Thus, we need to work on the combination list by reverse order of the list, 
-* which is [3,2,1] instead of [1,2,3]. That's why we
-* have newlist = List.rev(....) below. *)
+    (** given a combination codelist, [a,b,c,...] return the combination code for
+        this list, thus, code = a/b/c/...  During the calculation of combination
+        map, we don't reach every combination. for example, [1,2,3] is the
+        comblist, we have [1,2]=6 and [6,3] = 9 in the matrix, so we know
+        [1,2,3] is 9. Though we do know [2,3] is 8, we don't have [8,1] stored
+        in the matrix. Also, we use fold_right to deal with the list.  Thus, we
+        need to work on the combination list by reverse order of the list, which
+        is [3,2,1] instead of [1,2,3]. That's why we have newlist = List.rev *)
     let rec comblist_to_combcode lst m =
         assert( (List.length lst)>0 );
         let all_elements = get_all_elements m in
@@ -451,45 +413,34 @@ module Two_D = struct
         let tmplst = List.fold_left break_union [] lst in
         let newlist = List.rev (clear_duplication_in_list tmplst) in
         let func a b = get_combmap a b m in
-        let res =
-            match newlist with
+        let res = match newlist with
             | h::t -> List.fold_right func newlist (List.hd (List.rev newlist))
             | _ -> raise(Illegal_List_length)
         in
-        if (res==0) then begin
-            Printf.printf "could not find combination code by combination list:%!";
-            print_intlist lst;
-            print_intlist newlist;
-            assert(false);
-        end 
-            else ();
+        assert( res <> 0 );
         res
-    ;;
- 
 
-    
+
     let gap_filter_for_combcode combcode cm =
-        let level = get_level cm and ori_a_sz = get_ori_a_sz cm 
+        let level = get_level cm and ori_a_sz = get_ori_a_sz cm
         and total_num = get_map_sz cm in
         if (level>1) then
             let num_comb_with_gap = calc_num_of_comb_with_gap ori_a_sz level in
-            if ( (total_num-combcode)< num_comb_with_gap ) then
+            if ( (total_num-combcode) < num_comb_with_gap ) then
                 let combcodelst = combcode_to_comblist combcode cm in
                 let gapcode = gap cm in
-                let combcodelst_withoutgap = 
+                let combcodelst_withoutgap =
                 List.filter (fun x -> x<> gapcode) combcodelst in
                 comblist_to_combcode combcodelst_withoutgap cm
-                (*combcode - num_comb_without_gap this is wrong*)
             else
                 combcode
         else
             combcode
 
-    (* a,b,i belongs to alpha list, if newcost = cost(a,i)+cost(i,b) is less
-    * than oldcost = cost(a,b),
-    * set best to i. if they are equal, add i to the "best set" of a and b by
-    * "lor" 
-    * *)
+
+    (** a,b,i belongs to alpha list, if newcost = cost(a,i)+cost(i,b) is less
+        than oldcost = cost(a,b), set best to i. if they are equal, add i to the
+        "best set" of a and b by "lor" *)
     let rec test_combinations a l a_sz m best c w =
         let gap = gap m and go = gap_opening m in
         match l with
@@ -713,7 +664,7 @@ module Two_D = struct
 
     let cleanup m = 
         let gap = gap m in
-        match combine m, affine m with
+        match combine m, get_cost_model m with
         | 0, _
         | _, Linnear
         | _, No_Alignment -> fun item -> item
@@ -733,11 +684,6 @@ module Two_D = struct
         ((a || b) && (not (a && b)));;
 
     let fill_best_cost_and_median_for_all_combinations_bitwise ?(create_original=false) m a_sz =
-        let debug = false and debug2 = false in
-        if debug then 
-            Printf.printf
-            "fill_best_cost_and_median_for_all_combinations_bitwise,create_original=%b\n%!"
-            create_original;
         let oldm = clone m in
         let find_best_combination get_cost l1 l2 =
             let aux_find_best_combination m i (best, med, worstcost) j =
@@ -780,62 +726,50 @@ module Two_D = struct
         let number_of_combinations = calc_number_of_combinations a_sz in
         for i = 1 to number_of_combinations do
             let li = BitSet.Int.list_of_packed_max i a_sz in
-            for j = 1 to number_of_combinations do 
+            for j = 1 to number_of_combinations do
                 let lj = BitSet.Int.list_of_packed_max j a_sz in
-                if 1 = List.length li && 1 = List.length lj then begin
-                    if i=j then begin
-                        let costii = cost i i oldm in
-                        let costii =
-                            if create_original then costii
-                            else costii*2 in
-                        if debug then Printf.printf "0.cost.[%d][%d]<-%d\n%!" i
-                        i costii;
-                        set_cost i i m costii;
-                        set_median i i m i;
-                        set_worst i i m costii;
-                    end
-                    else begin
-                        let costij, medianij =
-                            let cost1 = cost i j oldm + cost j j oldm in
-                            let cost2 = cost i i oldm + cost i j oldm in
-                            if debug2 then Printf.printf
-                            "cost_ij_jj(%d)<?>cost_ii_ij(%d);" cost1 cost2;
-                            if cost1=cost2 then
-                                cost1,i lor j
-                            else if cost1>cost2 then
-                                cost2,i
-                            else
-                                cost1,j
+                let median,best,worst = 
+                    if 1 = List.length li && 1 = List.length lj then begin
+                        if i=j then begin
+                            let costii = cost i i oldm in
+                            let costii =
+                                if create_original then costii
+                                else costii*2
+                            in
+                            i, costii, costii
+                        end else begin
+                            let costij, medianij =
+                                let cost1 = cost i j oldm + cost j j oldm in
+                                let cost2 = cost i i oldm + cost i j oldm in
+                                if cost1=cost2 then
+                                    cost1,i lor j
+                                else if cost1>cost2 then
+                                    cost2,i
+                                else
+                                    cost1,j
+                            in
+                            let costij = 
+                                if create_original then cost i j oldm 
+                                else costij
+                            in
+                            medianij, costij, costij
+                        end;
+                    end else begin
+                        let cost_f = fun a b -> cost a b oldm in
+                        let costij, median, worstcost = 
+                            find_best_combination cost_f li lj 
                         in
-                        let costij = 
-                            if create_original then cost i j oldm 
-                            else costij in
-                        if debug then
-                            Printf.printf "1.cost[%d][%d]=%d,median=%d\n%!" i j
-                            costij medianij;
-                        set_median i j m medianij;
-                        set_cost i j m costij;
-                        set_worst i j m costij;
-                    end;
-                end else begin
-                    let cost_f = fun a b -> cost a b oldm in
-                    let costij, median, worstcost = 
-                        find_best_combination cost_f li lj 
-                    in
-                    if debug then
-                        Printf.printf "2.cost[%d][%d]=%d,median=%d\n%!" i j
-                        costij median;
-                    set_median i j m median;
-                    set_cost i j m costij;
-                    set_worst i j m worstcost;
-                end
+                        median,costij,worstcost
+                    end
+                in
+                set_median i j m median;
+                set_cost   i j m best;
+                set_worst  i j m worst
             done;
         done
 
+
     let fill_best_cost_and_median_for_some_combinations ?(create_original=false) m a_sz level all_elements =
-        let debug = false and debug2 = false in
-        let gapcode = gap m in
-        let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
         let ori_size = get_ori_a_sz m in
         let numerator = Utl.p_m_n (a_sz-1) (level-1) in
@@ -843,15 +777,7 @@ module Two_D = struct
         let comb_withgap = (numerator / denominator) in
         let comb_withgap = 
             if all_elements>0 then comb_withgap +1 else comb_withgap in
-        (*let contain_gap x = (*return true if code x contains gap*) 
-            if (a_sz-x)<comb_withgap then true 
-            else false 
-        in*)
         let cleanup = cleanup m in
-        if debug then
-            Printf.printf "fill cm for some combinations: gapcode=%d,num_of_comb =%d,\
-        combwithgap = %d,all_elements=%d a_sz=%d, create_original =%b\n%!" gapcode num_of_comb comb_withgap
-        all_elements a_sz create_original ;
         let _  = build_maps_comb_and_codelist m a_sz level all_elements in 
         for i = 1 to num_of_comb do
             let li = combcode_to_comblist i m in
@@ -868,15 +794,12 @@ module Two_D = struct
                         let _ = 
                             match li, lj with
                             | [_], [_] ->
-                                    if debug2 then Printf.printf  "median.%d.%d <- %d(cost=%d);\n%!"  i j !best !cost;
                                     set_cost i j m !cost;
                                     set_median i j m (cleanup !best)
                                     (* we should not assume median of statei and statej to be
                                     [i or j],  some cost matrix with cost.i.i >
                                     cost.gap.gap , median.i.gap will be [gap], not [i or gap]*);
                             | _, _ ->
-                                    if debug2 then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
-                                    i j !cost !best;
                                     set_cost (i) (j) m !cost;
                                     set_median (i) (j) m (cleanup !best);
                         in
@@ -885,8 +808,6 @@ module Two_D = struct
                 end;(*end of if i<>all_elements && j<>all_elements*)
             done;
         done;
-        if debug2 then 
-            Printf.printf "set median and cost bwteen all_elements and other codes\n%!";
         if all_elements>0 then begin
             (*when all_elements=-1, we don't have code for "all_elements",
             * though we do have a line and column in costmatrix reserved for it,
@@ -900,21 +821,8 @@ module Two_D = struct
                 set_worst all_elements i m 0;
             done;
             set_median all_elements all_elements m all_elements;
-        end;
-        if debug then begin
-            Printf.printf "print matrix to file\n%!";
-            let oc = open_out "cm_custom_alphabet.txt" in
-            Printf.printf "check cost and median at the end:\n%!";
-            for i=1 to num_of_comb+1 do
-            for j= 1 to num_of_comb+1 do
-                  Printf.fprintf oc "cost[%d][%d]=%d, median=%d; \n %!" i j (get_cost i j
-                m) (get_median i j m)
-            done;
-            Printf.fprintf oc "\n%!";
-            done;
-            close_out oc;
-        end;
-    ;;
+        end
+
 
     let fill_best_cost_and_median_for_all_combinations m a_sz =
         let debug = false in
@@ -951,11 +859,10 @@ module Two_D = struct
                 in
                 set_worst i j m !worst;
             done;
-        done;;
+        done
+
 
     let fill_medians m a_sz =
-        let debug = false in
-        if debug then Printf.printf "cost_matrix.fill_medians,a_sz=%d,all_elements=%d\n%!" a_sz (get_all_elements m);
         let matrix = Array.make_matrix (a_sz + 1) (a_sz + 1) [] in
         let cleanup = cleanup m in
         for i = 1 to a_sz do
@@ -981,11 +888,6 @@ module Two_D = struct
                             else ()
                     done;
                 matrix.(i).(j) <- !res;
-                if debug then begin
-                Printf.printf "median.%d.%d <- %!" i j;
-                List.iter (Printf.printf "%d ") (matrix.(i).(j));
-                Printf.printf ", cost = %d;\n%!" !best;
-                end;
             done;
         done;
         (*tie_breaker,
@@ -994,7 +896,6 @@ module Two_D = struct
             * 1 : pick first
             * 2 : pick last *)
         let tie_breaker = get_tie_breaker m in
-        if debug then Printf.printf "tie_breaker for median = %d\n%!" tie_breaker;
         let matrix = 
             Array.map (fun arr ->
                 Array.map (fun x -> 
@@ -1019,27 +920,29 @@ module Two_D = struct
             Array.iteri (fun b median ->
                 set_median a b m (cleanup median)) arr) matrix
 
+
     let fill_default_prepend_tail m = 
         let a_sz = alphabet_size m 
-        and gap = gap m 
-        in
+        and gap = gap m in
         for i = 1 to a_sz do
             set_tail i (cost i gap m) m;
             set_prepend i (cost gap i m) m;
         done
 
-    let set_affine m model = 
+    let set_cost_model m model = 
         let asz = alphabet_size m in
-        let _ = 
-            match model with
+        let () = match model with
             | No_Alignment -> c_set_aff m 2 0 
-            | Linnear -> c_set_aff m 0 0 
-            | Affine go -> c_set_aff m 1 go
+            | Linnear      -> c_set_aff m 0 0 
+            | Affine go    -> c_set_aff m 1 go
         in
-        if 1 = combine m then 
-            fill_best_cost_and_median_for_all_combinations_bitwise m (lcm m)
-        else fill_medians m asz;
-        fill_default_prepend_tail m
+        let () =
+            if 1 = combine m then
+                fill_best_cost_and_median_for_all_combinations_bitwise m (lcm m)
+            else
+                fill_medians m asz
+        in
+        ()
 
   
     let fill_tail_or_prepend f g cost m = 
@@ -1191,12 +1094,6 @@ module Two_D = struct
             | `First -> 1
             | `Last -> 2 
         in
-        if debug then
-            Printf.printf ("cost_matrix.ml fill cost matrix : a_sz = %d(pure "^^
-                           "a_sz=%d), use_comb=%b,level=%d,num_comb=%d(%d), "^^
-                           "all_elements=%d (list len=%d), tie breaker = %d\n%!")
-                        a_sz pure_a_sz use_comb level num_comb num_withgap
-                        all_elements (List.length l) tb;
         let m =  (*Note: use_comb is 'int' in cm.c*)
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
                    use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
@@ -1205,9 +1102,8 @@ module Two_D = struct
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
         let ismetric, iside = input_is_metric l a_sz in
         if iside then set_identity m;
-        if debug then Printf.printf "uselevel=%b,ismetric=%b, call fill_best_cost_and_median_XXX \n%!" uselevel ismetric;
         if use_comb then 
-            if suppress || ismetric then
+            if ismetric then
                let () = set_metric m in
                 if uselevel then
                     fill_best_cost_and_median_for_some_combinations m a_sz level all_elements
@@ -1216,44 +1112,18 @@ module Two_D = struct
             else
                 let () = Status.user_message Status.Warning "You@ are@ loading@ a@ non-metric@ TCM" in
                 if uselevel then
-                    fill_best_cost_and_median_for_some_combinations ~create_original:create_original 
-                    m a_sz level all_elements
+                    fill_best_cost_and_median_for_some_combinations ~create_original m a_sz level all_elements
                 else
-                    fill_best_cost_and_median_for_all_combinations_bitwise
-                    ~create_original:create_original m a_sz
+                    fill_best_cost_and_median_for_all_combinations_bitwise ~create_original m a_sz
         (*end of if use_comb*)
         else
             fill_medians m a_sz;
         (*end of not if use_comb*)
         fill_default_prepend_tail m;
         m
-(*
-    let fill_original_cost_matrix ?(level = 0) ?(suppress=false) l a_sz all_elements =
-        let debug = false in
-        let pure_a_sz = 
-            if all_elements=(a_sz-1) && level>1 && level<a_sz
-                then a_sz-1
-                else a_sz 
-        in
-        if debug then Printf.printf
-        "fill_original_cost_matrix,level=%d,a_sz=%d,all_elements = %d\n%!"
-        level a_sz all_elements;
-        (*dna*)
-        let  
-        let m =  (*Note: use_comb is 'int' in cm.c*)
-            create a_sz use_comb (cost_mode_to_int use_cost_model) 
-                   use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
-        in
-        (*amino acid with or without level*)
-        (*custom alphabet with level*)
-
-*)
 
     let of_channel ?(tie_breaker = `First) ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
-        let debug = false in
         let use_comb = if level = 1 then false else use_comb in
-        if debug then 
-            Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," use_comb level all_elements;
         match load_file_as_list ch with
         | [] -> failwith "No Alphabet"
         |  l -> 
@@ -1261,11 +1131,10 @@ module Two_D = struct
                 if debug then Printf.printf "list len=%d , cost.gap.gap:%d; %!" (List.length l) cost_between_gap;
                 let l = 
                     if cost_between_gap<>0 then begin
-                        Status.user_message Status.Warning 
-"forcing@ cost@ between@ gap@ to 0, we@ don't@ want@ different@ cost@ between@ tree@ downpass@ and@ uppass";
+                        Status.user_message Status.Warning "Forcing@ cost@ between@ gaps@ to@ 0";
                         List.rev (0 :: (List.tl (List.rev l)))
-                    end
-                    else l
+                    end else
+                        l
                 in
                 let w = calculate_alphabet_size l in
                 let _,matrix_list = 
@@ -1276,18 +1145,9 @@ module Two_D = struct
                             | (h :: t) -> (cnt - 1, ((item :: h) :: t)))
                         l (w, [[]])
                 in
-                if debug then begin
-                    Printf.printf "alphabet size from channel = %d\n%!" w;
-                    List.iter (fun lst -> 
-                        Printf.printf "[";
-                        List.iter (fun x -> Printf.printf "%d," x) lst;
-                        Printf.printf "]\n";
-                    ) matrix_list;
-                end;
                 let w, l =
                     if (w = all_elements && (not use_comb))
-                    || (w = all_elements && (level>1) && (level<w))
-                    then
+                    || (w = all_elements && (level>1) && (level<w)) then
                         (* We must add a placeholder for the all elements item *)
                         let rec add_every cnt lst = match lst with
                             | [] -> []
@@ -1305,12 +1165,10 @@ module Two_D = struct
                         w + 1, newl
                     else w, l
                 in
-                if debug then Printf.printf "after adding all_element, list len=%d, \n%!" (List.length l);
                 let m1,m2 = match orientation with
                     | false ->
-                          fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:use_comb ~level:level l w all_elements,
-                          fill_cost_matrix ~create_original:true
-                          ~tie_breaker:tie_breaker ~use_comb:use_comb ~level:level l w all_elements
+                        fill_cost_matrix ~tie_breaker ~use_comb ~level l w all_elements,
+                        fill_cost_matrix ~create_original:true ~tie_breaker ~use_comb ~level l w all_elements
                     | true ->
                           let l_arr = Array.of_list l in
                           let w2 = w * 2 - 1 in
@@ -1323,9 +1181,8 @@ module Two_D = struct
                           done;
                           let l2 = List.rev !l2 in
                           let suppress = if level>1 then true else false in
-                          fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:use_comb l2 w2 all_elements ~suppress:suppress,
-                          fill_cost_matrix ~create_original:true
-                          ~tie_breaker:tie_breaker ~use_comb:use_comb l2 w2 all_elements ~suppress:suppress
+                          fill_cost_matrix ~tie_breaker ~use_comb l2 w2 all_elements ~suppress,
+                          fill_cost_matrix ~create_original:true ~tie_breaker ~use_comb l2 w2 all_elements ~suppress
                 in
                 m1,m2, matrix_list
 
@@ -1339,7 +1196,7 @@ module Two_D = struct
         if debug then Printf.printf "cost_matrix of_list,w=%d\n" w;
         fill_cost_matrix ~use_comb:use_comb ~level:level ~suppress l w all_elements
         ,
-        fill_cost_matrix ~create_original:true ~use_comb:use_comb ~level:level ~suppress l w all_elements
+        fill_cost_matrix ~create_original:true ~use_comb ~level ~suppress l w all_elements
 
     let of_channel_nocomb ?(orientation=false) ch =
         if debug then Printf.printf "cost_matrix.ml of_channel_nocomb\n %!";
@@ -1355,28 +1212,17 @@ module Two_D = struct
 
     let create_cm_by_level m level oldlevel all_elements tie_breaker =
         let ori_sz = get_ori_a_sz m in
-        let debug = false in
-        if debug then Printf.printf "create cm by level=%d, oldlevel=%d,ori_sz=%d,all_elements=%d\n%!"
-        level oldlevel ori_sz all_elements;
         let ori_list = ori_cm_to_list m in
-        if debug then begin
-            Printf.printf "call fill cost matrix with cost list = \n%!";
-            List.iter (fun x->Printf.printf "%d," x) ori_list;
-            Printf.printf "\n%!";
-        end;
         let newm =
             if level=1 then
-                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:1 ori_list ori_sz
-                all_elements
+                fill_cost_matrix ~tie_breaker ~use_comb:false ~level:1 ori_list ori_sz all_elements
             else if (level < 1) then
-                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:false ~level:0 ori_list ori_sz
-                all_elements  
+                fill_cost_matrix ~tie_breaker ~use_comb:false ~level:0 ori_list ori_sz all_elements  
             (*we don't have tie_breaker for level=2~a_sz-1 yet*)
             else if (level>ori_sz) then
-                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
+                fill_cost_matrix ~tie_breaker ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
             else
-                fill_cost_matrix ~tie_breaker:tie_breaker ~use_comb:true ~level:level ori_list ori_sz
-                all_elements
+                fill_cost_matrix ~tie_breaker ~use_comb:true ~level:level ori_list ori_sz all_elements
         in
         newm
 
@@ -1448,7 +1294,7 @@ module Two_D = struct
         if (0 != combine cm) then
             fill_best_cost_and_median_for_all_combinations_bitwise cm (lcm cm);
         fill_default_prepend_tail cm;
-        cm;;
+        cm
 
     let copy_matrix src tgt src_sz tgt_sz = 
         let w = calc_number_of_combinations src_sz in
@@ -1457,34 +1303,23 @@ module Two_D = struct
                 set_cost i j tgt (cost i j src);
                 set_median i j tgt (median i j src);
             done;
-        done;;
-
-   (* let copy_matrix_partly src tgt cp_size =
-        for i = 1 to cp_size do
-            for j = 1 to cp_size do
-                set_cost i j tgt (cost i j src);
-                set_median i j tgt (median i j src);
-            done;
-        done;;*)
+        done;
+        ()
 
     let states_of_code code cm = 
-        if check_level cm 
-            then combcode_to_comblist code cm 
-        else List.rev(BitSet.Int.list_of_packed_max code (alphabet_size cm))
+        if check_level cm then
+            combcode_to_comblist code cm 
+        else
+            List.rev(BitSet.Int.list_of_packed_max code (alphabet_size cm))
 
     let code_of_states states cm =
         if check_level cm
             then comblist_to_combcode states cm
         else BitSet.Int.packed_of_list_max states (alphabet_size cm)
 
+
     (*to do : apply tie breaker to to_single finctions*)
     let get_closest cm a b =
-        let debug = false in
-        if debug then begin
-            Printf.printf "get_closest: a,b=%d,%d; %!" a b;
-            if (a<=0) || (b<=0) then output stdout cm
-            else ();
-        end else ();
         assert(a>0); assert(b>0);
         let gap = gap cm  and total_num = get_map_sz cm in
         if 0 = combine cm then b (* We only have one element in b *)
@@ -1516,43 +1351,30 @@ module Two_D = struct
             match states_of_code b cm with(*get a list of code based on codeb*)
             | [] -> failwith "~ No bits on?"
             | bits ->
-                if debug then begin
-                    Printf.printf "b without gap = %d, b code lst = [%!" b;
-                    List.iter ( fun x -> Printf.printf "%d," x) bits;
-                    Printf.printf "],%!";
-                end;
                 let best, _ = 
                     List.fold_left
                         (fun ((_, cur_cost) as acc) x ->
                             let nc = cost a x cm in
                             if nc < cur_cost then (x, nc)
-                            else acc) (a, max_int) bits
-                    in
-                    let () =
-                        if debug then 
-                        Printf.printf "best=%d; \n%!" best
-                    in
-                    best
+                            else acc)
+                        (a, max_int)
+                        bits
+                in
+                best
 
-    let of_file ?(tie_breaker = `First) ?(orientation=false) ?(use_comb = true) ?(level = 0) file all_elements is_dna_or_ami =
-        let debug = false in
+    let of_file ?(tie_breaker=`First) ?(orientation=false) ?(use_comb=true)
+                ?(level = 0) file all_elements is_dna_or_ami =
         let ch = FileStream.Pervasives.open_in file in
         (*for custom_alphabet & break_inversion, first line of cost_matrix is
         * alphabet.parser function "load_file_as_list" is expecting pure cost
         * matrix, just like those in dna and amino-acid, so we need to get rid
         * of the first line here.*)
         if not is_dna_or_ami then begin
-            ignore ( FileStream.Pervasives.input_line ch );
-            if debug then 
-                Printf.printf "remove first line of cost matrix file\n%!";
+            ignore (FileStream.Pervasives.input_line ch);
         end;
-        if debug then
-            Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!" use_comb level;
-        let res =
-            of_channel ~tie_breaker:tie_breaker ~orientation:orientation ~use_comb:use_comb ~level:level all_elements ch
-        in
+        let r = of_channel ~tie_breaker ~orientation ~use_comb ~level all_elements ch in
         ch#close_in;
-        res
+        r
 
     let matrix_of_file converter file =
         (* explode a string around a character;filtering empty results *)
@@ -1578,70 +1400,78 @@ module Two_D = struct
         let mat = read_loop (explode) f in
         let () = FileStream.Pervasives.close_in f in 
         mat
-
-end;;
+end
 
 module Three_D = struct
     type m
     external set_gap : m -> int -> unit = "cm_CAML_set_gap_3d"
-    external c_set_aff :
-        m -> int -> int -> unit = "cm_CAML_set_affine_3d"
+
+    external c_set_aff : m -> int -> int -> unit = "cm_CAML_set_affine_3d"
+
     external set_all_elements : m -> int -> unit = "cm_CAML_set_all_elements_3d"
+
     external get_all_elements : m -> int = "cm_CAML_get_all_elements_3d"
+
     external alphabet_size : m -> int = "cm_CAML_get_a_sz_3d"
+
     external set_alphabet_size : int -> m -> unit = "cm_CAML_set_a_sz_3d"
+
     external lcm : m -> int = "cm_CAML_get_lcm_3d"
+
     external set_lcm : m -> int -> unit = "cm_CAML_set_lcm_3d"
+
     external gap : m -> int = "cm_CAML_get_gap_3d"
+
     external combine : m -> int = "cm_CAML_get_combinations_3d"
+
     external c_affine : m -> int = "cm_CAML_get_affine_3d"
+
     external gap_opening : m -> int = "cm_CAML_get_gap_opening_3d"
+
     external cost : int -> int -> int -> m -> int = "cm_CAML_get_cost_3d"
+
     external median : int -> int -> int -> m -> int = "cm_CAML_get_median_3d"
+
     external set_cost :
         int -> int -> int -> m -> int -> unit = "cm_CAML_set_cost_3d"
+
     external set_median : 
         int -> int -> int -> m -> int -> unit = "cm_CAML_set_median_3d"
+
     external clone : m -> m = "cm_CAML_clone_3d"
-    (* [create a_sz comb aff go ge dim] creates a new cost matrix with
-    alphabet size a_sz, considering all the possible combinations
-    of members of the alphabet (total efective size 2^a_sz - 1),
-    if comb is true with affine gap cost model if aff is not 0, in
-    which case will use gap opening cost go and extension gap ge. The
-    gap is represented as the next available integer depending on
-    the a_sz. IF dim is true the matrix will be three dimensional,
-    otherwise it will be two dimensional. *)
+
+    (** [create a_sz comb aff go ge dim] creates a new cost matrix with alphabet
+        size a_sz, considering all the possible combinations of members of the
+        alphabet (total efective size 2^a_sz - 1), if comb is true with affine
+        gap cost model if aff is not 0, in which case will use gap opening cost
+        go and extension gap ge. The gap is represented as the next available
+        integer depending on the a_sz. IF dim is true the matrix will be three
+        dimensional, otherwise it will be two dimensional. *)
     external create : 
         int -> bool -> int -> int -> int -> int -> int -> int -> int -> m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
+
     external make_three_dim : Two_D.m -> m = "cm_CAML_clone_to_3d"
 
     let use_combinations = true
+
     and use_cost_model = Linnear
+
     and use_gap_opening  = 0
 
-    let set_affine m model = 
-        match model with
+    let set_cost_model m model = match model with
         | No_Alignment -> c_set_aff m 2 0
         | Linnear      -> c_set_aff m 0 0 
         | Affine go    -> c_set_aff m 1 go
 
-
-    let affine m = 
-        c_affine m;;
-
-    let int_to_affine m = 
-        match c_affine m with
-        | 0 -> Linnear;
-        | 1 -> Affine (gap_opening m)
-        | _ -> No_Alignment;;
+    let affine m = c_affine m
 
     let cost_position a b c a_sz =
-        (((a lsl a_sz) + b) lsl a_sz) + c;;
+        (((a lsl a_sz) + b) lsl a_sz) + c
 
-    let median_position a b c a_sz = 
-        cost_position a b c a_sz;;
+    let median_position a b c a_sz =
+        cost_position a b c a_sz
 
-    let output ch m = 
+    let output ch m =
         let w = alphabet_size m in
         for i = 1 to w do
             for j = 1 to w do

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Subseq" "$Revision: 3160 $"
+let () = SadmanOutput.register "Subseq" "$Revision: 3230 $"
 (** The data and functions applied to a subsequence in a chromosome *)
 
 type type_t = Alied | Deleted | Both
@@ -61,10 +61,9 @@ let get_intersection s1 e1 s2 e2 =
 
 (** Compute the cost of a subseq when aligning with all gaps *)
 let cmp_del_cost del_subseq seq cost_mat = 
-    let cost_model = Cost_matrix.Two_D.affine cost_mat in 
-    let gap_opening_cost = 
-        match cost_model with
-        | Cost_matrix.Affine (gap_opening_cost) -> gap_opening_cost
+    let cost_model = Cost_matrix.Two_D.get_cost_model cost_mat in 
+    let gap_opening_cost = match cost_model with
+        | Cost_matrix.Affine gap_opening_cost -> gap_opening_cost
         | _ -> 0 
     in
     let gap_code = Cost_matrix.Two_D.gap cost_mat in

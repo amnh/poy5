@@ -17,16 +17,14 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* This implementation of sequence can only handle DNA sequences now, it
-* will be easy to extend it if necessary, but the payoff in speed can be 
-* considerable, so the best option is, if needed, to implement a second 
-* library for extended alphabet sizes. *)
-exception Invalid_Argument of string;;
-exception Invalid_Sequence of (string * string * int);; 
+let () = SadmanOutput.register "Sequence" "$Revision: 3252 $"
 
-let () = SadmanOutput.register "Sequence" "$Revision: 3160 $"
+exception Invalid_Argument of string
+
+exception Invalid_Sequence of (string * string * int)
 
 external register : unit -> unit = "seq_CAML_register"
+
 let () = register ()
 
 let ndebug = false
@@ -615,20 +613,17 @@ module Align = struct
 
     external c_max_cost_2 : s -> s -> Cost_matrix.Two_D.m -> int = "algn_CAML_worst_2"
 
-    (*[c_cost_2] and [c_cost_2_limit] return the alignment cost, the result of
-    * alignment is stored in Matrix.m, we can retrieve it with
-    * [extract_edited_2] *)
+    (** [c_cost_2] and [c_cost_2_limit] return the alignment cost, the result of
+        alignment is stored in Matrix.m, we can retrieve it with [extract_edited_2] *)
     external c_cost_2 :
-        s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int -> int =
-            "algn_CAML_simple_2"
+        s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int -> int = "algn_CAML_simple_2"
 
     external c_cost_2_limit :
         s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int -> int -> int ->
             int -> int -> int -> int = "algn_CAML_limit_2_bc" "algn_CAML_limit_2"
 
-    (*[cost_2_affine] and [c_align_affine_3] for affine alignment,
-    * besides cost, [c_align_affine_3] also give
-    * us alignment, which is called traceback in algn.c *)
+    (** [cost_2_affine] and [c_align_affine_3] for affine alignment, besides cost,
+        [c_align_affine_3] also give us alignment, which is called traceback in algn.c *)
     external c_align_affine_3 : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> 
         s -> s -> s -> s -> int -> int = "algn_CAML_align_affine_3_bc"
         "algn_CAML_align_affine_3"
@@ -637,33 +632,22 @@ module Align = struct
         "algn_CAML_cost_affine_3" 
 
     let align_affine_3 si sj cm =
-        let debug = false in
         let len1 = length si
         and len2 = length sj in
-        let si,sj,swaped = 
-            if len1<=len2 then si,sj,0 
-            else sj,si,1 
-        in
+        let si,sj,swaped = if len1<=len2 then si,sj,0 else sj,si,1 in
         let len = len1 + len2 + 2 in
-        if debug then Printf.printf "Align.align_affine_3,swaped=%d,aligned seq\
-        len<-len si(%d)+len sj(%d)+2 = %d\n%!" swaped len1 len2 len;
         assert((length si)<=(length sj));
         let resi = create len
         and resj = create len 
         and median = create len 
         and medianwg = create len in
-        let cost = 
-            c_align_affine_3 si sj cm Matrix.default resi resj median
-            medianwg swaped in
-        if debug then begin
-            Printf.printf "cost=%d,resi & resj = \n%!" cost;
-            printseqcode resi;
-            printseqcode resj;
-        end;
+        let cost =
+            c_align_affine_3 si sj cm Matrix.default resi resj median medianwg swaped
+        in
         if swaped=0 then
-        median, resi, resj, cost, medianwg
+            median, resi, resj, cost, medianwg
         else
-        median, resj, resi, cost, medianwg
+            median, resj, resi, cost, medianwg
 
     
     let max_cost_2 a b c =
@@ -943,13 +927,14 @@ module Align = struct
 
     (*pass different cost matrix(m1) here*)
     let cost_2 ?deltaw s1 s2 m1 m2 =
-        match Cost_matrix.Two_D.affine m1 with
+        match Cost_matrix.Two_D.get_cost_model m1 with
         | Cost_matrix.Affine _ -> cost_2_affine s1 s2 m1 m2
-        | Cost_matrix.Linnear | Cost_matrix.No_Alignment ->
+        | Cost_matrix.Linnear
+        | Cost_matrix.No_Alignment ->
             begin match deltaw with 
-                    | None        -> cost_2 s1 s2 m1 m2
-                    | Some deltaw -> cost_2 ~deltaw s1 s2 m1 m2
-                end
+                | None        -> cost_2 s1 s2 m1 m2
+                | Some deltaw -> cost_2 ~deltaw s1 s2 m1 m2
+            end
 
     external myers : s -> s -> int = "algn_CAML_myers"
 
@@ -1075,7 +1060,7 @@ module Align = struct
 
 
     let align_2 ?(first_gap=true) s1 s2 c m =
-        let cmp s1 s2 = match Cost_matrix.Two_D.affine c with
+        let cmp s1 s2 = match Cost_matrix.Two_D.get_cost_model c with
             | Cost_matrix.Affine _ ->
                 let _, s1p, s2p, tc, _ = align_affine_3 s1 s2 c in
                 s1p, s2p, tc
@@ -1150,7 +1135,7 @@ module Align = struct
             raise (Invalid_Argument "The size of the sequences is not the same.")
 
     let full_median_2 a b cm m =
-        match Cost_matrix.Two_D.affine cm with
+        match Cost_matrix.Two_D.get_cost_model cm with
         | Cost_matrix.Affine _ ->
             let m, _, _, _, _ = align_affine_3 a b cm in m
         | _ ->
@@ -1195,102 +1180,75 @@ module Align = struct
 (*Sequence.Align.closest parent mine.sequence h.c2 Matrix.default*)
     let closest s1 s2 cm m =
         let uselevel = check_level cm in
-        let debug = false in
-        if debug then begin
-        Printf.printf "Sequence.Align.[closest], uselevel = %b,use_comb=%d, parent and mine = \n%!" uselevel (Cost_matrix.Two_D.combine cm) ;
-        printseqcode s1;
-        printseqcode s2;
-        end;
         if is_empty s2 (Cost_matrix.Two_D.gap cm) then
             s2, 0
-        else
-        let (s, _) as res = 
-            if 0 = Cost_matrix.Two_D.combine cm then 
-                (* We always have just one sequence per type s *)
-                let s1', s2', cst = align_2 s1 s2 cm m in
-                let get_closest v i =
-                    let v' = get s1' i in
-                    let all = Cost_matrix.Two_D.get_all_elements cm in
-                    if v = all then 
-                        if v' = all then 1 (* We pick one, any will be fine *)
-                        else v'
-                    else v
-                in
-                remove_gaps2 (mapi get_closest s2') cm, cst
-            else
-                let s1', s2', comp =
-                    if 0 = compare s1 s2 then
-                        (* We remove all the gaps if we are using combinations *)
-                        if 0 = Cost_matrix.Two_D.combine cm then 
-                            s1, s2, true
-                        else
-                            if uselevel then 
-                                let gap_filter x =
-                                    gap_filter_for_combcode x cm
-                                in
-                                let news1 = map gap_filter s1 and
-                                news2 = map gap_filter s2 in 
-                                news1, news2, true
-                            else
-                                let mask = lnot (Cost_matrix.Two_D.gap cm) in
-                                mapi (fun x pos -> 
-                                    if pos > 0 then x land mask else x) s1, 
-                                mapi (fun x pos -> 
-                                    if pos > 0 then x land mask else x) s2, 
-                                true
-                    else
-                        let s1', s2', _ = align_2 s1 s2 cm m in
-                        if debug then begin
-                            Printf.printf "s1' and s2' from align parent and mine :\n%!";
-                            printseqcode s1';
-                            printseqcode s2';
-                        end;
-                        s1', s2', false
-                in
-            let s2',s2'wgap =
-                let s2' = 
+        else begin
+            let (s, _) as res =
+                if 0 = Cost_matrix.Two_D.combine cm then
+                    (* We always have just one sequence per type s *)
+                    let s1', s2', cst = align_2 s1 s2 cm m in
                     let get_closest v i =
                         let v' = get s1' i in
-                        Cost_matrix.Two_D.get_closest cm v' v 
+                        let all = Cost_matrix.Two_D.get_all_elements cm in
+                        if v = all then
+                            if v' = all then 1 (* We pick one, any will be fine *)
+                            else v'
+                        else v
                     in
-                    mapi get_closest s2' 
-                in
-                remove_gaps2 s2' cm, s2'
+                    remove_gaps2 (mapi get_closest s2') cm, cst
+                else
+                    let s1', s2', comp =
+                        if 0 = compare s1 s2 then
+                            (* We remove all the gaps if we are using combinations *)
+                            if 0 = Cost_matrix.Two_D.combine cm then
+                                s1, s2, true
+                            else
+                                if uselevel then
+                                    let gap_filter x = gap_filter_for_combcode x cm in
+                                    let news1 = map gap_filter s1
+                                    and news2 = map gap_filter s2 in
+                                    news1, news2, true
+                                else
+                                    let mask = lnot (Cost_matrix.Two_D.gap cm) in
+                                    mapi (fun x pos -> if pos > 0 then x land mask else x) s1,
+                                    mapi (fun x pos -> if pos > 0 then x land mask else x) s2,
+                                    true
+                        else
+                            let s1', s2', _ = align_2 s1 s2 cm m in
+                            s1', s2', false
+                    in
+                    let s2',s2'wgap =
+                        let s2' =
+                            let get_closest v i =
+                                let v' = get s1' i in
+                                Cost_matrix.Two_D.get_closest cm v' v
+                            in
+                            mapi get_closest s2'
+                        in
+                        remove_gaps2 s2' cm, s2'
+                    in
+                    (* We must recalculate the distance between sequences because
+                       the set distance calculation is an upper bound in the affine
+                       gap cost model *)
+                    if comp
+                        then s2', 0
+                        else s2', cost_2 s1 s2' cm m
             in
-            if debug then begin
-                Printf.printf ", s2' from get_closest based on s1' : %!"; 
-                printseqcode s2'wgap;
-            end;
-            (* We must recalculate the distance between sequences because the
-            * set ditance calculation is an upper bound in the affine gap cost
-            * model *)
-            if comp then 
-                s2', 0
-            else begin
-                let rescost = cost_2 s1 s2' cm m in
-                if debug then begin
-                    Printf.printf "call cost_2 on s1 and s2':\n%!";
-                    printseqcode s1;
-                    printseqcode s2';
-                    Printf.printf "return cost = %d\n%!" rescost;
-                end;
-                s2', rescost
-            end
-        in
-        res
+            res
+        end
 
-    (**[recost a b cm] there was no comment for this one, anyway, to me this looks
-    * like a function that return the cost of two alied
-    * sequence a and b with costmatrix cm. works for combination through
-    * bitwise(like dna) datatype, or those without combination , like old aminoacid*)
+
+    (** [recost a b cm] there was no comment for this one, anyway, to me this
+        looks like a function that return the cost of two alied sequence a and b
+        with costmatrix cm. works for combination through bitwise(like dna)
+        datatype, or those without combination , like old aminoacid. *)
     let recost ?(first_gap=true) a b cm =
         let debug = false in
         assert (length a = length b);
         let lena = length a
         and lenb = length b
         and gap = Cost_matrix.Two_D.gap cm 
-        and gap_opening =
-            match Cost_matrix.Two_D.affine cm with
+        and gap_opening = match Cost_matrix.Two_D.get_cost_model cm with
             | Cost_matrix.Affine x -> x
             | _ -> 0
         in
@@ -1367,7 +1325,7 @@ module Align = struct
         let debug = false and debug2 = false in
         let gap = Cost_matrix.Two_D.gap cm in
         let mm, go, ge =
-            match Cost_matrix.Two_D.affine cm with
+            match Cost_matrix.Two_D.get_cost_model cm with
             | Cost_matrix.Linnear
             | Cost_matrix.No_Alignment -> 
                     Cost_matrix.Two_D.cost 1 2 cm,
@@ -1928,7 +1886,7 @@ module NewkkAlign = struct
             else s2,s1,ls2,ls1,true,1
         in
         let cmp s1 s2 =
-            match Cost_matrix.Two_D.affine c with
+            match Cost_matrix.Two_D.get_cost_model c with
             | Cost_matrix.Affine _ ->
                     let tc = newkk_cost2_affine s1 s2 c m swaped in   
                     let s1p, s2p = get_alignment s1 s2 c m true swaped in
@@ -2000,7 +1958,7 @@ module NewkkAlign = struct
         in
         (*assert (ls1 <> 0);  assert (ls2 <> 0);*)
         if ls1 <= ls2 then
-            match Cost_matrix.Two_D.affine m1 with
+            match Cost_matrix.Two_D.get_cost_model m1 with
             | Cost_matrix.Affine _ ->
                     let cost = newkk_cost2_affine s1 s2 m1 m2 0 in
                     if debug then begin
@@ -2013,7 +1971,7 @@ module NewkkAlign = struct
             | _ ->
                     newkk_cost2 s1 s2 m1 m2 0
         else 
-            match Cost_matrix.Two_D.affine m1 with
+            match Cost_matrix.Two_D.get_cost_model m1 with
             | Cost_matrix.Affine _ ->
                     let cost = newkk_cost2_affine s2 s1 m1 m2 1 in
                     if debug then begin
@@ -2027,7 +1985,7 @@ module NewkkAlign = struct
                 newkk_cost2 s2 s1 m1 m2 1
 
     let full_median_2 a b cm m = 
-        match Cost_matrix.Two_D.affine cm with
+        match Cost_matrix.Two_D.get_cost_model cm with
         | Cost_matrix.Affine _ (*->
                 let a, b, _ = align_2 a b cm m in
                 median_2 a b cm*)
@@ -2140,7 +2098,7 @@ let select_one_randomized s cm =
 let readjust a b m cm parent use_ukk =
     let matr = Matrix.default in
     let algn s1 s2 =
-        match Cost_matrix.Two_D.affine cm with
+        match Cost_matrix.Two_D.get_cost_model cm with
         | Cost_matrix.Affine _ ->  
                 if use_ukk then 
                     let s1', s2', c =
@@ -3064,7 +3022,7 @@ let cmp_ali_cost (alied_seq1 : s) (alied_seq2 : s)
         direction (cost_mat : Cost_matrix.Two_D.m) =
 
     let opening_cost = 
-        match Cost_matrix.Two_D.affine cost_mat with
+        match Cost_matrix.Two_D.get_cost_model cost_mat with
         | Cost_matrix.Affine o -> o
         | _ -> 0
     in 
@@ -3454,40 +3412,30 @@ let map f s =
 * of sequence [seq] *)        
 let get_single_seq seq c2 = select_one seq c2
 
-(** [cmp_locus_indel_cost s c2 locus_indel]
-* returns the locus indel cost of locus [s] *)
+(** [cmp_locus_indel_cost s c2 locus_indel] returns the locus indel cost of locus *)
 let cmp_locus_indel_cost s c2 locus_indel =
     let locus_open, locus_ext = locus_indel in
-    let gap_open = 
-        match Cost_matrix.Two_D.affine c2 with
+    let gap_open = match Cost_matrix.Two_D.get_cost_model c2 with
         | Cost_matrix.Affine o -> o
         | _ -> 0
-    in 
-    let gap = Cost_matrix.Two_D.gap c2 in 
+    in
+    let gap = Cost_matrix.Two_D.gap c2 in
     let seq_len = length s in
-
-
-    let cmp_indel_cost p = 
+    let cmp_indel_cost p =
         let dna = get s p in
         if (dna land gap) = gap then 0
-        else Cost_matrix.Two_D.cost dna gap c2 
-    in 
-
-    let f1 = locus_open + locus_ext in 
-    let f2 = locus_open + gap_open + 
-             (cmp_indel_cost 0)
-    in  
-
+        else Cost_matrix.Two_D.cost dna gap c2
+    in
+    let f1 = locus_open + locus_ext in
+    let f2 = locus_open + gap_open + (cmp_indel_cost 0) in
     let rec cmp p f1 f2 =
         if p = seq_len then min f1 f2
         else begin
-            let new_f1 = (min f1 f2) + locus_ext in 
-            let indel_cost = cmp_indel_cost p in 
-            let new_f2 = min (f1 + gap_open + indel_cost)
-                             (f2 + indel_cost)
-            in 
+            let new_f1 = (min f1 f2) + locus_ext in
+            let indel_cost = cmp_indel_cost p in
+            let new_f2 = min (f1 + gap_open + indel_cost) (f2 + indel_cost) in
             cmp (p + 1) new_f1 new_f2
-        end 
+        end
     in
     cmp 1 f1 f2
 
@@ -3535,9 +3483,7 @@ module Clip = struct
     type old_s = s
     type s = [ `DO of old_s | `First of old_s | `Last of old_s ]
 
-    let extract_s s = 
-        match s with
-        | `DO x | `First x | `Last x -> x
+    let extract_s s = match s with | `DO x | `First x | `Last x -> x
 
     let fraction = 1.00
 
@@ -3646,39 +3592,47 @@ module Clip = struct
         | `Last -> `Last s
         | `First -> `First s
 
-    let delete_gap ?(gap_code = dna_gap) s = 
-        match s with
+    let delete_gap ?(gap_code = dna_gap) s = match s with
         | `DO s -> `DO (delete_gap ~gap_code s)
         | `Last s -> `Last (delete_gap ~gap_code s)
         | `First s -> `First (delete_gap ~gap_code s)
+
     let foldi f acc s = foldi f acc (extract_s s)
+
     let get s i = get (extract_s s) i
+
     let get_empty_seq kind = 
         let empty = get_empty_seq () in
         match kind with
         | `DO -> `DO empty
         | `First -> `First empty
         | `Last -> `Last empty
+
     let init kind f l = 
         let s = init f l in
         match kind with
         | `DO -> `DO s
         | `First -> `First s
         | `Last -> `Last s
+
     let is_empty s gap = is_empty (extract_s s) gap
+
     let length s = length (extract_s s)
+
     let prepend s i = prepend (extract_s s) i
-    let sub s a b = 
-        match s with
+
+    let sub s a b = match s with
         | `DO s -> `DO (sub s a b)
         | `First s -> `First (sub s a b)
         | `Last s -> `Last (sub s a b)
 
     let to_array s = to_array (extract_s s)
+
     let to_formater s alph = to_formater (extract_s s) alph
+
     let to_string s alph = to_string (extract_s s) alph
-    let safe_reverse s =
-        match s with
+
+    let safe_reverse s = match s with
         | `DO s -> `DO (safe_reverse s)
         | `First s -> `First (safe_reverse s)
         | `Last s -> `Last (safe_reverse s)

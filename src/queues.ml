@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 3160 $"
+let () = SadmanOutput.register "Queues" "$Revision: 3178 $"
 
 (** {1 Types} *)
 
@@ -162,7 +162,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     class type search_mgr = [a, b] Ptree.search_mgr
     let data_mining = false
     let debug_costfn = false
-    let debug_costfn_callback = None
     let debug_costfn_opportunistic = true
     let debug_fb_infcost_result = true
     let odebug = Status.user_message Status.Information
@@ -513,24 +512,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | Ptree.NoCost -> Tree.Skip
             | Ptree.Cost(cc) ->
                 tabu_mgr#break_distance cc;
-                if debug_costfn then begin
-                    if cur_best_cost <> max_float then begin
-                        let expected_new_cost = cur_best_cost -. b_delta +. cc in
-                        let newtree, tree_delta = join_fn adjust_mgr incremental j1 j2 pt in
-                        let actual_new_cost = Ptree.get_cost `Adjusted newtree in
-                        if expected_new_cost <> actual_new_cost then begin
-                            let diff = expected_new_cost -. actual_new_cost in
-                            Printf.ksprintf
-                                (Status.user_message Status.Error)
-                                ("Cost function not exact. Claimed cost %f "^^
-                                 "(delta = %f), actual cost %f, off by %f")
-                                expected_new_cost cc actual_new_cost diff;
-                            match debug_costfn_callback with
-                            | None   -> ()
-                            | Some f -> f expected_new_cost actual_new_cost j1 j2 cd_nd pt newtree
-                        end
-                    end
-                end;
                 if ( cc < b_delta ) then begin
                     c_delta <- (Ptree.Cost(cc));
                     let nt, j_delta = join_fn adjust_mgr incremental j1 j2 pt in

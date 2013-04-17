@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3160 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3242 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -121,13 +121,21 @@ module F : Ptree.Tree_Operations
      * Creates a hashtable with all the branch data. The key is the pair of
      * nodes lengths and the value is either a single length or a list of
      * branch lengths in the case of multiple character sets. *)
-    let branch_table ptree =
+    let branch_table opts ptree =
         let trees_table = Hashtbl.create 13 in
+        let inc_parsimony = match opts with
+            | Some _ -> (true, opts)
+            | None   -> (false,None)
+        in
+        let adjusted = match opts with
+            | Some `Single -> true
+            | Some (`Final | `Max) | None -> false
+        in
         let create_branch_table handle () =
             let rec single_node prev curr =
                 let pair = (min curr prev, max curr prev) in
                 let dat =
-                    AllDirNode.AllDirF.get_times_between
+                    AllDirNode.AllDirF.get_times_between ~adjusted ~inc_parsimony
                             (Ptree.get_node_data curr ptree)
                             (Some (Ptree.get_node_data prev ptree))
                 in
@@ -2087,18 +2095,16 @@ module F : Ptree.Tree_Operations
 
     let assign_final_states ptree =
         let assign_final_states_handle handle ptree =
-            try
-                let root_data, a, b = 
+            try let root_data, a, b =
                     let rt = Ptree.get_component_root handle ptree in
                     match rt.Ptree.root_median with
                     | Some ((`Edge (a, b)), root) -> root, a, b
                     | Some _ -> failwith "Single vertex" (* Used down below *)
                     | None -> failwith "No root?"
                 in
-                let root_data c = 
+                let root_data c = match root_data.AllDirNode.unadjusted with
                     (* We prepare a function to replace the taxon code for a
                        meaningful one to start the uppass with on each side *)
-                    match root_data.AllDirNode.unadjusted with
                     | [x] ->
                         { root_data with
                             AllDirNode.unadjusted = [{ x with AllDirNode.code = c }] }
@@ -2108,6 +2114,8 @@ module F : Ptree.Tree_Operations
                 let rec uppass grandparent_code parent_code parent_final vertex acc =
                     let my_data = Ptree.get_node_data vertex ptree in
                     match Ptree.get_node vertex acc with
+                    | Tree.Leaf _ -> acc
+                    | Tree.Single _ -> acc
                     | (Tree.Interior _) as nd ->
                             let a, b = Tree.other_two_nbrs parent_code nd in
                             let nda = Ptree.get_node_data a ptree
@@ -2116,22 +2124,13 @@ module F : Ptree.Tree_Operations
                                 AllDirNode.AllDirF.final_states grandparent_code
                                                     parent_final my_data nda ndb
                             in
-                            acc
-                                --> Ptree.add_node_data vertex my_data 
-                                --> uppass (Some parent_code) vertex my_data a 
+                            acc --> Ptree.add_node_data vertex my_data
+                                --> uppass (Some parent_code) vertex my_data a
                                 --> uppass (Some parent_code) vertex my_data b
-                    | Tree.Leaf _ ->
-                            let my_data = 
-                                AllDirNode.AllDirF.final_states grandparent_code 
-                                            parent_final my_data my_data my_data 
-                            in
-                            Ptree.add_node_data vertex my_data acc
-                    | Tree.Single _ -> acc
                 in
-                ptree --> uppass None a (root_data a) b 
+                ptree --> uppass None a (root_data a) b
                       --> uppass None b (root_data b) a
-            with
-            | Failure "Single vertex" -> ptree
+            with | Failure "Single vertex" -> ptree
         in
         IntSet.fold assign_final_states_handle (Ptree.get_handles ptree) ptree
 
@@ -2147,7 +2146,7 @@ module F : Ptree.Tree_Operations
                 | None   -> failwithf "AllDirChar.to_formatter; no single data: %d -- %d"
                                         par (AllDirNode.AllDirF.taxon_code node)
         in
-        let tree = assign_final_states tree in
+(*        let tree = assign_final_states tree in*)
         let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in
         let get_simplified parent x =
             let nd = Ptree.get_node_data x tree in

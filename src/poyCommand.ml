@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3160 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3259 $"
 
 let debug = false 
 
@@ -30,6 +30,7 @@ type read_option_t = [
     | `CostMatrix of Methods.filename
     | `Level of int * Methods.keep_method
     | `Tie_Breaker of Methods.keep_method
+    | `Affine of int
 ]
 
 type otherfiles = [
@@ -276,6 +277,7 @@ type internal_memory = [
 
 type settings = [
     | `TimerInterval of int
+    | `Parmap of int
     | `HistorySize of int
     | `Logfile of string option
     | cost_calculation
@@ -330,9 +332,9 @@ type reporta = [
     | `Data
     | `Xslt of (string * string)
     | `KML of (string * string)
-    | `Ascii of bool
+    | `Ascii of Methods.report_branch option
     | `Memory
-    | `Graph of bool
+    | `Graph of Methods.report_branch option
     | `Trees of Methods.information_contained list
     | `MstR
     | `TreeCosts
@@ -946,8 +948,8 @@ type command = [
     let transform_report_arguments x = match x with
         | [`File file] ->
                 let file = Some file in
-                [`Ascii (file, true); `Diagnosis (`Normal,file); `Trees ([], file)]
-        | [] -> [`Ascii (None, true); `Diagnosis (`Normal,None); `Trees ([], None)]
+                [`Ascii (file, Some `Single); `Diagnosis (`Normal,file); `Trees ([], file)]
+        | [] -> [`Ascii (None, Some `Single); `Diagnosis (`Normal,None); `Trees ([], None)]
         | _  -> let def = [], None in
                 let x, _ = List.fold_left transform_report def x in
                 x
@@ -1094,10 +1096,11 @@ type command = [
 
     let organize_read_options lst = 
         let rec organize_data (ss,cm,ro) = function
-            | (`Level _)
-            | (`Init3D _)
-            | (`Tie_Breaker _)
-            | (`Orientation _) as a -> (ss,cm,a::ro)
+            ( `Level _
+            | `Init3D _
+            | `Tie_Breaker _
+            | `Affine _
+            | `Orientation _) as a -> (ss,cm,a::ro)
             | (`CostMatrix x) ->
                 begin match cm with
                     | None -> (ss,Some x,ro)
@@ -1292,12 +1295,11 @@ type command = [
             ml_properties:
                 [
                     [ x = ml_substitution -> `ML_subst x ] |
-                    [ LIDENT "alphabet"; ":"; x = ml_alphabet -> `ML_alph  x ] |
-                    [ LIDENT "rates";":"; x = ml_rates -> `ML_vars  x ] |
-                    [ x = ml_costfn -> `ML_cost  x ] |
-                    [ LIDENT "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
-                                    -> `ML_prior x ] |
-                    [ LIDENT "gap"; ":"; x = ml_gap -> `ML_gaps  x ]
+                    [ LIDENT "alphabet"; ":"; x = ml_alphabet -> `ML_alph x ] |
+                    [ LIDENT "rates";":"; x = ml_rates -> `ML_vars x ] |
+                    [ x = ml_costfn -> `ML_cost x ] |
+                    [ LIDENT "priors";":"; x = ml_priors -> `ML_prior x ] |
+                    [ LIDENT "gap"; ":"; x = ml_gap -> `ML_gaps x ]
                 ];
             optional_poly :
                 [
@@ -1385,13 +1387,6 @@ type command = [
                         right_parenthesis -> `SearchBased file_couple_lst ] |
                     [ LIDENT "seq_to_chrom"; ":"; left_parenthesis; x = LIST0
                             [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToChrom x ] | 
-                    (* transform to breakinv is not working. breakinv use different coding system
-                    * custom alphabet can have repeated code in each sequence. breakinv doesn't
-                    * custom alphabet use continuous code , like a:1, b:2, c:3 ..., breakinv will have a:1, ~a:2, b:3, ~b:4, ...
-                    * if we really want to tranform custom alphabet to that, all input data & cost matrix & each tree node data needs to be redone.
-                    [ LIDENT "custom_to_breakinv"; ":"; left_parenthesis; x = LIST0
-                            [ x = chromosome_argument -> x] SEP ",";
-                            right_parenthesis -> `CustomToBreakinv x ] | *)
                     [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                             [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] |
                     [ LIDENT "custom_alphabet"; ":"; left_parenthesis; x = LIST0 
@@ -1633,7 +1628,8 @@ type command = [
                             `Alias (n,`Codon x) ] |
                     [ LIDENT "partition"; ":"; 
                         left_parenthesis; n = STRING; ","; x = old_identifiers; right_parenthesis ->
-                            `Alias (n,`Chars x) ]
+                            `Alias (n,`Chars x) ] |
+                    [ LIDENT "parmap"; ":"; x = INT -> `Parmap (int_of_string x) ]
     (*                [ LIDENT "space_saving_alignment" -> `Algn_Newkk ]|*)
     (*                [ LIDENT "normal_alignment" -> `Algn_Normal ]*)
                 ];
@@ -1703,12 +1699,12 @@ type command = [
                     [ LIDENT "asciitrees" ; y = OPT optional_collapse -> 
                         match y with
                         | Some (`Collapse y) -> `Ascii y
-                        | None -> `Ascii true ] |
+                        | None -> `Ascii (Some `Single) ] |
                     [ LIDENT "memory" -> `Memory ] |
                     [ LIDENT "graphtrees"; y = OPT optional_collapse ->
                         match y with
                             | Some (`Collapse y) -> `Graph y
-                            | None -> `Graph true ] |
+                            | None -> `Graph (Some `Single) ] |
                     [ LIDENT "trees"; x = OPT tree_information_list ->
                         match x with | Some x -> `Trees x | None -> `Trees [] ] |
                     [ LIDENT "treestats" -> `TreesStats ] |
@@ -2031,21 +2027,33 @@ type command = [
                             | `GeneralAlphabetSeq (a,_,_) ->
                                 begin match b with
                                     | Some (`Assign_Transformation_Cost_Matrix (f,_)) ->
-                                        `GeneralAlphabetSeq (a,f,[])
+                                        let oth = match c with
+                                            | None -> [`Prealigned]
+                                            | Some _ -> failwith "I@ cannot@ read@ custom@ alphabet@ characters@ with@ gap_opening."
+                                        in
+                                        `GeneralAlphabetSeq (a,f,oth)
                                     | Some ( `Create_Transformation_Cost_Matrix _)
-                                    | None -> failwith "I require an explicit cost matrix for custom alphabet characters"
+                                    | None -> failwith "I@ require@ an@ explicit@ cost@ matrix@ for@ custom@ alphabet@ characters."
                                 end
-                            | (`Aminoacids _) as x -> x
+                            | (`Aminoacids _) as x ->
+                                let c = match c with
+                                    | None   -> 0
+                                    | Some _ -> failwith "I@ cannot@ read@ prealigned@ characters@ with@ gap_opening."
+                                in
+                                x
                             | _ ->
                                 let b = match b with
                                     | Some b -> b
                                     | None   -> `Create_Transformation_Cost_Matrix (1,1)
-                                and c = match c with | None -> 0 | Some x -> x in
+                                and c = match c with
+                                    | None   -> 0
+                                    | Some _ -> failwith "I@ cannot@ read@ prealigned@ characters@ with@ gap_opening."
+                                in
                                 `Prealigned (a, b, c) ] |
                     [ x = otherfiles -> (x :> Methods.input) ]
                 ];
-            otherfiles_pre: (** subset of characters that are prealigned **)
-              [ [ f = STRING -> `AutoDetect [`Local f] ] |
+        otherfiles_pre: (** subset of characters that are prealigned **)
+            [   [ f = STRING -> `AutoDetect [`Local f] ] |
                 [LIDENT "nucleotide"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
@@ -2063,8 +2071,7 @@ type command = [
                         `Aminoacids (to_local a,[`Prealigned]) ]
                 ];
         otherfiles:
-            [
-                [ f = STRING -> `AutoDetect [`Local f] ] |
+            [   [ f = STRING -> `AutoDetect [`Local f] ] |
                 [ LIDENT "partitioned"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `PartitionedFile (to_local a) ] |
@@ -2124,12 +2131,22 @@ type command = [
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
                 [LIDENT "tcm"; ":"; left_parenthesis; cm = STRING; right_parenthesis -> `CostMatrix (`Local cm) ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
-                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x]
+                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
+                [LIDENT "gap_opening"; ":"; x = INT -> `Affine (int_of_string x) ]
             ];
         tree_information_list:
             [   
                 [ ":"; "("; x = LIST0 [x = tree_information -> x] SEP ","; ")" -> x ]
             ];
+        report_branch :
+            [
+                [LIDENT "min"    -> `Final ] |
+                [LIDENT "max"    -> `Max ] |
+                [LIDENT "single" -> `Single ] |
+                [LIDENT "false"  -> `None ]
+            ];
+        report_branch_opt :
+            [   [ ":"; x = report_branch -> x]  ];
         tree_information:
             [
                 [ LIDENT "_cost" -> `Cost ] |
@@ -2137,7 +2154,15 @@ type command = [
                 [ LIDENT "nexus" -> `NexusStyle ] |
                 [ LIDENT "total" -> `Total ] |
                 [ LIDENT "newick" -> `Newick ] |
-                [ LIDENT "branches" -> `Branches ] | 
+                [ LIDENT "branches"; p = OPT report_branch_opt ->
+                    let x :> Methods.report_branch option = match p with
+                        | Some `None   -> None
+                        | Some `Final  -> (Some `Final)
+                        | Some `Max    -> (Some `Max)
+                        | Some `Single -> (Some `Single)
+                        | None         -> (Some `Single)
+                    in
+                    `Branches x ] |
                 [ LIDENT "margin"; ":"; m = INT -> `Margin (int_of_string m) ] |
                 [ LIDENT "nomargin" -> `Margin (1000000010 - 1) ] |
                 [ x = old_identifiers -> `Chars x ] |
@@ -2146,9 +2171,15 @@ type command = [
             ];
         collapse:
             [
-                [ LIDENT "collapse"; y = OPT optional_boolean -> match y with
-                    | Some y -> `Collapse y 
-                    | None -> `Collapse true ]
+                [ LIDENT "collapse"; y = OPT report_branch_opt ->
+                    let x :> Methods.report_branch option = match y with
+                        | Some `None   -> None
+                        | Some `Final  -> (Some `Final)
+                        | Some `Max    -> (Some `Max)
+                        | Some `Single -> (Some `Single)
+                        | None         -> (Some `Single)
+                    in
+                    `Collapse x ]
             ];
         optional_collapse:
             [ 

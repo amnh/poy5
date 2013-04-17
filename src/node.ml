@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3160 $"
+let () = SadmanOutput.register "Node" "$Revision: 3230 $"
 
 let infinity = float_of_int max_int
 
@@ -1525,42 +1525,6 @@ END
 let get_times_between n c = get_times_between_dir false n c
 
 
-let get_times_between_plus_codes (child:node_data) (parent:node_data option) =
-(*    Printf.printf "Finding time between: %s -- %s : %d : "*)
-(*        (string_of_int child.taxon_code)*)
-(*        (match parent with | Some x -> string_of_int x.taxon_code | None -> "none")*)
-(*        (List.length child.characters);*)
-    let null = ([||],None) in
-    let func =
-IFDEF USE_LIKELIHOOD THEN
-        let fst (a,_,_) = a and snd (_,a,_) = a and thr (_,_,a) = a in
-        let f = match parent with
-            | None     -> thr
-            | Some par ->
-                if par.min_child_code = child.min_child_code 
-                    then fst
-                    else snd
-        in
-        function
-            | StaticMl z ->
-                (*Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt
-                                  (snd z.time) pp_fopt (thr z.time);    *)
-                MlStaticCS.get_codes z.preliminary, f z.time
-            | Dynamic z ->
-                (*Printf.printf " : %a,%a,%a\n" pp_fopt (fst z.time) pp_fopt
-                                  (snd z.time) pp_fopt (thr z.time);    *)
-                begin match z.preliminary with
-                    | DynamicCS.MlCS x -> MlDynamicCS.get_codes x, f z.time
-                    | _ -> null
-                end
-            | _ -> null
-ELSE
-        fun _ -> null
-END
-    in match parent with
-        | Some par -> List.map func par.characters
-        | None     -> List.map func child.characters
-
 (** replace the third component of the time with the value passed *)
 let replace_parent_time node time =
     IFDEF USE_LIKELIHOOD THEN
@@ -1968,55 +1932,58 @@ uppass. node.[has_to_single] won't include Sank, here, this has_sank should be f
     distance_lists chs1 chs2 (convert_2_lst nodea branches) 0.
 
 
+let rec cs_distance missing_distance nd1 nd2 ch1 ch2 = match ch1, ch2 with
+    | Nonadd8 a, Nonadd8 b ->
+          a.weight *. NonaddCS8.distance a.final b.final
+    | Nonadd16 a, Nonadd16 b ->
+          a.weight *. NonaddCS16.distance a.final b.final
+    | Nonadd32 a, Nonadd32 b ->
+          a.weight *. NonaddCS32.distance a.final b.final
+    | AddVec a, AddVec b ->
+          a.weight *. AddCS.Vector.distance a.final b.final
+    | AddGen a, AddGen b ->
+          a.weight *. AddCS.General.distance a.final b.final
+    | Sank a, Sank b ->
+          a.weight *. SankCS.distance a.final b.final
+    | FixedStates a, FixedStates b ->
+          a.weight *. Fixed_states.distance a.final b.final
+    | Dynamic a, Dynamic b ->
+          a.weight *. DynamicCS.distance missing_distance a.final b.final
+    | Kolmo a, Kolmo b ->
+          a.weight *. KolmoCS.distance a.final b.final
+    | StaticMl a, StaticMl b ->
+        IFDEF USE_LIKELIHOOD THEN
+            let x, _ (*ignore sumcost*) = cs_median 0 nd1 nd2 None None None ch1 ch2 in
+            begin match x with
+                | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
+                | _ -> assert false
+            end
+        ELSE
+            failwith MlStaticCS.likelihood_error
+        END
+    | Set a, Set b ->
+        (match a.final.smethod with
+         | `Strictly_Same ->
+            List.fold_right2
+                (fun a b x -> x +. (cs_distance missing_distance nd1 nd2 a b))
+                a.final.set b.final.set 0.0
+         | `Any_Of _ ->
+            (* unf. we just take the full median and check the distance *)
+            decr median_counter;
+            let m, _ (*ignore sumcost*) = cs_median !median_counter nd1 nd2 None None None ch1 ch2 in
+            extract_cost m)
+    | (FixedStates _ |StaticMl _ |Kolmo _ |Dynamic _ |Sank _ |AddGen _ | AddVec _
+        |Nonadd32 _ |Nonadd16 _ |Nonadd8 _ |Set _), _ -> assert false
+
+
 let distance ?(para=None) ?(parb=None) missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
-        if debug_distance then 
-            Printf.printf "\n Node.distance on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
-    let rec distance_two ch1 ch2 =
-        match ch1, ch2 with
-        | Nonadd8 a, Nonadd8 b ->
-              a.weight *. NonaddCS8.distance a.final b.final
-        | Nonadd16 a, Nonadd16 b ->
-              a.weight *. NonaddCS16.distance a.final b.final
-        | Nonadd32 a, Nonadd32 b ->
-              a.weight *. NonaddCS32.distance a.final b.final
-        | AddVec a, AddVec b ->
-              a.weight *. AddCS.Vector.distance a.final b.final
-        | AddGen a, AddGen b ->
-              a.weight *. AddCS.General.distance a.final b.final
-        | Sank a, Sank b ->
-              a.weight *. SankCS.distance a.final b.final
-        | FixedStates a, FixedStates b ->
-              a.weight *. Fixed_states.distance a.final b.final
-        | Dynamic a, Dynamic b ->
-            if debug_distance then Printf.printf "DynamicCS, weight = %f\n%!" a.weight;
-              a.weight *. DynamicCS.distance missing_distance a.final b.final
-        | Kolmo a, Kolmo b ->
-              a.weight *. KolmoCS.distance a.final b.final
-        | StaticMl a, StaticMl b ->
-            IFDEF USE_LIKELIHOOD THEN
-                let x, _ (*ignore sumcost*) = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                match x with | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
-                             | _ -> assert false
-            ELSE
-                failwith MlStaticCS.likelihood_error
-            END
-        | Set a, Set b ->
-              (match a.final.smethod with
-               | `Strictly_Same ->
-                     distance_lists a.final.set b.final.set 0.
-               | `Any_Of _ -> (* TODO:: check this is correct *)
-                     (* unf. we just take the full median and check the distance *)
-                     decr median_counter;
-                     let m, _ (*ignore sumcost*) = cs_median !median_counter nodea nodeb None None None ch1 ch2 in
-                     extract_cost m)
-        | _ -> failwith "Incompatible characters (5)"
-    and distance_lists chs1 chs2 acc =
-        match chs1, chs2 with
+    let rec distance_lists chs1 chs2 acc = match chs1, chs2 with
         | ch1 :: chs1, ch2 :: chs2 ->
-              distance_lists chs1 chs2 (acc +. distance_two ch1 ch2)
+            distance_lists chs1 chs2
+                (acc +. cs_distance missing_distance nodea nodeb ch1 ch2)
         | [], [] -> acc
-        | _ -> failwith "Incompatible characters (6)"
+        | _ -> assert false
     in
     let res = distance_lists chs1 chs2 0. in
     if debug_distance then Printf.printf "resdis=%f\n%!" res;
@@ -2120,9 +2087,7 @@ let dist_2 minimum_delta n a b =
                              then l
                              else r in
                          List.map fn afromlist in
-                     let blist =
-                         List.map (List.nth sb.preliminary.set) blist in
-                       (* TODO: I am not updating this delta_left properly? *)
+                     let blist = List.map (List.nth sb.preliminary.set) blist in
                      List.iter
                          (fun n -> List.iter2
                               (fun a b ->
@@ -2156,6 +2121,71 @@ let dist_2 minimum_delta n a b =
         let res = chars 0. (n.characters, a.characters, b.characters) in
         if debug then Printf.printf "return join cost = %f\n%!" res;
         res
+
+
+(* used in the node interface to build branch tables for output and reorganizing
+   and applying branches in different directions. *)
+let get_times_between_plus_codes ?(inc_parsimony=(false,None))
+        (child:node_data) (parent:node_data option) =
+    let func =
+        let fstt (a,_,_) = a and sndt (_,a,_) = a and thrt (_,_,a) = a in
+        let f = match parent with
+            | None     -> thrt
+            | Some par ->
+                if par.min_child_code = child.min_child_code 
+                    then fstt
+                    else sndt
+        and parent = match parent with
+            | None   -> child
+            | Some x -> x
+        and combine a b c = match a,c with
+            | Some x,Some c -> Some ((x *. b) +. c)
+            | Some x,None -> Some (x *. b)
+            | None, c -> c
+        in
+        (fun ((acc1,acc2) as acc) x y -> match x,y with
+            | StaticMl x, StaticMl y ->
+              IFDEF USE_LIKELIHOOD THEN
+                (acc1,(MlStaticCS.get_codes y.preliminary, f y.time)::acc2)
+              ELSE
+                acc
+              END
+            | Dynamic x, Dynamic y ->
+                begin match y.preliminary with
+                    | DynamicCS.MlCS yy ->
+                      IFDEF USE_LIKELIHOOD THEN
+                        (acc1,(MlDynamicCS.get_codes yy, f y.time)::acc2)
+                      ELSE
+                        acc
+                      END
+                    | _ when (fst inc_parsimony) ->
+                        let acc1a = Array.append (fst acc1) (DynamicCS.codes y.final) in
+                        let acc1b =
+                            let ncost = DynamicCS.parsimony_branch_lengths (snd inc_parsimony) x.final y.final in
+                            combine ncost x.weight (snd acc1)
+                        in
+                        ((acc1a,acc1b),acc2)
+                    | _ -> acc
+                end
+            (** use general distance for everything else **)
+            | a,b when (fst inc_parsimony) ->
+                let acc1a = Array.append (fst acc1) (codes a) in
+                let acc1b =
+                    let ncost = Some (cs_distance 0.0 child parent a b) in
+                    combine ncost 1.0 (snd acc1)
+                in
+                ((acc1a,acc1b),acc2)
+            |  _ -> acc)
+    in
+    let oth,lik = match parent with
+        | Some par ->
+            List.fold_left2 func (([||],None),[]) child.characters par.characters
+        | None when (fst inc_parsimony) -> assert false
+        | None     ->
+            List.fold_left2 func (([||],None),[]) child.characters child.characters
+    in
+    oth::lik
+
 
 let extract_stat = function
     | (Data.Stat (a, b), _) -> (b, a)
@@ -2547,7 +2577,6 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             (Data.Stat (code, Some (`List enc.Nexus.File.st_observed)), `Unknown) 
         and gen_dynamic code =
             let alph = Data.get_alphabet !data code in
-            (* print_endline ("adding sequence with code " ^ string_of_int code); *)
             let empty_seq = Data.get_empty_seq alph in
             let chrom_data = Data.set_dyna_data [|empty_seq|] in 
             (Data.Dyna (code, chrom_data), `Unknown)
@@ -2665,13 +2694,13 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                 match ldynamic_chars with
                 | [] -> result
                 | _ ->
-                      let c = 
-                          List.map 
-                          (fun (dyna,fname) -> extract_dynamic !data dyna tcode) 
-                          ldynamic_chars 
-                      in
-                      let c : cs list = List.map (fun c -> Dynamic c) c in
-                      { result with characters = c @ result.characters } 
+                    let c = 
+                        List.map 
+                            (fun (dyna,fname) -> extract_dynamic !data dyna tcode) 
+                            ldynamic_chars 
+                    in
+                    let c : cs list = List.map (fun c -> Dynamic c) c in
+                    { result with characters = c @ result.characters } 
             in
             let result = (* FIXED STATES *)
                 match lfixedstates_chars with
@@ -2927,63 +2956,8 @@ let flatten cs_lst=
 let flatten_cslist (characters_lst: cs list list) data =
     let debug = false in
     if debug then Printf.printf "node.flatten_cslst -> %!";
-    let (seq_lstlstlst:(int * Sequence.s list list ) list)
-    = mapN flatten characters_lst in 
-    (* for BreakinvCS, seq_lstlstlst is like following ( other dynamicCS data
-    * types I know in are simpler than this):
-      {
-          (
-            [seq of 1th median of 1th chromosome of 1th node;
-             seq of 2th median of 1th chromosome of 1th node;
-             .... ];
-            [seq of 1th median of 1th chromosome of 2th node;
-             ...... 2th ..........1th ......................;
-             .....];
-            ......
-          )
-          (
-            [seq of 1th median of 2th chromosome of 1th node;
-             seq of 2th median of 2th chromosome of 1th node;
-             .... ];
-            [seq of 1th median of 2th chromosome of 2th node;
-             ...... 2th ..........2th ......................;
-             .....];
-            ......
-          )
-          ......
-          ......
-          (
-              [seq of 1th median of nth chromosome of 1th node;
-               seq of 2th ....................................;
-               ..... ];
-              [seq of 1th median of nth chromosome of 1th node;
-               seq of 2th median of ..........................
-               ..... ];
-               .......
-          )
-      }
-    *)
-    if debug then Printf.printf "before flatten_cslist seq_lstlstlst = \n%!";
+    let (seq_lstlstlst:(int * Sequence.s list list ) list) = mapN flatten characters_lst in 
     let getfilename filename_w_taxoncode =
-        (*if we have more than one chromsome in a taxon of a file
-        * fiel1.fas
-        * >t1
-        * a b c @ d e
-        * >t2
-        * a c b @ e d
-        * each chromosome become a character, with name filename^":"^"which
-        * taxon is it in"
-        * ( see data.ml
-        *   let locus_name = 
-            let c = ref (-1) in
-            ref (fun () -> incr c; file ^ ":" ^ string_of_int !c)
-            in)
-        * for the example above, we have
-        *         chmosome1 chmosome2
-        * file1   file1:0   file1:1
-        *
-        * this function get the filename out of string "filename:int"
-        * *)
         let idx = ref 0 and len = ref 0 in
         String.iter (fun chr -> 
             if chr=':' then len := !idx
@@ -3009,22 +2983,11 @@ let flatten_cslist (characters_lst: cs list list) data =
         else
             Hashtbl.add tbl filename [thischrom]
     ) seq_lstlstlst;
-    let file_chrom_node_med = Hashtbl.fold (fun filename chrom_node_med acc ->
-        acc@[(filename,chrom_node_med)]
-    ) tbl [] in
-    (*[tranpose take a matrix, return its transposed form]
-     * { 
-         * a1,a2,a3,....,an;
-         * b1,b2,b3,....,bn;
-         * ......
-         * x1,x2,x3,....,xn;
-         * ....
-         * }
-         become
-        { a1,b1,....,x1,...;
-          a2,b2,....,x2,...;
-          .....
-          an,bn,....,xn,...;}*)
+    let file_chrom_node_med =
+        Hashtbl.fold (fun filename chrom_node_med acc ->
+            acc@[(filename,chrom_node_med)]
+        ) tbl []
+    in
     let transpose in_lstlst =
         let len = List.length (List.hd in_lstlst) in
         let out_lstlst = ref [] in
@@ -3063,105 +3026,43 @@ let flatten_cslist (characters_lst: cs list list) data =
     in
     node_file_median_chrom_seq, node_file_median_chrom_seqdeli
 
+
 let single_to_multi_chromosome single_cs =
-    let dynCS_t_list:DynamicCS.t list =
-        match single_cs with
-            | Dynamic cs ->
-                    DynamicCS.single_to_multi cs.preliminary
-            | _ -> 
-                failwith ("single-chromosome to multi-chromosome :\ 
-                    we only deal with DynamicCS now")
+    let dynCS_t_list:DynamicCS.t list = match single_cs with
+        | Dynamic cs -> DynamicCS.single_to_multi cs.preliminary
+        | _ -> assert false
     in
-    let dynCS_t_r_list = 
-        List.map (fun dynCS_t -> 
-            match single_cs with 
+    let dynCS_t_r_list =
+        List.map (fun dynCS_t -> match single_cs with
             |Dynamic s_cs -> {s_cs with preliminary = dynCS_t; final = dynCS_t}
-            | _ -> failwith ("single to multichromosome : we only deal with DynamicCS now")
-            )dynCS_t_list 
+            | _ -> assert false
+        )dynCS_t_list
     in
-    List.map (fun dynCS_t_r -> Dynamic dynCS_t_r ) dynCS_t_r_list 
+    List.map (fun dynCS_t_r -> Dynamic dynCS_t_r ) dynCS_t_r_list
+
 
 let multi_to_single_chromosome node_data file_median_seq file_median_chrom_seqdeli (*newseq delimiters*) =
     let old_characters = node_data.characters in
-    let new_characters = 
-    match (List.hd old_characters) with
-    | Dynamic cs ->
-            let new_preliminary_lst = 
+    let new_characters = match (List.hd old_characters) with
+        | Dynamic cs ->
+            let new_preliminary_lst =
                 DynamicCS.update_t cs.preliminary file_median_seq file_median_chrom_seqdeli in
-            List.map (fun x -> 
-                Dynamic {cs with preliminary = x; final=x;}
-            ) new_preliminary_lst
-    | _ -> 
-    failwith ("multichromosome to singlechromosome : we only deal with DynamicCS now")
+            List.map
+                (fun x -> Dynamic {cs with preliminary = x; final=x;})
+                new_preliminary_lst
+        | _ -> assert false
     in
-    { node_data with characters = new_characters }   
+    { node_data with characters = new_characters; }
+
 
 let transform_multi_chromosome ( nodes : node_data list ) data =
-    let available = 
-        is_available (List.hd nodes).characters 
-    in
-    if (available=1) then begin
-    let characters_lst: cs list list = List.map (fun x -> x.characters) nodes in
-    let (node_file_median_chrom_seq:Sequence.s list list list list),
-    (node_file_median_chrom_seqdeli: int list list list list) = 
-        flatten_cslist characters_lst data
-    in
-        (* now the seq_lstlstlst is like this:
-          file 1:
-            {
-            (
-            [seq of 1th median of 1th chromosome of 1th node;
-             seq of 1th median of 2th chromosome of 1th node;
-             .... ];
-            [seq of 2th median of 1th chromosome of 1th node;
-             ...... 2th ..........2th ......................;
-             .....];
-            ......
-            )
-            (
-            [seq of 1th median of 1th chromosome of 2th node;
-             seq of 1th median of 2th chromosome of 2th node;
-             .... ];
-            [seq of 2th median of 1th chromosome of 2th node;
-             ...... 2th ..........2th ......................;
-             .....];
-            ......
-            )
-            .......
-            ( ... )
-          };
-          file 2:
-            {
-                ......
-            }
-        * *)
-        (*debug msg 
-        Printf.printf "check delimiters list after flatten =>\n%!";
-        List.iter (fun intlstlstlst ->
-        Printf.printf "node{\n%!";
-        List.iter(fun intlstlst -> 
-            Printf.printf "file(%!";
-            List.iter (fun intlst -> 
-                Printf.printf "median[%!";
-                List.iter (Printf.printf "%d,%!") intlst; 
-                Printf.printf "]\n%!"; )intlstlst;  
-            Printf.printf ")\n%!";
-        ) intlstlstlst;
-        Printf.printf "}\n%!";
-        )node_file_median_chrom_seqdeli;
-        Printf.printf "check seq list =>\n%!";
-        List.iter (fun seq_lstlstlst ->
-            Printf.printf "node{\n%!";
-            List.iter (fun seqlstlst ->
-            Printf.printf "file(\n%!";
-            List.iter (fun seqlst -> 
-                Printf.printf "median[%!";   List.iter (Sequence.printseqcode) seqlst; 
-                Printf.printf "]\n%!") seqlstlst; 
-            Printf.printf ")\n%!";
-            )seq_lstlstlst;
-            Printf.printf "}\n%!";
-        ) node_file_median_chrom_seq;
-         debug msg*)
+    let available = is_available (List.hd nodes).characters in
+    if available = 1 then begin
+        let characters_lst: cs list list = List.map (fun x -> x.characters) nodes in
+        let (node_file_median_chrom_seq:Sequence.s list list list list),
+                (node_file_median_chrom_seqdeli: int list list list list) = 
+            flatten_cslist characters_lst data
+        in
         let node_file_median_seq = 
             List.map ( fun file_median_chrom_seq ->
                 List.map (fun median_chrom_seq ->
@@ -3170,26 +3071,6 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
                 ) file_median_chrom_seq;
             ) node_file_median_chrom_seq;(* file_seq_lstlstlst;*)
         in
-        (* note: after concat, nodelst_medlst_seq is
-        * { ( sequence of 1th median); ( sequence of 2th median ); .... }
-        * deli_lstlst is
-        * { 
-            (delimiter lst of seqeunce of 1th median);
-            (delimiter lst of sequence of 2th median);
-            ......
-        * *)
-        (* debug msg
-        Printf.printf "after concat: %!";
-        List.iter (fun file_median_seq ->
-            Printf.printf "node{\n%!";
-            List.iter (fun seqlst ->
-                Printf.printf "file (\n%!";
-                List.iter (Sequence.printseqcode) seqlst;
-                Printf.printf ")\n%!";
-            ) file_median_seq;
-            Printf.printf "}\n%!";
-        ) node_file_median_seq;
-         debug msg*)
         let new_nodedata_lst = 
         map3 (fun old_nodedata file_median_seq file_median_chrom_seqdeli -> 
             multi_to_single_chromosome old_nodedata file_median_seq file_median_chrom_seqdeli)
@@ -3198,10 +3079,10 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
          node_file_median_chrom_seqdeli 
         in
         new_nodedata_lst
-    end
-    else 
+    end else 
         nodes
     
+
 let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
     (* classify -- Not only we make the list of characters into sets of
        characers, but we also filter those characters that have weight 0. *)
@@ -3347,9 +3228,6 @@ let output_total_cost ch i =
     let between () = print_endline (string_of_float i) in
     print_item print_endline "<cost>" "</cost>" between
 
-let pre = [ (Xml.Characters.cclass, `String Xml.Nodes.preliminary) ]
-let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
-let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
 
 let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
     if debug_tosingle then begin
@@ -3418,6 +3296,7 @@ let to_single (pre_ref_codes, fi_ref_codes) combine_bl root parent mine =
         let chars = map2 (cs_to_single (pre_ref_codes, fi_ref_codes) None ) 
                         parent.characters mine.characters in
         { mine with characters = chars; }
+
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
     if debug then
@@ -3552,6 +3431,9 @@ let get_active_ref_code node_data =
         (node_data.characters)
 
 let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs,cs_single) parent_cs = 
+    let pre = [ (Xml.Characters.cclass, `String Xml.Nodes.preliminary) ]
+    and fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
+    and sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ] in
     match cs, cs_single with
     | Nonadd8 cs, Nonadd8 _ ->
         begin match parent_cs with
@@ -4688,7 +4570,7 @@ module Standard :
         let apply_time = apply_time
         let extract_states a d _ c n = extract_states a d c n
         let min_prior = prior
-        let get_times_between = get_times_between_plus_codes 
+        let get_times_between ?adjusted = get_times_between_plus_codes
         let final_states _ = final_states
         let uppass_heuristic pcode ptime mine a b = mine
         let to_string = to_string

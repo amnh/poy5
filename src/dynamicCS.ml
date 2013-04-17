@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 3160 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 3230 $"
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
@@ -384,6 +384,7 @@ let distance_of_type t missing_distance a b len =
     | AnnchromCS a, AnnchromCS b when has_ann -> AnnchromCS.distance a b  
     | _, _ -> 0.0
 
+
 (** [distance_of_type a b] returns the distance between
 * two dynamic character sets [a] and [b] *)
 let distance missing_distance a b = match a, b with   
@@ -394,7 +395,6 @@ let distance missing_distance a b = match a, b with
     | BreakinvCS a, BreakinvCS b -> BreakinvCS.distance a b  
     | AnnchromCS a, AnnchromCS b -> AnnchromCS.distance a b  
     | _ , _ -> failwith_todo "distance"  
-
 
 
 (** [distance_union a b] returns the union distance between
@@ -607,7 +607,8 @@ let update_t oldt file_median_seq file_median_chrom_seqdeli =
         |_ -> failwith "dynaicCS.update_t,we don't update this datatype for multi-chromosome functions under MGR"
     in
     newt
-    
+
+
 let single_to_multi single_t =
     let tlist = match single_t with
         |BreakinvCS bk_t ->
@@ -616,6 +617,30 @@ let single_to_multi single_t =
         |_ -> failwith "we only deal with breakinv now"
     in
     tlist
+
+
+let parsimony_branch_lengths opt x y = match x, y with
+    | SeqCS a, SeqCS b ->
+        begin match opt with
+            | Some `Max    ->
+                let cost = SeqCS.worst_cost a b in
+                Some cost
+            | Some `Final  ->
+                let cost = SeqCS.distance 0.0 a b in
+                Some cost
+            | Some `Single ->
+                let _,cost,_ = SeqCS.to_single a b None in
+                Some cost
+            | None         -> None
+        end
+    (* We do not support other characters; yet? *)
+    | MlCS _, MlCS _
+    | BreakinvCS _, BreakinvCS _
+    | AnnchromCS _, AnnchromCS _
+    | ChromCS    _, ChromCS    _
+    | GenomeCS   _, GenomeCS   _ -> None
+    | (SeqCS _ | MlCS _ | BreakinvCS _ | AnnchromCS _ | ChromCS _ | GenomeCS _), _ -> assert false
+
 
 (** [readjust ch1 ch2 par mine] attempts to (heuristically) readjust the character 
 * set [mine] to somewhere in between [ch1], [ch2], and [par] (the children and
@@ -707,17 +732,13 @@ let final_states mine ch1 ch2 par t1 t2 t3 =
     | _,_,_,_ -> assert false
 
 
-(** [to_single  ref_codes root alied_map p n] returns a node that contains per character a single state
- * which is closest to [p] among those available in [n].  
- * we don't modify cost of node to cost_to_parent_node anymore. all we do is
- * update sequence assigned to that node.
- * when root is passed, we intend to replace the sequence, leave alied
- * children sequence unchanged.
- * when root is None, we will use mine as root back to to_single function of
- * node.ml. 
- **)
-let to_single ref_codes root parent mine time =
-    match parent, mine with
+(** [to_single  ref_codes root alied_map p n] returns a node that contains per
+    character a single state which is closest to [p] among those available in
+    [n].  we don't modify cost of node to cost_to_parent_node anymore. all we do
+    is update sequence assigned to that node.  when root is passed, we intend to
+    replace the sequence, leave alied children sequence unchanged.  when root is
+`   None, we will use mine as root back to to_single function of node.ml.  *)
+let to_single ref_codes root parent mine time = match parent, mine with
     | SeqCS parent, SeqCS mine ->
         let parent, root  = match root with
             | None           -> parent, None
@@ -734,7 +755,6 @@ let to_single ref_codes root parent mine time =
             | _             -> assert false
         and time = match time with
             | Some x -> max min_bl x
-            (* we are dealing with a single node *)
             | None when MlDynamicCS.compare parent mine -> 0.0
             | None -> assert false
         in

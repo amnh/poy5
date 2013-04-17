@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3160 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3267 $"
 
 let eager        = false
 let uppass_debug = false
@@ -246,9 +246,9 @@ module OneDirF :
                 let y = force_val y in
                 Node.Standard.apply_time root x y)
             
-    let get_times_between a b = match b with
-        | Some b -> Node.Standard.get_times_between (force_val a) (Some (force_val b))
-        | None   -> Node.Standard.get_times_between (force_val a) None
+    let get_times_between ?adjusted ?inc_parsimony a b = match b with
+        | Some b -> Node.Standard.get_times_between ?adjusted ?inc_parsimony (force_val a) (Some (force_val b))
+        | None   -> Node.Standard.get_times_between ?adjusted ?inc_parsimony (force_val a) None
 
     let uppass_heuristic pcode ptime mine a b = mine
 
@@ -737,27 +737,34 @@ struct
      * returns the branch length between the child and parent, contained in
      * parent, although, it shouldn't matter as long as the directions are
      * available *)
-    let get_times_between (child:n) (par: n option) =
+    let get_times_between ?(adjusted=false) ?inc_parsimony (child:n) (par: n option) =
+        let get_node a =
+            if adjusted then
+                get_adjusted_nodedata a "get_times_between"
+            else
+                match a.unadjusted with
+                | [x] -> x
+                | xst -> assert false
+        in
         match par with
         | None ->
-            begin match child.unadjusted with
-                | [x] -> OneDirF.get_times_between x.lazy_node None
-                | _   -> failwith "A direction should be specified"
-            end
+            let node = (get_node child).lazy_node in
+            OneDirF.get_times_between ?inc_parsimony ~adjusted node None
         | Some par ->
-            (* Use the leaf if available *)
-            begin match child.unadjusted, par.unadjusted with
-                | _,[x] -> OneDirF.get_times_between x.lazy_node None
-                | [x],_ -> OneDirF.get_times_between x.lazy_node None
-                |  _, _ ->
-                    try let child = not_with (taxon_code par) child.unadjusted
-                        and par = either_with (taxon_code child) par.unadjusted in
-                        OneDirF.get_times_between child.lazy_node (Some par.lazy_node)
-                    with | _ ->
-                        let child = either_with (taxon_code child) par.unadjusted
-                        and par   = not_with (taxon_code par) child.unadjusted in
-                        OneDirF.get_times_between par.lazy_node (Some child.lazy_node)
-            end
+            if adjusted then
+                OneDirF.get_times_between ?inc_parsimony ~adjusted
+                        (get_adjusted_nodedata child "get_times_between").lazy_node
+                  (Some (get_adjusted_nodedata par "get_times_between").lazy_node)
+            else
+                try let child = not_with (taxon_code par) child.unadjusted
+                    and par = either_with (taxon_code child) par.unadjusted in
+                    OneDirF.get_times_between ?inc_parsimony ~adjusted
+                                                child.lazy_node (Some par.lazy_node)
+                with | _ ->
+                    let child = either_with (taxon_code child) par.unadjusted
+                    and par   = not_with (taxon_code par) child.unadjusted in
+                    OneDirF.get_times_between ?inc_parsimony ~adjusted
+                                                par.lazy_node (Some child.lazy_node)
 
 
     (** [extract_states par child] extract the states of child toward par *)
@@ -1196,15 +1203,6 @@ struct
         let ec = extra_cost_from_root b tc in
         tc -. ec
 
-end
-
-type 'a node_hybrid = {
-    st : Node.Standard.n option;
-    dy : 'a;
-}
-
-module HybridF = struct
-    let get_dynamic x = x.dy
 end
 
 let create_root_from_child_branch child parent : AllDirF.n =

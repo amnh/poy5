@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 3160 $"
+let () = SadmanOutput.register "Build" "$Revision: 3221 $"
 
 let debug_profile_memory = false
 
@@ -770,7 +770,8 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     | [] -> failwith "No trees for constraint"
                 in
                 let maj = float_of_int (List.length tree_list) in
-                Ptree.consensus PtreeSearch.never_collapse 
+                Ptree.consensus
+                    (PtreeSearch.get_collapse_function None)
                     (fun code -> Data.code_taxon code data)
                     (maj)
                     (Sexpr.to_list trees)

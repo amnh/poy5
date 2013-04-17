@@ -13,6 +13,7 @@ AC_PROG_CC
 AC_SUBST(DUSE_NATIVEDYNLINK)
 AC_SUBST(DUSE_XSLT)
 AC_SUBST(DUSE_LIKELIHOOD)
+AC_SUBST(DUSE_PARMAP)
 AC_SUBST(DUSE_CONCORDE)
 AC_SUBST(CONCORDE_LIB)
 AC_SUBST(CONCORDE_CFLAGS)
@@ -56,6 +57,7 @@ AC_SUBST(USE_LONG_SEQUENCES)
 AC_SUBST(USE_LARGE_ALPHABETS)
 AC_SUBST(USE_XSLT)
 AC_SUBST(USE_LIKELIHOOD)
+AC_SUBST(USE_PARMAP)
 AC_SUBST(USE_CONCORDE)
 AC_SUBST(USE_SSE)
 AC_SUBST(USE_VERIFY_COSTS)
@@ -150,6 +152,11 @@ AC_ARG_ENABLE([large-messages], [AS_HELP_STRING([--enable-large-messages],
               [When --enable-mpi is selected, this option turns on large messages for tree exchanges. Large messages reduce considerably computation of trees when different processes exchange them, but increase tremendously the message size. Use this option when message size (and the memory consumed to send and receive it) is not a possible bottleneck.])], 
               [USE_LARGE_MESSAGES="true"; DUSE_LARGE_MESSAGES="-DUSE_LARGE_MESSAGES"; OUSE_LARGE_MESSAGES=",use_large_messages"], 
               [USE_LARGE_MESSAGES="false"])
+
+AC_ARG_ENABLE([parmap], [AS_HELP_STRING([--enable-parmap], 
+              [Enables parmap through ocamlfind tree level parallelism in building and swappingr.])], 
+              [USE_PARMAP="true";DUSE_PARMAP="-DUSE_PARMAP"], 
+              [USE_PARMAP="false"])
 
 AC_ARG_ENABLE([shared-hd], [AS_HELP_STRING([--enable-shared-hd],
               [Force POY to support live broadcast of file contents when running in parallel. The default is false.])],
@@ -353,8 +360,12 @@ if test "$USE_XSLT" = "true"; then
 fi
 
 AS_IF( [test $USEPARALLEL = "true"],
-       AS_IF( [test $USEINTERFACE = "flat"], [], 
+       AS_IF( [test $USEINTERFACE = "flat"], [],
               AC_MSG_RESULT([Setting interface to flat for mpi compilation]);USEINTERFACE="flat"))
+
+AS_IF( [test $USE_PARMAP = "true"],
+       AS_IF( [test $USEINTERFACE = "ncurses"],
+              AC_MSG_RESULT([Setting interface to readline for parmap compilation]);USEINTERFACE="readline"))
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"],
@@ -364,6 +375,7 @@ AS_IF([test $USEINTERFACE = "ncurses"],
                 [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. See ./configure --help for more information.])],
                 [USEINTERFACE="readline"])])],
       [])
+
 AS_IF([test $USEINTERFACE = "pdcurses"],
       [AC_CHECK_LIB([pdcurses], [main],
             [LIBS="-lpdcurses $LIBS";USEINTERFACE="ncurses";DUSENCURSES="-DUSENCURSES";INTERFACETOP="NcursesML";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)],
@@ -371,6 +383,7 @@ AS_IF([test $USEINTERFACE = "pdcurses"],
                 [AC_MSG_FAILURE([The pdcurses interface requires the pdcurses library. See ./configure --help for more information.])],
                 [USEINTERFACE="readline"])])],
       [])
+
 AS_IF([test $USEINTERFACE = "readline"],
         [AC_CHECK_LIB([readline], [readline],
             [LIBS="-lreadline $LIBS";AC_DEFINE(HAVE_LIBREADLINE)
@@ -398,7 +411,7 @@ AC_CHECK_PROGS([OCAMLTOP], [ocamlmktop])
 
 # Check the version of OCaml
 AC_MSG_CHECKING([for OCaml version])
-OCAMLVERSION=`$OCAMLOPT -version`
+OCAMLVERSION=`$OCAMLOPT -vnum`
 AC_MSG_RESULT([$OCAMLVERSION])
 case $OCAMLVERSION in 
     3.10.2*)

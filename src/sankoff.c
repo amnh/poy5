@@ -37,10 +37,8 @@
 
 value sankoff_GC_custom_max( value n )
 {
-    int debug = 0;
     CAMLparam1( n );
     alloc_custom_max = Int_val( n );
-    if (debug) { printf("set alloc_custom_max to %d\n",alloc_custom_max); fflush(stdout); }
     CAMLreturn( Val_unit );
 }
 
@@ -53,10 +51,6 @@ inline void
 #endif
 free_elt (elt_p ep)
 {
-    int debug = 0;
-    if (debug) {
-    printf("free elt, ecode=%d,num_states=%d,m_already_set=%d\n",ep->ecode,ep->num_states,ep->m_already_set);
-    fflush(stdout); }
     if(ep->states!=NULL) free(ep->states);
     if(ep->leftstates!=NULL) free(ep->leftstates);
     if(ep->rightstates!=NULL) free(ep->rightstates);
@@ -79,16 +73,12 @@ __inline void
 inline void
 #endif
 free_eltarr(eltarr_p eap) {
-    int debug = 0;
-    if (debug) {
-    printf("free elstarr, taxon code = %d\n",eap->taxon_code); fflush(stdout); }
-    if (eap->tcm!=NULL) free(eap->tcm);
     int i;
+    if (eap->tcm!=NULL)
+        free(eap->tcm);
     for (i=0;i<eap->num_elts;i++)
         free_elt(&((eap->elts)[i]));
     free(eap->elts);
-    //we don't free eltarr itself in this function,free it outside
-    //free(eap);
     return;
 }
 
@@ -101,8 +91,6 @@ sankoff_CAML_free_eltarr (value v) {
     eltarr_p eap;
     eap = Sankoff_return_eltarr(v);
     assert(eap!=NULL);
-    int debug = 0;
-    if(debug) printf("sankoff_CAML_free_eltarr,taxon code = %d\n",eap->taxon_code);
     if (eap->tcm!=NULL) free(eap->tcm);
     int i;
     for (i=0;i<eap->num_elts;i++)
@@ -120,9 +108,6 @@ __inline void
 inline void
 #endif
 sankoff_CAML_free_elt (value v) {
-    int debug = 0;
-    if(debug) {
-    printf("sankoff_CAML_free_elt\n"); fflush(stdout);}
     elt_p ep;
     ep = Sankoff_return_elt(v);
     if(ep->states!=NULL) free(ep->states);
@@ -131,7 +116,7 @@ sankoff_CAML_free_elt (value v) {
     // free for new median_3
     if (median_3_su) { 
         if(ep->left_costdiff_mat!=NULL) free(ep->left_costdiff_mat);
-    if(ep->right_costdiff_mat!=NULL) free(ep->right_costdiff_mat);
+        if(ep->right_costdiff_mat!=NULL) free(ep->right_costdiff_mat);
     }
     if(ep->beta!=NULL) free(ep->beta);
     if(ep->e!=NULL) free(ep->e);
@@ -139,7 +124,6 @@ sankoff_CAML_free_elt (value v) {
     free(ep);
     return;
 }
-
 
 
 static struct custom_operations sankoff_custom_operations_elt = {
@@ -151,7 +135,6 @@ static struct custom_operations sankoff_custom_operations_elt = {
     custom_deserialize_default
 };
 
-
 static struct custom_operations sankoff_custom_operations_eltarr = {
     "http://www.amnh.org/poy/",
     &sankoff_CAML_free_eltarr,
@@ -161,23 +144,17 @@ static struct custom_operations sankoff_custom_operations_eltarr = {
     custom_deserialize_default
 };
 
-
-value 
-sankoff_CAML_register_elt (value u) {
+value sankoff_CAML_register_elt (value u) {
     CAMLparam1(u);
     register_custom_operations (&sankoff_custom_operations_elt);
     CAMLreturn (Val_unit);
 }
 
-
-value 
-sankoff_CAML_register_eltarr (value u) {
+value sankoff_CAML_register_eltarr (value u) {
     CAMLparam1(u);
     register_custom_operations (&sankoff_custom_operations_eltarr);
     CAMLreturn (Val_unit);
 }
-
-
 
 
 //return 0 if two int array are the same, 1 otherwise
@@ -435,8 +412,6 @@ sankoff_CAML_get_taxon_code (value this_eltarr)
     CAMLreturn(Val_int(eap->taxon_code));
 }
 
-
-
 value
 sankoff_CAML_get_ecode(value this_elt) {
     CAMLparam1(this_elt);
@@ -457,14 +432,11 @@ sankoff_CAML_get_states(value this_elt, value this_or_left_or_right) {
     long dims[1];
     dims[0] = num_states;
     if (whatstate==1) 
-    CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
-            1, ep->states, dims));
+        CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, ep->states, dims));
     else if (whatstate==2) 
-    CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
-            1, ep->leftstates, dims));
+        CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, ep->leftstates, dims));
     else if (whatstate==3) 
-    CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
-            1, ep->rightstates, dims));
+        CAMLreturn( alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, ep->rightstates, dims));
     else
         failwith ("sankoff_CAML_get_states,must pick which state array you need (1=states,2=leftstates,3=rightstates)");
 }
@@ -526,15 +498,16 @@ sankoff_compare_elt(elt_p ep1, elt_p ep2) {
                     int res1 = sankoff_compare_two_int_array(ep1->leftstates,ep2->leftstates,num_states);
                     int res2 = sankoff_compare_two_int_array(ep1->rightstates,ep2->rightstates,num_states);
                     res = res1 + res2;
-                    if (res>=1) return 1;
-                    else 
-                        if(ep1->m_already_set){
+                    if (res>=1) {
+                        return 1;
+                    } else {
+                        if(ep1->m_already_set){//m is set 
                             res = sankoff_compare_two_int_array(ep1->m,ep2->m,num_states);
-                            if (res==1) return 1;
-                            else return 0;
-                        }//m is set 
-                        else //m is not set,all other arrays are the same, return 0
-                        return 0;
+                            return (res==1)?1:0;
+                        } else { //m is not set,all other arrays are the same, return 0
+                            return 0;
+                        }
+                    }
                 }//left&right states are the same
             }//beta are the same
         }//states are the same
@@ -608,11 +581,8 @@ sankoff_CAML_get_tcm (value this_eltarr)
     int num_states=eap->num_states;
     long dims[2];
     dims[0] = num_states; dims[1] = num_states;
-    CAMLreturn(alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
-            2, eap->tcm, dims));
-    
+    CAMLreturn(alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 2, eap->tcm, dims));
 }
-
 
 value
 sankoff_CAML_get_sumcost (value this_eltarr)
@@ -625,7 +595,6 @@ sankoff_CAML_get_sumcost (value this_eltarr)
     CAMLreturn(Val_long(sum_cost));
     
 }
-
 
 value 
 sankoff_CAML_filter_character(value this_eltarr, value ecode_bigarr, value get_comp) {
@@ -741,8 +710,6 @@ sankoff_get_leftstate (elt_p ep, int pos)
     return (ep->leftstates)[pos];
 }
 
-
-
 #ifdef _win32
 __inline int
 #else
@@ -753,9 +720,6 @@ sankoff_get_rightstate (elt_p ep, int pos)
     assert(pos<ep->num_states);
     return (ep->rightstates)[pos];
 }
-
-
-
 
 value
 sankoff_CAML_init_state (value this_elt, value position, value cost) {
@@ -789,7 +753,6 @@ sankoff_get_e (elt_p ep, int pos)
 {
     return (ep->e)[pos];
 }
-
 
 value
 sankoff_CAML_init_e (value this_elt, value position, value cost)
@@ -859,11 +822,6 @@ sankoff_get_m (elt_p ep, int pos)
     return (ep->m)[pos];
 }
 
-
-
-
-
-
 //return 1 if a<b or b is infinity but a is not,
 //return 0 if a>=b or if a is infinity 
 #ifdef _win32
@@ -891,7 +849,6 @@ cost_less_or_equal (int a, int b)
     else if (is_infinity(b)) return 1;
     else return (a<=b);
 }
-
 
 //return min(a,b)
 #ifdef _win32
@@ -964,14 +921,12 @@ sankoff_get_min_state (elt_p ep, int * cost, int * idx)
     for (i=0;i<ep->num_states;i++)
     {
         thisstate = sankoff_get_state(ep,i);
-        if( cost_less(thisstate,best) )
-        {*cost=thisstate; *idx = i; best=thisstate;}        
-        else {};
+        if( cost_less(thisstate,best) ) {
+            *cost=thisstate; *idx = i; best=thisstate;
+        }
     }
     return;
 }
-
-
 
 value
 sankoff_CAML_get_e_array (value a) {
@@ -981,10 +936,8 @@ sankoff_CAML_get_e_array (value a) {
     int num_states = ep->num_states;
     long dims[1];
     dims[0] = num_states;
-    CAMLreturn(alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT,
-            1, ep->e, dims));
+    CAMLreturn(alloc_bigarray(BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, ep->e, dims));
 }
-
 
 //return min cost between same states, if num_samestates=0, return inf
 #ifdef _win32
@@ -994,13 +947,11 @@ inline int
 #endif
 sankoff_get_min_cost_between_same_states (int * samestates, int num_samestates, int * tcm, int num_states)
 {
-    int i; 
+    int i;
     int res=infinity;
     int tmp;
-    for (i=0;i<num_samestates;i++)
-    {
-       tmp = 
-       sankoff_return_value(tcm,num_states,num_states,samestates[i],samestates[i]); 
+    for (i=0;i<num_samestates;i++) {
+       tmp = sankoff_return_value(tcm,num_states,num_states,samestates[i],samestates[i]);
        store_min(tmp,&res);
     }
     return res;
@@ -1015,26 +966,17 @@ sankoff_canonize (elt_p ep, int * cm)
     int mincost=infinity,state_w_mincost=0;
     sankoff_get_min_state(ep,&mincost,&state_w_mincost);
     int num_states = ep->num_states;
-    for (i=0;i<num_states;i++)
-    {
+    for (i=0;i<num_states;i++) {
         state = sankoff_get_state(ep,i);
-        if (is_infinity(state)) 
-            newe = infinity;
-        else
-            newe = state - mincost;
+        newe = (is_infinity(state)) ? infinity : state-mincost;
         sankoff_set_e(ep,i,newe);
     }
     int best; int thise;
-    for (i=0;i<num_states;i++)
-    {
+    for (i=0;i<num_states;i++) {
         newbeta = infinity;
-        for (j=num_states-1;j>=0;j--)
-        {
+        for (j=num_states-1;j>=0;j--) {
            thise = sankoff_get_e(ep,j);
-           if (is_infinity(thise)) 
-               best = thise;
-           else
-               best = thise + sankoff_return_value(cm,num_states,num_states,i,j);   
+           best = (is_infinity(thise)) ? thise : thise + sankoff_return_value(cm,num_states,num_states,i,j);
            store_min(best,&newbeta);
         }
         sankoff_set_beta(ep,i,newbeta);
@@ -1042,25 +984,11 @@ sankoff_canonize (elt_p ep, int * cm)
     return;
 }
 
-/*value
-sankoff_CAML_canonize_elt (value bigarr_cm,value this_elt)
-{
-    CAMLparam2(cm,this_elt);
-    elt_p ep;
-    Sankoff_elt_custom_val(ep,this_elt);
-    int ** cm;
-    cm = Data_bigarray_val(bigarr_cm);
-    sankoff_canonize(ep,cm);
-    CAMLreturn (Val_unit);
-}*/
-
-
 value
 sankoff_CAML_create_eltarr (value is_identity, value taxon_code, value code, value number_of_states, value ecode_bigarr, value states_bigarr, value tcm_bigarr) {
     CAMLparam5(is_identity,taxon_code,code,number_of_states,ecode_bigarr);
     CAMLxparam2(states_bigarr,tcm_bigarr);
     CAMLlocal1(res);
-    int debug = 0;
     int num_states;
     num_states = Int_val(number_of_states);
     int tcode = Int_val(taxon_code);
@@ -1081,8 +1009,6 @@ sankoff_CAML_create_eltarr (value is_identity, value taxon_code, value code, val
     dimcm2 = Bigarray_val(tcm_bigarr)->dim[1];//number of states
     if ((dimcm1!=dimcm2)||(dimcm1!=dims2)) 
         failwith ("sankoff.c, wrong size of costmat between states");
-    if (debug) 
-    {printf("sankoff_CAML_create_eltarr,sizof(elt_arr)=%lu, taxon_code=%d,mycode=%d,number of charactors(num_elts)=%d,states number is %d\n",sizeof(struct elt_arr),tcode,mycode,dims1,num_states); }
     eltarr_p neweltarr;
     //alloc struct elt_arr 
     neweltarr = (eltarr_p)calloc(1,sizeof(struct elt_arr));
@@ -1119,19 +1045,12 @@ sankoff_CAML_create_eltarr (value is_identity, value taxon_code, value code, val
         //the infinity on ocaml side is diff from here, so we pass -1 instead
         //memcpy(newelt->states,states_arr,sizeof(int)*num_states);
         for (j=0;j<num_states;j++) {
-            if ( states_arr[j]==(-1) )
-                (newelt->states)[j] = infinity;
-            else
-                (newelt->states)[j] = states_arr[j];
+            (newelt->states)[j] = ( states_arr[j]==(-1) ) ? infinity : states_arr[j];
         }   
         newelt->beta = (int*)calloc(num_states,sizeof(int));
         newelt->e = (int*)calloc(num_states,sizeof(int));
         newelt->m = (int*)calloc(num_states,sizeof(int));
         sankoff_canonize(newelt,cost_mat);
-    }
-    if (debug) {
-        printf("return this elt_arr to Ocaml side.\n"); fflush(stdout);
-        sankoff_print_eltarr(neweltarr,0,0,0,0);
     }
     res = caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (eltarr_p), 1,alloc_custom_max);
     Sankoff_return_eltarr(res) = neweltarr;
@@ -1139,10 +1058,9 @@ sankoff_CAML_create_eltarr (value is_identity, value taxon_code, value code, val
 }
 
 
-value 
+value
 sankoff_CAML_create_eltarr_bytecode (value * argv, int argn){
-    return (sankoff_CAML_create_eltarr 
-        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]));
+    return (sankoff_CAML_create_eltarr (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]));
 }
 
 //store the shared states between two eltarr. return the number of shared states
@@ -1216,34 +1134,18 @@ __inline int
 inline int
 #endif
 sankoff_elt_dist_2 (elt_p epD, elt_p epA, elt_p epR, int * tcm) {
-    int debug = 0;
-    if(debug) {
-        printf("sankoff_elt_dist_2 :\n"); fflush(stdout);
-    }
     int num_states = epD->num_states;
-    if (debug) { printf("calloc mem for shared_states_ra/rd,num_states = %d\n", num_states); fflush(stdout);}
     int * shared_states_rd = (int*)calloc(num_states,sizeof(int));
     int * shared_states_ra = (int*)calloc(num_states,sizeof(int));
     int num_srd = elt_return_shared_states(epD,epR,shared_states_rd);
     int num_sra = elt_return_shared_states(epA,epR,shared_states_ra);
     if ((num_srd>0)||(num_sra>0)) {
-        int costrd = 
-    sankoff_get_min_cost_between_same_states(shared_states_rd,num_srd,tcm,num_states);
-        int costra = 
-    sankoff_get_min_cost_between_same_states(shared_states_ra,num_sra,tcm,num_states);
-        if (debug) 
-        { printf("num of shared states between nodeR and nodeD = %d, nodeR and nodeA = %d,\
-                costrd=%d,costra=%d,return the smaller one\n",
-                num_srd,num_sra,costrd,costra);
-        fflush(stdout); }
+        int costrd = sankoff_get_min_cost_between_same_states(shared_states_rd,num_srd,tcm,num_states);
+        int costra = sankoff_get_min_cost_between_same_states(shared_states_ra,num_sra,tcm,num_states);
         free(shared_states_rd);
         free(shared_states_ra);
-        if(costrd<costra) 
-            return costrd; 
-        else 
-            return costra;
-    }
-    else {
+        return (costrd<costra) ? costrd : costra;
+    } else {
         //free these two first
         free(shared_states_rd); free(shared_states_ra);
         //if we don't have array m yet, this part will cost us O(n^3)+O(n^2) time, n is the number of states. if array m is already there, we just need O(n^2) time.
@@ -1253,48 +1155,33 @@ sankoff_elt_dist_2 (elt_p epD, elt_p epA, elt_p epR, int * tcm) {
         else {//this part only be called once for each node.
             int tcm_ix, tcm_is, tcm_ss;
             int d_si;
-            //fill in array m for nodeD
-            if(debug) printf("fill in array m for nodeD\n");
-        if (debug) { printf("calloc mem for tbeta,num_states = %d\n", num_states); fflush(stdout);}
-            //arrays and integers for each s loop
+            //fill in array m for nodeD, arrays and integers for each s loop
             int * tbeta = (int*)calloc(num_states,sizeof(int));
             //remember what is state i when D(s,i) reach mininum.
-        if (debug) { printf("calloc mem for besti_arr,num_states = %d\n", num_states); fflush(stdout);}
             int * besti_arr = (int*)calloc(num_states,sizeof(int));
             int min_tbeta;  int min_dsi;  int besti_arr_size;
-            for (s=0;s<num_states;s++)
-            {
+            for (s=0;s<num_states;s++) {
                 min_dsi = infinity;//D.s = min[D(s,i)], i~[]
                 besti_arr_size=0; //reset idx of besti_arr to 0
-                for (i=0;i<num_states;i++)
-                {
-                    if(debug) printf("i=%d,",i);
+                for (i=0;i<num_states;i++) {
                     min_tbeta=infinity;
                     for (x=0;x<num_states;x++) {
                         tcm_ix = sankoff_return_value(tcm,num_states,num_states,i,x);
                         tbeta[x] = cost_plus(tcm_ix, sankoff_get_beta(epD,x));
                         store_min(tbeta[x],&min_tbeta);
                     }
-                    if(debug) printf("min(t.i.x+D.beta.x) = %d,",min_tbeta);
                     tcm_is = sankoff_return_value(tcm,num_states,num_states,i,s);
                     d_si = sankoff_get_e(epA,i) + tbeta[s] - min_tbeta;
-                    if(debug) 
-                    printf("d_si = A.e.i + t.i.s + D.s - min(...) = %d,",d_si);
                     if (cost_minus(d_si,min_dsi)) {
                         besti_arr[besti_arr_size]=i;
                         besti_arr_size ++;
                     }
                     store_min(d_si,&min_dsi);
                 }
-                if(debug) sankoff_print_int_array("best state i for nodeA :",besti_arr,besti_arr_size);
                 if(int_array_is_mem(besti_arr,besti_arr_size,s)) {
                     tcm_ss = sankoff_return_value(tcm,num_states,num_states,s,s);
-                    if(debug) 
-                    printf("best i for nodeA includes s for nodeM,min_dsi+=%d\n",
-                    tcm_ss);
                     min_dsi = min_dsi + tcm_ss;
                 }
-                if(debug) printf("nodeD.m.%d <-- %d\n",s,min_dsi);
                 sankoff_set_m(epD,s,min_dsi);
             }
             free(tbeta);
@@ -1306,18 +1193,14 @@ sankoff_elt_dist_2 (elt_p epD, elt_p epA, elt_p epR, int * tcm) {
         int e_R_y; int m_D_s;
         for (y=0;y<num_states;y++) {
             e_R_y = sankoff_get_e(epR,y);
-            for (s=0;s<num_states;s++)
-            {
+            for (s=0;s<num_states;s++) {
                 m_D_s = sankoff_get_m(epD,s);
                 tcm_sy = sankoff_return_value(tcm,num_states,num_states,s,y);
                 costRM = cost_plus(tcm_sy,e_R_y);
                 costRM = cost_plus(m_D_s,costRM);
                 store_min(costRM,&best);
-                if(debug) printf("y=%d,s=%d,costRM=%d+%d+%d=%d\n",
-                        y,s,tcm_sy,e_R_y,m_D_s,costRM);
             }
         }
-        if(debug) printf("best = %d\n",best);
         return best;
     }
 }
@@ -1328,29 +1211,12 @@ __inline int
 inline int
 #endif
 sankoff_dist_2 (eltarr_p eapD,eltarr_p eapA, eltarr_p eapR) {
-    int debug = 0;
-    if (debug) { 
-        printf("sankoff_dist_2,nodeD:\n");
-        fflush(stdout);
-        sankoff_print_eltarr(eapD,1,1,0,0);
-        printf("and nodeA:\n"); fflush(stdout);
-        sankoff_print_eltarr(eapA,1,1,0,0);
-        printf("and nodeR:\n"); fflush(stdout);
-        sankoff_print_eltarr(eapR,1,1,0,0);
-    }
     int acc=0;
     int i;
     int num_elts;
     num_elts = eapD->num_elts;
-    for (i=0;i<num_elts;i++)
-    {
-        acc = acc + sankoff_elt_dist_2
-        (&((eapD->elts)[i]),&((eapA->elts)[i]),&((eapR->elts)[i]),eapD->tcm);
-        if(debug) printf("acc += %d,",acc);
-    }
-    if (debug) { 
-        printf("return distance = %d, nodeD = \n",acc);
-        sankoff_print_eltarr(eapD,1,1,0,0);
+    for (i=0;i<num_elts;i++) {
+        acc = acc + sankoff_elt_dist_2(&((eapD->elts)[i]),&((eapA->elts)[i]),&((eapR->elts)[i]),eapD->tcm);
     }
     return acc;
 }
@@ -1363,84 +1229,75 @@ __inline void
 inline void
 #endif
 sankoff_elt_median_3(elt_p epA, elt_p epN, elt_p epL, elt_p epR, elt_p newepN, int * tcm,int is_left_child) {
-    int debug = 0;
     int num_states = epN->num_states;
     //copy epN to newepN, we are going to update array e later
     sankoff_clone_elt (newepN,epN);
     // for new  median3
     if (median_3_su) { 
-    int i, s;
-    int eAi;
-    int di, min_di;
-    int * cost_diff_mat; int cost_diff;
-    if(is_left_child) cost_diff_mat = epA->left_costdiff_mat;
-    else cost_diff_mat = epA->right_costdiff_mat;
-    for (s=0;s<num_states;s++) {
-        min_di = infinity;//reset min to inf
-        for (i=0;i<num_states;i++) {
-            eAi = sankoff_get_e(epA,i);
-            cost_diff = sankoff_return_value(cost_diff_mat,num_states,num_states,i,s);
-            di = cost_plus(cost_diff,eAi);
-            store_min(di,&min_di);
+        int i, s;
+        int eAi;
+        int di, min_di;
+        int * cost_diff_mat; int cost_diff;
+        if(is_left_child) cost_diff_mat = epA->left_costdiff_mat;
+        else cost_diff_mat = epA->right_costdiff_mat;
+        for (s=0;s<num_states;s++) {
+            min_di = infinity;//reset min to inf
+            for (i=0;i<num_states;i++) {
+                eAi = sankoff_get_e(epA,i);
+                cost_diff = sankoff_return_value(cost_diff_mat,num_states,num_states,i,s);
+                di = cost_plus(cost_diff,eAi);
+                store_min(di,&min_di);
+            }
+            sankoff_set_e(newepN,s,min_di);
         }
-        sankoff_set_e(newepN,s,min_di);
-    }
-    if (debug) { printf("end of elt median 3, check eltN:\n"); sankoff_print_elt(newepN,1,1,0,0); }
-    //end new median3 
+        //end new median3 
     } else {
-    //old median3 start
-    int i,s;
-    //store L.beta.s + R.beta.s to betasum
-    int * betasum = (int*)calloc(num_states,sizeof(int));
-    int x;
-    int betaL,betaR;
-    for (x=0;x<num_states;x++) {
-        betaL = sankoff_get_beta(epL,x);
-        betaR = sankoff_get_beta(epR,x);
-        if(debug) printf("betasum[%d]<-%d+%d\n",x,betaL,betaR);
-        betasum[x] = cost_plus(betaL,betaR);
-    }
-    if(debug) sankoff_print_int_array("beta sum : ",betasum,num_states);
-    //min_tbeta_i : fill in min(t.i.x + L.beta.x + R.beta.x) for each i
-    int * min_tbeta_i = (int*)calloc(num_states,sizeof(int));
-    int tix;
-    int tbeta;
-    int min_betasum;
-    for (i=0;i<num_states;i++) {
-        min_betasum = infinity; //reset min to inf
+        //old median3 start
+        int i,s;
+        //store L.beta.s + R.beta.s to betasum
+        int * betasum = (int*)calloc(num_states,sizeof(int));
+        int x;
+        int betaL,betaR;
         for (x=0;x<num_states;x++) {
-            tix = sankoff_return_value(tcm,num_states,num_states,i,x);
-            tbeta = cost_plus(tix,betasum[x]);
-            if(debug) printf("tbeta = tix(%d) + betasum[%d](%d) = %d\n ",tix,x,betasum[x],tbeta);
-            store_min(tbeta,&min_betasum);
+            betaL = sankoff_get_beta(epL,x);
+            betaR = sankoff_get_beta(epR,x);
+            betasum[x] = cost_plus(betaL,betaR);
         }
-        min_tbeta_i[i] = min_betasum;
-    }
-    if(debug) sankoff_print_int_array("min (t+betasum) :",min_tbeta_i,num_states);
-    //calc D_s_i for each pair of (s,i)
-    int eAi;
-    int min_di;
-    int d_i;
-    int tis;
-    for (s=0;s<num_states;s++) {
-        min_di = infinity;//reset min to inf
+        //min_tbeta_i : fill in min(t.i.x + L.beta.x + R.beta.x) for each i
+        int * min_tbeta_i = (int*)calloc(num_states,sizeof(int));
+        int tix;
+        int tbeta;
+        int min_betasum;
         for (i=0;i<num_states;i++) {
-            eAi = sankoff_get_e(epA,i);
-            tis = sankoff_return_value(tcm,num_states,num_states,i,s);
-            d_i = cost_plus(eAi,tis);
-            d_i = cost_plus(d_i,betasum[s]);
-            d_i = cost_minus(d_i,min_tbeta_i[i]);
-            if (debug) printf("s=%d,i=%d,d_i = eAi(%d) + t.i.s(%d) + betasum(%d) - min_tbetasum(%d) = %d\n",
-                    s,i,eAi,tis,betasum[s],min_tbeta_i[i],d_i);
-            store_min(d_i,&min_di);
+            min_betasum = infinity; //reset min to inf
+            for (x=0;x<num_states;x++) {
+                tix = sankoff_return_value(tcm,num_states,num_states,i,x);
+                tbeta = cost_plus(tix,betasum[x]);
+                store_min(tbeta,&min_betasum);
+            }
+            min_tbeta_i[i] = min_betasum;
         }
-        //fill in best D_s_i as E for each s
-        sankoff_set_e(newepN,s,min_di);
-    }
-    if (debug) { printf("end of elt median 3, check eltN:\n"); sankoff_print_elt(newepN,1,1,0,0); }
-    free(betasum);
-    free(min_tbeta_i);
-    //end of old median3 
+        //calc D_s_i for each pair of (s,i)
+        int eAi;
+        int min_di;
+        int d_i;
+        int tis;
+        for (s=0;s<num_states;s++) {
+            min_di = infinity;//reset min to inf
+            for (i=0;i<num_states;i++) {
+                eAi = sankoff_get_e(epA,i);
+                tis = sankoff_return_value(tcm,num_states,num_states,i,s);
+                d_i = cost_plus(eAi,tis);
+                d_i = cost_plus(d_i,betasum[s]);
+                d_i = cost_minus(d_i,min_tbeta_i[i]);
+                store_min(d_i,&min_di);
+            }
+            //fill in best D_s_i as E for each s
+            sankoff_set_e(newepN,s,min_di);
+        }
+        free(betasum);
+        free(min_tbeta_i);
+        //end of old median3 
     }
     return;
 }
@@ -1455,50 +1312,26 @@ sankoff_median_3(eltarr_p eapA,eltarr_p eapN, eltarr_p eapL, eltarr_p eapR, elta
     int debug = 0;
     int i;
     int num_states, num_elts;
-        num_states = eapN->num_states;
-        num_elts = eapN->num_elts;
+    num_states = eapN->num_states;
+    num_elts = eapN->num_elts;
     if (sankoff_is_leaf_node(eapN)) {
-        if (debug) { 
-            printf("===== sankoff_median_3 ===== on leafnode:\n");
-            sankoff_print_eltarr(eapN,1,1,0,0);
-        }
         //alloc neweapN's pointers 
         sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapN->left_taxon_code,eapN->right_taxon_code, eapN->tcm, eapN->is_identity);
-        for (i=0;i<num_elts;i++)
-        {
+        for (i=0;i<num_elts;i++) {
             sankoff_create_empty_elt(&((neweapN->elts)[i]),num_states,-1);
             sankoff_clone_elt(&((neweapN->elts)[i]),&((eapN->elts)[i]));
         }
-        if (debug) {
-            printf("return clone leafnode:\n");
-            sankoff_print_eltarr(neweapN,1,1,0,0);
-        }
         return;
-    }
-    else {
+    } else {
         assert(eapA->code == eapN->code);
         assert(eapA->num_elts == eapN->num_elts);
         assert(eapA->num_elts == eapL->num_elts);
         assert(eapA->num_elts == eapR->num_elts);
-        if (debug) { printf("===== sankoff_median_3 =====\n on node Ancestor:\n");
-            sankoff_print_eltarr(eapA,1,1,0,0);
-            printf(" and nodeN:\n");
-            sankoff_print_eltarr(eapN,1,1,0,0);
-            printf(" and node Left child:\n");
-            sankoff_print_eltarr(eapL,1,1,0,0);
-            printf(" and node Right child:\n");
-            sankoff_print_eltarr(eapR,1,1,0,0);
-        } 
         int is_left_child = sankoff_is_left_or_right_child(eapN,eapA);
         sankoff_init_eltarr (neweapN, num_states, num_elts, eapN->code, eapN->taxon_code,eapL->taxon_code,eapR->taxon_code, eapN->tcm, eapN->is_identity);
-        for (i=0;i<num_elts;i++)
-        {
+        for (i=0;i<num_elts;i++) {
             sankoff_create_empty_elt(&((neweapN->elts)[i]),num_states,-1);
-            sankoff_elt_median_3
-            (&((eapA->elts)[i]),&((eapN->elts)[i]),&((eapL->elts)[i]),&((eapR->elts)[i]),&((neweapN->elts)[i]),eapA->tcm,is_left_child);
-        }
-        if (debug) { printf("====== return median ====== \n");
-            sankoff_print_eltarr(neweapN,1,1,0,0);
+            sankoff_elt_median_3 (&((eapA->elts)[i]),&((eapN->elts)[i]),&((eapL->elts)[i]),&((eapR->elts)[i]),&((neweapN->elts)[i]),eapA->tcm,is_left_child);
         }
         return;
     }
@@ -1537,7 +1370,7 @@ sankoff_elt_median(elt_p ep1, elt_p ep2, int * tcm, elt_p newep) {
         best_cost_i_j = infinity;
         //for new median3 speedup
         if (median_3_su) {
-        lcm = sankoff_move_to_line_i(newep->left_costdiff_mat,num_states,num_states,i);
+            lcm = sankoff_move_to_line_i(newep->left_costdiff_mat,num_states,num_states,i);
         }
         for(j=0;j<num_states;j++) {
             costij = sankoff_return_value(tcm,num_states,num_states,i,j);
@@ -1551,7 +1384,7 @@ sankoff_elt_median(elt_p ep1, elt_p ep2, int * tcm, elt_p newep) {
         //*for new median3 speedup
         if (median_3_su) {
             for(j=0;j<num_states;j++) {
-            lcm[j] = cost_minus(lcm[j],best_cost_i_j);
+                lcm[j] = cost_minus(lcm[j],best_cost_i_j);
             } 
         }
         best_cost_i_k = infinity;
@@ -1711,11 +1544,6 @@ __inline int
 inline int
 #endif
 sankoff_distance(eltarr_p eap1,eltarr_p eap2, eltarr_p neweltarr) {
-    int debug = 0; 
-    int debug2 = 0;
-    if(debug) printf("++++++ sankoff_distance ++++++\n");
-    if(debug2) sankoff_print_eltarr(eap1,0,0,0,0);
-    if(debug2) sankoff_print_eltarr(eap2,0,0,0,0);
     int acc=0;
     int i;
     int num_states, num_elts;
@@ -1723,20 +1551,16 @@ sankoff_distance(eltarr_p eap1,eltarr_p eap2, eltarr_p neweltarr) {
     num_elts = eap1->num_elts;
     //we don't need the median, just the distance
     sankoff_init_eltarr (neweltarr, num_states, num_elts, eap1->code, 0, eap1->taxon_code,eap2->taxon_code,eap1->tcm,eap1->is_identity);
-    for (i=0;i<num_elts;i++)
-    {
+    for (i=0;i<num_elts;i++) {
         sankoff_create_empty_elt(&((neweltarr->elts)[i]),num_states,-1);
-        acc = acc + sankoff_elt_distance
-        (&((eap1->elts)[i]),&((eap2->elts)[i]),eap1->tcm, &((neweltarr->elts)[i]));
+        acc = acc + sankoff_elt_distance (&((eap1->elts)[i]),&((eap2->elts)[i]),eap1->tcm, &((neweltarr->elts)[i]));
     }
-    if (debug) printf("+++++ return distance = %d ++++++++ \n",acc);
     return acc;
 }
 
         
 value
 sankoff_CAML_median(value code, value a, value b) {
-    int debug = 0;
    CAMLparam3(code,a,b);
    CAMLlocal1(res);
    eltarr_p eap1;
@@ -1745,12 +1569,6 @@ sankoff_CAML_median(value code, value a, value b) {
    eap2 = Sankoff_return_eltarr(b);
    eltarr_p neweltarr;
    neweltarr = (eltarr_p)calloc(1,sizeof(struct elt_arr));
-   if(debug) {
-       printf("sankoff_CAML_median on eap1&eap2:\n");
-       sankoff_print_eltarr(eap1,0,0,0,0);
-       sankoff_print_eltarr(eap2,0,0,0,0);
-       printf("call sankoff_median\n"); fflush(stdout);
-   }
    sankoff_median(Int_val(code),eap1,eap2,neweltarr);
    res = caml_alloc_custom (&sankoff_custom_operations_eltarr,sizeof (eltarr_p), 1,alloc_custom_max);
    Sankoff_return_eltarr(res) = neweltarr; 
@@ -1760,7 +1578,7 @@ sankoff_CAML_median(value code, value a, value b) {
 value
 sankoff_CAML_median_3(value a, value n, value l, value r) {
    CAMLparam4(a,n,l,r);
-    CAMLlocal1(res);
+   CAMLlocal1(res);
    eltarr_p eapA;
    eltarr_p eapN;
    eltarr_p eapL;
@@ -1821,108 +1639,3 @@ sankoff_CAML_get_extra_cost_for_root(value a) {
     ores = Val_int(res);
     CAMLreturn(ores);
 }
-
-/* no one calls this
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
-sankoff_elt_reroot(int * tcm, elt_p epold, elt_p epP, elt_p epQ) {
-    int debug = 0;
-    int num_states = epP->num_states;
-    int i,j,k,x;
-    int tcm_ij,tcm_ik, tcm_ijk;
-    int e_P_j, e_Q_k, e_sum;
-    //temp storage space before alpha5
-    int * temp_arrarr = (int*)calloc(num_states*num_states,sizeof(int));
-    int * temp_arr;
-    //storage space for alpha5
-    //int * alpha5 = (int*)calloc(num_states*num_states*num_states,sizeof(int));
-    //int * alpha5_p1, alpha5_p2;
-    if(debug) printf("sankoff_elt_reroot\n");
-    for (j=0;j<num_states;j++) {
-        e_P_j = sankoff_get_e(epP,j);
-        temp_arr = sankoff_move_to_line_i (temp_arrarr,num_states,num_states,j);
-        for(k=0;k<num_states;k++) {
-            e_Q_k = sankoff_get_e(epQ,k);
-            //reset min_jk for each [j,k]
-            int min_jk = infinity;
-            for (i=0;i<num_states;i++) {
-                tcm_ij = sankoff_return_value(tcm, num_states,num_states,i,j);
-                tcm_ik = sankoff_return_value(tcm, num_states,num_states,i,k);
-                tcm_ijk = tcm_ij+tcm_ik;
-                store_min(tcm_ijk,&min_jk);
-            }
-            e_sum = cost_plus(e_P_j,e_Q_k);
-            temp_arr[k] = cost_minus(e_sum,min_jk);
-            if(debug) printf("[%d,%d] = e_sum(%d) - min_jk(%d) = %d\n",
-            j,k,e_sum,min_jk,tem_arr[k]);
-        }
-    }
-    int alpha5_ijk;
-    for (i=0;i<num_states;i++) {
-        if(debug) printf("for each state i = %d\n", i);
-        //alpha5_p1 = sankoff_move_to_line_i(alpha5,num_states,num_states*num_states,i);
-        //reset min_i for each i
-        int min_i = infinity;
-        for (j=0;j<num_states;j++) {
-            //alpha5_p2 = sankoff_move_to_line_i(alpha5_p1,num_states,num_states,j);
-            for (k=0;k<num_states;k++) {
-                tcm_ij = sankoff_return_value(tcm, num_states,num_states,i,j);
-                tcm_ik = sankoff_return_value(tcm, num_states,num_states,i,k);
-                tcm_ijk = tcm_ij+tcm_ik;
-                //alpha5_p2[k] = 
-                alpha5_ijk = cost_plus (tcm_ijk, 
-                sankoff_return_value(temp_arrarr,num_states,num_states,j,k));
-                store_min(alpha5_ijk,&min_i);
-                if(debug) printf("min_i <- min(alpha5_ijk=%d,min_i=%d);",
-                        alpha5_ijk,min_i);
-            }
-        }
-        if(debug) printf("\n set e_old_%d = %d\n",i,min_i);
-        sankoff_set_e(epold,i,min_i);
-    }
-    free(temp_arrarr);
-    //free(alpha5);
-}
-
-
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
-sankoff_reroot(eltarr_p eapOld,eltarr_p eapP, eltarr_p eapQ) {
-    int debug = 0;
-    int i; 
-    int num_elts;
-    num_elts = eapP->num_elts;
-    for (i=0;i<num_elts;i++)
-    {
-        if(debug) printf("sankoff_reroot, on elt.%d:\n",i);
-        sankoff_elt_reroot
-        ( eapP->tcm,(eapOld->elts)[i],(eapP->elts)[i],(eapQ->elts)[i]);
-    }
-    return;
-}
-
-*/
-
-
-
-/*
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-distance
-
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-dist_2
-*/
