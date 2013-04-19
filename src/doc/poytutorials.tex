@@ -154,7 +154,8 @@ the search is clearly data dependent. In this case, it has been determined that 
 Contra \texttt{select()}, which selects topologically \emph{unique} and \emph{optimal} trees,  \texttt{select(unique)} 
 selects \emph{all} unique trees, regardless of cost, thus ensuring that a larger tree space is explored.
 \item \texttt{report("Run1a.tre", trees)} Having selected all unique trees, these trees are reported to a file.  Outputting
-trees at different stages of longer runs is advisable, in case of hardware problem, computer crashes, power outages etc: 
+trees at different stages of longer runs is advisable.  These reports can act as checkpoints in case of hardware problem, 
+computer crashes, power outages etc: 
 \item \texttt{search(max\_time:00:12:00)} A second timed search is performed.  
 \item \texttt{select(unique)} All topologically \emph{unique} trees (including suboptimal trees) are selected.
 \item \texttt{report("Run1b.tre", trees)} Having selected all unique trees, these trees are reported to a file.  
@@ -551,14 +552,14 @@ sequence length. In this case, the lcb quality parameter that represents the cos
 is set to the relatively low value of 25 to facilitate the detection of blocks within the sequences.  The higher the lcb 
 quality values will result in more stringent lcb determination and likely fewer local collinear blocks recovered.  The 
 second parameter within the argument \poyargument{annotate:(mauve)} sets the minimum lcb sequence coverage at 
-30\% meaning that if total length of an input sequence is, for example,100, a minimum coverage of 0.30 would require 
+30\% meaning that if total length of an input sequence is, for example, 100, a minimum coverage of 0.30 would require 
 a the total length of all lcbs to be at least 30. The default value of 0.01 or 1\% is sets the minimum length of a given lcb 
 relative to the length of the entire sequence (e.g. 100 for a 10,000 nucleotide sequence). The maximum length 
 allowed for an lcb in this example is set at 8\% of the length of the total sequence.
-\item \texttt{transform(fixed\_states:``mauveout'',ignore\_polymorphism))}  \\The \poycommand{transform} command 
+\item \texttt{transform(fixed\_states:(``mauveout'',ignore\_polymorphism))}  \\The \poycommand{transform} command 
 in combination with \poyargument{fixed\_states:\\("mauveout",ignore\_polymorphism))} is used to produce alignment files that 
 can be read into Mauve to track the movement of lcbs between sequences. Here, Mauve genome alignment files will be generated 
-with the names "mauveout\_i\_j.alignment'' where i and j are median states. Sequence ambiguities will not be resolved to generate additional 
+with the names ``mauveout\_i\_j.alignment'' where i and j are median states. Sequence ambiguities will not be resolved to generate additional 
 medians beyond those determined by the data. These files can be used in conjunction with the \poyargument{diagnosis} output to
 determine inferred rearrangement events. 
 \item \texttt{build(100)} This commands begins the tree-building step of the search that generates 100 random-

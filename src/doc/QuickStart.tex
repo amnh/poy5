@@ -440,8 +440,8 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		without delimiters. For \emph{Unannotated} chromosomes, the Mauve Parameters, must be set
 		by the user.  These parameters (\emph{Max. Match, Min. Match, Match Quality} and \emph {Match 
 		Coverage}) are employed by the Mauve aligner to find regions of homology or synteny blocks 
-		 between chromosomes (see~\nccross{annotate}{chromosomeannotate} within the 
-		 command \poycommand{read}). Default values for these parameters are provided in the \emph{GUI}.
+		 between chromosomes (see~\nccross{annotate}{annotate} within the 
+		 command \poycommand{transform}). Default values for these parameters are provided in the \emph{GUI}.
 		    	
 		\indent Within this subsection it is necessary to specify both \emph{Locus Indel} and rearrangement 
 		(\emph{Locus Breakpoint} or \emph{Locus Inversion}) costs.  The cost of a \emph{Locus Indel} 
@@ -454,9 +454,9 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		~\nccross{locus\_inversion}{chromosomelocusinversion} within the command 
 		\poycommand{transform}).  The default cost for both is set to 10. The user must also specify the 
 		\emph{Median solver} for the optimization of rearrangements. The default median solver is 
-		\emph{Caprara}, but the user can alternatively choose \emph{BBTSP, Coaletsp, Chainlk, 
-		Siepel, Simpllk} and \emph{Vinh} (see~\nccross{median\_solver}{chromosomemediansolver} 
-		within the command 	\poycommand{transform}).
+		\emph{Caprara}, but the user can alternatively choose \emph{BBTSP, ChainedLK, COALESTSP, 
+		MGR, Siepel, SimpleLK} and \emph{Vinh} (see~\nccross{median\_solver}{chromosomemediansolver} 
+		within the command \poycommand{transform}).
 		
 		\indent The user must also specify whether the chromosome is \emph{Circular} (true) or linear (false).
 		It is not possible to submit pre-aligned data files for either \emph{Annotated} or \emph{Unannotated} 
@@ -489,9 +489,8 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		and~\nccross{locus\_inversion}{chromosomelocusinversion} within the \emph{Chromosome 
 		and genome transformation methods} of the command \poycommand{transform}). 
 		The default cost for both is set to 10. A \emph{Median solver} must also be specified for the 
-		optimization of rearrangements. The default median solver is \emph{Caprara}, 
-		but the user can alternatively choose \emph{BBTSP, Coaletsp, 
-		Chainlk, Siepel, Simpllk} and \emph{Vinh} (see the argument~\nccross{median\_solver}
+		optimization of rearrangements. \emph{BBTSP, ChainedLK, COALESTSP, 
+		MGR, Siepel, SimpleLK} and \emph{Vinh} (see the argument~\nccross{median\_solver}
 		{chromosomemediansolver} within the \emph{Chromosome and genome transformation 
 		methods} of the command \poycommand{transform}).
 		
@@ -525,15 +524,15 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		 The rearrangement costs for \emph{Break Inversion} characters can be optimized using 
 		 either \emph{Breakpoint} or \emph{Locus Inversion} approaches (see the 
 		 arguments~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} and~\nccross{locus\_inversion}
-		 {chromosomelocusinversion} within the \emph{Chromosome and genome transformation methods} of the command 
-		 \poycommand{transform}). The default cost for both is set to 10. A \emph{Median solver} must also be 
-		 specified for the optimization of rearrangements. The default median solver is \emph{Caprara}, 
-		 but the user can alternatively choose \emph{BBTSP, Coaletsp, Chainlk, Siepel, Simpllk} and 
-		 \emph{Vinh} (see the argument~\nccross{median\_solver}{chromosomemediansolver}.  
-		 The calculation of median states between 
-		 \emph {Break Inversion} strings becomes more computationally intensive (and time consuming) 
-		 as the number of elements in the alphabet increases, therefore a single heuristic level 
-		 of median calculation can only be employed for these character types--this default level is 1.
+		 {chromosomelocusinversion} within the \emph{Chromosome and genome transformation methods} 
+		 of the command \poycommand{transform}). The default cost for both is set to 10. A \emph{Median solver} 
+		 must also be specified for the optimization of rearrangements. The default median solver is \emph{Caprara}, 
+		 but the user can alternatively choose \emph{BBTSP, ChainedLK, COALESTSP, MGR, Siepel, SimpleLK} 
+		 and \emph{Vinh} (see the argument~\nccross{median\_solver}{chromosomemediansolver}.  
+		 The calculation of median states between \emph {Break Inversion} strings becomes more 
+		 computationally intensive (and time consuming) as the number of elements in the alphabet 
+		 increases, therefore a single heuristic level of median calculation can only be employed 
+		 for these character types--the default level is 1.
 		 
 		\indent The requirements for \emph{Break Inversion} character types are identical to those for 
 		 \emph{Custom Alphabet} characters, with respect to substitution and indel transformation costs. 
@@ -606,7 +605,7 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		
 		\indent The \emph{Outgroup} field allows the the user to specify the outgroup taxon.  The name of the taxon
 		should reflect the name as interpreted by \poy.  Therefore, the name should take into account synonymy files, 
-		and taxon names that contain commented information via use of a \$ sign (see the argument~\nccross{rename}{rename}).
+		and taxon names that contain commented out information via use of a \$ sign (see the argument~\nccross{rename}{rename}).
 \end{description}
 
 \begin{figure}
