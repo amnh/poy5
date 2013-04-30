@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3270 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3278 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -920,35 +920,37 @@ module Two_D = struct
                     matrix.(i).(j) <- !res;
                 end;
             done;
-            matrix.(i).(all_elt) <- !all_min;
+            if all_elt > 0 then matrix.(i).(all_elt) <- !all_min;
         done;
         (* fill in the row of all_elements from min_column elements *)
-        for j = 1 to a_sz do
+        if all_elt > 0 then begin
+            for j = 1 to a_sz do
+                let all_min = ref [] and all_cst = ref max_int in
+                for i = 1 to a_sz do
+                    if i = all_elt then ()
+                    else begin
+                        let cst = cost i j m in
+                        if cst < !all_cst then
+                            all_min := matrix.(i).(j)
+                        else if cst = !all_cst then
+                            all_min := matrix.(i).(j) @ !all_min
+                    end
+                done;
+                matrix.(all_elt).(j) <- !all_min;
+            done;
             let all_min = ref [] and all_cst = ref max_int in
             for i = 1 to a_sz do
                 if i = all_elt then ()
                 else begin
-                    let cst = cost i j m in
+                    let cst = cost i all_elt m in
                     if cst < !all_cst then
-                        all_min := matrix.(i).(j)
+                        all_min := matrix.(i).(all_elt)
                     else if cst = !all_cst then
-                        all_min := matrix.(i).(j) @ !all_min
+                        all_min := matrix.(i).(all_elt) @ !all_min
                 end
             done;
-            matrix.(all_elt).(j) <- !all_min;
-        done;
-        let all_min = ref [] and all_cst = ref max_int in
-        for i = 1 to a_sz do
-            if i = all_elt then ()
-            else begin
-                let cst = cost i all_elt m in
-                if cst < !all_cst then
-                    all_min := matrix.(i).(all_elt)
-                else if cst = !all_cst then
-                    all_min := matrix.(i).(all_elt) @ !all_min
-            end
-        done;
-        matrix.(all_elt).(all_elt) <- !all_min;
+            matrix.(all_elt).(all_elt) <- !all_min;
+        end;
         (*tie_breaker,
         * if m1 and m2 are equally good as median of a and b, but we can only keep one :
             * 0 : randomly pick one
