@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3278 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3279 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -363,32 +363,35 @@ module Two_D = struct
                 store_input_list_in_cost_matrix_all_combinations m l 1 1 a_sz
         else begin
             store_input_list_in_cost_matrix_no_comb m l 1 1 a_sz all_elements;
-            for i = 1 to a_sz do
-                if i = all_elements then ()
-                else begin
-                    let min_cst = ref max_int in
-                    for j = 1 to a_sz do
-                        if j = all_elements then ()
-                        else min_cst := min (cost i j m) !min_cst
-                    done;
-                    set_cost i all_elements m !min_cst
-                end
-            done;
-            let all_min = ref max_int in
-            for j = 1 to a_sz do
-                if j = all_elements then ()
-                else begin
-                    let min_cst = ref max_int in
-                    for i = 1 to a_sz do
-                        if i = all_elements then ()
-                        else min_cst := min (cost i j m) !min_cst;
-                    done;
-                    all_min := min !min_cst !all_min;
-                    set_cost all_elements j m !min_cst
-                end
-            done;
-            set_cost all_elements all_elements m !all_min
+            if all_elements >= 0 then begin
+                for i = 1 to a_sz do
+                    if i = all_elements then ()
+                    else begin
+                        let min_cst = ref max_int in
+                        for j = 1 to a_sz do
+                            if j = all_elements then ()
+                            else min_cst := min (cost i j m) !min_cst
+                        done;
+                        set_cost i all_elements m !min_cst
+                    end
+                done;
+                let all_min = ref max_int in
+                for j = 1 to a_sz do
+                    if j = all_elements then ()
+                    else begin
+                        let min_cst = ref max_int in
+                        for i = 1 to a_sz do
+                            if i = all_elements then ()
+                            else min_cst := min (cost i j m) !min_cst;
+                        done;
+                        all_min := min !min_cst !all_min;
+                        set_cost all_elements j m !min_cst
+                    end
+                done;
+                set_cost all_elements all_elements m !all_min
+            end
         end
+            
 
 
 
@@ -920,10 +923,10 @@ module Two_D = struct
                     matrix.(i).(j) <- !res;
                 end;
             done;
-            if all_elt > 0 then matrix.(i).(all_elt) <- !all_min;
+            if all_elt >= 0 then matrix.(i).(all_elt) <- !all_min;
         done;
         (* fill in the row of all_elements from min_column elements *)
-        if all_elt > 0 then begin
+        if all_elt >= 0 then begin
             for j = 1 to a_sz do
                 let all_min = ref [] and all_cst = ref max_int in
                 for i = 1 to a_sz do
