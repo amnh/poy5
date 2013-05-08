@@ -1045,8 +1045,7 @@ module CharacterSelection = struct
      *  This function is placed here rather than in parser.ml because is needs
      *  to use Data.get_tcm function and if this is used in parser.ml
      *  then there is a circular dependency between poyParser.ml and parser.ml *)
-    let classify_sankoff code data = 
-        let match_cost_matrix code_cm first_lst data = match first_lst with
+    let classify_sankoff code data = let match_cost_matrix code_cm first_lst data = match first_lst with
             | hd :: _ -> 
                 let hd_cm = get_tcm hd data in
                 if code_cm = hd_cm then true else false
@@ -1093,10 +1092,13 @@ module CharacterSelection = struct
             let observed = List.length enc.Nexus.File.st_observed   in
             let between x y = observed >= x && observed <= y        in
             let is_zero_weight enc = enc.Nexus.File.st_weight = 0.0 in
+            let a_size = Alphabet.size enc.Nexus.File.st_alph in
             begin match st_type with
                 | _ when is_zero_weight enc -> data
-                | Nexus.File.STSankoff _    ->
+                | Nexus.File.STSankoff _ when a_size <= 32 ->
                     classify_sankoff code data
+                | Nexus.File.STSankoff _ ->
+                    {data with non_additive_33 = code::data.non_additive_33; }
                 | Nexus.File.STOrdered when observed > 1 ->
                     {data with additive = code :: data.additive }
                 | Nexus.File.STOrdered      -> data
@@ -1128,7 +1130,7 @@ module CharacterSelection = struct
                 add_static_type enc code enc.Nexus.File.st_type data
             | Static (FixedStates enc) ->
                 { data with fixed_states = code :: data.fixed_states }
-            | Dynamic _ -> 
+            | Dynamic _ ->
                 { data with dynamics = code :: data.dynamics }
             | Set ->
                 data
@@ -1225,7 +1227,6 @@ let empty () =
         complex_schema = [];
 }
 
-
 let copy_taxon_characters tc = 
     let new_tc = create_ht () in
     Hashtbl.iter (fun code othertbl ->
@@ -1242,7 +1243,6 @@ let copy_branches = function
             branches;
         Some tbl
     | None   -> None
-
 
 let duplicate data =
     { data with
@@ -1266,6 +1266,94 @@ let reverse_dynamic_static_codes map =
             All_sets.IntSetMap.add key i acc)
         map
         All_sets.IntSetMap.empty
+
+
+(** Convert characters in n33 classification to gen-nonadditve characters.
+ * source contains old matrices from the dynamic characters necessary for the
+ * general non-additive prealigned character. *)
+let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
+    let get_static_state t c a =
+        match Hashtbl.find (Hashtbl.find data.taxon_characters t) c with
+        | Stat (_,state),`Unknown ->
+            Alphabet.get_gap a
+        | Stat (_,state),`Specified ->
+            begin match state with
+            | Some x ->
+                let states = Nexus.File.static_state_to_list x in
+                begin match states with
+                | [] -> Alphabet.get_gap a
+                | xs -> Alphabet.find_comb xs a
+                end
+            | None -> Alphabet.get_gap a
+            end
+        | _ -> assert false
+    in
+    let generate_sequence_of_static_state
+            chars name_tbl code_tbl taxa alph code codes : Sequence.s =
+        let seq = Sequence.create (List.length codes) in
+        List.iter
+            ~f:(fun c ->
+                let state = get_static_state taxa c alph in
+                let () = try Hashtbl.remove name_tbl (Hashtbl.find code_tbl c)
+                         with Not_found -> () in
+                let () = try Hashtbl.remove code_tbl c
+                         with Not_found -> () in
+                Hashtbl.remove chars c;
+                Sequence.prepend seq state)
+            (List.rev codes);
+        seq
+    in
+    let adder spec_tbl char_tbl name_tbl code_tbl code : int =
+        let codes = All_sets.IntegerMap.find code data.dynamic_static_codes in
+        match codes with
+        | [] -> assert false
+        | x::_ when not (List.mem x data.non_additive_33) -> x
+        | x::_ ->
+            let static_spec = match Hashtbl.find spec_tbl x with
+                | Static (NexusFile spec) -> spec
+                | _ -> assert false
+            and dynamic_spec = match Hashtbl.find dyndata.character_specs code with
+                | Dynamic spec -> spec (* already set up matrices *)
+                | _            -> assert false
+            in
+            let new_spec = { dynamic_spec with
+                                state = `SeqPrealigned;
+                                initial_assignment = `GeneralNonAdd; }
+            in
+            let alph = get_alphabet dyndata code in
+            Hashtbl.iter
+                (fun tcode chars ->
+                    let delimiter = [] in
+                    let seq =
+                        generate_sequence_of_static_state
+                            chars name_tbl code_tbl tcode alph code codes
+                    in
+                    let state = Dyna (code,{ seq_arr = [| {seq; delimiter; code; } |]; }) in
+                    Hashtbl.replace chars code (state,`Specified))
+                char_tbl;
+            (* remove old specs *)
+            List.iter (fun x -> Hashtbl.remove spec_tbl x) codes;
+            Hashtbl.replace spec_tbl code (Dynamic new_spec);
+            let name = Hashtbl.find dyndata.character_codes code in
+            Hashtbl.replace name_tbl name code;
+            Hashtbl.replace code_tbl code name;
+            code
+    in
+    let new_specs = Hashtbl.copy data.character_specs 
+    and new_chars = copy_taxon_characters data.taxon_characters
+    and new_names = Hashtbl.copy data.character_names
+    and new_codes = Hashtbl.copy data.character_codes in
+    let c =
+        List.fold_left
+            ~f:(fun acc x -> (adder new_specs new_chars new_names new_codes x)::acc)
+            ~init:[] codes
+    in
+    { data with
+        character_codes = new_codes;
+        character_names = new_names;
+        character_specs = new_specs;
+        taxon_characters= new_chars; } --> categorize, c
+
 
 (* [convert_dynamic_to_static_branches src dest] Use the static_dynamic_codes
  * map from destination, and the branches structure from source. This behavior
@@ -2948,10 +3036,12 @@ let process_ignore_taxon data taxon =
             | Not_found -> ()
         in
         All_sets.StringMap.remove taxon data.taxon_names,
-        All_sets.IntegerMap.remove code data.taxon_codes 
+            All_sets.IntegerMap.remove code data.taxon_codes 
     in
-    { data with ignore_taxa_set = res; taxon_codes = taxon_codes; taxon_names =
-                    taxon_names}
+    { data with
+        ignore_taxa_set = res;
+        taxon_codes = taxon_codes;
+        taxon_names = taxon_names;}
 
 
 let process_ignore_file data file = 

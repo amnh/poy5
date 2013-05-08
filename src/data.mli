@@ -628,6 +628,8 @@ val sync_dynamic_to_static_model : src:d -> dest:d -> d
 
 val sync_static_to_dynamic_model : src:d -> dest:d -> d
 
+val convert_n33_to_gennonadditive : src:d -> dest:d -> int list -> d * int list
+
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 
 module Sample : sig
@@ -642,11 +644,10 @@ type tcm_class =
 
 val prealigned_characters :   
     (Cost_matrix.Two_D.m -> MlModel.model option -> Alphabet.a ->
-              tcm_class * ([> `Exists ] -> int -> FileContents.t list -> 
-                  FileContents.t list) *
-                 (int -> (Alphabet.a * Parser.OldHennig.Encoding.s) list ->
-                     (Alphabet.a * Parser.OldHennig.Encoding.s) list)) ->
-                           d -> bool_characters -> d
+        tcm_class * ([> `Exists ] -> int -> FileContents.t list -> FileContents.t list) *
+        (int -> (Alphabet.a * Parser.OldHennig.Encoding.s) list ->
+            (Alphabet.a * Parser.OldHennig.Encoding.s) list)) ->
+                d -> bool_characters -> d
 
 (** [compare_all_pairs a b c d] compare for each taxon the characters with code
 * [a] and [b], making the reverse complement of [b] if [c] is true, as stored in

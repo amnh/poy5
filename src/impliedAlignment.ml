@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3266 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3276 $"
 
 exception NotASequence of int
 
@@ -1263,9 +1263,8 @@ let present_absent_alph = Alphabet.present_absent
  * a state into a list of character states, and g converts a state into its
  * appropriate Parser.Hennig.Encoding.s *)
 let analyze_tcm tcm model alph =
-    let gap = Alphabet.get_gap alph 
-    and all = Alphabet.get_all alph in
     let for_sankoff =
+        let gap = Alphabet.get_gap alph in
         let go = match Cost_matrix.Two_D.get_cost_model tcm with
             | Cost_matrix.No_Alignment 
             | Cost_matrix.Linnear -> 0
@@ -1285,14 +1284,15 @@ let analyze_tcm tcm model alph =
             fun string -> processor 0 (String.length string) go string
     in
     let alph = Alphabet.simplify alph in
+    let gap = Alphabet.get_gap alph
+    and all = Alphabet.get_all alph in
     let single_compare (_, a) res (_, b) = match res with
-        | None -> 
-            let cost = (Cost_matrix.Two_D.cost a b tcm) in
-            Some cost
+        | None -> Some (Cost_matrix.Two_D.cost a b tcm)
         | Some y ->
             let x = Cost_matrix.Two_D.cost a b tcm in
-            if x = y then res
-            else raise IsSankoff
+            if x = y
+                then res
+                else raise IsSankoff
     in
     let rec compare_costs l1 l2 res = match l1, l2 with
         | _, [] | [], _     -> res
@@ -1467,15 +1467,14 @@ let analyze_tcm tcm model alph =
                     Array.init size (fun y ->
                         Cost_matrix.Two_D.cost (1 lsl x) (1 lsl y) tcm))
             | Alphabet.Sequential ->
-                let tcm_size = Cost_matrix.Two_D.alphabet_size tcm in
                 let all = match Alphabet.get_all alph with
                     | None -> (-1)
                     | Some x -> x
                 in
                 Array.init size (fun x -> 
                     Array.init size (fun y -> 
-                        let x = min (x + 1) tcm_size in 
-                        let y = min (y + 1) tcm_size in
+                        let x = (x + 1) in 
+                        let y = (y + 1) in
                         let x =
                             if x = all then x + 1
                             else x
@@ -1528,21 +1527,13 @@ let analyze_tcm tcm model alph =
                 in
                 match_bit x 1 1 []
             | Alphabet.Sequential -> 
-                    [x - 1]
+                    [x]
             | Alphabet.Continuous ->
                     assert false (* static data only *)
             | Alphabet.Extended_Bit_Flags 
             | Alphabet.Combination_By_Level -> 
                     failwith "Impliedalignment.convert_to_list"
         in
-        let all = 
-            (* The size minus 1 for the codes (starting in 0), and another
-            * one for the gap which we code separated *)
-            let sz  = match gap_processing_function with
-                | None -> size - 1
-                | _ -> size - 2 
-            in
-            generate_all [] sz in
         let table = Hashtbl.create 67 in
         let find_item it =
             if Hashtbl.mem table it then
@@ -1555,7 +1546,7 @@ let analyze_tcm tcm model alph =
         in
         let to_encoding _ acc = enc :: acc
         and to_parser is_missing states acc = match is_missing, states with
-            | `Missing, _ -> (find_item all) :: acc
+            | `Missing, _ -> (find_item []) :: acc
             | `Exists, 0  -> (find_item [gap]) :: acc
             | `Exists, x  -> (find_item (convert_to_list x)) :: acc
         in
@@ -2205,7 +2196,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
     let ia_to_parser_compatible (data:Data.d) (imtx:Methods.implied_alignment) =
         let single_ia_to_parser main_acc ((all_taxa, all_blocks), dum_chars) =
             let process_each = fun (acc, enc, clas) (taxcode, sequence) ->
+                (** determine if a sequence is missing or exists; at this point
+                    all gaps are represented as 0's; this will be resolved shortly *)
                 let preprocess_sequence alph x =
+                    let gap = Alphabet.get_gap alph in
                     let res = ref `Missing in
                     for j = 0 to (Array.length x) - 1 do
                         let x = match x.(j) with `DO x | `First x | `Last x -> x in
@@ -2245,6 +2239,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             ([], All_sets.IntegerMap.empty)
                             sequence
                 in
+(*                List.iter*)
+(*                    (function | _,(_,`DO x) | _,(_,`First x) | _,(_,`Last x) ->*)
+(*                        print_newline ();*)
+(*                        Array.iter (fun x -> Printf.printf "%d " x) x)*)
+(*                    sequence;*)
+(*                print_newline ();*)
                 let (clas: matrix_class),
                     (res: FileContents.t list),
                     (encf:(Alphabet.a * Parser.OldHennig.Encoding.s) list) =
@@ -2260,6 +2260,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                     let () = match s with
                                         | `DO _ -> ()
                                         | `First _ | `Last _ as x ->
+                                            (* fix gaps to correct value *)
                                             let rec fix_one next pos x =
                                                 if 0 > pos || (Array.length x) <= pos then
                                                     ()
@@ -2293,7 +2294,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                         in
                                         let locus_indel_cost = op + ex * seq_len / 100 in 
                                         let num_gaps = (locus_indel_cost - seq_op)/seq_ex in
-                                        let alph = Data.get_alphabet data code in 
                                         let all = Utl.deref (Alphabet.get_all alph) in 
                                         for p = 0 to seq_len - num_gaps - 1 do
                                             s.(p) <- all;
@@ -2307,22 +2307,22 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             in
                             clas,
                             (Array.fold_right (to_parser is_missing) s acc), 
-                            (Array.fold_right to_encoding s acc2))
+                            (Array.fold_right (to_encoding) s acc2))
                         (`AllSankoff None, [], []) sequence 
-                    in
-                    let name = Data.code_taxon taxcode data in
-                    match enc with
-                    | Some _ -> (res, name) :: acc, enc, clas
-                    | None ->
-                            (res, name) :: acc,
-                                (let rec apply_map l1 l2 =
-                                    match l1, l2 with
-                                    | f1 :: t1, it2 :: t2 ->
-                                            (f1 it2) :: (apply_map t1 t2)
-                                    | [], [] -> []
-                                    | _, _ -> failwith "Not matching numbers?"
-                                in
-                                Some encf), clas
+                in
+                let name = Data.code_taxon taxcode data in
+                match enc with
+                | Some _ -> (res, name) :: acc, enc, clas
+                | None ->
+                    (res, name) :: acc,
+                    (
+(*                     (let rec apply_map l1 l2 = match l1, l2 with *)
+(*                         | f1 :: t1, it2 :: t2 -> (f1 it2) :: (apply_map t1 t2) *)
+(*                         | [], [] -> [] *)
+(*                         | _, _ -> failwith "Not matching numbers?" *)
+(*                      in *)
+                     Some encf),
+                    clas
                 in
                 match List.fold_left process_each main_acc all_taxa with
                 | r, Some enc, clas -> 
@@ -2339,7 +2339,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 (gapopening + (gapcost * (String.length string))) 
                             in
                             List.fold_left
-                            (post_process_affine_gap_cost f data) arr all_blocks
+                                (post_process_affine_gap_cost f data) arr all_blocks
                         | `AllSankoff (Some f) -> 
                             List.fold_left 
                                 (post_process_affine_gap_cost f data) arr
@@ -2351,21 +2351,43 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     in
                     a, b, []
                 | [], _, _ -> [||], [], []
-                | _, None, _ -> failwith "How is this possible?"
-        in
+                | _, None, _ -> failwith "How is this possible?" in
         List.map (single_ia_to_parser ([], None, `AllSankoff None)) (imtx)
 
+    let print_ia (x:Methods.implied_alignment) : unit =
+        let print_fst ((c,seq) : int * Methods.ia_seq array All_sets.IntegerMap.t list) : unit =
+            Printf.printf "%d --" c;
+            List.iter
+                (fun v ->
+                    All_sets.IntegerMap.iter
+                        (fun k v ->
+                            Printf.printf "\t%d --" k;
+                            Array.iter
+                                (function | `DO x | `First x | `Last x ->
+                                    Array.iter (fun x -> Printf.printf "%d " x) x)
+                                v;
+                            print_newline ();)
+                        v)
+                seq
+        and print_snd x = List.iter (fun x -> List.iter print_indel x) x
+        and print_trd x = () in
+        List.iter
+            (fun ((fs,ss),ts) ->
+                List.iter print_fst fs;
+                print_snd ss;
+                List.iter print_trd ts )
+            x
 
-    let print_contents_of_parser_compatible (enc_array,cont_lst,_) : unit = 
+    let print_contents_of_parser_compatible (enc_array,cont_lst,_) : unit =
         let file_contents_to_state = function
             | FileContents.Unordered_Character (one,b) -> one
             | FileContents.Sankoff_Character ([x],b)   -> x
-
             | _ -> failwith "unsupported output"
         in
+        Alphabet.print (fst (enc_array.(0)));
         print_string "\t\t";
         Array.iter
-            (fun (alph,enc) -> Printf.printf "%2d " (Alphabet.size alph))
+            (fun (alph,_) -> Printf.printf "%2d " (Alphabet.size alph))
             enc_array;
         print_newline ();
         List.iter
@@ -2385,9 +2407,9 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         (* define the columns for the static alignment; longest data. *)
         let length,new_encodings = match encodings with
             | (one,_,_) :: tl ->
-                List.fold_left 
+                List.fold_left
                     (fun ((l,_) as acc) (es,_,_) ->
-                        if l < (Array.length es) 
+                        if l < (Array.length es)
                             then (Array.length es,es)
                             else acc)
                     (Array.length one,one)
@@ -2395,7 +2417,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             | [] -> failwith "Combine: No encodings found?"
         in
         (* combine the data; apply missing data to shorter sequences *)
-        let filecontents = 
+        let filecontents =
             let create_gap (alph,_) =
                 let gap = Alphabet.get_gap alph in
                 FileContents.Unordered_Character (gap,true)
@@ -2403,9 +2425,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             let pad characters =
                 List.map
                     (fun (single,name) ->
-                        let new_contents = 
-                            Array.init 
-                                length 
+                        let new_contents =
+                            Array.init length
                                 (fun i ->
                                     if i < (Array.length single) then single.(i)
                                     else create_gap new_encodings.(i))
@@ -2413,7 +2434,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         (new_contents,name))
                     characters
             in
-            List.fold_left (fun acc (_,enc,_) -> (pad enc) @ acc) [] encodings 
+            List.fold_left (fun acc (_,enc,_) -> (pad enc) @ acc) [] encodings
         in
         (* combine the trees *)
         let trees = List.fold_left (fun a (_,_,t) -> t @ a) [] encodings in
@@ -2421,13 +2442,13 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         results
 
     let remove_opening_gap (alph_enc,species,trees) :
-              (Alphabet.a * Parser.OldHennig.Encoding.s) array 
+              (Alphabet.a * Parser.OldHennig.Encoding.s) array
             * (FileContents.t array * string) list
             * (string option * Tree.Parse.tree_types list) list =
         let ae = Array.sub alph_enc 2 ((Array.length alph_enc)-2)
-        and species = 
-            List.map 
-                (fun (file,name) -> 
+        and species =
+            List.map
+                (fun (file,name) ->
                     Array.sub file 2 ((Array.length file)-2),name)
                 (species)
         in
@@ -2438,9 +2459,9 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let add_states int acc = match int with
             | FileContents.Unordered_Character (int, _) ->
                 let a = 1 land int
-                and b = 2 land int 
-                and c = 4 land int 
-                and d = 8 land int 
+                and b = 2 land int
+                and c = 4 land int
+                and d = 8 land int
                 and e = 16 land int in
                 let addit acc x =
                     if x <> 0 then All_sets.Integers.add x acc
@@ -2451,14 +2472,14 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         let arr = Array.of_list species in
         let arr = Array.map (fun (a, _) -> a) arr in
-        let updater pos (alph, enc) = 
+        let updater pos (alph, enc) =
             if Parser.OldHennig.Encoding.is_sankoff enc ||
                 Parser.OldHennig.Encoding.is_ordered enc then
                     alph, enc
-            else 
+            else
                 let ns = Array.fold_left (fun acc taxon ->
-                    add_states taxon.(pos) acc) All_sets.Integers.empty 
-                    arr 
+                    add_states taxon.(pos) acc) All_sets.Integers.empty
+                    arr
                 in
                 alph, Parser.OldHennig.Encoding.set_set enc ns
         in
@@ -2616,8 +2637,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let d,c = Data.add_multiple_static_parsed_file data all_to_add in
         let d   = Data.convert_dynamic_to_static_branches ~src:tree.Ptree.data ~dest:d in
         let d   = Data.sync_dynamic_to_static_model ~src:tree.Ptree.data ~dest:d in
-        if ignore then Data.process_ignore_characters false d (`Some codes),c
-                  else d,c
+        let d,c = if ignore then Data.process_ignore_characters false d (`Some codes),c
+                            else d,c in
+        let d,c = Data.convert_n33_to_gennonadditive ~src:tree.Ptree.data ~dest:d codes in
+        d,c
 
     (* We don't care about updating the cost since this filter characters
        function is for moving through the characters for an implied alignment
