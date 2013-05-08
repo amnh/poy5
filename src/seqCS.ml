@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3230 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3277 $"
 
 let debug = false
 let debug_distance = false
@@ -1098,6 +1098,11 @@ END
                 Sequence.Align.recost alied_ch1 alied_ch2 h.c2_original
             end
         in
+(*         Printf.printf "\nCHILD 1:\t"; *)
+(*         Sequence.printseqcode alied_ch1; *)
+(*         Printf.printf "\nCHILD 2:\t"; *)
+(*         Sequence.printseqcode alied_ch2; *)
+(*         print_newline (); *)
         distance
 
 
@@ -1111,7 +1116,8 @@ END
             0. (*0 diagonal in cost matrix*)
         else begin (*non-0 diagonal in cost matrix*)
             let dis = distance_between_two_alied_children_of_root root h use_ukk in
-            root.costs.cost2 -. (float_of_int dis)
+(*             Printf.printf "COST: %F MINUS:%d\n%!" root.costs.cost2 dis; *)
+            float_of_int dis
         end
 
 

@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 3235 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 3268 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -1047,32 +1047,9 @@ let join_topologies_and_data jxn1 jxn2 ptree =
 
 (* join_fn must have type join_1_jxn -> join_2_jxn -> delta -> tree -> tree *)
 let join_fn incremental jxn1 jxn2 ptree =
-    if debug_joinfn then Printf.printf "join_fn begins\n%!";
     let ptree = incremental_uppass ptree incremental in
     let ptree, v, tree_delta, updt = join_topologies_and_data jxn1 jxn2 ptree in
-    if debug_joinfn then Printf.printf "call uppass(downpass ptree)\n%!";
     let ptree = incremental_uppass (force_downpass ptree) updt in
-    if debug_joinfn then begin
-        let current_cost = Ptree.get_cost `Adjusted ptree in
-        Printf.printf "DEBUG: current_cost = %f, forcing a downpass.\n%!"
-        current_cost;
-        let tmp_tree = force_downpass ptree in
-        let new_cost = Ptree.get_cost `Adjusted tmp_tree in
-        if new_cost <> current_cost then 
-            (Tree.print_join_jxn jxn1;
-            Tree.print_join_jxn jxn2;
-            Printf.printf "The vertex for the downpass is %d and has as \
-            parental the vertex %d\n. The handle of v is %d\n. The calculated cost \
-            is %f but the real cost is %f\n" 
-            v (Ptree.get_parent v ptree) (Ptree.handle_of v ptree) current_cost
-            new_cost;
-            Printf.printf "The handles I have recorded are: \n%!";
-            All_sets.IntegerMap.iter (fun code _ -> 
-                Printf.printf "%d - " code) ptree.Ptree.component_root;
-            print_newline ();
-            );
-        Printf.printf "End of join_fn\n\n\n%!";
-        end;
     ptree, tree_delta
 
 let cost_fn jxn1 jxn2 delta clade_data tree =

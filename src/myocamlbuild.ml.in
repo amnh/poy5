@@ -530,8 +530,10 @@ dispatch begin function
             (S[A"-I"; A (ocamlfind_query "parmap")]);
         flag ["ocaml"; "link"; "use_parmap"]
             (S[A"-I"; A (ocamlfind_query "parmap")]);
-        flag ["ocaml"; "link"; "use_parmap"]
+        flag ["ocaml"; "link"; "native"; "use_parmap"]
             (A"parmap.cmxa");
+        flag ["ocaml"; "link"; "byte"; "use_parmap"]
+            (A"parmap.cma");
     end;
 
     if @USEWIN32@ then
