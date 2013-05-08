@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 3160 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3272 $"
 
 let compress = true
 
@@ -761,11 +761,12 @@ let ncm_priors data codes =
         | None   -> Data.get_chars_codes_comp data `All
     in
     List.fold_left
-        (fun acc code -> match Hashtbl.find data.Data.character_specs code with
+        (fun acc code ->
+            match Hashtbl.find data.Data.character_specs code with
             | Data.Static (Data.NexusFile spec) ->
                 acc +. (get_prior_of_spec spec.Nexus.File.st_type)
             | Data.Dynamic _ | Data.Kolmogorov _ | Data.Set
-            | Data.Static (Data.FixedStates _) -> 0.0)
+            | Data.Static (Data.FixedStates _) -> acc)
         0.0
         codes
 
