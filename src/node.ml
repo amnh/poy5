@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3230 $"
+let () = SadmanOutput.register "Node" "$Revision: 3274 $"
 
 let infinity = float_of_int max_int
 
@@ -2314,7 +2314,7 @@ let to_bitset size lst =
 
 let bitset_table  = Hashtbl.create 1667 
 
-let collapse size characters all_static =
+let collapse characters all_static =
     let process_all_lists lists = (* list of each column *)
         current_snapshot "This is before lists";
         let lists = 
@@ -2355,7 +2355,7 @@ let collapse size characters all_static =
      * size  --of alphabet
      * chars --list of column codes to compress
      * data  --Data.d *)
-let classify size chars data =
+let classify chars data =
     let all_static = 
         Hashtbl.fold
             (fun code spec acc -> match spec with
@@ -2404,7 +2404,7 @@ let classify size chars data =
                     reshape chars h
             | [] -> failwith "Nothing?" (* must be of least length one, *)
         in
-        collapse size chars all_static
+        collapse chars all_static
     in
     current_snapshot "Final fold characters";
     let r = List.fold_left (fun acc (a, b) ->
@@ -2414,9 +2414,9 @@ let classify size chars data =
     current_snapshot "Done fold";
     r
 
-let classify size doit chars data =
-    if doit then Some (classify size chars data)
-    else None
+let classify doit chars data =
+    if doit then Some (classify chars data)
+            else None
 
 let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                    lnadd32code lnadd33code lsankcode dynamics fixedstates kolmogorov
@@ -2496,12 +2496,12 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             in
             List.map (Hashtbl.find_all curr) sets
         in
-        let nadd8weights = classify 8 do_classify lnadd8code !data
-        and nadd16weights = classify 16 do_classify lnadd16code !data
-        and nadd32weights = classify 32 do_classify lnadd32code !data in
+        let nadd8weights = classify do_classify lnadd8code !data
+        and nadd16weights= classify do_classify lnadd16code !data
+        and nadd32weights= classify do_classify lnadd32code !data in
         let laddveccode = group_in_weights None laddveccode
         and laddgencode = group_in_weights None laddgencode
-        and lnadd8code = group_in_weights nadd8weights lnadd8code
+        and lnadd8code  = group_in_weights nadd8weights lnadd8code
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = 
@@ -2522,17 +2522,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             (* create map of weight classes *)
             let lk_classify_weights = function
                 | (x::xs) as all ->
-                    (* already characterized by group and model, so = alph *)
-                    let alph_len =
-                         let x = match Hashtbl.find (!data).Data.character_specs x with
-                            | Data.Static (Data.NexusFile x) -> x 
-                            | _ -> assert false
-                        in
-                        match x.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood s -> MlModel.get_alphabet s
-                        | _ -> assert false
-                    in
-                    classify alph_len (MlStaticCS.compress && do_classify) all !data
+                    classify (MlStaticCS.compress && do_classify) all !data
                 | [] -> assert false
             (* convert characters and group them by weight *)
             and lk_group_weights weights chars = 
@@ -3086,7 +3076,6 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
 let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
     (* classify -- Not only we make the list of characters into sets of
        characers, but we also filter those characters that have weight 0. *)
-    let classify = false in
     current_snapshot "Node.load_data start";
     let classify = (not (Data.has_dynamic data)) && classify in
     let make_set_of_list lst =
