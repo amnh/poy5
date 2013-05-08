@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 3235 $"
+let () = SadmanOutput.register "Tree" "$Revision: 3269 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -2109,10 +2109,8 @@ module CladeFP = struct
     module CladeSet = Set.Make (Ordered)
 
     let sets t =
-        let module Set = All_sets.Integers in
         let module Map = EdgeMap in
-        Map.fold (fun _ set acc -> CladeSet.add set acc) (calc t) 
-        CladeSet.empty
+        Map.fold (fun _ set acc -> CladeSet.add set acc) (calc t) CladeSet.empty
 
     let query = (EdgeMap.find : edge -> t -> fp)
 
