@@ -9,18 +9,25 @@ New Features:
     - report graphtrees, asciitrees, and trees with collapsable property have
       been extended to use the branch lengths mentioned above (see command
       description below).
+    - Custom Alphabet transformation to static character via static approx. This
+      was an issue with the characters that can be represented as prealigned and
+      how to properly transform between them.
+    - Added support for ocaml PARMAP for generating fixed-state cost matrices.
 
 Bugs Fixed:
     - Selecting terminals caused an error in ncurses display when writing to an
       incorrect window (Louise Crowley).
     - Transforming to likelihood under a model selection criteria (aic,aicc,bic)
       from a tcm under parsimony with different gap cost than substitution cost 
-      resulted in failure with some added data that represents the cost of a gap
-      which should be filtered from the transformation, as other likelihood
-      transformations on those characters do.
+      resulted (in failure) with added data that represents the cost of a gap.
+      These should be filtered from the transformation, as in other likelihood
+      transformations on those characters.
     - Custom-alphabet implied alignment produced an alignment with extra indels.
       This was due to an encoding issue that became relevent when mixing custom
       alphabet characters and levels.
+    - Issue with missing data in custom-alphabet prealigned characters resolved.
+    - generation of cost-matrix with all-elements row/col and non-zero diagonal
+      cost matrix --was being replaced with zeros, should have been min of row.
 
 New Commands (see manual for full explanations) :
     - report command for parsimony branch lengths

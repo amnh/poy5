@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3285 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3286 $"
 
 exception NotASequence of int
 
@@ -2211,7 +2211,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 (** determine if a sequence is missing or exists; at this point
                     all gaps are represented as 0's; this will be resolved shortly *)
                 let preprocess_sequence alph x =
-                    let gap = Alphabet.get_gap alph in
                     let res = ref `Missing in
                     for j = 0 to (Array.length x) - 1 do
                         let x = match x.(j) with `DO x | `First x | `Last x -> x in

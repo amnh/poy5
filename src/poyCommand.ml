@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3259 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3286 $"
 
 let debug = false 
 
@@ -2012,9 +2012,9 @@ type command = [
                         x
                     ]
                 ];
-            prealigned_gap_opening:
+            prealigned_level:
                 [ 
-                    [ ","; LIDENT "gap_opening"; x = integer -> x ]
+                    [ ","; LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ]
                 ];
             read_argument:
                 [
@@ -2022,34 +2022,31 @@ type command = [
                         a = LIST1 [x = otherfiles -> x] SEP ","; right_parenthesis ->
                             ((`AnnotatedFiles a) :> Methods.input) ] |
                     [ LIDENT "prealigned"; ":"; left_parenthesis; a = otherfiles_pre;
-                        b = OPT prealigned_costs; c = OPT prealigned_gap_opening;
+                        b = OPT prealigned_costs; c = OPT prealigned_level;
                         right_parenthesis -> match a with
                             | `GeneralAlphabetSeq (a,_,_) ->
                                 begin match b with
                                     | Some (`Assign_Transformation_Cost_Matrix (f,_)) ->
                                         let oth = match c with
-                                            | None -> [`Prealigned]
-                                            | Some _ -> failwith "I@ cannot@ read@ custom@ alphabet@ characters@ with@ gap_opening."
+                                            | None   -> [`Prealigned]
+                                            | Some c -> [`Prealigned;c]
                                         in
-                                        `GeneralAlphabetSeq (a,f,oth)
+                                        ((`GeneralAlphabetSeq (a,f,oth)) :> Methods.input)
                                     | Some ( `Create_Transformation_Cost_Matrix _)
                                     | None -> failwith "I@ require@ an@ explicit@ cost@ matrix@ for@ custom@ alphabet@ characters."
                                 end
-                            | (`Aminoacids _) as x ->
-                                let c = match c with
-                                    | None   -> 0
-                                    | Some _ -> failwith "I@ cannot@ read@ prealigned@ characters@ with@ gap_opening."
+                            | `Aminoacids (f,o) ->
+                                let x : Methods.read_option_t list = match c with
+                                    | None   -> o
+                                    | Some c -> c::o
                                 in
-                                x
+                                ((`Aminoacids (f,x)) :> Methods.input)
                             | _ ->
                                 let b = match b with
                                     | Some b -> b
                                     | None   -> `Create_Transformation_Cost_Matrix (1,1)
-                                and c = match c with
-                                    | None   -> 0
-                                    | Some _ -> failwith "I@ cannot@ read@ prealigned@ characters@ with@ gap_opening."
                                 in
-                                `Prealigned (a, b, c) ] |
+                                `Prealigned (a, b, 0) ] |
                     [ x = otherfiles -> (x :> Methods.input) ]
                 ];
         otherfiles_pre: (** subset of characters that are prealigned **)
