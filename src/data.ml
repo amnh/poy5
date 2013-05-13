@@ -1331,7 +1331,7 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
                         generate_sequence_of_static_state
                             chars name_tbl code_tbl tcode alph code codes
                     in
-                    let state = Dyna (code,{ seq_arr = [| {seq; delimiter; code; } |]; }) in
+                    let state = Dyna (code,{ seq_arr = [| {seq=seq; delimiter=delimiter; code=code; } |]; }) in
                     Hashtbl.replace chars code (state,`Specified))
                 char_tbl;
             (* remove old specs *)
