@@ -54,8 +54,8 @@ val median_3_fake : Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence 
 
 (** [median_3 h parent mine child1 child2] return a new median3 for mine
 * with info from parent,child1 and child2 *)
-val median_3 : Cost_matrix.Three_D.m -> gnonadd_sequence -> gnonadd_sequence ->
-    gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence
+val median_3 : Cost_matrix.Three_D.m -> Cost_matrix.Two_D.m -> gnonadd_sequence
+    -> gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence
 
 (** [compare gnoadd1 gnoadd2] compare the sequence of two input.*)
 val compare : gnonadd_sequence -> gnonadd_sequence -> int

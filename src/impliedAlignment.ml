@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3276 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3285 $"
 
 exception NotASequence of int
 
@@ -1535,11 +1535,23 @@ let analyze_tcm tcm model alph =
                     failwith "Impliedalignment.convert_to_list"
         in
         let table = Hashtbl.create 67 in
+        let all = 
+            let rec generate_all acc size =
+                if size < 0 then acc
+                else generate_all (size :: acc) (size - 1)
+            in
+            let sz  = match gap_processing_function with
+                | None -> size - 1
+                | _ -> size - 2
+            in
+            generate_all [] sz
+        in
         let find_item it =
+            let it,b = match it with | [] -> all,true | _ -> it,false in
             if Hashtbl.mem table it then
                 Hashtbl.find table it
             else begin
-                let r = FileContents.Sankoff_Character (it, false) in
+                let r = FileContents.Sankoff_Character (it, b) in
                 Hashtbl.add table it r;
                 r
             end

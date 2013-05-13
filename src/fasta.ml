@@ -224,9 +224,9 @@ let of_channel_obj ?(respect_case=false) t ch  =
         | FileContents.Nucleic_Acids 
         | FileContents.AlphSeq _ 
         | FileContents.Proteins ->
-            process_file_imp ~respect_case:respect_case true ch (alphabet_of_t t) 
+            process_file_imp ~respect_case true ch (alphabet_of_t t) 
         | FileContents.Prealigned_Alphabet _ ->
-            process_file_imp  ~respect_case:respect_case false ch (alphabet_of_t t)
+            process_file_imp  ~respect_case false ch (alphabet_of_t t)
         | _ -> raise Unsupported_file_format
     in
     List.fold_left

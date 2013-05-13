@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3267 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3285 $"
 
 let eager        = false
 let uppass_debug = false
@@ -953,9 +953,19 @@ struct
         | [a] -> OneDirF.get_lk_sites a.lazy_node c
         |  _  -> assert false
 
-    let to_string nodes =
+    let to_string node =
+        let dir_to_string = function
+            | None -> "none"
+            | Some (x,y) -> Printf.sprintf "(%d,%d) - " x y
+        and nodes = match node.adjusted with
+            | Some x -> List.rev (x :: node.unadjusted)
+            | None   -> node.unadjusted
+        in
         let res =
-            List.map (fun x -> OneDirF.to_string x.lazy_node) nodes.unadjusted
+            List.map
+                (fun x ->
+                    (dir_to_string x.dir) ^ (OneDirF.to_string x.lazy_node))
+                nodes
         in
         String.concat "" res
 

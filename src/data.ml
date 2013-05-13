@@ -1271,6 +1271,7 @@ let reverse_dynamic_static_codes map =
 (** Convert characters in n33 classification to gen-nonadditve characters.
  * source contains old matrices from the dynamic characters necessary for the
  * general non-additive prealigned character. *)
+exception Missing_Sequence
 let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
     let get_static_state t c a =
         match Hashtbl.find (Hashtbl.find data.taxon_characters t) c with
@@ -1281,7 +1282,7 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
             | Some x ->
                 let states = Nexus.File.static_state_to_list x in
                 begin match states with
-                | [] -> Alphabet.get_gap a
+                | [] -> raise Missing_Sequence
                 | xs -> Alphabet.find_comb xs a
                 end
             | None -> Alphabet.get_gap a
@@ -1291,7 +1292,7 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
     let generate_sequence_of_static_state
             chars name_tbl code_tbl taxa alph code codes : Sequence.s =
         let seq = Sequence.create (List.length codes) in
-        List.iter
+        try List.iter
             ~f:(fun c ->
                 let state = get_static_state taxa c alph in
                 let () = try Hashtbl.remove name_tbl (Hashtbl.find code_tbl c)
@@ -1301,7 +1302,9 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
                 Hashtbl.remove chars c;
                 Sequence.prepend seq state)
             (List.rev codes);
-        seq
+            seq
+        with | Missing_Sequence ->
+            Sequence.make_empty alph
     in
     let adder spec_tbl char_tbl name_tbl code_tbl code : int =
         let codes = All_sets.IntegerMap.find code data.dynamic_static_codes in
@@ -2961,9 +2964,8 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full
             tcm_original tcm3 alphabet processor builder dyna_state data file =
     begin try
         let ch = Parser.Files.molecular_to_fasta file in
-        let res = 
-            try
-                Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch
+        let res =
+            try  Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch
             with Fasta.Illegal_molecular_format fl ->
                 let file = FileStream.filename file in
                 let fl = { fl with Fasta.filename = file } in
