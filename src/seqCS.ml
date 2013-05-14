@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3285 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3288 $"
 
 let debug = false
 let debug_distance = false
@@ -1116,8 +1116,7 @@ END
             0. (*0 diagonal in cost matrix*)
         else begin (*non-0 diagonal in cost matrix*)
             let dis = distance_between_two_alied_children_of_root root h use_ukk in
-(*             Printf.printf "COST: %F MINUS:%d\n%!" root.costs.cost2 dis; *)
-            float_of_int dis
+            root.costs.cost2 -. (float_of_int dis)
         end
 
 
