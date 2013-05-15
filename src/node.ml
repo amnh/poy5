@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3274 $"
+let () = SadmanOutput.register "Node" "$Revision: 3289 $"
 
 let infinity = float_of_int max_int
 
@@ -2714,19 +2714,19 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                                     Hashtbl.find !data.Data.character_specs code
                                 | _ -> failwith "generate_taxon, get tcm, sankoff"
                             in
-                            let arr= Array.of_list v in
-                            let c, _ = SankCS.of_parser tcm (arr, tcode) code in
-                            let weight = match specs with
+                            let spec = match specs with
                                 | Data.Static (Data.NexusFile nf_static_spec) ->
-                                    nf_static_spec.Nexus.File.st_weight
+                                    nf_static_spec
                                 | _ -> failwith "generate_taxon, get weight, sankoff"
                             in
+                            let arr= Array.of_list v in
+                            let c, _ = SankCS.of_parser tcm spec (arr, tcode) code in
                             let c = Sank {
                                 preliminary = c;
                                 final = c;
                                 cost = 0.;
                                 sum_cost = 0.;
-                                weight = weight;
+                                weight = spec.Nexus.File.st_weight;
                                 time = None,None,None; } in
                             { result with characters = c :: result.characters }
                 in

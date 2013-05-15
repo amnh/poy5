@@ -6516,8 +6516,8 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
             (fun x -> 
                 Array.init (Array.length enc)
                     (fun y -> 
-                        Parser.OldHennig.to_new_atom table newenc.(y) 
-                                            (snd enc.(y)) matrix.(x).(y)))
+                        Parser.OldHennig.to_new_atom table newenc.(y) None matrix.(x).(y)))
+
     in
     let res =
         { Nexus.File.empty_parsed () with

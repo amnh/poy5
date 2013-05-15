@@ -270,8 +270,10 @@ module OldHennig : sig
            Nexus.File.static_spec
 
     (** Symmetric to the previous one, but for the observed state of a taxon *)
-    val to_new_atom : (FileContents.t, Nexus.File.static_state) Hashtbl.t -> Nexus.File.static_spec ->
-        Encoding.s -> FileContents.t -> Nexus.File.static_state
+    val to_new_atom :
+        (FileContents.t, Nexus.File.static_state) Hashtbl.t ->
+            Nexus.File.static_spec -> Alphabet.a option ->
+                FileContents.t -> Nexus.File.static_state
 
     (** [of_old_parser filename alphabets old_parsed] converts the [old_parsed]
      * style of static homology parsed file to the new style, with (optional)

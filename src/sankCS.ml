@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 3160 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 3289 $"
 
 let debug = false
 
@@ -269,7 +269,6 @@ external get_sumcost : t -> int = "sankoff_CAML_get_sumcost"
 
 
 let median median_node_code a b =
-    let debug = false in
     if debug then begin
         let tca = get_taxon_code a in
         let tcb = get_taxon_code b in
@@ -293,7 +292,6 @@ external distance_cside : t -> t -> int = "sankoff_CAML_distance"
 * [elt_distance], which will call [elt_median]. if you need median and distance,
 * don't call two functions seperately, use [distance_and_median] instead*)
 let distance a b =
-    let debug = false in
     if debug then Printf.printf "SankCS.distance\n%!";
     let dis = distance_cside a b in
     float_of_cost dis
@@ -323,7 +321,6 @@ let init2 len1 len2 fn =
 external median_3_cside : t -> t -> t -> t -> t = "sankoff_CAML_median_3"
 
 let median_3 a n l r =
-    let debug = false in
     let tcn = get_taxon_code n in
     let tcr = get_taxon_code r in
     if debug then begin
@@ -497,26 +494,28 @@ let create_eltarr taxcode mycode nstates ecode_arr state_arrarr tcm isidentity =
     create_eltarr_cside isidentity taxcode mycode nstates ecode_bigarr state_bigarr tcm_bigarr
 
 (*create sankoff chr from input file*)
-let of_parser tcm (arr, taxcode) mycode =
-    let debug = false in
+let of_parser tcm spec (arr, taxcode) mycode =
     let iside = is_identity tcm in
-    if debug then Printf.printf "SankCS.of_parser,taxcode=%d,mycode=%d,is identity=%b\n%!" taxcode mycode iside;
     let nstates = Array.length tcm in
     let all_states = Array.to_list (Array.init nstates (fun x -> x)) in
+    let gap = Alphabet.get_gap spec.Nexus.File.st_alph in
+    let gap_elt = Array.init nstates (fun _ -> Int32.of_int 0) in
     let make_elt (elt, ecode) =
-        let states = 
-            match elt with
+        let states = match elt with
             | Some (`List states) -> states
             | Some (`Bits states) -> BitSet.to_list states
             | None -> all_states
         in
-        assert (List.fold_left (fun acc x -> acc && x < nstates) true states);
+        assert (List.fold_left (fun acc x -> acc && ((x < nstates) || x = gap)) true states);
         (*infinity here is not infinity on the c side, we pass (-1) instead*)
         let state_arr =
-            Array.init nstates
-                (fun i ->
-                    if List.mem i states then Int32.of_int 0 
-                    else Int32.of_int (-1) (*infinity*))
+            if List.mem gap states then
+                gap_elt
+            else
+                Array.init nstates
+                    (fun i ->
+                        if List.mem i states then Int32.of_int 0 
+                        else Int32.of_int (-1) (*infinity*))
         in
         Int32.of_int ecode, state_arr
     in
@@ -541,7 +540,6 @@ let f_codes t codes =
     in
     filter_character t ecode_bigarr 0
     
-
 let f_codes_comp t codes = 
     let ecodelst = All_sets.Integers.elements codes in
     let ecodearr = Array.of_list ecodelst in
@@ -551,7 +549,6 @@ let f_codes_comp t codes =
     in
     filter_character t ecode_bigarr 1
     
-
 let cardinal t = get_num_elts t (*Array.length t.elts*)
 
 
