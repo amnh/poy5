@@ -1312,10 +1312,7 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
         | [] -> assert false
         | x::_ when not (List.mem x data.non_additive_33) -> x
         | x::_ ->
-            let static_spec = match Hashtbl.find spec_tbl x with
-                | Static (NexusFile spec) -> spec
-                | _ -> assert false
-            and dynamic_spec = match Hashtbl.find dyndata.character_specs code with
+            let dynamic_spec = match Hashtbl.find dyndata.character_specs code with
                 | Dynamic spec -> spec (* already set up matrices *)
                 | _            -> assert false
             in
@@ -5106,8 +5103,6 @@ let auto_partition mode data code =
 
 (*tranform dynamic charactors to fixed_states(static) charactors *)
 let compute_fixed_states filename data code polymph =
-    let debug = false and debug2 = false in
-    if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
@@ -5143,13 +5138,10 @@ let compute_fixed_states filename data code polymph =
         Array.of_list
             (Hashtbl.fold process_taxon data.searchbase_characters [])
     in
-    let taxalen = (Array.length taxa_arr) 
-    and searchbaselen = (Array.length searchbase_arr) in
+    let taxalen = (Array.length taxa_arr) in
     let total_arr = Array.append taxa_arr searchbase_arr in
     let taxa = Array.map fst total_arr in
     let initial_sequences = Array.map snd total_arr in
-    if debug then Printf.printf "total size = %d + %d = %d\n%!" 
-    taxalen searchbaselen  (Array.length total_arr);
     (* find all single assignments between two sequences; these become the
        states that can be placed on the internal nodes of the tree.
        this process resolves polymorphism of input sequences.
