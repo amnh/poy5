@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3290 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3293 $"
 
 exception NotASequence of int
 
@@ -1284,6 +1284,7 @@ let analyze_tcm tcm model alph =
         else
             fun string -> processor 0 (String.length string) go string
     in
+    let alph = Alphabet.simplify alph in
     let single_compare (_, a) res (_, b) = match res with
         | None -> Some (Cost_matrix.Two_D.cost a b tcm)
         | Some y ->
@@ -1346,28 +1347,29 @@ let analyze_tcm tcm model alph =
                 | Alphabet.Simple_Bit_Flags ->
                     if 32 > Alphabet.distinct_size alph then
                         if all_same_affine () then
-                            `AffinePartition 
-                            (all_excepting_gap, all_and_gap, 
-                            get_gap_opening tcm)
+                            `AffinePartition (all_excepting_gap, all_and_gap, get_gap_opening tcm)
                         else if all_excepting_gap = all_and_gap then 
                             `AllOne all_excepting_gap
                         else if not (is_affine tcm) then
-                            `AllOneGapSame 
-                            (all_excepting_gap, all_and_gap)
+                            `AllOneGapSame (all_excepting_gap, all_and_gap)
                         else if is_affine tcm then
                             `AllSankoff (Some for_sankoff)
-                        else `AllSankoff None
+                        else
+                            `AllSankoff None
                     else if is_affine tcm then
                         `AllSankoff (Some for_sankoff)
-                    else `AllSankoff None
+                    else
+                        `AllSankoff None
                 | _ -> 
                     if is_affine tcm then 
                         `AllSankoff (Some for_sankoff)
-                    else `AllSankoff None
+                    else
+                        `AllSankoff None
         with | IsSankoff -> 
             if is_affine tcm then
                 `AllSankoff (Some for_sankoff)
-            else `AllSankoff None
+            else
+                `AllSankoff None
     in
     let extract_all all = match all with
         | Some all -> all
@@ -1455,7 +1457,6 @@ let analyze_tcm tcm model alph =
     | `AllSankoff gap_processing_function ->
         (* We remove one from the all elements representation *)
         let is_metric = Cost_matrix.Two_D.is_metric tcm in
-        let alph = Alphabet.simplify alph in
         let size = Alphabet.size alph in
         let make_tcm () = match Alphabet.kind alph with
             | Alphabet.Simple_Bit_Flags ->
@@ -1475,14 +1476,13 @@ let analyze_tcm tcm model alph =
                         and y = if y = all then y + 1 else y
                         in
                         Cost_matrix.Two_D.cost x y tcm))
-            | Alphabet.Continuous ->
-                assert false (* Static data only *)
+            (* simplified alphabets only *)
+            | Alphabet.Continuous
             | Alphabet.Extended_Bit_Flags 
-            | Alphabet.Combination_By_Level -> 
-                failwith "Impliedalignment.make_tcm"
+            | Alphabet.Combination_By_Level -> assert false
         in
         let enc =
-            let alph = Alphabet.to_sequential alph in
+            let alph = Alphabet.simplify alph in
             let res = Parser.OldHennig.Encoding.default () in
             let res = Parser.OldHennig.Encoding.set_min res 0 in
             let res = Parser.OldHennig.Encoding.set_max res (size - 1) in
