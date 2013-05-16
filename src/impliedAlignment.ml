@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3289 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3290 $"
 
 exception NotASequence of int
 
@@ -1454,11 +1454,9 @@ let analyze_tcm tcm model alph =
         get_case, to_parser, to_encoding
     | `AllSankoff gap_processing_function ->
         (* We remove one from the all elements representation *)
-        let size = match Alphabet.get_all alph with
-            | Some _ -> (Alphabet.distinct_size alph) - 1 
-            | None -> Alphabet.distinct_size alph
-        in
         let is_metric = Cost_matrix.Two_D.is_metric tcm in
+        let alph = Alphabet.simplify alph in
+        let size = Alphabet.size alph in
         let make_tcm () = match Alphabet.kind alph with
             | Alphabet.Simple_Bit_Flags ->
                 Array.init size (fun x ->
@@ -1469,16 +1467,12 @@ let analyze_tcm tcm model alph =
                     | None -> (-1)
                     | Some x -> x
                 in
-                Array.init size (fun x -> 
-                    Array.init size (fun y -> 
-                        let x = (x + 1) in 
+                Array.init size (fun x ->
+                    Array.init size (fun y ->
+                        let x = (x + 1) in
                         let y = (y + 1) in
-                        let x =
-                            if x = all then x + 1
-                            else x
-                        and y =
-                            if y = all then y + 1
-                            else y
+                        let x = if x = all then x + 1 else x
+                        and y = if y = all then y + 1 else y
                         in
                         Cost_matrix.Two_D.cost x y tcm))
             | Alphabet.Continuous ->
@@ -2490,7 +2484,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         ~separator character (Some alphabets) (encodings, b, c)
         in
         Status.finished st;
-        print_newline ();
         character, res
 
 

@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 3289 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 3290 $"
 
 let debug = false
 
@@ -498,24 +498,19 @@ let of_parser tcm spec (arr, taxcode) mycode =
     let iside = is_identity tcm in
     let nstates = Array.length tcm in
     let all_states = Array.to_list (Array.init nstates (fun x -> x)) in
-    let gap = Alphabet.get_gap spec.Nexus.File.st_alph in
-    let gap_elt = Array.init nstates (fun _ -> Int32.of_int 0) in
     let make_elt (elt, ecode) =
         let states = match elt with
             | Some (`List states) -> states
             | Some (`Bits states) -> BitSet.to_list states
             | None -> all_states
         in
-        assert (List.fold_left (fun acc x -> acc && ((x < nstates) || x = gap)) true states);
+        assert (List.fold_left (fun acc x -> acc && (x < nstates)) true states);
         (*infinity here is not infinity on the c side, we pass (-1) instead*)
         let state_arr =
-            if List.mem gap states then
-                gap_elt
-            else
-                Array.init nstates
-                    (fun i ->
-                        if List.mem i states then Int32.of_int 0 
-                        else Int32.of_int (-1) (*infinity*))
+            Array.init nstates
+                (fun i ->
+                    if List.mem i states then Int32.of_int 0 
+                    else Int32.of_int (-1) (*infinity*))
         in
         Int32.of_int ecode, state_arr
     in

@@ -1309,16 +1309,12 @@ let to_new_spec ?(separator=":") filename alph spec pos =
     let newspec = 
         Nexus.File.spec_of_alph alph filename (filename ^ separator ^ string_of_int pos)
     in
-    let newspec =
-        if not spec.active then 
-            { newspec with Nexus.File.st_eliminate = true }
-        else newspec
-    in
     let newspec = 
-        { newspec with Nexus.File.st_weight = float_of_int
-        spec.weight } 
+        { newspec with
+            Nexus.File.st_weight = float_of_int spec.weight;
+            Nexus.File.st_eliminate = not spec.active; } 
     in
-    match spec.ordered,spec.likelihood_model with
+    match spec.ordered, spec.likelihood_model with
     | _, Some model ->
         { newspec with
             Nexus.File.st_type = Nexus.File.STLikelihood model }        
