@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3281 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3292 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -1136,7 +1136,6 @@ module Two_D = struct
 
     let fill_cost_matrix ?(create_original=false) ?(tie_breaker=`First)
             ?(use_comb=true) ?(level = 0) ?(suppress=false) l a_sz all_elements =
-        let debug = false in
         let pure_a_sz = 
             if all_elements=(a_sz-1) && level>1 && level<a_sz
                 then a_sz-1
