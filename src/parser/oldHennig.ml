@@ -1327,8 +1327,14 @@ let to_new_spec ?(separator=":") filename alph spec pos =
                 Nexus.File.st_type = Nexus.File.STSankoff spec.cost_matrix }
 
 let to_new_atom table_of_atoms (newspec:Nexus.File.static_spec) oldalph data =
+    let is_sequential a = match Alphabet.kind a with
+        | Alphabet.Sequential -> true
+        | Alphabet.Simple_Bit_Flags | Alphabet.Extended_Bit_Flags
+        | Alphabet.Continuous | Alphabet.Combination_By_Level -> false
+    in
     let transform_alphabet = match oldalph with
         | None -> (fun x -> x)
+        | Some a when not (is_sequential a) -> (fun x -> x)
         | Some a ->
             (fun old_base ->
                 let old_name = Alphabet.find_code old_base a in
