@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3305 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3309 $"
 
 exception NotASequence of int
 
@@ -215,7 +215,11 @@ let find_branch_length dyn time =
     let code = DynamicCS.code dyn in
     match time with
     | None   -> assert false (* should only be called under LK *)
-    | Some t -> snd (List.find (fun (a,data) -> Array_ops.mem a code) t)
+    | Some t ->
+        try snd (List.find (fun (a,data) -> Array_ops.mem a code) t)
+        with Not_found ->
+            snd (List.find (fun (a,data) -> match a with
+                            | [||] -> true | _ -> false) t)
 
 
 (** Create a list with all the starting and ending positions of indels, and
