@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3289 $"
+let () = SadmanOutput.register "Node" "$Revision: 3306 $"
 
 let infinity = float_of_int max_int
 
@@ -2132,7 +2132,9 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
         let f = match parent with
             | None     -> thrt
             | Some par ->
-                if par.min_child_code = child.min_child_code 
+                if par.min_child_code > child.min_child_code 
+                    then thrt
+                else if par.min_child_code = child.min_child_code 
                     then fstt
                     else sndt
         and parent = match parent with
@@ -2143,7 +2145,8 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
             | Some x,None -> Some (x *. b)
             | None, c -> c
         in
-        (fun ((acc1,acc2) as acc) x y -> match x,y with
+        (fun ((acc1,acc2) as acc) x y ->
+            match x,y with
             | StaticMl x, StaticMl y ->
               IFDEF USE_LIKELIHOOD THEN
                 (acc1,(MlStaticCS.get_codes y.preliminary, f y.time)::acc2)
@@ -2184,7 +2187,7 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
         | None     ->
             List.fold_left2 func (([||],None),[]) child.characters child.characters
     in
-    oth::lik
+    if 0 = Array.length (fst oth) then lik else oth::lik
 
 
 let extract_stat = function
