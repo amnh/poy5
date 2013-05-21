@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3293 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3305 $"
 
 exception NotASequence of int
 
@@ -1616,12 +1616,14 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                     Codes.add code ias_arr acc)
                                 sequences Codes.empty
                         and cost_matrix =
-                            try let model = DynamicCS.lk_model dyn in
-                                match FloatSequence.cost_fn model with
+                            match DynamicCS.lk_model dyn with
+                            | Some model ->
+                                begin match FloatSequence.cost_fn model with
                                 | `MPL | `MAL ->
                                     let bl = find_branch_length dyn time in
                                     Model (model,(bl,parent))
-                            with | Not_found -> CM (DynamicCS.c2_full dyn)
+                                end
+                            | None -> CM (DynamicCS.c2_full dyn)
                         in
                         {   sequences = new_sequences;   
                             c2 = cost_matrix;
