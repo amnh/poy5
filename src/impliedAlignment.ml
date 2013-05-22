@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3309 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3311 $"
 
 exception NotASequence of int
 
@@ -1461,9 +1461,12 @@ let analyze_tcm tcm model alph =
     | `AllSankoff gap_processing_function ->
         (* We remove one from the all elements representation *)
         let is_metric = Cost_matrix.Two_D.is_metric tcm in
-        let size = Alphabet.size alph in
         let make_tcm () = match Alphabet.kind alph with
             | Alphabet.Simple_Bit_Flags ->
+                let size = match Alphabet.get_all alph with
+                    | Some x -> (Alphabet.size alph) - 1
+                    | None   -> Alphabet.size alph
+                in
                 Array.init size (fun x ->
                     Array.init size (fun y ->
                         Cost_matrix.Two_D.cost (1 lsl x) (1 lsl y) tcm))
@@ -1472,6 +1475,7 @@ let analyze_tcm tcm model alph =
                     | None -> (-1)
                     | Some x -> x
                 in
+                let size = Alphabet.size alph in
                 Array.init size (fun x ->
                     Array.init size (fun y ->
                         let x = (x + 1) in
@@ -1486,7 +1490,8 @@ let analyze_tcm tcm model alph =
             | Alphabet.Combination_By_Level -> assert false
         in
         let enc =
-            let alph = Alphabet.simplify alph in
+            let alph = Alphabet.to_sequential alph in
+            let size = Alphabet.size alph in
             let res = Parser.OldHennig.Encoding.default () in
             let res = Parser.OldHennig.Encoding.set_min res 0 in
             let res = Parser.OldHennig.Encoding.set_max res (size - 1) in
@@ -1521,8 +1526,7 @@ let analyze_tcm tcm model alph =
             | Alphabet.Sequential -> [x]
             | Alphabet.Continuous -> assert false (* static data only *)
             | Alphabet.Extended_Bit_Flags 
-            | Alphabet.Combination_By_Level -> 
-                failwith "Impliedalignment.convert_to_list"
+            | Alphabet.Combination_By_Level -> assert false
         in
         let table = Hashtbl.create 67 in
         let all = 
@@ -1530,6 +1534,7 @@ let analyze_tcm tcm model alph =
                 if size < 0 then acc
                 else generate_all (size :: acc) (size - 1)
             in
+            let size = Alphabet.size alph in
             let sz  = match gap_processing_function with
                 | None -> size - 1
                 | _ -> size - 2
@@ -1549,7 +1554,7 @@ let analyze_tcm tcm model alph =
         let to_encoding _ acc = enc :: acc
         and to_parser is_missing states acc = match is_missing, states with
             | `Missing, _ -> (find_item []) :: acc
-            | `Exists, 0  -> (find_item [gap]) :: acc
+            | `Exists, 0  -> (find_item (convert_to_list gap)) :: acc
             | `Exists, x  -> (find_item (convert_to_list x)) :: acc
         in
         get_case, to_parser, to_encoding
