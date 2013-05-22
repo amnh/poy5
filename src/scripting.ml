@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3318 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3319 $"
 
 let (-->) a b = b a
 
@@ -4370,12 +4370,12 @@ END
                     let mat = Array.make_matrix n n (string_of_int 0) in
                     for i = 0 to (n-1) do
                         for j = (i+1) to (n-1) do
-                            let ij =
+                            let ij : string =
                                 Tree.robinson_foulds t.(i).Ptree.tree t.(j).Ptree.tree
                                     --> string_of_int
                             in
-                            mat.(i).(j) = ij;
-                            mat.(j).(i) = ij;
+                            mat.(i).(j) <- ij;
+                            mat.(j).(i) <- ij;
                         done;
                     done;
                     mat
