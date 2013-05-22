@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3264 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3318 $"
 
 let (-->) a b = b a
 
@@ -2060,14 +2060,7 @@ let rec process_tree_handling run meth =
                 let lst = Array.to_list arr in
                 get_first_n n lst
         | `Unique ->
-                let sexpr = Sexpr.to_list run.trees in
-                let res =
-                    try TS.get_unique sexpr with
-                    | Not_found as err ->
-                        Status.user_message Status.Error "This is the path";
-                        raise err
-                in
-                res
+                TS.get_unique (Sexpr.to_list run.trees)
     in
     let trees = Sexpr.of_list trees in
     { run with trees = trees }
@@ -3939,8 +3932,7 @@ let rec folder (run : r) meth =
                                   "Maximum Distance"; "Minimum Distance"; "Average Distance"|]
                             | n -> arr.(n - 1))
                 and fo = Status.Output (filename, false, []) in
-                Status.user_message fo 
-                "@{<b>Sequence Statistics:@}@[<v 2>@,";
+                Status.user_message fo "@{<b>Sequence Statistics:@}@[<v 2>@,";
                 Status.output_table fo arr;
                 Status.user_message fo "@]\n%!";
                 run
@@ -4370,6 +4362,35 @@ END
             | `CrossReferences (chars, filename) ->
                 Data.report_taxon_file_cross_reference chars run.data filename;
                 run
+            | `RobinsonFoulds filename ->
+                let o = Status.Output (filename,false,[]) in
+                let t = run.trees --> Sexpr.to_list --> Array.of_list in
+                let matrix =
+                    let n = Array.length t in
+                    let mat = Array.make_matrix n n (string_of_int 0) in
+                    for i = 0 to (n-1) do
+                        for j = (i+1) to (n-1) do
+                            let ij =
+                                Tree.robinson_foulds t.(i).Ptree.tree t.(j).Ptree.tree
+                                    --> string_of_int
+                            in
+                            mat.(i).(j) = ij;
+                            mat.(j).(i) = ij;
+                        done;
+                    done;
+                    mat
+                in
+(*                 Array.iteri (fun i x -> *)
+(*                     let cost = string_of_float (Ptree.get_cost `Adjusted x) in *)
+(*                     let res = *)
+(*                         PtreeSearch.build_forest_with_names_n_costs None x cost *)
+(*                     in *)
+(*                     Status.user_message o (Printf.sprintf "%d\t-" i); *)
+(*                     Status.user_message o (to_string  *)
+(*                   trees; *)
+                Status.output_table o matrix;
+                run
+
             | `KolmoMachine filename ->
                 let data =
                     Data.report_kolmogorov_machine filename run.data

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3249 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3318 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -2092,14 +2092,9 @@ let rec compare_trees a b =
         | Tree.Parse.Nodep (ca, _), Tree.Parse.Nodep (cb, _) ->
                 fold_2 compare true ca cb
         | _, _ -> false)
-    in match a,b with
-    | Tree.Parse.Branches t1, Tree.Parse.Branches t2 -> compare true t1 t2
-    | Tree.Parse.Annotated (t1,_), Tree.Parse.Annotated (t2,_) -> compare_trees t1 t2
-    | Tree.Parse.Flat t1, Tree.Parse.Flat t2 -> compare true t1 t2
-    | Tree.Parse.Characters t1, Tree.Parse.Characters t2 -> compare true t1 t2
-    | ( Tree.Parse.Branches _ | Tree.Parse.Annotated _ 
-      | Tree.Parse.Characters _ | Tree.Parse.Flat _), _ -> false
-
+    in
+    compare true (Tree.Parse.strip_tree a) (Tree.Parse.strip_tree b)
+    
 let get_unique trees = match trees with
     | tree :: _ ->
         let a, _ = Tree.choose_leaf tree.tree in

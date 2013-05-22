@@ -13,6 +13,7 @@ New Features:
       was an issue with the characters that can be represented as prealigned and
       how to properly transform between them.
     - Added support for ocaml PARMAP for generating fixed-state cost matrices.
+    - Added command report(robinson_foulds) (see command description below)
 
 Bugs Fixed:
     - Selecting terminals caused an error in ncurses display when writing to an
@@ -38,6 +39,11 @@ New Commands (see manual for full explanations) :
         report(trees:(branches:single))
             - number of changes reported based on single assignment of dynamic
               characters
+    - report command for tree distances using Robinson Foulds distance metric
+        report(robinson_foulds)
+            - will print matrix to terminal window
+        report("OUTFILE", robinson_foulds)
+            - will print matrix to file OUTFILE
 
 Changed Commands (see manual for full explanations) :
     - report command for collapsed branches has been changed. Instead of

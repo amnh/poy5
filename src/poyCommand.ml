@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3286 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3318 $"
 
 let debug = false 
 
@@ -358,6 +358,7 @@ type reporta = [
     | `GraphicConsensus of float option
     | `Clades
     | `CrossReferences of old_identifiers option
+    | `RobinsonFoulds
     | `TerminalsFiles
     | `Supports of Methods.support_output option
     | `GraphicSupports of Methods.support_output option
@@ -927,6 +928,7 @@ type command = [
                 | Some f -> (`Clades f) :: acc, file
             end
         | `CrossReferences x -> (`CrossReferences (x, file)) :: acc, file
+        | `RobinsonFoulds -> (`RobinsonFoulds file) :: acc, file
         | `TerminalsFiles -> (`TerminalsFiles file) :: acc, file
         | `Supports c -> (`Supports (c, file)) :: acc, file
         | `GraphicSupports c -> (`GraphicSupports (c, file)) :: acc, file
@@ -1763,7 +1765,8 @@ type command = [
                     [ LIDENT "nodes" -> `Nodes ] |
                     [ LIDENT "cross_references"; ":"; x = old_identifiers -> `CrossReferences (Some x) ] |
                     [ LIDENT "terminals" -> `TerminalsFiles ] | 
-                    [ LIDENT "cross_references" -> `CrossReferences None ]
+                    [ LIDENT "cross_references" -> `CrossReferences None ] |
+                    [ LIDENT "robinson_foulds" -> `RobinsonFoulds ]
                 ];
             (* Perturbation method *)
             perturb:
