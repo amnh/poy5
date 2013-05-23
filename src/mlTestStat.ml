@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3160 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3323 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
@@ -70,7 +70,7 @@ let get_default_reps n rep = match n with
 
 let process_methods_arguments args =
     let folder (t,c,n,k,r) = function
-        | `AU | `SH | `KH as t -> (Some t,c,n,k,r)
+        | `SH | `KH as t -> (Some t,c,n,k,r)
         | `Characters c -> (t,c,n,k,r)
         | `Replicates n -> (t,c,Some n,k,r)
         | `ScaleFactors k -> (t,c,n,Some k,r)
@@ -104,7 +104,6 @@ module type S = sig
 
     val kh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree -> tree -> unit
     val sh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree list -> unit
-    val au : ?n:int -> ?rep:replicate -> ?k:int -> ?chars:Data.bool_characters -> tree list -> unit
 
 end
 
@@ -229,8 +228,7 @@ struct
         cdf
 
     (* apply weights to a tree data-set with restricted costs; *)
-    let reweight_data d chars weights =
-        
+    let reweight_data (d:Data.d) (chars:Data.bool_characters) weights =
         assert false
 
     (* return the cost of a replicate; apply the replicate optimization level *)
@@ -302,7 +300,7 @@ struct
             Array.iter (fun x -> Printf.printf ", %f" x) dc_i;
             print_newline ()
         end;
-        (* 4. Does it pass confidence test of alpha value? *)
+        (** 4: Output information *)
 
         ()
             
@@ -426,130 +424,4 @@ struct
         info_user_message "@]";
         ()
 
-
-    let au ?n ?(rep=rell) ?(k=5) ?(chars=`All) ts =
-        (** STEP 0 : Basic setup for every one of these algorithms *)
-        let ts =
-            ts --> List.map (create_wrapped_tree chars)
-               --> Array.of_list
-               -|> Array.sort
-                    (fun x y -> Pervasives.compare (get_ml_cost y) (get_ml_cost x))
-        in
-        let b = get_default_reps n rep in
-        let m = Array.length ts in
-        assert( m > 1 );
-        let cdf = get_cdf ts.(0) in
-        let n   = cdf.((Array.length cdf)-1) in
-        if debug_au then begin
-            Printf.printf "Initial Costs\n\t%!";
-            Array.iter (fun x -> Printf.printf "%f, " (get_ml_cost x)) ts;
-            print_newline ()
-        end;
-        (** STEP 1 : Define r_k and B_k; the scale factor is uniformly distributed
-            around mean 1.0,  and B are the number of replicates, equal for each
-            scale factor in the algorithm. *)
-        let r = Array.init k (fun i -> 0.5 +. ((float_of_int i) /. (float_of_int k))) in
-        let b = Array.init k (fun _ -> b) in
-        (** STEP 2.1 : Generate the bootstrap replicates of len N' = r_k*N. *)
-        let y =
-            Array.init k    (* k * b * t *)
-                (fun i ->
-                    let n' : int = int_of_float (r.(i) *. n) in
-                    let scale : float = n /. (float_of_int n') in
-                    Array.init b.(i)
-                        (fun _ ->
-                            let w = bootstrap_weights ~n:n' cdf in
-                            Array.map
-                                (fun t -> (replicate_cost rep t w) *. scale) ts))
-        in
-        if debug_au then begin
-            for i = 0 to k-1 do
-                Printf.printf "\n\n%d -- %f\n\tTs\\Bs\t" i r.(i);
-                for j = 0 to (b.(i)-1) do
-                    Printf.printf " % 9d  " j;
-                done;
-                for t = 0 to m-1 do
-                    Printf.printf "\n\t%d\t" t;
-                    for j = 0 to (b.(i)-1) do
-                        Printf.printf "% 9.4f  " y.(i).(j).(t);
-                    done;
-                done;
-            done;
-            print_newline ()
-        end;
-        (** STEP 2.2 : calculate the BP-values; BP_0 = #{Y(r_k) \mem H_0}/b_k *)
-        let bp =
-            Array.init k
-                (fun i ->
-                    let cnt = ref 0 in
-                    for b_i = 0 to (b.(i)-1) do
-                        let best = ref true in
-                        for j = 1 to m-1 do
-                            best := !best && (y.(i).(b_i).(0) > y.(i).(b_i).(j));
-                        done;
-                        if !best then incr cnt
-                    done;
-                    (float_of_int !cnt) /. (float_of_int b.(i)))
-        in
-        if debug_au then begin
-            Printf.printf "BP-Values\n%!";
-            Array.iteri (fun i r_i -> Printf.printf "%d\t%f\t%f\n%!" i r_i bp.(i)) r
-        end;
-        (** STEP 3 : estimate d and c from weighted least squares by minimizing RSS *)
-        let d,c =
-            let opt_function ray =
-                assert( 2 = (Array.length ray));
-                let d,c = ray.(0), ray.(1) in
-                let v_inv k =
-                    let norm_inv = Numerical.qnorm bp.(k) in
-                    let numr = bp.(k) *. (1.0 -. bp.(k))
-                    and deno = Numerical.dnorm (norm_inv**2.0) in
-                    (deno *. (float_of_int b.(k))) /. numr
-                in
-                let sum = ref 0.0 in
-                for i = 0 to k-1 do
-                    let rss_i = (d *. (sqrt r.(i))) +. c /. (sqrt r.(i)) in
-                    let rss_i = rss_i -. (Numerical.qnorm (1.0 -. bp.(i))) in
-                    let v_inv_i = v_inv i in
-                    sum := !sum +. v_inv_i +. rss_i**2.0;
-                done;
-                (),!sum
-            in
-            (* the starting position below seems to be popular with the ladies *)
-            let i = [| 1.0; 1.0 |],opt_function [| 1.0; 1.0 |] in
-            (* below; tested brent_multi but couldn't bracket region *)
-            let a,((),_) = Numerical.bfgs_method opt_function i in
-            a.(0),a.(1)
-        in
-        if debug_au then
-            Printf.printf "D:%f\nC:%f\n" d c;
-        (** STEP 4 : calculate p-values, AU = 1 - \Phi(d-c) **)
-        let p = Numerical.pnorm (d -. c) in
-        if debug_au then
-            Printf.printf "P-Value:%f\n" p;
-        ()
-
 end
-
-
-(** This is a little test application for the module. Uncomment and compile, the
-    camlp4 tags need to be set (modify _tags file and add, 
-        "mlTestStat.ml" : pp(camlp4orf), use_camlp4o, use_extensions
-    usage: ./mlTestStat.native <LOAD SCRIPT> <STAT TYPE> <REPLICATES>
-
-module MLTest = Make (AllDirNode.AllDirF) (Edge.LazyEdge) (AllDirChar.F)
-let test file s_type n =
-    let phylo_to_mltest : (Phylo.a, Phylo.b) Ptree.p_tree -> (MLTest.a, MLTest.b) Ptree.p_tree = Obj.magic in
-    Status.set_verbosity `None;
-    let ()    = (POY run ([file])) in
-    let ts = List.map phylo_to_mltest (Phylo.Runtime.trees ()) in
-    let () = match s_type,ts with
-        | "kh",x::y::_ -> MLTest.kh ~n x y
-        | "sh", ts     -> MLTest.sh ~n ts
-        | "au", ts     -> MLTest.au ~n ts
-    in
-    ()
-let () =
-    test Sys.argv.(1) Sys.argv.(2) (int_of_string Sys.argv.(3))
-
-*)

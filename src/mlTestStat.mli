@@ -91,9 +91,6 @@ module type S = sig
     (** Return the P-Values and Trees for a candidate set of trees *) 
     val sh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree list -> unit
 
-    (** Return the P-Value to support the best tree passed *)
-    val au : ?n:int -> ?rep:replicate -> ?k:int -> ?chars:Data.bool_characters -> tree list -> unit
-
 end
 
 module Make :

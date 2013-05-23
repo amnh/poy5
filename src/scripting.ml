@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3320 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3323 $"
 
 let (-->) a b = b a
 
@@ -4089,7 +4089,6 @@ let rec folder (run : r) meth =
                                      ^"@ at@ least@ two@ trees@ in@ memory."
                             in
                             Status.user_message Status.Error msg
-                        | `AU,ts -> MLT.au ?n ?k ~rep ~chars ts
                         | `SH,ts -> MLT.sh ?n ~rep ~chars ts
                         | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
                         | `KH,ts ->
