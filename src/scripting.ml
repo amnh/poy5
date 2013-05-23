@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3319 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3320 $"
 
 let (-->) a b = b a
 
@@ -4239,7 +4239,7 @@ IFDEF USE_XSLT THEN
                     Xslt.process filename style file
 ELSE
                     Status.user_message Status.Error 
-                    "This version of POY was not compiled with XSLT support."
+                        "This@ version@ of@ POY@ was@ not@ compiled@ with@ XSLT@ support."
 END
                 in
                 run
@@ -4365,31 +4365,47 @@ END
             | `RobinsonFoulds filename ->
                 let o = Status.Output (filename,false,[]) in
                 let t = run.trees --> Sexpr.to_list --> Array.of_list in
+                let get_tree_name i t = match t.Ptree.tree.Tree.tree_name with
+                    | Some x -> x
+                    | None   -> "Tree "^(string_of_int i)
+                in
                 let matrix =
                     let n = Array.length t in
-                    let mat = Array.make_matrix n n (string_of_int 0) in
+                    let mat = Array.make_matrix n (n+1) (string_of_int 0) in
                     for i = 0 to (n-1) do
-                        for j = (i+1) to (n-1) do
+                        mat.(i).(0) <- (get_tree_name i t.(i))^" - ";
+                    done;
+                    for i = 0 to (n-1) do
+                        for j = i+1 to (n-1) do
                             let ij : string =
                                 Tree.robinson_foulds t.(i).Ptree.tree t.(j).Ptree.tree
                                     --> string_of_int
                             in
-                            mat.(i).(j) <- ij;
-                            mat.(j).(i) <- ij;
+                            mat.(i).(j+1) <- ij;
+                            mat.(j).(i+1) <- ij;
                         done;
                     done;
                     mat
                 in
-(*                 Array.iteri (fun i x -> *)
-(*                     let cost = string_of_float (Ptree.get_cost `Adjusted x) in *)
-(*                     let res = *)
-(*                         PtreeSearch.build_forest_with_names_n_costs None x cost *)
-(*                     in *)
-(*                     Status.user_message o (Printf.sprintf "%d\t-" i); *)
-(*                     Status.user_message o (to_string  *)
-(*                   trees; *)
-                Status.output_table o matrix;
-                run
+                begin match filename with
+                | None ->
+                    Status.output_table o matrix;
+                    run
+                | Some _ ->
+                    Array.iteri (fun i x ->
+                        let cost = string_of_float (Ptree.get_cost `Adjusted x) in
+                        let res =
+                            TS.build_forest_with_names_n_costs None x cost (false,None) None
+                        in
+                        Status.user_message o (Printf.sprintf "%s\t-" matrix.(i).(0));
+                        List.iter (fun x ->
+                            let str = AsciiTree.for_formatter false true true x in
+                            Status.user_message o (str^"\n"))
+                        res)
+                    t;
+                    Status.output_table o matrix;
+                    run
+                end
 
             | `KolmoMachine filename ->
                 let data =
