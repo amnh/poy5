@@ -14,39 +14,71 @@ let out_val = (((in_val * in_val) - in_val) / 2) in
 out_val
 ;;
 
-let set_up_params () =
-  Printf.printf "Setting values \n";
-  let alpha_bet_size = 5 in
+let set_up_params in_array =
+  (*Printf.printf "Setting values \n";*)
+  (*let alpha_bet_size = ref 150 in*)
   let 
-     priors = Array.create alpha_bet_size 1.0 and
-     transitions = Array.create (choose_2 alpha_bet_size) 1.0 and
-     invariant_min = 0.0 and
-     invariant_max = 1.0 and
-     alpha_min = 0.0 and
-     alpha_max = 50.0 and
-     edge_length = 10.0 and
-     num_rate_classes_min = 1 and
-     num_rate_classes_max = 7 and
-     iterations = 100000000 and
-     epsilon = 0.000001 and
-     prior_dist = "Dirichlet" and  (*Fixed or Dirichlet*)
-     transition_dist = "Dirichlet" and   (*Fixed or Dirichlet*)
-     invariant_dist = "Uniform" and   (*Fixed or Uniform*)
-     alpha_dist = "Uniform" and   (*Fixed or Uniform*)
-     num_rate_classes_dist = "Uniform" and   (*Fixed or Uniform*)
-     edge_time_dist = "Exponential" and   (*Exponential or Uniform*)
-     file_stub_name = "MAPA_"
+     alpha_bet_size = ref 5 and
+     (*priors = Array.create !alpha_bet_size 1.0 and
+     transitions = Array.create (choose_2 !alpha_bet_size) 1.0 and*)
+     invariant_min = ref 0.0 and
+     invariant_max = ref 1.0 and
+     alpha_min = ref 0.0 and
+     alpha_max = ref 50.0 and
+     edge_length = ref 10.0 and
+     num_rate_classes_min = ref 1 and
+     num_rate_classes_max = ref 7 and
+     iterations = ref 1000 and
+     epsilon = ref 0.000001 and
+     prior_dist = ref "Dirichlet" and  (*Fixed or Dirichlet*)
+     transition_dist = ref "Dirichlet" and   (*Fixed or Dirichlet*)
+     invariant_dist = ref "Uniform" and   (*Fixed or Uniform*)
+     alpha_dist = ref "Uniform" and   (*Fixed or Uniform*)
+     num_rate_classes_dist = ref "Uniform" and   (*Fixed or Uniform*)
+     edge_time_dist = ref "Uniform" and   (*Exponential or Uniform*)
+     file_stub_name = ref "MAPA_" and
+     precision = ref 100000.0
   in
-  (alpha_bet_size, priors, transitions, invariant_min, invariant_max, alpha_min, 
-       alpha_max, num_rate_classes_min, num_rate_classes_max, iterations, epsilon, edge_length,
-       prior_dist, transition_dist, invariant_dist, alpha_dist, num_rate_classes_dist, 
-       edge_time_dist, file_stub_name)
+  for i = 0 to Array.length in_array - 1 do
+      match in_array.(i) with 
+          "-invariant_min" -> invariant_min := float_of_string  in_array.(i + 1);
+        | "-invariant_max" -> invariant_max := float_of_string  in_array.(i + 1);
+        | "-alphabet_size" -> alpha_bet_size := int_of_string  in_array.(i + 1);
+        | "-alpha_min" -> alpha_min := float_of_string  in_array.(i + 1);
+        | "-alpha_max" -> alpha_max := float_of_string  in_array.(i + 1);
+        | "-edge_length" -> edge_length := float_of_string  in_array.(i + 1);
+        | "-num_rate_classes_min" -> num_rate_classes_min := int_of_string  in_array.(i + 1);
+        | "-num_rate_classes_max" -> num_rate_classes_max := int_of_string  in_array.(i + 1);
+        | "-iterations" -> iterations := int_of_string  in_array.(i + 1);
+        | "-epsilon" -> epsilon := float_of_string  in_array.(i + 1);
+        | "-prior_dist" -> prior_dist := in_array.(i + 1);
+        | "-transition_dist" -> transition_dist := in_array.(i + 1);
+        | "-invariant_dist" -> invariant_dist := in_array.(i + 1);
+        | "-alpha_dist" -> alpha_dist := in_array.(i + 1);
+        | "-num_rate_classes_dist" -> num_rate_classes_dist := in_array.(i + 1);
+        | "-edge_time_dist" -> edge_time_dist := in_array.(i + 1);
+        | "-file_stub_name" -> file_stub_name := in_array.(i + 1);
+        | "-precision" -> precision := float_of_string in_array.(i + 1);
+        | _ -> if ((i mod 2) = 1) then 
+            begin
+              Printf.printf "Unrecognized option %s\n" in_array.(i);
+              failwith "Bad option"
+            end;
+  done;
+  (* need to allow these to be set*)
+  let priors = Array.create !alpha_bet_size 1.0 and
+     transitions = Array.create (choose_2 !alpha_bet_size) 1.0
+     in
+  (!alpha_bet_size, priors, transitions, !invariant_min, !invariant_max, !alpha_min, 
+       !alpha_max, !num_rate_classes_min, !num_rate_classes_max, !iterations, !epsilon, !edge_length,
+       !prior_dist, !transition_dist, !invariant_dist, !alpha_dist, !num_rate_classes_dist, 
+       !edge_time_dist, !file_stub_name, !precision)
 ;;
 
 let print_vals alphabet_size prior_array transition_array invariant_min invariant_max 
   alpha_min alpha_max num_rate_classes_min num_rate_classes_max max_iterations epsilon edge_length 
   prior_dist transition_dist invariant_dist alpha_dist num_rate_classes_dist edge_time_dist 
-  file_stub_name =
+  file_stub_name precision =
 Printf.printf "Alphabet size = \t\t\t%d\n" alphabet_size;
 Printf.printf "Prior parameters = %s\t\t" prior_dist;
   for  i = 0 to alphabet_size - 1 do
@@ -64,7 +96,8 @@ Printf.printf "Number rate classes = %s\t\t[%d, %d]\n" num_rate_classes_dist num
 Printf.printf "Edge time = %s\t\t\t%f\n" edge_time_dist edge_length;
 Printf.printf "Maximum iterations = \t\t\t%d\n" max_iterations;
 Printf.printf "Epsilon = \t\t\t\t%f\n" epsilon;
-Printf.printf "File stub = %s\n" file_stub_name;
+Printf.printf "File stub = \t\t\t\t%s\n" file_stub_name;
+Printf.printf "Precision = \t\t\t\t%f\n" precision;
 ;;
 
 let _ = Random.self_init ();;
@@ -117,19 +150,27 @@ let rec gamma_variant alpha beta =
 ;;
 
 (*Generates Dirichlet form a series of Gammas (alpha_i, 1.0) *)
-let dirichlet_variant param_array =
+let dirichlet_variant param_array normalize =
   let n = Array.length param_array in
   let y_array = Array.create n 0.0 and
-  x_array =  Array.create n 0.0 and
-  y_sum = ref 0.0 in
+      x_array =  ref (Array.create n 0.0) and
+      x_array_norm = Array.create (n - 1) 0.0 and
+      y_sum = ref 0.0 in
   for i = 0 to n - 1 do
     y_array.(i) <- gamma_variant param_array.(i) 1.0;
     y_sum := !y_sum +. y_array.(i);
   done;
   for i = 0 to n - 1 do
-    x_array.(i) <- y_array.(i) /. !y_sum;
+    !x_array.(i) <- y_array.(i) /. !y_sum;
   done;
-x_array
+  if (normalize == true) then (* so last value = 1 for gtr*)
+    begin
+      for i = 0 to n - 2 do
+        x_array_norm.(i) <- !x_array.(i) /. !x_array.(n-1);
+      done;
+      x_array := x_array_norm;
+    end;
+  !x_array
 ;;
 
 (* Add float elements of b to a
@@ -168,11 +209,11 @@ Printf.printf "Beginning run...\n";
 let (alphabet_size, prior_array, transition_array, invariant_min, invariant_max, 
       alpha_min, alpha_max, num_rate_classes_min, num_rate_classes_max, max_iterations, epsilon, edge_length,
       prior_dist, transition_dist,invariant_dist, alpha_dist, num_rate_classes_dist, 
-      edge_time_dist, file_stub_name) = set_up_params ()
+      edge_time_dist, file_stub_name, precision) = set_up_params Sys.argv
       in
 print_vals alphabet_size prior_array transition_array invariant_min invariant_max alpha_min 
   alpha_max num_rate_classes_min num_rate_classes_max max_iterations epsilon edge_length prior_dist 
-  transition_dist invariant_dist alpha_dist num_rate_classes_dist edge_time_dist file_stub_name;
+  transition_dist invariant_dist alpha_dist num_rate_classes_dist edge_time_dist file_stub_name precision;
 
 (*Final matrix to hold all iterations*)
 
@@ -189,8 +230,8 @@ for iteration = 0 to max_iterations -1 do
     alpha_draw = (alpha_min +. (Random.float (alpha_max  -. alpha_min))) and
     edge_draw = (Random.float edge_length) and
     rate_classes_draw = (num_rate_classes_min + (Random.int (1 + num_rate_classes_max  - num_rate_classes_min))) and
-    prior_draw = dirichlet_variant prior_array and
-    transition_draw = dirichlet_variant transition_array
+    prior_draw = dirichlet_variant prior_array false and
+    transition_draw = dirichlet_variant transition_array true
   in
   (*Get a single matrix with drawn values*)
   let temp_matrix = Array.make_matrix alphabet_size alphabet_size 0.0 and
@@ -199,11 +240,11 @@ for iteration = 0 to max_iterations -1 do
   if (rate_classes_draw < 2) then rates.{0} <- 1.0;
    for i = 0 to rate_classes_draw - 1 do
      let subst_matrix = 
-       try MlModel.m_gtr (ba_of_array1 prior_draw) transition_draw alphabet_size None 
+       try  MlModel.m_gtr (ba_of_array1 prior_draw) transition_draw alphabet_size None 
        with | _ -> failwith "Matrix size and Priors are inconsistent"
      in
      let t_matrix = MlModel.compose_model subst_matrix (edge_draw *. rates.{i}) in
-       matrix_increment_multiply temp_matrix t_matrix  ((1.0 -. invariant_draw) /. (float_of_int rate_classes_draw));
+     matrix_increment_multiply temp_matrix t_matrix  ((1.0 -. invariant_draw) /. (float_of_int rate_classes_draw));
    done;
    for i = 0 to alphabet_size - 1 do
       temp_matrix.(i).(i) <- temp_matrix.(i).(i) +. invariant_draw;
@@ -232,7 +273,6 @@ for iteration = 0 to max_iterations -1 do
         done;
         Printf.printf "\n";
 
-  let precision = 100000.0 in
   Printf.printf "Integerized -log Final matrix\n";
         for i = 0 to alphabet_size -1  do
           for j = 0 to alphabet_size -1  do
