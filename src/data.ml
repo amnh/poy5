@@ -2362,14 +2362,14 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                     (*each loci is a list of fragment, each fragment is a seq *)
                     match taxon_chrom_loci_frag_seq with 
                         | [[loci_frag_seq]] -> (*this is a sequence list*) 
-                            if !max_num_fragment != (List.length loci_frag_seq) then begin
+                            let found = List.length loci_frag_seq in
+                            if !max_num_fragment != found then begin
                                 if !max_num_fragment < 0 then
-                                    max_num_fragment := (List.length loci_frag_seq)
+                                    max_num_fragment := found
                                 else begin
                                     output_errorf
-                                        ("I@ found@ an@ inconsistent@ number@ of"^^
-                                         "@ fragments@ in@ the@ sequence@ from@ %s.")
-                                        original_filename;
+                                        ("The taxon %s in %s has %d fragments where we expect %d.")
+                                         t original_filename found !max_num_fragment ;
                                     failwith "Illegal prealigned molecular sequences."
                                 end
                            end;
@@ -2382,15 +2382,13 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                                 ^^"unexpectedly@ encountered@ loci('|')@ or@ "
                                 ^^"chromosome@ ('@@')@ delimiters.")
                                 original_filename;
-                            failwith "Illegal prealigned molecular sequences.")
+                            failwith "Illegal molecular sequences.")
                 file_taxon_chrom_loci_frag_seq
         in
         let file_taxon_frag_seq = Array.of_list file_taxon_frag_seq in
         (*tranpose the matrix above *)
         let num_taxon = Array.length file_taxon_frag_seq in
         let max_num_fragment = !max_num_fragment in
-        if debug_parsed_seq then  
-            Printf.printf "num_taxon=%d,max_num_fragment=%d\n%!" num_taxon max_num_fragment;
         let frag_taxon_seq = ref [] in
         for j = max_num_fragment - 1 downto 0 do
             let acc = ref [] in
