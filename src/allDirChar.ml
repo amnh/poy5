@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3328 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3336 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1852,8 +1852,7 @@ module F : Ptree.Tree_Operations
                     info_user_message "Prev Cost: %f" new_cost;
                     info_user_message "Break Delta: %f" bd
                 end;
-                assert( bd >= 0.0 );
-                bd
+                abs_float bd (* likelihood break-delta is negative *)
             end
         in
         let left, right =
@@ -2077,10 +2076,9 @@ module F : Ptree.Tree_Operations
                 Ptree.Cost (res -. pc)
         in
         if debug_cost_fn then begin 
-            Printf.printf "update node manager with new tree ";
             match cost with 
             | Ptree.Cost x ->  Printf.printf "cost = %f\n%!" x
-            | Ptree.NoCost -> Printf.printf "NodeCost\n%!"
+            | Ptree.NoCost -> Printf.printf "NoCost\n%!"
         end;
         update_node_manager e (`Cost) n_mgr;
         cost
