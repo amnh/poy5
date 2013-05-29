@@ -2345,7 +2345,6 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                                    tcm_original tcm3 default_mode lk_model
                                    alphabet dyna_state dyna_pam weight
                                    prealigned domerge =
-    if debug_parsed_seq then Printf.printf "process normal sequence, prealigned:%b\n%!" prealigned;
     let get_multi_segment_seq file_taxon_chrom_loci_frag_seq =
         (* input seq list list list list become a matrix looks like this:
         * [ 
@@ -2354,7 +2353,7 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
             ...
            ]
         *)
-        let max_num_fragment = ref 0 in
+        let max_num_fragment = ref (~-1) in
         let file_taxon_frag_seq =
             List.map
                 (fun (taxon_chrom_loci_frag_seq,t) ->
@@ -2363,13 +2362,13 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                     (*each loci is a list of fragment, each fragment is a seq *)
                     match taxon_chrom_loci_frag_seq with 
                         | [[loci_frag_seq]] -> (*this is a sequence list*) 
-                            if !max_num_fragment < (List.length loci_frag_seq) then begin
-                                if !max_num_fragment=0 then
+                            if !max_num_fragment != (List.length loci_frag_seq) then begin
+                                if !max_num_fragment < 0 then
                                     max_num_fragment := (List.length loci_frag_seq)
                                 else begin
                                     output_errorf
-                                        ("I found an inconsistent number of^^
-                                         fragments in the sequence from %s.")
+                                        ("I@ found@ an@ inconsistent@ number@ of"^^
+                                         "@ fragments@ in@ the@ sequence@ from@ %s.")
                                         original_filename;
                                     failwith "Illegal prealigned molecular sequences."
                                 end
