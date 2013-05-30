@@ -17,17 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: alphabet.mli 2845 2008-05-14 15:12:35Z vinh $ *)
 (* Alphabet.
-*
-* Description and handling of different kinds of alphabets for the analysis of
-* molecular data. *)
-
-(** Alphabet specification for sequences.
-*
-* Sequences are usually composed of nucleotides or aminoacides. Other kind of
-* sequences are valid though. This library provides the interface for such
-* specifications, as well as the default ones (nucleotides and aminoacids). *)
+ *
+ * Description and handling of different kinds of alphabets for the analysis of
+ * molecular data.
+ * Sequences are usually composed of nucleotides or aminoacides. Other kind of
+ * sequences are valid though. This library provides the interface for such
+ * specifications, as well as the default ones (nucleotides and aminoacids). *)
 
 
 (** {2 Exceptions} *)

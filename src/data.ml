@@ -1271,6 +1271,7 @@ let reverse_dynamic_static_codes map =
 (** Convert characters in n33 classification to gen-nonadditve characters.
  * source contains old matrices from the dynamic characters necessary for the
  * general non-additive prealigned character. *)
+let pp_ilst chan st = List.iter (Printf.fprintf chan "%d ") st
 exception Missing_Sequence
 let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
     let get_static_state t c a =
@@ -1282,8 +1283,9 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
             | Some x ->
                 let states = Nexus.File.static_state_to_list x in
                 begin match states with
-                | [] -> raise Missing_Sequence
-                | xs -> Alphabet.find_comb xs a
+                | []  -> raise Missing_Sequence
+                | [0] -> Alphabet.get_gap a
+                | xs  -> Alphabet.find_comb xs a
                 end
             | None -> Alphabet.get_gap a
             end
@@ -1303,7 +1305,7 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
                 Sequence.prepend seq state)
             (List.rev codes);
             seq
-        with | Missing_Sequence ->
+        with Missing_Sequence ->
             Sequence.make_empty alph
     in
     let adder spec_tbl char_tbl name_tbl code_tbl code : int =
@@ -2251,11 +2253,9 @@ let process_parsed_breakinv data res original_filename file tcmfile tcm_full
         let tl = get_taxon_characters data tcode in
         let seqa = 
             {seq = singleseq; 
-            delimiter=
-                if (List.length delilst)>1 then delilst 
-                else []
-            ; 
-            code= -1} in
+            delimiter= if (List.length delilst)>1 then delilst else [] ; 
+            code= -1}
+        in
         let dyna_data = { seq_arr = [|seqa|]; } in
         let spc = `Specified in
         if debug_parsed_seq then  
