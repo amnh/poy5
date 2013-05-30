@@ -1,8 +1,20 @@
+(* MAPA                                                                 *)
+   (* Copyright (C) 2013  Ward Wheeler                                           *)
+   (* and the American Museum of Natural History.                                *)
+   (*                                                                            *)
+   (* This program is free software; you can redistribute it and/or modify       *)
+   (* it under the terms of the GNU General Public License as published by       *)
+   (* the Free Software Foundation; either version 2 of the License, or          *)
+   (* (at your option) any later version.                                        *)
+   (*                                                                            *)
+   (* This program is distributed in the hope that it will be useful,            *)
+   (* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+   (* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+   (* GNU General Public License for more details.                               *)
+                                                                                  
 (* Program to generate MAP tcm matrices *)
 (*Need to do:
        Add ratio param for indel prior and transitions
-       Clean up main code--functionalize matrix adds
-       output files based on stem
        read configuration data from file
 *)
 let (-->) a b = b a

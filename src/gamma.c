@@ -34,7 +34,7 @@
 #include <caml/fail.h>
 
 #define EPSILON 3e-7  //error for numerical calculations
-#define FABMIN  1e-30 //floating point absolute value min  
+#define FABMIN  1e-30 //floating point absolute value min
 
 #ifndef M_PI
 #define M_PI    3.14159265358979323846264338327
@@ -42,23 +42,13 @@
 
 #define CHECK_MEM(a) if(a==NULL) failwith("I can't allocate more memory.")
 
-void CHECK_MEAN(double*a, int n){
-    int Z;
-    double SUM;
-    for( Z=0,SUM=0; Z<n; Z++){ SUM += a[Z]; }
-    if( SUM/(double)n > 1.0+EPSILON ){
-        failwith("Incorrect Mean of Gamma Rates");
-    }
-}
-
 //------------------------------------------------------------
 //  SPECIAL FUNCTIONS -- 
 //------------------------------------------------------------
 
 /** [gamma z]
  * Computes the gamma function of z using Lanczos Approximation. (e~1e-15)
- *      caveate -- max z = 142.0
- */
+ *      caveate: z < 142.0, else overflow on 64bit machines. */
 double gamma( double z )
 {
     double x,Lg; int k;
@@ -86,11 +76,10 @@ value gamma_CAML_gamma( value v_x )
     CAMLreturn( v_g );
 }
 
-/** [lngamma z]
+/** [lngamma_lo z]
  * Computes the ln gamma function of z using Lanczos Approximation.
- *
- * "Numerical Recipes in C", Section 6.1
-double lngamma( const double xx )
+ * "Numerical Recipes in C", Section 6.1 */
+double lngamma_lo( const double xx )
 {
     double x,y,tmp,ser;
     int j;
@@ -106,8 +95,10 @@ double lngamma( const double xx )
     for(j=0;j<=5;j++) ser += cof[j]/++y;
     return -tmp+log(2.5066282746310005*ser/x);
 }
-*/
 
+/** [lngamma z]
+ * Computes the ln gamma function of z using Lanczos Approximation of a higher
+ * degree then the one above. */
 double lngamma( const double xx )
 {
     int j;
@@ -232,44 +223,6 @@ value gamma_CAML_randgamma( value sh, value sc )
     r = caml_copy_double( rand_gamma( Double_val(sh), Double_val(sc) ) );
     CAMLreturn( r );
 }
-
-
-
-/** confluent hypergeometric (for incomplete gamma ratio)
- *   ___inf
- *   \       ______x^r_______ 
- *   /      (p+1)(p+2)...(p+r)
- *   ---r=1
-double gamma_M(const double z, const double a) 
-{
-    double bottom,sum,z_pow,prev; int iter;
-    iter = 0; bottom = 1; z_pow = 1; sum = 0; prev = 0;
-    do {
-        prev = sum;
-        sum += z_pow / bottom;
-        iter++;
-        bottom = bottom * (a+iter);
-        z_pow = z_pow * z;
-    } while( fabs(sum-prev) > EPSILON );
-
-    return sum;
-} */
-
-
-/** [gamma_i x a ]
- * calculates the incomplete gamma ratio, based on methods described in
- *      ~Bhattacharjee (1970), Algorithm AS32
- *
- *      a - alpha parameter
- *      x - bound of integral
-double gamma_i(const double x, const double a)
-{
-    //if ( x < p || (a <= x && x <= 1.0) ) {
-        return (exp(-x)*pow(x,a)/gamma(a+1)) * gamma_M(x,a);
-    //else
-    //    return 1 - exp(-x)*pow(x,a) / gamma(a) * gamma_C(x,a);
-} */
-
 
 /**
  * Retuns the incomplete gamma function evaluated by its series representation
@@ -572,13 +525,11 @@ value gamma_CAML_pnorm( value mu, value sigma, value p )
 }
 
 
-
 /** [point_normal p]
  * Finds the percentage point [p] of the normal distribution.
  *
  * Algorithm AS241: The Percentage Points of the Normal Distribution.
- *     Accurate to about 1 part in 10**16
- */
+ *     Accurate to about 1 part in 10**16 */
 #ifdef _WIN32
 __inline
 #else
@@ -696,7 +647,8 @@ double chi_pp( double p, double v ){
     double e,aa,xx,c,g,x,p1,a,q,p2,t,ig,b;
 
     assert( v > 0.0 );
-    if (p < 0.000002 || p > 0.999998) failwith("Chi^2 Percentage Points incorrect.1");
+    if (p < 0.000002 || p > 0.999998)
+        failwith("Chi^2 Percentage Points incorrect.1");
 
     e = 0.5e-6;         /** error term **/
     aa= 0.6931471805;
@@ -772,7 +724,6 @@ gamma_rates(double* rates,const double a,const double b,const double* cuts,const
     rates[k-1] = (1 - ingam[k-2]) * fac;    //upper rate
     for(j=1;j<k-1;j++)
         rates[j] = (ingam[j] - ingam[j-1]) * fac;
-    CHECK_MEAN( rates, k );
     free( ingam );
 }
 
