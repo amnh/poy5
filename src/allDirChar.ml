@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3336 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3349 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -118,19 +118,40 @@ module F : Ptree.Tree_Operations
             None
 
 
+    (* check if the ptree has likelihood characters by it's data; obviously this
+     * means that data must be up to date --an invariant that we hold. The old
+     * version of this function, that checks the ptree is left below for
+     * posterity. *)
+    let rec using_likelihood types ptree =
+        let data_test = match types with
+            | `Static   -> Data.has_static_likelihood ptree.Ptree.data
+            | `Dynamic  ->
+                begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
+                    | Some _ -> true
+                    | None   -> false
+                end
+            | `OnlyStatic ->
+                (using_likelihood `Static ptree ) && not (using_likelihood `Dynamic ptree)
+            | `Either   ->
+                (using_likelihood `Static ptree ) || (using_likelihood `Dynamic ptree)
+        in
+        data_test
+
+
     (** [create_branch_table table ptree] 
      * Creates a hashtable with all the branch data. The key is the pair of
      * nodes lengths and the value is either a single length or a list of
      * branch lengths in the case of multiple character sets. *)
-    let branch_table opts ptree =
+    let branch_table (opts : [`Single | `Final | `Max ] option) ptree =
         let trees_table = Hashtbl.create 13 in
         let inc_parsimony = match opts with
             | Some _ -> (true, opts)
             | None   -> (false,None)
         in
         let adjusted = match opts with
-            | Some `Single -> true
             | Some (`Final | `Max) | None -> false
+            | _ when using_likelihood `Either ptree -> false
+            | Some `Single -> true
         in
         let create_branch_table handle () =
             let rec single_node prev curr =
@@ -173,26 +194,6 @@ module F : Ptree.Tree_Operations
         in
         IntSet.fold (create_branch_table) (Ptree.get_handles ptree) ();
         trees_table
-
-
-    (* check if the ptree has likelihood characters by it's data; obviously this
-     * means that data must be up to date --an invariant that we hold. The old
-     * version of this function, that checks the ptree is left below for
-     * posterity. *)
-    let rec using_likelihood types ptree =
-        let data_test = match types with
-            | `Static   -> Data.has_static_likelihood ptree.Ptree.data
-            | `Dynamic  ->
-                begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
-                    | Some _ -> true
-                    | None   -> false
-                end
-            | `OnlyStatic ->
-                (using_likelihood `Static ptree ) && not (using_likelihood `Dynamic ptree)
-            | `Either   ->
-                (using_likelihood `Static ptree ) || (using_likelihood `Dynamic ptree)
-        in
-        data_test
 
 
     (* Update Data.d in ptree with branch data. Used to transfer data between
