@@ -43,12 +43,13 @@
 #define CHECK_MEM(a) if(a==NULL) failwith("I can't allocate more memory.")
 
 void CHECK_MEAN(double*a, int n){
-    int Z;
+  /*int Z;
     double SUM;
     for( Z=0,SUM=0; Z<n; Z++){ SUM += a[Z]; }
     if( SUM/(double)n > 1.0+EPSILON ){
         failwith("Incorrect Mean of Gamma Rates");
     }
+  */
 }
 
 //------------------------------------------------------------
