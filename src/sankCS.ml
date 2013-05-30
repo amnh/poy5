@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 3290 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 3348 $"
 
 let debug = false
 
@@ -179,7 +179,7 @@ let to_list s =
 (*1=states,2=leftstates,3=rightstates*)
 let get_states s this_or_left_or_right =
     let num_elts = get_num_elts s in
-    assert(num_elts==1);
+    assert(num_elts=1);
     let thiselt = get_elt s 0 in
     let states_bigarr = get_states_cside thiselt this_or_left_or_right in
     let states = Array.init (Bigarray.Array1.dim states_bigarr) 
@@ -188,10 +188,8 @@ let get_states s this_or_left_or_right =
     )  in
     states
 
-(*function for fixed states, where we have only one elt for each t*)
 let get_earray s =
     let num_elts = get_num_elts s in
-    assert(num_elts==1);
     let thiselt = get_elt s 0 in
     let e_bigarr = get_earray_cside thiselt in
     Array.init
