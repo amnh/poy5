@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3306 $"
+let () = SadmanOutput.register "Node" "$Revision: 3336 $"
 
 let infinity = float_of_int max_int
 
@@ -1865,7 +1865,7 @@ let not_to_single =
 * being called by [chekc_cost] of allDirChar.ml *)
 let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
-let debug = false in
+    let debug = false in
     if debug then
         Printf.printf "\n Node.distance_of_type on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
     let has_t x = List.exists (fun z -> z = x) t
@@ -1955,7 +1955,7 @@ let rec cs_distance missing_distance nd1 nd2 ch1 ch2 = match ch1, ch2 with
         IFDEF USE_LIKELIHOOD THEN
             let x, _ (*ignore sumcost*) = cs_median 0 nd1 nd2 None None None ch1 ch2 in
             begin match x with
-                | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
+                | StaticMl x -> -. (a.weight *. (x.cost -. (a.cost +. b.cost)))
                 | _ -> assert false
             end
         ELSE

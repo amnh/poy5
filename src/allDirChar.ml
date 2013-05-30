@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3242 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3336 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -28,6 +28,7 @@ let debug_node_fn           = false
 let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_join_fn           = false
+let debug_break_fn          = false
 let debug_branch_fn         = false
 let debug_cost_fn           = false
 let debug_uppass_fn         = false
@@ -1764,9 +1765,8 @@ module F : Ptree.Tree_Operations
 
     (* break_fn has type handle * int (node) -> tree -> tree * delta * aux_data *)
     let break_fn (tree_node_id, clade_node_id) (ptree : phylogeny) =
-        if debug_join_fn then begin
-            info_user_message "break_fn, Breaking %d -- %d" tree_node_id clade_node_id
-        end;
+        if debug_break_fn then
+            info_user_message "break_fn, Breaking %d -- %d" tree_node_id clade_node_id;
         let ptree = clear_internals true ptree in
         let (Tree.Edge (tree_node_id, clade_node_id)) as edge =
             Tree.normalize_edge (Tree.Edge (tree_node_id, clade_node_id)) ptree.Ptree.tree
@@ -1841,12 +1841,10 @@ module F : Ptree.Tree_Operations
                         | None -> failwith "AllDirChar.break_fn Huh?"
                     in
                     AllDirNode.AllDirF.root_cost clade_root,
-                    AllDirNode.AllDirF.total_cost None clade_root
+                        AllDirNode.AllDirF.total_cost None clade_root
                 in
-                let bd =
-                    (prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost))) -.  tc
-                in
-                if debug_join_fn then begin
+                let bd = prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost)) in
+                if debug_break_fn then begin
                     info_user_message "Root (%d) Cost: %f" clade_handle rc;
                     info_user_message "Total Cost: %f" tc;
                     info_user_message "Origin Cost: %f" ptree.Ptree.origin_cost;
@@ -1854,7 +1852,7 @@ module F : Ptree.Tree_Operations
                     info_user_message "Prev Cost: %f" new_cost;
                     info_user_message "Break Delta: %f" bd
                 end;
-                abs_float bd
+                abs_float bd (* likelihood break-delta is negative *)
             end
         in
         let left, right =
@@ -1906,7 +1904,7 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Strong ->
                 let breakage = break_fn a b in
                 { breakage with 
-                    Ptree.break_delta = (Ptree.get_cost `Adjusted b) -. 
+                    Ptree.break_delta = (Ptree.get_cost `Adjusted b) -.
                                         (Ptree.get_cost `Adjusted breakage.Ptree.ptree);
                     Ptree.incremental = []; }
         in
@@ -2078,10 +2076,9 @@ module F : Ptree.Tree_Operations
                 Ptree.Cost (res -. pc)
         in
         if debug_cost_fn then begin 
-            Printf.printf "update node manager with new tree ";
             match cost with 
             | Ptree.Cost x ->  Printf.printf "cost = %f\n%!" x
-            | Ptree.NoCost -> Printf.printf "NodeCost\n%!"
+            | Ptree.NoCost -> Printf.printf "NoCost\n%!"
         end;
         update_node_manager e (`Cost) n_mgr;
         cost
