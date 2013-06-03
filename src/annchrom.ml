@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Annchrom" "$Revision: 3160 $"
+let () = SadmanOutput.register "Annchrom" "$Revision: 3362 $"
 
 (** Annchrom  module implements functions to create medians
     between two lists of annotated chromosomes *)
@@ -49,17 +49,22 @@ type meds_t = {
     code : int; (** the taxa code containing this median list *)
 }
 
-let max_taxa_id = ref 0 
+let max_taxa_id = ref (-1)
+
+let verify_max_taxa_id n =
+    if !max_taxa_id < 0 then
+        max_taxa_id := n
+    else
+        assert (n = !max_taxa_id)
 
 (** [init_med seq_arr cost_mat alpha annchrom_pam tcode num_taxa] 
 * returns an annotated chromosome list with only one element
 * created from an array of sequences *) 
 let init_med (seq_arr : (Sequence.s Data.seq_t) array) 
         cost_mat_full cost_mat_original alpha annchrom_pam tcode num_taxa = 
-
     let med = AnnchromAli.init 
         (Array.map (fun s -> s.Data.seq, s.Data.code) seq_arr) in 
-    max_taxa_id := max !max_taxa_id num_taxa;
+    verify_max_taxa_id num_taxa;
     {
         med_ls = [med];
         num_med = 1;
@@ -72,7 +77,7 @@ let init_med (seq_arr : (Sequence.s Data.seq_t) array)
         approx_med_arr = (Array.make !max_taxa_id med);
         approx_cost_arr = (Array.make !max_taxa_id max_int);
         approx_recost_arr = (Array.make !max_taxa_id max_int);
-        code = tcode;
+        code = tcode-1;
     }
 
 (** [update_approx_mat meds1 meds2] creates the median
@@ -83,14 +88,18 @@ let update_approx_mat meds1 meds2 =
     let med1 = List.hd meds1.med_ls in  
     let med2 = List.hd meds2.med_ls in  
     let code2 = meds2.code in
-    (if meds1.approx_cost_arr.(code2) = max_int then begin 
-         let cost, recost, med2_ls = AnnchromAli.find_med2_ls med1 med2
-             meds1.cost_mat_full meds1.alpha meds1.annchrom_pam 
-         in  
-        meds1.approx_med_arr.(code2) <- List.hd med2_ls;
-        meds1.approx_cost_arr.(code2) <- cost; 
-        meds1.approx_recost_arr.(code2) <- recost; 
-     end) 
+    try if meds1.approx_cost_arr.(code2) = max_int then begin
+            let cost, recost, med2_ls =
+                AnnchromAli.find_med2_ls med1 med2 meds1.cost_mat_full meds1.alpha meds1.annchrom_pam
+            in
+            meds1.approx_med_arr.(code2) <- List.hd med2_ls;
+            meds1.approx_cost_arr.(code2) <- cost;
+            meds1.approx_recost_arr.(code2) <- recost;
+        end
+    with (Invalid_argument _) as exn ->
+        Printf.printf "Cannot find code2:%d in meds1: %d\n%!" meds2.code meds1.code;
+        raise exn
+
 
 (** [find_med2] meds1 meds2 find median list
  * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
@@ -98,44 +107,38 @@ let update_approx_mat meds1 meds2 =
  * a list of medians z_ij with the same cost c_ij. 
  * Find z*_ij = minargv(z_ij )(c_ij) *)
 let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
-    if debug then  Printf.printf "annchrom.ml find_meds2\n%!";
     let find_exact () = 
         let best_meds = List.fold_left  
             (fun best_meds med1 -> 
-                 List.fold_left  
-                     (fun best_meds med2 -> 
-                          let cost, recost, med_ls =
-                              AnnchromAli.find_med2_ls med1 med2
-                              meds1.cost_mat_full
-                                  meds1.alpha meds1.annchrom_pam 
-                          in  
-                          if cost < best_meds.total_cost then 
-                            { best_meds with med_ls = med_ls; total_cost = cost;
-                                  total_recost = recost}
-                        else best_meds                      
-                     ) best_meds meds2.med_ls
-            ) {meds1 with med_ls = []; total_cost = max_int} meds1.med_ls
-        in 
-                                
+                List.fold_left  
+                    (fun best_meds med2 -> 
+                        let cost, recost, med_ls =
+                            AnnchromAli.find_med2_ls med1 med2
+                                meds1.cost_mat_full meds1.alpha meds1.annchrom_pam 
+                        in
+                        if cost < best_meds.total_cost then 
+                            { best_meds with
+                                med_ls = med_ls; total_cost = cost; total_recost = recost}
+                        else
+                            best_meds)
+                    best_meds
+                    meds2.med_ls)
+            {meds1 with med_ls = []; total_cost = max_int}
+            meds1.med_ls
+        in
         best_meds
-    in 
-    if debug then 
-    Printf.printf "end of annchrom.ml find_meds2\n%!";
-    match meds1.annchrom_pam.Data.approx with 
-    | Some approx ->
-          if approx then begin 
-              update_approx_mat meds1 meds2;
-              let med1 = List.hd meds1.med_ls in  
-              let med2 = List.hd meds2.med_ls in  
-              let code2 = meds2.code in
-              let med12 = AnnchromAli.find_approx_med2 med1 med2
-                  meds1.approx_med_arr.(code2) 
-              in 
-              {meds1 with med_ls = [med12]; 
-                   total_cost = meds1.approx_cost_arr.(code2);
-                   total_recost = meds1.approx_recost_arr.(code2)}           
-          end 
-        else find_exact ()
+    in
+    match meds1.annchrom_pam.Data.approx with
+    | Some true ->
+        update_approx_mat meds1 meds2;
+        let med1 = List.hd meds1.med_ls in
+        let med2 = List.hd meds2.med_ls in
+        let code2 = meds2.code in
+        let med12 = AnnchromAli.find_approx_med2 med1 med2 meds1.approx_med_arr.(code2) in
+        {meds1 with med_ls = [med12];
+            total_cost = meds1.approx_cost_arr.(code2);
+            total_recost = meds1.approx_recost_arr.(code2)}
+    | Some false
     | None -> find_exact ()
 
 
@@ -248,25 +251,25 @@ let readjust_3d ch1 ch2 mine c2_full c3 parent =
     else cost, adjust_med, true
     *)
 
-(** [to_string med alpha] converts information in median 
-* [med] into string format *) 
-let to_string (med : annchrom_t) alpha = 
-    let seq_arr = Array.map 
-        (fun s -> 
-             let seq = Sequence.to_string s.AnnchromAli.seq alpha in 
-             let ref_code = string_of_int s.AnnchromAli.seq_ref_code in 
-             "(" ^ seq ^ ", " ^ ref_code ^ ")"                              
-        ) med.AnnchromAli.seq_arr 
-    in  
+(** [to_string med alpha] converts information in median [med] into string format *)
+let to_string (med : annchrom_t) alpha =
+    let seq_arr =
+        Array.map
+            (fun s ->
+                let seq = Sequence.to_string s.AnnchromAli.seq alpha in
+                let ref_code = string_of_int s.AnnchromAli.seq_ref_code in
+                "(" ^ seq ^ ", " ^ ref_code ^ ")\n")
+            med.AnnchromAli.seq_arr
+    in
     String.concat " | " (Array.to_list seq_arr)
 
 let print (data : meds_t) =
     Printf.printf "( num_med = %d; total_cost = %d; total_recost = %d; code=%d)\n%!"
-    data.num_med data.total_cost data.total_recost data.code;
+                  data.num_med data.total_cost data.total_recost data.code;
     let alpha = data.alpha in
-    List.iter (fun item ->
-        Printf.printf "( %s ) \n%!" (to_string item alpha);
-    ) data.med_ls
+    List.iter
+        (fun item -> Printf.printf "( %s ) \n%!" (to_string item alpha))
+        data.med_ls
     
 
 (** [get_active_ref_code meds] returns active reference codes
