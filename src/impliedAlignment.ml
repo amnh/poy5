@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3311 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3322 $"
 
 exception NotASequence of int
 
@@ -66,7 +66,7 @@ type ias = {
     parent code) and a rate matrix to compose a proper cost. *)
 type cost_matrix = 
     | CM of Cost_matrix.Two_D.m 
-    | Model of FloatSequence.dyn_model * (float option * int option)
+    | Model of FloatSequence.dyn_model * float * int option
 
 (** Types of sequences that support missing data *)
 let type_support_missing state =
@@ -216,10 +216,13 @@ let find_branch_length dyn time =
     match time with
     | None   -> assert false (* should only be called under LK *)
     | Some t ->
+      let x =
         try snd (List.find (fun (a,data) -> Array_ops.mem a code) t)
         with Not_found ->
             snd (List.find (fun (a,data) -> match a with
                             | [||] -> true | _ -> false) t)
+      in
+      match x with | None -> assert false | Some t -> t
 
 
 (** Create a list with all the starting and ending positions of indels, and
@@ -304,8 +307,7 @@ let calculate_indels a b alph b_children =
 let median_fn = function
     | CM cm ->
         fun a b _ -> Cost_matrix.Two_D.median a b cm
-    | Model (_,(None,_))   -> assert false
-    | Model (m,(Some t,_)) ->
+    | Model (m,t,_) ->
         begin match FloatSequence.cost_fn m with
             | `MPL ->
                 let gc = FloatSequence.MPLAlign.get_closest m t in
@@ -320,19 +322,17 @@ and align_2 a b = function
         let aseq,bseq,x,clip_len,anoclip,bnoclip = 
             Sequence.Clip.Align.align_2 a.seq b.seq cm Matrix.default in
         aseq,bseq,float_of_int x,clip_len,anoclip,bnoclip
-    | Model (m,(Some t,p)) ->
+    | Model (m,t,_) ->
         begin match FloatSequence.cost_fn m with
             | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
             | `MAL -> assert false (* does not exist yet  *)
         end
-    | Model (m,(None,p)) -> assert false
 
 (** Based on a [cost-matrix] what is the cost of alignment of [a] and [b]. *)
 and cost_fn = function
     | CM cm ->
         fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
-    | Model (_,(None,_))   -> assert false
-    | Model (m,(Some t,_)) ->
+    | Model (m,t,_) ->
         begin match FloatSequence.cost_fn m with
             | `MPL ->
                 let gc = FloatSequence.MPLAlign.get_closest m t in
@@ -360,7 +360,7 @@ let ancestor calc_m state prealigned all_minus_gap a b codea codeb cm alph achld
     and lenb = Sequence.Clip.length b.seq
     and gap = match cm with
         | CM cm       -> Cost_matrix.Two_D.gap cm
-        | Model (m,_) -> Alphabet.get_gap alph
+        | Model (m,_,_) -> Alphabet.get_gap alph
     in
     let kind = match a.seq with
         | `DO _    -> `DO
@@ -1630,7 +1630,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 begin match FloatSequence.cost_fn model with
                                 | `MPL | `MAL ->
                                     let bl = find_branch_length dyn time in
-                                    Model (model,(bl,parent))
+                                    Model (model,bl,parent)
                                 end
                             | None -> CM (DynamicCS.c2_full dyn)
                         in
