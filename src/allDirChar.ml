@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3242 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3349 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -28,6 +28,7 @@ let debug_node_fn           = false
 let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_join_fn           = false
+let debug_break_fn          = false
 let debug_branch_fn         = false
 let debug_cost_fn           = false
 let debug_uppass_fn         = false
@@ -117,19 +118,40 @@ module F : Ptree.Tree_Operations
             None
 
 
+    (* check if the ptree has likelihood characters by it's data; obviously this
+     * means that data must be up to date --an invariant that we hold. The old
+     * version of this function, that checks the ptree is left below for
+     * posterity. *)
+    let rec using_likelihood types ptree =
+        let data_test = match types with
+            | `Static   -> Data.has_static_likelihood ptree.Ptree.data
+            | `Dynamic  ->
+                begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
+                    | Some _ -> true
+                    | None   -> false
+                end
+            | `OnlyStatic ->
+                (using_likelihood `Static ptree ) && not (using_likelihood `Dynamic ptree)
+            | `Either   ->
+                (using_likelihood `Static ptree ) || (using_likelihood `Dynamic ptree)
+        in
+        data_test
+
+
     (** [create_branch_table table ptree] 
      * Creates a hashtable with all the branch data. The key is the pair of
      * nodes lengths and the value is either a single length or a list of
      * branch lengths in the case of multiple character sets. *)
-    let branch_table opts ptree =
+    let branch_table (opts : [`Single | `Final | `Max ] option) ptree =
         let trees_table = Hashtbl.create 13 in
         let inc_parsimony = match opts with
             | Some _ -> (true, opts)
             | None   -> (false,None)
         in
         let adjusted = match opts with
-            | Some `Single -> true
             | Some (`Final | `Max) | None -> false
+            | _ when using_likelihood `Either ptree -> false
+            | Some `Single -> true
         in
         let create_branch_table handle () =
             let rec single_node prev curr =
@@ -172,26 +194,6 @@ module F : Ptree.Tree_Operations
         in
         IntSet.fold (create_branch_table) (Ptree.get_handles ptree) ();
         trees_table
-
-
-    (* check if the ptree has likelihood characters by it's data; obviously this
-     * means that data must be up to date --an invariant that we hold. The old
-     * version of this function, that checks the ptree is left below for
-     * posterity. *)
-    let rec using_likelihood types ptree =
-        let data_test = match types with
-            | `Static   -> Data.has_static_likelihood ptree.Ptree.data
-            | `Dynamic  ->
-                begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
-                    | Some _ -> true
-                    | None   -> false
-                end
-            | `OnlyStatic ->
-                (using_likelihood `Static ptree ) && not (using_likelihood `Dynamic ptree)
-            | `Either   ->
-                (using_likelihood `Static ptree ) || (using_likelihood `Dynamic ptree)
-        in
-        data_test
 
 
     (* Update Data.d in ptree with branch data. Used to transfer data between
@@ -1764,9 +1766,8 @@ module F : Ptree.Tree_Operations
 
     (* break_fn has type handle * int (node) -> tree -> tree * delta * aux_data *)
     let break_fn (tree_node_id, clade_node_id) (ptree : phylogeny) =
-        if debug_join_fn then begin
-            info_user_message "break_fn, Breaking %d -- %d" tree_node_id clade_node_id
-        end;
+        if debug_break_fn then
+            info_user_message "break_fn, Breaking %d -- %d" tree_node_id clade_node_id;
         let ptree = clear_internals true ptree in
         let (Tree.Edge (tree_node_id, clade_node_id)) as edge =
             Tree.normalize_edge (Tree.Edge (tree_node_id, clade_node_id)) ptree.Ptree.tree
@@ -1841,12 +1842,10 @@ module F : Ptree.Tree_Operations
                         | None -> failwith "AllDirChar.break_fn Huh?"
                     in
                     AllDirNode.AllDirF.root_cost clade_root,
-                    AllDirNode.AllDirF.total_cost None clade_root
+                        AllDirNode.AllDirF.total_cost None clade_root
                 in
-                let bd =
-                    (prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost))) -.  tc
-                in
-                if debug_join_fn then begin
+                let bd = prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost)) in
+                if debug_break_fn then begin
                     info_user_message "Root (%d) Cost: %f" clade_handle rc;
                     info_user_message "Total Cost: %f" tc;
                     info_user_message "Origin Cost: %f" ptree.Ptree.origin_cost;
@@ -1854,7 +1853,7 @@ module F : Ptree.Tree_Operations
                     info_user_message "Prev Cost: %f" new_cost;
                     info_user_message "Break Delta: %f" bd
                 end;
-                abs_float bd
+                abs_float bd (* likelihood break-delta is negative *)
             end
         in
         let left, right =
@@ -1906,7 +1905,7 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Strong ->
                 let breakage = break_fn a b in
                 { breakage with 
-                    Ptree.break_delta = (Ptree.get_cost `Adjusted b) -. 
+                    Ptree.break_delta = (Ptree.get_cost `Adjusted b) -.
                                         (Ptree.get_cost `Adjusted breakage.Ptree.ptree);
                     Ptree.incremental = []; }
         in
@@ -2078,10 +2077,9 @@ module F : Ptree.Tree_Operations
                 Ptree.Cost (res -. pc)
         in
         if debug_cost_fn then begin 
-            Printf.printf "update node manager with new tree ";
             match cost with 
             | Ptree.Cost x ->  Printf.printf "cost = %f\n%!" x
-            | Ptree.NoCost -> Printf.printf "NodeCost\n%!"
+            | Ptree.NoCost -> Printf.printf "NoCost\n%!"
         end;
         update_node_manager e (`Cost) n_mgr;
         cost

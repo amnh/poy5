@@ -29,6 +29,9 @@ Bugs Fixed:
     - Issue with missing data in custom-alphabet prealigned characters resolved.
     - generation of cost-matrix with all-elements row/col and non-zero diagonal
       cost matrix --was being replaced with zeros, should have been min of row.
+    - No reported error when reading in sequence data with unequal fragments.
+      This forced the computation to proceede as if those fragments were
+      missing. Now (as in POY4) we report an error to the user.
 
 New Commands (see manual for full explanations) :
     - report command for parsimony branch lengths

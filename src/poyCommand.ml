@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3318 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3323 $"
 
 let debug = false 
 
@@ -1673,8 +1673,7 @@ type command = [
                         right_parenthesis -> `Report a ]
                 ];
             topology_test_params : 
-                [   [ LIDENT "au" -> `AU ] |
-                    [ LIDENT "sh" -> `SH ] |
+                [   [ LIDENT "sh" -> `SH ] |
                     [ LIDENT "kh" -> `KH ] |
                     [ LIDENT "n"; ":"; x = INT -> `Replicates (int_of_string x) ] |
                     [ LIDENT "k"; ":"; x = INT -> `ScaleFactors (int_of_string x) ] |

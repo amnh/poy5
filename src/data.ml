@@ -1271,6 +1271,7 @@ let reverse_dynamic_static_codes map =
 (** Convert characters in n33 classification to gen-nonadditve characters.
  * source contains old matrices from the dynamic characters necessary for the
  * general non-additive prealigned character. *)
+let pp_ilst chan st = List.iter (Printf.fprintf chan "%d ") st
 exception Missing_Sequence
 let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
     let get_static_state t c a =
@@ -1282,8 +1283,9 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
             | Some x ->
                 let states = Nexus.File.static_state_to_list x in
                 begin match states with
-                | [] -> raise Missing_Sequence
-                | xs -> Alphabet.find_comb xs a
+                | []  -> raise Missing_Sequence
+                | [0] -> Alphabet.get_gap a
+                | xs  -> Alphabet.find_comb xs a
                 end
             | None -> Alphabet.get_gap a
             end
@@ -1303,7 +1305,7 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
                 Sequence.prepend seq state)
             (List.rev codes);
             seq
-        with | Missing_Sequence ->
+        with Missing_Sequence ->
             Sequence.make_empty alph
     in
     let adder spec_tbl char_tbl name_tbl code_tbl code : int =
@@ -2251,11 +2253,9 @@ let process_parsed_breakinv data res original_filename file tcmfile tcm_full
         let tl = get_taxon_characters data tcode in
         let seqa = 
             {seq = singleseq; 
-            delimiter=
-                if (List.length delilst)>1 then delilst 
-                else []
-            ; 
-            code= -1} in
+            delimiter= if (List.length delilst)>1 then delilst else [] ; 
+            code= -1}
+        in
         let dyna_data = { seq_arr = [|seqa|]; } in
         let spc = `Specified in
         if debug_parsed_seq then  
@@ -2345,7 +2345,6 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                                    tcm_original tcm3 default_mode lk_model
                                    alphabet dyna_state dyna_pam weight
                                    prealigned domerge =
-    if debug_parsed_seq then Printf.printf "process normal sequence, prealigned:%b\n%!" prealigned;
     let get_multi_segment_seq file_taxon_chrom_loci_frag_seq =
         (* input seq list list list list become a matrix looks like this:
         * [ 
@@ -2354,7 +2353,7 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
             ...
            ]
         *)
-        let max_num_fragment = ref 0 in
+        let max_num_fragment = ref (~-1) in
         let file_taxon_frag_seq =
             List.map
                 (fun (taxon_chrom_loci_frag_seq,t) ->
@@ -2363,14 +2362,14 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                     (*each loci is a list of fragment, each fragment is a seq *)
                     match taxon_chrom_loci_frag_seq with 
                         | [[loci_frag_seq]] -> (*this is a sequence list*) 
-                            if !max_num_fragment < (List.length loci_frag_seq) then begin
-                                if !max_num_fragment=0 then
-                                    max_num_fragment := (List.length loci_frag_seq)
+                            let found = List.length loci_frag_seq in
+                            if !max_num_fragment != found then begin
+                                if !max_num_fragment < 0 then
+                                    max_num_fragment := found
                                 else begin
                                     output_errorf
-                                        ("I found an inconsistent number of^^
-                                         fragments in the sequence from %s.")
-                                        original_filename;
+                                        ("The taxon %s in %s has %d fragments where we expect %d.")
+                                         t original_filename found !max_num_fragment ;
                                     failwith "Illegal prealigned molecular sequences."
                                 end
                            end;
@@ -2383,15 +2382,13 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                                 ^^"unexpectedly@ encountered@ loci('|')@ or@ "
                                 ^^"chromosome@ ('@@')@ delimiters.")
                                 original_filename;
-                            failwith "Illegal prealigned molecular sequences.")
+                            failwith "Illegal molecular sequences.")
                 file_taxon_chrom_loci_frag_seq
         in
         let file_taxon_frag_seq = Array.of_list file_taxon_frag_seq in
         (*tranpose the matrix above *)
         let num_taxon = Array.length file_taxon_frag_seq in
         let max_num_fragment = !max_num_fragment in
-        if debug_parsed_seq then  
-            Printf.printf "num_taxon=%d,max_num_fragment=%d\n%!" num_taxon max_num_fragment;
         let frag_taxon_seq = ref [] in
         for j = max_num_fragment - 1 downto 0 do
             let acc = ref [] in
