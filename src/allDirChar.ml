@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3349 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3357 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1503,7 +1503,7 @@ module F : Ptree.Tree_Operations
         in
         (* Optimize Alpha *)
         let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
-        let best_tree, best_cost = 
+        let best_tree, best_cost =
             match MlModel.get_update_function_for_alpha current_model with
             | None      -> best_tree,best_cost
             | Some func ->
@@ -1511,14 +1511,16 @@ module F : Ptree.Tree_Operations
                 let _,results = 
                     Numerical.brents_method (f_likelihood func best_tree chars current_model)
                                             ((get_some current_a),(best_tree,best_cost))
-                                          
                 in
                 if debug_model_fn then
-                    info_user_message "\tOptimized Alpha to %f --> %f"
-                                      best_cost (snd results);
+                    info_user_message "\tOptimized Alpha to %f --> %f" best_cost (snd results);
                 results
         in
-        if best_cost < current_cost then best_tree else tree
+        if best_cost < current_cost then
+            (* do an uppass for other dynamic characters *)
+            best_tree --> pick_best_root --> assign_single
+        else
+            tree
 
     (* Group all the characters and optimize each with function above *)
     let static_model_fn tree = 
