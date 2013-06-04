@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3336 $"
+let () = SadmanOutput.register "Node" "$Revision: 3365 $"
 
 let infinity = float_of_int max_int
 
@@ -2129,10 +2129,11 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
         (child:node_data) (parent:node_data option) =
     let func =
         let fstt (a,_,_) = a and sndt (_,a,_) = a and thrt (_,_,a) = a in
+        let is_leaf par = par.min_child_code = par.taxon_code in
         let f = match parent with
             | None     -> thrt
             | Some par ->
-                if par.min_child_code > child.min_child_code 
+                if is_leaf par
                     then thrt
                 else if par.min_child_code = child.min_child_code 
                     then fstt
