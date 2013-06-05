@@ -79,7 +79,7 @@ val variance : t -> float * float
 
 (** [site_likelihood a] returns an array of pairs, weight for pattern and the
     site likelihood for that pattern. *)
-val site_likelihood : t -> (float * float) array
+val site_likelihood : t -> (int * float * float) array
 
 (** resolves median to most likely state; and converts to sequence. single is
     set if we should perform a single character assignment to the data. *)

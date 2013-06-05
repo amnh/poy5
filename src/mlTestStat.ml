@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3323 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3369 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
@@ -25,11 +25,11 @@ let (-|>) a b = let () = b a in a
 let debug_cdf = false
 and debug_boot= false
 
-and debug_kh  = true
+and debug_kh  = false
 and debug_sh  = false
-and debug_au  = true
 
-let failwithf format = Printf.ksprintf failwith format
+let failwithf format =
+    Printf.ksprintf failwith format
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -93,14 +93,17 @@ module type S = sig
 
     type tree = (a,b) Ptree.p_tree
     type wtree =
-        { t : tree; slk : float array; root : MlStaticCS.t; chars : Data.bool_characters; }
+        { t : tree;
+          slk : (int * float * float) array;
+          root : MlStaticCS.t;
+          chars : Data.bool_characters; }
 
     val create_wrapped_tree : Data.bool_characters -> tree -> wtree
     val can_perform_stat_tests : Data.bool_characters -> tree -> bool
 
-    val bootstrap_weights : ?n:int -> float array -> float array
-    val replicate_cost : replicate -> wtree -> float array -> float
-    val get_cdf : wtree -> float array
+    val bootstrap_weights : ?n:int -> (int * float) array -> (int * float) array
+    val replicate_cost : replicate -> wtree -> (int * float) array -> float
+    val get_cdf : wtree -> (int * float) array
 
     val kh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree -> tree -> unit
     val sh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree list -> unit
@@ -119,7 +122,7 @@ struct
     exception Incorrect_Data
 
     type wtree =
-        { t : tree; slk : float array; root : MlStaticCS.t; chars : Data.bool_characters; }
+        { t : tree; slk : (int * float * float) array; root : MlStaticCS.t; chars : Data.bool_characters; }
 
     IFDEF USE_LIKELIHOOD THEN
         let get_ml_codes = MlStaticCS.get_codes
@@ -177,34 +180,38 @@ struct
        cost of queries to this data, which would happen regularly.*)
     let create_wrapped_tree chars tree : wtree =
         let t_root = get_ml_root_data chars tree in
-        let t_slk  = Array.map (snd) (ml_site_likelihood t_root) in
+        let t_slk  = ml_site_likelihood t_root in
         { t = tree; slk = t_slk; root=t_root; chars = chars; }
 
     (* return a set of weights for replicated data *)
-    let bootstrap_weights =
-        let rec idx_of_cdf (cdf:float array) (g:float) (il:int) (ih:int) : int =
+    let bootstrap_weights : ?n:int -> (int * float) array -> (int * float) array =
+        let rec idx_of_cdf cdf (g:float) (il:int) (ih:int) : int =
             let ig = (il + ih) / 2 in
             if debug_cdf then
                 Printf.printf "IDX OF CDF: %d(%f) < (%d/%f?)%f < %d(%f)\n%!"
-                              il cdf.(il) ig cdf.(ig) g ih cdf.(ih);
-            assert( cdf.(ih) > g );
-            assert( cdf.(il) < g );
-            if (cdf.(ig) < g) && (g < cdf.(ig+1))
+                              il (snd cdf.(il)) ig (snd cdf.(ig)) g ih (snd cdf.(ih));
+            assert( (snd cdf.(ih)) > g );
+            assert( (snd cdf.(il)) < g );
+            if ((snd cdf.(ig)) < g) && (g < (snd cdf.(ig+1)))
                 then ig
-            else if cdf.(ig) > g
+            else if (snd cdf.(ig)) > g
                 then idx_of_cdf cdf g il ig
                 else idx_of_cdf cdf g ig ih
         and bootstrap_data ?n cdf =
             let n = match n with
-                | None   -> int_of_float (cdf.((Array.length cdf)-1))
+                | None   -> int_of_float (snd cdf.((Array.length cdf)-1))
                 | Some x -> x
             in
-            let boot_data = Array.make (Array.length cdf) 0.0 in
+            let boot_data : (int * float) array=
+                Array.init (Array.length cdf) (fun i -> fst cdf.(i),0.0) in
+            let incr_tuple (a,b) = (a, b +. 1.0) in
+
+            let upper = (snd (cdf.((Array.length cdf)-1))-.1.0) in
             for i = 0 to n do
-                let r = (Random.float ((cdf.((Array.length cdf)-1))-.1.0))+.1.0 in
+                let r = (Random.float upper)+.1.0 in
                 let i = idx_of_cdf cdf r 0 ((Array.length cdf)-1) in
                 if debug_cdf then Printf.printf "IDX OF CDF: %d = %f\n%!" i r;
-                boot_data.(i) <- boot_data.(i) +. 1.0;
+                boot_data.(i) <- incr_tuple boot_data.(i);
             done;
             boot_data
         in
@@ -214,30 +221,37 @@ struct
        lookup randomly uniform data that was compressed and have weights
        associated to each column in the data-set. *)
     let get_cdf wt =
-        let t_lks = ml_site_likelihood wt.root in
-        let cdf = Array.make (Array.length t_lks) 0.0 in
+        let t_lks = wt.slk in
+        let cdf = Array.make (Array.length t_lks) (0,0.0) in
         let sum = ref 0.0 in
         for i = 0 to (Array.length t_lks)-1 do
-            sum := !sum +. (fst t_lks.(i));
-            cdf.(i) <- !sum;
+            let code,weight,_ = t_lks.(i) in
+            sum := !sum +. weight;
+            cdf.(i) <- (code,!sum);
         done;
         if debug_cdf then begin
             Printf.printf "CDF: ";
-            Array.iter (fun x -> Printf.printf "%f, " x) cdf;
+            Array.iter (fun (c,x) -> Printf.printf "%d|%f, " c x) cdf;
         end;
         cdf
 
     (* apply weights to a tree data-set with restricted costs; *)
     let reweight_data (d:Data.d) (chars:Data.bool_characters) weights =
-        assert false
+        Array.fold_left
+            (fun data (code,weight) -> Data.set_weight code weight data)
+            d
+            weights
 
     (* return the cost of a replicate; apply the replicate optimization level *)
     let replicate_cost rep t w =
+        (* no need to look up individual codes for RELL; both are = *)
         let cost_of_rell_bootstrap t_lks boot_weights : float =
             assert( (Array.length t_lks) = (Array.length boot_weights) );
             let t_cost = ref 0.0 in
             for i = 0 to (Array.length boot_weights)-1 do
-                t_cost := !t_cost +. (t_lks.(i) *. boot_weights.(i));
+                let c1,_,x = t_lks.(i) and c2,w = boot_weights.(i) in
+                assert( c1 = c2 );
+                t_cost := !t_cost +. (x *. w);
             done;
             ~-. !t_cost
         and cost_of_full_bootstrap model branch tree boot_weights : float =

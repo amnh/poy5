@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 3272 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3369 $"
 
 let compress = true
 
@@ -368,15 +368,16 @@ let variance an =
     lk_variance an.chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob
                 pinvar (MlModel.get_costfn_code an.model)
 
-let site_likelihood an : (float * float) array =
+let site_likelihood an : (int * float * float) array =
     let m = an.model in
     let pinvar = match m.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
-    Array.init (Bigarray.Array1.dim an.weights)
+    Array.init
+        (Bigarray.Array1.dim an.weights)
         (fun i ->
             let s = 
                 loglikelihood_site an.chars m.MlModel.pi_0 m.MlModel.prob
                                     pinvar (MlModel.get_costfn_code m) i in
-            (an.weights.{i},~-.s))
+            (an.codes.(i),an.weights.{i},~-.s))
 
 (* ------------------------------------------------------------------------- *)
 (* parser/formatter stuff *)
