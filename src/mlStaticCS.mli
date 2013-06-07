@@ -148,7 +148,8 @@ val readjust :
     in the characters with code [code]. If [states = None] then the character is
     missing (should be treated as if [states] held all the possible states for
     the character).*)
-val of_parser : Nexus.File.static_spec -> float array -> ((Nexus.File.static_state * int) array) -> t
+val of_parser :
+    Nexus.File.static_spec -> float array -> ((Nexus.File.static_state * (int * int list)) array) -> t
 
 (** [of_parser_simple chars model] A simple parser, generates the type [t] from
     a string of character states, and a previously created model. Normal usage
