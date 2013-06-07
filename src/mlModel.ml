@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3195 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3370 $"
 
 open Numerical.FPInfix
 
@@ -830,7 +830,7 @@ let output_model output output_table nexus model set =
     end else (* phylip *) begin
         printf "@[<hov 0>Discrete gamma model: ";
         let () = match model.spec.site_variation with
-            | Constant -> printf "No@]@\n"
+            | Constant -> printf "No@]\n";
             | Gamma (cats,param) ->
                 printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]\n"^^
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param
@@ -839,7 +839,6 @@ let output_model output output_table nexus model set =
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param;
                 printf ("@[<hov 1>- Proportion of invariant: %.4f@]\n") inv
         in
-        printf "@]\n";
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
             | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n";
