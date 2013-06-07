@@ -963,9 +963,7 @@ compose_sym(double* P,const double* U,const double* D,const float t,int n,double
     if(t == -1.0){ /** Instantaneous rate matrix **/
         dgemm_(&ntran,&ntran, &n, &n, &n, &alpha, U, &n, P, &n, &beta, TMP, &n );
         dgemm_(&ntran,&_tran,&n,&n,&n,&alpha,TMP,&n,U,&n,&beta,P,&n);
-/*    } else if(t <= EPSILON){*/
-/*        create_identity( P , n );*/
-    } else {
+    } else if(t >= EPSILON){
         apply_exp(P,n,n,t); //exp(D*t); along diagonal only
         //calculates: C = op(A)*op(B)*a + C*b
         dgemm_(&ntran,&ntran,        //format, op(A), op(B)
@@ -975,6 +973,8 @@ compose_sym(double* P,const double* U,const double* D,const float t,int n,double
                 &beta, TMP, &n );    //multiplier for C, MATRIX C, stride for C
         //if scalor mult of C == 0, C isn't used to add
         dgemm_(&ntran,&_tran,&n,&n,&n,&alpha,TMP,&n,U,&n,&beta,P,&n);
+    } else {
+        create_identity( P , n );
     }
 }
 value
@@ -1014,11 +1014,11 @@ compose_gtr(double* P, const double* U, const double* D, const double* Ui,
     if(t == -1.0){
         dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,tmp,&n);
         dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,tmp,&n,U,&n,&beta,P,&n);
-    } else if(t >= EPSILON || t == -1.0){
+    } else if(t >= EPSILON){
         apply_exp(P,n,n,t);
-        //S is U*exp(D)...
+        //tmp is U*exp(D)...
         dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,tmp,&n);
-        //P becomes U*expD*Ui... done --note: VL = inv(VR)
+        //P becomes U*expD*Ui...
         dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,tmp,&n,U,&n,&beta,P,&n);
     } else { //identity matrix
         create_identity( P, n );
