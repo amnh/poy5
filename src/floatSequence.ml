@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FloatSequence" "$Revision: 3367 $"
+let () = SadmanOutput.register "FloatSequence" "$Revision: 3372 $"
 
 (* Debug variables/ combinators *)
 let (-->) a b = b a
@@ -86,6 +86,12 @@ let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 let make_model alph model = { static = model; alph = alph; }
 
 let spec_model alph spec = make_model alph (MlModel.create spec)
+
+let print_model model =
+    MlModel.output_model print_string None `Phylip model.static None;
+    print_newline ();
+    Alphabet.print model.alph;
+    ()
 
 open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 

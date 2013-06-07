@@ -31,6 +31,9 @@ type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
     characters in the likelihood matrix. This type adds the unsequential
     alphabet to the model for use as bitsets with the vectors. *)
 
+val print_model : dyn_model -> unit 
+(** Print the model through MlModel.output_model and Alphabet.print *)
+
 val make_model : Alphabet.a -> MlModel.model -> dyn_model
 (** simple function to wrap up composing a dynamic likelihood model *)
 
