@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3322 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3376 $"
 
 exception NotASequence of int
 
@@ -310,8 +310,8 @@ let median_fn = function
     | Model (m,t,_) ->
         begin match FloatSequence.cost_fn m with
             | `MPL ->
-                let gc = FloatSequence.MPLAlign.get_closest m t in
-                (fun a b i -> fst (gc i a b))
+                let gc = FloatSequence.CMPLAlign.get_closest m t in
+                fun a b i -> fst (gc i a b)
             | `MAL -> assert false
         end
 
@@ -324,7 +324,7 @@ and align_2 a b = function
         aseq,bseq,float_of_int x,clip_len,anoclip,bnoclip
     | Model (m,t,_) ->
         begin match FloatSequence.cost_fn m with
-            | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
+            | `MPL -> FloatSequence.CMPLAlign.clip_align_2 a.seq b.seq m 0.0 t
             | `MAL -> assert false (* does not exist yet  *)
         end
 
@@ -335,7 +335,7 @@ and cost_fn = function
     | Model (m,t,_) ->
         begin match FloatSequence.cost_fn m with
             | `MPL ->
-                let gc = FloatSequence.MPLAlign.get_closest m t in
+                let gc = FloatSequence.CMPLAlign.get_closest m t in
                 (fun a b i -> snd (gc i a b))
             | `MAL -> assert false
         end

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FloatSequence" "$Revision: 3374 $"
+let () = SadmanOutput.register "FloatSequence" "$Revision: 3376 $"
 
 (* Debug variables/ combinators *)
 let (-->) a b = b a
@@ -247,7 +247,7 @@ module CMPLAlign : A = struct
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
-        int -> int -> float -> int * float
+        int -> int -> float -> int -> int * float
         = "fm_CAML_get_closest_wrapper" "fm_CAML_get_closest"
 
     external print_alignment_matrix : 
@@ -266,7 +266,7 @@ module CMPLAlign : A = struct
 
     let get_closest model t ~i ~p ~m =
         get_closest FMatrix.scratch_space model.static.MlModel.u
-                    model.static.MlModel.d model.static.MlModel.ui p m t
+            model.static.MlModel.d model.static.MlModel.ui p m t i
 
 
     let full_backtrace ?(filter_gap=true) a b m ta tb (fmat,mat) =
@@ -438,15 +438,12 @@ module CMPLAlign : A = struct
         let ex,ey,_ = full_backtrace x y m tx ty mem in
         ex,ey
 
-    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
-
     let backtrace ?(filter_gap=true) m mem x y tx ty =
         match is_missing x m, is_missing y m with
         | true,true   -> x
         | true,false  -> y
         | false,true  -> x
         | false,false -> median_backtrace ~filter_gap x y m tx ty mem
-
 
     let align_2 ?first_gap x y m tx ty ((fmat,mat) as mem) =
         let cost= cost_2 x y m tx ty mem in
@@ -459,6 +456,14 @@ module CMPLAlign : A = struct
                 ex,ey
         in
         ex,ey,cost
+
+    let clip_align_2 ?first_gap cs1 cs2 model t1 t2 =
+        let s2 = s_of_seq (Sequence.Clip.extract_s cs2)
+        and s1 = s_of_seq (Sequence.Clip.extract_s cs1) in
+        let mem = get_mem s1 s2 in
+        let s1,s2,cost = align_2 s1 s2 model t1 t2 mem in
+        let s1 = `DO (seq_of_s s1) and s2 = `DO (seq_of_s s2) in
+        s1,s2,cost,0,s1,s2
 
     let optimize s1 s2 model t mem =
         let update t = (),cost_2 s1 s2 model t 0.0 mem in
