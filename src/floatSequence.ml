@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FloatSequence" "$Revision: 3372 $"
+let () = SadmanOutput.register "FloatSequence" "$Revision: 3374 $"
 
 (* Debug variables/ combinators *)
 let (-->) a b = b a
@@ -477,7 +477,9 @@ module CMPLAlign : A = struct
         let gap = Alphabet.get_gap model.alph in
         let (s_new,c) as res =
             if is_missing m model then begin
-                p, aln_cost_2 p p model t
+                p, 0.0
+            end else if is_missing p model then begin
+                m, 0.0
             end else if 0 = Sequence.compare p m then begin
                 let mask = lnot gap in
                 let m = Sequence.mapi (fun x p -> if p > 0 then x land mask else x) m in
