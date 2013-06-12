@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FloatSequence" "$Revision: 3376 $"
+let () = SadmanOutput.register "FloatSequence" "$Revision: 3377 $"
 
 (* Debug variables/ combinators *)
 let (-->) a b = b a
@@ -247,7 +247,8 @@ module CMPLAlign : A = struct
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
-        int -> int -> float -> int -> int * float
+        int -> int -> float -> int ->
+            int * float
         = "fm_CAML_get_closest_wrapper" "fm_CAML_get_closest"
 
     external print_alignment_matrix : 

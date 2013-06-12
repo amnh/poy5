@@ -179,6 +179,7 @@ double calculate_cost( CASN* a_ptr, const double* X, const double* Y,
                 if( ISSET( y, j ) ){
                     for( k = 0; k < n; ++k ){
                         temp_cost = X[i*n + k] + Y[j*n + k];
+                        //printf("%d|%d = %d -- %d : %d | %f\n",x,y,i,j,k,temp_cost);
                         if( EQUALS( temp_cost, best_cost ) ){
                             best_cost = MIN(temp_cost, best_cost);
                             a |= (1 << k);

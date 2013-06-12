@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3367 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3377 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -433,6 +433,7 @@ let remove_ambiguities dyn =
             (leaf_sequences dyn);
     dyn
 
+
 (*---- median functions *)
 let median code a b t1 t2 =
     assert( 0 = MlModel.compare (static_model a) (static_model b) );
@@ -449,12 +450,12 @@ let median code a b t1 t2 =
                     let mem = CMPLAlign.get_mem sa sb in
                     if debug then CMPLAlign.clear_mem mem;
                     let cst,med = CMPLAlign.median_2_cost sa sb a.model bla blb mem in
+                    assert( cst >= -0.0 );
                     cost := !cost +. cst;
                     med)
                 (ar.ss)
                 (br.ss)
         in
-        assert( !cost >= -0.0 );
         { a with cost = !cost; data = CMPLAlign { ss = meds }; times = bla,blb; }
 
     | Verify ar, Verify br -> 
@@ -540,12 +541,12 @@ let median code a b t1 t2 =
                     let mem = MPLAlign.get_mem sa sb in
                     if debug then MPLAlign.clear_mem mem;
                     let cst,med = MPLAlign.median_2_cost sa sb a.model bla blb mem in
+                    assert( cst >= -0.0 );
                     cost := !cost +. cst;
                     med)
                 (ar.ss)
                 (br.ss)
         in
-        assert( !cost >= -0.0 );
         { a with cost = !cost; data = MPLAlign { ss = meds }; times = bla,blb; }
     | (MPLAlign _ | Verify _ | CMPLAlign _), _ -> assert false
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3370 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3377 $"
 
 open Numerical.FPInfix
 
@@ -1705,7 +1705,7 @@ and update_f81 old_model gap_r =
     and gap_r = convert_gapr old_model gap_r in
     let subst_model =
         m_f81 old_model.pi_0 1.0 (snd old_model.spec.alphabet) gap_r in
-    let u,d,ui = diagonalize true subst_model in
+    let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_k2p old_model new_value gap_r =
