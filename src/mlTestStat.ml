@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3323 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3355 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
@@ -26,8 +26,7 @@ let debug_cdf = false
 and debug_boot= false
 
 and debug_kh  = true
-and debug_sh  = false
-and debug_au  = true
+and debug_sh  = true
 
 let failwithf format = Printf.ksprintf failwith format
 
@@ -81,7 +80,7 @@ let process_methods_arguments args =
     | Some t -> t,c,n,k,r
     | None   ->
         Status.user_message Status.Error
-            "No@ Topology@ Selection@ Method@ specified.@ Please@ include@ au,@ sh,@ or@ kh.";
+            "No@ Topology@ Selection@ Method@ specified.@ Please@ include@ sh@ or@ kh.";
         raise Not_found
 
 module type S = sig
@@ -301,9 +300,8 @@ struct
             print_newline ()
         end;
         (** 4: Output information *)
-
         ()
-            
+
 
     let sh ?n ?(p=0.05) ?(rep=rell) ?(chars=`All) ts =
         (** STEP 0: Setup Structures and variables necessary *)
