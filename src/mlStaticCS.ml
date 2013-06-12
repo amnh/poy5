@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 3272 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3373 $"
 
 let compress = true
 
@@ -36,7 +36,7 @@ type t = {
     mle     : float;
     model   : MlModel.model;
     weights : (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
-    codes   : int array;
+    codes   : (int * int list) array;
     chars   : s;
 }
 
@@ -48,7 +48,7 @@ let mem cs t = match cs with
             if i = Array.length t.codes 
                 then false
                 else begin
-                    if List.mem t.codes.(i) xs
+                    if List.mem (fst t.codes.(i)) xs
                         then true
                         else found (i+1)
                 end
@@ -259,7 +259,7 @@ let cardinal ta = Array.length ta.codes
 
 let union prev ch1 ch2 = prev
 
-let get_codes a = a.codes
+let get_codes a = Array.map fst a.codes
 
 let get_model a = a.model
 
@@ -368,15 +368,23 @@ let variance an =
     lk_variance an.chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob
                 pinvar (MlModel.get_costfn_code an.model)
 
-let site_likelihood an : (float * float) array =
+let site_likelihood an : (int * float * float) array =
     let m = an.model in
     let pinvar = match m.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
-    Array.init (Bigarray.Array1.dim an.weights)
+    Array.init
+        (Bigarray.Array1.dim an.weights)
         (fun i ->
             let s = 
                 loglikelihood_site an.chars m.MlModel.pi_0 m.MlModel.prob
                                     pinvar (MlModel.get_costfn_code m) i in
-            (an.weights.{i},~-.s))
+            (an.codes.(i),an.weights.{i},~-.s))
+    --> Array.to_list
+    --> List.map
+            (fun ((code,codes),weight,lk) ->
+                assert (List.mem code codes);
+                List.map (fun c -> (c,weight,lk)) codes)
+    --> List.flatten
+    --> Array.of_list
 
 (* ------------------------------------------------------------------------- *)
 (* parser/formatter stuff *)
@@ -449,7 +457,7 @@ let of_parser_simple seq model =
     in
     {   mle = loglk;
       model = model;
-      codes = Array.init nchar (fun i -> i);
+      codes = Array.init nchar (fun i -> (i,[i]));
     weights = wghts;
       chars = schar; }
 
@@ -502,7 +510,7 @@ let of_parser spec weights characters =
     in
     let pinvar  = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
     and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights 
-    and codes   = Array.map (fun (x,y) -> y) characters in
+    and codes   = Array.map (snd) characters in
     assert( (Bigarray.Array1.dim weights) = (Bigarray.Array3.dim2 ba_chars));
     assert( (Array.length codes) = (Bigarray.Array3.dim2 ba_chars));
     let loglike =
@@ -547,7 +555,9 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
             {
                 let r = (barray_3matrix (likelihood_vec)).(0) in
                 assert( (Array.length r) = (Array.length mine.codes) );
-                `Set (List.map2 (make_single) (Array.to_list mine.codes) (Array.to_list r))
+                `Set (List.map2 (make_single)
+                                (List.map fst (Array.to_list mine.codes))
+                                (Array.to_list r))
             }
         --)
     and model_data = MlModel.to_formatter mine.model in
@@ -592,7 +602,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
         (x,new_mine.mle,new_mine.mle,(c_t1,c_t2),new_mine)
     else
         let x = Array.fold_right (* bottle neck? *)
-                (fun c s -> All_sets.Integers.add c s) new_mine.codes x in
+                (fun (c,_) s -> All_sets.Integers.add c s) new_mine.codes x in
         (x,new_mine.mle,nl,(nta,ntb), {new_mine with mle = nl;} )
 
 (* ------------------------------------------------------------------------- *)
@@ -674,11 +684,11 @@ let median_cost ta = ta.mle
 
 (** Process codes for striping out characters in the data-set *)
 and process_codes comp node_codes codes =
-    let loopi_ i c = match (All_sets.Integers.exists (fun x -> x = c) codes) with
-        | true  when comp -> Some i
-        | false when comp -> None
-        | false -> Some i
-        | true  -> None
+    let loopi_ i (c,x) = 
+        let isin = (All_sets.Integers.exists (fun x -> x = c) codes) in
+        if isin = comp
+            then Some (i,x)
+            else None
     and loopOpt_ a = match a with
         | None   -> false
         | Some _ -> true
@@ -688,14 +698,17 @@ and process_codes comp node_codes codes =
         --> Array.to_list --> List.filter loopOpt_ --> Array.of_list
         --> Array.map loopStrip_
 
+
 (** Filter out codes in the codes data-set *)
 let f_codes_comp t codes =
+    let filter chars opt_idx = filter chars (Array.map fst opt_idx) in
     let opt_idx = process_codes true t.codes codes in
     { t with chars = filter t.chars opt_idx;
              codes = process_codes false t.codes codes; }
 
 (** Filter out codes NOT in the codes data-set *)
 let f_codes t codes =
+    let filter chars opt_idx = filter chars (Array.map fst opt_idx) in
     let opt_idx = process_codes false t.codes codes in
     { t with chars = filter t.chars opt_idx;
              codes = process_codes true t.codes codes; }

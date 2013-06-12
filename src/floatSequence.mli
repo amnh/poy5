@@ -31,6 +31,9 @@ type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
     characters in the likelihood matrix. This type adds the unsequential
     alphabet to the model for use as bitsets with the vectors. *)
 
+val print_model : dyn_model -> unit 
+(** Print the model through MlModel.output_model and Alphabet.print *)
+
 val make_model : Alphabet.a -> MlModel.model -> dyn_model
 (** simple function to wrap up composing a dynamic likelihood model *)
 
@@ -133,11 +136,10 @@ module type A = sig
         another function that returns that data be called instead. *)
 
     val full_cost_2     : float -> s -> s -> dyn_model -> float -> float -> floatmem -> float
-    (** [verify_cost_2 cost a b m at bt mem] Return the cost of the alignment of
+    (** [full_cost_2 cost a b m at bt mem] Return the cost of the alignment of
         [a] and [b] with model [m], branch lengths [at] and [bt], respectivly.
         This alignment does a full alignment, and tests the final cost against
-        [cost]; no action is done to if they are different if the debug
-        parameter isn't set. *)
+        [cost]; no action when the debug parameter is not set. *)
 
     val create_edited_2 : s -> s -> dyn_model -> float -> float -> floatmem -> s * s
     (** [create_edited_2 a b m at bt mem] Create the edited sequences of [a] and
@@ -193,7 +195,7 @@ module type A = sig
         the minimum cost to [p]; return the optimal state, and cost associated
         with that transformation based on the model and branch length, [t]. *)
 
-    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> float * s * bool
+    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> float * s
     (** [readjust a b c m at bt ct mem] Perform a pseudo 3D alignment by using
         the best score of any pair, and then performing [closest] on that median
         with the third sequence. *)

@@ -115,6 +115,20 @@ void clear_matrixf( double *mat, const int x, const int y ){
     }
 }
 
+void
+print_probmat( const double* P, const int alph, const float bl)
+{
+    int i,j;
+    printf("BL: %f\n", bl);
+    for (i=0; i<alph; ++i) {
+        putchar('\t');
+        for (j=0; j<alph; ++j)
+            printf("[%11.10f] ", P[i*alph+j]);
+        putchar('\n');
+    }
+    putchar('\n');
+}
+
 
 /** Create a full backtrace with median and edited sequences; polymorphic **/
 void
@@ -668,7 +682,6 @@ falign_CAML_align_2(value oSpace, value oMat, value oU, value oD, value oUi,
     
     min_cost = full_falign( a, b, &results );
     cost = caml_copy_double( min_cost );
-
     /*print_alignment_matrixf( results.costs, results.direc, a->len, b->len );*/
 
     free(results.fmat->cost_asgn);
@@ -689,7 +702,6 @@ falign_CAML_nukk_2(value oSpace, value oMat, value oU, value oD, value oUi,
 {
     CAMLparam5( oSpace, oMat, oU, oD, oUi );
     CAMLxparam5( ota, otb, oa, ob, ogap );
-    CAMLlocal1( cost );
 
     double ta, tb, *PA, *PB, *TMP, min_cost;
     int alph, mat_size, fcm_size, gap;
@@ -739,20 +751,18 @@ falign_CAML_nukk_2(value oSpace, value oMat, value oU, value oD, value oUi,
         compose_gtr( PB, Data_bigarray_val(oU), Data_bigarray_val(oD),
                      Data_bigarray_val(Some_val(oUi)), tb, alph, TMP );
     }
+
     neg_log_comp( PA, alph, alph );
     neg_log_comp( PB, alph, alph );
     precalc( results.fmat, PA, PB );
     
     min_cost = nukk_falign( a, b, &results );
-    cost = caml_copy_double( min_cost );
-
-    /*print_alignment_indel_matrixf ( results.costs, results.direc, results.nukk, a->len, b->len );*/
-
+    
     free(results.fmat->cost_asgn);
     free(results.fmat);
     free(results.nukk);
 
-    CAMLreturn( cost );
+    CAMLreturn( caml_copy_double( min_cost ) );
 }
 
 value falign_CAML_nukk_2_wrapper( value* argv, int argn )
@@ -767,7 +777,6 @@ falign_CAML_cost_2(value oSpace, value oU, value oD, value oUi, value ot, value 
 {
     CAMLparam5( oSpace, oU, oD, oUi, ot );
     CAMLxparam2( oa, ob );
-    CAMLlocal1( ocosts );
 
     double t, *P, *TMP, costs, min_cost;
     int alph, i, aj, bj;
@@ -808,10 +817,11 @@ falign_CAML_cost_2(value oSpace, value oU, value oD, value oUi, value ot, value 
                 }
             }
         }
+        //printf("MIN COST: %d/%d : %f\n",i,a->len,min_cost);
         costs += min_cost;
     }
-    ocosts = caml_copy_double( costs );
-    CAMLreturn( ocosts );
+    //printf("Total Costs: %f\n", costs );
+    CAMLreturn( caml_copy_double(costs) );
 }
 
 value falign_CAML_cost_2_wrapper( value* argv, int argn )

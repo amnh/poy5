@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3285 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3365 $"
 
 let eager        = false
 let uppass_debug = false
@@ -425,7 +425,7 @@ module OneDirF :
     let force x = force x
 end
 
-let q_print n = 
+let q_print n =
     let adjusted_data_lst = match n.adjusted with
         | None -> []
         | Some x -> [x]
@@ -750,21 +750,20 @@ struct
         | None ->
             let node = (get_node child).lazy_node in
             OneDirF.get_times_between ?inc_parsimony ~adjusted node None
+        | Some par when adjusted ->
+            OneDirF.get_times_between ?inc_parsimony ~adjusted
+                    (get_adjusted_nodedata child "get_times_between").lazy_node
+                (Some (get_adjusted_nodedata par "get_times_between").lazy_node)
         | Some par ->
-            if adjusted then
+            try let child = not_with (taxon_code par) child.unadjusted
+                and par = either_with (taxon_code child) par.unadjusted in
                 OneDirF.get_times_between ?inc_parsimony ~adjusted
-                        (get_adjusted_nodedata child "get_times_between").lazy_node
-                  (Some (get_adjusted_nodedata par "get_times_between").lazy_node)
-            else
-                try let child = not_with (taxon_code par) child.unadjusted
-                    and par = either_with (taxon_code child) par.unadjusted in
-                    OneDirF.get_times_between ?inc_parsimony ~adjusted
-                                                child.lazy_node (Some par.lazy_node)
-                with | _ ->
-                    let child = either_with (taxon_code child) par.unadjusted
-                    and par   = not_with (taxon_code par) child.unadjusted in
-                    OneDirF.get_times_between ?inc_parsimony ~adjusted
-                                                par.lazy_node (Some child.lazy_node)
+                                            child.lazy_node (Some par.lazy_node)
+            with | _ ->
+                let child = either_with (taxon_code child) par.unadjusted
+                and par   = not_with (taxon_code par) child.unadjusted in
+                OneDirF.get_times_between ?inc_parsimony ~adjusted
+                                            par.lazy_node (Some child.lazy_node)
 
 
     (** [extract_states par child] extract the states of child toward par *)

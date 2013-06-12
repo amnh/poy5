@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3323 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3377 $"
 
 let debug = false 
 
@@ -2156,10 +2156,10 @@ type command = [
                 [ LIDENT "branches"; p = OPT report_branch_opt ->
                     let x :> Methods.report_branch option = match p with
                         | Some `None   -> None
-                        | Some `Final  -> (Some `Final)
-                        | Some `Max    -> (Some `Max)
-                        | Some `Single -> (Some `Single)
-                        | None         -> (Some `Single)
+                        | Some `Final  -> Some `Final
+                        | Some `Max    -> Some `Max
+                        | Some `Single -> Some `Single
+                        | None         -> Some `Single
                     in
                     `Branches x ] |
                 [ LIDENT "margin"; ":"; m = INT -> `Margin (int_of_string m) ] |
@@ -2173,12 +2173,12 @@ type command = [
                 [ LIDENT "collapse"; y = OPT report_branch_opt ->
                     let x :> Methods.report_branch option = match y with
                         | Some `None   -> None
-                        | Some `Final  -> (Some `Final)
-                        | Some `Max    -> (Some `Max)
-                        | Some `Single -> (Some `Single)
-                        | None         -> (Some `Single)
+                        | Some `Final  -> Some `Final
+                        | Some `Max    -> Some `Max
+                        | Some `Single -> Some `Single
+                        | None         -> Some `Single
                     in
-                    `Collapse x ]
+                    `Collapse x]
             ];
         optional_collapse:
             [ 

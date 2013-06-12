@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3323 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3369 $"
 
 let (-->) a b = b a
 
@@ -2165,7 +2165,7 @@ let report_lk_sites ft tree chars : unit =
                 if i = 0 then header else
                 if i = 1 then second
                 else begin
-                    let a,b = array.(i-2) in
+                    let _,a,b = array.(i-2) in
                     [| ""; "";string_of_int (i-2); string_of_float a; string_of_float b; |]
                 end)
     in

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3195 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3377 $"
 
 open Numerical.FPInfix
 
@@ -830,7 +830,7 @@ let output_model output output_table nexus model set =
     end else (* phylip *) begin
         printf "@[<hov 0>Discrete gamma model: ";
         let () = match model.spec.site_variation with
-            | Constant -> printf "No@]@\n"
+            | Constant -> printf "No@]\n";
             | Gamma (cats,param) ->
                 printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]\n"^^
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param
@@ -839,7 +839,6 @@ let output_model output output_table nexus model set =
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]\n") cats param;
                 printf ("@[<hov 1>- Proportion of invariant: %.4f@]\n") inv
         in
-        printf "@]\n";
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
             | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n";
@@ -1706,7 +1705,7 @@ and update_f81 old_model gap_r =
     and gap_r = convert_gapr old_model gap_r in
     let subst_model =
         m_f81 old_model.pi_0 1.0 (snd old_model.spec.alphabet) gap_r in
-    let u,d,ui = diagonalize true subst_model in
+    let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_k2p old_model new_value gap_r =

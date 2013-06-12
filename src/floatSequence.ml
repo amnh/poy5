@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FloatSequence" "$Revision: 3160 $"
+let () = SadmanOutput.register "FloatSequence" "$Revision: 3377 $"
 
 (* Debug variables/ combinators *)
 let (-->) a b = b a
@@ -87,6 +87,12 @@ let make_model alph model = { static = model; alph = alph; }
 
 let spec_model alph spec = make_model alph (MlModel.create spec)
 
+let print_model model =
+    MlModel.output_model print_string None `Phylip model.static None;
+    print_newline ();
+    Alphabet.print model.alph;
+    ()
+
 open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
 (* minimum of three with annotations; this will work for all methods *)
@@ -142,7 +148,7 @@ module type A = sig
     val create_edited_2 : s -> s -> dyn_model -> float -> float -> floatmem -> s * s
     val align_2         : ?first_gap:bool -> s -> s -> dyn_model -> float -> float -> floatmem -> s * s * float
     val clip_align_2    : ?first_gap:bool -> Sequence.Clip.s -> Sequence.Clip.s -> dyn_model -> float -> float
-                            -> Sequence.Clip.s * Sequence.Clip.s * float * int * Sequence.Clip.s * Sequence.Clip.s
+                           -> Sequence.Clip.s * Sequence.Clip.s * float * int * Sequence.Clip.s * Sequence.Clip.s
     val median_2        : s -> s -> dyn_model -> float -> float -> floatmem -> s
     val median_2_cost   : s -> s -> dyn_model -> float -> float -> floatmem -> float * s
     val full_median_2   : s -> s -> dyn_model -> float -> float -> floatmem -> s
@@ -154,7 +160,7 @@ module type A = sig
     val get_closest : dyn_model -> float -> i:int -> p:int -> m:int -> int * float
 
     (* (pseudo) 3d operations *)
-    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> float * s * bool
+    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> float * s
     val optimize : s -> s -> dyn_model -> float -> floatmem -> float * float
 
 end
@@ -241,13 +247,16 @@ module CMPLAlign : A = struct
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
         ((float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t) option ->
-        int -> int -> float -> int * float
+        int -> int -> float -> int ->
+            int * float
         = "fm_CAML_get_closest_wrapper" "fm_CAML_get_closest"
 
     external print_alignment_matrix : 
         FMatrix.m -> Matrix.m -> int -> int -> unit =
             "falign_CAML_print_alignments"
 
+    let is_missing a m =
+        Sequence.is_empty (seq_of_s a) (Alphabet.get_gap m.alph) 
 
     let create_s ch1 ch2 =
         let len = 
@@ -258,10 +267,11 @@ module CMPLAlign : A = struct
 
     let get_closest model t ~i ~p ~m =
         get_closest FMatrix.scratch_space model.static.MlModel.u
-                    model.static.MlModel.d model.static.MlModel.ui p m t
+            model.static.MlModel.d model.static.MlModel.ui p m t i
 
 
     let full_backtrace ?(filter_gap=true) a b m ta tb (fmat,mat) =
+        assert( not ((is_missing a m) || (is_missing b m)));
         let a,ta, b,tb, switch =
             if Sequence.length a > Sequence.length b
                 then a,ta, b,tb, false
@@ -279,8 +289,16 @@ module CMPLAlign : A = struct
         in
         if switch then eb,ea,med else ea,eb,med
 
+    let full_backtrace x y m tx ty mem =
+        match is_missing x m, is_missing y m with
+        | true,true   -> x,y,x
+        | true,false  -> x,y,y
+        | false,true  -> x,y,x
+        | false,false -> full_backtrace x y m tx ty mem
+
 
     let median_backtrace ?(filter_gap=true) a b m ta tb (fmat,mat) =
+        assert( not ((is_missing a m) || (is_missing b m)));
         let a,ta, b,tb =
             if Sequence.length a > Sequence.length b
                 then a,ta, b,tb
@@ -290,7 +308,7 @@ module CMPLAlign : A = struct
         let alphabet =  MlModel.get_alphabet m.static in
         let gap = Alphabet.get_gap alphabet in
         let () = median_backtrace fmat mat m.static.MlModel.u m.static.MlModel.d
-                                  m.static.MlModel.ui a b med gap in
+                                m.static.MlModel.ui a b med gap in
         if filter_gap
             then remove_gaps (Alphabet.get_gap m.alph) med
             else med
@@ -302,10 +320,10 @@ module CMPLAlign : A = struct
                 then a,ta, b,tb
                 else b,tb, a,ta
         in
-        if use_align then
-            full_align fmat mat u d ui ta tb a b g
-        else
-            nukk_align fmat mat u d ui ta tb a b g
+        if use_align
+            then full_align fmat mat u d ui ta tb a b g
+            else nukk_align fmat mat u d ui ta tb a b g
+
 
     let full_align fmat mat u d ui ta tb a b g =
         let a,ta,b,tb =
@@ -378,42 +396,75 @@ module CMPLAlign : A = struct
         cost_2 fmem model.static.MlModel.u model.static.MlModel.d
                model.static.MlModel.ui t x y
 
-    let cost_2 ?deltaw x y m tx ty (fmat,mat) = 
-        let alphabet =  MlModel.get_alphabet m.static in
-        let gap = Alphabet.get_gap alphabet in
-        nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
-                        m.static.MlModel.ui tx ty x y gap
+    let cost_2 ?deltaw x y m tx ty (fmat,mat) =
+        match is_missing x m, is_missing y m with
+        | true,true  -> 0.0
+        | true,false -> aln_cost_2 y y m ty
+        | false,true -> aln_cost_2 x x m tx
+        | false,false ->
+            let alphabet =  MlModel.get_alphabet m.static in
+            let gap = Alphabet.get_gap alphabet in
+            nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
+                            m.static.MlModel.ui tx ty x y gap
 
     let median_2_cost x y m tx ty ((fmat,mat) as mem) =
         let cost = cost_2 x y m tx ty mem in
-        let med  = median_backtrace x y m tx ty mem in
-        cost,med
+        let medn = match is_missing x m, is_missing y m with
+            | true,true   -> x
+            | true,false  -> y
+            | false,true  -> x
+            | false,false -> median_backtrace x y m tx ty mem
+        in
+        cost,medn
 
     let median_2 x y m tx ty mem = 
         median_2_cost x y m tx ty mem --> snd
 
     let cost = get_cf
 
+
     let full_cost_2 _ x y m tx ty (fmat,mat) =
-        let alphabet =  MlModel.get_alphabet m.static in
-        let gap = Alphabet.get_gap alphabet in
-        nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
-                        m.static.MlModel.ui tx ty x y gap
+        match is_missing x m, is_missing y m with
+        | true,true  -> 0.0
+        | true,false -> aln_cost_2 y y m ty
+        | false,true -> aln_cost_2 x x m tx
+        | false,false ->
+            let alphabet =  MlModel.get_alphabet m.static in
+            let gap = Alphabet.get_gap alphabet in
+            nukk_align fmat mat m.static.MlModel.u m.static.MlModel.d
+                            m.static.MlModel.ui tx ty x y gap
 
     let create_edited_2 x y m tx ty mem : s * s =
         let () = ignore (cost_2 x y m tx ty mem) in
         let ex,ey,_ = full_backtrace x y m tx ty mem in
         ex,ey
 
-    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
-
     let backtrace ?(filter_gap=true) m mem x y tx ty =
-        median_backtrace ~filter_gap x y m tx ty mem
+        match is_missing x m, is_missing y m with
+        | true,true   -> x
+        | true,false  -> y
+        | false,true  -> x
+        | false,false -> median_backtrace ~filter_gap x y m tx ty mem
 
     let align_2 ?first_gap x y m tx ty ((fmat,mat) as mem) =
         let cost= cost_2 x y m tx ty mem in
-        let ex,ey,_ = full_backtrace x y m tx ty mem in
+        let ex,ey = match is_missing x m, is_missing y m with
+            | true,true
+            | true,false
+            | false,true  -> x,y
+            | false,false ->
+                let ex,ey,_ = full_backtrace x y m tx ty mem in
+                ex,ey
+        in
         ex,ey,cost
+
+    let clip_align_2 ?first_gap cs1 cs2 model t1 t2 =
+        let s2 = s_of_seq (Sequence.Clip.extract_s cs2)
+        and s1 = s_of_seq (Sequence.Clip.extract_s cs1) in
+        let mem = get_mem s1 s2 in
+        let s1,s2,cost = align_2 s1 s2 model t1 t2 mem in
+        let s1 = `DO (seq_of_s s1) and s2 = `DO (seq_of_s s2) in
+        s1,s2,cost,0,s1,s2
 
     let optimize s1 s2 model t mem =
         let update t = (),cost_2 s1 s2 model t 0.0 mem in
@@ -431,7 +482,9 @@ module CMPLAlign : A = struct
     let closest ~p ~m model t ((fmat,_) as mem) =
         let gap = Alphabet.get_gap model.alph in
         let (s_new,c) as res =
-            if Sequence.is_empty m gap then begin
+            if is_missing m model then begin
+                p, 0.0
+            end else if is_missing p model then begin
                 m, 0.0
             end else if 0 = Sequence.compare p m then begin
                 let mask = lnot gap in
@@ -450,14 +503,17 @@ module CMPLAlign : A = struct
         in
         res
 
-    let readjust s1 s2 s3 model t1 t2 t3 =
-        let algn s1 s2 t1 t2 = median_2_cost s1 s2 model t1 t2 (get_mem s1 s2) in
+    let readjust s1 s2 s3 m t1 t2 t3 =
+        let algn s1 s2 t1 t2 = median_2_cost s1 s2 m t1 t2 (get_mem s1 s2) in
         if debug_aln then begin
-            Printf.printf "A : %f - %a\n" t1 (pp_seq model) s1;
-            Printf.printf "B : %f - %a\n" t2 (pp_seq model) s2;
-            Printf.printf "C : %f - %a\n" t3 (pp_seq model) s3
+            Printf.printf "A : %f - %a\n" t1 (pp_seq m) s1;
+            Printf.printf "B : %f - %a\n" t2 (pp_seq m) s2;
+            Printf.printf "C : %f - %a\n" t3 (pp_seq m) s3
         end;
-        let make_center s1 s2 s3=
+        let make_center_with_missing a b ta tb =
+            let cab, sab = algn a b ta tb in
+            cab,(sab,0.0),cab
+        and make_center s1 s2 s3=
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
             and c23, s23 = algn s2 s3 t2 t3
@@ -475,16 +531,26 @@ module CMPLAlign : A = struct
             (* determine best... *)
             if c123 <= c231 then
                 if c123 <= c132 then
-                    false, c123, closest s3 s12 model t3 (get_mem s3 s12), c123
+                    c123, closest s3 s12 m t3 (get_mem s3 s12), c123
                 else
-                    true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
+                    c132, closest s2 s13 m t2 (get_mem s2 s13), c123
             else if c231 < c132 then
-                true, c231, closest s1 s23 model t1 (get_mem s1 s23), c123
+                c231, closest s1 s23 m t1 (get_mem s1 s23), c123
             else
-                true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
+                c132, closest s2 s13 m t2 (get_mem s2 s13), c123
         in
-        let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
-        cst, s, has_to_print
+        let cst, (s, _), previous =
+            match (is_missing s1 m), (is_missing s2 m), (is_missing s3 m) with
+            | true, true, true  -> 0.0, (s1,0.0), 0.0
+            | false, true, true -> 0.0, (s1,0.0), 0.0
+            | true, false, true -> 0.0, (s2,0.0), 0.0
+            | true, true, false -> 0.0, (s3,0.0), 0.0
+            | false,false,true  -> make_center_with_missing s1 s2 t1 t2
+            | false,true,false  -> make_center_with_missing s1 s3 t1 t3
+            | true,false,false  -> make_center_with_missing s2 s3 t2 t3
+            | false,false,false -> make_center s1 s2 s3
+        in
+        cst, s
 
 end
 
@@ -503,6 +569,9 @@ module MPLAlign : A = struct
 
     let compare a b =
         0 = Sequence.compare (seq_of_s a) (seq_of_s b)
+
+    let is_missing a m =
+        Sequence.is_empty (seq_of_s a) (Alphabet.get_gap m.alph) 
 
     (** choose a standard direction for consistent alignments *)
     let choose_dir dirs =
@@ -1037,22 +1106,32 @@ module MPLAlign : A = struct
 (* Functions that implement the module Align *)
     let cost_2 ?deltaw s1 s2 model t1 t2 mem : float =
         if debug_mem then clear_mem mem;
-        let s1,s2,t1,t2 =
-            if Sequence.length s1 <= Sequence.length s2
-                then s1,s2,t1,t2 else s2,s1,t2,t1
-        in
-        match deltaw with
-        | Some uk_max -> ukkonen_align_2 ~uk_max mem s1 s2 model t1 t2
-        | None        -> ukkonen_align_2 mem s1 s2 model t1 t2
+        match is_missing s1 model, is_missing s2 model with
+        | true, true -> 0.0
+        | false,true -> aln_cost_2 s1 s1 model t1
+        | true,false -> aln_cost_2 s2 s2 model t2
+        | false,false->
+            let s1,s2,t1,t2 =
+                if Sequence.length s1 <= Sequence.length s2
+                    then s1,s2,t1,t2 else s2,s1,t2,t1
+            in
+            match deltaw with
+            | Some uk_max -> ukkonen_align_2 ~uk_max mem s1 s2 model t1 t2
+            | None        -> ukkonen_align_2 mem s1 s2 model t1 t2
 
     let full_median_2 s1 s2 model t1 t2 mem : s =
         if debug_mem then clear_mem mem;
-        let s1,s2,t1,t2 =
-            if Sequence.length s1 <= Sequence.length s2
-                then s1,s2,t1,t2 else s2,s1,t2,t1
-        in
-        ignore (align_2 mem s1 s2 model t1 t2);
-        backtrace model mem s1 s2 t1 t2
+        match is_missing s1 model, is_missing s2 model with
+        | true, true -> s1
+        | false,true -> s1
+        | true,false -> s2
+        | false,false->
+            let s1,s2,t1,t2 =
+                if Sequence.length s1 <= Sequence.length s2
+                    then s1,s2,t1,t2 else s2,s1,t2,t1
+            in
+            ignore (align_2 mem s1 s2 model t1 t2);
+            backtrace model mem s1 s2 t1 t2
 
     let full_cost_2 cost1 s1 s2 model t1 t2 mem : float =
         if debug_mem then clear_mem mem;
@@ -1064,23 +1143,35 @@ module MPLAlign : A = struct
 
     let create_edited_2 s1 s2 model t1 t2 mem : s * s =
         if debug_mem then clear_mem mem;
-        let s1,s2,t1,t2 =
-            if Sequence.length s1 <= Sequence.length s2
-                then s1,s2,t1,t2 else s2,s1,t2,t1
-        in
-        ignore (ukkonen_align_2 mem s1 s2 model t1 t2);
-        alignments mem s1 s2 model
+        match is_missing s1 model, is_missing s2 model with
+        | true, true -> s1,s2
+        | false,true -> s1,s2
+        | true,false -> s1,s2
+        | false,false->
+            if Sequence.length s1 <= Sequence.length s2 then begin
+                ignore (ukkonen_align_2 mem s1 s2 model t1 t2);
+                alignments mem s1 s2 model
+            end else begin
+                ignore (ukkonen_align_2 mem s2 s1 model t2 t1);
+                let s2,s1 = alignments mem s2 s1 model in
+                s1,s2
+            end
 
     let align_2 ?first_gap s1 s2 model t1 t2 mem : s*s*float =
         if debug_mem then clear_mem mem;
-        if Sequence.length s1 <= Sequence.length s2 then
-            let cost = ukkonen_align_2 mem s1 s2 model t1 t2 in
-            let se1,se2 = alignments mem s1 s2 model in
-            se1,se2,cost
-        else
-            let cost = ukkonen_align_2 mem s2 s1 model t2 t1 in
-            let se2,se1 = alignments mem s2 s1 model in
-            se1,se2,cost
+        match is_missing s1 model, is_missing s2 model with
+        | true, true -> s1,s2,0.0
+        | false,true -> s1,s2,aln_cost_2 s1 s1 model t1
+        | true,false -> s1,s2,aln_cost_2 s2 s2 model t2
+        | false,false->
+            if Sequence.length s1 <= Sequence.length s2 then
+                let cost = ukkonen_align_2 mem s1 s2 model t1 t2 in
+                let se1,se2 = alignments mem s1 s2 model in
+                se1,se2,cost
+            else
+                let cost = ukkonen_align_2 mem s2 s1 model t2 t1 in
+                let se2,se1 = alignments mem s2 s1 model in
+                se1,se2,cost
 
     let clip_align_2 ?first_gap cs1 cs2 model t1 t2 =
         let s2 = s_of_seq (Sequence.Clip.extract_s cs2)
@@ -1092,28 +1183,38 @@ module MPLAlign : A = struct
 
     let gen_all_2 s1 s2 model t1 t2 mem =
         if debug_mem then clear_mem mem;
-        let gen_all_2 s1 s2 t1 t2 =
-            let cost  = ukkonen_align_2 mem s1 s2 model t1 t2 in
-            let med   = backtrace model mem s1 s2 t1 t2 in
-            let s1,s2 = alignments mem s1 s2 model in
-            s1,s2,cost,med
-        in
-        if Sequence.length s1 <= Sequence.length s2 then
-            gen_all_2 s1 s2 t1 t2
-        else
-            let s2,s1,cost,m = gen_all_2 s2 s1 t2 t1 in
-            s1,s2,cost,m
+        match is_missing s1 model, is_missing s2 model with
+        | true, true -> s1,s2,0.0, s1
+        | false,true -> s1,s2,aln_cost_2 s1 s1 model t1, s1
+        | true,false -> s1,s2,aln_cost_2 s2 s2 model t2, s2
+        | false,false->
+            let gen_all_2 s1 s2 t1 t2 =
+                let cost  = ukkonen_align_2 mem s1 s2 model t1 t2 in
+                let med   = backtrace model mem s1 s2 t1 t2 in
+                let s1,s2 = alignments mem s1 s2 model in
+                s1,s2,cost,med
+            in
+            if Sequence.length s1 <= Sequence.length s2 then
+                gen_all_2 s1 s2 t1 t2
+            else
+                let s2,s1,cost,m = gen_all_2 s2 s1 t2 t1 in
+                s1,s2,cost,m
 
     let algn s1 s2 model t1 t2 mem : float * s =
         if debug_mem then clear_mem mem;
-        let s1,s2,t1,t2 =
-            if Sequence.length s1 <= Sequence.length s2
-                then s1,s2,t1,t2
-                else s2,s1,t2,t1
-        in
-        let c = ukkonen_align_2 mem s1 s2 model t1 t2 in
-        let b = backtrace model mem s1 s2 t1 t2 in
-        c,b
+        match is_missing s1 model, is_missing s2 model with
+        | true, true -> 0.0, s1
+        | false,true -> aln_cost_2 s1 s1 model t1, s1
+        | true,false -> aln_cost_2 s2 s2 model t2, s2
+        | false,false->
+            let s1,s2,t1,t2 =
+                if Sequence.length s1 <= Sequence.length s2
+                    then s1,s2,t1,t2
+                    else s2,s1,t2,t1
+            in
+            let c = ukkonen_align_2 mem s1 s2 model t1 t2 in
+            let b = backtrace model mem s1 s2 t1 t2 in
+            c,b
 
     let median_2 s1 s2 model t1 t2 mem : s = snd (algn s1 s2 model t1 t2 mem)
 
@@ -1158,9 +1259,12 @@ module MPLAlign : A = struct
         res
 
 
-    let readjust s1 s2 s3 model t1 t2 t3 =
-        let algn s1 s2 t1 t2 = algn s1 s2 model t1 t2 (get_mem s1 s2) in
-        let make_center s1 s2 s3 =
+    let readjust s1 s2 s3 m t1 t2 t3 =
+        let algn s1 s2 t1 t2 = algn s1 s2 m t1 t2 (get_mem s1 s2) in
+        let make_center_with_missing a b ta tb =
+            let cab, sab = algn a b ta tb in
+            cab,(sab,0.0),cab
+        and make_center s1 s2 s3 =
             (* first median  *)
             let c12, s12 = algn s1 s2 t1 t2
             and c23, s23 = algn s2 s3 t2 t3
@@ -1178,16 +1282,27 @@ module MPLAlign : A = struct
             (* determine best... *)
             if c123 <= c231 then
                 if c123 <= c132 then
-                    false, c123, closest s3 s12 model t3 (get_mem s3 s12), c123
+                    c123, closest s3 s12 m t3 (get_mem s3 s12), c123
                 else
-                    true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
+                    c132, closest s2 s13 m t2 (get_mem s2 s13), c123
             else if c231 < c132 then
-                true, c231, closest s1 s23 model t1 (get_mem s1 s23), c123
+                c231, closest s1 s23 m t1 (get_mem s1 s23), c123
             else
-                true, c132, closest s2 s13 model t2 (get_mem s2 s13), c123
+                c132, closest s2 s13 m t2 (get_mem s2 s13), c123
         in
-        let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
-        cst, s, has_to_print
+        let cst, (s, _), previous =
+            match (is_missing s1 m), (is_missing s2 m), (is_missing s3 m) with
+            | true, true, true  -> 0.0, (s1,0.0), 0.0
+            | false, true, true -> 0.0, (s1,0.0), 0.0
+            | true, false, true -> 0.0, (s2,0.0), 0.0
+            | true, true, false -> 0.0, (s3,0.0), 0.0
+            | false,false,true  -> make_center_with_missing s1 s2 t1 t2
+            | false,true,false  -> make_center_with_missing s1 s3 t1 t3
+            | true,false,false  -> make_center_with_missing s2 s3 t2 t3
+            | false,false,false -> make_center s1 s2 s3
+        in
+        cst, s
+
 
     let optimize s1 s2 model t mem =
         let update t = (),cost_2 s1 s2 model t 0.0 mem in
@@ -1206,6 +1321,9 @@ module MALAlign : A = struct
 
     let compare a b =
         0 = Sequence.compare (seq_of_s a) (seq_of_s b)
+
+    let is_missing a m =
+        Sequence.is_empty (seq_of_s a) (Alphabet.get_gap m.alph) 
 
     let print_mem (mem:floatmem) =
         for i = 0 to (Array.length mem)-1 do
