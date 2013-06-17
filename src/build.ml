@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 3221 $"
+let () = SadmanOutput.register "Build" "$Revision: 3382 $"
 
 let debug_profile_memory = false
 
@@ -782,7 +782,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             Ptree.choose_leaf f)
             | Some file ->
                 begin match (Data.process_trees data file).Data.trees with
-                    | [((_,[t]), _, _) as one] -> Data.verify_trees data one; t
+                    | [((_,[t]), _, _) as one] when Data.verify_trees data one -> t
                     | _ -> failwith "Illegal input constraint file"
                 end
         in
@@ -795,8 +795,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 branch_and_bound keep_method max_trees threshold data nodes bound adj_mgr
             | `Prebuilt file -> 
                 let data = Data.process_trees data file in
-                let trees = data.Data.trees in
-                let () = List.iter (Data.verify_trees data) trees in
+                let trees = List.filter (Data.verify_trees data) data.Data.trees in
                 let trees = List.map (fun (a, _, id) -> a) trees in
                 prebuilt trees d
             | `Nj ->

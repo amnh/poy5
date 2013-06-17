@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3369 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3382 $"
 
 let (-->) a b = b a
 
@@ -1686,8 +1686,8 @@ let process_input run (meth : Methods.input) =
     let run = { run with data = d; nodes = nodes } in
     (* check whether this read any trees *)
     let run = update_trees_to_data false false run in
-    let () = List.iter (Data.verify_trees run.data) run.data.Data.trees in
-    let trees = List.map (fun (x, _, _) -> x) run.data.Data.trees in
+    let trees = List.filter (Data.verify_trees run.data) run.data.Data.trees in
+    let trees = List.map (fun (x, _, _) -> x) trees in
     let trees = Build.prebuilt trees (run.data, run.nodes) in
     let total_trees = Sexpr.union trees run.trees in
     let d = { d with Data.trees = [] } in

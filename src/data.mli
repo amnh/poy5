@@ -711,7 +711,7 @@ val apply_on_static :
 
 val repack_codes : d -> d
 
-val verify_trees : d -> parsed_trees -> unit
+val verify_trees : d -> parsed_trees -> bool
 
 val guess_class_and_add_file : bool -> bool -> d -> FileStream.f -> d
 

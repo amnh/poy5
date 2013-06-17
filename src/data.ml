@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-include Dyn_pam (* TODO (lin): this needs to be seperated properly. *)
+include Dyn_pam
 
 open StdLabels
 
@@ -1842,7 +1842,7 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
         let taxon = trim taxon in
         if All_sets.StringMap.mem taxon data.synonyms then
             stop_if_not_all_terminals_in_tree map
-            (All_sets.StringMap.find taxon data.synonyms)
+                (All_sets.StringMap.find taxon data.synonyms)
         else 
             if All_sets.StringMap.mem taxon map then begin
                 All_sets.StringMap.remove taxon map
@@ -1850,13 +1850,11 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
                 let msg = 
                     ("input@ tree@ " ^ string_of_int position ^ 
                     (if "" <> file then "@ of@ file@ " ^ esc_file else "") ^
-                    "@ has@ the@ terminal@ "
-                    ^ StatusCommon.escape taxon ^ 
+                    "@ has@ the@ terminal@ " ^ StatusCommon.escape taxon ^ 
                     "@ and@ there@ is@ no@ data@ loaded@ for@ it")
                 in
                 let () = Status.user_message Status.Error msg in
                 failwith "Data not found"
-                    
     in
     let leafs = List.fold_left ~f:leaves ~init:[] tree in
     ignore
@@ -1867,7 +1865,8 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
                        ~init:data.taxon_names
                         leafs
     in
-    if All_sets.StringMap.is_empty res then ()
+    if All_sets.StringMap.is_empty res then
+        true
     else 
         let taxa = 
             (String.concat ", "
@@ -1877,15 +1876,15 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
         let file_string =
             if "" <> file then "@ of@ file@ " ^ esc_file else ""
         in
-        let msg = 
-            "The@ following@ terminals@ do@ not@ appear@ in@ the@ input@ "
-            ^ "tree@ " ^ string_of_int position ^ file_string ^ "@ :@ " ^ taxa ^
-            ".@ Beware@ that@ this@ tree@ will@ be@ incompatible@ with@ any@ " ^
-            "@ other@ trees@ built@ by@ POY,@ as@ some@ terminals@ appearing@ "
-            ^ "in@ the@ new@ trees@ will@ be@ missing@ on@ this@ one@ and@ " ^ 
-            "could@ cause@ errors." 
+        let msg =
+            "The@ following@ terminals@ do@ not@ appear@ in@ input@ " ^
+            "tree@ " ^ string_of_int position ^ file_string ^ "@ :@ " ^ taxa ^
+            ".@ I@ am@ going@ to@ ignore@ this@ tree@ and@ continue@ processing@ " ^
+            "other@ trees@ as@ this@ tree@ will@ be@ incompatible@ with@ trees@ " ^
+            "built@ by@ POY."
         in
-        Status.user_message Status.Warning msg
+        Status.user_message Status.Warning msg;
+        false
 
 let process_trees data file =
     try let ch, file = FileStream.channel_n_filename file in
