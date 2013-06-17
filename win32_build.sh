@@ -7,11 +7,11 @@ ncurses=0
 make_installers=1
 update=0
 
-version=${BUILD_VERSION}
+version=${BUILD_NUMBER}
 
 #VARIABLES THAT MIGHT NEED TO BE MODIFIED
 
-    destination="/cygdrive/c/Users/developer/Desktop/poy/${BUILD_VERSION}"
+    destination="/cygdrive/c/Users/developer/Desktop/poy/${version}"
     concorde="--with-concorde-dir=/usr/i686-w64-minw32/sys-root/mingw/lib/"
 
     compiler="i686-w64-mingw32-gcc"
@@ -77,6 +77,9 @@ fi
 rm -rf ncurses_poy.exe
 rm -rf par_poy.exe
 rm -rf seq_poy.exe
+
+rm -rf $destination
+mkdir $destination
 
 cd src
 if [ $ncurses -eq 1 ]; then
