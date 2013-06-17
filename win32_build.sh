@@ -11,7 +11,7 @@ version=${BUILD_VERSION}
 
 #VARIABLES THAT MIGHT NEED TO BE MODIFIED
 
-    destination="/cygdrive/c/Users/developer/Desktop/poy_builds/${BUILD_VERSION}"
+    destination="/cygdrive/c/Users/developer/Desktop/poy/${BUILD_VERSION}"
     concorde="--with-concorde-dir=/usr/i686-w64-minw32/sys-root/mingw/lib/"
 
     compiler="i686-w64-mingw32-gcc"
@@ -28,7 +28,7 @@ version=${BUILD_VERSION}
 #
 #END
 
-CONFIGURATION_OPTIONS=" --enable-xslt ${CONFIGURATION_OPTIONS}"
+CONFIGURATION_OPTIONS=" --enable-xslt --enable-large-alphabets --enable-long-sequences ${CONFIGURATION_OPTIONS}"
 
 configuration="CC=${compiler} ${concorde} ${CONFIGURATION_OPTIONS} --with-prefix=/usr/i686-w64-mingw32/sys-root/mingw"
 while getopts 'uspnm' OPTION; do
