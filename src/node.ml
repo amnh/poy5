@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3373 $"
+let () = SadmanOutput.register "Node" "$Revision: 3383 $"
 
 let infinity = float_of_int max_int
 
@@ -151,14 +151,15 @@ let rec to_string_ch ch1 = match ch1 with
     | Nonadd32 a ->
             ("na32: " ^ NonaddCS32.to_string a.final)
     | AddVec a ->
-            AddCS.Vector.to_string a.final
+            ("addv:" ^ AddCS.Vector.to_string a.final)
     | AddGen a ->
-            AddCS.General.to_string a.final
+            ("addg:" ^ AddCS.General.to_string a.final)
     | Sank a ->
             ("sank: " ^ SankCS.to_string a.final)
     | Dynamic a ->
-            "dynamic: " ^ DynamicCS.to_string a.final
-    | FixedStates a -> ("fixed states: " ^ Fixed_states.to_string a.final)
+            ("dynamic: " ^ DynamicCS.to_string a.final)
+    | FixedStates a ->
+            ("fixed states: " ^ Fixed_states.to_string a.final)
     | Set a ->
             let sub = List.map to_string_ch a.final.set in
             let stype = match a.final.smethod with
@@ -170,7 +171,7 @@ let rec to_string_ch ch1 = match ch1 with
             ("kolmo: " ^ KolmoCS.to_string a.final)
     | StaticMl a ->
         IFDEF USE_LIKELIHOOD THEN
-            ("static ML: " ^ MlStaticCS.to_string a.preliminary)
+            ("ml: " ^ MlStaticCS.to_string a.preliminary)
         ELSE
             failwith MlStaticCS.likelihood_error
         END
@@ -1753,59 +1754,56 @@ let compare_data_preliminary {characters=chs1} {characters=chs2} =
 (* This function assumes that nodea and nodeb come from a valid tree and
  * nodea is the parent of nodeb.  *)
 let edge_distance clas nodea nodeb =
-    let rec distance_two ch1 ch2 =
-        match ch1, ch2 with
+    let rec distance_two ch1 ch2 = match ch1, ch2 with
         | Nonadd8 a, Nonadd8 b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. NonaddCS8.distance a.final b.final
+                    a.weight *. NonaddCS8.distance a.final b.final
                 | `Dynamic -> 0.)
         | Nonadd16 a, Nonadd16 b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. NonaddCS16.distance a.final b.final
+                    a.weight *. NonaddCS16.distance a.final b.final
                 | `Dynamic -> 0.)
         | Nonadd32 a, Nonadd32 b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. NonaddCS32.distance a.final b.final
+                    a.weight *. NonaddCS32.distance a.final b.final
                 | `Dynamic -> 0.)
         | AddGen a, AddGen b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. AddCS.General.distance a.final b.final
+                    a.weight *. AddCS.General.distance a.final b.final
                 | `Dynamic -> 0.)
         | AddVec a, AddVec b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. AddCS.Vector.distance a.final b.final
+                    a.weight *. AddCS.Vector.distance a.final b.final
                 | `Dynamic -> 0.)
         | Sank a, Sank b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. SankCS.distance a.final b.final
+                    a.weight *. SankCS.distance a.final b.final
                 | `Dynamic -> 0.)
         | FixedStates a, FixedStates b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. Fixed_states.distance a.final b.final
+                    a.weight *. Fixed_states.distance a.final b.final
                 | `Dynamic -> 0.)
         | Dynamic a, Dynamic b ->
-                (match clas with
+            (match clas with
                 | `Dynamic | `Any -> 
-                        (* Observe that we REQUIRE the single assignment for
-                        * this collapse to be correct. *)
-                        let d = 
-                            DynamicCS.distance 0. a.preliminary b.preliminary 
-                        in
-                        a.weight *. d
+                    (* Observe that we REQUIRE the single assignment for
+                    * this collapse to be correct. *)
+                    let d = DynamicCS.distance 0. a.preliminary b.preliminary in
+                    a.weight *. d
                 | `Static -> 0.)
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.tabu_distance a.final b.final
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
                 let x , _(*ignore sumcost*) = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                match x with | StaticMl x -> 0.0 *. x.cost | _ -> assert false
+                match x with | StaticMl x -> x.cost | _ -> assert false
             ELSE
                 failwith MlStaticCS.likelihood_error
             END
@@ -1825,7 +1823,8 @@ let edge_distance clas nodea nodeb =
         | ch1 :: chs1, ch2 :: chs2 ->
               distance_lists chs1 chs2 (acc +. distance_two ch1 ch2)
         | [], [] -> acc
-        | _ -> failwith "Incompatible characters (6)" in
+        | _ -> failwith "Incompatible characters (6)"
+    in
     distance_lists nodea.characters nodeb.characters 0.
 
 let all_types = 
@@ -1986,7 +1985,6 @@ let distance ?(para=None) ?(parb=None) missing_distance
         | _ -> assert false
     in
     let res = distance_lists chs1 chs2 0. in
-    if debug_distance then Printf.printf "resdis=%f\n%!" res;
     res
 
 (* Calculates the cost of joining the node [n] between [a] and [b] in a tree *)
@@ -2146,8 +2144,7 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
             | Some x,None -> Some (x *. b)
             | None, c -> c
         in
-        (fun ((acc1,acc2) as acc) x y ->
-            match x,y with
+        (fun ((acc1,acc2) as acc) x y -> match x,y with
             | StaticMl x, StaticMl y ->
               IFDEF USE_LIKELIHOOD THEN
                 (acc1,(MlStaticCS.get_codes y.preliminary, f y.time)::acc2)
@@ -2175,15 +2172,15 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
             | a,b when (fst inc_parsimony) ->
                 let acc1a = Array.append (fst acc1) (codes a) in
                 let acc1b =
-                    let ncost = Some (cs_distance 0.0 child parent a b) in
-                    combine ncost 1.0 (snd acc1)
+                    let ncost = cs_distance 0.0 child parent a b in
+                    combine (Some ncost) 1.0 (snd acc1)
                 in
                 ((acc1a,acc1b),acc2)
             |  _ -> acc)
     in
     let oth,lik = match parent with
         | Some par ->
-            List.fold_left2 func (([||],None),[]) child.characters par.characters
+            List.fold_left2 func (([||],None),[]) par.characters child.characters
         | None when (fst inc_parsimony) -> assert false
         | None     ->
             List.fold_left2 func (([||],None),[]) child.characters child.characters
@@ -2400,11 +2397,10 @@ let classify chars data =
     let characters =
         let add_taxon_to_accumulator acc (_, _, v) = v :: acc in
         let reshape chars (a, b, _) = (a, b, chars) in
-        let chars item =
-            match taxa item with
+        let chars item = match taxa item with
             | ((_, _, x) as h) :: t ->
-                    let chars = List.fold_left add_taxon_to_accumulator [x] t in
-                    reshape chars h
+                let chars = List.fold_left add_taxon_to_accumulator [x] t in
+                reshape chars h
             | [] -> failwith "Nothing?" (* must be of least length one, *)
         in
         collapse chars all_static

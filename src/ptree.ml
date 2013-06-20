@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3318 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3383 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -2049,8 +2049,8 @@ let basic_build_tree tree strgen collapse branches chars root =
 
 
 let get_collapse_function t = match t with
-    | None   -> (fun _ _ _ -> false)
-    | Some _ ->
+    | None    -> (fun _ _ _ -> false)
+    | Some st ->
         (fun tree code chld ->
             let rec sum_branch acc = function
                 | [] -> acc
@@ -2060,7 +2060,8 @@ let get_collapse_function t = match t with
             let a = get_node_data code tree in
             let b = get_node_data chld tree in
             let r =
-                let adjusted = false and inc_parsimony = (true,t) in
+                let adjusted      = false (* edge-distance always uses unadjusted *)
+                and inc_parsimony = (true,t) in
                 Node.get_times_between ~adjusted ~inc_parsimony a (Some b)
             in
             0.0 = sum_branch 0.0 r)

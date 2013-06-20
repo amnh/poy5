@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3377 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3383 $"
 
 let debug = false 
 
@@ -2202,8 +2202,8 @@ type command = [
                 [ LIDENT "constraint"; ":"; x = INT ->
                     `Partition [`MaxDepth (int_of_string x)] ] |
                 [ LIDENT "constraint"; ":"; left_parenthesis; 
-                    x = LIST1 [x = constraint_options -> x] SEP ","; right_parenthesis
-                    -> `Partition x ] |
+                    x = LIST1 [x = constraint_options -> x] SEP ","; right_parenthesis ->
+                    `Partition x ] |
                 [ LIDENT "constraint" -> `Partition [] ]
             ];
         build_argument:
