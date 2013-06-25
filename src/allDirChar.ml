@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3357 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3387 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -723,20 +723,19 @@ module F : Ptree.Tree_Operations
             let comp = Ptree.get_component_root handle ptree in
             match comp.Ptree.root_median with
             | Some ((`Edge (a, b)) as edge, rootg) ->
-                    let ptree, root, readjusted =
-                        generate_root_and_assign_it rootg edge ptree 
-                    in
-                    ptree
-                        --> assign_single_subtree true root b a
-                        --> assign_single_subtree true root a b
-                        --> (fun ptree ->
-                if debug_assign_single_handle then  info_user_message "assign cost to root(%d,%d) with %f and check_cost function" a b comp.Ptree.component_cost;
-                                Ptree.assign_root_to_connected_component 
-                                    handle
-                                    (Some ((`Edge (a, b)), readjusted))
-                                    comp.Ptree.component_cost
-                                    (Some (check_cost ptree handle None))
-                                    ptree)
+                let ptree, root, readjusted =
+                    generate_root_and_assign_it rootg edge ptree 
+                in
+                ptree
+                    --> assign_single_subtree true root b a
+                    --> assign_single_subtree true root a b
+                    --> (fun ptree ->
+                            Ptree.assign_root_to_connected_component 
+                                handle
+                                (Some ((`Edge (a, b)), readjusted))
+                                comp.Ptree.component_cost
+                                (Some (check_cost ptree handle None))
+                                ptree)
             | Some ((`Single a) as edge, rootg) ->
                     let ptree, root, readjusted =
                         generate_root_and_assign_it rootg edge ptree
