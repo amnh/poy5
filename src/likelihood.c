@@ -1100,7 +1100,8 @@ logMAL_site( const mll* l, const double weight, const double* pi,
     } else {
         tmp2 = MAX( tmp2 , 1e-300 );
     }
-    return ( log( tmp2 ) * weight );
+    tmp2 = log( tmp2 );
+    return (tmp2 * weight);
 }
 
 /* calculates the likelihood for a particular rate class; not used currently */
@@ -2345,17 +2346,18 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     int iter,size,bracketed;
     ptr temp; mll temp_;
     double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi,pu;
-    double *PA,*PB,*TMP;
+    double *PA,*PB,*TMP,*lv_b,*lv_temp;
     double r,q,p,d,e,tol,tmp;
 
     size = data_c1->c_len * data_c1->stride * data_c1->rates;
     /* register temp space and matrices --1 vector, 3 matrices */
-    expand_matrix( space, (size) + (3*data_c1->stride*data_c1->stride) );
+    expand_matrix( space, (size*2) + (3*data_c1->stride*data_c1->stride) );
     PA  = register_section(space, data_c1->stride*data_c1->stride, 0);
     PB  = register_section(space, data_c1->stride*data_c1->stride, 0);
     TMP = register_section(space, data_c1->stride*data_c1->stride, 0);
     (temp.vs)           = &temp_;
     (temp.vs)->lv_s     = register_section( space, size, 0 );
+    lv_b                = register_section( space, size, 0 );
     (temp.vs)->stride   = data_c1->stride;
     (temp.vs)->c_len    = data_c1->c_len;
     (temp.vs)->invar    = data_c1->invar;
@@ -2463,6 +2465,10 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
             if( u >= x ){ a = x; fa = fx; } else { b = x; fb = fx; }
             SHIFT(v,w,x,u);
             SHIFT(fv,fw,fx,fu);
+            /* swap pointers to best vector. */
+            lv_temp = lv_b;
+            lv_b = (temp.vs)->lv_s;
+            (temp.vs)->lv_s = lv_temp;
         } else {
             if( u < x ){ a = u; fa = fu; } else { b = u; fb = fu; }
             if( (fu <= fw) || (w == x) ){
@@ -2476,7 +2482,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
         ++iter;
     }
     /* if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
-    memcpy( data_p->lv_s, (temp.vs)->lv_s, size * sizeof(double));
+    memcpy( data_p->lv_s, lv_b, size * sizeof(double));
     *b_tc1 = x;
     *b_mle = fx;
 }
@@ -2490,17 +2496,18 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
     int iter,size,bracketed;
     ptr temp; mll temp_;
     double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi,pu;
-    double *PA,*PB,*TMP;
+    double *PA,*PB,*TMP,*lv_b,*lv_temp;
     double r,q,p,d,e,tol,tmp;
 
     size = data_c1->c_len * data_c1->stride * data_c1->rates;
     /* register temp space and matrices --1 vector, 3 matrices */
-    expand_matrix( space, (size) + (3*data_c1->stride*data_c1->stride) );
+    expand_matrix( space, (size*2) + (3*data_c1->stride*data_c1->stride) );
     PA  = register_section(space, data_c1->stride*data_c1->stride, 0);
     PB  = register_section(space, data_c1->stride*data_c1->stride, 0);
     TMP = register_section(space, data_c1->stride*data_c1->stride, 0);
     (temp.vs)           = &temp_;
     (temp.vs)->lv_s     = register_section( space, size, 0 );
+    lv_b                = register_section( space, size, 0 );
     (temp.vs)->stride   = data_c1->stride;
     (temp.vs)->c_len    = data_c1->c_len;
     (temp.vs)->invar    = data_c1->invar;
@@ -2599,12 +2606,17 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
             if( fx < fu ) { break; }
                      else { fx = fu; x = u; break;}
         }
-        /* move variables around for next motion */
+        /* move variables around for next motion. */
         if( fu <= fx ){
             if( u >= x ){ a = x; } else { b = x; }
-            SHIFT(v,w,x,u);
+            SHIFT( v, w, x, u);
             SHIFT(fv,fw,fx,fu);
+            /* swap pointers to best vector. */
+            lv_temp = lv_b;
+            lv_b = (temp.vs)->lv_s;
+            (temp.vs)->lv_s = lv_temp;
         } else {
+            /* value is not the best, but continue. */
             if( u < x ){ a = u; } else { b = u; }
             if( (fu <= fw) || (w == x) ){
                 v=w; fv=fw;
@@ -2617,7 +2629,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
         pu = u;
     }
     /* if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
-    memcpy( data_p->lv_s, (temp.vs)->lv_s, size * sizeof(double));
+    memcpy( data_p->lv_s, lv_b, size * sizeof(double));
     *b_tc1 = x;
     *b_mle = fx;
 }
