@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3383 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3390 $"
 
 let debug = false 
 
@@ -1676,7 +1676,6 @@ type command = [
                 [   [ LIDENT "sh" -> `SH ] |
                     [ LIDENT "kh" -> `KH ] |
                     [ LIDENT "n"; ":"; x = INT -> `Replicates (int_of_string x) ] |
-                    [ LIDENT "k"; ":"; x = INT -> `ScaleFactors (int_of_string x) ] |
                     [ LIDENT "rell" -> `ReplicateOpt (false, false) ] |
                     [ LIDENT "full" -> `ReplicateOpt (true, true) ] |
                     [ LIDENT "part" -> `ReplicateOpt (false, true) ] |

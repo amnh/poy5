@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3382 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3390 $"
 
 let (-->) a b = b a
 
@@ -2157,17 +2157,21 @@ let report_lk_sites ft tree chars : unit =
     let tree_num = ref 0 in
     let header = [| "Tree"; "-lnL"; "Site"; "Weight"; "-lnL"; |] in
     let modify_array (cost,array) =
+        let checksum = ref 0.0 in
         let second = [| string_of_int !tree_num; string_of_float cost; ""; ""; ""; |] in
         incr tree_num;
-        Array.init
+        let r = Array.init
             ((Array.length array)+2)
             (fun i ->
                 if i = 0 then header else
                 if i = 1 then second
                 else begin
                     let _,a,b = array.(i-2) in
+                    checksum := !checksum +. b;
                     [| ""; "";string_of_int (i-2); string_of_float a; string_of_float b; |]
                 end)
+        in
+        r,!checksum
     in
     match Ptree.get_roots tree with
     | [x] ->
@@ -2175,8 +2179,8 @@ let report_lk_sites ft tree chars : unit =
             | Some (_,n) -> n
             | None       -> assert false
         in
-        List.iter (fun x -> let x = modify_array x in ft x)
-                  (Node.get_lk_sites node_root chars)
+        let data = Node.get_lk_sites node_root chars in
+        List.iter (fun x -> let t,_ = modify_array x in ft t) data
     |  _  ->
         Status.user_message Status.Error
             ("I@ am@ unsure@ what@ to@ do@ about@ reporting@ site@ likelihood@ "
@@ -4082,7 +4086,7 @@ let rec folder (run : r) meth =
 
             | `Topo_Selection (filename,x) ->
                 IFDEF USE_LIKELIHOOD THEN
-                    let (t,chars,n,k,rep) = MlTestStat.process_methods_arguments x in
+                    let (t,chars,n,rep) = MlTestStat.process_methods_arguments x in
                     begin try match t, Sexpr.to_list run.trees with
                         |   _,[] ->
                             let msg = "The@ topology@ selection@ command@ requires"

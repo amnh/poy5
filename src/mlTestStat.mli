@@ -35,7 +35,7 @@ val part : replicate
 
 (** process methods.ml_topo_test args; we do this here to keep things clean *)
 val process_methods_arguments : Methods.ml_topo_test list ->
-    Methods.ml_topo_test * Methods.characters * int option * int option * replicate 
+    Methods.ml_topo_test * Methods.characters * int option * replicate
 
 module type S = sig
 

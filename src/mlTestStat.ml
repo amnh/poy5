@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3380 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3390 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
@@ -69,16 +69,15 @@ let get_default_reps n rep = match n with
     | None -> 10_000
 
 let process_methods_arguments args =
-    let folder (t,c,n,k,r) = function
-        | `SH | `KH as t -> (Some t,c,n,k,r)
-        | `Characters c -> (t,c,n,k,r)
-        | `Replicates n -> (t,c,Some n,k,r)
-        | `ScaleFactors k -> (t,c,n,Some k,r)
-        | `ReplicateOpt (mt,bt) -> (t,c,n,k,{m=mt;b=bt})
+    let folder (t,c,n,r) = function
+        | `SH | `KH as t -> (Some t,c,n,r)
+        | `Characters c -> (t,c,n,r)
+        | `Replicates n -> (t,c,Some n,r)
+        | `ReplicateOpt (mt,bt) -> (t,c,n,{m=mt;b=bt})
     in
-    let (t,c,n,k,r) = List.fold_left folder (None,`All,None,None,rell) args in
+    let (t,c,n,r) = List.fold_left folder (None,`All,None,rell) args in
     match t with
-    | Some t -> t,c,n,k,r
+    | Some t -> t,c,n,r
     | None   ->
         Status.user_message Status.Error
             "No@ Topology@ Selection@ Method@ specified.@ Please@ include@ sh@ or@ kh.";
