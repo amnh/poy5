@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 3373 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3389 $"
 
 let compress = true
 
@@ -142,7 +142,7 @@ external loglikelihood: (* vector, weight, priors, probabilities, %invar, mpl ->
       -> float -> int -> float =
           "likelihood_CAML_loglikelihood" "likelihood_CAML_loglikelihood_wrapped"
 
-external loglikelihood_site: (* vector, weight, priors, probabilities, %invar, mpl -> loglk *)
+external loglikelihood_site: (* vector, priors, probabilities, %invar, mpl, i -> loglk *)
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> float -> int -> int -> float =
@@ -294,8 +294,8 @@ let median2 an bn t1 t2 acode bcode =
     in
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
     let loglike =
-        loglikelihood n_chars an.weights an.model.MlModel.pi_0 
-                      an.model.MlModel.prob pinvar (MlModel.get_costfn_code an.model)
+        loglikelihood n_chars an.weights am.MlModel.pi_0 
+                      am.MlModel.prob pinvar (MlModel.get_costfn_code am)
     in
     assert( loglike >= -0.0 );
     { an with
@@ -340,9 +340,8 @@ let median3 an bn cn t1 t2 t3 =
     in
     let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
     let loglike = 
-        loglikelihood n_chars an.weights an.model.MlModel.pi_0 
-                      an.model.MlModel.prob pinvar
-                      (MlModel.get_costfn_code an.model)
+        loglikelihood n_chars an.weights am.MlModel.pi_0 am.MlModel.prob pinvar
+                      (MlModel.get_costfn_code am)
     in
     assert( loglike >= -0.0 );
     { an with
@@ -382,7 +381,7 @@ let site_likelihood an : (int * float * float) array =
     --> List.map
             (fun ((code,codes),weight,lk) ->
                 assert (List.mem code codes);
-                List.map (fun c -> (c,weight,lk)) codes)
+                List.map (fun c -> (c,1.0,lk)) codes)
     --> List.flatten
     --> Array.of_list
 
@@ -452,8 +451,7 @@ let of_parser_simple seq model =
     let schar = bigarray_s chars None  (MlModel.get_costfn_code model) in
     let loglk = 
         loglikelihood schar wghts model.MlModel.pi_0
-                      model.MlModel.prob (~-.1.0)
-                      (MlModel.get_costfn_code model)
+                      model.MlModel.prob (-1.0) (MlModel.get_costfn_code model)
     in
     {   mle = loglk;
       model = model;
