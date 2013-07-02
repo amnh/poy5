@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlTestStat" "$Revision: 3390 $"
+let () = SadmanOutput.register "MlTestStat" "$Revision: 3395 $"
 
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
@@ -25,8 +25,8 @@ let (-|>) a b = let () = b a in a
 let debug_cdf = false
 and debug_boot= false
 
-and debug_kh  = true
-and debug_sh  = true
+and debug_kh  = false
+and debug_sh  = false
 
 let failwithf format =
     Printf.ksprintf failwith format
@@ -268,7 +268,7 @@ struct
                 Ptree.node_data = node_data; Ptree.data = data; }
                 --> TreeOps.downpass
                 --> TreeOps.uppass
-                --> (fun t -> TreeOps.total_cost t `Adjusted None)
+                --> (fun t -> ~-. (TreeOps.total_cost t `Adjusted None))
         in
         match rep.m,rep.b with
         | false, false -> cost_of_rell_bootstrap t.slk w
@@ -302,8 +302,7 @@ struct
             print_newline ()
         end;
         (* 3. centered test-statistic for bootstrap replicates *)
-        let dc_i =
-            let f_n = float_of_int n in
+        let dc_i = let f_n = float_of_int n in
             let avg = (Array.fold_left (fun a x -> a+.x) 0.0 d_i) /. f_n in
             (Array.map (fun x -> x -. avg) d_i)
         in
@@ -313,6 +312,20 @@ struct
             print_newline ()
         end;
         (** 4: Output information *)
+        let p_value =
+            let p = 
+                Array.fold_left
+                    (fun acc x -> if x > d_0 then succ acc else acc) 0 dc_i
+            in
+            (float_of_int p) /. (float_of_int n)
+        in
+        info_user_message "@[<4>@[KH@ test@ p-value@ from@ %d@ replicates@]" n;
+        let matrix =
+            [| [| "MLE Tree:"; Printf.sprintf "%f" (get_ml_cost t1); |];
+               [| "Tree:"; Printf.sprintf "%f" (get_ml_cost t2); |];
+               [| "p-value:"; Printf.sprintf "%f" p_value; |] |]
+        in
+        outputt matrix;
         ()
 
 
@@ -325,9 +338,10 @@ struct
                -|> Array.sort
                     (fun x y -> Pervasives.compare (get_ml_cost y) (get_ml_cost x))
         in
+        let alpha_mle = 0 in
         let m = Array.length ts in
         assert( m > 1 );
-        let cdf = get_cdf ts.(0) in
+        let cdf = get_cdf ts.(alpha_mle) in
         if debug_sh then begin
             Printf.printf "Initial Costs\n\t%!";
             Array.iter (fun x -> Printf.printf "%f, " (get_ml_cost x)) ts;
@@ -335,7 +349,7 @@ struct
         end;
         (** STEP 1: Calculate test statistic *)
         let t =
-            Array.map (fun x -> (get_ml_cost ts.(0)) -. (get_ml_cost x)) ts
+            Array.map (fun x -> (get_ml_cost ts.(alpha_mle)) -. (get_ml_cost x)) ts
         in
         if debug_sh then begin
             Printf.printf "Test Statistics\n\t%!";
@@ -391,6 +405,7 @@ struct
                         if r.(!best).(i) < r.(j).(i) then best := j
                     done;
                     !best
+                    (* ???: for KH we may replace this with alpha_mle *)
                 in
                 for alpha = 0 to m-1 do
                     res.(alpha).(i) <- r.(alpha_hat).(i) -. r.(alpha).(i)

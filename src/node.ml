@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3383 $"
+let () = SadmanOutput.register "Node" "$Revision: 3392 $"
 
 let infinity = float_of_int max_int
 
@@ -598,7 +598,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     (max min_bl t1, max min_bl t2)
                 | None, None ->
                     let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                    if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
+                    if debug_bl then Printf.printf "estimating BL2: %f, %f\n%!" t1 t2;
                     t1,t2
             in 
             let model = MlStaticCS.get_model ca.preliminary in
@@ -784,11 +784,11 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                             | (None, Some t1) when code <= 0 -> max min_bl t1, min_bl
                             | _ when code <= 0 -> 
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-                                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
+                                if debug_bl then Printf.printf "estimating BL3: %f, %f\n%!" t1 t2;
                                 max min_bl (t1+.t2), min_bl
                             | _ ->
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-                                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
+                                if debug_bl then Printf.printf "estimating BL4: %f, %f\n%!" t1 t2;
                                 max min_bl t1, max min_bl t2
                         in
                         let median =
@@ -944,9 +944,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let modf = ref All_sets.Integers.empty in
                     let t1,t2,t3_opt = match pm.time with 
                         | Some x, Some y, z -> ( max min_bl x, max min_bl y, z)
-                        | None, None, None -> 
-                            let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
-                            (x, y, None )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
@@ -966,10 +963,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         (m,MlStaticCS.root_cost m)
                     and t1,t2 = match pm.time with 
                         | Some x,Some y, _ -> ( max min_bl x, max min_bl y )
-                        | None, None, _ -> 
-                            let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
-                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                            (x, y)
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let fstart = pm.preliminary,MlStaticCS.root_cost pm.preliminary in
@@ -992,10 +985,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let modf = ref All_sets.Integers.empty in
                     let t1,t2,t3_opt = match pm.time with 
                         | Some x,Some y, z -> ( max min_bl x, max min_bl y,z )
-                        | None, None, z -> 
-                            let (x,y) = MlDynamicCS.estimate_time c1_pre c2_pre in
-                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                            ( x, y, z )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     if debug then
@@ -1444,9 +1433,6 @@ let median ?branches code old a b =
         | Some code -> code
         | None -> decr median_counter; !median_counter
     in
-    if  debug_treebuild then info_user_message "node.ml median,nodea:%d(%f),nodeb:%d(%f),nodeab:%d"
-    a.taxon_code a.total_cost b.taxon_code b.total_cost code;
-    (* if code>0 then assert(false); *)
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
     let new_characters,sumcost_list =
@@ -2147,7 +2133,17 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
         (fun ((acc1,acc2) as acc) x y -> match x,y with
             | StaticMl x, StaticMl y ->
               IFDEF USE_LIKELIHOOD THEN
-                (acc1,(MlStaticCS.get_codes y.preliminary, f y.time)::acc2)
+                let t = match f y.time with
+                  | None          ->
+                    Printf.printf "(%d|%d) -- (%d|%d)\n%!"
+                        parent.taxon_code parent.min_child_code child.taxon_code
+                            child.min_child_code;
+                    print_times parent;
+                    print_times child;
+                    assert false
+                  | (Some _) as x -> x
+                in
+                (acc1,(MlStaticCS.get_codes y.preliminary, t)::acc2)
               ELSE
                 acc
               END
@@ -2180,7 +2176,7 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
     in
     let oth,lik = match parent with
         | Some par ->
-            List.fold_left2 func (([||],None),[]) par.characters child.characters
+            List.fold_left2 func (([||],None),[]) child.characters par.characters
         | None when (fst inc_parsimony) -> assert false
         | None     ->
             List.fold_left2 func (([||],None),[]) child.characters child.characters
@@ -3326,7 +3322,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     | Some x,Some y,par -> max min_bl x,max min_bl y,par
                     | _ -> 
                         let (x,y) = MlStaticCS.estimate_time c1.preliminary c2.preliminary in
-                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
+                        if debug_bl then Printf.printf "estimating BL1: %f, %f\n%!" x y;
                         max min_bl x,max min_bl y, None
                 in
                 let m, prev_cost, cost, (t1,t2), res = 
