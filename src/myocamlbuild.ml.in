@@ -370,7 +370,7 @@ dispatch begin function
         end;
 
     let zlibpath = "/usr/i686-w64-mingw32/sys-root/mingw/lib/libz.a" in
-    rule "CLUDGE TO COPY LIBZ INTO LOCAL DIRECTORY"
+    rule "CLUDGE TO COPY LIBZ INTO LOCAL DIRECTORY (windows)"
         ~prod:"libz.a"
         ~deps:[]
         begin fun env _build ->
@@ -384,19 +384,21 @@ dispatch begin function
             Cmd (A "./latex.native")
         end;
 
-    rule "help.ml file generation"
-        ~prod:"help.ml"
-        ~deps:["helpRead.native"; "help.txt"]
-        begin fun env _build ->
-            Cmd (A "./helpRead.native")
-        end;
+(*  WE HAVE GIVEN UP ON GENERATING help.ml FROM LATEX. *)
+(*     rule "help.ml file generation" *)
+(*         ~prod:"help.ml" *)
+(*         ~deps:["helpRead.native"; "help.txt"] *)
+(*         begin fun env _build -> *)
+(*             Cmd (A "./helpRead.native") *)
+(*         end; *)
 
-    rule "help.html file generation"
-        ~prod:"help.html"
-        ~deps:["helpRead.native"; "help.txt"]
-        begin fun env _build ->
-            Cmd (S [A "./helpRead.native"; A "-html"])
-        end;
+(*  THIS ALSO LOOKS PRETTY CRAPPY *)
+(*      rule "help.html file generation" *)
+(*          ~prod:"help.html" *)
+(*          ~deps:["helpRead.native"; "help.txt"] *)
+(*          begin fun env _build -> *)
+(*              Cmd (S [A "./helpRead.native"; A "-html"]) *)
+(*          end; *)
 
     rule "OCaml native shared library"
         ~prod:"%.cmxs"
