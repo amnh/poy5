@@ -79,6 +79,8 @@ doc:
 	$(OCAMLBUILD) commands.pdf
 	cp _build/commands.pdf ./commands.pdf
 
+docs: doc
+
 ##################################
 # Cleaning / Removing POY
 #
