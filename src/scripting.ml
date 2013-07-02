@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3390 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3395 $"
 
 let (-->) a b = b a
 
@@ -4088,19 +4088,26 @@ let rec folder (run : r) meth =
                 IFDEF USE_LIKELIHOOD THEN
                     let (t,chars,n,rep) = MlTestStat.process_methods_arguments x in
                     begin try match t, Sexpr.to_list run.trees with
-                        |   _,[] ->
+                        | `SH,((_::_::_) as ts) -> MLT.sh ?n ~rep ~chars ts
+                        | `KH,((t1::t2::_) as ts) ->
+                            let t_mle,ts =
+                                let sorted =
+                                    List.sort (fun a b ->
+                                        Pervasives.compare
+                                            (TreeOps.total_cost a `Adjusted None)
+                                            (TreeOps.total_cost b `Adjusted None))
+                                        ts
+                                in
+                                match sorted with
+                                | hd::tl -> hd,tl
+                                | _      -> assert false
+                            in
+                            List.iter (fun t -> MLT.kh ?n ~rep ~chars t_mle t) ts
+                        |   _,_ ->
                             let msg = "The@ topology@ selection@ command@ requires"
                                      ^"@ at@ least@ two@ trees@ in@ memory."
                             in
                             Status.user_message Status.Error msg
-                        | `SH,ts -> MLT.sh ?n ~rep ~chars ts
-                        | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
-                        | `KH,ts ->
-                            let msg = "The@ topology@ selection@ KH@ requires"
-                                     ^"@ only@ two@ trees@ in@ memory."
-                            in
-                            Status.user_message Status.Error msg
-                        |   _,_ -> assert false
                     with MLT.Incorrect_Data ->
                         Status.user_message Status.Error
                             "Cannot@ use@ topology@ tests@ on@ this@ data."
