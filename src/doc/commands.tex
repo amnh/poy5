@@ -49,10 +49,10 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \newlength\notelength
 
 \newenvironment{statement}[1][NOTE]{
-% Default statement has no title %ilya: Statement is used for NOTES
-\SpecialEnv{#1}{statementborder}{statementbg}{statementborder}{}%
+    \SpecialEnv{#1}{statementborder}{statementbg}{statementborder}{}%
 }{%
-\endSpecialEnv}
+    \endSpecialEnv
+}
 
 \def\Empty{}
 
@@ -62,60 +62,52 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 % #4 border color (or null for no border)
 % #5 \enspace
 
-	\newenvironment{SpecialEnv}[5]{%
+\newenvironment{SpecialEnv}[5]{%
 	\par
 	\def\EnvSideC{#2}% To use later (in end)
 	\def\EnvBackgroundC{#3}%
 	\def\EnvFrameC{#4}% 
 	\flushleft
+    \noindent \nobreak
+    % Check if title is null:
+    \ifx\delimiter#1\delimiter\else
+        % If a title is specified, then typeset it in reverse color
+        \colorbox{\EnvSideC}{%
+            \footnotesize\sffamily\bfseries\textcolor{white}{#1}%
+        }
+        \par\nobreak
+        \setlength\parskip{-0.2pt}% Tiny overlap to counter pixel round-off errors
+        \nointerlineskip 
+    \fi
 
-%\setlength\leftskip{-\sidebar}%
-%\addtolength\leftskip{-\envborder}%
-\noindent \nobreak
-% Check if title is null:
-\ifx\delimiter#1\delimiter\else
-% If a title is specified, then typeset it in reverse color
-\colorbox{\EnvSideC}{%
-%\hspace{-\leftskip}% usually positive
-%\hspace{-\fboxsep}%
-\footnotesize\sffamily\bfseries\textcolor{white}{#1}%
-%\hspace{\envborder}}%
-}
-\par\nobreak
-\setlength\parskip{-0.2pt}% Tiny overlap to counter pixel round-off errors
-\nointerlineskip 
-\fi
+    % Make side-bar
+    \textcolor{\EnvSideC}{\vrule width\sidebar}%
+    % collect body in \envbox:
+    \begin{lrbox}\envbox 
+        \setlength{\boxwidth}{\linewidth}
+        \settowidth{\notelength}{NOT}
+        \addtolength{\boxwidth}{-1\notelength}
+        \addtolength{\boxwidth}{-1\sidebar}
+        \addtolength{\boxwidth}{-1\envborder}
+        \begin{minipage}[l]{\boxwidth}%
 
-% Make side-bar
-\textcolor{\EnvSideC}{\vrule width\sidebar}%
-% collect body in \envbox:
-\begin{lrbox}\envbox 
-\setlength{\boxwidth}{\linewidth}
-\settowidth{\notelength}{NOT}
-\addtolength{\boxwidth}{-1\notelength}
-\addtolength{\boxwidth}{-1\sidebar}
-\addtolength{\boxwidth}{-1\envborder}
-\begin{minipage}[l]{\boxwidth}%
-
-% insert counter, if any:
-\ifx\delimiter#5\delimiter\else
-%\theexample.\enspace
-\fi
-\ignorespaces
+            \ifx\delimiter#5\delimiter\else
+            \fi
+            \ignorespaces
 }{\par
-\end{minipage}
-\end{lrbox}%
-% body is collected. Add background color
-\setlength\fboxsep\envborder
-\ifx\EnvFrameC\Empty % no frame
-\colorbox{\EnvBackgroundC}{\usebox\envbox}%
-\else % frame
-\setlength\fboxrule\envrule
-\addtolength\fboxsep{-\envrule}%
-\fcolorbox{\EnvFrameC}{\EnvBackgroundC}{\usebox\envbox}%
-\fi
-\nobreak \hspace{-2\envborder}\null
-\endflushleft
+        \end{minipage}
+    \end{lrbox}%
+    % body is collected. Add background color
+    \setlength\fboxsep\envborder
+    \ifx\EnvFrameC\Empty % no frame
+        \colorbox{\EnvBackgroundC}{\usebox\envbox}%
+    \else % frame
+        \setlength\fboxrule\envrule
+        \addtolength\fboxsep{-\envrule}%
+        \fcolorbox{\EnvFrameC}{\EnvBackgroundC}{\usebox\envbox}%
+    \fi
+    \nobreak \hspace{-2\envborder}\null
+    \endflushleft
 }
 
 
