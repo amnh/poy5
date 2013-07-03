@@ -267,6 +267,7 @@ dispatch begin function
         "doc/figures/simplesearch_script.jpg";
         "doc/figures/simplesearch_window.jpg";
         "doc/figures/simplesearch_window_filled.jpg";
+        "doc/figures/syn.jpg";
         "doc/figures/swap1.jpg";
         "doc/figures/swap2.jpg";
         "doc/figures/view_menu.jpg";
