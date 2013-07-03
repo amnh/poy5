@@ -211,9 +211,9 @@ dispatch begin function
 
     rule "commands.pdf generation"
         ~prod:"commands.pdf"
-        ~deps:["doc/commands.tex"; "doc/allcommands.tex";
+        ~deps:["doc/commands.tex"; "doc/allcommands.tex"; "doc/poyfaq.tex";
         "doc/poy3commands.tex"; "doc/QuickStart.tex"; "doc/poylibrary.bib";
-        "doc/poyheuristics.tex"; "version.tex"; "doc/poytutorials.tex"; 
+        "doc/poyheuristics.tex"; "version.tex"; "doc/poytutorials.tex";
         "doc/figures/amnhlogoblue2.pdf";
         "doc/figures/fig-poycommand1.jpg";
         "doc/figures/fig-poycommand2.jpg";
