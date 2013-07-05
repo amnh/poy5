@@ -49,11 +49,11 @@ foreach $elt (@elts){
     $d =~ s/"/\\"/g; #replace quotes
     $d =~ s/\\n/\n/g; #replace newlines
 
-    $e = getContent("Example",$elt)->textContent;
+    $en= getContent("Example",$elt);
+    $e = $en->textContent;
     $e =~ s/^\s+//; #remove leading spaces
     $e =~ s/\s+$//; #remove trailing spaces
     $e =~ s/"/\\"/g; #replace quotes
-    $e =~ s/\\n/\n/g; #replace newlines
 
     print {$outfile} "\t(\"$n\",(\"$d\",\"$e\"));\n";
 }
