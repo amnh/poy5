@@ -4525,39 +4525,47 @@ let compute_priors data chars u_gap =
        specified in the list. *)
     let taxon_adder tax taxon_chars =
         let total = ref 0 in
-        let adder char_code =
-            try let (cs, _) = Hashtbl.find taxon_chars char_code in
-                match cs with
-                | Dyna (_, dyna_data ) ->
-                    Array.iter
-                        (fun x ->
-                            total := (Sequence.length x.seq) - 1 + !total;
-                            counter := (Sequence.length x.seq) - 1 + !counter;
-                            for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
-                                let lst = Alphabet.find_codelist (Sequence.get x.seq i) alph in
-                                if lst = [] then begin
-                                    ()
-                                end else
-                                    let lst = if u_gap 
-                                        then lst 
-                                        else List.filter (fun x -> not (x = gap_char)) lst
-                                    in
-                                    let inv = 1.0 /. (float_of_int (List.length lst)) in
-                                    List.iter
-                                        (fun x ->
-                                            priors.(x+offset) <- priors.(x+offset) +. inv)
-                                        lst
-                            done)
-                        dyna_data.seq_arr
-                | Stat (_,s) -> 
-                    Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
-                | FS code -> failwith "Data.compute_priors , fixed_states"
-            (* this not found will happen when we are accessing the taxon
-               characters when a taxa has missing information at the node. *)
-            with | Not_found -> 
-                ()
+        let rec adder cs char_code = match cs with
+            | Dyna (_, dyna_data ) ->
+                Array.iter
+                    (fun x ->
+                        total := (Sequence.length x.seq) - 1 + !total;
+                        counter := (Sequence.length x.seq) - 1 + !counter;
+                        for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
+                            let lst = Alphabet.find_codelist (Sequence.get x.seq i) alph in
+                            if lst = [] then begin
+                                ()
+                            end else
+                                let lst = if u_gap 
+                                    then lst 
+                                    else List.filter (fun x -> not (x = gap_char)) lst
+                                in
+                                let inv = 1.0 /. (float_of_int (List.length lst)) in
+                                List.iter
+                                    (fun x ->
+                                        priors.(x+offset) <- priors.(x+offset) +. inv)
+                                    lst
+                        done)
+                    dyna_data.seq_arr
+            | Stat (_,s) -> 
+                Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
+            | FS code ->
+                let fs = match Hashtbl.find data.character_specs char_code with
+                    | Static (FixedStates fs) -> fs
+                    | _ -> assert false
+                in
+                let i = Hashtbl.find fs.codes code in
+                let e = {seq=fs.seqs.(i);delimiter=[];code=code;} in
+                adder (Dyna (code,{seq_arr=[| e |]})) char_code
         in
-        List.iter adder chars;
+        List.iter
+            (fun char_code ->
+                (* this not found will happen when we are accessing the taxon
+                characters when a taxa has missing information at the node. *)
+                try let (cs, _) = Hashtbl.find taxon_chars char_code in
+                    adder cs char_code
+                with | Not_found -> ())
+            chars;
         longest := max !total !longest;
         lengths := !total :: !lengths
     in
@@ -4630,16 +4638,7 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                     Hashtbl.replace table code
                         (Dynamic {x with state = `Ml;
                                       lk_model = !model_opt;})
-                | (Kolmogorov _|Dynamic _|Set|Static _) -> assert false)
-            codes
-    end else begin
-        (* replace all characters in the set of codes *)
-        List.iter
-            (fun code -> match Hashtbl.find table code with
-                | Static (NexusFile y) ->
-                    Hashtbl.replace table code
-                        (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
-                | Dynamic x ->
+                | Static (FixedStates y) ->
                     let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
                         | None,`Independent | None,`Coupled _ ->
                             model_opt := Some model
@@ -4647,10 +4646,48 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                             model_opt := Some (MlModel.add_gap_to_model priors_ model)
                         | Some _,_ -> ()
                     in
-                    Hashtbl.replace table code
-                        (Dynamic {x with state = `Ml; lk_model = !model_opt;})
-                | (Kolmogorov _|Set|Static _) -> assert false)
-        codes
+                    let fss = {y.original_dynspec 
+                                with state = `Ml; lk_model = !model_opt;} in
+                    let fss = {y with original_dynspec = fss; } in
+
+                    Hashtbl.replace table code (Static (FixedStates fss))
+
+                | (Kolmogorov _|Dynamic _|Set) -> assert false)
+            codes
+    end else begin
+        (* replace all characters in the set of codes *)
+        let adder code t_code = match t_code with
+            | Static (NexusFile y) ->
+                Hashtbl.replace table code
+                    (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
+            | Dynamic x ->
+                let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
+                    | None,`Independent | None,`Coupled _ ->
+                        model_opt := Some model
+                    | None, `Missing -> 
+                        model_opt := Some (MlModel.add_gap_to_model priors_ model)
+                    | Some _,_ -> ()
+                in
+                Hashtbl.replace table code
+                    (Dynamic {x with state = `Ml; lk_model = !model_opt;})
+            | Static (FixedStates y) ->
+                let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
+                    | None,`Independent | None,`Coupled _ ->
+                        model_opt := Some model
+                    | None, `Missing -> 
+                        model_opt := Some (MlModel.add_gap_to_model priors_ model)
+                    | Some _,_ -> ()
+                in
+                let fss = {y.original_dynspec
+                            with state = `Ml; lk_model = !model_opt;} in
+                let fss = {y with original_dynspec = fss; } in
+                Hashtbl.replace table code (Static (FixedStates fss))
+
+            | (Kolmogorov _|Set) -> assert false
+        in
+        List.iter
+            (fun code -> adder code (Hashtbl.find table code))
+            codes
     end
 
 let update_priors data charcodes use_gap = 
@@ -5287,7 +5324,11 @@ let compute_fixed_states filename data code polymph =
         original_dynspec = { dhs with polymorphism = polymph }; 
         }
     in
-    let static_data = FixedStates fs_data in
+    FixedStates fs_data
+
+
+let compute_fixed_states filename data code polymph =
+    let static_data = compute_fixed_states filename data code polymph in
     Hashtbl.replace data.character_specs code (Static static_data);
     Hashtbl.iter
         (fun taxon_code charactors_tbl -> 
