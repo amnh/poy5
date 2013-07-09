@@ -5309,7 +5309,8 @@ let compute_fixed_states filename data code polymph =
             then likelihood_costs
             else sequence_costs
     in
-    Array_ops.fill_symmetric_square_matrix f sequences distances;
+    Array_ops.fill_symmetric_square_matrix
+        ~status:(Some "Fixed States Cost Matrix") f sequences distances;
     let taxon_codes = Hashtbl.create 97 in
     Hashtbl.iter
         (fun code seq ->

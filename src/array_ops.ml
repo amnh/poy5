@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: array_ops.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Array_ops" "$Revision: 3257 $"
+let () = SadmanOutput.register "Array_ops" "$Revision: 3409 $"
 
 
 exception Empty
@@ -262,7 +262,7 @@ let is_identical3 arr1 arr2 arr3 =
 
 
 IFDEF USE_PARMAP THEN
-    let fill_symmetric_square_matrix f src des =
+    let fill_symmetric_square_matrix ?(status=None) f src des =
         let states = Array.length des in
         assert( (states > 0) && (states = (Array.length des.(0))) );
         let xy_of_i i =
@@ -285,16 +285,31 @@ IFDEF USE_PARMAP THEN
         ()
 
 ELSE
-    let fill_symmetric_square_matrix f src des =
+    let fill_symmetric_square_matrix ?(status=None) f src des =
+        let report stride =
+            match status with
+            | Some x -> 
+                let status = Status.create x (Some 100) "percent complete"
+                and each = (1.0 /. (float_of_int stride)) *.  100.0 in
+                let curr = ref 0.0 in
+                (fun incr ->
+                    curr := !curr +. (each *. (float_of_int incr));
+                    Status.achieved status (int_of_float !curr);
+                    Status.full_report status)
+            | None ->
+                (fun _ -> ())
+        in
         let states = Array.length des in
         assert( states = (Array.length des.(0)) );
         assert( states = (Array.length src) );
+        let report = report ((states-1)*(states-1)) in
         for x = 0 to states-1 do
             for y = x to states-1 do
                 let res = f x y src.(x) src.(y) in
                 des.(x).(y) <- res;
                 des.(y).(x) <- res;
             done;
+            report (2*(states-2-x));
         done;
         ()
 END
