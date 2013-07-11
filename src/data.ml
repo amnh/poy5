@@ -4610,6 +4610,108 @@ let compute_priors data chars u_gap =
     final_priors
 
 
+let create_fixed_states_matrix sequences dhs use_ukk filename =
+    let states = Array.length sequences in
+    let distances = Array.make_matrix states states 0. in
+    let branches = ref None in
+    let annotate_with_mauve = match dhs.pam.annotate_tool with
+        | Some (`Mauve _) -> true
+        | Some (`Default _) -> false
+        | None -> false
+    and using_likelihood = match dhs.lk_model with
+        | Some _ -> true
+        | None   -> false
+    in
+    assert( not (annotate_with_mauve && using_likelihood) );
+    (** define functions finding the costs *)
+    let mauve_annotation x y x_seq y_seq =
+        let min_lcb_ratio,min_cover_ratio,min_lcb_len,max_lcb_len =
+            match dhs.pam.annotate_tool with
+            | Some (`Mauve (a,b,c,d)) -> a,b,c,d
+            | _ -> assert(false)
+        in
+        let l_i_c = match dhs.pam.locus_indel_cost with
+            | Some cost -> cost
+            | None -> (10,100)
+        in
+        let seqx,seqy = Sequence.del_first_char x_seq,
+                        Sequence.del_first_char y_seq
+        in
+        (*we don't call AliMap.create_general_ali_mauve directly here,
+        * because parameter of that function is with low level module
+        * type, like "Block.pairChromPam_t". Data.ml is suppose to
+        * be on top of those modules -- including aliMap. To avoid 
+        * circular denpendency, we call get_matcharr_and_costmatrix and
+        * output2mauvefile seperately.*)
+        let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
+                edit_cost,indel_cost,full_code_lstlst =
+            Block_mauve.get_matcharr_and_costmatrix
+                    seqx seqy min_lcb_ratio min_cover_ratio min_lcb_len
+                    max_lcb_len l_i_c dhs.tcm2d_original use_ukk
+        in
+        let re_meth = match dhs.pam.re_meth with
+            | Some value -> value
+            | None -> `Locus_Breakpoint 10
+        and circular = match dhs.pam.circular with
+            | Some value -> value
+            | None -> 0
+        in
+        let cost, rc, alied_gen_seq1, alied_gen_seq2 =
+            GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat
+                                    gen_gap_code re_meth circular false
+        in
+        (*remember the editing cost between lcbs is not included in
+        * the gen_cost_mat, we set cost between matching lcb to 0 in
+        * block_mauve, just to make sure they are aligned to each other*)
+        let cost = cost + edit_cost in
+        let xname,yname = string_of_int x,string_of_int y in
+        let fullname = match filename with
+            | None -> ""
+            | Some fname -> (fname^"_"^xname^"_"^yname^".alignment")
+        in
+        Block_mauve.output2mauvefile fullname cost None alied_gen_seq1
+            alied_gen_seq2 full_code_lstlst ali_mat gen_gap_code
+            (Sequence.length seqx) (Sequence.length seqy);
+        float_of_int cost 
+    and likelihood_costs x y x_seq y_seq = 
+        let model = match dhs.lk_model with Some x -> x | None -> assert false in
+        let bl,cst =
+            FloatSequence.pair_distance
+                (FloatSequence.make_model dhs.alph model) x_seq y_seq
+        in
+        let () = match !branches with
+            | Some z ->
+                z.(x).(y) <- bl; z.(y).(x) <- bl
+            | None ->
+                let z = Array.make_matrix states states 0.0 in
+                z.(x).(y) <- bl; z.(y).(x) <- bl; 
+                branches := Some z
+        in
+        cst
+    and sequence_costs _ _ x_seq y_seq =
+        let cost =
+            if use_ukk then
+                Sequence.NewkkAlign.cost_2 x_seq y_seq dhs.tcm2d_original Sequence.NewkkAlign.default_ukkm
+            else
+                Sequence.Align.cost_2 x_seq y_seq dhs.tcm2d_original Matrix.default
+        in
+        float_of_int cost
+    in
+    (* Fill the costs for all pairs of the single assignment sequences *)
+    let f = 
+        if annotate_with_mauve
+            then mauve_annotation
+        else if using_likelihood
+            then likelihood_costs
+            else sequence_costs
+    in
+    Array_ops.fill_symmetric_square_matrix
+        ~status:(Some "Fixed States Cost Matrix") f sequences distances;
+    !branches,distances
+
+
+
+
 (* this is the only function that applies a likelihood model to a set of
  * characters. it ensures that the dynamic characters have gap as an additional
  * state *)
@@ -4648,8 +4750,17 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                     in
                     let fss = {y.original_dynspec 
                                 with state = `Ml; lk_model = !model_opt;} in
-                    let fss = {y with original_dynspec = fss; } in
-
+                    let branches,distances =
+                        let use_ukk = match !Methods.algn_mode with
+                            | `Algn_Newkk -> true
+                            | _ -> false
+                        in
+                        create_fixed_states_matrix y.seqs fss use_ukk None
+                    in
+                    let fss = {y with original_dynspec = fss;
+                                      costs = distances;
+                                      opt_bls = branches; }
+                    in
                     Hashtbl.replace table code (Static (FixedStates fss))
 
                 | (Kolmogorov _|Dynamic _|Set) -> assert false)
@@ -4678,9 +4789,19 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                         model_opt := Some (MlModel.add_gap_to_model priors_ model)
                     | Some _,_ -> ()
                 in
-                let fss = {y.original_dynspec
+                let fss = {y.original_dynspec 
                             with state = `Ml; lk_model = !model_opt;} in
-                let fss = {y with original_dynspec = fss; } in
+                let branches,distances =
+                    let use_ukk = match !Methods.algn_mode with
+                        | `Algn_Newkk -> true
+                        | _ -> false
+                    in
+                    create_fixed_states_matrix y.seqs fss use_ukk None
+                in
+                let fss = {y with original_dynspec = fss;
+                                    costs = distances;
+                                    opt_bls = branches; }
+                in
                 Hashtbl.replace table code (Static (FixedStates fss))
 
             | (Kolmogorov _|Set) -> assert false
@@ -5134,22 +5255,15 @@ let auto_partition mode data code =
     | _ -> 
         Status.user_message Status.Information "There are no potential partitions"
 
+
+
 (*tranform dynamic charactors to fixed_states(static) charactors *)
 let compute_fixed_states filename data code polymph =
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
     in
-    let annotate_with_mauve = match dhs.pam.annotate_tool with
-        | Some (`Mauve _) -> true
-        | Some (`Default _) -> false
-        | None -> false
-    and using_likelihood = match dhs.lk_model with
-        | Some _ -> true
-        | None   -> false
-    in
-    let use_ukk = 
-        match !Methods.algn_mode with
+    let use_ukk = match !Methods.algn_mode with
         | `Algn_Newkk -> true
         | _ -> false
     in
@@ -5224,93 +5338,10 @@ let compute_fixed_states filename data code polymph =
     in
     let states = !states in
     let sequences = Array.init states (fun _ -> Sequence.create 1) in
-    let distances = Array.make_matrix states states 0. in
-    let branches = ref None in
     Hashtbl.iter (fun seq pos -> sequences.(pos) <- seq) sequences_taxon;
-    (** define functions finding the costs *)
-    let mauve_annotation x y x_seq y_seq =
-        let min_lcb_ratio,min_cover_ratio,min_lcb_len,max_lcb_len =
-            match dhs.pam.annotate_tool with
-            | Some (`Mauve (a,b,c,d)) -> a,b,c,d
-            | _ -> assert(false)
-        in
-        let l_i_c = match dhs.pam.locus_indel_cost with
-            | Some cost -> cost
-            | None -> (10,100)
-        in
-        let seqx,seqy = Sequence.del_first_char x_seq,
-                        Sequence.del_first_char y_seq
-        in
-        (*we don't call AliMap.create_general_ali_mauve directly here,
-        * because parameter of that function is with low level module
-        * type, like "Block.pairChromPam_t". Data.ml is suppose to
-        * be on top of those modules -- including aliMap. To avoid 
-        * circular denpendency, we call get_matcharr_and_costmatrix and
-        * output2mauvefile seperately.*)
-        let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
-                edit_cost,indel_cost,full_code_lstlst =
-            Block_mauve.get_matcharr_and_costmatrix
-                    seqx seqy min_lcb_ratio min_cover_ratio min_lcb_len
-                    max_lcb_len l_i_c dhs.tcm2d_original use_ukk
-        in
-        let re_meth = match dhs.pam.re_meth with
-            | Some value -> value
-            | None -> `Locus_Breakpoint 10
-        and circular = match dhs.pam.circular with
-            | Some value -> value
-            | None -> 0
-        in
-        let cost, rc, alied_gen_seq1, alied_gen_seq2 =
-            GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat
-                                    gen_gap_code re_meth circular false
-        in
-        (*remember the editing cost between lcbs is not included in
-        * the gen_cost_mat, we set cost between matching lcb to 0 in
-        * block_mauve, just to make sure they are aligned to each other*)
-        let cost = cost + edit_cost in
-        let xname,yname = string_of_int x,string_of_int y in
-        let fullname = match filename with
-            | None -> ""
-            | Some fname -> (fname^"_"^xname^"_"^yname^".alignment")
-        in
-        Block_mauve.output2mauvefile fullname cost None alied_gen_seq1
-            alied_gen_seq2 full_code_lstlst ali_mat gen_gap_code
-            (Sequence.length seqx) (Sequence.length seqy);
-        float_of_int cost 
-    and likelihood_costs x y x_seq y_seq = 
-        let model = match dhs.lk_model with Some x -> x | None -> assert false in
-        let bl,cst =
-            FloatSequence.pair_distance
-                (FloatSequence.make_model dhs.alph model) x_seq y_seq
-        in
-        let () = match !branches with
-            | Some z ->
-                z.(x).(y) <- bl; z.(y).(x) <- bl
-            | None ->
-                let z = Array.make_matrix states states 0.0 in
-                z.(x).(y) <- bl; z.(y).(x) <- bl; 
-                branches := Some z
-        in
-        cst
-    and sequence_costs _ _ x_seq y_seq =
-        let cost =
-            if use_ukk then
-                Sequence.NewkkAlign.cost_2 x_seq y_seq dhs.tcm2d_original Sequence.NewkkAlign.default_ukkm
-            else
-                Sequence.Align.cost_2 x_seq y_seq dhs.tcm2d_original Matrix.default
-        in
-        float_of_int cost
+    let branches,distances =
+        create_fixed_states_matrix sequences dhs use_ukk filename
     in
-    (* Fill the costs for all pairs of the single assignment sequences *)
-    let f = 
-        if annotate_with_mauve
-            then mauve_annotation
-        else if using_likelihood
-            then likelihood_costs
-            else sequence_costs
-    in
-    Array_ops.fill_symmetric_square_matrix
-        ~status:(Some "Fixed States Cost Matrix") f sequences distances;
     let taxon_codes = Hashtbl.create 97 in
     Hashtbl.iter
         (fun code seq ->
@@ -5321,7 +5352,7 @@ let compute_fixed_states filename data code polymph =
         { costs = distances;
            seqs = sequences;
           codes = taxon_codes;
-        opt_bls = !branches; 
+        opt_bls = branches; 
         original_dynspec = { dhs with polymorphism = polymph }; 
         }
     in
