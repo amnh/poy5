@@ -75,7 +75,7 @@ unused pool of sequences."));
 when data files are contained in different directories. It also
 eliminates the need to navigate into the working directory before
 beginning a POY5 session. To display the path of the current
-directory, use the command pwd (Section 2.2.12).","cd (\"/Users/username/docs/poyfiles\") 
+directory, use the command pwd .","cd (\"/Users/username/docs/poyfiles\") 
 Changes the current directory to the directory poyfiles in a Mac OSX 
 environment (when using a PC, the forward slashes should be replaced with backslashes)."));
 	("echo",("Prints the content of the string argument into a specified type of output.
@@ -110,7 +110,7 @@ This command performs tree fusing
 with modified settings for swapping that follows each iteration. Once
 a given iteration is completed, a consensus tree of the files in memory
 is computed and used as constraint file for subsequent rounds of swapping (see
-the argument constraint (Section 2.2.26) of the command
+the argument constraint of the command
 swap)."));
 	("help",("Reports the requested contents of the help file on screen.","help(swap) 
 Prints the description of the command
@@ -119,7 +119,7 @@ interface or to the standard error in the flat interface.help(\"log\")
 Finds every command with text containing the substring log and
 prints them in the POY Output window of the ncurses
 interface or to the standard error in the flat interface."));
-	("inspect",("Retrieves the description of a POY5 file produced by the command save (Section 2.2.21). If the description were
+	("inspect",("Retrieves the description of a POY5 file produced by the command save . If the description were
 not specified by the user, inspect reports that the
 description is not available. If the file is not a proper
 POY5 file format, a message is printed in the POY Output
@@ -137,7 +137,7 @@ the current POY5 session will be replaced with the contents
 of the POY5 file. If the file is not in proper POY5 file
 format, an error message is printed in the POY Output
 window of the ncurses interface, or the standard error in the flat interface.
-See the description of the command save (Section 2.2.21) on the POY5 file
+See the description of the command save on the POY5 file
 and its usage.","load(\"initial_search.poy\") 
 Reads and imports the contents of the POY5 file
 initial_search.poy, located in the current working
@@ -248,7 +248,7 @@ Reads the prealigned data file 18s.aln which was generated from the nucleotide f
 Reads character data from all the Nexus files as prealigned data using the the transformation cost
 	 matrix from the file matrix1."));
 	("recover",("Recovers the best trees found during swapping, even if the swap were
-cancelled. This command functions only if the argument recover (Section 2.2.26) 
+cancelled. This command functions only if the argument recover 
 were included in a previously executed 
 (in the current POY5 session) command swap. Otherwise, it has no effect.
 	
@@ -312,14 +312,14 @@ exit, POY5 will finish before script2 can be run."));
 	("save",("Saves the current POY5 state of the program to a file (POY5 file). The
 first, obligatory string argument specified the name of the POY5 file.
 The second, optional string argument specifies a string included in the
-POY5 file, that can be retrieved using the command inspect (Section 2.2.9).","save(\"alldata.poy\") 
+POY5 file, that can be retrieved using the command inspect .","save(\"alldata.poy\") 
 This command stores all the memory contents of the program in the
 file alldata.poy located in the current working directory,
 as printed by pwd().save(\"alldata.poy\", \"Total_evidence_data\") 
 This command performs the same operation as described in the example above,
 but, in addition, it includes the string Total_evidence_data 
 with the file alldata.poy,
-which can later be retrieved using the command inspect (Section 2.2.9).save(\"/Users/andres/alldata.poy\", \"Total_evidence_data\") 
+which can later be retrieved using the command inspect .save(\"/Users/andres/alldata.poy\", \"Total_evidence_data\") 
 This command performs the same operation as the command described above
 with the important difference that the file alldata.poy generated in the
 directory /Users/andres/ instead of the current working directory."));
@@ -445,7 +445,7 @@ swap(constraint:(file:\"bleh\", depth:4))
 Uses the tree in the file bleh as a constraint tree and joins at
 distance at most 4 from the breaking branch during the swap. This 
 presumes that the file bleh is located in the current working directory.swap(drifting:(0.5, 2.0)) 
-Defines the direction of search via drifting, such that there is a 50% probability of 
+Defines the direction of search via drifting, such that there is a 50%% probability of 
 replacing the current tree with a new tree of equal cost. For suboptimal trees with 
 a cost d greater than the current best tree, the probability of accepting this tree 
 is 1 / (2.0 + d). For example the
@@ -461,7 +461,7 @@ transforming nucleotide into chromosomal characters, and specifying characters a
 static or dynamic likelihood characters, among other operations.","SEC END"));
 	("use",("Restores from memory the state of a POY5 session (that includes character data,
 selections, trees, all other data and specifications) that had previously been
-saved during the session using the command store (Section 2.2.25). The recalled
+saved during the session using the command store . The recalled
 session replaces the current session. The string argument specifies the name
 of the stored state.","store(\"initial_tcm\") 
 transform(tcm:(1,1)) 
