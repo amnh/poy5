@@ -47,13 +47,21 @@ foreach $elt (@elts){
     $d =~ s/^\s+//; #remove leading spaces
     $d =~ s/\s+$//; #remove trailing spaces
     $d =~ s/"/\\"/g; #replace quotes
-    $d =~ s/\\n/\n/g; #replace newlines
+    $d =~ s/\\n/\n/g; #replace newline characters with actual newlines
+    $d =~ s/%/%%/g; #replace % special character
+    $d =~ s/@/%@/g; #replace @ special character
+    $d =~ s/ ?\(Section.*?\) ?/ /g; # remove references to sections
+
 
     $en= getContent("Example",$elt);
     $e = $en->textContent;
     $e =~ s/^\s+//; #remove leading spaces
     $e =~ s/\s+$//; #remove trailing spaces
     $e =~ s/"/\\"/g; #replace quotes
+    $e =~ s/\\n/\n/g; #replace newline characters with actual newlines
+    $e =~ s/%/%%/g; #replace % special character
+    $e =~ s/@/%@/g; #replace @ special character
+    $e =~ s/ ?\(Section.*?\) ?/ /g; # remove references to sections
 
     print {$outfile} "\t(\"$n\",(\"$d\",\"$e\"));\n";
 }
