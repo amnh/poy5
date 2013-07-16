@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3387 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3433 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1419,6 +1419,13 @@ module F : Ptree.Tree_Operations
             (cost, cbt)
 
 
+    (* this function needs to work on individual characters; each character
+     * having a best root; choosing one may choose in-optimal costs for the
+     * character or combined characters resulting in a different implied
+     * alignment and slightly modified costs. this is _very_ rare, especially
+     * with small alphabets. For larger alphabets (language) with multiple
+     * characters (words), this was seen to result in very small cost
+     * differences and minimal implied alignment differences. *)
     let general_pick_best_root selection_method ptree =
         let edgesnhandles = 
             IntSet.fold 
