@@ -5,7 +5,6 @@
 \usepackage[pdftitle={POY 5.0 Documentation},pdfauthor={Andres Varon et. al.},
 pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, linkcolor=blue, urlcolor=blue]{hyperref}
 \usepackage{color}
-%\usepackage{ctable}
 \usepackage{rotating}
 \usepackage{color, soul}
 \usepackage{xspace}
@@ -14,17 +13,14 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \usepackage{graphicx}
 \usepackage{microtype}
 \usepackage[htt]{hyphenat}
-%\usepackage[T1]{fontenc}
 \usepackage {marvosym}
 \usepackage{tabularx}
 \usepackage{verbatim}
 \usepackage{amssymb,amsmath}
 \usepackage{rotating} % to create landscape pages
-%\usepackage{makeidx}
 
 %Indexes
 \makeindex{general}
-\makeindex{poy3}
 
 \newlength\sidebar
 \newlength\envrule
@@ -48,11 +44,11 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \newsavebox\envbox
 \newlength\notelength
 
-\newenvironment{statement}[1][NOTE]{
-    \SpecialEnv{#1}{statementborder}{statementbg}{statementborder}{}%
-}{%
-    \endSpecialEnv
-}
+%\newenvironment{statement}[1][NOTE]{
+    %\SpecialEnv{#1}{statementborder}{statementbg}{statementborder}{}
+%}{
+    %\endSpecialEnv
+%}
 
 \def\Empty{}
 
@@ -79,7 +75,6 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
         \setlength\parskip{-0.2pt}% Tiny overlap to counter pixel round-off errors
         \nointerlineskip 
     \fi
-
     % Make side-bar
     \textcolor{\EnvSideC}{\vrule width\sidebar}%
     % collect body in \envbox:
@@ -91,11 +86,14 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
         \addtolength{\boxwidth}{-1\envborder}
         \begin{minipage}[l]{\boxwidth}%
 
-            \ifx\delimiter#5\delimiter\else
-            \fi
-            \ignorespaces
-}{\par
-        \end{minipage}
+        % insert counter, if any:
+        \ifx\delimiter#5\delimiter\else
+        %\theexample.\enspace
+        \fi
+        \ignorespaces
+}{
+    \par
+    \end{minipage}
     \end{lrbox}%
     % body is collected. Add background color
     \setlength\fboxsep\envborder
@@ -425,12 +423,6 @@ and \texttt{genome} sequence characters.}
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%QUICKSTART
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\input {doc/QuickStart}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %COMMANDS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{\poy Commands}\label{commands}
@@ -613,40 +605,14 @@ of \poycommand{swap()} the entire argument list appears as \poycommand{swap(tree
     followed by a comma) must precede the argument, e.g. \poycommand{report("first\_trees", trees)}.
 \end{statement}
 
-%%%%%%
-%The following statement is not included as there is no need for users to know anything about developer arguments
-%\begin{statement}
-%\textbf{Developer arguments}.  Certain command arguments are mainly useful to \poy developers, and
-%those arguments are preceded by an underscore, e.g. \poycommand{\_breakvsjoin}.
-%\end{statement}
-%%%%%%
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %COMMAND REFERENCE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Command reference}
 \input{doc/allcommands}
-
-
-\chapter{\poy Heuristics: A Practical Guide}
-\input{doc/poyheuristics}
-
-\chapter{\poy Tutorials}
-\input{doc/poytutorials}
-
-\chapter{\poy Frequently Asked Questions}
-\input{doc/poyfaq}
 
 \addcontentsline{toc}{section}{Bibliography}%%
 \bibliography{doc/poylibrary}
 \bibliographystyle{plain}
-
-%\addtocontents{toc}{General Index}%%
-\printindex{general}{General Index}
-\printindex{poy3}{POY 3.0 Commands Index}
-\input{doc/poy3commands}%%
 
 \end{document}

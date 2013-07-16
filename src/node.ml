@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3230 $"
+let () = SadmanOutput.register "Node" "$Revision: 3392 $"
 
 let infinity = float_of_int max_int
 
@@ -151,14 +151,15 @@ let rec to_string_ch ch1 = match ch1 with
     | Nonadd32 a ->
             ("na32: " ^ NonaddCS32.to_string a.final)
     | AddVec a ->
-            AddCS.Vector.to_string a.final
+            ("addv:" ^ AddCS.Vector.to_string a.final)
     | AddGen a ->
-            AddCS.General.to_string a.final
+            ("addg:" ^ AddCS.General.to_string a.final)
     | Sank a ->
             ("sank: " ^ SankCS.to_string a.final)
     | Dynamic a ->
-            "dynamic: " ^ DynamicCS.to_string a.final
-    | FixedStates a -> ("fixed states: " ^ Fixed_states.to_string a.final)
+            ("dynamic: " ^ DynamicCS.to_string a.final)
+    | FixedStates a ->
+            ("fixed states: " ^ Fixed_states.to_string a.final)
     | Set a ->
             let sub = List.map to_string_ch a.final.set in
             let stype = match a.final.smethod with
@@ -170,7 +171,7 @@ let rec to_string_ch ch1 = match ch1 with
             ("kolmo: " ^ KolmoCS.to_string a.final)
     | StaticMl a ->
         IFDEF USE_LIKELIHOOD THEN
-            ("static ML: " ^ MlStaticCS.to_string a.preliminary)
+            ("ml: " ^ MlStaticCS.to_string a.preliminary)
         ELSE
             failwith MlStaticCS.likelihood_error
         END
@@ -597,7 +598,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     (max min_bl t1, max min_bl t2)
                 | None, None ->
                     let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                    if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
+                    if debug_bl then Printf.printf "estimating BL2: %f, %f\n%!" t1 t2;
                     t1,t2
             in 
             let model = MlStaticCS.get_model ca.preliminary in
@@ -777,18 +778,18 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     IFDEF USE_LIKELIHOOD THEN
                         let min_bl = MlStaticCS.minimum_bl () in
                         let t1, t2 = match t1,t2 with
-                            | Some (t1), Some (t2) when code <= 0 -> max min_bl t1, 0.0
+                            | Some (t1), Some (t2) when code <= 0 -> max min_bl t1, min_bl
                             | Some (t1), Some (t2) -> max min_bl t1, max min_bl t2
                             | (Some t1, None)
-                            | (None, Some t1) when code <= 0 -> max min_bl t1, 0.0
+                            | (None, Some t1) when code <= 0 -> max min_bl t1, min_bl
                             | _ when code <= 0 -> 
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-                                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                                (t1+.t2), 0.0
+                                if debug_bl then Printf.printf "estimating BL3: %f, %f\n%!" t1 t2;
+                                max min_bl (t1+.t2), min_bl
                             | _ ->
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-                                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                                t1,t2
+                                if debug_bl then Printf.printf "estimating BL4: %f, %f\n%!" t1 t2;
+                                max min_bl t1, max min_bl t2
                         in
                         let median =
                             MlDynamicCS.median code ca_pre cb_pre (Some t1) (Some t2)
@@ -943,9 +944,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let modf = ref All_sets.Integers.empty in
                     let t1,t2,t3_opt = match pm.time with 
                         | Some x, Some y, z -> ( max min_bl x, max min_bl y, z)
-                        | None, None, None -> 
-                            let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
-                            (x, y, None )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
@@ -965,10 +963,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         (m,MlStaticCS.root_cost m)
                     and t1,t2 = match pm.time with 
                         | Some x,Some y, _ -> ( max min_bl x, max min_bl y )
-                        | None, None, _ -> 
-                            let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
-                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                            (x, y)
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let fstart = pm.preliminary,MlStaticCS.root_cost pm.preliminary in
@@ -991,10 +985,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let modf = ref All_sets.Integers.empty in
                     let t1,t2,t3_opt = match pm.time with 
                         | Some x,Some y, z -> ( max min_bl x, max min_bl y,z )
-                        | None, None, z -> 
-                            let (x,y) = MlDynamicCS.estimate_time c1_pre c2_pre in
-                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
-                            ( x, y, z )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     if debug then
@@ -1443,9 +1433,6 @@ let median ?branches code old a b =
         | Some code -> code
         | None -> decr median_counter; !median_counter
     in
-    if  debug_treebuild then info_user_message "node.ml median,nodea:%d(%f),nodeb:%d(%f),nodeab:%d"
-    a.taxon_code a.total_cost b.taxon_code b.total_cost code;
-    (* if code>0 then assert(false); *)
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
     let new_characters,sumcost_list =
@@ -1753,59 +1740,56 @@ let compare_data_preliminary {characters=chs1} {characters=chs2} =
 (* This function assumes that nodea and nodeb come from a valid tree and
  * nodea is the parent of nodeb.  *)
 let edge_distance clas nodea nodeb =
-    let rec distance_two ch1 ch2 =
-        match ch1, ch2 with
+    let rec distance_two ch1 ch2 = match ch1, ch2 with
         | Nonadd8 a, Nonadd8 b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. NonaddCS8.distance a.final b.final
+                    a.weight *. NonaddCS8.distance a.final b.final
                 | `Dynamic -> 0.)
         | Nonadd16 a, Nonadd16 b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. NonaddCS16.distance a.final b.final
+                    a.weight *. NonaddCS16.distance a.final b.final
                 | `Dynamic -> 0.)
         | Nonadd32 a, Nonadd32 b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. NonaddCS32.distance a.final b.final
+                    a.weight *. NonaddCS32.distance a.final b.final
                 | `Dynamic -> 0.)
         | AddGen a, AddGen b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. AddCS.General.distance a.final b.final
+                    a.weight *. AddCS.General.distance a.final b.final
                 | `Dynamic -> 0.)
         | AddVec a, AddVec b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. AddCS.Vector.distance a.final b.final
+                    a.weight *. AddCS.Vector.distance a.final b.final
                 | `Dynamic -> 0.)
         | Sank a, Sank b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. SankCS.distance a.final b.final
+                    a.weight *. SankCS.distance a.final b.final
                 | `Dynamic -> 0.)
         | FixedStates a, FixedStates b ->
-                (match clas with
+            (match clas with
                 | `Static | `Any -> 
-                        a.weight *. Fixed_states.distance a.final b.final
+                    a.weight *. Fixed_states.distance a.final b.final
                 | `Dynamic -> 0.)
         | Dynamic a, Dynamic b ->
-                (match clas with
+            (match clas with
                 | `Dynamic | `Any -> 
-                        (* Observe that we REQUIRE the single assignment for
-                        * this collapse to be correct. *)
-                        let d = 
-                            DynamicCS.distance 0. a.preliminary b.preliminary 
-                        in
-                        a.weight *. d
+                    (* Observe that we REQUIRE the single assignment for
+                    * this collapse to be correct. *)
+                    let d = DynamicCS.distance 0. a.preliminary b.preliminary in
+                    a.weight *. d
                 | `Static -> 0.)
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.tabu_distance a.final b.final
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
                 let x , _(*ignore sumcost*) = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                match x with | StaticMl x -> 0.0 *. x.cost | _ -> assert false
+                match x with | StaticMl x -> x.cost | _ -> assert false
             ELSE
                 failwith MlStaticCS.likelihood_error
             END
@@ -1825,7 +1809,8 @@ let edge_distance clas nodea nodeb =
         | ch1 :: chs1, ch2 :: chs2 ->
               distance_lists chs1 chs2 (acc +. distance_two ch1 ch2)
         | [], [] -> acc
-        | _ -> failwith "Incompatible characters (6)" in
+        | _ -> failwith "Incompatible characters (6)"
+    in
     distance_lists nodea.characters nodeb.characters 0.
 
 let all_types = 
@@ -1865,7 +1850,7 @@ let not_to_single =
 * being called by [chekc_cost] of allDirChar.ml *)
 let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
-let debug = false in
+    let debug = false in
     if debug then
         Printf.printf "\n Node.distance_of_type on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
     let has_t x = List.exists (fun z -> z = x) t
@@ -1955,7 +1940,7 @@ let rec cs_distance missing_distance nd1 nd2 ch1 ch2 = match ch1, ch2 with
         IFDEF USE_LIKELIHOOD THEN
             let x, _ (*ignore sumcost*) = cs_median 0 nd1 nd2 None None None ch1 ch2 in
             begin match x with
-                | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
+                | StaticMl x -> -. (a.weight *. (x.cost -. (a.cost +. b.cost)))
                 | _ -> assert false
             end
         ELSE
@@ -1986,7 +1971,6 @@ let distance ?(para=None) ?(parb=None) missing_distance
         | _ -> assert false
     in
     let res = distance_lists chs1 chs2 0. in
-    if debug_distance then Printf.printf "resdis=%f\n%!" res;
     res
 
 (* Calculates the cost of joining the node [n] between [a] and [b] in a tree *)
@@ -2129,10 +2113,13 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
         (child:node_data) (parent:node_data option) =
     let func =
         let fstt (a,_,_) = a and sndt (_,a,_) = a and thrt (_,_,a) = a in
+        let is_leaf par = par.min_child_code = par.taxon_code in
         let f = match parent with
             | None     -> thrt
             | Some par ->
-                if par.min_child_code = child.min_child_code 
+                if is_leaf par
+                    then thrt
+                else if par.min_child_code = child.min_child_code 
                     then fstt
                     else sndt
         and parent = match parent with
@@ -2146,7 +2133,17 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
         (fun ((acc1,acc2) as acc) x y -> match x,y with
             | StaticMl x, StaticMl y ->
               IFDEF USE_LIKELIHOOD THEN
-                (acc1,(MlStaticCS.get_codes y.preliminary, f y.time)::acc2)
+                let t = match f y.time with
+                  | None          ->
+                    Printf.printf "(%d|%d) -- (%d|%d)\n%!"
+                        parent.taxon_code parent.min_child_code child.taxon_code
+                            child.min_child_code;
+                    print_times parent;
+                    print_times child;
+                    assert false
+                  | (Some _) as x -> x
+                in
+                (acc1,(MlStaticCS.get_codes y.preliminary, t)::acc2)
               ELSE
                 acc
               END
@@ -2171,8 +2168,8 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
             | a,b when (fst inc_parsimony) ->
                 let acc1a = Array.append (fst acc1) (codes a) in
                 let acc1b =
-                    let ncost = Some (cs_distance 0.0 child parent a b) in
-                    combine ncost 1.0 (snd acc1)
+                    let ncost = cs_distance 0.0 child parent a b in
+                    combine (Some ncost) 1.0 (snd acc1)
                 in
                 ((acc1a,acc1b),acc2)
             |  _ -> acc)
@@ -2184,7 +2181,7 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
         | None     ->
             List.fold_left2 func (([||],None),[]) child.characters child.characters
     in
-    oth::lik
+    if 0 = Array.length (fst oth) then lik else oth::lik
 
 
 let extract_stat = function
@@ -2314,33 +2311,32 @@ let to_bitset size lst =
 
 let bitset_table  = Hashtbl.create 1667 
 
-let collapse size characters all_static =
+let collapse characters all_static =
     let process_all_lists lists = (* list of each column *)
         current_snapshot "This is before lists";
-        let lists = 
-            (* fold over each column into SetList, increasing weight if it is
-             * allready a member *)
-            List.fold_left (fun acc x ->
-                let (code, weight, lst) = characters x in
-                let lst = 
-                    (* transform each column to bitset *)
-                    List.map (function
-                    | `List x -> 
-                            if Hashtbl.mem bitset_table x then 
-                                Hashtbl.find bitset_table x
-                            else
-                                let set = BitSet.create 31 in
-                                let () = List.iter (BitSet.set set) x in
-                                let () = Hashtbl.add bitset_table x set in
-                                set
-                    | `Bits x -> x) lst 
-                in
-                if SetLists.mem (weight, lst) acc then
-                    let code, nweight = SetLists.find (weight, lst) acc in
-                    SetLists.add (weight, lst) (code, (weight +. nweight)) acc
-                else SetLists.add (weight, lst) (code, weight) acc) SetLists.empty 
-                all_static
+        let process acc x =
+            let (ccode, weight, lst) = characters x in
+            let lst = 
+                (* transform each column to bitset *)
+                List.map (function
+                | `List x -> 
+                        if Hashtbl.mem bitset_table x then 
+                            Hashtbl.find bitset_table x
+                        else
+                            let set = BitSet.create 31 in
+                            let () = List.iter (BitSet.set set) x in
+                            let () = Hashtbl.add bitset_table x set in
+                            set
+                | `Bits x -> x) lst 
+            in
+            if SetLists.mem (weight, lst) acc then
+                let (code,codes), nweight = SetLists.find (weight, lst) acc in
+                let nkey = ((code,ccode::codes), (weight +. nweight)) in
+                SetLists.add (weight, lst) nkey acc
+            else
+                SetLists.add (weight, lst) ((ccode,[ccode]), weight) acc
         in
+        let lists = List.fold_left process SetLists.empty all_static in
         current_snapshot "This is before elements";
         SetLists.fold (fun _ it acc -> it :: acc)
         lists []
@@ -2355,7 +2351,7 @@ let collapse size characters all_static =
      * size  --of alphabet
      * chars --list of column codes to compress
      * data  --Data.d *)
-let classify size chars data =
+let classify chars data =
     let all_static = 
         Hashtbl.fold
             (fun code spec acc -> match spec with
@@ -2397,32 +2393,33 @@ let classify size chars data =
     let characters =
         let add_taxon_to_accumulator acc (_, _, v) = v :: acc in
         let reshape chars (a, b, _) = (a, b, chars) in
-        let chars item =
-            match taxa item with
+        let chars item = match taxa item with
             | ((_, _, x) as h) :: t ->
-                    let chars = List.fold_left add_taxon_to_accumulator [x] t in
-                    reshape chars h
+                let chars = List.fold_left add_taxon_to_accumulator [x] t in
+                reshape chars h
             | [] -> failwith "Nothing?" (* must be of least length one, *)
         in
-        collapse size chars all_static
+        collapse chars all_static
     in
     current_snapshot "Final fold characters";
-    let r = List.fold_left (fun acc (a, b) ->
-        All_sets.IntegerMap.add a b acc) All_sets.IntegerMap.empty
+    let r =
+      List.fold_left
+        (fun acc ((c,cs), b) -> All_sets.IntegerMap.add c (b,cs) acc)
+        All_sets.IntegerMap.empty
         characters
     in
     current_snapshot "Done fold";
     r
 
-let classify size doit chars data =
-    if doit then Some (classify size chars data)
-    else None
+let classify doit chars data =
+    if doit then Some (classify chars data)
+            else None
 
 let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                    lnadd32code lnadd33code lsankcode dynamics fixedstates kolmogorov
                    static_ml data cost_mode =
         let calc_total treesnum directions nodenum = 
-            treesnum * ( directions *(nodenum-1) + nodenum )
+            treesnum * ( directions * (nodenum-1) + nodenum )
         in
         let add_character =  Data.add_character_spec
         and set = Data.Set
@@ -2436,11 +2433,16 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             data := add_character set code !data;
             code
         in
-        let group_in_weights weights codes =
+            (* character code, (weight, (code,codes)) *)
+        let group_in_weights weights codes
+            : (int * (float * (int * int list)) list) list =
             (* get weight of character; map has Data.weight included *)
             let get_weight c = match weights with
                 | None   -> Data.get_weight c !data
-                | Some v -> All_sets.IntegerMap.find c v
+                | Some v -> fst (All_sets.IntegerMap.find c v)
+            and get_set c = match weights with
+                | None   -> [c]
+                | Some v -> snd (All_sets.IntegerMap.find c v)
             in
             let table = Hashtbl.create 1667 in
             let weights =
@@ -2464,7 +2466,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             in
             List.fold_left
                 (fun acc (w, lst) ->
-                    let chars = List.rev_map (fun x -> w,x) lst in
+                    let chars = List.rev_map (fun x -> w,(x,get_set x)) lst in
                     (character_code_gen (), chars) :: acc)
                 [] res
         in
@@ -2496,12 +2498,12 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             in
             List.map (Hashtbl.find_all curr) sets
         in
-        let nadd8weights = classify 8 do_classify lnadd8code !data
-        and nadd16weights = classify 16 do_classify lnadd16code !data
-        and nadd32weights = classify 32 do_classify lnadd32code !data in
+        let nadd8weights = classify do_classify lnadd8code  !data
+        and nadd16weights= classify do_classify lnadd16code !data
+        and nadd32weights= classify do_classify lnadd32code !data in
         let laddveccode = group_in_weights None laddveccode
         and laddgencode = group_in_weights None laddgencode
-        and lnadd8code = group_in_weights nadd8weights lnadd8code
+        and lnadd8code  = group_in_weights nadd8weights lnadd8code
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = 
@@ -2522,20 +2524,10 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             (* create map of weight classes *)
             let lk_classify_weights = function
                 | (x::xs) as all ->
-                    (* already characterized by group and model, so = alph *)
-                    let alph_len =
-                         let x = match Hashtbl.find (!data).Data.character_specs x with
-                            | Data.Static (Data.NexusFile x) -> x 
-                            | _ -> assert false
-                        in
-                        match x.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood s -> MlModel.get_alphabet s
-                        | _ -> assert false
-                    in
-                    classify alph_len (MlStaticCS.compress && do_classify) all !data
+                    classify (MlStaticCS.compress && do_classify) all !data
                 | [] -> assert false
             (* convert characters and group them by weight *)
-            and lk_group_weights weights chars = 
+            and lk_group_weights weights chars =
                 chars --> set_of_list --> group_in_weights weights
             in
             (* group sets, model then compress columns *)
@@ -2597,7 +2589,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             current_snapshot "Generating taxon";
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
             let chfilenames = !data.Data.character_codes in
-            let get_character_with_code_n_weight gen_new (w, acc, cnt) (weight, code) = 
+            let get_character_with_code_n_weight gen_new (w, acc, cnt) (weight,(code,codes)) = 
                 try weight, (Hashtbl.find tcharacters code) :: acc, cnt + 1
                 with | Not_found -> weight, (gen_new code) :: acc, cnt
             in
@@ -2651,50 +2643,56 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                 { result with characters = c :: result.characters }
             in
             let make_with_w c w =
-                { preliminary = c; final = c; cost = 0.; sum_cost = 0.; weight =
-                    w; time = None,None,None }
+                { preliminary = c; final = c; cost = 0.; sum_cost = 0.;
+                  weight = w; time = None,None,None; }
             in
             let result = (* NONADD8 *)
-                List.fold_left 
-                (fun acc (a, b, c) -> 
-                    add_characters (NonaddCS8.of_parser !data c)
-                    (fun c w -> Nonadd8 (make_with_w c w)) acc (a, b))
-                result lnadd8_chars
+                List.fold_left
+                    (fun acc (a, b, c) ->
+                        let c = Array.map fst c in
+                        add_characters (NonaddCS8.of_parser !data c)
+                            (fun c w -> Nonadd8 (make_with_w c w)) acc (a, b))
+                    result lnadd8_chars
             in
             let result =(* NONADD16 *)
-                List.fold_left 
-                (fun acc (a, b, c) -> 
-                    add_characters (NonaddCS16.of_parser !data c)
-                    (fun c w -> Nonadd16 (make_with_w c w)) acc (a, b))
-                result lnadd16_chars
+                List.fold_left
+                    (fun acc (a, b, c) ->
+                        let c = Array.map fst c in
+                        add_characters (NonaddCS16.of_parser !data c)
+                            (fun c w -> Nonadd16 (make_with_w c w)) acc (a, b))
+                    result lnadd16_chars
             in
             let result = (* NONADD32 *)
-                List.fold_left 
-                (fun acc (a, b, c) -> add_characters (NonaddCS32.of_parser !data c)
-                (fun c w -> Nonadd32 (make_with_w c w)) acc (a, b))
-                result lnadd32_chars
+                List.fold_left
+                    (fun acc (a, b, c) ->
+                        let c = Array.map fst c in
+                        add_characters (NonaddCS32.of_parser !data c)
+                            (fun c w -> Nonadd32 (make_with_w c w)) acc (a, b))
+                    result lnadd32_chars
             in
-            let result = 
+            let result =
                 match lnadd33_chars with
                 | _ -> result
             in
             let result =  (* ADDITIVE General *)
                 List.fold_left 
-                (fun acc (a, b, _) -> add_characters (AddCS.General.of_parser !data)
-                (fun c w -> AddGen (make_with_w c w)) acc (a, b))
-                result ladd_gen_chars
+                    (fun acc (a, b, _) ->
+                        add_characters (AddCS.General.of_parser !data)
+                            (fun c w -> AddGen (make_with_w c w)) acc (a, b))
+                    result ladd_gen_chars
             in
             let result =  (* ADDITIVE Vectorized *)
                 List.fold_left 
-                (fun acc (a, b, _) -> add_characters (AddCS.Vector.of_parser !data)
-                (fun c w -> AddVec (make_with_w c w)) acc (a, b))
-                result ladd_vec_chars
+                    (fun acc (a, b, _) ->
+                        add_characters (AddCS.Vector.of_parser !data)
+                            (fun c w -> AddVec (make_with_w c w)) acc (a, b))
+                    result ladd_vec_chars
             in
             let result = (* DYNAMIC *)
                 match ldynamic_chars with
                 | [] -> result
                 | _ ->
-                    let c = 
+                    let c =
                         List.map 
                             (fun (dyna,fname) -> extract_dynamic !data dyna tcode) 
                             ldynamic_chars 
@@ -2724,19 +2722,19 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                                     Hashtbl.find !data.Data.character_specs code
                                 | _ -> failwith "generate_taxon, get tcm, sankoff"
                             in
-                            let arr= Array.of_list v in
-                            let c, _ = SankCS.of_parser tcm (arr, tcode) code in
-                            let weight = match specs with
+                            let spec = match specs with
                                 | Data.Static (Data.NexusFile nf_static_spec) ->
-                                    nf_static_spec.Nexus.File.st_weight
+                                    nf_static_spec
                                 | _ -> failwith "generate_taxon, get weight, sankoff"
                             in
+                            let arr= Array.of_list v in
+                            let c, _ = SankCS.of_parser tcm spec (arr, tcode) code in
                             let c = Sank {
                                 preliminary = c;
                                 final = c;
                                 cost = 0.;
                                 sum_cost = 0.;
-                                weight = weight;
+                                weight = spec.Nexus.File.st_weight;
                                 time = None,None,None; } in
                             { result with characters = c :: result.characters }
                 in
@@ -2768,14 +2766,22 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                         | [] -> result
                         | all_data ->
                             let ws,cs = seperate_data all_data in
-                            let spec = 
-                                match Hashtbl.find (!data).Data.character_specs
-                                                    (List.hd cs) with
+                            let spec =
+                                match
+                                    Hashtbl.find
+                                        (!data).Data.character_specs
+                                        (fst (List.hd cs))
+                                with
                                 | Data.Static (Data.NexusFile x) -> x
                                 | _ -> assert false
-                            and resolve_missing x =
-                                try extract_stat (Hashtbl.find tcharacters x)
-                                with Not_found -> extract_stat (gen_mlstatic x)
+                            and resolve_missing (x,oth) =
+                                let a,b =
+                                    try extract_stat (Hashtbl.find tcharacters x)
+                                    with Not_found -> extract_stat (gen_mlstatic x)
+                                in
+                                assert( b = x );
+                                assert( List.mem x oth );
+                                (a,(b,oth))
                             in
                             let c =
                                 cs --> List.map resolve_missing (* bitset * code *)
@@ -2790,7 +2796,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                                            time = None,None,None; }
                             in
                             { result with characters = c :: result.characters;
-                                          total_cost = result.total_cost +.  cost; })
+                                          total_cost = result.total_cost +. cost; })
                   ELSE
                     (fun result _ -> result)
                   END
@@ -3086,7 +3092,6 @@ let transform_multi_chromosome ( nodes : node_data list ) data =
 let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data =
     (* classify -- Not only we make the list of characters into sets of
        characers, but we also filter those characters that have weight 0. *)
-    let classify = false in
     current_snapshot "Node.load_data start";
     let classify = (not (Data.has_dynamic data)) && classify in
     let make_set_of_list lst =
@@ -3317,7 +3322,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     | Some x,Some y,par -> max min_bl x,max min_bl y,par
                     | _ -> 
                         let (x,y) = MlStaticCS.estimate_time c1.preliminary c2.preliminary in
-                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
+                        if debug_bl then Printf.printf "estimating BL1: %f, %f\n%!" x y;
                         max min_bl x,max min_bl y, None
                 in
                 let m, prev_cost, cost, (t1,t2), res = 

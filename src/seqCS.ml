@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3277 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3288 $"
 
 let debug = false
 let debug_distance = false
@@ -1116,8 +1116,7 @@ END
             0. (*0 diagonal in cost matrix*)
         else begin (*non-0 diagonal in cost matrix*)
             let dis = distance_between_two_alied_children_of_root root h use_ukk in
-(*             Printf.printf "COST: %F MINUS:%d\n%!" root.costs.cost2 dis; *)
-            float_of_int dis
+            root.costs.cost2 -. (float_of_int dis)
         end
 
 
@@ -2292,8 +2291,8 @@ let median_3 p n c1 c2 =
             | `Algn_Newkk  -> true
             | `Algn_Normal -> false
         in
-        generic_map_4 DOS.median_3_union GenNonAdd.median_3
-                p.characters n.characters c1.characters c2.characters cm2 cm3 use_ukk
+        generic_map_4 DOS.median_3_union (GenNonAdd.median_3 cm3)
+                p.characters n.characters c1.characters c2.characters cm2 cm2 use_ukk
     in
     let characters = 
         let has_combinations = 1 = Cost_matrix.Two_D.combine cm2 in

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3160 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3377 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -433,17 +433,9 @@ let remove_ambiguities dyn =
             (leaf_sequences dyn);
     dyn
 
+
 (*---- median functions *)
 let median code a b t1 t2 =
-    let () =
-        if (0 = MlModel.compare (static_model a) (static_model b))
-            then ()
-            else begin
-                MlModel.output_model print_string None `Nexus (static_model a) None;
-                print_newline ();
-                MlModel.output_model print_string None `Nexus (static_model b) None;
-            end
-    in
     assert( 0 = MlModel.compare (static_model a) (static_model b) );
     match a.data,b.data with
     | CMPLAlign ar, CMPLAlign br -> 
@@ -458,6 +450,7 @@ let median code a b t1 t2 =
                     let mem = CMPLAlign.get_mem sa sb in
                     if debug then CMPLAlign.clear_mem mem;
                     let cst,med = CMPLAlign.median_2_cost sa sb a.model bla blb mem in
+                    assert( cst >= -0.0 );
                     cost := !cost +. cst;
                     med)
                 (ar.ss)
@@ -533,6 +526,7 @@ let median code a b t1 t2 =
                 (ar.ss)
                 (br.ss)
         in
+        assert( !cost >= -0.0 );
         { a with cost = !cost; data = Verify { ss = meds }; times = bla,blb; }
 
     | MPLAlign ar, MPLAlign br -> 
@@ -547,6 +541,7 @@ let median code a b t1 t2 =
                     let mem = MPLAlign.get_mem sa sb in
                     if debug then MPLAlign.clear_mem mem;
                     let cst,med = MPLAlign.median_2_cost sa sb a.model bla blb mem in
+                    assert( cst >= -0.0 );
                     cost := !cost +. cst;
                     med)
                 (ar.ss)
@@ -579,7 +574,7 @@ let readjust3 mine c1 c2 par t1 t2 t3 =
             let ns = 
                 Array_ops.map_3
                     (fun x y z ->
-                        let c,n,_ = CMPLAlign.readjust x y z mine.model t1 t2 t3 in n)
+                        let c,n = CMPLAlign.readjust x y z mine.model t1 t2 t3 in n)
                     c1.ss c2.ss p.ss
             in
             CMPLAlign { ss = ns; }
@@ -587,7 +582,7 @@ let readjust3 mine c1 c2 par t1 t2 t3 =
             let ns = 
                 Array_ops.map_3
                     (fun x y z ->
-                        let c,n,_ = MPLAlign.readjust x y z mine.model t1 t2 t3 in n)
+                        let c,n = MPLAlign.readjust x y z mine.model t1 t2 t3 in n)
                     c1.ss c2.ss p.ss
             in
             MPLAlign { ss = ns; }
@@ -608,7 +603,7 @@ let readjust3_opt mine c1 c2 par t1 t2 t3 =
                         let ns = 
                             Array_ops.map_3
                                 (fun x y z ->
-                                    let c,n,_ = CMPLAlign.readjust x y z mine.model t1 t2 t3 in
+                                    let c,n = CMPLAlign.readjust x y z mine.model t1 t2 t3 in
                                     cst := !cst +. c;
                                     n)
                                 c1.ss c2.ss p.ss
@@ -621,7 +616,7 @@ let readjust3_opt mine c1 c2 par t1 t2 t3 =
                         let ns = 
                             Array_ops.map_3
                                 (fun x y z ->
-                                    let c,n,_ = MPLAlign.readjust x y z mine.model t1 t2 t3 in
+                                    let c,n = MPLAlign.readjust x y z mine.model t1 t2 t3 in
                                     cst := !cst +. c;
                                     n)
                                 c1.ss c2.ss p.ss
@@ -642,10 +637,12 @@ let readjust3_opt mine c1 c2 par t1 t2 t3 =
     in
     true, pscore, score, (times.(0),times.(1),times.(2)), {mine with data = node;}
 
+
 let median_i code a b (t1:float) (t2:float) : t * float * float =
     let m = median code a b (Some t1) (Some t2) in
     let _,_,_,(t1,t2),m = readjust a b m t1 t2 in
     m,t1,t2
+
 
 and median_3 p n c1 c2 = assert false (** TODO **)
 (*    assert( 0 = MlModel.compare n.model c1.model);*)

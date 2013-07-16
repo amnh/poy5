@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 3235 $"
+let () = SadmanOutput.register "Tree" "$Revision: 3318 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -2109,10 +2109,8 @@ module CladeFP = struct
     module CladeSet = Set.Make (Ordered)
 
     let sets t =
-        let module Set = All_sets.Integers in
         let module Map = EdgeMap in
-        Map.fold (fun _ set acc -> CladeSet.add set acc) (calc t) 
-        CladeSet.empty
+        Map.fold (fun _ set acc -> CladeSet.add set acc) (calc t) CladeSet.empty
 
     let query = (EdgeMap.find : edge -> t -> fp)
 
@@ -2639,13 +2637,9 @@ let cannonize_on_edge ((a, b) as edge) tree =
     { tree with u_topo = res }
 
 let cannonize_on_leaf a tree =
-    try match get_node a tree with
-        | Leaf (a, b) -> cannonize_on_edge (a, b) tree
-        | _ -> failwith "Tree.cannonize_on_leaf: the vertex is not a leaf"
-    with | Not_found as err ->
-        Status.user_message Status.Error
-            ("Could not find " ^ string_of_int a);
-        raise err
+    match get_node a tree with
+    | Leaf (a, b) -> cannonize_on_edge (a, b) tree
+    | _ -> failwith "Tree.cannonize_on_leaf: the vertex is not a leaf"
 
 let destroy_component handle tree =
     assert (is_handle handle tree);

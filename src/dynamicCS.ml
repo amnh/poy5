@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 3230 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 3305 $"
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
@@ -106,12 +106,12 @@ let c2_full (a : t) = match a with
 (** [lk_model a] returns the likelihood model for the dynamic likelihood
     character, or raise a Not_found for other characters *)
 let lk_model (a : t) = match a with 
-    | MlCS a       -> MlDynamicCS.model a
+    | MlCS a       -> Some (MlDynamicCS.model a)
     | SeqCS _ 
     | ChromCS _
     | GenomeCS _
     | BreakinvCS _
-    | AnnchromCS _ -> raise Not_found
+    | AnnchromCS _ -> None
 
 (** [chrom_pam a] returns the user-defined chromosome parameters
 * of dynamic character set [a] *)

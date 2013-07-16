@@ -19,22 +19,19 @@
 
 (** Module for handling POY's advanced, adaptive help system *)
 
-let () = SadmanOutput.register "HelpIndex" "$Revision: 3160 $"
+let () = SadmanOutput.register "HelpIndex" "$Revision: 3404 $"
 
 let index = Help.index
 
-let find_with_regexp reg (a, b) = 
+let find_with_regexp reg (a, (b,_)) = 
     try ignore( Str.search_forward reg a 0 ); true
     with | _ -> 
         try ignore( Str.search_forward reg b 0 ); true
         with | _ -> false
 
-let output_help_item description =
-    Status.user_message Status.Information description
-
-let output_help_head description =
-    let description = "@[<v 2>@{<c:cyan>"^description^"@}@]" in
-    Status.user_message Status.Information description
+let output_help_item (description,examples) =
+    Status.user_message Status.Information
+                        (description^"\nExamples:\n"^examples^"\n\n")
 
 let rec help = function
     | None       ->
@@ -51,11 +48,11 @@ let rec help = function
         with | Not_found ->
             let regex = Str.regexp it in
             begin match List.filter (find_with_regexp regex) index with
-                | []  -> output_help_item ("Could not find help file \""^it^"\"")
+                | []  -> Status.user_message Status.Warning ("Could not find help file \""^it^"\"")
                 | lst -> List.iter (fun x -> output_help_item (snd x)) lst
             end
 
 let help_if_exists it =
     try if List.exists (fun (x, _) -> x = it) index then
-        output_help_item ("You can find information using the command 'help ("^it^")'")
+        Status.user_message Status.Warning ("You can find information using the command 'help ("^it^")'")
     with | Not_found -> ()

@@ -179,6 +179,7 @@ double calculate_cost( CASN* a_ptr, const double* X, const double* Y,
                 if( ISSET( y, j ) ){
                     for( k = 0; k < n; ++k ){
                         temp_cost = X[i*n + k] + Y[j*n + k];
+                        //printf("%d|%d = %d -- %d : %d | %f\n",x,y,i,j,k,temp_cost);
                         if( EQUALS( temp_cost, best_cost ) ){
                             best_cost = MIN(temp_cost, best_cost);
                             a |= (1 << k);
@@ -257,7 +258,7 @@ get_closest( double* cost, const int p, const int m, const double* cm, const int
     int j,k, min_asgn;
     double min_cost,tmp_cost;
 
-    min_asgn = 0;
+    min_asgn = -1;
     min_cost = INFINITY;
     for(j=0; j < alph; ++j){
         if( ISSET( p, j ) ){
@@ -306,10 +307,9 @@ fm_CAML_get_closest( value oSpace, value oU, value oD, value oUi, value op, valu
     }
     neg_log_comp( P, alph, alph );
     res = get_closest(&t, p, m, P, alph );
-
-    pair = caml_alloc(2, 0);
+    pair = caml_alloc_tuple(2);
     Store_field( pair, 0, res );
-    Store_field( pair, 1, t );
+    Store_field( pair, 1, caml_copy_double(t) );
 
     CAMLreturn( pair );
 }
@@ -383,7 +383,7 @@ fm_CAML_compose( value FM, value U, value D, value Ui, value cta, value ctb, val
     costs  = alloc_bigarray( BIGARRAY_FLOAT64  | BIGARRAY_C_LAYOUT, 2, results->cost, dims );
     pair = caml_alloc_tuple( 2 );
     Store_field( pair, 0, assign );
-    Store_field( pair, 1, costs );
+    Store_double_field( pair, 1, costs );
     CAMLreturn( pair );
 }
 

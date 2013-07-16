@@ -9,18 +9,29 @@ New Features:
     - report graphtrees, asciitrees, and trees with collapsable property have
       been extended to use the branch lengths mentioned above (see command
       description below).
+    - Custom Alphabet transformation to static character via static approx. This
+      was an issue with the characters that can be represented as prealigned and
+      how to properly transform between them.
+    - Added support for ocaml PARMAP for generating fixed-state cost matrices.
+    - Added command report(robinson_foulds) (see command description below)
 
 Bugs Fixed:
     - Selecting terminals caused an error in ncurses display when writing to an
       incorrect window (Louise Crowley).
     - Transforming to likelihood under a model selection criteria (aic,aicc,bic)
       from a tcm under parsimony with different gap cost than substitution cost 
-      resulted in failure with some added data that represents the cost of a gap
-      which should be filtered from the transformation, as other likelihood
-      transformations on those characters do.
+      resulted (in failure) with added data that represents the cost of a gap.
+      These should be filtered from the transformation, as in other likelihood
+      transformations on those characters.
     - Custom-alphabet implied alignment produced an alignment with extra indels.
       This was due to an encoding issue that became relevent when mixing custom
       alphabet characters and levels.
+    - Issue with missing data in custom-alphabet prealigned characters resolved.
+    - generation of cost-matrix with all-elements row/col and non-zero diagonal
+      cost matrix --was being replaced with zeros, should have been min of row.
+    - No reported error when reading in sequence data with unequal fragments.
+      This forced the computation to proceede as if those fragments were
+      missing. Now (as in POY4) we report an error to the user.
 
 New Commands (see manual for full explanations) :
     - report command for parsimony branch lengths
@@ -31,6 +42,11 @@ New Commands (see manual for full explanations) :
         report(trees:(branches:single))
             - number of changes reported based on single assignment of dynamic
               characters
+    - report command for tree distances using Robinson Foulds distance metric
+        report(robinson_foulds)
+            - will print matrix to terminal window
+        report("OUTFILE", robinson_foulds)
+            - will print matrix to file OUTFILE
 
 Changed Commands (see manual for full explanations) :
     - report command for collapsed branches has been changed. Instead of

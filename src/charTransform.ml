@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 3260 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 3276 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -160,12 +160,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     let filter_characters tree codes = IA.filter_characters tree codes
 
     let substitute_nodes nodes tree =
-        let adder acc x = 
-            All_sets.IntegerMap.add (Node.taxon_code x) x acc
-        in
-        let node_data = 
-            List.fold_left adder All_sets.IntegerMap.empty nodes 
-        in
+        let adder acc x = All_sets.IntegerMap.add (Node.taxon_code x) x acc in
+        let node_data = List.fold_left adder All_sets.IntegerMap.empty nodes in
         let tree = { tree with Ptree.node_data = node_data } in
         let st = Status.create "Diagnosis"  None "Recalculating original tree" in
         Status.report st;
@@ -238,7 +234,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                                     remove_non_informative chars data tree 
         in
         Status.full_report ~msg:"Regenerating the nodes" st;
-        let new_data, nodes = new_data --> Data.categorize --> Node.load_data in
+        let new_data, nodes = Node.load_data new_data in
         Status.finished st;
         new_data, substitute_nodes nodes tree
      
@@ -1057,7 +1053,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                             (1, data)
                             trees
                     in
-                    data --> Data.categorize --> Node.load_data 
+                    Node.load_data data
                 with | No_trees ->
                     Status.user_message Status.Error
                         ("An@ error@ has@ occured@ while@ attempting@ to@ fix@ "
@@ -1076,7 +1072,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     (select_shortest trees)
                         --> process_static_approx "ImpliedAlignment" true chars
                                 remove_non_informative data filter_characters 
-                        --> Data.categorize
                         --> Node.load_data 
                 with | No_trees ->
                         Status.user_message Status.Error

@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3259 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3390 $"
 
 let debug = false 
 
@@ -358,6 +358,7 @@ type reporta = [
     | `GraphicConsensus of float option
     | `Clades
     | `CrossReferences of old_identifiers option
+    | `RobinsonFoulds
     | `TerminalsFiles
     | `Supports of Methods.support_output option
     | `GraphicSupports of Methods.support_output option
@@ -927,6 +928,7 @@ type command = [
                 | Some f -> (`Clades f) :: acc, file
             end
         | `CrossReferences x -> (`CrossReferences (x, file)) :: acc, file
+        | `RobinsonFoulds -> (`RobinsonFoulds file) :: acc, file
         | `TerminalsFiles -> (`TerminalsFiles file) :: acc, file
         | `Supports c -> (`Supports (c, file)) :: acc, file
         | `GraphicSupports c -> (`GraphicSupports (c, file)) :: acc, file
@@ -1671,11 +1673,9 @@ type command = [
                         right_parenthesis -> `Report a ]
                 ];
             topology_test_params : 
-                [   [ LIDENT "au" -> `AU ] |
-                    [ LIDENT "sh" -> `SH ] |
+                [   [ LIDENT "sh" -> `SH ] |
                     [ LIDENT "kh" -> `KH ] |
                     [ LIDENT "n"; ":"; x = INT -> `Replicates (int_of_string x) ] |
-                    [ LIDENT "k"; ":"; x = INT -> `ScaleFactors (int_of_string x) ] |
                     [ LIDENT "rell" -> `ReplicateOpt (false, false) ] |
                     [ LIDENT "full" -> `ReplicateOpt (true, true) ] |
                     [ LIDENT "part" -> `ReplicateOpt (false, true) ] |
@@ -1763,7 +1763,8 @@ type command = [
                     [ LIDENT "nodes" -> `Nodes ] |
                     [ LIDENT "cross_references"; ":"; x = old_identifiers -> `CrossReferences (Some x) ] |
                     [ LIDENT "terminals" -> `TerminalsFiles ] | 
-                    [ LIDENT "cross_references" -> `CrossReferences None ]
+                    [ LIDENT "cross_references" -> `CrossReferences None ] |
+                    [ LIDENT "robinson_foulds" -> `RobinsonFoulds ]
                 ];
             (* Perturbation method *)
             perturb:
@@ -2012,9 +2013,9 @@ type command = [
                         x
                     ]
                 ];
-            prealigned_gap_opening:
+            prealigned_level:
                 [ 
-                    [ ","; LIDENT "gap_opening"; x = integer -> x ]
+                    [ ","; LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ]
                 ];
             read_argument:
                 [
@@ -2022,34 +2023,31 @@ type command = [
                         a = LIST1 [x = otherfiles -> x] SEP ","; right_parenthesis ->
                             ((`AnnotatedFiles a) :> Methods.input) ] |
                     [ LIDENT "prealigned"; ":"; left_parenthesis; a = otherfiles_pre;
-                        b = OPT prealigned_costs; c = OPT prealigned_gap_opening;
+                        b = OPT prealigned_costs; c = OPT prealigned_level;
                         right_parenthesis -> match a with
                             | `GeneralAlphabetSeq (a,_,_) ->
                                 begin match b with
                                     | Some (`Assign_Transformation_Cost_Matrix (f,_)) ->
                                         let oth = match c with
-                                            | None -> [`Prealigned]
-                                            | Some _ -> failwith "I@ cannot@ read@ custom@ alphabet@ characters@ with@ gap_opening."
+                                            | None   -> [`Prealigned]
+                                            | Some c -> [`Prealigned;c]
                                         in
-                                        `GeneralAlphabetSeq (a,f,oth)
+                                        ((`GeneralAlphabetSeq (a,f,oth)) :> Methods.input)
                                     | Some ( `Create_Transformation_Cost_Matrix _)
                                     | None -> failwith "I@ require@ an@ explicit@ cost@ matrix@ for@ custom@ alphabet@ characters."
                                 end
-                            | (`Aminoacids _) as x ->
-                                let c = match c with
-                                    | None   -> 0
-                                    | Some _ -> failwith "I@ cannot@ read@ prealigned@ characters@ with@ gap_opening."
+                            | `Aminoacids (f,o) ->
+                                let x : Methods.read_option_t list = match c with
+                                    | None   -> o
+                                    | Some c -> c::o
                                 in
-                                x
+                                ((`Aminoacids (f,x)) :> Methods.input)
                             | _ ->
                                 let b = match b with
                                     | Some b -> b
                                     | None   -> `Create_Transformation_Cost_Matrix (1,1)
-                                and c = match c with
-                                    | None   -> 0
-                                    | Some _ -> failwith "I@ cannot@ read@ prealigned@ characters@ with@ gap_opening."
                                 in
-                                `Prealigned (a, b, c) ] |
+                                `Prealigned (a, b, 0) ] |
                     [ x = otherfiles -> (x :> Methods.input) ]
                 ];
         otherfiles_pre: (** subset of characters that are prealigned **)
@@ -2157,10 +2155,10 @@ type command = [
                 [ LIDENT "branches"; p = OPT report_branch_opt ->
                     let x :> Methods.report_branch option = match p with
                         | Some `None   -> None
-                        | Some `Final  -> (Some `Final)
-                        | Some `Max    -> (Some `Max)
-                        | Some `Single -> (Some `Single)
-                        | None         -> (Some `Single)
+                        | Some `Final  -> Some `Final
+                        | Some `Max    -> Some `Max
+                        | Some `Single -> Some `Single
+                        | None         -> Some `Single
                     in
                     `Branches x ] |
                 [ LIDENT "margin"; ":"; m = INT -> `Margin (int_of_string m) ] |
@@ -2174,12 +2172,12 @@ type command = [
                 [ LIDENT "collapse"; y = OPT report_branch_opt ->
                     let x :> Methods.report_branch option = match y with
                         | Some `None   -> None
-                        | Some `Final  -> (Some `Final)
-                        | Some `Max    -> (Some `Max)
-                        | Some `Single -> (Some `Single)
-                        | None         -> (Some `Single)
+                        | Some `Final  -> Some `Final
+                        | Some `Max    -> Some `Max
+                        | Some `Single -> Some `Single
+                        | None         -> Some `Single
                     in
-                    `Collapse x ]
+                    `Collapse x]
             ];
         optional_collapse:
             [ 
@@ -2203,8 +2201,8 @@ type command = [
                 [ LIDENT "constraint"; ":"; x = INT ->
                     `Partition [`MaxDepth (int_of_string x)] ] |
                 [ LIDENT "constraint"; ":"; left_parenthesis; 
-                    x = LIST1 [x = constraint_options -> x] SEP ","; right_parenthesis
-                    -> `Partition x ] |
+                    x = LIST1 [x = constraint_options -> x] SEP ","; right_parenthesis ->
+                    `Partition x ] |
                 [ LIDENT "constraint" -> `Partition [] ]
             ];
         build_argument:

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3279 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3292 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -100,6 +100,20 @@ module Two_D = struct
 
     and use_gap_opening  = 0
 
+    let output ch m =
+        let a_sz = alphabet_size m in
+        Pervasives.output_string ch "matrix size = ";
+        Pervasives.output_string ch (string_of_int a_sz);
+        Pervasives.output_string ch "\n";
+        for i = 1 to a_sz do
+            for j = 1 to a_sz do
+                let v = cost i j m in
+                Pervasives.output_string ch (string_of_int v);
+                Pervasives.output_string ch " ";
+            done;
+            Pervasives.output_string ch "\n";
+        done
+
     let print_intlist lst =
         Printf.printf "[ %!"; 
         List.iter (Printf.printf "%d,%!") lst;
@@ -168,6 +182,7 @@ module Two_D = struct
     * combination*)
     let ori_cm_to_list cost_mat =
         let debug = false in
+        let all_elt = get_all_elements cost_mat in
         let size = get_ori_a_sz cost_mat in
         let level = get_level cost_mat in
         let lst = ref [] in
@@ -185,29 +200,33 @@ module Two_D = struct
             (* the matrix is sequentially ordered; the upper left corner of the
                matrix contains the single character costs *)
             for i =1 to size do
-               for j = 1 to size do 
-                    let tmp = cost i j cost_mat in
-                    let tmp = 
-                        (*if cost between same states in the input costmatrix file is some v >0, 
-                        * and level is being used, cost[a][a] will be 2v in the cost_mat, 
-                        * also cost[a][b] with [best med = a] will be v+cost[a][b], we
-                        * need to subtract v from combination cost to get origial one*)
-                        if level>1 then
-                            let medij = median i j cost_mat in
-                            let medij_lst = combcode_to_comblist medij cost_mat in
-                            let medij_single = List.hd medij_lst in 
-                            let extra_cost =
-                                if medij_single = i then cost i i cost_mat
-                                else if medij_single = j then cost j j cost_mat
-                                else 0 
-                            in
-                            if debug then Printf.printf
-                            "i=%d,j=%d,medij=%d,costij=%d,extracost=%d/2\n%!"
-                            i j medij tmp extra_cost;
-                            tmp - extra_cost/2 
-                        else tmp 
-                    in
-                    lst := tmp :: !lst
+                for j = 1 to size do
+                    if (i=all_elt) || (all_elt=j) then
+                        lst := Utl.large_int :: !lst (* filled in later *)
+                    else begin
+                        let tmp = cost i j cost_mat in
+                        let tmp =
+                            (*if cost between same states in the input costmatrix file is some v >0, 
+                            * and level is being used, cost[a][a] will be 2v in the cost_mat, 
+                            * also cost[a][b] with [best med = a] will be v+cost[a][b], we
+                            * need to subtract v from combination cost to get origial one*)
+                            if level>1 then
+                                let medij = median i j cost_mat in
+                                let medij_lst = combcode_to_comblist medij cost_mat in
+                                let medij_single = List.hd medij_lst in
+                                let extra_cost =
+                                    if medij_single = i then cost i i cost_mat
+                                    else if medij_single = j then cost j j cost_mat
+                                    else 0
+                                in
+                                if debug then
+                                    Printf.printf "i=%d,j=%d,medij=%d,costij=%d,extracost=%d/2\n%!"
+                                                i j medij tmp extra_cost;
+                                tmp - extra_cost/2
+                            else tmp 
+                        in
+                        lst := tmp :: !lst
+                    end
                done;
             done;
             List.rev (!lst)
@@ -268,20 +287,6 @@ module Two_D = struct
     let median_position a b a_sz =
         cost_position a b a_sz;;
 
-    let output ch m =
-        let a_sz = alphabet_size m in
-        Pervasives.output_string ch "matrix size = ";
-        Pervasives.output_string ch (string_of_int a_sz);
-        Pervasives.output_string ch "\n";
-        for i = 1 to a_sz do
-            for j = 1 to a_sz do
-                let v = cost i j m in
-                Pervasives.output_string ch (string_of_int v);
-                Pervasives.output_string ch " ";
-            done;
-            Pervasives.output_string ch "\n";
-        done;;
-
     (* output [m] to [ch] with (non-extended) alphabet size [a] *)
     let output_constrained ch a m = 
         for i = 0 to a - 1 do
@@ -298,7 +303,7 @@ module Two_D = struct
         let use_all_element = 
             if all_elements=a_sz-1 then true else false in
         if debug then
-        Printf.printf "store_input_list_in_cost_matrix_some_combinations,all_elements=%d\n%!"  all_elements;
+            Printf.printf "store_input_list_in_cost_matrix_some_combinations,all_elements=%d\n%!"  all_elements;
         if(  (elt1 > a_sz) || (elt2 > a_sz) ) then begin
             if( elt1 <= a_sz ) then
             store_input_list_in_cost_matrix_some_combinations m l (elt1+1) 1
@@ -1063,8 +1068,7 @@ module Two_D = struct
                 res := !res && (l.(i).(j) >= 0);
             done;
         done;
-        if !res then () 
-        else Printf.printf " not positive \n%!";
+        if not !res then Printf.printf " not positive \n%!";
         !res
 
     let list_to_matrix l w =
@@ -1086,8 +1090,7 @@ module Two_D = struct
                 res := !res && (l.(i).(j) = l.(j).(i))
             done;
         done;
-        if !res then () 
-        else Printf.printf " not symmetric \n%!";
+        if not !res then Printf.printf " not symmetric \n%!";
         !res
 
     (*print warning msg if there is cost between same states*)
@@ -1111,28 +1114,28 @@ module Two_D = struct
         done;
         !res
 
-    let input_is_metric l w = 
+    let input_is_metric l w =
         let arr = list_to_matrix l w in
         let ispos = is_positive arr
         and issym = is_symmetric arr 
         and iside = input_is_identity arr in
+        assert( ispos );
         let res = ispos && issym && iside  in
         if (res) then ()
         else
-           begin
-               for i = 0 to w - 1 do
-                   Printf.printf "%d: %!" i;
-                 for j = 0 to w - 1 do
-                     Printf.printf "%d,%!" arr.(i).(j); 
-                 done;
-                 print_newline();
-               done;
-           end;
+            begin
+                for i = 0 to w - 1 do
+                    Printf.printf "%d: %!" i;
+                    for j = 0 to w - 1 do
+                        Printf.printf "%d,%!" arr.(i).(j); 
+                    done;
+                    print_newline();
+                done;
+            end;
          res, iside
 
     let fill_cost_matrix ?(create_original=false) ?(tie_breaker=`First)
             ?(use_comb=true) ?(level = 0) ?(suppress=false) l a_sz all_elements =
-        let debug = false in
         let pure_a_sz = 
             if all_elements=(a_sz-1) && level>1 && level<a_sz
                 then a_sz-1
@@ -1267,7 +1270,6 @@ module Two_D = struct
     let of_list_nocomb ?(suppress=false) l all_elements =
         (* This function assumes that the list is a square matrix, list of
         * lists, all of the same size *)
-        if debug then Printf.printf "cost_matrix of_list_nocomb\n";
         let w = List.length l in
         let l = List.flatten l in
         fill_cost_matrix ~use_comb:false ~suppress l w all_elements
@@ -1277,14 +1279,14 @@ module Two_D = struct
         let ori_list = ori_cm_to_list m in
         let newm =
             if level=1 then
-                fill_cost_matrix ~tie_breaker ~use_comb:false ~level:1 ori_list ori_sz all_elements
+                fill_cost_matrix ~tie_breaker ~use_comb:false ~level ori_list ori_sz all_elements
             else if (level < 1) then
                 fill_cost_matrix ~tie_breaker ~use_comb:false ~level:0 ori_list ori_sz all_elements  
             (*we don't have tie_breaker for level=2~a_sz-1 yet*)
             else if (level>ori_sz) then
                 fill_cost_matrix ~tie_breaker ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements 
             else
-                fill_cost_matrix ~tie_breaker ~use_comb:true ~level:level ori_list ori_sz all_elements
+                fill_cost_matrix ~tie_breaker ~use_comb:true ~level ori_list ori_sz all_elements
         in
         newm
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3264 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3395 $"
 
 let (-->) a b = b a
 
@@ -1686,8 +1686,8 @@ let process_input run (meth : Methods.input) =
     let run = { run with data = d; nodes = nodes } in
     (* check whether this read any trees *)
     let run = update_trees_to_data false false run in
-    let () = List.iter (Data.verify_trees run.data) run.data.Data.trees in
-    let trees = List.map (fun (x, _, _) -> x) run.data.Data.trees in
+    let trees = List.filter (Data.verify_trees run.data) run.data.Data.trees in
+    let trees = List.map (fun (x, _, _) -> x) trees in
     let trees = Build.prebuilt trees (run.data, run.nodes) in
     let total_trees = Sexpr.union trees run.trees in
     let d = { d with Data.trees = [] } in
@@ -2060,14 +2060,7 @@ let rec process_tree_handling run meth =
                 let lst = Array.to_list arr in
                 get_first_n n lst
         | `Unique ->
-                let sexpr = Sexpr.to_list run.trees in
-                let res =
-                    try TS.get_unique sexpr with
-                    | Not_found as err ->
-                        Status.user_message Status.Error "This is the path";
-                        raise err
-                in
-                res
+                TS.get_unique (Sexpr.to_list run.trees)
     in
     let trees = Sexpr.of_list trees in
     { run with trees = trees }
@@ -2164,17 +2157,21 @@ let report_lk_sites ft tree chars : unit =
     let tree_num = ref 0 in
     let header = [| "Tree"; "-lnL"; "Site"; "Weight"; "-lnL"; |] in
     let modify_array (cost,array) =
+        let checksum = ref 0.0 in
         let second = [| string_of_int !tree_num; string_of_float cost; ""; ""; ""; |] in
         incr tree_num;
-        Array.init
+        let r = Array.init
             ((Array.length array)+2)
             (fun i ->
                 if i = 0 then header else
                 if i = 1 then second
                 else begin
-                    let a,b = array.(i-2) in
+                    let _,a,b = array.(i-2) in
+                    checksum := !checksum +. b;
                     [| ""; "";string_of_int (i-2); string_of_float a; string_of_float b; |]
                 end)
+        in
+        r,!checksum
     in
     match Ptree.get_roots tree with
     | [x] ->
@@ -2182,8 +2179,8 @@ let report_lk_sites ft tree chars : unit =
             | Some (_,n) -> n
             | None       -> assert false
         in
-        List.iter (fun x -> let x = modify_array x in ft x)
-                  (Node.get_lk_sites node_root chars)
+        let data = Node.get_lk_sites node_root chars in
+        List.iter (fun x -> let t,_ = modify_array x in ft t) data
     |  _  ->
         Status.user_message Status.Error
             ("I@ am@ unsure@ what@ to@ do@ about@ reporting@ site@ likelihood@ "
@@ -3939,8 +3936,7 @@ let rec folder (run : r) meth =
                                   "Maximum Distance"; "Minimum Distance"; "Average Distance"|]
                             | n -> arr.(n - 1))
                 and fo = Status.Output (filename, false, []) in
-                Status.user_message fo 
-                "@{<b>Sequence Statistics:@}@[<v 2>@,";
+                Status.user_message fo "@{<b>Sequence Statistics:@}@[<v 2>@,";
                 Status.output_table fo arr;
                 Status.user_message fo "@]\n%!";
                 run
@@ -4090,22 +4086,28 @@ let rec folder (run : r) meth =
 
             | `Topo_Selection (filename,x) ->
                 IFDEF USE_LIKELIHOOD THEN
-                    let (t,chars,n,k,rep) = MlTestStat.process_methods_arguments x in
+                    let (t,chars,n,rep) = MlTestStat.process_methods_arguments x in
                     begin try match t, Sexpr.to_list run.trees with
-                        |   _,[] ->
+                        | `SH,((_::_::_) as ts) -> MLT.sh ?n ~rep ~chars ts
+                        | `KH,((t1::t2::_) as ts) ->
+                            let t_mle,ts =
+                                let sorted =
+                                    List.sort (fun a b ->
+                                        Pervasives.compare
+                                            (TreeOps.total_cost a `Adjusted None)
+                                            (TreeOps.total_cost b `Adjusted None))
+                                        ts
+                                in
+                                match sorted with
+                                | hd::tl -> hd,tl
+                                | _      -> assert false
+                            in
+                            List.iter (fun t -> MLT.kh ?n ~rep ~chars t_mle t) ts
+                        |   _,_ ->
                             let msg = "The@ topology@ selection@ command@ requires"
                                      ^"@ at@ least@ two@ trees@ in@ memory."
                             in
                             Status.user_message Status.Error msg
-                        | `AU,ts -> MLT.au ?n ?k ~rep ~chars ts
-                        | `SH,ts -> MLT.sh ?n ~rep ~chars ts
-                        | `KH,t1::t2::[] -> MLT.kh ?n ~rep ~chars t1 t2
-                        | `KH,ts ->
-                            let msg = "The@ topology@ selection@ KH@ requires"
-                                     ^"@ only@ two@ trees@ in@ memory."
-                            in
-                            Status.user_message Status.Error msg
-                        |   _,_ -> assert false
                     with MLT.Incorrect_Data ->
                         Status.user_message Status.Error
                             "Cannot@ use@ topology@ tests@ on@ this@ data."
@@ -4247,7 +4249,7 @@ IFDEF USE_XSLT THEN
                     Xslt.process filename style file
 ELSE
                     Status.user_message Status.Error 
-                    "This version of POY was not compiled with XSLT support."
+                        "This@ version@ of@ POY@ was@ not@ compiled@ with@ XSLT@ support."
 END
                 in
                 run
@@ -4370,6 +4372,51 @@ END
             | `CrossReferences (chars, filename) ->
                 Data.report_taxon_file_cross_reference chars run.data filename;
                 run
+            | `RobinsonFoulds filename ->
+                let o = Status.Output (filename,false,[]) in
+                let t = run.trees --> Sexpr.to_list --> Array.of_list in
+                let get_tree_name i t = match t.Ptree.tree.Tree.tree_name with
+                    | Some x -> x
+                    | None   -> "Tree "^(string_of_int i)
+                in
+                let matrix =
+                    let n = Array.length t in
+                    let mat = Array.make_matrix n (n+1) (string_of_int 0) in
+                    for i = 0 to (n-1) do
+                        mat.(i).(0) <- (get_tree_name i t.(i))^" - ";
+                    done;
+                    for i = 0 to (n-1) do
+                        for j = i+1 to (n-1) do
+                            let ij : string =
+                                Tree.robinson_foulds t.(i).Ptree.tree t.(j).Ptree.tree
+                                    --> string_of_int
+                            in
+                            mat.(i).(j+1) <- ij;
+                            mat.(j).(i+1) <- ij;
+                        done;
+                    done;
+                    mat
+                in
+                begin match filename with
+                | None ->
+                    Status.output_table o matrix;
+                    run
+                | Some _ ->
+                    Array.iteri (fun i x ->
+                        let cost = string_of_float (Ptree.get_cost `Adjusted x) in
+                        let res =
+                            TS.build_forest_with_names_n_costs None x cost (false,None) None
+                        in
+                        Status.user_message o (Printf.sprintf "%s\t-" matrix.(i).(0));
+                        List.iter (fun x ->
+                            let str = AsciiTree.for_formatter false true true x in
+                            Status.user_message o (str^"\n"))
+                        res)
+                    t;
+                    Status.output_table o matrix;
+                    run
+                end
+
             | `KolmoMachine filename ->
                 let data =
                     Data.report_kolmogorov_machine filename run.data

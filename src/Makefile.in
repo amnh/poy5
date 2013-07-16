@@ -49,7 +49,7 @@ EXTRAS := @EXTRAS@
 OFLAGS := @OCAMLFLAGS@ 
 NATIVEDYNLINK := @NATIVEDYNLINK@
 
-.PHONY: commands.pdf poy.native poy.byte poy.top clean distclean install doc all poy uninstall portal.native portal install_server
+.PHONY: commands.pdf poy.native poy.byte poy.top clean distclean install doc all poy uninstall portal.native portal install_server docs install_docs install_doc
 
 ##################################
 # Basic Compilation Entry Points
@@ -79,6 +79,8 @@ doc:
 	$(OCAMLBUILD) commands.pdf
 	cp _build/commands.pdf ./commands.pdf
 
+docs: doc
+
 ##################################
 # Cleaning / Removing POY
 #
@@ -88,7 +90,12 @@ install: poy.native
 	test -d $(prefix)/bin || mkdir $(prefix)/bin
 	cp _build/poy.native _build/poy
 	$(INSTALL) -m 0755 _build/poy $(prefix)/bin
+
+install_doc: doc
 	$(INSTALL) -m 0644 _build/poy.1 $(mandir)
+
+
+install_docs: install_doc
 
 uninstall:
 	rm -f $(prefix)/bin/poy

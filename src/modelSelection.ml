@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 3198 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 3356 $"
 
 let ndebug = true
 
@@ -481,6 +481,14 @@ struct
         in
         Ptree.set_data tree n_data
 
+    let categorize_static_dynamic_alphabet data chars =
+        let static = Data.get_code_from_characters_restricted_comp `AllStatic data chars in
+        let dynamic = Data.get_code_from_characters_restricted_comp `AllDynamic data chars in
+        [`Some (true,static);`Some (true,dynamic);]
+            --> List.map (fun x -> Data.categorize_characters_by_alphabet_size_comp data x)
+            --> List.flatten
+            --> List.filter (fun (_,x) -> not (Data.is_absent_present_characters_comp data x))
+
     (** [optimize_tree_and_report o t c] Report and generate the best tree by
         composing the models for each character. *)
     let optimize_tree_and_report report_table status t ((chr,_,_,_,_,_,_) as x) =
@@ -509,8 +517,8 @@ struct
         let data,nodes =
             let data = Data.transform_weight (`ReWeight (`All ,0.0)) (Ptree.get_data t) in
             let weights = collect_character_weights t in
-            chr --> Data.categorize_characters_by_alphabet_size_comp data
-                --> List.filter (fun (_,x) -> not (Data.is_absent_present_characters_comp data x))
+            chr
+                --> categorize_static_dynamic_alphabet data
                 --> optimize_tree weights (Ptree.set_data t data)
                 --> reweight_characters weights `All
                 --> Ptree.get_data

@@ -20,7 +20,7 @@
 (** A annotated chromosome character set implementation. 
 * The annotated chromosome character set allows rearrangements *)
 
-let () = SadmanOutput.register "AnnchromCS" "$Revision: 3160 $"
+let () = SadmanOutput.register "AnnchromCS" "$Revision: 3362 $"
 
 let debug = false
 let debug_assign_single = false
@@ -53,14 +53,14 @@ type t = {
 let cardinal x = IntMap.fold (fun _ _ x -> x + 1) x.meds 0
 
 let print (data : t) = 
-    let printf = Printf.printf in
-    printf "[ total_cost = %f; total_recost = %f; subtree_recost = %f ]\n%!"
-    data.total_cost data.total_recost data.subtree_recost;
-    IntMap.iter ( fun key item ->
-        printf "[ key:%d\n%!" key;
-        Annchrom.print item;
-        printf "] \n%!";
-    ) data.meds
+    Printf.printf "[ total_cost = %f; total_recost = %f; subtree_recost = %f ]\n%!"
+                  data.total_cost data.total_recost data.subtree_recost;
+    IntMap.iter
+        (fun key item ->
+            Printf.printf "[key:%d\n\t%!" key;
+            Annchrom.print item;
+            Printf.printf "]\n%!";)
+        data.meds
 
 let printmedlist alpha x = Printf.printf "%s \n%!" (Annchrom.to_string x alpha) 
 
@@ -120,12 +120,9 @@ let same_codes a b =
 let median2 (a : t) (b : t) =
     (* We will use imperative style for this function *)
     let empty = IntMap.empty in
-
-
     let median code (meda : meds_t) (medians, costs, recosts, total_cost, total_recost) = 
         let medb : meds_t = IntMap.find code b.meds in
         let medab = Annchrom.find_meds2 meda medb in
-        
         let new_median = IntMap.add code medab medians 
         and new_costs = 
             IntMap.add code (float_of_int medab.Annchrom.total_cost) costs  
@@ -138,7 +135,6 @@ let median2 (a : t) (b : t) =
     let medab_map, new_costs, new_recosts, total_cost, total_recost = 
         IntMap.fold median a.meds (empty, empty, empty, 0, 0)
     in
-
     let subtree_recost = a.subtree_recost +. b.subtree_recost +. (float_of_int total_recost) in 
     let subtree_cost = a.subtree_cost +. b.subtree_cost +. (float_of_int total_recost) in 
     if debug then Printf.printf "end of annchromCS.median2 \n%!";

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3267 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3383 $"
 
 let eager        = false
 let uppass_debug = false
@@ -246,9 +246,12 @@ module OneDirF :
                 let y = force_val y in
                 Node.Standard.apply_time root x y)
             
-    let get_times_between ?adjusted ?inc_parsimony a b = match b with
-        | Some b -> Node.Standard.get_times_between ?adjusted ?inc_parsimony (force_val a) (Some (force_val b))
-        | None   -> Node.Standard.get_times_between ?adjusted ?inc_parsimony (force_val a) None
+    let get_times_between ?adjusted ?inc_parsimony a b =
+        let b = match b with
+            | Some b -> Some (force_val b)
+            | None   -> None
+        in
+        Node.Standard.get_times_between ?adjusted ?inc_parsimony (force_val a) b
 
     let uppass_heuristic pcode ptime mine a b = mine
 
@@ -425,7 +428,7 @@ module OneDirF :
     let force x = force x
 end
 
-let q_print n = 
+let q_print n =
     let adjusted_data_lst = match n.adjusted with
         | None -> []
         | Some x -> [x]
@@ -750,21 +753,28 @@ struct
         | None ->
             let node = (get_node child).lazy_node in
             OneDirF.get_times_between ?inc_parsimony ~adjusted node None
+        | Some par when adjusted ->
+            OneDirF.get_times_between ?inc_parsimony ~adjusted
+                    (get_adjusted_nodedata child "get_times_between").lazy_node
+                (Some (get_adjusted_nodedata par "get_times_between").lazy_node)
         | Some par ->
-            if adjusted then
-                OneDirF.get_times_between ?inc_parsimony ~adjusted
-                        (get_adjusted_nodedata child "get_times_between").lazy_node
-                  (Some (get_adjusted_nodedata par "get_times_between").lazy_node)
-            else
-                try let child = not_with (taxon_code par) child.unadjusted
-                    and par = either_with (taxon_code child) par.unadjusted in
+            begin match inc_parsimony with
+                | Some (true,_) -> 
+                    let child = not_with (taxon_code par) child.unadjusted
+                    and par = not_with (taxon_code child) par.unadjusted in
                     OneDirF.get_times_between ?inc_parsimony ~adjusted
-                                                child.lazy_node (Some par.lazy_node)
-                with | _ ->
-                    let child = either_with (taxon_code child) par.unadjusted
-                    and par   = not_with (taxon_code par) child.unadjusted in
-                    OneDirF.get_times_between ?inc_parsimony ~adjusted
-                                                par.lazy_node (Some child.lazy_node)
+                                            child.lazy_node (Some par.lazy_node)
+                | _  ->
+                    try let child = not_with (taxon_code par) child.unadjusted
+                        and par = either_with (taxon_code child) par.unadjusted in
+                        OneDirF.get_times_between ?inc_parsimony ~adjusted
+                                                    child.lazy_node (Some par.lazy_node)
+                    with | _ ->
+                        let child = either_with (taxon_code child) par.unadjusted
+                        and par   = not_with (taxon_code par) child.unadjusted in
+                        OneDirF.get_times_between ?inc_parsimony ~adjusted
+                                                    par.lazy_node (Some child.lazy_node)
+            end
 
 
     (** [extract_states par child] extract the states of child toward par *)
@@ -953,9 +963,19 @@ struct
         | [a] -> OneDirF.get_lk_sites a.lazy_node c
         |  _  -> assert false
 
-    let to_string nodes =
+    let to_string node =
+        let dir_to_string = function
+            | None -> "none"
+            | Some (x,y) -> Printf.sprintf "(%d,%d) - " x y
+        and nodes = match node.adjusted with
+            | Some x -> List.rev (x :: node.unadjusted)
+            | None   -> node.unadjusted
+        in
         let res =
-            List.map (fun x -> OneDirF.to_string x.lazy_node) nodes.unadjusted
+            List.map
+                (fun x ->
+                    (dir_to_string x.dir) ^ (OneDirF.to_string x.lazy_node))
+                nodes
         in
         String.concat "" res
 

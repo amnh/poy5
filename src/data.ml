@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-include Dyn_pam (* TODO (lin): this needs to be seperated properly. *)
+include Dyn_pam
 
 open StdLabels
 
@@ -1045,8 +1045,7 @@ module CharacterSelection = struct
      *  This function is placed here rather than in parser.ml because is needs
      *  to use Data.get_tcm function and if this is used in parser.ml
      *  then there is a circular dependency between poyParser.ml and parser.ml *)
-    let classify_sankoff code data = 
-        let match_cost_matrix code_cm first_lst data = match first_lst with
+    let classify_sankoff code data = let match_cost_matrix code_cm first_lst data = match first_lst with
             | hd :: _ -> 
                 let hd_cm = get_tcm hd data in
                 if code_cm = hd_cm then true else false
@@ -1093,10 +1092,13 @@ module CharacterSelection = struct
             let observed = List.length enc.Nexus.File.st_observed   in
             let between x y = observed >= x && observed <= y        in
             let is_zero_weight enc = enc.Nexus.File.st_weight = 0.0 in
+            let a_size = Alphabet.size enc.Nexus.File.st_alph in
             begin match st_type with
                 | _ when is_zero_weight enc -> data
-                | Nexus.File.STSankoff _    ->
+                | Nexus.File.STSankoff _ when a_size <= 32 ->
                     classify_sankoff code data
+                | Nexus.File.STSankoff _ ->
+                    {data with non_additive_33 = code::data.non_additive_33; }
                 | Nexus.File.STOrdered when observed > 1 ->
                     {data with additive = code :: data.additive }
                 | Nexus.File.STOrdered      -> data
@@ -1128,7 +1130,7 @@ module CharacterSelection = struct
                 add_static_type enc code enc.Nexus.File.st_type data
             | Static (FixedStates enc) ->
                 { data with fixed_states = code :: data.fixed_states }
-            | Dynamic _ -> 
+            | Dynamic _ ->
                 { data with dynamics = code :: data.dynamics }
             | Set ->
                 data
@@ -1225,7 +1227,6 @@ let empty () =
         complex_schema = [];
 }
 
-
 let copy_taxon_characters tc = 
     let new_tc = create_ht () in
     Hashtbl.iter (fun code othertbl ->
@@ -1242,7 +1243,6 @@ let copy_branches = function
             branches;
         Some tbl
     | None   -> None
-
 
 let duplicate data =
     { data with
@@ -1266,6 +1266,96 @@ let reverse_dynamic_static_codes map =
             All_sets.IntSetMap.add key i acc)
         map
         All_sets.IntSetMap.empty
+
+
+(** Convert characters in n33 classification to gen-nonadditve characters.
+ * source contains old matrices from the dynamic characters necessary for the
+ * general non-additive prealigned character. *)
+let pp_ilst chan st = List.iter (Printf.fprintf chan "%d ") st
+exception Missing_Sequence
+let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
+    let get_static_state t c a =
+        match Hashtbl.find (Hashtbl.find data.taxon_characters t) c with
+        | Stat (_,state),`Unknown ->
+            Alphabet.get_gap a
+        | Stat (_,state),`Specified ->
+            begin match state with
+            | Some x ->
+                let states = Nexus.File.static_state_to_list x in
+                begin match states with
+                | []  -> raise Missing_Sequence
+                | [0] -> Alphabet.get_gap a
+                | xs  -> Alphabet.find_comb xs a
+                end
+            | None -> Alphabet.get_gap a
+            end
+        | _ -> assert false
+    in
+    let generate_sequence_of_static_state
+            chars name_tbl code_tbl taxa alph code codes : Sequence.s =
+        let seq = Sequence.create (List.length codes) in
+        try List.iter
+            ~f:(fun c ->
+                let state = get_static_state taxa c alph in
+                let () = try Hashtbl.remove name_tbl (Hashtbl.find code_tbl c)
+                         with Not_found -> () in
+                let () = try Hashtbl.remove code_tbl c
+                         with Not_found -> () in
+                Hashtbl.remove chars c;
+                Sequence.prepend seq state)
+            (List.rev codes);
+            seq
+        with Missing_Sequence ->
+            Sequence.make_empty alph
+    in
+    let adder spec_tbl char_tbl name_tbl code_tbl code : int =
+        let codes = All_sets.IntegerMap.find code data.dynamic_static_codes in
+        match codes with
+        | [] -> assert false
+        | x::_ when not (List.mem x data.non_additive_33) -> x
+        | x::_ ->
+            let dynamic_spec = match Hashtbl.find dyndata.character_specs code with
+                | Dynamic spec -> spec (* already set up matrices *)
+                | _            -> assert false
+            in
+            let new_spec = { dynamic_spec with
+                                state = `SeqPrealigned;
+                                initial_assignment = `GeneralNonAdd; }
+            in
+            let alph = get_alphabet dyndata code in
+            Hashtbl.iter
+                (fun tcode chars ->
+                    let delimiter = [] in
+                    let seq =
+                        generate_sequence_of_static_state
+                            chars name_tbl code_tbl tcode alph code codes
+                    in
+                    let state = Dyna (code,{ seq_arr = [| {seq=seq; delimiter=delimiter; code=code; } |]; }) in
+                    Hashtbl.replace chars code (state,`Specified))
+                char_tbl;
+            (* remove old specs *)
+            List.iter (fun x -> Hashtbl.remove spec_tbl x) codes;
+            Hashtbl.replace spec_tbl code (Dynamic new_spec);
+            let name = Hashtbl.find dyndata.character_codes code in
+            Hashtbl.replace name_tbl name code;
+            Hashtbl.replace code_tbl code name;
+            code
+    in
+    let new_specs = Hashtbl.copy data.character_specs 
+    and new_chars = copy_taxon_characters data.taxon_characters
+    and new_names = Hashtbl.copy data.character_names
+    and new_codes = Hashtbl.copy data.character_codes in
+    let c =
+        List.fold_left
+            ~f:(fun acc x -> (adder new_specs new_chars new_names new_codes x)::acc)
+            ~init:[] codes
+    in
+    { data with
+        character_codes = new_codes;
+        character_names = new_names;
+        character_specs = new_specs;
+        taxon_characters= new_chars; } --> categorize, c
+
 
 (* [convert_dynamic_to_static_branches src dest] Use the static_dynamic_codes
  * map from destination, and the branches structure from source. This behavior
@@ -1752,7 +1842,7 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
         let taxon = trim taxon in
         if All_sets.StringMap.mem taxon data.synonyms then
             stop_if_not_all_terminals_in_tree map
-            (All_sets.StringMap.find taxon data.synonyms)
+                (All_sets.StringMap.find taxon data.synonyms)
         else 
             if All_sets.StringMap.mem taxon map then begin
                 All_sets.StringMap.remove taxon map
@@ -1760,13 +1850,11 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
                 let msg = 
                     ("input@ tree@ " ^ string_of_int position ^ 
                     (if "" <> file then "@ of@ file@ " ^ esc_file else "") ^
-                    "@ has@ the@ terminal@ "
-                    ^ StatusCommon.escape taxon ^ 
+                    "@ has@ the@ terminal@ " ^ StatusCommon.escape taxon ^ 
                     "@ and@ there@ is@ no@ data@ loaded@ for@ it")
                 in
                 let () = Status.user_message Status.Error msg in
                 failwith "Data not found"
-                    
     in
     let leafs = List.fold_left ~f:leaves ~init:[] tree in
     ignore
@@ -1777,7 +1865,8 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
                        ~init:data.taxon_names
                         leafs
     in
-    if All_sets.StringMap.is_empty res then ()
+    if All_sets.StringMap.is_empty res then
+        true
     else 
         let taxa = 
             (String.concat ", "
@@ -1787,15 +1876,15 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
         let file_string =
             if "" <> file then "@ of@ file@ " ^ esc_file else ""
         in
-        let msg = 
-            "The@ following@ terminals@ do@ not@ appear@ in@ the@ input@ "
-            ^ "tree@ " ^ string_of_int position ^ file_string ^ "@ :@ " ^ taxa ^
-            ".@ Beware@ that@ this@ tree@ will@ be@ incompatible@ with@ any@ " ^
-            "@ other@ trees@ built@ by@ POY,@ as@ some@ terminals@ appearing@ "
-            ^ "in@ the@ new@ trees@ will@ be@ missing@ on@ this@ one@ and@ " ^ 
-            "could@ cause@ errors." 
+        let msg =
+            "The@ following@ terminals@ do@ not@ appear@ in@ input@ " ^
+            "tree@ " ^ string_of_int position ^ file_string ^ "@ :@ " ^ taxa ^
+            ".@ I@ am@ going@ to@ ignore@ this@ tree@ and@ continue@ processing@ " ^
+            "other@ trees@ as@ this@ tree@ will@ be@ incompatible@ with@ trees@ " ^
+            "built@ by@ POY."
         in
-        Status.user_message Status.Warning msg
+        Status.user_message Status.Warning msg;
+        false
 
 let process_trees data file =
     try let ch, file = FileStream.channel_n_filename file in
@@ -2163,11 +2252,9 @@ let process_parsed_breakinv data res original_filename file tcmfile tcm_full
         let tl = get_taxon_characters data tcode in
         let seqa = 
             {seq = singleseq; 
-            delimiter=
-                if (List.length delilst)>1 then delilst 
-                else []
-            ; 
-            code= -1} in
+            delimiter= if (List.length delilst)>1 then delilst else [] ; 
+            code= -1}
+        in
         let dyna_data = { seq_arr = [|seqa|]; } in
         let spc = `Specified in
         if debug_parsed_seq then  
@@ -2257,7 +2344,6 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                                    tcm_original tcm3 default_mode lk_model
                                    alphabet dyna_state dyna_pam weight
                                    prealigned domerge =
-    if debug_parsed_seq then Printf.printf "process normal sequence, prealigned:%b\n%!" prealigned;
     let get_multi_segment_seq file_taxon_chrom_loci_frag_seq =
         (* input seq list list list list become a matrix looks like this:
         * [ 
@@ -2266,7 +2352,7 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
             ...
            ]
         *)
-        let max_num_fragment = ref 0 in
+        let max_num_fragment = ref (~-1) in
         let file_taxon_frag_seq =
             List.map
                 (fun (taxon_chrom_loci_frag_seq,t) ->
@@ -2275,14 +2361,14 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                     (*each loci is a list of fragment, each fragment is a seq *)
                     match taxon_chrom_loci_frag_seq with 
                         | [[loci_frag_seq]] -> (*this is a sequence list*) 
-                            if !max_num_fragment < (List.length loci_frag_seq) then begin
-                                if !max_num_fragment=0 then
-                                    max_num_fragment := (List.length loci_frag_seq)
+                            let found = List.length loci_frag_seq in
+                            if !max_num_fragment != found then begin
+                                if !max_num_fragment < 0 then
+                                    max_num_fragment := found
                                 else begin
                                     output_errorf
-                                        ("I found an inconsistent number of^^
-                                         fragments in the sequence from %s.")
-                                        original_filename;
+                                        ("The taxon %s in %s has %d fragments where we expect %d.")
+                                         t original_filename found !max_num_fragment ;
                                     failwith "Illegal prealigned molecular sequences."
                                 end
                            end;
@@ -2295,15 +2381,13 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                                 ^^"unexpectedly@ encountered@ loci('|')@ or@ "
                                 ^^"chromosome@ ('@@')@ delimiters.")
                                 original_filename;
-                            failwith "Illegal prealigned molecular sequences.")
+                            failwith "Illegal molecular sequences.")
                 file_taxon_chrom_loci_frag_seq
         in
         let file_taxon_frag_seq = Array.of_list file_taxon_frag_seq in
         (*tranpose the matrix above *)
         let num_taxon = Array.length file_taxon_frag_seq in
         let max_num_fragment = !max_num_fragment in
-        if debug_parsed_seq then  
-            Printf.printf "num_taxon=%d,max_num_fragment=%d\n%!" num_taxon max_num_fragment;
         let frag_taxon_seq = ref [] in
         for j = max_num_fragment - 1 downto 0 do
             let acc = ref [] in
@@ -2873,9 +2957,8 @@ let aux_process_molecular_file ?(respect_case = false) tcmfile tcm_full
             tcm_original tcm3 alphabet processor builder dyna_state data file =
     begin try
         let ch = Parser.Files.molecular_to_fasta file in
-        let res = 
-            try
-                Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch
+        let res =
+            try  Fasta.of_channel ~respect_case:respect_case (builder alphabet) ch
             with Fasta.Illegal_molecular_format fl ->
                 let file = FileStream.filename file in
                 let fl = { fl with Fasta.filename = file } in
@@ -2948,10 +3031,12 @@ let process_ignore_taxon data taxon =
             | Not_found -> ()
         in
         All_sets.StringMap.remove taxon data.taxon_names,
-        All_sets.IntegerMap.remove code data.taxon_codes 
+            All_sets.IntegerMap.remove code data.taxon_codes 
     in
-    { data with ignore_taxa_set = res; taxon_codes = taxon_codes; taxon_names =
-                    taxon_names}
+    { data with
+        ignore_taxa_set = res;
+        taxon_codes = taxon_codes;
+        taxon_names = taxon_names;}
 
 
 let process_ignore_file data file = 
@@ -4440,39 +4525,47 @@ let compute_priors data chars u_gap =
        specified in the list. *)
     let taxon_adder tax taxon_chars =
         let total = ref 0 in
-        let adder char_code =
-            try let (cs, _) = Hashtbl.find taxon_chars char_code in
-                match cs with
-                | Dyna (_, dyna_data ) ->
-                    Array.iter
-                        (fun x ->
-                            total := (Sequence.length x.seq) - 1 + !total;
-                            counter := (Sequence.length x.seq) - 1 + !counter;
-                            for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
-                                let lst = Alphabet.find_codelist (Sequence.get x.seq i) alph in
-                                if lst = [] then begin
-                                    ()
-                                end else
-                                    let lst = if u_gap 
-                                        then lst 
-                                        else List.filter (fun x -> not (x = gap_char)) lst
-                                    in
-                                    let inv = 1.0 /. (float_of_int (List.length lst)) in
-                                    List.iter
-                                        (fun x ->
-                                            priors.(x+offset) <- priors.(x+offset) +. inv)
-                                        lst
-                            done)
-                        dyna_data.seq_arr
-                | Stat (_,s) -> 
-                    Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
-                | FS code -> failwith "Data.compute_priors , fixed_states"
-            (* this not found will happen when we are accessing the taxon
-               characters when a taxa has missing information at the node. *)
-            with | Not_found -> 
-                ()
+        let rec adder cs char_code = match cs with
+            | Dyna (_, dyna_data ) ->
+                Array.iter
+                    (fun x ->
+                        total := (Sequence.length x.seq) - 1 + !total;
+                        counter := (Sequence.length x.seq) - 1 + !counter;
+                        for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
+                            let lst = Alphabet.find_codelist (Sequence.get x.seq i) alph in
+                            if lst = [] then begin
+                                ()
+                            end else
+                                let lst = if u_gap 
+                                    then lst 
+                                    else List.filter (fun x -> not (x = gap_char)) lst
+                                in
+                                let inv = 1.0 /. (float_of_int (List.length lst)) in
+                                List.iter
+                                    (fun x ->
+                                        priors.(x+offset) <- priors.(x+offset) +. inv)
+                                    lst
+                        done)
+                    dyna_data.seq_arr
+            | Stat (_,s) -> 
+                Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
+            | FS code ->
+                let fs = match Hashtbl.find data.character_specs char_code with
+                    | Static (FixedStates fs) -> fs
+                    | _ -> assert false
+                in
+                let i = Hashtbl.find fs.codes code in
+                let e = {seq=fs.seqs.(i);delimiter=[];code=code;} in
+                adder (Dyna (code,{seq_arr=[| e |]})) char_code
         in
-        List.iter adder chars;
+        List.iter
+            (fun char_code ->
+                (* this not found will happen when we are accessing the taxon
+                characters when a taxa has missing information at the node. *)
+                try let (cs, _) = Hashtbl.find taxon_chars char_code in
+                    adder cs char_code
+                with | Not_found -> ())
+            chars;
         longest := max !total !longest;
         lengths := !total :: !lengths
     in
@@ -4517,6 +4610,108 @@ let compute_priors data chars u_gap =
     final_priors
 
 
+let create_fixed_states_matrix sequences dhs use_ukk filename =
+    let states = Array.length sequences in
+    let distances = Array.make_matrix states states 0. in
+    let branches = ref None in
+    let annotate_with_mauve = match dhs.pam.annotate_tool with
+        | Some (`Mauve _) -> true
+        | Some (`Default _) -> false
+        | None -> false
+    and using_likelihood = match dhs.lk_model with
+        | Some _ -> true
+        | None   -> false
+    in
+    assert( not (annotate_with_mauve && using_likelihood) );
+    (** define functions finding the costs *)
+    let mauve_annotation x y x_seq y_seq =
+        let min_lcb_ratio,min_cover_ratio,min_lcb_len,max_lcb_len =
+            match dhs.pam.annotate_tool with
+            | Some (`Mauve (a,b,c,d)) -> a,b,c,d
+            | _ -> assert(false)
+        in
+        let l_i_c = match dhs.pam.locus_indel_cost with
+            | Some cost -> cost
+            | None -> (10,100)
+        in
+        let seqx,seqy = Sequence.del_first_char x_seq,
+                        Sequence.del_first_char y_seq
+        in
+        (*we don't call AliMap.create_general_ali_mauve directly here,
+        * because parameter of that function is with low level module
+        * type, like "Block.pairChromPam_t". Data.ml is suppose to
+        * be on top of those modules -- including aliMap. To avoid 
+        * circular denpendency, we call get_matcharr_and_costmatrix and
+        * output2mauvefile seperately.*)
+        let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
+                edit_cost,indel_cost,full_code_lstlst =
+            Block_mauve.get_matcharr_and_costmatrix
+                    seqx seqy min_lcb_ratio min_cover_ratio min_lcb_len
+                    max_lcb_len l_i_c dhs.tcm2d_original use_ukk
+        in
+        let re_meth = match dhs.pam.re_meth with
+            | Some value -> value
+            | None -> `Locus_Breakpoint 10
+        and circular = match dhs.pam.circular with
+            | Some value -> value
+            | None -> 0
+        in
+        let cost, rc, alied_gen_seq1, alied_gen_seq2 =
+            GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat
+                                    gen_gap_code re_meth circular false
+        in
+        (*remember the editing cost between lcbs is not included in
+        * the gen_cost_mat, we set cost between matching lcb to 0 in
+        * block_mauve, just to make sure they are aligned to each other*)
+        let cost = cost + edit_cost in
+        let xname,yname = string_of_int x,string_of_int y in
+        let fullname = match filename with
+            | None -> ""
+            | Some fname -> (fname^"_"^xname^"_"^yname^".alignment")
+        in
+        Block_mauve.output2mauvefile fullname cost None alied_gen_seq1
+            alied_gen_seq2 full_code_lstlst ali_mat gen_gap_code
+            (Sequence.length seqx) (Sequence.length seqy);
+        float_of_int cost 
+    and likelihood_costs x y x_seq y_seq = 
+        let model = match dhs.lk_model with Some x -> x | None -> assert false in
+        let bl,cst =
+            FloatSequence.pair_distance
+                (FloatSequence.make_model dhs.alph model) x_seq y_seq
+        in
+        let () = match !branches with
+            | Some z ->
+                z.(x).(y) <- bl; z.(y).(x) <- bl
+            | None ->
+                let z = Array.make_matrix states states 0.0 in
+                z.(x).(y) <- bl; z.(y).(x) <- bl; 
+                branches := Some z
+        in
+        cst
+    and sequence_costs _ _ x_seq y_seq =
+        let cost =
+            if use_ukk then
+                Sequence.NewkkAlign.cost_2 x_seq y_seq dhs.tcm2d_original Sequence.NewkkAlign.default_ukkm
+            else
+                Sequence.Align.cost_2 x_seq y_seq dhs.tcm2d_original Matrix.default
+        in
+        float_of_int cost
+    in
+    (* Fill the costs for all pairs of the single assignment sequences *)
+    let f = 
+        if annotate_with_mauve
+            then mauve_annotation
+        else if using_likelihood
+            then likelihood_costs
+            else sequence_costs
+    in
+    Array_ops.fill_symmetric_square_matrix
+        ~status:(Some "Fixed States Cost Matrix") f sequences distances;
+    !branches,distances
+
+
+
+
 (* this is the only function that applies a likelihood model to a set of
  * characters. it ensures that the dynamic characters have gap as an additional
  * state *)
@@ -4545,16 +4740,7 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                     Hashtbl.replace table code
                         (Dynamic {x with state = `Ml;
                                       lk_model = !model_opt;})
-                | (Kolmogorov _|Dynamic _|Set|Static _) -> assert false)
-            codes
-    end else begin
-        (* replace all characters in the set of codes *)
-        List.iter
-            (fun code -> match Hashtbl.find table code with
-                | Static (NexusFile y) ->
-                    Hashtbl.replace table code
-                        (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
-                | Dynamic x ->
+                | Static (FixedStates y) ->
                     let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
                         | None,`Independent | None,`Coupled _ ->
                             model_opt := Some model
@@ -4562,10 +4748,67 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                             model_opt := Some (MlModel.add_gap_to_model priors_ model)
                         | Some _,_ -> ()
                     in
-                    Hashtbl.replace table code
-                        (Dynamic {x with state = `Ml; lk_model = !model_opt;})
-                | (Kolmogorov _|Set|Static _) -> assert false)
-        codes
+                    let fss = {y.original_dynspec 
+                                with state = `Ml; lk_model = !model_opt;} in
+                    let branches,distances =
+                        let use_ukk = match !Methods.algn_mode with
+                            | `Algn_Newkk -> true
+                            | _ -> false
+                        in
+                        create_fixed_states_matrix y.seqs fss use_ukk None
+                    in
+                    let fss = {y with original_dynspec = fss;
+                                      costs = distances;
+                                      opt_bls = branches; }
+                    in
+                    Hashtbl.replace table code (Static (FixedStates fss))
+
+                | (Kolmogorov _|Dynamic _|Set) -> assert false)
+            codes
+    end else begin
+        (* replace all characters in the set of codes *)
+        let adder code t_code = match t_code with
+            | Static (NexusFile y) ->
+                Hashtbl.replace table code
+                    (Static (NexusFile {y with Nexus.File.st_type = model_enc; }))
+            | Dynamic x ->
+                let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
+                    | None,`Independent | None,`Coupled _ ->
+                        model_opt := Some model
+                    | None, `Missing -> 
+                        model_opt := Some (MlModel.add_gap_to_model priors_ model)
+                    | Some _,_ -> ()
+                in
+                Hashtbl.replace table code
+                    (Dynamic {x with state = `Ml; lk_model = !model_opt;})
+            | Static (FixedStates y) ->
+                let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
+                    | None,`Independent | None,`Coupled _ ->
+                        model_opt := Some model
+                    | None, `Missing -> 
+                        model_opt := Some (MlModel.add_gap_to_model priors_ model)
+                    | Some _,_ -> ()
+                in
+                let fss = {y.original_dynspec 
+                            with state = `Ml; lk_model = !model_opt;} in
+                let branches,distances =
+                    let use_ukk = match !Methods.algn_mode with
+                        | `Algn_Newkk -> true
+                        | _ -> false
+                    in
+                    create_fixed_states_matrix y.seqs fss use_ukk None
+                in
+                let fss = {y with original_dynspec = fss;
+                                    costs = distances;
+                                    opt_bls = branches; }
+                in
+                Hashtbl.replace table code (Static (FixedStates fss))
+
+            | (Kolmogorov _|Set) -> assert false
+        in
+        List.iter
+            (fun code -> adder code (Hashtbl.find table code))
+            codes
     end
 
 let update_priors data charcodes use_gap = 
@@ -5012,24 +5255,15 @@ let auto_partition mode data code =
     | _ -> 
         Status.user_message Status.Information "There are no potential partitions"
 
+
+
 (*tranform dynamic charactors to fixed_states(static) charactors *)
 let compute_fixed_states filename data code polymph =
-    let debug = false and debug2 = false in
-    if debug then Printf.printf "Data.compute_fixed_states, code=%d \n%!" code;
     let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
     in
-    let annotate_with_mauve = match dhs.pam.annotate_tool with
-        | Some (`Mauve _) -> true
-        | Some (`Default _) -> false
-        | None -> false
-    and using_likelihood = match dhs.lk_model with
-        | Some _ -> true
-        | None   -> false
-    in
-    let use_ukk = 
-        match !Methods.algn_mode with
+    let use_ukk = match !Methods.algn_mode with
         | `Algn_Newkk -> true
         | _ -> false
     in
@@ -5051,13 +5285,10 @@ let compute_fixed_states filename data code polymph =
         Array.of_list
             (Hashtbl.fold process_taxon data.searchbase_characters [])
     in
-    let taxalen = (Array.length taxa_arr) 
-    and searchbaselen = (Array.length searchbase_arr) in
+    let taxalen = (Array.length taxa_arr) in
     let total_arr = Array.append taxa_arr searchbase_arr in
     let taxa = Array.map fst total_arr in
     let initial_sequences = Array.map snd total_arr in
-    if debug then Printf.printf "total size = %d + %d = %d\n%!" 
-    taxalen searchbaselen  (Array.length total_arr);
     (* find all single assignments between two sequences; these become the
        states that can be placed on the internal nodes of the tree.
        this process resolves polymorphism of input sequences.
@@ -5107,92 +5338,10 @@ let compute_fixed_states filename data code polymph =
     in
     let states = !states in
     let sequences = Array.init states (fun _ -> Sequence.create 1) in
-    let distances = Array.make_matrix states states 0. in
-    let branches = ref None in
     Hashtbl.iter (fun seq pos -> sequences.(pos) <- seq) sequences_taxon;
-    (** define functions finding the costs *)
-    let mauve_annotation x y x_seq y_seq =
-        let min_lcb_ratio,min_cover_ratio,min_lcb_len,max_lcb_len =
-            match dhs.pam.annotate_tool with
-            | Some (`Mauve (a,b,c,d)) -> a,b,c,d
-            | _ -> assert(false)
-        in
-        let l_i_c = match dhs.pam.locus_indel_cost with
-            | Some cost -> cost
-            | None -> (10,100)
-        in
-        let seqx,seqy = Sequence.del_first_char x_seq,
-                        Sequence.del_first_char y_seq
-        in
-        (*we don't call AliMap.create_general_ali_mauve directly here,
-        * because parameter of that function is with low level module
-        * type, like "Block.pairChromPam_t". Data.ml is suppose to
-        * be on top of those modules -- including aliMap. To avoid 
-        * circular denpendency, we call get_matcharr_and_costmatrix and
-        * output2mauvefile seperately.*)
-        let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
-                edit_cost,indel_cost,full_code_lstlst =
-            Block_mauve.get_matcharr_and_costmatrix
-                    seqx seqy min_lcb_ratio min_cover_ratio min_lcb_len
-                    max_lcb_len l_i_c dhs.tcm2d_original use_ukk
-        in
-        let re_meth = match dhs.pam.re_meth with
-            | Some value -> value
-            | None -> `Locus_Breakpoint 10
-        and circular = match dhs.pam.circular with
-            | Some value -> value
-            | None -> 0
-        in
-        let cost, rc, alied_gen_seq1, alied_gen_seq2 =
-            GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat
-                                    gen_gap_code re_meth circular false
-        in
-        (*remember the editing cost between lcbs is not included in
-        * the gen_cost_mat, we set cost between matching lcb to 0 in
-        * block_mauve, just to make sure they are aligned to each other*)
-        let cost = cost + edit_cost in
-        let xname,yname = string_of_int x,string_of_int y in
-        let fullname = match filename with
-            | None -> ""
-            | Some fname -> (fname^"_"^xname^"_"^yname^".alignment")
-        in
-        Block_mauve.output2mauvefile fullname cost None alied_gen_seq1
-            alied_gen_seq2 full_code_lstlst ali_mat gen_gap_code
-            (Sequence.length seqx) (Sequence.length seqy);
-        float_of_int cost 
-    and likelihood_costs x y x_seq y_seq = 
-        let model = match dhs.lk_model with Some x -> x | None -> assert false in
-        let bl,cst =
-            FloatSequence.pair_distance
-                (FloatSequence.make_model dhs.alph model) x_seq y_seq
-        in
-        let () = match !branches with
-            | Some z ->
-                z.(x).(y) <- bl; z.(y).(x) <- bl
-            | None ->
-                let z = Array.make_matrix states states 0.0 in
-                z.(x).(y) <- bl; z.(y).(x) <- bl; 
-                branches := Some z
-        in
-        cst
-    and sequence_costs _ _ x_seq y_seq =
-        let cost =
-            if use_ukk then
-                Sequence.NewkkAlign.cost_2 x_seq y_seq dhs.tcm2d_original Sequence.NewkkAlign.default_ukkm
-            else
-                Sequence.Align.cost_2 x_seq y_seq dhs.tcm2d_original Matrix.default
-        in
-        float_of_int cost
+    let branches,distances =
+        create_fixed_states_matrix sequences dhs use_ukk filename
     in
-    (* Fill the costs for all pairs of the single assignment sequences *)
-    let f = 
-        if annotate_with_mauve
-            then mauve_annotation
-        else if using_likelihood
-            then likelihood_costs
-            else sequence_costs
-    in
-    Array_ops.fill_symmetric_square_matrix f sequences distances;
     let taxon_codes = Hashtbl.create 97 in
     Hashtbl.iter
         (fun code seq ->
@@ -5203,11 +5352,15 @@ let compute_fixed_states filename data code polymph =
         { costs = distances;
            seqs = sequences;
           codes = taxon_codes;
-        opt_bls = !branches; 
+        opt_bls = branches; 
         original_dynspec = { dhs with polymorphism = polymph }; 
         }
     in
-    let static_data = FixedStates fs_data in
+    FixedStates fs_data
+
+
+let compute_fixed_states filename data code polymph =
+    let static_data = compute_fixed_states filename data code polymph in
     Hashtbl.replace data.character_specs code (Static static_data);
     Hashtbl.iter
         (fun taxon_code charactors_tbl -> 
@@ -6424,8 +6577,8 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
             (fun x -> 
                 Array.init (Array.length enc)
                     (fun y -> 
-                        Parser.OldHennig.to_new_atom table newenc.(y) 
-                                            (snd enc.(y)) matrix.(x).(y)))
+                        Parser.OldHennig.to_new_atom table newenc.(y) None matrix.(x).(y)))
+
     in
     let res =
         { Nexus.File.empty_parsed () with

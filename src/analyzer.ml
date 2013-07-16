@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3248 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3318 $"
 
 let debug = false
 
@@ -398,6 +398,7 @@ let dependency_relations (init : Methods.script) =
                 | `Dataset filename
                 | `Nodes filename
                 | `TerminalsFiles filename
+                | `RobinsonFoulds filename
                 | `CrossReferences (_, filename) ->
                         let fn = filename_to_list filename in
                         [(Data :: fn, fn, init, Invariant)], filename, false
@@ -1798,6 +1799,8 @@ let script_to_string (init : Methods.script) =
                         "@[report the tree selection p-values@]"
                 | `TerminalsFiles _ ->
                         "@[report the terminals per file@]"
+                | `RobinsonFoulds _ ->
+                        "@[report robinson foulds tree distance matrix@]"
                 | `CrossReferences (_, _) ->
                         "@[report the cross references@]"
                 | `GraphicSupports (_, _)
@@ -2080,6 +2083,7 @@ let is_master_only (init : Methods.script) = match init with
     | `Nodes _
     | `TerminalsFiles _
     | `CrossReferences _
+    | `RobinsonFoulds _
     | `GraphicSupports _
     | `Topo_Selection _
     | `Supports _

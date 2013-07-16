@@ -617,10 +617,10 @@ let handle_array_position_error_and_message x =
         | _ -> failwith "Impossible state?"
     in
     Status.user_message Status.Error
-    ("@[<v 2>@[Illegal@ character@ position:@]@,@[You@ asked@ me@ to@ " ^
-    command ^ "@ the@ character@ " ^ string_of_int position ^ ",@ but@ " ^
-    "@ that@ position@ does@ not@ exists@ in@ the@ input@ matrix.@ " ^
-    "I@ am@ cancelling@ the@ processing@ of@ this@ file.@]@]");
+        ("@[<v 2>@[Illegal@ character@ position:@]@,@[You@ asked@ me@ to@ " ^
+         command ^ "@ the@ character@ " ^ string_of_int position ^ ",@ but@ " ^
+         "@ that@ position@ does@ not@ exists@ in@ the@ input@ matrix.@ " ^
+         "I@ am@ cancelling@ the@ processing@ of@ this@ file.@]@]");
     failwith "Illegal character number in input file"
 
 let update_options_in_specs arr x = 
@@ -756,7 +756,7 @@ let lor_list_withhash l hash =
     | None -> process (fun x -> x)
 
 let single_encoding_appl spec (data, unknown) =
-    try 
+    try
         if not spec.active then FileContents.Inactive_Character
         else 
             match spec.ordered with
@@ -781,7 +781,7 @@ let single_encoding_appl spec (data, unknown) =
                 let min, max = List.fold_left (processor) st data in
                 FileContents.Ordered_Character (min, max, unknown)
             | Is_sankoff ->
-                    FileContents.Sankoff_Character (data, unknown)
+                FileContents.Sankoff_Character (data, unknown)
     with
     | _ -> 
             let msg = "This truly is an unexpected error." in
@@ -1289,6 +1289,7 @@ let categorize_chars (chararray, taxon_index) =
      final_filter codes_nonadd32,
      final_filter codes_nonadd33)
      
+
 let generate_alphabet alph spec =
     let alph, gap = 
         match alph with
@@ -1303,20 +1304,17 @@ let generate_alphabet alph spec =
     in
     Nexus.File.generate_alphabet alph gap
 
+
 let to_new_spec ?(separator=":") filename alph spec pos =
     let newspec = 
         Nexus.File.spec_of_alph alph filename (filename ^ separator ^ string_of_int pos)
     in
-    let newspec =
-        if not spec.active then 
-            { newspec with Nexus.File.st_eliminate = true }
-        else newspec
-    in
     let newspec = 
-        { newspec with Nexus.File.st_weight = float_of_int
-        spec.weight } 
+        { newspec with
+            Nexus.File.st_weight = float_of_int spec.weight;
+            Nexus.File.st_eliminate = not spec.active; } 
     in
-    match spec.ordered,spec.likelihood_model with
+    match spec.ordered, spec.likelihood_model with
     | _, Some model ->
         { newspec with
             Nexus.File.st_type = Nexus.File.STLikelihood model }        
@@ -1328,80 +1326,95 @@ let to_new_spec ?(separator=":") filename alph spec pos =
             { newspec with 
                 Nexus.File.st_type = Nexus.File.STSankoff spec.cost_matrix }
 
-let to_new_atom table_of_atoms 
-(newspec : Nexus.File.static_spec) (oldspec : encoding_spec)  
-data : Nexus.File.static_state =
+let to_new_atom table_of_atoms (newspec:Nexus.File.static_spec) oldalph data =
+    let is_sequential a = match Alphabet.kind a with
+        | Alphabet.Sequential -> true
+        | Alphabet.Simple_Bit_Flags | Alphabet.Extended_Bit_Flags
+        | Alphabet.Continuous | Alphabet.Combination_By_Level -> false
+    in
+    let transform_alphabet = match oldalph with
+        | None -> (fun x -> x)
+        | Some a when not (is_sequential a) -> (fun x -> x)
+        | Some a ->
+            (fun old_base ->
+                let old_name = Alphabet.find_code old_base a in
+                let new_base = Alphabet.find_base old_name newspec.Nexus.File.st_alph in
+                new_base)
+    in
     if Hashtbl.mem table_of_atoms data then 
         Hashtbl.find table_of_atoms data
     else
-        let res = 
-            match data with
+        let res = match data with
             | FileContents.Ordered_Character (_, _, true)
             | FileContents.Unordered_Character (_, true)
             | FileContents.Sankoff_Character (_, true) -> None
             | FileContents.Ordered_Character (min, max, false) -> Some (`List [min; max])
             | FileContents.Unordered_Character (x, false) ->
-                    let set = BitSet.create 31 in
-                    let () = 
-                        let rec process_bits pos v =
-                            if v = 0 || pos > 32 then ()
-                            else 
-                                let mask = 1 lsl pos in
-                                let () = 
-                                    if 0 <> v land mask then
-                                        BitSet.set set pos 
-                                    else ()
-                                in 
-                                let next = (v land (lnot mask)) in
-                                process_bits (pos + 1) next
-                        in
-                        process_bits 0 x
+                let set = BitSet.create 31 in
+                let () =
+                    let rec process_bits pos v =
+                        if v = 0 || pos > 32 then ()
+                        else
+                            let mask = 1 lsl pos in
+                            let () =
+                                if 0 <> v land mask then
+                                    BitSet.set set pos
+                                else ()
+                            in
+                            let next = (v land (lnot mask)) in
+                            process_bits (pos + 1) next
                     in
-                    Some (`Bits set)
-            | FileContents.Sankoff_Character (s, false) -> Some (`List s)
+                    process_bits 0 x
+                in
+                Some (`Bits set)
+            | FileContents.Sankoff_Character (s, false) ->
+                let x = List.map transform_alphabet s in
+                Some (`List x)
             | _ -> assert false
         in
         let () = Hashtbl.add table_of_atoms data res in
         res
 
-let to_new_parser ?(separator=":") filename alphabet (specs, data, trees) :
-    Nexus.File.nexus =
-    let taxa, data = 
+let to_new_parser ?(separator=":") filename alphabet (specs, data, trees) : Nexus.File.nexus =
+    let taxa, data =
         let data, taxa = List.split data in
-        Array.map (fun x -> Some x) (Array.of_list taxa),
-        Array.of_list data
+        Array.map (fun x -> Some x) (Array.of_list taxa), Array.of_list data
     in
-    let nchars = Array.length specs 
+    let nchars = Array.length specs
     and ntaxa = Array.length taxa in
-    let new_specs = 
-        match alphabet with
+    let new_specs = match alphabet with
         | None ->
-                let table = Hashtbl.create 1667 in
-                Array.iter (fun x ->
-                    if not (Hashtbl.mem table x) then 
+            let table = Hashtbl.create 1667 in
+            Array.iter
+                (fun x ->
+                    if not (Hashtbl.mem table x) then
                         let a = generate_alphabet None x in
-                        Hashtbl.replace table x a) specs;
-                let alph = Array.map (Hashtbl.find table) specs in
-                Array.init nchars (fun x ->
-                    to_new_spec ~separator filename alph.(x) specs.(x) x)
+                        Hashtbl.replace table x a)
+                specs;
+            let alph = Array.map (Hashtbl.find table) specs in
+            Array.init nchars (fun x ->
+                to_new_spec ~separator filename alph.(x) specs.(x) x)
         | Some alphs ->
-                let table = Hashtbl.create 1667 in
-                Array.iteri (fun pos x ->
-                    if not (Hashtbl.mem table x) then 
-                        Hashtbl.replace table x (generate_alphabet (Some x)
-                        specs.(pos))) alphs;
-                let alphs = Array.map (Hashtbl.find table) alphs in
-                Array.init nchars (fun x ->
-                    to_new_spec ~separator filename 
-                    alphs.(x) 
-                    specs.(x) x)
+            let table = Hashtbl.create 1667 in
+            Array.iteri
+                (fun pos x ->
+                    if not (Hashtbl.mem table x) then
+                        let a = generate_alphabet (Some x) specs.(pos) in
+                        Hashtbl.replace table x a)
+                alphs;
+            let alphs = Array.map (Hashtbl.find table) alphs in
+            Array.init nchars (fun x ->
+                to_new_spec ~separator filename alphs.(x) specs.(x) x)
     in
     let table_of_atoms = Hashtbl.create 1667 in
     let new_data : Nexus.File.static_state array array =
+        let get_alph = match alphabet with
+            | None -> (fun _ -> None)
+            | Some x -> (fun y -> Some (x.(y)))
+        in
         Array.init ntaxa (fun x ->
             Array.init nchars (fun y ->
-                to_new_atom table_of_atoms 
-                new_specs.(y) specs.(y) data.(x).(y)))
+                to_new_atom table_of_atoms new_specs.(y) (get_alph y) data.(x).(y)))
     in
     Nexus.File.fill_observed new_specs new_data;
     { (Nexus.File.empty_parsed ()) with

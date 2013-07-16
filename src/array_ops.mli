@@ -83,6 +83,6 @@ val is_identical2 : int array -> int array -> int
 
 val is_identical3 : int array -> int array -> int array -> int
 
-val fill_symmetric_square_matrix :
+val fill_symmetric_square_matrix : ?status : string option ->
     (int -> int -> 'a -> 'a -> float) -> 'a array -> float array array -> unit
 

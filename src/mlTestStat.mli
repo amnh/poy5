@@ -35,7 +35,7 @@ val part : replicate
 
 (** process methods.ml_topo_test args; we do this here to keep things clean *)
 val process_methods_arguments : Methods.ml_topo_test list ->
-    Methods.ml_topo_test * Methods.characters * int option * int option * replicate 
+    Methods.ml_topo_test * Methods.characters * int option * replicate
 
 module type S = sig
 
@@ -56,7 +56,10 @@ module type S = sig
     (** wrapped tree; this is so we don't call the site_likelihood command for
         higher-efficency. *)
     type wtree =
-        { t : tree; slk : float array; root : MlStaticCS.t; chars : Data.bool_characters; }
+        { t : tree;
+          slk : (int * float * float) array;
+          root : MlStaticCS.t;
+          chars : Data.bool_characters; }
 
 
     (** {6 Helper Functions *)
@@ -73,13 +76,13 @@ module type S = sig
 
     (** [bootstrap_rep] generate a bootstrap replicate and return the weights
     * for each of the characters defined in n or the size of the cdf. *)
-    val bootstrap_weights : ?n:int -> float array -> float array
+    val bootstrap_weights : ?n:int -> (int * float) array -> (int * float) array
     
     (** [replicate_cost] generate the cost of a replicate *)
-    val replicate_cost : replicate -> wtree -> float array -> float
+    val replicate_cost : replicate -> wtree -> (int * float) array -> float
 
     (** [return a cdf from a tree that represent weights *)
-    val get_cdf : wtree -> float array
+    val get_cdf : wtree -> (int * float) array
 
     
     (** {6 Test statistics on trees *)
@@ -90,9 +93,6 @@ module type S = sig
  
     (** Return the P-Values and Trees for a candidate set of trees *) 
     val sh : ?n:int -> ?p:float -> ?rep:replicate -> ?chars:Data.bool_characters -> tree list -> unit
-
-    (** Return the P-Value to support the best tree passed *)
-    val au : ?n:int -> ?rep:replicate -> ?k:int -> ?chars:Data.bool_characters -> tree list -> unit
 
 end
 

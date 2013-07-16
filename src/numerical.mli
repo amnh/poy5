@@ -72,7 +72,7 @@ val is_zero : float -> bool
 
 val gamma : float -> float
 (** [gamma x] calculates the gamma of x. Using Lanczos Approximation, with
-    error around 1e-15. Max value for overflow is around 142. *)
+    error around 1e-15. Values to overflow is around 142; use lngamma instead. *)
 
 val lngamma : float -> float
 (** [lngamma x] calculates the ln gamma of x using Lanczos Approximation. *)
@@ -89,11 +89,11 @@ val rand_normal : float -> float -> float
     with the mean [m] and standard deviation [stdev]. **)
 
 val rand_exp : float -> float
-(** [rand_exp m] Generates a random variable with the exponential distribution
+(** [rand_exp m] Generates a random value with the exponential distribution
     of mean [m]. *)
 
 val rand_gamma : float -> float -> float
-(** [rand_gamma shape scale] Generates a random variable with a gamma
+(** [rand_gamma shape scale] Generates a random value with a gamma
     distribuation of the shape and scale parameters passed. *)
 
 val pnorm : ?mean:float -> ?sd:float -> float -> float
