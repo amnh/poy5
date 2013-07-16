@@ -1528,22 +1528,20 @@
         data files. More specifically, it can be used, for example, (1) for housekeeping purposes,
         when it is desirable to maintain long verbose taxon names (such as catalog or GenBank
         accession numbers) associated with the original data files but avoid reporting these 
-        names on the trees; (2) to provide a single name for a terminal in cases where the corresponding
+        names on the trees (although see the note on the usage of a ``\$'' in the taxon name below); 
+        (2) to provide a single name for a terminal in cases where the corresponding
         data are stored in different files under different terminal names; and (3) to change an
         outdated or invalid terminal name.
         
         The command consists of a terminal or character identifier followed by a comma and then by
         either a string containing a synonymy file or a pair (or pairs) of strings containing the names of
         items being renamed.
-	\end{poydescription}  
-	      
-	\begin{statement}
-        In order to change taxon names, the command \poycommand{rename} must be
+        
+         In order to change these names, the command \poycommand{rename} must be
         executed {\bf \emph{before}} importing the data files (see  \nccross{read}{read})
-        that contain the taxa that are to be renamed.  This can be achieved by importing a 
-        \emph{synonymy} file.
-    \end{statement}
-          
+        that contain the taxa or characters that are to be renamed.
+	\end{poydescription}  
+	              
     \begin{statement}
         Once the command \poycommand{rename} is applied, subsequent commands 
         must refer to the terminals using the new, substitute names. This is critical, for example,
@@ -1552,10 +1550,11 @@
     \end{statement}
           
     \begin{statement}
-          \poy has a useful option that allows the commenting out of portions of a taxon name in the imported
-          data file. This is achieved by inserting a dollar sign (``\$'') sign before the region of text that the user wishes to comment 
-          out.  For instance, the name \texttt{Ablepharus\_budaki\$\_AY561421\_16S} will be read as 
-          \texttt{Ablepharus\_budaki} by the program.
+          \poy provides a useful option that allows the commenting out of portions of a taxon name in the imported
+          data file. This is achieved by inserting a dollar sign (``\$'') before the region of text that the user wishes to comment 
+          out.  As an example, placing a ``\$''  before the GenBank information in the taxon name 
+          \texttt{Ablepharus\_budaki\$\_AY561421\_16S} will comment out this information and the taxon 
+          name will be read as \texttt{Ablepharus\_budaki} by the program.
     \end{statement}
           
     \begin{arguments}
@@ -1571,54 +1570,59 @@
             {}
 	\end{argumentgroup}
 	      
-	      \begin{argumentgroup}{Specifying items to be renamed}
-	      {These arguments allow the user to specify the items to be renamed either individually (by 
-	      using a pair of string arguments) or in a group (by importing a \emph{synonymy} file).
-	      The latter is useful when there are multiple items to be renamed and/or when it is
+	  \begin{argumentgroup}{Specifying items to be renamed}
+	      {These arguments allow the user to specify the items to be renamed either in a group 
+	      (by importing a \emph{synonymy} file) or individually (by using a pair of string arguments).
+	      The former is useful when there are multiple items to be renamed and/or when it is
 	      desirable to substitute a single name for  multiple ones.}
-	      
+    
 	      \argumentdefinition{STRING}{}
                 {Specifies the name of the file (a \emph{synonymy} file) that contains the list of
                 terminals or characters to be renamed. The synonymy file has the following structure:
                 each line contains a list of synonyms (two or more) separated by spaces. The name of the
                 item listed first is going to be substituted for all the subsequently listed names. Consider,
-                for example, a two-line synonymy file below:
-                
-                \texttt{alpha beta gamma \\
-                delta 1\\}
-                 
-                 When this file is imported, the items \texttt{beta} and \texttt{gamma} will be
-                 renamed as \texttt{alpha} and the item \texttt{1} will be renamed as \texttt{delta}
-                 in all subsequently imported data files.}
-                {}
-                \argumentdefinition{(STRING, STRING)}{}
-                {Specifies the names of individual items to be renamed. The first item is renamed
-                as the second item: specifying \texttt{("alpha",\\"beta")} renames the character or taxon
-                \texttt{alpha} to \texttt{beta}. To specify multiple pairwise name substitution, several 
-                name pairs can be listed: \texttt{("alpha","beta"),("gamma","delta").}}
-                {}
-            \\    
-\begin{figure}[th!]
+                for example, the synonymy file below:
+
+    \begin{figure}[th!]
     \begin{center}
-        \includegraphics[width=0.9\textwidth]{doc/figures/syn.jpg}
+        \includegraphics[width=1.0\textwidth]{doc/figures/syn.jpg}
     \end{center}
-  %  \caption{\poy flat interface displayed in a terminal window.}
+    \caption{A synonymy file containing lists of terminal taxa to be remained.}
     \label{fig:syn}
 \end{figure}
-\,
+                 
+                 When this file is imported, the taxon
+                 Cnemidophorus\_deppei will be remained as Aspidoscelis\_deppei  and both Chamaeleo\_weidersheimi 
+                 and Chamaeleo\_wiedersheimi will be renamed as Trioceros\_wiedersheimi etc:}
+                {}
+    
+                \argumentdefinition{(STRING, STRING)}{}
+                {Specifies the names of individual items to be renamed. The first item (character or taxon) is renamed
+                as the second item.                
+                Examine the renaming script below: 
+
 \begin{figure}[th!]
     \begin{center}
         \includegraphics[width=0.9\textwidth]{doc/figures/rename.jpg}
     \end{center}
-    \caption{Text files illustrating the two ways that terminal taxa cane be renamed.  The upper image  displayed in a terminal window. The first }
+    \caption{A example of a ``renaming" script that is run prior to importing the data files.}
     \label{fig:rename}
 \end{figure}
 
+        
+	The above script will perform the exact same renaming function as that of the previous example 
+	(Figure~\ref{fig:syn}).  Generating scripts such as this are recommended when more than a single taxon 
+	needs to be renamed.  This script is employed using the command \poycommand {run}. %To specify multiple pairwise name substitution, several 
+                %name pairs can be listed: \texttt{("alpha","beta"),("gamma","delta").}
+                }
+                {}        
+                	   b3ttycr0wl3y    
                 \begin{statement}
                 Note that when \poycommand{rename} is applied by specifying pairs of
-                 synonyms in the command's argument,
-                the substitute name is listed \emph{second}. However,  the substitute name 
-                appears \emph{first} in a synonymy file, followed by one or more synonyms.
+                 synonyms in the command's argument (\poystring, \poystring),
+                the substitute name is listed \emph{second}. This is in contradistinction to 
+                a synonymy file, where the substitute name 
+                appears \emph{first} and is followed by one or more synonyms.
                 \end{statement}
 	      \end{argumentgroup}
 	      
@@ -1632,6 +1636,11 @@
             \poyexample{rename(terminals,("Mytilus\_sp","Mytilus\_edulis"))}{This command
             renames the terminal taxon \texttt{Mytilus\_sp} as \texttt{Mytilus\_edulis} in all subsequently
             imported data files.}
+            
+            \poyexample{rename(terminals,("Chamaeleo\_weidersheimi","Trioceros\_wieder\\sheimi"),("Chamaeleo\_wiedersheimi","Trioceros\_wiedersheimi"))}
+            {This command renames the terminal taxa \texttt{Chamaeleo\_wiedersheimi} 
+             and \texttt{Chamaeleo\_weidersheimi} (a misspelling of the previous name) as 
+             \texttt{Trioceros\_wiedersheimi} in all subsequently  imported data files.}
             
     \end{poyexamples}
 
