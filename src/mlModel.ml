@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3377 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3435 $"
 
 open Numerical.FPInfix
 
@@ -447,17 +447,16 @@ let m_f81 pi_ lambda a_size gap_r =
         | None -> 
             for i = 0 to (a_size-1) do
                 for j = 0 to (a_size-1) do
-                    srm.{i,j} <- 
-                        if i = j then -. lambda *. (1.0 -. pi_.{i})
-                                 else pi_.{j} *. lambda;
+                    if i = j then ()
+                             else srm.{i,j} <- pi_.{j} *. lambda;
                 done;
             done;
         | Some (k,r) ->
             for i = 0 to (a_size-1) do
                 for j = 0 to (a_size-1) do
-                    srm.{i,j} <- 
-                        if i = j then -. lambda *. (1.0 -. pi_.{i})
-                                 else pi_.{j} *. lambda;
+                         if i = j then ()
+                    else if k = j then srm.{i,j} <- pi_.{j} *. r
+                                  else srm.{i,j} <- pi_.{j} *. lambda;
                 done;
             done;
     in
