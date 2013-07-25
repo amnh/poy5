@@ -254,7 +254,7 @@ case ${OS_INFORMATION} in
         USEWIN32="true"
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
-        CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
+        CFLAGS="-mwin32 $CFLAGS"
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes

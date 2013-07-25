@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3436 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3439 $"
 
 let debug = false 
 
@@ -877,21 +877,7 @@ type command = [
                 | Some f -> (`KML (Some plugin, `Local out_file, f)) :: acc, file
             end
         | `Memory -> (`Memory file) :: acc, file
-        | `Graph x -> 
-            begin match acc, file with
-                | (_ :: _), None -> ()
-                | (_ :: _), Some _ ->
-                    let msg = "You@ have@ requested@ to@ output@ a@ postscript@ "^
-                        "file@ in@ a@ flat@ text@ file,@ this@ is@ probably@ not@ "^
-                        "what@ you@ expect.@ If@ you@ want@ to@ output@ a@ "^
-                        "graphical@ version@ of@ your@ tree@ in@ a@ file,@ "^
-                        "assign@ a@ different@ filename@ to@ the@ graph@ command@ "^
-                        "in@ the@ report@ line."
-                    in
-                    Status.user_message Status.Warning msg                       
-                | _ -> ()
-            end;
-            (`Graph (file, x)) :: acc, file
+        | `Graph x -> (`Graph (file, x)) :: acc, file
         | `Trees lst         -> (`Trees (lst, file)) :: acc, file
         | `MstR              -> (`MstR file) :: acc, file
         | `KolmoMachine      -> (`KolmoMachine (file)) :: acc, file
