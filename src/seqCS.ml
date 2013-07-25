@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3288 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3440 $"
 
 let debug = false
 let debug_distance = false
@@ -2092,7 +2092,20 @@ let readjust_custom_alphabet alph mode to_adjust modified ch1 ch2 parent mine =
                         total_cost := cost2 + !total_cost;
                         total_sum_cost := sumcost + !total_sum_cost;
                         Heuristic_Selection res
-                | _ -> assert false)
+                | General_Prealigned a, General_Prealigned b,
+                    General_Prealigned c, ((General_Prealigned d) as e) when skip_it ->
+                        let cost = int_of_float d.GenNonAdd.costs.GenNonAdd.min in
+                        total_cost := cost + !total_cost;
+                        total_sum_cost := cost + !total_sum_cost;
+                        e
+                | General_Prealigned a, General_Prealigned b,
+                    General_Prealigned c, General_Prealigned d ->
+                        let seq = GenNonAdd.median_3_fake mine.heuristic.c2_full d a b c in
+                        let cost = int_of_float seq.GenNonAdd.costs.GenNonAdd.min in
+                        total_cost := cost + !total_cost;
+                        total_sum_cost := cost + !total_sum_cost;
+                        General_Prealigned seq
+                | w,_,_,_ -> w)
             mine.codes
             ch1.characters
             ch2.characters
@@ -2152,7 +2165,7 @@ let readjust alph mode to_adjust modified ch1 ch2 parent mine =
                             total_cost := cost2 + !total_cost;
                             total_sum_cost := sumcost + !total_sum_cost;
                             Heuristic_Selection res
-                    | _ -> assert false)
+                    | w,_,_,_ -> w)
             mine.codes
             ch1.characters
             ch2.characters
