@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3390 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3436 $"
 
 let debug = false 
 
@@ -351,7 +351,6 @@ type reporta = [
     | `Model of old_identifiers
     | `LKSites of old_identifiers
     | `DebugData
-    | `Pairwise of old_identifiers
     | `Script of string list
     | `ExplainScript of string
     | `Consensus of float option
@@ -909,7 +908,6 @@ type command = [
                              -> (`CompareSequences (file, a, b, c)) :: acc, file
         | `FasWinClad        -> (`FasWinClad (file)) :: acc, file
         | `Nexus             -> (`Nexus (file)) :: acc, file
-        | `Pairwise x        -> (`Pairwise (file,x)) :: acc, file
         | `LKSites x         -> (`LKSites (file,x)) :: acc, file
         | `DebugData         -> `DebugData :: acc, file
         | `Topo_Selection x  ->
@@ -1730,8 +1728,6 @@ type command = [
                     [ LIDENT "lksites" -> `LKSites `All ] | 
                     [ LIDENT "debug_data" -> `DebugData ] | 
     (*                [ LIDENT "script" -> `Script (!console_script) ] |*)
-    (*                [ LIDENT "pairwise"; ":"; x = old_identifiers -> `Pairwise x] |*)
-    (*                [ LIDENT "pairwise" -> `Pairwise `All ] |*)
                     [ LIDENT "seq_stats"; ":"; ch = old_identifiers -> `SequenceStats ch ] |
                     [ LIDENT "seq_stats" -> `SequenceStats `All ] |
                     [ LIDENT "ci"; ":"; ch = old_identifiers -> `Ci (Some ch) ] |
@@ -1758,7 +1754,7 @@ type command = [
                     [ LIDENT "fasta" -> `Implied_Alignments (`All, false) ] |
                     [ LIDENT "all_roots" -> `AllRootsCost ] |
                     [ LIDENT "implied_alignments" -> `Implied_Alignments (`All, true)] |
-                    [ LIDENT "ia"; ":"; x = identifiers -> `Implied_Alignments (x, true) ] | 
+                    [ LIDENT "ia"; ":"; x = identifiers -> `Implied_Alignments (x, true) ] |
                     [ LIDENT "ia" -> `Implied_Alignments (`All, true) ] |
                     [ LIDENT "nodes" -> `Nodes ] |
                     [ LIDENT "cross_references"; ":"; x = old_identifiers -> `CrossReferences (Some x) ] |
@@ -2141,6 +2137,7 @@ type command = [
                 [LIDENT "min"    -> `Final ] |
                 [LIDENT "max"    -> `Max ] |
                 [LIDENT "single" -> `Single ] |
+                [LIDENT "true"   -> `Single ] | (* for backward compatibility *)
                 [LIDENT "false"  -> `None ]
             ];
         report_branch_opt :
@@ -2541,9 +2538,7 @@ and read_script_files optimize (files : [`Inlined of string | `Filename of strin
     do_analysis optimize (List.flatten res)
 
 and do_analysis optimize res =
-    if debug then Printf.printf "do analysis,optimize=%b\n%!" optimize;
-    if optimize then Analyzer.analyze res
-    else res
+    if optimize then Analyzer.analyze res else res
 
 and simplify_directory dir = 
     Str.global_replace (Str.regexp "\\\\ ") " " dir 

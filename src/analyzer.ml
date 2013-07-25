@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3318 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3436 $"
 
 let debug = false
 
@@ -393,7 +393,6 @@ let dependency_relations (init : Methods.script) =
                 | `Nexus filename
                 | `Model (filename,_)
                 | `LKSites (filename,_)
-                | `Pairwise (filename,_)
                 | `Script (filename,_)
                 | `Dataset filename
                 | `Nodes filename
@@ -1779,8 +1778,6 @@ let script_to_string (init : Methods.script) =
                         "@[report the phastwinclad file@]"
                 | `Nexus _ -> 
                         "@[report the nexus file@]"
-                | `Pairwise _ -> 
-                        "@[report the pairwise distance matrix for characters@]"
                 | `DebugData -> 
                         "@[report global data to screen (debug)@]"
                 | `LKSites _ -> 
@@ -2065,7 +2062,6 @@ let is_master_only (init : Methods.script) = match init with
     | `Nexus _
     | `Model _
     | `LKSites _
-    | `Pairwise _
     | `Script _
     | `ExplainScript _
     | `PrintWDir

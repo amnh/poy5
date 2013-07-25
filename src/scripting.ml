@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3395 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3436 $"
 
 let (-->) a b = b a
 
@@ -3897,8 +3897,10 @@ let rec folder (run : r) meth =
                     Status.user_message Status.Error msg;
                     raise (Error_in_Script (err, run))
             in
-            let script = PoyCommand.read_script_files true 
-                (List.map (fun x -> `Filename x) files) in
+            let script =
+                PoyCommand.read_script_files true
+                    (List.map (fun x -> `Filename x) files)
+            in
             let script = Sexpr.of_list script in
             Sexpr.fold_status "Running commands" ~eta:true file_folder run script
     | #Methods.report as meth ->
@@ -4081,8 +4083,6 @@ let rec folder (run : r) meth =
                 let script = PoyCommand.of_file false script in
                 Analyzer.explain_tree filename script;
                 run
-            | `Pairwise (filename,chars) ->
-                failwith "NOT DONE"
 
             | `Topo_Selection (filename,x) ->
                 IFDEF USE_LIKELIHOOD THEN

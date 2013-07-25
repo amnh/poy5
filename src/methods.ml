@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3390 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3436 $"
 
 exception TimedOut
 
@@ -348,7 +348,6 @@ type report = [
     | `LKSites of (string option * characters)
     | `DebugData 
     | `Topo_Selection of (string option * ml_topo_test list)
-    | `Pairwise of (string option * characters)
     | `Script of string option * string list
     | `SequenceStats of (string option * characters)
     | `Ci of (string option * characters option)
@@ -897,5 +896,3 @@ type ('a, 'b, 'c, 'd) checkpoints = [
 * to be able to calculate things not associated with a tree but rather directly
 * over some set of observations (for example a large matrix of distances between
 * sequences. *)
-
-
