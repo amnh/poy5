@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3441 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3442 $"
 
 let (-->) a b = b a
 
@@ -1617,7 +1617,7 @@ let load_data (meth : Methods.input) data nodes =
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
             in
-            let orientation = List.mem (`Orientation false) read_options in
+            let orientation = List.mem (`Orientation true) read_options in
             let init3D = (List.mem (`Init3D true) read_options) in
             let respect_case = true in
             let tb =

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Annchrom" "$Revision: 3362 $"
+let () = SadmanOutput.register "Annchrom" "$Revision: 3442 $"
 
 (** Annchrom  module implements functions to create medians
     between two lists of annotated chromosomes *)
@@ -49,14 +49,6 @@ type meds_t = {
     code : int; (** the taxa code containing this median list *)
 }
 
-let max_taxa_id = ref (-1)
-
-let verify_max_taxa_id n =
-    if !max_taxa_id < 0 then
-        max_taxa_id := n
-    else
-        assert (n = !max_taxa_id)
-
 (** [init_med seq_arr cost_mat alpha annchrom_pam tcode num_taxa] 
 * returns an annotated chromosome list with only one element
 * created from an array of sequences *) 
@@ -64,7 +56,6 @@ let init_med (seq_arr : (Sequence.s Data.seq_t) array)
         cost_mat_full cost_mat_original alpha annchrom_pam tcode num_taxa = 
     let med = AnnchromAli.init 
         (Array.map (fun s -> s.Data.seq, s.Data.code) seq_arr) in 
-    verify_max_taxa_id num_taxa;
     {
         med_ls = [med];
         num_med = 1;
@@ -74,9 +65,9 @@ let init_med (seq_arr : (Sequence.s Data.seq_t) array)
         cost_mat_full = cost_mat_full;
         cost_mat_original = cost_mat_original;
         alpha = alpha;
-        approx_med_arr = (Array.make !max_taxa_id med);
-        approx_cost_arr = (Array.make !max_taxa_id max_int);
-        approx_recost_arr = (Array.make !max_taxa_id max_int);
+        approx_med_arr = (Array.make num_taxa med);
+        approx_cost_arr = (Array.make num_taxa max_int);
+        approx_recost_arr = (Array.make num_taxa max_int);
         code = tcode-1;
     }
 
