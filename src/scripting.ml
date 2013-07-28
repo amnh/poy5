@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3436 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3441 $"
 
 let (-->) a b = b a
 
@@ -1607,6 +1607,7 @@ let load_data (meth : Methods.input) data nodes =
                         (Data.Input_file (tcmfile,matrix)) twod_full twod_original
                         threed annotated alphabet default_mode is_prealigned dynastate d f)
                 data files
+
         (** read breakinv data from files each breakinv is presented as a
             sequence of general alphabets *)
         | `Breakinv (files, alph, read_options) ->
@@ -1628,8 +1629,16 @@ let load_data (meth : Methods.input) data nodes =
                     | _             -> assert false
                 with | Not_found    -> `First
             in
+            let level,tb =
+                try match List.find
+                        (function | `Level _ -> true | _ -> false)
+                        read_options with
+                    | `Level (x,y) -> x,y
+                    | _            -> assert false
+                with | Not_found   -> 1,tb
+            in
             let alphabet, (twod,twod_ori,matrix), threed =
-                Alphabet.of_file alph orientation init3D 0 respect_case tb
+                Alphabet.of_file alph orientation init3D level respect_case tb
             and tcmfile = FileStream.filename alph in
             List.fold_left
                 (fun d f ->
@@ -1637,6 +1646,7 @@ let load_data (meth : Methods.input) data nodes =
                         twod twod_ori threed annotated alphabet `DO
                         is_prealigned `Breakinv d f)
                 data files
+
         | `ComplexTerminals files ->
             let files = explode_filenames files in
             let data =
