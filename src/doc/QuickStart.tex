@@ -22,7 +22,7 @@ particular requirements for disk space, but XML and diagnosis report files can b
 the \poy download website at the Computational Sciences site of the American Museum of Natural History:
 
 \begin{center}
-\url{http://research.amnh.org/scicomp/projects/poy.php}
+\url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy}
 \end{center}
 
 The latest source code can also be obtained from \poy Google Group website:
@@ -53,7 +53,7 @@ The following detailed step-by-step instructions will guide you through download
            Extract the zip file to install in the desired location and execute the \emph{poy.exe} file.  If you have 
            Windows XP SP2, Windows Vista or Windows 7 and possess more than one core or processor, you 
            can take advantage of this processing power \ by installing the parallel components 
-           \href{http://www-unix.mcs.anl.gov/mpi/}{MPICH2}. 
+           \href{http://www.mpich.org}{MPICH2}. 
            
            [Note: The \poy developers encountered no problems when using MPICH2 3.0.2.]
           \end{itemize}
@@ -195,13 +195,13 @@ working with \emph{ncurses} and \emph{flat} interfaces. These options are also u
 For example typing
 
 \begin{quote}
-\commandstyle{poy -w /Users/username/docs/poyfiles mol.poy}
+\commandstyle{poy -w /Users/username/poyfiles mol.poy}
 \end{quote}
 in a terminal window will invoke the program POY to run the script \texttt{mol.poy} in the directory 
-\texttt{/Users/username/doc/poyfiles}.  This is the equivalent of including
+\texttt{/Users/username/poyfiles}.  This is the equivalent of including
 
 \begin{quote}
-\commandstyle{cd ("/Users/username/docs/poyfiles")}\\
+\commandstyle{cd ("/Users/username/poyfiles")}\\
 \end{quote}
 
 When attempting to run \poy in parallel from the command line, the programs \href{http://www-unix.mcs.anl.gov/mpi/}{MPI} 
@@ -209,11 +209,11 @@ or \href {https://www.osc.edu/~djohnson/mpiexec/} {Mpiexec} must be used to init
 from within a PBS batch or interactive environment.  For example typing
 
 \begin{quote}
-\commandstyle{mpirun -np 8 $\sim$/POY\_bins/poy5a-mpi mol.poy}\\
+\commandstyle{mpirun -np 8 $\sim$/POY\_bins/poy5a-mpi $\sim$/POY\_analyses/mol.poy}\\
 \end{quote}
-in the terminal window will invoke \poy to run the script \texttt{mol.poy}, utilizing 8 processors 
+in the terminal window will invoke a parallel version of \poy to run the script \texttt{mol.poy}, utilizing 8 processors 
 (Figure~\ref{fig:mpiexecscript}).  The file \texttt{mol.poy} resides in the directory \commandstyle{POY\_analyses}, 
-which is found in the desktop of the home directory.
+which is found in the home directory.
 This parallel version of \poy was compiled in the directory 
 \texttt{POY\_bins} in the home directory.  With the flat interface, it is not possible to run parallel jobs
 interactively, therefore a script \textbf {\emph{must}} be included in the command, so that it can 
@@ -434,29 +434,30 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 	\item [Chromosome and Mauve Parameters] \emph{Chromosome} characters are multi-locus 
 		nucleotide sequences and can include nuclear chromosomes, as well as, mitochondrial 
 		and viral genomes.  It is possible to submit either \poyargument{annotated} (by selection of the 
-		\emph{Annotated} box) or \emph{Unannotated} chromosomes. Within \emph{Annotated} 
+		\emph{Annotated} box) or \emph{Unannotated} (by leaving the \emph{Annotated} box 
+		unchecked) chromosomes. Within \emph{Annotated} 
 		chromosomes, homologous regions, such as loci, are separated with the pipe symbol
 		(``$\vert$'').  \emph{Unannotated} chromosomes are entirely 
 		without delimiters. For \emph{Unannotated} chromosomes, the Mauve Parameters, must be set
-		by the user.  These parameters (\emph{Max. Match, Min. Match, Match Quality} and \emph {Match 
-		Coverage}) are employed by the Mauve aligner to find regions of homology or synteny blocks 
+		by the user.  These parameters (\emph{Match Quality, Match Coverage, Min. Match} and \emph {Max. Match}) 
+		are employed by the Mauve aligner to find regions of homology or synteny blocks 
 		 between chromosomes (see~\nccross{annotate}{annotate} within the 
 		 command \poycommand{transform}). Default values for these parameters are provided in the \emph{GUI}.
 		    	
 		\indent Within this subsection it is necessary to specify both \emph{Locus Indel} and rearrangement 
 		(\emph{Locus Breakpoint} or \emph{Locus Inversion}) costs.  The cost of a \emph{Locus Indel} 
 		is by default set to 10 plus 0.9 times the length of the locus (see~\nccross{locus\_indel}
-		{chromosomelocusindel}  within the command \poycommand{transform}). Rearrangements of 
-		homologous regions (as defined by the user in the case of \emph{Annotated} chromosomes 
-		or as determined by the Mauve aligner as in \emph{Unannotated} chromosomes) are 
+		{chromosomelocusindel}  within the command \poycommand{transform}). 
+		Rearrangements of Homologous regions---as defined by the user in the case of \emph{Annotated} chromosomes 
+		or as determined by the Mauve aligner as in \emph{Unannotated} chromosomes)---are 
 		then optimized using either \emph{Locus Breakpoint} or \emph{Locus Inversion} costs 
 		(see~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} and
 		~\nccross{locus\_inversion}{chromosomelocusinversion} within the command 
 		\poycommand{transform}).  The default cost for both is set to 10. The user must also specify the 
-		\emph{Median solver} for the optimization of rearrangements. The default median solver is 
-		\emph{Caprara}, but the user can alternatively choose \emph{BBTSP, ChainedLK, COALESTSP, 
-		MGR, Siepel, SimpleLK} and \emph{Vinh} (see~\nccross{median\_solver}{chromosomemediansolver} 
-		within the command \poycommand{transform}).
+		\emph{Median solver} for the optimization of rearrangements of \emph{Annotated} chromosomes. 
+		The default median solver is \emph{Caprara}, but the user can alternatively choose \emph{BBTSP, 
+		ChainedLK, COALESTSP, 	MGR, Siepel, SimpleLK} and \emph{Vinh} 
+		(see~\nccross{median\_solver}{chromosomemediansolver} within the command \poycommand{transform}).
 		
 		\indent The user must also specify whether the chromosome is \emph{Circular} (true) or linear (false).
 		It is not possible to submit pre-aligned data files for either \emph{Annotated} or \emph{Unannotated} 
@@ -477,8 +478,8 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		\emph{Unannotated}. 
 		
 		\indent As with \emph{Unannotated Chromosome} characters, homologous regions are determined 
-		using the Mauve parameters \emph{Max. Match, Min. Match, Match Quality} and 
-		\emph {Match Coverage}. Default values for these parameters are provided in the \emph{GUI}.
+		using the Mauve parameters (\emph{Match Quality, Match Coverage, Min. Match} and \emph {Max. Match}). 
+		Default values for these parameters are provided in the \emph{GUI}.
 		The \emph{Locus Indel} and rearrangement (\emph{Locus Breakpoint} or \emph{Locus Inversion}) 
 		costs are set by the user. By default, the cost of a \emph{Locus Indel} is  set to 10 plus 0.9 times 
 		the length of the locus (see the argument~\nccross{locus\_indel} {chromosomelocusindel}  
@@ -526,9 +527,12 @@ menu (left) opens the \emph{Simple Search} window options (right).}
 		 arguments~\nccross{locus\_breakpoint}{chromosomelocusbreakpoint} and~\nccross{locus\_inversion}
 		 {chromosomelocusinversion} within the \emph{Chromosome and genome transformation methods} 
 		 of the command \poycommand{transform}). The default cost for both is set to 10. A \emph{Median solver} 
-		 must also be specified for the optimization of rearrangements. The default median solver is \emph{Caprara}, 
-		 but the user can alternatively choose \emph{BBTSP, ChainedLK, COALESTSP, MGR, Siepel, SimpleLK} 
-		 and \emph{Vinh} (see the argument~\nccross{median\_solver}{chromosomemediansolver}.  
+		 must also be specified for the optimization of rearrangements. The default median solver is \emph{Caprara}
+		  \cite{Caprara2001}, but the user can alternatively choose \emph{BBTSP, ChainedLK, COALESTSP, MGR} 
+		  \cite{bourqueandpevzner2002}, \emph{Siepel} \cite{siepelmoret2001}, \emph{SimpleLK} and 
+		  s\emph{Vinh} (the TSP solvers BBTSP, CoalesTSP, 
+		ChainedLK and SimpleLK taken from the Concorde package) (see~\nccross{median\_solver}.
+		{chromosomemediansolver}  within the command \poycommand{transform}).  
 		 The calculation of median states between \emph {Break Inversion} strings becomes more 
 		 computationally intensive (and time consuming) as the number of elements in the alphabet 
 		 increases, therefore a single heuristic level of median calculation can only be employed 
@@ -667,7 +671,7 @@ menu (left) and viewing the \emph{Timed Search} window options (right).}
 \end{description}
 
 This heuristic search is a powerful tool for analyzing data. The number of rounds of successive searching is limited 
-only by the previously specified search targets. Therefore, when performing a \emph{Timed Search}, it is crucial to 
+only by the previously specified search targets. Therefore, when performing a \emph{Timed Search}, it is {\bf crucial} to 
 set the maximum time such that the program has a reasonable amount of time to perform a search.  Thus, it is important 
 to have some approximation as to the length of time it would take to perform a single round of searching (e.g. build (1), 
 followed by TBR, ratchet and fusing in the case of a parsimony analysis of DNA sequence data).  Clearly, this is data 
@@ -966,9 +970,9 @@ This section will illustrate how to input data files, check the data you are ana
 swapping to find a local optimum, and, finally, produce and visualize the resultant trees, their strict consensus, and generate support 
 values in a command-line environment rather than using a \emph{Graphical User Interface}. 
 
-For the purpose of this exercise, two data files are used available at \\
+For the purpose of this exercise, two data files, which are included in the download package, are available at the \poy download page.\\
 \begin{center}
-\url{http://research.amnh.org/scicomp/projects/poy.php}
+\url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy/download}
 \end{center}
 
 \begin{itemize}
@@ -1414,7 +1418,7 @@ graphconsensus)}).
 \begin{figure}
 \centering
 \begin{minipage}[c]{0.45\textwidth}
-   		\includegraphics[width=\textwidth]{doc/figures/asciitrees.jpg}
+   		\includegraphics[width=\textwidth]{doc/figures/asciitree.jpg}
 \end{minipage}
 \,
 \begin{minipage}[c]{0.5\textwidth}
@@ -1550,7 +1554,7 @@ reference, practical guides and tutorials that make the program immediately acce
 in-depth information for experienced users. The documentation in PDF format can be accessed from the \emph{Help} 
 menu of the graphical user interface or downloaded separately from \poy web site at
 \begin{center}
-\url{http://research.amnh.org/scicomp/projects/poy.php}
+\url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy/download}
 \end{center}
 \item[POY] interactive help can be obtained by entering \commandstyle{help()} at the \poy \emph{Interactive Console}. 
 To obtain help on a particular command, the name of the command must be specified in the parentheses following 
@@ -1558,10 +1562,12 @@ To obtain help on a particular command, the name of the command must be specifie
 (Figure~\ref{fig:exithelp}.)
 \item[POY5 Mail Group] is an Internet-based forum for discussing all issues related to \poy and provides the best way to 
 communicate with \poy developers on specific issues (see \emph{WWW resources} below). The website is 
-located at \url{http://groups.google.com/group/poy5}. 
+located at \url{https://groups.google.com/forum/#!forum/poy4}.  Questions relating to both \texttt{POY4} and \poy
+can be posed to this group.
 \item[POY Book] (Wheeler et al., 2006 \emph{Dynamic Homology and Phylogenetic Systematics: A Unified 
-Approach Using POY} \cite{wheeleretal2006}) provides a review of the theory behind \texttt{POY4} and by extension \poy, and contains 
-formal descriptions of many algorithms implemented in the program and the descriptions of commands of the earlier version, \texttt{POY3}.
+Approach Using POY} \cite{wheeleretal2006}) provides a review of the theory behind \texttt{POY4} and by extension 
+\poy, and contains formal descriptions of many algorithms implemented in the program and the descriptions of commands 
+of the earlier version, \texttt{POY3}.
 \item[POY Paper] (Var\'on et al., 2010. \emph{POY version 4: Phylogenetic analysis using dynamic homologies} \cite{Varonetal2010} 
 provides a description of the overall goals, implementation and philosophy of POY.
 
@@ -1582,7 +1588,7 @@ check regularly for updates. There are several Internet-based resources that off
 \item[POY5 Web Site] Has downloadable compressed files of \poy binaries, source code, and documentation in PDF 
 format. It also provides a links to the \emph{POY Mail Group}. The website is hosted by AMNH Computational Sciences at 
 \begin{center}
-\url{http://research.amnh.org/scicomp/projects/poy.php}
+\url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy}
 \end{center}
 
 \item[POY5 source code repository] Contains has downloadable \poy source code.  The site is powered by Google at 
@@ -1597,7 +1603,7 @@ forum to  discuss the methods and applications of \poy. The users who choose not
 of the postings but will not be able to either submit or receive emails from other users and \poy developers. The 
 \emph{POY5 Mail Group} is hosted  by Google at
 	\begin{center}
-	\url{http://groups.google.com/group/poy}  
+	\url{https://groups.google.com/forum/#!forum/poy4}  
 	\end{center}
 	
 \end{description}
