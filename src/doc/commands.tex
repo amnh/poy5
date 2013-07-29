@@ -358,12 +358,12 @@ All rights reserved. Published 2013.
 \vspace*{0.25cm}
 \emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} 2013. \texttt{POY} 5.0. \buildnumber\ R.C. New York, 
 American Museum of Natural History. Documentation by L. M. Crowley, M. Cevasco, J. S. S. Denton. 
-\url{http://research.amnh.org/scicomp/projects/poy.php}
+\url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy}
 
 \vspace*{0.25cm}
 
 Available online at
-\url{http://research.amnh.org/scicomp/projects/poy.php}
+\url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy}
 and
 \url{http://code.google.com/p/poy/} 
 
@@ -381,7 +381,7 @@ Comments or queries relating to the documentation should be sent to \href{mailto
 \poy is a flexible, multi-platform program for the phylogenetic analysis of a diversity of data types under different optimality criteria ---
 parsimony and likelihood.
 An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} allowing 
-optimization of   {\bf \emph{unaligned}} sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of 
+optimization of   {\bf \emph{UNALIGNED}} sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of 
 algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy 
 generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, 
 support values and implied alignments.  In addition, \poy can also output synteny block maps from the analysis of both 
@@ -447,13 +447,16 @@ whitespace characters (spaces, tabs, or newlines). Each command consists of a na
 Most of the arguments are optional, in which case \poy has default values.
 
 In \poy, we recognize four types of command arguments: \emph{primitive values},
-\emph{labeled values}, \emph{commands}, and \emph{lists of arguments}.
+\emph{labeled values}, \emph{lists of arguments}, and \emph{commands}.
 
 \paragraph{Primitive values} can be either an integer (\poyint), a real number
 (\poyfloat), a string (\poystring), or a boolean (\poybool).
 
 \paragraph{Labeled values} are lowercase identifiers (which are referred to as
-\emph{label}), and an argument, separated by the colon character (``:'').
+\emph{label}), and an argument, separated by the colon character (``:''). Examples 
+of identifiers include items such as \poyargument{characters}, \poyargument{terminals}, 
+\poyargument{all}, \poyargument{characters}, \texttt{names of files}, \poyargument{missing},
+\poyargument{codes} etc:
 
 \paragraph{List of arguments} are several arguments enclosed in parenthesis and
 separated by commas (``,'').
