@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3436 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3444 $"
 
 let debug = false
 
@@ -1288,10 +1288,9 @@ let rec linearize2 queue acc =
         match tree with
         | Concurrent x ->
                 let my_name = emit_name x.thread in
-                acc := 
-                    (`Store (all_dependencies, my_name)) :: x.run :: !acc;
-                let continue = sort_list2 (sort_list2 x.unique) in
-                let children = sort_list (sort_list x.children) in
+                acc := (`Store (all_dependencies, my_name)) :: x.run :: !acc;
+                let continue = x.unique in
+                let children = x.children in
                 let myqueue = Queue.create () in
                 List.iter (fun x -> Queue.add x myqueue) children;
                 List.iter (fun (_, _, x) -> Queue.add x queue) continue;
@@ -1305,11 +1304,8 @@ let rec linearize2 queue acc =
                         (String.concat ", " (List.map string_of_int x.thread));
                         raise err
                 in
-                acc := 
-                    (`Store (all_dependencies, my_name)) :: x.run :: 
-                    (deps @ !acc);
-                List.iter (fun y -> linearize2 (single_queue y) acc) 
-                (sort_list x.children);
+                acc := (`Store (all_dependencies, my_name)) :: x.run :: (deps @ !acc);
+                List.iter (fun y -> linearize2 (single_queue y) acc) x.children;
         | InteractiveState _ -> ()
         | Parallel y ->
                 match y.todo_p with
@@ -1322,7 +1318,7 @@ let rec linearize2 queue acc =
                                 (String.concat ", " (List.map string_of_int x.thread));
                                 raise err
                         in
-                        (match x.run with
+                    begin match x.run with
                         | `Build (total, b, c, d) ->
                                 let item = 
                                     Tree { x with run = `Build (1, b, c, d) } 
@@ -1354,25 +1350,16 @@ let rec linearize2 queue acc =
                                 linearize2 (single_queue y.todo_p) iteml;
                                 linearize2 (single_queue y.composer) composerl;
                                 linearize2 (single_queue y.next) nextl;
-                                let deps = 
-                                    (remove_all_trees_from_set (List.rev deps))
-                                in
+                                let deps = (remove_all_trees_from_set (List.rev deps)) in
                                 let iteml = deps @ remove_trees_from_set (List.rev !iteml)
-                                and nextl = 
-                                    List.rev (remove_trees_from_set (List.rev !nextl))
-                                in
+                                and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
                                 acc := nextl @
                                     `Store (all_dependencies, my_name) ::
                                     (`OnEachTree (iteml, List.rev !composerl)) 
                                         :: (!acc)
-                        | _ -> 
-                                failwith 
-                                "Huh? No command excepting the previous 
-                                two can cause Parallel!")
-                | _ -> 
-                        failwith 
-                        "Huh? No command excepting the previous 
-                        two can cause Parallel!"
+                        | _ -> assert false
+                    end
+                | _ -> assert false
     done
 
 let linearize tree _ =

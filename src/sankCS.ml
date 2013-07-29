@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 3348 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 3444 $"
 
 let debug = false
 
@@ -189,7 +189,6 @@ let get_states s this_or_left_or_right =
     states
 
 let get_earray s =
-    let num_elts = get_num_elts s in
     let thiselt = get_elt s 0 in
     let e_bigarr = get_earray_cside thiselt in
     Array.init
