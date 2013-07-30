@@ -80,11 +80,12 @@ generated during the build.\\
 \\
 Q. Why are likelihood scores worse/different than other applications?\\
 \\
-A. There could be a number of issues to consider. If they are close with the same model of
-evolution, then numerical issues due to finite precision arithmetic of decimal numbers can cause
+A. There are a number of issues to consider. If the values are close under the same model of
+evolution then numerical issues due to finite precision arithmetic of decimal numbers can cause
 slight rounding errors in an analysis to build up. Although we use standard techniques to limit the
-build up of these errors, they inevitably occur and small differences in likelihood scores are
-absolutely normal.
+accumulation of these errors, they inevitably occur and small differences in likelihood scores are
+absolutely normal and should be ignored. These differences even occur within the same application
+run on different architectures and compiler options.
 
 One should also check that the \poycommand{exhaustive} option is set for the optimization routines.
 It is set by default but ensure that, if it changed somewhere in the script, one sets it back
