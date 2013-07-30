@@ -6,7 +6,7 @@ Q. What does POY  stand for?\\
 \\
 A. POY is a meta-acronym, which comes from an older program YAPP (Yet Another Phylogeny Program) that 
 was written in \texttt{C}.  This program, which was an extension of \texttt{MALIGN}, was the first designed around direct 
-optimization.  This program was rewritten in Ocaml (Ocaml YAPP), which was shortened to OY.  
+optimization.  This program was rewritten in OCaml (OCaml YAPP), which was shortened to OY.  
 The subsequent parallelization of this program yielded POY.\\
 \\
 \\
@@ -78,7 +78,22 @@ in {\bf after} the build stage.  If the trees are read in before the build they 
 generated during the build.\\
 \\
 \\
-Q.\\
+Q. Why are likelihood scores worse/different than other applications?\\
 \\
-A.\\
+A. There could be a number of issues to consider. If they are close with the same model of
+evolution, then numerical issues due to finite precision arithmetic of decimal numbers can cause
+slight rounding errors in an analysis to build up. Although we use standard techniques to limit the
+build up of these errors, they inevitably occur and small differences in likelihood scores are
+absolutely normal.
+
+One should also check that the \poycommand{exhaustive} option is set for the optimization routines.
+It is set by default but ensure that, if it changed somewhere in the script, one sets it back
+--especially if one plans to do application comparisons.
+
+If the model is not hierarchical then comparisons are not relevant. Unfortunately, the number of
+states in the model of evolution matters, as well as cost assignments of Maximum Parsimonious
+Likelihood (MPL) and Maximum Average Likelihood (MAL). Thus, a four state model of evolutions'
+likelihood score cannot be compared directly with a five state model. There is added cost that
+result from the probability of an additional state in an analysis. 
+\\
 \\
