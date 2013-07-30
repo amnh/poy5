@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3444 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3447 $"
 
 let debug = false
 
@@ -424,8 +424,7 @@ let dependency_relations (init : Methods.script) =
                 | `Consensus (filename, _)
                 | `GraphicConsensus (filename, _) ->
                         let fn = filename_to_list filename in
-                        [(trees @ fn, fn, init, NonComposable)], filename,
-                        false
+                        [(datantrees @ fn, fn, init, NonComposable)], filename, false
                 | `GraphicDiagnosis (_,filename) ->
                         Printf.printf "report graphic diagnosis with filename %s\n%!" filename;
                         let fn = filename_to_list (Some filename) in
@@ -436,8 +435,7 @@ let dependency_relations (init : Methods.script) =
                 | `Trees (_, filename)
                 | `Implied_Alignment (filename, _, _) ->
                         let fn = filename_to_list filename in
-                        [(datantrees @ fn, fn, init, Linnearizable)], filename,
-                        false
+                        [(datantrees @ fn, fn, init, Linnearizable)], filename, false
                 | `MstR filename
                 | `TimeDelta (_, filename)
                 | `TreeCosts filename
@@ -445,29 +443,22 @@ let dependency_relations (init : Methods.script) =
                 | `SearchStats filename
                 | `TreesStats filename ->
                         let fn = filename_to_list filename in
-                        [(datantrees @fn, fn, init, NonComposable)], 
-                        filename, false
+                        [(datantrees @fn, fn, init, NonComposable)], filename, false
                 | `Clades filename ->
                         let fn = filename_to_list (Some filename) in
-                        [(datantrees @ fn, fn, init, Linnearizable)], 
-                        Some filename, false
+                        [(datantrees @ fn, fn, init, Linnearizable)], Some filename, false
                 | `History _ -> [([], [], init, Linnearizable)], None, false
                 | `Save (filename, _) ->
                         let fn = filename_to_list (Some filename) in
-                        [([Data; Trees; JackBoot; Bremer] @ fn, fn,
-                        init, NonComposable)], Some filename, false
+                        [([Data; Trees; JackBoot; Bremer] @ fn, fn, init, NonComposable)], Some filename, false
                 | `Load filename ->
                         let fn = filename_to_list (Some filename) in
-                        [(fn, [Data; Trees; JackBoot; Bremer], init,
-                        NonComposable)], 
-                        Some filename, true
+                        [(fn, [Data; Trees; JackBoot; Bremer], init, NonComposable)], Some filename, true
                 | `TimerInterval _
                 | `Parmap _
                 | `RootName _
                 | `Root _ -> 
-                        [([Data; Trees], all !input_files !output_files, init,
-                        Linnearizable)], None,
-                        false
+                        [([Data; Trees], all !input_files !output_files, init, Linnearizable)], None, false
             in
             if not isload then
                 match files with
@@ -1305,7 +1296,8 @@ let rec linearize2 queue acc =
                         raise err
                 in
                 acc := (`Store (all_dependencies, my_name)) :: x.run :: (deps @ !acc);
-                List.iter (fun y -> linearize2 (single_queue y) acc) x.children;
+                List.iter (fun y -> linearize2 (single_queue y) acc)
+                          (sort_list x.children)
         | InteractiveState _ -> ()
         | Parallel y ->
                 match y.todo_p with
