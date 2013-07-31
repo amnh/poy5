@@ -571,7 +571,7 @@ module Accessor = struct
         try All_sets.StringMap.find name data.taxon_names
         with | Not_found ->
             try taxon_code (All_sets.StringMap.find name data.synonyms) data
-            with | Not_found -> failwithf "Cannot find Taxa %s" name
+            with | Not_found -> failwithf "Cannot find taxa %s" name
 
     (** [get_sequences code data] outputs a stack containing all the sequences of
         the character [code] stored in [data]. The empty sequences (according to
@@ -1758,7 +1758,7 @@ let branches_to_map data initial_table branch_table trees =
         | Tree.Parse.Leafp (x,dat) ->
             let single_set =
                 try
-                    let t_code = All_sets.StringMap.find x data.taxon_names in
+                    let t_code = taxon_code x data in
                     All_sets.Integers.add t_code (All_sets.Integers.empty)
                 with Not_found -> 
                     output_errorf "While parsing tree, I cannot find taxon name %s in read data." x;
@@ -3025,7 +3025,7 @@ let process_molecular_file ?(respect_case = false) tcmfile tcm_full tcm_original
 let process_ignore_taxon data taxon =
     let res = All_sets.Strings.add taxon data.ignore_taxa_set in
     let taxon_names, taxon_codes =
-        let code = All_sets.StringMap.find taxon data.taxon_names in
+        let code = taxon_code taxon data in
         let () =
             try Hashtbl.remove data.taxon_characters code with
             | Not_found -> ()
@@ -3173,6 +3173,7 @@ let rec process_analyze_only_taxa meth data = match meth with
             report_inc_exc data included excluded;
             process_analyze_only_taxa (`Names (false, excluded)) data
 
+
 let process_analyze_only_file dont_complement data files =
     let data = duplicate data in
     try let appender acc file = 
@@ -3198,9 +3199,9 @@ let process_analyze_only_file dont_complement data files =
         report_inc_exc data taxa ignored;
         List.fold_left ~f:process_ignore_taxon ~init:data ignored
     with 
-    | Failure msg ->
+    | (Failure msg) as exn ->
         Status.user_message Status.Error msg;
-        data
+        raise exn
 
 
 let remove_taxa_to_ignore data = 
@@ -3222,10 +3223,13 @@ let remove_taxa_to_ignore data =
         | None -> data
     in
     let process_data taxon data =
-        try let tcode = All_sets.StringMap.find taxon data.taxon_names in
+        try let tcode = taxon_code taxon data in
             Hashtbl.remove data.taxon_characters tcode;
             data
-        with | _ -> data
+        with | _ ->
+            Status.user_message Status.Information
+                ("Cannot@ find@ taxa@ "^taxon^"@ to@ ignore.@ No@ Worries.");
+            data
     in
     let data = duplicate data in
     let data = All_sets.Strings.fold process_data data.ignore_taxa_set data in
