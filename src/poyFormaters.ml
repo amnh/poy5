@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyFormaters" "$Revision: 3452 $"
+let () = SadmanOutput.register "PoyFormaters" "$Revision: 3453 $"
 
 exception Illegal_formater of string
 
@@ -537,10 +537,33 @@ let node_character_to_formater length ((tag, _, _) as v) =
     assert( length = Array.length data );
     data
 
+let node_character_has_rearrangement (tag, _, _) =
+    let data =
+             if tag = Xml.Characters.sequence     then false
+        else if tag = Xml.Characters.chromosome   then true
+        else if tag = Xml.Characters.genome       then true
+        else if tag = Xml.Characters.breakinv     then true
+        else if tag = Xml.Characters.annchrom     then true
+        else if tag = Xml.Characters.sankoff      then false
+        else if tag = Xml.Characters.nonadditive  then false
+        else if tag = Xml.Characters.additive     then false
+        else if tag = Xml.Characters.likelihood   then false
+        else if tag = Xml.Characters.dlikelihood  then false
+        else
+            raise (Illegal_formater ("node_character_to_header: " ^ tag))
+    in
+    data
+
+
 let node_character_to_header (tag, _, _) l1 l2 l3 =
     let ch = "@{<u>Characters@}" and cl = "@{<u>Class@}" and co = "@{<u>Cost@}"
     and rc = "@{<u>Rearrangement Cost@}" and cr = "@{<u>Chrom Ref@}" and me = "@{<u>Median Map@}"
-    and bl a b = Printf.sprintf "@{<u>Branch Length (%s-%s)@}" a b and st = "@{<u>States@}" in
+    and bl a b =
+        if b = ""
+            then Printf.sprintf "@{<u>Child Branch Length (none)@}"
+            else Printf.sprintf "@{<u>Child Branch Length (%s-%s)@}" a b
+        
+    and st = "@{<u>States@}" in
     let data =
              if tag = Xml.Characters.sequence     then [| ch; cl; co; st |]
         else if tag = Xml.Characters.chromosome   then [| ch; cl; co; rc; cr; me; st; |]
@@ -577,8 +600,10 @@ let node_to_formater st (tag, attr, cont) =
             | #Xml.structured as x -> Sexpr.to_list (Xml.eagerly_compute x)
             | _ -> raise (Illegal_formater "node_to_formater 2")
         in
-        let header = match lst with
-            | x::_ -> node_character_to_header x name child1_name child2_name
+        let header,has_rearrangement = match lst with
+            | x::_ ->
+                node_character_to_header x name child1_name child2_name,
+                    node_character_has_rearrangement x
             | []   -> failwith "no data in formatter"
         in
         let len = Array.length header in
@@ -586,7 +611,8 @@ let node_to_formater st (tag, attr, cont) =
         let lst = header :: (List.map (Array.map Xml.value_to_string) lst) in
         user_messagef st "@\n@\n@[<v 0>@{<b>Name %s@}@\n" name;
         user_messagef st "@[<v 0>@{<u>Cost %s@}@\n" cost;
-        user_messagef st "@[<v 0>@{<u>Rearrangement cost %s@}@\n" recost;
+        if has_rearrangement then
+            user_messagef st "@[<v 0>@{<u>Rearrangement cost %s@}@\n" recost;
         user_messagef st "@[<v 0>@{<u>Children: %s %s@}@\n" child1_name child2_name;
         Status.output_table st (Array.of_list lst);
         user_messagef st "@\n";
