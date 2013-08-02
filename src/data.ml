@@ -4488,8 +4488,10 @@ let verify_alphabet data chars alph =
     match alph with
     | `Min   ->
         let states = available_states data chars in
-        All_sets.Strings.cardinal states,
-        make_sequential (All_sets.Strings.elements states) Alphabet.gap_repr
+        let alphab = 
+            make_sequential (All_sets.Strings.elements states) Alphabet.gap_repr
+        in
+        Alphabet.size alphab, alphab
     | `Int x when x < 2 ->
         failwith "I cannot reduce the alphabet to below 2"
     | `Int x ->
@@ -4497,7 +4499,8 @@ let verify_alphabet data chars alph =
         if (All_sets.Strings.cardinal states) > x then
             failwithf ("I cannot reduce the alphabet size below the number of"^^
                        " observed states (%d)") (All_sets.Strings.cardinal states);
-        x, append_sequential states x Alphabet.gap_repr
+        let alphabet = append_sequential states x Alphabet.gap_repr in
+        Alphabet.size alphabet, alphabet
     | `Max   ->
         begin match List.map (fun x -> (x,get_alphabet data x)) chars with
             | (ch,h) :: t ->
