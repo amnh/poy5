@@ -3227,8 +3227,6 @@ let remove_taxa_to_ignore data =
             Hashtbl.remove data.taxon_characters tcode;
             data
         with | _ ->
-            Status.user_message Status.Information
-                ("Cannot@ find@ taxa@ "^taxon^"@ to@ ignore.@ No@ Worries.");
             data
     in
     let data = duplicate data in
