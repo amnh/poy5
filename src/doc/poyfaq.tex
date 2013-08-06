@@ -1,84 +1,80 @@
 This FAQ is supplementary documentation that aims to answer the most frequently poised questions to 
 the \poy developers and on the \poy google groups.
 
-\section{Getting to know \poy}
-Q. What does POY  stand for?\\
-\\
-A. POY is a meta-acronym, which comes from an older program YAPP (Yet Another Phylogeny Program) that 
+\renewcommand{\cftdotsep}{\cftnodots} % This gets rid of the dots locally
+\cftpagenumbersoff{questions} % This turns page numbers off for just the questions
+\listofquestions
+\newpage
+
+
+%\section{Getting to know \poy}
+\question{What does POY stand for?}
+{POY is a meta-acronym, which comes from an older program YAPP (Yet Another Phylogeny Program) that 
 was written in \texttt{C}.  This program, which was an extension of \texttt{MALIGN}, was the first designed around direct 
 optimization.  This program was rewritten in Ocaml (Ocaml YAPP), which was shortened to OY.  
-The subsequent parallelization of this program yielded POY.\\
-\\
-\\
-Q. Looking at the implied alignment generated from my \poy analysis, it looks very gappy.  Why?\\
-\\
-A. POY is not, nor has it ever been an alignment program.\\
-\\
-\\
-\section{Errors}
-Q. I encountered a problem while running an analysis that I think might be a bug in the program, how should 
-I report this?\\
-\\
-A. All error and bug reports should be made directly to the \poy Mail Group, which can be located at
-\url{https://groups.google.com/forum/#!forum/poy4}. When reported to the Mail Group, users
-should include the following information: what steps will reproduce the problem; what is the expected output and 
-what do you see instead;  what version of the product are you using and on which operating system?\\
-\\
-\\
-Q. ?
-\\
-A. Can't have prealigned with \texttt{affine} gap cost, only possible with dynamic.\\
-\\
-\\
-Q. When I run \poy in parallel, I get multiple, identical outputs to the screen, why?\\
-\\
-A. The only explanation for this is that \poy was not properly compiled in parallel. You should check the \texttt{make}
-options.\\
-\\
-\\
-Q. My script won't run...\\
-\\
-A. If a script won't run, the first thing to do is to check that there are no hidden characters in the script file.
+The subsequent parallelization of this program yielded POY.}
+
+\question{Looking at the implied alignment generated from my \poy analysis, it looks very gappy. Why?}
+{POY is not, nor has it ever been an alignment program.}
+
+%\section{Errors}
+\question{I encountered a problem while running an analysis that I think might be a bug in the program, how should 
+I report this?}
+{All error and bug reports should be made directly to the \poy Mail Group. Before posting to this group, it is advised that the 
+user search the history of previously posed questions, to make sure that their has not been previou1sly answered.
+When reported to the Mail Group, users should include the following information: what steps will 
+reproduce the problem; what is the expected output and what do you see instead;  what version of 
+the product are you using and on which operating system?}
+
+\question{My script won't run and I don't know where I went wrong.  What should I do?}
+{If a script won't run, the first thing to do is to check that there are no hidden characters in the script file.
 When constructing a script or a transformation cost matrix, it is important to do so in a text editor 
 such as Notepad (for Windows), TextEdit (for Mac), or Nano (for Linux). Generating these files in 
 a word processing application such as Microsoft Word may lead to the insertion of hidden 
- characters, which will result in an error.\\
+characters, which will result in an error.
 
-\section{SAQs}
-Q. I read in a tree that was generated from a previous analysis, however, the cost reported in the output window
-of the \texttt {Interactive Console } is different, why is this the case?\\
-\\
-A. If you are reading in a tree generated from a previous analysis it is important to make sure that the same 
-transformation cost matrix has been applied to the data.\\
-\\
-\\
-Q. In trying to calculate Jackknife support values, I believe that all the values are inflated for the resulting tree.
-Why?\\
-\\
-A. Although it is possible to calculate Jackknife and Bootstrap support values for trees constructed using dynamic 
+Secondly, the user is advised to check the log.  If none was set, the user is advised to do so and rerun the script.
+The log will give some indication as to which errors were encountered, or which warnings were issued.}
+
+\question{When I run \poy in parallel, I get multiple, identical outputs to the screen, why?}
+{The only explanation for this is that \poy was not properly compiled in parallel. You should check the \texttt{make}
+options.}
+
+\question{In running an analysis of custom alphabet characters, with the characters being transformed
+to \poyargument {level} 5, I got the following error "\texttt{seg fault:11}".  In a previous analysis, the characters 
+were transformed to \poyargument {level} 4, and that worked without issue.  What's wrong?}
+{This is most likely an 'out of memory' error and is system specific and difficult to predict. This is 
+beyond the control of the program. Storage and set up time increase combinatorially with level number.} 
+
+%\section{SAQs: Stoopid Ass Questions}
+\question{I read in a tree that was generated from a previous analysis, however, the cost reported in the output window
+of the \texttt {Interactive Console } is different, why is this the case?}
+{If you are reading in a tree generated from a previous analysis it is important to make sure that the same 
+transformation cost matrix has been applied to the data.}
+
+\question{In trying to calculate Jackknife support values, I believe that all the values are inflated for the resulting tree.
+Why?}
+{Although it is possible to calculate Jackknife and Bootstrap support values for trees constructed using dynamic 
 homology characters, it is recommended against doing so as resampling of dynamic characters occurs at the fragment, 
 rather than nucleotide, level. Consequently, the bootstrap and jackknife support values calculated for dynamic 
 characters are not directly comparable to those calculated based on static character matrices. In order to perform 
 character sampling at the level of individual nucleotides, the dynamic characters {\bf must} be transformed into 
 static characters using \poyargument {static\_approx} argument of the command transform (Section 3.3.26) prior 
-to executing calculate support.\\
-\\
-Q. Why is my prealigned data not treated as prealigned?\\
-\\
-A.  By default, upon importing prealigned sequence data, all the gaps are removed and the sequences are 
+to executing calculate support.}
+
+\question{Why is my prealigned data not treated as prealigned?}
+{By default, upon importing prealigned sequence data, all the gaps are removed and the sequences are 
 treated as dynamic homology characters. To preserve the alignment the data must be imported using the
 \poyargument{prealigned} argument of the command \poycommand{read}.  Unless specified using the 
 \poyargument {prealigned}, data that is read by the program is UNALIGNED and the gaps are stripped 
-from the data file!!!!\\
-\\
-Q. I would like to import trees from an earlier run, at what stage of the analysis should this be performed?\\
-\\
-A. When running a script that includes reading in trees from a previous analysis, these trees {\bf must} be read 
+from the data file!!!!}
+
+\question{I would like to import trees from an earlier run, at what stage of the analysis should this be performed?}
+{When running a script that includes reading in trees from a previous analysis, these trees {\bf must} be read 
 in {\bf after} the build stage.  If the trees are read in before the build they will be replaced by the trees 
-generated during the build.\\
-\\
-\\
-Q.\\
-\\
-A.\\
-\\
+generated during the build.}
+
+\question{Why is the root in the diagnosis file that I reported at the end of my analysis, not the same
+as the root that I \poyargument{set}?}
+{This is because the tree length heuristics may be based on an alternate rooting scheme than that 
+used for the \poyargument{newick} or \poyargument {graphic trees} output.}

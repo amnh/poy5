@@ -14,12 +14,13 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \usepackage{graphicx}
 \usepackage{microtype}
 \usepackage[htt]{hyphenat}
-%\usepackage[T1]{fontenc}
+\usepackage[T1]{fontenc}
 \usepackage {marvosym}
 \usepackage{tabularx}
 \usepackage{verbatim}
 \usepackage{amssymb,amsmath}
 \usepackage{rotating} % to create landscape pages
+\usepackage{tocloft}
 %\usepackage{makeidx}
 
 %Indexes
@@ -235,6 +236,21 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 \newcommand{\footnoterecall}[1]{
   \footnotemark[\value{#1}]
 }
+% Create and define the list of questions
+\newlistof{questions}{poyfaq}{} % This creates a new table of contents-like environment that will output a file with extension .faq
+
+% Create the command used for questions
+\newcommand{\question}[2] % This is what you will use to create a new question
+{
+%\refstepcounter{questions} % Increases the questions counter, this can be referenced anywhere with \thequestions
+%\par\noindent % Creates a new unindented paragraph
+\phantomsection % Needed for hyperref compatibility with the \addcontensline command
+\addcontentsline{poyfaq}{questions}{Q. #1} % Adds the question to the list of questions
+Q. #1 \\
+\\
+A. #2
+\vspace{1em} % White space after the question before the start of the answer
+}
 
 % Hyphenations
 \hyphenation{mo-le-cu-lar an-aly-ses an-aly-sis au-to-ma-ti-cally ho-mo-lo-gy chro-mo-so-me chro-mo-so-me-le-vel op-ti-mi-za-tion}
@@ -370,6 +386,9 @@ and
 Comments or queries relating to the documentation should be sent to \href{mailto:crowley@amnh.org}{crowley@amnh.org}
 \end{flushleft}
 
+\newpage
+
+\renewcommand{\cftsecdotsep}{2}
 \tableofcontents
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -452,14 +471,15 @@ In \poy, we recognize four types of command arguments: \emph{primitive values},
 \paragraph{Primitive values} can be either an integer (\poyint), a real number
 (\poyfloat), a string (\poystring), or a boolean (\poybool).
 
-\paragraph{Labeled values} are lowercase identifiers (which are referred to as
+\paragraph{Labeled arguments} are lowercase identifiers (which are referred to as
 \emph{label}), and an argument, separated by the colon character (``:''). Examples 
 of identifiers include items such as \poyargument{characters}, \poyargument{terminals}, 
 \poyargument{all}, \poyargument{characters}, \texttt{names of files}, \poyargument{missing},
-\poyargument{codes} etc:
+\poyargument{codes} etc:  In contrast to lists of arguments, which are enclosed in parentheses 
+(see below), when only one argument can follow a command, parentheses are not required.
 
 \paragraph{List of arguments} are several arguments enclosed in parenthesis and
-separated by commas (``,'').
+separated by commas (``,''). 
 
 \paragraph{Commands} are standard commands that can affect the behavior of
 another command when included in its list of arguments.
@@ -598,7 +618,7 @@ Each command description entry contains the following sections:
 \textbf{Default syntax}. The default syntax for all commands is the same: it includes the command name 
 followed by empty parentheses, e.g. \poycommand{swap()}. However, within the descriptions of each 
 command the default settings include the entire argument list for illustrative purposes only (i.e. in the case 
-of \poycommand{swap()} the entire argument list appears as \poycommand{swap(trees:1, alternate, threshold:0, bfs)}).
+of \poycommand{swap()} the entire argument list appears as \poycommand{swap(trees:1,alternate,threshold:0,bfs)}).
 \end{statement}
 
 \begin{statement} \label{commandorder}
@@ -633,12 +653,12 @@ of \poycommand{swap()} the entire argument list appears as \poycommand{swap(tree
 \section{Command reference}
 \input{doc/allcommands}
 
-
 \chapter{\poy Heuristics: A Practical Guide}
 \input{doc/poyheuristics}
 
 \chapter{\poy Tutorials}
 \input{doc/poytutorials}
+
 
 \chapter{\poy Frequently Asked Questions}
 \input{doc/poyfaq}

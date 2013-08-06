@@ -338,13 +338,13 @@ In analyses at the level of nucleotides, there are three general approaches to s
 most commonly used by \poy practitioners.
 \begin{description}
 \item[Equal costs] This approach assigns the same cost to all substitutions and indels, and does not take into 
-account gap extension cost. For rationale for using this cost regime see Frost et al. \cite{frost2001} %and for other examples of its application see.
+account gap extension cost. For rationale for using this cost regime see Frost et al. \cite{frost2001}.
 \item[``Homology maximization''] This approach, developed by De Laet \cite{delaet2005}, assigns costs 
-\texttt{2, 3, and 1} to transformations, gap opening, and gap extension respectively. %For examples using this methods see
+\texttt{2, 3, and 1} to transformations, gap opening, and gap extension respectively. 
 \item[Parameter sensitivity analysis] This method, suggested by Wheeler \cite{wheeler1995}, explores the 
 effect of varying transformation costs by comparing results of analyses conducted under different cost regimes. 
 Partition incongruence can subsequently be computed  for each cladogram and the parameter set that minimizes 
-incongruence is selected as best. %For examples using this methods see
+incongruence is selected as best. 
 \end{description}
 More specifically, sequence optimization parameters depend on the relative costs of nucleotide- and locus-level transformations. 
 Nucleotide-level transformations are specified by the \poyargument{tcm} argument, the locus-level rearrangements are specified by 
@@ -353,8 +353,7 @@ rearrangements will be employed. On the other hand, if their cost is very low (e
 rearrangements), rearrangements can be frequent.
 
 When DNA sequence data is combined with morphological data, the cost for morphological character transformations 
-often is  set to be the same as for 
-nucleotide substitutions or indels.
+often is  set to be the same as for nucleotide substitutions or indels.
 
 \section{Likelihood Analyses}
 The analysis of sequence data under likelihood, whether prealigned (static) or not, can be significantly more time consuming than 
