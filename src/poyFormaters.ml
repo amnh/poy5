@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyFormaters" "$Revision: 3160 $"
+let () = SadmanOutput.register "PoyFormaters" "$Revision: 3453 $"
 
 exception Illegal_formater of string
 
@@ -327,9 +327,6 @@ let min_and_max ((x, y) as acc) (a, _, c) =
 let addcs_to_formater ((tag, attr, cont) : Xml.xml) = 
     if tag = Xml.Characters.additive then begin
         let name, cclass, cost = get_name_class_and_cost attr in
-        let recost = `Float 0. in 
-        let chrom_ref = `String "-" in 
-        let map = chrom_ref in 
         let minmax = 
             match cont with
             | #Xml.structured as x -> 
@@ -345,7 +342,7 @@ let addcs_to_formater ((tag, attr, cont) : Xml.xml) =
                 Buffer.add_string c ", ";
                 Buffer.add_string c max;
                 Buffer.add_string c "]";
-                [|name; cclass; cost; `String "-,-"; recost; chrom_ref; map; `String (Buffer.contents c)|]
+                [|name; cclass; cost; `String (Buffer.contents c)|]
         | _ -> raise (Illegal_formater "addcs_to_formater 2")
     end else raise (Illegal_formater "addcs_to_formater 3")
 
@@ -363,9 +360,6 @@ let nonaddcs_to_formater ((tag, attr, cont) : Xml.xml) =
                 let str = " " in
                 str, `String str
         in
-        let recost = `String "0." in 
-        let chrom_ref = `String "0." in 
-        let map = `String "-" in 
         let states = 
             match cont with
             | #Xml.structured as x -> (* This is what we expect *)
@@ -384,7 +378,7 @@ let nonaddcs_to_formater ((tag, attr, cont) : Xml.xml) =
                     StatusCommon.escape (Buffer.contents c)
             | _ -> raise (Illegal_formater "nonaddcs_to_formater 2")
         in
-        [| name; cclass; cost; `String "-,-"; recost; chrom_ref; map; `String states |]
+        [| name; cclass; cost; `String states |]
     end else raise (Illegal_formater "nonaddcs_to_formater")
 
 let sankcs_to_formater ((tag, attr, cont) : Xml.xml) =
@@ -395,14 +389,12 @@ let sankcs_to_formater ((tag, attr, cont) : Xml.xml) =
 let seq_to_formater ((tag, attr, cont) : Xml.xml) : Xml.unstructured array  =
     if tag = Xml.Characters.sequence then begin
         let name, cclass, cost = get_name_class_and_cost attr in
-        let chrom_ref = `String "-" in 
-        let recost = `Float 0. in 
-        let map = chrom_ref in
         match cont with
             | #Xml.unstructured as v ->
                 let v = `Fun (fun () -> StatusCommon.escape (Xml.value_to_string v)) in
-                [|name; cclass; cost; `String "-,-"; recost; chrom_ref; map; v|]
-            | #Xml.structured_xml -> raise (Illegal_formater "seq_to_formater")
+                [|name; cclass; cost; v |]
+            | #Xml.structured_xml ->
+                raise (Illegal_formater "seq_to_formater")
     end else raise (Illegal_formater ("seq_to_formater"))
 
 let breakinv_to_formater ((tag, attr, cont) : Xml.xml) =
@@ -498,17 +490,12 @@ let likelihood_to_formater ((tag, attr, cont) as xml: Xml.xml) =
         (* Basic data *)
         let name    = Xml.find_attr xml Xml.Characters.name
         and cost    = Xml.find_attr xml Xml.Characters.cost
-        (* empty data *)
         and cclass  = `String Xml.Nodes.preliminary
-        and recost  = `Float 0.
-        and chrom   = `String "-"
-        and map     = `String "-"
-        and branch1 = Xml.value_to_string (Xml.find_attr xml Xml.Nodes.min_time)
-        and branch2 = Xml.value_to_string (Xml.find_attr xml Xml.Nodes.oth_time)
+        and branch1 = `String (Xml.value_to_string (Xml.find_attr xml Xml.Nodes.min_time))
+        and branch2 = `String (Xml.value_to_string (Xml.find_attr xml Xml.Nodes.oth_time))
         (* state data --since we have a complex vector; leave blank *)
         and v        = `String "-" in
-        let branches = `String ((branch1)^","^(branch2)) in
-        [| name; cclass; cost; branches; recost; chrom; map; v |]
+        [| name; cclass; cost; branch1; branch2; v |]
     end else
         raise (Illegal_formater "likelihood_to_formater")
 
@@ -519,20 +506,16 @@ let dyn_likelihood_to_formater ((tag, attr, cont) as xml: Xml.xml) =
         let name    = Xml.find_attr c_xml Xml.Characters.name
         and cclass  = Xml.find_attr xml Xml.Characters.cclass
         and cost    = Xml.find_attr xml Xml.Characters.cost
-        (* empty data *)
-        and recost  = `Float 0.
-        and chrom   = `String "-"
-        and map     = `String "-"
-        and branch1 = Xml.value_to_string (Xml.find_attr xml Xml.Nodes.min_time)
-        and branch2 = Xml.value_to_string (Xml.find_attr xml Xml.Nodes.oth_time)
+        and branch1 = `String (Xml.value_to_string (Xml.find_attr xml Xml.Nodes.min_time))
+        and branch2 = `String (Xml.value_to_string (Xml.find_attr xml
+        Xml.Nodes.oth_time))
         (* state data --pull from sequence data *)
         and v = match c with
             | #Xml.unstructured as c ->
                 `Fun (fun () -> StatusCommon.escape (Xml.value_to_string c))
             | _ -> failwith "Unexpected format in Dynamic Likelihood output"
         in
-        let branches = `String ((branch1)^","^(branch2)) in
-        [| name; cclass; cost; branches; recost; chrom; map; v |]
+        [| name; cclass; cost; branch1; branch2; v |]
     end else
         raise (Illegal_formater "dyn_likelihood_to_formater")
 
@@ -554,6 +537,50 @@ let node_character_to_formater length ((tag, _, _) as v) =
     assert( length = Array.length data );
     data
 
+let node_character_has_rearrangement (tag, _, _) =
+    let data =
+             if tag = Xml.Characters.sequence     then false
+        else if tag = Xml.Characters.chromosome   then true
+        else if tag = Xml.Characters.genome       then true
+        else if tag = Xml.Characters.breakinv     then true
+        else if tag = Xml.Characters.annchrom     then true
+        else if tag = Xml.Characters.sankoff      then false
+        else if tag = Xml.Characters.nonadditive  then false
+        else if tag = Xml.Characters.additive     then false
+        else if tag = Xml.Characters.likelihood   then false
+        else if tag = Xml.Characters.dlikelihood  then false
+        else
+            raise (Illegal_formater ("node_character_to_header: " ^ tag))
+    in
+    data
+
+
+let node_character_to_header (tag, _, _) l1 l2 l3 =
+    let ch = "@{<u>Characters@}" and cl = "@{<u>Class@}" and co = "@{<u>Cost@}"
+    and rc = "@{<u>Rearrangement Cost@}" and cr = "@{<u>Chrom Ref@}" and me = "@{<u>Median Map@}"
+    and bl a b =
+        if b = ""
+            then Printf.sprintf "@{<u>Child Branch Length (none)@}"
+            else Printf.sprintf "@{<u>Child Branch Length (%s-%s)@}" a b
+        
+    and st = "@{<u>States@}" in
+    let data =
+             if tag = Xml.Characters.sequence     then [| ch; cl; co; st |]
+        else if tag = Xml.Characters.chromosome   then [| ch; cl; co; rc; cr; me; st; |]
+        else if tag = Xml.Characters.genome       then [| ch; cl; co; rc; cr; me; st; |] 
+        else if tag = Xml.Characters.breakinv     then [| ch; cl; co; rc; cr; me; st; |] 
+        else if tag = Xml.Characters.annchrom     then [| ch; cl; co; rc; cr; me; st; |] 
+        else if tag = Xml.Characters.sankoff      then [| ch; cl; co; st |] 
+        else if tag = Xml.Characters.nonadditive  then [| ch; cl; co; st |]
+        else if tag = Xml.Characters.additive     then [| ch; cl; co; st |]
+        else if tag = Xml.Characters.likelihood   then [| ch; cl; co; bl l1 l2; bl l1 l3; st |] 
+        else if tag = Xml.Characters.dlikelihood  then [| ch; cl; co; bl l1 l2; bl l1 l3; st |]
+        else
+            raise (Illegal_formater ("node_character_to_header: " ^ tag))
+    in
+    data
+
+
 let node_to_formater st (tag, attr, cont) =
     let assoc x y = Xml.value_to_string (List.assoc x y) in
     if tag = Xml.Nodes.node then begin
@@ -562,34 +589,36 @@ let node_to_formater st (tag, attr, cont) =
         and child2_name = assoc Xml.Nodes.child2_name attr in
      (*  we gonna get cost and recost out of the lst *)
         let cost =
-            try assoc Xml.Characters.cost attr 
+            try assoc Xml.Characters.cost attr
             with | Not_found -> " "
         in
         let recost =
-            try assoc Xml.Characters.recost attr 
+            try assoc Xml.Characters.recost attr
             with | Not_found -> " "
         in
         let lst = match cont with
             | #Xml.structured as x -> Sexpr.to_list (Xml.eagerly_compute x)
             | _ -> raise (Illegal_formater "node_to_formater 2")
         in
-        let header= [|"@{<u>Characters@}"; "@{<u>Class@}"; "@{<u>Cost@}";
-                      "@{<u>Child Branch Lengths@}"; "@{<u>Rearrangement Cost@}";
-                      "@{<u>Chrom Ref@}"; "@{<u>Median Map@}"; "@{<u>States@}"|]
+        let header,has_rearrangement = match lst with
+            | x::_ ->
+                node_character_to_header x name child1_name child2_name,
+                    node_character_has_rearrangement x
+            | []   -> failwith "no data in formatter"
         in
-        let lst = 
-            List.map (fun item -> node_character_to_formater (Array.length header) item) lst in
-        let lst =
-           header :: (List.map (Array.map Xml.value_to_string) lst)
-        in
+        let len = Array.length header in
+        let lst = List.map (fun i -> node_character_to_formater len i) lst in
+        let lst = header :: (List.map (Array.map Xml.value_to_string) lst) in
         user_messagef st "@\n@\n@[<v 0>@{<b>Name %s@}@\n" name;
         user_messagef st "@[<v 0>@{<u>Cost %s@}@\n" cost;
-        user_messagef st "@[<v 0>@{<u>Rearrangement cost %s@}@\n" recost;
+        if has_rearrangement then
+            user_messagef st "@[<v 0>@{<u>Rearrangement cost %s@}@\n" recost;
         user_messagef st "@[<v 0>@{<u>Children: %s %s@}@\n" child1_name child2_name;
         Status.output_table st (Array.of_list lst);
         user_messagef st "@\n";
         user_messagef st "@]@]";
-    end else raise (Illegal_formater "node_to_formater")
+    end else
+        raise (Illegal_formater "node_to_formater")
 
 let forest_to_formater st ((tag, attr, cont) as v) =
     let find x y = 

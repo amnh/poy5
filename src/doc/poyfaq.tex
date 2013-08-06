@@ -11,6 +11,7 @@ the \poy developers and on the \poy google groups.
 \question{What does POY stand for?}
 {POY is a meta-acronym, which comes from an older program YAPP (Yet Another Phylogeny Program) that 
 was written in \texttt{C}.  This program, which was an extension of \texttt{MALIGN}, was the first designed around direct 
+<<<<<<< local
 optimization.  This program was rewritten in Ocaml (Ocaml YAPP), which was shortened to OY.  
 The subsequent parallelization of this program yielded POY.}
 
@@ -28,6 +29,41 @@ the product are you using and on which operating system?}
 
 \question{My script won't run and I don't know where I went wrong.  What should I do?}
 {If a script won't run, the first thing to do is to check that there are no hidden characters in the script file.
+=======
+optimization.  This program was rewritten in OCaml (OCaml YAPP), which was shortened to OY.  
+The subsequent parallelization of this program yielded POY.\\
+\\
+\\
+Q. Looking at the implied alignment generated from my \poy analysis, it looks very gappy.  Why?\\
+\\
+A. POY is not, nor has it ever been an alignment program.\\
+\\
+\\
+\section{Errors}
+Q. I encountered a problem while running an analysis that I think might be a bug in the program, how should 
+I report this?\\
+\\
+A. All error and bug reports should be made directly to the \poy Mail Group, which can be located at
+\url{https://groups.google.com/forum/#!forum/poy4}. When reported to the Mail Group, users
+should include the following information: what steps will reproduce the problem; what is the expected output and 
+what do you see instead;  what version of the product are you using and on which operating system?\\
+\\
+\\
+Q. ?
+\\
+A. Can't have prealigned with \texttt{affine} gap cost, only possible with dynamic.\\
+\\
+\\
+Q. When I run \poy in parallel, I get multiple, identical outputs to the screen, why?\\
+\\
+A. The only explanation for this is that \poy was not properly compiled in parallel. You should check the \texttt{make}
+options.\\
+\\
+\\
+Q. My script won't run...\\
+\\
+A. If a script won't run, the first thing to do is to check that there are no hidden characters in the script file.
+>>>>>>> other
 When constructing a script or a transformation cost matrix, it is important to do so in a text editor 
 such as Notepad (for Windows), TextEdit (for Mac), or Nano (for Linux). Generating these files in 
 a word processing application such as Microsoft Word may lead to the insertion of hidden 
@@ -73,6 +109,24 @@ from the data file!!!!}
 {When running a script that includes reading in trees from a previous analysis, these trees {\bf must} be read 
 in {\bf after} the build stage.  If the trees are read in before the build they will be replaced by the trees 
 generated during the build.}
+
+\question{Why are likelihood scores worse/different than other applications?}
+{There are a number of issues to consider. If the values are close under the same model of
+evolution then numerical issues due to finite precision arithmetic of decimal numbers can cause
+slight rounding errors in an analysis to build up. Although we use standard techniques to limit the
+accumulation of these errors, they inevitably occur and small differences in likelihood scores are
+absolutely normal and should be ignored. These differences even occur within the same application
+run on different architectures and compiler options.
+
+If the model is not hierarchical then comparisons are not relevant. Unfortunately, the number of
+states in the model of evolution matters, as well as cost assignments of Maximum Parsimonious
+Likelihood (MPL) and Maximum Average Likelihood (MAL). Thus, a four state model of evolutions'
+likelihood score cannot be compared directly with a five state model. There is added cost that
+result from the probability of an additional state in an analysis. 
+
+One should also check that the \poycommand{exhaustive} option is set for the optimization routines.
+It is set by default but ensure that, if it changed somewhere in the script, one sets it back
+--especially if one plans to do application comparisons.}
 
 \question{Why is the root in the diagnosis file that I reported at the end of my analysis, not the same
 as the root that I \poyargument{set}?}

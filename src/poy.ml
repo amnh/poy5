@@ -17,13 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 3442 $"
+let () = SadmanOutput.register "Main" "$Revision: 3451 $"
 
 let seed = truncate (Unix.time ())
 
 let hostname = Unix.gethostname ()
 
-let debug_pass_errors = true
+let debug_pass_errors = false
 
 let master =
     IFDEF USEPARALLEL THEN

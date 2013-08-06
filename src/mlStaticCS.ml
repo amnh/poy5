@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 3389 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3454 $"
 
 let compress = true
 
@@ -297,11 +297,9 @@ let median2 an bn t1 t2 acode bcode =
         loglikelihood n_chars an.weights am.MlModel.pi_0 
                       am.MlModel.prob pinvar (MlModel.get_costfn_code am)
     in
-    assert( loglike >= -0.0 );
-    { an with
-        chars = n_chars;
-        mle = loglike; 
-    }
+    let med = { an with chars = n_chars; mle = loglike; } in
+    assert(loglike >= -0.0);
+    med
 
 let median1 an bn t1 = 
     let am = an.model in
@@ -473,8 +471,9 @@ let of_parser spec weights characters =
         | `Missing-> (Alphabet.size alph)-1,Alphabet.get_gap alph,false
         | `Independent | `Coupled _ -> Alphabet.size alph,Alphabet.get_gap alph,true
     in
+    assert( a_size = (Bigarray.Array1.dim computed_model.MlModel.pi_0) );
     (* loop to create array for each character *)
-    let loop_ (states,code) = match states with 
+    let loop_ (states,_) = match states with 
         | None -> Array.make a_size 1.0
         | Some s ->
             let lst = Nexus.File.static_state_to_list s in
@@ -483,12 +482,11 @@ let of_parser spec weights characters =
                 with another character (ie, A/-) then we use the other chars
                 minus the gap, else we set the state as we would a gap. *)
             if (not u_gap) && (List.mem a_gap lst) && ((List.length lst_minus_gap) = 0) then
-                Array.make a_size 1.0 
+                Array.make a_size 1.0
             else begin
                 let lst = if (not u_gap) then lst_minus_gap else lst in
-                list_of a_size 0.0
-                    --> List.fold_right set_in lst
-                    --> Array.of_list
+                Array.make a_size 0.0
+                  --> List.fold_right (fun x acc -> acc.(x) <- 1.0;acc) lst
             end
     in
     (* convert character array to abstract type --redo *)
@@ -517,11 +515,11 @@ let of_parser spec weights characters =
                       (MlModel.get_costfn_code computed_model)
     in
     assert( loglike >= -0.0 );
-    {    mle  = loglike;
-       model  = computed_model;
-       codes  = codes;
-       weights= weights;
-       chars  = lk_chars; }
+    { mle  = loglike;
+    model  = computed_model;
+    codes  = codes;
+    weights= weights;
+    chars  = lk_chars; }
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
     let str_time = function | Some x -> `Float x | None -> `String "None"

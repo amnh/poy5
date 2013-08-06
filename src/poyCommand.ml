@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3439 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3454 $"
 
 let debug = false 
 
@@ -1215,10 +1215,11 @@ type command = [
                     [ LIDENT "bic"  -> `BIC  None ] |
                     [ LIDENT "aicc" -> `AICC None ] |
                     (* Meta Likelihood; transforms as a special command *)
-                    [ LIDENT "ncm" -> `NCM ] |
+                    [ LIDENT "ncm"  -> `NCM ] |
                     (* Standard likelihood transformation models *)
-                    [ LIDENT "jc69" -> `JC69 ] |
-                    [ LIDENT "f81"  -> `F81  ] |
+                    [ LIDENT "jc69"   -> `JC69 ] |
+                    [ LIDENT "neyman" -> `JC69 ] |
+                    [ LIDENT "f81"    -> `F81  ] |
                         (* values of these types get checked later *)
                     [ LIDENT "f84";   x = OPT ml_floatlist ->
                         let x = (function None -> [] | Some x -> x) x in `F84 x  ] |
