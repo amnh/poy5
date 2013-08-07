@@ -1,4 +1,4 @@
-(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: character.ml 1644 2007-02-14 19:05:47Z andres $ *)
-let () = SadmanOutput.register "Character" "$Revision: 3160 $"
+let () = SadmanOutput.register "Character" "$Revision: 3459 $"
 
 
 (* To later interface with Vamsi's code *)

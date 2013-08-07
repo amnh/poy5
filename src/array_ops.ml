@@ -1,4 +1,4 @@
-(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: array_ops.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Array_ops" "$Revision: 3409 $"
+let () = SadmanOutput.register "Array_ops" "$Revision: 3459 $"
 
 
 exception Empty
