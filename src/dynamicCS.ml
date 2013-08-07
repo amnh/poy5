@@ -1,4 +1,4 @@
-(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -21,7 +21,7 @@
 * The dynamic character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "DynamicCS" "$Revision: 3305 $"
+let () = SadmanOutput.register "DynamicCS" "$Revision: 3459 $"
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers

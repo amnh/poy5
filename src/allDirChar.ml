@@ -1,4 +1,4 @@
-(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3433 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3459 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap

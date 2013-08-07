@@ -1,4 +1,4 @@
-(* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 3276 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 3459 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true

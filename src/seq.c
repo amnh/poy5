@@ -1,4 +1,4 @@
-/* POY 5.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    */
+/* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         */
 /* and the American Museum of Natural History.                                */
 /*                                                                            */
 /* This program is free software; you can redistribute it and/or modify       */
