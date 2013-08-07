@@ -461,7 +461,7 @@ let process_file parsed mode output_file =
             \n.SH VERSION\n 4.0." ^ (Str.global_replace (Str.regexp " ") "" BuildNumber.build) ^ "\n\
             .SH COMMANDS\n.P\n\
             For complete documentation go to \
-            http://research.amnh.org/scicomp/projects/poy.php.\n\
+            http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy.\n\
             The following are the valid commands for \n\
             .B poy.");
         process parsed mode channel;

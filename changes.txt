@@ -1,3 +1,28 @@
+CHANGES BETWEEN 5.0 beta2 and 5.0 Official Release
+
+New Features:
+    - Status messages for progress when using Model Selection and Fixed States
+      transformation commands.    
+    - report(diagnosis) produces columns of only relevant information.
+    - Improved error messages.
+    - Updated Documentation.
+
+Bugs Fixed:
+    - Script analysis would drop graphsupports command in finalized script.
+    - Due to a number of issues when loading trees with taxa missing from the
+      loaded data, we do not allow these trees to be loaded. The application
+      will report the missing trees and skip loading the information. This can
+      be used to generate a select command to filter terminals, like
+        select(terminals, not files:("missing_terminals_file"))
+    - General NonAdditive Characters causing error under Exhaustive DO. The
+      appropriate functions not being called from previous testing.
+    - Logic backwards in processing the level and orientation arguments for
+      reading BreakInv and chromosome characters.
+    - Loading data with unequal number of fragments (separated by #) did not
+      cause an error, instead filled sections with "missing" data.
+    - Issues with synonym files and processing trees (Ron Clouse)
+
+
 CHANGES BETWEEN 5.0 beta1 and 5.0 beta2
 
 New Features:
@@ -6,7 +31,7 @@ New Features:
       branch lengths from three different methods (see below), these options are
       ignored under likelihood as we always report the parameter value that
       maximizes the log-likelihood.
-    - report graphtrees, asciitrees, and trees with collapsable property have
+    - report graphtrees, asciitrees, and trees with collapsible property have
       been extended to use the branch lengths mentioned above (see command
       description below).
     - Custom Alphabet transformation to static character via static approx. This
@@ -24,13 +49,13 @@ Bugs Fixed:
       These should be filtered from the transformation, as in other likelihood
       transformations on those characters.
     - Custom-alphabet implied alignment produced an alignment with extra indels.
-      This was due to an encoding issue that became relevent when mixing custom
+      This was due to an encoding issue that became relevant when mixing custom
       alphabet characters and levels.
     - Issue with missing data in custom-alphabet prealigned characters resolved.
     - generation of cost-matrix with all-elements row/col and non-zero diagonal
       cost matrix --was being replaced with zeros, should have been min of row.
     - No reported error when reading in sequence data with unequal fragments.
-      This forced the computation to proceede as if those fragments were
+      This forced the computation to proceed as if those fragments were
       missing. Now (as in POY4) we report an error to the user.
 
 New Commands (see manual for full explanations) :
@@ -56,8 +81,6 @@ Changed Commands (see manual for full explanations) :
         report(trees:(collapse:single))
         report("tree.pdf", graphtrees:collapse:min)
         report( asciitrees:collapse:max )
-
-Known Issues :
  
 
 
@@ -163,8 +186,6 @@ Known Issues :
 
 CHANGES BETWEEN 5.0 alpha2 and 5.0 alpha3
 
-New Features:
-
 Bugx Fixed:
     - Continuous characters are fully supported from Hennig86/Nona files. The
       previous format that POY reads is the same (integers separated by spaces,
@@ -173,11 +194,6 @@ Bugx Fixed:
       a maximum range of 255. (Thanks to Edmundo Gonzalez)
     - Costs displayed on trees is incorrect for partitions/sets of characters.
       This is fixed to represent the overall tree cost.
-
-New Commands:
-
-
-Changed Commands:
 
 
 

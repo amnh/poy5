@@ -5,7 +5,8 @@
 <!--
 This XML is for the special purpose version of POY. To compile it see the
 instructions in the INSTALL file available in the source code of the program,
-available at http://research.amnh.org/scicomp/projects/poy.php.
+available at,
+  http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy
 
 The functionality provided in this interface is rather limited, but will serve
 as starting point for future versions of it. In particular, a few limitations of
@@ -18,12 +19,14 @@ important limitation is the hard coded number of input files and file names).
 		<title>POY</title>
         VERSION
 		<description>Phylogenetic tree inference using dynamic homologies.</description>
-		<authors>Andres Varon, Le Sy Vinh, Illya Bomash, and Ward Wheeler</authors>
-        <reference>Varon, A., L. S. Vinh, I. Bomash, W. C.Wheeler. 2008. POY
-            4.0. American Museum of Natural History.
-            http://research.amnh.org/scicomp/projects/poy.php</reference>
+		<authors>Andres Varon, Lin Hong, Nicholas Lucaroni, and Ward Wheeler</authors>
+        <reference>
+            Varon, A., Hong, L., Lucaroni, N., W. C. Wheeler. 2013. POY 5.0. American Museum of Natural History.
+        </reference>
 		<category>Phylogeny / Alignment</category>
-        <doclink>http://research.amnh.org/scicomp/projects/poy.php</doclink>
+        <doclink>
+            http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy
+        </doclink>
 	</head>
 	<command>poy</command>
 	
