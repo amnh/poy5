@@ -1319,70 +1319,88 @@ along with the branch lengths \texttt{trees:(branches)}.
 \item \texttt{exit()} This command ends the \poy session.
 \end{itemize}
 
-%(*Conduct RAS and parsimony initial pass*)
-%build(30)
-%swap()
-%perturb(transform(static_approx),iterations:5,ratchet:(0.1,2))
-%perturb(transform(static_approx),iterations:5,ratchet:(0.3,3))
-%perturb(transform(static_approx),iterations:5,ratchet:(0.5,4))
+%----------------------------------------------------------------
+%Maximum Likelihood Analysis: Combined Analysis
+%----------------------------------------------------------------
 
-%(*Transform to likelihood characters*)
-%transform(likelihood:(jc69,alphabet:(4)))
-%swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:
-%join_delta))
-%report("morphology_r=4.tre",trees:(branches))
-%report("morphology_r=4_lkm.txt",lkmodel)
-
-%transform(likelihood:(jc69,alphabet:(min)))
-%swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:
-%join_delta))
-%report("morphology_r=min.tre",trees:(branches))
-%report("morphology_r=min_lkm.txt",lkmodel)
+%\section{Maximum Likelihood Analysis: Combined}{\label{tutorial 18}}
+%This tutorial illustrates the analysis of both morphological data under the maximum likelihood 
+%criterion. In this analysis, qualitative characters are transformed to likelihood using different
+%models.  In addition, different alphabet sizes are applied to different ranges of characters 
+%within the same dataset.
+%
+% (*TUTORIAL 13b: MAXIMUM LIKELIHOOD ANALYSIS; COMBINED ANALYSIS 
+%  OF MORPHOLOGICAL AND MOLECULAR DATA*)
+%
+% THIS TUTORIAL IS NOT INCLUDED IN THE INITIAL RELEASE DUE TO CERTAIN PROBLEMS WITH CALCULATING THE CORRECTION
+% TERM IN THE LEWIS MORPHOLOGY MODEL. THE TUTORIAL WILL BE INCLUDED IN A FUTURE RELEASE. 
+%
+%(*Read in morphology data and specify partition*)
+%
+%read("31.ss")
+%set(partition:("morph", names:("31.ss")))
+%
+%(*Read in prealigned molecular data; specify partition and 
+%  conduct RAS and swapping under parsimony*)
+%
+%read(prealigned:("1_ia.fas",tcm:(1,1)))
+%set(partition:("molec", names:("1_ia.fas")))
+%build(50)
+%search(max_time:00:01:00)
+%
+%(*Transform sets to likelihood and complete analysis*)
+%
+%transform(sets:("morph"), (likelihood:(jc69, alphabet:(min)))) 
+%transform(sets:("molec"), (likelihood:(gtr, rates:gamma:(4),
+%priors:(estimate), gap:missing, mal)))
+%swap(tbr, bfs:2, all:2, optimize:(model:(threshold:1.6),branch:
+%join_region))
+%swap(spr,all:1)
+%report("combined_LK.tre",trees:(branches))
+%report("combined_LK_lkm.txt",lkmodel)
 %exit()
 %\end{verbatim}
-
+%
 %\begin{itemize}
-%\item \texttt{(*Read in the data and report*)} This first line of the script is a comment. While comments are optional and do 
-%not affect the analyses, they are useful for housekeeping purposes.
-%\item \texttt{read("31.ss")}
-%This command imports the Hennig86 morphological data file \texttt{31.ss} as prealigned characters. 
-%\item \texttt{report(data)} This command generates a summary of the data properties. In reporting the data, it is possible to 
-%examine the data for the number of character states, i.e. the ``Range" column in the \poy Output window of the Interactive
-%Console. 
-%\item \texttt{build(30)} Build 30 random addition Wagner trees.
-%\item \texttt{swap()} Conduct alternating rounds of SPR and TBR until the scores stabilize.
-
-%\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.1,2))} Conduct 5 iterations of parsimony ratchet,
-%reweighting 10 percent of the characters by a factor of 2.
-%\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.3,3))} Conduct 5 iterations of parsimony ratchet,
-%reweighting 30 percent of the characters by a factor of 3.
-%\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.5,4))} Conduct 5 iterations of parsimony ratchet,
-%reweighting 50 percent of the characters by a factor of 4.
-%\item \texttt{transform(likelihood:(jc69,alphabet:(4)))} Transform to likelihood characters under JC69/Neyman model, 
-%specifying the alphabet size (constant across all characters) to be $r=4$. The alphabet size equates to the number of 
-%character states identified in \texttt{report(data)}.
-%\item \texttt{swap(tbr,\hl{bfs}:5,all:5,optimize:(model:(threshold:0.4),branch:\\join\_delta))} Swap using TBR and a 
-%breadth-first search joining a maximum of five branches from the break site, optimizing the model parameters if the 
-%cost of the join under the current model is within 1.4 times the current best cost (proportion 0.4 worse), and optimizing 
-%only the branches along the path from the break to the new join location. 
-%\item \texttt{report("morphology\_r=4.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
+%\item \texttt{(*Read in the morphology data and specify partition*)} This first line of the script is a comment. While 
+%comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
+%\item \texttt{read(\hl{"31.ss"})} This command imports the morphological data file \texttt{31.ss} in Hennig86 format. 
+%\item \texttt{set(partition:("morph",names:("31.ss")))} This command defines a character partition called ``morph'' for 
+%all characters in the morphological dataset.
+%\item \texttt{(*Read in prealigned molecular data; specify partition and conduct RAS and swapping under parsimony*)}
+%This is a comment indicating the intent of the commands which follow.
+%\item \texttt{read(prealigned:("1\_ia.fas",tcm:(1,0)))} This command reads in the molecular dataset \texttt{1\_ia.fas} as 
+%prealigned data.
+%\item \texttt{set(partition:("molec",names:("1\_ia.fas")))} This command defines a character partition called ``molec'' 
+%for all characters in the molecular dataset.
+%item \texttt{build(50)} Builds 50 RAS Wagner trees.
+%item \texttt{search(max\_time:00:01:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
+%and tree fusings as possible within the specified time of one hour. All trees with the optimal score found are stored 
+%in memory. Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
+%therefore the time chosen here should not be taken as optimal for all data sets.
+%\item \texttt{transform(sets:("morph"),(likelihood:(jc69))))} %This command produces a NOT FOUND error.
+%his command specifies a partition-specific JC69 model with minimal Neyman alphabet size be applied to the 
+%partition ``morph.''
+%\item \texttt{transform(sets:("molec"),(likelihood:(gtr,rates:(gamma:(4)),\\priors:(estimate), gap:(missing),mal)))} 
+%This command specifies a partition-specific GTR + $\Gamma 4$ model, with empirical equilibrium frequencies 
+%under standard MAL be applied to the partition ``molec.'' 
+%\item \texttt{swap(tbr,bfs:10,all:10,optimize:(model:(threshold:1.6),\\branch:join\_region))}
+%This command swaps all trees in memory using tree bisection and reconnection, specifying a breadth-first search with join
+%points up to 10 branches from the break site. The model parameters are optimized if the cost of the join under the 
+%current model is within 1.6 times the current best cost (proportion 0.6 worse). Only the branches along the path from the 
+%break to the new join location are optimized.  
+%\item \texttt{swap(spr,all:5))} This command swaps the tree using subtree pruning and regrafting, using a depth-first
+%search with joins up to five branches from the break site, and optimizing the model and branches after every join. 
+%\item \texttt{report("combined\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
 %\texttt{.tre} format.
-%\item \texttt{report("morphology\_r=4_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), and the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices.
-%\item \texttt{transform(likelihood:(jc69,alphabet:(min)))} Transform to likelihood characters under JC69/Neyman model, specifying 
-%the alphabet size (constant across all characters) to be the minimum value that encompasses all character observations.
-%\item \texttt{swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:\\join\_delta))} Swap using TBR and a breadth-first search
-%joining a maximum of five branches from the break site, optimizing the model parameters if the cost of the join under the 
-%current model is within 1.4 times the current best cost (proportion 0.4 worse), and optimizing only the branches along 
-%the path from the break to the new join location. 
-%\item \texttt{report("morphology\_r=min.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("morphology\_r=min_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), and the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices.
+%\item \texttt{report("combined\_LK_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
+%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
+%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
+%the rate variation shape parameter.
 %\item \texttt{exit()} This commands ends the \poy session.
 %\end{itemize}
+
+%The following tutorials are JDs.  Heuristic tutorials were thought too long to include.
 
 
 %John Denton's old tutorial, edited by Nick, as it was thought that this tutorial was too involved

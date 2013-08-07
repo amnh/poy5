@@ -1,28 +1,36 @@
+%---------------------------------------------
 %build
+%---------------------------------------------
 
 \begin{command}{build}{buildcommand}
 
 \syntax{\obligatory{(\optional{argument list})}}
 
 \begin{poydescription}
-Builds Wagner trees~\cite{farris1970}. Building multiple trees with a randomized addition of terminals allows for
-the evaluation of many more possible tree topologies and generates a diversity of trees for subsequent analysis. 
-The arguments of the command \poycommand{build} specify the number of trees to be generated and
-the order in which terminals are added during a single tree building procedure. During tree
-building, \poy reports in the \emph{Current Job} window of the \emph{ncurses} interface
-which of the terminal addition strategies (e.g. \texttt{as\_is} or \texttt{randomized}) is currently used.
+Builds Wagner trees~\cite{farris1970}. Building multiple trees with 
+a randomized addition of terminals allows for the evaluation of
+many more possible tree topologies and generates a diversity of
+trees for subsequent analysis. The arguments of the command
+\poycommand{build} specify the number of trees to be generated and
+the order in which terminals are added during a single tree building
+procedure. During tree building, \poy reports in the \emph{Current
+Job} window of the \emph{ncurses} interface which of the terminal
+addition strategies (e.g. \texttt{as\_is} or \texttt{randomized})
+is currently used.
 
-By default \poy replaces the trees stored in memory with those generated
-in a subsequent build. For example, executing \poycommand{build(10)}
-followed by \poycommand{build(20)} will replace the 10 trees generated
-during the first build with 20 new trees. However, it might be desirable
-to generate a large number of trees by
-appending trees from multiple separate builds. To keep trees from consecutive
-builds, a tree output file must be specified using the command ~\ccross{report} that must 
-precede the \poycommand{build} command. This will produce a file
-containing the trees appended from all builds. If the same file name is used for reporting
-trees for other analysis, the new trees are going to be appended. Alternatively, trees from different
-builds can be redirected to separate files if different file names are specified.
+By default \poy replaces the trees stored in memory with those 
+generated in a subsequent build. For example, executing
+\poycommand{build(10)} followed by \poycommand{build(20)} will
+replace the 10 trees generated during the first build with 20 new
+trees. However, it might be desirable to generate a large number
+of trees by appending trees from multiple separate builds. To keep
+trees from consecutive builds, a tree output file must be specified
+using the command ~\ccross{report} that must precede the
+\poycommand{build} command. This will produce a file containing the
+trees appended from all builds. If the same file name is used for 
+reporting trees for other analysis, the new trees are going to be
+appended. Alternatively, trees from different builds can be redirected
+to separate files if different file names are specified.
 
 The command \poycommand{build} is also used as
 an argument for the command \poycommand{calculate\_support}.
@@ -33,8 +41,8 @@ an argument for the command \poycommand{calculate\_support}.
 \argumentdefinition{all}{\optional{\poyint}}
 {Turns off all preference strategies for adding branches
 and simply tries all possible addition positions for
-all terminals.  By default ten trees are built but the number 
-of  trees can be specified by the integer or by the argument 
+all terminals. By default ten trees are built but the number 
+of trees can be specified by the integer or by the argument 
 \poyargument{trees}.}
 {allbuild}
 
@@ -45,8 +53,8 @@ and all others are built using a random addition sequence.}
 {asis}
 
 \argumentdefinition{branch\_and\_bound}{\optional{\poyfloat}}
-{Calculates the exact solution using the Branch and Bound algorithm
-~\cite{hendy1982}. By default only one optimal tree is kept but
+{Calculates the exact solution using the Branch and Bound 
+algorithm~\cite{hendy1982}. By default only one optimal tree is kept but
 the number of optimal trees to be retained can be specified by the
 argument \poyargument{trees}. The optional float value specifies the
 bound (either tree cost or likelihood score).}
@@ -54,12 +62,11 @@ bound (either tree cost or likelihood score).}
 
 \argumentdefinition{constraint}{\optional{\poystring}}
 {Builds trees using the set of constraints specified by a consensus
-tree input file. If no input file is provided, the constraint is calculated as
-the strict consensus of the trees in memory. Every tree built
-using this method is subjected to the same randomization as Wagner
-builds within each constraint. Constraining a tree is useful in 
-hypothesis testing.}
-{buildconstraint}
+tree input file. If no input file is provided, the constraint is
+calculated as the strict consensus of the trees in memory. Every
+tree built using this method is subjected to the same randomization
+as Wagner builds within each constraint. Constraining a tree is
+useful in hypothesis testing.} {buildconstraint}
 
 \argumentdefinition{INTEGER}{}
 {The integer argument specifies the number of independent, individual
@@ -68,25 +75,25 @@ Wagner tree builds. This is a shortcut of the argument \poyargument{trees}.}
 
 \argumentdefinition{lookahead}{\obligatory{\poyint}}
 {The number of trees that can be kept at each build step. If the
-\poyargument{lookahead} argument 
-specifies a number $n$, and the best tree found has cost $c$, then the best $n$
-trees with cost at most $c + threshold$ as specified by
-the \nccross{threshold}{buildthreshold} command are held for the
-next build step. If no \poyargument{threshold} command is specified,
-then it is set to $0$.}
-{lookahead}
+\poyargument{lookahead} argument specifies a number $n$, and the
+best tree found has cost $c$, then the best $n$ trees with cost at
+most $c + threshold$ as specified by the
+\nccross{threshold}{buildthreshold} command are held for the next
+build step. If no \poyargument{threshold} command is specified,
+then it is set to $0$.} {lookahead}
 
 \argumentdefinition{of\_file}{\obligatory{\poystring}}
-{Imports a tree file included in the file path of the argument. This command is
-useful for importing starting trees for calculating \ccross{bremer} support.
-In other contexts the command \ccross{read} can be used with the same effect.}
-{offile}
+{Imports a tree file included in the file path of the argument.
+This command is useful for importing starting trees for calculating
+\ccross{bremer} support. In other contexts the command \ccross{read}
+can be used with the same effect.} {offile}
 
 \argumentdefinition{optimize}{(model\optional{\poylident},branch\optional{\poylident})}
-{Specifies when the likelihood model and how the branches are optimized during
-the build routine. These options are also available in the \poycommand{fuse} and 
-\poycommand{swap} commands. In all cases a complete round 
-of optimization will occur after the completion of a build.
+{Specifies when the likelihood model and how the branches are
+optimized during the build routine. These options are also available
+in the \poycommand{fuse} and \poycommand{swap} commands. In all
+cases a complete round of optimization will occur after the completion
+of a build.
 
 \begin{description}
 
@@ -95,7 +102,8 @@ of optimization will occur after the completion of a build.
 {buildmodelalways}
 
 \argumentdefinition{model:max\_count:{\poyint}}{}
-{Optimize the model after every defined number (\poyint) of taxa are added to the tree.}
+{Optimize the model after every defined number (\poyint) of taxa
+are added to the tree.} 
 {buildmaxcount}
 
 \argumentdefinition{model:never}{}
@@ -122,17 +130,17 @@ an estimate based on the proportion of sites that transform.}
 {buildoptimize}
 
 \argumentdefinition{nj}{}
-{Creates a tree using the Neighbor Joining algorithm~\cite{saitou1987}. If more than
-one tree is requested, all the trees will be the same (the algorithm
-implementation is deterministic).}{}
+{Creates a tree using the Neighbor Joining algorithm~\cite{saitou1987}.
+If more than one tree is requested, all the trees will be the same
+(the algorithm implementation is deterministic).}{}
 
 \argumentdefinition{random}{}
 {Generates a tree at random. All possible trees have equal probability.}
 {buildrandom}
 
 \argumentdefinition{randomized}{} 
-{Indicates that terminals are added in random order on every Wagner tree built. 
-This is a default tree-building strategy.}
+{Indicates that terminals are added in random order on every Wagner
+tree built. This is a default tree-building strategy.} 
 {randomized}
 
 \argumentdefinition{STRING}{}
@@ -147,26 +155,26 @@ parameter is only useful if~\nccross{lookahead}{lookahead} is used.}
 
 \argumentdefinition{trees}{\obligatory{\poyint}}
 {The integer value specifies the number of independent, individual
-Wagner tree builds. The label \poyargument{trees} is optional: it is
-sufficient to specify only the integer value. Therefore, \poycommand{build(5)} is
-equivalent to \poycommand{build(trees:5)}.  Note that  \poyargument{trees} is
-also used as an argument of the command \nccross{swap}{swapcommand}
-but with different meaning.
+Wagner tree builds. The label \poyargument{trees} is optional: it
+is sufficient to specify only the integer value. Therefore,
+\poycommand{build(5)} is equivalent to \poycommand{build(trees:5)}.
+Note that \poyargument{trees} is also used as an argument of the
+command \nccross{swap}{swapcommand} but with different meaning.
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
-The value \texttt{0} generates no trees but it \emph{retains} all trees in memory.
-This is useful, for example, in the \ccross{bremer} support calculation,
-where instead of generating new trees per each node, the searches are
-performed on the trees in the neighborhood of the current trees in memory.}
-{treesbuild}
+The value \texttt{0} generates no trees but it \emph{retains} all
+trees in memory. This is useful, for example, in the \ccross{bremer}
+support calculation, where instead of generating new trees per each
+node, the searches are performed on the trees in the neighborhood
+of the current trees in memory.} {treesbuild}
 
 
 \end{arguments}
 
 \poydefaults{trees:10,randomized,lookahead:1,threshold:0}
-{By default, \poy will build 10 trees using a random addition sequence for
-each of them.}
+{By default, \poy will build 10 trees using a random addition
+sequence for each of them.}
 
 \begin{poyexamples}
 \poyexample{build(20)}
@@ -177,12 +185,13 @@ is specified by default, it can be omitted].}
 \poyexample{build(trees:20,randomized)}
 {A more verbose version of the previous example. By default a build
 is randomized, but in this case the addition sequence is explicitly
-set. For the total number of trees, rather than simply specifying \texttt{20},
-the label \texttt{trees} is used. The verbose version might be desirable
-to improve the readability of the script.}
+set. For the total number of trees, rather than simply specifying
+\texttt{20}, the label \texttt{trees} is used. The verbose version
+might be desirable to improve the readability of the script.}
 
 \poyexample{build(all:30)}
-{Builds 30 Wagner trees, trying all possible addition positions for all terminals}.
+{Builds 30 Wagner trees, trying all possible addition positions for
+all terminals}.
 
 \poyexample{build(15,as\_is)}
 {Builds the first Wagner tree using the order of terminals in the first
@@ -194,19 +203,21 @@ imported data file and generates the remaining
 5 optimal trees in memory.}
 
 \poyexample{build(constraint:"cstree.tre")}
-{Builds trees using using the set of constraints specified by the consensus tree 
-file "cstree.tre".}
+{Builds trees using using the set of constraints specified by the
+consensus tree file "cstree.tre".}
 
-\poyexample{build(trees:100,optimize(model:max\_count:5,branch: \\  all\_branches))}
-{Builds 100 trees and optimizes the likelihood model after every 5 
-taxa are added to the tree.  All branch lengths are optimized after the addition 
-of each taxon to the tree.}
+\poyexample{build(trees:100,optimize(model:max\_count:5,branch: \\ all\_branches))}
+{Builds 100 trees and optimizes the likelihood model after every 5
+taxa are added to the tree. All branch lengths are optimized after
+the addition of each taxon to the tree.}
 
 \end{poyexamples}
 
 \end{command}
 
+%---------------------------------------------
 %calculate_support
+%---------------------------------------------
 
 \begin{command}{calculate\_support}{calculatesupport}
 
@@ -214,54 +225,53 @@ of each taxon to the tree.}
 
 \begin{poydescription} 
 Calculates the requested support values. \poy implements support
-estimation based on resampling methods (Jackknife~\cite{Farrisetal1996} 
-and Bootstrap~\cite{Felsenstein1985}) and Bremer support~\cite{Bremer1988, 
-Kallersjoetal1992}. The Jackknife and Bootstrap support values are computed as
-frequencies of clades recovered in strict consensus trees built in each resampling
-iteration. The consensus trees are based on best trees recovered in each replicate
-with zero-length branches collapsed. All the arguments of 
-\poycommand{calculate\_support} command are optional and
-their order is arbitrary.  For examples of scripts implementing support measures see 
-tutorials \texttt{5.4}, \texttt{5.5} and \texttt{5.6}. 
+estimation based on resampling methods (Jackknife~\cite{Farrisetal1996}
+and Bootstrap~\cite{Felsenstein1985}) and Bremer support~\cite{Bremer1988,
+Kallersjoetal1992}. The Jackknife and Bootstrap support values are
+computed as frequencies of clades recovered in strict consensus
+trees built in each resampling iteration. The consensus trees are
+based on best trees recovered in each replicate with zero-length
+branches collapsed. All the arguments of \poycommand{calculate\_support}
+command are optional and their order is arbitrary. For examples
+of scripts implementing support measures see tutorials \texttt{5.4},
+\texttt{5.5} and \texttt{5.6}.
 
-The \poycommand{calculate\_support} command does not output support 
-values by default. The output of support values must be requested using 
-the command~\ccross{report}. This is particularly important for Jackknife 
-and Bootstrap support values, as these sampling techniques
-do not require the presence of trees in memory. Therefore, it is possible to 
-perform the sampling for support values \emph{before}
-the tree of interest has been found.
+The \poycommand{calculate\_support} command does not output support
+values by default. The output of support values must be requested
+using the command~\ccross{report}. This is particularly important
+for Jackknife and Bootstrap support values, as these sampling
+techniques do not require the presence of trees in memory. Therefore,
+it is possible to perform the sampling for support values \emph{before}
+the tree of interest has been found. 
 \end{poydescription}
 
 \begin{statement}
+In the context of dynamic homology, the characters being sampled
+during pseudoreplicates are entire sequence fragments, not individual
+nucleotides. Consequently, the bootstrap and jackknife support
+values calculated for dynamic characters are not directly comparable
+to those calculated based on static character matrices. If it is
+desired to perform character sampling at the level of individual
+nucleotides, the dynamic characters must be transformed into static
+characters using \poyargument{static\_approx} argument of the
+command~\ccross{transform} prior to executing
+\poycommand{calculate\_support}. Alternatively, an output file in
+the Hennig86 format can be generated based on an implied alignment
+using~\ccross{phastwinclad} that can subsequently be analyzed using
+other programs.
 
-In the context of dynamic
-homology, the characters being sampled during pseudoreplicates
-are entire sequence fragments, not individual nucleotides.
-Consequently, the bootstrap and jackknife support values
-calculated for dynamic characters are not directly comparable to
-those calculated based on static character matrices. If it is
-desired to perform character sampling at the level of
-individual nucleotides, the dynamic characters must be
-transformed into static characters using \poyargument{static\_approx}
-argument of the command~\ccross{transform}
-prior to executing \poycommand{calculate\_support}. Alternatively, an 
-output file in the Hennig86 format can be
-generated based on an implied alignment
-using~\ccross{phastwinclad} that can subsequently be analyzed
-using other programs.  
-
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent Of course, 
 if the dataset of dynamic characters contains a large number of fragments, 
 this caveat may not be warranted.
 
-\setlength{\parindent}{0.5cm}                                
-\indent It is important to remember that the local optimum for the dynamic
-homology characters can differ from that for the static homology characters
-based on the same sequence data. Therefore, it is recommended to perform 
-an extra round of swapping on the transformed data to reach the local 
-maximum for the static homology characters prior to calculating support values.
+\setlength{\parindent}{0.5cm}                
+\indent It is important to remember that the local optimum for the
+dynamic homology characters can differ from that for the static
+homology characters based on the same sequence data. Therefore, it
+is recommended to perform an extra round of swapping on the transformed
+data to reach the local maximum for the static homology characters
+prior to calculating support values. 
 \end{statement}
 
 \begin{statement}
@@ -269,7 +279,7 @@ The placement of the root affects calculation of Bremer support values.
 Therefore, it is critical to specify the root prior to executing
 \poycommand{calculate\_support}. See the description of the
 command \nccross{set}{root} on how to specify the root.
-\end{statement}          
+\end{statement}     
 
 \begin{arguments}
 \begin{argumentgroup}{Support calculation methods}
@@ -277,17 +287,16 @@ command \nccross{set}{root} on how to specify the root.
 calculating support.} 
 
 \argumentdefinition{bootstrap}{\optional{\poyint}}
-{Calculates Bootstrap support~\cite{Felsenstein1985}. 
-The integer value specifies
-the number of resampling iterations (pseudoreplicates). If the value
-is omitted, 5 pseudoreplicates are performed by default.} 
+{Calculates Bootstrap support~\cite{Felsenstein1985}.  The integer
+value specifies the number of resampling iterations (pseudoreplicates).
+If the value is omitted, 5 pseudoreplicates are performed by default.}
 {}
 
 \argumentdefinition{bremer}{}
 {Calculates Bremer support values ~\cite{Bremer1988, Kallersjoetal1992}
-for each tree in memory by performing independent constrained searches for each
-node. The parameters for the searches can be modified using arguments
-described under \emph{Search strategy}.} 
+for each tree in memory by performing independent constrained
+searches for each node. The parameters for the searches can be
+modified using arguments described under \emph{Search strategy}.}
 {}
 
 \argumentdefinition{jackknife}{\optional{([argument list])}}
@@ -305,10 +314,10 @@ default of \poyargument{remove} is \texttt{36} percent.}
 {}
 \argumentdefinition{resample}{\obligatory{\poyint}}
 {The value of the argument \poyargument{resample} specifies the
-number of resampling pseudoreplicates. The default of \\
+number of resampling pseudoreplicates. The default of
 \poyargument{resample} is \texttt{5}.}
 {}
-\end{description}  
+\end{description} 
 \end{argumentgroup}
 
 \begin{argumentgroup}{Search strategy}
@@ -327,18 +336,18 @@ The initial trees for calculating Bremer support
 can also be imported using the argument \poyargument{of\_file}
 of the command ~\nccross{build}{buildcommand}.
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
 For calculating Jackknife
 and Bootstrap supports, build specifies the number of
-Wagner tree builds per pseudoreplicate.  Single best trees from all
+Wagner tree builds per pseudoreplicate. Single best trees from all
 pseudoreplicates are used to calculate the support values. If
 multiple best trees are recovered in a pseudoreplicate, one 
 is selected. If \poyargument{build} is
 omitted from the argument list of \poycommand{calculate\_support},
 a single random addition Wagner tree per
 pseudoreplicate is built by default. This is equivalent to 
-\poycommand{build(trees:1, randomized)}. See
+\poycommand{build(trees:1,randomized)}. See
 \nccross{build}{buildcommand} for a detailed discussion of
 arguments of the command \poycommand{build}.}
 {buildarg}
@@ -354,16 +363,17 @@ the default settings of ~\nccross{swap}{swapcommand}.}
 \end{arguments}
 
 \poydefaults{bremer,build(trees:1,randomized),swap(trees:1)}
-{By default \poy will calculate the Bremer support for each tree in memory node by node.
-However, if no trees are stored in memory, executing the command
-\poycommand{calculate\_support()} does not have any effect.}
+{By default \poy will calculate the Bremer support for each tree
+in memory node by node. However, if no trees are stored in memory,
+executing the command \poycommand{calculate\_support()} does not
+have any effect.}
 
 \begin{poyexamples} 
 
 \poyexample{calculate\_support(bremer)}
-{Calculates Bremer support values by performing
-independent searches for every node for every tree in memory. 
-This is equivalent to executing \poycommand{calculate\_support()}, the default setting.}
+{Calculates Bremer support values by performing independent searches
+for every node for every tree in memory. This is equivalent to
+executing \poycommand{calculate\_support()}, the default setting.}
 
 \poyexample{calculate\_support(bremer,build(trees:0),swap(trees:2))}
 {Calculates Bremer support values by performing swapping on 
@@ -371,16 +381,16 @@ each tree in memory for every node and keeping up to two
 best trees per search round.}
 
 \poyexample{calculate\_support(bremer,build(of\_file:"new\_trees"), \\
-swap(tbr, trees:2))}
+swap(tbr,trees:2))}
 {Calculates Bremer support values by performing TBR swapping on 
 each tree in the file \texttt{new\_trees} located in the current
 working directory for every node and keeping up to two
-best trees per search round.}  
+best trees per search round.} 
 
 \poyexample{calculate\_support(bootstrap)}
-{Calculates Bootstrap support values under default settings. This command
-is equivalent to \poycommand{calculate\_support(bootstrap:5, \\ build(trees:1,
-randomized), swap(trees:1))}.}
+{Calculates Bootstrap support values under default settings. This
+command is equivalent to \poycommand{calculate\_support(bootstrap:5,build(trees:1,
+randomized),swap(trees:1))}.}
 
 \poyexample{calculate\_support(bootstrap:100,build(trees:5),swap(trees:1))}
 {Calculates Bootstrap support values performing one random resampling with
@@ -390,17 +400,18 @@ and swapping these trees under the default settings of the command
 is repeated 100 times.}
 
 \poyexample{calculate\_support(jackknife)}
-{Calculates Jackknife support values under default settings.  This command
+{Calculates Jackknife support values under default settings. This command
 is equivalent to \poycommand{calculate\_support(jackknife:(resample:5, \\
-remove:36), build(trees:1, randomized), swap(trees:1))}.}     
+remove:36),build(trees:1,randomized),swap(trees:1))}.}   
 
 \poyexample{calculate\_support(jackknife:(resample:1000,remove:25), \\ 
 build(100),swap(tbr,trees:5))}
-{Calculates Jackknife support values randomly removing 25 percent of the
-characters, building 100 Wagner trees by random addition sequence, swapping 
-these trees using \poyargument{tbr}, and keeping up to 5 minimum-cost tree in the
-final swap per swap (totaling up to 500 stored trees per replicate). 
-The procedure is repeated 1000 times.}
+{Calculates Jackknife support values randomly removing 25 percent
+of the characters, building 100 Wagner trees by random addition
+sequence, swapping these trees using \poyargument{tbr}, and keeping
+up to 5 minimum-cost tree in the final swap per swap (totaling up
+to 500 stored trees per replicate). The procedure is repeated 1000
+times.}
 
 \end{poyexamples}
 
@@ -412,7 +423,9 @@ The procedure is repeated 1000 times.}
 
 \end{command}
 
+%---------------------------------------------
 %clear_memory
+%---------------------------------------------
 
 \begin{command}{clear\_memory}{clearmemory}
 
@@ -450,7 +463,9 @@ unused pool of sequences.}
 
 \end{command}
 
+%---------------------------------------------
 %cd
+%---------------------------------------------
 
 \begin{command}{cd}{cd}
 
@@ -489,7 +504,9 @@ environment (when using a PC, the forward slashes should be replaced with backsl
 
 \end{command}
 
+%---------------------------------------------
 %echo
+%---------------------------------------------
 
 \begin{command}{echo}{}
 
@@ -497,7 +514,7 @@ environment (when using a PC, the forward slashes should be replaced with backsl
 
 \begin{poydescription} 
 Prints the content of the string argument into a specified type of output.
-Several types of output are generated by \poy  which are specified by the
+Several types of output are generated by \poy which are specified by the
 ``output class'' of arguments (see below). If no output-class arguments are
 specified, the command does not generate any output.
 \end{poydescription}
@@ -544,7 +561,9 @@ interface).}
 
 \end{command}
 
+%---------------------------------------------
 %exit
+%---------------------------------------------
 
 \begin{command}{exit}{} 
 
@@ -552,7 +571,7 @@ interface).}
 
 \begin{poydescription}
 Exits a \poy session. This command does not accept any argument.
-\poycommand{exit} is equivalent to the command \poycommand{quit}.
+The \poycommand{exit} command is equivalent to \poycommand{quit}.
 
 \begin{statement}
 To interrupt a process without quitting a \poy session, use {\bf control-c}.
@@ -574,15 +593,17 @@ commands and continuing the session.
 
 \end{command}
 
+%---------------------------------------------
 %fuse
+%---------------------------------------------
 
 \begin{command}{fuse}{}
 
 \syntax{\obligatory{(\optional{argument list})}}
 
 \begin{poydescription}
-Performs Tree Fusing~\cite{goloboff1999} on the trees in memory.  
-Tree Fusing  can be used to escape local optima
+Performs Tree Fusing~\cite{goloboff1999} on the trees in memory. 
+Tree Fusing can be used to escape local optima
 by exchanging clades with identical composition of terminals, differing in arrangement
 between pairs of trees. Only \emph{one} pair of trees is evaluated during a single iteration.
 \end{poydescription}
@@ -687,12 +708,12 @@ after each round of fusing , but that a maximum of five branches are optimized
 each round.}
 
 \poyexample{fuse(swap(constraint))}
-{This command performs tree fusing  
+{This command performs tree fusing 
 with modified settings for swapping that follows each iteration. Once
 a given iteration is completed, a consensus tree of the files in memory
 is computed and used as constraint file for subsequent rounds of swapping (see
 the argument \nccross{constraint}{swapconstraint} of the command
-\poycommand{swap}).}    
+\poycommand{swap}).}  
 
 \end{poyexamples}
 
@@ -702,9 +723,9 @@ the argument \nccross{constraint}{swapconstraint} of the command
 
 \end{command}
 
-
+%---------------------------------------------
 %help
-
+%---------------------------------------------
 
 \begin{command}{help}{}
 
@@ -743,7 +764,9 @@ interface or to the standard error in the \emph{flat} interface.}
 
 \end{command}
 
+%---------------------------------------------
 %inspect
+%---------------------------------------------
 
 \begin{command}{inspect}{}
 
@@ -784,7 +807,9 @@ then the output message is: \texttt{Results\_of\_Total\_Analysis}.}
 
 \end{command}
 
+%---------------------------------------------
 %load
+%---------------------------------------------
 
 \begin{command}{load}{}
 
@@ -792,7 +817,7 @@ then the output message is: \texttt{Results\_of\_Total\_Analysis}.}
 
 \begin{poydescription}
 Imports and inputs \poy files created by the command
-\poycommand{save}.  The name of the file to be loaded
+\poycommand{save}. The name of the file to be loaded
 is included in the string argument. All the information of
 the current \poy session will be replaced with the contents
 of the \poy file. If the file is not in proper \poy file
@@ -826,7 +851,9 @@ directory.}
 
 \end{command}
 
+%---------------------------------------------
 %perturb
+%---------------------------------------------
 
 \begin{command}{perturb}{}
 
@@ -839,7 +866,7 @@ found for the perturbed characters, a new round of swapping using the
 original (non-modified) characters is performed. Subsequently, the costs
 of the initial and final trees are compared and the best trees are
 selected. If there are $n$ trees in memory prior to searching using
-\poycommand{perturb}, then the  $n$ best trees are selected at the end.
+\poycommand{perturb}, then the $n$ best trees are selected at the end.
 For example, if there are 20 trees currently in memory, 20 individual
 \poycommand{perturb} procedures will be performed (each procedure
 starting with one of the 20 initial trees), and 20 final trees are
@@ -875,14 +902,14 @@ For unaligned data, the \poyargument{ratchet} randomly selects and reweights a f
 sequence fragments (\emph{not} individual nucleotides) specified
 by the float (decimal) value, upweighted by a factor specified by the integer
 value (severity). Thus, the number of sequence fragments into which the 
-data is partitioned will impact the effectiveness of using the ratchet on dynamic character matrices.  
+data is partitioned will impact the effectiveness of using the ratchet on dynamic character matrices. 
 For static matrices, such as those obtained using the 
 command~\nccross{transform}{transformcommand}, \poycommand{ratchet} randomly selects and
 reweights individual nucleotide positions (column vectors), as in Nixon's
 original implementation ~\cite{Nixon1999}. 
 Under default settings,
 \poyargument{ratchet} selects 25 percent of characters and upweights
-them by a factor of 2.  Unless \poyargument{ratchet} is performed
+them by a factor of 2. Unless \poyargument{ratchet} is performed
 under default settings (that does not require the specification of the
 fraction of data to be reweighted and the severity value), both
 values must be specified in the proper order and separated by a comma.
@@ -954,7 +981,7 @@ Therefore, the subsequent ratchet is performed at the level of
 individual nucleotides (as in the original implementation),
 \emph{not} sequence fragments. Thus, ratchet is performed by
 selecting 20 percent of the characters (individual nucleotides) and
-upweighting them by a factor of 5.  Branch swapping is performed
+upweighting them by a factor of 5. Branch swapping is performed
 using TBR and keeping up to 5 optimal trees in each iteration as in
 the example above.}
 
@@ -967,7 +994,9 @@ the example above.}
 
 \end{command}
 
+%---------------------------------------------
 %pwd
+%---------------------------------------------
 
 \begin{command}{pwd}{pwd}
 
@@ -995,7 +1024,9 @@ directory will vary depending on the directory of the shell when
 
 \end{command}
 
+%---------------------------------------------
 %quit
+%---------------------------------------------
 
 \begin{command}{quit}{}
 
@@ -1010,7 +1041,7 @@ Exits \poy session. This command does not have any arguments
 To interrupt a process without quitting a \poy session, use Control-C.
 It aborts a currently running operation but keeps all the previously accumulated
 data in memory. It does not abort the current session, thereby permitting the 
-entry of  new commands and continuing the session.
+entry of new commands and continuing the session.
 \end{statement}
 
 \begin{poyexamples}
@@ -1022,20 +1053,22 @@ entry of  new commands and continuing the session.
 \end{poyalso}
 \end{command}
 
+%---------------------------------------------
 %read
+%---------------------------------------------
 
 \begin{command}{read}{}
 
-\syntax{\obligatory{(\optional{argument list})}}  
+\syntax{\obligatory{(\optional{argument list})}} 
 
 \begin{poydescription} 
-Imports data files and tree files.  Supported formats include ASN1, Clustal, FASTA,
+Imports data files and tree files. Supported formats include ASN1, Clustal, FASTA,
 GBSeq, Genbank, Hennig86, Newick, NewSeq, Nexus, PHYLIP, POY3,
 TinySeq, and XML. Filenames must be enclosed in quotes and, if multiple
 filenames are specified, they must be separated by commas. All filenames 
 read into \poy must include the appropriate suffix (e.g. .aln, .fas, 
 .fasta, .ss, .tre). The exclusion of these suffixes will result in an error such as \texttt{
-"Sys\_error ("No such file or directory")"}.  The filename must match exactly.
+"Sys\_error ("No such file or directory")"}. The filename must match exactly.
 \poycommand{read} automatically detects the type of the 
 input file. This command can also use wildcard expressions (such as *) to
 refer to multiple files in a single step. For example, \poycommand{read("*.fas*")} 
@@ -1052,7 +1085,7 @@ interfere with subsequent file loading and execution of commands.
 
 \begin{statement}
 When running a script that includes reading in trees from a previous analysis, these trees {\bf must} be read 
-in {\bf after} the build stage.  If the trees are read in before the build they will be replaced by the trees 
+in {\bf after} the build stage. If the trees are read in before the build they will be replaced by the trees 
 generated during the build.
 \end{statement}
 
@@ -1094,12 +1127,12 @@ the command \poycommand{report}).
 \begin{statement}
 Unlike many phylogenetic programs, \poy does not clear the memory
 upon reading a second file. Instead, any subsequently read files
-will be added to the total data being analyzed.  If a \emph{new} taxon
+will be added to the total data being analyzed. If a \emph{new} taxon
 appears in a file, then it is be assigned missing data for all
 previously loaded characters. If a taxon does \emph{not} appear in a
 file, missing data are assigned for the characters that appearing in it. 
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent To eliminate the imported data and then to input a new data
 the \poycommand{wipe()} command must be issued first. 
 \end{statement}
@@ -1109,14 +1142,14 @@ If one of the terminal names in an imported data file contains
 a space, `` '', \poy issues a warning. It is therefore advisable to format taxon 
 names in the data files, such that any space is replaced by an underscore, e.g. 
 \texttt{Rhacodactylus\_ciliatus}. A warning is also issued if a taxon name appears to match a 
-nucleotide sequence.  If one of the terminal names in an imported molecular 
+nucleotide sequence. If one of the terminal names in an imported molecular 
 file contains a percentage ("$\%$") or an at ("$@$") symbol, the file will not be loaded 
 because it may cause the program to crash when reporting results.
 
 \end{statement}
 
 \begin{argumentgroup}{Basic data types}
-This set of arguments covers the importing of all data files  (except \poyargument{chromosome}, 
+This set of arguments covers the importing of all data files (except \poyargument{chromosome}, 
 \poyargument{genome}, \poyargument{custom\_alphabet} and \poyargument{breakinv}),
 as well as tree files in parenthetical notation.
 
@@ -1140,7 +1173,7 @@ individual character.}
 \begin{statement}
 \poy recognizes the characters \texttt{x} and \texttt{n} as
 representing any nucleotide base (\texttt{a}, \texttt{c}, \texttt{g}, 
-or \texttt{t}).  The \texttt{$?$} symbol inserted in sequence data 
+or \texttt{t}). The \texttt{$?$} symbol inserted in sequence data 
 signifies missing data, a gap, or any nucleotide base may occur in 
 that matrix position. For prealigned data sequence gaps are recognized 
 by dashes.
@@ -1149,19 +1182,19 @@ by dashes.
 \begin{statement}
 Continuous characters can be treated as such by assigning the lower
 and upper bounds of the range as polymorphic additive character 
-states~\cite{goloboffetal2006}.    Although they will be optimized 
+states~\cite{goloboffetal2006}.  Although they will be optimized 
 simultaneously with all other characters, continuous characters 
 must be scored in a separate Hennig86 format matrix with the heading 
 \texttt{ "nstates cont"} --- an example of this file format (\texttt{ccm.ss}) is available at 
 \url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy}. 
 This file is included into the \poy installation package.
-Consider a continuous character  \texttt{winglength}, the states of 
-which are ranges of measurements in hundredth of a millimeter,  
+Consider a continuous character \texttt{winglength}, the states of 
+which are ranges of measurements in hundredth of a millimeter, 
 for example 2.53-3.68 mm for a given terminal. A corresponding 
-character state in the  additive character matrix (in Hennig86 format) is 
+character state in the additive character matrix (in Hennig86 format) is 
 \texttt{[253,368]}. Because additive characters are integers, such 
 characters need to be re-scaled using the \poyargument{weightfactor} 
-argument of \poycommand{transform}.  To scale the values, a transformation 
+argument of \poycommand{transform}. To scale the values, a transformation 
 is applied to the character \texttt{winglength} as follows:
 \poycommand{transform(names:("winglength"),(weightfactor:0.01))}.
 \end{statement}
@@ -1170,7 +1203,7 @@ is applied to the character \texttt{winglength} as follows:
 {Reads the file specified in the path included in the string argument.
 A path can be absolute or relative to the current working
 directory (as printed by \poycommand{pwd()}). The file type is
-recognized automatically.  Molecular files are assumed to
+recognized automatically. Molecular files are assumed to
 contain nucleotide sequences. Valid files to read using this
 command are: tree files using parenthetical notation (Newick,
 \poy trees), Hennig86 files, Nona files, Sankoff character files
@@ -1179,13 +1212,13 @@ by Genbank), and Nexus files. Only taxon names, trees,
 characters, and cost regimes will be imported from each one of
 this files, no other commands are currently recognized.}
 {}
-\end{argumentgroup}              
+\end{argumentgroup}       
 
 
-\begin{argumentgroup}{Chromosome and genome type characters}          
+\begin{argumentgroup}{Chromosome and genome type characters}     
 This set of arguments govern characters that are either multi-locus nucleotides 
 sequences (\poyargument{chromosome}) or multi-locus, multi-chromosomal nucleotide
-sequences (\poyargument{genome}).  Chromosome sequences can be \poyargument
+sequences (\poyargument{genome}). Chromosome sequences can be \poyargument
 {annotated} or unannotated.
 
 \argumentdefinition{annotated}{\obligatory{(\poystring list)}}
@@ -1206,26 +1239,26 @@ the application of parameter options that optimize chromosome-level
 events such as rearrangements, inversions, and large-scale
 insertions and deletions (including duplications). These parameter
 options (e.g. inversion cost) are specified using the
-command~\nccross{transform}{transformcommand}.  
+command~\nccross{transform}{transformcommand}. 
 Unlike when using \poycommand{annotated} data type,
 both locus-level and nucleotide-level homologies
 are determined dynamically~\cite{darlingetal2004, vinh2007} 
 (see tutorial \texttt{5.8}). If chromosome sequences are imported as
 nucleotide type data, they can be converted to chromosome type data
-using the  \poyargument{seq\_to\_chrom} argument of
+using the \poyargument{seq\_to\_chrom} argument of
 \nccross{transform}{transformcommand}.} 
 {}
 
 \argumentdefinition{genome}{\obligatory{(\poystring list)}}
 {Specifies that the data listed in the string argument are
-multi-chromosomal nucleotide sequences with an at sign (``$@$'')  
+multi-chromosomal nucleotide sequences with an at sign (``$@$'') 
 separating individual chromosomes. This data type
 allows for chromosome-level rearrangements which are specified by
 the command \nccross{transform}{transformcommand}. Chromosome
 homologies are determined using the Mauve aligner~\cite{darlingetal2004} within 	 	
 the command \nccross{transform}{transformcommand}. [Note: for genome
 character types, it is only possible to separate the individual chromosomes and 
-not the loci within these chromosomes.  A sample script using this data type 
+not the loci within these chromosomes. A sample script using this data type 
 can be found in tutorial \texttt{5.11}.]} 
 {genome}
 
@@ -1239,14 +1272,14 @@ These include characters of the custom alphabet, as well as break inversion type
 \argumentdefinition{breakinv}{\obligatory(\poystring list,tcm\obligatory(\poystring),{\optionall{\poylident list}})}
 {An enhancement of the data file type \poyargument{custom\_alphabet} (see below), allowing
 rearrangement events. Syntactically, \poyargument{breakinv} data type is identical to the
-\poyargument{custom\_alphabet} data type.  Four optional arguments are possible (\poylident list): 
-\poyargument{level};  \poyargument{init3d};  \poyargument{tiebreaker};  and  \poyargument{orientation}.
+\poyargument{custom\_alphabet} data type. Four optional arguments are possible (\poylident list): 
+\poyargument{level}; \poyargument{init3d}; \poyargument{tiebreaker}; and \poyargument{orientation}.
 \poyargument{level}, \poyargument{init3d}, and \poyargument{tiebreaker} can be used in conjunction
 with both \poyargument{breakinv} and \poyargument{custom\_alphabet} character types 
 (see the argument~\nccross{custom\_alphabet}{customalphabet} below for a description of these arguments), 
 while \poyargument{orientation} can be applied to \poyargument{breakinv} characters only.
 Specifying that imported sequences are \poyargument{breakinv} type data enables
-the application to calculate  either locus breakpoint or locus inversion costs to these data.  These parameter
+the application to calculate either locus breakpoint or locus inversion costs to these data. These parameter
 options are specified using the command~\nccross{transform}{transformcommand}.} 
 {breakinv}
 
@@ -1276,31 +1309,31 @@ An example of a corresponding input file follows:\\
 The \texttt{tcm} refers to the custom-alphabet matrix that contains two parts:
 an alphabet itself, where the alphabet elements are separated by spaces, and a
 transformation cost matrix. The elements in an alphabet can be letters, digits, or
-both, as long as one element is not a prefix of another  (``prefix-free''). For
+both, as long as one element is not a prefix of another (``prefix-free''). For
 example, the following pairs of custom-alphabet elements are \emph{not} valid
 because the first is a prefix of the second (which would prevent the proper parsing of
 an input file): \texttt{AB} and \texttt{ABBA} or \texttt{122} and \texttt{122X}.
 The transformation cost matrix contains the rows and columns in which the
 positions from left to right and top to bottom correspond to the sequence of the
 elements as they are listed in the alphabet. An extra rightmost column and lowermost
-row correspond to a gap. It is important that the cost matrix  be symmetrical. An example 
+row correspond to a gap. It is important that the cost matrix be symmetrical. An example 
 of a valid custom alphabet input file is provided below:
 \\
 \begin{equation*}
 \begin{array}{lllll}
-alpha & beta & gamma & delta &   \\
-0 &     2 &    1 &     2 &     5 \\
-2 &     0 &    2 &     1 &     5 \\
-1 &     2 &    0 &     2 &     5 \\
-2 &     1 &    2 &     0 &     5 \\
-5 &     5 &    5 &     5 &     0
+alpha & beta & gamma & delta &  \\
+0 &   2 &  1 &   2 &   5 \\
+2 &   0 &  2 &   1 &   5 \\
+1 &   2 &  0 &   2 &   5 \\
+2 &   1 &  2 &   0 &   5 \\
+5 &   5 &  5 &   5 &   0
 \end{array}
 \end{equation*} 
 In this example, the cost of transformation of \texttt{alpha} into \texttt{beta} is \texttt{2},
 and cost of a deletion or insertion of any of the four elements costs \texttt{5}.
 
 Three optional arguments of \poyargument{custom\_alphabet} are possible ([\poylident list]): 
-\poyargument{init3d}; \poyargument {level}; and \poyargument{tiebreaker}.  
+\poyargument{init3d}; \poyargument {level}; and \poyargument{tiebreaker}. 
 
 \begin{description}
 
@@ -1311,17 +1344,17 @@ that this option can consume a great deal of memory.}
 {}
 
 \argumentdefinition{level}{\obligatory{(\poyint,\poylident)}}
-{This argument determines the heuristic \poyargument{level} of the median sequence calculation.  
+{This argument determines the heuristic \poyargument{level} of the median sequence calculation. 
 The user must define both the level itself, as specified by the \poyint, and the keep method, as specified 
-by the \poylident (\texttt{first}, \texttt{last}, or \texttt{at\_random}.  If the \poylident is \poyargument{first}, 
+by the \poylident (\texttt{first}, \texttt{last}, or \texttt{at\_random}. If the \poylident is \poyargument{first}, 
 ties are broken (if the number of equally costly states is greater than the level number) by choosing the 
 first median state examined; if \poyargument{last}, the last state, and if \poyargument{at\_random}
-then uniformly at random. The default 	\poyargument{level} is \texttt{2} and keep method is \texttt{first}.  }
+then uniformly at random. The default 	\poyargument{level} is \texttt{2} and keep method is \texttt{first}. }
 {}
 
 \argumentdefinition{tiebreaker}{\obligatory\poylident}
 {This argument determines how ties among median states are chosen: \texttt{first}, \texttt{last}, 
-and \texttt{at\_random}.  If \texttt{first} is chosen, 	then the ties are broken (if the number of 
+and \texttt{at\_random}. If \texttt{first} is chosen, 	then the ties are broken (if the number of 
 equally costly states is greater than the level number) by choosing the first median state examined; 
 if \texttt{last}, the last state, and if \texttt{at\_random} then uniformly at random. The default choice method is \texttt{first}.}
 {}
@@ -1337,8 +1370,8 @@ if \texttt{last}, the last state, and if \texttt{at\_random} then uniformly at r
 
 \begin{statement}
 As a rule, transformation cost matrices are employed at the \poyargument{transform} stage of the
-analysis.  With \poyargument{prealigned} and \poyargument{custom\_alphabet} characters however, 
-the cost matrix (\texttt{tcm}) needs to  be read in along with the data files.
+analysis. With \poyargument{prealigned} and \poyargument{custom\_alphabet} characters however, 
+the cost matrix (\texttt{tcm}) needs to be read in along with the data files.
 \end{statement}
 
 \begin{argumentgroup}{Prealigned data}
@@ -1349,7 +1382,7 @@ Because these data are prealigned, affine gap costs can not be applied.
 \argumentdefinition{prealigned}{\obligatory{(\poylident{\obligatory{(\poystring list)}}{\optionall{,tcm:\poystring})}}}
 {Specifies that the data indicated in the \poystring, of the type identified by the \poylident (i.e. 
 \texttt{aminoacid(s)}, \texttt{custom\_alphabet} or \texttt{nucleotides}) are prealigned.
-A transformation cost matrix, as defined in the tcm \poystring argument can be specified.  
+A transformation cost matrix, as defined in the tcm \poystring argument can be specified. 
 If these are not specified, the default cost of tcm(1,1) will be assigned. (See the argument~\nccross{tcm}{transformtcm} 
 of the command \poycommand{transform}.)}
 {prealigned1}
@@ -1415,15 +1448,15 @@ the transformation of these two data types in the same analysis.]}
 {Reads two files containing genomic (multi-chromosomal) sequence data.}
 
 \poyexample{read(breakinv:("BI\_run1",tcm:("alphabet"),level:1,tiebreaker: \\ first,orientation:false)}
-{Reads the file, \texttt{BI\_run1}, which contains data in custom alphabet format.  
+{Reads the file, \texttt{BI\_run1}, which contains data in custom alphabet format. 
 This data is defined in the \texttt{tcm} file, \texttt{alphabet}. The heuristic level of 
 median sequence calculation is set to $1$. If ties among median states are encountered, 
 the \texttt{first} will be chosen. Any tilde (``$\sim$'') symbols in the data file will be ignored.} 
 
 \poyexample{read(custom\_alphabet:("CA\_run1",tcm:("alphabet"),level:2,\\tiebreaker:last))}
-{Reads the file, \texttt{CA\_run1}, which contains data in custom alphabet format.  
+{Reads the file, \texttt{CA\_run1}, which contains data in custom alphabet format. 
 This data is defined in the \texttt{tcm} file, \texttt{alphabet}. The heuristic level of 
-median sequence calculation is set to $2$.  If ties among median states are encountered, 
+median sequence calculation is set to $2$. If ties among median states are encountered, 
 the \texttt{last} will be chosen.} 
 
 \poyexample{read(prealigned:("18s.aln",tcm:(1,2)))}
@@ -1442,7 +1475,9 @@ matrix from the file \texttt{matrix1}.}
 
 \end{command}
 
+%---------------------------------------------
 %recover
+%---------------------------------------------
 
 \begin{command}{recover}{}
 \syntax{\obligatory{()}}
@@ -1477,7 +1512,9 @@ trees recovered during swapping.}
 \end{poyalso}
 \end{command}
 
+%---------------------------------------------
 %rediagnose
+%---------------------------------------------
 
 \begin{command}{rediagnose}{rediagnose}
 
@@ -1511,7 +1548,9 @@ optimizations are performed after diagnosis.}
 
 \end{command}
 
+%---------------------------------------------
 %redraw
+%---------------------------------------------
 
 \begin{command}{redraw}{}
 
@@ -1531,11 +1570,13 @@ currently in memory.
 
 \end{command}
 
+%---------------------------------------------
 %rename
+%---------------------------------------------
 
 \begin{command}{rename}{}
 
-\syntax{\obligatory{(\optional{argument list})}}  
+\syntax{\obligatory{(\optional{argument list})}} 
 
 \begin{poydescription} 
 Replaces the name(s) of specified item(s) (characters or terminals). This command allows 
@@ -1553,9 +1594,9 @@ either a string containing a synonymy file or a pair (or pairs) of strings conta
 items being renamed.
 
 In order to change these names, the command \poycommand{rename} must be
-executed {\bf \emph{before}} importing the data files (see  \nccross{read}{read})
+executed {\bf \emph{before}} importing the data files (see \nccross{read}{read})
 that contain the taxa or characters that are to be renamed.
-\end{poydescription}  
+\end{poydescription} 
 
 \begin{statement}
 Once the command \poycommand{rename} is applied, subsequent commands 
@@ -1567,7 +1608,7 @@ a root using the command~\ccross{set}.
 \begin{statement}
 \poy provides a useful option that allows the commenting out of portions of a taxon name in the imported
 data file. This is achieved by inserting a dollar sign (``\$'') before the region of text that the user wishes to comment 
-out.  As an example, placing a ``\$''  before the GenBank information in the taxon name 
+out. As an example, placing a ``\$'' before the GenBank information in the taxon name 
 \texttt{Ablepharus\_budaki\$\_AY561421\_16S} will comment out this information and the taxon 
 name will be read as \texttt{Ablepharus\_budaki} by the program.
 \end{statement}
@@ -1589,7 +1630,7 @@ renamed. An identifier must precede the subsequent arguments.}
 {These arguments allow the user to specify the items to be renamed either in a group 
 (by importing a \emph{synonymy} file) or individually (by using a pair of string arguments).
 The former is useful when there are multiple items to be renamed and/or when it is
-desirable to substitute a single name for  multiple ones.}
+desirable to substitute a single name for multiple ones.}
 
 \argumentdefinition{STRING}{}
 {Specifies the name of the file (a \emph{synonymy} file) that contains the list of
@@ -1607,13 +1648,13 @@ for example, the synonymy file below:
 \end{figure}
 
 When this file is imported using \poyargument{rename}, the taxon
-Cnemidophorus\_deppei will be remained as Aspidoscelis\_deppei  and both Chamaeleo\_weidersheimi 
+Cnemidophorus\_deppei will be remained as Aspidoscelis\_deppei and both Chamaeleo\_weidersheimi 
 and Chamaeleo\_wiedersheimi will be renamed as Trioceros\_wiedersheimi etc:}
 {}
 
 \argumentdefinition{(STRING, STRING)}{}
 {Specifies the names of individual items to be renamed. The first item (character or taxon) is renamed
-as the second item.                
+as the second item.        
 Examine the renaming script below: 
 
 \begin{figure}[th!]
@@ -1626,11 +1667,11 @@ Examine the renaming script below:
 
 
 The above script will perform the exact same renaming function as that of the previous example 
-(Figure~\ref{fig:syn}).  Generating scripts such as this are recommended when more than a single taxon 
-needs to be renamed.  This script is employed using the command \poycommand {run}. %To specify multiple pairwise name substitution, several 
+(Figure~\ref{fig:syn}). Generating scripts such as this are recommended when more than a single taxon 
+needs to be renamed. This script is employed using the command \poycommand {run}. %To specify multiple pairwise name substitution, several 
 %name pairs can be listed: \texttt{("alpha","beta"),("gamma","delta").}
 }
-{}        
+{}    
 
 \begin{statement}
 Note that when \poycommand{rename} is applied by specifying pairs of
@@ -1655,13 +1696,15 @@ imported data files.}
 \poyexample{rename(terminals,("Chamaeleo\_weidersheimi","Trioceros\_wieder\\sheimi"),("Chamaeleo\_wiedersheimi","Trioceros\_wiedersheimi"))}
 {This command renames the terminal taxa \texttt{Chamaeleo\_wiedersheimi} 
 and \texttt{Chamaeleo\_weidersheimi} (a misspelling of the previous name) as 
-\texttt{Trioceros\_wiedersheimi} in all subsequently  imported data files.}
+\texttt{Trioceros\_wiedersheimi} in all subsequently imported data files.}
 
 \end{poyexamples}
 
 \end{command}
 
+%---------------------------------------------
 %report
+%---------------------------------------------
 
 \begin{command}{report}{}
 
@@ -1673,7 +1716,7 @@ window of the \emph{ncurses} interface, the standard output of the \emph{flat}
 interface, or to a file. To redirect the output to a file, the file name in 
 quotes and followed by a comma must be included in the argument list
 of \poycommand{report}. All arguments for \poycommand{report} are
-optional.  This command allows the user to output information concerning the 
+optional. This command allows the user to output information concerning the 
 characters and terminals, diagnosis, exporting static homology data, implied 
 alignments, trees, as well as other miscellaneous arguments.
 \end{poydescription}
@@ -1697,7 +1740,7 @@ are specified, the data, trees, and diagnosis are reported to that file by
 default. By default files are appended to the report, rather than overwritten.
 
 A string (text in quotes) argument is interpreted as a filename.
-Therefore, \texttt{"/Users/andres/results1.tre"} represents  the file \texttt{results1.tre} in
+Therefore, \texttt{"/Users/andres/results1.tre"} represents the file \texttt{results1.tre} in
 the directory \texttt{/Users/andres}. If no path is given, the path
 is relative to the current working directory as printed by \poycommand{pwd()}.} 
 {}
@@ -1709,42 +1752,42 @@ is relative to the current working directory as printed by \poycommand{pwd()}.}
 {This set of arguments reports the current status of terminals and
 characters from the imported data files. }
 
-%            \argumentdefinition{compare}{\obligatory{(\poybool, identifiers,
-%            identifiers)}}
-%                {If the boolean argument is set to \texttt{false}, the command
-%                reports the ratios of all pairwise distances to their maximum length
-%                for the characters specified by character identifiers. If the boolean
-%                argument is set to \texttt{true}, the complement sequences for
-%                the characters specified by the second identifier are computed prior
-%                to reporting the distance.}{}
+%      \argumentdefinition{compare}{\obligatory{(\poybool, identifiers,
+%      identifiers)}}
+%        {If the boolean argument is set to \texttt{false}, the command
+%        reports the ratios of all pairwise distances to their maximum length
+%        for the characters specified by character identifiers. If the boolean
+%        argument is set to \texttt{true}, the complement sequences for
+%        the characters specified by the second identifier are computed prior
+%        to reporting the distance.}{}
 
 \argumentdefinition{cross\_references}{\optional{identifiers\optional{STRING}}}
 {Reports a table with terminals being analyzed in rows, and the
 data files in columns. A plus sign (``+'') indicates that data for a given
 terminal is present in the corresponding file; a minus sign (``--'') indicates that it is
 not. It is highly recommended that the user report a \poyargument{cross\_references}
-file having imported the data into \poy.  Not only is this argument is a {\bf very} 
+file having imported the data into \poy. Not only is this argument is a {\bf very} 
 useful tool for visual representation of missing data, reporting all the data to a 
 cross references file can also highlight inconsistencies in the spelling 
 of taxon names in different data files.
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
 Under default settings, cross-references are reported for
 all imported data files. To report cross-references for some of
 the fragments within a given file, a single character, or a subset
 of characters, optional arguments (\texttt{identifiers}) must be specified. A combination of
-a character identifier (see command  \nccross{select}{select}) and
+a character identifier (see command \nccross{select}{select}) and
 the file names (specified in the the string value) is used to select specific
-data files to be cross-referenced. For example, to only report information  
-for \texttt{file1}  is achieved by typing \poycommand{cross\_references:names:("file1")}.
+data files to be cross-referenced. For example, to only report information 
+for \texttt{file1} is achieved by typing \poycommand{cross\_references:names:("file1")}.
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
 The argument \poyargument{cross\_references:all} generates
 a table that shows presence and absence of fragments contained
 within each file. If each data file contains a
-single fragment,  executing \poyargument{cross\_references:all}
+single fragment, executing \poyargument{cross\_references:all}
 is equivalent to executing \poyargument{cross\_references}.
 
 By default, the cross-reference table is printed on screen or to an
@@ -1772,7 +1815,7 @@ to a file with extension ``ss'' or ``hen'' or ``hennig''.}
 
 \argumentdefinition{lkmodel}{}
 {Reports the likelihood model, costs, and tree length for the
-characters in memory in a style similar  to that of \texttt{PHYLIP}.}
+characters in memory in a style similar to that of \texttt{PHYLIP}.}
 {}
 
 \argumentdefinition{searchstats}{}
@@ -1784,7 +1827,7 @@ the trees found.}
 \argumentdefinition{seq\_stats}{\obligatory{identifiers}}
 {Outputs a summary of the sequences specified in the argument
 value, for all taxa. The summary includes the maximum, minimum,
-and average length and distance for all terminals.  In this case, identifiers
+and average length and distance for all terminals. In this case, identifiers
 include file names, characters, codes etc:}
 {seqstats}
 
@@ -1823,7 +1866,7 @@ currently in memory.}
 
 \argumentdefinition{nexus}{}
 {Produces a file in the Nexus format that contains all the
-characters currently in memory.  In
+characters currently in memory. In
 order to export an implied alignment as a Nexus file, the
 characters must first be transformed into static characters
 using the \poycommand{transform} command (see the Hennig86 
@@ -1847,14 +1890,14 @@ example,
 will produce Hennig86 files only for
 \texttt{fragment\_1} and \texttt {fragment\_2}. The resulting file can 
 be imported into other programs,
-such as WinClada.  This is equivalent to the
+such as WinClada. This is equivalent to the
 \poycommand{phastwincladfile} command in \texttt{POY3}.
 \end{statement}
 
 
 \argumentdefinition{phastwinclad}{}
 {Produces a file in the Hennig86 format that contains the
-additive and nonadditive characters currently in memory.  In
+additive and nonadditive characters currently in memory. In
 order to export an implied alignment as a Hennig86 file, the
 characters must first be transformed into static characters
 using the \poycommand{transform} command (see example in tutorial \texttt{5.2}): 
@@ -1923,21 +1966,7 @@ tree in memory.}
 \argumentdefinition{asciitrees}{\optional{collapse\optional{\poylident}}}
 {Draws ascii character representations of trees stored in memory. The
 argument \poyargument{collapse} will collapse branches on the basis 
-of the \poylident specified. \hl{...} 
-
-If \texttt{single}, the default, a collapse will
-occur if the length single assignment on a branch is zero; 
-
-if \texttt{min}
-uses final up pass assignment calculation minimum between those---a 
-lot of collapsing; 
-
-if texttt{max} uses final up pass assignment calculation 
-maximum , minimal collapsing. 
-
-The boolean value \texttt{true}---zero 
-length branches will be collapsed if the \poylident value is \texttt{true}, 
-and will not if \texttt{false}.}
+of the \poylident specified (see~\nccross{collapse}{collapse}). }
 {}
 
 \argumentdefinition{clades}{}
@@ -1950,19 +1979,17 @@ of \texttt{POY3}.}
 
 \argumentdefinition{consensus}{\optional{\poyint}}
 {Reports the consensus of trees in memory in parenthetical notation.
-If no integer value is
-specified, a strict consensus is calculated~\cite{rohlf1982};
-if an integer value is specified,
-a majority rule consensus is computed, collapsing nodes with
-occurrence frequencies less than the specified integer~\cite{margush1981}.
-If a value less
-than \texttt{51} is specified, \poy reports an error.} 
+If no integer value is specified, a strict consensus is calculated~\cite{rohlf1982};
+if an integer value is specified, a majority rule consensus is computed, 
+collapsing nodes with occurrence frequencies less than the specified 
+integer~\cite{margush1981}. If a value less than \texttt{51} is specified, 
+\poy reports an error.} 
 {}
 
 \argumentdefinition{graphconsensus}{\optional{\poyint}}
-{Same as \poyargument{consensus} except for consensus trees are
-reported in graphical format, either in the ascii format on
-screen or in the PDF format if redirected to a file.}
+{This argument is the same as \poyargument{consensus} except 
+that the trees are reported in graphical format, either in the ascii 
+format on screen or in the PDF format if redirected to a file.}
 {}
 
 \argumentdefinition{graphdiagnosis}{}
@@ -1981,10 +2008,12 @@ format. The argument values are the same as for
 \poyargument{jackknife}, and \poyargument{bootstrap}).} 
 {graphsupports}
 
-\argumentdefinition{graphtrees}{\optional{collapse}}
-{Same as the \poyargument{trees} \hl{...} Output the diagnosis in PDF format. The PDF is compressed, and
-contains the trees and links to see the diagnosis of each vertex
-in the tree.}
+\argumentdefinition{graphtrees}{\optional{collapse\optional{\poylident}}}
+{This argument is similar to \poyargument{trees} except that
+the trees are reported in graphical format, either in the ascii 
+format on screen or in the PDF format if redirected to a file.
+The optional \poylident is \poyargument{collapse} 
+(see~\nccross{collapse}{collapse}).}
 {graphtrees}
 
 \argumentdefinition{supports}{\optional{argument}}
@@ -1997,7 +2026,7 @@ is given, all calculated support values are printed. The arguments
 \poyargument{bootstrap} specify which type of support tree to
 report. 
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
 To print the Bremer supports of the trees in memory, using as reference 
 trees that are stored in a file, \poyargument{bremer} accepts an optional 
@@ -2005,9 +2034,9 @@ string argument (as in \poycommand{report(supports:bremer:("file1.txt", \\
 "file2.txt"))}. The argument's value specifies the files containing lists of
 trees and costs (as those generated by \ccross{visited}), that
 should be used with their annotated cost to assign the Bremer
-support values.  
+support values. 
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
 To print the Bremer supports of a tree that does not exists in
 memory (or a consensus tree) stored in a file,
@@ -2021,10 +2050,9 @@ previous paragraph.
 If no input file is given, or if \poyargument{bootstrap} or
 \poyargument{jackknife} are requested, then the necessary
 information must have been calculated using the argument 
-\nccross{calculate\_support}{calculatesupport}.
-
-The arguments \poyargument{jackknife} and \poyargument{bootstrap} accept an
-optional argument with two possible values:
+\nccross{calculate\_support}{calculatesupport}. The 
+arguments \poyargument{jackknife} and \poyargument{bootstrap} 
+accept an optional argument with two possible values:
 \poyargument{individual}, \poyargument{consensus}, or a
 \poystring.
 
@@ -2046,28 +2074,38 @@ provided, is \poyargument{individual}.}
 specifying the format of the tree that has to be generated.
 Unless \poyargument{hennig} is specified in the list of values, 
 \poyargument{trees} uses newick format in the tree output. The
-valid optional arguments are:  
+valid optional arguments are: 
 
 \begin{description}
 
-%                    \argumentdefinition{\_cost}{}
-%                        {Include the cost in square brackets for every subtree in the tree. (Note: These 
-%                        are \emph{not} branch lengths.)}
-%                        {cost}
+% \argumentdefinition{\_cost}{}
+%{Include the cost in square brackets for every subtree in the tree. (Note: These 
+% are \emph{not} branch lengths.)}
+% {cost}
 
 \argumentdefinition{branches}{}
 {Report tree with likelihood branch lengths included. }
 {}
 
-%                    \argumentdefinition{branches}{\optional{\poylident}}
-%                        {report tree with likelihood branch lengths included. single, min, max}
-%                        {}                        
+%\argumentdefinition{branches}{\optional{\poylident}}
+%{report tree with likelihood branch lengths included. single, min, max}
+%{}            
 %
-%		 \argumentdefinition{collapse}{\optional{\poybool}}
-%                        {If \poyargument{single}, zero length branches are collapsed (the
-%                        default), but if \poycommand{false}, no branches are
-%                        collapsed.  By default, no branches are collapsed. single, min, max}
-%                        {}
+%\argumentdefinition{collapse}{\optional{\poybool}}
+%{If \poyargument{single}, zero length branches are collapsed (the
+% default), but if \poycommand{false}, no branches are
+%collapsed. By default, no branches are collapsed. single, min, max}
+%{}
+
+\argumentdefinition{collapse}{\optional{\poylident}}
+{The degree of collapse is determined by the lident specified. 
+If \texttt{single} or \texttt{true}, the default, a collapse will 
+occur if the length of the single assignment on a branch is zero; 
+if \texttt{min} uses final up pass assignment calculation minimum 
+between those---a lot of collapsing; if \texttt{max} uses final up 
+pass assignment calculation maximum , minimal collapsing; 
+if \texttt{false}, no collapsing will occur.}
+{collapse}
 
 \argumentdefinition{hennig}{}
 {Prepends the \poycommand{tread} command to the list of
@@ -2106,10 +2144,9 @@ lines.}
 {Includes the total cost of a tree in square brackets after each tree.}
 {total}
 
-
 \end{description}
-If the report is directed
-to a file with extension ``nex'' or ``nexus'' then
+
+If the report is directed to a file with extension ``nex'' or ``nexus'' then
 the output is suitable for a nexus file (trees inside a TREES
 block). Hennig format is produced if the report is directed
 to a file with extension ``ss'' or ``hen'' or ``hennig''. In
@@ -2153,7 +2190,7 @@ and processes the commands in the order that yields the same
 results as if they were executed sequentially. This substantially
 optimizes parallelization and reduces memory consumption.
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
 The colored output in the \emph{POY Output} window of the \emph{ncurses}
 interface facilitates reading the output of \poyargument{script\_analysis}:
@@ -2178,7 +2215,7 @@ setting a timer between commands is useful:
 \end{flushleft}
 
 the output will look something like:
-\begin{flushleft}     
+\begin{flushleft}   
 \texttt{Information: Reading file Biv.fas of type input sequences\\
 Information: The file Biv.fas contains sequences of 5 taxa, each
 sequence holding 1 fragment.\\
@@ -2282,7 +2319,7 @@ imported data files.}
 
 \poyexample{report(trees)}
 {This command displays (on screen) the trees in memory in parenthetical
-notation with terminals separated by commas.  By default, zero-length branches 
+notation with terminals separated by commas. By default, zero-length branches 
 are not collapsed.}
 
 \poyexample{report(trees:(total))}
@@ -2330,7 +2367,7 @@ only the tree(s) with Bremer support values.}
 
 \poyexample{report(implied\_alignments)}
 {This command reports the implied alignments for all dynamic homology
-characters on screen.  This is equivalent to \texttt{report(ia).}}
+characters on screen. This is equivalent to \texttt{report(ia).}}
 
 \poyexample{report("align\_file",ia:names:("SSU","LSU"))}
 {This command generates the file \texttt{align\_file} that contains
@@ -2355,7 +2392,9 @@ file in XML format.}
 
 \end{command}
 
+%---------------------------------------------
 %run
+%---------------------------------------------
 
 \begin{command}{run}{}
 
@@ -2394,7 +2433,9 @@ and \texttt{script2} in the same order as they are listed in the list of argumen
 
 \end{command}
 
+%---------------------------------------------
 %save
+%---------------------------------------------
 
 \begin{command}{save}{}
 
@@ -2441,7 +2482,9 @@ directory \texttt{/Users/andres/} instead of the current working directory.}
 
 \end{command}
 
+%---------------------------------------------
 %search
+%---------------------------------------------
 
 \begin{command}{search}{}
 
@@ -2453,15 +2496,15 @@ includes tree building, swapping using TBR, perturbation using
 ratchet, and tree fusing. The strategy involves specifying targets for 
 a driven search, such as maximum and minimum execution times, 
 maximum allowed memory consumption for tree storage, minimum number of times the
-shortest tree is found, and an expected cost for the shortest tree.  When executing
+shortest tree is found, and an expected cost for the shortest tree. When executing
 \poycommand{search} using parallel processing, trees are exchanged upon the
-completion of the command (after fusing).  Because the lowest cost unique trees 
+completion of the command (after fusing). Because the lowest cost unique trees 
 generated are selected and stored at the end of a \poycommand{search} 
 (defined by the user with \poyargument{max\_time}), aggressive use of this 
 command in a parallel environment consists of including few sequential
 \poycommand{search} commands that will allow the processes to
-exchange trees and add the pool of selected
-best trees to subsequent iterations of the command (see the example for parallel processing).
+exchange trees and add the pool of selected best trees to subsequent 
+iterations of the command (see the example for parallel processing).
 
 Trees that exists in memory prior to the \poycommand{search} command
 are included in the set of trees available for the
@@ -2483,7 +2526,8 @@ The \poyargument{hits} argument is not used in parallel processing.}{}
 \argumentdefinition{max\_time}{\obligatory{\poyfloat:\poyfloat:\poyfloat}}
 {Specifies the maximum total execution time for the search. The time is specified as
 days:hours:minutes. For example, executing the search for 1.5 days can
-be expressed as 1:12:00 or 1.5:00:00.}{maxtime}
+be expressed as 1:12:00 or 1.5:00:00.}
+{maxtime}
 
 \argumentdefinition{memory}{\obligatory{\poylident:\poyfloat}}{Specifies the maximum amount of
 memory allocated for the stored trees during the search per processor. 
@@ -2493,9 +2537,9 @@ notably during the ratchet). The \poylident value expresses the
 units of memory (\poyargument{gb} for Gigabytes and \poyargument{mb} for Megabytes), 
 whereas the float value specifies the actual value. Keeping memory consumption 
 within the limit is approximate and is used as a rough guide to \poy, preventing 
-the program from overflowing the memory.  Furthermore, it is important to note that 
+the program from overflowing the memory. Furthermore, it is important to note that 
 when running \poy in parallel the maximum amount of memory specified by the user is 
-allocated to each process.  Under certain circumstances, however, \poy
+allocated to each process. Under certain circumstances, however, \poy
 may use more memory to avoid program failures.}{}
 
 
@@ -2556,7 +2600,7 @@ best hits is at most 385 steps.}
 {search(max\_time:0:4:0)}\\
 {select()}\\
 {This series of commands will attempt as many builds, swaps, ratchets, and tree
-fusings as possible within the specified total time of 16 hours.  Trees are exchanged among
+fusings as possible within the specified total time of 16 hours. Trees are exchanged among
 processors at the end of each \poycommand{search} and the best unique trees
 are then selected and included in the following
 \poycommand{search} command.}}
@@ -2568,7 +2612,7 @@ operations are constrained by the tree specified in the file \texttt{best\_tree.
 
 \poyexample {search(max\_time:00:48:00,visited:"visited.txt")}
 {This command will attempt as many builds, swaps, ratchets, and tree
-fusings as possible within the specified time of 2 days.  During this 
+fusings as possible within the specified time of 2 days. During this 
 time, every visited tree and its cost during the local search will be stored in the file
 \texttt{visited.txt}.}
 
@@ -2582,7 +2626,9 @@ time, every visited tree and its cost during the local search will be stored in 
 
 \end{command}
 
+%---------------------------------------------
 %select
+%---------------------------------------------
 
 \begin{command}{select}{}
 
@@ -2621,18 +2667,18 @@ refer to \emph{terminals} to be selected. By default, \poy
 assumes that the specification refers to terminals. For example, to
 analyze only those terminals listed in the file \texttt{opiliones} using
 the character data currently loaded in memory, use the command 
-\poycommand{select(files:("opiliones"))}. This  command is
+\poycommand{select(files:("opiliones"))}. This command is
 equivalent to \poycommand{select(terminals,files:("opiliones"))}.
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
 When the command is executed, the list of selected terminals is
-printed on screen.  \poycommand{terminals} is only valid as an
+printed on screen. \poycommand{terminals} is only valid as an
 argument of commands \poycommand{select} and \ccross{rename}.} 
 {}
 
 \begin{statement}
-Note that once specific terminals and/or  characters are selected, the excluded
+Note that once specific terminals and/or characters are selected, the excluded
 data cannot be restored. To be able to reconstitute the original data set or to
 experiment with various character and terminal selections within a given \poy
 session, use the commands ~\ccross{store}{} and \ccross{use}.
@@ -2648,7 +2694,7 @@ characters, such as commands \ccross{report} and
 \nccross{transform}{transformcommand}.}
 
 \argumentdefinition{all}{}
-{Specifies all characters or terminals.  Unless a terminals or characters file
+{Specifies all characters or terminals. Unless a terminals or characters file
 is selected, all the data is read by the program.}
 {allidentifier}
 
@@ -2709,7 +2755,7 @@ threshold defined by the value of \poyargument{missing}.
 {Selects terminals or characters to be included from the analysis
 based on the proportion of missing data. The
 integer value sets the minimum percentage of missing
-data. Terminals or characters that have  \emph{fewer} missing data
+data. Terminals or characters that have \emph{fewer} missing data
 than defined by the value are included in the analysis.
 In effect, this selects a complement of data to the argument \poyargument{missing}
 (compare with \poyargument{missing} above).}
@@ -2780,9 +2826,9 @@ the trees are removed from memory.}
 
 \poyexample{select(terminals,names:("t1","t2","t3","t4","t5"), \\ 
 characters,names:("chel.aln:0"))}
-{This command selects only terminals \texttt{t1},  \texttt{t2},
-\texttt{t3},  \texttt{t4}, and  \texttt{t5} and use data only from the
-fragment  \texttt{0} contained in the file \texttt{chel.aln}.}
+{This command selects only terminals \texttt{t1}, \texttt{t2},
+\texttt{t3}, \texttt{t4}, and \texttt{t5} and use data only from the
+fragment \texttt{0} contained in the file \texttt{chel.aln}.}
 
 \poyexample{select(terminals,missing:50)}
 {This command excludes from subsequent analyses all the terminals that
@@ -2809,7 +2855,9 @@ the cost range 49--51 are selected.}
 
 \end{command}
 
+%---------------------------------------------
 %set
+%---------------------------------------------
 
 \begin{command}{set}{}
 
@@ -2842,9 +2890,9 @@ default size of the output history is 1000 lines.}
 
 \argumentdefinition{log}{\obligatory{\poystring}}
 {Directs a copy of a partial output to the file specified by the
-string  argument. The output includes the  information in the
+string argument. The output includes the information in the
 \emph{POY Output}, \emph{Interactive Console}, and \emph{State
-of Stored Search} windows of \emph{ncurses} interface.  Timers and
+of Stored Search} windows of \emph{ncurses} interface. Timers and
 current state of the search are not included in the log. If the
 log file already exists, \poy will append the text to it; if the log
 file does not exist, then \poy creates a new file. If the user
@@ -2861,10 +2909,10 @@ file. See the description of the argument \poyargument{log}
 above. Unless specified, no log is set by the program.}
 {nolog}
 
-%            \argumentdefinition{normal\_alignment}{}
-%                {Resets to the core alignment algorithm~\cite{wheeler1996} following the use of 
-%                the \poyargument {space\_saving\_alignment}.}
-%                {normalalignment}
+%      \argumentdefinition{normal\_alignment}{}
+%        {Resets to the core alignment algorithm~\cite{wheeler1996} following the use of 
+%        the \poyargument {space\_saving\_alignment}.}
+%        {normalalignment}
 
 \argumentdefinition{root}{\obligatory{\poylident}}
 {Specifies the terminal to root output trees.
@@ -2873,21 +2921,21 @@ The terminal can either be indicated as a taxon name (a
 \texttt{"Genus\_species"}) or the code, that is automatically
 assigned to the taxon by \poy at the beginning of each \poy
 session (for example, \poycommand{set(root:45)}. The codes can
-be obtained using the command \poycommand{report(data)}).  The
+be obtained using the command \poycommand{report(data)}). The
 terminal codes, however, are consistent only within a current
 session.}
 {root}
 
-%            \argumentdefinition{space\_saving\_alignment}{\optional{\poylident}}
-%                {This optional argument can be
-%                used with chromosomal or genomic data to minimize memory
-%                consumption during the alignment of LCBs.  This option, however,
-%                will slow the alignment process and is only recommended for very
-%                large chromosomal data sets to reduce memory consumption. To
-%                reset, see the description of the argument
-%                \poyargument{normal\_alignment} above.}
-%                {spacesavingalignment}
-%                        
+%      \argumentdefinition{space\_saving\_alignment}{\optional{\poylident}}
+%        {This optional argument can be
+%        used with chromosomal or genomic data to minimize memory
+%        consumption during the alignment of LCBs. This option, however,
+%        will slow the alignment process and is only recommended for very
+%        large chromosomal data sets to reduce memory consumption. To
+%        reset, see the description of the argument
+%        \poyargument{normal\_alignment} above.}
+%        {spacesavingalignment}
+%            
 \argumentdefinition{timer}{\obligatory{\poyint}}
 {Specifies the lapse of time in seconds that should have passed
 between reporting the total execution time of a swap and build
@@ -2921,16 +2969,16 @@ Otherwise, if the argument value is \poyargument{approximate}, then the iteratio
 approximate the three dimensional alignment using pairwise
 alignments. 
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent
 If the argument value is \poyargument{exact}, this method improves the tree
 cost estimation but at the expense of execution time (by a factor of the sequence length).
 When \poyargument{approximate}, the execution time footprint is much
 smaller, and far less memory is consumed.
-A typical heuristic strategy is to apply  \poyargument{iterative} at the 
+A typical heuristic strategy is to apply \poyargument{iterative} at the 
 very end of an analysis to polish the final set of trees and perform a final search. 
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent
 Both arguments accept an optional integer, stating the maximum
 number of iterations that can be performed. If no integer is
@@ -2954,7 +3002,7 @@ calculation of the tree cost is performed.}
 Due to the complexity of heuristics of the Iterative Pass
 optimization, there is no guarantee that the tree cost recovered
 from the search will be exactly the same as produced by the
-diagnosis of the same tree.  However, the cost of the tree found
+diagnosis of the same tree. However, the cost of the tree found
 during the search can be verified by outputting the medians from
 the diagnosis (see the description of the argument
 \nccross{diagnosis}{diagnosis}) of the command
@@ -2969,7 +3017,7 @@ tree cost in subsequent rediagnoses.
 
 \begin{argumentgroup}{Likelihood Optimization}
 {These arguments relate to the level of granularity (significant digits) and 
-thoroughness (number of iterations)  of the
+thoroughness (number of iterations) of the
 optimization routines used for defining the branches and model for
 the likelihood characters.}
 
@@ -3025,7 +3073,7 @@ the results of the analyses that require randomization routines
 The sequence of randomizations is dependent on the version of
 OCaml used to compile the binaries. The algorithm to create the
 random seed number changed in OCaml version 3.12.0, thereby
-generating different sequences of pseudo-random numbers.  To
+generating different sequences of pseudo-random numbers. To
 ensure reproducibility of results, the user must ensure that the
 same version of OCaml is used during compilation.
 \end{statement}
@@ -3079,7 +3127,9 @@ a maximum of 10 optimization iterations occur.}
 
 \end{command}
 
+%---------------------------------------------
 %store
+%---------------------------------------------
 
 \begin{command}{store}{}
 
@@ -3088,12 +3138,12 @@ a maximum of 10 optimization iterations occur.}
 \begin{poydescription}
 Stores the current state of \poy session in memory. The stored information
 includes character data, trees, selections, \emph{everything}. Specifying the
-name of the stored state of the search (using the string argument)  does
+name of the stored state of the search (using the string argument) does
 \emph{not}, however, generate a file under this name that can be examined;
 the name is used only to recover the stored state using the command \poycommand{use}.
 
 In combination with \poycommand{use}, the command \poycommand{store}
-is extremely useful when exploring alternative  cost regimes and terminal sets
+is extremely useful when exploring alternative cost regimes and terminal sets
 within a single \poy session.
 \end{poydescription}
 
@@ -3121,7 +3171,9 @@ name \texttt{initial\_tcm}.}
 
 \end{command}
 
+%---------------------------------------------
 %swap
+%---------------------------------------------
 
 \begin{command}{swap}{swapcommand}
 
@@ -3132,7 +3184,7 @@ name \texttt{initial\_tcm}.}
 command implements a family of algorithms collectively known in systematics as
 branch swapping and in combinatorial optimization as hill climbing. 
 They proceed by clipping parts of a given tree and
-attaching them in different positions.  It can be
+attaching them in different positions. It can be
 used to perform a local search from a set of trees loaded in memory.
 
 Swapping is performed on all trees in memory. During a search,
@@ -3157,7 +3209,7 @@ is listed, only the last one is executed.]
 
 \begin{argumentgroup}{Branch break order}
 {During the local search, a branch is broken and local branch swapping
-is performed (see the \emph{Neighborhood} group of arguments).  The
+is performed (see the \emph{Neighborhood} group of arguments). The
 precise choice of which branches are broken first can affect both 
 the speed and the local optimum found by the program. The following 
 arguments select among the different strategies available in \poy.}
@@ -3215,7 +3267,7 @@ files in memory.}
 \argumentdefinition{all}{\optional{\poyint}}
 {Turns off all preference strategies to make a join, simply trying
 all possible join positions for each pair of clades generated
-after a break, in a randomized order.  The integer value 
+after a break, in a randomized order. The integer value 
 specifies the maximum distance from the break branch to
 attempt joins.}
 {}
@@ -3280,7 +3332,7 @@ new join location.}
 {swapjoindelta}
 
 \end{description} 
-}  {swapoptimize}
+} {swapoptimize}
 }
 
 
@@ -3309,7 +3361,7 @@ of those visited by \poyargument{tbr}.}
 \argumentdefinition{spr}{\optional{once}}
 {This argument performs \poyargument{spr} swapping, starting
 from the current trees in memory and subsequently repeating
-the SPR procedure until  a local optimum is found. If the optional value
+the SPR procedure until a local optimum is found. If the optional value
 \poyargument{once} is specified, \poyargument{spr} 
 stops once the first tree with better cost is found.} 
 {}
@@ -3317,7 +3369,7 @@ stops once the first tree with better cost is found.}
 \argumentdefinition{tbr}{\optional{once}}
 {This argument performs \poyargument{tbr} swapping, starting
 from the current trees in memory and subsequently repeating
-the TBR procedure until  a local optimum is found.  If the optional value
+the TBR procedure until a local optimum is found. If the optional value
 \poyargument{once} is specified, \poyargument{tbr} 
 will stop once the first tree with better cost is found.}
 {}
@@ -3371,10 +3423,10 @@ than the current best cost.}
 
 \begin{argumentgroup}{Trajectory samples}
 {During the search, \poy visits a large number of trees. For some
-applications it might be desirable to  collect information about the
+applications it might be desirable to collect information about the
 trees examined during a search: for example, to provide backups of
 the state of a search (in an unlikely crash), or to examine the
-characteristics of the alignments.  The difference from the
+characteristics of the alignments. The difference from the
 \poycommand{swap} arguments is that the user can choose any
 combination of trajectory samples, and that can be used during the
 search. None of the trajectory samples is used by default.}
@@ -3382,7 +3434,7 @@ search. None of the trajectory samples is used by default.}
 \argumentdefinition{recover}{}
 {Stores the current best tree in memory that can be recovered in
 case of failure. If it is necessary to recover such trees after
-an aborted command, use ~\ccross{recover}.  If the program
+an aborted command, use ~\ccross{recover}. If the program
 terminates normally, the stored trees are exactly those produced
 at the end of the \poycommand{swap}. Using
 \poyargument{recover}, however, requires twice as much memory
@@ -3436,8 +3488,8 @@ trees that are more exhaustively evaluated during the swap,
 meaning that trees within the threshold are subject to an extra
 round of swapping. For example, if the current
 optimal tree has cost 450, and \poyargument{threshold:10} is specified, trees
-with cost at most 495 are swapped.  \poyargument{threshold} is
-equivalent to \emph{slop} of  \texttt{POY3}.}
+with cost at most 495 are swapped. \poyargument{threshold} is
+equivalent to \emph{slop} of \texttt{POY3}.}
 {thresholdswap}
 
 \argumentdefinition{trees}{\obligatory{\poyint}}
@@ -3482,19 +3534,19 @@ presumes that the file \texttt{bleh} is located in the current working directory
 
 \poyexample{swap(drifting:(0.5,2.0))}
 {Defines the direction of search via drifting, such that there is a 50\% probability of 
-replacing the current tree with a new tree of equal cost.  For suboptimal trees with 
+replacing the current tree with a new tree of equal cost. For suboptimal trees with 
 a cost \emph{d} greater than the current best tree, the probability of accepting this tree 
-is $1 / (2.0 + d)$.  For example the
+is $1 / (2.0 + d)$. For example the
 probability of keeping a suboptimal tree of 3 steps longer = $1 / (2.0 + 3) = 0.2$.}
 
 \poyexample{swap(sectorial:4)}
-{Submits current trees to a round of SPR followed by TBR.  Join will take place
+{Submits current trees to a round of SPR followed by TBR. Join will take place
 at a distance equal or less than the value of the argument from the broken edge, 
 where the distance is the number of edges in the path connecting them. If no 
 argument is given, then no distance limit is set.}
 
 \poyexample{swap(spr,all,optimize:(model:never,branch:join\_region))}
-{Submits the current trees to a round of SPR swapping.  Following each round of SPR,
+{Submits the current trees to a round of SPR swapping. Following each round of SPR,
 the model is never optimized, but a maximum of five branches (the new edge, and the two
 edges on either side of the join site) are optimized.}
 
@@ -3509,7 +3561,9 @@ edges on either side of the join site) are optimized.}
 
 \end{command}
 
+%---------------------------------------------
 %transform
+%---------------------------------------------
 
 \begin{command}{transform}{transformcommand}
 
@@ -3538,8 +3592,8 @@ in the list. If only identifiers and methods are specified,
 the argument list of \poycommand{transform} is included in 
 parentheses. For example, the command \poycommand{transform(all,(gap\_opening:1))} 
 contains only an identifier (\poyargument{all}) and a
-method (\poyargument{gap\_opening}).  [Note: this is different from previous versions of \texttt{poy} 
-where double parentheses were required.]  Minimally, only methods can be
+method (\poyargument{gap\_opening}). [Note: this is different from previous versions of \texttt{poy} 
+where double parentheses were required.] Minimally, only methods can be
 specified: in this case, the transformation is applied to \emph{all}
 characters to which the transformation method can be applied. For instance,
 \poycommand{transform(gap\_opening:1)}, where
@@ -3571,7 +3625,7 @@ must be used in designing complex strategies with multiple character
 transformations. See the note on command order (Section~\ref{commandorder}).
 
 \argumentdefinition{alphabetic\_terminals}{}
-{Alphabetizes the terminals in the data file that is input into \poy.  This is used in 
+{Alphabetizes the terminals in the data file that is input into \poy. This is used in 
 conjunction with build or search. See the description of the argument 
 \poyargument{randomize\_terminals}.}
 {alphabeticterminals}
@@ -3612,13 +3666,13 @@ where the initial assignment of sequences to the internal vertices ofs
 the tree is one of the observed sequences. If the observed sequences
 contain ambiguities, only those that resolve closest to another
 sequence are added to the set of valid states. It is only
-applicable to dynamic homology characters.  The optional arguments 
-may be specified for use with the \texttt{chromosome} character type.  
+applicable to dynamic homology characters. The optional arguments 
+may be specified for use with the \texttt{chromosome} character type. 
 The \poystring specifies the root name of Mauve ~\cite{darlingetal2004} 
 readable files ( ``\poystring\_$i$\_$j$.alignment'' where $i$ and $j$ are 
-median states) to generate graphical sequence maps between median states.  
+median states) to generate graphical sequence maps between median states. 
 The default \poylident is set to \texttt{full\_polymorphism}, which will 
-consider all sequence ambiguities.  As one might expect, this option is also the most 
+consider all sequence ambiguities. As one might expect, this option is also the most 
 time consuming. Alternatively, if the \poylident is set to \texttt{simpl\_polymorphism} 
 or \texttt{ignore\_polymorphism}, new potential median states will be generated that consider fewer 
 sequence polymorphisms in their calculations, thus reducing execution time.}
@@ -3641,15 +3695,15 @@ in conjunction with \poyargument{prealigned} data files.}
 {gapopening}
 
 \argumentdefinition{level}{\obligatory{(\poyint,\poylident)}}
-{The integer argument specifies the heuristic level in median sequence calculation.  
-This determines the number of possible states stored at each median sequence position.  
-For nucleotide data, all possibilities are stored.  This median states can be a single character 
-(e.g. A, C, G, T) or a combination of \texttt{INTEGER}  characters (e.g. A/C versus G).
+{The integer argument specifies the heuristic level in median sequence calculation. 
+This determines the number of possible states stored at each median sequence position. 
+For nucleotide data, all possibilities are stored. This median states can be a single character 
+(e.g. A, C, G, T) or a combination of \texttt{INTEGER} characters (e.g. A/C versus G).
 The default for amino acid sequences and for \texttt{custom\_alphabet} characters 
-it is $2$.  Storage and set up time increase combinatorially with level number. 
+it is $2$. Storage and set up time increase combinatorially with level number. 
 If the \poylident is \texttt{first}, ties are broken (if the number of equally costly states 
 is greater than the level number) by choosing the first median state examined; 
-if \texttt{last}, the last state, and if \texttt{at\_random} then uniformly at  random.
+if \texttt{last}, the last state, and if \texttt{at\_random} then uniformly at random.
 The default choice method is \texttt{first}. [Note: Levels greater than the default 
 levels can consume large amounts of memory.] }
 {level}
@@ -3682,7 +3736,7 @@ at the \texttt{5'} and/or \texttt{3'} ends of the sequence if data are missing).
 {prealignedtransform}
 
 \argumentdefinition{randomize\_terminals}{}
-{Randomizes the terminals in the data file that is input into \poy.  This is used in conjunction with 
+{Randomizes the terminals in the data file that is input into \poy. This is used in conjunction with 
 build or search. See the description of the argument \poyargument{alphabetic\_terminals}.}
 {randomizeterminals}
 
@@ -3705,14 +3759,14 @@ depending on the characteristic of transformation cost matrix
 assigned to each sequence. For example, if the cost of both substitutions
 and indels is \texttt{1}, then one non-additive character is created per
 each homologous position in the implied alignment. If the cost of
-substitutions is \texttt{1} and the cost of indels  is \texttt{2}, then
+substitutions is \texttt{1} and the cost of indels is \texttt{2}, then
 one character is created for each homologous position, and one extra character for
 each homologous position with gaps. In more complex cases, a Sankoff character is
 created. This argument can not be applied to custom alphabet characters.
 
-\setlength{\parindent}{0.5cm}                                
+\setlength{\parindent}{0.5cm}                
 \indent 
-The \poylident  \texttt{remove} excludes all uninformative characters
+The \poylident \texttt{remove} excludes all uninformative characters
 information (except autapomorphies), whereas the \poylident \texttt{keep}
 retains these characters. The default is \texttt{remove}. This
 method is applicable only to dynamic homology characters. If
@@ -3745,7 +3799,7 @@ rather than on sequence fragments) can produce a discrepancy in tree costs.
 \argumentdefinition{tcm}{\obligatory{(\poyint,\poyint)}}
 {Defines the transformation cost matrix. The first integer value specifies
 substitution cost, the second integer value defines indel cost. By default,
-the cost of substitutions and indels are both \texttt{1}.  
+the cost of substitutions and indels are both \texttt{1}. 
 [Note: previous versions of \texttt{poy}, had the cost of an indel set to 
 \texttt{2} (i.e. \poyargument{tcm:(1,2)}).]}
 {transformtcm}
@@ -3764,7 +3818,7 @@ transformation cost matrix. This method is applicable only to dynamic homology c
 The transformation cost matrix file contains five rows and columns
 with values listed in the following order (left to right and top to
 bottom): adenine, cytosine, guanine,
-thymine/uracil, and indel.  A similar pattern is followed for amino acids
+thymine/uracil, and indel. A similar pattern is followed for amino acids
 where the matrix columns and rows reflect all the amino acid names in alphabetical order
 (read left to right and top to bottom) with the last row and column containing a gap cost. 
 The costs must be symmetrical (that is, the
@@ -3773,24 +3827,24 @@ substitution). For example:
 
 \begin{equation*}
 \begin{array}{lllll}
-0 &     2 &    1 &     2 &     4 \\
-2 &     0 &    2 &     1 &     4 \\
-1 &     2 &    0 &     2 &     4 \\
-2 &     1 &    2 &     0 &     4 \\
-4 &     4 &    4 &     4 &     0
+0 &   2 &  1 &   2 &   4 \\
+2 &   0 &  2 &   1 &   4 \\
+1 &   2 &  0 &   2 &   4 \\
+2 &   1 &  2 &   0 &   4 \\
+4 &   4 &  4 &   4 &   0
 \end{array}
 \end{equation*} 
 
 The integer argument specifies the heuristic level in median sequence 
-calculation.  This determines the number of possible states stored at 
-each median sequence position.  For nucleotide data, all possibilities 
-are stored.  The default for amino acid sequences and for 
-\texttt{custom\_alphabet} characters is $2$.  Storage and set up time 
+calculation. This determines the number of possible states stored at 
+each median sequence position. For nucleotide data, all possibilities 
+are stored. The default for amino acid sequences and for 
+\texttt{custom\_alphabet} characters is $2$. Storage and set up time 
 increase combinatorially with level number.}
 {transformtcmmatrix}
 
 \argumentdefinition{ti}{\obligatory{\poystring /(\poyint list)}} 
-{Synonym of  \poyargument{trailing\_insertion}.}
+{Synonym of \poyargument{trailing\_insertion}.}
 {}
 
 \argumentdefinition{trailing\_insertion}{\obligatory{\poystring /(\poyint list)}}
@@ -3806,7 +3860,7 @@ only to dynamic homology characters.}
 {trailinginsertion}
 
 \argumentdefinition{td}{\obligatory{\poystring /(\poyint list)}} 
-{Synonym of  \poyargument{trailing\_deletion}.}
+{Synonym of \poyargument{trailing\_deletion}.}
 {}
 
 \argumentdefinition{trailing\_deletion}{\obligatory{\poystring /(\poyint list)}}
@@ -3865,10 +3919,10 @@ the assumption of collinearity of the genomes and instead, identifies
 and aligns regions of local collinearity called locally collinear 
 blocks (LCB). These LCBs represent a homologous region 
 of a sequence shared by two or more genomes and are without internal
-rearrangements.  The float parameters, which are order dependent, 
+rearrangements. The float parameters, which are order dependent, 
 include the quality of the LCB (default value 35), LCB coverage (default 0.30), 
 minimum length of LCB as a percentage of sequence length (default 0.01), 
-maximum length of LCB as a percentage of sequence length (default 0.10).  
+maximum length of LCB as a percentage of sequence length (default 0.10). 
 Percent calculations are based on the shorter of two sequences compared.}
 {annotate}
 
@@ -3876,14 +3930,14 @@ Percent calculations are based on the shorter of two sequences compared.}
 {Used in conjunction with \poycommand {read}, specifies that the data are
 chromosomal sequences with pipes (`` $\vline$ '') separating individual
 loci. The locus homologies and rearrangements are then determined dynamically by 
-the arguments specified in the argument list (\poyargument {locus\_breakpoint} and   
+the arguments specified in the argument list (\poyargument {locus\_breakpoint} and  
 \poyargument {locus\_inversion} %or \poyargument {locus\_dcj} 
 for rearrangements; \poyargument{locus\_indel} costs; \poyargument{circular} 
-and arguments associated with the determination of medians).}  
+and arguments associated with the determination of medians).} 
 {chromosomeannotate}
 
 \argumentdefinition{chromosome}{\obligatory{([argument list])}}
-{Specifies parameters for the creation of  chro\-mosome- and genome-level 
+{Specifies parameters for the creation of chro\-mosome- and genome-level 
 HTUs (medians). The arguments of \poyargument{chromosome} define 
 homologous blocks within unannotated chromosome sequences by
 specifying parameters within the Mauve aligner \cite{darlingetal2004} using
@@ -3895,22 +3949,22 @@ or \poyargument{locus\_breakpoint}, and \poyargument {locus\_indel}),
 take into account whether the chromosome is linear or circular 
 (\poyargument{circular}), and implement a number of heuristic 
 procedures to accelerate computations (\poyargument{median}, 
-\poyargument{swap\_med}, and \poyargument {med\_approx}).  
+\poyargument{swap\_med}, and \poyargument {med\_approx}). 
 Under default settings, the pairwise distance between two chromosome 
 segments or two chromosomes is determined using breakpoint rather 
 than inversion calculations and the rest of the arguments are executed 
 under their default settings.}
 {chromosome}
 
-%            \argumentdefinition{chrom\_breakpoint}{\obligatory{\poyint}} 
-%      		{Calculates the breakpoint distance~\cite{blanchetteetal1997}
-%                between two sequences of multiple chromosomes given the cost for
-%                rearrangement specified by an integer value. The breakpoint distance
-%                takes into account locus rearrangements between non-homologous
-%                chromosomes (translocations) but not inversions. For further discussion on 
-%                how breakpoint distance is calculated see the argument \poyargument{locus\_breakpoint}.  
-%                The default value of \poyargument{chrom\_breakpoint} is \texttt{100}.} 
-%                {chrombreakpoint}
+%      \argumentdefinition{chrom\_breakpoint}{\obligatory{\poyint}} 
+%   		{Calculates the breakpoint distance~\cite{blanchetteetal1997}
+%        between two sequences of multiple chromosomes given the cost for
+%        rearrangement specified by an integer value. The breakpoint distance
+%        takes into account locus rearrangements between non-homologous
+%        chromosomes (translocations) but not inversions. For further discussion on 
+%        how breakpoint distance is calculated see the argument \poyargument{locus\_breakpoint}. 
+%        The default value of \poyargument{chrom\_breakpoint} is \texttt{100}.} 
+%        {chrombreakpoint}
 
 \argumentdefinition{chrom\_hom}{\obligatory{\poyfloat}}
 {Specifies the lower limit of distance between two chromosomes beyond which 
@@ -3922,7 +3976,7 @@ The default value of \poyargument{chrom\_hom} is \texttt{0.75.}}
 {Specifies the cost for insertion and deletion of a chromosome in analysis of
 multiple chromosomes. The integer value sets gap opening
 cost ($o$), whereas the float value sets gap extension
-cost ($e$).  The indel cost for a fragment of length $l$ is
+cost ($e$). The indel cost for a fragment of length $l$ is
 specified by the following formula:
 $o + (l \times e)$. The default values are $o=10, e=1.0$.}
 {chromindel}
@@ -3940,7 +3994,7 @@ cannot be used simultaneously
 with the arguments \poyargument{locus\_inversion} and
 \poyargument{chrom\_inversion} as they designate
 \emph{alternative} methods of calculating distance between two
-chromosomes.  If both arguments are specified, the latter will
+chromosomes. If both arguments are specified, the latter will
 be executed. The order of other locus level arguments is
 arbitrary.
 \end{statement}
@@ -3952,11 +4006,11 @@ homologous blocks within annotated genome sequences by
 specifying parameters within the Mauve aligner \cite{darlingetal2004} 
 including block quality, block coverage, minimum and maximum block
 length. Users also specify the costs assigned to locus-level transformation 
-events: (i.e. \poyargument{locus\_inversion}  or 
+events: (i.e. \poyargument{locus\_inversion} or 
 \poyargument{locus\_breakpoint}; \poyargument {locus\_indel}; and 
 \poyargument {chromosome\_indel}), and implement a number of heuristic 
 procedures to accelerate computations (\poyargument{median}, 
-\poyargument{swap\_med}, and \poyargument {med\_approx}).  
+\poyargument{swap\_med}, and \poyargument {med\_approx}). 
 Under default settings, the pairwise distance between two genome 
 segments or two genomes is determined using breakpoint rather 
 than inversion calculations and the remainder of the arguments are executed 
@@ -3966,11 +4020,11 @@ under their default settings.}
 \argumentdefinition{locus\_breakpoint}{\obligatory{\poyint}}
 {Calculates the breakpoint distance \cite{blanchetteetal1997}
 between two pairs of chromosomes given the cost for rearrangement
-specified by an integer value.  The breakpoint distance calculation considers
+specified by an integer value. The breakpoint distance calculation considers
 a chromosome or genome $G = (x_1, \ldots, x_n) $ of $n$ gene, wherein each
-appears exactly once and its orientation is either positive or negative.  Gene
+appears exactly once and its orientation is either positive or negative. Gene
 orders are altered by gene rearrangement operations: gene inversion, gene translocation,
-gene inversion and translocation (see Figure \ref{fig:genomeRearrangement}).  
+gene inversion and translocation (see Figure \ref{fig:genomeRearrangement}). 
 \bigskip
 \begin{figure} [!htbp]
 \begin{center}
@@ -3983,10 +4037,10 @@ gene inversion and translocation (see Figure \ref{fig:genomeRearrangement}).
 The breakpoint distance takes into account rearrangements but not inversions.
 Given $G$ and $G'$, a pair of genes $(g_i, g_j)$ is a breakpoint if $(g_i, g_j)$ occur 
 consecutively in $G$ but neither $(g_i, g_j)$ nor $(-g_j, -g_i)$ occur
-consecutively in $G'$  \cite{sankoffandblanchette1998}.  The breakpoint distance between $G$
-and $G^\prime$ is the number of breakpoints between them.  Figure \ref{fig:distance} 
+consecutively in $G'$ \cite{sankoffandblanchette1998}. The breakpoint distance between $G$
+and $G^\prime$ is the number of breakpoints between them. Figure \ref{fig:distance} 
 shows two breakpoints between $G$ and $G^\prime$. The breakpoint can be calculated 
-easily in linear time.  This argument \emph{cannot} be used in
+easily in linear time. This argument \emph{cannot} be used in
 conjunction with \poyargument{locus\_inversion}. %or \poyargument{locus\_dcj}. 
 The default value of \poyargument{locus\_breakpoint} is \texttt{10}.} 
 {chromosomelocusbreakpoint} 
@@ -4003,26 +4057,26 @@ or a single inversion $(g_1, g_2, g_3)$.}
 \label{fig:distance}
 \end{figure}
 
-\begin{description}                 
+\begin{description}         
 
-%                \argumentdefinition{locus\_dcj}{\obligatory{\poyint}}
-%                    {Calculates the double cut and join
-%                    distance~\cite{yancopoulosetal2005}
-%                    between two chromosome segments given the cost for each
-%                    event specified by the integer value. The inversion distance
-%                    takes in consideration rearrangements and
-%                    inversions. The dcj distance is normally smaller than
-%                    the inversion and breakpoint distances.
-%                    This argument \emph{cannot} be used in conjunction with
-%                    \poyargument{locus\_breakpoint} or
-%                    \poyargument{locus\_inversion}.} 
-%                    {locusdcj}
+%        \argumentdefinition{locus\_dcj}{\obligatory{\poyint}}
+%          {Calculates the double cut and join
+%          distance~\cite{yancopoulosetal2005}
+%          between two chromosome segments given the cost for each
+%          event specified by the integer value. The inversion distance
+%          takes in consideration rearrangements and
+%          inversions. The dcj distance is normally smaller than
+%          the inversion and breakpoint distances.
+%          This argument \emph{cannot} be used in conjunction with
+%          \poyargument{locus\_breakpoint} or
+%          \poyargument{locus\_inversion}.} 
+%          {locusdcj}
 
 \argumentdefinition{locus\_indel}{\obligatory{(\poyint,\poyfloat)}} 
 {Specifies the cost for insertion or deletion of a
 chromosome segment. The integer value sets the gap opening
 cost ($o$), whereas the float value sets the gap extension
-cost ($e$).  The indel cost for a fragment of length $l$ is
+cost ($e$). The indel cost for a fragment of length $l$ is
 specified by the following formula:
 $o + (l \times e)$. The default values are $o=10, e=1.0$.}
 {chromosomelocusindel}
@@ -4034,18 +4088,18 @@ specified by the integer value. The inversion distance
 takes in consideration rearrangements and
 inversions. Given $G$ and $G^\prime$, the inversion distance between
 them is the number of inversions to convert chromosome or genome $G$ 
-into $G^\prime$ \cite{hanenhalliandpevzner1995}. Figure \ref{fig:distance} shows one inversion  
+into $G^\prime$ \cite{hanenhalliandpevzner1995}. Figure \ref{fig:distance} shows one inversion 
 between $G$ and $G^\prime$. The inversion can be calculated in linear time.
 The breakpoint distance is normally larger than
-inversion distance. %  and dcj distance.
+inversion distance. % and dcj distance.
 This argument \emph{cannot} be used in conjunction with
 \poyargument{locus\_breakpoint}.} % or \poyargument{locus\_dcj}.} 
-{chromosomelocusinversion}  
+{chromosomelocusinversion} 
 
 \argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
 {Defines the maximum number of Wagner\-based possible ancestral sequence
 alignments kept to create the next set of alignments during the pairwise alignment
-with rearrangement process.  The default value of \poyargument{max\_kept\_wag} is 1,
+with rearrangement process. The default value of \poyargument{max\_kept\_wag} is 1,
 however, at every step in the pairwise alignment with rearrangement process, the original
 order (1...n) is always considered as a potential solution.}
 {maxkeptwag}
@@ -4098,7 +4152,7 @@ is required for these median solvers. Download Concorde package from \\
 %too high (such that no identical fragments are detected)
 %the time required for subsequent searching procedures
 %may significantly increase. The optimal \poyargument{min\_seed\_length} 
-%value depends on the specifics of  a given dataset (see Figure \ref{fig:chrom}).
+%value depends on the specifics of a given dataset (see Figure \ref{fig:chrom}).
 %The default value of \poyargument{min\_seed\_length} is \texttt{9}.}
 %{minseedlength}
 
@@ -4116,7 +4170,7 @@ is required for these median solvers. Download Concorde package from \\
 %\argumentdefinition{min\_rearrangement\_len}{\obligatory{\poyint}} 
 %{Two seeds are said to be \emph{non-rearranged}, 
 %if their distance is less than the predefined threshold value set
-%for \poyargument{min\_rearrangement\_len}.  In other words, it is unlikely 
+%for \poyargument{min\_rearrangement\_len}. In other words, it is unlikely 
 %that rearrangement operations can occur between two non-rearranged seeds
 %if they are connected (see Figure \ref{fig:chrom}).
 %The default value is \texttt{100}}
@@ -4137,7 +4191,7 @@ is required for these median solvers. Download Concorde package from \\
 %\end{center}
 %\caption{The effect of dynamic parameter arguments (\poyargument{seed\_length, min\_rearrangement\_len}, 
 %and \poyargument{min\_loci\_len}) on determining homologous blocks in unannotated chromosomal sequences.
-%\emph{Case A} allows for rearrangements between the short homologous blocks within the                     
+%\emph{Case A} allows for rearrangements between the short homologous blocks within the           
 %blue brackets constructed upon six nucleotide seeds (red and green), \emph{Case B} 
 %restricts rearrangement between seeds that are less than \texttt{28} nucleotides apart.
 %\emph{Case C} restricts rearrangement by requiring homologous blocks at least \texttt{50} nucleotides
@@ -4147,22 +4201,22 @@ is required for these median solvers. Download Concorde package from \\
 %\end{figure}
 
 
-%		     \argumentdefinition{newkkonen}{\optional{\poylident}}
-%                        {The optional \texttt {newkkonen} argument can be used with 
-%                        chromosomal or genomic data to minimize memory 
-%                        consumption during the alignment of LCBs.  This argument
-%                        calls the the pattern matching algorithm implemented in \poy, 
-%                        which is a modification of the approximate string matching algorithm 
-%                         ~\cite{Ukkonen1985}.  This option, 
-%                        however, may slow the alignment process and is only 
-%                        recommended for very large chromosomal data sets to 
-%                        reduce memory consumption ~\cite{wheelerhonginprep}.}
-%                         {newkkonen}
-%                         
-\argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
+%		   \argumentdefinition{newkkonen}{\optional{\poylident}}
+%            {The optional \texttt {newkkonen} argument can be used with 
+%            chromosomal or genomic data to minimize memory 
+%            consumption during the alignment of LCBs. This argument
+%            calls the the pattern matching algorithm implemented in \poy, 
+%            which is a modification of the approximate string matching algorithm 
+%             ~\cite{Ukkonen1985}. This option, 
+%            however, may slow the alignment process and is only 
+%            recommended for very large chromosomal data sets to 
+%            reduce memory consumption ~\cite{wheelerhonginprep}.}
+%             {newkkonen}
+%             
+\argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}  
 {Transforms nucleotide type data into chromosome type data to allow
-rearrangements, inversions, and locus-level indel operations.  The
-chromosome-specific options (e.g.  \poyargument{locus\_breakpoint}, 
+rearrangements, inversions, and locus-level indel operations. The
+chromosome-specific options (e.g. \poyargument{locus\_breakpoint}, 
 \poyargument{locus\_inversion}, %\poyargument{locus\_dcj}, 
 and \poyargument{locus\_indel}) can be specified by the argument.}
 {seqtochrom}
@@ -4178,7 +4232,7 @@ thoroughness. The default value is \texttt{1}.}
 
 \argumentdefinition{translocation}{\obligatory{\poyint}}
 {Specifies the cost associated with the \emph{Translocation} of a region of one 
-chromosome to another chromosome.  By default, the cost is set to 10.}
+chromosome to another chromosome. By default, the cost is set to 10.}
 {translocation}
 
 \end{description}
@@ -4186,10 +4240,10 @@ chromosome to another chromosome.  By default, the cost is set to 10.}
 
 %Custom alphabet and break inversion transformation methods
 
-\begin{argumentgroup}{Custom alphabet and break inversion transformation methods}   
+\begin{argumentgroup}{Custom alphabet and break inversion transformation methods}  
 This set of arguments govern the transformation of characters that are either multi-locus nucleotides 
 sequences (\poyargument{chromosome}) or multi-locus, multi-chromosomal nucleotide
-sequences (\poyargument{genome}).  Chromosome sequences can be \poyargument
+sequences (\poyargument{genome}). Chromosome sequences can be \poyargument
 {annotated} or unannotated.
 
 \argumentdefinition{breakinv}{\obligatory{(STRING,STRING,{\optionall{orientation:\poybool})}}}
@@ -4197,8 +4251,8 @@ sequences (\poyargument{genome}).  Chromosome sequences can be \poyargument
 rearrangement events. Syntactically, \poyargument{breakinv} data type is identical to 
 \poyargument{custom\_alphabet} data type. Users specify 
 the costs assigned to locus-level transformation events: (i.e. 
-\poyargument{locus\_inversion} or  \poyargument{locus\_breakpoint}) 
-and implement the heuristic  procedure to accelerate computations 
+\poyargument{locus\_inversion} or \poyargument{locus\_breakpoint}) 
+and implement the heuristic procedure to accelerate computations 
 (\poyargument{median}), as well as defining \poyargument{orientation} by the 
 inclusion of ``$\sim$" symbols in the data file.} 
 {breakinv}
@@ -4209,26 +4263,26 @@ This transformation prevents the use of rearrangement operations.}
 {breakinvtocustom}
 
 %	\argumentdefinition{custom\_to\_breakinv}{\obligatory{([argument list])}}
-%                {Transforms the \poyargument{custom\_alphabet} characters into the 
-%                \poyargument{breakinv} character type, thus allowing for 
-%                rearrangement operations (translocations and inversions; 
-%                duplications are not currently supported). This argument is useful, for 
-%                example, when \poyargument{custom\_alphabet} characters are used 
-%                to define a sequence of individual genes and one is 
-%                interested in detecting potential change in their order within a chromosome. 
-%                See the command~\ccross{read} for the description on how to 
-%                load the \poyargument{custom\_alphabet} and \poyargument{breakinv} 
-%                character types. For a sample script using this character transformation 
-%                see tutorial \texttt{5.8}.}
-%                {customtobreakinv}
+%        {Transforms the \poyargument{custom\_alphabet} characters into the 
+%        \poyargument{breakinv} character type, thus allowing for 
+%        rearrangement operations (translocations and inversions; 
+%        duplications are not currently supported). This argument is useful, for 
+%        example, when \poyargument{custom\_alphabet} characters are used 
+%        to define a sequence of individual genes and one is 
+%        interested in detecting potential change in their order within a chromosome. 
+%        See the command~\ccross{read} for the description on how to 
+%        load the \poyargument{custom\_alphabet} and \poyargument{breakinv} 
+%        character types. For a sample script using this character transformation 
+%        see tutorial \texttt{5.8}.}
+%        {customtobreakinv}
 
 \end{argumentgroup}
 % \argumentdefinition{symmetric}{\optional{(\poybool, identifiers, identifiers)}}
-%   {When taking the median of two chromosomes or genomes, both 
-%  orders of the children are evaluated to verify that they are the same.. If the boolean argument is set to \texttt{false}, 
-%  the program does not perform this added evaluation, if the boolean argument is set to \texttt{true}, it does.
+%  {When taking the median of two chromosomes or genomes, both 
+% orders of the children are evaluated to verify that they are the same.. If the boolean argument is set to \texttt{false}, 
+% the program does not perform this added evaluation, if the boolean argument is set to \texttt{true}, it does.
 % The default value is set to false}{}}
-%  {symmetric}
+% {symmetric}
 
 %Likelihood transformation methods
 
@@ -4240,7 +4294,7 @@ and Maximum Average Likelihood (MAL).
 \argumentdefinition{likelihood}{(\optional{argument list})}
 {Transforms the specified characters to either static or dynamic
 likelihood characters. All arguments are optional except for model or model selection, 
-which must  be specified.  The defaults are presented in the sub-sections below.}
+which must be specified. The defaults are presented in the sub-sections below.}
 {likelihood}
 
 \argumentdefinition{elikelihood}{(\optional{argument list})}
@@ -4249,7 +4303,7 @@ likelihood characters while estimating the parameters based on a
 parsimony tree \cite{wheeler2013}. The initial rates (for example of 
 GTR) are set to the proportion of those transformations found
 across branches of the tree. As with the standard likelihood command,
-all arguments are optional except for model  or model selection, which 
+all arguments are optional except for model or model selection, which 
 have to be specified; the defaults are presented in the sub-sections below.}
 {likelihood}
 
@@ -4271,8 +4325,8 @@ a state in the character alphabet. See information for
 Estimate the equilibrium frequencies of the characters in the stationary
 Markov process. In order to yield the likelihood score, the 
 conditional probability of the data is multiplied by these frequencies. 
-In general, maximum likelihood applications in phylogenetics use  the observed (empirical)
-frequencies of the characters in the data  as an
+In general, maximum likelihood applications in phylogenetics use the observed (empirical)
+frequencies of the characters in the data as an
 approximation to the likelihood-optimized frequencies. This
 approximation is sensible for sequences evolving nearly
 neutrally, but this approximation breaks down for sequences
@@ -4286,7 +4340,7 @@ $\frac{1}{r}$, where $r$ is the character alphabet size.}
 \argumentdefinition{priors}{\obligatory estimate}
 {Uses observed frequencies of the characters to
 approximate the ML-optimized equilibrium
-frequencies.  Under dynamic likelihood, the indel
+frequencies. Under dynamic likelihood, the indel
 equilibrium frequency is estimated to be the minimum
 number of indels required to align all the
 sequences: 
@@ -4337,13 +4391,13 @@ parameters under this criterion may not be identifiable
 \end{argumentgroup}
 
 % \begin{statement}
-%     We use a smoothing function for most
-%     parsimonious likelihood on static characters
-%     based off the smooth maximum (Cook 2010), thus
-%     costs reported during optimizations may
-%     be slightly off. The final costs are exact to
-%     the computational numerical precision.
-% \end{statement}                         
+%   We use a smoothing function for most
+%   parsimonious likelihood on static characters
+%   based off the smooth maximum (Cook 2010), thus
+%   costs reported during optimizations may
+%   be slightly off. The final costs are exact to
+%   the computational numerical precision.
+% \end{statement}             
 % }
 
 \begin{argumentgroup}{Determination of alphabet size}
@@ -4367,14 +4421,12 @@ set under the character type. This can be up to 32.}% under morphology.
 {Specifies the size of the alphabet as defined by the \poyint value. 
 This value must be $ \geq $ the number of observed states.
 If the specified value is greater than the number of observed states, 
-this \poyint will be used in  calculation of the likelihood of the tree.}
+this \poyint will be used in calculation of the likelihood of the tree.}
 {INT}
 
 \end{argumentgroup}
 
 \begin {argumentgroup} {Gap treatment}
-%   \argumentdefinition{gap}{\obligatory{\poylident}}
-%{
 Defines how atomic gaps (indels) are treated in
 likelihood analysis. When employed, the \poy approach to
 indels on static likelihood characters is as a 5th state 
@@ -4430,7 +4482,7 @@ implementations such as RAxML \cite{stamatakis2006} and
 GARLI \cite{zwickl2006}.}
 {missing}
 
-\end {argumentgroup}                         
+\end {argumentgroup}             
 
 
 \begin {argumentgroup} {Model choice}
@@ -4512,7 +4564,7 @@ size.}
 {This model of Tuffley and Steel \cite{tuffleyandsteel1998}, is an 
 extension of the neyman model, but in this case each character is 
 free to evolve at its own rate on every edge of the tree. This 
-model can only be used with static data, including prealigned sequences.  
+model can only be used with static data, including prealigned sequences. 
 Because these characters evolve at their own rate, \poyargument{gamma} 
 options are ignored.}
 {ncm}
@@ -4539,11 +4591,11 @@ frequencies),
 
 \begin{equation*}
 \begin{array}{rrrrr}
--0.865 &  0.192 &  0.096 &  0.192 &  0.384 \\
-0.192 & -0.865 &  0.192 &  0.096 &  0.384 \\
-0.096 &  0.192 & -0.865 &  0.192 &  0.384 \\
-0.192 &  0.096 &  0.192 & -0.865 &  0.384 \\
-0.384 &  0.384 &  0.384 &  0.384 & -1.538
+-0.865 & 0.192 & 0.096 & 0.192 & 0.384 \\
+0.192 & -0.865 & 0.192 & 0.096 & 0.384 \\
+0.096 & 0.192 & -0.865 & 0.192 & 0.384 \\
+0.192 & 0.096 & 0.192 & -0.865 & 0.384 \\
+0.384 & 0.384 & 0.384 & 0.384 & -1.538
 \end{array}
 \end{equation*} }
 {file}
@@ -4575,7 +4627,7 @@ e & e & e & e & -
 \end{argumentgroup}
 
 
-\begin {argumentgroup}{Model selection}        
+\begin {argumentgroup}{Model selection}    
 As an alternative to selecting a model directly (as above), information 
 theoretic approaches to model selection are provided.
 These include the Akaike Information Criterion (AIC)
@@ -4587,7 +4639,7 @@ These methods, which require a tree in memory, will optimize the model
 to the tree of all available models, and select the best (based
 on the information criterion selected) to be kept in memory. A
 report is also printed to show the scores and analysis of model
-selection (see Table \ref {ModelSelectionReport}).  Delta, the 
+selection (see Table \ref {ModelSelectionReport}). Delta, the 
 difference between the row and the best score are given, along
 with a weight (${\omega_i}$) given by,
 
@@ -4596,17 +4648,17 @@ w_{i} = \frac{e^{\frac{-\Delta_i}{2}}}
 {\sum^R_{r=1} e^{\frac{-\Delta_r}{2}}}
 \end{equation*}
 
-where $R$ equals the number of models and  $i$ equals the $i$th model. 
+where $R$ equals the number of models and $i$ equals the $i$th model. 
 
 \argumentdefinition{aic}{\optional {\poystring}}
 {Uses the AIC (Akaike Information Criteron) to determine
 the best model in the set. The \poystring is optional, and if specified, 
-\poy will output the table of information  to this file.  This is also the case
+\poy will output the table of information to this file. This is also the case
 for the \poystring attached to \poyargument {aicc} and \poyargument {bic}.
 The formula to calculate the
 AIC is given by,
 \begin{equation*}
-AIC = - 2 \log(\mathcal{L}(\hat{\theta}|data)) + 2  K
+AIC = - 2 \log(\mathcal{L}(\hat{\theta}|data)) + 2 K
 \end{equation*}
 Where $K$ is the number of parameters for the model,
 $\hat{\theta}$ and $n$ are the number of characters. 
@@ -4627,30 +4679,30 @@ AIC_c = AIC + \frac{2K(K+1)} {n-K-1}
 \begin{table}[t]
 \small
 \caption{Example of \poy output showing scores and analysis of model 
-selection using \poyargument{aicc}.  Model type, negative log likelihood 
-values (-$\ell$),  penalty parameter which include the number of branches
+selection using \poyargument{aicc}. Model type, negative log likelihood 
+values (-$\ell$), penalty parameter which include the number of branches
 ($K$), number of characters (n), AICc values, AICc differences (${\Delta}$), 
 Akaike weights (${\omega}$) and cumulative Akaike weights (Cum (${\omega}$)) are reported.
 In this example, JC69 garners the best Information Theoretic score. }
 \label {ModelSelectionReport}
 \begin{center}
-\begin{tabular}{ l c r r  r  c c  r }
+\begin{tabular}{ l c r r r c c r }
 \hline
-Model &-$\ell$ & $K$ & $n$ & AICc   & ${\Delta}$ &${\omega}$ & Cum(${\omega}$)\\
+Model &-$\ell$ & $K$ & $n$ & AICc  & ${\Delta}$ &${\omega}$ & Cum(${\omega}$)\\
 \hline
-JC69  &538.819&31&49&1256.345&  0.000&0.863    &0.863 \\
-JC69+G&532.219&32&49&1260.438&  4.093&0.111    &0.975 \\
-K81   &533.777&32&49&1263.554&  7.209&0.023    &0.998 \\
-K81+G &526.763&33&49&1269.127& 12.782&0.001    &1.000 \\
-F81   &539.512&34&49&1317.024& 60.678&5.754e-14&1.000 \\
-HKY   &532.270&35&49&1328.387& 72.041&1.961e-16&1.000 \\
-F84   &533.315&35&49&1330.477& 74.131&6.899e-17&1.000 \\
+JC69 &538.819&31&49&1256.345& 0.000&0.863  &0.863 \\
+JC69+G&532.219&32&49&1260.438& 4.093&0.111  &0.975 \\
+K81  &533.777&32&49&1263.554& 7.209&0.023  &0.998 \\
+K81+G &526.763&33&49&1269.127& 12.782&0.001  &1.000 \\
+F81  &539.512&34&49&1317.024& 60.678&5.754e-14&1.000 \\
+HKY  &532.270&35&49&1328.387& 72.041&1.961e-16&1.000 \\
+F84  &533.315&35&49&1330.477& 74.131&6.899e-17&1.000 \\
 F81+G &533.682&35&49&1331.210& 74.865&4.780e-17&1.000 \\
 HKY+G &526.033&36&49&1346.067& 89.721&2.840e-20&1.000 \\
 F84+G &526.518&36&49&1347.037& 90.691&1.749e-20&1.000 \\
-TN93  &531.899&36&49&1357.799&101.453&8.052e-23&1.000 \\
+TN93 &531.899&36&49&1357.799&101.453&8.052e-23&1.000 \\
 TN93+G&525.841&37&49&1381.318&124.973&6.290e-28&1.000 \\
-GTR   &530.724&39&49&1486.116&229.770&1.102e-50&1.000 \\
+GTR  &530.724&39&49&1486.116&229.770&1.102e-50&1.000 \\
 GTR+G &523.365&40&49&1536.731&280.386&1.125e-61&1.000 \\
 \hline
 \end{tabular}
@@ -4669,7 +4721,7 @@ BIC = - 2 \ln(\mathcal{L}(\hat{\theta}|data)) + K \log(n)
 
 
 \begin{argumentgroup}{Rate distributions}
-%  \argumentdefinition{rates:(TYPE)}{}
+% \argumentdefinition{rates:(TYPE)}{}
 Specifies the distribution of rates among sites. Rate
 variation distributions allow multipliers to be applied to
 separate groups of characters. This additional parameterization
@@ -4716,7 +4768,7 @@ warning to that affect is reported.
 \begin{statement}
 It should be noted that although many researchers apply both
 a gamma and theta in likelihood analyses, the parameter
-values inferred are correlated \cite{sullivan1999}.  It has
+values inferred are correlated \cite{sullivan1999}. It has
 therefore been recommended that a proportion of invariant
 sites be ``pseudo''-estimated by increasing the number of
 discrete categories for the gamma distribution to account
@@ -4755,7 +4807,7 @@ assigned will only be \texttt{1}.}
 
 \poyexample{transform(tcm:("some\_tcm\_file",level:(1,first)))}
 {This command applies the cost matrix as specified in tcm file 
-"some\_tcm\_file".  The heuristic median calculations are set to 
+"some\_tcm\_file". The heuristic median calculations are set to 
 level \texttt{1} and tie breaks are broken
 by choosing the first median state examined.}
 
@@ -4779,7 +4831,7 @@ integer value of 3.}
 \texttt{gen4}) into fixed states characters.}
 
 \poyexample{transform((all,(tcm:(1,1))),(names:("gen1","gen2", \\ 
-(static\_approx))),(names:("gen3",(tcm:("molmatrix")))))}  
+(static\_approx))),(names:("gen3",(tcm:("molmatrix")))))} 
 {Applies the substitution and indel costs \texttt{1} to all characters, then applies static approximation
 using that tcm to characters in files \texttt{gen1} and \texttt{gen2}, and for file
 gen3, it invokes a different transformation cost matrix, contained
@@ -4804,7 +4856,7 @@ character ``mycustom.fas'' to ``mycustom.mat'' and uses heuristic level $2$.}
 {Transformed all sequence characters into fixed states characters.}
 
 \poyexample{transform(likelihood:(jc69,rates:gamma:(2),mpl,priors:\\equal))}
-{Transforms the characters to  likelihood characters, using a \emph{jc69} + $\Gamma 2$ model, 
+{Transforms the characters to likelihood characters, using a \emph{jc69} + $\Gamma 2$ model, 
 with equal equilibrium frequencies under MPL. In this model, gaps are treated as ``missing'' (the default value).}
 
 \poyexample{transform(likelihood:(tn93,rates:theta:(4),gap:coupled,mpl,\\ priors:(estimate)))}
@@ -4814,7 +4866,7 @@ with estimated equilibrium frequencies under MPL. In this model, indels are trea
 \poyexample{transform(fixed\_states:("shrimp",ignore\_polymorphism))}
 {This example shows the optional arguments for a Mauve-based \poyargument{fixed\_states} analysis.
 Here, Mauve genome alignment files will be generated with the names ``shrimp\_$i$\_$j$.alignment'' 
-where $i$ and $j$ are median states.  Sequence ambiguities will not be resolved to generate 
+where $i$ and $j$ are median states. Sequence ambiguities will not be resolved to generate 
 additional medians beyond those determined by the data.}
 
 \poyexample{transform(search\_based:(("mycustom\_char1.fas","mycustom\_\\extra1.fas"),("mycustom\_char2.fas","mycustom\_extra2.fas")))}
@@ -4835,41 +4887,42 @@ sequence), and 10\% max length (1000 for length 10,000 sequence).}
 %and is treated as a circular chromosome.}
 
 \poyexample{transform(seq\_to\_chrom:(locus\_indel:(50,1.0),min\_seed \\ \_length:15))} 
-{All applicable (i.e. sequence) data are transformed into chromosome data 
-and the locus-level gap opening cost is set at \texttt{50} with a gap extension cost at \texttt{1.0}.}
+{All applicable (i.e. sequence) data are transformed into chromosome
+data and the locus-level gap opening cost is set at \texttt{50}
+with a gap extension cost at \texttt{1.0}.}
 
-\end{poyexamples}	    
+\end{poyexamples}	  
 
 \end{command}
 
+%---------------------------------------------
 %use
+%---------------------------------------------
 
 \begin{command}{use}{}
 
 \syntax{\obligatory{(\poystring)}}
 
 \begin{poydescription}
-Restores from memory the state of a \poy session (that includes character data,
-selections, trees, all other data and specifications) that had previously been
-saved during the session using the command~\ccross{store}{}. The recalled
-session replaces the current session. The string argument specifies the name
-of the stored state.
+Restores from memory the state of a \poy session (that includes
+character data, selections, trees, all other data and specifications)
+that had previously been saved during the session using the
+command~\ccross{store}{}. The recalled session replaces the current
+session. The string argument specifies the name of the stored state.
 
 In combination with ~\ccross{store}{}, the command \poycommand{use}
-is useful for exploring alternative  cost regimes and terminal sets
+is useful for exploring alternative cost regimes and terminal sets
 within a single \poy session.
-
 \end{poydescription}
 
 \begin{poyexamples}
 \poyexample{store("initial\_tcm") \\ transform(tcm:(1,1)) \\ use("initial\_tcm")}
-{The first command, \poycommand{store}, stores the current
-characters and trees under the
-name \texttt{initial\_tcm}. The second command,
-\poycommand{transform}, changes the cost regime of molecular characters,
-effectively changing the data being analyzed. However, the third
-command, \poycommand{use}, recovers the initial state stored under the
-name \texttt{initial\_tcm}.}
+{The first command, \poycommand{store}, stores the current characters
+and trees under the name \texttt{initial\_tcm}. The second command,
+\poycommand{transform}, changes the cost regime of molecular
+characters, effectively changing the data being analyzed. However,
+the third command, \poycommand{use}, recovers the initial state
+stored under the name \texttt{initial\_tcm}.}
 \end{poyexamples}
 
 \begin{poyalso}
@@ -4879,15 +4932,18 @@ name \texttt{initial\_tcm}.}
 
 \end{command}
 
+%---------------------------------------------
 %version
+%---------------------------------------------
 
 \begin{command}{version}{}
 
 \syntax{\obligatory{()}}
 
 \begin{poydescription}
-Reports the \poy version number in the output window of the \emph{ncurses}
-interface, or to the standard error in the \emph{flat} interface.
+Reports the \poy version number in the output window of the
+\emph{ncurses} interface, or to the standard error in the \emph{flat}
+interface.  
 \end{poydescription}
 
 \begin{poyexamples}
@@ -4895,7 +4951,9 @@ interface, or to the standard error in the \emph{flat} interface.
 \end{poyexamples}
 \end{command}
 
+%---------------------------------------------
 %wipe
+%---------------------------------------------
 
 \begin{command}{wipe}{}
 
