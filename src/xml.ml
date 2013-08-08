@@ -1,5 +1,4 @@
-(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
-(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *) (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -17,7 +16,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Xml" "$Revision: 3459 $"
+let () = SadmanOutput.register "Xml" "$Revision: 3472 $"
 
 type tag = string
 
@@ -28,6 +27,7 @@ type unstructured = [ `Bool of bool
     | `String of string 
     | `Int of int 
     | `Float of float 
+    | `Empty
     | `Fun of (unit -> string) ]
 
 type 'b structured =
@@ -309,6 +309,7 @@ let value_to_string = function
     | `IntFloatTuple (a, b) -> string_of_int a ^ "," ^ string_of_float b
     | `FloatFloatTuple (a, b) -> string_of_float a ^ "," ^ string_of_float b
     | `String x -> x
+    | `Empty -> ""
     | `Int x -> string_of_int x
     | `Float x -> string_of_float x
     | `Fun x -> x ()
@@ -320,6 +321,7 @@ let print_string ch = function
     | `FloatFloatTuple (a, b) -> Printf.fprintf ch "%f,%f" a b
     | `String x -> Printf.fprintf ch "%s" x
     | `Int x -> Printf.fprintf ch "%d" x
+    | `Empty -> ()
     | `Float x -> Printf.fprintf ch "%s" (string_of_float x)
     | `Fun x -> Printf.fprintf ch "%s" (x ())
 
@@ -336,7 +338,6 @@ let find_tag (xml: xml) (tag: tag): xml =
     and find_contents_cdata acc (r: [xml structured | unstructured]) =
         match r with
         | #unstructured -> acc
-        | `Empty        -> acc
         | `Delayed d    -> find_tag_sexpr acc (d ())
         | `Single x     -> test_xml acc x
         | `Set xs       -> find_tag_list acc xs
@@ -387,8 +388,7 @@ let to_file ch (item : xml) =
     in
     let process_queue () =
         while not (Stack.is_empty stack) do
-            let close_tag tag =
-                match tag with
+            let close_tag tag = match tag with
                 | None -> ()
                 | Some tag -> fo "</"; fo tag; fo ">\n"
             in
@@ -396,6 +396,8 @@ let to_file ch (item : xml) =
             match contents with
             | #unstructured as x -> 
                     print_string ch x;
+                    close_tag tag;
+            | `Structured [] ->
                     close_tag tag;
             | `CDATA None -> fo "]]>";
             | `CDATA (Some (#unstructured as v)) ->
@@ -407,8 +409,6 @@ let to_file ch (item : xml) =
                     fo "<![CDATA[";
                     Stack.push (None, `CDATA None) stack;
                     Stack.push (None, t) stack;
-            | `Structured []
-            | `Empty -> close_tag tag
             | `Structured ((ntag, attributes, contents) :: t) ->
                     Stack.push (tag, `Structured t) stack;
                     let ntag = remove_non_alpha_numeric ntag in
