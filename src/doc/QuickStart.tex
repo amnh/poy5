@@ -531,8 +531,8 @@ of the command \poycommand{transform}). The default cost for both is set to 10. 
 must also be specified for the optimization of rearrangements. The default median solver is \emph{Caprara}
 \cite{Caprara2001}, but the user can alternatively choose \emph{BBTSP, ChainedLK, COALESTSP, MGR} 
 \cite{bourqueandpevzner2002}, \emph{Siepel} \cite{siepelmoret2001}, \emph{SimpleLK} and 
-s\emph{Vinh} (the TSP solvers BBTSP, CoalesTSP, 
-ChainedLK and SimpleLK taken from the Concorde package) (see~\nccross{median\_solver}.
+\emph{Vinh} (the TSP solvers BBTSP, CoalesTSP, 
+ChainedLK and SimpleLK taken from the Concorde package) (see~\nccross{median\_solver}
 {chromosomemediansolver}  within the command \poycommand{transform}).  
 The calculation of median states between \emph {Break Inversion} strings becomes more 
 computationally intensive (and time consuming) as the number of elements in the alphabet 
@@ -869,7 +869,8 @@ clades have Bremer support values.
 In addition to the standard four sections defined for the \emph{Simple Search} window,
 that one of the output files is the \emph{Temporary Trees} file, which 
 contains all the information required to produce the Bremer support tree
-results in the \emph{Report Bremer} window. Make sure to choose a file name that does not overwrite this output.
+results in the \emph{Report Bremer} window. Make sure to choose a file 
+name that does not overwrite this output.
 
 If the search does not finish within the time frame amenable to the user the search can be interrupted and the 
 intermediate results remain stored in the \emph{Temporary Trees} file.  As Bremer calculations are upper-bound 
@@ -882,15 +883,15 @@ The script produced in this window takes the \emph{Temporary Trees} file generat
 window in the \emph{File with trees for Bremer calculation} field. 
 
 \subsubsection{Diagnosis}
-
 \subsubsection*{\emph{Diagnose Tree}}
 
 The \emph{Diagnose Tree} window (Figure~\ref{fig:diagnosetree}) specifies parameters for reporting a diagnosis 
 of the input tree. This window lacks the \emph{Search Parameters} section because the diagnosis is performed on 
-the trees resulted from prior searches and no new trees are generated during the diagnosis procedure. It is important 
-to add both the input tree (or trees) in addition to the data file in order to diagnose the tree.
+the trees resulted from prior searches and no new trees are generated during the diagnosis procedure. In addition
+to the tree (or trees) file, the user must input the data file associated with this tree file, in order to diagnose
+the tree(s) in this file.
 
-\begin{figure}
+\begin{figure}[ht]
 \centering
 \begin{minipage}[c]{0.45\textwidth}
 \includegraphics[width=\textwidth]{doc/figures/diagnose_menu.jpg}
@@ -1149,7 +1150,7 @@ Most of the time users are interested in importing multiple data files to analyz
 files can be specified as arguments for a single command. For example, importing both files, \texttt{morpho.ss} and 
 \texttt{28s.fas}, can be written more succinctly:\\
 \begin{quote}
-\commandstyle{read("morpho.ss", "28s.fas")}
+\commandstyle{read("morpho.ss","28s.fas")}
 \end{quote}
 or if the full path is included in the argument of \commandstyle{read} as: \\
 

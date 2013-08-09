@@ -9,9 +9,9 @@ the \poy developers and on the \poy google groups.
 
 %\section{Getting to know \poy}
 \question{What does POY stand for?}
-{POY is a meta-acronym, which comes from an older program YAPP (Yet Another Phylogeny Program) that
-was written in \texttt{C}.  This program, which was an extension of \texttt{MALIGN}, was the first designed around direct
-optimization.  This program was rewritten in OCaml (OCaml YAPP), which was shortened to OY.
+{POY is a meta-acronym, which comes from an older program YAPP (Yet Another Phylogeny Program) that 
+was written in \texttt{C}.  This program, which was an extension of \texttt{MALIGN}, was the first designed around direct 
+optimization.  This program was rewritten in Ocaml (Ocaml YAPP), which was shortened to OY.  
 The subsequent parallelization of this program yielded POY.}
 
 \question{Looking at the implied alignment generated from my \poy analysis, it looks very gappy. Why?}
@@ -89,9 +89,9 @@ run on different architectures and compiler options.
 
 If the model is not hierarchical then comparisons are not relevant. Unfortunately, the number of
 states in the model of evolution matters, as well as cost assignments of Maximum Parsimonious
-Likelihood (MPL) and Maximum Average Likelihood (MAL). Thus, a four state models' likelihood score
-cannot be compared directly with a five state model. You can also expect the cost to be greater
-since there will be added cost from the probability of an additional state in an analysis.
+Likelihood (MPL) and Maximum Average Likelihood (MAL). Thus, a four state model of evolutions'
+likelihood score cannot be compared directly with a five state model. There is added cost that
+result from the probability of an additional state in an analysis. 
 
 One should also check that the \poycommand{exhaustive} option is set for the optimization routines.
 It is set by default but ensure that, if it changed somewhere in the script, one sets it back
