@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 3482 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 3483 $"
 
 let (-->) b a = a b
 
@@ -1129,7 +1129,6 @@ let compare_opt_mode a b = match a,b with
     | `Coarse _ , `None 
     | `Exhaustive_dyn _ , `Exhaustive _
     | (`Exhaustive_dyn _ | `Exhaustive _), (`Coarse _ | `None) -> 1
-    | `Exhaustive _, (`Coarse _ | `None) -> 1
     | `Exhaustive_dyn (Some x), `Exhaustive_dyn (Some y)
     | `Exhaustive (Some x), `Exhaustive (Some y)
     | `Coarse (Some x), `Coarse (Some y) -> Pervasives.compare x y
