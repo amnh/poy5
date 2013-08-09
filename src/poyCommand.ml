@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3459 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3482 $"
 
 let debug = false 
 
@@ -1627,12 +1627,17 @@ type command = [
                 ];
             opt_level:
                 [
-                    [ LIDENT "exhaustive";  iterations = OPT optional_integer_or_float ->
+                    [ LIDENT "exhaustive"; iterations = OPT optional_integer_or_float ->
                         let iterations = match iterations with
                             | None -> None | Some x -> Some (int_of_string x)
                         in
                         `Exhaustive iterations ] |
-                    [ LIDENT "coarse" ;     iterations = OPT optional_integer_or_float ->
+                    [ LIDENT "exhaustive_dyn" ; iterations = OPT optional_integer_or_float ->
+                        let iterations = match iterations with
+                            | None -> None | Some x -> Some (int_of_string x)
+                        in
+                        `Exhaustive_dyn iterations ] |
+                    [ LIDENT "coarse" ; iterations = OPT optional_integer_or_float ->
                         let iterations = match iterations with
                             | None -> None | Some x -> Some (int_of_string x)
                         in

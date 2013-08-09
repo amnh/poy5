@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3479 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3482 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1623,16 +1623,62 @@ module F : Ptree.Tree_Operations
             in
             { dyn_tree with Ptree.data      = data;
                             Ptree.node_data = node_data; }
+        (* no implied alignment in optimization routines *)
+        and optimize_dynamic_tree ((ptree,_) as acc) : phylogeny * float =
+            let dlk_categories =
+                Data.categorize_likelihood_chars_by_model ptree.Ptree.data `AllDynamic
+            in
+            let substitute_nodes nodes tree =
+                let adder acc x = IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
+                let node_data = List.fold_left adder IntMap.empty nodes in
+                internal_downpass true {tree with Ptree.node_data = node_data}
+            in
+            List.fold_left
+                (fun (ptree,cost) chars ->
+                    let f init_model update_model_fn new_values =
+                        new_values
+                            --> update_model_fn init_model
+                            --> Data.apply_likelihood_model_on_chars ptree.Ptree.data chars
+                            --> AllDirNode.AllDirF.load_data
+                            --> (fun (x,y) -> substitute_nodes y {ptree with Ptree.data = x})
+                            --> (fun x -> x,Ptree.get_cost `Adjusted x)
+                    in
+                    let model_init = Data.get_likelihood_model ptree.Ptree.data chars in
+                    let param_init = MlModel.get_current_parameters_for_model model_init in
+                    match MlModel.get_update_function_for_model model_init with
+                    | None              -> ptree,cost
+                    | Some update_model ->
+                        let f = f model_init update_model in
+                        let o = Numerical.default_numerical_optimization_strategy
+                                    !Methods.opt_mode (Array.length param_init)
+                        in
+                        let _,res = 
+                            Numerical.run_method o f (param_init,(ptree,cost))
+                        in
+                        if debug_model_fn then
+                            info_user_message "\tOptimized Rates to %f --> %f" cost (snd res);
+                        res)
+                acc
+                dlk_categories
         in
         let old_cost = Ptree.get_cost `Adjusted old_tree in
         let new_tree =
-            let static_tree = optimize_static_tree old_tree in
-            old_tree
-                --> static_model_to_dyn_chars static_tree
-                (** Below is a downpass + uppass *)
-                --> internal_downpass true
-                --> pick_best_root
-                --> assign_single
+            match !Methods.opt_mode with
+            | `Exhaustive_dyn _ ->
+                (old_tree,old_cost)
+                    --> optimize_dynamic_tree
+                    --> fst
+                    --> pick_best_root
+                    --> assign_single
+            | `None -> old_tree
+            | (`Exhaustive _ | `Coarse _ | `Custom _) ->
+                let static_tree = optimize_static_tree old_tree in
+                old_tree
+                    --> static_model_to_dyn_chars static_tree
+                    (** Below is a downpass + uppass *)
+                    --> internal_downpass true
+                    --> pick_best_root
+                    --> assign_single
         in
         let new_cost = Ptree.get_cost `Adjusted new_tree in
         if new_cost < old_cost then begin
