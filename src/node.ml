@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3459 $"
+let () = SadmanOutput.register "Node" "$Revision: 3479 $"
 
 let infinity = float_of_int max_int
 
@@ -2151,7 +2151,17 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
                 begin match y.preliminary with
                     | DynamicCS.MlCS yy ->
                       IFDEF USE_LIKELIHOOD THEN
-                        (acc1,(MlDynamicCS.get_codes yy, f y.time)::acc2)
+                        let t = match f y.time with
+                          | None -> 
+                            Printf.printf "(%d|%d) -- (%d|%d)\n%!"
+                                parent.taxon_code parent.min_child_code child.taxon_code
+                                    child.min_child_code;
+                            print_times parent;
+                            print_times child;
+                            assert false
+                          | (Some _) as x -> x
+                        in
+                        (acc1,(MlDynamicCS.get_codes yy, t)::acc2)
                       ELSE
                         acc
                       END
@@ -2162,7 +2172,8 @@ let get_times_between_plus_codes ?(inc_parsimony=(false,None))
                             combine ncost x.weight (snd acc1)
                         in
                         ((acc1a,acc1b),acc2)
-                    | _ -> acc
+                    | _ ->
+                        acc
                 end
             (** use general distance for everything else **)
             | a,b when (fst inc_parsimony) ->

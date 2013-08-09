@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3459 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3479 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1463,6 +1463,37 @@ module F : Ptree.Tree_Operations
         if using_likelihood `OnlyStatic ptree then ptree
         else general_pick_best_root blindly_trust_downpass ptree
 
+    (** debugging; used to deconstruct a node and verify the likelihood model *)
+    let verify_model nodes get_node = match nodes with
+        | x::xs ->
+            let get_model n =
+              List.map
+                (fun x -> match x with
+                    | Node.StaticMl x ->
+                        Some (MlStaticCS.get_model x.Node.preliminary)
+                    | Node.Dynamic x ->
+                        begin match DynamicCS.lk_model x.Node.preliminary with
+                            | None   -> None
+                            | Some x -> Some x.FloatSequence.static
+                        end
+                    | _ -> None)
+                n.Node.characters
+            and model_compare xs ys =
+              List.fold_left2
+                (fun acc x y -> acc && (match x,y with
+                    | Some x,Some y -> acc && (0 = MlModel.compare x y)
+                    | None  , None  -> acc
+                    | _, _          -> false))
+                true
+                xs ys
+            in
+            let m = get_model (get_node x) in
+            List.fold_left
+              (fun acc x -> acc && (model_compare m (get_model (get_node x))))
+              true xs
+        | [] -> true
+
+
 
     (* ----------------- *)
     (* function to adjust the likelihood model ;for static characters of a tree
@@ -1546,8 +1577,9 @@ module F : Ptree.Tree_Operations
         (* define a function to convert and optimize static model *)
         let optimize_static_tree ptree =
             let old_verbosity = Status.get_verbosity () in
-            let dlk_categories = Data.categorize_likelihood_chars_by_model
-                                                ptree.Ptree.data `AllDynamic in
+            let dlk_categories =
+                Data.categorize_likelihood_chars_by_model ptree.Ptree.data `AllDynamic
+            in
             List.fold_left
                 (fun ptree chars ->
                     Status.set_verbosity `None;
@@ -2032,17 +2064,21 @@ module F : Ptree.Tree_Operations
                     | [x] -> force_node x
                     | _   -> assert false
                 end
+        and ultra_forcer tree = (** does not use passed nodes; re-init *)
+            begin match jxn2 with
+                | Tree.Single_Jxn h    ->
+                    let clade = Ptree.get_node_data h tree in
+                    forcer (Clade clade)
+                | Tree.Edge_Jxn (h, n) ->
+                    let Tree.Edge (h, n) =
+                        Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
+                    in
+                    forcer (Edge (h, n))
+            end
         in
         let clade_data = match !Methods.cost with
-            | `Iterative (`ThreeD _) ->
-                begin match jxn2 with
-                    | Tree.Single_Jxn h    -> forcer (Clade clade)
-                    | Tree.Edge_Jxn (h, n) ->
-                        let Tree.Edge (h, n) =
-                            Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
-                        in
-                        forcer (Edge (h, n))
-                end
+            | _ when using_likelihood `Either tree -> ultra_forcer tree
+            | `Iterative (`ThreeD _) -> ultra_forcer tree
             | _ -> forcer (Clade clade)
         in
         let res = match jxn1 with
