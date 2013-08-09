@@ -3043,6 +3043,14 @@ will alternate until no more improvement occurs, or
 until as many times as specified by the \poyint.}
 {}
 
+\argumentdefinition{opt:exhaustive\_dyn}{\optional{\poyint}}
+{This optimization level is for dynamic likelihood only, but will act like the
+exhaustive option under other circumstances. Under exhaustive we will perform
+a temporary implied alignment on the data for optimizing the rate parameters,
+but under this option we will optimize them directly. This method will take a very
+long time to run.}
+{}
+
 \begin{statement}
 Rediagnosing a tree after \poycommand{search} or
 \poycommand{swap} may result in a different likelihood score if

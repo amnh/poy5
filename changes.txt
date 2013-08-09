@@ -2,10 +2,12 @@ CHANGES BETWEEN 5.0 beta2 and 5.0 Official Release
 
 New Features:
     - Status messages for progress when using Model Selection and Fixed States
-      transformation commands.    
+      transformation commands.
     - report(diagnosis) produces columns of only relevant information.
     - Improved error messages.
     - Updated Documentation.
+    - Updated Test Suite and Tutorials.
+    - New option for optimization level of dynamic likelihood (see below).
 
 Bugs Fixed:
     - Script analysis would drop graphsupports command in finalized script.
@@ -21,6 +23,13 @@ Bugs Fixed:
     - Loading data with unequal number of fragments (separated by #) did not
       cause an error, instead filled sections with "missing" data.
     - Issues with synonym files and processing trees (Ron Clouse)
+    - Build under dynamic likelihood joined two nodes with different models.
+    - Order of nexus blocks had Assumption block first, not last.
+
+New Commands (see manual for full explanations) :
+    - set( opt:exhaustive_dyn) will optimize the dynamic likelihood model
+      directly, instead of via an implied alignment.
+
 
 
 CHANGES BETWEEN 5.0 beta1 and 5.0 beta2
