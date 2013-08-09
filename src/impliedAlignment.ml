@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3459 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 3478 $"
 
 exception NotASequence of int
 
@@ -66,7 +66,7 @@ type ias = {
     parent code) and a rate matrix to compose a proper cost. *)
 type cost_matrix = 
     | CM of Cost_matrix.Two_D.m 
-    | Model of FloatSequence.dyn_model * float * int option
+    | Model of FloatSequence.dyn_model * float option * int option
 
 (** Types of sequences that support missing data *)
 let type_support_missing state =
@@ -222,7 +222,9 @@ let find_branch_length dyn time =
             snd (List.find (fun (a,data) -> match a with
                             | [||] -> true | _ -> false) t)
       in
-      match x with | None -> assert false | Some t -> t
+      match x with
+      | None   -> assert false
+      | Some t -> t
 
 
 (** Create a list with all the starting and ending positions of indels, and
@@ -307,13 +309,14 @@ let calculate_indels a b alph b_children =
 let median_fn = function
     | CM cm ->
         fun a b _ -> Cost_matrix.Two_D.median a b cm
-    | Model (m,t,_) ->
+    | Model (m,Some t,_) ->
         begin match FloatSequence.cost_fn m with
             | `MPL ->
                 let gc = FloatSequence.CMPLAlign.get_closest m t in
                 fun a b i -> fst (gc i a b)
             | `MAL -> assert false
         end
+    | Model (m,None,_) -> assert false
 
 (** Return the a aligned clips of [a] and [b] based on cost matrix; return the
     sequences, lengths, and aligned sequences. *)
@@ -322,23 +325,25 @@ and align_2 a b = function
         let aseq,bseq,x,clip_len,anoclip,bnoclip = 
             Sequence.Clip.Align.align_2 a.seq b.seq cm Matrix.default in
         aseq,bseq,float_of_int x,clip_len,anoclip,bnoclip
-    | Model (m,t,_) ->
+    | Model (m,Some t,_) ->
         begin match FloatSequence.cost_fn m with
             | `MPL -> FloatSequence.CMPLAlign.clip_align_2 a.seq b.seq m 0.0 t
             | `MAL -> assert false (* does not exist yet  *)
         end
+    | Model (m,None,_) -> assert false
 
 (** Based on a [cost-matrix] what is the cost of alignment of [a] and [b]. *)
 and cost_fn = function
     | CM cm ->
         fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
-    | Model (m,t,_) ->
+    | Model (m,Some t,_) ->
         begin match FloatSequence.cost_fn m with
             | `MPL ->
                 let gc = FloatSequence.CMPLAlign.get_closest m t in
                 (fun a b i -> snd (gc i a b))
             | `MAL -> assert false
         end
+    | Model (m,None,_) -> assert false
 
 (** [ancestor calc_m a b cm m] creates a common ancestor for seq [a] and [b]
     using the cost matrix [cm] and the alignment matrix [m]. The resulting
@@ -1561,29 +1566,25 @@ let analyze_tcm tcm model alph =
 
 
 module type S = sig
-    type a 
+    type a
     type b
     type tree = (a, b) Ptree.p_tree
 
-            
-    (** [of_tree t] generates the implied alignment of all the sequences in the tree
-    * [t]. *)
-    val of_tree : 
-        ((Data.dyna_state_t * Data.dyna_initial_assgn) * (int -> int) * tree) -> 
-        Methods.implied_alignment
+    val of_tree :
+        ((Data.dyna_state_t * Data.dyna_initial_assgn) * (int -> int) * tree)
+            -> Methods.implied_alignment
 
-
-    val create : (tree -> int list -> tree) ->
-        int list -> Data.d ->
-        tree -> Methods.implied_alignment list
+    val create :
+        (tree -> int list -> tree) -> int list -> Data.d -> tree
+            -> Methods.implied_alignment list
 
     val to_static_homologies : bool ->
-        (tree -> int list -> tree) -> bool -> 
+        (tree -> int list -> tree) -> bool ->
             bool  -> Methods.characters -> Data.d -> tree -> Data.d * int list
 
     val filter_characters : tree -> int list -> tree
-
 end
+
 module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = struct
     type a = Node.n
     type b =  Edge.e
@@ -1625,14 +1626,16 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                     Codes.add code ias_arr acc)
                                 sequences Codes.empty
                         and cost_matrix =
-                            match DynamicCS.lk_model dyn with
-                            | Some model ->
+                            match DynamicCS.lk_model dyn,parent with
+                            | Some model,None ->
+                                    Model (model,None,None)
+                            | Some model, _   ->
                                 begin match FloatSequence.cost_fn model with
                                 | `MPL | `MAL ->
                                     let bl = find_branch_length dyn time in
-                                    Model (model,bl,parent)
+                                    Model (model,Some bl,parent)
                                 end
-                            | None -> CM (DynamicCS.c2_full dyn)
+                            | None, _  -> CM (DynamicCS.c2_full dyn)
                         in
                         {   sequences = new_sequences;   
                             c2 = cost_matrix;
@@ -1649,14 +1652,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let convert_node parent ptree _ id _ : AssocList.t * t list =
             let data = Ptree.get_node_data id ptree in
             let taxon_id = Node.taxon_code data in
-            let par,pdata = match parent with
-                | Some p -> parent, Some (Ptree.get_node_data p ptree)
+            let par,pdata,time = match parent with
+                | Some p ->
+                    let pdata = Some (Ptree.get_node_data p ptree) in
+                    parent,pdata, Some (Node.get_times_between data pdata)
                 | None ->
                     try let p = Ptree.get_parent taxon_id ptree in
-                        Some p, Some (Ptree.get_node_data p ptree)
-                    with | _ -> None,None
+                        Some p, Some (Ptree.get_node_data p ptree),None
+                    with | _ -> None,None,None
             in
-            let time = Some (Node.get_times_between data pdata) in
             let data =
                 if Tree.is_leaf id ptree.Ptree.tree then
                     (* In a leaf we have to do something more complex, if we are
@@ -1669,9 +1673,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             try if 0 = Cost_matrix.Two_D.combine (DynamicCS.c2_full pre)
                                 then adj
                                 else pre
-                            with | _ -> adj (* likelihood *) )
+                            with | _ -> adj (* likelihood *))
                         pre adj
-                else get_dynamic_data par data
+                else
+                    get_dynamic_data par data
             in
             let data = convert_data ptree parent id taxon_id data time in
             let did = Status.get_achieved st in
