@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3482 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3486 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1463,7 +1463,8 @@ module F : Ptree.Tree_Operations
         if using_likelihood `OnlyStatic ptree then ptree
         else general_pick_best_root blindly_trust_downpass ptree
 
-    (** debugging; used to deconstruct a node and verify the likelihood model *)
+    (** debugging; used to deconstruct a node and verify the likelihood model
+     *  this is commented out because get_model is a likelihood only function.
     let verify_model nodes get_node = match nodes with
         | x::xs ->
             let get_model n =
@@ -1491,7 +1492,7 @@ module F : Ptree.Tree_Operations
             List.fold_left
               (fun acc x -> acc && (model_compare m (get_model (get_node x))))
               true xs
-        | [] -> true
+        | [] -> true *)
 
 
 
