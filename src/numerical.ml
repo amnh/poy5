@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 3459 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 3483 $"
 
 let (-->) b a = a b
 
@@ -232,6 +232,7 @@ type opt_modes =
     [ `None
     | `Coarse of int option
     | `Exhaustive of int option
+    | `Exhaustive_dyn of int option
     | `Custom of optimization_strategy list ]
 
 (** Here we define a simplex as a collection of points with attached data -the
@@ -245,6 +246,7 @@ external set_tol_c_brents_method : float -> unit = "likelihood_CAML_set_tol"
 (** Return the default tolerance set for the opt_mode **)
 let get_tol = function
     | `None         -> max_float
+    | `Exhaustive_dyn _
     | `Exhaustive _ -> tolerance
     | `Coarse _     -> sqrt tolerance
     | `Custom _     -> assert false
@@ -1118,15 +1120,19 @@ let compare_opt_mode a b = match a,b with
     | `None,`None
     | `Coarse None, `Coarse None
     | `Custom _, `Custom _
+    | `Exhaustive_dyn None, `Exhaustive_dyn None
     | `Exhaustive None, `Exhaustive None -> 0
+    | `Exhaustive_dyn (Some x), `Exhaustive_dyn (Some y)
     | `Exhaustive (Some x), `Exhaustive (Some y)
     | `Coarse (Some x), `Coarse (Some y) when x=y -> 0
     (* We order a > b if it is more exhaustive *)
     | `Coarse _ , `None 
-    | `Exhaustive _, (`Coarse _ | `None) -> 1
+    | `Exhaustive_dyn _ , `Exhaustive _
+    | (`Exhaustive_dyn _ | `Exhaustive _), (`Coarse _ | `None) -> 1
+    | `Exhaustive_dyn (Some x), `Exhaustive_dyn (Some y)
     | `Exhaustive (Some x), `Exhaustive (Some y)
     | `Coarse (Some x), `Coarse (Some y) -> Pervasives.compare x y
-    | _, ( `Custom _ | `Exhaustive _ | `Coarse _ | `None) -> -1
+    | _, ( `Custom _ | `Exhaustive _ | `Exhaustive_dyn _ | `Coarse _ | `None) -> -1
 
 (** Determine the numerical optimization strategy from the methods cost mode *)
 let default_numerical_optimization_strategy o p =
@@ -1135,6 +1141,7 @@ let default_numerical_optimization_strategy o p =
     match o with
     | `None         -> []
     | `Coarse     _ -> (default_strategy ?tol meth) :: []
+    | `Exhaustive_dyn _ -> (default_strategy meth) :: []
     | `Exhaustive _ -> (default_strategy meth) :: []
     | `Custom     s -> s
 
@@ -1143,9 +1150,11 @@ let default_numerical_optimization_strategy o p =
 let default_number_of_passes = function
     | `None                -> 0
     | `Coarse (Some i)
+    | `Exhaustive_dyn (Some i)
     | `Exhaustive (Some i) -> i
     | `Coarse None         -> 1
     | `Custom _
+    | `Exhaustive_dyn None
     | `Exhaustive None     -> max_int
 
 (** Run an optimization strategy; call the proper algorithm w/ convergence

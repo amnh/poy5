@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3459 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3486 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1463,6 +1463,38 @@ module F : Ptree.Tree_Operations
         if using_likelihood `OnlyStatic ptree then ptree
         else general_pick_best_root blindly_trust_downpass ptree
 
+    (** debugging; used to deconstruct a node and verify the likelihood model
+     *  this is commented out because get_model is a likelihood only function.
+    let verify_model nodes get_node = match nodes with
+        | x::xs ->
+            let get_model n =
+              List.map
+                (fun x -> match x with
+                    | Node.StaticMl x ->
+                        Some (MlStaticCS.get_model x.Node.preliminary)
+                    | Node.Dynamic x ->
+                        begin match DynamicCS.lk_model x.Node.preliminary with
+                            | None   -> None
+                            | Some x -> Some x.FloatSequence.static
+                        end
+                    | _ -> None)
+                n.Node.characters
+            and model_compare xs ys =
+              List.fold_left2
+                (fun acc x y -> acc && (match x,y with
+                    | Some x,Some y -> acc && (0 = MlModel.compare x y)
+                    | None  , None  -> acc
+                    | _, _          -> false))
+                true
+                xs ys
+            in
+            let m = get_model (get_node x) in
+            List.fold_left
+              (fun acc x -> acc && (model_compare m (get_model (get_node x))))
+              true xs
+        | [] -> true *)
+
+
 
     (* ----------------- *)
     (* function to adjust the likelihood model ;for static characters of a tree
@@ -1546,8 +1578,9 @@ module F : Ptree.Tree_Operations
         (* define a function to convert and optimize static model *)
         let optimize_static_tree ptree =
             let old_verbosity = Status.get_verbosity () in
-            let dlk_categories = Data.categorize_likelihood_chars_by_model
-                                                ptree.Ptree.data `AllDynamic in
+            let dlk_categories =
+                Data.categorize_likelihood_chars_by_model ptree.Ptree.data `AllDynamic
+            in
             List.fold_left
                 (fun ptree chars ->
                     Status.set_verbosity `None;
@@ -1591,16 +1624,62 @@ module F : Ptree.Tree_Operations
             in
             { dyn_tree with Ptree.data      = data;
                             Ptree.node_data = node_data; }
+        (* no implied alignment in optimization routines *)
+        and optimize_dynamic_tree ((ptree,_) as acc) : phylogeny * float =
+            let dlk_categories =
+                Data.categorize_likelihood_chars_by_model ptree.Ptree.data `AllDynamic
+            in
+            let substitute_nodes nodes tree =
+                let adder acc x = IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
+                let node_data = List.fold_left adder IntMap.empty nodes in
+                internal_downpass true {tree with Ptree.node_data = node_data}
+            in
+            List.fold_left
+                (fun (ptree,cost) chars ->
+                    let f init_model update_model_fn new_values =
+                        new_values
+                            --> update_model_fn init_model
+                            --> Data.apply_likelihood_model_on_chars ptree.Ptree.data chars
+                            --> AllDirNode.AllDirF.load_data
+                            --> (fun (x,y) -> substitute_nodes y {ptree with Ptree.data = x})
+                            --> (fun x -> x,Ptree.get_cost `Adjusted x)
+                    in
+                    let model_init = Data.get_likelihood_model ptree.Ptree.data chars in
+                    let param_init = MlModel.get_current_parameters_for_model model_init in
+                    match MlModel.get_update_function_for_model model_init with
+                    | None              -> ptree,cost
+                    | Some update_model ->
+                        let f = f model_init update_model in
+                        let o = Numerical.default_numerical_optimization_strategy
+                                    !Methods.opt_mode (Array.length param_init)
+                        in
+                        let _,res = 
+                            Numerical.run_method o f (param_init,(ptree,cost))
+                        in
+                        if debug_model_fn then
+                            info_user_message "\tOptimized Rates to %f --> %f" cost (snd res);
+                        res)
+                acc
+                dlk_categories
         in
         let old_cost = Ptree.get_cost `Adjusted old_tree in
         let new_tree =
-            let static_tree = optimize_static_tree old_tree in
-            old_tree
-                --> static_model_to_dyn_chars static_tree
-                (** Below is a downpass + uppass *)
-                --> internal_downpass true
-                --> pick_best_root
-                --> assign_single
+            match !Methods.opt_mode with
+            | `Exhaustive_dyn _ ->
+                (old_tree,old_cost)
+                    --> optimize_dynamic_tree
+                    --> fst
+                    --> pick_best_root
+                    --> assign_single
+            | `None -> old_tree
+            | (`Exhaustive _ | `Coarse _ | `Custom _) ->
+                let static_tree = optimize_static_tree old_tree in
+                old_tree
+                    --> static_model_to_dyn_chars static_tree
+                    (** Below is a downpass + uppass *)
+                    --> internal_downpass true
+                    --> pick_best_root
+                    --> assign_single
         in
         let new_cost = Ptree.get_cost `Adjusted new_tree in
         if new_cost < old_cost then begin
@@ -2032,17 +2111,21 @@ module F : Ptree.Tree_Operations
                     | [x] -> force_node x
                     | _   -> assert false
                 end
+        and ultra_forcer tree = (** does not use passed nodes; re-init *)
+            begin match jxn2 with
+                | Tree.Single_Jxn h    ->
+                    let clade = Ptree.get_node_data h tree in
+                    forcer (Clade clade)
+                | Tree.Edge_Jxn (h, n) ->
+                    let Tree.Edge (h, n) =
+                        Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
+                    in
+                    forcer (Edge (h, n))
+            end
         in
         let clade_data = match !Methods.cost with
-            | `Iterative (`ThreeD _) ->
-                begin match jxn2 with
-                    | Tree.Single_Jxn h    -> forcer (Clade clade)
-                    | Tree.Edge_Jxn (h, n) ->
-                        let Tree.Edge (h, n) =
-                            Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
-                        in
-                        forcer (Edge (h, n))
-                end
+            | _ when using_likelihood `Either tree -> ultra_forcer tree
+            | `Iterative (`ThreeD _) -> ultra_forcer tree
             | _ -> forcer (Clade clade)
         in
         let res = match jxn1 with

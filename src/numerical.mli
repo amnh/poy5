@@ -215,6 +215,7 @@ type opt_modes =
     [ `None
     | `Coarse of int option
     | `Exhaustive of int option
+    | `Exhaustive_dyn of int option
     | `Custom of optimization_strategy list ]
 
 val compare_opt_mode : opt_modes -> opt_modes -> int 

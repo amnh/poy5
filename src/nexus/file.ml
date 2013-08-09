@@ -23,6 +23,8 @@
 let (-->) a b = b a
 let (-|>) a b = let () = b a in a
 
+let failwithf format = Printf.ksprintf (failwith) format
+
 type st_type = 
     | STOrdered
     | STUnordered
@@ -1117,7 +1119,11 @@ let update_assumptions (acc:nexus) = function
                 | "IRREV.UP" | "IRREV.DOWN" -> create_cost_type clas
                 | n -> produce_cost_type_function (Hashtbl.find acc.assumptions n)
             in
-            acc.characters.(x) <- new_def acc.characters.(x)
+            if x < Array.length acc.characters then
+                acc.characters.(x) <- new_def acc.characters.(x)
+            else
+                failwithf "TypeDef %s in %s class has character out of bounds : %d but only %d characters possible."
+                            name clas x (Array.length acc.characters);
         in
         begin match set with
             | P.Standard items ->
@@ -1799,16 +1805,28 @@ let process_parsed file parsed : nexus =
         Note: The processing is done by a fold_left, thus the ordering needs to
         be backwards (this is to keep the function tail-recursive). *)
     let sorter a b = match a,b with
+        | P.Taxa  _,P.Taxa _
+        | P.Characters  _,P.Characters _
+        | P.Distances  _,P.Distances _
+        | P.Ignore  _,P.Ignore _
+        | P.Unaligned  _,P.Unaligned _
+        | P.Trees  _,P.Trees _
+        | P.Notes  _,P.Notes _
+        | P.Assumptions  _,P.Assumptions _
+        | P.Error  _,P.Error _
+        | P.Sets  _,P.Sets _
+        | P.Poy  _,P.Poy _        ->   0
         | P.Characters _, P.Poy _ -> ~-1
         | P.Poy _, P.Characters _ ->   1
         | P.Unaligned _, P.Poy _  -> ~-1
         | P.Poy _, P.Unaligned _  ->   1
         | P.Sets _, P.Poy _       -> ~-1
         | P.Poy _, P.Sets _       ->   1
-        | P.Assumptions _, _      -> ~-1
-        | _ , P.Assumptions _     ->   1
+        | P.Assumptions _, _      ->   1
+        | _ , P.Assumptions _     -> ~-1
         | _, _                    ->   0 (* keep everything else in the same order *)
     in
+    Status.user_message Status.Information ((string_of_int (List.length parsed))^" Blocks Processed. Sorting.");
     List.fold_left (process_parsed_elm file)
                    (empty_parsed ())
                    (List.stable_sort sorter parsed)

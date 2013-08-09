@@ -20,10 +20,10 @@
 (** A Breakinv character set implementation. The breakinv
 * character set allows rearrangements *)
 
-let () = SadmanOutput.register "BreakinvCS" "$Revision: 3459 $"
+let () = SadmanOutput.register "BreakinvCS" "$Revision: 3473 $"
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "Breakinv Character" "$Revision: 3459 $"
+let () = SadmanOutput.register "Breakinv Character" "$Revision: 3473 $"
 
 let debug = false
 
@@ -435,75 +435,22 @@ let compare_data a b =
 (** [to_formatter ref_codes attr t parent_t d] returns
 * the map between breakinv character set [t] and its parents
 * [parent_t] in the Tag.output format *)
-let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list =
-    let _, state = List.hd attr in 
-    let output_breakinv code med acc =
-        let med = 
-            try
-                List.find (fun med -> 
-                               IntSet.mem med.BreakinvAli.ref_code  ref_codes
-                          ) med.Breakinv.med_ls
-            with Not_found -> failwith "Not found med -> to_formatter -> BreakinvCS"
-        in         
-        let cost, recost =
-            match parent_t with  
+let to_formatter _ attr t (parent_t : t option) d : Xml.xml Sexpr.t list =
+    let output_breakinv (code:int) (med:meds_t) acc : Xml.xml Sexpr.t list =
+        let cost, recost = match parent_t with  
             | None ->
-                    0, 0
+                0, 0
             | Some parent -> begin
-                  let parent_med_ls = IntMap.find code parent.meds in
-                  let breakinv_pam = parent_med_ls.Breakinv.breakinv_pam in
-                  let gen_cost_mat_original =
-                      parent_med_ls.Breakinv.gen_cost_mat_original in
-                  let pure_gen_cost_mat_original =
-                      parent_med_ls.Breakinv.pure_gen_cost_mat_original in    
-                  let pure_gen_cost_mat_original =
-                      match breakinv_pam.Data.re_meth with
-                      | Some re_meth ->
-                      (match re_meth with
-                         | `Locus_Breakpoint c -> pure_gen_cost_mat_original
-                         | `Locus_Inversion invc -> 
-                            Breakinv.transform_matrix pure_gen_cost_mat_original invc
-                      )
-                      | None -> pure_gen_cost_mat_original
-                  in
-                  let alpha = parent_med_ls.Breakinv.alpha in
-                  let parent_med = List.find 
-                      (fun med -> 
-                           IntSet.mem med.BreakinvAli.ref_code ref_codes 
-                      ) parent_med_ls.Breakinv.med_ls
-                  in            
-                  let cost, recost =
-                      match state with
-                      | `String "Preliminary" ->
-                      let cost,(recost1,recost2) = 
-                      BreakinvAli.cmp_cost parent_med med 
-                      gen_cost_mat_original pure_gen_cost_mat_original alpha breakinv_pam in
-                      cost, recost1+recost2
-                      (*  BreakinvAli.get_costs parent_med med.BreakinvAli.ref_code*)  
-                      | `String "Final" ->
-                      let cost,(recost1,recost2) = 
-                      BreakinvAli.cmp_cost med parent_med 
-                      gen_cost_mat_original pure_gen_cost_mat_original alpha breakinv_pam in
-                      cost,recost1+recost2
-                      (*BreakinvAli.get_costs med parent_med.BreakinvAli.ref_code*)
-                      | `String "Single" ->
-                      let cost,(recost1,recost2) = 
-                      BreakinvAli.cmp_cost med parent_med 
-                      gen_cost_mat_original pure_gen_cost_mat_original alpha breakinv_pam in
-                      cost,recost1+recost2
-(*
-                        let cost = IntMap.find code t.costs in 
-                            let recost = IntMap.find code t.recosts in 
-                            (int_of_float cost), (int_of_float recost)    *)             
-                      | _ ->
-                            let cost = IntMap.find code t.costs in 
-                            let recost = IntMap.find code t.recosts in 
-                            (int_of_float cost), (int_of_float recost)
-                  in 
-                  cost, recost
-              end 
-        in 
-        let seq = Sequence.to_formater med.BreakinvAli.seq t.alph in
+                let cost = IntMap.find code t.costs in
+                let recost = IntMap.find code t.recosts in 
+                (int_of_float cost), (int_of_float recost)
+              end
+        in
+        let seq = 
+            String.concat " "
+                (List.map (fun x -> Sequence.to_formater x.BreakinvAli.seq t.alph)
+                          (med.Breakinv.med_ls))
+        in
         let module T = Xml.Characters in
         (PXML 
             -[T.breakinv]
@@ -513,7 +460,6 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
                 ([T.recost] = [`Int recost])
                 ([T.definite] = [`Bool (cost > 0)])
                 ([attr])
-
                 { `String seq }
             --) :: acc
     in
@@ -523,7 +469,7 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
 
 (** [to_single ref_codes root single_parent mine] returns
 * the single states of breakinv character set [mine] *) 
-let to_single ref_codes (root : t option) single_parent mine = 
+let to_single _ (root : t option) single_parent mine = 
     let previous_total_cost = mine.total_cost in 
     let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost,
     acc_total_recost) =
@@ -594,5 +540,6 @@ let get_active_ref_code t =
                  Breakinv.get_active_ref_code meds 
              in
              IntSet.add ref_code acc_ref_code,
-             IntSet.add child2_ref_code (IntSet.add child1_ref_code acc_child_ref_code)  
-        ) t.meds (IntSet.empty, IntSet.empty)
+             IntSet.add child2_ref_code
+                        (IntSet.add child1_ref_code acc_child_ref_code))
+        t.meds (IntSet.empty, IntSet.empty)

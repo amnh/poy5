@@ -79,6 +79,20 @@ as the root that I \poyargument{set}?}
 {This is because the tree length heuristics may be based on an alternate rooting scheme than that 
 used for the \poyargument{newick} or \poyargument {graphic trees} output.}
 
+\question{What are "Numerical.linesearch; Very large slope in optimization function." warnings?}
+{These messages normally appear in the Dynamic likelihood routines. They indicate that the gradient
+of the parameters for the current data-set has a large absolute slope and the numerical routine may
+not converge properly. Normally, because of multiple passes of the optimization routine, we easily
+break out of these regions and the routine will stabilize.
+
+Under static likelihood data this warning message is rarely seen and may be an issue. One should
+rediagnose the tree for stabilization of the parameters of the model.}
+
+\question{What does the "Numerical.brent; hit max number of iterations." warning mean?}
+{This happens when the numerical routine does not converge in a maximum number of steps. This is
+usually an acceptable situation to happen as more optimization rounds will likely occur over the
+data.}
+
 \question{Why are likelihood scores worse/different than other applications?}
 {There are a number of issues to consider. If the values are close under the same model of
 evolution then numerical issues due to finite precision arithmetic of decimal numbers can cause

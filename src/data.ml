@@ -3429,34 +3429,27 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `CustomAlphabet | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
+    | `CustomAlphabet | `Ml | `Seq |`SeqPrealigned -> [T.clas, `String T.sequence]
     | others -> 
-            let clas = 
-                match others with
-                | `Chromosome -> `String T.chromosome
-                | `Genome -> `String T.genome
-                | `Annotated -> `String T.annotated
-                | `Breakinv -> `String T.breakinv
-                | _ -> assert false
-            in
-
-            let deref ptr = 
-                match ptr with
-                | Some content -> content 
-                | None -> failwith "It is a null pointer" 
-            in      
-
-            let locus_indel_o, locus_indel_e = deref pam.locus_indel_cost in
-            let locus_indel_e = float locus_indel_e /. 100.0 in
-            let locus_indel_str = `IntFloatTuple (locus_indel_o, locus_indel_e)
-            in
-
-            let chrom_indel_o, chrom_indel_e = deref pam.chrom_indel_cost in
-            let chrom_indel_e = float chrom_indel_e /. 100.0 in
-            let chrom_indel_str = `IntFloatTuple (chrom_indel_o, chrom_indel_e) 
-            in
-
-            (AXML
+        let clas = match others with
+            | `Chromosome -> `String T.chromosome
+            | `Genome -> `String T.genome
+            | `Annotated -> `String T.annotated
+            | `Breakinv -> `String T.breakinv
+            | `CustomAlphabet | `Ml
+            | `Seq |`SeqPrealigned -> assert false
+        in
+        let deref ptr = match ptr with
+            | Some content -> content 
+            | None -> failwith "It is a null pointer" 
+        in      
+        let locus_indel_o, locus_indel_e = deref pam.locus_indel_cost in
+        let locus_indel_e = float locus_indel_e /. 100.0 in
+        let locus_indel_str = `IntFloatTuple (locus_indel_o, locus_indel_e) in
+        let chrom_indel_o, chrom_indel_e = deref pam.chrom_indel_cost in
+        let chrom_indel_e = float chrom_indel_e /. 100.0 in
+        let chrom_indel_str = `IntFloatTuple (chrom_indel_o, chrom_indel_e) in
+        (AXML
             ([T.clas] = [clas]) 
             (*([T.seed_len] = [handle_int pam.seed_len]) *)
             ([T.re_meth] = [handle_re_meth pam.re_meth])
@@ -3483,41 +3476,39 @@ let character_spec_to_formatter enc : Xml.xml =
                 ([T.words] = [int d.ks.wordset])
                 ([T.ints] = [int d.ks.intset]) --)
     | Static x ->
-    (match x with 
+        (match x with 
             | NexusFile enc -> Nexus.File.to_formatter enc   
             | FixedStates enc ->  
                 let initial = `String "Fixed States." in
                 let dspec = enc.original_dynspec in
                 (RXML -[T.molecular]
-                ([T.name] = [`String dspec.filename])
-                ([T.initial_assignment] = [initial])
-                ([T.tcm] = [`String (tcm_definition_to_string dspec.tcm)])
-                ([T.gap_opening] = [`String (gap_opening_to_string dspec.tcm)])
-                ([Xml.Characters.weight] = [`Float dspec.weight])
-                ([pam_spec_to_formatter dspec.state dspec.pam])
-                { single Alphabet.to_formatter dspec.alph } --)
-    )
+                    ([T.name] = [`String dspec.filename])
+                    ([T.initial_assignment] = [initial])
+                    ([T.tcm] = [`String (tcm_definition_to_string dspec.tcm)])
+                    ([T.gap_opening] = [`String (gap_opening_to_string dspec.tcm)])
+                    ([Xml.Characters.weight] = [`Float dspec.weight])
+                    ([pam_spec_to_formatter dspec.state dspec.pam])
+                    { single Alphabet.to_formatter dspec.alph } --))
     | Dynamic dspec ->
-            let initial =
-                match dspec.initial_assignment with
-                | `AutoPartitioned (_, size, _) -> 
-                        `String 
-                        ("AutoPartition of size " ^ string_of_int size ^ 
-                        " with DO")
-                | `Partitioned _ -> 
-                        `String "User provided partition with DO"
-                | `DO -> `String "Direct Optimization"
-                | `GeneralNonAdd -> `String "Prealigned sequence."
-            in
-            (RXML -[T.molecular]
-                ([T.name] = [`String dspec.filename])
-                ([T.initial_assignment] = [initial])
-                ([T.tcm] = [`String (tcm_definition_to_string dspec.tcm)])
-                ([T.gap_opening] = [`String (gap_opening_to_string dspec.tcm)])
-                ([Xml.Characters.weight] = [`Float dspec.weight])
-                ([pam_spec_to_formatter dspec.state dspec.pam])
-                { single Alphabet.to_formatter dspec.alph } --)
-    | Set -> failwith "TODO Set in Data.character_spec_to_formatter"
+        let initial = match dspec.initial_assignment with
+            | `AutoPartitioned (_, size, _) -> 
+                `String ("AutoPartition of size " ^ string_of_int size ^ " with DO")
+            | `Partitioned _ -> 
+                `String "User provided partition with DO"
+            | `DO -> `String "Direct Optimization"
+            | `GeneralNonAdd ->
+                `String "Prealigned sequence."
+        in
+        (RXML -[T.molecular]
+            ([T.name] = [`String dspec.filename])
+            ([T.initial_assignment] = [initial])
+            ([T.tcm] = [`String (tcm_definition_to_string dspec.tcm)])
+            ([T.gap_opening] = [`String (gap_opening_to_string dspec.tcm)])
+            ([Xml.Characters.weight] = [`Float dspec.weight])
+            ([pam_spec_to_formatter dspec.state dspec.pam])
+            { single Alphabet.to_formatter dspec.alph } --)
+    | Set ->
+        failwith "TODO Set in Data.character_spec_to_formatter"
 
 let characters_to_formatter d : Xml.xml =
     let module T = Xml.Data in
@@ -6257,7 +6248,9 @@ let can_do_static_approx_code d x =
 
 
 let can_all_chars_do_static_approx d xs =
-    List.fold_left ~f:(fun acc x -> acc && (can_do_static_approx_code d x)) ~init:true xs
+    List.fold_left
+        ~f:(fun acc x -> acc && (can_do_static_approx_code d x))
+        ~init:true xs
 
 
 let filter_non_static_approx_characters ?(comp=true) d xs =
