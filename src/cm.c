@@ -49,12 +49,9 @@ inline int
 #endif
 cm_check_level (cmt c)
 {
-    int level = c-> level;
-    int ori_sz = c -> ori_a_sz;
-    if ((level>1)&&(level<=ori_sz)) 
-        return 1;
-    else 
-        return 0;
+    int level = c->level;
+    int ori_sz = c->ori_a_sz;
+    return ((level >=1)&&(level<=ori_sz));
 }
 
 #ifdef _WIN32
@@ -64,9 +61,9 @@ inline int
 #endif
 cm_check_level_3d (cm_3dt c)
 {
-    int level = c-> level;
-    int ori_sz = c -> ori_a_sz;
-    if ((level>1)&&(level<=ori_sz)) 
+    int level = c->level;
+    int ori_sz = c->ori_a_sz;
+    if ((level>=1)&&(level<=ori_sz)) 
         return 1;
     else 
         return 0;

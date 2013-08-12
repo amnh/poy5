@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 3459 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 3488 $"
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -1010,6 +1010,12 @@ let of_file fn orientation init3D level respect_case tie_breaker =
         else
             Cost_matrix.Two_D.of_channel_nocomb ~orientation all_elements file
     in
+    if size != (Cost_matrix.Two_D.get_ori_a_sz tcm_full) then
+        Printf.ksprintf failwith
+            "Alphabet size (%d) and matrix size (%dx%d) are inconsistent" size
+            (Cost_matrix.Two_D.get_ori_a_sz tcm_full) (Cost_matrix.Two_D.get_ori_a_sz tcm_full);
+    assert( alph.gap = Cost_matrix.Two_D.gap tcm_full );
+    assert( alph.gap = Cost_matrix.Two_D.gap tcm_original );
     let tcm3 = match init3D with
         | true -> Cost_matrix.Three_D.of_two_dim tcm_full
         | false  ->  Cost_matrix.Three_D.default_nucleotides 
