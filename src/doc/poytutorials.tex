@@ -1,25 +1,28 @@
-These tutorials are intended to provide guidance for more sophisticated applications of \poy that involve 
-multiple steps and a combination of different commands. Each tutorial contains a \poy script that is followed 
-by detailed commentaries explaining the rationale behind each step of the analysis. Although these analyses 
-can be conducted interactively using the \emph{Interactive Console} or running separate sequential analyses
- using the \emph{Graphical User Interface}, the most practical way to do this is to use a \poy script (see 
- \emph{POY5 Quick Start} for more information (Section~\ref{sec: ExecutingScript}).\\
-
+These tutorials are intended to provide guidance for more sophisticated
+applications of \poy that involve multiple steps and a combination
+of different commands. Each tutorial contains a \poy script that
+is followed by detailed commentaries explaining the rationale behind
+each step of the analysis. Although these analyses can be conducted
+interactively using the \emph{Interactive Console} or running
+separate sequential analyses using the \emph{Graphical User Interface}, 
+the most practical way  to do this is to use a \poy script 
+(see \emph{POY5 Quick Start} for more information 
+(Section~\ref{sec: ExecutingScript}).\\
 
 \begin{statement}
-It is important to remember that the numerical values for most command arguments will differ substantially 
-depending on type, complexity, and size of the data. Therefore, the values used here should not be taken to be 
-optimal parameters.
-\end{statement}
+It is important to remember that the numerical values for most
+command arguments will differ substantially depending on type,
+complexity, and size of the data. Therefore, the values used here
+should not be taken to be optimal parameters.  \end{statement}
 
-\indent The tutorials use sample datasets that are provided with \poy installation but can also be downloaded from 
-the \poy site at:
+\indent The tutorials use sample datasets that are provided with
+\poy installation but can also be downloaded from the \poy site at:
 \begin{center}
 \url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy}
-\end{center}
-The minimally required items to run the tutorial analyses are the \poy application and the sample data files. 
-Running these analyses requires some familiarity with the \poy interface and command structure that can be 
-found in the preceding chapters.
+\end{center} The minimally required items to run the tutorial
+analyses are the \poy application and the sample data files.  Running
+these analyses requires some familiarity with the \poy interface
+and command structure that can be found in the preceding chapters.
 
 %-------------------------------------------
 %Combining_Search_Strategies
@@ -27,11 +30,15 @@ found in the preceding chapters.
 
 \section{Combining Search Strategies}{\label{tutorial1}}
 
-The following script implements a strategy for a thorough search. This is accomplished by generating a large 
-number of independent initial trees by random addition sequence and combining different search strategies 
-that aim at exploring local tree space and escaping the effect of composite optima by comprehensively 
-traversing the tree space. In addition, this script shows how to output the status of the search to a log file and
- calculate the duration of the search. 
+The following script implements a strategy for a thorough search.
+This is accomplished by generating a large number of independent
+initial trees by random addition sequence and combining different
+search strategies that aim at exploring local tree space and escaping
+the effect of composite optima by comprehensively traversing the
+tree space. In addition, this script shows how to output the status
+of the search to a log file and
+ calculate the duration of the search.
+
 
 \begin{verbatim}
 (*search using all data*)
@@ -55,56 +62,82 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*search using all data*)} This first line of the script is a comment. While comments are optional 
-and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read("9.fas","31.ss")} This command imports the nucleotide sequence files \texttt{9.fas} (in FASTA 
-format), and a morphological data file \texttt{31.ss} (in Hennig86 format).
-\item \texttt{read(prealigned:(aminoacids:("41\_aln.aa"),tcm:("s1t2.mat")))} This command imports the prealigned
-amino acids file \texttt{41\_aln.aa} and sets the transformation cost matrix to be used in calculating the cost of the tree
-for these data.  The tcm file \texttt{s1t2.mat} specifies that the cost of substitutions are $1$ and that of indels $2$.
-\item \texttt{set(log:"all\_data\_search.log",root:"t1")} The \poycommand{set} command specifies 
-conditions prior to tree searching. Specifying the log 
-produces a file, \texttt{all\_data\_search.log}, that provides an additional means to monitor the process 
-of the search. The outgroup (\texttt{t1}) is designated as the \poyargument{root}, so that all the 
-reported trees have the desired polarity. By default, the analysis is performed using direct optimization.
-\item \texttt{report(timer:"search\_start")} In combination with \texttt{report(timer:\\"search end")}, this commands 
-reports the amount of time that the execution of commands enclosed by \poyargument{timer} takes. In this 
-case, it reports how long it takes for the entire search to finish. Using \poyargument {timer} is useful for planning a complex 
-search strategy for large datasets that can take a long time to complete: it is instructive, for example, to know 
-how long a search would last with a single replicate (one starting tree) before starting a search with multiple 
-replicates.
-\item \texttt{build(250)} This commands begins tree-building step of the search that generates 250 
-random-addition sequence Wagner trees. A large number of independent starting points ensures that a 
-reasonable portion of tree space will be examined.
-\item \texttt{swap(threshold:5.0)} \poycommand{swap} specifies that each of the 250 trees is subjected to 
-alternating SPR and TBR branch swapping routines (the default of \poy). 
-In addition to the most optimal trees, all the suboptimal trees found within 5\% of the best cost are swapped.
- This step ensures that the local searches settled on the local optima.
-\item \texttt{select(unique)} Upon completion of branch swapping, this command retains topologically unique trees.
-Contra \texttt{select()}, which selects topologically \emph{unique} and \emph{optimal} trees,  \texttt{select(unique)} 
-selects \emph{all} unique trees, regardless of cost, thus ensuring that a larger tree space is explored.
-\item \texttt{perturb(transform(static\_approx),iterations:15,ratchet:\\(0.2,3))} Having transformed to static data 
-(\poyargument{static\_approx}), 20\% of the characters are selected at random and are then upweighted by 
-a factor of $3$.  This process is repeated 15 times.
-\item \texttt{fuse(iterations:200,swap())} In this step, up to 200 swaps of subtrees identical in terminal 
-composition but different in topology, are performed between pairs of best trees recovered in the previous 
-step. This is another strategy for further exploration of tree space. Each resulting tree is further refined by 
-local branch swapping under the default parameters of \poycommand{swap}. [Note: performing 
-\poyargument{swap} after every iteration of \poyargument{fuse} can be computationally expensive 
-for larger datasets, and take a long time. An alternative strategy would include a separate round of 
-\poyargument{swap} following \poyargument{fuse}.] 
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and 
-topologically unique trees; all other trees are discarded from memory.
-\item \texttt{report("all\_trees.tre",trees:(total),"all\_trees\_cs.pdf",\\ graphconsensus,"all\_trees\_diag.txt",diagnosis)} 
-This command produces a series of outputs of the results of the search. It includes a file containing best trees in 
-parenthetical notation (\texttt{all\_trees.tre}) and their costs (\texttt{trees:(total)}), a graphical representation 
-(in PDF format) of the strict consensus (\texttt{all\_trees\_cs.pdf}), and the diagnoses for all best trees 
-(\texttt{all\_trees\_diag.txt}).
-\item \texttt{report(timer:"search\_end")} This command stops timing the duration of search, initiated by the 
-command \texttt{report(timer:"search\_start")}.
-\item \texttt{set(nolog)} This command stops reporting any output to the log file, \texttt{all\_data\_search.log}.
-\item \texttt{exit()} This command ends the \poy session.
+\item \texttt{(*search using all data*)} This first line of the
+script is a comment. While comments are optional and do not affect
+the analyses, they are useful for housekeeping purposes. 
+\item \texttt{read("9.fas","31.ss")} This command imports the nucleotide
+sequence files \texttt{9.fas} (in FASTA format), and a morphological
+data file \texttt{31.ss} (in Hennig86 format).  
+\item \texttt{read(prealigned:(aminoacids:("41\_aln.aa"),tcm:("s1t2.mat")))} This
+command imports the prealigned amino acids file \texttt{41\_aln.aa}
+and sets the transformation cost matrix to be used in calculating
+the cost of the tree for these data.  The tcm file \texttt{s1t2.mat}
+specifies that the cost of substitutions are $1$ and that of indels
+$2$. 
+\item \texttt{set(log:"all\_data\_search.log",root:"t1")} The
+\poycommand{set} command specifies conditions prior to tree searching.
+Specifying the log produces a file, \texttt{all\_data\_search.log},
+that provides an additional means to monitor the process of the
+search. The outgroup (\texttt{t1}) is designated as the \poyargument{root},
+so that all the reported trees have the desired polarity. By default,
+the analysis is performed using direct optimization.  
+\item \texttt{report(timer:"search\_start")} In combination with
+\texttt{report(timer:\\"search end")}, this commands reports the
+amount of time that the execution of commands enclosed by
+\poyargument{timer} takes. In this case, it reports how long it
+takes for the entire search to finish. Using \poyargument {timer}
+is useful for planning a complex search strategy for large datasets
+that can take a long time to complete: it is instructive, for
+example, to know how long a search would last with a single replicate
+(one starting tree) before starting a search with multiple replicates.
+\item \texttt{build(250)} This commands begins tree-building step
+of the search that generates 250 random-addition sequence Wagner
+trees. A large number of independent starting points ensures that
+a reasonable portion of tree space will be examined.  
+\item \texttt{swap(threshold:5.0)} \poycommand{swap} specifies that each
+of the 250 trees is subjected to alternating SPR and TBR branch
+swapping routines (the default of \poy).  In addition to the most
+optimal trees, all the suboptimal trees found within 5\% of the
+best cost are swapped. This step ensures that the local searches 
+settled on the local  optima.
+\item \texttt{select(unique)} Upon completion of branch swapping,
+this command retains topologically unique trees.  Contra
+\texttt{select()}, which selects topologically \emph{unique} and
+\emph{optimal} trees,  \texttt{select(unique)} selects \emph{all}
+unique trees, regardless of cost, thus ensuring that a larger tree
+space is explored.  
+\item \texttt{perturb(transform(static\_approx),iterations:15,ratchet:\\(0.2,3))}
+Having transformed to static data (\poyargument{static\_approx}),
+20\% of the characters are selected at random and are then upweighted
+by a factor of $3$.  This process is repeated 15 times.  
+\item \texttt{fuse(iterations:200,swap())} In this step, up to 200 swaps
+of subtrees identical in terminal composition but different in
+topology, are performed between pairs of best trees recovered in
+the previous step. This is another strategy for further exploration
+of tree space. Each resulting tree is further refined by local
+branch swapping under the default parameters of \poycommand{swap}.
+[Note: performing \poyargument{swap} after every iteration of
+\poyargument{fuse} can be computationally expensive for larger
+datasets, and take a long time. An alternative strategy would include
+a separate round of \poyargument{swap} following \poyargument{fuse}.]
+\item \texttt{select()} Upon completion of branch swapping, this
+command retains only optimal and topologically unique trees; all
+other trees are discarded from memory.  
+\item \texttt{report("all\_trees.tre",trees:(total),"all\_trees\_cs.pdf",\\
+graphconsensus,"all\_trees\_diag.txt",diagnosis)} This command
+produces a series of outputs of the results of the search. It
+includes a file containing best trees in parenthetical notation
+(\texttt{all\_trees.tre}) and their costs (\texttt{trees:(total)}),
+a graphical representation (in PDF format) of the strict consensus
+(\texttt{all\_trees\_cs.pdf}), and the diagnoses for all best trees
+(\texttt{all\_trees\_diag.txt}).  
+\item \texttt{report(timer:"search\_end")} This command stops timing the
+duration of search, initiated by the command \texttt{report(timer:"search\_start")}.  
+\item \texttt{set(nolog)} This command stops reporting any output to the log file,
+\texttt{all\_data\_search.log}.  
+\item \texttt{exit()} This command ends the \poy session.  
 \end{itemize}
+
 
 %-------------------------------------
 %Timed Search Analysis
@@ -112,21 +145,27 @@ command \texttt{report(timer:"search\_start")}.
 
 \section {Timed Search Analysis}{\label {tutorial2}}
 
-The following script implements a strategy for a thorough search using the timed search option.
-The timed search option applies a default strategy that performs as many rounds of tree building, 
-followed by TBR branch swapping, parsimony ratchet and tree fusing. When performing a timed 
-search, it is crucial to set the maximum time such that the program has a reasonable amount of 
-time to perform a search.  Thus, it is important to have some approximation as to the length of 
-time it would take to perform a single round of searching (e.g. build (1), followed by TBR, 
-ratchet and fusing in the case of a parsimony analysis of DNA sequence data).  With this information, 
-the user can then estimate the amount of time necessary to perform a thorough search. The amount 
-of time set for the search is clearly data dependent. 
+The following script implements a strategy for a thorough search
+using the timed search option.  The timed search option applies a
+default strategy that performs as many rounds of tree building,
+followed by TBR branch swapping, parsimony ratchet and tree fusing.
+When performing a timed search, it is crucial to set the maximum
+time such that the program has a reasonable amount of time to perform
+a search.  Thus, it is important to have some approximation as to
+the length of time it would take to perform a single round of
+searching (e.g. build (1), followed by TBR, ratchet and fusing in
+the case of a parsimony analysis of DNA sequence data).  With this
+information, the user can then estimate the amount of time necessary
+to perform a thorough search. The amount of time set for the search
+is clearly data dependent.
 
-While this tutorial calls 
-for two successive 12 hour timed searches, if more than one processor is available to the user, each 
-of these 12 hour rounds can be further divided into shorter runs, depending on the number of processors
-available, e.g. if 2 processors are available, then a 6 hour timed search across this number of processors
+While this tutorial calls for two successive 12 hour timed searches,
+if more than one processor is available to the user, each of these
+12 hour rounds can be further divided into shorter runs, depending
+on the number of processors available, e.g. if 2 processors are
+available, then a 6 hour timed search across this number of processors
 will afford quicker results.
+
 
 \begin{verbatim}
 (*search using a Timed Search*)
@@ -150,44 +189,70 @@ quit()
 \end {verbatim}
 
 \begin{itemize}
-\item \texttt{(*search using a Timed Search*)} This first line of the script is a comment. While comments are 
-optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read("9.fas","31.ss")} This command imports the nucleotide sequence files \texttt{9.fas} (in FASTA 
-format), and a morphological data file \texttt{31.ss} (in Hennig86 format).
-\item \texttt{read(prealigned:(aminoacids:("41\_aln.aa),tcm:("s1t2.mat")))} This command imports the prealigned
-amino acids file \texttt{41\_aln.aa} and sets the transformation cost matrix to be used in calculating the cost of the tree
-for these data.  The tcm file \texttt{s1t2.mat} specifies that the cost of substitutions are $1$ and that of indels $2$.
-\item \texttt{set(root:"t1")} The \poycommand{set} command specifies 
-conditions prior to tree searching. The outgroup (\texttt{t1}) is designated as the \poyargument{root}, so that all the 
-reported trees have the desired polarity. By default, the analysis is performed using direct optimization.
-\item \texttt{search(max\_time:00:12:00)} The \poycommand{search} command will perform a timed search, performing
-as many successive rounds of build, swap, catcher and fusing during the 12 hour period.  For this dataset, 
-it has been determined that 24 hours (from two successive rounds of a 12 hour timed search) is sufficient time to 
+\item \texttt{(*search using a Timed Search*)} This first line of
+the script is a comment. While comments are optional and do not
+affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read("9.fas","31.ss")} This command imports the
+nucleotide sequence files \texttt{9.fas} (in FASTA format), and a
+morphological data file \texttt{31.ss} (in Hennig86 format).  
+\item \texttt{read(prealigned:(aminoacids:("41\_aln.aa),tcm:("s1t2.mat")))}
+This command imports the prealigned amino acids file \texttt{41\_aln.aa}
+and sets the transformation cost matrix to be used in calculating
+the cost of the tree for these data.  The tcm file \texttt{s1t2.mat}
+specifies that the cost of substitutions are $1$ and that of indels
+$2$.  
+\item \texttt{set(root:"t1")} The \poycommand{set} command
+specifies conditions prior to tree searching. The outgroup (\texttt{t1})
+is designated as the \poyargument{root}, so that all the reported
+trees have the desired polarity. By default, the analysis is performed
+using direct optimization.  
+\item \texttt{search(max\_time:00:12:00)} The \poycommand{search} 
+command will perform a timed search, performing as many successive 
+rounds of build, swap, catcher and fusing during the 12 hour period.  
+For this dataset, it has been determined that 24 hours (from two 
+successive rounds of a 12 hour timed search) is sufficient time to 
 perform  a thorough search.
-\item \texttt{select(unique)} Upon completion of the timed search, this command retains topologically unique trees.
-Contra \texttt{select()}, which selects topologically \emph{unique} and \emph{optimal} trees,  \texttt{select(unique)} 
-selects \emph{all} unique trees, regardless of cost, thus ensuring that a larger tree space is explored.
-\item \texttt{report("Run1a.tre",trees)} Having selected all unique trees, these trees are reported to a file.  Outputting
-trees at different stages of longer runs is advisable.  These reports can act as checkpoints in case of hardware problem, 
-computer crashes, power outages etc: 
-\item \texttt{search(max\_time:00:12:00)} A second timed search is performed.  
-\item \texttt{select(unique)} All topologically \emph{unique} trees (including suboptimal trees) are selected.
-\item \texttt{report("Run1b.tre",trees)} Having selected all unique trees, these trees are reported to a file.  
-\item \texttt{fuse(iterations:250)} In this step, up to 250 swaps of subtrees identical in terminal 
-composition but different in topology, are performed between pairs of best trees recovered in the previous 
-step. This is another strategy for further exploration of tree space.
-\item \texttt{select()} Upon completion of fusing, this command retains only optimal and 
-topologically unique trees; all other trees are discarded from memory.
-\item \texttt{swap(trees:100)} Submits current trees to a round of SPR followed by TBR. It keeps up to 
-100 minimum cost trees for each starting tree.
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and 
-topologically unique trees; all other trees are discarded from memory.
-\item \texttt{report(Run1c\_H86.tre",trees:(hennig,total),"Run1c\_cs.tre",\\ consensus,"Run1c.pdf",graphconsensus)} 
-This command reports a series of outputs of the results of the search.  It includes 
-a file containing the most optimal trees in parenthetical notation (\texttt{Run1c\_H86.tre}) with the associated costs 
-(\texttt{trees:(hennig,total)}.  These trees have been prepended with \texttt{tread} and are separated by asterisks. 
-In addition, a strict consensus in parenthetical notation (\texttt{Run1c\_cs.tre}) and a graphical representation of 
-this strict consensus (\texttt{Run1c.pdf}) are also outputted.
+\item \texttt{select(unique)} Upon completion of the timed search,
+this command retains topologically unique trees.  Contra
+\texttt{select()}, which selects topologically \emph{unique} and
+\emph{optimal} trees,  \texttt{select(unique)} selects \emph{all}
+unique trees, regardless of cost, thus ensuring that a larger tree
+space is explored.  
+\item \texttt{report("Run1a.tre",trees)} Having selected all unique 
+trees, these trees are reported to a file. Outputting trees at 
+different stages of longer runs is advisable. These reports can 
+act as checkpoints in case of hardware problem, computer crashes, 
+power outages etc: 
+\item \texttt{search(max\_time:00:12:00)} A second timed search is
+performed.  
+\item \texttt{select(unique)} All topologically \emph{unique} trees 
+(including suboptimal trees) are selected.
+\item \texttt{report("Run1b.tre",trees)} Having selected all unique
+trees, these trees are reported to a file.  
+\item \texttt{fuse(iterations:250)} In this step, up to 250 swaps of
+subtrees identical in terminal composition but different in topology,
+are performed between pairs of best trees recovered in the previous
+step. This is another strategy for further exploration of tree
+space.  
+\item \texttt{select()} Upon completion of fusing, this
+command retains only optimal and topologically unique trees; all
+other trees are discarded from memory.  
+\item \texttt{swap(trees:100)} Submits current trees to a round 
+of SPR followed by TBR. It keeps up to 100 minimum cost trees for 
+each starting tree.  
+\item \texttt{select()} Upon completion of branch swapping, this command
+retains only optimal and topologically unique trees; all other trees
+are discarded from memory.  
+\item \texttt{report(Run1c\_H86.tre",trees:(hennig,total),"Run1c\_cs.tre",\\
+consensus,"Run1c.pdf",graphconsensus)} This command reports a series
+of outputs of the results of the search.  It includes a file
+containing the most optimal trees in parenthetical notation
+(\texttt{Run1c\_H86.tre}) with the associated costs
+(\texttt{trees:(hennig,total)}.  These trees have been prepended
+with \texttt{tread} and are separated by asterisks.  In addition,
+a strict consensus in parenthetical notation (\texttt{Run1c\_cs.tre})
+and a graphical representation of this strict consensus
+(\texttt{Run1c.pdf}) are also outputted.  
 \item \texttt{quit()} This command ends the \poy session.
 \end{itemize}
 
@@ -197,13 +262,17 @@ this strict consensus (\texttt{Run1c.pdf}) are also outputted.
 
 \section{Iterative Pass Analysis}{\label{tutorial3}}
 
-The following script implements a strategy for a thorough search under iterative pass optimization. Iterative
- pass optimization is a very time consuming procedure that makes it impractical to conduct under this kind of 
-optimization (save for very small datasets that can be analyzed within reasonable time). The iterative pass, 
-however, can be used for the most advanced stages of the analysis for the final refinement, when a potential 
-global optimum has been reached through searches under other kinds of optimization (such as direct 
-optimization). Therefore, this tutorial begins with importing an existing tree (rather than performing tree building
- from scratch) and subjecting it to local branch swapping under iterative pass.
+The following script implements a strategy for a thorough search
+under iterative pass optimization. Iterative pass optimization is a 
+very time consuming procedure that makes it impractical to conduct 
+under this kind of optimization (save for very small datasets that can be analyzed
+within reasonable time). The iterative pass, however, can be used
+for the most advanced stages of the analysis for the final refinement,
+when a potential global optimum has been reached through searches
+under other kinds of optimization (such as direct optimization).
+Therefore, this tutorial begins with importing an existing tree
+(rather than performing tree building from scratch) and subjecting 
+it to local branch swapping under iterative pass.
 
 \begin{verbatim}
 (*search using all data under ip*)
@@ -220,28 +289,45 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*search using all data under ip*)} This first line of the script is a comment. While comments are 
-optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read("9.fas","31.ss")} This command imports the nucleotide sequence files \texttt{9.fas} (in FASTA 
-format), and a morphological data file \texttt{31.ss} (in Hennig86 format).
-\item \texttt{read(prealigned:(aminoacids:("41\_aln.aa),tcm:("s1t2.mat")))} This command imports the prealigned
-amino acids file \texttt{41\_aln.aa} and sets the transformation cost matrix to be used in calculating the cost of the tree
-for these data.  The tcm file \texttt{s1t2.mat} specifies that the cost of substitutions are $1$ and that of indels $2$.
-\item \texttt{read("Run1c\_H86.tre")} This command imports a tree file, \texttt{Run1c\_H86.tre}, that contains the most 
-optimal tree from a previous analyses. 
-\item \texttt{set(iterative:approximate:2)} This command sets the optimization procedure to iterative pass such 
-that approximated three dimensional alignments generated using pairwise alignments will be considered.  
-The program will iterate either two times, or until no further tree cost improvements can be made.
-\item \texttt{swap(around)} This commands specifies that the imported tree is subjected to alternating rounds of SPR 
-and TBR branch swapping (the default of \poy) following the trajectory of search that completely 
-evaluates the neighborhood of the tree (by using \poyargument{around}).
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory.
-\item \texttt{report("all\_trees.tre",trees:(total),"all\_trees\_cs.pdf",\\graphconsensus,"all\_trees\_diag.txt",diagnosis)} 
-This command produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical 
-notation (\texttt{all\_trees\_ip.tre}) and their costs (\texttt{trees:(total)}, a graphical representation (in PDF format) of the strict 
-consensus (\texttt{all\_trees\_cs.pdf}), and the diagnoses for all best trees (\texttt{all\_trees\_diag.txt}).
+\item \texttt{(*search using all data under ip*)} This first line
+of the script is a comment. While comments are optional and do not
+affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read("9.fas","31.ss")} This command imports the
+nucleotide sequence files \texttt{9.fas} (in FASTA format), and a
+morphological data file \texttt{31.ss} (in Hennig86 format).  
+\item \texttt{read(prealigned:(aminoacids:("41\_aln.aa),tcm:("s1t2.mat")))}
+This command imports the prealigned amino acids file \texttt{41\_aln.aa}
+and sets the transformation cost matrix to be used in calculating
+the cost of the tree for these data.  The tcm file \texttt{s1t2.mat}
+specifies that the cost of substitutions are $1$ and that of indels
+$2$.  
+\item \texttt{read("Run1c\_H86.tre")} This command imports a
+tree file, \texttt{Run1c\_H86.tre}, that contains the most optimal
+tree from a previous analyses.  
+\item \texttt{set(iterative:approximate:2)}
+This command sets the optimization procedure to iterative pass such
+that approximated three dimensional alignments generated using
+pairwise alignments will be considered.  The program will iterate
+either two times, or until no further tree cost improvements can
+be made.  
+\item \texttt{swap(around)} This commands specifies that
+the imported tree is subjected to alternating rounds of SPR and TBR
+branch swapping (the default of \poy) following the trajectory of
+search that completely evaluates the neighborhood of the tree (by
+using \poyargument{around}).  
+\item \texttt{select()} Upon completion
+of branch swapping, this command retains only optimal and topologically
+unique trees; all other trees are discarded from memory.  
+\item \texttt{report("all\_trees.tre",trees:(total),"all\_trees\_cs.pdf",\\
+graphconsensus,"all\_trees\_diag.txt",diagnosis)}
+This command produces a series of outputs of the results of the
+search. It includes a file containing best trees in parenthetical
+notation (\texttt{all\_trees\_ip.tre}) and their costs
+(\texttt{trees:(total)}, a graphical representation (in PDF format)
+of the strict consensus (\texttt{all\_trees\_cs.pdf}), and the
+diagnoses for all best trees (\texttt{all\_trees\_diag.txt}).  
 \item \texttt{exit()} This command ends the \poy session.
+
 \end{itemize}
 
 %-------------------------------------
@@ -255,9 +341,12 @@ consensus (\texttt{all\_trees\_cs.pdf}), and the diagnoses for all best trees (\
 
 \section{Calculating supports: Bremer}{\label{tutorial4}}
 
-This tutorial illustrates the calculation of Bremer support values for trees constructed from dynamic homology characters. 
-It is strongly recommended that this more exhaustive approach is used for calculating Bremer supports rather than simply 
-using the \poyargument{graphsupports} defaults.  As this tutorial utilizes the \poyargument{visited} option, this 
+This tutorial illustrates the calculation of Bremer support values 
+for trees constructed from dynamic homology characters. 
+It is strongly recommended that this more exhaustive approach 
+is used for calculating Bremer supports rather than simply 
+using the \poyargument{graphsupports} defaults.  As this 
+tutorial utilizes the \poyargument{visited} option, this 
 tutorial can not be run in parallel.
     
 \begin{verbatim}
@@ -282,44 +371,63 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Bremer support part1: generating trees*)} This first line of the script is a comment. While comments
- are optional and do not affect the analyses, they are useful for housekeeping purposes. 
-\item \texttt{read("9.fas","31.ss")} This command imports the nucleotide sequence files \texttt{9.fas} (in FASTA 
-format), and a morphological data file \texttt{31.ss} (in Hennig86 format).
-\item \texttt{read(prealigned:(aminoacids:("41\_aln.aa),tcm:("s1t2.mat")))} This command imports the prealigned
-amino acids file \texttt{41\_aln.aa} and sets the transformation cost matrix to be used in calculating the cost of the tree
-for these data.  The tcm file \texttt{s1t2.mat} specifies that the cost of substitutions are $1$ and that of indels $2$.
-\item \texttt{set(root:"t1")} The \poycommand{set} command specifies 
-conditions prior to tree searching. The outgroup (\texttt{t1}) is designated as the \poyargument{root}, so that all the 
-reported trees have the desired polarity. By default, the analysis is performed using direct optimization.
-\item \texttt{read("Run1c\_H86.tre")} This command will read in the tree file \texttt{Run1c\_H86.tre} that was 
-generated in \texttt{Tutorial 2}.
-\item \texttt{swap(all,visited:"tmp.trees",timeout:3600)} The \poycommand{swap} command specifies that each of 
-the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).  The 
-\poyargument{all} argument turns off all swap heuristics. The \poyargument{visited:"tmp.trees"} argument stores 
-every visited tree in the file specified.  Although the visited tree file is compressed to accommodate the large 
-number of trees it will accumulate, the argument \poyargument{timeout} can be used to limit the number of 
-seconds allowed for swapping also limiting the size of the file.  Alternatively,  the  \poycommand{swap} command 
-can be performed as a separate analysis and terminated at the users discretion to maximize the number of trees 
-generated. [Note: as this \poyargument{visited} file is a compressed file, double clicking on this file will open 
-a file that appears to contain 'garbage'.  This file can only be opened by uncompressing the file.]
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically
- unique trees; all other trees are discarded from memory. 
-\item \texttt{report("bremertrees.tre",trees)} This command will save the swapped tree(s) to a file 
-\texttt{bremertrees.tre}. 
-\item \texttt{exit()} This command ends the \poy session.
-\\
-\\
-\item \texttt{(*Bremer support part 2: Bremer calculations*)}  A comment indicating the intent of the commands 
-which follow.
-\item \texttt{read("9.fas","31.ss")}
+\item \texttt{(*Bremer support part1: generating trees*)} This first
+line of the script is a comment. While comments
+ are optional and do not affect the analyses, they are useful for
+ housekeeping purposes.
+\item \texttt{read("9.fas","31.ss")} This command imports the
+nucleotide sequence files \texttt{9.fas} (in FASTA format), and a
+morphological data file \texttt{31.ss} (in Hennig86 format).  
+\item \texttt{read(prealigned:(aminoacids:("41\_aln.aa),tcm:("s1t2.mat")))}
+This command imports the prealigned amino acids file \texttt{41\_aln.aa}
+and sets the transformation cost matrix to be used in calculating
+the cost of the tree for these data.  The tcm file \texttt{s1t2.mat}
+specifies that the cost of substitutions are $1$ and that of indels
+$2$.  
+\item \texttt{set(root:"t1")} The \poycommand{set} command
+specifies conditions prior to tree searching. The outgroup (\texttt{t1})
+is designated as the \poyargument{root}, so that all the reported
+trees have the desired polarity. By default, the analysis is performed
+using direct optimization.  
+\item \texttt{read("Run1c\_H86.tre")} This command will read in the 
+tree file \texttt{Run1c\_H86.tre} that was generated in \texttt{Tutorial 2}.  
+\item \texttt{swap(all,visited:"tmp.trees",timeout:3600)} The \poycommand{swap}
+command specifies that each of the trees be subjected to an alternating
+SPR and TBR branch swapping routine (the default of \poy).  The
+\poyargument{all} argument turns off all swap heuristics. The
+\poyargument{visited:"tmp.trees"} argument stores every visited
+tree in the file specified.  Although the visited tree file is
+compressed to accommodate the large number of trees it will accumulate,
+the argument \poyargument{timeout} can be used to limit the number
+of seconds allowed for swapping also limiting the size of the file.
+Alternatively,  the  \poycommand{swap} command can be performed as
+a separate analysis and terminated at the users discretion to
+maximize the number of trees generated. [Note: as this
+\poyargument{visited} file is a compressed file, double clicking
+on this file will open a file that appears to contain 'garbage'.
+This file can only be opened by uncompressing the file.] 
+\item \texttt{select()} Upon completion of branch swapping, this command
+retains only optimal and topologically
+ unique trees; all other trees are discarded from memory.
+\item \texttt{report("bremertrees.tre",trees)} This command will
+save the swapped tree(s) to a file \texttt{bremertrees.tre}.  
+\item \texttt{exit()} This command ends the \poy session.  
+\\ 
+\\ 
+\item \texttt{(*Bremer support part 2: Bremer calculations*)}  A comment
+indicating the intent of the commands which follow.  
+\item \texttt{read("9.fas","31.ss")} 
 \item \texttt{read(prealigned:(aminoacids:("41\_aln.aa"),tcm:("s1t2.mat")))}
-\item \texttt{read("bremertrees.tre")} This command imports the tree file \\ \texttt{bremertrees.tre} for which the support 
-values will be generated.  It is important to only read the selected \texttt{"bremertrees.tre"} file rather than the 
-expansive \texttt{"tmp.trees"} file which will be used in bremer calculations.
-\item \texttt{report("Bremer\_trees.pdf",graphsupports:bremer:"tmp.trees")} \\The \poycommand{report} command 
-in combination with \poyargument{graphsupports} and a file name, generates a pdf file (\texttt{Bremer\_trees.pdf}) 
-with bremer values for the selected trees held in \texttt{tmp.trees}.  
+\item \texttt{read("bremertrees.tre")} This command imports the
+tree file \\ \texttt{bremertrees.tre} for which the support values
+will be generated.  It is important to only read the selected
+\texttt{"bremertrees.tre"} file rather than the expansive
+\texttt{"tmp.trees"} file which will be used in bremer calculations.
+\item \texttt{report("Bremer\_trees.pdf",graphsupports:bremer:"tmp.trees")}
+\\The \poycommand{report} command in combination with
+\poyargument{graphsupports} and a file name, generates a pdf file
+(\texttt{Bremer\_trees.pdf}) with bremer values for the selected
+trees held in \texttt{tmp.trees}.  
 \item \texttt{exit()} This command ends the \poy session.
 \end{itemize}
 
@@ -329,11 +437,15 @@ with bremer values for the selected trees held in \texttt{tmp.trees}.
 
 \section{Calculating supports: Jackknife}{\label{tutorial5}}
 
-This tutorial illustrates the calculation of Jackknife support values for trees constructed from static homology 
-characters---these characters are prealigned.  Although it is possible to calculate Jackknife support values for 
-trees constructed using dynamic homology characters, it is highly recommended against doing so as resampling 
-of dynamic characters occurs at the fragment (rather than nucleotide) level (e.g. calculating jackknife supports for 
-a dataset that contains a single fragment would be meaningless). 
+This tutorial illustrates the calculation of Jackknife support 
+values for trees constructed from static homology characters---
+these characters are prealigned.  Although it is possible to 
+calculate Jackknife support values for trees constructed 
+using dynamic homology characters, it is highly recommended 
+against doing so as resampling of dynamic characters occurs at 
+the fragment (rather than nucleotide) level (e.g. calculating 
+jackknife supports for a dataset that contains a single fragment 
+would be meaningless). 
 
 \begin{verbatim}
 (*Jackknife support for static homology trees*)
@@ -350,31 +462,45 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Jackknife support for static homology trees*)} This first line of the script is a comment. While
- comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(prealigned:("28s.aln",tcm:(1,2)))} This command imports the prealigned nucleotide sequence 
-file \texttt{28s.aln}, and treats the characters as static with the prescribed transformation costs, such that
-substitutions are assigned a cost of $ 1 $ and indels a cost of $ 2$.
-\item \texttt{set(root:"Americhernes")} The \poycommand{set} command specifies conditions prior to tree 
-searching. The outgroup (\texttt{Americhernes}) is designated as the \poyargument{root}, so that all the reported 
-trees have the desired polarity.     
-\item \texttt{build()} This command begins the tree-building step of the search that generates by default 10 
-random-addition Wagner trees. It is essential that trees are either specified from a file or that trees are built and loaded in 
-memory before attempting to calculate support values.
-\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an 
-alternating SPR and TBR branch swapping routine (the default of \poy).
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory. 
-\item \texttt{calculate\_support(jackknife,(remove:0.50,resample:1000),\\ build(5),swap(tbr,trees:3))} 
-The \poycommand{calculate\_support} command generates support values as specified by the 
-\poyargument{jackknife} argument for each tree held in 
-memory. During each pseudoreplicate half of the characters will be deleted as specified in the argument
-\poyargument{remove:0.50}. A search consisted of 5 Wagner tree builds (by random addition sequence) 
-and swapping these trees under \texttt{tbr}, keeping three minimum-cost trees
-after each round, follows.  This procedure is repeated 1000 times.
-\item \texttt{report("jackknives.pdf",graphsupports)}  The \poycommand{report} command in combination with 
-a file name and the \poyargument{graphsupports} generates a pdf file with jackknife values designated by the 
-name specified (i.e. \texttt{jackknives.pdf}). 
+\item \texttt{(*Jackknife support for static homology trees*)} This
+first line of the script is a comment. While
+ comments are optional and do not affect the analyses, they are
+ useful for housekeeping purposes.
+\item \texttt{read(prealigned:("28s.aln",tcm:(1,2)))} This command
+imports the prealigned nucleotide sequence file \texttt{28s.aln},
+and treats the characters as static with the prescribed transformation
+costs, such that substitutions are assigned a cost of $ 1 $ and
+indels a cost of $ 2$.  
+\item \texttt{set(root:"Americhernes")} The \poycommand{set} 
+command specifies conditions prior to tree searching.
+The outgroup (\texttt{Americhernes}) is designated as the
+\poyargument{root}, so that all the reported trees have the desired
+polarity.  
+\item \texttt{build()} This command begins the tree-building
+step of the search that generates by default 10 random-addition
+Wagner trees. It is essential that trees are either specified from
+a file or that trees are built and loaded in memory before attempting
+to calculate support values.  
+\item \texttt{swap()} The \poycommand{swap} command specifies 
+that each of the trees be subjected to an alternating SPR and TBR 
+branch swapping routine (the default of \poy).  
+\item \texttt{select()} Upon completion of branch swapping, this command
+retains only optimal and topologically unique trees; all other trees
+are discarded from memory.  
+\item \texttt{calculate\_support(jackknife,(remove:0.50,resample:1000),\\
+build(5),swap(tbr,trees:3))} The \poycommand{calculate\_support}
+command generates support values as specified by the
+\poyargument{jackknife} argument for each tree held in memory.
+During each pseudoreplicate half of the characters will be deleted
+as specified in the argument \poyargument{remove:0.50}. A search
+consisted of 5 Wagner tree builds (by random addition sequence) and
+swapping these trees under \texttt{tbr}, keeping three minimum-cost
+trees after each round, follows.  This procedure is repeated 1000
+times.  
+\item \texttt{report("jackknives.pdf",graphsupports)}  The
+\poycommand{report} command in combination with a file name and the
+\poyargument{graphsupports} generates a pdf file with jackknife
+values designated by the name specified (i.e. \texttt{jackknives.pdf}).
 \item \texttt{exit()} This command ends the \poy session.
 \end{itemize}
 
@@ -384,9 +510,11 @@ name specified (i.e. \texttt{jackknives.pdf}).
 
 \section{Calculating supports: Bootstrap}{\label{tutorial6}}
 
-This tutorial illustrates the calculation of Bootstrap support values for trees constructed from static homology characters. 
-As these characters are not prealigned, the dynamic homology characters are converted to static 
-characters using the argument \poyargument{static\_approx} prior to calculation of support.
+This tutorial illustrates the calculation of Bootstrap support 
+values for trees constructed from static homology characters. 
+As these characters are not prealigned, the dynamic homology 
+characters are converted to static characters using the argument 
+\poyargument{static\_approx} prior to calculation of support.
 
 \begin{verbatim}
 (*Bootstrap support for static homology trees*)
@@ -405,34 +533,51 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Bootstrap support for static homology trees*)} This first line of the script is a comment. While
- comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read("28s.fas")} This command imports the nucleotide sequence file \texttt{28s.fas}.
-\item \texttt{transform(tcm:(1,2))} The file \texttt{28s.fas} is transformed such that the cost of substitutions 
-are $1$ and that of indels $2$.  The transformation cost matrix is used in calculating the cost of the tree
-for these data.
-\item \texttt{set(root:"Americhernes")} The \poycommand{set} command specifies conditions prior to tree 
-searching. The outgroup (\texttt{Americhernes}) is designated as the \poyargument{root}, so that all the reported 
-trees have the desired polarity.     
-\item \texttt{build()} This command begins the tree-building step of the search that generates by default 10 
-random-addition Wagner trees. It is essential that trees are either specified from a file or that trees are built and loaded in 
-memory before attempting to calculate support values.
-\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an 
-alternating SPR and TBR branch swapping routine (the default of \poy).
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory. 
-\item \texttt{transform(all,(static\_approx))} This command transforms all the dynamic characters into static characters.
-\item \texttt{swap()} The local optimum for dynamic homology characters can differ from that for the static 
-homology characters based on the same sequence data. Therefore, an extra round of swapping on the transformed 
-data is performed in order to reach the local maximum for the static homology characters prior to calculating support values.
-\item \texttt{calculate\_support(bootstrap:100,build(5),swap(tbr,trees:5))} The \poycommand{calculate\_support} 
-command generates support values as specified by the \poyargument{bootstrap} argument for each tree held in 
-memory. During each pseudoreplicate the characters are randomly sampled and replaced, followed by 5 Wagner 
-tree builds (by random addition sequence) and swapping these trees under \texttt{tbr}, keeping five minimum-cost trees
-after each round. The procedure is repeated 100 times.
-\item \texttt{report("bootstraps.pdf",graphsupports)}  The \poycommand{report} command in combination with 
-a file name and the \poyargument{graphsupports} generates a pdf file with bootstrap values designated by the 
-name specified (i.e. \texttt{bootstraps.pdf}). 
+\item \texttt{(*Bootstrap support for static homology trees*)} This
+first line of the script is a comment. While
+ comments are optional and do not affect the analyses, they are
+ useful for housekeeping purposes.
+\item \texttt{read("28s.fas")} This command imports the nucleotide
+sequence file \texttt{28s.fas}.  
+\item \texttt{transform(tcm:(1,2))} The file \texttt{28s.fas} is 
+transformed such that the cost of substitutions are $1$ and that 
+of indels $2$.  The transformation cost matrix is used in calculating
+ the cost of the tree for these data.  
+ \item \texttt{set(root:"Americhernes")} The \poycommand{set}
+command specifies conditions prior to tree searching. The outgroup
+(\texttt{Americhernes}) is designated as the \poyargument{root},
+so that all the reported trees have the desired polarity.  
+\item \texttt{build()} This command begins the tree-building step of the
+search that generates by default 10 random-addition Wagner trees.
+It is essential that trees are either specified from a file or that
+trees are built and loaded in memory before attempting to calculate
+support values.  
+\item \texttt{swap()} The \poycommand{swap} command
+specifies that each of the trees be subjected to an alternating SPR
+and TBR branch swapping routine (the default of \poy).  
+\item \texttt{select()} Upon completion of branch swapping, this command
+retains only optimal and topologically unique trees; all other trees
+are discarded from memory.  
+\item \texttt{transform(all,(static\_approx))} This command transforms 
+all the dynamic characters into static characters.  
+\item \texttt{swap()} The local optimum for dynamic
+homology characters can differ from that for the static homology
+characters based on the same sequence data. Therefore, an extra
+round of swapping on the transformed data is performed in order to
+reach the local maximum for the static homology characters prior
+to calculating support values.  
+\item \texttt{calculate\_support(bootstrap:100,build(5),swap(tbr,trees:5))} The
+\poycommand{calculate\_support} command generates support values
+as specified by the \poyargument{bootstrap} argument for each tree
+held in memory. During each pseudoreplicate the characters are
+randomly sampled and replaced, followed by 5 Wagner tree builds (by
+random addition sequence) and swapping these trees under \texttt{tbr},
+keeping five minimum-cost trees after each round. The procedure is
+repeated 100 times.  
+\item \texttt{report("bootstraps.pdf",graphsupports)} The 
+\poycommand{report} command in combination with a file name and
+the \poyargument{graphsupports} generates a pdf file with bootstrap
+values designated by the name specified (i.e. \texttt{bootstraps.pdf}).
 \item \texttt{exit()} This command ends the \poy session.
 \end{itemize}
 
@@ -442,22 +587,30 @@ name specified (i.e. \texttt{bootstraps.pdf}).
 
 \section{Sensitivity Analysis}{\label{tutorial7}}
 
-This tutorial demonstrates how data (tree costs) for parameter sensitivity analysis is generated. Sensitivity analysis 
-\cite{wheeler1995} is a method of exploring the effect of relative costs of substitutions (transitions and 
-transversions) and indels (insertions and deletions), either with or without taking gap extension cost into 
-account. The approach consists of multiple iterations of the same search strategy under different parameters 
-(i.e. combinations of substitution and indel costs).  Obviously, such analysis might become time 
-consuming and certain methods are shown here how to achieve the results in reasonable time. This tutorial also
- shows the utility of the command \poycommand{store} and how transformation cost matrixes are imported and 
- used.
+This tutorial demonstrates how data (tree costs) for parameter
+sensitivity analysis is generated. Sensitivity analysis \cite{wheeler1995}
+is a method of exploring the effect of relative costs of substitutions
+(transitions and transversions) and indels (insertions and deletions),
+either with or without taking gap extension cost into account. The
+approach consists of multiple iterations of the same search strategy
+under different parameters (i.e. combinations of substitution and
+indel costs).  Obviously, such analysis might become time consuming
+and certain methods are shown here how to achieve the results in
+reasonable time. This tutorial also shows the utility of the command 
+\poycommand{store} and how transformation cost matrixes are 
+imported and used.
 
-\poy does not comprehensively display the results of the sensitivity analysis or implements the methods to select 
-a parameter set that produces the optimal cladogram, but the output of a \poy analysis (such as the one 
-presented here) generates all the necessary data for these additional steps.
+\poy does not comprehensively display the results of the sensitivity
+analysis or implements the methods to select a parameter set that
+produces the optimal cladogram, but the output of a \poy analysis
+(such as the one presented here) generates all the necessary data
+for these additional steps.
 
-For the sake of simplicity, this script contains commands for generating the data under just two parameter  sets. 
-Using a larger number of parameter sets can easily be achieved by replicating the repeated parts of the script 
-and substituting the names of input cost matrixes.
+For the sake of simplicity, this script contains commands for
+generating the data under just two parameter  sets.  Using a larger
+number of parameter sets can easily be achieved by replicating the
+repeated parts of the script and substituting the names of input
+cost matrixes.
 
 \begin{verbatim}
 (*Sensitivity Analysis*)
@@ -481,54 +634,78 @@ report("9_12.tre",trees:(total),"9_12cs.tre",consensus,
 exit()
 \end{verbatim}
 
-\begin{itemize}
-\item \texttt{(*Sensitivity Analysis*)} This first line of the script is a comment. While comments are optional and do not
- affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read("9.fas")} This command imports the nucleotide sequence file \texttt{9.fas} (in FASTA format).
-\item \texttt{set(root:"t1")} The outgroup (\texttt{t1}) is designated as the \poyargument{root}, so that all the 
-reported trees have the desired polarity.
-\item \texttt{store("original\_data")} This commands stores the current state of analysis in memory in a temporary file, 
-\texttt{original\_data}.
-\item \texttt{transform(tcm:("s1t1.mat"))} This command applies a transformation cost matrix from the file \texttt{s1t1.mat} to 
-the data file stored in the file \texttt{original\_data} for subsequent tree searching. In this cost matrix both substitutions 
-and indels are assigned a cost of $ 1 $.
-\item \texttt{build(100)} This commands begins the tree-building step of the search that generates 100 random-addition 
-Wagner trees. A large number of independent starting point ensures that a large portion of tree space will be 
-examined.
-\item \texttt{swap(timeout:3600)} \poycommand{swap} specifies that each of the 100 trees generated in the previous step is 
-subjected to alternating SPR and TBR branch swapping routine (the default of \poy). The argument 
-\poyargument{timeout} specifies that 3600 seconds are allocated for swapping and the search is going to be stopped 
-after reaching this limit. Because sensitivity analysis consists of multiple independent searches, it can take a 
-tremendous amount of time to complete each one of them. In this example, \poyargument{timeout} is used to prevent 
-the searches from running too long. Using \poyargument{timeout} is optional and can obviously produce suboptimal 
-results due to insufficient time allocated to searching. A reasonable timeout value can be experimentally obtained by 
-the analysis under one cost regime and monitoring time it takes to complete the search (using the argument 
-\poyargument{timer} of the command \poycommand{set}). The advantage of using \poyargument{timeout} is saving 
-time in cases where a local optimum is quickly reached and the search is trapped in its neighborhood.
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory.
-\item \texttt{report("9\_11.tre",trees:(total),"9\_11con.tre",consensus,\\"9\_11con.pdf",graphconsensus)} This command 
-produces a file containing the best tree(s) in parenthetical notation and their costs (\texttt{9\_11.tre}), a file containing the 
-strict consensus in parenthetical notation \\(\texttt{9\_11con.tre}), and a graphical representation (in PDF format) of the 
-strict consensus (\texttt{9\_11con.pdf}).
-\item \texttt{load("original\_data")} This command restores the original (non-trans\-formed) data from the temporary file 
-\texttt{original\_data}, which was previously generated by \poycommand{store}.
-\item \texttt{transform(tcm:("s1t2.mat"))} This command applies a different transformation cost matrix in the file 
-\texttt{s1t2.mat} to the data stored in the file \texttt{original\_data} for another round of tree searching under this new 
-cost regime.
-\item \texttt{build(100)} This commands begins the tree-building step of the search that generates 100 random-addition 
-trees. A large number of independent starting point ensures that a large portion of tree space will be 
-examined.
-\item \texttt{swap(timeout:3600)} \poycommand{swap} specifies that each of the 100 trees generated in the previous step is 
-subjected to alternating SPR and TBR branch swapping routine (the default of \poy) to be interrupted after 3600 
-seconds (see the description in the previous iteration of the command above).
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory.
-\item \texttt{report("9\_12.tre",trees:(total),"9\_12con.tre",consensus,\\"9\_12con.pdf",graphconsensus)} This command 
-produces a set of the same kinds of outputs as generated during the first search (see above) but under a new cost 
-regime.
-\item \texttt{exit()} This command ends the \poy session.
+\begin{itemize} 
+\item \texttt{(*Sensitivity Analysis*)} This first line of the script 
+is a comment. While comments are optional and do not affect the analyses, 
+they are useful for housekeeping purposes.
+\item \texttt{read("9.fas")} This command imports the nucleotide
+sequence file \texttt{9.fas} (in FASTA format).  
+\item \texttt{set(root:"t1")} The outgroup (\texttt{t1}) is designated
+as the \poyargument{root}, so that all the reported trees have the
+desired polarity.  
+\item \texttt{store("original\_data")} This commands stores the current 
+state of analysis in memory in a temporary file, \texttt{original\_data}.  
+\item \texttt{transform(tcm:("s1t1.mat"))}
+This command applies a transformation cost matrix from the file
+\texttt{s1t1.mat} to the data file stored in the file
+\texttt{original\_data} for subsequent tree searching. In this cost
+matrix both substitutions and indels are assigned a cost of $ 1 $.
+\item \texttt{build(100)} This commands begins the tree-building
+step of the search that generates 100 random-addition Wagner trees.
+A large number of independent starting point ensures that a large
+portion of tree space will be examined.  
+\item \texttt{swap(timeout:3600)} \poycommand{swap} specifies that 
+each of the 100 trees generated
+in the previous step is subjected to alternating SPR and TBR branch
+swapping routine (the default of \poy). The argument \poyargument{timeout}
+specifies that 3600 seconds are allocated for swapping and the
+search is going to be stopped after reaching this limit. Because
+sensitivity analysis consists of multiple independent searches, it
+can take a tremendous amount of time to complete each one of them.
+In this example, \poyargument{timeout} is used to prevent the
+searches from running too long. Using \poyargument{timeout} is
+optional and can obviously produce suboptimal results due to
+insufficient time allocated to searching. A reasonable timeout value
+can be experimentally obtained by the analysis under one cost regime
+and monitoring time it takes to complete the search (using the
+argument \poyargument{timer} of the command \poycommand{set}). The
+advantage of using \poyargument{timeout} is saving time in cases
+where a local optimum is quickly reached and the search is trapped
+in its neighborhood.  
+\item \texttt{select()} Upon completion of
+branch swapping, this command retains only optimal and topologically
+unique trees; all other trees are discarded from memory.  
+\item \texttt{report("9\_11.tre",trees:(total),"9\_11con.tre",consensus,\\"9\_11con.pdf",graphconsensus)}
+This command produces a file containing the best tree(s) in
+parenthetical notation and their costs (\texttt{9\_11.tre}), a file
+containing the strict consensus in parenthetical notation
+\\(\texttt{9\_11con.tre}), and a graphical representation (in PDF
+format) of the strict consensus (\texttt{9\_11con.pdf}).  
+\item \texttt{load("original\_data")} This command restores the original
+(non-trans\-formed) data from the temporary file \texttt{original\_data},
+which was previously generated by \poycommand{store}.  
+\item \texttt{transform(tcm:("s1t2.mat"))} This command applies a different
+transformation cost matrix in the file \texttt{s1t2.mat} to the
+data stored in the file \texttt{original\_data} for another round
+of tree searching under this new cost regime.  
+\item \texttt{build(100)} This commands begins the tree-building step 
+of the search that generates 100 random-addition trees. A large 
+number of independent starting point ensures that a large portion 
+of tree space will be examined.  
+\item \texttt{swap(timeout:3600)} \poycommand{swap} specifies that each 
+of the 100 trees generated in the previous step is subjected to 
+alternating SPR and TBR branch swapping routine (the default of \poy) 
+to be interrupted after 3600 seconds (see the description in the 
+previous iteration of the command above).  
+\item \texttt{select()} Upon completion of branch swapping,
+this command retains only optimal and topologically unique trees;
+all other trees are discarded from memory.  
+\item \texttt{report("9\_12.tre",trees:(total),"9\_12con.tre",consensus,\\"9\_12con.pdf",graphconsensus)}
+This command produces a set of the same kinds of outputs as generated
+during the first search (see above) but under a new cost regime.
+\item \texttt{exit()} This command ends the \poy session.  
 \end{itemize}
+
 
 %--------------------------------------------------------
 %Chromosome analysis: unannotated sequences
@@ -557,64 +734,100 @@ report("unann_chrom_cs.pdf",graphconsensus)
 exit()
 \end{verbatim}
 
-\begin{itemize}
-\item \texttt{(*Chromosome analysis of unannotated sequences*)} This first line of the script is a comment. While 
-comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(chromosome:("11mito.fas"))} This command imports the file \texttt{11mito.fas}, which consists of 
-chromosomal sequences. The argument \poyargument{chromosome} specifies that the characters are unannotated 
-chromosomes.
-\item \texttt{transform(tcm:(1,2),gap\_opening:3)} The file \texttt{11mito.fas} is transformed such that the cost of substitutions 
-are $1$, indels $2$, and there is a gap opening cost of $3$.
-\item \texttt{transform(chromosome:(annotate:(mauve,25.0,0.30,0.01,0.08)))} The argument \poyargument{annotate:(mauve)} 
-specifies that the program will use the Mauve aligner \cite{darlingetal2004} to determine locally collinear 
-homologous blocks (LCB) within the unannotated chromosomal sequences (\poyargument{chromosome}).
-The float parameters that follow \poyargument{mauve} are order dependent, and set the parameters for determining 
-the LCB homologies: quality, coverage, minimum and maximum LCB length relative to overall 
-sequence length. In this case, the LCB quality parameter, which represents the cost of the LCB divided by its length, 
-is set to the relatively low value of 25 to facilitate the detection of blocks within the sequences.  Higher LCB 
-quality values will result in more stringent LCB determination and most likely, fewer local collinear blocks recovered.  The 
-second parameter within the argument \poyargument{annotate:(mauve)} sets the minimum LCB sequence coverage at 
-30\% meaning that if the total length of an input sequence is, for example, 100, a minimum coverage of 0.30 would require 
-the total length of all LCBs be at least 30. The default value of 0.01 or 1\% sets the minimum length of a given LCB 
-relative to the length of the entire sequence (e.g. 100 for a 10,000 nucleotide sequence). The maximum length 
-allowed for an LCB, in this example 8\%, sets the maximum length of a given LCB relative to the length of the total sequence.
-\item \texttt{transform(fixed\_states:("mauveout",ignore\_polymorphism))} \\ The \poycommand{transform} command 
-in combination with \poyargument{fixed\_states} is used to produce alignment files (\texttt{mauveout}), which when  
-read into Mauve \cite{darlingetal2004}, can track the movement of LCBs between sequences. 
-Here, Mauve  alignment files will be generated with the names ``mauve\_i\_j.alignment'' where i and j are median 
-states. Sequence ambiguities will not be resolved to generate additional medians beyond those determined by the 
-data (\poyargument{ignore\_polymorphism}). These files can be used in conjunction with the  
-\poyargument{diagnosis} output to determine inferred rearrangement events. In the analysis of unannotated 
-chromosomes, the data {\bf must} be transformed to \poyargument{fixed\_states} when using the Mauve aligner.
-\item \texttt{transform(chromosome:(locus\_inversion:100,locus\_indel:\\(10,0.9)))}  The \poycommand{trans\-form} 
-command in combination with the argument \poyargument{chromosome} signifies the conditions to be applied when calculating 
-chromosome-level HTUs (medians).  The argument \poyargument{locus\_inversion} applies an inversion distance 
-between chromosome loci with the integer value (\texttt{100}) determining the rearrangement cost. The argument 
-\poyargument{locus\_indel} specifies the indel costs for the chromosomal segments, such that the integer 10 
-sets the gap opening cost and the float 0.9 sets the gap extension cost.  When selecting appropriate cost parameters
-for transformation events it is important to remember that the lowest cost option for an event will be applied. For example,
-in the sample mitochondrial data set used in this tutorial it is biologically feasible that locus level transformations may 
-have occurred in short ($<$100) nucleotide strings (e.g. tRNA genes). To allow for locus transformations to be detected
-in these data an appropriate locus indel cost must be less than the relative cost of explaining these transformations 
+\begin{itemize} 
+\item \texttt{(*Chromosome analysis of unannotated
+sequences*)} This first line of the script is a comment. While
+comments are optional and do not affect the analyses, they are
+useful for housekeeping purposes.  
+\item \texttt{read(chromosome:("11mito.fas"))} This command imports the
+file \texttt{11mito.fas}, which consists of chromosomal sequences.
+The argument \poyargument{chromosome} specifies that the characters
+are unannotated chromosomes.  
+\item \texttt{transform(tcm:(1,2),gap\_opening:3)} The file \texttt{11mito.fas}
+is transformed such that the cost of substitutions are $1$, indels
+$2$, and there is a gap opening cost of $3$.  
+\item \texttt{transform(chromosome:(annotate:(mauve,25.0,0.30,0.01,0.08)))} 
+The argument \poyargument{annotate:(mauve)}  specifies that the program
+will use the Mauve aligner \cite{darlingetal2004} to determine
+locally collinear homologous blocks (LCB) within the unannotated
+chromosomal sequences (\poyargument{chromosome}). The float parameters
+that follow \poyargument{mauve} are order dependent, and set the
+parameters for determining the LCB homologies: quality, coverage,
+minimum and maximum LCB length relative to overall sequence length.
+In this case, the LCB quality parameter, which represents the cost
+of the LCB divided by its length, is set to the relatively low value
+of 25 to facilitate the detection of blocks within the sequences.
+Higher LCB quality values will result in more stringent LCB
+determination and most likely, fewer local collinear blocks recovered.
+The second parameter within the argument \poyargument{annotate:(mauve)}
+sets the minimum LCB sequence coverage at 30\% meaning that if the
+total length of an input sequence is, for example, 100, a minimum
+coverage of 0.30 would require the total length of all LCBs be at
+least 30. The default value of 0.01 or 1\% sets the minimum length
+of a given LCB relative to the length of the entire sequence (e.g.
+100 for a 10,000 nucleotide sequence). The maximum length allowed
+for an LCB, in this example 8\%, sets the maximum length of a given
+LCB relative to the length of the total sequence.
+\item \texttt{transform(fixed\_states:("mauveout",ignore\_polymorphism))}\\ 
+The \poycommand{transform} command in combination with
+\poyargument{fixed\_states} is used to produce alignment files
+(\texttt{mauveout}), which when read into Mauve \cite{darlingetal2004},
+can track the movement of LCBs between sequences.  Here, Mauve
+alignment files will be generated with the names ``mauve\_i\_j.alignment''
+where i and j are median states. Sequence ambiguities will not be
+resolved to generate additional medians beyond those determined by
+the data (\poyargument{ignore\_polymorphism}). These files can be
+used in conjunction with the \poyargument{diagnosis} output to
+determine inferred rearrangement events. In the analysis of unannotated
+chromosomes, the data {\bf must} be transformed to
+\poyargument{fixed\_states} when using the Mauve aligner.  
+\item \texttt{transform(chromosome:(locus\_inversion:100,locus\_indel:\\(10,0.9)))}
+The \poycommand{trans\-form} command in combination with the argument
+\poyargument{chromosome} signifies the conditions to be applied
+when calculating chromosome-level HTUs (medians).  The argument
+\poyargument{locus\_inversion} applies an inversion distance between
+chromosome loci with the integer value (\texttt{100}) determining
+the rearrangement cost. The argument \poyargument{locus\_indel}
+specifies the indel costs for the chromosomal segments, such that
+the integer 10 sets the gap opening cost and the float 0.9 sets the gap extension
+cost.  When selecting appropriate cost parameters for transformation
+events it is important to remember that the lowest cost option for
+an event will be applied. For example, in the sample mitochondrial
+data set used in this tutorial it is biologically feasible that
+locus level transformations may have occurred in short ($<$100)
+nucleotide strings (e.g. tRNA genes). To allow for locus transformations
+to be detected in these data an appropriate locus indel cost must
+be less than the relative cost of explaining these transformations
 by nucleotide indels and substitutions.  
-\item \texttt{build(100)} This command begins the tree-building step of the search that generates 100 random-addition 
-Wagner trees. It is highly recommended that a greater number of Wagner builds be implemented when analyzing 
-data for purposes other than this demonstration.
-\item \texttt{swap(threshold:5.0)} The \poycommand{swap} command specifies that each of the trees is subjected to an 
-alternating SPR and TBR branch swapping routine (the default of \poy). In addition to the most optimal trees, all suboptimal 
-trees found within 5\% of the best cost, are thoroughly evaluated.
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory. 
-\item \texttt{set(root:"Taxon11")} The outgroup (\texttt{Taxon11}) is designated by the \poyargument{root}, so that all the 
-reported trees have the desired polarity.
-\item \texttt{report("unann\_chrom\_diag.txt",diagnosis)}  The \poycommand{report} command, in combination with a 
-file name and the argument \poyargument{diagnosis}, outputs the optimal median states and edge values to the 
-specified file (\texttt{unann\_chrom\_diag.txt}). 
-\item \texttt{report("unann\_chrom\_cs.pdf",graphconsensus)}  The \poycommand{report} command, in combination with a file 
-name and the argument \poyargument{graphconsensus}, generates a strict consensus file (in PDF format) of the trees 
-generated and selected in the analysis (\texttt{unann\_chrom\_cs.pdf}). 
-\item \texttt{exit()} This command ends the \poy session.
+\item \texttt{build(100)} This command begins the tree-building step 
+of the search that generates 100 random-addition Wagner trees. 
+It is highly recommended that a greater number of Wagner builds 
+be implemented when analyzing data for purposes other than this demonstration.  
+\item \texttt{swap(threshold:5.0)} The \poycommand{swap} command specifies
+that each of the trees is subjected to an alternating SPR and TBR
+branch swapping routine (the default of \poy). In addition to the
+most optimal trees, all suboptimal trees found within 5\% of the
+best cost, are thoroughly evaluated.  
+\item \texttt{select()} Upon completion of branch swapping, this 
+command retains only optimal and topologically unique trees; all 
+other trees are discarded from memory.  
+\item \texttt{set(root:"Taxon11")} The outgroup (\texttt{Taxon11}) 
+is designated by the \poyargument{root}, so that all the reported 
+trees have the desired polarity.  
+\item \texttt{report("unann\_chrom\_diag.txt",diagnosis)}  The
+\poycommand{report} command, in combination with a file name and
+the argument \poyargument{diagnosis}, outputs the optimal median
+states and edge values to the specified file
+(\texttt{unann\_chrom\_diag.txt}).  
+\item \texttt{report("unann\_chrom\_cs.pdf",graphconsensus)}  The
+\poycommand{report} command, in combination with a file name and
+the argument \poyargument{graphconsensus}, generates a strict
+consensus file (in PDF format) of the trees generated and selected
+in the analysis (\texttt{unann\_chrom\_cs.pdf}).  
+\item \texttt{exit()}
+This command ends the \poy session.  
 \end{itemize}
+
 
 %--------------------------------------------------------
 %Chromosome analysis: annotated sequences
@@ -642,38 +855,57 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Chromosome analysis of annotated sequences*)} This first line of the script is a comment. While 
-comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(annotated:("aninv2.fas"))} This command imports the annotated chromosomal sequence file 
-\texttt{aninv2}. The argument \poyargument{annotated} specifies that the characters are annotated chromosomes
-(not to be confused with \poyargument {annotate}). 
-\item \texttt{transform(annotated:(locus\_inversion:20,median\_solver:\\caprara,locus\_indel:(10,1.5),circular:false,median:1,swap\_\\
-med:1)))} The \poycommand{transform} followed by the argument \poyargument{annotated} specifies the conditions to be 
-applied when calculating chromosome-level HTUs (medians). The argument \poyargument{locus\_inversion} applies an 
-inversion distance between chromosome loci with the integer value  of $50$ determining the rearrangement cost 
-while using the default \poyargument{caprara} median solver. The argument \poyargument{locus\_indel} specifies 
-the indel costs for chromosomal segments, where the integer $10$ sets the gap opening cost and the float $1.5$ 
-sets the gap extension cost. The default values are applied to the \poyargument{circular}, \poyargument{median} 
-and \poyargument{swap\_med} arguments to minimize the time require for these nested search options. To more 
-exhaustively perform these calculations, trees generated from initial builds can be imported to the program and reevaluated 
-with values greater than 1 entered for the median and swap med arguments.
-\item \texttt{build(20)} This commands begins the tree-building step of the search, generating 20 Wagner trees by random-addition 
-sequence.  It is highly recommended that a greater number of Wagner builds be implemented when analyzing 
-data for purposes other than this demonstration.
-\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating 
-SPR and TBR branch swapping routine (the default of \poy).
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory. 
-\item \texttt{report("ann\_chrom\_diag.txt",diagnosis)}  The \poycommand{report} command, in combination with a file name and 
-the argument \poyargument{diagnosis}, outputs the optimal median states and edge values to the file specified 
-(\texttt{ann\_chrom\_diag.txt}). 
-\item \texttt{report("ann\_chrom\_diag.pdf",graphdiagnosis)}  The \poycommand{report} command, in combination 
-with a file name and the argument  \poyargument{graphdiagnosis}, outputs a file (in PDF format) with labeled 
-medians that allow users to link to the diagnosis file to reconstruct the median states at the internal tree nodes.
-\item \texttt{report("ann\_chrom\_cs.pdf",graphconsensus)}  The \poycommand{report} command, in combination with a file 
-name and the argument \poyargument{graphconsensus}, generates a strict consensus file (in PDF format) of the trees generated 
-and selected in the analysis.
-\item \texttt{exit()} This command ends the \poy session.
+\item \texttt{(*Chromosome analysis of annotated sequences*)} This
+first line of the script is a comment. While comments are optional
+and do not affect the analyses, they are useful for housekeeping
+purposes.  
+\item \texttt{read(annotated:("aninv2.fas"))} This command
+imports the annotated chromosomal sequence file \texttt{aninv2}.
+The argument \poyargument{annotated} specifies that the characters
+are annotated chromosomes (not to be confused with \poyargument
+{annotate}).  
+\item \texttt{transform(annotated:(locus\_inversion:20,median\_solver:\\caprara,locus\_indel:10,1.5),circular:false,median:1,swap\_\\
+med:1)))} The \poycommand{transform} followed by the argument
+\poyargument{annotated} specifies the conditions to be applied when
+calculating chromosome-level HTUs (medians). The argument
+\poyargument{locus\_inversion} applies an inversion distance between
+chromosome loci with the integer value  of $50$ determining the
+rearrangement cost while using the default \poyargument{caprara}
+median solver. The argument \poyargument{locus\_indel} specifies
+the indel costs for chromosomal segments, where the integer $10$
+sets the gap opening cost and the float $1.5$ sets the gap extension
+cost. The default values are applied to the \poyargument{circular},
+\poyargument{median} and \poyargument{swap\_med} arguments to
+minimize the time require for these nested search options. To more
+exhaustively perform these calculations, trees generated from initial
+builds can be imported to the program and reevaluated with values
+greater than 1 entered for the median and swap med arguments.  
+\item \texttt{build(20)} This commands begins the tree-building step of
+the search, generating 20 Wagner trees by random-addition sequence.
+It is highly recommended that a greater number of Wagner builds be
+implemented when analyzing data for purposes other than this
+demonstration.  
+\item \texttt{swap()} The \poycommand{swap} command
+specifies that each of the trees be subjected to an alternating SPR
+and TBR branch swapping routine (the default of \poy).  
+\item \texttt{select()} Upon completion of branch swapping, this command
+retains only optimal and topologically unique trees; all other trees
+are discarded from memory.  
+\item \texttt{report("ann\_chrom\_diag.txt",diagnosis)}  The \poycommand{report}
+command, in combination with a file name and the argument
+\poyargument{diagnosis}, outputs the optimal median states and edge
+values to the file specified (\texttt{ann\_chrom\_diag.txt}).  
+\item \texttt{report("ann\_chrom\_diag.pdf",graphdiagnosis)}  The
+\poycommand{report} command, in combination with a file name and
+the argument  \poyargument{graphdiagnosis}, outputs a file (in PDF
+format) with labeled medians that allow users to link to the diagnosis
+file to reconstruct the median states at the internal tree nodes.
+\item \texttt{report("ann\_chrom\_cs.pdf",graphconsensus)}  The
+\poycommand{report} command, in combination with a file name and
+the argument \poyargument{graphconsensus}, generates a strict
+consensus file (in PDF format) of the trees generated and selected
+in the analysis.  \item \texttt{exit()} This command ends the \poy
+session.  
 \end{itemize}
 
 %-------------------------------------------------------------------------
@@ -681,9 +913,10 @@ and selected in the analysis.
 %-------------------------------------------------------------------------
 
 \section{Chromosome Analysis: Unannotated and annotated}{\label{tutorial10}}
-This tutorial illustrates the analysis of chromosome-level transformation using both unannotated and annotated sequences.
-Though similar to the previous two tutorials, this tutorial differs in that the identifier \poyargument{names} must be utilized when 
-transforming the unannotated chromosomes.
+This tutorial illustrates the analysis of chromosome-level transformation using 
+both unannotated and annotated sequences. Though similar to the previous two 
+tutorials, this tutorial differs in that the identifier \poyargument{names} must be 
+utilized when transforming the unannotated chromosomes.
 
 \begin{verbatim}
 (*Chromosome analysis: Unannotated and annotated sequences*)
@@ -706,92 +939,138 @@ report("annunann_chrom_cs.pdf",graphconsensus)
 exit()
 \end{verbatim}
 
-\begin{itemize}
-\item \texttt{(*Chromosome analysis: Unannotated and annotated sequence*)} This first line of the script is a 
-comment. While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(annotated:("aninv2.fas"),chromosome:("11mito.fas"))} \\This command imports the sequence file 
-\texttt{aninv2.fas} containing annotated chromosomal sequences (contiguous strings of sequences with prior 
-identification of independent regions delineated by pipes \texttt{"|"}) and the unannotated chromosomal 
-sequence file \texttt{11mito.fas}. 
-\item \texttt{transform(annotated:(locus\_inversion:20,median\_solver:\\caprara,locus\_indel:(10,1.5),circular:false,median:1,swap\_\\
-med:1))} The \poycommand{transform} command followed by the argument \poyargument{annotated} 
-specifies the conditions to be 
-applied when calculating chromosome-level HTUs (medians). The argument \poyargument{locus\_inversion} applies an 
-inversion distance between chromosome loci with the integer value of $50$ determining the rearrangement cost 
-while using the default \poyargument{caprara} median solver. The argument \poyargument{locus\_indel} specifies 
-the indel costs for chromosomal segments, where the integer $10$ sets the gap opening cost and the float $1.5$ 
-sets the gap extension cost. The default values are applied to the \poyargument{circular}, \poyargument{median} 
-and \poyargument{swap\_med} arguments to minimize the time require for these nested search options. To more 
-exhaustively perform these calculations, trees generated from initial builds can be imported to the program and reevaluated 
-with values greater than 1 entered for the median and swap med arguments.
-\item \texttt{transform((names:("11mito.fas"),(chromosome:(annotate:\\(mauve,25.0,0.30,0.01,0.08)))))} 
-Contrary to the transformation of unannotated chromosomes in \texttt{tutorial 5.8}, in this script it is necessary to 
-identify, using the \emph{identifier} \texttt{names}, which file the Mauve aligner will be applied to. Without this 
-\emph{identifier}, the script will not run. Once identified, the argument 
-\poyargument{annotate:(mauve)} specifies that the program will use the Mauve aligner \cite{darlingetal2004} 
-to determine locally collinear homologous blocks (LCB) within the unannotated chromosomal sequences 
-(\poyargument{chromosome}). The float parameters that follow \poyargument{mauve} are order dependent, 
-and set the parameters for determining the LCB homologies: quality, coverage, minimum and maximum LCB length relative to overall 
-sequence length. In this case, the LCB quality parameter, which represents the cost of the LCB divided by its length, 
-is set to the relatively low value of 25 to facilitate the detection of blocks within the sequences.  Higher LCB 
-quality values will result in more stringent LCB determination and most likely, fewer local collinear blocks recovered.  The 
-second parameter within the argument \poyargument{annotate:(mauve)} sets the minimum LCB sequence coverage at 
-30\% meaning that if the total length of an input sequence is, for example, 100, a minimum coverage of 0.30 would require 
-the total length of all LCBs be at least 30. The default value of 0.01 or 1\% sets the minimum length of a given LCB 
-relative to the length of the entire sequence (e.g. 100 for a 10,000 nucleotide sequence). The maximum length 
-allowed for an LCB, in this example 8\%, sets the maximum length of a given LCB relative to the length of the total sequence.
-\item \texttt{transform((names:("11mito.fas"),(fixed\_states:("mauveout",\\ignore\_polymorphism))))} The 
-\poycommand{transform} command in combination with \poyargument{fixed\_states} is used to produce 
-alignment files (\texttt{mauveout}), which when read into Mauve \cite{darlingetal2004}, can track the movement
- of LCBs between sequences. As in the previous line of the script, the unannotated chromosome file to which 
- \poyargument{fixed\_states} will be applied, is identified using the \emph{identifier} \poyargument{names}. 
- Here, Mauve  alignment files will be generated with the names ``mauve\_i\_j.alignment'' 
- where i and j are median states. Sequence ambiguities will not be resolved to generate additional medians beyond 
- those determined by the data (\poyargument{ignore\_polymorphism}). These files can be used in conjunction with the  
-\poyargument{diagnosis} output to determine inferred rearrangement events. In the analysis of unannotated 
-chromosomes, the data {\bf must} be transformed to \poyargument{fixed\_states} when using the Mauve aligner.
-\item \texttt{transform(chromosome:(locus\_inversion:100,locus\_indel:\\(10,0.9)))} The \poycommand{transform} 
-command in combination with the argument \poyargument{chromosome} signifies the conditions to be applied when calculating 
-chromosome-level HTUs (medians).  The argument \poyargument{locus\_inversion} applies an inversion distance 
-between chromosome loci with the integer value (\texttt{100}) determining the rearrangement cost. The argument 
-\poyargument{locus\_indel} specifies the indel costs for the chromosomal segments, such that the integer 10 
-sets the gap opening cost and the float 0.9 sets the gap extension cost.  When selecting appropriate cost parameters
-for transformation events it is important to remember that the lowest cost option for an event will be applied. This 
-transformation will be applied to both data files.  
-\item \texttt{transform(tcm:(1,2),gap\_opening:3)} Both files are transformed such that the cost of 
-substitutions are $1$, indels $2$, and there is a gap opening cost of $3$.
-\item \texttt{build(20)} This commands begins the tree-building step of the search, generating 20 Wagner trees by 
-random-addition sequence.  It is highly recommended that a greater number of Wagner builds be implemented 
-when analyzing data for purposes other than this demonstration.
-\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating 
-SPR and TBR branch swapping routine (the default of \poy).
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory. 
-\item \texttt{report("annunann\_chrom\_diag.txt",diagnosis)} The \poycommand{report} command, in combination 
-with a file name and the argument \poyargument{diagnosis}, outputs the optimal median states and edge values to the file specified 
-(\texttt{annunann\_chrom\_diag.txt}). 
-\item \texttt{report("annunann\_chrom\_diag.pdf",graphdiagnosis)} The \poycommand{report} command, in combination 
-with a file name and  \poyargument{graphdiagnosis}, outputs a file (in PDF format) with labeled 
-medians that allow users to link to the diagnosis file to reconstruct the median states at the internal tree nodes.
-\item \texttt{report("annunann\_chrom\_cs.pdf",graphconsensus)}  The \poycommand{report} command, in combination with a file 
-name and the argument \poyargument{graphconsensus}, generates a strict consensus file (in PDF format) of the trees generated 
-and selected in the analysis.
-\item \texttt{exit()} This command ends the \poy session.
+\begin{itemize} 
+\item \texttt{(*Chromosome analysis: Unannotated
+and annotated sequence*)} This first line of the script is a comment.
+While comments are optional and do not affect the analyses, they
+are useful for housekeeping purposes.  
+\item \texttt{read(annotated:("aninv2.fas"),chromosome:("11mito.fas"))}\\
+This command imports the sequence file \texttt{aninv2.fas}
+containing annotated chromosomal sequences (contiguous strings of
+sequences with prior identification of independent regions delineated
+by pipes \texttt{"|"}) and the unannotated chromosomal sequence
+file \texttt{11mito.fas}.  
+\item \texttt{transform(annotated:(locus\_inversion:20,median\_solver:\\
+caprara,locus\_indel:(10,1.5),circular:false,median:1,swap\_\\
+med:1))} The \poycommand{transform} command followed by the argument
+\poyargument{annotated} specifies the conditions to be applied when
+calculating chromosome-level HTUs (medians). The argument
+\poyargument{locus\_inversion} applies an inversion distance between
+chromosome loci with the integer value of $50$ determining the
+rearrangement cost while using the default \poyargument{caprara}
+median solver. The argument \poyargument{locus\_indel} specifies
+the indel costs for chromosomal segments, where the integer $10$
+sets the gap opening cost and the float $1.5$ sets the gap extension
+cost. The default values are applied to the \poyargument{circular},
+\poyargument{median} and \poyargument{swap\_med} arguments to
+minimize the time require for these nested search options. To more
+exhaustively perform these calculations, trees generated from initial
+builds can be imported to the program and reevaluated with values
+greater than 1 entered for the median and swap med arguments.  
+\item \texttt{transform((names:("11mito.fas"),(chromosome:(annotate:\\(mauve,25.0,0.30,0.01,0.08)))))}
+Contrary to the transformation of unannotated chromosomes in
+\texttt{tutorial 5.8}, in this script it is necessary to identify,
+using the \emph{identifier} \texttt{names}, which file the Mauve
+aligner will be applied to. Without this \emph{identifier}, the
+script will not run. Once identified, the argument
+\poyargument{annotate:(mauve)} specifies that the program will use
+the Mauve aligner \cite{darlingetal2004} to determine locally
+collinear homologous blocks (LCB) within the unannotated chromosomal
+sequences (\poyargument{chromosome}). The float parameters that
+follow \poyargument{mauve} are order dependent, and set the parameters
+for determining the LCB homologies: quality, coverage, minimum and
+maximum LCB length relative to overall sequence length. In this
+case, the LCB quality parameter, which represents the cost of the
+LCB divided by its length, is set to the relatively low value of
+25 to facilitate the detection of blocks within the sequences.
+Higher LCB quality values will result in more stringent LCB
+determination and most likely, fewer local collinear blocks recovered.
+The second parameter within the argument \poyargument{annotate:(mauve)}
+sets the minimum LCB sequence coverage at 30\% meaning that if the
+total length of an input sequence is, for example, 100, a minimum
+coverage of 0.30 would require the total length of all LCBs be at
+least 30. The default value of 0.01 or 1\% sets the minimum length
+of a given LCB relative to the length of the entire sequence (e.g.
+100 for a 10,000 nucleotide sequence). The maximum length allowed
+for an LCB, in this example 8\%, sets the maximum length of a given
+LCB relative to the length of the total sequence.  
+\item \texttt{transform((names:("11mito.fas"),(fixed\_states:("mauveout",
+\\ignore\_polymorphism))))} The \poycommand{transform} command 
+in combination with \poyargument{fixed\_states} is used to produce alignment 
+files (\texttt{mauveout}), which when read into Mauve \cite{darlingetal2004},
+can track the movement of LCBs between sequences. As in the previous 
+line of the script, the unannotated chromosome file to which \poyargument{fixed\_states}
+ will be applied, is identified using the \emph{identifier}
+ \poyargument{names}.  Here, Mauve  alignment files will be generated
+ with the names ``mauveout\_i\_j.alignment'' where i and j are median
+ states. Sequence ambiguities will not be resolved to generate
+ additional medians beyond those determined by the data
+ (\poyargument{ignore\_polymorphism}). These files can be used in
+ conjunction with the \poyargument{diagnosis} output to determine 
+ inferred rearrangement events. In the analysis of unannotated chromosomes, 
+ the data {\bf must} be transformed to \poyargument{fixed\_states} when using the
+Mauve aligner.  
+\item \texttt{transform(chromosome:(locus\_inversion:100,locus\_indel:\\(10,0.9)))}
+The \poycommand{transform} command in combination with the argument
+\poyargument{chromosome} signifies the conditions to be applied
+when calculating chromosome-level HTUs (medians).  The argument
+\poyargument{locus\_inversion} applies an inversion distance between
+chromosome loci with the integer value (\texttt{100}) determining
+the rearrangement cost. The argument \poyargument{locus\_indel}
+specifies the indel costs for the chromosomal segments, such that
+the integer 10 sets the gap opening cost and the float 0.9 sets the
+gap extension cost.  When selecting appropriate cost parameters for
+transformation events it is important to remember that the lowest
+cost option for an event will be applied. This transformation will
+be applied to both data files.  
+\item \texttt{transform(tcm:(1,2),gap\_opening:3)} Both files are transformed
+such that the cost of substitutions are $1$, indels $2$, and there
+is a gap opening cost of $3$.  
+\item \texttt{build(20)} This commands
+begins the tree-building step of the search, generating 20 Wagner
+trees by random-addition sequence.  It is highly recommended that
+a greater number of Wagner builds be implemented when analyzing
+data for purposes other than this demonstration.  
+\item \texttt{swap()} The \poycommand{swap} command specifies that 
+each of the trees be subjected to an alternating SPR and TBR branch 
+swapping routine (the default of \poy).  
+\item \texttt{select()} Upon completion of
+branch swapping, this command retains only optimal and topologically
+unique trees; all other trees are discarded from memory.  
+\item \texttt{report("annunann\_chrom\_diag.txt",diagnosis)} The
+\poycommand{report} command, in combination with a file name and
+the argument \poyargument{diagnosis}, outputs the optimal median
+states and edge values to the file specified
+(\texttt{annunann\_chrom\_diag.txt}).  
+\item \texttt{report("annunann\_chrom\_diag.pdf",graphdiagnosis)} The
+\poycommand{report} command, in combination with a file name and
+\poyargument{graphdiagnosis}, outputs a file (in PDF format) with
+labeled medians that allow users to link to the diagnosis file to
+reconstruct the median states at the internal tree nodes.  
+\item \texttt{report("annunann\_chrom\_cs.pdf",graphconsensus)}  The
+\poycommand{report} command, in combination with a file name and
+the argument \poyargument{graphconsensus}, generates a strict
+consensus file (in PDF format) of the trees generated and selected
+in the analysis.  
+\item \texttt{exit()} This command ends the \poy session.  
 \end{itemize}
 
 %--------------------------------------------------------
 %Genome Analysis: Multiple Chromosomes
 %--------------------------------------------------------
 
-\section{Genome analysis: multiple chromosomes}{\label{tutorial11}}
+\section{Genome Analysis: Multiple Chromosomes}{\label{tutorial11}}
 
-This tutorial illustrates the analysis of genome-level transformations using data from multiple chromosomes. Genome 
-data consists of multi-locus, multi-chromosomal nucleotide sequences, wherein transformations (i.e. indels, substitutions, and 
-rearrangements) are optimized at the sequence, locus and chromosomal level.  Within the genome data file, individual 
-chromosomes are separated by the ``$@$'' symbol and the individual chromosomes remain unannotated.
+This tutorial illustrates the analysis of genome-level transformations 
+using data from multiple chromosomes. Genome data consists of 
+multi-locus, multi-chromosomal nucleotide sequences, wherein 
+transformations (i.e. indels, substitutions, and rearrangements) 
+are optimized at the sequence, locus and chromosomal level.  Within 
+the genome data file, individual chromosomes are separated by the 
+``$@$'' symbol and the individual chromosomes remain unannotated.
 
 \begin{verbatim}
-(*Genome analysis of multiple chromosomes*)
+(*Genome Analysis: Multiple Chromosomes*)
 
 read(genome:("gen7.fas"))
 transform(tcm:(1,1),gap_opening:1)
@@ -810,60 +1089,93 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Genome analysis of multiple chromosomes*)} This first line of the script is a comment. While 
-comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(genome:("gen7.fas"))} This command imports the genomic sequence file \texttt{gen7.fas}. The 
-argument \poyargument{genome} specifies that the characters consist of multi-chromosomes. 
-\item \texttt{transform(tcm:(1,1),gap\_opening:1))} The file \texttt{gen7.fas} is transformed such that during the 
-subsequent analysis of this data file, the cost of substitutions, indels and gap opening cost are all set to $1$.
-\item \texttt{transform(chromosome:(annotate:(mauve,25.0,0.30,0.01,0.08)))} \\The argument 
-\poyargument{annotate:(mauve)} specifies that the program will use the Mauve aligner \cite{darlingetal2004} 
-to determine locally collinear homologous blocks (LCB) within the chromosomal sequences.  The float parameters 
-that follow the \poyargument{mauve} option, are order dependent and set the parameters for determining the LCB 
-homologies: quality, coverage, minimum and maximum LCB length relative to overall sequence length. In this case, 
-the LCB quality parameter, which represents the cost of the LCB divided by its length,
- is set to the relatively low value of 25 to facilitate the detection of blocks within the sequences.  Higher LCB 
- quality values will result in more stringent LCB determination and most likely, fewer local collinear blocks recovered.  The 
- second parameter within the argument \poyargument{annotate:(mauve)} sets the minimum LCB sequence coverage 
- at  30\% meaning that if total length of an input sequence is, for example, 100, a minimum coverage of 0.30 would 
- require  the total length of all LCBs to be at least 30. The default value of 0.01 or 1\% sets the minimum length of a 
- given LCB  relative to the length of the entire sequence (e.g. 100 for a 10,000 nucleotide sequence). The maximum 
- length allowed for an LCB, in this example 8\%, sets the maximum length of a given LCB relative to the length of 
- the total sequence.
-\item \texttt{transform(fixed\_states:("genomeout",ignore\_polymorphism))}  \\The \poycommand{transform} command 
-in combination with \poyargument{fixed\_states} is used to produce alignment files  (\texttt{"genomeout"}) that 
-can be read into Mauve to track the movement of LCBs between sequences. Here, Mauve genome alignment files will be generated 
-with the names "genomeeoi\_j.alignment'' where i and j are median states. Sequence ambiguities will not be resolved to generate 
-additional medians beyond those determined by the data (\texttt{ignore\_polymorphism}). These files can be used in 
-conjunction with the \poyargument{diagnosis} output to determine inferred translocation and rearrangement events. 
-In the analysis of unannotated chromosomes, the data {\bf must} be transformed to \poyargument{fixed\_states}
-when using these Mauve aligners.
-\item \texttt{transform(chromosome:(locus\_breakpoint:80,locus\_indel:\\(15,2.5),median\_solver:caprara))}  The command 
-\poycommand{transform} followed by \poyargument{chromosome} specifies the conditions to be 
-applied when calculating genome-level HTUs HTUs (medians). \poyargument{locus\_breakpoint} 
-applies a breakpoint distance between chromosomes with the integer value determining the rearrangement cost. 
-\poyargument{locus\_indel} specifies the indel costs for chromosomal segments, where the integer 15 
-setting the gap opening cost and the float 2.5 sets the gap extension cost. The median solver \poyargument{caprara}
-will be employed in the determination of rearrangement costs.
-\item \texttt{transform(genome:(translocation:100,chrom\_indel:(10,0.9)))} \\ The argument \poyargument {translocation} 
-sets the breakpoint cost for the movement of LCBs from one chromosomal segment to another. The 
-argument \poyargument{chrom\_indel} specifies the indel costs for each entire chromosome, whereby the 
-integer sets the gap opening cost and the float sets the gap extension cost.  
-\item \texttt{build(100)} This commands begins the tree-building step of the search that generates by default 100 Wagner trees 
-(by random-addition sequence).  It is highly recommended that a greater number of Wagner builds be implemented when analyzing 
-data for purposes other than this demonstration.
-\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating 
-SPR and TBR branch swapping routine (the default of \poy).
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory.
-\item \texttt{set(root:"taxon5")} The \poycommand{set} command specifies the outgroup taxon (\texttt{taxon5}) 
-is designated as the \poyargument{root}, so that all the reported trees have the desired polarity.
-\item \texttt{report("genome\_diag.txt",diagnosis)}  The \poycommand{report} command, in combination with a file name and
- \poyargument{diagnosis}, outputs the optimal median states and edge values to a specified file (\texttt{genome\_diag.txt}). 
-\item \texttt{report("gen\_diag.pdf",graphdiagnosis,"gen\_cs.pdf",graphcon-\\sensus)}  The \poycommand{report} command, 
-in combination with a file name and \poyargument{graphdiagnosis}, outputs a pdf tree file with labeled medians that allow 
-users to link to the diagnosis file to reconstruct the median states at the internal tree nodes. A strict consensus
-of the trees generated (\texttt{gen\_cs.pdf}) is also reported. 
+\item \texttt{(*Genome Analysis: Multiple Chromosomes*)} This first
+line of the script is a comment. While comments are optional and
+do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read(genome:("gen7.fas"))} This command imports the
+genomic sequence file \texttt{gen7.fas}. The argument \poyargument{genome}
+specifies that the characters consist of multi-chromosomes.  
+\item \texttt{transform(tcm:(1,1),gap\_opening:1))} The file \texttt{gen7.fas}
+is transformed such that during the subsequent analysis of this
+data file, the cost of substitutions, indels and gap opening cost
+are all set to $1$.  
+\item \texttt{transform(chromosome:(annotate:(mauve,25.0,0.30,0.01,0.08)))} \\The
+argument \poyargument{annotate:(mauve)} specifies that the program
+will use the Mauve aligner \cite{darlingetal2004} to determine
+locally collinear homologous blocks (LCB) within the chromosomal
+sequences.  The float parameters that follow the \poyargument{mauve}
+option, are order dependent and set the parameters for determining
+the LCB homologies: quality, coverage, minimum and maximum LCB
+length relative to overall sequence length. In this case, the LCB
+quality parameter, which represents the cost of the LCB divided by
+its length,  is set to the relatively low value of 25 to facilitate the detection
+ of blocks within the sequences.  Higher LCB quality values will
+ result in more stringent LCB determination and most likely, fewer
+ local collinear blocks recovered.  The second parameter within the
+ argument \poyargument{annotate:(mauve)} sets the minimum LCB
+ sequence coverage at  30\% meaning that if total length of an input
+ sequence is, for example, 100, a minimum coverage of 0.30 would
+ require  the total length of all LCBs to be at least 30. The default
+ value of 0.01 or 1\% sets the minimum length of a given LCB  relative
+ to the length of the entire sequence (e.g. 100 for a 10,000
+ nucleotide sequence). The maximum length allowed for an LCB, in
+ this example 8\%, sets the maximum length of a given LCB relative
+ to the length of the total sequence.
+\item \texttt{transform(fixed\_states:("genomeout",ignore\_polymorphism))}\\
+The \poycommand{transform} command in combination with
+\poyargument{fixed\_states} is used to produce alignment files
+(\texttt{"genomeout"}) that can be read into Mauve to track the
+movement of LCBs between sequences. Here, Mauve genome alignment
+files will be generated with the names "genomeout\_i\_j.alignment''
+where i and j are median states. Sequence ambiguities will not be
+resolved to generate additional medians beyond those determined by
+the data (\texttt{ignore\_polymorphism}). These files can be used
+in conjunction with the \poyargument{diagnosis} output to determine
+inferred translocation and rearrangement events.  In the analysis
+of unannotated chromosomes, the data {\bf must} be transformed to
+\poyargument{fixed\_states} when using these Mauve aligners.  
+\item \texttt{transform(chromosome:(locus\_breakpoint:80,locus\_indel:\\
+(15,2.5),median\_solver:caprara))} The command \poycommand{transform} 
+followed by \poyargument{chromosome}
+specifies the conditions to be applied when calculating genome-level
+HTUs HTUs (medians). \poyargument{locus\_breakpoint} applies a
+breakpoint distance between chromosomes with the integer value
+determining the rearrangement cost.  \poyargument{locus\_indel}
+specifies the indel costs for chromosomal segments, where the integer
+15 setting the gap opening cost and the float 2.5 sets the gap
+extension cost. The median solver \poyargument{caprara} will be
+employed in the determination of rearrangement costs.  
+\item \texttt{transform(genome:(translocation:100,chrom\_indel:(10,0.9)))} \\
+The argument \poyargument {translocation} sets the breakpoint cost
+for the movement of LCBs from one chromosomal segment to another.
+The argument \poyargument{chrom\_indel} specifies the indel costs
+for each entire chromosome, whereby the integer sets the gap opening
+cost and the float sets the gap extension cost.  
+\item \texttt{build(100)} This commands begins the tree-building step of 
+the search that generates by default 100 Wagner trees (by random-addition 
+sequence). It is highly recommended that a greater number of Wagner builds be
+implemented when analyzing data for purposes other than this
+demonstration.  
+\item \texttt{swap()} The \poycommand{swap} command
+specifies that each of the trees be subjected to an alternating SPR
+and TBR branch swapping routine (the default of \poy).  
+\item \texttt{select()} Upon completion of branch swapping, this command
+retains only optimal and topologically unique trees; all other trees
+are discarded from memory.  
+\item \texttt{set(root:"taxon5")} The \poycommand{set} command 
+specifies the outgroup taxon (\texttt{taxon5}) is designated as the 
+\poyargument{root}, so that all the reported trees have the desired polarity.  
+\item \texttt{report("genome\_diag.txt",diagnosis)} The \poycommand{report}
+command, in combination with a file name and 
+ \poyargument{diagnosis}, outputs the optimal median states and
+ edge values to a specified file (\texttt{genome\_diag.txt}).
+\item \texttt{report("gen\_diag.pdf",graphdiagnosis,"gen\_cs.pdf",graphcon-\\sensus)}
+The \poycommand{report} command, in combination with a file name
+and \poyargument{graphdiagnosis}, outputs a pdf tree file with
+labeled medians that allow users to link to the diagnosis file to
+reconstruct the median states at the internal tree nodes. A strict
+consensus of the trees generated (\texttt{gen\_cs.pdf}) is also
+reported.  
 \item \texttt{exit()} This command ends the \poy session.
 \end{itemize}
 
@@ -871,13 +1183,14 @@ of the trees generated (\texttt{gen\_cs.pdf}) is also reported.
 %Custom Alphabet Analysis
 %--------------------------------------------------------
 
-\section{Custom Alphabet Analysis}{\label{tutorial12}}
+\section{Custom Alphabet Character Analysis}{\label{tutorial12}}
 
-This tutorial illustrates the analysis of the custom alphabet character type.  Custom Alphabet characters are 
-those that employ a user-specified alphabet. With this data type, only insertion-deletion and substitution events are allowed.
+This tutorial illustrates the analysis of the custom alphabet character type.  
+Custom Alphabet characters are those that employ a user-specified alphabet. 
+With this data type, only insertion-deletion and substitution events are allowed.
 
 \begin{verbatim}
-(*Custom Alphabet Analysis*)
+(*Custom Alphabet Character Analysis*)
 
 read(custom_alphabet:("ca1.fas",tcm:("m1.mat")))
 transform(level:3)
@@ -891,31 +1204,42 @@ quit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Custom Alphabet Analysis*)} This first line of the script is a comment. While comments 
-are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(custom\_alphabet:("ca1.fas",tcm:("m1.mat")))} \\ This command imports the 
-user-defined \poyargument {custom\_alphabet} character file \texttt{ca1.fas} and the accompanying 
-transformation matrix \texttt{m1.mat}. The user will note that tildes (``$\sim$'') precede some of the characters
-in the data file.  These tildes, which indicate negative orientation in a Break Inversion analysis, will be ignored by the 
-program in this analysis.
-\item \texttt{transform(level:3)} This command specifies the heuristic \poyargument {level} of the median sequence 
-calculation.
-\item \texttt{build(all,10)} This command builds ten trees and turns off all preference strategies for adding branches 
-and tries all possible addition positions for all terminals.
-\item \texttt{swap()} Submits current trees to a round of SPR followed by TBR, the default settings.
-\item \texttt{fuse(iterations:10,replace:best,keep:5,swap())} In this step, up to 10 swaps of subtrees identical in terminal 
-composition but different in topology, are performed between pairs of best trees recovered in the previous 
-step. The cost of the resulting trees is compared to that of the trees in memory and a subset of the trees containing up to 5 
-trees of best cost are retained in memory. These trees are subjected to swapping under the default settings of swap. 
-This procedure is repeated nine more times.
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and 
-topologically unique trees; all other trees are discarded from memory.
-\item \texttt{set(root:"One")} The \poycommand{set} command specifies the outgroup taxon (\texttt{ta36}) 
-is designated as the \poyargument{root}, so that all the reported trees have the desired polarity.
-\item \texttt{report("CA1\_trees.tre",trees:(total),"CA1\_cs.pdf", \\ graphconsensus)} This command reports a series of outputs
-of the results of the search.  It includes a file containing the most optimal trees in parenthetical notation (\texttt{CA1\_trees.tre}) 
-with the associated costs (\texttt{trees:(total)}).  In addition, a strict consensus tree (in PDF format) of all the most 
-optimal trees, will be reported \texttt{CA1\_cs.pdf}.
+\item \texttt{(*Custom Alphabet Character Analysis*)} This first
+line of the script is a comment. While comments are optional and
+do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read(custom\_alphabet:("ca1.fas",tcm:("m1.mat")))}\\ 
+This command imports the user-defined \poyargument {custom\_alphabet}
+character file \texttt{ca1.fas} and the accompanying transformation
+matrix \texttt{m1.mat}.  
+\item \texttt{transform(level:3)} This command specifies the 
+heuristic \poyargument {level} of the median sequence calculation.  
+\item \texttt{build(all,10)} This command builds ten trees and 
+turns off all preference strategies for adding branches and tries 
+all possible addition positions for all terminals.
+\item \texttt{swap()} Submits current trees to a round of SPR
+followed by TBR, the default settings.  
+\item \texttt{fuse(iterations:10,replace:best,keep:5,swap())} In this
+step, up to 10 swaps of subtrees identical in terminal composition
+but different in topology, are performed between pairs of best trees
+recovered in the previous step. The cost of the resulting trees is
+compared to that of the trees in memory and a subset of the trees
+containing up to 5 trees of best cost are retained in memory. These
+trees are subjected to swapping under the default settings of swap.
+This procedure is repeated nine more times. 
+\item \texttt{select()} Upon completion of branch swapping, this 
+command retains only optimal and topologically unique trees; 
+all other trees are discarded from memory.  
+\item \texttt{set(root:"One")} The \poycommand{set} command
+specifies the outgroup taxon (\texttt{ta36}) is designated as the
+\poyargument{root}, so that all the reported trees have the desired
+polarity.  
+\item \texttt{report("CA1\_trees.tre",trees:(total),"CA1\_cs.pdf", \\
+graphconsensus)} This command reports a series of outputs of the
+results of the search.  It includes a file containing the most
+optimal trees in parenthetical notation (\texttt{CA1\_trees.tre})
+with the associated costs (\texttt{trees:(total)}).  In addition,
+a strict consensus tree (in PDF format) of all the most optimal
+trees, will be reported \texttt{CA1\_cs.pdf}.  
 \item \texttt{quit()} This command ends the \poy session.
 \end{itemize}
 
@@ -923,17 +1247,18 @@ optimal trees, will be reported \texttt{CA1\_cs.pdf}.
 %Break inversion characters
 %--------------------------------------------------------
 
-\section{Break inversion characters}{\label{tutorial 13}}
+\section{Break Inversion Character Analysis}{\label{tutorial 13}}
 
-This tutorial illustrates the analysis of the break inversion character type.  Break inversion characters are an extension of 
-user-defined \poyargument {custom\_alphabet} characters, with insertion-deletion, substitutions {\bf and} rearrangement 
-events are considered among alphabet elements.
+This tutorial illustrates the analysis of the break inversion character type.  
+Break inversion characters are an extension of user-defined \poyargument 
+{custom\_alphabet} characters, with insertion-deletion, substitutions {\bf and} 
+rearrangement events being considered among alphabet elements.
 
 \begin{verbatim}
-(*Break Inversion Analysis*)
+(*Break Inversion Character Analysis*)
 
-read(breakinv:("ca1.fas",tcm:("m1.mat"),orientation:true))
-transform(breakinv:(locus_inversion:20,locus_indel;(10,1.5),
+read(breakinv:("ca2.fas",tcm:("m1.mat"),orientation:true))
+transform(breakinv:(locus_inversion:20,locus_indel:(10,1.5),
 median_solver:siepel,median:1,swap_med:1))
 build(20)
 swap()
@@ -944,32 +1269,51 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Breakinv character analysis *)} This first line of the script is a comment. While comments 
-are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(breakinv:("ca1.fas",tcm:("m1.mat"),orientation:true))} \\ This command imports the user-defined 
-\poyargument {breakinv} character file \texttt{ca1.fas} and the accompanying transformation cost matrix \texttt{m1.mat}.
-The argument \texttt{orientation} for these character types is set as \texttt{true}, such that the appearance of a tilde in the data file
-indicates negative orientation
-\item \texttt{transform(breakinv:(locus\_inversion:10,median\_solver:siepel,\\locus\_inversion:20,locus\_indel:(10,1.5),median:1,swap\_med:1))}  
-The \poycommand{transform} followed by the argument \poyargument{breakinv} 
-specifies the conditions to be applied when calculating medians. The argument \poyargument{median
-\_solver:siepel} specifies that the Siepel median from the GRAPPA software package \cite{baderetal2002} will be 
-employed.  The argument \poyargument{locus\_inversion} applies an inversion rearrangement cost of 20 for 
-\poyargument {breakinv} elements. The argument \poyargument{locus\_indel:10,1.5} specifies the indel costs for 
-each \poyargument {breakinv} element, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the 
-gap extension cost.  The default values are applied to the \poyargument{median} and \poyargument{swap\_med} 
-arguments to minimize the time require for these nested search options.   To more exhaustively perform these 
-calculations trees generated from initial builds can be imported to the program and reevaluated with values greater 
-than 1 designated for the \poyargument{median} and \poyargument{swap\_med} arguments.
-\item \texttt{build(20)} This commands begins the tree-building step of the search that generates 20 Wagner trees by
- random-addition sequence.  It is highly recommended that a greater number of Wagner builds be implemented when 
- analyzing data for purposes other than this demonstration.
-\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating 
-SPR and TBR branch swapping routine (the default of \poy).
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-unique trees; all other trees are discarded from memory. 
-\item \texttt{report("BInv\_diag.txt",diagnosis)}  The \poycommand{report} command in combination with a file name and 
-the \poyargument{diagnosis} outputs the optimal median states and edge values to the specified file (\texttt{BInv\_diag.txt}). 
+\item \texttt{(*Break Inversion Character Analysis *)} This first
+line of the script is a comment. While comments are optional and
+do not affect the analyses, they are useful for housekeeping purposes.
+\item \texttt{read(breakinv:("ca2.fas",tcm:("m1.mat"),orientation:true))}\\ 
+This command imports the user-defined \poyargument {breakinv}
+character file \texttt{ca2.fas} and the accompanying transformation
+cost matrix \texttt{m1.mat}.  The user will note that tildes precede
+some of the characters in the data file.  These tildes, which
+indicate negative orientation in a Break Inversion analysis. The
+argument \texttt{orientation} for these character types is set as
+\texttt{true}, such that the tilde (``$\sim$'') that precede some
+of the characters in the data file \texttt{ca2.fas} indicates
+negative orientation.  
+\item \texttt{transform(breakinv:(locus\_inversion:10,median\_solver:siepel,\\
+locus\_inversion:20,locus\_indel:(10,1.5),median:1,swap\_med:1))}
+The \poycommand{transform} followed by the argument \poyargument{breakinv}
+specifies the conditions to be applied when calculating medians.
+The argument \poyargument{median \_solver:siepel} specifies that
+the Siepel median from the GRAPPA software package \cite{baderetal2002}
+will be employed.  The argument \poyargument{locus\_inversion}
+applies an inversion rearrangement cost of 20 for \poyargument
+{breakinv} elements. The argument \poyargument{locus\_indel:10,1.5}
+specifies the indel costs for each \poyargument {breakinv} element,
+whereby the integer 10 sets the gap opening cost and the float 1.5
+sets the gap extension cost.  The default values are applied to the
+\poyargument{median} and \poyargument{swap\_med} arguments to
+minimize the time require for these nested search options.   To
+more exhaustively perform these calculations trees generated from
+initial builds can be imported to the program and reevaluated with
+values greater than 1 designated for the \poyargument{median} and
+\poyargument{swap\_med} arguments.  
+\item \texttt{build(20)} This commands begins the tree-building step
+of the search that generates 20 Wagner trees by  random-addition sequence.  
+It is highly recommended that a greater number of Wagner builds be 
+implemented when analyzing data for  purposes other than this demonstration.
+\item \texttt{swap()} The \poycommand{swap} command specifies that
+each of the trees be subjected to an alternating SPR and TBR branch
+swapping routine (the default of \poy).  
+\item \texttt{select()} Upon completion of branch swapping, this 
+command retains only optimal and topologically unique trees; 
+all other trees are discarded from memory.  
+\item \texttt{report("BInv\_diag.txt",diagnosis)}  The
+\poycommand{report} command in combination with a file name and the
+\poyargument{diagnosis} outputs the optimal median states and edge
+values to the specified file (\texttt{BInv\_diag.txt}).  
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
@@ -1037,10 +1381,13 @@ the \poyargument{diagnosis} outputs the optimal median states and edge values to
 
 \section{Maximum Likelihood Analysis: Static}{\label{tutorial14}}
 
-This tutorial illustrates the analysis of static characters under the maximum average likelihood (MAL) criterion.  
-This analysis is of similar intensity to that of a search using the \emph{GTR} model in \texttt{PhyML}.  
-Full maximum likelihood analyses, (i.e. analyses that include builds under likelihood, \textit{sensu} PAUP*) 
-can be computationally intensive, therefore parsimony alternatives to RAS under likelihood are provided. 
+This tutorial illustrates the analysis of static characters under the 
+maximum average likelihood (MAL) criterion. This analysis is 
+of similar intensity to that of a search using the \emph{GTR} 
+model in \texttt{PhyML}.  Full maximum likelihood analyses, 
+(i.e. analyses that include builds under likelihood, \textit{sensu} 
+PAUP*)  can be computationally intensive, therefore parsimony 
+alternatives to RAS under likelihood are provided. 
 
 \begin{verbatim}
 (*Static ML analysis: Initial parsimony search*)
@@ -1063,47 +1410,69 @@ quit()
 \end{verbatim}
 
 \begin{itemize}
+\item \texttt{(*Static ML analysis: Initial parsimony search*)}
+This \\ first line of the script is a comment. While comments are
+optional and do not affect the analyses, they are useful for
+housekeeping purposes.  
+\item \texttt{read(prealigned:("9.fas",tcm:(1,1)))}
+This command imports the nucleotide sequence data file \texttt{9.fas}
+as prealigned characters and specifies the transformation cost
+matrix to be used in calculating the cost of the tree for these
+data, such that the cost of substitutions and indels are $1$.  
+\item \texttt{search(max\_time:00:00:20)} \poycommand{search} is a default
+strategy that will perform as many builds, swaps,  perturbation
+using ratchet, and tree fusing for the defined time of $ 20 $
+minutes. [Note: 20 minutes was determined to be an adequate amount
+of time to before this search, however, in most cases a timed search
+of 20 minutes would not be enough time for an in-depth search.]
+\item \texttt{select()} This command retains only optimal and
+topologically unique trees; all other trees are discarded from
+memory.  
 
-\item \texttt{(*Static ML analysis: Initial parsimony search*)} This \\ first line of the 
-script is a comment. While comments are optional and do not affect the analyses, they are useful for 
-housekeeping purposes.
-\item \texttt{read(prealigned:("9.fas",tcm:(1,1)))} This command imports the nucleotide sequence data file \texttt{9.fas} 
-as prealigned characters and specifies the transformation cost matrix to be used in calculating the cost of the tree
-for these data, such that the cost of substitutions and indels are $1$.
-\item \texttt{search(max\_time:00:00:20)} \poycommand{search} is a default strategy that will perform as many builds, 
-swaps,  perturbation using ratchet, and tree fusing for the defined time of $ 20 $ minutes. [Note: 20 minutes was 
-determined to be an adequate amount of time to before this search, however, in most cases a timed search of 20 minutes 
-would not be enough time for an in-depth search.]
-\item \texttt{select()} This command retains only optimal and topologically unique trees; all other trees are discarded 
-from memory.  
-
-\item \texttt{(*Transform static to LK characters. Heuristics follow*)}
-\item \texttt{set(opt:coarse)} This command sets the floating point optimization strategy for subsequent swapping
-under likelihood. In this case, the tolerance of the routines is set to 1e-3 (half the log of a full, exhaustive search).
-\item \texttt{transform(likelihood:(gtr,rates:gamma:(4),priors:estimate,\\gap:missing,mal))} The command 
-\poycommand {transform}, followed by \poyargument {likelihood}, specifies the conditions to be applied when 
-transforming these static parsimony characters to static likelihood characters.  
-A \emph{GTR} + $\Gamma 4$ model (\poyargument{gtr,rates:gamma:(4)}), 
-with empirical equilibrium frequencies (\poyargument{priors:estimate}) under static \poyargument {mal} will be employed. 
-Within this transformation, indels are treated as missing (\poyargument{gap:missing}). 
-\item \texttt{swap(all:5,spr,optimize:(model:never,branch:never))} This command swaps using \poyargument{spr} 
-within a distance of 5 branches from the join point. Following each round of SPR, neither the model nor the branches 
-are optimized during the swap process (\poyargument{optimize:(model:never,\\ branch:never)}).   
-\item \texttt{fuse(optimize:(model:never,branch:join\_region))} This command performs tree fusing, specifying that 
-the likelihood model is never optimized after each round of fusing (\poyargument{optimize:(model:never)}), but that 
-a maximum of five branches are optimized each round of fusing (\poyargument{optimize:(branch:join\_region)}). 
-\item \texttt{select(best:1)} This command saves a single most optimal topology (with branch lengths) in 
-memory. All other trees are discarded from memory.
-\item \texttt{set(opt:exhaustive)} This command sets the floating point optimization strategy for subsequent swapping
-under likelihood. The tolerance level is set to the algorithm's default, i.e. 1e-6. 
-\item \texttt{report("9\_MAL.tre",trees:(branches),"9\_MAL\_lkm.txt",\\ lkmodel)} This command reports a series 
-of outputs from the analysis. It includes a file, in parenthetical notation, containing the most optimal topological tree 
-(\texttt{9\_MAL.tre}), along with the branch lengths \poyargument{trees:(branches)}), as well as a file 
-containing the parameter estimates generated by dynamic MPL (\texttt{9\_MAL\_lkm.txt}). These estimates include
-the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
-of the parameter estimates for the entries of the substitution rate matrix (\textbf{Q}), and the estimate of the value of 
-the rate variation shape parameter.
+\item \texttt{(*Transform static to LK characters. Heuristics
+follow*)} 
+\item \texttt{set(opt:coarse)} This command sets the
+floating point optimization strategy for subsequent swapping under
+likelihood. In this case, the tolerance of the routines is set to
+1e-3 (half the log of a full, exhaustive search).  
+\item \texttt{transform(likelihood:(gtr,rates:gamma:(4),priors:estimate,\\gap:missing,mal))}
+The command \poycommand {transform}, followed by \poyargument
+{likelihood}, specifies the conditions to be applied when transforming
+these static parsimony characters to static likelihood characters.
+A \emph{GTR} + $\Gamma 4$ model (\poyargument{gtr,rates:gamma:(4)}),
+with empirical equilibrium frequencies (\poyargument{priors:estimate})
+under static \poyargument {mal} will be employed.  Within this
+transformation, indels are treated as missing (\poyargument{gap:missing}).
+\item \texttt{swap(all:5,spr,optimize:(model:never,branch:never))}
+This command swaps using \poyargument{spr} within a distance of 5
+branches from the join point. Following each round of SPR, neither
+the model nor the branches are optimized during the swap process
+(\poyargument{optimize:(model:never,\\ branch:never)}).  
+\item \texttt{fuse(optimize:(model:never,branch:join\_region))} This
+command performs tree fusing, specifying that the likelihood model
+is never optimized after each round of fusing
+(\poyargument{optimize:(model:never)}), but that a maximum of five
+branches are optimized each round of fusing
+(\poyargument{optimize:(branch:join\_region)}).  
+\item \texttt{select(best:1)} This command saves a single most optimal
+topology (with branch lengths) in memory. All other trees are
+discarded from memory.  
+\item \texttt{set(opt:exhaustive)} This command sets the floating 
+point optimization strategy for subsequent swapping under likelihood. 
+The tolerance level is set to the algorithm's default, i.e. 1e-6.  
+\item \texttt{report("9\_MAL.tre",trees:(branches),"9\_MAL\_lkm.txt",\\
+lkmodel)} This command reports a series of outputs from the analysis.
+It includes a file, in parenthetical notation, containing the most
+optimal topological tree (\texttt{9\_MAL.tre}), along with the
+branch lengths \poyargument{trees:(branches)}), as well as a file
+containing the parameter estimates generated by dynamic MPL
+(\texttt{9\_MAL\_lkm.txt}). These estimates include the likelihood
+score, the variant of likelihood used, the tree length (sum of
+branch lengths), the values of the parameter estimates for the
+entries of the substitution rate matrix (\textbf{Q}), and the
+estimate of the value of the rate variation shape parameter.  
 \item \texttt{exit()} This command ends the \poy session.
+
 \end{itemize}
 
 %--------------------------------------------------------
@@ -1111,13 +1480,17 @@ the rate variation shape parameter.
 %--------------------------------------------------------
 
 \section{Maximum Likelihood Analysis: Dynamic}{\label{tutorial15}}
-This tutorial illustrates the analysis of dynamic characters under the most parsimonious likelihood 
-(MPL) criterion. The frequentist model-based simultaneous alignment and topology search is a 
-largely unexplored area, and the heuristics are not fully developed. Therefore, it is likely that all but 
-very simple dynamic MPL analyses will be possible on basic computers, and that significant 
-parallelization will need to be implemented to make larger datasets amenable to analysis under this 
-criterion. For comparative purposes, the user is encouraged to run an alternative analysis, 
-transforming the data using \poyargument{elikelihood}.
+This tutorial illustrates the analysis of dynamic characters under
+the most parsimonious likelihood (MPL) criterion. The frequentist
+model-based simultaneous alignment and topology search is a largely
+unexplored area, and the heuristics are not fully developed.
+Therefore, it is likely that all but very simple dynamic MPL analyses
+will be possible on basic computers, and that significant parallelization
+will need to be implemented to make larger datasets amenable to
+analysis under this criterion. For comparative purposes, the user
+is encouraged to run alternative analyses, transforming the data
+using \poyargument{elikelihood} and to explore the effect of different
+models on the results of the analysis.
 
 \begin{verbatim}
 (*Maximum likelihood analysis: Dynamic*)
@@ -1142,50 +1515,71 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Maximum likelihood analysis:Dynamic*)} This first line of the script is a comment. 
-While comments are optional and do not affect the analyses, they are useful for separating different 
+\item \texttt{(*Maximum likelihood analysis:Dynamic*)} This first
+line of the script is a comment.  While comments are optional and
+do not affect the analyses, they are useful for separating different
 components of an analysis, especially if the script is long.  
-\item \texttt{read("9.fas")} This command imports the nucleotide sequence data file \texttt{9.fas}.
-[Note: unlike the previous tutorial, the characters are not imported as prealigned.]
-\item \texttt{search(max\_time:00:00:20)} \poycommand{search} is a default search strategy that 
-will perform as many builds, swaps, perturbation using ratchet, and tree fusing for the defined time 
-of $ 20 $ minutes.  [Note: 20 minutes was determined to be an adequate amount of time to before 
-this search, however, in most cases a timed search of 20 minutes would not be enough time for an 
-in-depth search.]
-\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and 
-topologically unique trees; all other trees are discarded from memory.
+\item \texttt{read("9.fas")} This command imports the nucleotide sequence
+data file \texttt{9.fas}.  [Note: unlike the previous tutorial, the
+characters are not imported as prealigned.] 
+\item \texttt{search(max\_time:00:00:20)} \poycommand{search} is a default
+search strategy that will perform as many builds, swaps, perturbation
+using ratchet, and tree fusing for the defined time of $ 20 $
+minutes.  [Note: 20 minutes was determined to be an adequate amount
+of time to before this search, however, in most cases a timed search
+of 20 minutes would not be enough time for an in-depth search.]
+\item \texttt{select()} Upon completion of branch swapping, this
+command retains only optimal and topologically unique trees; all
+other trees are discarded from memory.
 
-\item \texttt{(*Transform parsimony DO characters to dyn MPL characters*)}
-\item \texttt{set(opt:coarse)} Sets coarse granularity for floating point optimization. In this case, the 
-tolerance of the routines is set to 1e-3 (half the log of a full, exhaustive search).
-\item \texttt{transform(likelihood:(gtr,rates:gamma:(4),priors:estimate,\\gap:coupled,mpl))} The command 
-\poycommand {transform}, followed by \poyargument {likelihood}, specifies the conditions to be 
-applied when transforming these dynamic parsimony characters to dynamic likelihood characters.  
-A \poyargument{gtr} model, with empirical equilibrium frequencies (\poyargument {priors:estimate}) 
-under dynamic \poyargument {mpl} will be employed. Within this transformation, atomic indels are 
-a character state, with rates of nucleotide-to-indel substitution constrained to be equal to one another 
-(\poyargument{gap:coupled}). [Note: Under dynamic MPL rate variation distribution is not enabled.]
-\item \texttt{swap(spr,all:5)} This command swaps the tree using \poyargument{spr}, specifying that joins occur
-within 5 branches from the break point. Iteration of likelihood model parameters occurs after every join.
-\item \texttt{select(best:1)} Upon completion of branch swapping, this command saves 1 of the most optimal 
-(\poyargument{best}) topological trees in memory. All other trees are discarded from memory.
-\item \texttt{set(opt:exhaustive)} Sets machine precision granularity for floating point optimization. 
-Optimization is run over multiple iterations until convergence.
-\item \texttt{report("9\_dMPL.tre",trees:(branches),"9\_dMPL\_lkm.txt",\\lkmodel,"9\_dMPL.ia",ia)} 
-This command reports a series of outputs of the results of the search.
-It includes a file containing the most optimal topological tree (\texttt{9\_dMPL.tre}), 
-along with the branch lengths (\texttt{trees:(branches)}), as well as a file containing the parameter 
-estimates generated (\texttt{9\_dMPL\_lkm.txt}).  In addition, a file containing the
-implied alignment generated by dynamic MPL (9 dMPL.ia) is also generated.
-\item \texttt{transform(static\_approx)} This command transforms all the dynamic characters into static characters.
-\item \texttt{report("9\_sMPL.tre",trees:(branches),"9\_sMPL\_lkm.txt",\\lkmodel)} This command 
-reports a series of outputs of the results of the search.  It includes a file containing the most optimal 
-topological tree (\texttt{9\_sMPL.tre}), along with the branch lengths (\texttt{trees:(branches)}), 
-as well as a file containing the parameter estimates generated (\texttt{9\_sMPL\_lkm.txt}). These estimates include
-the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
-of the parameter estimates for the entries of the substitution rate matrix (\textbf{Q}), and the estimate of the value of 
-the rate variation shape parameter.
+\item \texttt{(*Transform parsimony DO characters to dyn MPL
+characters*)} 
+\item \texttt{set(opt:coarse)} Sets coarse granularity
+for floating point optimization. In this case, the tolerance of the
+routines is set to 1e-3 (half the log of a full, exhaustive search).
+\item \texttt{transform(likelihood:(gtr,rates:gamma:(4),priors:estimate,\\gap:coupled,mpl))}
+The command \poycommand {transform}, followed by \poyargument
+{likelihood}, specifies the conditions to be applied when transforming
+these dynamic parsimony characters to dynamic likelihood characters.
+A \poyargument{gtr} model, with empirical equilibrium frequencies
+(\poyargument {priors:estimate}) under dynamic \poyargument {mpl}
+will be employed. Within this transformation, atomic indels are a
+character state, with rates of nucleotide-to-indel substitution
+constrained to be equal to one another (\poyargument{gap:coupled}).
+[Note: Under dynamic MPL rate variation distribution is not enabled.]
+\item \texttt{swap(spr,all:5)} This command swaps the tree using
+\poyargument{spr}, specifying that joins occur within 5 branches
+from the break point. Iteration of likelihood model parameters
+occurs after every join.  
+\item \texttt{select(best:1)} Upon completion of branch swapping, 
+this command saves 1 of the most optimal (\poyargument{best}) 
+topological trees in memory. All other trees are discarded from memory.  
+\item \texttt{set(opt:exhaustive)} Sets machine precision granularity 
+for floating point optimization. Optimization is run over multiple 
+iterations until convergence.
+\item \texttt{report("9\_dMPL.tre",trees:(branches),"9\_dMPL\_lkm.txt",\\lkmodel,"9\_dMPL.ia",ia)}
+This command reports a series of outputs of the results of the
+search.  It includes a file containing the most optimal topological
+tree (\texttt{9\_dMPL.tre}), along with the branch lengths
+(\texttt{trees:(branches)}), as well as a file containing the
+parameter estimates generated (\texttt{9\_dMPL\_lkm.txt}).  In
+addition, a file containing the implied alignment generated by
+dynamic MPL (9 dMPL.ia) is also generated.  
+\item \texttt{transform(static\_approx)} This command transforms all the
+dynamic characters into static characters.  
+\item \texttt{report("9\_sMPL.tre",trees:(branches),"9\_sMPL\_lkm.txt",\\lkmodel)}
+This command reports a series of outputs of the results of the
+search.  It includes a file containing the most optimal topological
+tree (\texttt{9\_sMPL.tre}), along with the branch lengths
+(\texttt{trees:(branches)}), as well as a file containing the
+parameter estimates generated (\texttt{9\_sMPL\_lkm.txt}). These
+estimates include the likelihood score, the variant of likelihood
+used, the tree length (sum of branch lengths), the values of the
+parameter estimates for the entries of the substitution rate matrix
+(\textbf{Q}), and the estimate of the value of the rate variation
+shape parameter.  
 \item \texttt{exit()}  This commands ends the \poy session.
+
 \end{itemize}
 
 %--------------------------------------------------------------------------
@@ -1213,14 +1607,18 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*ML Analysis: Partitions and Model Selection*)} This first line of the script is a comment. 
-While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read(prealigned:("coleoptera\_nd2.fasta",tcm:(1,1)))} This command imports the nucleotide sequence 
-data file \texttt{coleoptera\_nd2.fasta} as prealigned characters.  The \texttt{tcm} sets the transformation cost matrix 
-to be used in calculating the cost of the tree for these data (the cost of substitutions and indels are $1$). 
-\item \texttt{set(codon\_partition:("codon",names:("coleoptera\_nd2.fasta")))} Specifies that the data be 
-partitioned as ``codon'' data, in which a partition is defined to include every third nucleotide position. 
-This command is equivalent to the NEXUS partitioning commands
+\item \texttt{(*ML Analysis: Partitions and Model Selection*)} This first line 
+of the script is a comment. While comments are optional and do not affect the 
+analyses, they are useful for housekeeping purposes. 
+\item \texttt{read(prealigned:("coleoptera\_nd2.fasta",tcm:(1,1)))} This command 
+imports the nucleotide sequence data file \texttt{coleoptera\_nd2.fasta} as 
+prealigned characters.  The \texttt{tcm} sets the transformation cost matrix 
+to be used in calculating the cost of the tree for these data (the cost of substitutions 
+and indels are $1$). 
+\item \texttt{set(codon\_partition:("codon",names:("coleoptera\_nd2.fasta")))} 
+Specifies that the data be partitioned as ``codon'' data, in which a partition is 
+defined to include every third nucleotide position. This command is equivalent 
+to the NEXUS partitioning commands
 \\
 \\
 Begin SETS;\\
@@ -1229,41 +1627,56 @@ pos2 = 2 - $N$ /3;\\
 pos3 = 3 - $N$ /3;\\
 END;\\
 \\
-where $N$ is the aligned length of the static data. The data must begin at the first codon position and must be a multiple
-of three.
+where $N$ is the aligned length of the static data. The data must begin at the 
+first codon position and must be a multiple of three.
 
-% JD -- The default summation method for POY partition contributions to the overall likelihood score is a simple summation 
-%       over partitions. But there can be problems with this. See TREEFINDER manual for citations and discussion. 
+% JD -- The default summation method for POY partition contributions to the
+%  overall likelihood score is a simple summation over partitions. But there 
+% can be problems with this. See TREEFINDER manual for citations and discussion. 
 % JD -- In the future, partitioning parameter optimization file used?
-% JD -- Also, make possible ML-optimized, rather than empirical, equilibrium frequencies. This might get around the 
-%       problem of convergence in nucleotide composition. 
+% JD -- Also, make possible ML-optimized, rather than empirical, 
+% equilibrium frequencies. This might get around the problem of 
+% convergence in nucleotide composition. 
 
-\item \texttt{build(100)} This command begins the tree-building step of the search by random-addition trees. 100 trees 
-are built.
-\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an 
-alternating SPR and TBR branch swapping routine (the default of \poy).
-\item \texttt{select(best:1)} Upon completion of branch swapping, this command selects 1 of 
-the most optimal (\poyargument{best}) topological trees in memory. All other trees are discarded 
-from memory.
-\item \texttt{transform(likelihood:(aicc:"coleoptera\_cp",rates:gamma:(4)))} The command 
-\poycommand{transform}, followed by \poyargument {likelihood}, specifies the conditions to be applied 
-when transforming these static parsimony characters to static likelihood characters. This command runs model 
-selection, including both the named-rate-matrix-only (RMO) models and RMO + $\Gamma$ 4 models, 
-and using the corrected AIC (\poyargument{aicc}) as the model selection criterion. The results with all model fits are 
-output to the file \texttt{coleoptera\_cp}, and the best-fit models for each codon position are automatically 
-stored in memory for subsequent analysis.
-\item \texttt{swap(spr,all:5,optimize:(model:(threshold:1.33),branch: \\ join\_delta))} This command swaps the tree using 
-spr, with joins occurring within five branches of the break site. The model parameters are
-optimized if the cost of the join under the current model is within 1.33 times the current best cost (proportion 0.33 worse). 
-Only the branches along the path from the break to the new join location are optimized (\poyargument{branch:join\_delta}). 
-\item \texttt{report("codon\_LK.tre",trees:(branches),"codon\_LK\_lkm.txt",\\ lkmodel)} This command reports a 
-series of outputs of the results of the search.  A file containing a tree, in parenthetical notation, containing the most 
-optimal topological tree (\texttt{codon\_LK.tre}), along with the branch lengths \texttt{trees:(branches)} is reported.
-In addition, a file containing the parameter estimates of the likelihood analysis, i.e. likelihood score, the variant of 
-likelihood used, the tree length (sum of branch lengths), the values 
-of the parameter estimates for the entries of the substitution rate matrix (\textbf{Q}), and the estimate of the value of 
-the rate variation shape parameter, is also reported (\texttt{codon\_LK\_lkm.txt}).
+\item \texttt{build(100)} This command begins the tree-building
+step of the search by random-addition trees. 100 trees are built.
+\item \texttt{swap()} The \poycommand{swap} command specifies that
+each of the trees be subjected to an alternating SPR and TBR branch
+swapping routine (the default of \poy).  
+\item \texttt{select(best:1)}
+Upon completion of branch swapping, this command selects 1 of the
+most optimal (\poyargument{best}) topological trees in memory. All
+other trees are discarded from memory.  
+\item \texttt{transform(likelihood:(aicc:"coleoptera\_cp",rates:gamma:(4)))} The
+command \poycommand{transform}, followed by \poyargument {likelihood},
+specifies the conditions to be applied when transforming these
+static parsimony characters to static likelihood characters. This
+command runs model selection, including both the named-rate-matrix-only
+(RMO) models and RMO + $\Gamma$ 4 models, and using the corrected
+AIC (\poyargument{aicc}) as the model selection criterion. The
+results with all model fits are output to the file \texttt{coleoptera\_cp},
+and the best-fit models for each codon position are automatically
+stored in memory for subsequent analysis.  
+\item \texttt{swap(spr,all:5,optimize:(model:(threshold:1.33),branch: \\
+join\_delta))} This command swaps the tree using \poyargument{spr},
+with joins occurring within five branches of the break site. The
+model parameters are optimized if the cost of the join under the
+current model is within 1.33 times the current best cost (proportion
+0.33 worse).  Only the branches along the path from the break to
+the new join location are optimized (\poyargument{branch:join\_delta}).
+\item \texttt{report("codon\_LK.tre",trees:(branches),"codon\_LK\_lkm.txt",\\
+lkmodel)} This command reports a series of outputs of the results
+of the search.  A file containing a tree, in parenthetical notation,
+containing the most optimal topological tree (\texttt{codon\_LK.tre}),
+along with the branch lengths \texttt{trees:(branches)} is reported.
+In addition, a file containing the parameter estimates of the
+likelihood analysis, i.e. likelihood score, the variant of likelihood
+used, the tree length (sum of branch lengths), the values of the
+parameter estimates for the entries of the substitution rate matrix
+(\textbf{Q}), and the estimate of the value of the rate variation
+shape parameter, is also reported (\texttt{codon\_LK\_lkm.txt}).
 \item \texttt{exit()} This commands ends the \poy session.
+
 \end{itemize}
 
 %--------------------------------------------------------
@@ -1292,30 +1705,44 @@ exit()
 \end{verbatim}
 
 \begin{itemize}
-\item \texttt{(*Maximum Likelihood Analysis: Morphology*)} This first line of the script is a comment. 
-While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-\item \texttt{read("morpho.ss")} This command imports the Hennig86 morphological data file \texttt{morpho.ss}. 
-\item \texttt{transform(likelihood:(ncm))} The \poycommand{transform} command followed by 
-\poyargument {likelihood}, specifies the conditions to be applied when transforming these morphological characters 
-to likelihood characters. A \poyargument{ncm} model, which is an extension of the Neyman model, will be employed.
-With this model, each character is free to evolve at its own rate on every edge of the tree. Because these characters 
-evolve at their own rate, gamma options are ignored.
-\item \texttt{search()} The \poycommand{search} command followed by empty parentheses will perform a timed 
-search under the default parameters, i.e. for at most one hour using at most 2 GB of memory.
-\item \texttt{report("Morpho\_ncm.tre",trees:(total))} This command reports a tree file, in parenthetical
-notation,  containing the most optimal topological tree (\texttt{Morpho\_ncm.tre}) under the \poyargument{ncm} model,
- with the associated costs in square brackets (\poyargument {trees:(total)}).  
-\item \texttt{transform(range:("morpho.ss",0,99),(likelihood:(jc69,alpha-\\bet:min)))} The \poycommand{transform}
-command followed by the \poyargument{likelihood} argument transforms the first 100 characters of the morphological 
-data file \texttt{morpho.ss} to a Jukes-Cantor model (\poyargument{jc69}) with the alphabet size being the observed
-number of states in the dataset.
-\item \texttt{transform(range:("morpho.ss",100,173),(likelihood:(jc69,\\alphabet:5)))} The \poycommand{transform}
-command followed by the \poyargument{likelihood} argument transforms the next 74 characters of the morphological 
-data file \texttt{morpho.ss} to a Jukes-Cantor model (\poyargument{jc69}) with the alphabet size being $5$, which could 
-include unobserved states in the dataset.
-\item \texttt{report("Morpho\_jc69.tre",trees:(total,branches))} This command reports a tree file, in parenthetical
-notation, containing the most optimal topological tree (\texttt{Morpho\_jc69.tre}) under the \poyargument{jc69} model,
-along with the branch lengths \texttt{trees:(branches)}.  
+\item \texttt{(*Maximum Likelihood Analysis: Morphology*)} This
+first line of the script is a comment.  While comments are optional
+and do not affect the analyses, they are useful for housekeeping
+purposes.  
+\item \texttt{read("morpho.ss")} This command imports
+the Hennig86 morphological data file \texttt{morpho.ss}.  
+\item \texttt{transform(likelihood:(ncm))} The \poycommand{transform}
+command followed by \poyargument {likelihood}, specifies the
+conditions to be applied when transforming these morphological
+characters to likelihood characters. A \poyargument{ncm} model,
+which is an extension of the Neyman model, will be employed.  With
+this model, each character is free to evolve at its own rate on
+every edge of the tree. Because these characters evolve at their
+own rate, gamma options are ignored.  
+\item \texttt{search()} The \poycommand{search} command followed 
+by empty parentheses will perform a timed search under the default 
+parameters, i.e. for at most one hour using at most 2 GB of memory.  
+\item \texttt{report("Morpho\_ncm.tre",trees:(total))} This command reports
+a tree file, in parenthetical notation,  containing the most optimal
+topological tree (\texttt{Morpho\_ncm.tre}) under the \poyargument{ncm}
+model, with the associated costs in square brackets (\poyargument {trees:(total)}).
+\item \texttt{transform(range:("morpho.ss",0,99),(likelihood:(jc69,alpha-\\bet:min)))}
+The \poycommand{transform} command followed by the \poyargument{likelihood}
+argument transforms the first 100 characters of the morphological
+data file \texttt{morpho.ss} to a Jukes-Cantor model (\poyargument{jc69})
+with the alphabet size being the observed number of states in the
+dataset. 
+\item \texttt{transform(range:("morpho.ss",100,173),(likelihood:(jc69,\\alphabet:5)))}
+The \poycommand{transform} command followed by the \poyargument{likelihood}
+argument transforms the next 74 characters of the morphological
+data file \texttt{morpho.ss} to a Jukes-Cantor model (\poyargument{jc69})
+with the alphabet size being $5$, which could include unobserved
+states in the dataset.  
+\item \texttt{report("Morpho\_jc69.tre",trees:(total,branches))} This
+command reports a tree file, in parenthetical notation, containing
+the most optimal topological tree (\texttt{Morpho\_jc69.tre}) under
+the \poyargument{jc69} model, along with the branch lengths
+\texttt{trees:(branches)}. 
 \item \texttt{exit()} This command ends the \poy session.
 \end{itemize}
 
@@ -1323,587 +1750,78 @@ along with the branch lengths \texttt{trees:(branches)}.
 %Maximum Likelihood Analysis: Combined Analysis
 %----------------------------------------------------------------
 
-%\section{Maximum Likelihood Analysis: Combined}{\label{tutorial 18}}
-%This tutorial illustrates the analysis of both morphological data under the maximum likelihood 
-%criterion. In this analysis, qualitative characters are transformed to likelihood using different
-%models.  In addition, different alphabet sizes are applied to different ranges of characters 
-%within the same dataset.
-%
-% (*TUTORIAL 13b: MAXIMUM LIKELIHOOD ANALYSIS; COMBINED ANALYSIS 
-%  OF MORPHOLOGICAL AND MOLECULAR DATA*)
-%
-% THIS TUTORIAL IS NOT INCLUDED IN THE INITIAL RELEASE DUE TO CERTAIN PROBLEMS WITH CALCULATING THE CORRECTION
-% TERM IN THE LEWIS MORPHOLOGY MODEL. THE TUTORIAL WILL BE INCLUDED IN A FUTURE RELEASE. 
-%
-%(*Read in morphology data and specify partition*)
-%
-%read("31.ss")
-%set(partition:("morph", names:("31.ss")))
-%
-%(*Read in prealigned molecular data; specify partition and 
-%  conduct RAS and swapping under parsimony*)
-%
-%read(prealigned:("1_ia.fas",tcm:(1,1)))
-%set(partition:("molec", names:("1_ia.fas")))
-%build(50)
-%search(max_time:00:01:00)
-%
-%(*Transform sets to likelihood and complete analysis*)
-%
-%transform(sets:("morph"), (likelihood:(jc69, alphabet:(min)))) 
-%transform(sets:("molec"), (likelihood:(gtr, rates:gamma:(4),
-%priors:(estimate), gap:missing, mal)))
-%swap(tbr, bfs:2, all:2, optimize:(model:(threshold:1.6),branch:
-%join_region))
-%swap(spr,all:1)
-%report("combined_LK.tre",trees:(branches))
-%report("combined_LK_lkm.txt",lkmodel)
-%exit()
-%\end{verbatim}
-%
-%\begin{itemize}
-%\item \texttt{(*Read in the morphology data and specify partition*)} This first line of the script is a comment. While 
-%comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-%\item \texttt{read(\hl{"31.ss"})} This command imports the morphological data file \texttt{31.ss} in Hennig86 format. 
-%\item \texttt{set(partition:("morph",names:("31.ss")))} This command defines a character partition called ``morph'' for 
-%all characters in the morphological dataset.
-%\item \texttt{(*Read in prealigned molecular data; specify partition and conduct RAS and swapping under parsimony*)}
-%This is a comment indicating the intent of the commands which follow.
-%\item \texttt{read(prealigned:("1\_ia.fas",tcm:(1,0)))} This command reads in the molecular dataset \texttt{1\_ia.fas} as 
-%prealigned data.
-%\item \texttt{set(partition:("molec",names:("1\_ia.fas")))} This command defines a character partition called ``molec'' 
-%for all characters in the molecular dataset.
-%item \texttt{build(50)} Builds 50 RAS Wagner trees.
-%item \texttt{search(max\_time:00:01:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
-%and tree fusings as possible within the specified time of one hour. All trees with the optimal score found are stored 
-%in memory. Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
-%therefore the time chosen here should not be taken as optimal for all data sets.
-%\item \texttt{transform(sets:("morph"),(likelihood:(jc69))))} %This command produces a NOT FOUND error.
-%his command specifies a partition-specific JC69 model with minimal Neyman alphabet size be applied to the 
-%partition ``morph.''
-%\item \texttt{transform(sets:("molec"),(likelihood:(gtr,rates:(gamma:(4)),\\priors:(estimate), gap:(missing),mal)))} 
-%This command specifies a partition-specific GTR + $\Gamma 4$ model, with empirical equilibrium frequencies 
-%under standard MAL be applied to the partition ``molec.'' 
-%\item \texttt{swap(tbr,bfs:10,all:10,optimize:(model:(threshold:1.6),\\branch:join\_region))}
-%This command swaps all trees in memory using tree bisection and reconnection, specifying a breadth-first search with join
-%points up to 10 branches from the break site. The model parameters are optimized if the cost of the join under the 
-%current model is within 1.6 times the current best cost (proportion 0.6 worse). Only the branches along the path from the 
-%break to the new join location are optimized.  
-%\item \texttt{swap(spr,all:5))} This command swaps the tree using subtree pruning and regrafting, using a depth-first
-%search with joins up to five branches from the break site, and optimizing the model and branches after every join. 
-%\item \texttt{report("combined\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("combined\_LK_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
-%the rate variation shape parameter.
-%\item \texttt{exit()} This commands ends the \poy session.
-%\end{itemize}
+\section{ML Analysis: Morphology and Molecular}{\label{tutorial 18}}
 
-%The following tutorials are JDs.  Heuristic tutorials were thought too long to include.
+This tutorial illustrates the analysis of both morphological and molecular 
+data under the maximum likelihood criterion. Within this analysis an 
+\texttt{ncm} model is applied to 'static' data, while a \texttt{tn93} is 
+applied to unaligned data. 
 
+\begin{verbatim}
+ (*Maximum Likelihood Analysis: Combined Data*) 
 
-%John Denton's old tutorial, edited by Nick, as it was thought that this tutorial was too involved
-%and potentially confusing for the new user.
- %This tutorial illustrates the analysis of dynamic characters under the most parsimonious likelihood 
-%(MPL) criterion. The frequentist model-based simultaneous alignment and topology search is a largely unexplored 
-%area, and the heuristics are not fully developed. Therefore, it is likely that all but very simple dynamic MPL analyses will 
-%be possible on basic computers, and that significant parallelization will need to be implemented to make larger 
-%datasets amenable to analysis under this criterion.
-%
-%\begin{verbatim}
-%
-%(*Maximum likelihood analysis: Dynamic*)
-%read("9.fas")
-%search(max_time:00:01:00)
-%select()
-%
-%(*Transform parsimony DO characters to dyn MPL characters*)
-%set(opt:coarse)
-%transform(likelihood:(gtr,priors:estimate,gap:coupled,mpl))
-%swap(spr,all:5)
-%select(best:1)
-%set(opt:exhaustive)
-%report("9_dMPL.ia",ia,"9_dMPL.tre",trees:(branches),
-%"9_dMPL_lkm.txt",lkmodel)
-%wipe()
-%
-%(*Reload dyn MPL `ia'/tree pair, re-diagnose as static MAL*)
-%read(prealigned:("9_dMPL.ia",tcm:(1,1)), "9_dMPL.tre")
-%transform(likelihood:(gtr,rates:gamma:(4),priors:estimate,mal))
-%report("9_dyn-stat_lkm.txt", lkmodel)
-%wipe()
-%
-%(*Reload `ia' as a heuristic MSA, parsimony search follows*)
-%read(prealigned:("9_dMPL.ia", tcm:(1,1)))
-%build(20)
-%swap()
-%select()
-%perturb(transform(static_approx),iterations:50,ratchet:(0.2,3))
-%select()
-%
-%(*Transform to static MPL characters and swap*)
-%set(opt:coarse)
-%transform(likelihood:(gtr,priors:estimate,gap:coupled,mpl))
-%swap(all,spr,optimize:(model:always,branch:join_delta))
-%report("9_final_diag_lkm.txt",lkmodel,"9_final_diag.tre",
-%trees:(branches))
-%exit()
-%\end{verbatim}
+read("morpho.ss")
+read(prealigned:("28s.aln"),tcm:(1,1))
+transform(likelihood:(ncm))
+read("18s.fas")
+transform((names:("18s.fas"),(likelihood:(tn93,rates:none,
+priors:estimate,gap:coupled,mpl))))
+search(max_time:00:01:00)
+swap(all,optimize:(model:never,branch:join_region))
+report("All_LK.tre",trees:(branches),"All_lkm.txt",lkmodel)
+exit()
+\end{verbatim}
 
-%\begin{itemize}
-%\item \texttt{(*Maximum likelihood analysis:Dynamic*)} This first line of the script is a comment. 
-%While comments are optional and do not affect the analyses, they are useful for separating different 
-%components of an analysis, especially if the script is long.  
-%\item \texttt{read("9.fas")} This command imports the nucleotide sequence data file \texttt{9.fas}.
-%[Note: unlike the previous tutorial, the characters are not imported as prealigned.]
-%\item \texttt{search(max\_time:00:01:00)} \poycommand{search} is a default search strategy that 
-%will perform as many builds, swaps, perturbation using ratchet, and tree fusing for the defined time 
-%of 1 hour.
-%\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and 
-%topologically  unique trees; all other trees are discarded from memory.
-%
-%\item \texttt{(*Transform parsimony DO characters to dyn MPL characters*)}
-%\item \texttt{set(opt:coarse)} Sets coarse granularity for floating point optimization. In this case, the 
-%tolerance of the routines is set to 1e-3 (half the log of a full, exhaustive search).
-%\item \texttt{transform(likelihood:(gtr,priors:estimate,gap:coupled,mpl))} The command 
-%\poycommand {transform}, followed by \poyargument {likelihood}, specifies the conditions to be 
-%applied when transforming these dynamic parsimony characters to static likelihood characters.  
-%A \poyargument{gtr} model, with empirical equilibrium frequencies (\poyargument {priors:estimate}) 
-%under dynamic \poyargument {mpl} will be employed. Within this transformation, atomic indels are 
-%a character state, with rates of nucleotide-to-indel substitution constrained to be equal to one another 
-%(\poyargument{gap:coupled}). Note: Under dynamic MPL rate variation distribution is not enabled.
-%\item \texttt{swap(spr,all:5)} This command swaps the tree using \poyargument{spr}, specifying that joins occur
-%within 5 branches from the break point. Iteration of likelihood model parameters occurs after every join.
-%\item \texttt{select(best:1)} Upon completion of branch swapping, this command saves 1 of the most optimal 
-%(\poyargument{best}) topological trees in memory. All other trees are discarded from memory.
-%\item \texttt{set(opt:exhaustive)} Sets machine precision granularity for floating point optimization. 
-%Optimization is run over multiple iterations until convergence.
-%\item \texttt{report("9\_dMPL.ia",ia,"9\_dMPL.tre",trees:(branches),\\ "9\_dMPL\_lkm.txt",lkmodel))} 
-%This command reports a series of outputs of the results of the search.
-%It includes a file containing the implied alignment generated by dynamic MPL (\texttt{9\_dMPL.ia}), 
-%a file, in parenthetical notation, containing the most optimal topological tree (\texttt{9\_dMPL.tre}), 
-%along with the branch lengths (\texttt{trees:(branches)}), as well as a file containing the parameter 
-%estimates generated (\texttt{9\_dMPL\_lkm.txt}).
-%\item \texttt{wipe()} This commands clears the memory.
-%
-%\item \texttt{(*Reload dyn MPL `ia'/tree pair, re-diagnose as static MAL*)}
-%\item \texttt{read(prealigned:("9\_dMPL.ia",tcm:(1,1)),"9\_dMPL.tre")} This \\ command 
-%imports the implied alignment/tree combination that was produced by the preceding section. 
-%The transformation costs are set such that both substitutions and indels are assigned a cost of $1$.
-%\item \texttt{transform(likelihood:(gtr,rates:gamma:(4),priors:estimate))} The command 
-%\poycommand {transform}, followed by \poyargument {likelihood}, specifies the conditions to 
-%be applied when transforming these static (\poyargument{prealigned}) characters to MAL. 
-%A \emph{GTR} + $\Gamma 4$ model (\texttt{gtr,rates:gamma:4}) 
-%with empirical equilibrium frequencies (\poyargument {priors:estimate}) under static \poyargument {mal} 
-%will be employed (as \poyargument{mal} is the default likelihood criterion in \poy, it is not necessary to 
-%include it in the command line.). \poy will re-diagnose the topology using this model and optimize the values.
-%\item \texttt{report("9\_dyn-stat\_lkm.txt",lkmodel)} This command reports a file containing the parameter 
-%estimates of the likelihood analysis generated under static MAL (\texttt{9\_dyn-stat\_lkm.txt}).
-%\item \texttt{wipe()} This commands clears the memory.
-%
-%\item \texttt{(*Reload `ia' as heuristic MSA, parsimony search follows*)}
-%\item \texttt{read(prealigned:("9\_dMPL.ia",tcm:(1,1)))} This command imports the nucleotide implied 
-%alignment \texttt{9\_dMPL.ia} as prealigned characters. The transformation costs are set such that both 
-%substitutions and indels are assigned a cost of $1$.
-%\item \texttt{build(20)} This command generates 20 random-addition Wagner trees.
-%\item \texttt{swap()} This command specifies that each of the 20 Wagner trees is subjected to alternating SPR and 
-%TBR branch swapping routines (the default of \poy).
-%\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically 
-%unique trees; all other trees are discarded from memory. 
-%\item \texttt{perturb(transform(static\_approx),iterations:50,ratchet:\\(0.2,3))} Having transformed to static data 
-%(\poyargument{static\_approx}), 20\% of the characters are selected at random and are then upweighted by 
-%a factor of $3$.  50 successive rounds are repeated. 
-%\item \texttt{select()} This command retains only optimal and topologically 
-%unique trees; all other trees are discarded from memory.
-%
-%\item \texttt{(*Transform to static MPL characters and swap*)}
-%\item \texttt{set(opt:coarse)} Set coarse granularity for floating point optimization. In this case, 
-%the tolerance of the routines is set to 1e-3 (half the log of a full, exhaustive search).
-%\item \texttt{transform(likelihood:(gtr,priors:estimate,gap:coupled,mpl))} The command 
-%\poycommand {transform}, followed by \poyargument {likelihood}, specifies the conditions 
-%to be applied when transforming these static parsimony characters to static MPL characters. 
-%A \poyargument{gtr} model, with empirical equilibrium frequencies (\poyargument{priors:estimate}) 
-%under dynamic \poyargument {mpl} will be employed. Within this transformation, atomic indels 
-%are a character state, with rates of nucleotide-to-indel substitution constrained to be equal to one another 
-%(\poyargument{gap:coupled}). 
-%\item \texttt{swap(all,spr,optimize:(model:(always),branch:join\_delta)} \\ This command swaps the tree using 
-%\poyargument{spr}, specifying that iteration of likelihood model parameters will occur after every 
-%join (\poyargument{always}), and that only the path from the break to the join will be optimized 
-%(\poyargument{branch:join\_delta}).
-%\item \texttt{report("9\_final\_diag\_lkm.txt",lkmodel,"9\_final\_diag.tre",\\ trees:(branches))} This command 
-%reports a series of outputs of the results of the search.  It includes a file containing the parameter
-%estimates of the likelihood analysis (\texttt{9\_LKstaticdiagnose\_lkm.txt}), as well as a file, 
-%in parenthetical notation, containing the most optimal topological tree (\texttt{9\_final\_diag.tre}), 
-%along with the branch lengths \texttt{trees:(branches)}.
-%\item \texttt{exit()} This commands ends the \poy session.
-%\end{itemize}
-
-%--------------------------------------------------------
-%Maximum Likelihood Analysis: Heuristics
-%--------------------------------------------------------
-%
-%\section{Maximum Likelihood Analysis: Heuristics}{\label{tutorial14}}
-%
-%The following scripts cover analyses under the maximum likelihood criterion that employ heuristics of various 
-%intensities and are of varying speed. The first section of this tutorial covers the analysis of static or prealigned 
-%data; the second covers dynamic data. NOTE: The customizability of the \poy scripting framework enables many heuristics 
-%to be employed by the user. Not all of the possibilities are outlined below, and not all of them are guaranteed to balance 
-%CPU time with tree scores in the same way as other software implementations. The \poy code is configured for more complex 
-%alphabet sizes than is the code of RAxML and PHYML, and this fact makes the implementation slower by definition. It is up 
-%to the user to decide what heuristics, if any, to employ.
-
-% Best unweighted parsimony score (static), here, is 1639.
-% RAxML reports a LL score of -8097 for this aligned dataset.
-% The fast analysis gets within 2 LL in 1000 LL of this score.
-
-%\begin{verbatim}
-%(*STATIC DATA; FAST ANALYSIS*) 
-%
-%(*Read in the data, specifying static characters*)
-%
-%read(prealigned:("9_aligned.fas", tcm:(1,1)))
-%build(200)
-%perturb(iterations:1, ratchet:(0.5,3))
-%perturb(iterations:1, ratchet:(0.2,10))
-%select()
-%
-%set(opt:exhaustive:1)
-%transform(likelihood:(gtr, rates:gamma:(4), priors:(estimate), 
-%gap:missing, mal))
-%fuse(iterations:20)
-%select(best:1)
-%set(opt:exhaustive)
-%report("fastLK.tre",trees:(branches))
-%report("fastLK_lkm.txt",lkmodel)
-%wipe()
-%exit()
-%\end{verbatim}
-%
-%\begin{itemize}
-%\item \texttt{(*Read in the data, specifying static characters*)} This first line of the script is a comment. While 
-%comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-%\item \texttt{read(prealigned:("9\_aligned.fas",tcm:(1,1)))} This command imports the nucleotide sequence data file 
-%\texttt{9\_aligned.fas} as prealigned characters.
-%\item \texttt{build(200)} Conduct 200 RAS Wagner builds.
-%\item \texttt{perturb(iterations:1, ratchet:(0.5,3))} Conduct one iteration of parsimony ratchet, reweighting fifty percent 
-%of the characters by a factor of 3.
-%\item \texttt{perturb(iterations:1, ratchet:(0.2,10))} Conduct one iteration of parsimony ratchet, reweighting twenty percent 
-%of the characters by a factor of 10.
-%\item \texttt{select()} Store in memory all best-scoring unique topologies.
-%\item \texttt{set(opt:exhaustive:1)} Set machine precision granularity for floating point optimization, and set parameter 
-%optimization to occur as a single round, rather than over multiple rounds until convergence. 
-%\item \texttt{transform(likelihood:(gtr,rates:gamma:(4),priors:(estimate),\\ gap:missing, mal))} This command 
-%transforms the characters to likelihood characters, using a GTR + $\Gamma 4$ model, with empirical 
-%equilibrium frequencies under standard MAL.
-%\item \texttt{fuse(iterations:20)} Undergo 20 rounds of tree fusing under likelihood.
-%\item \texttt{select(best:1)} Save only the best-scoring topology with branch lengths in memory.
-%\item \texttt{set(opt:exhaustive)} Set floating point optimization to machine precision, and run until convergence.
-%\item \texttt{report("fastLK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("fastLK_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
-%the rate variation shape parameter.
-%\item \texttt{wipe()} Clear the cache.
-%\item \texttt{exit()} End the \poy session.
-%\end{itemize}
-%
-%\begin{verbatim}
-%(*STATIC DATA; THOROUGH ANALYSIS*)
-%
-%(*Read in the data, specifying static characters*)
-
-%read(prealigned:("9_aligned.fas",tcm:(1,1)))
-%build(100)
-%search(max_time:00:02:00)
-%select()
-%set(opt:exhaustive)
-%transform(likelihood:(gtr, rates:gamma:(4), priors:(estimate),
-%gap:missing, mal))
-%fuse(iterations:10, swap(tbr, bfs, all))
-%select(best:1)
-%report("thoroughLK.tre",trees:(branches))
-%report("thoroughLK_lkm.txt",lkmodel)
-%wipe()
-%exit()
-%\end{verbatim}
-
-%\begin{itemize}
-%\item \texttt{(*Read in the data and specify static characters*)} This first line of the script is a comment. While 
-%comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-%\item \texttt{read(prealigned:("9\_aligned.fas",tcm:(1,1)))}
-%This command imports the nucleotide sequence data file \texttt{9\_aligned.fas} as prealigned characters. 
-%\item \texttt{build(100)} Build 100 RAS Wagner trees.
-%\item \texttt{search(max\_time:00:02:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
-%and tree fusings as possible within the specified time of two hours. All trees with the optimal score found are stored 
-%in memory. Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
-%therefore the time chosen here should not be taken as optimal for all data sets.
-%\item \texttt{select()} Store in memory only the best-scoring unique topologies.
-%\item \texttt{set(opt:exhaustive)} Set floating point optimization to machine precision, and run until convergence. This
-%setting is the default for floating point estimation. 
-%\item \texttt{transform(likelihood:(gtr,rates:gamma:(4),priors:(estimate),\\ gap:missing,mal))} This command 
-%transforms the characters to likelihood characters, using a GTR + $\Gamma 4$ model, with empirical 
-%equilibrium frequencies under standard MAL.
-%\item \texttt{fuse(iterations:10, swap(tbr,bfs,all))} This command subjects all trees in memory to 10 rounds of tree fusing. 
-%After each fusing iteration, all trees are swapped using tree bisection and reconnection, following a breadth-first
-%search with full branch length and model optimization occurring at every join. 
-%\item \texttt{select(best:1)} Store in memory only the best-scoring tree.
-%\item \texttt{report("thoroughLK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("thoroughLK_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
-%the rate variation shape parameter.
-%\item \texttt{wipe()} This command clears the cache.
-%\item \texttt{exit()} This commands ends the \poy session.
-%\end{itemize}
-
-%\begin{verbatim}
-%(*DYNAMIC DATA: FAST ANALYSIS*)
-%
-%(*Read in the data. Do not specify static characters*)
-%
-%read("9.fas")
-%build(200)
-%perturb(transform(static_approx), iterations:1, ratchet:(0.5, 3))
-%perturb(transform(static_approx), iterations:1, ratchet:(0.2, 10))
-%select()
-%set(opt:coarse)
-%transform(likelihood:(gtr, mpl, gap:coupled))
-%swap(spr, all:1)
-%select(best:1)
-%set(opt:exhaustive)
-%report("fastdynLK.tre",trees:(branches))
-%report("fastdynLK_lkm.txt",lkmodel)
-%exit()
-%\end{verbatim}
-%
-%\begin{itemize}
-%\item \texttt{(*Read in the data. Do not specify static characters*)} This first line of the script is a comment. 
-%While comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-%\item \texttt{read("9.fas")} This command imports the nucleotide sequence data file \texttt{9.fas}. These data are 
-%not prealigned.
-%\item \texttt{build(200)} Build 200 RAS Wagner trees.
-%\item \texttt{perturb(transform(static\_approx), iterations:1, ratchet:(0.5, 3))} Do a single iteration of parsimony ratchet 
-%on the static-transformed data, reweighting fifty percent of the characters by a factor of 3.
-%\item \texttt{perturb(transform(static\_approx), iterations:1, ratchet:(0.2, 10))} Do a single iteration of parsimony ratchet 
-%on the static-transformed data, reweighting twenty percent of the characters by a factor of 10.
-%\item \texttt{select()} Keep only the best-scoring and unique topologies in memory.
-%\item \texttt{set(opt:coarse)} Set coarse granularity for floating point optimization.
-%\item \texttt{transform(likelihood:(gtr, mpl, gap:coupled)} Transforms the characters to dynamic most-parsimonious-likelihood 
-%(MPL) characters, using a GTR model, with empirical equilibrium frequencies and all $N \leftrightarrow -$ trasformations estimated
-%as a single parameter.
-%\item \texttt{swap(spr, all:1)} Conduct an NNI search under dynamic MPL, optimizing all model parameters and branch lengths with 
-%each join.
-%\item \texttt{select(best:1)} Keep only the single best-scoring tree in memory.
-%\item \texttt{set(opt:exhaustive)} Set machine precision granularity for floating point optimization, and iterate optimization of
-%parameter values until convergence. 
-%\item \texttt{report("fastdynLK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("fastdynLK_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
-%the rate variation shape parameter.
-%\item \texttt{exit()} This commands ends the \poy session.
-%\end{itemize}
-%
-%\begin{verbatim}
-%(*DYNAMIC DATA; THOROUGH ANALYSIS*)
-%
-%(*Read in the data.  Do not specify static characters*)
-%
-%read("9.fas")
-%build(200)
-%search(max_time:00:02:00)
-%set(opt:coarse)
-%transform(likelihood:(gtr, mpl, gap:coupled))
-%select()
-%swap(all, tbr, bfs)
-%select(best:1)
-%set(opt:exhaustive)
-%report("thoroughdyn_LK.tre",trees:(branches))
-%report("thoroughdyn_LK_lkm.txt",lkmodel)
-%wipe()
-%exit()
-%\end{verbatim}
-%
-%\begin{itemize}
-%\item \texttt{(*Read in the data. Do not specify static characters*)} 
-%This first line of the script is a comment. While comments are optional and do not affect the analyses, they are useful for 
-%housekeeping purposes.
-%\item \texttt{read("9.fas")} This command imports the nucleotide sequence data file \texttt{9.fas}. These data are 
-%not prealigned. 
-%\item \texttt{build(200)} Build 200 RAS Wagner trees.
-%\item \texttt{search(max\_time:00:02:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
-%and tree fusings as possible within the specified time of two hours. All trees with the optimal score found are stored 
-%in memory. Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
-%therefore the time chosen here should not be taken as optimal for all data sets.
-%\item \texttt{set(opt:coarse)} Set coarse granularity for floating point optimization.
-%\item \texttt{transform(likelihood:(gtr, mpl, gap:coupled)} This command transforms the characters to dynamic likelihood (MPL) 
-%characters, using a GTR model, with empirical equilibrium frequencies and a coupled indel parameter.
-%\item \texttt{select()} This command stores only the best-scoring topologies in memory.
-%\item \texttt{swap(all, tbr, bfs)} This command swaps trees using tree bisection and reconnection, under a breadth-first search. 
-%The model parameters and branch lengths are optimized after every join.
-%\item \texttt{select(best:1)} Keep only the best-scoring topology in memory.
-%\item \texttt{set(opt:exhaustive)} Set machine precision floating point optimization to run until parameter convergence.
-%\item \texttt{report("thoroughdyn\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("thoroughdyn\_LK_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
-%the rate variation shape parameter.
-%\item \texttt{wipe()} This command clears the cache.
-%\item \texttt{exit()} This commands ends the \poy session.
-%\end{itemize}
-%
-
-% \section{Maximum likelihood analysis: Morphology}{\label{tutorial 12}}
-
-%The following scripts cover analysis of morphological data under the maximum likelihood criterion. %Additionally, 
-%throughout the tutorial, some familiarity with the terminology of likelihood analyses is assumed.
-
-% NOT INCLUDED IN INITIAL RELEASE DUE TO PROBLEMS WITH CALCULATING THE CORRECTION FACTOR IN THE 
-%LEWIS MORPHOLOGY
-% MODEL. THIS TUTORIAL WILL BE INCLUDED IN FUTURE RELEASES.
-
-%\begin{verbatim}
-%(*Read in data and report*)
-%read("31.ss")
-%report(data)
-
-%(*Conduct RAS and parsimony initial pass*)
-%build(30)
-%swap()
-%perturb(transform(static_approx),iterations:5,ratchet:(0.1,2))
-%perturb(transform(static_approx),iterations:5,ratchet:(0.3,3))
-%perturb(transform(static_approx),iterations:5,ratchet:(0.5,4))
-
-%(*Transform to likelihood characters*)
-%transform(likelihood:(jc69,alphabet:(4)))
-%swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:
-%join_delta))
-%report("morphology_r=4.tre",trees:(branches))
-%report("morphology_r=4_lkm.txt",lkmodel)
-
-%transform(likelihood:(jc69,alphabet:(min)))
-%swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:
-%join_delta))
-%report("morphology_r=min.tre",trees:(branches))
-%report("morphology_r=min_lkm.txt",lkmodel)
-%exit()
-%\end{verbatim}
-
-%\begin{itemize}
-%\item \texttt{(*Read in the data and report*)} This first line of the script is a comment. While comments are optional and do 
-%not affect the analyses, they are useful for housekeeping purposes.
-%\item \texttt{read("31.ss")}
-%This command imports the Hennig86 morphological data file \texttt{31.ss} as prealigned characters. 
-%\item \texttt{report(data)} This command generates a summary of the data properties. In reporting the data, it is possible to 
-%examine the data for the number of character states, i.e. the ``Range" column in the \poy Output window of the Interactive
-%Console. 
-%\item \texttt{build(30)} Build 30 random addition Wagner trees.
-%\item \texttt{swap()} Conduct alternating rounds of SPR and TBR until the scores stabilize.
-
-%\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.1,2))} Conduct 5 iterations of parsimony ratchet,
-%reweighting 10 percent of the characters by a factor of 2.
-%\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.3,3))} Conduct 5 iterations of parsimony ratchet,
-%reweighting 30 percent of the characters by a factor of 3.
-%\item \texttt{perturb(transform(static\_approx),iterations:5,ratchet:(0.5,4))} Conduct 5 iterations of parsimony ratchet,
-%reweighting 50 percent of the characters by a factor of 4.
-%\item \texttt{transform(likelihood:(jc69,alphabet:(4)))} Transform to likelihood characters under JC69/Neyman model, 
-%specifying the alphabet size (constant across all characters) to be $r=4$. The alphabet size equates to the number of 
-%character states identified in \texttt{report(data)}.
-%\item \texttt{swap(tbr,\hl{bfs}:5,all:5,optimize:(model:(threshold:0.4),branch:\\join\_delta))} Swap using TBR and a 
-%breadth-first search joining a maximum of five branches from the break site, optimizing the model parameters if the 
-%cost of the join under the current model is within 1.4 times the current best cost (proportion 0.4 worse), and optimizing 
-%only the branches along the path from the break to the new join location. 
-%\item \texttt{report("morphology\_r=4.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("morphology\_r=4_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), and the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices.
-%\item \texttt{transform(likelihood:(jc69,alphabet:(min)))} Transform to likelihood characters under JC69/Neyman model, specifying 
-%the alphabet size (constant across all characters) to be the minimum value that encompasses all character observations.
-%\item \texttt{swap(tbr,bfs:5,all:5,optimize:(model:(threshold:0.4),branch:\\join\_delta))} Swap using TBR and a breadth-first search
-%joining a maximum of five branches from the break site, optimizing the model parameters if the cost of the join under the 
-%current model is within 1.4 times the current best cost (proportion 0.4 worse), and optimizing only the branches along 
-%the path from the break to the new join location. 
-%\item \texttt{report("morphology\_r=min.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("morphology\_r=min_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), and the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices.
-%\item \texttt{exit()} This commands ends the \poy session.
-%\end{itemize}
-
-% (*TUTORIAL 13b: MAXIMUM LIKELIHOOD ANALYSIS; COMBINED ANALYSIS 
-%  OF MORPHOLOGICAL AND MOLECULAR DATA*)
-
-% THIS TUTORIAL IS NOT INCLUDED IN THE INITIAL RELEASE DUE TO CERTAIN PROBLEMS WITH CALCULATING THE CORRECTION
-% TERM IN THE LEWIS MORPHOLOGY MODEL. THE TUTORIAL WILL BE INCLUDED IN A FUTURE RELEASE. 
-
-%(*Read in morphology data and specify partition*)
-
-%read("31.ss")
-%set(partition:("morph", names:("31.ss")))
-
-%(*Read in prealigned molecular data; specify partition and 
-%  conduct RAS and swapping under parsimony*)
-
-%read(prealigned:("1_ia.fas",tcm:(1,1)))
-%set(partition:("molec", names:("1_ia.fas")))
-%build(50)
-%search(max_time:00:01:00)
-
-%(*Transform sets to likelihood and complete analysis*)
-
-%transform(sets:("morph"), (likelihood:(jc69, alphabet:(min)))) 
-%transform(sets:("molec"), (likelihood:(gtr, rates:gamma:(4),
-%priors:(estimate), gap:missing, mal)))
-%swap(tbr, bfs:2, all:2, optimize:(model:(threshold:1.6),branch:
-%join_region))
-%swap(spr,all:1)
-%report("combined_LK.tre",trees:(branches))
-%report("combined_LK_lkm.txt",lkmodel)
-%exit()
-%\end{verbatim}
-%
-%\begin{itemize}
-%\item \texttt{(*Read in the morphology data and specify partition*)} This first line of the script is a comment. While 
-%comments are optional and do not affect the analyses, they are useful for housekeeping purposes.
-%\item \texttt{read(\hl{"31.ss"})} This command imports the morphological data file \texttt{31.ss} in Hennig86 format. 
-%\item \texttt{set(partition:("morph",names:("31.ss")))} This command defines a character partition called ``morph'' for 
-%all characters in the morphological dataset.
-%\item \texttt{(*Read in prealigned molecular data; specify partition and conduct RAS and swapping under parsimony*)}
-%This is a comment indicating the intent of the commands which follow.
-%\item \texttt{read(prealigned:("1\_ia.fas",tcm:(1,0)))} This command reads in the molecular dataset \texttt{1\_ia.fas} as 
-%prealigned data.
-%\item \texttt{set(partition:("molec",names:("1\_ia.fas")))} This command defines a character partition called ``molec'' 
-%for all characters in the molecular dataset.
-%item \texttt{build(50)} Builds 50 RAS Wagner trees.
-%item \texttt{search(max\_time:00:01:00)} Specifies that the program will attempt as many builds, swaps, ratchets 
-%and tree fusings as possible within the specified time of one hour. All trees with the optimal score found are stored 
-%in memory. Note: as stated in Chapter 2, the execution time for the timed search is data dependent, 
-%therefore the time chosen here should not be taken as optimal for all data sets.
-%\item \texttt{transform(sets:("morph"),(likelihood:(jc69))))} %This command produces a NOT FOUND error.
-%his command specifies a partition-specific JC69 model with minimal Neyman alphabet size be applied to the 
-%partition ``morph.''
-%\item \texttt{transform(sets:("molec"),(likelihood:(gtr,rates:(gamma:(4)),\\priors:(estimate), gap:(missing),mal)))} 
-%This command specifies a partition-specific GTR + $\Gamma 4$ model, with empirical equilibrium frequencies 
-%under standard MAL be applied to the partition ``molec.'' 
-%\item \texttt{swap(tbr,bfs:10,all:10,optimize:(model:(threshold:1.6),\\branch:join\_region))}
-%This command swaps all trees in memory using tree bisection and reconnection, specifying a breadth-first search with join
-%points up to 10 branches from the break site. The model parameters are optimized if the cost of the join under the 
-%current model is within 1.6 times the current best cost (proportion 0.6 worse). Only the branches along the path from the 
-%break to the new join location are optimized.  
-%\item \texttt{swap(spr,all:5))} This command swaps the tree using subtree pruning and regrafting, using a depth-first
-%search with joins up to five branches from the break site, and optimizing the model and branches after every join. 
-%\item \texttt{report("combined\_LK.tre",trees:(branches))} This command outputs the topology, with branch lengths, in 
-%\texttt{.tre} format.
-%\item \texttt{report("combined\_LK_lkm.txt",lkmodel)} This command outputs the result of the likelihood analysis, which 
-%consists of the likelihood score, the variant of likelihood used, the tree length (sum of branch lengths), the values 
-%of the parameter estimates for the entries of the \textbf{P} and \textbf{Q} matrices, and the estimate of the value of 
-%the rate variation shape parameter.
-%\item \texttt{exit()} This commands ends the \poy session.
-%\end{itemize}
+\begin{itemize}
+\item \texttt{(*Maximum Likelihood Analysis: Combined Data*)} 
+This first line of the script is a comment. While comments are 
+optional and do not affect the analyses, they are useful for housekeeping 
+purposes.
+\item \texttt{read("morpho.ss")} This command imports the morphological 
+data file \texttt{morpho.ss} in Hennig86 format. 
+\item \texttt{read(prealigned:("28s.aln"),tcm:(1,1))} This command imports 
+the \poyargument{prealigned} nucleotide sequence file \texttt{28s.aln}, 
+and sets the transformation cost matrix to be used in calculating
+the cost of the tree for these data, such that the cost of both substitutions 
+and indels are set to $1$. 
+\item \texttt{transform(likelihood:(ncm))} The command \poycommand{transform}, 
+followed by \poyargument{likelihood}, specifies the conditions to be 
+applied when transforming these dynamic parsimony characters to 
+dynamic likelihood characters. An \poyargument{ncm} model, where 
+each character is free to evolve at its own rate on every edge of the tree, 
+will be employed.  Because these characters evolve at their own rate, 
+gamma options are ignored.
+\item \texttt{read("18s.fas")} This command reads in the molecular 
+data file of unaligned sequences (\texttt{18s.fas}).
+\item \texttt{transform((names:("18s.fas"),(likelihood:(tn93,rates:none,\\
+priors:estimate,gap:coupled,mpl))))} The command \poycommand{transform}, 
+followed by \poyargument{likelihood}, specifies the conditions to be 
+applied when transforming these dynamic parsimony characters to 
+dynamic likelihood characters. Because this script includes both static 
+(morphology and prealigned) and dynamic data, it is necessary to 
+identify, using the \emph{identifier} \texttt{names}, which file the 
+\poyargument{mpl} model will be applied to---in this case the 
+\texttt{18s.fas} data file. A \poyargument{tn93} model, with estimated
+equilibrium frequencies will be employed.  In this model, indels will be 
+treated as \poyargument{coupled}.
+\item \texttt{search(max\_time:00:01:00)} Specifies that the program will 
+attempt as many builds, swaps, ratchets and tree fusings as possible within 
+the specified time of one hour. All trees with the optimal score found are 
+stored in memory.
+\item \texttt{swap(all,optimize:(model:never,branch:join\_region))} Submits 
+the current trees to a round of SPR and TBR swapping. Following each round, 
+the model is \texttt{never} optimized, but a maximum of five branches 
+(the new edge, and the two edges on either side of the join site) are 
+optimized (\texttt{branch:join\_region}).
+\item \texttt{report("All\_LK.tre",trees:(branches),"All\_lkm.txt",lkmodel)} 
+This command reports a series of outputs of the results the search. A file 
+containing a tree, in parenthetical notation, containing the most optimal 
+topological tree (\texttt{All\_LK.tre}), along with the branch lengths 
+\texttt{trees:(branches)} is reported. In addition, a file containing the parameter 
+estimates of the likelihood analysis, i.e. likelihood score, the variant of 
+likelihood used, the tree length (sum of branch lengths), the values of 
+the parameter estimates for the entries of the substitution rate matrix 
+(\textbf{Q}), and the estimate of the value of the rate variation shape 
+parameter, is also reported (\texttt{All\_lkm.txt}).
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}

@@ -1185,9 +1185,9 @@ and upper bounds of the range as polymorphic additive character
 states~\cite{goloboffetal2006}.  Although they will be optimized 
 simultaneously with all other characters, continuous characters 
 must be scored in a separate Hennig86 format matrix with the heading 
-\texttt{ "nstates cont"} --- an example of this file format (\texttt{ccm.ss}) is available at 
+\texttt{"nstates cont"}---an example of this file format (\texttt{ccm.ss}) 
+is available at the \poy website and is included into the \poy installation package.
 \url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy}. 
-This file is included into the \poy installation package.
 Consider a continuous character \texttt{winglength}, the states of 
 which are ranges of measurements in hundredth of a millimeter, 
 for example 2.53-3.68 mm for a given terminal. A corresponding 
@@ -1349,12 +1349,13 @@ The user must define both the level itself, as specified by the \poyint, and the
 by the \poylident (\texttt{first}, \texttt{last}, or \texttt{at\_random}. If the \poylident is \poyargument{first}, 
 ties are broken (if the number of equally costly states is greater than the level number) by choosing the 
 first median state examined; if \poyargument{last}, the last state, and if \poyargument{at\_random}
-then uniformly at random. The default 	\poyargument{level} is \texttt{2} and keep method is \texttt{first}. }
+then uniformly at random. The default \poyargument{level} is \texttt{2} and keep method is \texttt{first}. 
+The maximum \poyargument{level} of any dataset is equal to the alphabet size.}
 {}
 
 \argumentdefinition{tiebreaker}{\obligatory\poylident}
 {This argument determines how ties among median states are chosen: \texttt{first}, \texttt{last}, 
-and \texttt{at\_random}. If \texttt{first} is chosen, 	then the ties are broken (if the number of 
+and \texttt{at\_random}. If \texttt{first} is chosen, then the ties are broken (if the number of 
 equally costly states is greater than the level number) by choosing the first median state examined; 
 if \texttt{last}, the last state, and if \texttt{at\_random} then uniformly at random. The default choice method is \texttt{first}.}
 {}
@@ -3712,7 +3713,8 @@ it is $2$. Storage and set up time increase combinatorially with level number.
 If the \poylident is \texttt{first}, ties are broken (if the number of equally costly states 
 is greater than the level number) by choosing the first median state examined; 
 if \texttt{last}, the last state, and if \texttt{at\_random} then uniformly at random.
-The default choice method is \texttt{first}. [Note: Levels greater than the default 
+The default choice method is \texttt{first}. The maximum \poyargument{level} of 
+any dataset is equal to the alphabet size.[Note: Levels greater than the default 
 levels can consume large amounts of memory.] }
 {level}
 
@@ -4867,7 +4869,7 @@ character ``mycustom.fas'' to ``mycustom.mat'' and uses heuristic level $2$.}
 {Transforms the characters to likelihood characters, using a \emph{jc69} + $\Gamma 2$ model, 
 with equal equilibrium frequencies under MPL. In this model, gaps are treated as ``missing'' (the default value).}
 
-\poyexample{transform(likelihood:(tn93,rates:theta:(4),gap:coupled,mpl,\\ priors:(estimate)))}
+\poyexample{transform(likelihood:(tn93,rates:theta:(4),gap:coupled,mpl,\\ priors:estimate))}
 {This command transforms the characters to likelihood characters, using a \emph{tn93} + $\Theta 4$ model, 
 with estimated equilibrium frequencies under MPL. In this model, indels are treated as ``coupled''.}
 
