@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyFormaters" "$Revision: 3472 $"
+let () = SadmanOutput.register "PoyFormaters" "$Revision: 3491 $"
 
 exception Illegal_formater of string
 
@@ -95,7 +95,8 @@ let build_set (contents : t) =
     let res = Buffer.create 16 in
     let rec add_items (_, _, x) =
         match x with
-        | #Xml.unstructured as v -> 
+        | #Xml.unstructured as v when v = `Empty -> ()
+        | #Xml.unstructured as v ->
                 Buffer.add_string res (Xml.value_to_string v);
                 Buffer.add_string res ", ";
         | #Xml.structured as x ->
@@ -110,22 +111,21 @@ let build_set (contents : t) =
                 Buffer.add_string res "{";
                 Sexpr.leaf_iter add_items todo;
                 Buffer.add_string res "}";
-        | #Xml.unstructured as v -> 
+        | #Xml.unstructured as v ->
                 Buffer.add_string res (Xml.value_to_string v)
         | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
     in
     (Buffer.contents res)
 
-let build_table_with_contents_as_set ?(cn = " ") (lst :
-    Xml.xml list) = 
+let build_table_with_contents_as_set ?(cn = " ") (lst : Xml.xml list) = 
     let mapper ((a, b, contents) : Xml.xml) : Xml.xml = 
         (a, b, `String (build_set contents))
     in
     match lst with
     | h :: _ ->
-            let res = List.map (function x -> build_contents_row (mapper x)) lst 
-            and names = build_names_row ~contents_name:cn h in
-            Array.of_list (names :: res)
+        let res = List.map (function x -> build_contents_row (mapper x)) lst in
+        let names = build_names_row ~contents_name:cn h in
+        Array.of_list (names :: res)
     | [] -> [|[||]|]
 
 let character_type_as_attribute (tag, attributes, contents) =
@@ -137,7 +137,7 @@ let character_type_as_attribute (tag, attributes, contents) =
             "Non Additive"
         else if tag = Xml.Characters.sankoff then 
             "Sankoff"
-        else if tag = Xml.Characters.molecular then 
+        else if tag = Xml.Characters.molecular then
             "Molecular"
         else if tag = Xml.Characters.kolmogorov then 
             "Kolmogorov"
@@ -166,6 +166,7 @@ let rec build_values_as_list st (_, _, contents) =
     | #Xml.structured as x -> 
             let x = Xml.eagerly_compute x in
             Sexpr.leaf_iter (build_values_as_list st) x
+    | #Xml.unstructured as v when v = `Empty -> ()
     | #Xml.unstructured as v -> 
             Status.user_message st (StatusCommon.escape (Xml.value_to_string v));
             Status.user_message st ";@ "
@@ -177,9 +178,9 @@ let output_rows st matrix =
 let output_characters st (characters : Xml.xml)=
     let output_table_of_list title cn (lst : Xml.xml list) =
         let matrix = build_table_with_contents_as_set ~cn:cn lst in
+        let title = "@[<v 4>@{<b>" ^ title ^ "@}@\n@[<v 0>@\n@{<u>Total@} " in
         sort_matrix matrix;
-        Status.user_message st ("@[<v 4>@{<b>" ^ title ^ 
-        "@}@\n@[<v 0>@\n@{<u>Total@} ");
+        Status.user_message st title;
         output_rows st matrix;
         Status.user_message st "@\n";
         Status.output_table st matrix;
@@ -190,28 +191,47 @@ let output_characters st (characters : Xml.xml)=
     and nonadditive = filter_tag Xml.Characters.nonadditive characters
     and sankoff = filter_tag Xml.Characters.sankoff characters
     and molecular = filter_tag Xml.Characters.molecular characters
-    and kolmogorov = filter_tag Xml.Characters.kolmogorov characters in
+    and likelihood = filter_tag Xml.Characters.likelihood characters
+    in
     Status.user_message st "@[<v 4>@{<b>Characters@}@\n@[<v 0>";
     output_table_of_list "Non Additive" "Set" nonadditive;
     output_table_of_list "Additive" "Range" additive;
     output_table_of_list "Sankoff" "Set" sankoff;
     output_table_of_list "Molecular" " " molecular;
-    output_table_of_list "Kolmogorov" " " kolmogorov;
+    output_table_of_list "Likelihood" " " likelihood;
     Status.user_message st "@]@]@\n"
 
-let output_taxa st (_, _, taxa) =
-    match taxa with
+let output_synonyms st ((tag,attr,dat):Xml.xml) : unit =
+    match dat with
     | #Xml.structured as x ->
-            let x = Xml.eagerly_compute x in
-            let lst = Sexpr.to_list x in
-            let mtx = build_table_with_contents_as_set lst in
-            sort_matrix mtx;
-            Status.user_message st 
-            "@[<v 4>@{<b>Taxa@}@\n@[<v 0>@\n@{<u>Total@} ";
-            output_rows st mtx;
-            Status.user_message st "@\n";
-            Status.output_table st mtx;
-            Status.user_message st "@]@]@\n"
+        let x = Xml.eagerly_compute x in
+        let lst = Sexpr.to_list x in
+        let mtx = build_table_with_contents_as_set lst in
+        let title = "@[<v 4>@{<b>Synonyms@}@\n@[<v 0>@\n@{<u>Total@} " in
+        sort_matrix mtx;
+        Status.user_message st title;
+        output_rows st mtx;
+        Status.user_message st "@\n";
+        Status.output_table st mtx;
+        Status.user_message st "@]@]@\n"
+    | #Xml.unstructured ->
+        ()
+    | `CDATA _ ->
+        ()
+
+
+let output_taxa st (_, _, taxa) = match taxa with
+    | #Xml.structured as x ->
+        let x = Xml.eagerly_compute x in
+        let lst = Sexpr.to_list x in
+        let mtx = build_table_with_contents_as_set lst in
+        let title = "@[<v 4>@{<b>Taxa@}@\n@[<v 0>@\n@{<u>Total@} " in
+        sort_matrix mtx;
+        Status.user_message st title;
+        output_rows st mtx;
+        Status.user_message st "@\n";
+        Status.output_table st mtx;
+        Status.user_message st "@]@]@\n"
     | #Xml.unstructured -> ()
     | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
 
@@ -239,15 +259,12 @@ let format_attributes st attributes =
 let rec aux_data_to_status st ((tag, attributes, contents) as c : Xml.xml) =
     if tag = Xml.Data.characters then output_characters st c
     else if tag = Xml.Data.taxa then output_taxa st c
-    (*
-    else if tag = Xml.Data.files then output_list "Files" st c
-    *)
     else if tag = Xml.Data.ignored_taxa then output_list "Ignored taxa" st c
     else if tag = Xml.Data.ignored_characters then output_list "Ignored characters" st c
-    (* TODO else if tag = Xml.Data.synonyms then output_synonyms st c *)
+    else if tag = Xml.Data.synonyms then output_synonyms st c
+    (* TODO else if tag = Xml.Data.files then output_list "Files" st c *)
     else begin
-        let str = 
-            match contents with
+        let str = match contents with
             | #Xml.structured ->  "@[<v 4>@ "
             | #Xml.unstructured -> "@[@ "
             | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
@@ -261,11 +278,11 @@ let rec aux_data_to_status st ((tag, attributes, contents) as c : Xml.xml) =
         Status.user_message st "@ ";
         begin match contents with
         | #Xml.structured as sexpr ->
-                let sexpr = Xml.eagerly_compute sexpr in
-                Sexpr.leaf_iter (aux_data_to_status st) sexpr
+            let sexpr = Xml.eagerly_compute sexpr in
+            Sexpr.leaf_iter (aux_data_to_status st) sexpr
         | #Xml.unstructured as v ->
-                let value = StatusCommon.escape (Xml.value_to_string v) in
-                Status.user_message st value;
+            let value = StatusCommon.escape (Xml.value_to_string v) in
+            Status.user_message st value;
         | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
         end;
         Status.user_message st "@]@\n@]@\n"
@@ -277,13 +294,10 @@ let data_to_status filename tag =
     StatusCommon.Files.set_margin filename 0;
     let st = Status.Output (filename, false, []) in
     if is_xml_filename filename then
-        let filename = 
-            match filename with | Some x -> x | None -> assert false in
-        let ch = StatusCommon.Files.channel filename in
-        match ch with
+        let filename = match filename with Some x -> x | None -> assert false in
+        match StatusCommon.Files.channel filename with
         | `NotCompressed ch -> Xml.to_file ch tag
-        | `Zlib ch -> 
-                failwith "Output fo XML in compressed format is not supported"
+        | `Zlib ch -> failwith "Output fo XML in compressed format is not supported"
     else begin
         aux_data_to_status st tag;
         Status.user_message st "%!"
@@ -374,7 +388,8 @@ let nonaddcs_to_formater ((tag, attr, cont) : Xml.xml) has_lk has_chrom =
                 Buffer.add_string c "{";
                 Sexpr.leaf_iter (fun (_, _, x) ->
                     begin match x with
-                        | #Xml.unstructured as x -> 
+                        | #Xml.unstructured as x when x = `Empty -> ()
+                        | #Xml.unstructured as x ->
                             Buffer.add_string c (Xml.value_to_string x);
                             Buffer.add_string c ",";
                         | _ ->
@@ -517,8 +532,8 @@ let likelihood_to_formater ((tag, attr, cont) as xml: Xml.xml) has_lk has_chrom 
         let name    = Xml.find_attr xml Xml.Characters.name
         and cost    = Xml.find_attr xml Xml.Characters.cost
         and cclass  = `String Xml.Nodes.preliminary
-        and branch1 = `String (Xml.value_to_string (Xml.find_attr xml Xml.Nodes.min_time))
-        and branch2 = `String (Xml.value_to_string (Xml.find_attr xml Xml.Nodes.oth_time))
+        and branch1 = Xml.find_attr xml Xml.Nodes.min_time
+        and branch2 = Xml.find_attr xml Xml.Nodes.oth_time
         (* state data --since we have a complex vector; leave blank *)
         and v        = `String "-" in
         [| name; cclass; cost; branch1; branch2; v |]
@@ -533,9 +548,8 @@ let dyn_likelihood_to_formater ((tag, attr, cont) as xml: Xml.xml) has_lk has_ch
         let name    = Xml.find_attr c_xml Xml.Characters.name
         and cclass  = Xml.find_attr xml Xml.Characters.cclass
         and cost    = Xml.find_attr xml Xml.Characters.cost
-        and branch1 = `String (Xml.value_to_string (Xml.find_attr xml Xml.Nodes.min_time))
-        and branch2 = `String (Xml.value_to_string (Xml.find_attr xml
-        Xml.Nodes.oth_time))
+        and branch1 = Xml.find_attr xml Xml.Nodes.min_time
+        and branch2 = Xml.find_attr xml Xml.Nodes.oth_time
         (* state data --pull from sequence data *)
         and v = match c with
             | #Xml.unstructured as c ->
