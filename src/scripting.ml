@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3459 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3490 $"
 
 let (-->) a b = b a
 
@@ -4224,10 +4224,10 @@ let rec folder (run : r) meth =
                 else if check_suffix filename hennig_extensions then
                     folder run (`FasWinClad filename)
                 else begin
-                   let fmt = (Data.to_formatter [] run.data) in
+                   let fmt = Data.to_formatter [] run.data in
                     PoyFormaters.data_to_status filename fmt;
                     (* Flush the formatter *)
-                    Status.user_message (Status.Output (filename, false, [])) "%!"; 
+                    Status.user_message (Status.Output (filename, false, [])) "%!";
                     run
                 end
             | `Xslt (file, style) ->
@@ -4242,10 +4242,6 @@ IFDEF USE_XSLT THEN
                     let trs =
                         Sexpr.map
                             (fun tr ->
-                                let run =
-                                    update_trees_to_data ~classify:false
-                                            false true {run with trees = `Single tr}
-                                in
                                 match run.trees with
                                 | `Single tr -> TreeOps.to_formatter `Normal [] tr
                                 | _          -> assert false)
