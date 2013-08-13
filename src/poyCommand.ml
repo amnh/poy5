@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3496 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3498 $"
 
 let debug = false 
 
@@ -492,7 +492,7 @@ type command = [
     (*let add_command_to_console_script str : char Stream.t =*)
     (*    console_script := str :: !console_script; str*)
 
-    let iter_default =  `Always, `AllBranches
+    let iter_default =  `Null, `Neighborhood 1
 
     (* Building *)
     let build_default_method_args = (1, 0.0, `Last, [], `UnionBased None)
@@ -519,7 +519,7 @@ type command = [
             ((n, (meth:Methods.build_method), 
              (trans:Methods.transform list),
              (iter:Methods.tabu_iteration_strategy)) as acc)
-            (builder: builda) = match builder with
+             (builder: builda) = match builder with
         | `Nj -> (n, `Nj, trans,iter)
         | `Prebuilt fn -> (n, (`Prebuilt fn), trans,iter)
         | `RandomTree ->
@@ -1922,8 +1922,8 @@ type command = [
                     [LIDENT "all_branches" -> `AllBranches] |
                     [LIDENT "all"          -> `AllBranches] |
                     [LIDENT "join_delta"   -> `JoinDeltaBranches] |
-                    [LIDENT "join_region"  -> `NeighborhoodBranches 0] |
-                    [LIDENT "join_region"; ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ]
+                    [LIDENT "join_region"; ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ] |
+                    [LIDENT "join_region"  -> `NeighborhoodBranches 0]
                 ];
             iterate_options:
                 [
@@ -1939,42 +1939,39 @@ type command = [
                 ];
             std_search_argument:
                 [   
-                    [ LIDENT "target_cost"; ":"; x = integer_or_float -> `Target
-                    (float_of_string x) ] |
+                    [ LIDENT "target_cost"; ":"; x = integer_or_float -> `Target (float_of_string x) ] |
                     [ LIDENT "memory"; ":"; x = memory -> `MaxRam x ] |
                     [ LIDENT "hits"; ":"; x = INT -> `MinHits (int_of_string x) ] |
-                    [ LIDENT "max_time"; ":"; x = time -> `MaxTime (float_of_int x)
-                    ] |
+                    [ LIDENT "max_time"; ":"; x = time -> `MaxTime (float_of_int x) ] |
                     [ LIDENT "visited"; x = OPT string_arg -> `Visited x ] |
-                    [ LIDENT "min_time"; ":"; x = time -> 
-                        `MinTime (float_of_int x) ] |
+                    [ LIDENT "min_time"; ":"; x = time -> `MinTime (float_of_int x) ] |
                     [ LIDENT "constraint"; ":"; x = STRING -> `ConstraintFile x ]
                 ];
             search:
                 [
-                    [ LIDENT "search"; left_parenthesis; a = LIST0 [ x =
-                        std_search_argument -> x ] SEP ",";  right_parenthesis ->
-                        `StandardSearch a] |
-                    [ LIDENT "_search"; left_parenthesis; a = LIST0 [x =
-                        search_argument -> x]  SEP
-                    ","; right_parenthesis -> `Search a ]
+                    [ LIDENT "search"; left_parenthesis;
+                        a = LIST0 [ x = std_search_argument -> x ] SEP ",";
+                      right_parenthesis -> `StandardSearch a] |
+                    [ LIDENT "_search"; left_parenthesis;
+                        a = LIST0 [x = search_argument -> x]  SEP ",";
+                      right_parenthesis -> `Search a ]
                 ];
             fuse:
                 [
-                    [ LIDENT "fuse"; left_parenthesis; a = LIST0 [x = fuse_argument
-                    -> x] SEP ","; 
-                        right_parenthesis -> (`Fuse a) ]
+                    [ LIDENT "fuse"; left_parenthesis;
+                        a = LIST0 [x = fuse_argument -> x] SEP ","; 
+                      right_parenthesis -> (`Fuse a) ]
                 ];
             fuse_argument:
                 [
-                    [ LIDENT "keep"; ":"; i = INT -> `Keep (int_of_string i) ]
-                |   [ LIDENT "iterations"; ":"; i = INT -> `Iterations (int_of_string i) ]
-                |   [ LIDENT "replace"; ":"; r = fuseareplace -> `Replace r]
-                |   [ x = swap -> (x :> fusea) ]
-                |   [ LIDENT "weighting"; ":"; w = fuseaweighting -> `Weighting w]
-                |   [ LIDENT "clades"; ":"; cfrom = INT; cto = OPT fusea_cto ->
+                      [ LIDENT "keep"; ":"; i = INT -> `Keep (int_of_string i) ]
+                    | [ LIDENT "iterations"; ":"; i = INT -> `Iterations (int_of_string i) ]
+                    | [ LIDENT "replace"; ":"; r = fuseareplace -> `Replace r]
+                    | [ x = swap -> (x :> fusea) ]
+                    | [ LIDENT "weighting"; ":"; w = fuseaweighting -> `Weighting w]
+                    | [ LIDENT "clades"; ":"; cfrom = INT; cto = OPT fusea_cto ->
                           `Clades (int_of_string cfrom, cto)]
-                |   [ a = iteration_method -> `IterationF a]
+                    | [ a = iteration_method -> `IterationF a]
                 ];
             fuseareplace:
                 [ [ LIDENT "better" -> `Better ]
