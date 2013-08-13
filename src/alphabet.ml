@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 3495 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 3497 $"
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -786,39 +786,34 @@ let rec explote alph level ori_sz=
                     List.rev(to_list alph)
                 else (to_list alph)
             in
-            let all_combinations =  
+            let all_combinations =
                 (* sanity check *)
                 assert (0 <> List.length list);
-                let list = 
-                    match alph.all with
+                let list = match alph.all with
                     | None -> list
-                    | Some code -> 
-                            List.filter (fun (_, b) -> b <> code) list
+                    | Some code -> List.filter (fun (_, b) -> b <> code) list
                 in
                 assert (0 <> List.length list);
                 (* add all possible combinations to the alphabet *)
-                let rec all_combinations lst =
-                    match lst with
-                    | h :: t -> 
-                            let res = all_combinations t in
-                            (*when doing level combination, get rid of any
-                            * combination that has more elements than level*)
-                            let newres = List.filter 
-                            (fun x -> ( (List.length x)<level )) res in
-                            (*Printf.printf "res = { %!";
-                            List.iter (fun xlst -> 
-                                Printf.printf "[%!";
-                                List.iter (fun (x,y) -> Printf.printf "%s,%d;" x y) xlst;
-                                Printf.printf "],%!";
-                            ) newres;
-                            Printf.printf "]\n%!"; *)
-                            res @ (List.map (fun x -> h :: x) newres)
+                let rec all_combinations lst = match lst with
+                    | h :: t ->
+                        let res = all_combinations t in
+                        let newres =
+                            List.filter (fun x -> (List.length x) < level) res
+                        in
+                        List.rev_append (List.rev res)
+                                        (List.rev (List.rev_map (fun x -> h :: x) newres))
                     | [] -> [[]]
                 in
                 match all_combinations list with
                 | [] :: ((_ :: _) as r) -> r
                 | _ -> assert false
             in
+            (*let () =
+                Printf.printf "COMBINATIONS: (%d)\n" (List.length all_combinations);
+                let pp_lst chan lst = List.iter (fun (x,_) -> Printf.fprintf chan "%s|" x) lst in
+                List.iter (fun xs -> Printf.printf "\t|%a\n%!" pp_lst xs) all_combinations;
+            in*)
             let new_comb_to_list = ref All_sets.IntegerMap.empty in
             let new_list_to_comb = ref All_sets.IntegerListMap.empty in
             let a_size = List.length list in
@@ -870,14 +865,15 @@ let rec explote alph level ori_sz=
                             (item ^ "]", code, None)
                          end
                 in
-                List.map merge_combination all_combinations
+                List.rev_map merge_combination all_combinations
             in
             let all_repr, _, _ = 
                 match new_alphabet with
                 | h :: t ->
                     List.fold_left 
-                    (fun ((_, code, _) as acc) ((_, codet, _) as item) ->
-                        if codet <= code then acc else item) h t
+                        (fun ((_, code, _) as acc) ((_, codet, _) as item) ->
+                            if codet <= code then acc else item)
+                        h t
                 | [] -> assert false
             in
             (*combination by level and full combination should have different tags.*)
