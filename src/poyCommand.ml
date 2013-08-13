@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3482 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3496 $"
 
 let debug = false 
 
@@ -1268,8 +1268,9 @@ type command = [
             ml_gap :
                 [ [ LIDENT "missing"   -> `Missing ] |
                   [ LIDENT "character" -> `Independent] |
-                  [ LIDENT "coupled"   -> `Coupled 1.0 ] |
-                  [ LIDENT "coupled"; ":"; x = integer_or_float -> `Coupled (float_of_string x) ]
+                  [ LIDENT "coupled"; ":"; 
+                    x = integer_or_float -> `Coupled (float_of_string x) ] |
+                  [ LIDENT "coupled"   -> `Coupled 1.0 ]
                 ];
             ml_costfn:
                 [
