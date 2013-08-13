@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3498 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3500 $"
 
 let debug = false 
 
@@ -1928,6 +1928,7 @@ type command = [
             iterate_options:
                 [
                     [LIDENT "model"; ":";  x = model_iter -> x] |
+                    [LIDENT "branches"; ":"; x = branch_iter -> x] |
                     [LIDENT "branch"; ":"; x = branch_iter -> x]
                 ];
             iteration_method:

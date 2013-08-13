@@ -21,7 +21,7 @@
  * implemented. The tabu manager specifies the order in which edges are broken by
  * the SPR and TBR search procedures. The list of edges in the tabu should always
  * match the edges in the tree. *)
-let () = SadmanOutput.register "Tabus" "$Revision: 3459 $"
+let () = SadmanOutput.register "Tabus" "$Revision: 3500 $"
 
 (* A module that provides the managers for a local search (rerooting, edge
 * breaking and joining. A tabu manager controls what edges are next ina series
@@ -783,7 +783,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     class nm_complex_neighborhood dist mcount mthreshold : [Node.n,Edge.e] nodes_manager =
         object (self)
             inherit nm_simple_base mcount mthreshold as super
-    
+ 
             method private edges_of_delta tree deltal deltar = 
                 let rec make_edge a b = 
                     let edge =
@@ -797,9 +797,24 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                         end
                     in
                     edge
+                and construct_edges t prev n1 dist =
+                    if dist <= 0 then
+                        []
+                    else match Ptree.get_node n1 t with
+                        | Tree.Leaf (a,b) ->
+                            [make_edge n1 prev]
+                        | (Tree.Interior (a,b,c,d) ) as an ->
+                            let b,c = Ptree.other_two_nbrs prev an in
+                            make_edge n1 prev ::
+                                (List.rev_append (construct_edges t a b (dist-1))
+                                                 (construct_edges t a c (dist-1)))
+                        | Tree.Single _ -> []
                 and get_edges_on_side = function
                     | `Single (i,_)      -> [], i
-                    | `Edge (i,l,r,_)  -> [(make_edge i l); (make_edge i r)], i
+                    | `Edge (i,l,r,_)    ->
+                        let left = construct_edges tree i l dist
+                        and right= construct_edges tree i r dist in
+                        List.rev_append left right, i
                 in
                 let acc1,il = get_edges_on_side deltal
                 and acc2,ir = get_edges_on_side deltar in
