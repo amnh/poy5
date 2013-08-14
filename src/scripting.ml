@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3503 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3507 $"
 
 let (-->) a b = b a
 
@@ -1617,10 +1617,11 @@ let load_data (meth : Methods.input) data nodes =
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
             in
-            let orientation = 
-                if not (List.mem (`Orientation false) read_options) then
-                    Status.user_message Status.Warning
-                        "We only accept Break Inversion with orientation:true. I am turning it on";
+            let orientation =
+                let o = not (List.mem (`Orientation false) read_options) in
+                if not o then
+                    Status.user_message Status.Error
+                        "Orientation for Break Inversion characters must be enabled. I am turning it on.";
                 true
             in
             let init3D = (List.mem (`Init3D true) read_options) in
@@ -1638,10 +1639,6 @@ let load_data (meth : Methods.input) data nodes =
                 try match
                     List.find (function `Level _ ->true | _ ->false) read_options
                     with
-                    | `Level (x,y) when x > 1 ->
-                        Status.user_message Status.Warning
-                            "Break Inversion transformations require level=1. I am setting it now.";
-                        1,y
                     | `Level (x,y) -> (x,y)
                     | _            -> assert false
                 with | Not_found   -> 1,tb
