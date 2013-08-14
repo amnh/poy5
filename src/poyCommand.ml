@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3500 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3501 $"
 
 let debug = false 
 
@@ -1082,11 +1082,11 @@ type command = [
 
     let organize_read_options lst = 
         let rec organize_data (ss,cm,ro) = function
-            ( `Level _
-            | `Init3D _
-            | `Tie_Breaker _
-            | `Affine _
-            | `Orientation _) as a -> (ss,cm,a::ro)
+            (  `Level _
+             | `Init3D _
+             | `Tie_Breaker _
+             | `Affine _
+             | `Orientation _) as a -> (ss,cm,a::ro)
             | (`CostMatrix x) ->
                 begin match cm with
                     | None -> (ss,Some x,ro)
@@ -2114,7 +2114,7 @@ type command = [
                 [ x = STRING -> `InputFile (`Local x) ] |
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
-                [LIDENT "tcm"; ":"; left_parenthesis; cm = STRING; right_parenthesis -> `CostMatrix (`Local cm) ] |
+                [LIDENT "tcm"; ":"; cm = STRING -> `CostMatrix (`Local cm) ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
                 [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
                 [LIDENT "gap_opening"; ":"; x = INT -> `Affine (int_of_string x) ]

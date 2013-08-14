@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 3497 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 3501 $"
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -809,11 +809,11 @@ let rec explote alph level ori_sz=
                 | [] :: ((_ :: _) as r) -> r
                 | _ -> assert false
             in
-            (*let () =
+            let () =
                 Printf.printf "COMBINATIONS: (%d)\n" (List.length all_combinations);
                 let pp_lst chan lst = List.iter (fun (x,_) -> Printf.fprintf chan "%s|" x) lst in
                 List.iter (fun xs -> Printf.printf "\t|%a\n%!" pp_lst xs) all_combinations;
-            in*)
+            in
             let new_comb_to_list = ref All_sets.IntegerMap.empty in
             let new_list_to_comb = ref All_sets.IntegerListMap.empty in
             let a_size = List.length list in
