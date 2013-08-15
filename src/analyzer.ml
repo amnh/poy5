@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3482 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3502 $"
 
 let debug = false
 
@@ -55,8 +55,7 @@ let get_dependencies list =
                 | Trees when not_has_it `Trees -> [`Trees]
                 | JackBoot when not_has_it `Jackknife -> [`Jackknife; `Bootstrap]
                 | Bremer when not_has_it `Bremer -> [`Bremer]
-                | EntryPoint -> []
-                | _ -> [] 
+                | (Data|Trees|JackBoot|Bremer|EntryPoint) -> []
             in
             List.iter add_it res;
             res

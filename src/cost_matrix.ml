@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3459 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3488 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -107,11 +107,10 @@ module Two_D = struct
         Pervasives.output_string ch "\n";
         for i = 1 to a_sz do
             for j = 1 to a_sz do
-                let v = cost i j m in
-                Pervasives.output_string ch (string_of_int v);
-                Pervasives.output_string ch " ";
+                let v = cost i j m and m = median i j m in
+                Printf.fprintf ch "%d|%d " v m;
             done;
-            Pervasives.output_string ch "\n";
+            Printf.fprintf ch "\n";
         done
 
     let print_intlist lst =
@@ -266,8 +265,9 @@ module Two_D = struct
         let a_sz = int_of_float (sqrt (float_of_int s)) in
         if (a_sz * a_sz != s) then begin
             Status.user_message Status.Error
-            ("calculate alphabet size,a_sz="^string_of_int a_sz^",a_sz*a_sz!=length of list = "^string_of_int s);
-            raise Illegal_Cm_Format
+                ("calculate alphabet size,a_sz="^string_of_int a_sz^",a_sz*a_sz!=length of list = "^string_of_int s);
+            raise
+                Illegal_Cm_Format
         end
         else a_sz;;
 

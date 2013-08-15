@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 3459 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 3505 $"
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -778,41 +778,25 @@ let rec explote alph level ori_sz=
             (* for full combination, We have each element as one bit, we have now to extend it into
             * all possible combinations, for combination by level, we use
             * continuous number for each element, extend the list just like full combination code*)
-            if debug then Printf.printf
-            "Alphabet.explote,Simple_Bit_Flags->Extended_Bit_Flags or Combination_By_Level\n%!";
             (* we do the List.rev here because we want the gap to be the first element in following combination calculation *)
-            let list = 
-                if uselevel then
-                    List.rev(to_list alph)
-                else (to_list alph)
-            in
-            let all_combinations =  
+            let list = if uselevel then List.rev(to_list alph) else (to_list alph) in
+            let all_combinations =
                 (* sanity check *)
                 assert (0 <> List.length list);
-                let list = 
-                    match alph.all with
+                let list = match alph.all with
                     | None -> list
-                    | Some code -> 
-                            List.filter (fun (_, b) -> b <> code) list
+                    | Some code -> List.filter (fun (_, b) -> b <> code) list
                 in
                 assert (0 <> List.length list);
                 (* add all possible combinations to the alphabet *)
-                let rec all_combinations lst =
-                    match lst with
-                    | h :: t -> 
-                            let res = all_combinations t in
-                            (*when doing level combination, get rid of any
-                            * combination that has more elements than level*)
-                            let newres = List.filter 
-                            (fun x -> ( (List.length x)<level )) res in
-                            (*Printf.printf "res = { %!";
-                            List.iter (fun xlst -> 
-                                Printf.printf "[%!";
-                                List.iter (fun (x,y) -> Printf.printf "%s,%d;" x y) xlst;
-                                Printf.printf "],%!";
-                            ) newres;
-                            Printf.printf "]\n%!"; *)
-                            res @ (List.map (fun x -> h :: x) newres)
+                let rec all_combinations lst = match lst with
+                    | h :: t ->
+                        let res = all_combinations t in
+                        let newres =
+                            List.filter (fun x -> (List.length x) < level) res
+                        in
+                        List.rev_append (List.rev res)
+                                        (List.rev (List.rev_map (fun x -> h :: x) newres))
                     | [] -> [[]]
                 in
                 match all_combinations list with
@@ -870,14 +854,15 @@ let rec explote alph level ori_sz=
                             (item ^ "]", code, None)
                          end
                 in
-                List.map merge_combination all_combinations
+                List.rev_map merge_combination all_combinations
             in
             let all_repr, _, _ = 
                 match new_alphabet with
                 | h :: t ->
                     List.fold_left 
-                    (fun ((_, code, _) as acc) ((_, codet, _) as item) ->
-                        if codet <= code then acc else item) h t
+                        (fun ((_, code, _) as acc) ((_, codet, _) as item) ->
+                            if codet <= code then acc else item)
+                        h t
                 | [] -> assert false
             in
             (*combination by level and full combination should have different tags.*)
@@ -1010,6 +995,8 @@ let of_file fn orientation init3D level respect_case tie_breaker =
         else
             Cost_matrix.Two_D.of_channel_nocomb ~orientation all_elements file
     in
+    assert( alph.gap = Cost_matrix.Two_D.gap tcm_full );
+    assert( alph.gap = Cost_matrix.Two_D.gap tcm_original );
     let tcm3 = match init3D with
         | true -> Cost_matrix.Three_D.of_two_dim tcm_full
         | false  ->  Cost_matrix.Three_D.default_nucleotides 

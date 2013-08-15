@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "BreakinvAli" "$Revision: 3459 $"
+let () = SadmanOutput.register "BreakinvAli" "$Revision: 3504 $"
 
 (** The implementation of funtions to calculate the cost, 
 * alignments and medians between general sequences 
@@ -255,8 +255,11 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
     let len1 = Sequence.length seq1 in 
     let len2 = Sequence.length seq2 in 
     let orientation = Alphabet.get_orientation alpha in
-    if len1<>len2 then
-        failwith ("cmp_cost funciton in breakinvAli.ml.ERROR:input sequence without gap have different length");
+    if len1<>len2 then begin
+        Status.user_message Status.Error
+            "Input sequences for Break Inversion have different lengths";
+        assert false
+    end;
     let gaplen1 = len1wg - len1 
     and gaplen2 = len2wg - len2 in
     if debug && (gaplen1>0||gaplen2>0) then

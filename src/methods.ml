@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3459 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3498 $"
 
 exception TimedOut
 
@@ -37,7 +37,7 @@ type alignment_modes = [ `Algn_Newkk | `Algn_Normal ]
 
 let cost : cost_modes ref = ref `Normal
 
-let opt_mode  : Numerical.opt_modes ref = ref (`Exhaustive None)
+let opt_mode  : Numerical.opt_modes ref = ref (`Coarse (Some 2))
 
 let set_opt_mode x =
     let () = Numerical.set_tol_c_brents_method (Numerical.get_tol !opt_mode) in

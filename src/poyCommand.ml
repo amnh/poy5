@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3482 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3509 $"
 
 let debug = false 
 
@@ -492,7 +492,7 @@ type command = [
     (*let add_command_to_console_script str : char Stream.t =*)
     (*    console_script := str :: !console_script; str*)
 
-    let iter_default =  `Always, `AllBranches
+    let iter_default =  `Null, `Neighborhood 1
 
     (* Building *)
     let build_default_method_args = (1, 0.0, `Last, [], `UnionBased None)
@@ -519,7 +519,7 @@ type command = [
             ((n, (meth:Methods.build_method), 
              (trans:Methods.transform list),
              (iter:Methods.tabu_iteration_strategy)) as acc)
-            (builder: builda) = match builder with
+             (builder: builda) = match builder with
         | `Nj -> (n, `Nj, trans,iter)
         | `Prebuilt fn -> (n, (`Prebuilt fn), trans,iter)
         | `RandomTree ->
@@ -1082,11 +1082,11 @@ type command = [
 
     let organize_read_options lst = 
         let rec organize_data (ss,cm,ro) = function
-            ( `Level _
-            | `Init3D _
-            | `Tie_Breaker _
-            | `Affine _
-            | `Orientation _) as a -> (ss,cm,a::ro)
+            (  `Level _
+             | `Init3D _
+             | `Tie_Breaker _
+             | `Affine _
+             | `Orientation _) as a -> (ss,cm,a::ro)
             | (`CostMatrix x) ->
                 begin match cm with
                     | None -> (ss,Some x,ro)
@@ -1268,8 +1268,9 @@ type command = [
             ml_gap :
                 [ [ LIDENT "missing"   -> `Missing ] |
                   [ LIDENT "character" -> `Independent] |
-                  [ LIDENT "coupled"   -> `Coupled 1.0 ] |
-                  [ LIDENT "coupled"; ":"; x = integer_or_float -> `Coupled (float_of_string x) ]
+                  [ LIDENT "coupled"; ":"; 
+                    x = integer_or_float -> `Coupled (float_of_string x) ] |
+                  [ LIDENT "coupled"   -> `Coupled 1.0 ]
                 ];
             ml_costfn:
                 [
@@ -1921,12 +1922,13 @@ type command = [
                     [LIDENT "all_branches" -> `AllBranches] |
                     [LIDENT "all"          -> `AllBranches] |
                     [LIDENT "join_delta"   -> `JoinDeltaBranches] |
-                    [LIDENT "join_region"  -> `NeighborhoodBranches 0] |
-                    [LIDENT "join_region"; ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ]
+                    [LIDENT "join_region"; ":"; x = INT -> `NeighborhoodBranches (int_of_string x) ] |
+                    [LIDENT "join_region"  -> `NeighborhoodBranches 0]
                 ];
             iterate_options:
                 [
                     [LIDENT "model"; ":";  x = model_iter -> x] |
+                    [LIDENT "branches"; ":"; x = branch_iter -> x] |
                     [LIDENT "branch"; ":"; x = branch_iter -> x]
                 ];
             iteration_method:
@@ -1938,42 +1940,39 @@ type command = [
                 ];
             std_search_argument:
                 [   
-                    [ LIDENT "target_cost"; ":"; x = integer_or_float -> `Target
-                    (float_of_string x) ] |
+                    [ LIDENT "target_cost"; ":"; x = integer_or_float -> `Target (float_of_string x) ] |
                     [ LIDENT "memory"; ":"; x = memory -> `MaxRam x ] |
                     [ LIDENT "hits"; ":"; x = INT -> `MinHits (int_of_string x) ] |
-                    [ LIDENT "max_time"; ":"; x = time -> `MaxTime (float_of_int x)
-                    ] |
+                    [ LIDENT "max_time"; ":"; x = time -> `MaxTime (float_of_int x) ] |
                     [ LIDENT "visited"; x = OPT string_arg -> `Visited x ] |
-                    [ LIDENT "min_time"; ":"; x = time -> 
-                        `MinTime (float_of_int x) ] |
+                    [ LIDENT "min_time"; ":"; x = time -> `MinTime (float_of_int x) ] |
                     [ LIDENT "constraint"; ":"; x = STRING -> `ConstraintFile x ]
                 ];
             search:
                 [
-                    [ LIDENT "search"; left_parenthesis; a = LIST0 [ x =
-                        std_search_argument -> x ] SEP ",";  right_parenthesis ->
-                        `StandardSearch a] |
-                    [ LIDENT "_search"; left_parenthesis; a = LIST0 [x =
-                        search_argument -> x]  SEP
-                    ","; right_parenthesis -> `Search a ]
+                    [ LIDENT "search"; left_parenthesis;
+                        a = LIST0 [ x = std_search_argument -> x ] SEP ",";
+                      right_parenthesis -> `StandardSearch a] |
+                    [ LIDENT "_search"; left_parenthesis;
+                        a = LIST0 [x = search_argument -> x]  SEP ",";
+                      right_parenthesis -> `Search a ]
                 ];
             fuse:
                 [
-                    [ LIDENT "fuse"; left_parenthesis; a = LIST0 [x = fuse_argument
-                    -> x] SEP ","; 
-                        right_parenthesis -> (`Fuse a) ]
+                    [ LIDENT "fuse"; left_parenthesis;
+                        a = LIST0 [x = fuse_argument -> x] SEP ","; 
+                      right_parenthesis -> (`Fuse a) ]
                 ];
             fuse_argument:
                 [
-                    [ LIDENT "keep"; ":"; i = INT -> `Keep (int_of_string i) ]
-                |   [ LIDENT "iterations"; ":"; i = INT -> `Iterations (int_of_string i) ]
-                |   [ LIDENT "replace"; ":"; r = fuseareplace -> `Replace r]
-                |   [ x = swap -> (x :> fusea) ]
-                |   [ LIDENT "weighting"; ":"; w = fuseaweighting -> `Weighting w]
-                |   [ LIDENT "clades"; ":"; cfrom = INT; cto = OPT fusea_cto ->
+                      [ LIDENT "keep"; ":"; i = INT -> `Keep (int_of_string i) ]
+                    | [ LIDENT "iterations"; ":"; i = INT -> `Iterations (int_of_string i) ]
+                    | [ LIDENT "replace"; ":"; r = fuseareplace -> `Replace r]
+                    | [ x = swap -> (x :> fusea) ]
+                    | [ LIDENT "weighting"; ":"; w = fuseaweighting -> `Weighting w]
+                    | [ LIDENT "clades"; ":"; cfrom = INT; cto = OPT fusea_cto ->
                           `Clades (int_of_string cfrom, cto)]
-                |   [ a = iteration_method -> `IterationF a]
+                    | [ a = iteration_method -> `IterationF a]
                 ];
             fuseareplace:
                 [ [ LIDENT "better" -> `Better ]
@@ -2115,7 +2114,8 @@ type command = [
                 [ x = STRING -> `InputFile (`Local x) ] |
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
-                [LIDENT "tcm"; ":"; left_parenthesis; cm = STRING; right_parenthesis -> `CostMatrix (`Local cm) ] |
+                [LIDENT "tcm"; ":"; left_parenthesis; tcm = STRING; right_parenthesis -> `CostMatrix (`Local tcm) ] |
+                [LIDENT "tcm"; ":"; tcm = STRING -> `CostMatrix (`Local tcm) ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
                 [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
                 [LIDENT "gap_opening"; ":"; x = INT -> `Affine (int_of_string x) ]

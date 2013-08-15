@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3459 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3507 $"
 
 let (-->) a b = b a
 
@@ -1617,7 +1617,13 @@ let load_data (meth : Methods.input) data nodes =
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
             in
-            let orientation = List.mem (`Orientation true) read_options in
+            let orientation =
+                let o = not (List.mem (`Orientation false) read_options) in
+                if not o then
+                    Status.user_message Status.Error
+                        "Orientation for Break Inversion characters must be enabled. I am turning it on.";
+                true
+            in
             let init3D = (List.mem (`Init3D true) read_options) in
             let respect_case = true in
             let tb =
@@ -1630,10 +1636,10 @@ let load_data (meth : Methods.input) data nodes =
                 with | Not_found    -> `First
             in
             let level,tb =
-                try match List.find
-                        (function | `Level _ -> true | _ -> false)
-                        read_options with
-                    | `Level (x,y) -> x,y
+                try match
+                    List.find (function `Level _ ->true | _ ->false) read_options
+                    with
+                    | `Level (x,y) -> (x,y)
                     | _            -> assert false
                 with | Not_found   -> 1,tb
             in
@@ -4224,10 +4230,10 @@ let rec folder (run : r) meth =
                 else if check_suffix filename hennig_extensions then
                     folder run (`FasWinClad filename)
                 else begin
-                   let fmt = (Data.to_formatter [] run.data) in
+                   let fmt = Data.to_formatter [] run.data in
                     PoyFormaters.data_to_status filename fmt;
                     (* Flush the formatter *)
-                    Status.user_message (Status.Output (filename, false, [])) "%!"; 
+                    Status.user_message (Status.Output (filename, false, [])) "%!";
                     run
                 end
             | `Xslt (file, style) ->
@@ -4242,10 +4248,6 @@ IFDEF USE_XSLT THEN
                     let trs =
                         Sexpr.map
                             (fun tr ->
-                                let run =
-                                    update_trees_to_data ~classify:false
-                                            false true {run with trees = `Single tr}
-                                in
                                 match run.trees with
                                 | `Single tr -> TreeOps.to_formatter `Normal [] tr
                                 | _          -> assert false)

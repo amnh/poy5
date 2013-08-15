@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "GenAli" "$Revision: 3459 $"
+let () = SadmanOutput.register "GenAli" "$Revision: 3501 $"
 
 (** This module implements methods to align two general
 * characters allowing rearrangements *)
@@ -556,13 +556,14 @@ gapcode re_meth =  (* we will consider gap(indel) in the match *)
 (* heuristic function to match pair of input loci arrays.
 *  h_size is the heuristic size -- the number of best choice we keep in each
 *  round. *)
-let match_pair_heuristic cost_set marked_matrix size1 size2 h_size
-gapcode =
+let match_pair_heuristic cost_set marked_matrix size1 size2 h_size gapcode =
     let debug = false in
-    if debug then begin 
+    if debug then begin
         Printf.printf "match pair heuristic with cost_set:\n%!";
-       All_sets.FullTriples2.iter (fun (id1,id2,cost) ->  Printf.printf "(i:%d,j:%d,cost:%d) %!" id1 id2 cost;
-    ) cost_set;
+        All_sets.FullTriples2.iter
+            (fun (id1,id2,cost) ->
+                Printf.printf "(i:%d,j:%d,cost:%d) %!" id1 id2 cost)
+            cost_set;
     end;
     let candidate_list = ref [] in
     (*init h_size match list with 0,1,..,h_size-1 item from cost_set choosen*)
@@ -571,14 +572,14 @@ gapcode =
         let (init_match: matched_loci_array) = {
             cost = costij; 
             size = 1;
-            arr1_left = if (indexi<gapcode) then size1-1 else size1 ;
-            arr2_left = if (indexj<gapcode) then size2-1 else size2 ;
+            arr1_left = if indexi < gapcode then size1-1 else size1;
+            arr2_left = if indexj < gapcode then size2-1 else size2;
             matched_loci_list = [(indexi, indexj, costij)];
             marked_matrix = make_new_mark_matrix marked_matrix indexi indexj gapcode;
             cost_set = new_cost_set;
             unused_size = All_sets.FullTriples2.cardinal new_cost_set;
         } in
-        candidate_list := (!candidate_list) @ [init_match] ;
+        candidate_list := init_match :: !candidate_list;
     done;
     let somethingleft = ref 1 in
     while ( !somethingleft = 1 ) do
@@ -593,19 +594,16 @@ gapcode =
             let unused_size = item.unused_size in
 (*debug msg*)
             if debug then begin
-            Printf.printf "left1=%d,left2=%d, gapcode = %d, check matched_list:\n%!"
-            base_left1 base_left2 gapcode;
-            List.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
-            ) matched_list; Printf.printf "\n%!";
-            (*       Printf.printf "check marked matrix:\n%!";  Utl.printIntMat  marked_matrix;*)
+                Printf.printf "left1=%d,left2=%d, gapcode = %d, check matched_list:\n%!" base_left1 base_left2 gapcode;
+                List.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;) matched_list;
+                Printf.printf "\n%!";
             end;
 (*debug msg*)
             (*run out of lcb blocks*)
             if( (base_left1=0)&&(base_left2=0) ) then begin
                 current_list := !current_list @ [item];
                 somethingleft := 0
-            end 
-            else begin
+            end else begin
                 let picked = ref 0 
                 and left_len = ref unused_size  
                 and z = ref 0 in
@@ -655,6 +653,7 @@ gapcode =
                 tmp_list ;
     done;
     !candidate_list
+
 
 let get_neg_code code = 
     if ( (code mod 2)=1 ) then code + 1 else code - 1

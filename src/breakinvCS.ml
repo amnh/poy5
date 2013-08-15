@@ -20,10 +20,10 @@
 (** A Breakinv character set implementation. The breakinv
 * character set allows rearrangements *)
 
-let () = SadmanOutput.register "BreakinvCS" "$Revision: 3473 $"
+let () = SadmanOutput.register "BreakinvCS" "$Revision: 3508 $"
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "Breakinv Character" "$Revision: 3473 $"
+let () = SadmanOutput.register "Breakinv Character" "$Revision: 3508 $"
 
 let debug = false
 
@@ -118,19 +118,16 @@ let median2 (a : t) (b : t) =
     let median code (meda : meds_t) (medians, costs, recosts, total_cost, total_recost) = 
         let medb : meds_t = IntMap.find code b.meds in
         if debug then begin
-        Printf.printf "breakinvCS.median2, meda is : %!";
-        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
-        meda.Breakinv.med_ls;
-        Printf.printf "medb is : %!";
-        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
-        medb.Breakinv.med_ls;
+            Printf.printf "breakinvCS.median2, meda is : %!";
+            List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq) meda.Breakinv.med_ls;
+            Printf.printf "medb is : %!";
+            List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq) medb.Breakinv.med_ls;
         end;
         let medab = Breakinv.find_meds2 meda medb in
         if debug then begin
-        Printf.printf "medab is : %!";
-        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq;)
-        medab.Breakinv.med_ls;
-        Printf.printf "\n%!";
+            Printf.printf "medab is : %!";
+            List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq;) medab.Breakinv.med_ls;
+            Printf.printf "\n%!";
         end;
         let new_median = IntMap.add code medab medians 
         and new_costs = 
@@ -279,8 +276,7 @@ let readjust to_adjust modified ch1 ch2 parent mine =
             c3 = parent.c3 
     in
     let adjusted code parent_chrom acc =
-        let to_adjust =
-            match to_adjust with
+        let to_adjust = match to_adjust with
             | None -> All_sets.Integers.singleton code
             | Some x -> x
         in
