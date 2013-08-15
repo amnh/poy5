@@ -243,7 +243,8 @@ dispatch begin function
         "doc/figures/syn.jpg"; "doc/figures/swap1.jpg"; "doc/figures/swap2.jpg";
         "doc/figures/view_menu.jpg"; "doc/figures/genomeRearrangement.pdf";
         "doc/figures/breakpointDis.pdf"; "doc/figures/chromfig1.jpg";
-        "doc/parsedoc.pl" ]
+        "doc/figures/primer_chop.pdf"; "doc/figures/messyseq_prechop.pdf";
+        "doc/figures/messyseq_postchop.pdf"; "doc/parsedoc.pl" ]
     in
 
 
