@@ -255,6 +255,8 @@ case ${OS_INFORMATION} in
         DUSEWIN32="-DUSEWIN32"
         OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 $CFLAGS"
+        # Required in GCC-4.7.3 under cygwin to link with FlexDLL
+        LIBS="$LIBS -lgcc_eh" 
         # so AC_FUNC_MALLOC does not redine malloc to rpl_malloc
         ac_cv_func_realloc_0_nonnull=yes
         ac_cv_func_malloc_0_nonnull=yes
