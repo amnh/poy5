@@ -31,6 +31,6 @@ let () =
         print_string Version.version_string
     else begin
         Printf.printf "\\newcommand{\\smallbuildnumber}{%s}"
-        Version.small_version_string;
+            Version.small_version_string;
         Printf.printf "\\newcommand{\\buildnumber}{%s}" Version.version_string;
     end

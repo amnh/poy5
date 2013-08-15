@@ -79,8 +79,8 @@ let small_version_string =
     ""  --> concatenator major_version
         --> append dot
         --> concatenator minor_version
-        --> if_run (0 <> release_version) append dot
-        --> if_run (0 <> release_version) concatenator release_version
+        --> append dot
+        --> concatenator release_version
 
 let version_string = option_to_string small_version_string
 
