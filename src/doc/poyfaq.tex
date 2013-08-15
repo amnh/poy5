@@ -1,5 +1,6 @@
-This FAQ is supplementary documentation that aims to answer the most frequently poised questions to 
-the \poy developers and on the \poy google groups.
+This FAQ is supplementary documentation that aims to answer the
+most frequently poised questions to the \poy developers and on the
+\poy google groups.
 
 \renewcommand{\cftdotsep}{\cftnodots} % This gets rid of the dots locally
 \cftpagenumbersoff{questions} % This turns page numbers off for just the questions
@@ -9,104 +10,222 @@ the \poy developers and on the \poy google groups.
 
 %\section{Getting to know \poy}
 \question{What does POY stand for?}
-{POY is a meta-acronym, which comes from an older program YAPP (Yet Another Phylogeny Program) that 
-was written in \texttt{C}.  This program, which was an extension of \texttt{MALIGN}, was the first designed around direct 
-optimization.  This program was rewritten in Ocaml (Ocaml YAPP), which was shortened to OY.  
-The subsequent parallelization of this program yielded POY.}
+{POY is a meta-acronym, which comes from an older program YAPP (Yet
+Another Phylogeny Program) that was written in \texttt{C}.  This
+program, which was an extension of \texttt{MALIGN}, was the first
+designed around direct optimization.  This program was rewritten
+in Ocaml (Ocaml YAPP), which was shortened to OY.  The subsequent
+parallelization of this program yielded POY.}
 
-\question{Looking at the implied alignment generated from my \poy analysis, it looks very gappy. Why?}
-{POY is not, nor has it ever been an alignment program.}
+\question{I would like to visualize the implied alignment generated from 
+my analysis, how do I do this?} 
+{The implied alignment can be exported from \poy in two ways:  \\
+
+The first is to export the implied alignment, using the command report.
+The implied alignment will be output in FASTA format 
+(see \nccross{implied\_alignments}{impliedalignment}).  \\
+
+The second is to transform using static\_approx and report using
+the phastwinclad option (see \nccross{phastwinclad}{phastwinclad}). 
+This will produce a file Hennig86 format.\\
+\\
+These files can subsequently be imported into other programs such as 
+Winclada or Mesquite, for visualization.}
+
+\question{Looking at the implied alignment generated from my \poy
+analysis, it looks very `gappy'. Why?} 
+{POY is not, nor has it ever been an alignment program. Non-homologous, 
+independent insertions are assigned their own columns with \poy, hence, 
+the number of columns will expand with the number of insertions.}
 
 %\section{Errors}
-\question{I encountered a problem while running an analysis that I think might be a bug in the program, how should 
-I report this?}
-{All error and bug reports should be made directly to the \poy Mail Group. Before posting to this group, it is advised that the 
-user search the history of previously posed questions, to make sure that their has not been previou1sly answered.
-When reported to the Mail Group, users should include the following information: what steps will 
-reproduce the problem; what is the expected output and what do you see instead;  what version of 
-the product are you using and on which operating system?}
+\question{I encountered a problem while running an analysis that I
+think might be a bug in the program, how should I report this?}
+{All error and bug reports should be made directly to the \poy Mail
+Group. Before posting to this group, it is advised that the user
+search the history of previously posed questions, to make sure that
+it has not been answered previously.  When reported to the Mail
+Group, users should include the following information: \\
+\\
+-- What steps will reproduce the problem; \\
+-- What is the expected output and what do you see instead; \\
+-- What version of the program are you using and on which operating system?}
 
-\question{My script won't run and I don't know where I went wrong.  What should I do?}
-{If a script won't run, the first thing to do is to check that there are no hidden characters in the script file.
-When constructing a script or a transformation cost matrix, it is important to do so in a text editor 
-such as Notepad (for Windows), TextEdit (for Mac), or Nano (for Linux). Generating these files in 
-a word processing application such as Microsoft Word may lead to the insertion of hidden 
-characters, which will result in an error.
+\question{My script won't run and I don't know where I went wrong.
+What should I do?}
+{If a script won't run, the first thing to do is to check that there
+are no hidden characters in the script file.  When constructing a
+script or a transformation cost matrix, it is important to do so
+in a text editor such as Notepad (for Windows), TextEdit (for Mac),
+or Nano (for Linux). Generating these files in a word processing
+application such as Microsoft Word may lead to the insertion of
+hidden characters, which can result in an error.
 
-Secondly, the user is advised to check the log.  If none was set, the user is advised to do so and rerun the script.
-The log will give some indication as to which errors were encountered, or which warnings were issued.}
+Secondly, the user is advised to check the log.  If none was set,
+the user is advised to do so and rerun the script.  The log will
+give some indication as to which errors were encountered, or which
+warnings were issued.}
 
-\question{When I run \poy in parallel, I get multiple, identical outputs to the screen, why?}
-{The only explanation for this is that \poy was not properly compiled in parallel. You should check the \texttt{make}
-options.}
+\question{When I run \poy in parallel, I get multiple, identical
+outputs to the screen, why?}
+{It is likely that \poy was not properly compiled
+in parallel. You should check the \texttt{make} options.}
 
-\question{In running an analysis of custom alphabet characters, with the characters being transformed
-to \poyargument {level} 5, I got the following error "\texttt{seg fault:11}".  In a previous analysis, the characters 
-were transformed to \poyargument {level} 4, and that worked without issue.  What's wrong?}
-{This is most likely an 'out of memory' error and is system specific and difficult to predict. This is 
-beyond the control of the program. Storage and set up time increase combinatorially with level number.} 
+\question{In running an analysis of custom alphabet characters,
+with the characters being transformed to \poyargument {level} 5, I
+got the following error "\texttt{seg fault:11}".  In a previous
+analysis, the characters were transformed to \poyargument {level}
+4, and that worked without issue.  What's wrong?} 
+{This is most likely an `out of memory' error and is system specific 
+and difficult to predict. This is beyond the control of the program. Storage and
+set up time increase combinatorially with level number.}
 
-%\section{SAQs: Stoopid Ass Questions}
-\question{I read in a tree that was generated from a previous analysis, however, the cost reported in the output window
-of the \texttt {Interactive Console } is different, why is this the case?}
-{If you are reading in a tree generated from a previous analysis it is important to make sure that the same 
-transformation cost matrix has been applied to the data.}
+\question{In running an analysis using a *.ss or Hennig86 file, I encountered 
+a `syntax' error, however, the characters continued to load and the analysis seemed
+to run.  Is something wrong?}
+{Syntax errors are of the form: 
+\\
+Error: Syntax error\\
+Error: Unrecognized command between characters 93 and 94 \\
+Information: The file Fly.ss defines 9 static homology characters, \\
+0 unaligned sequences, and 0 trees, containing 5 taxa\\
+\\
+Hennig86 or *.ss files, have no formal definition.  \poy does its
+best to parse the file properly, but it is incumbent upon the user
+to make sure that the data was read/parsed correctly.  If an error
+such as this is encountered, the user should report the data
+(\poyargument{report(data)}) to verify.  A similar caution should
+be taken with NEXUS files, as very often files that have been
+generated and exported from other programs are not in the correct
+NEXUS format.}
 
-\question{In trying to calculate Jackknife support values, I believe that all the values are inflated for the resulting tree.
-Why?}
-{Although it is possible to calculate Jackknife and Bootstrap support values for trees constructed using dynamic 
-homology characters, it is recommended against doing so as resampling of dynamic characters occurs at the fragment, 
-rather than nucleotide, level. Consequently, the bootstrap and jackknife support values calculated for dynamic 
-characters are not directly comparable to those calculated based on static character matrices. In order to perform 
-character sampling at the level of individual nucleotides, the dynamic characters {\bf must} be transformed into 
-static characters using \poyargument {static\_approx} argument of the command transform (Section 3.3.26) prior 
-to executing calculate support.}
+%\section{SAQs: Stoopid Ass Questions} 
+\question{My FASTA file contains sequences that are of poor 
+`quality', especially in the 5 prime and 3 prime regions of the sequences.
+How should these data files be prepared for analysis in \poy?}
+{In cases such as this, partitioning the data is {\bf highly} recommended.  
+Partitioning or fragmenting the data can help to ameliorate the effects of
+poor sequences or missing data.  Moreover, when a data file contains
+ sequences that were downloaded from a data base such as GenBank, 
+ very often there is a lack of overlap of many of the sequences,
+as different studies may have utilized different priming regions. 
+How best to `chop' up your data is discussed in the \poy Heuristics chapter.}
 
-\question{Why is my prealigned data not treated as prealigned?}
-{By default, upon importing prealigned sequence data, all the gaps are removed and the sequences are 
-treated as dynamic homology characters. To preserve the alignment the data must be imported using the
-\poyargument{prealigned} argument of the command \poycommand{read}.  Unless specified using the 
-\poyargument {prealigned}, data that is read by the program is UNALIGNED and the gaps are stripped 
-from the data file!!!!}
+\question{I read in a tree that was generated from a previous analysis, 
+however, the cost reported in the output window of the \texttt {Interactive 
+Console} is different, why is this the case?} 
+{If you are reading in a tree generated from a previous analysis it is 
+important to make sure that the same transformation cost matrix has 
+been applied to the data. In addition, the tree must be fully resolved, 
+otherwise it will be resolved arbitrarily.}
 
-\question{I would like to import trees from an earlier run, at what stage of the analysis should this be performed?}
-{When running a script that includes reading in trees from a previous analysis, these trees {\bf must} be read 
-in {\bf after} the build stage.  If the trees are read in before the build they will be replaced by the trees 
-generated during the build.}
+\question{Having run an analysis in \poy, I imported my tree file into 
+TNT, but the tree costs are different.  Is this an error?} 
+{When importing \poy tree files into another program, such as TNT, 
+it is important to mirror the same `conditions' as to those in \poy
+during the time of analysis, i.e. same cost matrix, gaps treated as a 
+fifth state. The correct data file associated with this tree file, must also 
+be imported---this corresponds to the implied alignment that is 
+associated with this tree. In addition, the tree must be fully resolved, 
+otherwise it will be resolved arbitrarily.}
 
-\question{Why is the root in the diagnosis file that I reported at the end of my analysis, not the same
-as the root that I \poyargument{set}?}
-{This is because the tree length heuristics may be based on an alternate rooting scheme than that 
-used for the \poyargument{newick} or \poyargument {graphic trees} output.}
+\question{In trying to calculate Jackknife support values, I believe
+that all the values are inflated for the resulting tree.  Why?}
+{Although it is possible to calculate Jackknife and Bootstrap support
+values for trees constructed using dynamic homology characters, it
+is not recommended since resampling of dynamic characters
+occurs at the fragment, rather than nucleotide, level. (Of course
+this is a mute point if the dataset consists of a multitude of fragments.)
+Consequently, the bootstrap and jackknife support values calculated for dynamic
+characters are not directly comparable to those calculated based
+on static character matrices. In order to perform character sampling
+at the level of individual nucleotides, the dynamic characters {\bf
+must} be transformed into static characters using \poyargument
+{static\_approx} argument of the command transform (Section 3.3.26)
+prior to executing calculate support.  The static\_approx is conditioned
+or based on that tree.}
 
-\question{What are "Numerical.linesearch; Very large slope in optimization function." warnings?}
-{These messages normally appear in the Dynamic likelihood routines. They indicate that the gradient
-of the parameters for the current data-set has a large absolute slope and the numerical routine may
-not converge properly. Normally, because of multiple passes of the optimization routine, we easily
+\question{Why is my prealigned data not treated as prealigned?} 
+{By default, upon importing prealigned sequence data, the gaps are
+removed and the sequences are treated as dynamic homology characters.
+To preserve the alignment the data must be imported using the
+\poyargument{prealigned} argument of the command \poycommand{read}.
+Unless specified using the \poyargument {prealigned}, data that is
+read by the program is UNALIGNED and the gaps are stripped from the
+data file.}
+
+\question{Is it possible to exclude certain terminals from an analysis?}
+{The exclusion of terminals (or for that matter, characters) is easily
+achieved by selecting, with the use of the identifiers.  For example
+\texttt{select(terminals,not files:("Taxa\_removed.txt"))} will exclude all the 
+taxa that are included in this file.  This is the inverse of 
+\texttt{select(terminals,\\ files:("Taxa\_keep.txt"))}. Alternatively, if the user does not wish 
+to generate a terminals file, the taxon names can be specified using
+the \texttt{not names} identifier, 
+e.g. \texttt{select(terminals,not names:("Taxon1","Taxon4"))}.}
+
+\question{Is it possible to report parsimony branch lengths in \poy?}
+{Yes it is. This is achieved by reporting \texttt{branches}, along with 
+the \texttt{trees}, and specifying the collapse mode. For example
+\texttt{report("Run1.tre", trees:(branches:single))} will report a
+tree to the file \texttt{Run1.tre} with the parsimony branch lengths 
+included.  The argument \texttt{single} specifies that zero length
+branches will be collapsed.}
+
+\question{I would like to import trees from an earlier run, at what
+stage of the analysis should this be performed?} 
+{When running a script that includes reading in trees from a previous analysis,
+these trees {\bf must} be read in {\bf after} the build stage.  If
+the trees are read in before the build they will be replaced by the
+trees generated during the build.}
+
+\question{Why is the root in the diagnosis file that I reported at
+the end of my analysis, not the same as the root that I \poyargument{set}?}
+{This is because the tree length heuristics may be based on an
+alternate rooting scheme than that used for the \poyargument{newick}
+or \poyargument {graphic trees} output.}
+
+\question{What are "Numerical.linesearch; Very large slope in
+optimization function" warnings?} 
+{These messages normally appear in the Dynamic likelihood routines. 
+They indicate that the gradient
+of the parameters for the current data-set has a large absolute
+slope and the numerical routine may not converge properly. Normally,
+because of multiple passes of the optimization routine, we easily
 break out of these regions and the routine will stabilize.
 
-Under static likelihood data this warning message is rarely seen and may be an issue. One should
-rediagnose the tree for stabilization of the parameters of the model.}
+Under static likelihood data this warning message is rarely seen
+and may be an issue. One should rediagnose the tree for stabilization
+of the parameters of the model.}
 
-\question{What does the "Numerical.brent; hit max number of iterations." warning mean?}
-{This happens when the numerical routine does not converge in a maximum number of steps. This is
-usually an acceptable situation to happen as more optimization rounds will likely occur over the
-data.}
+\question{What does the "Numerical.brent; hit max number of
+iterations" warning mean?} 
+{This happens when the numerical routine
+does not converge in a maximum number of steps. This is usually an
+acceptable situation to happen as more optimization rounds will
+likely occur over the data.}
 
-\question{Why are likelihood scores worse/different than other applications?}
-{There are a number of issues to consider. If the values are close under the same model of
-evolution then numerical issues due to finite precision arithmetic of decimal numbers can cause
-slight rounding errors in an analysis to build up. Although we use standard techniques to limit the
-accumulation of these errors, they inevitably occur and small differences in likelihood scores are
-absolutely normal and should be ignored. These differences even occur within the same application
-run on different architectures and compiler options.
+\question{Why are likelihood scores worse/different than other
+applications?} 
+{There are a number of issues to consider. If the
+values are close under the same model of evolution then numerical
+issues due to finite precision arithmetic of decimal numbers can
+cause slight rounding errors in an analysis to build up. Although
+we use standard techniques to limit the accumulation of these errors,
+they inevitably occur and small differences in likelihood scores
+are absolutely normal and should not be a concern. These differences even
+occur within the same application run on different architectures
+and compiler options.
 
-If the model is not hierarchical then comparisons are not relevant. Unfortunately, the number of
-states in the model of evolution matters, as well as cost assignments of Maximum Parsimonious
-Likelihood (MPL) and Maximum Average Likelihood (MAL). Thus, a four state model of evolutions'
-likelihood score cannot be compared directly with a five state model. There is added cost that
-result from the probability of an additional state in an analysis. 
+If the model is not hierarchical then comparisons are not relevant.
+Unfortunately, the number of states in the model of evolution
+matters, as well as cost assignments of Maximum Parsimonious
+Likelihood (MPL) and Maximum Average Likelihood (MAL). Thus, a four
+state model of evolutions' likelihood score cannot be compared
+directly with a five state model. There is added cost that result
+from the probability of an additional state in an analysis.
 
-One should also check that the \poycommand{exhaustive} option is set for the optimization routines.
-It is set by default but ensure that, if it changed somewhere in the script, one sets it back
---especially if one plans to do application comparisons.}
+One should also check that the \poycommand{exhaustive} option is
+set for the optimization routines.  It is set by default but ensure
+that, if it changed somewhere in the script, one sets it back--especially 
+if one plans to do application comparisons.}

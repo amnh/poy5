@@ -245,9 +245,9 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}, color links, link
 %\par\noindent % Creates a new unindented paragraph
 \phantomsection % Needed for hyperref compatibility with the \addcontensline command
 \addcontentsline{poyfaq}{questions}{Q. #1} % Adds the question to the list of questions
-Q. #1 \\
-\\
-A. #2
+{\bf Q.} #1 \\
+
+{\bf A.} #2
 \vspace{1em} % White space after the question before the start of the answer
 }
 
@@ -355,7 +355,7 @@ Department of Biology, University of Vermont, Burlington, VT, U.S.A. \\
 \smallskip
 {\it
 William Leo Smith}\\
-Department of Zoology, The Field Museum of Natural History, Chicago, IL, U.S.A.\\
+Department of Ecology and Evolutionary Biology, The University of Kansas, Lawrence, KS, U.S.A.\\
 \smallskip
 {\it
 Ilya T\"emkin} \\
@@ -371,7 +371,7 @@ The American Museum of Natural History\\
 All rights reserved. Published 2013.
 
 \vspace*{0.25cm}
-\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} 2013. \texttt{POY} 5.0. \buildnumber\ New York, 
+\emph{Var\'on, A., N. Lucaroni, L. Hong, W. C. Wheeler.} 2013. \texttt{POY} 5.0. New York, 
 American Museum of Natural History. Documentation by L. M. Crowley, M. Cevasco, J. S. S. Denton. 
 \url{http://www.amnh.org/our-research/computational-sciences/research/projects/systematic-biology/poy}
 
@@ -396,49 +396,60 @@ Comments or queries relating to the documentation should be sent to \href{mailto
 
 \chapter{What is \poy}
 
-\poy is a flexible, multi-platform program for the phylogenetic analysis of a diversity of data types under different optimality criteria ---
-parsimony and likelihood.
-An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} allowing 
-optimization of   {\bf \emph{UNALIGNED}} sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of 
-algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy 
-generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, 
-support values and implied alignments.  In addition, \poy can also output synteny block maps from the analysis of both 
-chromosomal and genomic data. \poy provides a unified approach to co-optimizing different types of data, such as morphological 
-and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale 
+\poy is a flexible, multi-platform program for the phylogenetic analysis of a diversity of 
+data types under different optimality criteria --- parsimony and likelihood.
+An essential feature of \poy is that it implements the concept of dynamic homology 
+\cite{wheeler2001a, wheeler2001} allowing optimization of   {\bf \emph{UNALIGNED}} 
+sequences. \poy offers flexibility for designing heuristic search strategies and implements 
+a diversity of algorithms including multiple random addition sequence, swapping, tree fusing, 
+tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, 
+graphical representations of cladograms and their user-specified consensus, support values 
+and implied alignments.  In addition, \poy can also output synteny block maps from the 
+analysis of both chromosomal and genomic data. \poy provides a unified approach to 
+co-optimizing different types of data, such as morphological and molecular sequence data. 
+In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale 
 genomic events (translocations, inversions, and duplications).
 
 \section{The structure of \poy documentation}
-Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed 
-instructions on how to obtain and install \poy, introduce the user to two of the program's working environments, the 
-\emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy 
-session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and 
-give step-by-step examples on how to conduct a basic analysis and visualize the results. The following chapter, 
-\emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations 
-for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their understanding helps creating building 
-efficient search strategies. More advanced operations are described in the fifth chapter, \emph{\poy Tutorials}. 
-% In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link 
-%between the commands used in \texttt{POY3} and the commands used in \poy. 
+Chapter 2, \emph{\poy Quick Start}, will get you started using \poy. The first few sections 
+are intended to provide detailed instructions on how to obtain and install \poy, introduce 
+the user to two of the program's working environments, the \emph{Graphical User Interface} 
+and the \emph{Interactive Console}. These sections also show how to initiate a \poy 
+session and point to various resources to obtain further assistance. Subsequent 
+sections build on that knowledge and give step-by-step examples on how to conduct 
+a basic analysis and visualize the results. The following chapter, \emph{\poy Commands}, 
+describes \poy commands and their valid syntax. It also includes examples of simple operations 
+for every command. Chapter 4 discusses the heuristic procedures used in \poy. Their 
+understanding helps in the creation of efficient search strategies. More advanced operations 
+are described in the fifth chapter, \emph{\poy Tutorials}. 
 
 \section{What's new in \poy}
-There are myriad new features and options in \poy.  These are described and documented in full in the pages that follow.  
+There are myriad new features and options in \poy.  These are described and documented 
+in full in the pages that follow.  
 \begin{itemize}
 \item{New optimality criterion--likelihood:\\
-	-- Maximum Average Likelihood (MAL) analysis can now be performed on qualitative data of any alphabet size 
-	and aligned sequence data (including gaps as missing, independent, or coupled in 5-state models).\\  
+	-- Maximum Average Likelihood (MAL) analysis can now be performed on qualitative 
+	data of any alphabet size for aligned sequence data (including gaps as missing, independent, 
+	or coupled in 5-state models); and fixed states for unaligned sequences.\\  
 	-- Most Parsimonious Likelihood (MPL) can also be employed on these data types as well 
 	as unaligned sequences under an MPL-DO heuristic.\\
-	-- Multiple models are available and different models can be assigned to partitions within a combined analysis.\\
+	-- Multiple models are available and different models can be assigned to partitions within 
+	a combined analysis.\\
 	-- Model selection (AIC, AICc and BIC) improved.}
 \item{The MAUVE genome aligner algorithm has been implemented as an annotation option
 for unannotated chromosomal and genomic (multi-chromosomal) data.}
-\item{The transform option \texttt{level} has been added to increase control and heuristic effectiveness 
-for amino acid and custom alphabet sequence character types.}
-\item{Search-Based sequence optimization has been added through the \texttt{transform} command.}
-\item{Additional median solvers implemented for rearrangement analysis in \texttt{break\_inv}, \texttt{chromosome}, 
-and \texttt{genome} sequence characters.}
+\item{The transform option \texttt{level} has been added to increase control and heuristic 
+effectiveness for amino acid and custom alphabet sequence character types.}
+\item{Search-Based sequence optimization has been added through the \texttt{transform} 
+command.}
+\item{Additional median solvers implemented for rearrangement analysis in \texttt{break\_inv}, 
+\texttt{chromosome}, and \texttt{genome} sequence characters.}
 \item{XML-based output for easy parsing of diagnostic information.}
-\item{A change in the default indel cost from 2 to 1.  After over 20 years (MALIGN to POY), time for a change.}
+\item{A change in the default indel cost from 2 to 1.  After over 20 years (MALIGN to POY), 
+time for a change.}
 \item{New required packages for compilation to support likelihood and median solvers.}
+\item{Small syntax changes in the transform command, as well as new options, e.g. 
+\poyargument{level}.}
 \item{A diversity of bug fixes and smaller enhancements.}
 \end{itemize}
 
@@ -458,11 +469,13 @@ and \texttt{genome} sequence characters.}
 \subsection{Brief description} \label{commands}
 
 \poy interprets and executes \emph{scripts} issued by the end user.  These can
-come from the \emph{Graphical User Interface} and the command line in the \emph{Interactive Console} 
-of the program, or from an input file. A script is a list of \emph{commands}, separated by any number of 
-whitespace characters (spaces, tabs, or newlines). Each command consists of a name in lower case 
-(\poylident), followed by a list of arguments separated by commas and enclosed in parentheses. 
-Most of the arguments are optional, in which case \poy has default values.
+come from the \emph{Graphical User Interface} and the command line in the 
+\emph{Interactive Console} of the program, or from an input file. A script is a 
+list of \emph{commands}, separated by any number of whitespace characters 
+(spaces, tabs, or newlines). Each command consists of a name in lower case 
+(\poylident), followed by a list of arguments separated by commas and enclosed 
+in parentheses. Most of the arguments are optional, in which case \poy has default 
+values.
 
 In \poy, we recognize four types of command arguments: \emph{primitive values},
 \emph{labeled values}, \emph{lists of arguments}, and \emph{commands}.
@@ -496,11 +509,12 @@ combinations of commands and arguments), rather than by increasing the vocabular
 \poycommand{swap} specifies the method of branch swapping. This command is
 used to conduct a local search on a set of trees. In addition,
 \poycommand{swap} functions as an argument for \poycommand{calculate\_support}
-to specify the branch swapping method used in each pseudoreplicate during Jackknife or
-Bootstrap resampling. \poycommand{swap} can also be used to set the parameters for
-local tree search based on perturbed (resampled or partly weighted) data as an argument
-of the command \poycommand{perturb}. Therefore, to take the maximum advantage of
-\poy functionality, it is essential to get acquainted with the grammar of  \poy.
+to specify the branch swapping method used in each pseudoreplicate during 
+\poyargument{jackknife} or \poyargument{bootstrap} resampling. \poycommand{swap} 
+can also be used to set the parameters for local tree search based on perturbed (resampled 
+or partly reweighted) data as an argument of the command \poycommand{perturb}. 
+Therefore, to take the maximum advantage of \poy functionality, it is essential to 
+get acquainted with the grammar of  \poy.
 
 \subsection{Grammar specification}
 
@@ -541,8 +555,6 @@ STRING: = """ [^"]* """
 
 
 \end{verbatim}
-
-
 
 The following examples graphically show a typical structure of valid \poy commands
 formally defined above. The Figure \ref{simplecommand} illustrates
@@ -607,7 +619,7 @@ Each command description entry contains the following sections:
     \item The name of the command.
     \item The valid syntax for the command.
     \item A brief description of the command's function.
-    \item The list of descriptions of valid arguments.
+    \item A list of descriptions of valid arguments.
     \item Description of default settings.
     \item Examples of the command's usage.
     \item Cross references to related commands. 
@@ -668,7 +680,7 @@ of \poycommand{swap()} the entire argument list appears as \poycommand{swap(tree
 
 %\addtocontents{toc}{General Index}%%
 \printindex{general}{General Index}
-\printindex{poy3}{POY 3.0 Commands Index}
-\input{doc/poy3commands}%%
+%\printindex{poy3}{POY 3.0 Commands Index}
+%\input{doc/poy3commands}%%
 
 \end{document}
