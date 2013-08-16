@@ -56,15 +56,18 @@ let patch_version = Str.global_replace (Str.regexp " +") ""  BuildNumber.build
 
 type release_options = Development | Candidate of int | Official
 
-let release_option = Development
+let release_option = Official
 
 let if_run a f b c = if a then f b c else c
 
 let option_to_string b =
-    let build_string = " build "
+    let build_string = " Build "
     and rcstring = " Release Candidate " in
     match release_option with
-        | Official    -> b
+        | Official    ->
+            b   --> append " ("
+                --> append patch_version
+                --> append ")"
         | Development ->
             name --> append " Development"
                  --> append build_string
@@ -82,9 +85,10 @@ let small_version_string =
         --> append dot
         --> concatenator release_version
 
-let version_string = option_to_string small_version_string
+let version_string =
+    option_to_string small_version_string
 
-let version_num_string = Printf.sprintf "%d.%02d" major_version minor_version
+let version_num_string = Printf.sprintf "%d.%d.%d" major_version minor_version release_version
 
 let copyright_authors =
     rephrase ("@[Copyright (C) 2011, 2012 Andres Varon, Nicholas Lucaroni, Lin Hong, Ward Wheeler, and the American Museum of Natural History.@]@,")
