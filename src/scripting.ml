@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3507 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3520 $"
 
 let (-->) a b = b a
 
@@ -4204,8 +4204,6 @@ let rec folder (run : r) meth =
                                     cats)
                             (trees)
                 end;
-                run
-            | `Script (filename,script) -> 
                 run
             | `Nexus filename ->
                 let ic = [ `Branches None; `NexusStyle; `Collapse None; ] in

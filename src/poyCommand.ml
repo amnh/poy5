@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3519 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3520 $"
 
 let debug = false 
 
@@ -352,7 +352,6 @@ type reporta = [
     | `Model of old_identifiers
     | `LKSites of old_identifiers
     | `DebugData
-    | `Script of string list
     | `ExplainScript of string
     | `Consensus of float option
     | `GraphicConsensus of float option
@@ -903,7 +902,6 @@ type command = [
         | `Topo_Selection x  ->
             (`Topo_Selection (file,x)) :: acc, file
         | `Model x           -> (`Model (file,x)) :: acc, file
-        | `Script lst        -> (`Script (file,lst)) :: acc, file
         | `ExplainScript scr -> (`ExplainScript (scr, file)) :: acc, file
         | `Clades ->
             begin match file with
@@ -1724,7 +1722,6 @@ type command = [
                     [ LIDENT "lksites"; ":"; x = old_identifiers -> `LKSites x ] | 
                     [ LIDENT "lksites" -> `LKSites `All ] | 
                     [ LIDENT "debug_data" -> `DebugData ] | 
-    (*                [ LIDENT "script" -> `Script (!console_script) ] |*)
                     [ LIDENT "seq_stats"; ":"; ch = old_identifiers -> `SequenceStats ch ] |
                     [ LIDENT "seq_stats" -> `SequenceStats `All ] |
                     [ LIDENT "ci"; ":"; ch = old_identifiers -> `Ci (Some ch) ] |

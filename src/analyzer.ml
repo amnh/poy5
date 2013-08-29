@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3502 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3520 $"
 
 let debug = false
 
@@ -33,7 +33,7 @@ type channels =
 * source too. The following are those classes of information, which yield a
 * dependency graph between commands. *)
 type dependency_class = 
-    | Channel of channels     (* Input  and output files *)
+    | Channel of channels   (* Input  and output files *)
     | Data                  (* Characters and terminals *)
     | Trees                 (* Trees in memory *)
     | JackBoot              (* Clade sets for jackknife *)
@@ -48,8 +48,7 @@ let get_dependencies list =
     and add_it x = Hashtbl.add has_it x 1 in
     let dep_relations_to_storage_class (a, parent) =
         let dependency_to_storage_class x = 
-            let res = 
-                match x with
+            let res = match x with
                 | Channel _ -> []
                 | Data when not_has_it `Data -> [`Data]
                 | Trees when not_has_it `Trees -> [`Trees]
@@ -71,26 +70,31 @@ let get_dependencies list =
 
 (* The most common dependency classes *)
 let data = [Data]
+
 let trees = [Trees]
+
 let datantrees = [Data; Trees]
+
 let output = [Channel StandardOutput]
+
 let input files = List.map (fun x -> Channel (File x)) files
+
 let outputf files = List.map (fun x -> Channel (File x)) files
+
 let all ifiles ofiles = 
-    JackBoot :: Data :: Trees :: Channel StandardOutput :: ((input ifiles) @
-    (outputf ofiles))
+  JackBoot :: Data :: Trees :: Channel StandardOutput ::
+    ((input ifiles) @ (outputf ofiles))
+
 let input_files = ref []
+
 let output_files = ref []
 
-let filename_to_list filename =
-    match filename with
+let filename_to_list filename = match filename with
     | None -> [Channel StandardOutput]
-    | Some x -> 
-            output_files := x :: !output_files;
-            [Channel (File x)]
+    | Some x -> output_files := x :: !output_files; [Channel (File x)]
 
 (* Each command has certain properties by themselves, this type describes the
-* properties of each command *)
+   properties of each command *)
 type exploders = 
     (* If the command is present at the end of a pipeline, it can be composed
     * with other composable functions that follow, and placed inside the
@@ -119,6 +123,7 @@ let is_tree_dependent = function
     | `MultiStatic_Aprox _
     | `Static_Aprox _
     | `Automatic_Sequence_Partition _
+    | `EstLikelihood _
     | `Automatic_Static_Aprox _ -> true
     | _ -> false
 
@@ -136,341 +141,333 @@ type pc_pv = [ `Command of string * (pc_pv arguments_pv list) ]
 type dependencies = 
     (dependency_class list * dependency_class list * pc_pv * exploders)
 
-let dependency_table : (string, (pc_pv arguments_pv list -> dependencies)) Hashtbl.t = Hashtbl.create 1667
+let dependency_table :
+  (string, (pc_pv arguments_pv list -> dependencies)) Hashtbl.t = Hashtbl.create 1667
 
 (* Takes a command, and returns a quadruple containing
 * the dependency classes it depends on , the dependency classes it affects,  the
 * command itself, and the exploder class the command belongs to *)
-let dependency_relations (init : Methods.script) = 
-    match init with
+let dependency_relations (init : Methods.script) = match init with
     | #Methods.tree_handling as meth ->
-            let res = 
-                match meth with
-                | `RandomTrees _ 
-                | `BestN _ 
-                | `BestWithin _ 
-                | `Unique -> [([Trees], [Trees], init, Composable)]
-            in
-            res
+        let res = match meth with
+            | `RandomTrees _ 
+            | `BestN _ 
+            | `BestWithin _ 
+            | `Unique -> [([Data;Trees], [Trees], init, Composable)]
+        in
+        res
     | #Methods.characters_handling as meth ->
-            let res = 
-                match meth with
-                | `RenameCharacters _
-                | `AnalyzeOnlyCharacters _
-                | `AnalyzeOnlyCharacterFiles _ -> 
-                        [([Data; Trees], [Data; Trees], init, Linnearizable)]
-            in
-            res
+        let res = match meth with
+            | `RenameCharacters _
+            | `AnalyzeOnlyCharacters _
+            | `AnalyzeOnlyCharacterFiles _ -> 
+                [([Data; Trees], [Data; Trees], init, Linnearizable)]
+        in
+        res
     | #Methods.taxa_handling as meth ->
-            let res = 
-                match meth with
-                | `SynonymsFile _
-                | `Synonyms _
-                | `AnalyzeOnlyFiles _
-                | `AnalyzeOnly _ -> [([Data; Trees], [Data; Trees], init, Linnearizable)]
-            in
-            res
+        let res = match meth with
+            | `SynonymsFile _
+            | `Synonyms _
+            | `AnalyzeOnlyFiles _
+            | `AnalyzeOnly _ -> [([Data; Trees], [Data; Trees], init, Linnearizable)]
+        in
+        res
     | #Methods.application as meth ->
-            let res = 
-                match meth with
-                | `Version -> [(output, output, init, Invariant)]
-                | `Interactive
-                | `Exit -> 
-                        let all = all !input_files !output_files in
-                        [(all, all, init, ExitPoint)]
-                | `ChangeWDir _ ->
-                        let files = outputf !output_files in
-                        [(Data :: files, [Data], init, NonComposable)]
-                | `PrintWDir ->
-                        let files = filename_to_list None in
-                        [(outputf !output_files, files, init, NonComposable)]
-                | `Memory filename ->
-                        let files = filename_to_list filename in
-                        [([Data; Trees; JackBoot; Bremer], files, init,
-                        NonComposable)]
-                | `TimerInterval _
-                | `Parmap _
-                | `HistorySize _
-                | `Redraw -> [([Data], [Data], init, Linnearizable)]
-                | `Echo _ 
-                | `Help _ -> 
-                        let output_files = all !input_files !output_files in
-                        [(output_files, output_files, init, NonComposable)]
-                | `Logfile _ ->
-                        let output_files = 
-                            Data :: Trees :: JackBoot :: Bremer :: 
-                                outputf !output_files
-                        in
-                        [(output_files, output_files, init, NonComposable)]
-                | `Skip -> [([], [], init, Composable)]
-                | `SetSeed _
-                | `Alias _
-                | `ClearMemory _
-                | `Recover
-                | `ClearRecovered ->
-                        [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
-                | `Wipe ->
-                        [([EntryPoint], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
-                | `Algn_Newkk (*not sure here*)
-                | `Algn_Normal
-                | `Exhaustive_Weak
-                | `Exhaustive_Strong
-                | `Iterative _
-                | `Normal_plus_Vitamines
-                | `Optimization _
-                | `Normal ->
-                        [([Data; Trees], [Trees], init, NonComposable)]
-                | `ReDiagnose ->
-                        [([Data; Trees], [Trees], init, NonComposable)]
-                | `ReDiagnoseTrees ->
-                        [([Data; Trees], [Trees], init, NonComposable)]
-                | `KML (_, _, filename) ->
-                        let output = filename_to_list (Some filename) in
-                        [([Trees; Data] @ output, output, init, NonComposable)]
-                | `Graph (filename, _)
-                | `Ascii (filename, _) ->
-                        let output = filename_to_list filename in
-                        [([Trees; Data] @ output, output, init, NonComposable)]
-                | `InspectFile filename ->
-                        [((input [filename]) @ output, output, init, NonComposable)]
-            in
-            res
+        let res = match meth with
+            | `Version ->
+                [(output, output, init, Invariant)]
+            | `Interactive
+            | `Exit -> 
+                let all = all !input_files !output_files in
+                [(all, all, init, ExitPoint)]
+            | `ChangeWDir _ ->
+                let files = outputf !output_files in
+                [(Data :: files, [Data], init, NonComposable)]
+            | `PrintWDir ->
+                let files = filename_to_list None in
+                [(outputf !output_files, files, init, NonComposable)]
+            | `Memory filename ->
+                let files = filename_to_list filename in
+                [([Data; Trees; JackBoot; Bremer], files, init, NonComposable)]
+            | `TimerInterval _
+            | `Parmap _
+            | `HistorySize _
+            | `Redraw -> [([Data], [Data], init, Linnearizable)]
+            | `Echo _ 
+            | `Help _ ->
+                let output_files = all !input_files !output_files in
+                [(output_files, output_files, init, Invariant)]
+            | `Logfile _ ->
+                let output_files = Data :: Trees :: JackBoot :: Bremer :: outputf !output_files in
+                [(output_files, output_files, init, Composable)]
+            | `Skip -> [([], [], init, Composable)]
+            | `SetSeed _
+            | `Alias _
+            | `ClearMemory _
+            | `Recover
+            | `ClearRecovered ->
+                [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
+          (** can be done in remote nodes; wipe is wipe. *)
+            | `Wipe ->
+                [([EntryPoint], [Data; Trees; JackBoot; Bremer], init, Composable)]
+          (** modifications to the diagnosis; composable *)
+            | `Algn_Newkk
+            | `Algn_Normal
+            | `Exhaustive_Weak
+            | `Exhaustive_Strong
+            | `Iterative _
+            | `Normal_plus_Vitamines
+            | `Optimization _
+            | `Normal ->
+                [([Data; Trees], [Trees], init, Composable)]
+            | `ReDiagnose
+            | `ReDiagnoseTrees ->
+                [([Data; Trees], [Trees], init, Composable)]
+            | `KML (_, _, filename) ->
+                let output = filename_to_list (Some filename) in
+                [([Trees; Data] @ output, output, init, NonComposable)]
+            | `Graph (filename, _)
+            | `Ascii (filename, _) ->
+                let output = filename_to_list filename in
+                [([Trees; Data] @ output, output, init, NonComposable)]
+            | `InspectFile filename ->
+                [((input [filename]) @ output, output, init, Invariant)]
+        in
+        res
     | #Methods.input as meth ->
-            let rec processor (meth : [< Methods.input]) = 
-                match meth with
-                | `Prealigned (input, _, _) ->
-                        let data, data1, compos =
-                            match ((processor (input  :> Methods.input))) with
-                            | [(data, data1, _, compo)] -> data, data1, compo
-                            | _ -> assert false
-                        in
-                        [data, data1, init, compos]
-                | `AnnotatedFiles files ->
-                        (* TODO: Fix this analyzer step, this will be a hard
-                        * stop *)
-                        [(data, data, init, NonComposable)]
-                | `Poyfile files
-                | `AutoDetect files
-                | `Nucleotides files
-                | `PartitionedFile files
-                | `Aminoacids (files,_)
-                | `Chromosome files
-                | `Genome files
-                | `GeneralAlphabetSeq (files, _, _)
-                | `Breakinv (files, _, _)
-                | `ComplexTerminals files ->
-                    let files = List.map FileStream.filename files in
-                    [ (Data :: Trees :: input files, 
-                      [Data; Trees; Bremer; JackBoot],
-                      (meth :> Methods.script),
-                      NonComposable) ]
-            in
-            processor meth
+        let rec processor (meth : [< Methods.input]) = match meth with
+            | `Prealigned (input, _, _) ->
+                  let data, data1, compos =
+                      match processor (input  :> Methods.input) with
+                      | [(data, data1, _, compo)] -> data, data1, compo
+                      | _ -> assert false
+                  in
+                  [data, data1, init, compos]
+            | `AnnotatedFiles input ->
+                  let (data1, data2) =
+                      List.fold_left
+                        (fun (d1,d2) x ->
+                          match processor (x :>Methods.input) with
+                          | [(n1, n2, _, _)] -> d1@n1, d2@n2
+                          | _ -> assert false)
+                        ([],[])
+                        (input :> Methods.input list)
+                  in
+                  [(data1,data2,init,NonComposable)]
+            | `Poyfile files
+            | `AutoDetect files
+            | `Nucleotides files
+            | `PartitionedFile files
+            | `Aminoacids (files,_)
+            | `Chromosome files
+            | `Genome files
+            | `GeneralAlphabetSeq (files,_,_)
+            | `Breakinv (files,_,_)
+            | `ComplexTerminals files ->
+                let files = List.map FileStream.filename files in
+                [ (Data :: Trees :: input files,
+                  [Data; Trees; Bremer; JackBoot],
+                  (meth :> Methods.script), NonComposable) ]
+        in
+        processor meth
     | #Methods.transform as meth ->
-            let res = 
-                match meth with
-                | `Median_Solver _
-                | `Seq_to_Chrom _
-                | `Custom_to_Breakinv _
-                | `Annchrom_to_Breakinv _
-                | `Change_Dyn_Pam _
-                | `Breakinv_to_Custom _
-                | `Seq_to_Kolmogorov _
-                | `Fixed_States _
-                | `Partitioned _
-                | `Direct_Optimization _
-                | `Prioritize
-                | `Assign_Level _
-                | `ReWeight _
-                | `WeightFactor _
-                | `Assign_Transformation_Cost_Matrix _
-                | `OriginCost _
-                | `Create_Transformation_Cost_Matrix _
-                | `Assign_Affine_Gap_Cost _
-                | `Assign_Tail_Cost _
-                | `Prealigned_Transform _
-                | `EstLikelihood _ 
-                | `UseLikelihood _
-                | `UseParsimony _ 
-                | `Assign_Prep_Cost _ ->
-                        [([Data], [Data; Trees; JackBoot; Bremer], init,
-                        Linnearizable)]
-                | `RandomizedTerminals 
-                | `AlphabeticTerminals 
-                | `MultiStatic_Aprox _
-                | `Chrom_to_Seq _
-                | `Static_Aprox _
-                | `Search_Based _
-                | `Automatic_Static_Aprox _
-                | `Automatic_Sequence_Partition _ ->
-                        [([Data; Trees], [Data; Trees; JackBoot; Bremer], init, 
-                        NonComposable)]
-            in
-            res
+        let res = match meth with
+            | `Median_Solver _
+            | `Seq_to_Chrom _
+            | `Custom_to_Breakinv _
+            | `Annchrom_to_Breakinv _
+            | `Change_Dyn_Pam _
+            | `Breakinv_to_Custom _
+            | `Seq_to_Kolmogorov _
+            | `Fixed_States _
+            | `Partitioned _
+            | `Direct_Optimization _
+            | `Prioritize
+            | `Assign_Level _
+            | `ReWeight _
+            | `WeightFactor _
+            | `Assign_Transformation_Cost_Matrix _
+            | `OriginCost _
+            | `Create_Transformation_Cost_Matrix _
+            | `Assign_Affine_Gap_Cost _
+            | `Assign_Tail_Cost _
+            | `Prealigned_Transform _
+            | `EstLikelihood _ 
+            | `UseLikelihood _
+            | `UseParsimony _ 
+            | `Assign_Prep_Cost _ ->
+                    [([Data], [Data; Trees; JackBoot; Bremer], init,
+                    Linnearizable)]
+            | `RandomizedTerminals 
+            | `AlphabeticTerminals 
+            | `MultiStatic_Aprox _
+            | `Chrom_to_Seq _
+            | `Static_Aprox _
+            | `Search_Based _
+            | `Automatic_Static_Aprox _
+            | `Automatic_Sequence_Partition _ ->
+                    [([Data; Trees], [Data; Trees; JackBoot; Bremer], init, 
+                    NonComposable)]
+        in
+        res
     | #Methods.build as meth ->
-            let res = 
-                match meth with
-                | `Branch_and_Bound _
-                | `Nj
-                | `Prebuilt _ ->
-                        [([Data], [Data; Trees], init, Linnearizable)]
-                | `Build (_, _, lst, _) when List.exists is_tree_dependent lst ->
-                        [([Data; Trees], [Data; Trees], init, Parallelizable)]
-                | `Build (_, (`Constraint (_, _, Some _, _)), _, _) ->
-                        [([Data; Trees], [Trees], init, Parallelizable)]
-                | `Build (_, (`Constraint (_, _, None, _)), _, _) ->
-                        [([Data; Trees], [Trees], init, NonComposable)]
-                | `Build _
-                | `Build_Random _ ->
-                        [([Data], [Trees], init, Parallelizable)]
-            in
-            res
+        let res = match meth with
+            | `Branch_and_Bound _
+            | `Prebuilt _ ->
+                    [([Data], [Data; Trees], init, Linnearizable)]
+            | `Build (_, _, lst, _) when List.exists is_tree_dependent lst ->
+                    [([Data; Trees], [Data; Trees], init, Parallelizable)]
+            | `Build (_, (`Constraint (_, _, Some _, _)), _, _) ->
+                    [([Data; Trees], [Trees], init, Parallelizable)]
+            | `Build (_, (`Constraint (_, _, None, _)), _, _) ->
+                    [([Data; Trees], [Trees], init, NonComposable)]
+            | `Nj
+            | `Build _
+            | `Build_Random _ -> [([Data], [Trees], init, Parallelizable)]
+        in
+        res
     | #Methods.local_optimum as meth ->
-            let res = 
-                let `LocalOptimum (tmp) = meth in
-                match tmp.Methods.tabu_join with
-                | `Partition x
-                when not (List.exists (function `ConstraintFile _ -> true | _ ->
-                    false) x) ->
-                        [([Trees], [Trees], init, NonComposable)] 
-                | _ ->
-                        [([Trees], [Trees], init, Parallelizable)]
-            in
-            res
+        let res = 
+            let constrain =
+              List.exists (function `ConstraintFile _ -> true | _ -> false)
+            and `LocalOptimum (tmp) = meth in
+            match tmp.Methods.tabu_join with
+              | `Partition x when not (constrain x) ->
+                  [([Trees], [Trees], init, NonComposable)] 
+              | _ ->
+                  [([Trees], [Trees], init, Parallelizable)]
+        in
+        res
     | (`StandardSearch _) ->
-            [([Trees;Data], [Trees], init, NonComposable)]
+        [([Trees;Data], [Trees], init, NonComposable)]
     | #Methods.perturb_method as meth ->
-            let res = 
-                match meth with
-                | `Ratchet _
-                | `Resample _
-                | `UnResample _
-                | `UnRatchet 
-                | `UnFixImpliedAlignments
-                | `FixImpliedAlignments _ ->
-                        [([Trees], [Trees], init, Linnearizable)]
-            in
-            res
+        let res = match meth with
+            | `Ratchet _
+            | `Resample _
+            | `UnResample _
+            | `UnRatchet 
+            | `UnFixImpliedAlignments
+            | `FixImpliedAlignments _ -> [([Trees], [Trees], init, Linnearizable)]
+        in
+        res
     | `Fusing (_, _, _, _, x, _) -> [(trees, trees, init, NonComposable)]
     | `Bootstrap (it, _, _, _) 
     | `Jackknife (_, it, _, _, _) ->
-            [([Data], [JackBoot], init, NonComposable)]
+        [([Data], [JackBoot], init, NonComposable)]
     | `Bremer (local_optimum, build, _, _) ->
-            [([Data; Trees], [Bremer], init, NonComposable)]
+        [([Data; Trees], [Bremer], init, NonComposable)]
     | #Methods.escape_local ->
-            [([Trees], [Trees], init, Parallelizable)]
+        [([Trees], [Trees], init, Parallelizable)]
     | #Methods.runtime_store as meth -> 
-            let res = 
-                let all = all !input_files !output_files in
-                match meth with
-                | `Store _ -> [(trees, all, init, NonComposable)]
-                | `Set _ -> [(trees, all, init, NonComposable)]
-                | `Discard _ -> [(trees, all, init, NonComposable)]
-                | `Keep_only _ -> [(trees, all, init, NonComposable)]
-            in
-            res
+        let all = all !input_files !output_files in
+        let res = match meth with
+            | `Store _    -> [(trees, all, init, NonComposable)]
+            | `Set _      -> [(trees, all, init, NonComposable)]
+            | `Discard _  -> [(trees, all, init, NonComposable)]
+            | `Keep_only _-> [(trees, all, init, NonComposable)]
+        in
+        res
     | `ReadScript _ ->
-            let all = all !input_files !output_files in
-            [(all, all, init, NonComposable)]
+        let all = all !input_files !output_files in
+        [(all, all, init, NonComposable)]
     | `Repeat (n, comm) -> 
-            (* This is special, as implies concurrency; 
-            * we will treat it like nothing for now though, 
-            * as nobody knows about it *)
-            [(trees, data, init, NonComposable)]
+        (* This is special, as implies concurrency; we will treat it like
+         * nothing for now though, as nobody knows about it *)
+        [(trees, data, init, NonComposable)]
     | #Methods.report as meth ->
-            let res, files, isload = 
-                match meth with
-                | `DebugData ->
-                    let fn = filename_to_list None in
-                    [(Data :: fn, fn, init, Invariant)], None, false
-                | `ExplainScript (_, filename)
-                | `SequenceStats (filename, _)
-                | `Ci (filename, _)
-                | `Ri (filename, _)
-                | `CompareSequences (filename, _, _, _)
-                | `FasWinClad filename
-                | `Nexus filename
-                | `Model (filename,_)
-                | `LKSites (filename,_)
-                | `Script (filename,_)
-                | `Dataset filename
-                | `Nodes filename
-                | `TerminalsFiles filename
-                | `RobinsonFoulds filename
-                | `CrossReferences (_, filename) ->
-                        let fn = filename_to_list filename in
-                        [(Data :: fn, fn, init, Invariant)], filename, false
-                | `Xslt (filename, _) ->
-                        let filename = Some filename in
-                        let fn = filename_to_list filename in
-                        [(data @ fn, fn, init, Invariant)], filename, false
-                | `Topo_Selection (filename,_) ->
-                    let fn = filename_to_list filename in
-                    [(Data :: fn, fn, init, Invariant)], filename, false
-                | `GraphicSupports (suppoutput, filename)
-                | `Supports (suppoutput, filename) ->
-                        let fn = filename_to_list filename in
-                        let res = match suppoutput with
-                            | None              ->
-                                [([JackBoot; Bremer; Trees; Data] @ fn, fn, init, NonComposable)]
-                            | Some `Jackknife _
-                            | Some `Bootstrap _ ->
-                                [([JackBoot; Trees; Data] @ fn, fn, init, Linnearizable)]
-                            | Some (`Bremer _)  ->
-                                [([Bremer; Trees; Data] @ fn, fn, init, Linnearizable)]
-                        in
-                        res, filename, false
-                | `Consensus (filename, _)
-                | `GraphicConsensus (filename, _) ->
-                        let fn = filename_to_list filename in
-                        [(datantrees @ fn, fn, init, NonComposable)], filename, false
-                | `GraphicDiagnosis (_,filename) ->
-                        Printf.printf "report graphic diagnosis with filename %s\n%!" filename;
-                        let fn = filename_to_list (Some filename) in
-                        [(datantrees @ fn, fn, init, NonComposable)], 
-                        Some filename, false
-                | `Diagnosis (_,filename) 
-                | `AllRootsCost filename
-                | `Trees (_, filename)
-                | `Implied_Alignment (filename, _, _) ->
-                        let fn = filename_to_list filename in
-                        [(datantrees @ fn, fn, init, Linnearizable)], filename, false
-                | `MstR filename
-                | `TimeDelta (_, filename)
-                | `TreeCosts filename
-                | `KolmoMachine filename
-                | `SearchStats filename
-                | `TreesStats filename ->
-                        let fn = filename_to_list filename in
-                        [(datantrees @fn, fn, init, NonComposable)], filename, false
-                | `Clades filename ->
-                        let fn = filename_to_list (Some filename) in
-                        [(datantrees @ fn, fn, init, Linnearizable)], Some filename, false
-                | `History _ -> [([], [], init, Linnearizable)], None, false
-                | `Save (filename, _) ->
-                        let fn = filename_to_list (Some filename) in
-                        [([Data; Trees; JackBoot; Bremer] @ fn, fn, init, NonComposable)], Some filename, false
-                | `Load filename ->
-                        let fn = filename_to_list (Some filename) in
-                        [(fn, [Data; Trees; JackBoot; Bremer], init, NonComposable)], Some filename, true
-                | `TimerInterval _
-                | `Parmap _
-                | `RootName _
-                | `Root _ -> 
-                        [([Data; Trees], all !input_files !output_files, init, Linnearizable)], None, false
-            in
-            if not isload then
-                match files with
-                | None -> ()
-                | Some x ->
-                        if not (List.exists (fun y -> y = x) !output_files) then
-                            output_files := x :: !output_files
-                        else ()
-            else  ();
-            res
+        let res, files, isload = match meth with
+          (** commands don't work, but do depend on everything --stop the world. *)
+            | `Save (filename, _) ->
+                let fn = filename_to_list (Some filename) in
+                [([Data; Trees; JackBoot; Bremer] @ fn, fn, init, NonComposable)], Some filename, false
+            | `Load filename ->
+                let fn = filename_to_list (Some filename) in
+                [(fn, [Data; Trees; JackBoot; Bremer], init, NonComposable)], Some filename, true
+          (** report commands based on boot-straps *)
+            | `GraphicSupports (suppoutput, filename)
+            | `Supports (suppoutput, filename) ->
+                let fn = filename_to_list filename in
+                let res = match suppoutput with
+                    | None              ->
+                        [([JackBoot; Bremer; Trees; Data] @ fn, fn, init, NonComposable)]
+                    | Some `Jackknife _
+                    | Some `Bootstrap _ ->
+                        [([JackBoot; Trees; Data] @ fn, fn, init, Linnearizable)]
+                    | Some (`Bremer _)  ->
+                        [([Bremer; Trees; Data] @ fn, fn, init, Linnearizable)]
+                in
+                res, filename, false
+          (** report commands of script based on trees and data *)
+            | `GraphicDiagnosis (_,filename) ->
+                let fn = filename_to_list (Some filename) in
+                [(datantrees @ fn, fn, init, NonComposable)], Some filename, false
+            | `Diagnosis (_,filename) 
+            | `AllRootsCost filename
+            | `Trees (_, filename)
+            | `LKSites (filename,_)
+            | `Consensus (filename, _)
+            | `GraphicConsensus (filename, _)
+            | `Topo_Selection (filename,_)
+            | `Implied_Alignment (filename, _, _)
+            | `MstR filename
+            | `TreeCosts filename
+            | `RobinsonFoulds filename
+            | `KolmoMachine filename
+            | `SearchStats filename
+            | `TreesStats filename ->
+                let fn = filename_to_list filename in
+                [(datantrees @fn, fn, init, NonComposable)], filename, false
+          (** debugging commands *)
+            | `DebugData ->
+                let fn = filename_to_list None in
+                [(Data :: fn, fn, init, NonComposable)], None, false
+            | `Nodes filename ->
+                let fn = filename_to_list filename in
+                [(Data :: fn, fn, init, NonComposable)], filename, false
+          (** may depend on Trees; from optimization; shouldn't be moved. *)
+            | `Model (filename,_) ->
+                let fn = filename_to_list filename in
+                [(Data :: fn, fn, init, NonComposable)], filename, false
+          (** Report commands based on leaves/data only; Invariant *)
+            | `Xslt (filename, _) ->
+                let fn = filename_to_list (Some filename) in
+                [(data @ fn, fn, init, Invariant)], Some filename, false
+            | `ExplainScript (_, filename)
+            | `TerminalsFiles filename
+            | `Dataset filename
+            | `Nexus filename
+            | `FasWinClad filename
+            | `SequenceStats (filename, _)
+            | `Ci (filename, _)
+            | `Ri (filename, _)
+            | `CrossReferences (_, filename)
+            | `CompareSequences (filename, _, _, _) ->
+                let fn = filename_to_list filename in
+                [(Data :: fn, fn, init, Invariant)], filename, false
+          (** report commands that are linnearizable; *)
+            | `Clades filename ->
+                let fn = filename_to_list (Some filename) in
+                [(datantrees @ fn, fn, init, Linnearizable)], Some filename, false
+            | `TimeDelta (_, filename) ->
+                let fn = filename_to_list filename in
+                [(datantrees @ fn, fn, init, Linnearizable)], filename, false
+          (** settings rather than report commands that are linnearizable *)
+            | `RootName _
+            | `Root _ ->
+                [([Data; Trees], all !input_files !output_files, init, Linnearizable)], None, false
+        in
+        if not isload then
+            match files with
+            | None -> ()
+            | Some x ->
+                if not (List.exists (fun y -> y = x) !output_files)
+                    then output_files := x :: !output_files
+                    else ()
+        else  ();
+        res
     | `Plugin _ -> 
-            let all = all [] [] in
-            [(all, all, init, NonComposable)]
+        let all = all [] [] in
+        [(all, all, init, NonComposable)]
     | `StoreTrees
     | `UnionStored
     | `OnEachTree _
@@ -483,13 +480,12 @@ let dependency_relations (init : Methods.script) =
     | `GatherBremer 
     | `SelectYourTrees 
     | `GatherBootstrap 
-    | `GetStored -> 
+    | `GetStored ->
             (* These are produced by the analyzer itself, so they can't occur in
             * a script and make no sense by themselves *)
             []
 
-let compare a b = 
-    match a, b with
+let compare a b = match a, b with
     | EntryPoint, EntryPoint 
     | Trees, Trees
     | JackBoot, JackBoot
@@ -905,11 +901,9 @@ let rec remove_duplications prevthread tree :
                                 let ndep =
                                     try
                                         let (ndep, _, _, _) = 
-                                            List.hd 
-                                            (dependency_relations y.run)
+                                            List.hd (dependency_relations y.run)
                                         and (_, dep, _, _) = 
-                                            List.hd 
-                                            (dependency_relations x.run) 
+                                            List.hd (dependency_relations x.run) 
                                         in
                                         shared_dependencies ndep dep 
                                     with 
@@ -1514,340 +1508,236 @@ let rec correct_parallel_pipelines_with_internal_transform (res : Methods.script
 
 
 let analyze script = 
-    if debug then
-    Printf.printf "Analyzer.analyze2 input lst len = %d\n%!"
-    (List.length script);
     let scripts = break_in_independent_sections script in 
-    if debug then
-    Printf.printf "after break_in_independent_sections,len=%d\n%!"
-    (List.length scripts);
     let res = List.flatten (List.map analyze scripts) in
-    if debug then
-    Printf.printf "before parallel,lstlen=%d\n%!"
-    (List.length res);
-    let res =
-    correct_parallel_pipelines_with_internal_transform res
-    in
-    if debug then
-    Printf.printf "Analyzer.analyze2 reslst len = %d\n%!"
-    (List.length res);
+    let res = correct_parallel_pipelines_with_internal_transform res in
     res
 
-let script_to_string (init : Methods.script) =
+let rec script_to_string (init : Methods.script) =
     match init with
     | #Methods.tree_handling as meth ->
-            let res = 
-                match meth with
-                | `RandomTrees _ ->
-                        "@[select random trees@]"
-                | `BestN None ->
-                        "@[select the optimal trees@]"
-                | `BestN (Some x) ->
-                        "@[select the best " ^ string_of_int x ^ "@ trees@]"
-                | `BestWithin float ->
-                        "@[select the best within " ^ string_of_float float ^ 
-                        " percent of the minimum@]"
-                | `Unique -> "@[eliminate repeated trees@]"
-            in
-            res
+        let res = match meth with
+            | `RandomTrees _ -> "@[select random trees@]"
+            | `BestN None -> "@[select the optimal trees@]"
+            | `BestN (Some x) -> "@[select the best " ^ string_of_int x ^ "@ trees@]"
+            | `BestWithin float ->
+                    "@[select the best within " ^ string_of_float float ^ " percent of the minimum@]"
+            | `Unique -> "@[eliminate repeated trees@]"
+        in
+        res
     | #Methods.characters_handling as meth ->
-            let res = 
-                match meth with
-                | `RenameCharacters _ ->
-                        "@[rename the characters according to your list@]"
-                | `AnalyzeOnlyCharacters _ 
-                | `AnalyzeOnlyCharacterFiles _ -> 
-                        "@[analyze only those characters you selected in your list@]"
-            in
-            res
+        let res = 
+            match meth with
+            | `RenameCharacters _ -> "@[rename the characters according to your list@]"
+            | `AnalyzeOnlyCharacters _ 
+            | `AnalyzeOnlyCharacterFiles _ -> "@[analyze only those characters you selected in your list@]"
+        in
+        res
     | #Methods.taxa_handling as meth ->
-            let res = 
-                match meth with
-                | `SynonymsFile _ 
-                | `Synonyms _ ->
-                        "@[rename the terminals that you specified in your list@]"
-                | `AnalyzeOnlyFiles _
-                | `AnalyzeOnly _ -> 
-                        "@[analyze the terminals that you specified in your list@]"
-            in
-            res
+        let res = 
+            match meth with
+            | `SynonymsFile _ 
+            | `Synonyms _ -> "@[rename the terminals that you specified in your list@]"
+            | `AnalyzeOnlyFiles _
+            | `AnalyzeOnly _ -> "@[analyze the terminals that you specified in your list@]"
+        in
+        res
     | #Methods.application as meth ->
-            let res = 
-                match meth with
-                | `Version -> 
-                        "@[output the version@]"
-                | `Exit -> 
-                        "@[close POY@]"
-                | `Interactive -> 
-                        "@[wait for the user to issue some other command@]"
-                | `ChangeWDir _ ->
-                        "@[change my working directory@]"
-                | `PrintWDir ->
-                        "@[print my working directory@]"
-                | `Memory _ ->
-                        "@[print my memory statistics@]"
-                | `KML _ ->
-                        "@[produce a KML file@]"
-                | `TimerInterval _ ->
-                        "@[change the timer interval@]"
-                | `Parmap _ ->
-                        "@[change the number of cores for parmap@]"
-                | `HistorySize _ ->
-                        "@[change my history size@]"
-                | `Redraw -> 
-                        "@[redraw the screen@]"
-                | `Echo _  ->
-                        "@[print a user defined message@]"
-                | `Help _ -> 
-                        "@[print some help@]"
-                | `Logfile _ ->
-                        "@[change my log file@]"
-                | `Alias _ ->
-                        "@[name a set of characters@]"
-                | `SetSeed _ ->
-                        "@[change the random number generator's seed@]"
-                | `ClearMemory _ ->
-                        "@[cleanup the memory@]"
-                | `Recover ->
-                        "@[recover trees from a swap@]"
-                | `ClearRecovered ->
-                        "@[eliminate the trees I recovered in a swap@]"
-                | `Wipe ->
-                        "@[get rid of all trees and data@]"
-                | `Exhaustive_Strong
-                | `Exhaustive_Weak -> 
-                        "@[set the cost calculation to Exhaustive Weak DO@]"
-                | `Iterative _ ->
-                        "@[set the cost calculation to iterative@]"
-                | `Normal_plus_Vitamines ->
-                        "@[set the cost calculation to normal+ DO@]"
-                | `Normal ->
-                        "@[set the cost calculation to normal DO@]"
-                | `Optimization `Coarse _ ->
-                        "@[set the optimization level to coarse@]"
-                | `Optimization `None ->
-                        "@[set the optimization level to off@]"
-                | `Optimization `Exhaustive _ ->
-                        "@[set the optimization level to exhaustive@]"
-                | `Optimization `Exhaustive_dyn _ ->
-                        "@[set the optimization level to dynamic exhaustive@]"
-                | `Optimization `Custom _ ->
-                        "@[set the optimization level to custom@]"
-                | `ReDiagnose ->
-                        "@[rediagnose the trees@]"
-                | `ReDiagnoseTrees ->
-                        "@[rediagnose the trees preserving model in likelihood@]"
-                | `Graph (_, _)
-                | `Ascii (_, _) ->
-                        "@[output the trees in memory@]"
-                | `InspectFile _ ->
-                        "@[printout the metadata of a poy file@]"
-                | `Algn_Newkk -> "@[do alignment with low memory mode@]"
-                | `Algn_Normal -> "@[do alignment with normal mode@]"
+        let res = match meth with
+            | `Version -> "@[output the version@]"
+            | `Exit -> "@[close POY@]"
+            | `Interactive -> "@[wait for the user to issue some other command@]"
+            | `ChangeWDir _ -> "@[change my working directory@]"
+            | `PrintWDir -> "@[print my working directory@]"
+            | `Memory _ -> "@[print my memory statistics@]"
+            | `KML _ -> "@[produce a KML file@]"
+            | `TimerInterval _ -> "@[change the timer interval@]"
+            | `Parmap _ -> "@[change the number of cores for parmap@]"
+            | `HistorySize _ -> "@[change my history size@]"
+            | `Redraw -> "@[redraw the screen@]"
+            | `Echo _  -> "@[print a user defined message@]"
+            | `Help _ -> "@[print some help@]"
+            | `Logfile _ -> "@[change my log file@]"
+            | `Alias _ -> "@[name a set of characters@]"
+            | `SetSeed _ -> "@[change the random number generator's seed@]"
+            | `ClearMemory _ -> "@[cleanup the memory@]"
+            | `Recover -> "@[recover trees from a swap@]"
+            | `ClearRecovered -> "@[eliminate the trees I recovered in a swap@]"
+            | `Wipe -> "@[get rid of all trees and data@]"
+            | `Exhaustive_Strong
+            | `Exhaustive_Weak -> "@[set the cost calculation to Exhaustive Weak DO@]"
+            | `Iterative _ -> "@[set the cost calculation to iterative@]"
+            | `Normal_plus_Vitamines -> "@[set the cost calculation to normal+ DO@]"
+            | `Normal -> "@[set the cost calculation to normal DO@]"
+            | `Optimization `Coarse _ -> "@[set the optimization level to coarse@]"
+            | `Optimization `None -> "@[set the optimization level to off@]"
+            | `Optimization `Exhaustive _ -> "@[set the optimization level to exhaustive@]"
+            | `Optimization `Exhaustive_dyn _ -> "@[set the optimization level to dynamic exhaustive@]"
+            | `Optimization `Custom _ -> "@[set the optimization level to custom@]"
+            | `ReDiagnose -> "@[rediagnose the trees@]"
+            | `ReDiagnoseTrees -> "@[rediagnose the trees preserving model in likelihood@]"
+            | `Graph (_, _)
+            | `Ascii (_, _) -> "@[output the trees in memory@]"
+            | `InspectFile _ -> "@[printout the metadata of a poy file@]"
+            | `Algn_Newkk -> "@[do alignment with low memory mode@]"
+            | `Algn_Normal -> "@[do alignment with normal mode@]"
 
-            in
-            res
+        in
+        res
     | #Methods.input -> "@[read an input file@]"
     | #Methods.transform as meth ->
-            let res = 
-                match meth with
-                | `Median_Solver _
-                | `Seq_to_Chrom _
-                | `Custom_to_Breakinv _
-                | `Annchrom_to_Breakinv _
-                | `Change_Dyn_Pam _
-                | `Chrom_to_Seq _
-                | `Breakinv_to_Custom _
-                | `Seq_to_Kolmogorov _
-                | `Fixed_States _
-                | `Partitioned _
-                | `Direct_Optimization _
-                | `Prioritize
-                | `Assign_Level _
-                | `ReWeight _
-                | `WeightFactor _
-                | `Assign_Transformation_Cost_Matrix _
-                | `OriginCost _
-                | `Create_Transformation_Cost_Matrix _
-                | `Assign_Affine_Gap_Cost _
-                | `Assign_Tail_Cost _
-                | `Assign_Prep_Cost _ 
-                | `RandomizedTerminals 
-                | `AlphabeticTerminals
-                | `MultiStatic_Aprox _
-                | `Static_Aprox _
-                | `Search_Based _
-                | `Prealigned_Transform _
-                | `EstLikelihood _
-                | `UseParsimony _ 
-                | `UseLikelihood _
-                | `Automatic_Static_Aprox _
-                | `Automatic_Sequence_Partition _ ->
-                        "@[transform some characters@]"
-            in
-            res
+        let res = match meth with
+            | `Median_Solver _
+            | `Seq_to_Chrom _
+            | `Custom_to_Breakinv _
+            | `Annchrom_to_Breakinv _
+            | `Change_Dyn_Pam _
+            | `Chrom_to_Seq _
+            | `Breakinv_to_Custom _
+            | `Seq_to_Kolmogorov _
+            | `Fixed_States _
+            | `Partitioned _
+            | `Direct_Optimization _
+            | `Prioritize
+            | `Assign_Level _
+            | `ReWeight _
+            | `WeightFactor _
+            | `Assign_Transformation_Cost_Matrix _
+            | `OriginCost _
+            | `Create_Transformation_Cost_Matrix _
+            | `Assign_Affine_Gap_Cost _
+            | `Assign_Tail_Cost _
+            | `Assign_Prep_Cost _ 
+            | `RandomizedTerminals 
+            | `AlphabeticTerminals
+            | `MultiStatic_Aprox _
+            | `Static_Aprox _
+            | `Search_Based _
+            | `Prealigned_Transform _
+            | `EstLikelihood _
+            | `UseParsimony _ 
+            | `UseLikelihood _
+            | `Automatic_Static_Aprox _
+            | `Automatic_Sequence_Partition _ -> "@[transform some characters@]"
+        in
+        res
     | #Methods.build as meth ->
-            let res = 
-                match meth with
-                | `Branch_and_Bound _ ->
-                        "@[Build trees using branch and bound@]"
-                | `Nj -> "@[build trees using neighbor joining@]"
-                | `Prebuilt _ ->
-                        "@[load the trees from a file@]"
-                | `Build _
-                | `Build_Random _ ->
-                        "@[build some trees from scratch@]"
-            in
-            res
-    | #Methods.local_optimum ->
-            "@[swap the trees in memory@]"
-    | `StandardSearch _ ->
-            "@[execute an automated search@]"
+        let res = match meth with
+            | `Branch_and_Bound _ -> "@[Build trees using branch and bound@]"
+            | `Nj -> "@[build trees using neighbor joining@]"
+            | `Prebuilt _ -> "@[load the trees from a file@]"
+            | `Build _
+            | `Build_Random _ -> "@[build some trees from scratch@]"
+        in
+        res
+    | #Methods.local_optimum -> "@[swap the trees in memory@]"
+    | `StandardSearch _ -> "@[execute an automated search@]"
     | #Methods.perturb_method as meth ->
-            let res = 
-                match meth with
-                | `Ratchet _ -> "@[do a ratchet@]"
-                | `Resample _ -> "@[resample the characters@]"
-                | `UnResample _
-                | `UnRatchet 
-                | `UnFixImpliedAlignments -> ""
-                | `FixImpliedAlignments _ ->
-                        "@[some obscure preturbation?"
-            in
-            res
-    | `Fusing (_, _, _, _, x, _) -> 
-            "@[fuse the trees I have in memory@]"
-    | `Bootstrap (it, _, _, _) ->
-            "@[calculate the bootstrap clades@]"
-    | `Jackknife (_, it, _, _, _) ->
-            "@[calculate the jackknife clades@]"
-    | `Bremer (local_optimum, build, _, _) ->
-            "@[calculate the bremer support values@]"
-    | #Methods.escape_local ->
-            "@[try to escape the local optimum@]"
-(*            `PerturbateNSearch of (transform list * perturb_method **)
-(*            local_optimum * int) *)
+        let res = match meth with
+            | `Ratchet _ -> "@[do a ratchet@]"
+            | `Resample _ -> "@[resample the characters@]"
+            | `UnResample _
+            | `UnRatchet 
+            | `UnFixImpliedAlignments -> ""
+            | `FixImpliedAlignments _ -> "@[some obscure preturbation?"
+        in
+        res
+    | `Fusing (_, _, _, _, x, _) -> "@[fuse the trees I have in memory@]"
+    | `Bootstrap (it, _, _, _) -> "@[calculate the bootstrap clades@]"
+    | `Jackknife (_, it, _, _, _) -> "@[calculate the jackknife clades@]"
+    | `Bremer (local_optimum, build, _, _) -> "@[calculate the bremer support values@]"
+    | #Methods.escape_local -> "@[try to escape the local optimum@]"
     | #Methods.runtime_store as meth -> 
-            let res = 
-                match meth with
-                | `Store _ -> "@[store my state in a variable@]"
-                | `Set _ -> "@[use a stored state as my current state@]"
-                | `Discard _ -> "@[delete a stored state@]"
-                | `Keep_only _ ->  ""
-            in
-            res
-    | `ReadScript _ ->
-            "@[run the script you gave me@]"
-    | `Repeat (n, comm) -> 
-            (* This is special, as implies concurrency; we will treat it like nothing for
-            now though, as nobody knows about it *)
-            ""
+        let res = match meth with
+            | `Store _ -> "@[store my state in a variable@]"
+            | `Set _ -> "@[use a stored state as my current state@]"
+            | `Discard _ -> "@[delete a stored state@]"
+            | `Keep_only _ ->  ""
+        in
+        res
+    | `ReadScript _ -> "@[run the script you gave me@]"
+    | `Repeat (n, comm) -> (** not used **) ""
     | #Methods.report as meth ->
-            let res = 
-                match meth with
-                | `ExplainScript _ ->
-                        "@[explain you a script@]"
-                | `SequenceStats _ ->
-                        "@[report the sequence statistics@]"
-                | `Ci _ -> "@[report ci@]"
-                | `Ri _ -> "@[report ri@]"
-                | `CompareSequences _ ->
-                        "@[report the average distance between pairs of \
-                        sequences@]"
-                | `FasWinClad _ -> 
-                        "@[report the phastwinclad file@]"
-                | `Nexus _ -> 
-                        "@[report the nexus file@]"
-                | `DebugData -> 
-                        "@[report global data to screen (debug)@]"
-                | `LKSites _ -> 
-                        "@[report the site loglikelihood of trees@]"
-                | `Model _ -> 
-                        "@[report the likelihood model@]"
-                | `Script _ -> 
-                        "@[report the script being run@]"
-                | `Dataset _ ->
-                        "@[report the current data under analysis@]"
-                | `Xslt _ ->
-                        "@[report the current data and trees under analysis@]"
-                | `Nodes _ ->
-                        "@[report all unadjusted data in tree@]"
-                | `Topo_Selection _ -> 
-                        "@[report the tree selection p-values@]"
-                | `TerminalsFiles _ ->
-                        "@[report the terminals per file@]"
-                | `RobinsonFoulds _ ->
-                        "@[report robinson foulds tree distance matrix@]"
-                | `CrossReferences (_, _) ->
-                        "@[report the cross references@]"
-                | `GraphicSupports (_, _)
-                | `Supports (_, _) ->
-                        "@[report the support values@]"
-                | `Consensus (_, _)
-                | `GraphicConsensus (_, _) ->
-                        "@[report the consensus@]"
-                | `GraphicDiagnosis (reporttype,filename) ->
-                        "@[report in " ^ filename ^ " the diagnosis@]"
-                | `Diagnosis (reporttype,filename) ->
-                        (match filename with
-                        | None -> "@[report the diagnosis@]"
-                        | Some x ->
-                                "@[report in " ^ x ^ " the diagnosis@]")
-                | `MstR _ ->
-                        "@[report the minimum spanning tree@]"
-                | `AllRootsCost filename ->
-                        (match filename with
-                        | None -> "@[report the minimum length of each rooting@]"
-                        | Some x -> 
-                                "@[report in " ^ x ^ 
-                                " the minimum length of each rooting@]")
-                | `Trees (_, filename) ->
-                        (match filename with
-                        | None -> "@[report the trees in memory@]"
-                        | Some x -> 
-                                "@[report in " ^ x ^ " the trees in memory@]")
-                | `Implied_Alignment _ ->
-                        "@[report an implied alignment@]"
-                | `TimeDelta _ ->
-                        "@[report the time delta@]"
-                | `KolmoMachine _ ->
-                        "@[report the complexity of the machine loaded@]"
-                | `TreeCosts _ ->
-                        "@[report the cost of the trees@]"
-                | `SearchStats _ ->
-                        "@[report the search results@]"
-                | `TreesStats _ ->
-                        "@[report the tree statistics@]"
-                | `Clades _ ->
-                        "@[create a clades file@]"
-                | `History _ -> ""
-                | `Save (_, _) ->
-                        "@[save my memory in a file@]"
-                | `Load _ ->
-                        "@[load my memory from a file@]"
-                | `RootName _
-                | `Root _ -> 
-                        "@[change the root@]"
-            in
-            res
-    | `Plugin _ -> 
-            "@[execute a plugin function@]"
-    | `Entry -> "@[beginning of the program@]"
-    | `Barrier -> "@[Wait for other processors to reach this point@]"
-    | `GatherTrees _ -> "@[Exchange trees with other processes@]"
-    | `GatherJackknife -> "@[Exchange Jackknife values with other processes@]"
-    | `GatherBremer  -> "@[Exchange Bremer values with other processes@]"
-    | `GatherBootstrap -> "@[Exchange Bootstrap values with other processes@]" 
-    | `SelectYourTrees -> "@[Each processor selects the trees it will work on@]"
-    | `Skip
-    | `StoreTrees
-    | `UnionStored
-    | `OnEachTree _
-    | `ParallelPipeline _
-    | `GetStored -> 
-            (* These are produced by the analyzer itself, so they can't occur in
-            * a script and make no sense by themselves *)
-            ""
+        let res = match meth with
+            | `ExplainScript _ -> "@[explain you a script@]"
+            | `SequenceStats _ -> "@[report the sequence statistics@]"
+            | `Ci _ -> "@[report ci@]"
+            | `Ri _ -> "@[report ri@]"
+            | `CompareSequences _ -> "@[report the average distance between pairs of sequences@]"
+            | `FasWinClad _ -> "@[report the phastwinclad file@]"
+            | `Nexus _ -> "@[report the nexus file@]"
+            | `DebugData -> "@[report global data to screen (debug)@]"
+            | `LKSites _ -> "@[report the site loglikelihood of trees@]"
+            | `Model _ -> "@[report the likelihood model@]"
+            | `Dataset _ -> "@[report the current data under analysis@]"
+            | `Xslt _ -> "@[report the current data and trees under analysis@]"
+            | `Nodes _ -> "@[report all unadjusted data in tree@]"
+            | `Topo_Selection _ -> "@[report the tree selection p-values@]"
+            | `TerminalsFiles _ -> "@[report the terminals per file@]"
+            | `RobinsonFoulds _ -> "@[report robinson foulds tree distance matrix@]"
+            | `CrossReferences (_, _) -> "@[report the cross references@]"
+            | `GraphicSupports (_, _)
+            | `Supports (_, _) -> "@[report the support values@]"
+            | `Consensus (_, _)
+            | `GraphicConsensus (_, _) -> "@[report the consensus@]"
+            | `GraphicDiagnosis (reporttype,filename) ->
+                    "@[report in " ^ filename ^ " the diagnosis@]"
+            | `Diagnosis (reporttype,filename) ->
+                  begin match filename with
+                    | None   -> "@[report the diagnosis@]"
+                    | Some x -> "@[report in " ^ x ^ " the diagnosis@]"
+                  end
+            | `MstR _ -> "@[report the minimum spanning tree@]"
+            | `AllRootsCost filename ->
+                  begin match filename with
+                    | None -> "@[report the minimum length of each rooting@]"
+                    | Some x -> "@[report in " ^ x ^ " the minimum length of each rooting@]"
+                  end
+            | `Trees (_, filename) ->
+                  begin match filename with
+                    | None -> "@[report the trees in memory@]"
+                    | Some x -> "@[report in " ^ x ^ " the trees in memory@]"
+                  end
+            | `Implied_Alignment _ -> "@[report an implied alignment@]"
+            | `TimeDelta _ -> "@[report the time delta@]"
+            | `KolmoMachine _ -> "@[report the complexity of the machine loaded@]"
+            | `TreeCosts _ -> "@[report the cost of the trees@]"
+            | `SearchStats _ -> "@[report the search results@]"
+            | `TreesStats _ -> "@[report the tree statistics@]"
+            | `Clades _ -> "@[create a clades file@]"
+            | `Save (_, _) -> "@[save my memory in a file@]"
+            | `Load _ -> "@[load my memory from a file@]"
+            | `RootName _
+            | `Root _ -> "@[change the root@]"
+        in
+        res
+    | `Plugin _ -> "@[execute a plugin function@]"
+    | `Entry    -> "@[beginning of the program@]"
+    | `Barrier  -> "@[Wait for other processors to reach this point@]"
+    | `GatherJackknife  -> "@[Exchange Jackknife values with other processes@]"
+    | `GatherBremer     -> "@[Exchange Bremer values with other processes@]"
+    | `GatherBootstrap  -> "@[Exchange Bootstrap values with other processes@]" 
+    | `SelectYourTrees  -> "@[Each processor selects the trees it will work on@]"
+    | `Skip             -> "@[SKip@]"
+    | `StoreTrees       -> "@[Store Trees@]"
+    | `UnionStored      -> "@[Get Stored Union Trees@]"
+    | `GetStored        -> "@[Get Stored Trees@]"
+    | `GatherTrees (a,b)->
+        let header = "@[Exchange trees with other processes@]" in
+        let a_str = "@[First@]"::List.map script_to_string a
+        and b_str = "@[Then@]"::List.map script_to_string b in
+        String.concat " " (header :: a_str @ b_str)
+    | `OnEachTree (a,b) ->
+        let header = "@[Perform on each Tree@]" in
+        let a_str = "@[First@]"::List.map script_to_string a
+        and b_str = "@[Then@]"::List.map script_to_string b in
+        String.concat " " (header :: a_str @ b_str)
+    | `ParallelPipeline (a,b,c,d) ->
+        let header = Printf.sprintf "@[Parallel Pipeline %d@]" a in
+        let b_str = "@[First@]"::List.map script_to_string b
+        and c_str = "@[Comp@]"::List.map script_to_string c
+        and d_str = "@[Then@]"::List.map script_to_string d in
+        String.concat " " (header :: b_str @ c_str @ d_str)
 
 
 let colors fo item = 
@@ -2042,7 +1932,6 @@ let is_master_only (init : Methods.script) = match init with
     | `Nexus _
     | `Model _
     | `LKSites _
-    | `Script _
     | `ExplainScript _
     | `PrintWDir
     | `Memory _
