@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3498 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3519 $"
 
 exception TimedOut
 
@@ -580,6 +580,7 @@ type local_opt = {
     tabu_reroot  : tabu_reroot_strategy;
     tabu_iterate : tabu_iteration_strategy;
     samples : samples list;
+    parallel : bool;  (** should the search interact in parallel *)
 }
 
 (** [local_optimum] parameters: what to search, threshold, number to keep, keep

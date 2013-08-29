@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Arguments" "$Revision: 3459 $"
+let () = SadmanOutput.register "Arguments" "$Revision: 3519 $"
 
 (** [just_exit] is used to return to the interactive console after an error; if
     set to true we will exit and not return to an interactive console. This
@@ -33,7 +33,7 @@ let just_exit =
 
 (** [only_run_argument_script] forces the application to run the script and then
     exit, and not wait for user input. This is different then the -e option as
-    that only is triggered from an error state, this option is useful when
+    that is only triggered from an error state, this option is useful when
     someone forgets the exit() command in their script. *)
 let only_run_argument_script =
     IFDEF USEPARALLEL THEN

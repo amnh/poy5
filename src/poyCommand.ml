@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3509 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3519 $"
 
 let debug = false 
 
@@ -238,6 +238,7 @@ type swap_trajectory = [
 type swapa = [
     | `IterationS of iteration_strategy list
     | `Forest of float
+    | `Parallel of bool
     | thresh_trees
     | keep_method
     | swap_strategy
@@ -721,6 +722,7 @@ type command = [
                         Methods.tabu_join = `UnionBased None;
                         Methods.tabu_reroot = `Bfs None;
                         Methods.tabu_iterate = iter_default;
+                        Methods.parallel = false;
                         Methods.samples = []; }
 
     let swap_default_none = { swap_default with Methods.ss = `None }
@@ -745,6 +747,8 @@ type command = [
             let origin = Some cost in
             print_endline ("Forest: "^string_of_float cost);
             { l_opt with Methods.oo = origin }
+        | `Parallel x ->
+            {l_opt with Methods.parallel = x;}
         | #swap_trajectory as traj ->
             { l_opt with Methods.tm = traj }
         | #Methods.tabu_break_strategy as tabu ->
@@ -2264,6 +2268,7 @@ type command = [
                     match a with
                     | None -> `Forest 0.
                     | Some a -> `Forest (float_of_string a) ] |   
+                [ LIDENT "parallel" -> `Parallel true] |
                 [ a = trajectory_method -> a ] |
                 [ a = break_method -> a ] |
                 [ a = reroot_method -> a ] |
