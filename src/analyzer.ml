@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3520 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3521 $"
 
 let debug = false
 
@@ -149,7 +149,7 @@ let dependency_table :
 * command itself, and the exploder class the command belongs to *)
 let dependency_relations (init : Methods.script) = match init with
     | #Methods.tree_handling as meth ->
-        let res = match meth with
+        let res = match (meth : [<Methods.tree_handling]) with
             | `RandomTrees _ 
             | `BestN _ 
             | `BestWithin _ 
@@ -157,7 +157,7 @@ let dependency_relations (init : Methods.script) = match init with
         in
         res
     | #Methods.characters_handling as meth ->
-        let res = match meth with
+        let res = match (meth : [<Methods.characters_handling]) with
             | `RenameCharacters _
             | `AnalyzeOnlyCharacters _
             | `AnalyzeOnlyCharacterFiles _ -> 
@@ -165,7 +165,7 @@ let dependency_relations (init : Methods.script) = match init with
         in
         res
     | #Methods.taxa_handling as meth ->
-        let res = match meth with
+        let res = match (meth : [<Methods.taxa_handling]) with
             | `SynonymsFile _
             | `Synonyms _
             | `AnalyzeOnlyFiles _
@@ -173,7 +173,7 @@ let dependency_relations (init : Methods.script) = match init with
         in
         res
     | #Methods.application as meth ->
-        let res = match meth with
+        let res = match (meth : [<Methods.application]) with
             | `Version ->
                 [(output, output, init, Invariant)]
             | `Interactive
@@ -200,7 +200,6 @@ let dependency_relations (init : Methods.script) = match init with
             | `Logfile _ ->
                 let output_files = Data :: Trees :: JackBoot :: Bremer :: outputf !output_files in
                 [(output_files, output_files, init, Composable)]
-            | `Skip -> [([], [], init, Composable)]
             | `SetSeed _
             | `Alias _
             | `ClearMemory _
@@ -238,7 +237,7 @@ let dependency_relations (init : Methods.script) = match init with
         let rec processor (meth : [< Methods.input]) = match meth with
             | `Prealigned (input, _, _) ->
                   let data, data1, compos =
-                      match processor (input  :> Methods.input) with
+                      match processor (input :> Methods.input) with
                       | [(data, data1, _, compo)] -> data, data1, compo
                       | _ -> assert false
                   in
@@ -271,10 +270,9 @@ let dependency_relations (init : Methods.script) = match init with
         in
         processor meth
     | #Methods.transform as meth ->
-        let res = match meth with
-            | `Median_Solver _
-            | `Seq_to_Chrom _
+        let res = match (meth : [< Methods.transform]) with
             | `Custom_to_Breakinv _
+            | `Seq_to_Chrom _
             | `Annchrom_to_Breakinv _
             | `Change_Dyn_Pam _
             | `Breakinv_to_Custom _
@@ -296,8 +294,7 @@ let dependency_relations (init : Methods.script) = match init with
             | `UseLikelihood _
             | `UseParsimony _ 
             | `Assign_Prep_Cost _ ->
-                    [([Data], [Data; Trees; JackBoot; Bremer], init,
-                    Linnearizable)]
+                [([Data], [Data; Trees; JackBoot; Bremer], init, Linnearizable)]
             | `RandomizedTerminals 
             | `AlphabeticTerminals 
             | `MultiStatic_Aprox _
@@ -306,12 +303,11 @@ let dependency_relations (init : Methods.script) = match init with
             | `Search_Based _
             | `Automatic_Static_Aprox _
             | `Automatic_Sequence_Partition _ ->
-                    [([Data; Trees], [Data; Trees; JackBoot; Bremer], init, 
-                    NonComposable)]
+                [([Data; Trees], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
         in
         res
     | #Methods.build as meth ->
-        let res = match meth with
+        let res = match (meth : [<Methods.build]) with
             | `Branch_and_Bound _
             | `Prebuilt _ ->
                     [([Data], [Data; Trees], init, Linnearizable)]
@@ -327,7 +323,7 @@ let dependency_relations (init : Methods.script) = match init with
         in
         res
     | #Methods.local_optimum as meth ->
-        let res = 
+        let res =
             let constrain =
               List.exists (function `ConstraintFile _ -> true | _ -> false)
             and `LocalOptimum (tmp) = meth in
@@ -341,7 +337,7 @@ let dependency_relations (init : Methods.script) = match init with
     | (`StandardSearch _) ->
         [([Trees;Data], [Trees], init, NonComposable)]
     | #Methods.perturb_method as meth ->
-        let res = match meth with
+        let res = match (meth : [< Methods.perturb_method]) with
             | `Ratchet _
             | `Resample _
             | `UnResample _
@@ -360,7 +356,7 @@ let dependency_relations (init : Methods.script) = match init with
         [([Trees], [Trees], init, Parallelizable)]
     | #Methods.runtime_store as meth -> 
         let all = all !input_files !output_files in
-        let res = match meth with
+        let res = match (meth : [< Methods.runtime_store]) with
             | `Store _    -> [(trees, all, init, NonComposable)]
             | `Set _      -> [(trees, all, init, NonComposable)]
             | `Discard _  -> [(trees, all, init, NonComposable)]
@@ -375,7 +371,7 @@ let dependency_relations (init : Methods.script) = match init with
          * nothing for now though, as nobody knows about it *)
         [(trees, data, init, NonComposable)]
     | #Methods.report as meth ->
-        let res, files, isload = match meth with
+        let res, files, isload = match (meth : [< Methods.report]) with
           (** commands don't work, but do depend on everything --stop the world. *)
             | `Save (filename, _) ->
                 let fn = filename_to_list (Some filename) in
