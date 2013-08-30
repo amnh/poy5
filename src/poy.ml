@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 3501 $"
+let () = SadmanOutput.register "Main" "$Revision: 3522 $"
 
 let seed = truncate (Unix.time ())
 
@@ -190,16 +190,34 @@ let () =
                 else []
             in
             let command =
+                let debbug_script = false in
                 IFDEF USEPARALLEL THEN
                     let command = Analyzer.analyze command in
                     let command = Mpi.broadcast command 0 Mpi.comm_world in
-                    let size = Mpi.comm_size Mpi.comm_world in
-                    Analyzer.parallel_analysis (Mpi.comm_rank Mpi.comm_world) 
-                                               size command
+                    let size = Mpi.comm_size Mpi.comm_world
+                    and rank = Mpi.comm_rank Mpi.comm_world in
+                    let script = Analyzer.parallel_analysis rank size command in
+                    if debug_script then
+                      List.iter
+                        (fun x ->
+                            x --> Analyzer.script_to_string x
+                              --> StatusCommon.string_to_format
+                              --> Format.printf)
+                        script;
+                    script
                 ELSE
                     match command with
                     | [_] -> command
-                    | x -> Analyzer.analyze command
+                    |  _  ->
+                        let script = Analyzer.analyze command in
+                        if debug_script then
+                          List.iter
+                            (fun x ->
+                                x --> Analyzer.script_to_string x
+                                  --> StatusCommon.string_to_format
+                                  --> Format.printf)
+                            script;
+                        script
                 END
             in
             let res = 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3521 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3522 $"
 
 let debug = false
 
@@ -95,27 +95,27 @@ let filename_to_list filename = match filename with
 
 (* Each command has certain properties by themselves, this type describes the
    properties of each command *)
-type exploders = 
+type exploders =
     (* If the command is present at the end of a pipeline, it can be composed
-    * with other composable functions that follow, and placed inside the
-    * pipeline, keeping the invariant that is intended at the very end.
-    * Composable function allow us to convert a sequence of operations on trees
-    * to be performed sequentially, one tree at a time.*)
-    | Composable        
+     * with other composable functions that follow, and placed inside the
+     * pipeline, keeping the invariant that is intended at the very end.
+     * Composable function allow us to convert a sequence of operations on trees
+     * to be performed sequentially, one tree at a time.*)
+    | Composable
     (* If the command is present, then there is no posibility to build a
-    * pipeline. *)
+     * pipeline. *)
     | NonComposable
     (* This command is nice, we can run it repeated times inside a pipeline and
-    * it won't change the results of the analysis. *)
+     * it won't change the results of the analysis. *)
     | Linnearizable
     (* A command that can start or continue a pipeline, or that can be run in
-    * parallel yielding correct results *)
+     * parallel yielding correct results *)
     | Parallelizable
     (* A command is invariant if it can be safely moved outside the pipeline,
-    * provided that all the Linnearizable functions are copied behind it too. *)
-    | Invariant 
+     * provided that all the Linnearizable functions are copied behind it too.*)
+    | Invariant
     (* The `Exit command. Though not composable, it does not destroy composition
-    * and pipeline generation. *)
+     * and pipeline generation. *)
     | ExitPoint
     | InteractivePoint
 
@@ -150,9 +150,9 @@ let dependency_table :
 let dependency_relations (init : Methods.script) = match init with
     | #Methods.tree_handling as meth ->
         let res = match (meth : [<Methods.tree_handling]) with
-            | `RandomTrees _ 
-            | `BestN _ 
-            | `BestWithin _ 
+            | `RandomTrees _
+            | `BestN _
+            | `BestWithin _
             | `Unique -> [([Data;Trees], [Trees], init, Composable)]
         in
         res
@@ -199,7 +199,7 @@ let dependency_relations (init : Methods.script) = match init with
                 [(output_files, output_files, init, Invariant)]
             | `Logfile _ ->
                 let output_files = Data :: Trees :: JackBoot :: Bremer :: outputf !output_files in
-                [(output_files, output_files, init, Composable)]
+                [(output_files, output_files, init, Linnearizable)]
             | `SetSeed _
             | `Alias _
             | `ClearMemory _
@@ -208,7 +208,7 @@ let dependency_relations (init : Methods.script) = match init with
                 [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
           (** can be done in remote nodes; wipe is wipe. *)
             | `Wipe ->
-                [([EntryPoint], [Data; Trees; JackBoot; Bremer], init, Composable)]
+                [([EntryPoint], [Data; Trees; JackBoot; Bremer], init, Linnearizable)]
           (** modifications to the diagnosis; composable *)
             | `Algn_Newkk
             | `Algn_Normal
@@ -218,10 +218,10 @@ let dependency_relations (init : Methods.script) = match init with
             | `Normal_plus_Vitamines
             | `Optimization _
             | `Normal ->
-                [([Data; Trees], [Trees], init, Composable)]
+                [([Data; Trees], [Trees], init, Linnearizable)]
             | `ReDiagnose
             | `ReDiagnoseTrees ->
-                [([Data; Trees], [Trees], init, Composable)]
+                [([Data; Trees], [Trees], init, Linnearizable)]
             | `KML (_, _, filename) ->
                 let output = filename_to_list (Some filename) in
                 [([Trees; Data] @ output, output, init, NonComposable)]
@@ -273,6 +273,7 @@ let dependency_relations (init : Methods.script) = match init with
         let res = match (meth : [< Methods.transform]) with
             | `Custom_to_Breakinv _
             | `Seq_to_Chrom _
+            | `Chrom_to_Seq _
             | `Annchrom_to_Breakinv _
             | `Change_Dyn_Pam _
             | `Breakinv_to_Custom _
@@ -290,15 +291,14 @@ let dependency_relations (init : Methods.script) = match init with
             | `Assign_Affine_Gap_Cost _
             | `Assign_Tail_Cost _
             | `Prealigned_Transform _
-            | `EstLikelihood _ 
             | `UseLikelihood _
             | `UseParsimony _ 
-            | `Assign_Prep_Cost _ ->
-                [([Data], [Data; Trees; JackBoot; Bremer], init, Linnearizable)]
             | `RandomizedTerminals 
             | `AlphabeticTerminals 
+            | `Assign_Prep_Cost _ ->
+                [([Data], [Data; Trees; JackBoot; Bremer], init, Linnearizable)]
+            | `EstLikelihood _ 
             | `MultiStatic_Aprox _
-            | `Chrom_to_Seq _
             | `Static_Aprox _
             | `Search_Based _
             | `Automatic_Static_Aprox _
@@ -326,12 +326,12 @@ let dependency_relations (init : Methods.script) = match init with
         let res =
             let constrain =
               List.exists (function `ConstraintFile _ -> true | _ -> false)
-            and `LocalOptimum (tmp) = meth in
+            and `LocalOptimum tmp = meth in
             match tmp.Methods.tabu_join with
               | `Partition x when not (constrain x) ->
-                  [([Trees], [Trees], init, NonComposable)] 
+                  [(datantrees, [Trees], init, NonComposable)] 
               | _ ->
-                  [([Trees], [Trees], init, Parallelizable)]
+                  [(datantrees, [Trees], init, Parallelizable)]
         in
         res
     | (`StandardSearch _) ->
@@ -343,24 +343,26 @@ let dependency_relations (init : Methods.script) = match init with
             | `UnResample _
             | `UnRatchet 
             | `UnFixImpliedAlignments
-            | `FixImpliedAlignments _ -> [([Trees], [Trees], init, Linnearizable)]
+            | `FixImpliedAlignments _ ->
+                [(datantrees, [Trees], init, Linnearizable)]
         in
         res
-    | `Fusing (_, _, _, _, x, _) -> [(trees, trees, init, NonComposable)]
+    | `Fusing (_, _, _, _, _, _) ->
+        [(datantrees, trees, init, NonComposable)]
     | `Bootstrap (it, _, _, _) 
     | `Jackknife (_, it, _, _, _) ->
         [([Data], [JackBoot], init, NonComposable)]
     | `Bremer (local_optimum, build, _, _) ->
-        [([Data; Trees], [Bremer], init, NonComposable)]
+        [(datantrees, [Bremer], init, NonComposable)]
     | #Methods.escape_local ->
-        [([Trees], [Trees], init, Parallelizable)]
+        [(datantrees, [Trees], init, Parallelizable)]
     | #Methods.runtime_store as meth -> 
         let all = all !input_files !output_files in
         let res = match (meth : [< Methods.runtime_store]) with
-            | `Store _    -> [(trees, all, init, NonComposable)]
-            | `Set _      -> [(trees, all, init, NonComposable)]
-            | `Discard _  -> [(trees, all, init, NonComposable)]
-            | `Keep_only _-> [(trees, all, init, NonComposable)]
+            | `Store _    -> [(datantrees, all, init, NonComposable)]
+            | `Set _      -> [(datantrees, all, init, NonComposable)]
+            | `Discard _  -> [(datantrees, all, init, NonComposable)]
+            | `Keep_only _-> [(datantrees, all, init, NonComposable)]
         in
         res
     | `ReadScript _ ->
@@ -369,7 +371,7 @@ let dependency_relations (init : Methods.script) = match init with
     | `Repeat (n, comm) -> 
         (* This is special, as implies concurrency; we will treat it like
          * nothing for now though, as nobody knows about it *)
-        [(trees, data, init, NonComposable)]
+        [(datantrees, data, init, NonComposable)]
     | #Methods.report as meth ->
         let res, files, isload = match (meth : [< Methods.report]) with
           (** commands don't work, but do depend on everything --stop the world. *)
@@ -427,7 +429,7 @@ let dependency_relations (init : Methods.script) = match init with
           (** Report commands based on leaves/data only; Invariant *)
             | `Xslt (filename, _) ->
                 let fn = filename_to_list (Some filename) in
-                [(data @ fn, fn, init, Invariant)], Some filename, false
+                [(Data::fn, fn, init, Invariant)], Some filename, false
             | `ExplainScript (_, filename)
             | `TerminalsFiles filename
             | `Dataset filename
@@ -453,17 +455,18 @@ let dependency_relations (init : Methods.script) = match init with
                 [([Data; Trees], all !input_files !output_files, init, Linnearizable)], None, false
         in
         if not isload then
-            match files with
+          begin match files with
             | None -> ()
             | Some x ->
                 if not (List.exists (fun y -> y = x) !output_files)
                     then output_files := x :: !output_files
-                    else ()
-        else  ();
+          end;
         res
     | `Plugin _ -> 
         let all = all [] [] in
         [(all, all, init, NonComposable)]
+    (* These are produced by the analyzer itself, so they can't occur in
+       a script and make no sense by themselves *)
     | `StoreTrees
     | `UnionStored
     | `OnEachTree _
@@ -476,10 +479,7 @@ let dependency_relations (init : Methods.script) = match init with
     | `GatherBremer 
     | `SelectYourTrees 
     | `GatherBootstrap 
-    | `GetStored ->
-            (* These are produced by the analyzer itself, so they can't occur in
-            * a script and make no sense by themselves *)
-            []
+    | `GetStored -> []
 
 let compare a b = match a, b with
     | EntryPoint, EntryPoint 
@@ -520,7 +520,7 @@ and 'a conc_tree_v = {
     exploders : exploders;(* What freedom do we have with this node *)
     children : tree list; (* The list of trees that can be run concurrently
                             after this node *)
-    dep_counter : int ref; (* The number of nodes this vertex depends on, that
+    dep_counter : int ref;(* The number of nodes this vertex depends on, that
                             remain to be executed *)
     order_c : int;        (* The posision in the script of this operation *)
     thread : int list;    (* A unique code of the thread of this node *)

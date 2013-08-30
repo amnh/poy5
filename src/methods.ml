@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3520 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3522 $"
 
 exception TimedOut
 
@@ -588,19 +588,14 @@ type local_opt = {
 type local_optimum = 
        [ `LocalOptimum of local_opt ]
 
-type tree_weights = [
-    | `Uniform
-]
+type tree_weights = [ `Uniform ]
 
-type fusing_keep_method = [
-    | `Best
-    | `Better
-]
+type fusing_keep_method = [ `Best | `Better ]
 
 type driven_search = [
     (** [`Fusing (iterations, max_trees, weighting, keep_method, (min, max))] *)
-| `Fusing of int option * int option * tree_weights * fusing_keep_method * local_optimum
-          * (int * int)
+    | `Fusing of int option * int option * tree_weights * 
+                    fusing_keep_method * local_optimum * (int * int)
 ]
 
 (* Method for calculating the support of a given tree. *)
