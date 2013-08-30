@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 3522 $"
+let () = SadmanOutput.register "Main" "$Revision: 3523 $"
 
 let seed = truncate (Unix.time ())
 
@@ -190,7 +190,7 @@ let () =
                 else []
             in
             let command =
-                let debbug_script = false in
+                let debug_script = true and (-->) a b = b a in
                 IFDEF USEPARALLEL THEN
                     let command = Analyzer.analyze command in
                     let command = Mpi.broadcast command 0 Mpi.comm_world in
@@ -200,9 +200,10 @@ let () =
                     if debug_script then
                       List.iter
                         (fun x ->
-                            x --> Analyzer.script_to_string x
-                              --> StatusCommon.string_to_format
-                              --> Format.printf)
+                            x --> Analyzer.script_to_string
+(*                               --> StatusCommon.string_to_format *)
+(*                               --> Format.printf) *)
+                              --> Printf.printf "%d :: %s\n" rank)
                         script;
                     script
                 ELSE
@@ -213,9 +214,10 @@ let () =
                         if debug_script then
                           List.iter
                             (fun x ->
-                                x --> Analyzer.script_to_string x
-                                  --> StatusCommon.string_to_format
-                                  --> Format.printf)
+                                x --> Analyzer.script_to_string
+(*                                   --> StatusCommon.string_to_format *)
+(*                                   --> Format.printf) *)
+                              --> Printf.printf "%s")
                             script;
                         script
                 END
